@@ -253,7 +253,7 @@ async fn test_resilience_result_tracking() {
     .await
     .expect("Test should become active");
 
-    let result = coordinator
+    let _result = coordinator
         .stop_resilience_test(&test_id)
         .await
         .expect("Should stop test");

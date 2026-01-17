@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_server_defaults() {
-        let cli = Cli::try_parse_from(&["squirrel", "server"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "server"]).unwrap();
         if let Commands::Server {
             port,
             daemon,
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_server_custom_port() {
-        let cli = Cli::try_parse_from(&["squirrel", "server", "--port", "8080"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "server", "--port", "8080"]).unwrap();
         if let Commands::Server { port, .. } = cli.command {
             assert_eq!(port, 8080);
         } else {
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_doctor_defaults() {
-        let cli = Cli::try_parse_from(&["squirrel", "doctor"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "doctor"]).unwrap();
         if let Commands::Doctor {
             comprehensive,
             format,
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_version_command() {
-        let cli = Cli::try_parse_from(&["squirrel", "version"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "version"]).unwrap();
         assert!(matches!(cli.command, Commands::Version { .. }));
     }
 
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_server_all_options_together() {
-        let cli = Cli::try_parse_from(&[
+        let cli = Cli::try_parse_from([
             "squirrel",
             "server",
             "--port",
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_doctor_comprehensive_with_subsystem() {
-        let cli = Cli::try_parse_from(&[
+        let cli = Cli::try_parse_from([
             "squirrel",
             "doctor",
             "--comprehensive",
@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_version_verbose() {
-        let cli = Cli::try_parse_from(&["squirrel", "version", "--verbose"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "version", "--verbose"]).unwrap();
         if let Commands::Version { verbose } = cli.command {
             assert!(verbose);
         } else {
@@ -271,98 +271,100 @@ mod tests {
 
     #[test]
     fn test_invalid_command_name() {
-        let result = Cli::try_parse_from(&["squirrel", "invalid"]);
+        let result = Cli::try_parse_from(["squirrel", "invalid"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_no_subcommand_provided() {
-        let result = Cli::try_parse_from(&["squirrel"]);
+        let result = Cli::try_parse_from(["squirrel"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_invalid_port_too_large() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--port", "70000"]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--port", "70000"]);
         assert!(result.is_err()); // Port must be <= 65535
     }
 
     #[test]
     fn test_invalid_port_negative() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--port", "-1"]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--port", "-1"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_invalid_port_non_numeric() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--port", "abc"]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--port", "abc"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_invalid_doctor_format() {
-        let result = Cli::try_parse_from(&["squirrel", "doctor", "--format", "xml"]);
+        let result = Cli::try_parse_from(["squirrel", "doctor", "--format", "xml"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_invalid_doctor_subsystem() {
-        let result = Cli::try_parse_from(&["squirrel", "doctor", "--subsystem", "invalid"]);
+        let result = Cli::try_parse_from(["squirrel", "doctor", "--subsystem", "invalid"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_unknown_flag_on_server() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--unknown"]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--unknown"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_missing_value_for_port() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--port"]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--port"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_empty_socket_path() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--socket", ""]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--socket", ""]);
         assert!(result.is_ok()); // Empty string valid at parse time, validated at runtime
     }
 
     #[test]
     fn test_very_long_socket_path() {
         let long_path = format!("/tmp/{}.sock", "a".repeat(500));
-        let result = Cli::try_parse_from(&["squirrel", "server", "--socket", &long_path]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--socket", &long_path]);
         assert!(result.is_ok()); // Path length validated by OS at runtime
     }
 
     #[test]
     fn test_unicode_in_socket_path() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--socket", "/tmp/🦀squirrel.sock"]);
+        let result =
+            Cli::try_parse_from(["squirrel", "server", "--socket", "/tmp/🦀squirrel.sock"]);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_special_chars_in_socket_path() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--socket", "/tmp/socket!@#$.sock"]);
+        let result =
+            Cli::try_parse_from(["squirrel", "server", "--socket", "/tmp/socket!@#$.sock"]);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_port_boundary_min() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--port", "1"]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--port", "1"]);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_port_boundary_max() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--port", "65535"]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--port", "65535"]);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_port_zero() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--port", "0"]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--port", "0"]);
         assert!(result.is_ok()); // Port 0 means "let OS assign"
     }
 
@@ -372,7 +374,7 @@ mod tests {
 
     #[test]
     fn test_error_message_contains_context() {
-        let result = Cli::try_parse_from(&["squirrel", "nonexistent"]);
+        let result = Cli::try_parse_from(["squirrel", "nonexistent"]);
         let err = result.unwrap_err();
         let err_msg = err.to_string();
         assert!(!err_msg.is_empty(), "Error message should not be empty");
@@ -380,31 +382,31 @@ mod tests {
 
     #[test]
     fn test_help_available_for_server() {
-        let result = Cli::try_parse_from(&["squirrel", "server", "--help"]);
+        let result = Cli::try_parse_from(["squirrel", "server", "--help"]);
         assert!(result.is_err()); // Help causes early exit
     }
 
     #[test]
     fn test_help_available_for_doctor() {
-        let result = Cli::try_parse_from(&["squirrel", "doctor", "--help"]);
+        let result = Cli::try_parse_from(["squirrel", "doctor", "--help"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_help_available_for_version() {
-        let result = Cli::try_parse_from(&["squirrel", "version", "--help"]);
+        let result = Cli::try_parse_from(["squirrel", "version", "--help"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_case_sensitive_commands() {
-        let result = Cli::try_parse_from(&["squirrel", "SERVER"]);
+        let result = Cli::try_parse_from(["squirrel", "SERVER"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_multiple_invalid_arguments() {
-        let result = Cli::try_parse_from(&[
+        let result = Cli::try_parse_from([
             "squirrel",
             "server",
             "--port",
@@ -417,7 +419,7 @@ mod tests {
 
     #[test]
     fn test_short_flags_work() {
-        let cli = Cli::try_parse_from(&["squirrel", "server", "-p", "8080", "-d", "-v"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "server", "-p", "8080", "-d", "-v"]).unwrap();
         if let Commands::Server {
             port,
             daemon,
@@ -435,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_mixed_short_and_long_flags() {
-        let cli = Cli::try_parse_from(&[
+        let cli = Cli::try_parse_from([
             "squirrel",
             "server",
             "-p",
@@ -468,14 +470,14 @@ mod tests {
     fn test_all_subsystems_valid() {
         let subsystems = vec!["ai", "ecosystem", "config", "socket", "http"];
         for sub in subsystems {
-            let result = Cli::try_parse_from(&["squirrel", "doctor", "--subsystem", sub]);
+            let result = Cli::try_parse_from(["squirrel", "doctor", "--subsystem", sub]);
             assert!(result.is_ok(), "Subsystem '{}' should be valid", sub);
         }
     }
 
     #[test]
     fn test_doctor_json_format() {
-        let cli = Cli::try_parse_from(&["squirrel", "doctor", "--format", "json"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "doctor", "--format", "json"]).unwrap();
         if let Commands::Doctor { format, .. } = cli.command {
             assert!(matches!(format, OutputFormat::Json));
         } else {
@@ -485,7 +487,7 @@ mod tests {
 
     #[test]
     fn test_doctor_text_format() {
-        let cli = Cli::try_parse_from(&["squirrel", "doctor", "--format", "text"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "doctor", "--format", "text"]).unwrap();
         if let Commands::Doctor { format, .. } = cli.command {
             assert!(matches!(format, OutputFormat::Text));
         } else {
@@ -506,15 +508,9 @@ mod tests {
 
     #[test]
     fn test_production_server_startup() {
-        let cli = Cli::try_parse_from(&[
-            "squirrel",
-            "server",
-            "--port",
-            "9010",
-            "--bind",
-            "0.0.0.0",
-        ])
-        .unwrap();
+        let cli =
+            Cli::try_parse_from(["squirrel", "server", "--port", "9010", "--bind", "0.0.0.0"])
+                .unwrap();
 
         if let Commands::Server { port, bind, .. } = cli.command {
             assert_eq!(port, 9010);
@@ -526,7 +522,7 @@ mod tests {
 
     #[test]
     fn test_development_server_startup() {
-        let cli = Cli::try_parse_from(&[
+        let cli = Cli::try_parse_from([
             "squirrel",
             "server",
             "--port",
@@ -554,7 +550,7 @@ mod tests {
 
     #[test]
     fn test_automated_health_check() {
-        let cli = Cli::try_parse_from(&[
+        let cli = Cli::try_parse_from([
             "squirrel",
             "doctor",
             "--format",
@@ -565,9 +561,7 @@ mod tests {
         .unwrap();
 
         if let Commands::Doctor {
-            format,
-            subsystem,
-            ..
+            format, subsystem, ..
         } = cli.command
         {
             assert!(matches!(format, OutputFormat::Json));
@@ -577,4 +571,3 @@ mod tests {
         }
     }
 }
-

@@ -3,6 +3,11 @@ name = "squirrel-mcp-auth"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["delegated-jwt"]  # Production: delegate to BearDog (TRUE ecoBin!)
+delegated-jwt = []           # Use BearDog for JWT validation (Pure Rust!)
+local-jwt = ["dep:jsonwebtoken"]  # Dev/testing: local JWT (brings ring)
+
 [dependencies]
 # beardog = { path = "../../../../../beardog" }  # Will be added in proper integration
 squirrel-mcp-config = { path = "../../config" }
@@ -15,7 +20,12 @@ tracing = "0.1"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
-jsonwebtoken = "9.3"
+
+# JWT: Feature-gated for TRUE ecoBin
+# - Production (delegated-jwt): Uses BearDog via Unix socket (Pure Rust!)
+# - Dev/testing (local-jwt): Local JWT validation (brings ring C dep)
+jsonwebtoken = { version = "9.3", optional = true }
+
 base64 = "0.22"
 rand = "0.8"
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }

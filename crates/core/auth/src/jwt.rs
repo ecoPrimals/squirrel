@@ -1,3 +1,13 @@
+//! JWT Token Management (Feature-Gated for Dev Mode)
+//!
+//! This module provides LOCAL JWT validation using jsonwebtoken crate.
+//! It brings `ring` v0.17 C dependency, so it's feature-gated for dev/testing only.
+//!
+//! **Production Mode**: Use BearDog JWT delegation (Pure Rust!)
+//! **Dev Mode**: Use this module (fast iteration, with ring C dep)
+//!
+//! Enable with: `--features local-jwt`
+
 use crate::{AuthContext, AuthError};
 use chrono::{DateTime, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};

@@ -4,7 +4,7 @@
 //! Modern async implementation using Tokio.
 
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
 
@@ -53,7 +53,10 @@ pub async fn run_doctor(
 
     // Print header (text mode only)
     if matches!(format, OutputFormat::Text) {
-        println!("🐿️  Squirrel v{} - Health Diagnostics", env!("CARGO_PKG_VERSION"));
+        println!(
+            "🐿️  Squirrel v{} - Health Diagnostics",
+            env!("CARGO_PKG_VERSION")
+        );
         println!();
     }
 
@@ -267,7 +270,7 @@ async fn check_beardog_connectivity() -> HealthCheck {
         .ok()
         .and_then(|u| u.parse::<u32>().ok())
         .unwrap_or(1000);
-    
+
     let beardog_socket = std::env::var("BEARDOG_SOCKET")
         .ok()
         .unwrap_or_else(|| format!("/run/user/{}/beardog.sock", uid));
@@ -304,7 +307,7 @@ async fn check_unix_socket() -> HealthCheck {
         .ok()
         .and_then(|u| u.parse::<u32>().ok())
         .unwrap_or(1000);
-    
+
     let socket_path = std::env::var("SQUIRREL_SOCKET")
         .ok()
         .unwrap_or_else(|| format!("/run/user/{}/squirrel.sock", uid));
@@ -352,7 +355,9 @@ fn generate_recommendations(checks: &[HealthCheck]) -> Vec<String> {
         .iter()
         .any(|c| c.name == "AI Providers" && c.status == HealthStatus::Warning)
     {
-        recommendations.push("Configure AI_PROVIDER_SOCKETS or set OPENAI_API_KEY/HUGGINGFACE_API_KEY".to_string());
+        recommendations.push(
+            "Configure AI_PROVIDER_SOCKETS or set OPENAI_API_KEY/HUGGINGFACE_API_KEY".to_string(),
+        );
     }
 
     // Check for Songbird warnings
@@ -360,7 +365,9 @@ fn generate_recommendations(checks: &[HealthCheck]) -> Vec<String> {
         .iter()
         .any(|c| c.name == "Songbird" && c.status == HealthStatus::Warning)
     {
-        recommendations.push("Start Songbird for full ecosystem coordination (optional for development)".to_string());
+        recommendations.push(
+            "Start Songbird for full ecosystem coordination (optional for development)".to_string(),
+        );
     }
 
     // Check for BearDog warnings
@@ -368,7 +375,8 @@ fn generate_recommendations(checks: &[HealthCheck]) -> Vec<String> {
         .iter()
         .any(|c| c.name == "BearDog" && c.status == HealthStatus::Warning)
     {
-        recommendations.push("Start BearDog for security features (optional for development)".to_string());
+        recommendations
+            .push("Start BearDog for security features (optional for development)".to_string());
     }
 
     if recommendations.is_empty() {
@@ -696,4 +704,3 @@ mod tests {
         assert!(!checks.3.message.is_empty());
     }
 }
-

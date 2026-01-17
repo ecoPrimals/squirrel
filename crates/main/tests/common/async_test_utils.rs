@@ -429,13 +429,20 @@ mod tests {
             flag2_clone.store(true, Ordering::SeqCst);
         });
 
-        let conditions = [
-            || flag1.load(Ordering::SeqCst),
-            || flag2.load(Ordering::SeqCst),
-        ];
-        wait_for_all(&conditions, Duration::from_secs(1))
-            .await
-            .expect("Both flags should be set");
+        // Clone flags for the closures (they need to be the same type)
+        let flag1_check = flag1.clone();
+        let flag2_check = flag2.clone();
+
+        // Use array with same closure type
+        wait_for_all(
+            &[
+                move || flag1_check.load(Ordering::SeqCst),
+                move || flag2_check.load(Ordering::SeqCst),
+            ],
+            Duration::from_secs(1),
+        )
+        .await
+        .expect("Both flags should be set");
     }
 
     #[tokio::test]

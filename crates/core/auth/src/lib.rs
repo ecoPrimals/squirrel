@@ -1,14 +1,29 @@
 //! Squirrel Authentication & Security System
 //!
-//! Modern authentication system leveraging beardog patterns and squirrel ecosystem integration.
+//! Modern authentication system leveraging capability-based discovery and ecosystem integration.
 //! This completely replaces the severely outdated legacy auth code with a clean, modern architecture.
+//!
+//! ## TRUE ecoBin Architecture (v1.3.0) via Capability Discovery
+//!
+//! - **Production Mode**: JWT validation delegated to capability provider (Pure Rust!)
+//! - **Dev Mode**: Local JWT validation via feature flag (for fast iteration)
+//! - **Capability-Based**: Discovers JWT validation capability at runtime (not hardcoded!)
+//! - **Zero C Dependencies**: Production mode uses Pure Rust stack
+//!
+//! ## Capability Discovery Pattern
+//!
+//! Instead of hardcoding "BearDog", we discover capabilities:
+//! - Squirrel asks: "Who provides jwt.validate capability?"
+//! - Currently: BearDog (Security & Crypto Primal) provides it
+//! - Future: Any primal with JWT capability can provide it
 //!
 //! ## Features
 //!
 //! - **Clean Error Handling**: Using thiserror with detailed error context
-//! - **Beardog Integration**: Leveraging modern beardog security patterns  
-//! - **Ecosystem Integration**: Deep integration with squirrel MCP configuration
+//! - **Capability Integration**: JWT delegation via Unix socket JSON-RPC
+//! - **Ecosystem Integration**: Deep integration with Squirrel MCP configuration
 //! - **Modern Rust Patterns**: No anyhow conflicts, clean Result types
+//! - **Feature-Gated JWT**: Production (delegated) vs Dev (local)
 //!
 //! ## Usage
 //!
@@ -29,11 +44,22 @@ pub mod errors;
 pub mod session;
 pub mod types;
 
-// Modern re-exports leveraging beardog patterns
+// TRUE ecoBin: Delegated JWT client (Production mode, capability-based)
+pub mod delegated_jwt_client;
+
+// Feature-gated: Local JWT (Dev mode only)
+#[cfg(feature = "local-jwt")]
+pub mod jwt;
+
+// Modern re-exports leveraging capability-based patterns
 pub use auth::AuthService;
+pub use delegated_jwt_client::DelegatedJwtClient;
 pub use errors::{AuthError, AuthResult};
 pub use session::{Session, SessionManager};
-pub use types::{AuthContext, LoginRequest, LoginResponse, Permission, User};
+pub use types::{AuthContext, JwtClaims, LoginRequest, LoginResponse, Permission, User};
+
+#[cfg(feature = "local-jwt")]
+pub use jwt::JwtTokenManager;
 
 /// Initialize the authentication system with current configuration
 pub async fn initialize() -> AuthResult<()> {
@@ -42,8 +68,16 @@ pub async fn initialize() -> AuthResult<()> {
     let mcp_endpoint =
         std::env::var("MCP_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:8444".to_string());
 
+    #[cfg(feature = "delegated-jwt")]
     tracing::info!(
-        "Initializing modern auth system with endpoints: security_service={}, mcp={}",
+        "Initializing modern auth system (TRUE ecoBin mode - JWT delegated via capability discovery)"
+    );
+
+    #[cfg(feature = "local-jwt")]
+    tracing::info!("Initializing modern auth system (Dev mode - local JWT validation)");
+
+    tracing::info!(
+        "Endpoints: security_service={}, mcp={}",
         security_endpoint,
         mcp_endpoint
     );

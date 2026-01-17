@@ -11,7 +11,6 @@
 //! 4. **Zero Hardcoding** - No assumptions about specific service implementations
 
 use std::sync::Arc;
-use tokio;
 
 use squirrel::universal_adapters::{
     compute_adapter::{register_toadstool_service, UniversalComputeAdapter},
@@ -19,7 +18,7 @@ use squirrel::universal_adapters::{
     registry::InMemoryServiceRegistry,
     security_adapter::{register_beardog_service, UniversalSecurityAdapter},
     storage_adapter::{register_nestgate_service, UniversalStorageAdapter},
-    ServiceCapability, ServiceMatcher, UniversalServiceRegistry,
+    ServiceCapability, UniversalServiceRegistry,
 };
 
 /// AI Coordination System using Universal Adapters

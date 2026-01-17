@@ -1,7 +1,7 @@
 # Archive Index
 
 **Purpose**: Historical documentation preserved for reference  
-**Last Updated**: January 17, 2026
+**Last Updated**: January 17, 2026 (Post-Construction Cleanup)
 
 ## Archive Organization
 
@@ -11,6 +11,7 @@ All historical documentation is preserved in the `archive/` directory, organized
 
 ```
 archive/
+├── construction_jan_17_2026/  - 🆕 Construction debris from ecoBin/JWT work
 ├── sessions_jan_17_2026/      - v1.1.0 sessions (superseded by v1.2.0)
 ├── interim_jan_17_2026/       - Completion docs, old START_HERE versions
 ├── evolution_jan_16_2026/     - Pure Rust migration, socket fixes
@@ -24,6 +25,20 @@ archive/
 ```
 
 ## What's Archived
+
+### Construction Debris (Jan 17, 2026) 🆕
+**Location**: `archive/construction_jan_17_2026/`
+
+Construction/work-in-progress documents from ecoBin and JWT delegation evolution:
+- `SQUIRREL_ECOBIN_REALITY_CHECK_JAN_17_2026.md` - Dependency audit findings
+- `SQUIRREL_ECOBIN_SESSION_JAN_17_2026.md` - Strategy session notes
+- `SQUIRREL_ECOBIN_FINAL_REPORT_JAN_17_2026.md` - Interim ecoBin report (work continues)
+- `SQUIRREL_JWT_DELEGATION_PROGRESS_JAN_17_2026.md` - JWT delegation tracking
+- `SQUIRREL_CAPABILITY_BASED_JWT_JAN_17_2026.md` - JWT capability design (work in progress)
+- `SQUIRREL_NEXT_EVOLUTION_GUIDANCE_JAN_17_2026.md` - Upstream guidance (one-time reference)
+- `SQUIRREL_V1.1.0_LOCAL_EVOLUTION_PLAN.md` - v1.1.0 implementation checklist (completed)
+
+**Why Archived**: Construction debris - interim notes, progress tracking, and work-in-progress docs created during active development. Final outcomes are captured in completion summaries and architecture docs.
 
 ### Sessions (Jan 17, 2026)
 **Location**: `archive/sessions_jan_17_2026/`
@@ -117,44 +132,46 @@ Test infrastructure and coverage baseline work
 ### Current (Root)
 These documents are **current and actively maintained**:
 
-**v1.2.0 Documents**:
-- `SESSION_SUMMARY_V1.2.0_UNIBIN_JAN_17_2026.md` - Current implementation
-- `COMPREHENSIVE_TESTING_SESSION_JAN_17_2026.md` - Current testing work
-- `SQUIRREL_UNIBIN_COMPLIANCE_REVIEW_JAN_17_2026.md` - Current compliance
-- `HARVEST_PACKAGE_V1.2.0.md` - Current deployment
+**v1.2.0+ Documents** (UniBin + Testing):
+- `SESSION_SUMMARY_V1.2.0_UNIBIN_JAN_17_2026.md` - v1.2.0 UniBin implementation
+- `COMPREHENSIVE_TESTING_SESSION_JAN_17_2026.md` - Comprehensive testing (59 new tests)
+- `SQUIRREL_UNIBIN_COMPLIANCE_REVIEW_JAN_17_2026.md` - UniBin compliance review
+- `HARVEST_PACKAGE_V1.2.0.md` - v1.2.0 deployment package
+- `HARVEST_METADATA_V1.2.0.json` - v1.2.0 metadata
 
 **Essential Docs**:
-- `README.md` - Project overview (updated for v1.2.0)
+- `README.md` - Project overview (updated for v1.2.0+)
 - `START_HERE.md` - Current quick start
-- `CURRENT_STATUS.md` - Latest status
+- `CURRENT_STATUS.md` - Latest status (v1.2.0+, ecoBin evolution)
 - `DOCUMENTATION_INDEX.md` - Documentation navigation
 - `ROOT_DOCS_INDEX.md` - This index
+- `ARCHIVE_INDEX.md` - Archive organization
 
-**Architecture**:
-- `SQUIRREL_ZERO_HTTP_EVOLUTION_JAN_16_2026.md` - Zero-HTTP architecture
+**Architecture** (Active Reference):
+- `SQUIRREL_ZERO_HTTP_EVOLUTION_JAN_16_2026.md` - Zero-HTTP architecture (v1.1.0)
 - `SQUIRREL_CONCENTRATED_GAP_ALIGNMENT_JAN_16_2026.md` - Ecosystem alignment
 - `AI_PROVIDER_ARCHITECTURAL_ISSUE_JAN_16_2026.md` - Provider abstraction
 - `SQUIRREL_CORE_FOCUS_JAN_16_2026.md` - Mission focus
 
-**Guides**:
-- `PRIMAL_INTEGRATION_GUIDE.md`
-- `CAPABILITY_INTEGRATION_TEMPLATE.md`
-- `USAGE_GUIDE.md`
-- `PRODUCTION_READY.md`
-- `BIOMEOS_READY.md`
+**Guides** (Active):
+- `PRIMAL_INTEGRATION_GUIDE.md` - Integration guide
+- `CAPABILITY_INTEGRATION_TEMPLATE.md` - Capability template
+- `USAGE_GUIDE.md` - Usage guide
+- `PRODUCTION_READY.md` - Production deployment
+- `BIOMEOS_READY.md` - biomeOS integration
 
-**Features**:
-- `PRIMALPULSE_PROJECT.md`
-- `PRIMALPULSE_LIVE.md`
-- `CURSOR_MCP_QUICK_TEST.md`
+**Features** (Active):
+- `PRIMALPULSE_PROJECT.md` - PrimalPulse project
+- `PRIMALPULSE_LIVE.md` - PrimalPulse live status
+- `CURSOR_MCP_QUICK_TEST.md` - MCP testing
 
-**Specs**:
-- `SOCKET_REGISTRY_SPEC.md`
-- `TRUE_PRIMAL_EVOLUTION.md`
+**Specs** (Active):
+- `SOCKET_REGISTRY_SPEC.md` - Socket registry
+- `TRUE_PRIMAL_EVOLUTION.md` - Primal standards
 
 **Maintenance**:
-- `CHANGELOG.md`
-- `PRE_PUSH_CHECKLIST.md`
+- `CHANGELOG.md` - Version history
+- `PRE_PUSH_CHECKLIST.md` - Pre-push checklist
 
 ### Archived
 All documents in `archive/` subdirectories are **historical references**, preserved for:
@@ -168,14 +185,16 @@ All documents in `archive/` subdirectories are **historical references**, preser
 Documents should be archived when:
 1. **Superseded** - Replaced by newer version
 2. **Completed** - Session/phase complete
-3. **Interim** - Temporary completion markers
+3. **Interim** - Temporary completion markers or progress tracking
 4. **Historical** - Research or planning phase done
+5. **Construction Debris** - Work-in-progress notes, session tracking, interim reports
 
 Documents should **NOT** be archived if:
 1. **Current** - Actively referenced
 2. **Essential** - Core documentation
 3. **Maintained** - Regularly updated
 4. **Reference** - Still applicable architecture/guides
+5. **Active Standards** - Current compliance/specification docs
 
 ## Finding Archived Documents
 
@@ -186,13 +205,14 @@ Use the archive structure above to locate historical documents by:
 
 ## Benefits of Archival
 
-1. **Clean Root** - Essential docs easy to find
-2. **Historical Record** - Complete evolution preserved
-3. **Learning Resource** - Past decisions documented
-4. **Context Preservation** - Why things were done
-5. **Fossil Record** - Complete project history
+1. **Clean Root** - Essential docs easy to find, no clutter
+2. **Historical Record** - Complete evolution preserved as fossil record
+3. **Learning Resource** - Past decisions and processes documented
+4. **Context Preservation** - Why and how things were done
+5. **Fossil Record** - Complete project history, including construction process
+6. **Construction Transparency** - Shows the messy reality of evolution, not just polished outcomes
 
 ---
 
-**Note**: All archived documents are preserved exactly as they were, providing a complete historical record of Squirrel's evolution from inception through v1.2.0.
+**Note**: All archived documents are preserved exactly as they were, providing a complete historical record of Squirrel's evolution from inception through v1.2.0+, including the construction debris that shows the real work process.
 

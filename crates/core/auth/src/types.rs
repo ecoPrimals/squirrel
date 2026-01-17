@@ -280,3 +280,70 @@ impl Session {
         self.is_active = false;
     }
 }
+
+/// JWT Claims Structure (used by both local and delegated JWT)
+///
+/// This struct is always available regardless of feature flags,
+/// since it's needed by both BearDog JWT client and local JWT validation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JwtClaims {
+    pub sub: String,        // Subject (user ID)
+    pub username: String,   // Username
+    pub roles: Vec<String>, // User roles
+    pub session_id: String, // Session ID
+    pub iat: i64,           // Issued at
+    pub exp: i64,           // Expiration time
+    pub nbf: i64,           // Not before
+    pub iss: String,        // Issuer
+    pub aud: String,        // Audience
+    pub jti: String,        // JWT ID
+}
+
+impl JwtClaims {
+    pub fn new(
+        user_id: Uuid,
+        username: String,
+        roles: Vec<String>,
+        session_id: Uuid,
+        expires_at: DateTime<Utc>,
+    ) -> Self {
+        let now = Utc::now();
+
+        Self {
+            sub: user_id.to_string(),
+            username,
+            roles,
+            session_id: session_id.to_string(),
+            iat: now.timestamp(),
+            exp: expires_at.timestamp(),
+            nbf: now.timestamp(),
+            iss: "squirrel-mcp".to_string(),
+            aud: "squirrel-mcp-api".to_string(),
+            jti: Uuid::new_v4().to_string(),
+        }
+    }
+
+    pub fn to_auth_context(&self) -> Result<AuthContext, crate::AuthError> {
+        let user_id = Uuid::parse_str(&self.sub).map_err(|_| crate::AuthError::InvalidToken)?;
+
+        let session_id =
+            Uuid::parse_str(&self.session_id).map_err(|_| crate::AuthError::InvalidToken)?;
+
+        let created_at =
+            DateTime::from_timestamp(self.iat, 0).ok_or(crate::AuthError::InvalidToken)?;
+
+        let expires_at =
+            DateTime::from_timestamp(self.exp, 0).ok_or(crate::AuthError::InvalidToken)?;
+
+        Ok(AuthContext {
+            user_id,
+            username: self.username.clone(),
+            permissions: vec![], // Permissions are fetched separately
+            session_id,
+            expires_at,
+            created_at,
+            roles: self.roles.clone(),
+            auth_provider: AuthProvider::Standalone,
+        })
+    }
+}

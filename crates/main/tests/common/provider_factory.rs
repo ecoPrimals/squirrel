@@ -115,8 +115,18 @@ impl ProviderFactory {
         let metrics_collector = Arc::new(MetricsCollector::new());
 
         // Create ecosystem manager (capability-based discovery)
+        // Convert McpEcosystemConfig to squirrel::EcosystemConfig
+        let ecosystem_config = squirrel::ecosystem::EcosystemConfig {
+            biome_id: config.ecosystem.biome_id.clone(),
+            primal_type: squirrel::ecosystem::EcosystemPrimalType::Intelligence,
+            discovery_config: squirrel::ecosystem::DiscoveryConfig {
+                enabled: true,
+                mechanism: squirrel::ecosystem::DiscoveryMechanism::FileSystem,
+                registry_path: None,
+            },
+        };
         let ecosystem_manager = Arc::new(EcosystemManager::new(
-            config.clone(),
+            ecosystem_config,
             metrics_collector.clone(),
         ));
 

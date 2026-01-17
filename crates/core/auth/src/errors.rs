@@ -70,6 +70,38 @@ pub enum AuthError {
         /// Error message describing the internal issue
         message: String,
     },
+
+    // Simple error variants for JWT and capability-based integration (TRUE ecoBin)
+    /// Token has expired
+    #[error("Token has expired")]
+    TokenExpired,
+
+    /// Invalid token format or signature
+    #[error("Invalid token")]
+    InvalidToken,
+
+    /// Invalid response from service
+    #[error("Invalid response from auth service")]
+    InvalidResponse,
+
+    /// Capability provider unavailable
+    #[error("JWT capability provider unavailable: {0}")]
+    CapabilityProviderUnavailable(String),
+
+    /// Capability provider returned an error
+    #[error("JWT capability provider error: {0}")]
+    CapabilityProviderError(String),
+
+    // Legacy compatibility (for migration period)
+    /// BearDog service unavailable (deprecated: use CapabilityProviderUnavailable)
+    #[error("BearDog unavailable: {0}")]
+    #[deprecated(note = "Use CapabilityProviderUnavailable instead (capability-based)")]
+    BeardogUnavailable(String),
+
+    /// BearDog returned an error (deprecated: use CapabilityProviderError)
+    #[error("BearDog error: {0}")]
+    #[deprecated(note = "Use CapabilityProviderError instead (capability-based)")]
+    BeardogError(String),
 }
 
 impl AuthError {
@@ -148,5 +180,11 @@ impl From<serde_json::Error> for AuthError {
 impl From<uuid::Error> for AuthError {
     fn from(err: uuid::Error) -> Self {
         Self::internal_error(format!("UUID error: {}", err))
+    }
+}
+
+impl From<anyhow::Error> for AuthError {
+    fn from(err: anyhow::Error) -> Self {
+        Self::internal_error(format!("Internal error: {}", err))
     }
 }

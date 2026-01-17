@@ -361,7 +361,7 @@ async fn stress_performance_baseline() {
             for _ in 0..OPS_PER_WORKER {
                 counter.fetch_add(1, Ordering::Relaxed);
                 // Yield occasionally to allow other tasks to run
-                if counter.load(Ordering::Relaxed) % 10000 == 0 {
+                if counter.load(Ordering::Relaxed).is_multiple_of(10000) {
                     tokio::task::yield_now().await;
                 }
             }
