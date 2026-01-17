@@ -1,6 +1,13 @@
 //! Squirrel AI Coordinator Main Entry Point
+//!
+//! UniBin Architecture v1.0.0 compliant entry point.
+//! Modern, idiomatic async Rust with clap-based CLI.
+
+mod cli;
+mod doctor;
 
 use anyhow::Result;
+use clap::Parser;
 use serde::Serialize;
 use squirrel::api::ApiServer;
 use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
@@ -8,6 +15,8 @@ use squirrel::shutdown::ShutdownManager;
 use squirrel::MetricsCollector;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use cli::{Cli, Commands};
 
 /// Capability manifest for BiomeOS integration
 #[derive(Serialize)]
@@ -30,54 +39,47 @@ struct DiscoveryInfo {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Parse command line arguments
-    let args: Vec<String> = std::env::args().collect();
+    // Parse CLI arguments using clap
+    let cli = Cli::parse();
 
-    // Handle --version flag
-    if args.iter().any(|arg| arg == "--version" || arg == "-V") {
-        println!("squirrel {}", env!("CARGO_PKG_VERSION"));
-        return Ok(());
+    // Route to appropriate handler based on subcommand
+    match cli.command {
+        Commands::Server {
+            port,
+            daemon,
+            socket,
+            bind,
+            verbose,
+        } => {
+            run_server(port, daemon, socket, bind, verbose).await?;
+        }
+        Commands::Doctor {
+            comprehensive,
+            format,
+            subsystem,
+        } => {
+            doctor::run_doctor(comprehensive, format, subsystem).await?;
+        }
+        Commands::Version { verbose } => {
+            print_version(verbose);
+        }
     }
 
-    // Handle --capability flag
-    if args.iter().any(|arg| arg == "--capability") {
-        let port = std::env::var("PORT")
-            .or_else(|_| std::env::var("SQUIRREL_PORT"))
-            .unwrap_or_else(|_| "9010".to_string());
+    Ok(())
+}
 
-        let mut endpoints = HashMap::new();
-        endpoints.insert("health", format!("http://localhost:{}/health", port));
-        endpoints.insert("api", format!("http://localhost:{}/api/v1", port));
-        endpoints.insert("metrics", format!("http://localhost:{}/metrics", port));
-
-        let manifest = CapabilityManifest {
-            name: "squirrel",
-            category: "configuration",
-            version: env!("CARGO_PKG_VERSION"),
-            api_type: "REST",
-            capabilities: vec![
-                "universal-ai-coordination",
-                "config-management",
-                "capability-discovery",
-                "mcp-protocol",
-                "ecosystem-integration",
-                "zero-copy-optimization",
-            ],
-            endpoints,
-            discovery: DiscoveryInfo {
-                protocol: "HTTP/REST",
-                default_port: 9010,
-                health_check: format!("http://localhost:{}/health", port),
-            },
-        };
-
-        println!("{}", serde_json::to_string_pretty(&manifest)?);
-        return Ok(());
-    }
-
+/// Run server mode
+async fn run_server(
+    port: u16,
+    _daemon: bool, // TODO: Implement daemon mode
+    _socket: Option<String>,
+    _bind: String,
+    verbose: bool,
+) -> Result<()> {
     // Initialize tracing subscriber
+    let log_level = if verbose { "debug" } else { "info" };
     tracing_subscriber::fmt()
-        .with_env_filter("squirrel=info,debug")
+        .with_env_filter(format!("squirrel={},debug", log_level))
         .with_target(false)
         .with_thread_ids(true)
         .with_line_number(true)
@@ -85,14 +87,11 @@ async fn main() -> Result<()> {
 
     println!("🐿️  Squirrel AI/MCP Primal Starting...");
     println!("   Version: {}", env!("CARGO_PKG_VERSION"));
-    println!("✅ Arc<str> Modernization Complete");
-    println!("✅ Performance Optimized with Zero-Copy Patterns");
-
-    // Get configuration from environment
-    let port = std::env::var("PORT")
-        .or_else(|_| std::env::var("SQUIRREL_PORT"))
-        .unwrap_or_else(|_| "9010".to_string())
-        .parse::<u16>()?;
+    println!("   Mode: Server");
+    println!("✅ UniBin Architecture v1.0.0");
+    println!("✅ Zero-HTTP Production Mode (v1.1.0)");
+    println!("✅ Modern Async Concurrent Rust");
+    println!();
 
     // Initialize ecosystem components
     let metrics_collector = Arc::new(MetricsCollector::new());
@@ -127,9 +126,6 @@ async fn main() -> Result<()> {
 
     println!("🔌 Starting JSON-RPC server...");
     println!("   Socket: /tmp/squirrel-{}.sock", node_id);
-
-    // The RPC server will be initialized inside api_server.start()
-    // because it needs access to the AI router
     println!();
     println!("✅ Squirrel AI/MCP Primal Ready!");
 
@@ -137,4 +133,23 @@ async fn main() -> Result<()> {
     api_server.start().await?;
 
     Ok(())
+}
+
+/// Print version information
+fn print_version(verbose: bool) {
+    if verbose {
+        println!("🐿️  Squirrel - Universal AI Orchestration Primal");
+        println!();
+        println!("Version:        {}", env!("CARGO_PKG_VERSION"));
+        println!();
+        println!("Features:");
+        println!("  ✅ UniBin Architecture v1.0.0");
+        println!("  ✅ Zero-HTTP Production Mode (v1.1.0)");
+        println!("  ✅ Capability-Based Discovery");
+        println!("  ✅ Multi-Provider AI Routing");
+        println!("  ✅ Universal Tool Orchestration");
+        println!("  ✅ PrimalPulse AI Tools");
+    } else {
+        println!("squirrel {}", env!("CARGO_PKG_VERSION"));
+    }
 }

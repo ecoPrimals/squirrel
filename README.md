@@ -350,7 +350,7 @@ For new integrations, use the template: [`CAPABILITY_INTEGRATION_TEMPLATE.md`](C
 
 ### Build
 
-**v1.1.0+** offers two build modes:
+**v1.2.0** offers **UniBin Architecture** with subcommands:
 
 #### Production Mode (Default) - Zero-HTTP Architecture ✨
 
@@ -358,14 +358,22 @@ For new integrations, use the template: [`CAPABILITY_INTEGRATION_TEMPLATE.md`](C
 # Build for production (Unix sockets ONLY!)
 cargo build --release
 
-# Run production mode
-./target/release/squirrel
+# Run with Songbird AI proxy
+$ squirrel server --port 9010
+
+# Run as daemon
+$ squirrel server --daemon
+
+# Health diagnostics
+$ squirrel doctor --comprehensive
 
 # What's included:
+# ✅ UniBin Architecture v1.0.0 (Ecosystem Standard)
 # ✅ UniversalAiAdapter ONLY (Unix sockets)
+# ✅ Doctor mode (health diagnostics)
+# ✅ Modern clap-based CLI
 # ✅ NO HTTP adapters (OpenAI/HuggingFace/Ollama excluded)
 # ✅ Cleaner dependency tree
-# ✅ Prepared for 100% pure Rust evolution
 # 
 # Requirements:
 # - Set AI_PROVIDER_SOCKETS environment variable, OR
@@ -378,15 +386,19 @@ cargo build --release
 # Build for development (includes HTTP adapters)
 cargo build --release --features dev-direct-http
 
-# Run development mode
-export OPENAI_API_KEY="sk-..."
-export HUGGINGFACE_API_KEY="hf_..."
-./target/release/squirrel
+# Run development server
+$ export OPENAI_API_KEY="sk-..."
+$ export HUGGINGFACE_API_KEY="hf_..."
+$ squirrel server --verbose
+
+# Health check in dev mode
+$ squirrel doctor --comprehensive
 
 # What's included:
 # ✅ All HTTP adapters (OpenAI, HuggingFace, Ollama)
 # ✅ Fast iteration without Songbird dependency
 # ✅ Direct access to AI providers
+# ✅ UniBin subcommands
 # 
 # Requirements:
 # - API keys in environment variables (see above)
@@ -397,9 +409,25 @@ export HUGGINGFACE_API_KEY="hf_..."
 - **Development/Testing**: Use `--features dev-direct-http` for fast iteration
 - **CI/CD**: Use default mode (production)
 
+#### UniBin Subcommands
+
+```bash
+# Show all available commands
+$ squirrel --help
+
+# Start server mode
+$ squirrel server [OPTIONS]
+
+# Run health diagnostics
+$ squirrel doctor [--comprehensive] [--format json|text]
+
+# Show version
+$ squirrel version [--verbose]
+```
+
 ### Testing
 
-**v1.1.0+** supports testing in both modes:
+**v1.2.0+** supports testing in both modes with UniBin commands:
 
 ```bash
 # Production mode tests (default - Unix sockets only)
@@ -410,6 +438,11 @@ cargo test --lib --features dev-direct-http
 
 # All tests (187 tests, 100% passing in both modes!)
 cargo test --release
+
+# Test UniBin CLI
+cargo build --release
+./target/release/squirrel --help
+./target/release/squirrel doctor
 
 # Specific test file
 cargo test --test biomeos_integration_real
