@@ -2,15 +2,15 @@
 //!
 //! Routes AI requests to the best available provider with retry logic.
 //!
-//! ## Capability-Based Discovery (NEW!)
+//! ## Capability-Based Discovery (TRUE PRIMAL)
 //!
-//! The router now supports capability-based discovery via Songbird:
+//! The router supports capability-based discovery via service mesh:
 //!
 //! ```rust,ignore
-//! // With Songbird (capability-based - TRUE PRIMAL)
-//! let router = AiRouter::new_with_discovery(songbird_client).await?;
+//! // With service mesh (capability-based - TRUE PRIMAL)
+//! let router = AiRouter::new_with_discovery(service_mesh_client).await?;
 //!
-//! // Without Songbird (fallback to legacy adapters)
+//! // Without service mesh (fallback to dev adapters or env config)
 //! let router = AiRouter::new().await?;
 //! ```
 
@@ -51,13 +51,13 @@ pub struct AiRouter {
 impl AiRouter {
     /// Create a new AI router with capability-based discovery (TRUE PRIMAL!)
     ///
-    /// This method uses Songbird to discover AI providers via capability-based discovery.
-    /// It will discover ANY primal offering AI capabilities (Toadstool, NestGate, etc.)
-    /// and also load external vendors from configuration.
+    /// This method uses service mesh to discover AI providers via capability-based discovery.
+    /// It will discover ANY primal offering AI capabilities and also load external
+    /// vendors from configuration.
     ///
     /// # Arguments
     ///
-    /// * `_songbird_client` - Songbird client for capability discovery (placeholder for now)
+    /// * `_service_mesh_client` - Service mesh client for capability discovery (placeholder)
     ///
     /// # Returns
     ///
@@ -66,18 +66,18 @@ impl AiRouter {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let router = AiRouter::new_with_discovery(songbird).await?;
+    /// let router = AiRouter::new_with_discovery(service_mesh).await?;
     /// ```
     pub async fn new_with_discovery(
-        _songbird_client: Option<Arc<dyn std::any::Any + Send + Sync>>,
+        _service_mesh_client: Option<Arc<dyn std::any::Any + Send + Sync>>,
     ) -> Result<Self, PrimalError> {
         info!("🔍 Initializing AI router with capability-based discovery...");
 
         let mut providers: Vec<Arc<dyn AiProviderAdapter>> = Vec::new();
 
-        // TODO: Implement actual Songbird capability discovery
+        // TODO: Implement actual service mesh capability discovery
         // For now, we'll use a placeholder that loads from environment
-        // This will be replaced with actual Songbird integration:
+        // This will be replaced with actual capability registry integration:
         //
         // let text_gen_providers = songbird.discover_by_capability("ai:text-generation").await?;
         // let image_gen_providers = songbird.discover_by_capability("ai:image-generation").await?;
@@ -117,8 +117,8 @@ impl AiRouter {
         }
 
         if providers.is_empty() {
-            warn!("⚠️  No AI providers available. Set OPENAI_API_KEY, HUGGINGFACE_API_KEY, or install Ollama");
-            warn!("⚠️  Or configure AI_PROVIDER_SOCKETS for capability-based discovery");
+            warn!("⚠️  No AI providers available. Configure AI_PROVIDER_SOCKETS for capability discovery");
+            warn!("⚠️  Or enable dev-direct-http feature and set API keys for development");
         } else {
             info!(
                 "✅ AI router initialized with {} provider(s) (capability-based + legacy)",
@@ -237,7 +237,7 @@ impl AiRouter {
         let providers = Self::load_legacy_adapters_parallel().await;
 
         if providers.is_empty() {
-            warn!("⚠️  No AI providers available. Set OPENAI_API_KEY, HUGGINGFACE_API_KEY, or install Ollama");
+            warn!("⚠️  No AI providers available. Enable dev-direct-http feature and configure API keys for development");
         } else {
             info!(
                 "✅ AI router initialized with {} provider(s) (legacy mode)",
@@ -387,7 +387,7 @@ impl AiRouter {
 
         if providers.is_empty() {
             return Err(PrimalError::OperationFailed(
-                "No providers available for text generation. Set OPENAI_API_KEY or install Ollama"
+                "No providers available for text generation. Configure AI_PROVIDER_SOCKETS or enable dev-direct-http feature"
                     .to_string(),
             ));
         }
