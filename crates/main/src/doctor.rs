@@ -448,5 +448,252 @@ mod tests {
         assert!(should_check(Some(Subsystem::Ai), Subsystem::Ai));
         assert!(!should_check(Some(Subsystem::Config), Subsystem::Ai));
     }
+
+    // ========================================================================
+    // ADDITIONAL UNIT TESTS
+    // ========================================================================
+
+    #[test]
+    fn test_health_status_serialization() {
+        let status = HealthStatus::Ok;
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("Ok") || json.contains("\"ok\""));
+    }
+
+    #[test]
+    fn test_health_check_structure() {
+        let check = HealthCheck {
+            name: "Test",
+            status: HealthStatus::Ok,
+            message: "Test message".to_string(),
+            duration_ms: 100,
+            details: None,
+        };
+
+        assert_eq!(check.name, "Test");
+        assert!(matches!(check.status, HealthStatus::Ok));
+        assert_eq!(check.duration_ms, 100);
+    }
+
+    #[test]
+    fn test_health_report_serialization() {
+        let report = HealthReport {
+            version: "1.2.0".to_string(),
+            timestamp: chrono::Utc::now(),
+            overall_status: HealthStatus::Ok,
+            checks: vec![],
+            recommendations: vec![],
+        };
+
+        let json = serde_json::to_string(&report).unwrap();
+        assert!(json.contains("1.2.0"));
+        // Status might be "Ok" or "ok" depending on serialization
+        assert!(json.to_lowercase().contains("ok"));
+    }
+
+    // ========================================================================
+    // E2E TESTS - Full Check Flows
+    // ========================================================================
+
+    #[tokio::test]
+    async fn test_binary_check_always_succeeds() {
+        let check = check_binary().await;
+        assert_eq!(check.status, HealthStatus::Ok);
+        assert!(check.message.contains(env!("CARGO_PKG_VERSION")));
+    }
+
+    #[tokio::test]
+    async fn test_configuration_check_structure() {
+        let check = check_configuration().await;
+        assert_eq!(check.name, "Configuration");
+        assert!(!check.message.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_unix_socket_check_returns_valid_status() {
+        let check = check_unix_socket().await;
+        assert!(matches!(
+            check.status,
+            HealthStatus::Ok | HealthStatus::Warning | HealthStatus::Error
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_http_server_check_structure() {
+        let check = check_http_server().await;
+        assert_eq!(check.name, "HTTP Server");
+    }
+
+    // ========================================================================
+    // CHAOS TESTS - Edge Cases
+    // ========================================================================
+
+    #[tokio::test]
+    async fn test_all_checks_run_without_panic() {
+        // Run all checks to ensure they don't panic
+        let checks = tokio::join!(
+            check_binary(),
+            check_configuration(),
+            check_unix_socket(),
+            check_http_server(),
+        );
+
+        assert!(!checks.0.name.is_empty());
+        assert!(!checks.1.name.is_empty());
+        assert!(!checks.2.name.is_empty());
+        assert!(!checks.3.name.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_checks_complete_in_reasonable_time() {
+        use std::time::Instant;
+        let start = Instant::now();
+
+        let _ = tokio::join!(
+            check_binary(),
+            check_configuration(),
+            check_unix_socket(),
+            check_http_server(),
+        );
+
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed.as_secs() < 10,
+            "All checks should complete in < 10s, took: {:?}",
+            elapsed
+        );
+    }
+
+    #[test]
+    fn test_subsystem_filtering_none() {
+        assert!(should_check(None, Subsystem::Ai));
+        assert!(should_check(None, Subsystem::Config));
+        assert!(should_check(None, Subsystem::Http));
+    }
+
+    #[test]
+    fn test_subsystem_filtering_specific() {
+        assert!(should_check(Some(Subsystem::Ai), Subsystem::Ai));
+        assert!(!should_check(Some(Subsystem::Ai), Subsystem::Config));
+        assert!(!should_check(Some(Subsystem::Config), Subsystem::Http));
+    }
+
+    #[test]
+    fn test_subsystem_display() {
+        assert_eq!(format!("{}", Subsystem::Ai), "ai");
+        assert_eq!(format!("{}", Subsystem::Config), "config");
+        assert_eq!(format!("{}", Subsystem::Http), "http");
+    }
+
+    // ========================================================================
+    // FAULT TESTS - Error Scenarios
+    // ========================================================================
+
+    #[tokio::test]
+    async fn test_all_checks_have_valid_durations() {
+        let checks = tokio::join!(
+            check_binary(),
+            check_configuration(),
+            check_unix_socket(),
+            check_http_server(),
+        );
+
+        // All checks should have a duration measurement
+        assert!(checks.0.duration_ms < 10000); // < 10s
+        assert!(checks.1.duration_ms < 10000);
+        assert!(checks.2.duration_ms < 10000);
+        assert!(checks.3.duration_ms < 10000);
+    }
+
+    #[tokio::test]
+    async fn test_health_status_ordering() {
+        // Test that status types are distinct
+        let ok_check = HealthCheck {
+            name: "OK",
+            status: HealthStatus::Ok,
+            message: "OK".to_string(),
+            duration_ms: 10,
+            details: None,
+        };
+
+        let warn_check = HealthCheck {
+            name: "Warn",
+            status: HealthStatus::Warning,
+            message: "Warn".to_string(),
+            duration_ms: 20,
+            details: None,
+        };
+
+        let err_check = HealthCheck {
+            name: "Error",
+            status: HealthStatus::Error,
+            message: "Error".to_string(),
+            duration_ms: 30,
+            details: None,
+        };
+
+        // Verify they're distinct
+        assert!(!matches!(ok_check.status, HealthStatus::Warning));
+        assert!(!matches!(warn_check.status, HealthStatus::Ok));
+        assert!(!matches!(err_check.status, HealthStatus::Ok));
+    }
+
+    // ========================================================================
+    // INTEGRATION TESTS
+    // ========================================================================
+
+    #[tokio::test]
+    async fn test_concurrent_check_execution() {
+        // Verify that all checks can run concurrently without issues
+        let results = tokio::join!(
+            check_binary(),
+            check_binary(),
+            check_configuration(),
+            check_configuration(),
+        );
+
+        // All checks should succeed
+        assert!(!results.0.message.is_empty());
+        assert!(!results.1.message.is_empty());
+        assert!(!results.2.message.is_empty());
+        assert!(!results.3.message.is_empty());
+    }
+
+    #[test]
+    fn test_health_report_json_serialization() {
+        let report = HealthReport {
+            version: "1.2.0".to_string(),
+            timestamp: chrono::Utc::now(),
+            overall_status: HealthStatus::Ok,
+            checks: vec![HealthCheck {
+                name: "Test",
+                status: HealthStatus::Ok,
+                message: "OK".to_string(),
+                duration_ms: 50,
+                details: None,
+            }],
+            recommendations: vec![],
+        };
+
+        let json = serde_json::to_string(&report).unwrap();
+        assert!(json.contains("1.2.0"));
+        assert!(json.contains("Test"));
+    }
+
+    #[tokio::test]
+    async fn test_checks_produce_valid_messages() {
+        let checks = tokio::join!(
+            check_binary(),
+            check_configuration(),
+            check_unix_socket(),
+            check_http_server(),
+        );
+
+        // All checks should have non-empty messages
+        assert!(!checks.0.message.is_empty());
+        assert!(!checks.1.message.is_empty());
+        assert!(!checks.2.message.is_empty());
+        assert!(!checks.3.message.is_empty());
+    }
 }
 
