@@ -48,10 +48,23 @@ pub mod types;
 pub mod delegated_jwt_client;
 
 // JWT implementations (feature-gated for TRUE ecoBin!)
-// - Production (delegated-jwt): BearDog Ed25519 (Pure Rust! 🦀)
+// - Production (delegated-jwt): Capability-based crypto (TRUE PRIMAL! 🌍)
 // - Dev/Testing (local-jwt): Local HMAC (brings ring)
 #[cfg(feature = "delegated-jwt")]
+pub mod capability_crypto;
+#[cfg(feature = "delegated-jwt")]
+pub mod capability_jwt;
+
+// DEPRECATED: BearDog-specific modules (use capability_ instead!)
+#[deprecated(
+    note = "Use capability_crypto instead. BearDog is DEV knowledge - TRUE PRIMAL uses capability discovery!"
+)]
+#[cfg(feature = "delegated-jwt")]
 pub mod beardog_client;
+
+#[deprecated(
+    note = "Use capability_jwt instead. BearDog is DEV knowledge - TRUE PRIMAL uses capability discovery!"
+)]
 #[cfg(feature = "delegated-jwt")]
 pub mod beardog_jwt;
 
@@ -65,9 +78,17 @@ pub use errors::{AuthError, AuthResult};
 pub use session::{Session, SessionManager};
 pub use types::{AuthContext, JwtClaims, LoginRequest, LoginResponse, Permission, User};
 
-// TRUE ecoBin: BearDog JWT (Production - Pure Rust!)
+// TRUE ecoBin: Capability-based crypto & JWT (Production - Pure Rust!)
+#[cfg(feature = "delegated-jwt")]
+pub use capability_crypto::{CryptoClient, CryptoClientConfig};
+#[cfg(feature = "delegated-jwt")]
+pub use capability_jwt::{CapabilityJwtService, CapabilityJwtConfig, JwtClaims as CapabilityJwtClaims};
+
+// DEPRECATED: BearDog-specific exports (use capability_ instead!)
+#[allow(deprecated)]
 #[cfg(feature = "delegated-jwt")]
 pub use beardog_client::{BearDogClient, BearDogClientConfig};
+#[allow(deprecated)]
 #[cfg(feature = "delegated-jwt")]
 pub use beardog_jwt::{BearDogJwtService, BearDogJwtConfig, JwtClaims as BearDogJwtClaims};
 
