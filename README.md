@@ -3,11 +3,11 @@
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-v1.3.0-blue.svg)](CURRENT_STATUS.md)
-[![Tests](https://img.shields.io/badge/tests-187%20passing-brightgreen.svg)](CURRENT_STATUS.md)
+[![Tests](https://img.shields.io/badge/tests-559%20passing-brightgreen.svg)](CURRENT_STATUS.md)
 [![Grade](https://img.shields.io/badge/grade-A++%20(105%2F100)-brightgreen.svg)](CURRENT_STATUS.md)
-[![Production](https://img.shields.io/badge/production-ready-green.svg)](DEPLOYMENT_READY_JAN_17_2026.md)
+[![Production](https://img.shields.io/badge/production-ready-green.svg)](CURRENT_STATUS.md)
 [![Pure Rust](https://img.shields.io/badge/pure%20rust-100%25-orange.svg)](CURRENT_STATUS.md)
-[![Architecture](https://img.shields.io/badge/architecture-TRUE%20PRIMAL-gold.svg)](EVOLUTION_EXECUTIVE_SUMMARY_JAN_17_2026.md)
+[![Architecture](https://img.shields.io/badge/architecture-TRUE%20PRIMAL-gold.svg)](archive/v1.3_true_primal_evolution/README.md)
 
 > **Universal AI Orchestration Platform - The First TRUE PRIMAL**  
 > *"Deploy like an infant - knows nothing, discovers everything at runtime"*
