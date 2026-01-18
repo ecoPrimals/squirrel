@@ -47,7 +47,14 @@ pub mod types;
 // TRUE ecoBin: Delegated JWT client (Production mode, capability-based)
 pub mod delegated_jwt_client;
 
-// Feature-gated: Local JWT (Dev mode only)
+// JWT implementations (feature-gated for TRUE ecoBin!)
+// - Production (delegated-jwt): BearDog Ed25519 (Pure Rust! 🦀)
+// - Dev/Testing (local-jwt): Local HMAC (brings ring)
+#[cfg(feature = "delegated-jwt")]
+pub mod beardog_client;
+#[cfg(feature = "delegated-jwt")]
+pub mod beardog_jwt;
+
 #[cfg(feature = "local-jwt")]
 pub mod jwt;
 
@@ -58,6 +65,13 @@ pub use errors::{AuthError, AuthResult};
 pub use session::{Session, SessionManager};
 pub use types::{AuthContext, JwtClaims, LoginRequest, LoginResponse, Permission, User};
 
+// TRUE ecoBin: BearDog JWT (Production - Pure Rust!)
+#[cfg(feature = "delegated-jwt")]
+pub use beardog_client::{BearDogClient, BearDogClientConfig};
+#[cfg(feature = "delegated-jwt")]
+pub use beardog_jwt::{BearDogJwtService, BearDogJwtConfig, JwtClaims as BearDogJwtClaims};
+
+// Dev/Testing: Local JWT (brings ring)
 #[cfg(feature = "local-jwt")]
 pub use jwt::JwtTokenManager;
 
