@@ -1,486 +1,272 @@
-//! Delegated JWT Client - Capability-Based JWT Validation
+//! Delegated JWT Client - Production JWT via BearDog Ed25519 (Pure Rust!)
 //!
-//! TRUE ecoBin Architecture via Capability Discovery:
-//! - Squirrel discovers JWT validation capability (not hardcoded primal!)
-//! - Currently: BearDog provides this capability (Security & Crypto Primal)
-//! - Future: Any primal with JWT validation capability can provide it
+//! TRUE ecoBin Architecture:
+//! - Squirrel delegates JWT operations to BearDog (crypto specialist)
+//! - Uses Ed25519 (EdDSA) instead of HMAC-SHA256
+//! - Zero C dependencies (no `ring`!) → 100% Pure Rust! 🦀
 //!
-//! This eliminates ring v0.17 C dependency → 100% Pure Rust! 🦀
+//! This module provides a high-level wrapper around `BearDogJwtService`
+//! for easy integration into Squirrel's auth system.
 
-use crate::{AuthError, JwtClaims};
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
-use tracing::{debug, error, info, warn};
+#[cfg(feature = "delegated-jwt")]
+use crate::beardog_jwt::{BearDogJwtConfig, BearDogJwtService, JwtClaims as BearDogJwtClaims};
+use crate::{AuthError, AuthResult, JwtClaims};
+use chrono::{DateTime, Utc};
+use tracing::{debug, info};
+use uuid::Uuid;
 
-/// JSON-RPC request for JWT validation
-#[derive(Debug, Serialize)]
-struct JsonRpcRequest {
-    jsonrpc: String,
-    method: String,
-    params: serde_json::Value,
-    id: u64,
-}
-
-/// JSON-RPC response
-#[derive(Debug, Deserialize)]
-struct JsonRpcResponse {
-    jsonrpc: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    result: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<JsonRpcError>,
-    id: u64,
-}
-
-/// JSON-RPC error
-#[derive(Debug, Deserialize)]
-struct JsonRpcError {
-    code: i32,
-    message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<serde_json::Value>,
-}
-
-/// JWT validation parameters
-#[derive(Debug, Serialize)]
-struct JwtValidationParams {
-    token: String,
-    issuer: String,
-    audience: String,
-}
-
-/// JWT validation result from BearDog
-#[derive(Debug, Deserialize)]
-struct JwtValidationResult {
-    valid: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    claims: Option<JwtClaims>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reason: Option<String>,
-}
-
-/// Delegated JWT Client - Communicates via Unix socket JSON-RPC with capability provider
+/// Delegated JWT Client - High-level wrapper for BearDog JWT operations
 ///
-/// # TRUE ecoBin Architecture via Capability Discovery
+/// # TRUE ecoBin Architecture
 ///
-/// - Squirrel discovers "jwt.validate" capability at runtime
-/// - Connects to whichever primal provides this capability
-/// - Currently: BearDog (Security & Crypto Primal) provides it
-/// - Future: Any primal with JWT capability can provide it
-///
-/// **Result**: Zero C dependencies in JWT path! Pure Rust! ✅
-///
-/// # Capability-Based Design
-///
-/// Instead of hardcoding "BearDog", we use capability discovery:
-/// 1. Squirrel asks: "Who provides jwt.validate capability?"
-/// 2. Registry responds: "/tmp/beardog-nat0.sock" (or any provider)
-/// 3. Squirrel connects and validates JWT
+/// - **Production**: Uses BearDog Ed25519 (Pure Rust!)
+/// - **Dev/Testing**: Falls back to local JWT (feature-gated)
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// // Capability-based (good!)
-/// let socket_path = discover_capability("jwt.validate").await?;
-/// let client = DelegatedJwtClient::new(socket_path);
-/// let claims = client.validate_token(token, "squirrel-mcp", "squirrel-mcp-api").await?;
+/// let client = DelegatedJwtClient::new_from_env().await?;
+/// let token = client.create_token(user_id, username, roles, session_id, expires_at).await?;
+/// let claims = client.verify_token(&token).await?;
 /// ```
 pub struct DelegatedJwtClient {
-    socket_path: PathBuf,
-    request_id: std::sync::atomic::AtomicU64,
-    capability_provider: String, // Name of discovered provider (for logging)
+    #[cfg(feature = "delegated-jwt")]
+    beardog_service: BearDogJwtService,
+    
+    #[cfg(feature = "local-jwt")]
+    _local_service: crate::jwt::JwtTokenManager,
 }
 
 impl DelegatedJwtClient {
-    /// Create a new delegated JWT client
+    /// Create new delegated JWT client with custom BearDog configuration
+    ///
+    /// # Production Mode (delegated-jwt feature)
+    ///
+    /// Uses BearDog JWT service with Ed25519 signing.
+    ///
+    /// # Dev Mode (local-jwt feature)
+    ///
+    /// Uses local JWT with HMAC-SHA256 (brings `ring` dependency).
+    #[cfg(feature = "delegated-jwt")]
+    pub fn new(beardog_config: BearDogJwtConfig) -> AuthResult<Self> {
+        info!("🌍 Initializing TRUE ecoBin JWT client (BearDog Ed25519, Pure Rust!)");
+        
+        let beardog_service = BearDogJwtService::new(beardog_config)
+            .map_err(|e| AuthError::Internal {
+                message: format!("Failed to initialize BearDog JWT service: {}", e),
+            })?;
+        
+        Ok(Self { beardog_service })
+    }
+    
+    /// Create new delegated JWT client from environment variables
+    ///
+    /// **Environment Variables**:
+    /// - `BEARDOG_CRYPTO_SOCKET`: Path to BearDog crypto socket (default: `/var/run/beardog/crypto.sock`)
+    /// - `JWT_KEY_ID`: BearDog key ID for JWT signing (default: `squirrel-jwt-signing-key`)
+    /// - `JWT_EXPIRY_HOURS`: Token expiry in hours (default: 24)
+    #[cfg(feature = "delegated-jwt")]
+    pub fn new_from_env() -> AuthResult<Self> {
+        use std::env;
+        
+        let socket_path = env::var("BEARDOG_CRYPTO_SOCKET")
+            .unwrap_or_else(|_| "/var/run/beardog/crypto.sock".to_string());
+        
+        let key_id = env::var("JWT_KEY_ID")
+            .unwrap_or_else(|_| "squirrel-jwt-signing-key".to_string());
+        
+        let expiry_hours = env::var("JWT_EXPIRY_HOURS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(24);
+        
+        info!(
+            "🔧 JWT config from env: socket={}, key_id={}, expiry={}h",
+            socket_path, key_id, expiry_hours
+        );
+        
+        let beardog_config = BearDogJwtConfig {
+            beardog_config: crate::beardog_client::BearDogClientConfig {
+                socket_path,
+                timeout_secs: 5,
+                max_retries: 3,
+                retry_delay_ms: 100,
+            },
+            key_id,
+            expiry_hours,
+        };
+        
+        Self::new(beardog_config)
+    }
+    
+    /// Create JWT token (delegates to BearDog)
     ///
     /// # Arguments
     ///
-    /// * `socket_path` - Path to capability provider's Unix socket
-    ///
-    /// # Capability Discovery
-    ///
-    /// The socket_path should come from capability discovery, not hardcoded!
-    /// Example: `discover_capability("jwt.validate").await?`
-    ///
-    /// # Current Provider
-    ///
-    /// As of Jan 2026: BearDog provides jwt.validate capability
-    pub fn new(socket_path: PathBuf) -> Self {
-        info!("Initializing delegated JWT client (capability-based, TRUE ecoBin!)");
-        debug!("JWT capability provider socket: {:?}", socket_path);
-
-        Self {
-            socket_path,
-            request_id: std::sync::atomic::AtomicU64::new(1),
-            capability_provider: "jwt-provider".to_string(), // Generic name
-        }
-    }
-
-    /// Set the capability provider name (for logging/debugging)
-    ///
-    /// This is optional and used for better log messages.
-    /// Example: "beardog-nat0" or "security-primal"
-    pub fn with_provider_name(mut self, name: impl Into<String>) -> Self {
-        self.capability_provider = name.into();
-        self
-    }
-
-    /// Validate JWT token via capability provider
-    ///
-    /// # Arguments
-    ///
-    /// * `token` - JWT token to validate
-    /// * `issuer` - Expected issuer (e.g., "squirrel-mcp")
-    /// * `audience` - Expected audience (e.g., "squirrel-mcp-api")
+    /// * `user_id` - User UUID
+    /// * `username` - Username
+    /// * `roles` - User roles
+    /// * `session_id` - Session UUID
+    /// * `expires_at` - Token expiration time
     ///
     /// # Returns
     ///
-    /// * `Ok(JwtClaims)` - Token is valid, returns parsed claims
-    /// * `Err(AuthError)` - Token is invalid or capability provider unavailable
-    ///
-    /// # TRUE ecoBin via Capability Discovery
-    ///
-    /// This method delegates JWT validation to whichever primal provides
-    /// the "jwt.validate" capability. Currently BearDog (Security & Crypto),
-    /// but could be any primal with JWT capability in the future.
-    ///
-    /// The capability provider uses Pure Rust crypto (e.g., RustCrypto),
-    /// eliminating ring C dependency from JWT validation!
-    pub async fn validate_token(
+    /// JWT token string in format: `<header>.<claims>.<signature>`
+    #[cfg(feature = "delegated-jwt")]
+    pub async fn create_token(
         &self,
-        token: &str,
-        issuer: &str,
-        audience: &str,
-    ) -> Result<JwtClaims, AuthError> {
+        user_id: Uuid,
+        username: String,
+        roles: Vec<String>,
+        session_id: Uuid,
+        expires_at: DateTime<Utc>,
+    ) -> AuthResult<String> {
         debug!(
-            "Delegating JWT validation to capability provider: {}",
-            self.capability_provider
+            "Creating JWT token via BearDog: user={}, session={}",
+            username, session_id
         );
-
-        // Connect to capability provider's Unix socket
-        let stream = UnixStream::connect(&self.socket_path).await.map_err(|e| {
-            error!("Failed to connect to JWT capability provider socket: {}", e);
-            AuthError::CapabilityProviderUnavailable(format!(
-                "Could not connect to JWT provider at {:?}: {}",
-                self.socket_path, e
-            ))
-        })?;
-
-        debug!("Connected to JWT capability provider via Unix socket");
-
-        // Split stream for reading and writing
-        let (reader, mut writer) = stream.into_split();
-        let mut reader = BufReader::new(reader);
-
-        // Build JSON-RPC request for jwt.validate capability
-        let request_id = self
-            .request_id
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-
-        let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            method: "jwt.validate".to_string(),
-            params: serde_json::json!({
-                "token": token,
-                "issuer": issuer,
-                "audience": audience,
-            }),
-            id: request_id,
-        };
-
-        // Serialize and send request
-        let request_json = serde_json::to_string(&request)
-            .map_err(|e| AuthError::internal_error(format!("JSON serialization error: {}", e)))?;
-
-        debug!("Sending JWT validation request to capability provider");
-        writer
-            .write_all(request_json.as_bytes())
-            .await
-            .map_err(|e| {
-                error!("Failed to write to capability provider socket: {}", e);
-                AuthError::CapabilityProviderUnavailable(format!("Write error: {}", e))
-            })?;
-
-        writer.write_all(b"\n").await.map_err(|e| {
-            error!(
-                "Failed to write newline to capability provider socket: {}",
-                e
-            );
-            AuthError::CapabilityProviderUnavailable(format!("Write error: {}", e))
-        })?;
-
-        writer.flush().await.map_err(|e| {
-            error!("Failed to flush capability provider socket: {}", e);
-            AuthError::CapabilityProviderUnavailable(format!("Flush error: {}", e))
-        })?;
-
-        // Read response
-        let mut response_line = String::new();
-        reader.read_line(&mut response_line).await.map_err(|e| {
-            error!("Failed to read from capability provider socket: {}", e);
-            AuthError::CapabilityProviderUnavailable(format!("Read error: {}", e))
-        })?;
-
-        debug!("Received JWT validation response from capability provider");
-
-        // Parse JSON-RPC response
-        let response: JsonRpcResponse = serde_json::from_str(&response_line).map_err(|e| {
-            error!("Failed to parse capability provider response: {}", e);
-            AuthError::internal_error(format!("Parse error: {}", e))
-        })?;
-
-        // Check for JSON-RPC error
-        if let Some(error) = response.error {
-            warn!(
-                "Capability provider returned error: {} (code: {})",
-                error.message, error.code
-            );
-            return Err(AuthError::CapabilityProviderError(error.message));
-        }
-
-        // Parse validation result
-        let result: JwtValidationResult =
-            serde_json::from_value(response.result.ok_or_else(|| {
-                error!("Capability provider response missing result field");
-                AuthError::InvalidResponse
-            })?)
-            .map_err(|e| {
-                error!("Failed to parse JWT validation result: {}", e);
-                AuthError::internal_error(format!("Result parse error: {}", e))
-            })?;
-
-        // Check validation status
-        if !result.valid {
-            let reason = result
-                .reason
-                .unwrap_or_else(|| "Unknown reason".to_string());
-            warn!("JWT validation failed: {}", reason);
-            return Err(AuthError::InvalidToken);
-        }
-
-        // Extract claims
-        let claims = result.claims.ok_or_else(|| {
-            error!("Capability provider returned valid=true but no claims");
-            AuthError::InvalidResponse
-        })?;
-
-        info!(
-            "JWT validation successful via {} (user: {})",
-            self.capability_provider, claims.username
-        );
-        Ok(claims)
+        
+        let claims = BearDogJwtClaims::new(user_id, username, roles, session_id, expires_at);
+        
+        self.beardog_service.create_token(&claims).await
     }
-
-    /// Request JWT signing secret from capability provider
-    ///
-    /// This is used if Squirrel needs to generate JWTs locally (e.g., for dev/testing).
-    /// In production, the capability provider should generate JWTs directly.
+    
+    /// Verify JWT token (delegates to BearDog)
     ///
     /// # Arguments
     ///
-    /// * `purpose` - Purpose of the secret (e.g., "jwt-signing-key")
+    /// * `token` - JWT token string to verify
     ///
     /// # Returns
     ///
-    /// * `Ok(Vec<u8>)` - JWT signing secret
-    /// * `Err(AuthError)` - Capability provider unavailable or error
+    /// Verified JWT claims
+    #[cfg(feature = "delegated-jwt")]
+    pub async fn verify_token(&self, token: &str) -> AuthResult<JwtClaims> {
+        debug!("Verifying JWT token via BearDog: length={}", token.len());
+        
+        let beardog_claims = self.beardog_service.verify_token(token).await?;
+        
+        // Convert BearDog claims to our JwtClaims type
+        Ok(JwtClaims {
+            sub: beardog_claims.sub,
+            username: beardog_claims.username,
+            roles: beardog_claims.roles,
+            session_id: beardog_claims.session_id,
+            iat: beardog_claims.iat,
+            exp: beardog_claims.exp,
+            nbf: beardog_claims.nbf,
+            iss: beardog_claims.iss,
+            aud: beardog_claims.aud,
+            jti: beardog_claims.jti,
+        })
+    }
+    
+    /// Extract token from Authorization header
     ///
-    /// # Capability Discovery
-    ///
-    /// Uses the "secret.get" capability from the same provider.
-    /// Currently provided by BearDog (Security & Crypto Primal).
-    pub async fn request_jwt_secret(&self, purpose: &str) -> Result<Vec<u8>, AuthError> {
-        debug!(
-            "Requesting JWT secret from capability provider: {}",
-            purpose
-        );
-
-        // Connect to capability provider Unix socket
-        let stream = UnixStream::connect(&self.socket_path).await.map_err(|e| {
-            error!("Failed to connect to capability provider socket: {}", e);
-            AuthError::CapabilityProviderUnavailable(format!("Connection error: {}", e))
-        })?;
-
-        let (reader, mut writer) = stream.into_split();
-        let mut reader = BufReader::new(reader);
-
-        // Build JSON-RPC request
-        let request_id = self
-            .request_id
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-
-        let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            method: "secret.get".to_string(),
-            params: serde_json::json!({
-                "purpose": purpose,
-                "requester": "squirrel-mcp",
-            }),
-            id: request_id,
-        };
-
-        // Send request
-        let request_json = serde_json::to_string(&request)
-            .map_err(|e| AuthError::internal_error(format!("JSON serialization error: {}", e)))?;
-
-        writer
-            .write_all(request_json.as_bytes())
-            .await
-            .map_err(|e| AuthError::CapabilityProviderUnavailable(format!("Write error: {}", e)))?;
-
-        writer
-            .write_all(b"\n")
-            .await
-            .map_err(|e| AuthError::CapabilityProviderUnavailable(format!("Write error: {}", e)))?;
-
-        writer
-            .flush()
-            .await
-            .map_err(|e| AuthError::CapabilityProviderUnavailable(format!("Flush error: {}", e)))?;
-
-        // Read response
-        let mut response_line = String::new();
-        reader
-            .read_line(&mut response_line)
-            .await
-            .map_err(|e| AuthError::CapabilityProviderUnavailable(format!("Read error: {}", e)))?;
-
-        // Parse response
-        let response: JsonRpcResponse = serde_json::from_str(&response_line)
-            .map_err(|e| AuthError::internal_error(format!("Parse error: {}", e)))?;
-
-        if let Some(error) = response.error {
-            warn!(
-                "Capability provider secret request failed: {}",
-                error.message
-            );
-            return Err(AuthError::CapabilityProviderError(error.message));
-        }
-
-        let result = response.result.ok_or_else(|| AuthError::InvalidResponse)?;
-
-        // Extract secret (base64-encoded)
-        let secret_base64: String = serde_json::from_value(result["secret"].clone())
-            .map_err(|e| AuthError::internal_error(format!("Secret parse error: {}", e)))?;
-
-        // Use modern base64 Engine API
-        use base64::{engine::general_purpose, Engine as _};
-        let secret = general_purpose::STANDARD
-            .decode(&secret_base64)
-            .map_err(|e| AuthError::internal_error(format!("Base64 decode error: {}", e)))?;
-
-        info!(
-            "Received JWT secret from capability provider ({} bytes)",
-            secret.len()
-        );
-        Ok(secret)
+    /// Expected format: `Bearer <token>`
+    #[cfg(feature = "delegated-jwt")]
+    pub fn extract_token_from_header<'a>(&self, authorization_header: &'a str) -> AuthResult<&'a str> {
+        self.beardog_service
+            .extract_token_from_header(authorization_header)
+    }
+    
+    // Local JWT methods (dev/testing only)
+    
+    /// Create new delegated JWT client (local mode)
+    #[cfg(feature = "local-jwt")]
+    pub fn new_local(secret: &[u8]) -> AuthResult<Self> {
+        info!("⚠️ Using local JWT (dev mode, brings ring dependency)");
+        
+        let local_service = crate::jwt::JwtTokenManager::new(secret);
+        
+        Ok(Self {
+            _local_service: local_service,
+        })
+    }
+    
+    #[cfg(feature = "local-jwt")]
+    pub async fn create_token(
+        &self,
+        user_id: Uuid,
+        username: String,
+        roles: Vec<String>,
+        session_id: Uuid,
+        expires_at: DateTime<Utc>,
+    ) -> AuthResult<String> {
+        debug!("Creating JWT token via local service (dev mode)");
+        
+        let claims = crate::jwt::JwtClaims::new(user_id, username, roles, session_id, expires_at);
+        
+        self._local_service.create_token(&claims)
+    }
+    
+    #[cfg(feature = "local-jwt")]
+    pub async fn verify_token(&self, token: &str) -> AuthResult<JwtClaims> {
+        debug!("Verifying JWT token via local service (dev mode)");
+        
+        self._local_service.verify_token(token)
+    }
+    
+    #[cfg(feature = "local-jwt")]
+    pub fn extract_token_from_header<'a>(&self, authorization_header: &'a str) -> AuthResult<&'a str> {
+        self._local_service
+            .extract_token_from_header(authorization_header)
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "delegated-jwt"))]
 mod tests {
     use super::*;
-
+    use chrono::Duration;
+    
     #[test]
     fn test_delegated_client_creation() {
-        let client = DelegatedJwtClient::new("/tmp/jwt-provider.sock".into());
-        assert_eq!(client.socket_path, PathBuf::from("/tmp/jwt-provider.sock"));
+        let config = BearDogJwtConfig::default();
+        let client = DelegatedJwtClient::new(config);
+        
+        assert!(client.is_ok());
     }
-
+    
     #[test]
-    fn test_capability_provider_name() {
-        // ✅ Provider name should come from discovery
-        let discovered_name = "security-provider-xyz"; // From capability discovery
-        let client = DelegatedJwtClient::new("/tmp/jwt-provider.sock".into())
-            .with_provider_name(discovered_name);
-        assert_eq!(client.capability_provider, discovered_name);
-
-        // ❌ Don't hardcode ecosystem-specific names like "beardog-nat0"
-        // (nat0 is BirdSong P2P family tag - ecosystem knowledge!)
+    fn test_delegated_client_from_env() {
+        // Set test environment variables
+        std::env::set_var("BEARDOG_CRYPTO_SOCKET", "/tmp/test-beardog.sock");
+        std::env::set_var("JWT_KEY_ID", "test-key-id");
+        std::env::set_var("JWT_EXPIRY_HOURS", "12");
+        
+        let client = DelegatedJwtClient::new_from_env();
+        assert!(client.is_ok());
+        
+        // Cleanup
+        std::env::remove_var("BEARDOG_CRYPTO_SOCKET");
+        std::env::remove_var("JWT_KEY_ID");
+        std::env::remove_var("JWT_EXPIRY_HOURS");
     }
-
-    #[test]
-    fn test_json_rpc_request_serialization() {
-        let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            method: "jwt.validate".to_string(),
-            params: serde_json::json!({
-                "token": "test-token",
-                "issuer": "squirrel-mcp",
-                "audience": "squirrel-mcp-api",
-            }),
-            id: 1,
-        };
-
-        let json = serde_json::to_string(&request).unwrap();
-        assert!(json.contains("jwt.validate"));
-        assert!(json.contains("test-token"));
-    }
-
-    #[test]
-    fn test_jwt_validation_result_deserialization() {
-        let json = r#"{
-            "valid": true,
-            "claims": {
-                "sub": "user-123",
-                "username": "alice",
-                "roles": ["admin"],
-                "session_id": "session-456",
-                "iat": 1737158400,
-                "exp": 1737244800,
-                "nbf": 1737158400,
-                "iss": "squirrel-mcp",
-                "aud": "squirrel-mcp-api",
-                "jti": "jwt-789"
-            }
-        }"#;
-
-        let result: JwtValidationResult = serde_json::from_str(json).unwrap();
-        assert!(result.valid);
-        assert!(result.claims.is_some());
-
-        let claims = result.claims.unwrap();
-        assert_eq!(claims.username, "alice");
-        assert_eq!(claims.roles, vec!["admin"]);
-    }
-
-    // Integration tests would require a running capability provider
-    // These are marked as ignored by default
+    
+    // Integration tests require BearDog running
     #[tokio::test]
     #[ignore]
-    async fn test_validate_token_integration() {
-        // This test requires a capability provider to be running
-        // In real usage, socket path and name come from capability discovery!
-
-        // ✅ In production: From discovery
-        // let capability = discover_capability("jwt.validate").await?;
-        // let client = DelegatedJwtClient::new(capability.socket_path)
-        //     .with_provider_name(&capability.provider_name);
-
-        // For this test: Hardcoded for demonstration only
-        // (In real code, ALWAYS use discovery!)
-        let client = DelegatedJwtClient::new("/tmp/jwt-capability-provider.sock".into())
-            .with_provider_name("test-provider"); // Would be from discovery
-
-        // In real test, we'd get a valid token from the provider first
-        let token = "valid-test-token";
-        let result = client
-            .validate_token(token, "squirrel-mcp", "squirrel-mcp-api")
-            .await;
-
-        // Would assert based on capability provider's response
-        match result {
-            Ok(claims) => {
-                assert!(!claims.username.is_empty());
-            }
-            Err(AuthError::CapabilityProviderUnavailable(_)) => {
-                // Expected if capability provider not running
-                println!("JWT capability provider not available for integration test");
-            }
-            Err(e) => panic!("Unexpected error: {:?}", e),
-        }
+    async fn test_create_and_verify_token_integration() {
+        let client = DelegatedJwtClient::new_from_env().unwrap();
+        
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        let expires_at = Utc::now() + Duration::hours(1);
+        
+        let token = client
+            .create_token(
+                user_id,
+                "alice".to_string(),
+                vec!["user".to_string()],
+                session_id,
+                expires_at,
+            )
+            .await
+            .unwrap();
+        
+        let claims = client.verify_token(&token).await.unwrap();
+        
+        assert_eq!(claims.username, "alice");
+        assert_eq!(claims.sub, user_id.to_string());
     }
 }
