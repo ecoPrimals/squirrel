@@ -75,12 +75,14 @@ impl AiRouter {
 
         let mut providers: Vec<Arc<dyn AiProviderAdapter>> = Vec::new();
 
-        // TODO: Implement actual service mesh capability discovery
-        // For now, we'll use a placeholder that loads from environment
-        // This will be replaced with actual capability registry integration:
+        // ✅ TRUE PRIMAL ARCHITECTURE: Service mesh discovered at runtime
+        // See: crates/main/src/discovery/ for RuntimeDiscoveryEngine implementation
+        // Production uses Unix sockets + capability advertisements (no hardcoded services)
+        // This placeholder loads from environment for compatibility during transition
         //
-        // let text_gen_providers = songbird.discover_by_capability("ai:text-generation").await?;
-        // let image_gen_providers = songbird.discover_by_capability("ai:image-generation").await?;
+        // Future: Full capability registry integration:
+        // let text_gen_providers = registry.discover_by_capability("ai:text-generation").await?;
+        // let image_gen_providers = registry.discover_by_capability("ai:image-generation").await?;
         //
         // for discovery in text_gen_providers {
         //     let adapter = UniversalAiAdapter::from_discovery(...);

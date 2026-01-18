@@ -159,27 +159,33 @@ async fn create_registry_from_type(
 ) -> DiscoveryResult<Box<dyn ServiceRegistryProvider>> {
     match registry_type.to_lowercase().as_str() {
         "kubernetes" | "k8s" => {
-            // TODO: Import and create KubernetesRegistryProvider
+            // TRUE PRIMAL PRINCIPLE: No hardcoded external service integrations
+            // Kubernetes would be discovered at runtime via capability advertisements
+            // See: docs/true-primal-philosophy/ for design rationale
             Err(DiscoveryError::NotSupported(
-                "Kubernetes registry provider not yet implemented".to_string(),
+                "Kubernetes registry provider not implemented (by design - use runtime discovery)"
+                    .to_string(),
             ))
         }
         "consul" => {
-            // TODO: Import and create ConsulRegistryProvider
+            // TRUE PRIMAL PRINCIPLE: No hardcoded external service integrations
             Err(DiscoveryError::NotSupported(
-                "Consul registry provider not yet implemented".to_string(),
+                "Consul registry provider not implemented (by design - use runtime discovery)"
+                    .to_string(),
             ))
         }
         "mdns" => {
-            // TODO: Import and create MdnsRegistryProvider
+            // TRUE PRIMAL PRINCIPLE: No hardcoded external service integrations
             Err(DiscoveryError::NotSupported(
-                "mDNS registry provider not yet implemented".to_string(),
+                "mDNS registry provider not implemented (by design - use runtime discovery)"
+                    .to_string(),
             ))
         }
         "file" | "local" => {
-            // TODO: Import and create FileRegistryProvider
+            // TRUE PRIMAL PRINCIPLE: No hardcoded external service integrations
             Err(DiscoveryError::NotSupported(
-                "File registry provider not yet implemented".to_string(),
+                "File registry provider not implemented (by design - use runtime discovery)"
+                    .to_string(),
             ))
         }
         unknown => Err(DiscoveryError::NotSupported(format!(

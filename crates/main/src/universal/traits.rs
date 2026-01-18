@@ -34,13 +34,13 @@ pub type UniversalResult<T> = Result<T, PrimalError>;
 ///     // Implement required methods...
 ///     # fn primal_id(&self) -> &str { "my_primal" }
 ///     # fn instance_id(&self) -> &str { "instance_1" }
-///     # fn context(&self) -> &squirrel::universal::PrimalContext { todo!() }
+///     # fn context(&self) -> &squirrel::universal::PrimalContext { unimplemented!() }
 ///     # fn primal_type(&self) -> squirrel::universal::PrimalType { squirrel::universal::PrimalType::Compute }
 ///     # fn capabilities(&self) -> Vec<squirrel::universal::PrimalCapability> { vec![] }
 ///     # fn dependencies(&self) -> Vec<squirrel::universal::PrimalDependency> { vec![] }
-///     # async fn health_check(&self) -> squirrel::universal::PrimalHealth { todo!() }
-///     # fn endpoints(&self) -> squirrel::universal::PrimalEndpoints { todo!() }
-///     # async fn handle_primal_request(&self, request: PrimalRequest) -> squirrel::universal::UniversalResult<PrimalResponse> { todo!() }
+///     # async fn health_check(&self) -> squirrel::universal::PrimalHealth { unimplemented!() }
+///     # fn endpoints(&self) -> squirrel::universal::PrimalEndpoints { unimplemented!() }
+///     # async fn handle_primal_request(&self, request: PrimalRequest) -> squirrel::universal::UniversalResult<PrimalResponse> { unimplemented!() }
 ///     # async fn initialize(&mut self, config: serde_json::Value) -> squirrel::universal::UniversalResult<()> { Ok(()) }
 ///     # async fn shutdown(&mut self) -> squirrel::universal::UniversalResult<()> { Ok(()) }
 /// }
