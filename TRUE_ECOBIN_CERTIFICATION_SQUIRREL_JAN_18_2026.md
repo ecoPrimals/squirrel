@@ -1,9 +1,36 @@
 # TRUE ecoBin #5 Certification - Squirrel MCP
 
 **Date**: January 18, 2026  
+**Corrected**: January 19, 2026  
 **Primal**: Squirrel (AI/MCP Assistant)  
 **Version**: v1.3.1 (TRUE PRIMAL + Capability JWT)  
-**Status**: ✅ **CERTIFIED TRUE ecoBin #5!** 🌍🏆
+**Status**: ❌ **CERTIFICATION REVOKED** (see correction below)
+
+---
+
+## ⚠️ CORRECTION NOTICE (January 19, 2026)
+
+**This certification has been REVOKED pending completion of TLS delegation.**
+
+**Issue Identified by biomeOS Team**:
+- Squirrel has `ring` v0.17.14 via `reqwest` → `rustls` (for TLS/HTTPS)
+- Previous certification incorrectly deemed this "acceptable"
+- Per TRUE ecoBin standards: NO `ring` anywhere, including for TLS
+
+**Corrected Status**: ❌ **NOT TRUE ecoBin** (90% complete)
+
+**Blocker**: `ring` via `reqwest` for TLS in AI tools and core crates
+
+**Path Forward**: Delegate AI HTTP calls to Songbird (~8-12 hours)
+
+**See**: `TRUE_ECOBIN_CORRECTED_STATUS_JAN_19_2026.md` for full assessment
+
+---
+
+## 📋 Original Certification (REVOKED)
+
+The content below represents the original (incorrect) certification from January 18, 2026.  
+It is preserved for historical context but should not be considered valid.
 
 ---
 
