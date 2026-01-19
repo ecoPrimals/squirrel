@@ -73,7 +73,7 @@ impl UniversalPrimalEcosystem {
             discovered_services: Arc::new(RwLock::new(HashMap::new())),
             capabilities_cache: Arc::new(RwLock::new(HashMap::new())),
             discovery_cache: Arc::new(RwLock::new(HashMap::new())),
-            connection_pool: ServiceConnectionPool::new(),
+            // connection_pool removed - HTTP pooling not needed for Unix sockets
             context,
             cache_config,
         }
