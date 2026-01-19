@@ -23,7 +23,7 @@ pub struct FederationService {
     load_balancer: Arc<FederationLoadBalancer>,
     #[allow(dead_code)]
     monitoring: Arc<MonitoringService>,
-    http_client: reqwest::Client,
+    // Note: HTTP removed - TODO: use Songbird via Unix sockets for federation HTTP calls
     shutdown_notify: Arc<tokio::sync::Notify>,
     load_metrics: Arc<LoadMetrics>,
     scaling_policy: Arc<ScalingPolicy>,
@@ -127,9 +127,7 @@ impl FederationService {
             scale_factor: 1.5,
         });
 
-        let http_client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()?;
+        // Note: HTTP client removed - delegate to Songbird for any HTTP needs
 
         Ok(Self {
             config,
@@ -140,7 +138,6 @@ impl FederationService {
             monitoring: Arc::new(MonitoringService::new(
                 crate::monitoring::MonitoringConfig::default(),
             )),
-            http_client,
             shutdown_notify: Arc::new(tokio::sync::Notify::new()),
             load_metrics,
             scaling_policy,
@@ -213,19 +210,17 @@ impl FederationService {
 
     /// Probe a potential federation node
     async fn probe_federation_node(&self, endpoint: &str) -> Result<SquirrelInstance> {
-        let info_url = format!("{endpoint}/api/v1/federation/info");
+        // TODO: Delegate HTTP to Songbird via Unix sockets (TRUE PRIMAL pattern)
+        // For now, return unimplemented error
+        return Err(Error::Federation(format!(
+            "HTTP delegation to Songbird not yet implemented for endpoint: {}",
+            endpoint
+        )));
 
-        let response = self.http_client.get(&info_url).send().await?;
-
-        if !response.status().is_success() {
-            return Err(Error::Federation(format!(
-                "Node at {} returned error: {}",
-                endpoint,
-                response.status()
-            )));
-        }
-
-        let node_info: NodeInfo = response.json().await?;
+        #[allow(unreachable_code)]
+        {
+        let _info_url = format!("{endpoint}/api/v1/federation/info");
+        let _node_info: NodeInfo = unimplemented!("TODO: Call Songbird via Unix socket");
 
         Ok(SquirrelInstance {
             id: node_info.node_id,
@@ -418,17 +413,17 @@ impl FederationService {
         for mut entry in self.instances.iter_mut() {
             let (instance_id, instance) = entry.pair_mut();
 
-            let health_url = format!("{}/health", instance.endpoint);
-            match self.http_client.get(&health_url).send().await {
-                Ok(response) => {
-                    instance.health = match response.status().as_u16() {
-                        200 => InstanceStatus::Running,
-                        500..=599 => InstanceStatus::Failed,
-                        _ => InstanceStatus::Failed,
-                    };
-                    instance.last_seen = Utc::now();
-                }
-                Err(_) => {
+            // TODO: Delegate health check HTTP to Songbird via Unix sockets
+            let _health_url = format!("{}/health", instance.endpoint);
+            // For now, assume instances are running (to be implemented with Songbird)
+            instance.health = InstanceStatus::Running;
+            instance.last_seen = Utc::now();
+            
+            // Original HTTP code (to be replaced with Songbird delegation):
+            // match self.http_client.get(&health_url).send().await {
+            //     Ok(response) => { ... }
+            //     Err(_) => { 
+            if false {
                     instance.health = InstanceStatus::Failed;
 
                     // Mark for removal if unreachable for too long

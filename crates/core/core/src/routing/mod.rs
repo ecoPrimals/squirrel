@@ -77,9 +77,7 @@ pub struct McpRoutingService {
     load_balancer: Arc<LoadBalancer>,
     /// Context manager
     context_manager: Arc<ContextManager>,
-    /// HTTP client for external requests
-    #[allow(dead_code)]
-    http_client: reqwest::Client,
+    // Note: HTTP removed - use Songbird via Unix sockets for any HTTP needs
 }
 
 /// Internal state for the routing service
@@ -137,7 +135,6 @@ impl McpRoutingService {
             task_queue: Arc::new(DashMap::new()),
             load_balancer,
             context_manager,
-            http_client: reqwest::Client::new(),
         })
     }
 

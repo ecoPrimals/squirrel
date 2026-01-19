@@ -23,7 +23,7 @@ pub struct EcosystemService {
     config: EcosystemConfig,
     state: Arc<EcosystemState>,
     discovered_primals: Arc<DashMap<String, PrimalEndpoint>>,
-    http_client: reqwest::Client,
+    // Note: HTTP removed - use Songbird via Unix sockets for any HTTP needs
     shutdown_notify: Arc<Notify>,
     monitoring: Arc<MonitoringService>,
 }
@@ -73,21 +73,12 @@ impl EcosystemService {
             coordination_stats: RwLock::new(CoordinationStats::default()),
         });
 
-        let http_client = reqwest::Client::builder()
-            .timeout(
-                config
-                    .discovery
-                    .health_check_timeout
-                    .to_std()
-                    .unwrap_or(std::time::Duration::from_secs(5)),
-            )
-            .build()?;
+        // Note: HTTP client removed - delegate to Songbird via Unix sockets
 
         Ok(Self {
             config,
             state,
             discovered_primals: Arc::new(DashMap::new()),
-            http_client,
             shutdown_notify: Arc::new(Notify::new()),
             monitoring,
         })
