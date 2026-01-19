@@ -763,11 +763,14 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     ) -> UniversalResult<EcosystemResponse> {
         // TODO: Implement ecosystem request handling
         Ok(EcosystemResponse {
+            request_id: uuid::Uuid::new_v4(),
             response_id: uuid::Uuid::new_v4(),
+            status: ResponseStatus::Success,
             success: true,
-            payload: None,
+            payload: serde_json::json!({}),
             error_message: None,
-            metadata: None,
+            timestamp: chrono::Utc::now(),
+            metadata: std::collections::HashMap::new(),
         })
     }
 
