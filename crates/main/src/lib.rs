@@ -154,6 +154,7 @@ pub async fn initialize_squirrel_system(
         monitoring_system,
         self_healing_system,
         shutdown_manager,
+        #[cfg(feature = "monitoring")]
         metrics_collector,
     };
 
@@ -166,6 +167,7 @@ pub struct SquirrelSystem {
     pub monitoring_system: monitoring::MonitoringSystem,
     pub self_healing_system: SelfHealingManager,
     pub shutdown_manager: ShutdownManager,
+    #[cfg(feature = "monitoring")]
     pub metrics_collector: std::sync::Arc<MetricsCollector>,
 }
 

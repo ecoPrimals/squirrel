@@ -18,7 +18,7 @@ use std::time::Instant;
 use anyhow::Result;
 use tracing::info;
 
-use crate::api::ApiServer;
+// // use crate::api::ApiServer; // DELETED // DELETED
 use crate::ecosystem::{EcosystemManager, EcosystemServiceRegistration};
 use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;
@@ -63,8 +63,8 @@ pub struct UniversalAdapter {
     /// Shutdown manager
     shutdown_manager: Arc<ShutdownManager>,
 
-    /// API server instance
-    api_server: Option<ApiServer>,
+    /// API server instance - REMOVED (HTTP API deleted)
+    // api_server: Option<ApiServer>, // DELETED
 
     /// Initialization status
     initialized: bool,
@@ -87,7 +87,7 @@ impl UniversalAdapter {
             ecosystem_manager,
             metrics_collector,
             shutdown_manager,
-            api_server: None,
+            // api_server: None, // DELETED
             initialized: false,
             start_time: Instant::now(),
         }
@@ -108,16 +108,9 @@ impl UniversalAdapter {
     pub async fn start(&mut self) -> Result<(), PrimalError> {
         info!("🚀 Starting Universal Adapter with ecosystem integration");
 
-        // Create API server with all required dependencies
-        let api_server = ApiServer::new_with_host(
-            self.config.service_host.clone(),
-            self.config.service_port,
-            self.ecosystem_manager.clone(),
-            self.metrics_collector.clone(),
-            self.shutdown_manager.clone(),
-        );
-
-        self.api_server = Some(api_server);
+        // API server REMOVED - HTTP API deleted
+        // let api_server = ApiServer::new_with_host(...); // DELETED
+        // self.api_server = Some(api_server); // DELETED
         self.initialized = true;
 
         info!("✅ Universal Adapter started successfully");
@@ -171,7 +164,7 @@ impl UniversalAdapter {
                     gpu: None,
                 },
             }),
-            api_server_running: self.api_server.is_some(),
+            api_server_running: false, // api_server removed
             uptime: self.start_time.elapsed().as_secs(),
         }
     }
@@ -233,7 +226,8 @@ impl UniversalAdapter {
     pub async fn shutdown(&self) -> Result<(), PrimalError> {
         info!("🔄 Shutting down Universal Adapter");
 
-        if let Some(_api_server) = &self.api_server {
+        // API server removed
+        if false { // if let Some(_api_server) = &self.api_server { // DELETED
             info!("Shutting down API server");
             // API server shutdown would be handled here
         }

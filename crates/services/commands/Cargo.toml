@@ -41,9 +41,10 @@ sysinfo.workspace = true
 log.workspace = true
 secrecy.workspace = true
 
-# gRPC and protobuf (for ecosystem integration)
-tonic.workspace = true
-prost.workspace = true
+# gRPC REMOVED - NOT ecoPrimals standard!
+# ecoPrimals uses JSON-RPC + tarpc (full Rust ecosystem)
+# tonic REMOVED
+# prost REMOVED
 
 # Authentication dependencies
 argon2 = { version = "0.5", features = ["std"] }

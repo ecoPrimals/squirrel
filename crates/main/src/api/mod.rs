@@ -36,16 +36,19 @@
 //! # }
 //! ```
 
-pub mod ai;
-mod ecosystem;
-mod health;
-mod management;
-mod metrics;
-mod server;
-mod service_mesh;
+// Legacy HTTP API modules REMOVED - Squirrel uses Unix sockets + JSON-RPC + tarpc!
+// Modern idiomatic Rust: capability-based discovery, no HTTP frameworks
+// pub mod ai;           // DELETED: Use capability_ai instead
+// mod ecosystem;        // DELETED: Use capability discovery
+// mod health;           // DELETED: Unix sockets don't need HTTP health checks
+// mod management;       // DELETED: Use JSON-RPC management
+// mod metrics;          // DELETED: Monitoring via Unix sockets
+// mod server;           // DELETED: No HTTP server needed
+// mod service_mesh;     // DELETED: Capability discovery handles this
 mod types;
 
-// Re-export main types
-pub use ai::{ai_routes, provider_routes, ActionRegistry, AiRouter};
-pub use server::ApiServer;
-pub use types::*;
+// Legacy HTTP API re-exports REMOVED
+// Use crates/main/src/rpc/ for JSON-RPC + tarpc instead!
+// pub use ai::{ai_routes, provider_routes, ActionRegistry, AiRouter}; // DELETED
+// pub use server::ApiServer; // DELETED
+pub use types::*; // Keep types for backward compat (for now)

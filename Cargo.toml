@@ -103,17 +103,18 @@ prometheus = "0.14"
 
 # Security and additional deps
 secrecy = { version = "0.8", features = ["serde"] }
-axum = { version = "0.7", features = ["ws", "json", "tokio"] }
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+# axum REMOVED - NOT ecoPrimals standard (use JSON-RPC + tarpc!)
+# tower REMOVED - NOT ecoPrimals standard  
+# tower-http REMOVED - NOT ecoPrimals standard
 
 # CLI and command dependencies
 clap = { version = "4.4", features = ["derive"] }
 
-# gRPC and protobuf dependencies
-prost = "0.12"
-prost-types = "0.12"
-tonic = { version = "0.10", features = ["tls"] }
+# gRPC REMOVED - NOT ecoPrimals standard!
+# ecoPrimals uses JSON-RPC + tarpc for full Rust ecosystem
+# prost REMOVED
+# prost-types REMOVED  
+# tonic REMOVED - gRPC is NOT our protocol!
 
 # System and utility dependencies
 sysinfo = "0.29"

@@ -1,29 +1,22 @@
 //! JSON-RPC and tarpc Protocol Implementation
 //!
-//! This module provides modern inter-primal communication protocols:
-//! - JSON-RPC 2.0 over Unix sockets (for biomeOS integration) ✅ COMPLETE
-//! - tarpc for high-performance peer-to-peer RPC ✅ COMPLETE
-//! - HTTPS fallback for compatibility ✅ NEW
+//! **MODERN ARCHITECTURE** (Post-HTTP cleanup, Jan 19, 2026):
+//! - JSON-RPC 2.0 over Unix sockets (for biomeOS integration) ✅
+//! - tarpc for high-performance peer-to-peer RPC ✅
+//! - NO HTTP! TRUE PRIMAL uses Unix sockets only! 🎉
 //!
 //! ## Architecture
 //!
 //! ```text
-//! Request → Protocol Router
+//! Request → Unix Socket
 //!              ↓
-//!      [Priority Selection]
+//!      [JSON-RPC or tarpc]
 //!              ↓
 //!      ┌───────┴───────┐
-//!      ↓       ↓       ↓
-//!    tarpc  JSON-RPC HTTPS
-//!      ↓       ↓       ↓
-//!    [Fast] [Local] [Compat]
+//!      ↓               ↓
+//!   JSON-RPC        tarpc
+//!   (biomeOS)       (P2P)
 //! ```
-//!
-//! ## Protocol Selection (Following Songbird)
-//!
-//! 1. **tarpc**: High-performance binary RPC (primary for federation)
-//! 2. **JSON-RPC 2.0**: Unix socket IPC (primary for biomeOS)
-//! 3. **HTTPS**: RESTful fallback (compatibility layer)
 //!
 //! ## Implementation Notes
 //!
@@ -33,22 +26,9 @@
 //! - Bincode for serialization
 //! - Feature-gated behind `tarpc-rpc` feature flag
 
-pub mod handlers;
-pub mod server;
+// Core modules (Pure Rust!)
 pub mod types;
 pub mod unix_socket;
-
-// Protocol router - intelligent protocol selection (NEW - Songbird pattern)
-pub mod protocol_router;
-
-// HTTPS fallback server (NEW - Songbird pattern)
-pub mod https_fallback;
-
-// Internal handlers (protocol-agnostic implementations)
-pub mod handlers_internal;
-
-// Handler wiring (connects protocol router to implementations)
-mod handler_stubs;
 
 // tarpc binary RPC (feature-gated)
 #[cfg(feature = "tarpc-rpc")]
@@ -59,20 +39,11 @@ pub mod tarpc_server;
 pub mod tarpc_service;
 
 // Re-exports for convenience
-pub use server::RpcServer;
 pub use types::{
     AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckRequest,
     HealthCheckResponse, ListProvidersRequest, ListProvidersResponse, QueryAiRequest,
     QueryAiResponse,
 };
-
-// Protocol router re-exports (NEW)
-pub use protocol_router::{
-    ProtocolRequest, ProtocolResponse, ProtocolRouter, ProtocolRouterConfig,
-};
-
-// HTTPS fallback re-exports (NEW)
-pub use https_fallback::{HttpsFallbackConfig, HttpsFallbackServer};
 
 // tarpc re-exports (feature-gated)
 #[cfg(feature = "tarpc-rpc")]

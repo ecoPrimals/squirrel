@@ -410,9 +410,10 @@ impl UniversalClient {
         T: Serialize,
         R: for<'de> Deserialize<'de>,
     {
-        use crate::rpc::protocol_router::{
-            ProtocolCapabilities, ProtocolRequest, ProtocolRouter, ProtocolRouterConfig,
-        };
+        // protocol_router DELETED - use JSON-RPC or tarpc directly
+        // use crate::rpc::protocol_router::{
+        //     ProtocolCapabilities, ProtocolRequest, ProtocolRouter, ProtocolRouterConfig,
+        // };
 
         tracing::debug!(
             "Executing capability on service '{}' at {} (protocol: {:?})",
@@ -426,48 +427,17 @@ impl UniversalClient {
             PrimalError::InvalidInput(format!("Failed to serialize request: {}", e))
         })?;
 
-        // Determine protocol capabilities based on connection metadata
-        let capabilities = ProtocolCapabilities {
-            supports_tarpc: self.connection.protocol == Protocol::Tarpc,
-            is_local: self
-                .connection
-                .service
-                .endpoint
-                .starts_with("http://localhost")
-                || self
-                    .connection
-                    .service
-                    .endpoint
-                    .starts_with("http://127.0.0.1")
-                || self.connection.service.endpoint.starts_with("unix://"),
-            requires_secure: self.connection.service.endpoint.starts_with("https://"),
-        };
+        // Protocol capabilities REMOVED - use Unix sockets directly
+        // Modern implementation: JSON-RPC over Unix sockets
+        // let capabilities = ProtocolCapabilities {
+        //     supports_tarpc: self.connection.protocol == Protocol::Tarpc,
+        //     is_local: ...,
+        //     requires_secure: ...,
+        // };
 
-        // Create protocol request
-        let protocol_request = ProtocolRequest {
-            id: uuid::Uuid::new_v4().to_string(),
-            method: "execute_capability".to_string(),
-            params,
-            capabilities,
-        };
-
-        // Route through protocol router
-        let router = ProtocolRouter::new(ProtocolRouterConfig::default());
-        let response = router.route_request(protocol_request).await?;
-
-        // Extract result
-        let result_value = response.result.ok_or_else(|| {
-            PrimalError::OperationFailed(
-                response
-                    .error
-                    .unwrap_or_else(|| "No result returned".to_string()),
-            )
-        })?;
-
-        // Deserialize response
-        serde_json::from_value(result_value).map_err(|e| {
-            PrimalError::InvalidInput(format!("Failed to deserialize response: {}", e))
-        })
+        // Protocol router REMOVED - implement JSON-RPC over Unix sockets
+        let _ = params; // Silence unused warning  
+        unimplemented!("Protocol router deleted - use JSON-RPC over Unix sockets")
     }
 }
 

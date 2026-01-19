@@ -28,7 +28,8 @@ parking_lot = "0.12"
 # HTTP client (OPTIONAL - for dev/testing)
 # Production uses Unix sockets for all external communication!
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
-warp = "0.3"
+# warp REMOVED - HTTP API deleted! Squirrel uses Unix sockets + JSON-RPC + tarpc
+# Modern idiomatic Rust - no HTTP frameworks needed!
 base64 = "0.21"
 rand = "0.8"
 futures = "0.3"
@@ -89,19 +90,22 @@ criterion = { version = "0.5", optional = true }
 pprof = { version = "0.13", optional = true }
 iai = { version = "0.1", optional = true }
 
-# Additional ecosystem dependencies
-tonic = { version = "0.10", optional = true }
-prost = { version = "0.12", optional = true }
+# gRPC REMOVED - NOT ecoPrimals standard!
+# ecoPrimals uses JSON-RPC + tarpc (full Rust ecosystem)
+# tonic REMOVED - gRPC is NOT our protocol
+# prost REMOVED - protobuf NOT needed (use serde_json!)
 
 [features]
 # Production default: capability-based AI (Pure Rust!)
-default = ["capability-ai", "monitoring", "ecosystem"]
+# NO monitoring (pulls hyper via prometheus) - add explicitly if needed
+default = ["capability-ai", "ecosystem"]
 # Capability-based AI (TRUE PRIMAL - Pure Rust!)
 capability-ai = []
 # Development mode with direct HTTP (brings reqwest → ring)
 dev-direct-http = ["dep:reqwest", "openai"]
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]
-ecosystem = ["tonic", "prost"]
+# Ecosystem support via JSON-RPC + tarpc (NO gRPC!)
+ecosystem = []
 tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]
 benchmarking = ["criterion", "pprof", "iai"]
 enhanced_error_handling = []

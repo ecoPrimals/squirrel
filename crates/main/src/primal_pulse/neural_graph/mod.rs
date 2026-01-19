@@ -4,12 +4,11 @@
 //! structures for biomeOS execution. Learns from execution patterns and evolves
 //! coordination strategies over time.
 
-pub mod handler;
+// pub mod handler; // DELETED - used HTTP API
+// pub use handler::handle_neural_graph_optimize; // DELETED
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-pub use handler::handle_neural_graph_optimize;
 
 /// Represents a single primal node in a coordination graph
 #[derive(Debug, Clone, Serialize, Deserialize)]

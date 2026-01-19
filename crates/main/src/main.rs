@@ -9,9 +9,11 @@ mod doctor;
 use anyhow::Result;
 use clap::Parser;
 use serde::Serialize;
-use squirrel::api::ApiServer;
+// ApiServer REMOVED - HTTP API deleted, use JSON-RPC instead
+// use squirrel::api::ApiServer; // DELETED
 use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
 use squirrel::shutdown::ShutdownManager;
+#[cfg(feature = "monitoring")]
 use squirrel::MetricsCollector;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -94,7 +96,11 @@ async fn run_server(
     println!();
 
     // Initialize ecosystem components
+    #[cfg(feature = "monitoring")]
     let metrics_collector = Arc::new(MetricsCollector::new());
+    #[cfg(not(feature = "monitoring"))]
+    let metrics_collector = Arc::new(squirrel::monitoring::metrics::MetricsCollector::new());
+    
     let ecosystem_config = EcosystemConfig::default();
     let ecosystem_manager = Arc::new(EcosystemManager::new(
         ecosystem_config,
@@ -106,18 +112,9 @@ async fn run_server(
     println!("✅ Metrics Collector initialized");
     println!("✅ Shutdown Manager initialized");
 
-    // Create and start API server
-    let api_server = ApiServer::new(
-        port,
-        ecosystem_manager.clone(),
-        metrics_collector.clone(),
-        shutdown_manager.clone(),
-    );
-
-    println!("🚀 Starting API server on port {}", port);
-    println!("   Health: http://localhost:{}/health", port);
-    println!("   API: http://localhost:{}/api/v1/*", port);
-    println!();
+    // Legacy HTTP API server REMOVED - Squirrel uses Unix sockets + JSON-RPC + tarpc!
+    println!("✅ Modern architecture: Unix sockets + JSON-RPC + tarpc");
+    println!("   (No HTTP server - TRUE PRIMAL!)");
 
     // Start JSON-RPC server on Unix socket (for biomeOS integration)
     let node_id = std::env::var("SQUIRREL_NODE_ID")
@@ -130,7 +127,7 @@ async fn run_server(
     println!("✅ Squirrel AI/MCP Primal Ready!");
 
     // Start the server (this will block)
-    api_server.start().await?;
+    // api_server.start().await?; // DELETED - HTTP server removed
 
     Ok(())
 }
