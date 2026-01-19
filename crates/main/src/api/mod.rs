@@ -1,54 +1,36 @@
-//! REST API server for ecosystem integration
+//! API module for AI routing and request types
 //!
-//! This module provides a comprehensive HTTP API following ecosystem standards,
-//! with full capability-based discovery and no hardcoded primal dependencies.
+//! **LEGACY MODULE** - Partially evolved to modern architecture
+//!
+//! # Current State (v1.6.0)
+//!
+//! After v1.6.0 HTTP debt cleanup:
+//! - ❌ HTTP API endpoints **DELETED** (health, metrics, ecosystem, server, service_mesh, management)
+//! - ✅ AI routing **KEPT** (used by tarpc RPC server)
+//! - ✅ Types **KEPT** (shared request/response types)
 //!
 //! # Architecture
 //!
-//! The API is organized into cohesive modules:
-//! - `health`: Health checks and readiness probes
-//! - `ecosystem`: Service discovery and primal integration  
-//! - `metrics`: Performance metrics and monitoring
-//! - `songbird`: Service mesh integration
-//! - `management`: Administrative operations
+//! The remaining modules support tarpc-based AI routing:
+//! - `ai/`: AI provider routing and selection (used by `rpc/tarpc_server`)
 //! - `types`: Shared request/response types
-//! - `server`: Core server implementation
 //!
 //! # Usage
 //!
-//! ```rust,no_run
-//! use squirrel::api::ApiServer;
-//! use squirrel::ecosystem::{EcosystemManager, EcosystemConfig};
-//! use squirrel::shutdown::ShutdownManager;
-//! use squirrel::MetricsCollector;
-//! use std::sync::Arc;
-//!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! let port = 9010;
-//! let config = EcosystemConfig::default();
-//! let metrics = Arc::new(MetricsCollector::new());
-//! let ecosystem = Arc::new(EcosystemManager::new(config, metrics.clone()));
-//! let shutdown = Arc::new(ShutdownManager::new());
-//!
-//! let api_server = ApiServer::new(port, ecosystem, metrics, shutdown);
-//! api_server.start().await?;
-//! # Ok(())
-//! # }
-//! ```
+//! This module is primarily used internally by `crates/main/src/rpc/tarpc_server.rs`
+//! for AI request routing over tarpc RPC.
 
-// Legacy HTTP API modules REMOVED - Squirrel uses Unix sockets + JSON-RPC + tarpc!
-// Modern idiomatic Rust: capability-based discovery, no HTTP frameworks
-// pub mod ai;           // DELETED: Use capability_ai instead
+// AI routing module (used by tarpc RPC server)
+pub(crate) mod ai;
+
+// Re-export for tarpc_server
+pub use ai::AiRouter;
+
+// Legacy HTTP API modules REMOVED in v1.6.0 - Squirrel uses Unix sockets + JSON-RPC + tarpc!
 // mod ecosystem;        // DELETED: Use capability discovery
 // mod health;           // DELETED: Unix sockets don't need HTTP health checks
 // mod management;       // DELETED: Use JSON-RPC management
 // mod metrics;          // DELETED: Monitoring via Unix sockets
 // mod server;           // DELETED: No HTTP server needed
 // mod service_mesh;     // DELETED: Capability discovery handles this
-mod types;
-
-// Legacy HTTP API re-exports REMOVED
-// Use crates/main/src/rpc/ for JSON-RPC + tarpc instead!
-// pub use ai::{ai_routes, provider_routes, ActionRegistry, AiRouter}; // DELETED
-// pub use server::ApiServer; // DELETED
-pub use types::*; // Keep types for backward compat (for now)
+// mod types;            // DELETED: Unused (v1.6.0 cleanup)
