@@ -1,7 +1,16 @@
 //! Multi-Model Dispatch Demo
 //!
-//! This demo shows how to use different AI models (API-based and local)
-//! within the same workflow using the existing AI tools infrastructure.
+//! **DEPRECATED**: This example uses deprecated OpenAI and Anthropic clients.
+//!
+//! **NEW EXAMPLE**: See `capability_ai_demo.rs` for the new pattern!
+//!
+//! This example is kept for reference but will be removed in v2.0.0.
+//! The new capability_ai pattern delegates HTTP to Songbird via Unix sockets,
+//! achieving TRUE ecoBin compliance (zero reqwest/ring dependencies).
+//!
+//! See: `docs/CAPABILITY_AI_MIGRATION_GUIDE.md` for migration guide.
+
+#![allow(deprecated)]
 
 use std::collections::HashMap;
 use std::sync::Arc;

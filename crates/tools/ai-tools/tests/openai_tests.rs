@@ -1,4 +1,15 @@
 //! Comprehensive tests for OpenAI API client
+//!
+//! **DEPRECATED**: These tests are for the deprecated OpenAI client.
+//!
+//! The OpenAI client uses reqwest (C dependency via ring) and is being replaced
+//! by capability_ai which delegates HTTP to Songbird via Unix sockets.
+//!
+//! See: `docs/CAPABILITY_AI_MIGRATION_GUIDE.md` for the new pattern.
+//!
+//! These tests are kept for reference but will be removed in v2.0.0.
+
+#![allow(deprecated)]
 
 use squirrel_ai_tools::common::{AIClient, ChatMessage, ChatRequest, MessageRole, ModelParameters};
 use squirrel_ai_tools::openai::{OpenAIClient, OpenAIConfig, DEFAULT_MODEL};
