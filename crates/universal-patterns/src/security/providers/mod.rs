@@ -466,17 +466,19 @@ pub async fn register_security_service(
 pub struct BeardogSecurityProvider {
     #[allow(dead_code)]
     config: SecurityServiceConfig,
-    #[allow(dead_code)]
-    client: Option<reqwest::Client>,
+    // Note: HTTP client removed - should use Unix socket for Beardog communication
 }
 
 impl BeardogSecurityProvider {
     /// Create a new Beardog security provider
+    /// TODO: Should use Unix socket discovery instead of HTTP
     pub async fn new(config: SecurityServiceConfig) -> Result<Self, SecurityError> {
-        let client = reqwest::Client::new();
+        // Beardog communication should use Unix sockets
+        // Pattern: UnixStream::connect("/var/run/beardog/security.sock").await
+        tracing::info!("BeardogSecurityProvider created (HTTP delegation not yet implemented)");
+        
         Ok(Self {
             config,
-            client: Some(client),
         })
     }
 }
@@ -550,9 +552,11 @@ impl UniversalSecurityService for BeardogSecurityProvider {
         })
     }
 
+    /// TODO: Should use Unix socket discovery instead of HTTP
     async fn initialize(&mut self, config: SecurityServiceConfig) -> Result<(), SecurityError> {
         self.config = config;
-        self.client = Some(reqwest::Client::new());
+        // HTTP client removed - should use Unix socket for Beardog communication
+        tracing::info!("BeardogSecurityProvider initialized (HTTP delegation not yet implemented)");
         Ok(())
     }
 }
@@ -642,6 +646,7 @@ pub struct BeardogIntegration;
 
 impl BeardogIntegration {
     /// Create a new Beardog integration
+    /// TODO: Should use Unix socket discovery instead of HTTP
     ///
     /// Note: This is a factory function that returns BeardogSecurityProvider, not Self.
     /// This is intentional as BeardogIntegration is a namespace for integration logic.
@@ -649,9 +654,11 @@ impl BeardogIntegration {
     pub async fn new(
         config: SecurityServiceConfig,
     ) -> Result<BeardogSecurityProvider, SecurityError> {
+        // Beardog communication should use Unix sockets
+        tracing::info!("BeardogIntegration created (HTTP delegation not yet implemented)");
+        
         Ok(BeardogSecurityProvider {
             config,
-            client: Some(reqwest::Client::new()),
         })
     }
 }
