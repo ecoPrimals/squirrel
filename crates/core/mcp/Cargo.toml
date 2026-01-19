@@ -88,10 +88,11 @@ hmac = "0.12"
 rustls = "0.21"
 rustls-pemfile = "1.0"
 
-# AI providers
+# AI providers (OPTIONAL - for direct HTTP to AI vendors)
+# Production delegates to Songbird via Unix sockets!
 openai-api-rs = { version = "0.1", optional = true }
 anthropic-sdk = { version = "0.1", optional = true }
-reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 
 # Plugin system
 libloading = { version = "0.8", optional = true }
@@ -130,7 +131,12 @@ insta = "1.34"
 
 
 [features]
+# Production default: websocket, streaming (Pure Rust!)
 default = ["streaming", "websocket"]
+
+# Direct HTTP to AI vendors (DEV/TESTING - brings reqwest → ring!)
+direct-http = ["dep:reqwest"]
+
 enhanced = [
     "websocket",
     "tarpc", 
@@ -154,7 +160,8 @@ full = [
 websocket = ["dep:tokio-tungstenite", "dep:tungstenite", "dep:axum", "dep:axum-extra"]
 tarpc = ["dep:tarpc"]
 streaming = ["dep:tokio-stream", "dep:flume"]
-ai-providers = ["dep:openai-api-rs", "dep:anthropic-sdk"]
+# AI providers require direct-http feature
+ai-providers = ["direct-http", "dep:openai-api-rs", "dep:anthropic-sdk"]
 plugins = ["dep:libloading", "dep:wasmtime", "dep:wasmtime-wasi"]
 persistence = ["dep:sled", "dep:sqlx", "dep:redis"]
 metrics = ["dep:metrics", "dep:metrics-exporter-prometheus"]
