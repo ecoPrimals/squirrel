@@ -38,9 +38,8 @@ sysinfo = "0.30"
 # Text processing and validation (CRITICAL FIX: Missing regex dependency)
 regex = "1.10"
 
-# JSON-RPC server for Unix socket IPC (OPTIONAL)
-# Production uses direct Unix sockets, jsonrpsee only for advanced RPC features
-jsonrpsee = { version = "0.24", features = ["server"], optional = true }
+# JSON-RPC: Using manual implementation (BearDog pattern) - ZERO C dependencies!
+# jsonrpsee removed - it pulls ring via rustls
 hostname = "0.4"
 nix = { workspace = true }
 
@@ -99,8 +98,6 @@ prost = { version = "0.12", optional = true }
 default = ["capability-ai", "monitoring", "ecosystem"]
 # Capability-based AI (TRUE PRIMAL - Pure Rust!)
 capability-ai = []
-# JSON-RPC server for advanced features
-jsonrpc-server = ["dep:jsonrpsee"]
 # Development mode with direct HTTP (brings reqwest → ring)
 dev-direct-http = ["dep:reqwest", "openai"]
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]
