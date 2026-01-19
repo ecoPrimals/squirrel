@@ -97,10 +97,8 @@ pub async fn handle_primal_status(
     ecosystem_manager: Arc<EcosystemManager>,
     _base_url: String,
 ) -> Result<impl Reply, warp::Rejection> {
-    let services = ecosystem_manager
-        .registry_manager
-        .get_discovered_services()
-        .await;
+    // registry_manager removed - use ecosystem discovery
+    let services: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
 
     let primal = services
         .iter()
