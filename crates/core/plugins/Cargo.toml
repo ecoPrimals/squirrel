@@ -25,7 +25,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # HTTP and networking
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+# reqwest REMOVED - Use capability_http (delegates to Songbird via Unix sockets) instead!
 url = "2.5"
 
 # Logging and tracing
