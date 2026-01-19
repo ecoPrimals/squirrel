@@ -50,8 +50,7 @@ pub struct UniversalPrimalEcosystem {
     capabilities_cache: Arc<RwLock<HashMap<String, Vec<PrimalCapability>>>>,
     /// Capability discovery results cache for performance
     discovery_cache: Arc<RwLock<HashMap<String, CachedCapabilityMatch>>>,
-    /// Connection pool for efficient HTTP client management
-    connection_pool: ServiceConnectionPool,
+    // connection_pool removed - Unix sockets don't need HTTP connection pooling
     /// Context for this ecosystem instance
     context: PrimalContext,
     /// Cache configuration
