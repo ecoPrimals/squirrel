@@ -433,11 +433,10 @@ impl SquirrelPrimalProvider {
         info!("Gathering comprehensive ecosystem status via capability discovery");
 
         // Discover all primals dynamically
-        let all_primals = self
-            .capability_registry
-            .list_all_primals();
+        // capability_registry removed - use ecosystem discovery
+        let all_primals: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
 
-        let healthy_services = all_primals.iter().filter(|p| p.is_healthy).count();
+        let healthy_services = all_primals.iter().filter(|p| p.get("is_healthy").and_then(|v| v.as_bool()).unwrap_or(false)).count();
         let participating_primals: Vec<String> = all_primals
             .iter()
             .filter(|p| p.is_healthy)

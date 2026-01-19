@@ -548,25 +548,13 @@ impl UniversalPrimalEcosystem {
     }
 
     /// Query service capabilities from an endpoint
-    async fn query_service_capabilities(&self, endpoint: &str) -> UniversalResult<Vec<String>> {
-        let capabilities_url = format!("{endpoint}/api/v1/capabilities");
-
+    async fn query_service_capabilities(&self, _endpoint: &str) -> UniversalResult<Vec<String>> {
         // connection_pool removed - Unix sockets don't need HTTP connection pooling
-        // TODO: Implement Unix socket client discovery
-        return Err(UniversalError::NotImplemented(
-            "Connection pooling removed - use Unix socket delegation".to_string()
-        ));
-            .get(&capabilities_url)
-            .timeout(timeouts::DEFAULT_OPERATION_TIMEOUT)
-            .send()
-            .await
-        {
-            Ok(response) => {
-                let capabilities: Vec<String> = response.json().await.unwrap_or_default();
-                Ok(capabilities)
-            }
-            Err(_) => Ok(Vec::new()), // Service not available or doesn't support capability discovery
-        }
+        // TODO: Implement Unix socket client discovery via capability discovery
+        Err(UniversalError::NotImplemented {
+            operation: "query_service_capabilities".to_string(),
+            context: "Connection pooling removed - use Unix socket delegation".to_string()
+        })
     }
 
     /// Find services by capability without caching (internal method)
