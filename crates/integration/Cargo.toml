@@ -25,6 +25,8 @@ squirrel-ai-tools.workspace = true
 # Logging
 log.workspace = true
 tracing.workspace = true
+# UUID
+uuid.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

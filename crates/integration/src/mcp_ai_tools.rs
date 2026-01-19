@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use uuid;
 
 use squirrel_ai_tools::common::capability::AICapabilities;
 use squirrel_ai_tools::common::{ChatRequest, ChatResponse, ChatResponseChunk, ChatResponseStream};
@@ -204,76 +205,138 @@ impl McpAiToolsAdapter {
         // Route request to appropriate provider implementation
         match provider.id.as_str() {
             "openai" => {
-                tracing::debug!("Processing OpenAI chat request");
-                // Create OpenAI provider instance
-                let provider_config = squirrel_ai_tools::config::ProviderConfig {
-                    provider_type: "openai".to_string(),
-                    api_key: provider.config.get("api_key").cloned(),
-                    base_url: provider.config.get("endpoint").cloned(),
-                    default_model: provider.config.get("model").cloned(),
-                    settings: HashMap::new(),
+                tracing::debug!("Processing OpenAI chat request via capability_ai");
+                // Use capability-based AI client (TRUE PRIMAL!)
+                use squirrel_ai_tools::capability_ai::{AiClient, ChatMessage as CapMsg};
+                
+                let client = AiClient::from_env()
+                    .context("Failed to create capability AI client")?;
+                
+                // Convert messages to capability format
+                let messages: Vec<CapMsg> = request.messages.iter().map(|m| {
+                    CapMsg {
+                        role: match m.role {
+                            squirrel_ai_tools::common::MessageRole::System => "system".to_string(),
+                            squirrel_ai_tools::common::MessageRole::User => "user".to_string(),
+                            squirrel_ai_tools::common::MessageRole::Assistant => "assistant".to_string(),
+                            _ => "user".to_string(),
+                        },
+                        content: m.content.clone().unwrap_or_default(),
+                    }
+                }).collect();
+                
+                let model = request.model.as_deref().unwrap_or("gpt-4");
+                let cap_response = client.chat_completion(model, messages, None).await
+                    .context("Failed to process OpenAI chat via capability_ai")?;
+                
+                // Convert back to common format
+                let response = squirrel_ai_tools::common::ChatResponse {
+                    choices: vec![squirrel_ai_tools::common::ChatChoice {
+                        index: 0,
+                        content: Some(cap_response.content),
+                        role: squirrel_ai_tools::common::MessageRole::Assistant,
+                        finish_reason: Some("stop".to_string()),
+                        tool_calls: None,
+                    }],
+                    usage: cap_response.usage.map(|u| squirrel_ai_tools::common::UsageInfo {
+                        prompt_tokens: u.prompt_tokens,
+                        completion_tokens: u.completion_tokens,
+                        total_tokens: u.total_tokens,
+                    }),
+                    model: model.to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                 };
-
-                let openai_provider =
-                    squirrel_ai_tools::common::providers::OpenAIProvider::new(provider_config)
-                        .context("Failed to create OpenAI provider")?;
-
-                use squirrel_ai_tools::common::AIProvider;
-                let response = openai_provider
-                    .process_chat(&request)
-                    .await
-                    .context("Failed to process OpenAI chat request")?;
-
+                
                 Ok(response)
             }
             "anthropic" => {
-                tracing::debug!("Processing Anthropic chat request");
-                // Create Anthropic provider instance
-                let provider_config = squirrel_ai_tools::config::ProviderConfig {
-                    provider_type: "anthropic".to_string(),
-                    api_key: provider.config.get("api_key").cloned(),
-                    base_url: provider.config.get("endpoint").cloned(),
-                    default_model: provider.config.get("model").cloned(),
-                    settings: HashMap::new(),
+                tracing::debug!("Processing Anthropic chat request via capability_ai");
+                // Use capability-based AI client (TRUE PRIMAL!)
+                use squirrel_ai_tools::capability_ai::{AiClient, ChatMessage as CapMsg};
+                
+                let client = AiClient::from_env()
+                    .context("Failed to create capability AI client")?;
+                
+                // Convert messages to capability format
+                let messages: Vec<CapMsg> = request.messages.iter().map(|m| {
+                    CapMsg {
+                        role: match m.role {
+                            squirrel_ai_tools::common::MessageRole::System => "system".to_string(),
+                            squirrel_ai_tools::common::MessageRole::User => "user".to_string(),
+                            squirrel_ai_tools::common::MessageRole::Assistant => "assistant".to_string(),
+                            _ => "user".to_string(),
+                        },
+                        content: m.content.clone().unwrap_or_default(),
+                    }
+                }).collect();
+                
+                let model = request.model.as_deref().unwrap_or("claude-3-opus");
+                let cap_response = client.chat_completion(model, messages, None).await
+                    .context("Failed to process Anthropic chat via capability_ai")?;
+                
+                // Convert back to common format
+                let response = squirrel_ai_tools::common::ChatResponse {
+                    choices: vec![squirrel_ai_tools::common::ChatChoice {
+                        index: 0,
+                        content: Some(cap_response.content),
+                        role: squirrel_ai_tools::common::MessageRole::Assistant,
+                        finish_reason: Some("stop".to_string()),
+                        tool_calls: None,
+                    }],
+                    usage: cap_response.usage.map(|u| squirrel_ai_tools::common::UsageInfo {
+                        prompt_tokens: u.prompt_tokens,
+                        completion_tokens: u.completion_tokens,
+                        total_tokens: u.total_tokens,
+                    }),
+                    model: model.to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                 };
-
-                let anthropic_provider =
-                    squirrel_ai_tools::common::providers::AnthropicProvider::new(provider_config)
-                        .context("Failed to create Anthropic provider")?;
-
-                use squirrel_ai_tools::common::AIProvider;
-                let response = anthropic_provider
-                    .process_chat(&request)
-                    .await
-                    .context("Failed to process Anthropic chat request")?;
-
+                
                 Ok(response)
             }
             "ollama" => {
-                tracing::debug!("Processing Ollama chat request");
-                // Create Ollama provider instance
-                let provider_config = squirrel_ai_tools::config::ProviderConfig {
-                    provider_type: "ollama".to_string(),
-                    api_key: provider.config.get("api_key").cloned(),
-                    base_url: provider
-                        .config
-                        .get("endpoint")
-                        .cloned()
-                        .or_else(|| Some(self.config.default_ollama_endpoint.clone())),
-                    default_model: provider.config.get("model").cloned(),
-                    settings: HashMap::new(),
+                tracing::debug!("Processing Ollama chat request via capability_ai");
+                // Use capability-based AI client (TRUE PRIMAL!)
+                use squirrel_ai_tools::capability_ai::{AiClient, ChatMessage as CapMsg};
+                
+                let client = AiClient::from_env()
+                    .context("Failed to create capability AI client")?;
+                
+                // Convert messages to capability format
+                let messages: Vec<CapMsg> = request.messages.iter().map(|m| {
+                    CapMsg {
+                        role: match m.role {
+                            squirrel_ai_tools::common::MessageRole::System => "system".to_string(),
+                            squirrel_ai_tools::common::MessageRole::User => "user".to_string(),
+                            squirrel_ai_tools::common::MessageRole::Assistant => "assistant".to_string(),
+                            _ => "user".to_string(),
+                        },
+                        content: m.content.clone().unwrap_or_default(),
+                    }
+                }).collect();
+                
+                let model = request.model.as_deref().unwrap_or("llama2");
+                let cap_response = client.chat_completion(model, messages, None).await
+                    .context("Failed to process Ollama chat via capability_ai")?;
+                
+                // Convert back to common format
+                let response = squirrel_ai_tools::common::ChatResponse {
+                    choices: vec![squirrel_ai_tools::common::ChatChoice {
+                        index: 0,
+                        content: Some(cap_response.content),
+                        role: squirrel_ai_tools::common::MessageRole::Assistant,
+                        finish_reason: Some("stop".to_string()),
+                        tool_calls: None,
+                    }],
+                    usage: cap_response.usage.map(|u| squirrel_ai_tools::common::UsageInfo {
+                        prompt_tokens: u.prompt_tokens,
+                        completion_tokens: u.completion_tokens,
+                        total_tokens: u.total_tokens,
+                    }),
+                    model: model.to_string(),
+                    id: uuid::Uuid::new_v4().to_string(),
                 };
-
-                let ollama_provider =
-                    squirrel_ai_tools::common::providers::OllamaProvider::new(provider_config)
-                        .context("Failed to create Ollama provider")?;
-
-                use squirrel_ai_tools::common::AIProvider;
-                let response = ollama_provider
-                    .process_chat(&request)
-                    .await
-                    .context("Failed to process Ollama chat request")?;
-
+                
                 Ok(response)
             }
             _ => {
@@ -284,172 +347,15 @@ impl McpAiToolsAdapter {
     }
 
     /// Send a streaming chat request
+    /// **TODO**: Implement streaming with capability_ai
+    #[allow(dead_code)]
     pub async fn send_streaming_chat_request(
         &self,
-        provider_id: &str,
-        request: ChatRequest,
+        _provider_id: &str,
+        _request: ChatRequest,
     ) -> Result<ChatResponseStream> {
-        // Get provider
-        let provider = self
-            .provider_registry
-            .get_provider(provider_id)
-            .context(format!("Provider not found: {}", provider_id))?;
-
-        // Route request to appropriate provider implementation
-        match provider.id.as_str() {
-            "openai" => {
-                tracing::debug!("Processing OpenAI streaming chat request");
-                // Create OpenAI provider instance
-                let provider_config = squirrel_ai_tools::config::ProviderConfig {
-                    provider_type: "openai".to_string(),
-                    api_key: provider.config.get("api_key").cloned(),
-                    base_url: provider.config.get("endpoint").cloned(),
-                    default_model: provider.config.get("model").cloned(),
-                    settings: HashMap::new(),
-                };
-
-                let openai_provider =
-                    squirrel_ai_tools::common::providers::OpenAIProvider::new(provider_config)
-                        .context("Failed to create OpenAI provider")?;
-
-                // For now, fall back to non-streaming (streaming can be implemented later)
-                use squirrel_ai_tools::common::AIProvider;
-                let response = openai_provider
-                    .process_chat(&request)
-                    .await
-                    .context("Failed to process OpenAI streaming chat request")?;
-
-                // Convert regular response to streaming
-                let stream = futures::stream::once(async move {
-                    Ok(ChatResponseChunk {
-                        id: response.id.clone(),
-                        model: response.model.clone(),
-                        choices: response
-                            .choices
-                            .into_iter()
-                            .map(|choice| squirrel_ai_tools::common::ChatChoiceChunk {
-                                index: choice.index,
-                                delta: squirrel_ai_tools::common::ChatMessage {
-                                    role: choice.role,
-                                    content: choice.content,
-                                    name: None,
-                                    tool_calls: choice.tool_calls,
-                                    tool_call_id: None,
-                                },
-                                finish_reason: choice.finish_reason,
-                            })
-                            .collect(),
-                    })
-                });
-
-                Ok(Box::pin(stream))
-            }
-            "anthropic" => {
-                tracing::debug!("Processing Anthropic streaming chat request");
-                // Create Anthropic provider instance
-                let provider_config = squirrel_ai_tools::config::ProviderConfig {
-                    provider_type: "anthropic".to_string(),
-                    api_key: provider.config.get("api_key").cloned(),
-                    base_url: provider.config.get("endpoint").cloned(),
-                    default_model: provider.config.get("model").cloned(),
-                    settings: HashMap::new(),
-                };
-
-                let anthropic_provider =
-                    squirrel_ai_tools::common::providers::AnthropicProvider::new(provider_config)
-                        .context("Failed to create Anthropic provider")?;
-
-                // For now, fall back to non-streaming (streaming can be implemented later)
-                use squirrel_ai_tools::common::AIProvider;
-                let response = anthropic_provider
-                    .process_chat(&request)
-                    .await
-                    .context("Failed to process Anthropic streaming chat request")?;
-
-                // Convert regular response to streaming
-                let stream = futures::stream::once(async move {
-                    Ok(ChatResponseChunk {
-                        id: response.id.clone(),
-                        model: response.model.clone(),
-                        choices: response
-                            .choices
-                            .into_iter()
-                            .map(|choice| squirrel_ai_tools::common::ChatChoiceChunk {
-                                index: choice.index,
-                                delta: squirrel_ai_tools::common::ChatMessage {
-                                    role: choice.role,
-                                    content: choice.content,
-                                    name: None,
-                                    tool_calls: choice.tool_calls,
-                                    tool_call_id: None,
-                                },
-                                finish_reason: choice.finish_reason,
-                            })
-                            .collect(),
-                    })
-                });
-
-                Ok(Box::pin(stream))
-            }
-            "ollama" => {
-                tracing::debug!("Processing Ollama streaming chat request");
-                // Create Ollama provider instance
-                let provider_config = squirrel_ai_tools::config::ProviderConfig {
-                    provider_type: "ollama".to_string(),
-                    api_key: provider.config.get("api_key").cloned(),
-                    base_url: provider
-                        .config
-                        .get("endpoint")
-                        .cloned()
-                        .or_else(|| Some(self.config.default_ollama_endpoint.clone())),
-                    default_model: provider.config.get("model").cloned(),
-                    settings: HashMap::new(),
-                };
-
-                let ollama_provider =
-                    squirrel_ai_tools::common::providers::OllamaProvider::new(provider_config)
-                        .context("Failed to create Ollama provider")?;
-
-                // For now, fall back to non-streaming (streaming can be implemented later)
-                use squirrel_ai_tools::common::AIProvider;
-                let response = ollama_provider
-                    .process_chat(&request)
-                    .await
-                    .context("Failed to process Ollama streaming chat request")?;
-
-                // Convert regular response to streaming
-                let stream = futures::stream::once(async move {
-                    Ok(ChatResponseChunk {
-                        id: response.id.clone(),
-                        model: response.model.clone(),
-                        choices: response
-                            .choices
-                            .into_iter()
-                            .map(|choice| squirrel_ai_tools::common::ChatChoiceChunk {
-                                index: choice.index,
-                                delta: squirrel_ai_tools::common::ChatMessage {
-                                    role: choice.role,
-                                    content: choice.content,
-                                    name: None,
-                                    tool_calls: choice.tool_calls,
-                                    tool_call_id: None,
-                                },
-                                finish_reason: choice.finish_reason,
-                            })
-                            .collect(),
-                    })
-                });
-
-                Ok(Box::pin(stream))
-            }
-            _ => {
-                tracing::error!("Unknown streaming provider: {}", provider_id);
-                Err(anyhow::anyhow!(
-                    "Unknown streaming provider: {}",
-                    provider_id
-                ))
-            }
-        }
+        // Streaming not yet implemented with capability_ai
+        unimplemented!("Streaming chat not yet implemented with capability_ai. Use send_chat_request instead.")
     }
 
     /// Generate a response for the specified message
