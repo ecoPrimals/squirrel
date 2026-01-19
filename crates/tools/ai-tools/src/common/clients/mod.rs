@@ -2,17 +2,11 @@
 //!
 //! This module contains concrete implementations of AI clients for various providers.
 //! Each client implements the AIClient trait for seamless integration.
+//!
+//! **Note**: Old HTTP-based clients (OpenAI, Anthropic, Ollama) have been removed.
+//! Use `capability_ai::AiClient` instead for TRUE ecoBin compliance.
 
-// TODO: These HTTP-based clients should be replaced with capability-based clients
-pub mod anthropic;
 pub mod mock;
-pub mod ollama;
-pub mod openai;
-
-// Re-export client types for convenience
-pub use anthropic::AnthropicClient;
-pub use ollama::OllamaClient;
-pub use openai::OpenAIClient;
 
 #[cfg(test)]
 pub use mock::MockAIClient;
@@ -21,71 +15,14 @@ use crate::common::client::AIClient;
 use std::sync::Arc;
 
 /// Client factory for creating AI clients
+/// **Note**: Old provider-specific methods removed. Use `capability_ai::AiClient` instead.
 pub struct ClientFactory;
 
 impl ClientFactory {
-    /// Create an OpenAI client
-    /// TODO: Replace with capability-based client
-    pub fn create_openai_client(api_key: String) -> Arc<dyn AIClient> {
-        Arc::new(OpenAIClient::new(api_key))
-    }
-
-    /// Create an Anthropic client
-    /// TODO: Replace with capability-based client
-    pub fn create_anthropic_client(api_key: String) -> Arc<dyn AIClient> {
-        Arc::new(AnthropicClient::new(api_key))
-    }
-
-    /// Create an Ollama client
-    /// TODO: Replace with capability-based client
-    pub fn create_ollama_client(endpoint: String) -> Arc<dyn AIClient> {
-        Arc::new(OllamaClient::new(endpoint))
-    }
-
     /// Create a mock client for testing
     #[cfg(test)]
     pub fn create_mock_client() -> Arc<dyn AIClient> {
         Arc::new(MockAIClient::new())
-    }
-
-    /// Create a client by provider name
-    /// TODO: Replace with capability-based discovery
-    pub fn create_client_by_provider(
-        provider: &str,
-        config: ClientConfig,
-    ) -> crate::Result<Arc<dyn AIClient>> {
-        match provider {
-            "openai" => {
-                let api_key = config.api_key.ok_or_else(|| {
-                    crate::error::AIError::from(universal_error::tools::AIToolsError::Configuration("OpenAI API key is required. Set OPENAI_API_KEY environment variable or add to config.".to_string()))
-                })?;
-                Ok(Self::create_openai_client(api_key))
-            }
-            "anthropic" => {
-                let api_key = config.api_key.ok_or_else(|| {
-                    crate::error::AIError::from(
-                        universal_error::tools::AIToolsError::Configuration(
-                            "Anthropic API key is required".to_string(),
-                        ),
-                    )
-                })?;
-                Ok(Self::create_anthropic_client(api_key))
-            }
-            "ollama" => {
-                let endpoint = config
-                    .endpoint
-                    .unwrap_or_else(crate::config::DefaultEndpoints::ollama_endpoint);
-                Ok(Self::create_ollama_client(endpoint))
-            }
-            #[cfg(test)]
-            "mock" => Ok(Self::create_mock_client()),
-            _ => Err(crate::error::AIError::from(
-                universal_error::tools::AIToolsError::Configuration(format!(
-                    "Unknown provider: {}. Available: openai, anthropic, ollama",
-                    provider
-                )),
-            )),
-        }
     }
 }
 
@@ -156,12 +93,11 @@ impl ClientConfig {
     }
 
     /// Check if the configuration is valid for a provider
-    pub fn is_valid_for_provider(&self, provider: &str) -> bool {
-        match provider {
-            "openai" | "anthropic" => self.api_key.is_some(),
-            "ollama" => true, // Ollama doesn't require API key
-            _ => false,
-        }
+    /// **Note**: Old providers removed. Use capability_ai instead.
+    pub fn is_valid_for_provider(&self, _provider: &str) -> bool {
+        // Old provider validation removed
+        // Use capability_ai::AiClient::from_env() instead
+        false
     }
 }
 
@@ -261,13 +197,9 @@ mod tests {
 
     #[test]
     fn test_client_config_validation() {
-        let openai_config = ClientConfig::new().with_api_key("test-key".to_string());
-        assert!(openai_config.is_valid_for_provider("openai"));
-        assert!(openai_config.is_valid_for_provider("anthropic"));
-
-        let ollama_config = ClientConfig::new();
-        assert!(ollama_config.is_valid_for_provider("ollama"));
-        assert!(!ollama_config.is_valid_for_provider("openai"));
+        let config = ClientConfig::new().with_api_key("test-key".to_string());
+        // Old provider validation removed - use capability_ai instead
+        assert!(!config.is_valid_for_provider("any"));
     }
 
     #[test]

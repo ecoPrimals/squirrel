@@ -117,11 +117,8 @@ impl fmt::Display for AIError {
 
 impl std::error::Error for AIError {}
 
-impl From<reqwest::Error> for AIError {
-    fn from(err: reqwest::Error) -> Self {
-        AIError::Http(err.to_string())
-    }
-}
+// Removed: reqwest::Error conversion (old HTTP-based providers deleted)
+// Use capability_ai::AiClient instead for TRUE ecoBin compliance
 
 impl From<serde_json::Error> for AIError {
     fn from(err: serde_json::Error) -> Self {

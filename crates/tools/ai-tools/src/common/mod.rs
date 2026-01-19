@@ -33,20 +33,20 @@
 //! ## Usage
 //!
 //! ```rust,no_run
-//! use crate::common::{AIClient, ChatRequest, MessageRole};
-//! use crate::common::clients::{OpenAIClient, AnthropicClient, OllamaClient};
+//! use squirrel_ai_tools::capability_ai::{AiClient, ChatMessage};
 //!
-//! // Create an OpenAI client
-//! let openai_client = OpenAIClient::new("your-api-key".to_string());
+//! // Create capability-based AI client (TRUE PRIMAL!)
+//! let client = AiClient::from_env()?;
 //!
-//! // Create a chat request
-//! let request = ChatRequest::new()
-//!     .add_system("You are a helpful assistant")
-//!     .add_user("Hello, how are you?");
+//! // Create chat messages
+//! let messages = vec![
+//!     ChatMessage::system("You are a helpful assistant"),
+//!     ChatMessage::user("Hello, how are you?"),
+//! ];
 //!
-//! // Process the request
-//! let response = openai_client.chat(request).await?;
-//! println!("Response: {:?}", response);
+//! // Process the request via Songbird (Unix socket delegation)
+//! let response = client.chat_completion("gpt-4", messages, None).await?;
+//! println!("Response: {}", response.content);
 //! ```
 
 // Core modules
@@ -54,15 +54,15 @@ pub mod client;
 pub mod clients;
 pub mod types;
 
-// Capability-based provider (TRUE PRIMAL - Pure Rust!)
-pub mod capability_provider;
+// Old capability_provider.rs removed (depended on old providers)
+// Use capability_ai::AiClient directly instead
 
 // Existing sub-modules
 pub mod capability;
-pub mod client_registry;
+// client_registry.rs removed (depended on old providers)
 pub mod message;
 pub mod parameters;
-pub mod providers;
+// providers.rs removed - old HTTP-based providers deleted
 pub mod rate_limiter;
 pub mod registry;
 pub mod tool;
@@ -72,8 +72,7 @@ pub mod usage;
 pub use client::AIClient;
 pub use clients::mock::MockAIClient;
 
-// Re-export HTTP clients (TODO: being replaced with capability-based clients)
-pub use clients::{AnthropicClient, OllamaClient, OpenAIClient};
+// Old HTTP clients removed - use capability_ai::AiClient instead
 
 pub use types::{
     ChatChoice, ChatChoiceChunk, ChatMessage, ChatRequest, ChatResponse, ChatResponseChunk,
@@ -82,10 +81,10 @@ pub use types::{
 
 // Re-export existing types for backward compatibility (but avoid conflicts)
 pub use capability::{AICapabilities, AITask, RoutingPreferences};
-pub use client_registry::{AIRouterClient, ClientRegistry, ProviderStats};
+// client_registry re-exports removed (module deleted)
 // Note: Not re-exporting message::* to avoid conflicts with types::*
 pub use parameters::ModelParameters;
-pub use providers::{AICapability, AIProvider, AnthropicProvider, OllamaProvider, OpenAIProvider};
+// Old provider re-exports removed - use capability_ai::AiClient instead
 pub use rate_limiter::{RateLimiter, RateLimiterConfig};
 pub use registry::ModelRegistry;
 // Note: Not re-exporting tool::* and usage::* to avoid conflicts with types::*
@@ -98,32 +97,11 @@ pub use usage::TokenCounter;
 
 /// Create a provider client (factory function) - backward compatibility
 /// TODO: These HTTP-based clients should be replaced with capability-based clients
-pub fn create_provider_client(provider: &str, api_key: &str) -> crate::Result<Box<dyn AIClient>> {
-    match provider.to_lowercase().as_str() {
-        "openai" => {
-            let client = clients::OpenAIClient::new(api_key.to_string());
-            Ok(Box::new(client))
-        }
-        "anthropic" => {
-            let client = clients::AnthropicClient::new(api_key.to_string());
-            Ok(Box::new(client))
-        }
-        "ollama" => {
-            let endpoint = std::env::var("OLLAMA_ENDPOINT")
-                .unwrap_or_else(|_| crate::config::DefaultEndpoints::ollama_endpoint());
-            let client = clients::OllamaClient::new(endpoint);
-            Ok(Box::new(client))
-        }
-        #[cfg(test)]
-        "mock" => {
-            let client = clients::MockAIClient::new();
-            Ok(Box::new(client))
-        }
-        _ => Err(universal_error::tools::AIToolsError::Configuration(format!(
-            "Unsupported provider: {provider}"
-        ))
-        .into()),
-    }
+pub fn create_provider_client(_provider: &str, _api_key: &str) -> crate::Result<Box<dyn AIClient>> {
+    // Old HTTP-based providers removed - use capability_ai::AiClient instead
+    Err(universal_error::tools::AIToolsError::Configuration(
+        "Old HTTP-based providers removed. Use capability_ai::AiClient::from_env() instead.".to_string()
+    ).into())
 }
 
 /// Create a chat request from messages
