@@ -6,7 +6,7 @@
 use anyhow::{Context, Result};
 use serde::Serialize;
 use std::time::Instant;
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
 
 use crate::cli::{OutputFormat, Subsystem};
 
