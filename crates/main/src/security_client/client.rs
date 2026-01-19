@@ -466,7 +466,7 @@ impl UniversalSecurityClient {
     /// Apply AI-enhanced security routing using `ai_metadata`
     pub fn apply_ai_security_routing(
         &self,
-        request: &mut SecurityRequest,
+        _request: &mut SecurityRequest,
     ) -> Result<(), PrimalError> {
         // Use ai_metadata field for intelligent security request routing
         debug!("Applying AI-enhanced security routing for request");

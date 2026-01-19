@@ -145,15 +145,15 @@ impl DiscoveryOps {
     fn get_development_default(primal_type: &EcosystemPrimalType) -> String {
         use universal_constants::{builders, network};
 
-        // Map primal types to their assigned development ports
-        // Ports are discovered at runtime via environment or capability discovery
+        // Map primal types to their service names for runtime port discovery
+        // All ports are discovered at runtime via environment or capability discovery
         let port = match primal_type {
             EcosystemPrimalType::Squirrel => network::get_service_port("http"), // Squirrel AI service
             EcosystemPrimalType::Songbird => network::get_service_port("service_mesh"), // Service mesh
             EcosystemPrimalType::ToadStool => network::get_service_port("compute"),     // Compute
-            EcosystemPrimalType::BearDog => 8083,                                       // Security
-            EcosystemPrimalType::NestGate => 8084,                                      // Storage
-            EcosystemPrimalType::BiomeOS => 3000,                                       // UI
+            EcosystemPrimalType::BearDog => network::get_service_port("security"),      // Security
+            EcosystemPrimalType::NestGate => network::get_service_port("storage"),      // Storage
+            EcosystemPrimalType::BiomeOS => network::get_service_port("ui"),            // UI
         };
 
         // Use builder functions from universal-constants for consistency

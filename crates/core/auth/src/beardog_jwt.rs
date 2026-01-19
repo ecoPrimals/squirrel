@@ -77,7 +77,7 @@ impl JwtClaims {
         expires_at: DateTime<Utc>,
     ) -> Self {
         let now = Utc::now();
-        
+
         Self {
             sub: user_id.to_string(),
             username,
@@ -91,17 +91,17 @@ impl JwtClaims {
             jti: Uuid::new_v4().to_string(),
         }
     }
-    
+
     /// Convert JWT claims to AuthContext
     pub fn to_auth_context(&self) -> Result<AuthContext, AuthError> {
         let user_id = Uuid::parse_str(&self.sub).map_err(|_| AuthError::InvalidToken)?;
-        
+
         let session_id = Uuid::parse_str(&self.session_id).map_err(|_| AuthError::InvalidToken)?;
-        
+
         let created_at = DateTime::from_timestamp(self.iat, 0).ok_or(AuthError::InvalidToken)?;
-        
+
         let expires_at = DateTime::from_timestamp(self.exp, 0).ok_or(AuthError::InvalidToken)?;
-        
+
         Ok(AuthContext {
             user_id,
             username: self.username.clone(),
@@ -120,10 +120,10 @@ impl JwtClaims {
 pub struct BearDogJwtConfig {
     /// BearDog client configuration
     pub beardog_config: BearDogClientConfig,
-    
+
     /// Key ID in BearDog for JWT signing/verification
     pub key_id: String,
-    
+
     /// Token expiry duration in hours (default: 24)
     pub expiry_hours: i64,
 }
@@ -179,15 +179,15 @@ impl BearDogJwtService {
             "Initializing BearDog JWT service: key_id={}, socket={}",
             config.key_id, config.beardog_config.socket_path
         );
-        
+
         let beardog_client = BearDogClient::new(config.beardog_config)?;
-        
+
         Ok(Self {
             beardog_client,
             key_id: config.key_id,
         })
     }
-    
+
     /// Create JWT token (delegates signing to BearDog)
     ///
     /// # Arguments
@@ -208,35 +208,39 @@ impl BearDogJwtService {
             "Creating JWT token: user={}, session={}",
             claims.username, claims.session_id
         );
-        
+
         // 1. Create and encode header
         let header = JwtHeader::default();
-        let header_json = serde_json::to_vec(&header)
-            .map_err(|e| AuthError::Internal { message: format!("Failed to encode JWT header: {}", e) })?;
+        let header_json = serde_json::to_vec(&header).map_err(|e| AuthError::Internal {
+            message: format!("Failed to encode JWT header: {}", e),
+        })?;
         let header_b64 = BASE64_URL.encode(&header_json);
-        
+
         // 2. Encode claims
-        let claims_json = serde_json::to_vec(&claims)
-            .map_err(|e| AuthError::Internal { message: format!("Failed to encode JWT claims: {}", e) })?;
+        let claims_json = serde_json::to_vec(&claims).map_err(|e| AuthError::Internal {
+            message: format!("Failed to encode JWT claims: {}", e),
+        })?;
         let claims_b64 = BASE64_URL.encode(&claims_json);
-        
+
         // 3. Create signing input
         let signing_input = format!("{}.{}", header_b64, claims_b64);
-        
+
         // 4. Sign via BearDog (Pure Rust!)
         let signature = self
             .beardog_client
             .ed25519_sign(signing_input.as_bytes(), &self.key_id)
             .await
             .context("Failed to sign JWT via BearDog")
-            .map_err(|e| AuthError::Internal { message: e.to_string() })?;
-        
+            .map_err(|e| AuthError::Internal {
+                message: e.to_string(),
+            })?;
+
         // 5. Encode signature
         let signature_b64 = BASE64_URL.encode(&signature);
-        
+
         // 6. Construct final JWT
         let token = format!("{}.{}", signing_input, signature_b64);
-        
+
         debug!(
             "JWT token created: length={}, header={}, claims={}, sig={}",
             token.len(),
@@ -244,10 +248,10 @@ impl BearDogJwtService {
             claims_b64.len(),
             signature_b64.len()
         );
-        
+
         Ok(token)
     }
-    
+
     /// Verify JWT token (delegates verification to BearDog)
     ///
     /// # Arguments
@@ -265,24 +269,22 @@ impl BearDogJwtService {
     /// 6. Return claims
     pub async fn verify_token(&self, token: &str) -> Result<JwtClaims, AuthError> {
         debug!("Verifying JWT token: length={}", token.len());
-        
+
         // 1. Split token into parts
         let parts: Vec<&str> = token.split('.').collect();
         if parts.len() != 3 {
             error!("Invalid JWT format: expected 3 parts, got {}", parts.len());
             return Err(AuthError::InvalidToken);
         }
-        
+
         let (header_b64, claims_b64, signature_b64) = (parts[0], parts[1], parts[2]);
-        
+
         // 2. Decode signature
-        let signature = BASE64_URL
-            .decode(signature_b64)
-            .map_err(|e| {
-                error!("Failed to decode JWT signature: {}", e);
-                AuthError::InvalidToken
-            })?;
-        
+        let signature = BASE64_URL.decode(signature_b64).map_err(|e| {
+            error!("Failed to decode JWT signature: {}", e);
+            AuthError::InvalidToken
+        })?;
+
         // 3. Verify signature via BearDog (Pure Rust!)
         let signing_input = format!("{}.{}", header_b64, claims_b64);
         let is_valid = self
@@ -290,27 +292,26 @@ impl BearDogJwtService {
             .ed25519_verify(signing_input.as_bytes(), &signature, &self.key_id)
             .await
             .context("Failed to verify JWT signature via BearDog")
-            .map_err(|e| AuthError::Internal { message: e.to_string() })?;
-        
+            .map_err(|e| AuthError::Internal {
+                message: e.to_string(),
+            })?;
+
         if !is_valid {
             error!("JWT signature verification failed");
             return Err(AuthError::InvalidToken);
         }
-        
+
         // 4. Decode and parse claims
-        let claims_json = BASE64_URL
-            .decode(claims_b64)
-            .map_err(|e| {
-                error!("Failed to decode JWT claims: {}", e);
-                AuthError::InvalidToken
-            })?;
-        
-        let claims: JwtClaims = serde_json::from_slice(&claims_json)
-            .map_err(|e| {
-                error!("Failed to parse JWT claims: {}", e);
-                AuthError::InvalidToken
-            })?;
-        
+        let claims_json = BASE64_URL.decode(claims_b64).map_err(|e| {
+            error!("Failed to decode JWT claims: {}", e);
+            AuthError::InvalidToken
+        })?;
+
+        let claims: JwtClaims = serde_json::from_slice(&claims_json).map_err(|e| {
+            error!("Failed to parse JWT claims: {}", e);
+            AuthError::InvalidToken
+        })?;
+
         // 5. Validate expiration
         let now = Utc::now().timestamp();
         if claims.exp < now {
@@ -322,7 +323,7 @@ impl BearDogJwtService {
             );
             return Err(AuthError::TokenExpired);
         }
-        
+
         // 6. Validate not-before
         if claims.nbf > now {
             error!(
@@ -333,15 +334,15 @@ impl BearDogJwtService {
             );
             return Err(AuthError::InvalidToken);
         }
-        
+
         debug!(
             "JWT token verified: user={}, session={}, exp={}",
             claims.username, claims.session_id, claims.exp
         );
-        
+
         Ok(claims)
     }
-    
+
     /// Extract token from Authorization header
     ///
     /// Expected format: `Bearer <token>`
@@ -352,12 +353,12 @@ impl BearDogJwtService {
         if !authorization_header.starts_with("Bearer ") {
             return Err(AuthError::InvalidToken);
         }
-        
+
         let token = &authorization_header[7..]; // Remove "Bearer " prefix
         if token.is_empty() {
             return Err(AuthError::InvalidToken);
         }
-        
+
         Ok(token)
     }
 }
@@ -366,13 +367,13 @@ impl BearDogJwtService {
 mod tests {
     use super::*;
     use chrono::Duration;
-    
+
     #[test]
     fn test_jwt_claims_creation() {
         let user_id = Uuid::new_v4();
         let session_id = Uuid::new_v4();
         let expires_at = Utc::now() + Duration::hours(1);
-        
+
         let claims = JwtClaims::new(
             user_id,
             "alice".to_string(),
@@ -380,7 +381,7 @@ mod tests {
             session_id,
             expires_at,
         );
-        
+
         assert_eq!(claims.sub, user_id.to_string());
         assert_eq!(claims.username, "alice");
         assert_eq!(claims.roles.len(), 2);
@@ -388,13 +389,13 @@ mod tests {
         assert_eq!(claims.iss, "squirrel-mcp");
         assert_eq!(claims.aud, "squirrel-mcp-api");
     }
-    
+
     #[test]
     fn test_jwt_claims_to_auth_context() {
         let user_id = Uuid::new_v4();
         let session_id = Uuid::new_v4();
         let expires_at = Utc::now() + Duration::hours(1);
-        
+
         let claims = JwtClaims::new(
             user_id,
             "alice".to_string(),
@@ -402,22 +403,22 @@ mod tests {
             session_id,
             expires_at,
         );
-        
+
         let context = claims.to_auth_context().unwrap();
-        
+
         assert_eq!(context.user_id, user_id);
         assert_eq!(context.username, "alice");
         assert_eq!(context.session_id, session_id);
         assert_eq!(context.roles.len(), 1);
     }
-    
+
     #[test]
     fn test_jwt_header_default() {
         let header = JwtHeader::default();
         assert_eq!(header.alg, "EdDSA");
         assert_eq!(header.typ, "JWT");
     }
-    
+
     #[test]
     fn test_beardog_jwt_config_default() {
         let config = BearDogJwtConfig::default();
@@ -428,28 +429,27 @@ mod tests {
             "/var/run/beardog/crypto.sock"
         );
     }
-    
+
     #[test]
     fn test_extract_token_from_header() {
         let config = BearDogJwtConfig::default();
         let service = BearDogJwtService::new(config).unwrap();
-        
+
         // Valid header
         let header = "Bearer abc123def456";
         let token = service.extract_token_from_header(header).unwrap();
         assert_eq!(token, "abc123def456");
-        
+
         // Invalid header (no Bearer prefix)
         let invalid_header = "abc123def456";
         let result = service.extract_token_from_header(invalid_header);
         assert!(matches!(result, Err(AuthError::InvalidToken)));
-        
+
         // Invalid header (empty token)
         let empty_header = "Bearer ";
         let result = service.extract_token_from_header(empty_header);
         assert!(matches!(result, Err(AuthError::InvalidToken)));
     }
-    
+
     // Integration tests (with BearDog) are in tests/integration/
 }
-

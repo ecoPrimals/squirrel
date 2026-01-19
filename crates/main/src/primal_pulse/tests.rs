@@ -222,18 +222,18 @@ mod tests {
     // ============================================================================
 
     #[tokio::test]
+    #[ignore] // handlers module removed - HTTP endpoints deprecated
     async fn test_primal_analyze_e2e_mock() {
         // This would be a full e2e test if we had a running server
         // For now, verify the data structures work end-to-end
+        // NOTE: handlers module removed in favor of Unix socket JSON-RPC
 
-        let input = serde_json::json!({
+        let _input = serde_json::json!({
             "primal_path": "/tmp/test_primal",
             "depth": "summary"
         });
 
-        // Verify deserialization works
-        let _parsed: super::super::handlers::PrimalAnalyzeInput =
-            serde_json::from_value(input).expect("Should deserialize");
+        // Test disabled: handlers module removed (HTTP → Unix sockets evolution)
     }
 
     #[tokio::test]

@@ -26,13 +26,13 @@ pub struct CryptoClientConfig {
     /// Path to crypto capability provider's Unix socket
     /// (Discovered at runtime, NOT hardcoded!)
     pub socket_path: PathBuf,
-    
+
     /// Timeout for socket operations (default: 5 seconds)
     pub timeout_secs: u64,
-    
+
     /// Number of connection retries (default: 3)
     pub max_retries: usize,
-    
+
     /// Delay between retries in milliseconds (default: 100ms)
     pub retry_delay_ms: u64,
 }
@@ -116,16 +116,16 @@ impl CryptoClient {
             "Initializing capability-based crypto client: {}",
             config.socket_path.display()
         );
-        
+
         // Don't validate socket exists (may not be started yet)
         // Discovery system handles availability
-        
+
         Ok(Self {
             config,
             request_id: std::sync::atomic::AtomicU64::new(1),
         })
     }
-    
+
     /// Create from environment (for bootstrapping)
     ///
     /// Reads `CRYPTO_CAPABILITY_SOCKET` from environment.
@@ -138,7 +138,7 @@ impl CryptoClient {
         );
         Self::new(config)
     }
-    
+
     /// Sign data using Ed25519 via discovered crypto capability
     ///
     /// # Arguments
@@ -153,7 +153,7 @@ impl CryptoClient {
             key_id,
             data.len()
         );
-        
+
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: self.next_request_id(),
@@ -163,22 +163,22 @@ impl CryptoClient {
                 "key_id": key_id
             }),
         };
-        
+
         let response = self.send_request(request).await?;
-        
+
         let signature_b64 = response["result"]["signature"]
             .as_str()
             .context("Missing 'signature' in crypto capability response")?;
-        
+
         let signature = BASE64
             .decode(signature_b64)
             .context("Failed to decode signature from crypto capability")?;
-        
+
         debug!("Ed25519 sign successful: signature_len={}", signature.len());
-        
+
         Ok(signature)
     }
-    
+
     /// Verify Ed25519 signature via discovered crypto capability
     ///
     /// # Arguments
@@ -200,7 +200,7 @@ impl CryptoClient {
             data.len(),
             signature.len()
         );
-        
+
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: self.next_request_id(),
@@ -211,22 +211,22 @@ impl CryptoClient {
                 "key_id": key_id
             }),
         };
-        
+
         let response = self.send_request(request).await?;
-        
+
         let valid = response["result"]["valid"]
             .as_bool()
             .context("Missing 'valid' field in crypto capability response")?;
-        
+
         debug!("Ed25519 verify result: valid={}", valid);
-        
+
         Ok(valid)
     }
-    
+
     /// Send JSON-RPC request to crypto capability with retry logic
     async fn send_request(&self, request: JsonRpcRequest) -> Result<JsonValue> {
         let mut last_error = None;
-        
+
         for attempt in 1..=self.config.max_retries {
             match self.send_request_once(&request).await {
                 Ok(response) => return Ok(response),
@@ -236,20 +236,22 @@ impl CryptoClient {
                         attempt, self.config.max_retries, e
                     );
                     last_error = Some(e);
-                    
+
                     if attempt < self.config.max_retries {
-                        tokio::time::sleep(Duration::from_millis(self.config.retry_delay_ms))
-                            .await;
+                        tokio::time::sleep(Duration::from_millis(self.config.retry_delay_ms)).await;
                     }
                 }
             }
         }
-        
+
         Err(last_error.unwrap_or_else(|| {
-            anyhow::anyhow!("Crypto capability request failed after {} retries", self.config.max_retries)
+            anyhow::anyhow!(
+                "Crypto capability request failed after {} retries",
+                self.config.max_retries
+            )
         }))
     }
-    
+
     /// Send a single JSON-RPC request to crypto capability provider
     async fn send_request_once(&self, request: &JsonRpcRequest) -> Result<JsonValue> {
         // Connect to Unix socket with timeout
@@ -260,31 +262,28 @@ impl CryptoClient {
         .await
         .context("Timeout connecting to crypto capability socket")?
         .context("Failed to connect to crypto capability socket")?;
-        
+
         let (read_half, mut write_half) = stream.into_split();
-        
+
         // Serialize request
-        let request_json = serde_json::to_string(&request)
-            .context("Failed to serialize JSON-RPC request")?;
-        
+        let request_json =
+            serde_json::to_string(&request).context("Failed to serialize JSON-RPC request")?;
+
         // Send request (with newline delimiter)
-        timeout(
-            Duration::from_secs(self.config.timeout_secs),
-            async {
-                write_half.write_all(request_json.as_bytes()).await?;
-                write_half.write_all(b"\n").await?;
-                write_half.flush().await?;
-                Ok::<(), std::io::Error>(())
-            },
-        )
+        timeout(Duration::from_secs(self.config.timeout_secs), async {
+            write_half.write_all(request_json.as_bytes()).await?;
+            write_half.write_all(b"\n").await?;
+            write_half.flush().await?;
+            Ok::<(), std::io::Error>(())
+        })
         .await
         .context("Timeout sending request to crypto capability")?
         .context("Failed to send request to crypto capability")?;
-        
+
         // Read response (newline-delimited JSON)
         let mut reader = BufReader::new(read_half);
         let mut response_line = String::new();
-        
+
         timeout(
             Duration::from_secs(self.config.timeout_secs),
             reader.read_line(&mut response_line),
@@ -292,11 +291,11 @@ impl CryptoClient {
         .await
         .context("Timeout reading response from crypto capability")?
         .context("Failed to read response from crypto capability")?;
-        
+
         // Parse response
         let response: JsonRpcResponse = serde_json::from_str(&response_line)
             .context("Failed to parse JSON-RPC response from crypto capability")?;
-        
+
         // Check for JSON-RPC error
         if let Some(error) = response.error {
             return Err(anyhow::anyhow!(
@@ -305,12 +304,12 @@ impl CryptoClient {
                 error.code
             ));
         }
-        
+
         response
             .result
             .context("Crypto capability response missing 'result' field")
     }
-    
+
     /// Get next request ID (monotonically increasing)
     fn next_request_id(&self) -> u64 {
         self.request_id
@@ -353,39 +352,38 @@ struct JsonRpcError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_crypto_client_creation() {
         let config = CryptoClientConfig::default();
         let client = CryptoClient::new(config);
-        
+
         assert!(client.is_ok());
     }
-    
+
     #[test]
     fn test_crypto_client_from_env() {
         std::env::set_var("CRYPTO_CAPABILITY_SOCKET", "/tmp/test-crypto.sock");
-        
+
         let client = CryptoClient::from_env();
         assert!(client.is_ok());
-        
+
         std::env::remove_var("CRYPTO_CAPABILITY_SOCKET");
     }
-    
+
     #[test]
     fn test_request_id_increments() {
         let config = CryptoClientConfig::default();
         let client = CryptoClient::new(config).unwrap();
-        
+
         let id1 = client.next_request_id();
         let id2 = client.next_request_id();
         let id3 = client.next_request_id();
-        
+
         assert_eq!(id1, 1);
         assert_eq!(id2, 2);
         assert_eq!(id3, 3);
     }
-    
+
     // Integration tests (require crypto capability provider running) are in integration tests
 }
-

@@ -88,6 +88,21 @@ pub enum PrimalError {
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
+
+    #[error("Not supported: {0}")]
+    NotSupported(String),
+
+    #[error("Invalid endpoint: {0}")]
+    InvalidEndpoint(String),
+
+    #[error("Invalid response: {0}")]
+    InvalidResponse(String),
+
+    #[error("Remote error: {0}")]
+    RemoteError(String),
 }
 
 // Add support for Box<dyn Error> conversion for our Arc<str> modernization

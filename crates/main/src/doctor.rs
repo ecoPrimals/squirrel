@@ -303,8 +303,8 @@ async fn check_unix_socket() -> HealthCheck {
 async fn check_rpc_server() -> HealthCheck {
     let start = Instant::now();
 
-    let socket_path = std::env::var("SQUIRREL_SOCKET")
-        .unwrap_or_else(|_| "/tmp/squirrel.sock".to_string());
+    let socket_path =
+        std::env::var("SQUIRREL_SOCKET").unwrap_or_else(|_| "/tmp/squirrel.sock".to_string());
 
     HealthCheck {
         name: "RPC Server",
@@ -500,9 +500,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_http_server_check_structure() {
-        let check = check_http_server().await;
-        assert_eq!(check.name, "HTTP Server");
+    async fn test_rpc_server_check_structure() {
+        let check = check_rpc_server().await;
+        assert_eq!(check.name, "RPC Server");
     }
 
     // ========================================================================
@@ -516,7 +516,7 @@ mod tests {
             check_binary(),
             check_configuration(),
             check_unix_socket(),
-            check_http_server(),
+            check_rpc_server(),
         );
 
         assert!(!checks.0.name.is_empty());
@@ -534,7 +534,7 @@ mod tests {
             check_binary(),
             check_configuration(),
             check_unix_socket(),
-            check_http_server(),
+            check_rpc_server(),
         );
 
         let elapsed = start.elapsed();
@@ -576,7 +576,7 @@ mod tests {
             check_binary(),
             check_configuration(),
             check_unix_socket(),
-            check_http_server(),
+            check_rpc_server(),
         );
 
         // All checks should have a duration measurement
@@ -667,7 +667,7 @@ mod tests {
             check_binary(),
             check_configuration(),
             check_unix_socket(),
-            check_http_server(),
+            check_rpc_server(),
         );
 
         // All checks should have non-empty messages

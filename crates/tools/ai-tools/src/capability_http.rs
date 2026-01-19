@@ -23,13 +23,13 @@ pub struct HttpClientConfig {
     /// Path to HTTP capability provider's Unix socket
     /// (Discovered at runtime, NOT hardcoded!)
     pub socket_path: PathBuf,
-    
+
     /// Timeout for HTTP operations (default: 30 seconds for AI calls)
     pub timeout_secs: u64,
-    
+
     /// Number of connection retries (default: 3)
     pub max_retries: usize,
-    
+
     /// Delay between retries in milliseconds (default: 100ms)
     pub retry_delay_ms: u64,
 }
@@ -43,7 +43,7 @@ impl Default for HttpClientConfig {
                 .or_else(|_| std::env::var("NETWORK_HTTP_SOCKET"))
                 .unwrap_or_else(|_| "/var/run/network/http.sock".to_string())
                 .into(),
-            timeout_secs: 30,  // AI calls can be slow
+            timeout_secs: 30, // AI calls can be slow
             max_retries: 3,
             retry_delay_ms: 100,
         }
@@ -53,8 +53,8 @@ impl Default for HttpClientConfig {
 /// HTTP request (to be sent to capability provider)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpRequest {
-    pub method: String,      // "GET", "POST", etc.
-    pub url: String,         // Full URL
+    pub method: String, // "GET", "POST", etc.
+    pub url: String,    // Full URL
     pub headers: Vec<(String, String)>,
     pub body: Option<String>,
 }
@@ -166,7 +166,7 @@ impl HttpClient {
     pub async fn request(&self, request: HttpRequest) -> Result<HttpResponse> {
         let method = &request.method;
         let url = &request.url;
-        
+
         debug!(
             method = %method,
             url = %url,
@@ -190,10 +190,7 @@ impl HttpClient {
 
             match self.send_request_internal(&request).await {
                 Ok(response) => {
-                    debug!(
-                        status = response.status,
-                        "✅ HTTP response received"
-                    );
+                    debug!(status = response.status, "✅ HTTP response received");
                     return Ok(response);
                 }
                 Err(e) => {
@@ -208,7 +205,10 @@ impl HttpClient {
         }
 
         Err(last_error.unwrap_or_else(|| {
-            anyhow::anyhow!("HTTP request failed after {} retries", self.config.max_retries)
+            anyhow::anyhow!(
+                "HTTP request failed after {} retries",
+                self.config.max_retries
+            )
         }))
     }
 
@@ -221,7 +221,7 @@ impl HttpClient {
 
         let rpc_request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            method: "http.request".to_string(),  // Generic capability method!
+            method: "http.request".to_string(), // Generic capability method!
             params: serde_json::to_value(request)?,
             id,
         };
@@ -285,16 +285,24 @@ impl HttpClient {
             .result
             .ok_or_else(|| anyhow::anyhow!("No result in response"))?;
 
-        let http_response: HttpResponse = serde_json::from_value(result)
-            .context("Failed to parse HTTP response")?;
+        let http_response: HttpResponse =
+            serde_json::from_value(result).context("Failed to parse HTTP response")?;
 
         Ok(http_response)
     }
 
     /// Convenience method for POST JSON
-    pub async fn post_json(&self, url: &str, headers: Vec<(String, String)>, body: &str) -> Result<HttpResponse> {
+    pub async fn post_json(
+        &self,
+        url: &str,
+        headers: Vec<(String, String)>,
+        body: &str,
+    ) -> Result<HttpResponse> {
         let mut all_headers = headers;
-        if !all_headers.iter().any(|(k, _)| k.eq_ignore_ascii_case("content-type")) {
+        if !all_headers
+            .iter()
+            .any(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+        {
             all_headers.push(("Content-Type".to_string(), "application/json".to_string()));
         }
 
@@ -337,11 +345,14 @@ mod tests {
         // THIS IS THE TEST THAT ENFORCES TRUE PRIMAL!
         let config = HttpClientConfig::default();
         let path = config.socket_path.to_string_lossy();
-        
+
         // Should NOT contain any specific primal name
-        assert!(!path.contains("songbird"), "Should not hardcode 'songbird'!");
+        assert!(
+            !path.contains("songbird"),
+            "Should not hardcode 'songbird'!"
+        );
         assert!(!path.contains("beardog"), "Should not hardcode 'beardog'!");
-        
+
         // Should contain generic capability reference
         assert!(
             path.contains("http") || path.contains("network"),
@@ -350,4 +361,3 @@ mod tests {
         );
     }
 }
-

@@ -5,7 +5,7 @@
 /// Module for improved error handling patterns
 ///
 /// This module provides utilities and patterns for safe error handling.
-/// 
+///
 /// **v1.4.3**: HTTP-based safe_operations utilities have been removed.
 /// Production code uses standard Rust error handling with Result<T, E>.
 pub mod error_handling {}

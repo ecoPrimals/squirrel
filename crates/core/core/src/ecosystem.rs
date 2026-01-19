@@ -356,9 +356,11 @@ impl PrimalCoordinator for EcosystemService {
 
             // TODO: Registration should use Unix socket discovery, not HTTP
             // Pattern: Capability-based service registry via Unix sockets
-            tracing::info!("Songbird registration not yet implemented (requires Unix socket discovery)");
+            tracing::info!(
+                "Songbird registration not yet implemented (requires Unix socket discovery)"
+            );
             tracing::debug!("Songbird endpoint: {}", songbird_endpoint);
-            
+
             // For now, succeed silently (registration will use file-based or Unix socket discovery)
             Ok(())
         } else {
@@ -517,11 +519,14 @@ impl EcosystemService {
     /// Discover primals via Songbird service registry
     /// TODO: Use Unix socket-based discovery, not HTTP
     async fn discover_via_songbird(&self, songbird_endpoint: &str) -> Result<Vec<PrimalEndpoint>> {
-        tracing::debug!("Songbird discovery not yet implemented (requires Unix socket): {}", songbird_endpoint);
-        
+        tracing::debug!(
+            "Songbird discovery not yet implemented (requires Unix socket): {}",
+            songbird_endpoint
+        );
+
         // Discovery should use Unix socket-based capability registry
         // Pattern: CapabilityRegistry::discover_services().await
-        
+
         // For now, return empty list (discovery will use file-based or direct probing)
         Ok(Vec::new())
     }
@@ -555,11 +560,14 @@ impl EcosystemService {
         primal_name: &str,
         endpoint: &str,
     ) -> Result<PrimalEndpoint> {
-        tracing::debug!("Endpoint probing not yet implemented (requires Unix socket): {}", endpoint);
-        
+        tracing::debug!(
+            "Endpoint probing not yet implemented (requires Unix socket): {}",
+            endpoint
+        );
+
         // Primal health checks should use Unix socket-based communication
         // Pattern: UnixStream::connect(socket_path).await + JSON-RPC health check
-        
+
         // For now, return error (discovery will use file-based registry)
         Err(Error::Discovery(format!(
             "Endpoint probing not yet implemented for {}: {}",

@@ -120,8 +120,8 @@ impl ResourceManager {
 
                 let operation_start = Instant::now();
                 let total_cleaned = 0;
-                let mut successful_pools = 0;
-                let mut failed_pools = 0;
+                let successful_pools = 0;
+                let failed_pools = 0;
 
                 debug!("Starting connection pool cleanup cycle");
 

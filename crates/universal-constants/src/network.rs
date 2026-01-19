@@ -66,6 +66,11 @@ pub fn get_service_port(service: &str) -> u16 {
         "websocket" | "ws" => 8080,
         "http" => 8081,
         "admin" => 8082,
+        "security" => 8083,
+        "storage" => 8084,
+        "ui" => 3000,
+        "service_mesh" | "mesh" => 8085,
+        "compute" => 8086,
         "metrics" => 9090,
         "discovery" => 8500,
         _ => {

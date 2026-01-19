@@ -13,7 +13,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::plugin::Plugin;
-use crate::plugin::PluginMetadata; // Use local PluginMetadata to match Plugin trait
+// PluginMetadata not needed - using Plugin trait directly
 use crate::web::{
     ComponentType, HttpMethod, HttpStatus, WebComponent, WebEndpoint, WebPlugin, WebRequest,
     WebResponse,

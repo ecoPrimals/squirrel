@@ -27,13 +27,13 @@ use tracing::{debug, info, warn};
 pub struct BearDogClientConfig {
     /// Path to BearDog's crypto Unix socket
     pub socket_path: String,
-    
+
     /// Timeout for socket operations (default: 5 seconds)
     pub timeout_secs: u64,
-    
+
     /// Number of connection retries (default: 3)
     pub max_retries: usize,
-    
+
     /// Delay between retries in milliseconds (default: 100ms)
     pub retry_delay_ms: u64,
 }
@@ -84,15 +84,15 @@ impl BearDogClient {
                 config.socket_path
             );
         }
-        
+
         info!("BearDog client configured: {}", config.socket_path);
-        
+
         Ok(Self {
             config,
             request_id: std::sync::atomic::AtomicU64::new(1),
         })
     }
-    
+
     /// Sign data using Ed25519 (via BearDog)
     ///
     /// # Arguments
@@ -107,7 +107,7 @@ impl BearDogClient {
             key_id,
             data.len()
         );
-        
+
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: self.next_request_id(),
@@ -117,25 +117,22 @@ impl BearDogClient {
                 "key_id": key_id
             }),
         };
-        
+
         let response = self.send_request(request).await?;
-        
+
         let signature_b64 = response["result"]["signature"]
             .as_str()
             .context("Missing 'signature' in BearDog response")?;
-        
+
         let signature = BASE64
             .decode(signature_b64)
             .context("Failed to decode signature from BearDog")?;
-        
-        debug!(
-            "Ed25519 sign successful: signature_len={}",
-            signature.len()
-        );
-        
+
+        debug!("Ed25519 sign successful: signature_len={}", signature.len());
+
         Ok(signature)
     }
-    
+
     /// Verify Ed25519 signature (via BearDog)
     ///
     /// # Arguments
@@ -157,7 +154,7 @@ impl BearDogClient {
             data.len(),
             signature.len()
         );
-        
+
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: self.next_request_id(),
@@ -168,22 +165,22 @@ impl BearDogClient {
                 "key_id": key_id
             }),
         };
-        
+
         let response = self.send_request(request).await?;
-        
+
         let valid = response["result"]["valid"]
             .as_bool()
             .context("Missing 'valid' field in BearDog response")?;
-        
+
         debug!("Ed25519 verify result: valid={}", valid);
-        
+
         Ok(valid)
     }
-    
+
     /// Send JSON-RPC request to BearDog with retry logic
     async fn send_request(&self, request: JsonRpcRequest) -> Result<JsonValue> {
         let mut last_error = None;
-        
+
         for attempt in 1..=self.config.max_retries {
             match self.send_request_once(&request).await {
                 Ok(response) => return Ok(response),
@@ -193,20 +190,22 @@ impl BearDogClient {
                         attempt, self.config.max_retries, e
                     );
                     last_error = Some(e);
-                    
+
                     if attempt < self.config.max_retries {
-                        tokio::time::sleep(Duration::from_millis(self.config.retry_delay_ms))
-                            .await;
+                        tokio::time::sleep(Duration::from_millis(self.config.retry_delay_ms)).await;
                     }
                 }
             }
         }
-        
+
         Err(last_error.unwrap_or_else(|| {
-            anyhow::anyhow!("BearDog request failed after {} retries", self.config.max_retries)
+            anyhow::anyhow!(
+                "BearDog request failed after {} retries",
+                self.config.max_retries
+            )
         }))
     }
-    
+
     /// Send a single JSON-RPC request to BearDog
     async fn send_request_once(&self, request: &JsonRpcRequest) -> Result<JsonValue> {
         // Connect to Unix socket with timeout
@@ -217,31 +216,28 @@ impl BearDogClient {
         .await
         .context("Timeout connecting to BearDog socket")?
         .context("Failed to connect to BearDog socket")?;
-        
+
         let (read_half, mut write_half) = stream.into_split();
-        
+
         // Serialize request
-        let request_json = serde_json::to_string(&request)
-            .context("Failed to serialize JSON-RPC request")?;
-        
+        let request_json =
+            serde_json::to_string(&request).context("Failed to serialize JSON-RPC request")?;
+
         // Send request (with newline delimiter)
-        timeout(
-            Duration::from_secs(self.config.timeout_secs),
-            async {
-                write_half.write_all(request_json.as_bytes()).await?;
-                write_half.write_all(b"\n").await?;
-                write_half.flush().await?;
-                Ok::<(), std::io::Error>(())
-            },
-        )
+        timeout(Duration::from_secs(self.config.timeout_secs), async {
+            write_half.write_all(request_json.as_bytes()).await?;
+            write_half.write_all(b"\n").await?;
+            write_half.flush().await?;
+            Ok::<(), std::io::Error>(())
+        })
         .await
         .context("Timeout sending request to BearDog")?
         .context("Failed to send request to BearDog")?;
-        
+
         // Read response (newline-delimited JSON)
         let mut reader = BufReader::new(read_half);
         let mut response_line = String::new();
-        
+
         timeout(
             Duration::from_secs(self.config.timeout_secs),
             reader.read_line(&mut response_line),
@@ -249,11 +245,11 @@ impl BearDogClient {
         .await
         .context("Timeout reading response from BearDog")?
         .context("Failed to read response from BearDog")?;
-        
+
         // Parse response
         let response: JsonRpcResponse = serde_json::from_str(&response_line)
             .context("Failed to parse JSON-RPC response from BearDog")?;
-        
+
         // Check for JSON-RPC error
         if let Some(error) = response.error {
             return Err(anyhow::anyhow!(
@@ -262,12 +258,12 @@ impl BearDogClient {
                 error.code
             ));
         }
-        
+
         response
             .result
             .context("BearDog response missing 'result' field")
     }
-    
+
     /// Get next request ID (monotonically increasing)
     fn next_request_id(&self) -> u64 {
         self.request_id
@@ -307,15 +303,15 @@ struct JsonRpcError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_beardog_client_creation() {
         let config = BearDogClientConfig::default();
         let client = BearDogClient::new(config);
-        
+
         assert!(client.is_ok());
     }
-    
+
     #[test]
     fn test_beardog_client_custom_config() {
         let config = BearDogClientConfig {
@@ -324,28 +320,27 @@ mod tests {
             max_retries: 5,
             retry_delay_ms: 200,
         };
-        
+
         let client = BearDogClient::new(config).unwrap();
         assert_eq!(client.config.socket_path, "/tmp/test-beardog.sock");
         assert_eq!(client.config.timeout_secs, 10);
         assert_eq!(client.config.max_retries, 5);
         assert_eq!(client.config.retry_delay_ms, 200);
     }
-    
+
     #[test]
     fn test_request_id_increments() {
         let config = BearDogClientConfig::default();
         let client = BearDogClient::new(config).unwrap();
-        
+
         let id1 = client.next_request_id();
         let id2 = client.next_request_id();
         let id3 = client.next_request_id();
-        
+
         assert_eq!(id1, 1);
         assert_eq!(id2, 2);
         assert_eq!(id3, 3);
     }
-    
+
     // Integration tests (require BearDog running) are in integration tests
 }
-

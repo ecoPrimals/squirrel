@@ -29,7 +29,6 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
-use universal_constants::timeouts;
 
 use crate::error::PrimalError;
 use crate::universal::{
@@ -418,12 +417,137 @@ impl UniversalPrimalEcosystem {
     /// Send capability-based request with comprehensive resilience and observability
     async fn send_capability_request(
         &self,
-        _service: &DiscoveredService,
-        _request: PrimalRequest,
+        service: &DiscoveredService,
+        request: PrimalRequest,
     ) -> UniversalResult<PrimalResponse> {
-        // TODO: Implement Unix socket communication
-        // Modern implementation: JSON-RPC over Unix sockets, delegate to Songbird for network
-        unimplemented!("HTTP removed - implement Unix socket communication")
+        // Modern TRUE PRIMAL implementation: JSON-RPC over Unix sockets
+        tracing::debug!(
+            "Sending capability request to service {} at {}",
+            service.service_id,
+            service.endpoint
+        );
+
+        // Parse endpoint to determine transport
+        if service.endpoint.starts_with("unix://") {
+            // Unix socket communication (TRUE PRIMAL pattern)
+            self.send_unix_socket_request(service, request).await
+        } else if service.endpoint.starts_with("http://")
+            || service.endpoint.starts_with("https://")
+        {
+            // HTTP requests must be delegated to Songbird (concentrated gap strategy)
+            self.delegate_to_songbird(service, request).await
+        } else {
+            Err(PrimalError::InvalidEndpoint(format!(
+                "Unknown endpoint protocol: {}. Expected unix:// or http(s)://",
+                service.endpoint
+            )))
+        }
+    }
+
+    /// Send request via Unix socket (TRUE PRIMAL pattern)
+    async fn send_unix_socket_request(
+        &self,
+        service: &DiscoveredService,
+        request: PrimalRequest,
+    ) -> UniversalResult<PrimalResponse> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::UnixStream;
+
+        let socket_path = service
+            .endpoint
+            .strip_prefix("unix://")
+            .ok_or_else(|| PrimalError::InvalidEndpoint(service.endpoint.clone()))?;
+
+        // Connect to Unix socket
+        let mut stream = UnixStream::connect(socket_path).await.map_err(|e| {
+            PrimalError::NetworkError(format!(
+                "Failed to connect to Unix socket {}: {}",
+                socket_path, e
+            ))
+        })?;
+
+        // Serialize request as JSON-RPC 2.0
+        let json_rpc_request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": request.request_id.to_string(),
+            "method": request.operation,
+            "params": request.payload,
+        });
+
+        let request_bytes = serde_json::to_vec(&json_rpc_request).map_err(|e| {
+            PrimalError::SerializationError(format!("Failed to serialize request: {}", e))
+        })?;
+
+        // Send request
+        stream
+            .write_all(&request_bytes)
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to write to socket: {}", e)))?;
+
+        stream
+            .write_all(b"\n")
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to write delimiter: {}", e)))?;
+
+        // Read response
+        let mut response_bytes = Vec::new();
+        stream
+            .read_to_end(&mut response_bytes)
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to read from socket: {}", e)))?;
+
+        // Deserialize JSON-RPC response
+        let json_rpc_response: serde_json::Value = serde_json::from_slice(&response_bytes)
+            .map_err(|e| {
+                PrimalError::SerializationError(format!("Failed to deserialize response: {}", e))
+            })?;
+
+        // Extract result or error
+        if let Some(error) = json_rpc_response.get("error") {
+            return Err(PrimalError::RemoteError(error.to_string()));
+        }
+
+        let result = json_rpc_response
+            .get("result")
+            .ok_or_else(|| PrimalError::InvalidResponse("Missing result field".to_string()))?;
+
+        // Convert to PrimalResponse
+        Ok(PrimalResponse {
+            request_id: request.request_id,
+            response_id: uuid::Uuid::new_v4(),
+            status: crate::universal::ResponseStatus::Success,
+            success: true,
+            data: Some(result.clone()),
+            payload: result.clone(),
+            timestamp: chrono::Utc::now(),
+            processing_time_ms: None,
+            duration: None,
+            error: None,
+            error_message: None,
+            metadata: std::collections::HashMap::new(),
+        })
+    }
+
+    /// Delegate HTTP request to Songbird (concentrated gap strategy)
+    async fn delegate_to_songbird(
+        &self,
+        service: &DiscoveredService,
+        request: PrimalRequest,
+    ) -> UniversalResult<PrimalResponse> {
+        // TRUE PRIMAL: discover Songbird via capability, don't hardcode
+        tracing::warn!(
+            "HTTP request needed for {}. Delegating to Songbird via capability discovery.",
+            service.service_id
+        );
+
+        // Discover Songbird's HTTP proxy capability
+        // This is the concentrated gap strategy: only Songbird handles HTTP
+        Err(PrimalError::NotImplemented(
+            "HTTP delegation to Songbird not yet implemented. \
+             TRUE PRIMAL pattern: discover 'http.proxy' capability and delegate. \
+             See docs/PRIMAL_COMMUNICATION_ARCHITECTURE.md"
+                .to_string(),
+        ))
     }
 
     /// Discover all available services and their capabilities

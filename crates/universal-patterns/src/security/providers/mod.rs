@@ -476,10 +476,8 @@ impl BeardogSecurityProvider {
         // Beardog communication should use Unix sockets
         // Pattern: UnixStream::connect("/var/run/beardog/security.sock").await
         tracing::info!("BeardogSecurityProvider created (HTTP delegation not yet implemented)");
-        
-        Ok(Self {
-            config,
-        })
+
+        Ok(Self { config })
     }
 }
 
@@ -656,10 +654,8 @@ impl BeardogIntegration {
     ) -> Result<BeardogSecurityProvider, SecurityError> {
         // Beardog communication should use Unix sockets
         tracing::info!("BeardogIntegration created (HTTP delegation not yet implemented)");
-        
-        Ok(BeardogSecurityProvider {
-            config,
-        })
+
+        Ok(BeardogSecurityProvider { config })
     }
 }
 

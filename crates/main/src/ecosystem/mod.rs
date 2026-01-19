@@ -355,7 +355,7 @@ impl EcosystemManager {
     #[must_use]
     pub fn new(config: EcosystemConfig, metrics_collector: Arc<MetricsCollector>) -> Self {
         // registry_manager removed - HTTP-based, replaced by capability discovery
-        
+
         // Initialize Universal Primal Ecosystem with proper context
         let primal_context = PrimalContext {
             user_id: "squirrel".to_string(),
@@ -429,7 +429,10 @@ impl EcosystemManager {
         let registration = self.create_service_registration(provider)?;
 
         // TODO: Register with ecosystem through capability discovery (Unix sockets)
-        tracing::info!("Service registration prepared: {:?}", registration.service_id);
+        tracing::info!(
+            "Service registration prepared: {:?}",
+            registration.service_id
+        );
 
         // Update status
         let mut status = self.status.write().await;
@@ -521,7 +524,10 @@ impl EcosystemManager {
         primal_type: EcosystemPrimalType,
     ) -> Result<Vec<DiscoveredService>, PrimalError> {
         // TODO: Implement via capability discovery (Unix sockets)
-        tracing::warn!("find_services_by_type called for {:?} - implement via capability discovery", primal_type);
+        tracing::warn!(
+            "find_services_by_type called for {:?} - implement via capability discovery",
+            primal_type
+        );
         Ok(Vec::new())
     }
 
@@ -532,7 +538,9 @@ impl EcosystemManager {
     ) -> Result<PrimalApiResponse, PrimalError> {
         // TODO: Implement via capability discovery (Unix sockets)
         tracing::warn!("call_primal_api called - implement via capability discovery");
-        Err(PrimalError::Configuration("API calls via capability discovery not yet implemented".to_string()))
+        Err(PrimalError::Configuration(
+            "API calls via capability discovery not yet implemented".to_string(),
+        ))
     }
 
     /// Start coordination between multiple primals
@@ -553,7 +561,11 @@ impl EcosystemManager {
         success: bool,
     ) -> Result<(), PrimalError> {
         // TODO: Implement via capability discovery (Unix sockets)
-        tracing::info!("complete_coordination called for session {} (success: {})", session_id, success);
+        tracing::info!(
+            "complete_coordination called for session {} (success: {})",
+            session_id,
+            success
+        );
         Ok(())
     }
 
@@ -639,7 +651,10 @@ impl EcosystemManager {
         let universal_registration = provider.create_service_registration();
 
         // TODO: Register through capability discovery (Unix sockets)
-        tracing::info!("Service registration prepared: {:?}", universal_registration.service_id);
+        tracing::info!(
+            "Service registration prepared: {:?}",
+            universal_registration.service_id
+        );
 
         // Update status
         let mut status = self.status.write().await;
@@ -657,7 +672,7 @@ impl EcosystemManager {
         tracing::info!("Deregistering from service mesh");
 
         // TODO: Deregister through capability discovery (Unix sockets)
-        
+
         // Update status
         let mut status = self.status.write().await;
         status

@@ -44,7 +44,7 @@ pub mod dispatch {
     use crate::router::RoutingStrategy;
     use crate::router::{AIRouter, RequestContext, RouterConfig, RoutingHint};
     use std::collections::HashMap;
-    use std::sync::Arc;
+    
     use uuid::Uuid;
 
     /// Multi-model dispatcher that can route requests to different models
@@ -291,8 +291,8 @@ pub mod dispatch {
 
 /// Client factory functions for easy instantiation
 pub mod clients {
-    use super::*;
-    use std::sync::Arc;
+    
+    
 
     /// Create a new OpenAI client
     #[cfg(feature = "openai")]

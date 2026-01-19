@@ -1,10 +1,10 @@
 //! Core Squirrel Primal Provider Implementation
 
+// TryFutureExt removed - not currently used in this module
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, info};
 use uuid::Uuid;
-use futures::TryFutureExt;
 
 // EcosystemClient removed - HTTP-based client deprecated
 // capability_registry removed - use universal patterns for capability discovery
@@ -175,8 +175,16 @@ impl SquirrelPrimalProvider {
 
         let participating_primals: Vec<String> = available_primals
             .iter()
-            .filter(|p| p.get("is_healthy").and_then(|v| v.as_bool()).unwrap_or(false))
-            .filter_map(|p| p.get("display_name").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .filter(|p| {
+                p.get("is_healthy")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+            })
+            .filter_map(|p| {
+                p.get("display_name")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
             .collect();
 
         let response = serde_json::json!({
@@ -437,11 +445,26 @@ impl SquirrelPrimalProvider {
         // capability_registry removed - use ecosystem discovery
         let all_primals: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
 
-        let healthy_services = all_primals.iter().filter(|p| p.get("is_healthy").and_then(|v| v.as_bool()).unwrap_or(false)).count();
+        let healthy_services = all_primals
+            .iter()
+            .filter(|p| {
+                p.get("is_healthy")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+            })
+            .count();
         let participating_primals: Vec<String> = all_primals
             .iter()
-            .filter(|p| p.get("is_healthy").and_then(|v| v.as_bool()).unwrap_or(false))
-            .filter_map(|p| p.get("display_name").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .filter(|p| {
+                p.get("is_healthy")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+            })
+            .filter_map(|p| {
+                p.get("display_name")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
             .collect();
 
         let coordination_efficiency = if all_primals.is_empty() {
@@ -738,7 +761,10 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     }
 
     /// Register with service mesh
-    async fn register_with_songbird(&mut self, _songbird_endpoint: &str) -> UniversalResult<String> {
+    async fn register_with_songbird(
+        &mut self,
+        _songbird_endpoint: &str,
+    ) -> UniversalResult<String> {
         // TODO: Implement songbird registration
         Ok("registered (stubbed)".to_string())
     }

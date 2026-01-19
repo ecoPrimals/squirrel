@@ -435,9 +435,13 @@ impl UniversalClient {
         //     requires_secure: ...,
         // };
 
-        // Protocol router REMOVED - implement JSON-RPC over Unix sockets
-        let _ = params; // Silence unused warning  
-        unimplemented!("Protocol router deleted - use JSON-RPC over Unix sockets")
+        // Protocol router REMOVED - modern TRUE PRIMAL uses JSON-RPC over Unix sockets
+        let _ = params; // Silence unused warning
+        Err(PrimalError::NotSupported(
+            "Protocol routing removed. TRUE PRIMAL architecture uses JSON-RPC over Unix sockets. \
+             See docs/PRIMAL_COMMUNICATION_ARCHITECTURE.md for modern patterns."
+                .to_string(),
+        ))
     }
 }
 

@@ -100,7 +100,7 @@ async fn run_server(
     let metrics_collector = Arc::new(MetricsCollector::new());
     #[cfg(not(feature = "monitoring"))]
     let metrics_collector = Arc::new(squirrel::monitoring::metrics::MetricsCollector::new());
-    
+
     let ecosystem_config = EcosystemConfig::default();
     let ecosystem_manager = Arc::new(EcosystemManager::new(
         ecosystem_config,

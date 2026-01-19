@@ -10,7 +10,9 @@
 //! - Could be BearDog, could be any crypto primal, could change!
 
 #[cfg(feature = "delegated-jwt")]
-use crate::capability_jwt::{CapabilityJwtConfig, CapabilityJwtService, JwtClaims as CapabilityJwtClaims};
+use crate::capability_jwt::{
+    CapabilityJwtConfig, CapabilityJwtService, JwtClaims as CapabilityJwtClaims,
+};
 use crate::{AuthError, AuthResult, JwtClaims};
 use chrono::{DateTime, Utc};
 use tracing::{debug, info};
@@ -35,7 +37,7 @@ use uuid::Uuid;
 pub struct DelegatedJwtClient {
     #[cfg(feature = "delegated-jwt")]
     capability_service: CapabilityJwtService,
-    
+
     #[cfg(feature = "local-jwt")]
     _local_service: crate::jwt::JwtTokenManager,
 }
@@ -54,15 +56,15 @@ impl DelegatedJwtClient {
     #[cfg(feature = "delegated-jwt")]
     pub fn new(capability_config: CapabilityJwtConfig) -> AuthResult<Self> {
         info!("🌍 Initializing TRUE PRIMAL JWT client (capability-based discovery!)");
-        
-        let capability_service = CapabilityJwtService::new(capability_config)
-            .map_err(|e| AuthError::Internal {
+
+        let capability_service =
+            CapabilityJwtService::new(capability_config).map_err(|e| AuthError::Internal {
                 message: format!("Failed to initialize capability-based JWT service: {}", e),
             })?;
-        
+
         Ok(Self { capability_service })
     }
-    
+
     /// Create new delegated JWT client from environment variables
     ///
     /// **Environment Variables** (set by capability discovery!):
@@ -74,23 +76,23 @@ impl DelegatedJwtClient {
     #[cfg(feature = "delegated-jwt")]
     pub fn new_from_env() -> AuthResult<Self> {
         use std::env;
-        
+
         let socket_path = env::var("CRYPTO_CAPABILITY_SOCKET")
             .unwrap_or_else(|_| "/var/run/crypto/provider.sock".to_string());
-        
-        let key_id = env::var("JWT_KEY_ID")
-            .unwrap_or_else(|_| "squirrel-jwt-signing-key".to_string());
-        
+
+        let key_id =
+            env::var("JWT_KEY_ID").unwrap_or_else(|_| "squirrel-jwt-signing-key".to_string());
+
         let expiry_hours = env::var("JWT_EXPIRY_HOURS")
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(24);
-        
+
         info!(
             "🔧 JWT config from env (capability discovery): socket={}, key_id={}, expiry={}h",
             socket_path, key_id, expiry_hours
         );
-        
+
         let capability_config = CapabilityJwtConfig {
             crypto_config: crate::capability_crypto::CryptoClientConfig {
                 socket_path: socket_path.into(),
@@ -101,10 +103,10 @@ impl DelegatedJwtClient {
             key_id,
             expiry_hours,
         };
-        
+
         Self::new(capability_config)
     }
-    
+
     /// Create JWT token (delegates to discovered crypto capability)
     ///
     /// # Arguments
@@ -131,12 +133,12 @@ impl DelegatedJwtClient {
             "Creating JWT token via crypto capability: user={}, session={}",
             username, session_id
         );
-        
+
         let claims = CapabilityJwtClaims::new(user_id, username, roles, session_id, expires_at);
-        
+
         self.capability_service.create_token(&claims).await
     }
-    
+
     /// Verify JWT token (delegates to discovered crypto capability)
     ///
     /// # Arguments
@@ -148,10 +150,13 @@ impl DelegatedJwtClient {
     /// Verified JWT claims
     #[cfg(feature = "delegated-jwt")]
     pub async fn verify_token(&self, token: &str) -> AuthResult<JwtClaims> {
-        debug!("Verifying JWT token via crypto capability: length={}", token.len());
-        
+        debug!(
+            "Verifying JWT token via crypto capability: length={}",
+            token.len()
+        );
+
         let capability_claims = self.capability_service.verify_token(token).await?;
-        
+
         // Convert capability claims to our JwtClaims type
         Ok(JwtClaims {
             sub: capability_claims.sub,
@@ -166,30 +171,33 @@ impl DelegatedJwtClient {
             jti: capability_claims.jti,
         })
     }
-    
+
     /// Extract token from Authorization header
     ///
     /// Expected format: `Bearer <token>`
     #[cfg(feature = "delegated-jwt")]
-    pub fn extract_token_from_header<'a>(&self, authorization_header: &'a str) -> AuthResult<&'a str> {
+    pub fn extract_token_from_header<'a>(
+        &self,
+        authorization_header: &'a str,
+    ) -> AuthResult<&'a str> {
         self.capability_service
             .extract_token_from_header(authorization_header)
     }
-    
+
     // Local JWT methods (dev/testing only)
-    
+
     /// Create new delegated JWT client (local mode)
     #[cfg(feature = "local-jwt")]
     pub fn new_local(secret: &[u8]) -> AuthResult<Self> {
         info!("⚠️ Using local JWT (dev mode, brings ring dependency)");
-        
+
         let local_service = crate::jwt::JwtTokenManager::new(secret);
-        
+
         Ok(Self {
             _local_service: local_service,
         })
     }
-    
+
     #[cfg(feature = "local-jwt")]
     pub async fn create_token(
         &self,
@@ -200,21 +208,24 @@ impl DelegatedJwtClient {
         expires_at: DateTime<Utc>,
     ) -> AuthResult<String> {
         debug!("Creating JWT token via local service (dev mode)");
-        
+
         let claims = crate::jwt::JwtClaims::new(user_id, username, roles, session_id, expires_at);
-        
+
         self._local_service.create_token(&claims)
     }
-    
+
     #[cfg(feature = "local-jwt")]
     pub async fn verify_token(&self, token: &str) -> AuthResult<JwtClaims> {
         debug!("Verifying JWT token via local service (dev mode)");
-        
+
         self._local_service.verify_token(token)
     }
-    
+
     #[cfg(feature = "local-jwt")]
-    pub fn extract_token_from_header<'a>(&self, authorization_header: &'a str) -> AuthResult<&'a str> {
+    pub fn extract_token_from_header<'a>(
+        &self,
+        authorization_header: &'a str,
+    ) -> AuthResult<&'a str> {
         self._local_service
             .extract_token_from_header(authorization_header)
     }
@@ -224,42 +235,42 @@ impl DelegatedJwtClient {
 mod tests {
     use super::*;
     use chrono::Duration;
-    
+
     #[test]
     fn test_delegated_client_creation() {
         let config = CapabilityJwtConfig::default();
         let client = DelegatedJwtClient::new(config);
-        
+
         assert!(client.is_ok());
     }
-    
+
     #[test]
     fn test_delegated_client_from_env() {
         // Set test environment variables (as capability discovery would)
         std::env::set_var("CRYPTO_CAPABILITY_SOCKET", "/tmp/test-crypto.sock");
         std::env::set_var("JWT_KEY_ID", "test-key-id");
         std::env::set_var("JWT_EXPIRY_HOURS", "12");
-        
+
         let client = DelegatedJwtClient::new_from_env();
         assert!(client.is_ok());
-        
+
         // Cleanup
         std::env::remove_var("CRYPTO_CAPABILITY_SOCKET");
         std::env::remove_var("JWT_KEY_ID");
         std::env::remove_var("JWT_EXPIRY_HOURS");
     }
-    
+
     // Integration tests require crypto capability provider running
     #[tokio::test]
     #[ignore]
     async fn test_create_and_verify_token_integration() {
         // Socket path from capability discovery (NOT hardcoded!)
         let client = DelegatedJwtClient::new_from_env().unwrap();
-        
+
         let user_id = Uuid::new_v4();
         let session_id = Uuid::new_v4();
         let expires_at = Utc::now() + Duration::hours(1);
-        
+
         let token = client
             .create_token(
                 user_id,
@@ -270,9 +281,9 @@ mod tests {
             )
             .await
             .unwrap();
-        
+
         let claims = client.verify_token(&token).await.unwrap();
-        
+
         assert_eq!(claims.username, "alice");
         assert_eq!(claims.sub, user_id.to_string());
     }

@@ -224,11 +224,14 @@ impl FederationService {
     async fn join_existing_federation(&self) -> Result<()> {
         // Federation joining requires HTTP POST delegation to Songbird
         // Pattern: CapabilityHttpClient::discover("http.client").post(&join_url, &join_request).await
-        
-        tracing::info!("Federation joining not yet implemented (requires Songbird HTTP delegation)");
-        
+
+        tracing::info!(
+            "Federation joining not yet implemented (requires Songbird HTTP delegation)"
+        );
+
         Err(Error::Federation(
-            "Federation joining not yet implemented (requires Songbird HTTP delegation)".to_string()
+            "Federation joining not yet implemented (requires Songbird HTTP delegation)"
+                .to_string(),
         ))
     }
 
@@ -372,7 +375,7 @@ impl FederationService {
             instance.health = InstanceStatus::Running;
             instance.last_seen = Utc::now();
         }
-        
+
         // Pattern for future implementation:
         // CapabilityHttpClient::discover("http.client").get(&health_url).await
     }
@@ -382,14 +385,17 @@ impl FederationService {
     async fn check_instance_health(&self) {
         // Instance health checking requires HTTP delegation to Songbird
         // Pattern: CapabilityHttpClient::discover("http.client").get(&health_url).await
-        
+
         // For now, assume all instances are running (to be implemented with Songbird)
         for mut entry in self.instances.iter_mut() {
             let (instance_id, instance) = entry.pair_mut();
-            
+
             if instance.health == InstanceStatus::Starting {
                 instance.health = InstanceStatus::Running;
-                tracing::info!("Instance {} marked as running (HTTP health check TODO)", instance_id);
+                tracing::info!(
+                    "Instance {} marked as running (HTTP health check TODO)",
+                    instance_id
+                );
             }
         }
     }

@@ -319,7 +319,10 @@ impl SquirrelBiomeOSIntegration {
 
         // TODO: Register with service mesh via capability-based discovery
         // Implementation delegated to primal provider
-        tracing::info!("Service registration prepared: {:?}", registration.service_id);
+        tracing::info!(
+            "Service registration prepared: {:?}",
+            registration.service_id
+        );
 
         self.health_status.status = "registered".to_string();
         self.health_status.timestamp = Utc::now();

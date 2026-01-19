@@ -10,4 +10,3 @@ pub(crate) mod types;
 
 // Re-export main router for tarpc_server
 pub use router::AiRouter;
-

@@ -87,7 +87,9 @@ pub use types::{AuthContext, JwtClaims, LoginRequest, LoginResponse, Permission,
 #[cfg(feature = "delegated-jwt")]
 pub use capability_crypto::{CryptoClient, CryptoClientConfig};
 #[cfg(feature = "delegated-jwt")]
-pub use capability_jwt::{CapabilityJwtService, CapabilityJwtConfig, JwtClaims as CapabilityJwtClaims};
+pub use capability_jwt::{
+    CapabilityJwtConfig, CapabilityJwtService, JwtClaims as CapabilityJwtClaims,
+};
 
 // DEPRECATED: BearDog-specific exports (use capability_ instead!)
 #[allow(deprecated)]
@@ -95,7 +97,7 @@ pub use capability_jwt::{CapabilityJwtService, CapabilityJwtConfig, JwtClaims as
 pub use beardog_client::{BearDogClient, BearDogClientConfig};
 #[allow(deprecated)]
 #[cfg(feature = "delegated-jwt")]
-pub use beardog_jwt::{BearDogJwtService, BearDogJwtConfig, JwtClaims as BearDogJwtClaims};
+pub use beardog_jwt::{BearDogJwtConfig, BearDogJwtService, JwtClaims as BearDogJwtClaims};
 
 // Dev/Testing: Local JWT (brings ring)
 #[cfg(feature = "local-jwt")]

@@ -223,7 +223,8 @@ impl UniversalAdapter {
         info!("🔄 Shutting down Universal Adapter");
 
         // API server removed
-        if false { // if let Some(_api_server) = &self.api_server { // DELETED
+        if false {
+            // if let Some(_api_server) = &self.api_server { // DELETED
             info!("Shutting down API server");
             // API server shutdown would be handled here
         }

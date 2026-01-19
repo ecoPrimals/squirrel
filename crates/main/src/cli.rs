@@ -104,7 +104,7 @@ pub enum OutputFormat {
 pub enum Subsystem {
     /// AI routing and providers
     Ai,
-    /// Ecosystem connectivity (Songbird, BearDog, etc.)
+    /// Ecosystem connectivity (capability-based service discovery)
     Ecosystem,
     /// Configuration and environment
     Config,

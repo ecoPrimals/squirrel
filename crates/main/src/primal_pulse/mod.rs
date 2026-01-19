@@ -6,7 +6,7 @@
 
 // Legacy modules REMOVED - used deleted HTTP API (api::ai)
 // pub(crate) mod handlers; // DELETED
-// mod tools;                // DELETED  
+// mod tools;                // DELETED
 // pub use tools::register_primal_pulse_tools; // DELETED
 
 // Remaining modules (may need updates)

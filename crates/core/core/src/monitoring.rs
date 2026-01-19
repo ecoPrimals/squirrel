@@ -487,9 +487,9 @@ impl SongbirdProvider {
     pub async fn new(config: SongbirdConfig) -> Result<Self> {
         // TODO: Songbird communication should use Unix sockets, not HTTP
         // Pattern: UnixStream::connect("/var/run/songbird/monitor.sock").await
-        
+
         tracing::info!("SongbirdProvider created (HTTP delegation not yet implemented)");
-        
+
         Ok(Self {
             endpoint: config.endpoint.clone(),
             config,
@@ -529,7 +529,11 @@ impl MonitoringProvider for SongbirdProvider {
     }
 
     /// TODO: Use Unix socket communication with Songbird
-    async fn record_performance(&self, _component: &str, _metrics: PerformanceMetrics) -> Result<()> {
+    async fn record_performance(
+        &self,
+        _component: &str,
+        _metrics: PerformanceMetrics,
+    ) -> Result<()> {
         // Monitoring should use Unix socket communication with Songbird
         tracing::trace!("Performance recording not yet implemented (requires Unix socket)");
         Ok(())

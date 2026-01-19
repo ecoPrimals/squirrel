@@ -14,7 +14,7 @@
 pub mod api;
 pub mod biomeos_integration;
 pub mod capabilities; // NEW - Capability traits (Phase 2)
-// capability and capability_registry removed - HTTP-based legacy discovery
+                      // capability and capability_registry removed - HTTP-based legacy discovery
 pub mod chaos;
 pub mod compute_client;
 pub mod config;
@@ -59,9 +59,13 @@ pub use compute_client::{
     UniversalComputeClient, UniversalComputeRequest, UniversalComputeResponse,
 };
 pub use ecosystem::{
-    initialize_ecosystem_integration, ComponentHealth, EcosystemPrimalType, EcosystemRegistryEvent,
+    initialize_ecosystem_integration,
+    ComponentHealth,
+    EcosystemPrimalType,
+    EcosystemRegistryEvent,
     // EcosystemRegistryManager removed - HTTP-based registry
-    EcosystemServiceRegistration, EcosystemStatus,
+    EcosystemServiceRegistration,
+    EcosystemStatus,
 };
 // error_handling::prelude removed - safe_operations deleted
 pub use monitoring::performance::PerformanceTracker;

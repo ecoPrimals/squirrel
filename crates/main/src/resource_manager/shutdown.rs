@@ -131,7 +131,7 @@ mod tests {
     use super::*;
     use crate::resource_manager::{CleanupMetrics, ResourceManagerConfig, ResourceUsageStats};
     // ServiceConnectionPool removed - Unix sockets don't need connection pooling
-    use std::sync::Arc;
+    
 
     #[test]
     fn test_resource_manager_config_default() {
@@ -180,9 +180,9 @@ mod tests {
         let config = ResourceManagerConfig::default();
         let manager = ResourceManager::new(config);
 
-        let pool = Arc::new(());  // Placeholder: connection pooling removed
+        // Connection pooling removed - Unix sockets don't need pooling
         manager
-            .register_connection_pool("test-pool".to_string(), pool)
+            .register_connection_pool("test-pool".to_string(), ())
             .await;
 
         // connection_pools removed - Unix sockets don't need pooling
@@ -198,9 +198,9 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         for i in 0..3 {
-            let pool = Arc::new(());  // Placeholder: connection pooling removed
+            // Connection pooling removed - Unix sockets don't need pooling
             manager
-                .register_connection_pool(format!("pool-{}", i), pool)
+                .register_connection_pool(format!("pool-{}", i), ())
                 .await;
         }
 
@@ -270,9 +270,9 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         // Register a pool
-        let pool = Arc::new(());  // Placeholder: connection pooling removed
+        // Connection pooling removed - Unix sockets don't need pooling
         manager
-            .register_connection_pool("test-pool".to_string(), pool)
+            .register_connection_pool("test-pool".to_string(), ())
             .await;
 
         // Run immediate cleanup
@@ -329,9 +329,9 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         // Register a pool first
-        let pool = Arc::new(());  // Placeholder: connection pooling removed
+        // Connection pooling removed - Unix sockets don't need pooling
         manager
-            .register_connection_pool("test-pool".to_string(), pool)
+            .register_connection_pool("test-pool".to_string(), ())
             .await;
 
         let result = manager.shutdown(ShutdownPhase::CloseConnections).await;
@@ -362,9 +362,9 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         // Register pools and metrics first
-        let pool = Arc::new(());  // Placeholder: connection pooling removed
+        // Connection pooling removed - Unix sockets don't need pooling
         manager
-            .register_connection_pool("test-pool".to_string(), pool)
+            .register_connection_pool("test-pool".to_string(), ())
             .await;
 
         let result = manager.shutdown(ShutdownPhase::FinalCleanup).await;
@@ -385,9 +385,9 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         // Register resources
-        let pool = Arc::new(());  // Placeholder: connection pooling removed
+        // Connection pooling removed - Unix sockets don't need pooling
         manager
-            .register_connection_pool("lifecycle-pool".to_string(), pool)
+            .register_connection_pool("lifecycle-pool".to_string(), ())
             .await;
 
         // Go through all shutdown phases
