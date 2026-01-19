@@ -25,19 +25,19 @@ chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1.0"
 anyhow = "1.0"
 
-# HTTP client for AI services
-reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"] }
+# HTTP client for AI services (OPTIONAL - for dev/testing only!)
+# Production uses Unix sockets → Songbird (Pure Rust!)
+reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 url = "2.5"
 
 # Logging and tracing
 tracing = "0.1"
 log = "0.4"
 
-# AI service clients  
-# NOTE: anthropic-sdk uses reqwest v0.12 with native-tls (brings openssl-sys)
-# This is acceptable for dev/testing. Production uses Unix sockets → Songbird.
-openai = { version = "1.1", default-features = false, features = ["rustls"] }
-anthropic-sdk = "0.1"  # No rustls option available
+# AI service clients (OPTIONAL - for dev/testing only!)
+# Production delegates to Songbird via Unix sockets!
+openai = { version = "1.1", default-features = false, features = ["rustls"], optional = true }
+anthropic-sdk = { version = "0.1", optional = true }
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
@@ -78,10 +78,23 @@ tokio-test = "0.4"
 mockall = "0.11"
 
 [features]
-default = ["anthropic", "openai", "gemini", "local"]
-anthropic = []
-openai = []
-gemini = []
+# Production default: capability-based AI (Pure Rust via Unix sockets!)
+default = ["capability-ai"]
+
+# Capability-based AI (TRUE PRIMAL - Pure Rust!)
+# Delegates to Songbird via Unix sockets
+# NO reqwest, NO ring!
+capability-ai = []
+
+# Direct HTTP to AI vendors (DEV/TESTING ONLY!)
+# Brings reqwest → rustls → ring
+# Use for development without Songbird
+direct-http = ["dep:reqwest", "dep:openai", "dep:anthropic-sdk"]
+
+# Legacy feature flags (kept for compatibility)
+anthropic = ["direct-http"]
+openai = ["direct-http"]
+gemini = ["direct-http"]
 local = []
 testing = []
 
