@@ -14,6 +14,11 @@
 // Will be fixed in systematic refactoring pass.
 #![allow(clippy::items_after_test_module)]
 
+// Capability-based AI client (TRUE PRIMAL!)
+// Delegates AI HTTP calls to Songbird (network specialist)
+// NO reqwest, NO ring! Pure Rust via Unix sockets!
+pub mod capability_ai;
+
 pub mod common;
 pub mod config;
 pub mod error;
