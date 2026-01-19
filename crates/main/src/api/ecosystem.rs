@@ -58,8 +58,7 @@ pub async fn handle_primals_list(
     // registry_manager removed - use ecosystem discovery
     // TODO: Implement via ecosystem discovery
     let primals: Vec<PrimalStatusResponse> = Vec::new();
-    let response = PrimalsResponse { primals };
-    Ok(warp::reply::json(&response))
+    Ok(warp::reply::json(&primals))
 }
 
 /// Handle primal status endpoint for a specific primal
