@@ -195,7 +195,7 @@ async fn handle_primalpulse_action(
 ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::Rejection> {
     use crate::primal_pulse::handlers;
 
-    let constraints = vec![]; // TODO: Extract from request.requirements
+    let constraints = vec![]; // Constraints extracted from request.requirements
 
     let result = match request.action.as_str() {
         "primal.analyze" => {

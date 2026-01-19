@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
 /// Run server mode
 async fn run_server(
     port: u16,
-    _daemon: bool, // TODO: Implement daemon mode
+    _daemon: bool, // Reserved for future daemon mode
     _socket: Option<String>,
     _bind: String,
     verbose: bool,
