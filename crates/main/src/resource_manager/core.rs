@@ -127,22 +127,8 @@ impl ResourceManager {
 
                 // Cleanup all registered pools
                 {
-//                     let pools_guard = pools.read().await;  // pools removed
-//                     for (pool_name, pool) in pools_guard.iter() {  // pools removed
-                        let cleanup_future = pool
-                            .cleanup_stale_connections()
-                            .instrument(tracing::debug_span!("pool_cleanup", pool = %pool_name));
-
-                        if let Ok(()) =
-                            tokio::time::timeout(Duration::from_secs(30), cleanup_future).await
-                        {
-                            successful_pools += 1;
-                            debug!("Connection cleanup completed for pool: {}", pool_name);
-                        } else {
-                            failed_pools += 1;
-                            warn!("Connection cleanup timed out for pool: {}", pool_name);
-                        }
-                    }
+                    // connection_pools removed - Unix sockets don't need pooling
+                    // Pool cleanup logic removed
                 }
 
                 let operation_duration = operation_start.elapsed();

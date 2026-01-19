@@ -170,7 +170,7 @@ impl SquirrelPrimalProvider {
         // Discover all available primals dynamically
         let available_primals = self
             .capability_registry
-            .list_all_primals()
+            .list_all_primals();
 
         let participating_primals: Vec<String> = available_primals
             .iter()
@@ -448,7 +448,7 @@ impl SquirrelPrimalProvider {
         // Discover all primals dynamically
         let all_primals = self
             .capability_registry
-            .list_all_primals()
+            .list_all_primals();
 
         let healthy_services = all_primals.iter().filter(|p| p.is_healthy).count();
         let participating_primals: Vec<String> = all_primals
