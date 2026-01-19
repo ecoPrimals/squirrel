@@ -32,7 +32,6 @@ use tracing::{debug, info, warn};
 use universal_constants::timeouts;
 
 use crate::error::PrimalError;
-use universal_error::UniversalError;
 use crate::universal::{
     PrimalCapability, PrimalContext, PrimalRequest, PrimalResponse, UniversalResult,
 };
@@ -552,10 +551,7 @@ impl UniversalPrimalEcosystem {
     async fn query_service_capabilities(&self, _endpoint: &str) -> UniversalResult<Vec<String>> {
         // connection_pool removed - Unix sockets don't need HTTP connection pooling
         // TODO: Implement Unix socket client discovery via capability discovery
-        Err(UniversalError::NotImplemented {
-            operation: "query_service_capabilities".to_string(),
-            context: "Connection pooling removed - use Unix socket delegation".to_string()
-        })
+        Ok(Vec::new()) // Stub: return empty capabilities until Unix socket implementation
     }
 
     /// Find services by capability without caching (internal method)

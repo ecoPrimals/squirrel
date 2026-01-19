@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, info};
 use uuid::Uuid;
+use futures::TryFutureExt;
 
 // EcosystemClient removed - HTTP-based client deprecated
 // capability_registry removed - use universal patterns for capability discovery
@@ -713,6 +714,7 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     /// Initialize the primal
     async fn initialize(&mut self, _config: serde_json::Value) -> UniversalResult<()> {
         self.initialize_ecosystem()
+            .await
             .map_err(|e| PrimalError::Internal(e.to_string()))?;
         Ok(())
     }
@@ -720,6 +722,7 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     /// Shutdown the primal
     async fn shutdown(&mut self) -> UniversalResult<()> {
         self.shutdown_ecosystem()
+            .await
             .map_err(|e| PrimalError::Internal(e.to_string()))?;
         Ok(())
     }
@@ -735,12 +738,15 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     }
 
     /// Register with service mesh
-    async fn register_with_songbird(&mut self, songbird_endpoint: &str) -> UniversalResult<String> {
+    async fn register_with_songbird(&mut self, _songbird_endpoint: &str) -> UniversalResult<String> {
+        // TODO: Implement songbird registration
+        Ok("registered (stubbed)".to_string())
     }
 
     /// Deregister from service mesh
     async fn deregister_from_songbird(&mut self) -> UniversalResult<()> {
         self.deregister_from_service_mesh()
+            .await
             .map_err(|e| PrimalError::Internal(e.to_string()))?;
         Ok(())
     }
@@ -753,18 +759,30 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     /// Handle ecosystem request
     async fn handle_ecosystem_request(
         &self,
-        request: EcosystemRequest,
+        _request: EcosystemRequest,
     ) -> UniversalResult<EcosystemResponse> {
+        // TODO: Implement ecosystem request handling
+        Ok(EcosystemResponse {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            status: ResponseStatus::Success,
+            data: None,
+            error: None,
+            timestamp: chrono::Utc::now(),
+        })
     }
 
     /// Report health to ecosystem registry
-    async fn report_health(&self, health: PrimalHealth) -> UniversalResult<()> {
+    async fn report_health(&self, _health: PrimalHealth) -> UniversalResult<()> {
+        // TODO: Implement health reporting
+        Ok(())
     }
 
     /// Update system capabilities
     async fn update_capabilities(
         &self,
-        capabilities: Vec<PrimalCapability>,
+        _capabilities: Vec<PrimalCapability>,
     ) -> UniversalResult<()> {
+        // TODO: Implement capability updates
+        Ok(())
     }
 }

@@ -103,8 +103,7 @@ impl ShutdownHandler for ResourceManager {
             ShutdownPhase::FinalCleanup => {
                 // Clear all remaining data structures
                 {
-                    let mut pools = self.connection_pools.write().await;
-                    pools.clear();
+                    // connection_pools removed - Unix sockets don't need pooling
                 }
 
                 {
