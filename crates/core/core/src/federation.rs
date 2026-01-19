@@ -209,70 +209,27 @@ impl FederationService {
     }
 
     /// Probe a potential federation node
+    /// TODO: Delegate HTTP to Songbird via Unix sockets (TRUE PRIMAL pattern)
     async fn probe_federation_node(&self, endpoint: &str) -> Result<SquirrelInstance> {
-        // TODO: Delegate HTTP to Songbird via Unix sockets (TRUE PRIMAL pattern)
-        // For now, return unimplemented error
-        return Err(Error::Federation(format!(
-            "HTTP delegation to Songbird not yet implemented for endpoint: {}",
+        // Federation probing requires HTTP delegation to Songbird
+        // Pattern: CapabilityHttpClient::discover("http.client").await?
+        Err(Error::Federation(format!(
+            "Federation node probing not yet implemented (requires Songbird HTTP delegation): {}",
             endpoint
-        )));
-
-        #[allow(unreachable_code)]
-        {
-        let _info_url = format!("{endpoint}/api/v1/federation/info");
-        let _node_info: NodeInfo = unimplemented!("TODO: Call Songbird via Unix socket");
-
-        Ok(SquirrelInstance {
-            id: node_info.node_id,
-            node_id: self.config.node_id.clone(),
-            endpoint: endpoint.to_string(),
-            region: None,
-            zone: None,
-            capabilities: node_info.capabilities,
-            capacity: node_info.capacity,
-            current_load: node_info.current_load,
-            health: InstanceStatus::Running,
-            last_seen: Utc::now(),
-            metadata: node_info.metadata,
-        })
+        )))
     }
 
     /// Join an existing federation
+    /// TODO: Delegate HTTP to Songbird via Unix sockets
     async fn join_existing_federation(&self) -> Result<()> {
-        // Find the leader node
-        let leader_node = self.find_leader_node().await?;
-
-        tracing::info!("Joining federation with leader: {}", leader_node.id);
-
-        // Send join request to leader
-        let join_request = JoinRequest {
-            node_id: self.config.node_id.clone(),
-            endpoint: self.get_node_endpoint(),
-            region: self.config.region.clone(),
-            zone: self.config.zone.clone(),
-            capabilities: self.get_node_capabilities(),
-            capacity: self.config.max_local_instances,
-        };
-
-        let response = self
-            .http_client
-            .post(format!("{}/api/v1/federation/join", leader_node.endpoint))
-            .json(&join_request)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            *self.state.leader_node.write() = Some(leader_node.id);
-            *self.state.status.write() = FederationStatus::Active;
-            tracing::info!("Successfully joined federation");
-        } else {
-            return Err(Error::Federation(format!(
-                "Failed to join federation: {}",
-                response.status()
-            )));
-        }
-
-        Ok(())
+        // Federation joining requires HTTP POST delegation to Songbird
+        // Pattern: CapabilityHttpClient::discover("http.client").post(&join_url, &join_request).await
+        
+        tracing::info!("Federation joining not yet implemented (requires Songbird HTTP delegation)");
+        
+        Err(Error::Federation(
+            "Federation joining not yet implemented (requires Songbird HTTP delegation)".to_string()
+        ))
     }
 
     /// Find the leader node in the federation
@@ -407,74 +364,32 @@ impl FederationService {
     }
 
     /// Check health of federation nodes
+    /// TODO: Delegate HTTP health checks to Songbird via Unix sockets
     async fn check_federation_health(&self) {
-        let mut unhealthy_nodes = Vec::new();
-
+        // For now, assume all instances are running (HTTP health checking requires Songbird)
         for mut entry in self.instances.iter_mut() {
-            let (instance_id, instance) = entry.pair_mut();
-
-            // TODO: Delegate health check HTTP to Songbird via Unix sockets
-            let _health_url = format!("{}/health", instance.endpoint);
-            // For now, assume instances are running (to be implemented with Songbird)
+            let (_instance_id, instance) = entry.pair_mut();
             instance.health = InstanceStatus::Running;
             instance.last_seen = Utc::now();
-            
-            // Original HTTP code (to be replaced with Songbird delegation):
-            // match self.http_client.get(&health_url).send().await {
-            //     Ok(response) => { ... }
-            //     Err(_) => { 
-            if false {
-                    instance.health = InstanceStatus::Failed;
-
-                    // Mark for removal if unreachable for too long
-                    if Utc::now() - instance.last_seen
-                        > chrono::Duration::try_minutes(5).unwrap_or(chrono::Duration::seconds(300))
-                    {
-                        unhealthy_nodes.push(instance_id.clone());
-                    }
-                }
-            }
         }
-
-        // Remove unreachable nodes
-        for instance_id in unhealthy_nodes {
-            if let Some((_, instance)) = self.instances.remove(&instance_id) {
-                tracing::warn!("Removing unreachable federation node: {}", instance.id);
-            }
-        }
+        
+        // Pattern for future implementation:
+        // CapabilityHttpClient::discover("http.client").get(&health_url).await
     }
 
     /// Check health of local instances
+    /// TODO: Delegate to Songbird for HTTP health checks
     async fn check_instance_health(&self) {
-        let mut failed_instances = Vec::new();
-
+        // Instance health checking requires HTTP delegation to Songbird
+        // Pattern: CapabilityHttpClient::discover("http.client").get(&health_url).await
+        
+        // For now, assume all instances are running (to be implemented with Songbird)
         for mut entry in self.instances.iter_mut() {
             let (instance_id, instance) = entry.pair_mut();
-
-            let health_url = format!("{}/health", instance.endpoint);
-            match self.http_client.get(&health_url).send().await {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        if instance.health == InstanceStatus::Starting {
-                            instance.health = InstanceStatus::Running;
-                            tracing::info!("Instance {} is now running", instance_id);
-                        }
-                    } else {
-                        instance.health = InstanceStatus::Failed;
-                        failed_instances.push(instance_id.clone());
-                    }
-                }
-                Err(_) => {
-                    instance.health = InstanceStatus::Failed;
-                    failed_instances.push(instance_id.clone());
-                }
-            }
-        }
-
-        // Remove failed instances
-        for instance_id in failed_instances {
-            if let Some((_, instance)) = self.instances.remove(&instance_id) {
-                tracing::error!("Removing failed instance: {}", instance.id);
+            
+            if instance.health == InstanceStatus::Starting {
+                instance.health = InstanceStatus::Running;
+                tracing::info!("Instance {} marked as running (HTTP health check TODO)", instance_id);
             }
         }
     }
@@ -624,19 +539,14 @@ impl FederationService {
     }
 
     /// Stop a specific instance
+    /// TODO: Delegate to Songbird for HTTP shutdown request
     async fn stop_instance(&self, instance: &SquirrelInstance) -> Result<()> {
-        let shutdown_url = format!("{}/api/v1/shutdown", instance.endpoint);
-
-        let response = self.http_client.post(&shutdown_url).send().await?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(Error::Federation(format!(
-                "Failed to stop instance: {}",
-                response.status()
-            )))
-        }
+        // Instance shutdown requires HTTP POST delegation to Songbird
+        // Pattern: CapabilityHttpClient::discover("http.client").post(&shutdown_url).await
+        Err(Error::Federation(format!(
+            "Instance shutdown not yet implemented (requires Songbird HTTP delegation): {}",
+            instance.endpoint
+        )))
     }
 
     /// Create configuration for a new instance

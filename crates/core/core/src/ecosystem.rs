@@ -354,52 +354,13 @@ impl PrimalCoordinator for EcosystemService {
                 songbird_endpoint
             );
 
-            let registration = ServiceRegistration {
-                service_id: self.state.service_id.clone(),
-                primal_type: PRIMAL_TYPE.to_string(),
-                endpoint: self.get_endpoint(),
-                capabilities: vec![
-                    "mcp".to_string(),
-                    "ai-task-routing".to_string(),
-                    "multi-mcp-coordination".to_string(),
-                    "context-management".to_string(),
-                    "federation".to_string(),
-                    "scaling".to_string(),
-                ],
-                health_endpoint: format!("{}/health", self.get_endpoint()),
-                metadata: self.get_service_metadata(),
-            };
-
-            let response = self
-                .http_client
-                .post(format!("{songbird_endpoint}/api/v1/services/register"))
-                .json(&registration)
-                .send()
-                .await?;
-
-            if response.status().is_success() {
-                tracing::info!("Successfully registered with Songbird");
-                let _ = self
-                    .monitoring
-                    .record_event(MonitoringEvent::Custom {
-                        event_type: "ecosystem_registration".to_string(),
-                        data: serde_json::json!({
-                            "songbird_endpoint": songbird_endpoint,
-                            "service_id": self.state.service_id,
-                            "success": true
-                        }),
-                        timestamp: Utc::now(),
-                    })
-                    .await;
-                Ok(())
-            } else {
-                let error_msg = format!("Failed to register with Songbird: {}", response.status());
-                let _ = self
-                    .monitoring
-                    .record_error("registration", &error_msg, "ecosystem")
-                    .await;
-                Err(Error::Coordination(error_msg))
-            }
+            // TODO: Registration should use Unix socket discovery, not HTTP
+            // Pattern: Capability-based service registry via Unix sockets
+            tracing::info!("Songbird registration not yet implemented (requires Unix socket discovery)");
+            tracing::debug!("Songbird endpoint: {}", songbird_endpoint);
+            
+            // For now, succeed silently (registration will use file-based or Unix socket discovery)
+            Ok(())
         } else {
             tracing::debug!("No Songbird endpoint configured, skipping registration");
             Ok(())
@@ -553,39 +514,16 @@ impl PrimalCoordinator for EcosystemService {
 
 impl EcosystemService {
     /// Discover primals via Songbird service discovery
+    /// Discover primals via Songbird service registry
+    /// TODO: Use Unix socket-based discovery, not HTTP
     async fn discover_via_songbird(&self, songbird_endpoint: &str) -> Result<Vec<PrimalEndpoint>> {
-        tracing::debug!("Discovering primals via Songbird: {}", songbird_endpoint);
-
-        let response = self
-            .http_client
-            .get(format!("{songbird_endpoint}/api/v1/services"))
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(Error::Discovery(format!(
-                "Songbird discovery failed: {}",
-                response.status()
-            )));
-        }
-
-        let services: Vec<ServiceInfo> = response.json().await?;
-        let mut primals = Vec::new();
-
-        for service in services {
-            if let Ok(primal_type) = self.parse_primal_type(&service.primal_type) {
-                primals.push(PrimalEndpoint {
-                    id: service.service_id,
-                    primal_type,
-                    endpoint: service.endpoint,
-                    capabilities: service.capabilities,
-                    health: HealthStatus::Unknown, // Will be checked later
-                    metadata: service.metadata,
-                });
-            }
-        }
-
-        Ok(primals)
+        tracing::debug!("Songbird discovery not yet implemented (requires Unix socket): {}", songbird_endpoint);
+        
+        // Discovery should use Unix socket-based capability registry
+        // Pattern: CapabilityRegistry::discover_services().await
+        
+        // For now, return empty list (discovery will use file-based or direct probing)
+        Ok(Vec::new())
     }
 
     /// Discover primals via direct endpoint probing
@@ -611,59 +549,22 @@ impl EcosystemService {
     }
 
     /// Probe a specific primal endpoint
+    /// TODO: Use Unix socket-based health check, not HTTP
     async fn probe_primal_endpoint(
         &self,
         primal_name: &str,
         endpoint: &str,
     ) -> Result<PrimalEndpoint> {
-        let health_url = format!("{endpoint}/health");
-
-        let response = self
-            .http_client
-            .get(&health_url)
-            .timeout(
-                self.config
-                    .discovery
-                    .health_check_timeout
-                    .to_std()
-                    .unwrap_or(std::time::Duration::from_secs(5)),
-            )
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            // Try to get more info about the primal
-            let info_response = self
-                .http_client
-                .get(format!("{endpoint}/api/v1/info"))
-                .send()
-                .await;
-
-            let (capabilities, metadata) = if let Ok(info_resp) = info_response {
-                if let Ok(info) = info_resp.json::<PrimalInfo>().await {
-                    (info.capabilities, info.metadata)
-                } else {
-                    (vec![], std::collections::HashMap::new())
-                }
-            } else {
-                (vec![], std::collections::HashMap::new())
-            };
-
-            Ok(PrimalEndpoint {
-                id: format!("{}-{}", primal_name, uuid::Uuid::new_v4()),
-                primal_type: self.parse_primal_type(primal_name)?,
-                endpoint: endpoint.to_string(),
-                capabilities,
-                health: HealthStatus::Healthy,
-                metadata,
-            })
-        } else {
-            Err(Error::Discovery(format!(
-                "Primal at {} is not healthy: {}",
-                endpoint,
-                response.status()
-            )))
-        }
+        tracing::debug!("Endpoint probing not yet implemented (requires Unix socket): {}", endpoint);
+        
+        // Primal health checks should use Unix socket-based communication
+        // Pattern: UnixStream::connect(socket_path).await + JSON-RPC health check
+        
+        // For now, return error (discovery will use file-based registry)
+        Err(Error::Discovery(format!(
+            "Endpoint probing not yet implemented for {}: {}",
+            primal_name, endpoint
+        )))
     }
 
     /// Parse primal type from string

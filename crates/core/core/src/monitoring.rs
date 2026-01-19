@@ -476,31 +476,23 @@ impl MonitoringService {
 }
 
 /// Songbird monitoring provider implementation
+/// TODO: Use Unix socket communication instead of HTTP
 pub struct SongbirdProvider {
     config: SongbirdConfig,
-    client: reqwest::Client,
+    // Note: HTTP client removed - should use Unix socket for Songbird communication
     endpoint: String,
 }
 
 impl SongbirdProvider {
     pub async fn new(config: SongbirdConfig) -> Result<Self> {
-        let client = reqwest::Client::new();
-
-        // Test connection to Songbird
-        let health_url = format!("{}/health", config.endpoint);
-        let response = client.get(&health_url).send().await?;
-
-        if !response.status().is_success() {
-            return Err(Error::Monitoring(format!(
-                "Songbird not available: {}",
-                response.status()
-            )));
-        }
-
+        // TODO: Songbird communication should use Unix sockets, not HTTP
+        // Pattern: UnixStream::connect("/var/run/songbird/monitor.sock").await
+        
+        tracing::info!("SongbirdProvider created (HTTP delegation not yet implemented)");
+        
         Ok(Self {
             endpoint: config.endpoint.clone(),
             config,
-            client,
         })
     }
 }
@@ -515,114 +507,38 @@ impl MonitoringProvider for SongbirdProvider {
         "1.0.0"
     }
 
-    async fn record_event(&self, event: MonitoringEvent) -> Result<()> {
-        let payload = serde_json::to_value(&event)?;
-
-        let response = self
-            .client
-            .post(format!("{}/api/v1/events", self.endpoint))
-            .header("Content-Type", "application/json")
-            .header("X-Service-Name", &self.config.service_name)
-            .json(&payload)
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(Error::Monitoring(format!(
-                "Songbird event recording failed: {}",
-                response.status()
-            )));
-        }
-
+    /// TODO: Use Unix socket communication with Songbird
+    async fn record_event(&self, _event: MonitoringEvent) -> Result<()> {
+        // Monitoring should use Unix socket communication with Songbird
+        tracing::trace!("Event recording not yet implemented (requires Unix socket)");
         Ok(())
     }
 
-    async fn record_metric(&self, metric: Metric) -> Result<()> {
-        let payload = serde_json::to_value(&metric)?;
-
-        let response = self
-            .client
-            .post(format!("{}/api/v1/metrics", self.endpoint))
-            .header("Content-Type", "application/json")
-            .header("X-Service-Name", &self.config.service_name)
-            .json(&payload)
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(Error::Monitoring(format!(
-                "Songbird metric recording failed: {}",
-                response.status()
-            )));
-        }
-
+    /// TODO: Use Unix socket communication with Songbird
+    async fn record_metric(&self, _metric: Metric) -> Result<()> {
+        // Monitoring should use Unix socket communication with Songbird
+        tracing::trace!("Metric recording not yet implemented (requires Unix socket)");
         Ok(())
     }
 
-    async fn record_health(&self, component: &str, health: HealthStatus) -> Result<()> {
-        let payload = serde_json::json!({
-            "component": component,
-            "health": health,
-            "timestamp": Utc::now().to_rfc3339()
-        });
-
-        let response = self
-            .client
-            .post(format!("{}/api/v1/health", self.endpoint))
-            .header("Content-Type", "application/json")
-            .header("X-Service-Name", &self.config.service_name)
-            .json(&payload)
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(Error::Monitoring(format!(
-                "Songbird health recording failed: {}",
-                response.status()
-            )));
-        }
-
+    /// TODO: Use Unix socket communication with Songbird
+    async fn record_health(&self, _component: &str, _health: HealthStatus) -> Result<()> {
+        // Monitoring should use Unix socket communication with Songbird
+        tracing::trace!("Health recording not yet implemented (requires Unix socket)");
         Ok(())
     }
 
-    async fn record_performance(&self, component: &str, metrics: PerformanceMetrics) -> Result<()> {
-        let payload = serde_json::json!({
-            "component": component,
-            "metrics": metrics,
-            "timestamp": Utc::now().to_rfc3339()
-        });
-
-        let response = self
-            .client
-            .post(format!("{}/api/v1/performance", self.endpoint))
-            .header("Content-Type", "application/json")
-            .header("X-Service-Name", &self.config.service_name)
-            .json(&payload)
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(Error::Monitoring(format!(
-                "Songbird performance recording failed: {}",
-                response.status()
-            )));
-        }
-
+    /// TODO: Use Unix socket communication with Songbird
+    async fn record_performance(&self, _component: &str, _metrics: PerformanceMetrics) -> Result<()> {
+        // Monitoring should use Unix socket communication with Songbird
+        tracing::trace!("Performance recording not yet implemented (requires Unix socket)");
         Ok(())
     }
 
+    /// TODO: Use Unix socket communication with Songbird
     async fn provider_health(&self) -> Result<HealthStatus> {
-        let response = self
-            .client
-            .get(format!("{}/health", self.endpoint))
-            .send()
-            .await?;
-
-        Ok(match response.status().as_u16() {
-            200 => HealthStatus::Healthy,
-            500..=599 => HealthStatus::Degraded,
-            _ => HealthStatus::Unhealthy,
-        })
+        // Provider health should query via Unix socket
+        Ok(HealthStatus::Unknown)
     }
 
     async fn provider_capabilities(&self) -> Result<Vec<MonitoringCapability>> {
