@@ -168,9 +168,8 @@ impl SquirrelPrimalProvider {
         );
 
         // Discover all available primals dynamically
-        let available_primals = self
-            .capability_registry
-            .list_all_primals();
+        // capability_registry removed - use ecosystem discovery
+        let available_primals = Vec::new(); // TODO: Implement via ecosystem discovery
 
         let participating_primals: Vec<String> = available_primals
             .iter()

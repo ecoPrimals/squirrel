@@ -79,7 +79,7 @@ impl UniversalSquirrelProvider {
             config,
             universal_adapter: None,   // Will be initialized in initialize()
             service_mesh_client: None, // Will be discovered via adapter
-            biomeos_client: None,
+            // biomeos_client: None, // removed
             session_manager: None,
             initialized: false,
             shutdown: false,

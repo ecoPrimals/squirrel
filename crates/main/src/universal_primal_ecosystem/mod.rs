@@ -551,10 +551,11 @@ impl UniversalPrimalEcosystem {
     async fn query_service_capabilities(&self, endpoint: &str) -> UniversalResult<Vec<String>> {
         let capabilities_url = format!("{endpoint}/api/v1/capabilities");
 
-        match self
-            .connection_pool
-            .get_client(endpoint)
-            .await
+        // connection_pool removed - Unix sockets don't need HTTP connection pooling
+        // TODO: Implement Unix socket client discovery
+        return Err(UniversalError::NotImplemented(
+            "Connection pooling removed - use Unix socket delegation".to_string()
+        ));
             .get(&capabilities_url)
             .timeout(timeouts::DEFAULT_OPERATION_TIMEOUT)
             .send()
