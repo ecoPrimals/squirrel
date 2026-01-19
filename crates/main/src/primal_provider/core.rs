@@ -174,8 +174,8 @@ impl SquirrelPrimalProvider {
 
         let participating_primals: Vec<String> = available_primals
             .iter()
-            .filter(|p| p.is_healthy)
-            .map(|p| p.display_name.as_ref().to_string())
+            .filter(|p| p.get("is_healthy").and_then(|v| v.as_bool()).unwrap_or(false))
+            .filter_map(|p| p.get("display_name").and_then(|v| v.as_str()).map(|s| s.to_string()))
             .collect();
 
         let response = serde_json::json!({
@@ -439,8 +439,8 @@ impl SquirrelPrimalProvider {
         let healthy_services = all_primals.iter().filter(|p| p.get("is_healthy").and_then(|v| v.as_bool()).unwrap_or(false)).count();
         let participating_primals: Vec<String> = all_primals
             .iter()
-            .filter(|p| p.is_healthy)
-            .map(|p| p.display_name.as_ref().to_string())
+            .filter(|p| p.get("is_healthy").and_then(|v| v.as_bool()).unwrap_or(false))
+            .filter_map(|p| p.get("display_name").and_then(|v| v.as_str()).map(|s| s.to_string()))
             .collect();
 
         let coordination_efficiency = if all_primals.is_empty() {

@@ -19,26 +19,9 @@ pub async fn handle_ecosystem_status(
     ecosystem_manager: Arc<EcosystemManager>,
 ) -> Result<impl Reply, warp::Rejection> {
     // registry_manager removed - use ecosystem discovery
-    let services: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
-
-    let registered_primals: Vec<String> = services
-        .iter()
-        .map(|s| format!("{:?}", s.primal_type))
-        .collect();
-
-    // Convert Arc<str> capabilities to String
-    let capabilities: HashMap<String, Vec<String>> = services
-        .iter()
-        .map(|s| {
-            let key = format!("{:?}", s.primal_type);
-            let vals: Vec<String> = s
-                .capabilities
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect();
-            (key, vals)
-        })
-        .collect();
+    // TODO: Implement via ecosystem discovery
+    let registered_primals: Vec<String> = Vec::new();
+    let capabilities: HashMap<String, Vec<String>> = HashMap::new();
 
     let response = EcosystemStatusResponse {
         registered_primals,
@@ -69,59 +52,29 @@ pub async fn handle_service_mesh_status(
 
 /// Handle primals list endpoint
 pub async fn handle_primals_list(
-    ecosystem_manager: Arc<EcosystemManager>,
+    _ecosystem_manager: Arc<EcosystemManager>,
     _base_url: String,
 ) -> Result<impl Reply, warp::Rejection> {
     // registry_manager removed - use ecosystem discovery
-    let services: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
-
-    let primals: Vec<PrimalStatusResponse> = services
-        .iter()
-        .map(|s| PrimalStatusResponse {
-            name: format!("{:?}", s.primal_type),
-            health: format!("{:?}", s.health_status),
-            capabilities: s
-                .capabilities
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect(),
-        })
-        .collect();
-
-    Ok(warp::reply::json(&primals))
+    // TODO: Implement via ecosystem discovery
+    let primals: Vec<PrimalStatusResponse> = Vec::new();
+    let response = PrimalsResponse { primals };
+    Ok(warp::reply::json(&response))
 }
 
 /// Handle primal status endpoint for a specific primal
 pub async fn handle_primal_status(
     primal_name: String,
-    ecosystem_manager: Arc<EcosystemManager>,
+    _ecosystem_manager: Arc<EcosystemManager>,
     _base_url: String,
 ) -> Result<impl Reply, warp::Rejection> {
     // registry_manager removed - use ecosystem discovery
-    let services: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
-
-    let primal = services
-        .iter()
-        .find(|s| format!("{:?}", s.primal_type) == primal_name)
-        .map(|s| PrimalStatusResponse {
-            name: format!("{:?}", s.primal_type),
-            health: format!("{:?}", s.health_status),
-            capabilities: s
-                .capabilities
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect(),
-        });
-
-    if let Some(p) = primal {
-        Ok(warp::reply::json(&p))
-    } else {
-        let error = serde_json::json!({
-            "error": "Primal not found",
-            "primal": primal_name,
-        });
-        Ok(warp::reply::json(&error))
-    }
+    // TODO: Implement via ecosystem discovery
+    let error = serde_json::json!({
+        "error": "Registry manager removed - ecosystem discovery not yet implemented",
+        "primal": primal_name,
+    });
+    Ok(warp::reply::json(&error))
 }
 
 /// Handle services list endpoint
