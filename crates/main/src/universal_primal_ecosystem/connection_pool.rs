@@ -1,17 +1,28 @@
 //! Connection pool for efficient HTTP client management
 //!
+//! **DEPRECATED**: HTTP should be delegated to Songbird via Unix sockets.
+//! This module is only available with the `dev-direct-http` feature.
+//!
 //! This module provides a connection pool that manages HTTP clients per endpoint,
 //! tracks connection statistics, and performs automatic cleanup of stale connections.
 
+#[cfg(feature = "dev-direct-http")]
 use std::collections::HashMap;
+#[cfg(feature = "dev-direct-http")]
 use std::sync::Arc;
+#[cfg(feature = "dev-direct-http")]
 use std::time::{Duration, Instant};
+#[cfg(feature = "dev-direct-http")]
 use tokio::sync::RwLock;
+#[cfg(feature = "dev-direct-http")]
 use tracing::{debug, info, warn};
 
+#[cfg(feature = "dev-direct-http")]
 use super::types::{ConnectionPoolHealthMetrics, ConnectionStats};
 
 /// Connection pool for efficient HTTP client management
+/// **DEPRECATED**: Only available with `dev-direct-http` feature
+#[cfg(feature = "dev-direct-http")]
 #[derive(Debug)]
 pub struct ServiceConnectionPool {
     /// Per-endpoint HTTP clients
@@ -20,12 +31,14 @@ pub struct ServiceConnectionPool {
     stats: Arc<RwLock<HashMap<String, ConnectionStats>>>,
 }
 
+#[cfg(feature = "dev-direct-http")]
 impl Default for ServiceConnectionPool {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "dev-direct-http")]
 impl ServiceConnectionPool {
     /// Creates a new service connection pool
     #[must_use]
