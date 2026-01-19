@@ -15,9 +15,13 @@
 #![allow(clippy::items_after_test_module)]
 
 // Capability-based AI client (TRUE PRIMAL!)
-// Delegates AI HTTP calls to Songbird (network specialist)
+// Delegates AI HTTP calls via capability discovery (network specialist)
 // NO reqwest, NO ring! Pure Rust via Unix sockets!
 pub mod capability_ai;
+
+// Capability-based HTTP client (TRUE PRIMAL - agnostic network delegation!)
+// Discovers http.client capability - could be Songbird, could be ANY network primal!
+pub mod capability_http;
 
 pub mod common;
 pub mod config;
