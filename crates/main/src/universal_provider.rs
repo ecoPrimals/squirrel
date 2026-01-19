@@ -44,8 +44,8 @@ pub struct UniversalSquirrelProvider {
     universal_adapter: Option<Arc<UniversalAdapterV2>>,
     /// Service mesh client (dynamically discovered via adapter)
     service_mesh_client: Option<Arc<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>>,
-    /// `BiomeOS` client for ecosystem integration
-    biomeos_client: Option<Arc<crate::biomeos_integration::EcosystemClient>>,
+    /// BiomeOS client removed - HTTP-based, use capability discovery instead
+    // biomeos_client: Option<Arc<crate::biomeos_integration::EcosystemClient>>,
     /// Session manager for handling sessions
     session_manager: Option<Arc<RwLock<SessionManagerImpl>>>,
     /// Initialization state
@@ -88,10 +88,10 @@ impl UniversalSquirrelProvider {
         })
     }
 
-    /// Set `BiomeOS` client for ecosystem integration
-    pub fn set_biomeos_client(&mut self, client: Arc<crate::biomeos_integration::EcosystemClient>) {
-        self.biomeos_client = Some(client);
-    }
+    /// Set BiomeOS client - removed (HTTP-based, use capability discovery)
+    // pub fn set_biomeos_client(&mut self, client: Arc<crate::biomeos_integration::EcosystemClient>) {
+    //     self.biomeos_client = Some(client);
+    // }
 
     /// Set session manager
     pub fn set_session_manager(&mut self, manager: Arc<RwLock<SessionManagerImpl>>) {
@@ -527,10 +527,11 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
     }
 
     async fn initialize(&mut self, _config: serde_json::Value) -> UniversalResult<()> {
-        if self.biomeos_client.is_none() {
-            let client = crate::biomeos_integration::EcosystemClient::new();
-            self.biomeos_client = Some(Arc::new(client));
-        }
+        // biomeos_client initialization removed - use capability discovery
+        // if self.biomeos_client.is_none() {
+        //     let client = crate::biomeos_integration::EcosystemClient::new();
+        //     self.biomeos_client = Some(Arc::new(client));
+        // }
 
         if self.session_manager.is_none() {
             let session_manager = SessionManagerImpl::new(crate::session::SessionConfig::default());

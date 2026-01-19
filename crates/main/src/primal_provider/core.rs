@@ -262,30 +262,17 @@ impl SquirrelPrimalProvider {
             operation
         );
 
-        // Discover service mesh providers
-            // .capability_registry.discover_by_capability removed
-
-        if orchestrators.is_empty() {
-            return Err(PrimalError::ServiceDiscoveryError(
-                "No service mesh providers available".to_string(),
-            ));
-        }
-
-        let orchestrator = &orchestrators[0];
+        // Service mesh discovery removed - use Unix socket delegation
+        // TODO: Implement via capability discovery
         let response = serde_json::json!({
             "status": "completed",
             "operation": operation,
             "coordinator": "squirrel",
-            "orchestrator_used": orchestrator_name,
-            "orchestrator_endpoint": orchestrator_endpoint,
-            "execution_time_ms": 150,
+            "note": "Service mesh coordination via capability discovery (not yet implemented)",
             "timestamp": chrono::Utc::now().to_rfc3339()
         });
 
-        info!(
-            "Successfully coordinated with service mesh orchestration at {}",
-            orchestrator_endpoint
-        );
+        info!("Service mesh coordination stubbed - awaiting capability discovery implementation");
         Ok(response)
     }
 
