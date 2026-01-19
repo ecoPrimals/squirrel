@@ -27,7 +27,7 @@ dashmap = "5.5"
 parking_lot = "0.12"
 # HTTP client (OPTIONAL - for dev/testing)
 # Production uses Unix sockets for all external communication!
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
+# reqwest REMOVED - Use capability_http (delegates to Songbird via Unix sockets) instead!
 # warp REMOVED - HTTP API deleted! Squirrel uses Unix sockets + JSON-RPC + tarpc
 # Modern idiomatic Rust - no HTTP frameworks needed!
 base64 = "0.21"
@@ -75,7 +75,7 @@ squirrel-integration = { path = "../integration" }
 # Using our own MCP implementation instead of external mcp crate
 squirrel-mcp = { path = "../core/mcp" }
 # OpenAI SDK - OPTIONAL in v1.1.0+ (dev-direct-http feature only!)
-openai = { version = "1.1", optional = true }
+# openai REMOVED - Use capability_ai (delegates to Songbird via Unix sockets) instead!
 
 # Observability
 # SECURITY FIX: Updated from 0.13 to fix RUSTSEC-2024-0437 (protobuf uncontrolled recursion)
@@ -96,20 +96,21 @@ iai = { version = "0.1", optional = true }
 # prost REMOVED - protobuf NOT needed (use serde_json!)
 
 [features]
-# Production default: capability-based AI (Pure Rust!)
-# NO monitoring (pulls hyper via prometheus) - add explicitly if needed
-default = ["capability-ai", "ecosystem"]
-# Capability-based AI (TRUE PRIMAL - Pure Rust!)
-capability-ai = []
-# Development mode with direct HTTP (brings reqwest → ring)
-dev-direct-http = ["dep:reqwest", "openai"]
-monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]
-# Ecosystem support via JSON-RPC + tarpc (NO gRPC!)
-ecosystem = []
-tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]
-benchmarking = ["criterion", "pprof", "iai"]
-enhanced_error_handling = []
-optimizations = []
+# Production default: Core RPC + Ecosystem + Capability AI (100% Pure Rust!)
+# NO monitoring (optional - pulls hyper via prometheus)
+# NO dev-direct-http (DELETED - use Unix socket delegation!)
+default = ["capability-ai", "ecosystem", "tarpc-rpc"]
+
+# Core features (TRUE PRIMAL architecture)
+capability-ai = []                     # Capability-based AI (Pure Rust!)
+ecosystem = []                         # Ecosystem integration (core!)
+tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]  # High-performance binary RPC (core!)
+
+# Optional features
+monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics (optional)
+benchmarking = ["criterion", "pprof", "iai"]     # Benchmarking tools
+enhanced_error_handling = []                     # Enhanced error handling
+optimizations = []                               # Performance optimizations
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -17,9 +17,7 @@
 // Always available (production + dev)
 use super::adapters::{AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
 
-// HTTP adapters (dev mode only)
-#[cfg(feature = "dev-direct-http")]
-use super::adapters::{HuggingFaceAdapter, OllamaAdapter, OpenAIAdapter};
+// HTTP adapters DELETED - Use capability_ai (Unix socket delegation) instead!
 use super::constraint_router::select_provider_with_constraints;
 use super::selector::{ProviderInfo, ProviderSelector, QualityTier};
 use super::types::{
@@ -178,50 +176,6 @@ impl AiRouter {
 
     /// Load legacy adapters in parallel (concurrent initialization!)
     /// **v1.1.0**: Only available with `dev-direct-http` feature
-    #[cfg(feature = "dev-direct-http")]
-    async fn load_legacy_adapters_parallel() -> Vec<Arc<dyn AiProviderAdapter>> {
-        // Execute all initializations in parallel using tokio::join!
-        let (openai_result, ollama_result, huggingface_result) = tokio::join!(
-            async {
-                match OpenAIAdapter::new() {
-                    Ok(adapter) => {
-                        info!("✅ OpenAI adapter initialized (text + image generation)");
-                        Some(Arc::new(adapter) as Arc<dyn AiProviderAdapter>)
-                    }
-                    Err(_) => {
-                        info!("⚠️  OpenAI adapter not available (OPENAI_API_KEY not set)");
-                        None
-                    }
-                }
-            },
-            async {
-                let adapter = OllamaAdapter::new();
-                if adapter.is_available().await {
-                    info!("✅ Ollama adapter initialized (local AI)");
-                    Some(Arc::new(adapter) as Arc<dyn AiProviderAdapter>)
-                } else {
-                    info!("⚠️  Ollama not available (install: https://ollama.ai)");
-                    None
-                }
-            },
-            async {
-                let adapter = HuggingFaceAdapter::new();
-                if adapter.is_available().await {
-                    info!("✅ HuggingFace adapter initialized");
-                    Some(Arc::new(adapter) as Arc<dyn AiProviderAdapter>)
-                } else {
-                    info!("⚠️  HuggingFace adapter not available (HUGGINGFACE_API_KEY not set)");
-                    None
-                }
-            }
-        );
-
-        // Collect successful initializations
-        vec![openai_result, ollama_result, huggingface_result]
-            .into_iter()
-            .flatten()
-            .collect()
-    }
 
     /// Create a new AI router (legacy - uses hardcoded adapters)
     ///
@@ -230,30 +184,6 @@ impl AiRouter {
     ///
     /// **v1.1.0**: This method requires the `dev-direct-http` feature.
     /// Production builds should use `new_with_discovery()` which uses UniversalAiAdapter only.
-    #[cfg(feature = "dev-direct-http")]
-    pub async fn new() -> Result<Self, PrimalError> {
-        info!("⚠️  Using legacy AI router initialization (hardcoded adapters)");
-        info!("⚠️  Consider using new_with_discovery() for capability-based discovery");
-
-        // Use parallel loading for legacy adapters
-        let providers = Self::load_legacy_adapters_parallel().await;
-
-        if providers.is_empty() {
-            warn!("⚠️  No AI providers available. Enable dev-direct-http feature and configure API keys for development");
-        } else {
-            info!(
-                "✅ AI router initialized with {} provider(s) (legacy mode)",
-                providers.len()
-            );
-        }
-
-        Ok(Self {
-            providers: Arc::new(RwLock::new(providers)),
-            selector: Arc::new(ProviderSelector::new()),
-            enable_retry: true,
-            max_retries: 2,
-        })
-    }
 
     /// Get count of available providers
     pub async fn provider_count(&self) -> usize {

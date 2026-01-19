@@ -15,7 +15,7 @@ use tarpc::server::{BaseChannel, Channel};
 use tokio::net::TcpListener;
 use tokio_serde::formats::Bincode;
 use tokio_util::codec::LengthDelimitedCodec;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 /// tarpc server implementation
 #[derive(Clone)]
