@@ -25,8 +25,9 @@ thiserror = "1.0"
 anyhow = "1.0"
 futures = "0.3"
 
-# HTTP and networking
-reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"] }
+# HTTP and networking (OPTIONAL - for HTTP utilities)
+# Production uses Unix sockets!
+reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 url = "2.5"
 
 # Web framework (CRITICAL FIX: Missing axum dependency)
@@ -52,4 +53,10 @@ squirrel-interfaces = { path = "../interfaces" }
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
+
+[features]
+# Production default: Pure Rust!
+default = []
+# HTTP client utilities (brings reqwest → ring)
+http-client = ["dep:reqwest"]
 

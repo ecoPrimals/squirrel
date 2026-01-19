@@ -25,9 +25,9 @@ thiserror = "1.0"
 async-trait = "0.1"
 dashmap = "5.5"
 parking_lot = "0.12"
-# HTTP client - Keep for ecosystem communication
-# v1.1.0: AI adapters wrapped with dev-direct-http feature
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+# HTTP client (OPTIONAL - for dev/testing)
+# Production uses Unix sockets for all external communication!
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
 warp = "0.3"
 base64 = "0.21"
 rand = "0.8"
@@ -94,11 +94,12 @@ tonic = { version = "0.10", optional = true }
 prost = { version = "0.12", optional = true }
 
 [features]
-default = ["monitoring", "ecosystem"]
-# v1.1.0+ Feature: Development mode with direct HTTP AI adapters
-# Production (default): UniversalAiAdapter ONLY (Unix sockets)
-# Development: Includes OpenAI/HuggingFace/Ollama adapters (HTTP)
-dev-direct-http = ["openai"]
+# Production default: capability-based AI (Pure Rust!)
+default = ["capability-ai", "monitoring", "ecosystem"]
+# Capability-based AI (TRUE PRIMAL - Pure Rust!)
+capability-ai = []
+# Development mode with direct HTTP (brings reqwest → ring)
+dev-direct-http = ["dep:reqwest", "openai"]
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]
 ecosystem = ["tonic", "prost"]
 tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]

@@ -62,7 +62,9 @@ tracing = "0.1"
 log = "0.4"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+# reqwest REMOVED from workspace - each crate declares it optionally for TRUE ecoBin!
+# Old: reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+# New: Each crate that needs HTTP declares reqwest as optional with feature flags
 url = "2.4"
 
 # Additional common dependencies

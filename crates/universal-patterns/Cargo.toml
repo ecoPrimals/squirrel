@@ -21,8 +21,9 @@ thiserror.workspace = true
 anyhow.workspace = true
 futures = "0.3"
 
-# HTTP and networking
-reqwest.workspace = true
+# HTTP and networking (OPTIONAL - for HTTP patterns)
+# Production uses Unix sockets!
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
 url = { version = "2.5", features = ["serde"] }
 
 # Logging and tracing
@@ -47,10 +48,13 @@ wiremock = "0.5"
 assert_matches = "1.5"
 
 [features]
+# Production default: Pure Rust patterns
 default = ["config-management", "security", "orchestration"]
 config-management = []
 security = []
 orchestration = []
+# HTTP patterns (brings reqwest → ring)
+http-patterns = ["dep:reqwest"]
 testing = []
 
  

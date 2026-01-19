@@ -34,7 +34,9 @@ directories = "5.0"
 squirrel-core = { path = "../../core/core" }
 squirrel-interfaces = { path = "../../core/interfaces" }
 squirrel-mcp-config = { path = "../../config" }
-reqwest.workspace = true
+# HTTP client (OPTIONAL - for HTTP CLI commands)
+# Production uses Unix sockets!
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
 
 # Plugin system dependencies  
 squirrel-plugins = { path = "../../core/plugins" }
@@ -48,6 +50,9 @@ portpicker = "0.1.1"
 criterion.workspace = true
 
 [features]
+# Production default: Pure Rust!
 default = ["commands"]
 commands = []
+# HTTP CLI commands (brings reqwest → ring)
+http-commands = ["dep:reqwest"]
 testing = []
