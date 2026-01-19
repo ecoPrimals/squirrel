@@ -23,18 +23,13 @@ pub async fn handle_health_check(
         .signed_duration_since(state_guard.started_at)
         .num_seconds();
 
-    // Get discovered primals count from registry manager
-    let discovered_primals = ecosystem_manager
-        .registry_manager
-        .get_discovered_services()
-        .await
-        .len() as u32;
+    // Get discovered primals count from ecosystem manager
+    // registry_manager removed - use ecosystem discovery
+    let discovered_primals = 0u32; // TODO: Implement via ecosystem discovery
 
-    // Get active integrations from registry manager
-    let active_integrations = ecosystem_manager
-        .registry_manager
-        .get_active_integrations()
-        .await;
+    // Get active integrations from ecosystem manager
+    // registry_manager removed - use ecosystem discovery
+    let active_integrations = Vec::new(); // TODO: Implement via ecosystem discovery
 
     // Calculate ecosystem health score (simplified)
     let ecosystem_health_score = if discovered_primals > 0 { 0.8 } else { 0.5 };
@@ -87,11 +82,8 @@ pub async fn handle_health_ready(
     let state_guard = state.read().await;
 
     // Check if we have discovered any primals (indicates ecosystem connectivity)
-    let discovered_count = ecosystem_manager
-        .registry_manager
-        .get_discovered_services()
-        .await
-        .len();
+    // registry_manager removed - use ecosystem discovery
+    let discovered_count = 0; // TODO: Implement via ecosystem discovery
 
     let is_ready = discovered_count > 0 || !state_guard.service_mesh_registered;
 

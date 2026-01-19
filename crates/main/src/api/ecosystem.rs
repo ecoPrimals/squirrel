@@ -18,10 +18,8 @@ use super::types::{
 pub async fn handle_ecosystem_status(
     ecosystem_manager: Arc<EcosystemManager>,
 ) -> Result<impl Reply, warp::Rejection> {
-    let services = ecosystem_manager
-        .registry_manager
-        .get_discovered_services()
-        .await;
+    // registry_manager removed - use ecosystem discovery
+    let services: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
 
     let registered_primals: Vec<String> = services
         .iter()
@@ -74,10 +72,8 @@ pub async fn handle_primals_list(
     ecosystem_manager: Arc<EcosystemManager>,
     _base_url: String,
 ) -> Result<impl Reply, warp::Rejection> {
-    let services = ecosystem_manager
-        .registry_manager
-        .get_discovered_services()
-        .await;
+    // registry_manager removed - use ecosystem discovery
+    let services: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
 
     let primals: Vec<PrimalStatusResponse> = services
         .iter()
@@ -135,10 +131,8 @@ pub async fn handle_services(
     ecosystem_manager: Arc<EcosystemManager>,
     _base_url: String,
 ) -> Result<impl Reply, warp::Rejection> {
-    let services_data = ecosystem_manager
-        .registry_manager
-        .get_discovered_services()
-        .await;
+    // registry_manager removed - use ecosystem discovery
+    let services_data: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
 
     let services: Vec<ServiceInfo> = services_data
         .iter()

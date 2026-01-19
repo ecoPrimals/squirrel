@@ -169,7 +169,8 @@ impl SquirrelPrimalProvider {
 
         // Discover all available primals dynamically
         // capability_registry removed - use ecosystem discovery
-        let available_primals: Vec<crate::primal_provider::PrimalStatus> = Vec::new(); // TODO: Implement via ecosystem discovery
+        // Type can be anything that has .is_healthy and .display_name fields
+        let available_primals: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
 
         let participating_primals: Vec<String> = available_primals
             .iter()
