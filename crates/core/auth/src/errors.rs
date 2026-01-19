@@ -165,6 +165,7 @@ impl AuthError {
 }
 
 // Convert from common error types
+#[cfg(feature = "http-auth")]
 impl From<reqwest::Error> for AuthError {
     fn from(err: reqwest::Error) -> Self {
         Self::network_error("http_request", err.to_string())

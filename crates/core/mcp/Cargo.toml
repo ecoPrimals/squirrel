@@ -78,15 +78,15 @@ zstd = { version = "0.12", optional = true }
 flate2 = { version = "1.0", optional = true }
 lz4 = { version = "1.24", optional = true }
 
-# Cryptography
+# Cryptography (OPTIONAL - for TLS features)
 # SECURITY FIX: Updated from 0.16.20 to fix RUSTSEC-2025-0009 (AES overflow panic)
 # EVOLVED: ring → RustCrypto (Jan 16, 2026 - Pure Rust evolution)
 # Old: ring = "0.17.12"  (C assembly code)
 # New: RustCrypto (100% pure Rust!)
 sha1 = "0.10"
 hmac = "0.12"
-rustls = "0.21"
-rustls-pemfile = "1.0"
+rustls = { version = "0.21", optional = true }
+rustls-pemfile = { version = "1.0", optional = true }
 
 # AI providers (OPTIONAL - for direct HTTP to AI vendors)
 # Production delegates to Songbird via Unix sockets!
@@ -136,6 +136,9 @@ default = ["streaming", "websocket"]
 
 # Direct HTTP to AI vendors (DEV/TESTING - brings reqwest → ring!)
 direct-http = ["dep:reqwest"]
+
+# TLS support (brings rustls → ring!)
+tls = ["dep:rustls", "dep:rustls-pemfile"]
 
 enhanced = [
     "websocket",

@@ -39,7 +39,11 @@
 
 // Removed: use squirrel_mcp_config::get_service_endpoints;
 
+// HTTP-based auth module (OPTIONAL - for HTTP authentication)
+// Production uses capability-based auth via Unix sockets!
+#[cfg(feature = "http-auth")]
 pub mod auth;
+
 pub mod errors;
 pub mod session;
 pub mod types;
@@ -72,6 +76,7 @@ pub mod beardog_jwt;
 pub mod jwt;
 
 // Modern re-exports leveraging capability-based patterns
+#[cfg(feature = "http-auth")]
 pub use auth::AuthService;
 pub use delegated_jwt_client::DelegatedJwtClient;
 pub use errors::{AuthError, AuthResult};

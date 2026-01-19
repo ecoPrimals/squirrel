@@ -35,6 +35,7 @@
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]
 
+#[cfg(feature = "http-api")]
 pub mod client;
 pub mod config;
 pub mod defaults;
@@ -43,6 +44,7 @@ pub mod traits;
 pub mod types;
 
 // Re-export commonly used types and traits
+#[cfg(feature = "http-api")]
 pub use client::*;
 pub use config::*;
 pub use error::*;

@@ -2,6 +2,8 @@
 //!
 //! This module contains the BearDog security provider integration,
 //! including authentication, encryption, and compliance monitoring.
+//!
+//! **REQUIRES**: http-auth feature (brings reqwest → ring)
 
 use super::types::{AuditEvent, ComplianceCheck, Permission, TokenResponse};
 use anyhow::anyhow;

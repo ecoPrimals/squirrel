@@ -10,6 +10,7 @@ use crate::types::{
 };
 
 use chrono::Duration;
+#[cfg(feature = "http-auth")]
 use reqwest::Client;
 use serde_json::json;
 // Removed: use squirrel_mcp_config::get_service_endpoints;
@@ -21,6 +22,7 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub struct AuthService {
     /// HTTP client for external auth requests
+    #[cfg(feature = "http-auth")]
     client: Client,
     /// Session manager for handling user sessions
     session_manager: SessionManager,
