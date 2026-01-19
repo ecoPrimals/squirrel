@@ -459,30 +459,8 @@ impl ResourceManager {
 
         // Cleanup all connection pools
         {
-            // connection_pools removed - no pooling needed
-//             for (pool_name, pool) in pools.iter() {  // pools removed
-                match tokio::time::timeout(
-                    self.config.cleanup_timeout,
-                    pool.cleanup_stale_connections(),
-                )
-                .await
-                {
-                    Ok(()) => {
-                        debug!(
-                            correlation_id = %ctx.correlation_id,
-                            // pool removed,
-                            "Connection pool cleanup completed"
-                        );
-                    }
-                    Err(_) => {
-                        warn!(
-                            correlation_id = %ctx.correlation_id,
-                            // pool removed,
-                            "Connection pool cleanup timed out"
-                        );
-                    }
-                }
-            }
+            // connection_pools removed - Unix sockets don't need HTTP pooling
+            // Pool cleanup logic removed
         }
 
         let cleanup_duration = cleanup_start.elapsed();
