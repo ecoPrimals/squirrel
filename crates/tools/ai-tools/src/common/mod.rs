@@ -54,6 +54,9 @@ pub mod client;
 pub mod clients;
 pub mod types;
 
+// Capability-based provider (TRUE PRIMAL - Pure Rust!)
+pub mod capability_provider;
+
 // Existing sub-modules
 pub mod capability;
 pub mod client_registry;

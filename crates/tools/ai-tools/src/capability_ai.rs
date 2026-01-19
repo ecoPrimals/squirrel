@@ -86,6 +86,7 @@ impl Default for AiClientConfig {
 ///     Ok(())
 /// }
 /// ```
+#[derive(Debug)]
 pub struct AiClient {
     config: AiClientConfig,
     request_id: std::sync::atomic::AtomicU64,
