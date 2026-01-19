@@ -1,7 +1,17 @@
 //! Ollama client implementation
 //!
-//! This module provides a production-ready Ollama client that implements
-//! the AIClient trait for seamless integration with the AI tools system.
+//! **DEPRECATED**: This module uses reqwest for direct HTTP calls, which pulls in the `ring` C dependency.
+//! 
+//! **Migration Path**: Use `capability_ai::AiClient` instead, which delegates HTTP to Songbird via Unix sockets.
+//! 
+//! See: `docs/CAPABILITY_AI_MIGRATION_GUIDE.md` for migration instructions.
+//!
+//! This module will be removed in a future release once all usages are migrated.
+
+#![deprecated(
+    since = "1.4.1",
+    note = "Use capability_ai::AiClient instead. See docs/CAPABILITY_AI_MIGRATION_GUIDE.md"
+)]
 
 use async_trait::async_trait;
 use futures::stream;

@@ -2,7 +2,7 @@
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v1.4.0-blue.svg)](CURRENT_STATUS.md)
+[![Version](https://img.shields.io/badge/version-v1.4.1-blue.svg)](CURRENT_STATUS.md)
 [![Tests](https://img.shields.io/badge/tests-564%20passing-brightgreen.svg)](CURRENT_STATUS.md)
 [![Grade](https://img.shields.io/badge/grade-A++%20(98%2F100)-brightgreen.svg)](CURRENT_STATUS.md)
 [![Production](https://img.shields.io/badge/production-ready-green.svg)](CURRENT_STATUS.md)
@@ -14,7 +14,7 @@
 > *"Deploy like an infant - knows nothing, discovers everything at runtime"*  
 > *"100% Pure Rust dependencies - ZERO ring in cargo tree"*
 
-**Squirrel v1.4.0** is the AI orchestration primal for ecoPrimals, providing:
+**Squirrel v1.4.1** is the AI orchestration primal for ecoPrimals, providing:
 
 - 🏆 **TRUE ecoBin #5** - 100% Pure Rust dependency tree (ZERO ring!)
 - 🌟 **TRUE PRIMAL** - Self-knowledge only, zero hardcoded connections
@@ -30,7 +30,28 @@ Built with sovereignty, human dignity, and local-first principles at its core.
 
 ---
 
-## 🎯 **NEW in v1.4.0** (January 19, 2026)
+## 🎯 **NEW in v1.4.1** (January 19, 2026)
+
+### 📚 Legacy Provider Deprecation & Migration
+
+**Old HTTP-based providers are now DEPRECATED**:
+- ⚠️ `openai/` - Direct HTTP, pulls in ring
+- ⚠️ `anthropic/` - Direct HTTP, pulls in ring  
+- ⚠️ `gemini/` - Direct HTTP, pulls in ring
+- ⚠️ `ollama` clients - Direct HTTP, not needed
+
+**Migration to capability_ai**:
+- ✅ Pure Rust Unix socket delegation
+- ✅ Zero reqwest/ring dependencies
+- ✅ TRUE ecoBin compliant
+- 📖 See: `docs/CAPABILITY_AI_MIGRATION_GUIDE.md`
+- 📋 See: `crates/tools/ai-tools/LEGACY_PROVIDERS_DEPRECATED.md`
+
+**New code MUST use capability_ai pattern!** 🚀
+
+---
+
+## 🎯 **v1.4.0** (January 19, 2026)
 
 ### 🏆 TRUE ecoBin #5 Certification - ACHIEVED!
 
