@@ -13,7 +13,8 @@ use crate::MetricsCollector;
 
 use super::ai::{
     ai_routes, handle_compatible_models, handle_model_load, provider_routes, ActionRegistry,
-    AiRouter, ServiceMeshAiIntegration,
+    AiRouter,
+    // ServiceMeshAiIntegration removed - use capability discovery instead
 };
 use super::ecosystem;
 use super::health;

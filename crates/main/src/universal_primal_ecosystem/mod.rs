@@ -13,11 +13,10 @@
 //! - **Federation-Ready**: Designed for cross-platform sovereignty
 //! - **Performance-Optimized**: Caching and connection pooling for efficient operation
 
-mod connection_pool;
+// connection_pool removed - HTTP connection pooling not needed
 mod types;
 
 // Public exports
-pub use connection_pool::ServiceConnectionPool;
 pub use types::*;
 
 // Re-export DiscoveredPrimal for backward compatibility
@@ -423,7 +422,7 @@ impl UniversalPrimalEcosystem {
         service: &DiscoveredService,
         request: PrimalRequest,
     ) -> UniversalResult<PrimalResponse> {
-        use crate::error_handling::safe_operations::SafeOps;
+        // safe_operations removed - using standard Result patterns
         use uuid::Uuid;
 
         // Generate correlation ID for tracking

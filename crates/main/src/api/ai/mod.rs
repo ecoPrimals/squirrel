@@ -47,7 +47,7 @@ pub mod types;
 
 pub use action_registry::ActionRegistry;
 pub use router::AiRouter;
-pub use service_mesh_integration::ServiceMeshAiIntegration;
+// ServiceMeshAiIntegration removed - use capability discovery instead
 
 // Re-export handlers
 pub use endpoints::{

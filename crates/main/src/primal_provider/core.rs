@@ -6,7 +6,7 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 // EcosystemClient removed - HTTP-based client deprecated
-use crate::capability_registry::{CapabilityRegistry, PrimalCapability as RegistryCapability};
+// capability_registry removed - use universal patterns for capability discovery
 use crate::ecosystem::EcosystemManager;
 use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;

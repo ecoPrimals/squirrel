@@ -11,6 +11,6 @@ pub mod types;
 // Re-export all public types and functions
 pub use config::*;
 pub use discovery::DiscoveryOps;
-pub use health::HealthMonitor;
+// HealthMonitor removed - HTTP-based health checks
 pub use metrics::{MetricsOps, ServiceStats};
 pub use types::*;
