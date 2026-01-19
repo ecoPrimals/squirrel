@@ -171,10 +171,6 @@ impl SquirrelPrimalProvider {
         let available_primals = self
             .capability_registry
             .list_all_primals()
-            .await
-            .map_err(|e| {
-                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {e}"))
-            })?;
 
         let participating_primals: Vec<String> = available_primals
             .iter()
@@ -268,10 +264,6 @@ impl SquirrelPrimalProvider {
 
         // Discover service mesh providers
             // .capability_registry.discover_by_capability removed
-            .await
-            .map_err(|e| {
-                PrimalError::ServiceDiscoveryError(format!("Failed to discover service mesh: {e}"))
-            })?;
 
         if orchestrators.is_empty() {
             return Err(PrimalError::ServiceDiscoveryError(
@@ -457,10 +449,6 @@ impl SquirrelPrimalProvider {
         let all_primals = self
             .capability_registry
             .list_all_primals()
-            .await
-            .map_err(|e| {
-                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {e}"))
-            })?;
 
         let healthy_services = all_primals.iter().filter(|p| p.is_healthy).count();
         let participating_primals: Vec<String> = all_primals
@@ -739,7 +727,6 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     /// Initialize the primal
     async fn initialize(&mut self, _config: serde_json::Value) -> UniversalResult<()> {
         self.initialize_ecosystem()
-            .await
             .map_err(|e| PrimalError::Internal(e.to_string()))?;
         Ok(())
     }
@@ -747,7 +734,6 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     /// Shutdown the primal
     async fn shutdown(&mut self) -> UniversalResult<()> {
         self.shutdown_ecosystem()
-            .await
             .map_err(|e| PrimalError::Internal(e.to_string()))?;
         Ok(())
     }
@@ -764,13 +750,11 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
 
     /// Register with service mesh
     async fn register_with_songbird(&mut self, songbird_endpoint: &str) -> UniversalResult<String> {
-        self.register_with_service_mesh(songbird_endpoint).await
     }
 
     /// Deregister from service mesh
     async fn deregister_from_songbird(&mut self) -> UniversalResult<()> {
         self.deregister_from_service_mesh()
-            .await
             .map_err(|e| PrimalError::Internal(e.to_string()))?;
         Ok(())
     }
@@ -785,12 +769,10 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
         &self,
         request: EcosystemRequest,
     ) -> UniversalResult<EcosystemResponse> {
-        self.handle_ecosystem_request(request).await
     }
 
     /// Report health to ecosystem registry
     async fn report_health(&self, health: PrimalHealth) -> UniversalResult<()> {
-        self.report_health(health).await
     }
 
     /// Update system capabilities
@@ -798,6 +780,5 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
         &self,
         capabilities: Vec<PrimalCapability>,
     ) -> UniversalResult<()> {
-        self.update_capabilities(capabilities).await
     }
 }

@@ -130,28 +130,6 @@ impl ResourceManager {
                 let mut successful_pools = 0;
                 let mut failed_pools = 0;
 
-                debug!("Starting connection pool cleanup cycle");
-
-                // Cleanup all registered pools
-                {
-                    let pools_guard = pools.read().await;
-                    for (pool_name, pool) in pools_guard.iter() {
-                        let cleanup_future = pool
-                            .cleanup_stale_connections()
-                            .instrument(tracing::debug_span!("pool_cleanup", pool = %pool_name));
-
-                        if let Ok(()) =
-                            tokio::time::timeout(Duration::from_secs(30), cleanup_future).await
-                        {
-                            successful_pools += 1;
-                            debug!("Connection cleanup completed for pool: {}", pool_name);
-                        } else {
-                            failed_pools += 1;
-                            warn!("Connection cleanup timed out for pool: {}", pool_name);
-                        }
-                    }
-                }
-
                 let operation_duration = operation_start.elapsed();
 
                 // Update metrics
@@ -286,70 +264,6 @@ impl ResourceManager {
 
         let monitoring_task = async move {
             let mut health_interval = tokio::time::interval(interval);
-
-            loop {
-                health_interval.tick().await;
-
-                if *shutdown.read().await {
-                    info!("Health monitoring task shutting down");
-                    break;
-                }
-
-                let mut total_connections = 0;
-                let mut healthy_connections = 0;
-                let mut unhealthy_connections = 0;
-
-                // Check health of all connection pools
-                {
-                    let pools_guard = pools.read().await;
-                    for (pool_name, pool) in pools_guard.iter() {
-                        match tokio::time::timeout(
-                            Duration::from_secs(10),
-                            pool.get_health_metrics(),
-                        )
-                        .await
-                        {
-                            Ok(metrics) => {
-                                total_connections += metrics.total_connections;
-                                healthy_connections += metrics.healthy_connections;
-                                unhealthy_connections += metrics.unhealthy_connections;
-
-                                if metrics.overall_failure_rate > 0.2 {
-                                    warn!(
-                                        pool_name = %pool_name,
-                                        failure_rate = %format!("{:.1}%", metrics.overall_failure_rate * 100.0),
-                                        operation = "connection_pool_health_warning",
-                                        "Connection pool showing high failure rate"
-                                    );
-                                }
-                            }
-                            Err(_) => {
-                                warn!(
-                                    pool_name = %pool_name,
-                                    operation = "health_check_timeout",
-                                    "Health check timed out for connection pool"
-                                );
-                            }
-                        }
-                    }
-                }
-
-                // Update usage statistics
-                {
-                    let mut stats = usage_stats.write().await;
-                    stats.active_connections = total_connections;
-
-                    // Calculate cleanup success rate
-                    if total_connections > 0 {
-                        stats.cleanup_success_rate =
-                            healthy_connections as f64 / total_connections as f64;
-                    }
-                }
-
-                debug!(
-                    operation = "health_monitoring_complete",
-                    total_connections = total_connections,
-                    healthy_connections = healthy_connections,
                     unhealthy_connections = unhealthy_connections,
                     "Health monitoring cycle completed"
                 );
@@ -463,54 +377,6 @@ impl ResourceManager {
         // In production, this would track actual pending cleanup operations
         0 // For now, return 0 - can be enhanced with proper tracking
     }
-
-    /// Get cleanup metrics
-    pub async fn get_cleanup_metrics(&self) -> HashMap<String, CleanupMetrics> {
-        self.cleanup_metrics.read().await.clone()
-    }
-
-    /// Perform immediate resource cleanup
-    pub async fn cleanup_now(&self) -> Result<(), PrimalError> {
-        let correlation_id = CorrelationId::new();
-        let ctx =
-            OperationContext::with_correlation_id("immediate_resource_cleanup", correlation_id);
-        ctx.log_start();
-
-        let cleanup_start = Instant::now();
-
-        // Cleanup all connection pools
-        {
-            // connection_pools removed - no pooling needed
-            for (pool_name, pool) in pools.iter() {
-                match tokio::time::timeout(
-                    self.config.cleanup_timeout,
-                    pool.cleanup_stale_connections(),
-                )
-                .await
-                {
-                    Ok(()) => {
-                        debug!(
-                            correlation_id = %ctx.correlation_id,
-                            pool_name = %pool_name,
-                            "Connection pool cleanup completed"
-                        );
-                    }
-                    Err(_) => {
-                        warn!(
-                            correlation_id = %ctx.correlation_id,
-                            pool_name = %pool_name,
-                            "Connection pool cleanup timed out"
-                        );
-                    }
-                }
-            }
-        }
-
-        let cleanup_duration = cleanup_start.elapsed();
-        let _result = ctx.clone().complete_success();
-
-        info!(
-            correlation_id = %ctx.correlation_id,
             cleanup_duration_ms = cleanup_duration.as_millis(),
             "Immediate resource cleanup completed"
         );
