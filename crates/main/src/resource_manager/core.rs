@@ -11,7 +11,7 @@ use tracing::{debug, info, warn, Instrument};
 
 use crate::error::PrimalError;
 use crate::observability::{CorrelationId, OperationContext};
-use crate::universal_primal_ecosystem::ServiceConnectionPool;
+// ServiceConnectionPool removed - Unix sockets don't need connection pooling
 
 use super::types::{CleanupMetrics, ResourceManagerConfig, ResourceUsageStats};
 
@@ -21,7 +21,7 @@ pub struct ResourceManager {
     pub(crate) config: ResourceManagerConfig,
 
     /// Connection pools being managed
-    pub(crate) connection_pools: Arc<RwLock<HashMap<String, Arc<ServiceConnectionPool>>>>,
+    // connection_pools removed - Unix sockets don't need connection pooling
 
     /// Background task handles
     pub(crate) background_tasks: Arc<Mutex<Vec<JoinHandle<()>>>>,
@@ -51,7 +51,9 @@ impl ResourceManager {
     }
 
     /// Register a connection pool for management
-    pub async fn register_connection_pool(&self, name: String, pool: Arc<ServiceConnectionPool>) {
+    // register_connection_pool removed - Unix sockets don't need connection pooling
+    #[allow(dead_code)]
+    pub async fn register_connection_pool(&self, _name: String) {
         let mut pools = self.connection_pools.write().await;
         pools.insert(name.clone(), pool);
 

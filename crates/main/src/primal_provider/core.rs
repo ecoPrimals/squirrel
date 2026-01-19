@@ -33,13 +33,13 @@ use squirrel_mcp_config::EcosystemConfig;
 pub struct SquirrelPrimalProvider {
     pub(super) instance_id: String,
     pub(super) config: EcosystemConfig,
-    pub(super) universal_adapter: Arc<UniversalAdapterV2>, // Infant primal adapter
+    pub(super) universal_adapter: Arc<UniversalAdapterV2>,
     pub(super) ecosystem_manager: Arc<EcosystemManager>,
-    pub(super) capability_registry: Arc<CapabilityRegistry>,
+    // capability_registry removed - use PrimalCapability directly
     pub(super) session_manager: Arc<dyn crate::session::SessionManager>,
     pub(super) metrics_collector: Arc<MetricsCollector>,
     pub(super) context: PrimalContext,
-    pub(super) biomeos_client: Option<Arc<EcosystemClient>>,
+    // biomeos_client removed - use capability discovery
     pub(super) port_info: Option<DynamicPortInfo>,
     pub(super) initialized: bool,
     pub(super) shutdown: bool,
@@ -54,7 +54,6 @@ impl SquirrelPrimalProvider {
         config: EcosystemConfig,
         universal_adapter: UniversalAdapterV2,
         ecosystem_manager: Arc<EcosystemManager>,
-        capability_registry: Arc<CapabilityRegistry>,
         session_manager: Arc<dyn crate::session::SessionManager>,
     ) -> Self {
         Self {
@@ -62,11 +61,9 @@ impl SquirrelPrimalProvider {
             config,
             universal_adapter: Arc::new(universal_adapter),
             ecosystem_manager,
-            capability_registry,
             session_manager,
             metrics_collector: Arc::new(MetricsCollector::new()),
             context: PrimalContext::default(),
-            biomeos_client: None,
             port_info: None,
             initialized: false,
             shutdown: false,
@@ -75,10 +72,7 @@ impl SquirrelPrimalProvider {
         }
     }
 
-    /// Sets the `BiomeOS` client for ecosystem integration
-    pub fn set_biomeos_client(&mut self, client: Arc<EcosystemClient>) {
-        self.biomeos_client = Some(client);
-    }
+    // set_biomeos_client removed - use capability discovery
 
     /// Set session manager
     pub fn set_session_manager(&mut self, manager: Arc<dyn crate::session::SessionManager>) {

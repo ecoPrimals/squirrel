@@ -130,7 +130,7 @@ impl ShutdownHandler for ResourceManager {
 mod tests {
     use super::*;
     use crate::resource_manager::{CleanupMetrics, ResourceManagerConfig, ResourceUsageStats};
-    use crate::universal_primal_ecosystem::ServiceConnectionPool;
+    // ServiceConnectionPool removed - Unix sockets don't need connection pooling
     use std::sync::Arc;
 
     #[test]
@@ -180,7 +180,7 @@ mod tests {
         let config = ResourceManagerConfig::default();
         let manager = ResourceManager::new(config);
 
-        let pool = Arc::new(ServiceConnectionPool::new());
+        let pool = Arc::new(())  // Placeholder: connection pooling removed;
         manager
             .register_connection_pool("test-pool".to_string(), pool)
             .await;
@@ -196,7 +196,7 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         for i in 0..3 {
-            let pool = Arc::new(ServiceConnectionPool::new());
+            let pool = Arc::new(())  // Placeholder: connection pooling removed;
             manager
                 .register_connection_pool(format!("pool-{}", i), pool)
                 .await;
@@ -267,7 +267,7 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         // Register a pool
-        let pool = Arc::new(ServiceConnectionPool::new());
+        let pool = Arc::new(())  // Placeholder: connection pooling removed;
         manager
             .register_connection_pool("test-pool".to_string(), pool)
             .await;
@@ -326,7 +326,7 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         // Register a pool first
-        let pool = Arc::new(ServiceConnectionPool::new());
+        let pool = Arc::new(())  // Placeholder: connection pooling removed;
         manager
             .register_connection_pool("test-pool".to_string(), pool)
             .await;
@@ -359,7 +359,7 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         // Register pools and metrics first
-        let pool = Arc::new(ServiceConnectionPool::new());
+        let pool = Arc::new(())  // Placeholder: connection pooling removed;
         manager
             .register_connection_pool("test-pool".to_string(), pool)
             .await;
@@ -381,7 +381,7 @@ mod tests {
         let manager = ResourceManager::new(config);
 
         // Register resources
-        let pool = Arc::new(ServiceConnectionPool::new());
+        let pool = Arc::new(())  // Placeholder: connection pooling removed;
         manager
             .register_connection_pool("lifecycle-pool".to_string(), pool)
             .await;
