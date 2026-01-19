@@ -269,7 +269,7 @@ impl SquirrelPrimalProvider {
         // Discover service mesh providers
         let orchestrators = self
             .capability_registry
-            .discover_by_capability(&RegistryCapability::ServiceMesh)
+            .discover_by_capability(&PrimalCapability::ServiceMesh)
             .await
             .map_err(|e| {
                 PrimalError::ServiceDiscoveryError(format!("Failed to discover service mesh: {e}"))

@@ -42,7 +42,7 @@ mod models;
 mod provider_registration;
 pub mod router;
 mod selector;
-mod service_mesh_integration;
+// service_mesh_integration deleted - HTTP-based AI integration deprecated
 pub mod types;
 
 pub use action_registry::ActionRegistry;

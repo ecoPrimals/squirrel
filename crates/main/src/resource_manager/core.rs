@@ -42,7 +42,7 @@ impl ResourceManager {
     pub fn new(config: ResourceManagerConfig) -> Self {
         Self {
             config,
-            connection_pools: Arc::new(RwLock::new(HashMap::new())),
+            // connection_pools removed - Unix sockets don't need pooling
             background_tasks: Arc::new(Mutex::new(Vec::new())),
             usage_stats: Arc::new(RwLock::new(ResourceUsageStats::default())),
             shutdown_requested: Arc::new(RwLock::new(false)),
@@ -53,9 +53,9 @@ impl ResourceManager {
     /// Register a connection pool for management
     // register_connection_pool removed - Unix sockets don't need connection pooling
     #[allow(dead_code)]
-    pub async fn register_connection_pool(&self, _name: String) {
-        let mut pools = self.connection_pools.write().await;
-        pools.insert(name.clone(), pool);
+    pub async fn register_connection_pool(&self, _name: String, _pool: ()) {
+        // connection_pools removed - no pooling needed
+        // pools.insert removed
 
         info!(
             pool_name = %name,
@@ -108,7 +108,7 @@ impl ResourceManager {
 
     /// Start connection pool cleanup task
     async fn start_connection_cleanup_task(&self) -> JoinHandle<()> {
-        let pools = Arc::clone(&self.connection_pools);
+        // connection_pools removed - no pooling needed
         let shutdown = Arc::clone(&self.shutdown_requested);
         let cleanup_metrics = Arc::clone(&self.cleanup_metrics);
         let interval = self.config.connection_cleanup_interval;
@@ -279,7 +279,7 @@ impl ResourceManager {
 
     /// Start health monitoring task
     async fn start_health_monitoring_task(&self) -> JoinHandle<()> {
-        let pools = Arc::clone(&self.connection_pools);
+        // connection_pools removed - no pooling needed
         let shutdown = Arc::clone(&self.shutdown_requested);
         let usage_stats = Arc::clone(&self.usage_stats);
         let interval = self.config.health_check_interval;
@@ -480,7 +480,7 @@ impl ResourceManager {
 
         // Cleanup all connection pools
         {
-            let pools = self.connection_pools.read().await;
+            // connection_pools removed - no pooling needed
             for (pool_name, pool) in pools.iter() {
                 match tokio::time::timeout(
                     self.config.cleanup_timeout,

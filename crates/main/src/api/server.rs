@@ -188,7 +188,6 @@ impl ApiServer {
         let ai_router_clone = ai_router.clone();
         let base_url = self.base_url();
         tokio::spawn(async move {
-            let mut service_mesh_integration = ServiceMeshAiIntegration::new(
                 ai_router_clone.clone(),
                 "squirrel".to_string(), // Service ID
                 base_url.clone(),
