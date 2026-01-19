@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::biomeos_integration::EcosystemClient;
+// EcosystemClient removed - HTTP-based client deprecated
 use crate::capability_registry::{CapabilityRegistry, PrimalCapability as RegistryCapability};
 use crate::ecosystem::EcosystemManager;
 use crate::error::PrimalError;

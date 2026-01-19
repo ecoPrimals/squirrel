@@ -14,8 +14,7 @@
 pub mod api;
 pub mod biomeos_integration;
 pub mod capabilities; // NEW - Capability traits (Phase 2)
-pub mod capability;
-pub mod capability_registry;
+// capability and capability_registry removed - HTTP-based legacy discovery
 pub mod chaos;
 pub mod compute_client;
 pub mod config;
@@ -61,9 +60,10 @@ pub use compute_client::{
 };
 pub use ecosystem::{
     initialize_ecosystem_integration, ComponentHealth, EcosystemPrimalType, EcosystemRegistryEvent,
-    EcosystemRegistryManager, EcosystemServiceRegistration, EcosystemStatus,
+    // EcosystemRegistryManager removed - HTTP-based registry
+    EcosystemServiceRegistration, EcosystemStatus,
 };
-pub use error_handling::prelude::*;
+// error_handling::prelude removed - safe_operations deleted
 pub use monitoring::performance::PerformanceTracker;
 pub use optimization::zero_copy;
 pub use primal_provider::SquirrelPrimalProvider;

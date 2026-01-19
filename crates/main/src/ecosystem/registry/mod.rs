@@ -4,7 +4,7 @@
 
 pub mod config;
 pub mod discovery;
-pub mod health;
+// health removed - HTTP-based health checks
 pub mod metrics;
 pub mod types;
 

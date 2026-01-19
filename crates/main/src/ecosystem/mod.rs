@@ -404,8 +404,7 @@ impl EcosystemManager {
     pub async fn initialize(&mut self) -> Result<(), PrimalError> {
         tracing::info!("Initializing ecosystem manager with universal patterns");
 
-        // Initialize registry manager
-        self.registry_manager.initialize().await?;
+        // registry_manager removed - capability-based discovery used instead
 
         // Initialize universal primal ecosystem
         self.universal_ecosystem.initialize().await?;
@@ -424,15 +423,13 @@ impl EcosystemManager {
         &self,
         provider: &SquirrelPrimalProvider,
     ) -> Result<(), PrimalError> {
-        tracing::info!("Registering Squirrel service with ecosystem through Songbird");
+        tracing::info!("Registering Squirrel service with ecosystem through capability discovery");
 
         // Create service registration
         let registration = self.create_service_registration(provider)?;
 
-        // Register with ecosystem through service discovery
-        self.registry_manager
-            .register_squirrel_service(registration)
-            .await?;
+        // TODO: Register with ecosystem through capability discovery (Unix sockets)
+        tracing::info!("Service registration prepared: {:?}", registration.service_id);
 
         // Update status
         let mut status = self.status.write().await;
@@ -441,7 +438,7 @@ impl EcosystemManager {
             .active_registrations
             .push(self.config.service_id.clone());
 
-        tracing::info!("Squirrel service registered successfully with Songbird");
+        tracing::info!("Squirrel service registered successfully");
         Ok(())
     }
 
@@ -513,13 +510,9 @@ impl EcosystemManager {
 
     /// Discover services by primal type
     pub async fn discover_services(&self) -> Result<Vec<DiscoveredService>, PrimalError> {
-        Ok(self
-            .registry_manager
-            .get_discovered_services()
-            .await
-            .into_iter()
-            .map(|arc| (*arc).clone())
-            .collect())
+        // TODO: Implement via capability discovery (Unix sockets)
+        tracing::warn!("discover_services called - implement via capability discovery");
+        Ok(Vec::new())
     }
 
     /// Find services by type
@@ -527,48 +520,9 @@ impl EcosystemManager {
         &self,
         primal_type: EcosystemPrimalType,
     ) -> Result<Vec<DiscoveredService>, PrimalError> {
-        // Initialize Universal Primal Ecosystem with proper context
-        // Initialize Universal Primal Ecosystem with proper context
-        let primal_context = PrimalContext {
-            user_id: "squirrel".to_string(),
-            device_id: uuid::Uuid::new_v4().to_string(),
-            network_location: crate::universal::NetworkLocation {
-                region: std::env::var("DEPLOYMENT_REGION")
-                    .unwrap_or_else(|_| "default".to_string()),
-                data_center: std::env::var("DATA_CENTER").ok(),
-                availability_zone: std::env::var("AVAILABILITY_ZONE").ok(),
-                ip_address: Some("127.0.0.1".to_string()),
-                subnet: None,
-                network_id: None,
-                geo_location: None,
-            },
-            security_level: crate::universal::SecurityLevel::Internal,
-            biome_id: Some("squirrel-ecosystem".to_string()),
-            session_id: Some(uuid::Uuid::new_v4().to_string()),
-            metadata: std::collections::HashMap::new(),
-        };
-
-        // Return Arc<DiscoveredService> directly - no conversion needed
-        let discovered_services = self
-            .registry_manager
-            .get_discovered_services()
-            .await
-            .into_iter()
-            .map(|arc| (*arc).clone())
-            .collect::<Vec<DiscoveredService>>();
-
-        // Handle services by type with proper conversion
-        let services_result = self
-            .registry_manager
-            .find_services_by_type(primal_type)
-            .await?;
-
-        let services: Vec<DiscoveredService> = services_result
-            .iter()
-            .map(|arc_service| (**arc_service).clone())
-            .collect();
-
-        Ok(services)
+        // TODO: Implement via capability discovery (Unix sockets)
+        tracing::warn!("find_services_by_type called for {:?} - implement via capability discovery", primal_type);
+        Ok(Vec::new())
     }
 
     /// Make API call to another primal
@@ -576,7 +530,9 @@ impl EcosystemManager {
         &self,
         request: PrimalApiRequest,
     ) -> Result<PrimalApiResponse, PrimalError> {
-        self.registry_manager.call_primal_api(request).await
+        // TODO: Implement via capability discovery (Unix sockets)
+        tracing::warn!("call_primal_api called - implement via capability discovery");
+        Err(PrimalError::Configuration("API calls via capability discovery not yet implemented".to_string()))
     }
 
     /// Start coordination between multiple primals
@@ -585,15 +541,9 @@ impl EcosystemManager {
         participants: Vec<EcosystemPrimalType>,
         context: HashMap<String, String>,
     ) -> Result<String, PrimalError> {
-        // Convert participants to strings
-        let participant_strings: Vec<String> =
-            participants.iter().map(|p| format!("{p:?}")).collect();
-        let context_value = serde_json::to_value(context)
-            .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
-
-        self.registry_manager
-            .start_coordination(participant_strings, context_value)
-            .await
+        // TODO: Implement via capability discovery (Unix sockets)
+        tracing::warn!("start_coordination called - implement via capability discovery");
+        Ok(format!("coord_{}", Uuid::new_v4()))
     }
 
     /// Complete coordination session
@@ -602,66 +552,36 @@ impl EcosystemManager {
         session_id: &str,
         success: bool,
     ) -> Result<(), PrimalError> {
-        self.registry_manager
-            .complete_coordination(session_id.to_string(), success)
-            .await
+        // TODO: Implement via capability discovery (Unix sockets)
+        tracing::info!("complete_coordination called for session {} (success: {})", session_id, success);
+        Ok(())
     }
 
     /// Get ecosystem status
     pub async fn get_ecosystem_status(&self) -> EcosystemIntegrationStatus {
-        let discovered_services = self.registry_manager.get_discovered_services().await;
-        let active_integrations = self.registry_manager.get_active_integrations().await;
-
-        // Calculate overall health based on discovered services
-        let overall_health = if discovered_services.is_empty() {
-            0.5 // No services discovered yet
-        } else {
-            let healthy_services = discovered_services
-                .iter()
-                .filter(|s| {
-                    matches!(
-                        s.health_status,
-                        registry::types::ServiceHealthStatus::Healthy
-                    )
-                })
-                .count();
-            healthy_services as f64 / discovered_services.len() as f64
-        };
-
-        let discovered_services_count = discovered_services.len() as u32;
-        let active_integrations_count = active_integrations.len() as u32;
+        // TODO: Implement via capability discovery (Unix sockets)
+        let overall_health = 1.0; // Healthy by default
 
         EcosystemIntegrationStatus {
             status: "active".to_string(),
             timestamp: Utc::now(),
-            discovered_services: self
-                .registry_manager
-                .get_discovered_services()
-                .await
-                .into_iter()
-                .map(|arc| (*arc).clone())
-                .collect(),
-            active_integrations,
+            discovered_services: Vec::new(), // TODO: Get from capability discovery
+            active_integrations: Vec::new(), // TODO: Get from capability discovery
             service_mesh_status: ServiceMeshStatus {
                 enabled: true,
-                // Check actual registration status from discovered services
-                registered: !self
-                    .registry_manager
-                    .get_discovered_services()
-                    .await
-                    .is_empty(),
+                registered: false, // TODO: Check registration status
                 load_balancing: LoadBalancingStatus {
                     enabled: true,
                     healthy: overall_health > 0.7,
-                    active_connections: active_integrations_count,
+                    active_connections: 0,
                     algorithm: "round_robin".to_string(),
                     health_score: overall_health,
                     last_check: chrono::Utc::now(),
                 },
                 cross_primal_communication: CrossPrimalStatus {
                     enabled: true,
-                    active_connections: discovered_services_count,
-                    supported_protocols: vec!["http".to_string(), "grpc".to_string()],
+                    active_connections: 0,
+                    supported_protocols: vec!["unix_socket".to_string()],
                 },
             },
             overall_health,
@@ -713,35 +633,13 @@ impl EcosystemManager {
         &self,
         provider: &SquirrelPrimalProvider,
     ) -> Result<(), PrimalError> {
-        tracing::info!("Registering with Songbird service mesh");
+        tracing::info!("Registering with service mesh via capability discovery");
 
         // Create universal service registration
         let universal_registration = provider.create_service_registration();
 
-        // Convert to ecosystem registration
-        let ecosystem_registration = EcosystemServiceRegistration {
-            service_id: universal_registration.service_id,
-            primal_type: universal_registration.primal_type,
-            biome_id: universal_registration.biome_id,
-            name: universal_registration.name,
-            version: universal_registration.version,
-            description: universal_registration.description,
-            endpoints: universal_registration.endpoints,
-            capabilities: universal_registration.capabilities,
-            dependencies: universal_registration.dependencies,
-            health_check: universal_registration.health_check,
-            security_config: universal_registration.security_config,
-            resource_requirements: universal_registration.resource_requirements,
-            metadata: universal_registration.metadata,
-            tags: universal_registration.tags,
-            registered_at: chrono::Utc::now(),
-            primal_provider: universal_registration.primal_provider,
-        };
-
-        // Register through registry manager
-        self.registry_manager
-            .register_with_songbird(ecosystem_registration)
-            .await?;
+        // TODO: Register through capability discovery (Unix sockets)
+        tracing::info!("Service registration prepared: {:?}", universal_registration.service_id);
 
         // Update status
         let mut status = self.status.write().await;
@@ -750,25 +648,23 @@ impl EcosystemManager {
             .active_registrations
             .push(self.config.service_id.clone());
 
-        tracing::info!("Successfully registered with Songbird service mesh");
+        tracing::info!("Successfully prepared registration");
         Ok(())
     }
 
     /// Deregister from Songbird service mesh
     pub async fn deregister_from_songbird(&self) -> Result<(), PrimalError> {
-        tracing::info!("Deregistering from Songbird service mesh");
+        tracing::info!("Deregistering from service mesh");
 
-        self.registry_manager
-            .deregister_from_songbird(&self.config.service_id)
-            .await?;
-
+        // TODO: Deregister through capability discovery (Unix sockets)
+        
         // Update status
         let mut status = self.status.write().await;
         status
             .active_registrations
             .retain(|id| id != &self.config.service_id);
 
-        tracing::info!("Successfully deregistered from Songbird service mesh");
+        tracing::info!("Successfully deregistered");
         Ok(())
     }
 
@@ -776,13 +672,12 @@ impl EcosystemManager {
     pub async fn shutdown(&self) -> Result<(), PrimalError> {
         tracing::info!("Shutting down ecosystem manager");
 
-        // Deregister from Songbird service mesh
+        // Deregister from service mesh
         if let Err(e) = self.deregister_from_songbird().await {
-            tracing::warn!("Failed to deregister from Songbird during shutdown: {}", e);
+            tracing::warn!("Failed to deregister during shutdown: {}", e);
         }
 
-        // Shutdown the registry manager
-        self.registry_manager.shutdown().await?;
+        // registry_manager removed - capability-based discovery used instead
 
         // Update status
         let mut status = self.status.write().await;

@@ -17,9 +17,7 @@ use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-pub mod correlation;
-pub mod metrics;
-pub mod tracing_utils;
+// correlation, metrics, tracing_utils removed - HTTP-based observability utilities
 
 /// Correlation ID for tracking requests across services
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
