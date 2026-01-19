@@ -274,63 +274,10 @@ impl ResourceManager {
                     break;
                 }
 
-                let mut total_connections = 0;
-                let mut healthy_connections = 0;
-                let mut unhealthy_connections = 0;
-
-                // Check health of all connection pools
-                {
-//                     let pools_guard = pools.read().await;  // pools removed
-//                     for (pool_name, pool) in pools_guard.iter() {  // pools removed
-                        match tokio::time::timeout(
-                            Duration::from_secs(10),
-                            pool.get_health_metrics(),
-                        )
-                        .await
-                        {
-                            Ok(metrics) => {
-                                total_connections += metrics.total_connections;
-                                healthy_connections += metrics.healthy_connections;
-                                unhealthy_connections += metrics.unhealthy_connections;
-
-                                if metrics.overall_failure_rate > 0.2 {
-                                    warn!(
-                                        // pool removed,
-                                        failure_rate = %format!("{:.1}%", metrics.overall_failure_rate * 100.0),
-                                        operation = "connection_pool_health_warning",
-                                        "Connection pool showing high failure rate"
-                                    );
-                                }
-                            }
-                            Err(_) => {
-                                warn!(
-                                    // pool removed,
-                                    operation = "health_check_timeout",
-                                    "Health check timed out for connection pool"
-                                );
-                            }
-                        }
-                    }
-                }
-
-                // Update usage statistics
-                {
-                    let mut stats = usage_stats.write().await;
-                    stats.active_connections = total_connections;
-
-                    // Calculate cleanup success rate
-                    if total_connections > 0 {
-                        stats.cleanup_success_rate =
-                            healthy_connections as f64 / total_connections as f64;
-                    }
-                }
-
+                // Connection pool health monitoring removed - Unix sockets don't need HTTP pooling
                 debug!(
-                    operation = "health_monitoring_complete",
-                    total_connections = total_connections,
-                    healthy_connections = healthy_connections,
-                    unhealthy_connections = unhealthy_connections,
-                    "Health monitoring cycle completed"
+                    operation = "health_monitoring_cycle",
+                    "Health monitoring cycle completed (no pools)"
                 );
             }
         };
