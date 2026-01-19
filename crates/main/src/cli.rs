@@ -110,8 +110,8 @@ pub enum Subsystem {
     Config,
     /// Unix socket API
     Socket,
-    /// HTTP API
-    Http,
+    /// RPC server (tarpc)
+    Rpc,
 }
 
 impl fmt::Display for Subsystem {
@@ -121,7 +121,7 @@ impl fmt::Display for Subsystem {
             Subsystem::Ecosystem => write!(f, "ecosystem"),
             Subsystem::Config => write!(f, "config"),
             Subsystem::Socket => write!(f, "socket"),
-            Subsystem::Http => write!(f, "http"),
+            Subsystem::Rpc => write!(f, "rpc"),
         }
     }
 }

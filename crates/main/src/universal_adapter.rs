@@ -18,7 +18,6 @@ use std::time::Instant;
 use anyhow::Result;
 use tracing::info;
 
-// // use crate::api::ApiServer; // DELETED // DELETED
 use crate::ecosystem::{EcosystemManager, EcosystemServiceRegistration};
 use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;
@@ -36,8 +35,8 @@ pub struct AdapterStatus {
     pub ecosystem_health: f64,
     /// Service registration information
     pub service_registration: Option<EcosystemServiceRegistration>,
-    /// Whether the API server is running
-    pub api_server_running: bool,
+    /// Whether the RPC server is running
+    pub rpc_server_running: bool,
     /// Uptime in seconds
     pub uptime: u64,
 }
@@ -62,9 +61,6 @@ pub struct UniversalAdapter {
 
     /// Shutdown manager
     shutdown_manager: Arc<ShutdownManager>,
-
-    /// API server instance - REMOVED (HTTP API deleted)
-    // api_server: Option<ApiServer>, // DELETED
 
     /// Initialization status
     initialized: bool,
@@ -164,7 +160,7 @@ impl UniversalAdapter {
                     gpu: None,
                 },
             }),
-            api_server_running: false, // api_server removed
+            rpc_server_running: false, // RPC server status
             uptime: self.start_time.elapsed().as_secs(),
         }
     }

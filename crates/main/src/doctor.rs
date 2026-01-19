@@ -80,8 +80,8 @@ pub async fn run_doctor(
         checks.push(check_unix_socket().await);
     }
 
-    if should_check(subsystem, Subsystem::Http) {
-        checks.push(check_http_server().await);
+    if should_check(subsystem, Subsystem::Rpc) {
+        checks.push(check_rpc_server().await);
     }
 
     // Determine overall status
@@ -300,22 +300,20 @@ async fn check_unix_socket() -> HealthCheck {
 }
 
 /// Check HTTP server health
-async fn check_http_server() -> HealthCheck {
+async fn check_rpc_server() -> HealthCheck {
     let start = Instant::now();
 
-    let port = std::env::var("SQUIRREL_PORT")
-        .ok()
-        .and_then(|p| p.parse::<u16>().ok())
-        .unwrap_or(9010);
+    let socket_path = std::env::var("SQUIRREL_SOCKET")
+        .unwrap_or_else(|_| "/tmp/squirrel.sock".to_string());
 
     HealthCheck {
-        name: "HTTP Server",
+        name: "RPC Server",
         status: HealthStatus::Ok,
-        message: format!("Will bind to port {}", port),
+        message: format!("Will bind to socket {}", socket_path),
         duration_ms: start.elapsed().as_millis() as u64,
         details: Some(serde_json::json!({
-            "port": port,
-            "bind_address": "0.0.0.0",
+            "socket_path": socket_path,
+            "protocol": "tarpc (binary RPC)",
             "note": "Server not running in doctor mode",
         })),
     }
@@ -551,21 +549,21 @@ mod tests {
     fn test_subsystem_filtering_none() {
         assert!(should_check(None, Subsystem::Ai));
         assert!(should_check(None, Subsystem::Config));
-        assert!(should_check(None, Subsystem::Http));
+        assert!(should_check(None, Subsystem::Rpc));
     }
 
     #[test]
     fn test_subsystem_filtering_specific() {
         assert!(should_check(Some(Subsystem::Ai), Subsystem::Ai));
         assert!(!should_check(Some(Subsystem::Ai), Subsystem::Config));
-        assert!(!should_check(Some(Subsystem::Config), Subsystem::Http));
+        assert!(!should_check(Some(Subsystem::Config), Subsystem::Rpc));
     }
 
     #[test]
     fn test_subsystem_display() {
         assert_eq!(format!("{}", Subsystem::Ai), "ai");
         assert_eq!(format!("{}", Subsystem::Config), "config");
-        assert_eq!(format!("{}", Subsystem::Http), "http");
+        assert_eq!(format!("{}", Subsystem::Rpc), "rpc");
     }
 
     // ========================================================================

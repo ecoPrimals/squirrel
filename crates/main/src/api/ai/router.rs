@@ -103,18 +103,8 @@ impl AiRouter {
             }
         }
 
-        // Fallback: Load legacy adapters in parallel (dev mode only!)
-        #[cfg(feature = "dev-direct-http")]
-        {
-            info!("🔄 Loading legacy AI adapters (DEV MODE - HTTP enabled)...");
-            let legacy_providers = Self::load_legacy_adapters_parallel().await;
-            providers.extend(legacy_providers);
-        }
-
-        #[cfg(not(feature = "dev-direct-http"))]
-        {
-            info!("✅ Production mode: Using UniversalAiAdapter ONLY (Unix sockets)");
-        }
+        // ✅ Production mode: Using UniversalAiAdapter ONLY (Unix sockets)
+        info!("✅ Socket-based architecture: All AI via capability discovery");
 
         if providers.is_empty() {
             warn!("⚠️  No AI providers available. Configure AI_PROVIDER_SOCKETS for capability discovery");
