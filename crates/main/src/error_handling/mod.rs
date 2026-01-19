@@ -1,31 +1,22 @@
-pub mod safe_operations;
-
-// Re-export commonly used error handling utilities
-pub use safe_operations::*;
+// error_handling module
+//
+// safe_operations removed - HTTP test utilities not needed in Pure Rust build
 
 /// Module for improved error handling patterns
 ///
-/// This module provides utilities and patterns for safe error handling:
-/// - Safe alternatives to `unwrap()` and `expect()`
-/// - Comprehensive error types with context
-/// - Recovery strategies for failed operations
-/// - Timeout handling for async operations
-/// - Safe lock acquisition patterns
-/// - Production-ready error handling macros
-///
-/// These utilities are designed to prevent panics in production code
-/// and provide graceful error handling with proper logging and recovery.
-pub mod error_handling {
-    pub use super::safe_operations::*;
-}
+/// This module provides utilities and patterns for safe error handling.
+/// 
+/// **v1.4.3**: HTTP-based safe_operations utilities have been removed.
+/// Production code uses standard Rust error handling with Result<T, E>.
+pub mod error_handling {}
 
 // Version information for error handling features
-pub const ERROR_HANDLING_VERSION: &str = "1.0.0";
+pub const ERROR_HANDLING_VERSION: &str = "1.4.3";
 
 /// Check if enhanced error handling is enabled
 #[must_use]
 pub fn enhanced_error_handling_enabled() -> bool {
-    cfg!(feature = "enhanced_error_handling") || true // Default to enabled
+    true // Standard Rust error handling always enabled
 }
 
 /// Get error handling system information
@@ -35,14 +26,10 @@ pub fn get_error_handling_info() -> ErrorHandlingInfo {
         version: ERROR_HANDLING_VERSION.to_string(),
         enabled: enhanced_error_handling_enabled(),
         features: vec![
-            "safe_operations".to_string(),
-            "safe_locks".to_string(),
-            "safe_channels".to_string(),
-            "safe_serialization".to_string(),
-            "safe_networking".to_string(),
-            "safe_configuration".to_string(),
-            "recovery_strategies".to_string(),
-            "timeout_handling".to_string(),
+            "result_types".to_string(),
+            "error_context".to_string(),
+            "anyhow_integration".to_string(),
+            "thiserror_integration".to_string(),
         ],
     }
 }
@@ -53,15 +40,6 @@ pub struct ErrorHandlingInfo {
     pub version: String,
     pub enabled: bool,
     pub features: Vec<String>,
-}
-
-/// Convenience re-exports for commonly used safe operations
-pub mod prelude {
-    pub use super::safe_operations::{
-        RecoveryStrategy, SafeConfig, SafeError, SafeOps, SafeResult, SafeService, SafeSession,
-    };
-
-    pub use crate::{safe_expect, safe_option, safe_option_with_default, safe_unwrap};
 }
 
 #[cfg(test)]

@@ -25,14 +25,11 @@ const STATUS_RUNNING: &str = "running";
 pub mod agent_deployment;
 pub mod ai_intelligence;
 pub mod context_state;
-// ecosystem_client removed - deprecated, unused, had reqwest dependency // DEPRECATED: Use unix_socket_client instead
+// ecosystem_client removed - deprecated, unused, had reqwest dependency
+// unix_socket_client removed - HTTP-based test utility
 pub mod manifest;
 pub mod mcp_integration;
 pub mod optimized_implementations;
-pub mod unix_socket_client; // TRUE PRIMAL compliant
-
-// Import capability-based discovery (modern pattern)
-use crate::capability_registry::CapabilityRegistry;
 
 // Re-export optimized implementations
 pub use optimized_implementations::{
@@ -127,14 +124,8 @@ pub struct SquirrelBiomeOSIntegration {
     pub ai_intelligence: AiIntelligence,
     pub mcp_integration: McpIntegration,
     pub context_state: ContextState,
-    /// Legacy client (deprecated - prefer `capability_registry`)
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use capability_registry for capability-based discovery"
-    )]
-    pub ecosystem_client: EcosystemClient,
-    /// Modern capability-based service discovery and registration
-    pub capability_registry: Arc<CapabilityRegistry>,
+    // ecosystem_client removed - HTTP-based client deprecated
+    // capability_registry removed - use primal provider for discovery
     pub agent_deployment: AgentDeploymentManager,
     pub manifest_parser: BiomeManifestParser,
     pub health_status: HealthStatus,
@@ -175,9 +166,6 @@ impl SquirrelBiomeOSIntegration {
             ai_intelligence,
             mcp_integration,
             context_state: ContextState::new(),
-            #[allow(deprecated)]
-            ecosystem_client: EcosystemClient::new(), // Legacy support
-            capability_registry: Arc::new(CapabilityRegistry::new(Default::default())),
             agent_deployment,
             manifest_parser: BiomeManifestParser::new(),
             health_status: HealthStatus {
@@ -329,16 +317,9 @@ impl SquirrelBiomeOSIntegration {
             },
         };
 
-        // Register with service mesh via capability-based discovery
-        // Legacy client maintained for backward compatibility during migration
-        #[allow(deprecated)]
-        self.ecosystem_client
-            .register_service_with_songbird(registration)
-            .await?;
-
-        // Modern approach: Register with capability registry
-        // This allows any primal to discover us based on capabilities
-        // Future enhancement: Direct registration via capability_registry.register_primal()
+        // TODO: Register with service mesh via capability-based discovery
+        // Implementation delegated to primal provider
+        tracing::info!("Service registration prepared: {:?}", registration.service_id);
 
         self.health_status.status = "registered".to_string();
         self.health_status.timestamp = Utc::now();

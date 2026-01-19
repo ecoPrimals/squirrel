@@ -53,13 +53,11 @@ pub mod types;
 // Re-export all public items
 pub use status::*;
 
-// Re-export registry manager types
-pub mod discovery_client;
+// Re-export registry types
 pub mod registry;
-pub mod registry_manager; // Capability-based service discovery
-pub use discovery_client::*;
 pub use registry::*;
-pub use registry_manager::*; // Export ServiceDiscoveryClient
+
+// discovery_client and registry_manager removed - HTTP-based, replaced by capability discovery
 
 /// Ecosystem service registration for Squirrel AI primal
 ///
@@ -335,8 +333,7 @@ pub struct EcosystemConfig {
 
 /// Ecosystem manager for service discovery and communication
 pub struct EcosystemManager {
-    /// Registry manager for service discovery
-    pub registry_manager: EcosystemRegistryManager,
+    // registry_manager removed - HTTP-based, replaced by capability discovery
     /// Universal primal ecosystem for standardized integration
     pub universal_ecosystem: UniversalPrimalEcosystem,
     /// Configuration
@@ -357,10 +354,8 @@ impl EcosystemManager {
     /// Create new ecosystem manager
     #[must_use]
     pub fn new(config: EcosystemConfig, metrics_collector: Arc<MetricsCollector>) -> Self {
-        // Initialize ecosystem registry manager
-        let (registry_manager, _registry_receiver) =
-            EcosystemRegistryManager::new(config.registry_config.clone());
-
+        // registry_manager removed - HTTP-based, replaced by capability discovery
+        
         // Initialize Universal Primal Ecosystem with proper context
         let primal_context = PrimalContext {
             user_id: "squirrel".to_string(),
@@ -398,7 +393,6 @@ impl EcosystemManager {
         };
 
         Self {
-            registry_manager,
             universal_ecosystem,
             config,
             metrics_collector,
