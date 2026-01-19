@@ -56,8 +56,8 @@ impl ShutdownHandler for ResourceManager {
                 // let pools = self.connection_pools.read().await;
                 // for (pool_name, pool) in pools.iter() {
                 //     pool.shutdown().await;
-                    info!("Connection pool '{}' shutdown completed", pool_name);
-                }
+                //     info!("Connection pool '{}' shutdown completed", pool_name);
+                // }
                 Ok(())
             }
             ShutdownPhase::CleanupResources => {
