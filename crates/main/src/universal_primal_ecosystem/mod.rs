@@ -32,6 +32,7 @@ use tracing::{debug, info, warn};
 use universal_constants::timeouts;
 
 use crate::error::PrimalError;
+use universal_error::UniversalError;
 use crate::universal::{
     PrimalCapability, PrimalContext, PrimalRequest, PrimalResponse, UniversalResult,
 };

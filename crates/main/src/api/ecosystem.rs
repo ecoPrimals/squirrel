@@ -84,14 +84,9 @@ pub async fn handle_services(
     // registry_manager removed - use ecosystem discovery
     let services_data: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
 
-    let services: Vec<ServiceInfo> = services_data
-        .iter()
-        .map(|s| ServiceInfo {
-            name: format!("{:?}", s.primal_type),
-            endpoint: s.endpoint.to_string(),
-            health: format!("{:?}", s.health_status),
-        })
-        .collect();
+    // registry_manager removed - use ecosystem discovery
+    // TODO: Implement via ecosystem discovery
+    let services: Vec<ServiceInfo> = Vec::new();
 
     let response = ServicesResponse {
         services,
