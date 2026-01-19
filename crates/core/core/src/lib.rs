@@ -72,13 +72,21 @@ pub enum Error {
     Monitoring(String),
 
     #[error("HTTP error: {0}")]
-    Http(#[from] reqwest::Error),
+    Http(String),
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+}
+
+// Feature-gated reqwest::Error conversion (only available with http-client feature)
+#[cfg(feature = "http-client")]
+impl From<reqwest::Error> for CoreError {
+    fn from(err: reqwest::Error) -> Self {
+        CoreError::Http(err.to_string())
+    }
 }
 
 // Core traits for ecosystem coordination

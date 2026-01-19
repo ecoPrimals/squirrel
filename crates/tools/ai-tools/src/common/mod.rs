@@ -71,7 +71,11 @@ pub mod usage;
 // Re-export main types for convenience
 pub use client::AIClient;
 pub use clients::mock::MockAIClient;
+
+// Feature-gated re-exports (require direct-http feature for reqwest-based clients)
+#[cfg(feature = "direct-http")]
 pub use clients::{AnthropicClient, OllamaClient, OpenAIClient};
+
 pub use types::{
     ChatChoice, ChatChoiceChunk, ChatMessage, ChatRequest, ChatResponse, ChatResponseChunk,
     ChatResponseStream, MessageRole, UsageInfo,
@@ -82,7 +86,12 @@ pub use capability::{AICapabilities, AITask, RoutingPreferences};
 pub use client_registry::{AIRouterClient, ClientRegistry, ProviderStats};
 // Note: Not re-exporting message::* to avoid conflicts with types::*
 pub use parameters::ModelParameters;
-pub use providers::{AICapability, AIProvider, AnthropicProvider, OllamaProvider, OpenAIProvider};
+pub use providers::AICapability;
+
+// Feature-gated provider re-exports
+#[cfg(feature = "direct-http")]
+pub use providers::{AIProvider, AnthropicProvider, OllamaProvider, OpenAIProvider};
+
 pub use rate_limiter::{RateLimiter, RateLimiterConfig};
 pub use registry::ModelRegistry;
 // Note: Not re-exporting tool::* and usage::* to avoid conflicts with types::*
@@ -94,6 +103,8 @@ pub use usage::TokenCounter;
 // Additional utility functions for backward compatibility
 
 /// Create a provider client (factory function) - backward compatibility
+/// Requires direct-http feature for HTTP-based providers
+#[cfg(feature = "direct-http")]
 pub fn create_provider_client(provider: &str, api_key: &str) -> crate::Result<Box<dyn AIClient>> {
     match provider.to_lowercase().as_str() {
         "openai" => {

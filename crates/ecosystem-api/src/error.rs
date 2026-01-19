@@ -113,7 +113,7 @@ pub enum EcosystemError {
 
     /// Network error
     #[error("Network error: {0}")]
-    Network(#[from] reqwest::Error),
+    Network(String),
 
     /// Serialization error
     #[error("Serialization error: {0}")]
@@ -226,7 +226,7 @@ pub enum ServiceMeshError {
 
     /// Network error
     #[error("Network error: {0}")]
-    Network(#[from] reqwest::Error),
+    Network(String),
 
     /// Serialization error
     #[error("Serialization error: {0}")]
@@ -266,7 +266,7 @@ pub enum HealthError {
 
     /// Network error
     #[error("Network error: {0}")]
-    Network(#[from] reqwest::Error),
+    Network(String),
 
     /// Serialization error
     #[error("Serialization error: {0}")]
@@ -418,9 +418,32 @@ impl From<ResourceError> for UniversalError {
     }
 }
 
+// Feature-gated reqwest::Error conversions (only available with http-client feature)
+#[cfg(feature = "http-client")]
 impl From<reqwest::Error> for UniversalError {
     fn from(err: reqwest::Error) -> Self {
         UniversalError::Network(err.to_string())
+    }
+}
+
+#[cfg(feature = "http-client")]
+impl From<reqwest::Error> for EcosystemError {
+    fn from(err: reqwest::Error) -> Self {
+        EcosystemError::Network(err.to_string())
+    }
+}
+
+#[cfg(feature = "http-client")]
+impl From<reqwest::Error> for ServiceMeshError {
+    fn from(err: reqwest::Error) -> Self {
+        ServiceMeshError::Network(err.to_string())
+    }
+}
+
+#[cfg(feature = "http-client")]
+impl From<reqwest::Error> for HealthError {
+    fn from(err: reqwest::Error) -> Self {
+        HealthError::Network(err.to_string())
     }
 }
 
