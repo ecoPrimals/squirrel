@@ -127,8 +127,8 @@ impl ResourceManager {
 
                 // Cleanup all registered pools
                 {
-                    let pools_guard = pools.read().await;
-                    for (pool_name, pool) in pools_guard.iter() {
+//                     let pools_guard = pools.read().await;  // pools removed
+//                     for (pool_name, pool) in pools_guard.iter() {  // pools removed
                         let cleanup_future = pool
                             .cleanup_stale_connections()
                             .instrument(tracing::debug_span!("pool_cleanup", pool = %pool_name));
@@ -294,8 +294,8 @@ impl ResourceManager {
 
                 // Check health of all connection pools
                 {
-                    let pools_guard = pools.read().await;
-                    for (pool_name, pool) in pools_guard.iter() {
+//                     let pools_guard = pools.read().await;  // pools removed
+//                     for (pool_name, pool) in pools_guard.iter() {  // pools removed
                         match tokio::time::timeout(
                             Duration::from_secs(10),
                             pool.get_health_metrics(),
@@ -309,7 +309,7 @@ impl ResourceManager {
 
                                 if metrics.overall_failure_rate > 0.2 {
                                     warn!(
-                                        pool_name = %pool_name,
+                                        // pool removed,
                                         failure_rate = %format!("{:.1}%", metrics.overall_failure_rate * 100.0),
                                         operation = "connection_pool_health_warning",
                                         "Connection pool showing high failure rate"
@@ -318,7 +318,7 @@ impl ResourceManager {
                             }
                             Err(_) => {
                                 warn!(
-                                    pool_name = %pool_name,
+                                    // pool removed,
                                     operation = "health_check_timeout",
                                     "Health check timed out for connection pool"
                                 );
@@ -474,7 +474,7 @@ impl ResourceManager {
         // Cleanup all connection pools
         {
             // connection_pools removed - no pooling needed
-            for (pool_name, pool) in pools.iter() {
+//             for (pool_name, pool) in pools.iter() {  // pools removed
                 match tokio::time::timeout(
                     self.config.cleanup_timeout,
                     pool.cleanup_stale_connections(),
@@ -484,14 +484,14 @@ impl ResourceManager {
                     Ok(()) => {
                         debug!(
                             correlation_id = %ctx.correlation_id,
-                            pool_name = %pool_name,
+                            // pool removed,
                             "Connection pool cleanup completed"
                         );
                     }
                     Err(_) => {
                         warn!(
                             correlation_id = %ctx.correlation_id,
-                            pool_name = %pool_name,
+                            // pool removed,
                             "Connection pool cleanup timed out"
                         );
                     }
