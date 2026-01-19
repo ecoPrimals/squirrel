@@ -29,7 +29,7 @@
 //! ```ignore
 //! use CapabilityRegistry;
 //! let registry = CapabilityRegistry::new(Default::default());
-//! let coordinator = registry.discover_by_capability(&PrimalCapability::ServiceMesh).await?;
+//! let coordinator = registry.discover_by_capability(&PrimalCapability::ServiceMeshPrimalCapability::ServiceDiscovery  // ServiceMesh variant removed).await?;
 //! ```
 
 use chrono::Utc;
@@ -128,7 +128,7 @@ pub struct EcosystemServiceRegistration {
 /// // NEW (capability-based):
 /// use crate::capability_registry::{CapabilityRegistry, PrimalCapability};
 /// let registry = CapabilityRegistry::new(Default::default());
-/// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMesh).await?;
+/// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMeshPrimalCapability::ServiceDiscovery  // ServiceMesh variant removed).await?;
 /// let endpoint = &primals[0].endpoint;
 /// ```
 #[deprecated(
@@ -206,7 +206,7 @@ impl EcosystemPrimalType {
     /// // NEW:
     /// use crate::capability_registry::{CapabilityRegistry, PrimalCapability};
     /// let registry = CapabilityRegistry::new(Default::default());
-    /// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMesh).await?;
+    /// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMeshPrimalCapability::ServiceDiscovery  // ServiceMesh variant removed).await?;
     /// let endpoint = &primals[0].endpoint; // Discovered endpoint
     /// ```
     #[must_use]

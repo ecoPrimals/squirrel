@@ -55,7 +55,7 @@ impl ResourceManager {
     #[allow(dead_code)]
     pub async fn register_connection_pool(&self, _name: String, _pool: ()) {
         // connection_pools removed - no pooling needed
-        // pools.insert removed
+//         // pools.insert removed
 
         info!(
             pool_name = %name,

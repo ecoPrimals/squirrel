@@ -183,28 +183,8 @@ impl ApiServer {
             }
         };
 
-        // Register AI capabilities with service mesh (non-blocking, optional)
-        // Uses capability discovery to find available service mesh providers
-        let ai_router_clone = ai_router.clone();
-        let base_url = self.base_url();
-        tokio::spawn(async move {
-                ai_router_clone.clone(),
-                "squirrel".to_string(), // Service ID
-                base_url.clone(),
-            );
-
-            // Register capabilities
-            if let Err(e) = service_mesh_integration.register_capabilities().await {
-                tracing::warn!("⚠️  Service mesh AI registration failed: {}", e);
-                tracing::info!(
-                    "💡 AI capabilities available locally without service mesh coordination"
-                );
-            }
-
-            // Start heartbeat loop (30s interval)
-            let integration = Arc::new(service_mesh_integration);
-            integration.start_heartbeat_loop(30).await;
-        });
+        // service_mesh_integration removed - HTTP-based AI integration deprecated
+        // AI capabilities available locally via capability discovery
 
         // Start JSON-RPC server on Unix socket (for biomeOS integration)
         let node_id = std::env::var("SQUIRREL_NODE_ID")

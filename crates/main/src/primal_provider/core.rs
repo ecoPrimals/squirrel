@@ -267,9 +267,7 @@ impl SquirrelPrimalProvider {
         );
 
         // Discover service mesh providers
-        let orchestrators = self
-            .capability_registry
-            .discover_by_capability(&PrimalCapability::ServiceMesh)
+            // .capability_registry.discover_by_capability removed
             .await
             .map_err(|e| {
                 PrimalError::ServiceDiscoveryError(format!("Failed to discover service mesh: {e}"))
@@ -286,15 +284,15 @@ impl SquirrelPrimalProvider {
             "status": "completed",
             "operation": operation,
             "coordinator": "squirrel",
-            "orchestrator_used": orchestrator.display_name.as_ref(),
-            "orchestrator_endpoint": orchestrator.endpoint.as_ref(),
+            "orchestrator_used": orchestrator_name,
+            "orchestrator_endpoint": orchestrator_endpoint,
             "execution_time_ms": 150,
             "timestamp": chrono::Utc::now().to_rfc3339()
         });
 
         info!(
             "Successfully coordinated with service mesh orchestration at {}",
-            orchestrator.endpoint.as_ref()
+            orchestrator_endpoint
         );
         Ok(response)
     }
