@@ -3,20 +3,15 @@
 //! This module contains concrete implementations of AI clients for various providers.
 //! Each client implements the AIClient trait for seamless integration.
 
-#[cfg(feature = "direct-http")]
+// TODO: These HTTP-based clients should be replaced with capability-based clients
 pub mod anthropic;
 pub mod mock;
-#[cfg(feature = "direct-http")]
 pub mod ollama;
-#[cfg(feature = "direct-http")]
 pub mod openai;
 
-// Re-export client types for convenience (feature-gated)
-#[cfg(feature = "direct-http")]
+// Re-export client types for convenience
 pub use anthropic::AnthropicClient;
-#[cfg(feature = "direct-http")]
 pub use ollama::OllamaClient;
-#[cfg(feature = "direct-http")]
 pub use openai::OpenAIClient;
 
 #[cfg(test)]
@@ -30,19 +25,19 @@ pub struct ClientFactory;
 
 impl ClientFactory {
     /// Create an OpenAI client
-    #[cfg(feature = "direct-http")]
+    /// TODO: Replace with capability-based client
     pub fn create_openai_client(api_key: String) -> Arc<dyn AIClient> {
         Arc::new(OpenAIClient::new(api_key))
     }
 
     /// Create an Anthropic client
-    #[cfg(feature = "direct-http")]
+    /// TODO: Replace with capability-based client
     pub fn create_anthropic_client(api_key: String) -> Arc<dyn AIClient> {
         Arc::new(AnthropicClient::new(api_key))
     }
 
     /// Create an Ollama client
-    #[cfg(feature = "direct-http")]
+    /// TODO: Replace with capability-based client
     pub fn create_ollama_client(endpoint: String) -> Arc<dyn AIClient> {
         Arc::new(OllamaClient::new(endpoint))
     }
@@ -54,7 +49,7 @@ impl ClientFactory {
     }
 
     /// Create a client by provider name
-    #[cfg(feature = "direct-http")]
+    /// TODO: Replace with capability-based discovery
     pub fn create_client_by_provider(
         provider: &str,
         config: ClientConfig,

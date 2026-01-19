@@ -462,8 +462,7 @@ pub async fn register_security_service(
 
 /// Beardog Security Provider Implementation
 /// Integrates with Beardog security service through capability-based discovery
-/// Only available with http-client feature
-#[cfg(feature = "http-client")]
+/// TODO: HTTP removed - should use Unix socket communication
 pub struct BeardogSecurityProvider {
     #[allow(dead_code)]
     config: SecurityServiceConfig,
@@ -471,7 +470,6 @@ pub struct BeardogSecurityProvider {
     client: Option<reqwest::Client>,
 }
 
-#[cfg(feature = "http-client")]
 impl BeardogSecurityProvider {
     /// Create a new Beardog security provider
     pub async fn new(config: SecurityServiceConfig) -> Result<Self, SecurityError> {
@@ -483,7 +481,6 @@ impl BeardogSecurityProvider {
     }
 }
 
-#[cfg(feature = "http-client")]
 #[async_trait]
 impl UniversalSecurityService for BeardogSecurityProvider {
     fn get_capabilities(&self) -> Vec<SecurityCapability> {
@@ -640,10 +637,9 @@ impl UniversalSecurityService for LocalSecurityProvider {
 }
 
 /// Beardog Integration helper
-#[cfg(feature = "http-client")]
+/// TODO: HTTP removed - should use Unix socket communication
 pub struct BeardogIntegration;
 
-#[cfg(feature = "http-client")]
 impl BeardogIntegration {
     /// Create a new Beardog integration
     ///
