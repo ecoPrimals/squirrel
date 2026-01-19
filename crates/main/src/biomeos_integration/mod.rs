@@ -25,7 +25,7 @@ const STATUS_RUNNING: &str = "running";
 pub mod agent_deployment;
 pub mod ai_intelligence;
 pub mod context_state;
-pub mod ecosystem_client; // DEPRECATED: Use unix_socket_client instead
+// ecosystem_client removed - deprecated, unused, had reqwest dependency // DEPRECATED: Use unix_socket_client instead
 pub mod manifest;
 pub mod mcp_integration;
 pub mod optimized_implementations;
@@ -48,10 +48,7 @@ pub use ai_intelligence::{
     ResourceUtilization as AIResourceUtilization,
 };
 pub use context_state::*;
-pub use ecosystem_client::{
-    AuthenticationConfig as EcosystemAuthConfig, EcosystemClient, HealthCheckResponse,
-    PrimalStatus, RegistrationResponse,
-};
+// ecosystem_client re-exports removed (module deleted)
 pub use manifest::{
     AgentManifest, AgentResourceLimits, AgentSpec, AuthenticationConfig as ManifestAuthConfig,
     BiomeManifest, BiomeManifestParser,
