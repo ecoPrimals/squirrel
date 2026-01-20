@@ -282,7 +282,11 @@ impl JsonRpcServer {
 
         let request_id = request.id.clone().unwrap_or(Value::Null);
 
-        // Dispatch to method handler
+        // Dispatch to method handler with tracing span
+        use tracing::Span;
+        let span = tracing::info_span!("jsonrpc_method", method = %request.method, id = ?request.id);
+        let _enter = span.enter();
+        
         let result = match request.method.as_str() {
             "query_ai" => self.handle_query_ai(request.params).await,
             "list_providers" => self.handle_list_providers(request.params).await,
@@ -291,6 +295,7 @@ impl JsonRpcServer {
             "metrics" => self.handle_metrics().await,
             "discover_peers" => self.handle_discover_peers(request.params).await,
             "ping" => self.handle_ping().await,
+            "execute_tool" => self.handle_execute_tool(request.params).await,
             _ => Err(self.method_not_found(&request.method)),
         };
 
@@ -563,6 +568,46 @@ impl JsonRpcServer {
             "timestamp": chrono::Utc::now().to_rfc3339(),
             "version": env!("CARGO_PKG_VERSION")
         }))
+    }
+
+    /// Handle execute_tool method
+    async fn handle_execute_tool(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        use tracing::instrument;
+        
+        info!("🔧 execute_tool request");
+
+        // Parse parameters
+        let tool_params = params.ok_or_else(|| JsonRpcError {
+            code: error_codes::INVALID_PARAMS,
+            message: "Missing parameters for execute_tool".to_string(),
+            data: None,
+        })?;
+
+        // Extract tool name and arguments
+        let tool_name = tool_params
+            .get("tool")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: error_codes::INVALID_PARAMS,
+                message: "Missing 'tool' parameter".to_string(),
+                data: None,
+            })?;
+
+        let args = tool_params.get("args").cloned().unwrap_or(serde_json::json!({}));
+
+        info!("🔧 Executing tool: {}", tool_name);
+
+        // TODO: Integrate with actual tool execution system
+        // For now, return a placeholder response
+        let response = serde_json::json!({
+            "tool": tool_name,
+            "status": "not_implemented",
+            "message": "Tool execution system not yet implemented",
+            "args": args,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        });
+
+        Ok(response)
     }
 }
 

@@ -220,6 +220,47 @@ async fn run_server(
     Ok(())
 }
 
+/// Announce capabilities to registry
+async fn announce_capabilities_to_registry(config: &squirrel::config::SquirrelConfig) -> Result<()> {
+    use tracing::info;
+    
+    // If registry socket is configured, announce via Unix socket
+    if let Some(registry_socket) = &config.discovery.registry_socket {
+        info!("📢 Announcing to registry at: {}", registry_socket);
+        
+        // Create JSON-RPC announcement request
+        let _announcement = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "register_service",
+            "params": {
+                "service_name": "squirrel",
+                "service_type": "ai_coordinator",
+                "capabilities": config.discovery.capabilities,
+                "version": env!("CARGO_PKG_VERSION"),
+                "socket": config.server.socket.clone().unwrap_or_else(|| "/tmp/squirrel.sock".to_string()),
+            },
+            "id": 1
+        });
+        
+        // Try to connect and announce (best-effort, non-blocking)
+        match std::path::Path::new(registry_socket).exists() {
+            true => {
+                info!("✅ Registry socket found, announcing capabilities");
+                // TODO: Actually send the announcement
+                // For now, just log that we would announce
+                Ok(())
+            }
+            false => {
+                info!("⚠️  Registry socket not found ({}), skipping announcement", registry_socket);
+                Ok(())
+            }
+        }
+    } else {
+        info!("📄 No registry socket configured, skipping announcement");
+        Ok(())
+    }
+}
+
 /// Print version information
 fn print_version(verbose: bool) {
     if verbose {
