@@ -1,33 +1,33 @@
-//! # 🎯 Capability Traits - Universal Primal Interface
+//! Capability-based service discovery and interaction
 //!
-//! This module defines capability-based traits that replace hardcoded primal dependencies.
+//! TRUE PRIMAL pattern: Discover capabilities at runtime, NO hardcoded primal names.
 //!
-//! ## Philosophy
+//! # Philosophy
 //!
-//! Instead of depending on specific primals (Songbird, BearDog, Toadstool), we define
-//! **capabilities** that any primal can provide. Discovery happens at runtime.
+//! Each primal knows only itself and discovers other services by their capabilities,
+//! not by their names. This enables:
+//! - Dynamic ecosystem composition
+//! - Zero vendor lock-in
+//! - Deployment with zero knowledge (infant pattern)
 //!
-//! ```rust,ignore
-//! // ❌ OLD: Hardcoded primal dependency
-//! let songbird = SongbirdClient::connect("http://localhost:9090").await?;
-//! let response = songbird.infer(prompt).await?;
+//! # Example
 //!
-//! // ✅ NEW: Capability-based discovery
-//! let ai_provider = adapter.connect_capability("ai.inference").await?;
-//! let response = ai_provider.execute_capability(request).await?;
+//! ```no_run
+//! use squirrel::capabilities::discover_capability;
+//!
+//! # async fn example() -> anyhow::Result<()> {
+//! // Discover who provides crypto signing (don't care WHO, just WHAT)
+//! let crypto = discover_capability("crypto.signing").await?;
+//!
+//! // Use the capability (via the discovered provider)
+//! // We have NO IDEA if this is BearDog, or something else - we don't care!
+//! # Ok(())
+//! # }
 //! ```
 
-pub mod ai;
-pub mod compute;
-pub mod federation;
-pub mod monitoring;
-pub mod security;
-pub mod storage;
+pub mod discovery;
 
-// Re-export common capability traits
-pub use ai::{AiInferenceCapability, EmbeddingsCapability};
-pub use compute::ComputeCapability;
-pub use federation::FederationCapability;
-pub use monitoring::MonitoringCapability;
-pub use security::{AuthenticationCapability, AuthorizationCapability};
-pub use storage::StorageCapability;
+// Re-exports for convenience
+pub use discovery::{
+    discover_all_capabilities, discover_capability, CapabilityProvider, DiscoveryError,
+};
