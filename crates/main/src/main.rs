@@ -78,8 +78,27 @@ async fn run_server(
     bind: String,
     verbose: bool,
 ) -> Result<()> {
-    // Initialize tracing subscriber
-    let log_level = if verbose { "debug" } else { "info" };
+    // Load configuration (file + env vars)
+    let mut config = squirrel::config::ConfigLoader::load(None)?;
+
+    // CLI arguments override config file
+    if let Some(ref s) = socket {
+        config.server.socket = Some(s.clone());
+    }
+    if daemon {
+        config.server.daemon = true;
+    }
+    config.server.port = port;
+    config.server.bind = bind.clone();
+
+    // Initialize tracing subscriber with config
+    let log_level = if verbose {
+        "debug"
+    } else {
+        &config.logging.level
+    };
+
+    // TODO: Add JSON logging support with tracing-subscriber json feature
     tracing_subscriber::fmt()
         .with_env_filter(format!("squirrel={},debug", log_level))
         .with_target(false)
@@ -139,13 +158,33 @@ async fn run_server(
     println!();
     println!("✅ Squirrel AI/MCP Primal Ready!");
 
-    // Initialize AI router (optional, for actual AI calls)
-    // TODO: Initialize AI router from config
-    // For now, server will start without AI router (health checks work, AI calls return "not configured")
+    // Initialize AI router with capability-based discovery
+    println!("🤖 Initializing AI router...");
+    let ai_router = match squirrel::api::AiRouter::new_with_discovery(None).await {
+        Ok(router) => {
+            let provider_count = router.provider_count().await;
+            if provider_count > 0 {
+                println!("   ✅ {} AI provider(s) discovered", provider_count);
+            } else {
+                println!("   ⚠️  No AI providers found (query_ai will return 'not configured')");
+                println!("   💡 Set AI_PROVIDER_SOCKETS env var for capability discovery");
+            }
+            Some(Arc::new(router))
+        }
+        Err(e) => {
+            println!("   ⚠️  AI router initialization failed: {}", e);
+            println!("   💡 Server will start without AI capabilities");
+            None
+        }
+    };
 
-    // Create and start JSON-RPC server
+    // Create JSON-RPC server with or without AI router
     use squirrel::rpc::JsonRpcServer;
-    let server = Arc::new(JsonRpcServer::new(socket_path.clone()));
+    let server = if let Some(router) = ai_router {
+        Arc::new(JsonRpcServer::with_ai_router(socket_path.clone(), router))
+    } else {
+        Arc::new(JsonRpcServer::new(socket_path.clone()))
+    };
     let server_clone = Arc::clone(&server);
 
     // Start server in background task

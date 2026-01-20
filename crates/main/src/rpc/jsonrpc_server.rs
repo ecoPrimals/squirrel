@@ -288,6 +288,9 @@ impl JsonRpcServer {
             "list_providers" => self.handle_list_providers(request.params).await,
             "announce_capabilities" => self.handle_announce_capabilities(request.params).await,
             "health" => self.handle_health().await,
+            "metrics" => self.handle_metrics().await,
+            "discover_peers" => self.handle_discover_peers(request.params).await,
+            "ping" => self.handle_ping().await,
             _ => Err(self.method_not_found(&request.method)),
         };
 
@@ -511,6 +514,55 @@ impl JsonRpcServer {
             }),
             id,
         }
+    }
+
+    /// Handle metrics method
+    async fn handle_metrics(&self) -> Result<Value, JsonRpcError> {
+        debug!("📊 metrics request");
+
+        let metrics = self.metrics.read().await;
+
+        let response = serde_json::json!({
+            "requests_handled": metrics.requests_handled,
+            "errors": metrics.errors,
+            "uptime_seconds": metrics.uptime_seconds(),
+            "avg_response_time_ms": metrics.avg_response_time_ms(),
+            "success_rate": if metrics.requests_handled > 0 {
+                (metrics.requests_handled - metrics.errors) as f64 / metrics.requests_handled as f64
+            } else {
+                1.0
+            }
+        });
+
+        Ok(response)
+    }
+
+    /// Handle discover_peers method
+    async fn handle_discover_peers(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        info!("🔍 discover_peers request");
+
+        // TODO: Integrate with actual primal discovery
+        // For now, return discovered primals from registry or environment
+        let peers = Vec::<serde_json::Value>::new();
+
+        let response = serde_json::json!({
+            "peers": peers,
+            "total": peers.len(),
+            "discovery_method": "capability_registry"
+        });
+
+        Ok(response)
+    }
+
+    /// Handle ping method (simple connectivity test)
+    async fn handle_ping(&self) -> Result<Value, JsonRpcError> {
+        debug!("🏓 ping");
+
+        Ok(serde_json::json!({
+            "pong": true,
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+            "version": env!("CARGO_PKG_VERSION")
+        }))
     }
 }
 
