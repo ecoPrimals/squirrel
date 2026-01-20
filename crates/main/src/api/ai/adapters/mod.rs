@@ -2,14 +2,20 @@
 //!
 //! Adapters for different AI providers
 //!
-//! Production builds use capability-based adapters only.
-//! TODO: Add Anthropic/OpenAI adapters with capability-based HTTP delegation
-//! See: CAPABILITY_HTTP_DELEGATION_GUIDE.md for implementation
+//! All adapters use capability-based HTTP delegation (TRUE PRIMAL pattern).
+//! HTTP requests are delegated to whoever provides "http.request" capability.
+//! NO hardcoded primal names (Songbird, etc.) - discovered at runtime!
 
-// Universal adapter (always available - production mode)
+// Universal adapter (always available - Unix socket providers)
 mod universal;
 
-// Always available
+// HTTP-delegating adapters (discover HTTP provider at runtime)
+pub mod anthropic;
+pub mod openai;
+
+// Re-exports
+pub use anthropic::AnthropicAdapter;
+pub use openai::OpenAiAdapter;
 pub use universal::{ProviderMetadata, UniversalAiAdapter};
 
 use super::types::{
