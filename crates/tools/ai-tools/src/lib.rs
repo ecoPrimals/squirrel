@@ -23,6 +23,11 @@ pub mod capability_ai;
 // Discovers http.client capability - could be Songbird, could be ANY network primal!
 pub mod capability_http;
 
+// Neural API HTTP client (NEXT GENERATION - TRUE PRIMAL via Neural Routing!)
+// Uses neural-api-client for capability-based HTTP routing
+// NO reqwest, NO ring! 100% Pure Rust via Neural API!
+pub mod neural_http;
+
 pub mod common;
 pub mod config;
 pub mod error;
@@ -44,7 +49,7 @@ pub mod dispatch {
     use crate::router::RoutingStrategy;
     use crate::router::{AIRouter, RequestContext, RouterConfig, RoutingHint};
     use std::collections::HashMap;
-    
+
     use uuid::Uuid;
 
     /// Multi-model dispatcher that can route requests to different models
@@ -291,8 +296,6 @@ pub mod dispatch {
 
 /// Client factory functions for easy instantiation
 pub mod clients {
-    
-    
 
     /// Create a new OpenAI client
     #[cfg(feature = "openai")]

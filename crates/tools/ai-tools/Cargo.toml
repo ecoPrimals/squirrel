@@ -42,6 +42,10 @@ anthropic-sdk = { version = "0.1", optional = true }
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
 
+# Neural API Client - Pure Rust HTTP routing (TRUE PRIMAL!)
+# Replace reqwest/openai/anthropic-sdk in production
+neural-api-client = { path = "/home/eastgate/Development/ecoPrimals/phase2/biomeOS/crates/neural-api-client" }
+
 # Universal error system
 universal-error = { path = "../../universal-error" }
 

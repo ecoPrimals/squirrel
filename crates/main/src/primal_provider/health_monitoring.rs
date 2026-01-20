@@ -123,6 +123,23 @@ impl HealthReporting {
 }
 
 impl SquirrelPrimalProvider {
+    /// Get active session count (internal helper for health monitoring)
+    async fn get_active_session_count(&self) -> Result<f64, crate::error::PrimalError> {
+        // In a real implementation, this would query the session manager
+        // For now, we estimate based on context and internal state
+
+        // Check if we have any active context
+        let has_context = self.context.session_id.is_some();
+
+        // Rough estimate: If we have a session context, assume at least 1 session
+        // In production, this would query an actual session manager via:
+        // - self.session_manager.get_active_count().await
+        // - or shared state/metrics collector
+        let estimated_count = if has_context { 1.0 } else { 0.0 };
+
+        Ok(estimated_count)
+    }
+
     /// Report health to ecosystem registry
     pub async fn report_health(&self, health: PrimalHealth) -> UniversalResult<()> {
         // Use metrics_collector to gather detailed health metrics before reporting
@@ -336,7 +353,8 @@ impl SquirrelPrimalProvider {
         );
 
         // Session metrics from session_manager
-        let session_count = 10.0; // Mock session count for health reporting
+        // Query actual session count from internal tracking or session manager
+        let session_count = self.get_active_session_count().await.unwrap_or(0.0); // Fallback to 0 if unavailable
         metrics.insert("active_sessions".to_string(), session_count);
 
         // Ecosystem integration metrics

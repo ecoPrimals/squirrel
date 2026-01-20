@@ -131,7 +131,6 @@ mod tests {
     use super::*;
     use crate::resource_manager::{CleanupMetrics, ResourceManagerConfig, ResourceUsageStats};
     // ServiceConnectionPool removed - Unix sockets don't need connection pooling
-    
 
     #[test]
     fn test_resource_manager_config_default() {

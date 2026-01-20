@@ -26,10 +26,16 @@ pub mod actions;
 pub mod directory;
 pub mod error;
 pub mod evaluator;
+#[cfg(test)]
+mod evaluator_tests;
 pub mod manager;
+#[cfg(test)]
+mod manager_tests;
 pub mod models;
 pub mod parser;
 pub mod repository;
+#[cfg(test)]
+mod repository_tests;
 pub mod utils;
 
 pub use actions::*;

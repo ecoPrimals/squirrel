@@ -283,14 +283,15 @@ impl OptimizedContextState {
             context_data: HashMap::new(),
         };
 
-        let key_arc: Arc<str> = Arc::from(session_id);
-        self.active_sessions.insert(key_arc, session_context);
+        let key_arc: Arc<str> = Arc::from(session_id.clone());
+        self.active_sessions
+            .insert(key_arc, session_context.clone());
         self.metrics.record_clone_avoided();
 
-        // Return the created context
+        // Return the created context (use actual session data, not mock!)
         Arc::new(SessionContext {
-            session_id: "mock".to_string(),
-            user_id: "mock".to_string(),
+            session_id,
+            user_id: user_id.to_string(),
             created_at: chrono::Utc::now(),
             last_activity: chrono::Utc::now(),
             metadata: std::collections::HashMap::new(),

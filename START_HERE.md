@@ -161,7 +161,7 @@ Everything else? Discovered at runtime.
 
 **No hardcoded**:
 - ❌ Primal names
-- ❌ Endpoints  
+- ❌ Endpoints
 - ❌ Capabilities
 - ❌ Ports
 
@@ -347,7 +347,7 @@ cargo doc --open       # Generate docs
 
 ### Getting Help
 - **Questions**: GitHub Discussions
-- **Issues**: GitHub Issues
+- **Issues**: GitHub Issues  
 - **Documentation**: [AUDIT_AND_EVOLUTION_INDEX.md](AUDIT_AND_EVOLUTION_INDEX.md)
 
 ---

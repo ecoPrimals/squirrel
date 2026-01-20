@@ -3,11 +3,25 @@
 //! This module provides a multi-instance registry system that's fully compatible
 //! with songbird's orchestration patterns, enabling context-aware routing and
 //! dynamic port management.
+//!
+//! ## TRUE PRIMAL Pattern
+//!
+//! This registry implements TRUE PRIMAL discovery:
+//! - No knowledge of specific primals (Songbird, BearDog, etc.)
+//! - Capability-based discovery via Unix sockets
+//! - Dynamic primal registration
+//! - Load-balanced request routing
+
+mod discovery;
+
+pub use discovery::{
+    DiscoveryConfig, DiscoveryResult, DiscoveryStatus, PrimalDiscovery, PrimalInfo,
+};
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::config::UniversalPrimalConfig;
 use crate::traits::{
@@ -91,37 +105,74 @@ impl UniversalPrimalRegistry {
         }
     }
 
-    /// Auto-discover primals in the environment
-    /// Enhanced to discover multiple instances of the same primal type
+    /// Auto-discover primals in the environment (TRUE PRIMAL implementation)
+    ///
+    /// This uses capability-based Unix socket discovery.
+    /// No knowledge of specific primals!
     pub async fn auto_discover(&mut self) -> PrimalResult<Vec<DiscoveredPrimal>> {
-        info!("Starting auto-discovery of primals (multi-instance support)");
+        info!("🔍 Starting TRUE PRIMAL auto-discovery (Unix socket scan)");
 
-        let discovered = Vec::new();
-
-        // Discovery is now handled by songbird orchestrator
-        // This method will be called by songbird when new primal instances are spawned
+        let discovery = PrimalDiscovery::new();
+        let discovered = discovery.discover_all().await?;
 
         info!(
-            "Auto-discovery completed. Found {} primals",
+            "✅ Auto-discovery completed. Found {} primals",
             discovered.len()
         );
+
         Ok(discovered)
     }
 
+    /// Discover primals with a specific capability
+    pub async fn discover_by_capability(
+        &self,
+        capability: &PrimalCapability,
+    ) -> PrimalResult<Vec<DiscoveredPrimal>> {
+        let discovery = PrimalDiscovery::new();
+        discovery.discover_by_capability(capability).await
+    }
+
     /// Initialize registry with configuration
+    ///
+    /// This performs TRUE PRIMAL initialization:
+    /// 1. Auto-discover primals if enabled
+    /// 2. Connect to configured primals via Unix sockets
+    /// 3. Validate health and capabilities
     pub async fn initialize_with_config(
         &mut self,
         config: &UniversalPrimalConfig,
     ) -> PrimalResult<()> {
-        // Load configuration
+        info!("Initializing registry with configuration");
+
+        // Perform auto-discovery if enabled
         if config.auto_discovery_enabled {
-            self.auto_discover().await?;
+            let discovered = self.auto_discover().await?;
+            info!(
+                "Auto-discovery found {} primals (will register separately)",
+                discovered.len()
+            );
+            // Note: Auto-discovered primals would typically be registered by orchestrator
+            // This just discovers them and reports what's available
         }
 
-        // Initialize primals from configuration
+        // Process configured primal instances
         for primal_config in config.primal_instances.values() {
-            // Create primal instances based on configuration
-            info!("Primal instance configured: {}", primal_config.instance_id);
+            info!(
+                "Processing configured primal instance: {}",
+                primal_config.instance_id
+            );
+
+            // NOTE: In a complete implementation, this would:
+            // 1. Connect to the primal via Unix socket (primal_config.socket_path)
+            // 2. Query capabilities via JSON-RPC
+            // 3. Perform health check
+            // 4. Register the primal if healthy
+            //
+            // For now, this is a placeholder that logs the configuration.
+            // Full implementation will be added when PrimalProvider trait
+            // includes a "connect_from_config" method.
+
+            debug!("Configured primal instance: {}", primal_config.instance_id);
         }
 
         Ok(())
@@ -147,32 +198,14 @@ impl UniversalPrimalRegistry {
         }
 
         // Health check before registration
-        match primal.health_check().await {
+        let health = primal.health_check().await;
+
+        match &health {
             PrimalHealth::Healthy => {
-                // Register the primal
-                {
-                    let mut primals = self.registered_primals.write().await;
-                    primals.insert(instance_id.clone(), primal.clone());
-                }
-
-                // Index capabilities
-                self.index_capabilities(&instance_id, &primal.capabilities())
-                    .await;
-
-                // Index context
-                self.index_context(&context.user_id, &instance_id).await;
-
-                // Index type
-                self.index_type(&primal.primal_type(), &instance_id).await;
-
-                // Store port information
-                if let Some(port_info) = port_info {
-                    let mut port_manager = self.port_manager.write().await;
-                    port_manager.insert(instance_id.clone(), port_info);
-                }
-
+                self.do_register_primal(&instance_id, primal.clone(), &context, port_info)
+                    .await?;
                 info!(
-                    "Registered primal instance: {} for user: {} with {} capabilities",
+                    "✅ Registered healthy primal: {} for user: {} with {} capabilities",
                     instance_id,
                     context.user_id,
                     primal.capabilities().len()
@@ -181,41 +214,20 @@ impl UniversalPrimalRegistry {
             }
             PrimalHealth::Degraded { issues } => {
                 warn!(
-                    "Primal instance {} is degraded but registering anyway: {:?}",
+                    "⚠️ Primal {} is degraded but registering anyway: {:?}",
                     instance_id, issues
                 );
-
-                // Register despite degraded state
-                {
-                    let mut primals = self.registered_primals.write().await;
-                    primals.insert(instance_id.clone(), primal.clone());
-                }
-
-                // Index capabilities
-                self.index_capabilities(&instance_id, &primal.capabilities())
-                    .await;
-
-                // Index context
-                self.index_context(&context.user_id, &instance_id).await;
-
-                // Index type
-                self.index_type(&primal.primal_type(), &instance_id).await;
-
-                // Store port information
-                if let Some(port_info) = port_info {
-                    let mut port_manager = self.port_manager.write().await;
-                    port_manager.insert(instance_id.clone(), port_info);
-                }
-
+                self.do_register_primal(&instance_id, primal.clone(), &context, port_info)
+                    .await?;
                 info!(
-                    "Registered degraded primal instance: {} for user: {}",
+                    "✅ Registered degraded primal: {} for user: {}",
                     instance_id, context.user_id
                 );
                 Ok(())
             }
             PrimalHealth::Unhealthy { reason } => {
                 warn!(
-                    "Primal instance {} is unhealthy, skipping registration: {}",
+                    "❌ Primal {} is unhealthy, skipping registration: {}",
                     instance_id, reason
                 );
                 Err(PrimalError::ServiceUnavailable(format!(
@@ -464,6 +476,41 @@ impl UniversalPrimalRegistry {
             primal_counts,
             total_capabilities: capability_index.len(),
         }
+    }
+
+    // Private helper methods
+
+    /// Common registration logic (DRY - extracted from duplicated code)
+    async fn do_register_primal(
+        &self,
+        instance_id: &str,
+        primal: Arc<dyn PrimalProvider>,
+        context: &PrimalContext,
+        port_info: Option<DynamicPortInfo>,
+    ) -> PrimalResult<()> {
+        // Register the primal
+        {
+            let mut primals = self.registered_primals.write().await;
+            primals.insert(instance_id.to_string(), primal.clone());
+        }
+
+        // Index capabilities
+        self.index_capabilities(instance_id, &primal.capabilities())
+            .await;
+
+        // Index context
+        self.index_context(&context.user_id, instance_id).await;
+
+        // Index type
+        self.index_type(&primal.primal_type(), instance_id).await;
+
+        // Store port information
+        if let Some(port_info) = port_info {
+            let mut port_manager = self.port_manager.write().await;
+            port_manager.insert(instance_id.to_string(), port_info);
+        }
+
+        Ok(())
     }
 
     // Private indexing methods

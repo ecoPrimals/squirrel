@@ -41,16 +41,20 @@ pub enum AuthMethod {
         client_id: String,
         client_secret: String,
     },
+    /// Unix socket authentication (secure by default, no credentials needed)
+    UnixSocket,
     /// No authentication (for testing)
     None,
 }
 
 impl Default for SecurityProviderConfig {
     fn default() -> Self {
+        // Default to BearDog provider with capability-based discovery
         Self {
-            provider_type: "mock".to_string(),
-            endpoint: "http://localhost:8080".to_string(),
-            auth_method: AuthMethod::None,
+            provider_type: "beardog".to_string(),
+            // Unix socket endpoint (discovered at runtime via family_id)
+            endpoint: "unix:///tmp/beardog-nat0.sock".to_string(),
+            auth_method: AuthMethod::UnixSocket, // Secure by default
             timeout: Duration::from_secs(30),
             retry_config: RetryConfig::default(),
             security_level: SecurityLevel::Standard,

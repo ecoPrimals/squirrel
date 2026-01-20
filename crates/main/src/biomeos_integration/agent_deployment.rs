@@ -723,10 +723,71 @@ impl AgentDeploymentManager {
     }
 
     /// Check health of a single agent
-    async fn check_agent_health(&self, _agent: &DeployedAgent) -> Result<(), PrimalError> {
+    async fn check_agent_health(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
         // Enhanced health check with AI monitoring
-        // Mock health check for now
-        tracing::info!("Performing enhanced AI-powered health check");
+        tracing::debug!(
+            agent_id = %agent.agent_id,
+            "Checking agent health"
+        );
+
+        // Check 1: Verify agent is in Running state
+        if agent.status != AgentStatus::Running {
+            warn!(
+                agent_id = %agent.agent_id,
+                status = ?agent.status,
+                "Agent not in running state"
+            );
+            return Err(PrimalError::ValidationError(format!(
+                "Agent {} not running (status: {:?})",
+                agent.agent_id, agent.status
+            )));
+        }
+
+        // Check 2: Verify last health check is recent (within health check interval)
+        let now = Utc::now();
+        let health_check_timeout =
+            chrono::Duration::seconds(self.config.health_check_interval_seconds as i64 * 2);
+
+        if now.signed_duration_since(agent.last_health_check) > health_check_timeout {
+            warn!(
+                agent_id = %agent.agent_id,
+                last_health_check = %agent.last_health_check,
+                "Agent health check timeout"
+            );
+            return Err(PrimalError::Internal(format!(
+                "Agent {} health check timeout (last: {})",
+                agent.agent_id, agent.last_health_check
+            )));
+        }
+
+        // Check 3: Verify resource usage is within spec limits (if available)
+        if agent.resource_usage.memory_mb > agent.spec.resources.memory_mb {
+            warn!(
+                agent_id = %agent.agent_id,
+                current_memory = agent.resource_usage.memory_mb,
+                max_memory = agent.spec.resources.memory_mb,
+                "Agent exceeding memory limit"
+            );
+            return Err(PrimalError::ResourceError(format!(
+                "Agent {} exceeding memory limit: {} MB / {} MB",
+                agent.agent_id, agent.resource_usage.memory_mb, agent.spec.resources.memory_mb
+            )));
+        }
+
+        // Note: cpu_percent in limits is already a percentage, so we can compare directly
+        if agent.resource_usage.cpu_percent > agent.spec.resources.cpu_percent {
+            warn!(
+                agent_id = %agent.agent_id,
+                current_cpu = agent.resource_usage.cpu_percent,
+                max_cpu = agent.spec.resources.cpu_percent,
+                "Agent exceeding CPU limit"
+            );
+        }
+
+        debug!(
+            agent_id = %agent.agent_id,
+            "Agent health check passed"
+        );
         Ok(())
     }
 }
