@@ -1,12 +1,10 @@
 //! AI provider adapters
 //!
-//! Adapters for different AI providers (`OpenAI`, `HuggingFace`, Ollama, etc.)
+//! Adapters for different AI providers
 //!
-//! **v1.1.0**: HTTP-based adapters (OpenAI, HuggingFace, Ollama) are only available
-//! with the `dev-direct-http` feature. Production builds use `UniversalAiAdapter` only.
-
-// Test harness adapters DELETED! (OpenAI, Ollama, HuggingFace)
-// Production uses capability_ai exclusively (Pure Rust Unix sockets)
+//! Production builds use capability-based adapters only.
+//! TODO: Add Anthropic/OpenAI adapters with capability-based HTTP delegation
+//! See: CAPABILITY_HTTP_DELEGATION_GUIDE.md for implementation
 
 // Universal adapter (always available - production mode)
 mod universal;
