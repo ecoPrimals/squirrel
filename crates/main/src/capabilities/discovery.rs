@@ -134,36 +134,51 @@ async fn try_explicit_env(
 /// Scan socket directory for capability providers
 ///
 /// TRUE PRIMAL: Scans all sockets, probes each to ask what it provides
+/// BIOME OS FIX: Added overall timeout to prevent infinite hangs
 async fn try_socket_scan(capability: &str) -> Result<Option<CapabilityProvider>, DiscoveryError> {
     // Get socket directory from environment or use default
     let socket_dirs = get_socket_directories();
 
-    for socket_dir in socket_dirs {
-        debug!("Scanning socket directory: {:?}", socket_dir);
+    // BIOME OS FIX: Total scan timeout of 5 seconds (was unlimited)
+    let scan_result = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        async {
+            for socket_dir in socket_dirs {
+                debug!("Scanning socket directory: {:?}", socket_dir);
 
-        if let Ok(mut entries) = fs::read_dir(&socket_dir).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let path = entry.path();
+                if let Ok(mut entries) = fs::read_dir(&socket_dir).await {
+                    while let Ok(Some(entry)) = entries.next_entry().await {
+                        let path = entry.path();
 
-                // Only check Unix sockets
-                if is_unix_socket(&path).await {
-                    debug!("Probing socket: {:?}", path);
+                        // Only check Unix sockets
+                        if is_unix_socket(&path).await {
+                            debug!("Probing socket: {:?}", path);
 
-                    // Probe each socket to see what it provides
-                    if let Ok(provider) = probe_socket(&path).await {
-                        if provider.capabilities.contains(&capability.to_string()) {
-                            return Ok(Some(CapabilityProvider {
-                                discovered_via: format!("scan:{}", socket_dir.display()),
-                                ..provider
-                            }));
+                            // Probe each socket to see what it provides
+                            // Errors are logged but don't stop the scan
+                            if let Ok(provider) = probe_socket(&path).await {
+                                if provider.capabilities.contains(&capability.to_string()) {
+                                    return Ok::<Option<CapabilityProvider>, DiscoveryError>(Some(CapabilityProvider {
+                                        discovered_via: format!("scan:{}", socket_dir.display()),
+                                        ..provider
+                                    }));
+                                }
+                            }
                         }
                     }
                 }
             }
+            Ok(None)
+        }
+    ).await;
+
+    match scan_result {
+        Ok(result) => result,
+        Err(_) => {
+            warn!("Socket scan timed out after 5s");
+            Ok(None)
         }
     }
-
-    Ok(None)
 }
 
 /// Query capability registry if available
@@ -223,9 +238,9 @@ async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Discover
     let mut reader = BufReader::new(read_half);
     let mut response_line = String::new();
 
-    // Use timeout to avoid hanging on non-responsive sockets
+    // BIOME OS FIX: Use 2s timeout per socket (was 500ms)
     match tokio::time::timeout(
-        std::time::Duration::from_millis(500),
+        std::time::Duration::from_secs(2),
         reader.read_line(&mut response_line),
     )
     .await
@@ -233,6 +248,20 @@ async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Discover
         Ok(Ok(_)) => {
             // Parse JSON-RPC response
             let response: serde_json::Value = serde_json::from_str(&response_line)?;
+
+            // BIOME OS FIX: Handle JSON-RPC error responses gracefully!
+            if let Some(error) = response.get("error") {
+                debug!(
+                    "Socket {:?} returned JSON-RPC error: {} (code: {})",
+                    socket_path,
+                    error.get("message").and_then(|m| m.as_str()).unwrap_or("unknown"),
+                    error.get("code").and_then(|c| c.as_i64()).unwrap_or(-1)
+                );
+                // Socket doesn't support discover_capabilities method - return error
+                return Err(DiscoveryError::ProbeFailed(
+                    "Method not supported".to_string(),
+                ));
+            }
 
             if let Some(result) = response.get("result") {
                 let capabilities: Vec<String> =
@@ -262,7 +291,7 @@ async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Discover
             }
         }
         Ok(Err(e)) => Err(DiscoveryError::ProbeFailed(format!("Read error: {}", e))),
-        Err(_) => Err(DiscoveryError::ProbeFailed("Timeout".to_string())),
+        Err(_) => Err(DiscoveryError::ProbeFailed("Timeout (>2s)".to_string())),
     }
 }
 
