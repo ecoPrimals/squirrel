@@ -27,6 +27,7 @@
 //! - Feature-gated behind `tarpc-rpc` feature flag
 
 // Core modules (Pure Rust!)
+pub mod jsonrpc_server;
 pub mod types;
 pub mod unix_socket;
 
@@ -37,6 +38,7 @@ pub mod tarpc_server;
 pub mod tarpc_service;
 
 // Re-exports for convenience
+pub use jsonrpc_server::JsonRpcServer;
 pub use types::{
     AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckRequest,
     HealthCheckResponse, ListProvidersRequest, ListProvidersResponse, QueryAiRequest,

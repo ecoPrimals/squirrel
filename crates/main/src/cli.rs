@@ -468,7 +468,7 @@ mod tests {
 
     #[test]
     fn test_all_subsystems_valid() {
-        let subsystems = vec!["ai", "ecosystem", "config", "socket", "http"];
+        let subsystems = vec!["ai", "ecosystem", "config", "socket", "rpc"];
         for sub in subsystems {
             let result = Cli::try_parse_from(["squirrel", "doctor", "--subsystem", sub]);
             assert!(result.is_ok(), "Subsystem '{}' should be valid", sub);

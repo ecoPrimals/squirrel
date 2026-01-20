@@ -73,9 +73,9 @@ async fn main() -> Result<()> {
 /// Run server mode
 async fn run_server(
     port: u16,
-    _daemon: bool, // Reserved for future daemon mode
-    _socket: Option<String>,
-    _bind: String,
+    daemon: bool,
+    socket: Option<String>,
+    bind: String,
     verbose: bool,
 ) -> Result<()> {
     // Initialize tracing subscriber
@@ -116,18 +116,67 @@ async fn run_server(
     println!("✅ Modern architecture: Unix sockets + JSON-RPC + tarpc");
     println!("   (No HTTP server - TRUE PRIMAL!)");
 
-    // Start JSON-RPC server on Unix socket (for biomeOS integration)
-    let node_id = std::env::var("SQUIRREL_NODE_ID")
-        .or_else(|_| std::env::var("HOSTNAME"))
-        .unwrap_or_else(|_| "squirrel".to_string());
+    // Determine socket path using priority:
+    // 1. CLI --socket argument
+    // 2. Environment variables (SQUIRREL_SOCKET, BIOMEOS_SOCKET_PATH, SQUIRREL_FAMILY_ID)
+    // 3. Default fallback
+    use squirrel::rpc::unix_socket;
+
+    let socket_path = if let Some(path) = socket {
+        path
+    } else {
+        let node_id = unix_socket::get_node_id();
+        unix_socket::get_socket_path(&node_id)
+    };
 
     println!("🔌 Starting JSON-RPC server...");
-    println!("   Socket: /tmp/squirrel-{}.sock", node_id);
+    println!("   Socket: {}", socket_path);
+    println!("   Bind: {} (unused in Unix socket mode)", bind);
+    println!("   Port: {} (unused in Unix socket mode)", port);
+    if daemon {
+        println!("   Daemon mode: enabled (TODO: implement background detach)");
+    }
     println!();
     println!("✅ Squirrel AI/MCP Primal Ready!");
 
-    // Start the server (this will block)
-    // api_server.start().await?; // DELETED - HTTP server removed
+    // Initialize AI router (optional, for actual AI calls)
+    // TODO: Initialize AI router from config
+    // For now, server will start without AI router (health checks work, AI calls return "not configured")
+
+    // Create and start JSON-RPC server
+    use squirrel::rpc::JsonRpcServer;
+    let server = Arc::new(JsonRpcServer::new(socket_path.clone()));
+    let server_clone = Arc::clone(&server);
+
+    // Start server in background task
+    let server_task = tokio::spawn(async move {
+        if let Err(e) = server_clone.start().await {
+            eprintln!("❌ Server error: {}", e);
+        }
+    });
+
+    // Setup graceful shutdown on Ctrl+C
+    println!("   Press Ctrl+C to stop");
+    println!();
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            println!("\n👋 Shutting down gracefully...");
+
+            // Cleanup socket file
+            unix_socket::cleanup_socket(&socket_path);
+
+            // Request shutdown
+            if let Err(e) = shutdown_manager.request_shutdown().await {
+                eprintln!("⚠️ Shutdown error: {}", e);
+            }
+
+            println!("✅ Shutdown complete");
+        }
+        _ = server_task => {
+            println!("Server task completed");
+        }
+    }
 
     Ok(())
 }
