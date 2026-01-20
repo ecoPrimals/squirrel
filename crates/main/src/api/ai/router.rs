@@ -15,9 +15,10 @@
 //! ```
 
 // Always available (production + dev)
-use super::adapters::{AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
+use super::adapters::{
+    AiProviderAdapter, AnthropicAdapter, OpenAiAdapter, ProviderMetadata, UniversalAiAdapter,
+};
 
-// HTTP adapters DELETED - Use capability_ai (Unix socket delegation) instead!
 use super::constraint_router::select_provider_with_constraints;
 use super::selector::{ProviderInfo, ProviderSelector, QualityTier};
 use super::types::{
@@ -87,9 +88,31 @@ impl AiRouter {
         //     providers.push(Arc::new(adapter));
         // }
 
-        // For now, check environment for discovered provider sockets
+        // 1. Try capability-based HTTP adapters (Anthropic, OpenAI)
+        // These use capability discovery for HTTP delegation (TRUE PRIMAL!)
+        info!("🔍 Initializing capability-based HTTP adapters...");
+        
+        if let Ok(adapter) = AnthropicAdapter::new() {
+            if adapter.is_available().await {
+                info!("✅ Anthropic adapter available (HTTP via capability discovery)");
+                providers.push(Arc::new(adapter));
+            } else {
+                debug!("⚠️  Anthropic adapter not available (check ANTHROPIC_API_KEY + HTTP provider)");
+            }
+        }
+        
+        if let Ok(adapter) = OpenAiAdapter::new() {
+            if adapter.is_available().await {
+                info!("✅ OpenAI adapter available (HTTP via capability discovery)");
+                providers.push(Arc::new(adapter));
+            } else {
+                debug!("⚠️  OpenAI adapter not available (check OPENAI_API_KEY + HTTP provider)");
+            }
+        }
+
+        // 2. Check for Unix socket providers (other primals)
         if let Ok(socket_paths) = std::env::var("AI_PROVIDER_SOCKETS") {
-            info!("📡 Discovering AI providers from environment...");
+            info!("📡 Discovering AI providers from Unix sockets...");
             for socket_path in socket_paths.split(',') {
                 match Self::create_universal_adapter_from_path(socket_path.trim()).await {
                     Ok(adapter) => {
@@ -103,15 +126,17 @@ impl AiRouter {
             }
         }
 
-        // ✅ Production mode: Using UniversalAiAdapter ONLY (Unix sockets)
-        info!("✅ Socket-based architecture: All AI via capability discovery");
-
+        // Summary
         if providers.is_empty() {
-            warn!("⚠️  No AI providers available. Configure AI_PROVIDER_SOCKETS for capability discovery");
-            warn!("⚠️  Or enable dev-direct-http feature and set API keys for development");
+            warn!("⚠️  No AI providers available!");
+            warn!("⚠️  For external AI APIs:");
+            warn!("     - Set ANTHROPIC_API_KEY or OPENAI_API_KEY");
+            warn!("     - Ensure HTTP provider available (http.request capability)");
+            warn!("⚠️  For local AI primals:");
+            warn!("     - Configure AI_PROVIDER_SOCKETS=/tmp/provider.sock");
         } else {
             info!(
-                "✅ AI router initialized with {} provider(s) (capability-based + legacy)",
+                "✅ AI router initialized with {} provider(s) via capability discovery",
                 providers.len()
             );
         }
@@ -164,16 +189,8 @@ impl AiRouter {
         Ok(adapter)
     }
 
-    /// Load legacy adapters in parallel (concurrent initialization!)
-    /// **v1.1.0**: Only available with `dev-direct-http` feature
-
-    /// Create a new AI router (legacy - uses hardcoded adapters)
-    ///
-    /// **Note**: This is the legacy initialization method. For TRUE PRIMAL compliance,
-    /// use `new_with_discovery()` instead for capability-based provider discovery.
-    ///
-    /// **v1.1.0**: This method requires the `dev-direct-http` feature.
-    /// Production builds should use `new_with_discovery()` which uses UniversalAiAdapter only.
+    // Legacy initialization removed - use new_with_discovery() for all builds
+    // All providers now use capability discovery (TRUE PRIMAL pattern)
 
     /// Get count of available providers
     pub async fn provider_count(&self) -> usize {
@@ -369,32 +386,34 @@ impl AiRouter {
         let mut provider_infos = Vec::new();
 
         for provider in providers.iter() {
-            let is_available = true; // Assume available if registered
+            // Only include providers that support image generation
+            if !provider.supports_image_generation() {
+                continue;
+            }
 
-            let info = match provider.provider_id() {
-                "openai" => ProviderInfo {
-                    provider_id: "openai".to_string(),
-                    provider_name: "OpenAI DALL-E".to_string(),
-                    capabilities: vec!["image.generation".to_string()],
-                    quality_tier: QualityTier::High,
-                    cost_per_unit: Some(0.02),
-                    avg_latency_ms: 12000,
-                    reliability: 0.98,
-                    is_local: false,
-                    is_available,
-                },
-                "huggingface" => ProviderInfo {
-                    provider_id: "huggingface".to_string(),
-                    provider_name: "HuggingFace Stable Diffusion".to_string(),
-                    capabilities: vec!["image.generation".to_string()],
-                    quality_tier: QualityTier::Medium,
-                    cost_per_unit: Some(0.0),
-                    avg_latency_ms: 20000,
-                    reliability: 0.85,
-                    is_local: false,
-                    is_available,
-                },
-                _ => continue,
+            let is_available = provider.is_available().await;
+
+            // Map adapter QualityTier to selector QualityTier
+            use super::adapters::QualityTier as AdapterQT;
+            use super::selector::QualityTier as SelectorQT;
+            let quality_tier = match provider.quality_tier() {
+                AdapterQT::Basic => SelectorQT::Low,
+                AdapterQT::Fast => SelectorQT::Low,
+                AdapterQT::Standard => SelectorQT::Medium,
+                AdapterQT::High => SelectorQT::High,
+                AdapterQT::Premium => SelectorQT::Premium,
+            };
+
+            let info = ProviderInfo {
+                provider_id: provider.provider_id().to_string(),
+                provider_name: provider.provider_name().to_string(),
+                capabilities: vec!["image.generation".to_string()],
+                quality_tier,
+                cost_per_unit: provider.cost_per_unit(),
+                avg_latency_ms: provider.avg_latency_ms(),
+                reliability: 0.95, // Default reliability
+                is_local: provider.is_local(),
+                is_available,
             };
 
             provider_infos.push(info);
@@ -415,7 +434,7 @@ impl AiRouter {
                 continue;
             }
 
-            let is_available = true; // Assume available if registered
+            let is_available = provider.is_available().await;
 
             // Map adapter QualityTier to selector QualityTier
             use super::adapters::QualityTier as AdapterQT;
