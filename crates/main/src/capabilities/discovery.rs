@@ -75,21 +75,24 @@ pub enum DiscoveryError {
 pub async fn discover_capability(capability: &str) -> Result<CapabilityProvider, DiscoveryError> {
     info!("🔍 Discovering capability: {}", capability);
 
-    // Method 1: Explicit environment variable
+    // Method 1: Explicit environment variable (instant)
     if let Some(provider) = try_explicit_env(capability).await? {
         info!("✅ Found {} via environment variable", capability);
         return Ok(provider);
     }
 
-    // Method 2: Scan socket directory
-    if let Some(provider) = try_socket_scan(capability).await? {
-        info!("✅ Found {} via socket scan", capability);
+    // Method 2: Query capability registry (instant, event-driven!)
+    // BIOME OS FIX (Jan 20, 2026): Registry BEFORE socket scan for speed
+    // Registry query is <1ms vs socket scan 2s+ timeout
+    if let Some(provider) = try_registry_query(capability).await? {
+        info!("✅ Found {} via capability registry", capability);
         return Ok(provider);
     }
 
-    // Method 3: Query registry if available
-    if let Some(provider) = try_registry_query(capability).await? {
-        info!("✅ Found {} via capability registry", capability);
+    // Method 3: Scan socket directory (slow fallback)
+    // Only used if registry unavailable (dev/testing)
+    if let Some(provider) = try_socket_scan(capability).await? {
+        info!("✅ Found {} via socket scan", capability);
         return Ok(provider);
     }
 
@@ -305,9 +308,10 @@ async fn query_registry(
         .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
 
     // Build registry query (JSON-RPC 2.0)
+    // BIOME OS FIX (Jan 20, 2026): Use correct Neural API method name
     let request = serde_json::json!({
         "jsonrpc": "2.0",
-        "method": "query_capability",
+        "method": "neural_api.discover_capability",
         "params": {
             "capability": capability,
         },
@@ -327,7 +331,19 @@ async fn query_registry(
     let response: serde_json::Value = serde_json::from_str(&response_line)?;
 
     if let Some(result) = response.get("result") {
-        Ok(serde_json::from_value(result.clone())?)
+        // Neural API returns: {"capability": "...", "primary_socket": "...", "primals": [...]}
+        // Extract primary_socket and build CapabilityProvider
+        if let Some(socket_path) = result.get("primary_socket").and_then(|s| s.as_str()) {
+            Ok(CapabilityProvider {
+                id: result.get("capability").and_then(|c| c.as_str()).unwrap_or("unknown").to_string(),
+                capabilities: vec![capability.to_string()],
+                socket: PathBuf::from(socket_path),
+                metadata: std::collections::HashMap::new(),
+                discovered_via: "registry".to_string(),
+            })
+        } else {
+            Err(DiscoveryError::CapabilityNotFound(capability.to_string()))
+        }
     } else {
         Err(DiscoveryError::CapabilityNotFound(capability.to_string()))
     }

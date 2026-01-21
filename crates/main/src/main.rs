@@ -136,16 +136,26 @@ async fn run_server(
     println!("   (No HTTP server - TRUE PRIMAL!)");
 
     // Determine socket path using priority:
-    // 1. CLI --socket argument
-    // 2. Environment variables (SQUIRREL_SOCKET, BIOMEOS_SOCKET_PATH, SQUIRREL_FAMILY_ID)
-    // 3. Default fallback
+    // 1. CLI --socket argument (HIGHEST PRIORITY)
+    // 2. config.server.socket (from config file or env)
+    // 3. Environment variables (SQUIRREL_SOCKET, BIOMEOS_SOCKET_PATH)
+    // 4. Default fallback (XDG or /tmp)
     use squirrel::rpc::unix_socket;
 
-    let socket_path = if let Some(path) = socket {
+    let socket_path = if let Some(path) = socket.clone() {
+        // CLI argument has highest priority
+        println!("📌 Socket path from CLI argument: {}", path);
         path
+    } else if let Some(ref path) = config.server.socket {
+        // Config file/env override
+        println!("📌 Socket path from config: {}", path);
+        path.clone()
     } else {
+        // Fallback to auto-detection
         let node_id = unix_socket::get_node_id();
-        unix_socket::get_socket_path(&node_id)
+        let path = unix_socket::get_socket_path(&node_id);
+        println!("📌 Socket path from auto-detection: {}", path);
+        path
     };
 
     println!("🔌 Starting JSON-RPC server...");
