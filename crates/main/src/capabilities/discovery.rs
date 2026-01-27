@@ -104,6 +104,10 @@ pub async fn discover_capability(capability: &str) -> Result<CapabilityProvider,
 ///
 /// Format: CAPABILITY_NAME_PROVIDER_SOCKET=/path/to/socket
 /// Example: CRYPTO_SIGNING_PROVIDER_SOCKET=/tmp/provider.sock
+///
+/// BIOME OS FIX (Jan 27, 2026): Trust explicit env vars without probing.
+/// Not all primals implement discover_capabilities, and operators know
+/// what they're configuring. Skip the probe and trust the env var.
 async fn try_explicit_env(capability: &str) -> Result<Option<CapabilityProvider>, DiscoveryError> {
     let env_var = format!(
         "{}_PROVIDER_SOCKET",
@@ -111,21 +115,24 @@ async fn try_explicit_env(capability: &str) -> Result<Option<CapabilityProvider>
     );
 
     if let Ok(socket_path) = std::env::var(&env_var) {
-        let path = PathBuf::from(socket_path);
+        let path = PathBuf::from(&socket_path);
 
         // Verify socket exists
         if path.exists() {
-            debug!("Found explicit socket for {}: {:?}", capability, path);
+            info!(
+                "✅ Found {} via env var {} = {}",
+                capability, env_var, socket_path
+            );
 
-            // Probe to verify it actually provides the capability
-            if let Ok(provider) = probe_socket(&path).await {
-                if provider.capabilities.contains(&capability.to_string()) {
-                    return Ok(Some(CapabilityProvider {
-                        discovered_via: format!("env:{}", env_var),
-                        ..provider
-                    }));
-                }
-            }
+            // Trust the env var - operator knows what they're doing
+            // Skip probe since not all primals support discover_capabilities
+            return Ok(Some(CapabilityProvider {
+                id: format!("{}-provider", capability),
+                capabilities: vec![capability.to_string()],
+                socket: path,
+                metadata: std::collections::HashMap::new(),
+                discovered_via: format!("env:{}", env_var),
+            }));
         }
     }
 
@@ -328,7 +335,27 @@ async fn query_registry(
 
     let mut reader = BufReader::new(read_half);
     let mut response_line = String::new();
-    reader.read_line(&mut response_line).await?;
+
+    // BIOME OS FIX (Jan 27, 2026): Add timeout to prevent hangs
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        reader.read_line(&mut response_line),
+    )
+    .await
+    {
+        Ok(Ok(_)) => { /* Continue with response parsing */ }
+        Ok(Err(e)) => {
+            return Err(DiscoveryError::ProbeFailed(format!(
+                "Registry read error: {}",
+                e
+            )))
+        }
+        Err(_) => {
+            return Err(DiscoveryError::ProbeFailed(
+                "Registry query timeout (>2s)".to_string(),
+            ))
+        }
+    }
 
     let response: serde_json::Value = serde_json::from_str(&response_line)?;
 
