@@ -215,7 +215,7 @@ pub struct HealthCheckConfig {
 }
 
 /// Resource requirements specification
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ResourceSpec {
     /// CPU requirements
     pub cpu: String,
@@ -259,23 +259,4 @@ pub struct ResourceRequirements {
     pub max_memory_mb: Option<u64>,
     /// Storage requirements in GB
     pub storage_gb: Option<u64>,
-}
-
-/// Ecosystem configuration for service registration and discovery
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcosystemConfig {
-    /// Service identifier
-    pub service_id: String,
-    /// Service mesh endpoint for registration
-    pub service_mesh_endpoint: Option<String>,
-    /// Enable automatic health monitoring
-    pub enable_health_monitoring: bool,
-    /// Health check interval in seconds
-    pub health_check_interval_secs: u64,
-    /// Enable automatic service discovery
-    pub enable_service_discovery: bool,
-    /// Service discovery interval in seconds
-    pub discovery_interval_secs: u64,
-    /// Registry configuration
-    pub registry_config: crate::ecosystem::registry::EcosystemRegistryConfig,
 }

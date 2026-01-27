@@ -20,7 +20,7 @@ use super::adapters::{
 };
 
 use super::constraint_router::select_provider_with_constraints;
-use super::selector::{ProviderInfo, ProviderSelector, QualityTier};
+use super::selector::{ProviderInfo, ProviderSelector};
 use super::types::{
     ActionRequirements, ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
     TextGenerationResponse,
@@ -100,7 +100,7 @@ impl AiRouter {
                 // BIOME OS FIX: Timeout each adapter init (2s each)
                 if let Ok(Ok(adapter)) = tokio::time::timeout(
                     std::time::Duration::from_secs(2),
-                    async { AnthropicAdapter::new().and_then(|a| Ok(a)) }
+                    async { AnthropicAdapter::new() }
                 ).await {
                     if let Ok(available) = tokio::time::timeout(
                         std::time::Duration::from_secs(2),
@@ -116,7 +116,7 @@ impl AiRouter {
                 }
                 if let Ok(Ok(adapter)) = tokio::time::timeout(
                     std::time::Duration::from_secs(2),
-                    async { OpenAiAdapter::new().and_then(|a| Ok(a)) }
+                    async { OpenAiAdapter::new() }
                 ).await {
                     if let Ok(available) = tokio::time::timeout(
                         std::time::Duration::from_secs(2),

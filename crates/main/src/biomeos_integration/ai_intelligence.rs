@@ -369,7 +369,7 @@ impl AiIntelligence {
     ) -> Result<IntelligenceResponse, PrimalError> {
         debug!("Processing intelligence request: {}", request.request_id);
 
-        let recommendations = [
+        let _recommendations = [
             "Monitor resource usage".to_string(),
             "Update security policies".to_string(),
             "Analyze ecosystem health".to_string(),

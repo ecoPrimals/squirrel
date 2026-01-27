@@ -236,6 +236,7 @@ impl FederationService {
     }
 
     /// Find the leader node in the federation
+    #[allow(dead_code)]
     async fn find_leader_node(&self) -> Result<SquirrelInstance> {
         // Simple leader election: use the node with the lowest ID
         // In practice, this would be more sophisticated
@@ -611,6 +612,7 @@ impl FederationService {
     }
 
     /// Get current node endpoint
+    #[allow(dead_code)]
     fn get_node_endpoint(&self) -> String {
         format!(
             "http://{}:{}",
@@ -622,6 +624,7 @@ impl FederationService {
     }
 
     /// Get current node capabilities
+    #[allow(dead_code)]
     fn get_node_capabilities(&self) -> Vec<String> {
         vec![
             "mcp".to_string(),
@@ -806,6 +809,7 @@ impl FederationService {
 }
 
 // Supporting types
+#[allow(dead_code)]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct NodeInfo {
     node_id: String,
@@ -817,6 +821,7 @@ struct NodeInfo {
     metadata: HashMap<String, String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct JoinRequest {
     node_id: String,

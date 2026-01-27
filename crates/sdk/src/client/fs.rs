@@ -99,6 +99,11 @@ impl FileContent {
             FileContent::Binary(data) => data.len() as u64,
         }
     }
+
+    /// Check if content is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// Directory listing entry

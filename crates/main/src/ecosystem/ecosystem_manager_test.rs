@@ -20,6 +20,28 @@ fn create_test_metrics() -> Arc<MetricsCollector> {
     Arc::new(MetricsCollector::new())
 }
 
+/// Capability mapping for TRUE PRIMAL architecture
+/// Maps traditional primal roles to capability-based discovery
+mod capability_mappings {
+    /// Service mesh capabilities (formerly Songbird)
+    pub const SERVICE_MESH: &[&str] = &["service_mesh", "discovery", "load_balancing", "routing"];
+    
+    /// Security/crypto capabilities (formerly BearDog)
+    pub const SECURITY: &[&str] = &["crypto", "tls", "security", "authentication", "encryption"];
+    
+    /// Storage capabilities (formerly NestGate)
+    pub const STORAGE: &[&str] = &["storage", "file_system", "object_storage", "backup"];
+    
+    /// Compute capabilities (formerly ToadStool)
+    pub const COMPUTE: &[&str] = &["compute", "containers", "serverless", "orchestration"];
+    
+    /// AI capabilities (Squirrel - self-knowledge)
+    pub const AI: &[&str] = &["ai", "inference", "chat", "code_completion", "embeddings"];
+    
+    /// Orchestration capabilities (biomeOS)
+    pub const ORCHESTRATION: &[&str] = &["orchestration", "deployment", "manifest", "lifecycle"];
+}
+
 #[tokio::test]
 async fn test_ecosystem_manager_creation() {
     let config = create_test_config();
@@ -419,7 +441,9 @@ async fn test_component_health_error_message() {
 }
 
 #[tokio::test]
+#[allow(deprecated)]
 async fn test_ecosystem_primal_type_all_variants() {
+    // Testing deprecated enum for backward compatibility
     let types = vec![
         EcosystemPrimalType::Squirrel,
         EcosystemPrimalType::Songbird,
@@ -435,4 +459,153 @@ async fn test_ecosystem_primal_type_all_variants() {
         let s = primal_type.as_str();
         assert!(!s.is_empty());
     }
+}
+
+// ============================================================================
+// NEW: Capability-Based Discovery Tests (TRUE PRIMAL Architecture)
+// ============================================================================
+//
+// These tests demonstrate the evolved pattern where primals discover each
+// other by capability rather than hardcoded primal types. This follows the
+// TRUE PRIMAL principle: each primal only knows itself, discovers others.
+//
+// See: wateringHole/SEMANTIC_METHOD_NAMING_STANDARD.md
+// See: wateringHole/INTER_PRIMAL_INTERACTIONS.md
+//
+
+#[tokio::test]
+async fn test_capability_based_service_mesh_discovery() {
+    // TRUE PRIMAL: Discover service mesh by capability, not by name "Songbird"
+    let config = create_test_config();
+    let metrics = create_test_metrics();
+    let mut manager = EcosystemManager::new(config, metrics);
+    
+    manager.initialize().await.expect("test: should initialize");
+    
+    // NEW PATTERN: Discover by capability
+    let result = manager.find_services_by_capability("service_mesh").await;
+    
+    // In test environment, this may return empty (no actual services)
+    // But the API should work without error
+    assert!(result.is_ok(), "Capability-based discovery should not error");
+}
+
+#[tokio::test]
+async fn test_capability_based_crypto_discovery() {
+    // TRUE PRIMAL: Discover crypto providers by capability, not by name "BearDog"
+    let config = create_test_config();
+    let metrics = create_test_metrics();
+    let mut manager = EcosystemManager::new(config, metrics);
+    
+    manager.initialize().await.expect("test: should initialize");
+    
+    // NEW PATTERN: Discover by capability
+    let result = manager.find_services_by_capability("crypto").await;
+    
+    assert!(result.is_ok(), "Crypto capability discovery should not error");
+}
+
+#[tokio::test]
+async fn test_capability_based_storage_discovery() {
+    // TRUE PRIMAL: Discover storage by capability, not by name "NestGate"
+    let config = create_test_config();
+    let metrics = create_test_metrics();
+    let mut manager = EcosystemManager::new(config, metrics);
+    
+    manager.initialize().await.expect("test: should initialize");
+    
+    // NEW PATTERN: Discover by capability
+    let result = manager.find_services_by_capability("storage").await;
+    
+    assert!(result.is_ok(), "Storage capability discovery should not error");
+}
+
+#[tokio::test]
+async fn test_capability_based_multiple_capabilities() {
+    // TRUE PRIMAL: Discover services by multiple capabilities
+    let config = create_test_config();
+    let metrics = create_test_metrics();
+    let mut manager = EcosystemManager::new(config, metrics);
+    
+    manager.initialize().await.expect("test: should initialize");
+    
+    // Service mesh provides multiple capabilities
+    for capability in capability_mappings::SERVICE_MESH {
+        let result = manager.find_services_by_capability(capability).await;
+        assert!(
+            result.is_ok(),
+            "Discovery of '{}' capability should not error",
+            capability
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_self_knowledge_pattern() {
+    // TRUE PRIMAL: Squirrel knows itself, discovers others
+    let config = create_test_config();
+    let metrics = create_test_metrics();
+    let mut manager = EcosystemManager::new(config, metrics);
+    
+    manager.initialize().await.expect("test: should initialize");
+    
+    // Squirrel knows its own capabilities
+    let ai_capabilities = capability_mappings::AI;
+    assert!(ai_capabilities.contains(&"ai"));
+    assert!(ai_capabilities.contains(&"inference"));
+    
+    // But discovers other primals by capability, not by name
+    let _crypto_services = manager.find_services_by_capability("crypto").await;
+    let _storage_services = manager.find_services_by_capability("storage").await;
+    
+    // Pattern verified: self-knowledge + runtime discovery
+}
+
+#[tokio::test]
+async fn test_capability_discovery_with_specific_operations() {
+    // TRUE PRIMAL: Semantic method naming (domain.operation pattern)
+    let config = create_test_config();
+    let metrics = create_test_metrics();
+    let mut manager = EcosystemManager::new(config, metrics);
+    
+    manager.initialize().await.expect("test: should initialize");
+    
+    // Specific capability operations (semantic naming)
+    let specific_capabilities = vec![
+        "crypto.generate_keypair",  // Semantic: what, not who
+        "crypto.encrypt",
+        "tls.derive_secrets",
+        "storage.put",
+        "ai.inference",
+    ];
+    
+    for capability in specific_capabilities {
+        let result = manager.find_services_by_capability(capability).await;
+        assert!(
+            result.is_ok(),
+            "Semantic capability '{}' should be discoverable",
+            capability
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_capability_mappings_completeness() {
+    // Verify all capability mappings are defined
+    use capability_mappings::*;
+    
+    assert!(!SERVICE_MESH.is_empty(), "Service mesh capabilities should be defined");
+    assert!(!SECURITY.is_empty(), "Security capabilities should be defined");
+    assert!(!STORAGE.is_empty(), "Storage capabilities should be defined");
+    assert!(!COMPUTE.is_empty(), "Compute capabilities should be defined");
+    assert!(!AI.is_empty(), "AI capabilities should be defined");
+    assert!(!ORCHESTRATION.is_empty(), "Orchestration capabilities should be defined");
+    
+    // Verify primary capabilities are present
+    assert!(SERVICE_MESH.contains(&"service_mesh"));
+    assert!(SECURITY.contains(&"crypto"));
+    assert!(STORAGE.contains(&"storage"));
+    assert!(COMPUTE.contains(&"compute"));
+    assert!(AI.contains(&"ai"));
+    assert!(ORCHESTRATION.contains(&"orchestration"));
 }

@@ -5,7 +5,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::types::{EcosystemRegistryConfig, HealthCheckConfig, ResourceSpec, SecurityConfig};
+use super::registry::EcosystemRegistryConfig;
+use super::types::{HealthCheckConfig, ResourceSpec, SecurityConfig};
 
 /// Ecosystem configuration for Squirrel primal
 #[derive(Debug, Clone, Serialize, Deserialize)]

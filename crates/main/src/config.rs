@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 /// Main Squirrel configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct SquirrelConfig {
     /// Server configuration
     pub server: ServerConfig,
@@ -100,17 +101,6 @@ pub struct DiscoveryConfig {
 
     /// Registry socket path
     pub registry_socket: Option<String>,
-}
-
-impl Default for SquirrelConfig {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            ai: AiConfig::default(),
-            logging: LoggingConfig::default(),
-            discovery: DiscoveryConfig::default(),
-        }
-    }
 }
 
 impl Default for ServerConfig {

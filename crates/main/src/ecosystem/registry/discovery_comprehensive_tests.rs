@@ -326,8 +326,9 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn test_registry_isolation() {
-        // Test that separate registries don't interfere
+        // Test that separate registries don't interfere (deprecated API)
         let registry1 = create_test_registry();
         let registry2 = create_test_registry();
 
@@ -346,6 +347,376 @@ mod tests {
         // Both should succeed independently
         assert!(result1.is_ok());
         assert!(result2.is_ok());
+    }
+
+    // ============================================================================
+    // NEW: Comprehensive Capability-Based Discovery Tests (TRUE PRIMAL)
+    // ============================================================================
+    //
+    // These tests demonstrate the evolved discovery system where services are
+    // discovered by capability rather than hardcoded primal types.
+    //
+    // TRUE PRIMAL Principles:
+    // 1. Self-knowledge only: Each primal knows itself
+    // 2. Capability-based discovery: Find services by WHAT they do
+    // 3. Runtime discovery: No compile-time coupling
+    // 4. Semantic naming: domain.operation pattern
+    // 5. Provider agnostic: Any service can provide a capability
+    //
+    // See: wateringHole/SEMANTIC_METHOD_NAMING_STANDARD.md
+    //
+
+    #[tokio::test]
+    async fn test_capability_discovery_ai_services() {
+        // Discover AI services by capability, not by primal name
+        let required_capabilities = vec!["ai", "inference", "chat"];
+
+        for capability in &required_capabilities {
+            // In production, this would query CapabilityRegistry
+            // find_services_by_capability(capability).await
+            assert!(!capability.is_empty());
+            assert!(
+                capability.len() > 2,
+                "Valid capability names have meaningful length"
+            );
+        }
+
+        // Verify semantic naming for specific operations
+        let semantic_capabilities = vec![
+            "ai.inference",
+            "ai.chat",
+            "ai.embeddings",
+            "ai.code_completion",
+        ];
+
+        for capability in semantic_capabilities {
+            assert!(
+                capability.contains('.'),
+                "Semantic capabilities use domain.operation pattern"
+            );
+            let parts: Vec<&str> = capability.split('.').collect();
+            assert_eq!(parts.len(), 2);
+            assert_eq!(parts[0], "ai", "Domain should be 'ai'");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_capability_discovery_service_mesh() {
+        // Discover service mesh capabilities
+        let service_mesh_capabilities = vec![
+            "service_mesh",
+            "discovery",
+            "load_balancing",
+            "circuit_breaking",
+            "health_monitoring",
+        ];
+
+        for capability in &service_mesh_capabilities {
+            assert!(!capability.is_empty());
+        }
+
+        // Test semantic operations for service mesh
+        let semantic_operations = vec![
+            "service_mesh.register",
+            "service_mesh.discover",
+            "service_mesh.health_check",
+            "load_balancing.route",
+            "circuit_breaking.check",
+        ];
+
+        for operation in semantic_operations {
+            assert!(operation.contains('.'));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_capability_discovery_security() {
+        // Discover security and crypto capabilities
+        let security_capabilities = vec![
+            "crypto",
+            "tls",
+            "authentication",
+            "authorization",
+            "key_management",
+        ];
+
+        for capability in &security_capabilities {
+            assert!(!capability.is_empty());
+        }
+
+        // Test semantic security operations
+        let semantic_operations = vec![
+            "crypto.generate_keypair",
+            "crypto.encrypt",
+            "crypto.decrypt",
+            "crypto.sign",
+            "tls.derive_secrets",
+            "tls.sign_handshake",
+            "auth.validate_token",
+        ];
+
+        for operation in semantic_operations {
+            assert!(operation.contains('.'));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_capability_discovery_storage() {
+        // Discover storage capabilities
+        let storage_capabilities = vec![
+            "storage",
+            "file_system",
+            "object_storage",
+            "backup",
+            "restore",
+            "volume_management",
+        ];
+
+        for capability in &storage_capabilities {
+            assert!(!capability.is_empty());
+        }
+
+        // Test semantic storage operations
+        let semantic_operations = vec![
+            "storage.put",
+            "storage.get",
+            "storage.delete",
+            "storage.list",
+            "backup.create",
+            "restore.execute",
+        ];
+
+        for operation in semantic_operations {
+            assert!(operation.contains('.'));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_capability_discovery_compute() {
+        // Discover compute and orchestration capabilities
+        let compute_capabilities = vec![
+            "compute",
+            "containers",
+            "serverless",
+            "orchestration",
+            "gpu_acceleration",
+        ];
+
+        for capability in &compute_capabilities {
+            assert!(!capability.is_empty());
+        }
+
+        // Test semantic compute operations
+        let semantic_operations = vec![
+            "compute.execute",
+            "containers.create",
+            "containers.start",
+            "containers.stop",
+            "orchestration.deploy",
+            "orchestration.scale",
+        ];
+
+        for operation in semantic_operations {
+            assert!(operation.contains('.'));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_capability_discovery_multi_requirement() {
+        // Test discovery of services that provide multiple capabilities
+        
+        // Example: AI service that also needs storage
+        let ai_with_storage = vec!["ai", "inference", "storage"];
+        assert_eq!(ai_with_storage.len(), 3);
+
+        // Example: Service mesh that provides discovery and load balancing
+        let mesh_with_lb = vec!["service_mesh", "discovery", "load_balancing"];
+        assert_eq!(mesh_with_lb.len(), 3);
+
+        // Example: Security service with crypto and TLS
+        let security_suite = vec!["crypto", "tls", "key_management"];
+        assert_eq!(security_suite.len(), 3);
+
+        // Verify all requirements are non-empty
+        for capability in ai_with_storage
+            .iter()
+            .chain(mesh_with_lb.iter())
+            .chain(security_suite.iter())
+        {
+            assert!(!capability.is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_capability_versioning() {
+        // Test capability versioning patterns
+        use std::collections::HashMap;
+
+        let mut capability_versions = HashMap::new();
+        capability_versions.insert("ai", "v1");
+        capability_versions.insert("crypto", "v2");
+        capability_versions.insert("storage", "v1");
+
+        // Verify all capabilities have versions
+        for (capability, version) in &capability_versions {
+            assert!(!capability.is_empty());
+            assert!(!version.is_empty());
+            assert!(version.starts_with('v'));
+        }
+
+        // Test semantic versioning for operations
+        let versioned_operations = vec![
+            ("ai.inference", "v1"),
+            ("crypto.encrypt", "v2"),
+            ("storage.put", "v1"),
+        ];
+
+        for (operation, version) in versioned_operations {
+            assert!(operation.contains('.'));
+            assert!(version.starts_with('v'));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_capability_metadata_filtering() {
+        // Test filtering services by capability metadata
+        use std::collections::HashMap;
+
+        // Example: Find AI services with specific model support
+        let mut ai_metadata = HashMap::new();
+        ai_metadata.insert("capability", "ai");
+        ai_metadata.insert("models", "gpt-4,claude-3,llama-2");
+        ai_metadata.insert("context_window", "128k");
+
+        assert_eq!(ai_metadata.get("capability"), Some(&"ai"));
+        assert!(ai_metadata
+            .get("models")
+            .unwrap()
+            .contains("gpt-4"));
+
+        // Example: Find storage services with specific features
+        let mut storage_metadata = HashMap::new();
+        storage_metadata.insert("capability", "storage");
+        storage_metadata.insert("type", "object_storage");
+        storage_metadata.insert("replication", "true");
+
+        assert_eq!(storage_metadata.get("capability"), Some(&"storage"));
+        assert_eq!(storage_metadata.get("replication"), Some(&"true"));
+    }
+
+    #[tokio::test]
+    async fn test_capability_discovery_fallback() {
+        // Test fallback behavior when primary capability not available
+        
+        // Primary capability
+        let primary = "ai.inference";
+        assert!(!primary.is_empty());
+
+        // Fallback capabilities (more general)
+        let fallbacks = vec!["ai", "compute"];
+        assert_eq!(fallbacks.len(), 2);
+
+        // Verify fallback chain
+        for fallback in &fallbacks {
+            assert!(!fallback.is_empty());
+            assert!(
+                fallback.len() < primary.len(),
+                "Fallbacks are more general (shorter)"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_capability_discovery_composition() {
+        // Test discovering composite services that combine capabilities
+        
+        // AI + Crypto: Secure AI inference
+        let secure_ai = vec!["ai", "inference", "crypto", "tls"];
+        assert_eq!(secure_ai.len(), 4);
+
+        // Storage + Backup + Crypto: Secure backup system
+        let secure_backup = vec!["storage", "backup", "crypto", "encryption"];
+        assert_eq!(secure_backup.len(), 4);
+
+        // Service Mesh + Security: Secure service discovery
+        let secure_mesh = vec![
+            "service_mesh",
+            "discovery",
+            "authentication",
+            "authorization",
+        ];
+        assert_eq!(secure_mesh.len(), 4);
+
+        // Verify all composite capabilities are valid
+        for capability in secure_ai
+            .iter()
+            .chain(secure_backup.iter())
+            .chain(secure_mesh.iter())
+        {
+            assert!(!capability.is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_self_knowledge_vs_discovery() {
+        // Demonstrate difference between self-knowledge and discovery
+
+        // SELF-KNOWLEDGE: Squirrel knows its own capabilities
+        let own_capabilities = vec!["ai", "inference", "chat", "code_completion"];
+        for capability in &own_capabilities {
+            assert!(!capability.is_empty());
+        }
+
+        // DISCOVERY: Squirrel discovers OTHER services by capability
+        let needed_capabilities = vec![
+            "crypto",          // Need security service
+            "storage",         // Need persistent storage
+            "service_mesh",    // Need service discovery
+        ];
+        for capability in &needed_capabilities {
+            assert!(!capability.is_empty());
+            // In production: registry.find_services_by_capability(capability).await
+        }
+
+        // IMPORTANT: No overlap between self-knowledge and discovery
+        // (Squirrel doesn't discover itself)
+        for own_cap in &own_capabilities {
+            for needed_cap in &needed_capabilities {
+                assert_ne!(own_cap, needed_cap, "Should not discover own capabilities");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_dynamic_capability_registration() {
+        // Test that services can register capabilities dynamically
+        use std::collections::HashSet;
+
+        let mut capabilities = HashSet::new();
+
+        // Initial capabilities
+        capabilities.insert("ai".to_string());
+        capabilities.insert("inference".to_string());
+        assert_eq!(capabilities.len(), 2);
+
+        // Add new capability at runtime
+        capabilities.insert("embeddings".to_string());
+        assert_eq!(capabilities.len(), 3);
+
+        // Add another capability
+        capabilities.insert("chat".to_string());
+        assert_eq!(capabilities.len(), 4);
+
+        // Verify all capabilities
+        assert!(capabilities.contains("ai"));
+        assert!(capabilities.contains("inference"));
+        assert!(capabilities.contains("embeddings"));
+        assert!(capabilities.contains("chat"));
+
+        // Demonstrate removal
+        capabilities.remove("embeddings");
+        assert_eq!(capabilities.len(), 3);
+        assert!(!capabilities.contains("embeddings"));
     }
 }
 

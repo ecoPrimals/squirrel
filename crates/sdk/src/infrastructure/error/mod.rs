@@ -93,9 +93,13 @@ pub mod retry {
     /// Configuration for retry logic (SDK-specific, lightweight)
     #[derive(Debug, Clone)]
     pub struct RetryConfig {
+        /// Maximum number of retry attempts
         pub max_retries: u32,
+        /// Initial delay in milliseconds before first retry
         pub initial_delay: u64,
+        /// Multiplier for exponential backoff
         pub backoff_multiplier: f64,
+        /// Maximum delay in milliseconds between retries
         pub max_delay: u64,
     }
 

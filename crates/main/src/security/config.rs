@@ -141,7 +141,7 @@ impl SecurityProviderConfig {
 
 /// Simple security configuration for `BearDog` coordination
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityConfig {
+pub struct SecurityServiceConfig {
     /// `BearDog` endpoint
     pub security_service_endpoint: String, // Discovered via capability matching
     /// Enable security coordination
@@ -150,7 +150,7 @@ pub struct SecurityConfig {
     pub timeout_seconds: u64,
 }
 
-impl Default for SecurityConfig {
+impl Default for SecurityServiceConfig {
     fn default() -> Self {
         Self {
             security_service_endpoint: std::env::var("SECURITY_SERVICE_ENDPOINT")

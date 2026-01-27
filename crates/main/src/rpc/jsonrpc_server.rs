@@ -283,7 +283,7 @@ impl JsonRpcServer {
         let request_id = request.id.clone().unwrap_or(Value::Null);
 
         // Dispatch to method handler with tracing span
-        use tracing::Span;
+
         let span =
             tracing::info_span!("jsonrpc_method", method = %request.method, id = ?request.id);
         let _enter = span.enter();
@@ -573,8 +573,6 @@ impl JsonRpcServer {
 
     /// Handle execute_tool method
     async fn handle_execute_tool(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
-        use tracing::instrument;
-
         info!("🔧 execute_tool request");
 
         // Parse parameters

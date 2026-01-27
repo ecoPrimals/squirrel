@@ -202,8 +202,8 @@ impl RegistryDiscovery {
         address: &str,
         port: u16,
         capabilities: Vec<String>,
-        health_endpoint: Option<String>,
-        metadata: HashMap<String, String>,
+        _health_endpoint: Option<String>,
+        _metadata: HashMap<String, String>,
     ) -> DiscoveryResult<()> {
         if !self.enabled {
             return Ok(());

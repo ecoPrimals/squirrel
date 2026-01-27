@@ -47,11 +47,14 @@ use crate::universal_primal_ecosystem::{
 };
 
 // Module declarations
+pub mod config;
 pub mod status;
 pub mod types;
 
 // Re-export all public items
+pub use config::EcosystemConfig;
 pub use status::*;
+pub use types::*;
 
 // Re-export registry types
 pub mod registry;
@@ -232,106 +235,10 @@ impl EcosystemPrimalType {
     }
 }
 
-/// Service capabilities with proper Default implementation
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ServiceCapabilities {
-    pub core: Vec<String>,
-    pub extended: Vec<String>,
-    pub integrations: Vec<String>,
-}
-
-/// Service endpoints with proper Default implementation  
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ServiceEndpoints {
-    pub primary: String,
-    pub secondary: Vec<String>,
-    pub health: Option<String>,
-}
-
-/// Health check configuration with Default implementation
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct HealthCheckConfig {
-    pub enabled: bool,
-    pub interval_secs: u64,
-    pub timeout_secs: u64,
-    pub failure_threshold: u32,
-}
-
-/// Resource requirements specification
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResourceSpec {
-    /// CPU requirements
-    pub cpu: String,
-    /// Memory requirements
-    pub memory: String,
-    /// Storage requirements
-    pub storage: String,
-    /// Network requirements
-    pub network: String,
-    /// GPU requirements (optional)
-    pub gpu: Option<String>,
-}
-
-/// Security configuration for ecosystem integration
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SecurityConfig {
-    /// Authentication requirements
-    pub auth_required: bool,
-    /// Encryption level required
-    pub encryption_level: String,
-    /// Access control level  
-    pub access_level: String,
-    /// Security policies to enforce
-    pub policies: Vec<String>,
-    /// Audit requirements
-    pub audit_enabled: bool,
-    /// Security level
-    pub security_level: String,
-}
-
-/// Resource requirements specification
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ResourceRequirements {
-    /// Minimum CPU cores required
-    pub min_cpu: Option<u32>,
-    /// Minimum RAM in MB
-    pub min_memory_mb: Option<u64>,
-    /// Minimum disk space in MB
-    pub min_disk_mb: Option<u64>,
-    /// Network bandwidth requirements
-    pub min_network_mbps: Option<u32>,
-    /// Special hardware requirements
-    pub specialized_hardware: Vec<String>,
-}
-
-/// Ecosystem configuration for Squirrel primal
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcosystemConfig {
-    /// Service identifier
-    pub service_id: String,
-    /// Service name
-    pub service_name: String,
-    /// Service host
-    pub service_host: String,
-    /// Service port
-    pub service_port: u16,
-    /// Service mesh endpoint URL
-    pub service_mesh_endpoint: String,
-    /// Biome identifier (if applicable)
-    pub biome_id: Option<String>,
-    /// Registry configuration
-    pub registry_config: EcosystemRegistryConfig,
-    /// Resource requirements
-    pub resource_requirements: ResourceSpec,
-    /// Security configuration
-    pub security_config: SecurityConfig,
-    /// Health check configuration
-    pub health_check: HealthCheckConfig,
-    /// Additional metadata
-    pub metadata: HashMap<String, String>,
-}
-
 /// Ecosystem manager for service discovery and communication
+///
+/// Note: This struct is not Serializable/Deserializable as it contains
+/// runtime state (metrics collector, locks, etc.) that shouldn't be persisted.
 pub struct EcosystemManager {
     // registry_manager removed - HTTP-based, replaced by capability discovery
     /// Universal primal ecosystem for standardized integration
@@ -606,7 +513,7 @@ impl EcosystemManager {
     /// Make API call to another primal
     pub async fn call_primal_api(
         &self,
-        request: PrimalApiRequest,
+        _request: PrimalApiRequest,
     ) -> Result<PrimalApiResponse, PrimalError> {
         // TODO: Implement via capability discovery (Unix sockets)
         tracing::warn!("call_primal_api called - implement via capability discovery");
@@ -961,55 +868,6 @@ impl EcosystemManager {
             .match_capabilities(request)
             .await
             .unwrap_or_default()
-    }
-}
-
-impl Default for EcosystemConfig {
-    fn default() -> Self {
-        Self {
-            service_id: format!("squirrel-{}", Uuid::new_v4()),
-            service_name: "Squirrel AI Primal".to_string(),
-            service_host: std::env::var("MCP_HOST").unwrap_or_else(|_| "localhost".to_string()),
-            service_port: std::env::var("MCP_PORT")
-                .ok()
-                .and_then(|p| p.parse().ok())
-                .unwrap_or(8080),
-            service_mesh_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
-                .or_else(|_| std::env::var("SERVICE_DISCOVERY_ENDPOINT"))
-                .or_else(|_| std::env::var("DEV_SERVICE_MESH_ENDPOINT"))
-                .unwrap_or_else(|_| {
-                    tracing::warn!(
-                        "⚠️ SERVICE_MESH_ENDPOINT not configured. \
-                         Set SERVICE_MESH_ENDPOINT for production discovery. \
-                         Using development default."
-                    );
-                    "http://localhost:8500".to_string()
-                }),
-            biome_id: None,
-            registry_config: EcosystemRegistryConfig::default(),
-            resource_requirements: ResourceSpec {
-                cpu: "500m".to_string(),
-                memory: "1Gi".to_string(),
-                storage: "10Gi".to_string(),
-                network: "1Gbps".to_string(),
-                gpu: None,
-            },
-            security_config: SecurityConfig {
-                auth_required: true,
-                encryption_level: "high".to_string(),
-                access_level: "internal".to_string(),
-                policies: vec!["no_sensitive_data".to_string()],
-                audit_enabled: true,
-                security_level: "standard".to_string(),
-            },
-            health_check: HealthCheckConfig {
-                enabled: true,
-                interval_secs: 30,
-                timeout_secs: 5,
-                failure_threshold: 3,
-            },
-            metadata: HashMap::new(),
-        }
     }
 }
 

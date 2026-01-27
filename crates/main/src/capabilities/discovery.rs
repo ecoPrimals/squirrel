@@ -3,7 +3,7 @@
 //! Discovers capabilities at runtime with ZERO hardcoded primal names.
 //! Deploy like an infant - knows nothing, discovers everything.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -415,7 +415,7 @@ pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<Capabilit
                         for capability in &provider.capabilities {
                             all_capabilities
                                 .entry(capability.clone())
-                                .or_insert_with(Vec::new)
+                                .or_default()
                                 .push(provider.clone());
                         }
                     }

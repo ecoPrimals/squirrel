@@ -32,7 +32,7 @@ pub struct EcosystemRegistryConfig {
     /// Discovery configuration
     pub discovery_config: DiscoveryConfig,
     /// Security configuration
-    pub security_config: SecurityConfig,
+    pub security_config: RegistrySecurityConfig,
 }
 
 /// Health check configuration
@@ -57,7 +57,7 @@ pub struct DiscoveryConfig {
 
 /// Security configuration for ecosystem communication
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityConfig {
+pub struct RegistrySecurityConfig {
     pub tls_enabled: bool,
     pub mtls_required: bool,
     pub auth_token: Option<String>,
@@ -74,7 +74,7 @@ impl Default for EcosystemRegistryConfig {
             retry_config: RetryConfig::default(),
             health_config: HealthConfig::default(),
             discovery_config: DiscoveryConfig::default(),
-            security_config: SecurityConfig::default(),
+            security_config: RegistrySecurityConfig::default(),
         }
     }
 }
@@ -115,7 +115,7 @@ impl Default for DiscoveryConfig {
     }
 }
 
-impl Default for SecurityConfig {
+impl Default for RegistrySecurityConfig {
     fn default() -> Self {
         Self {
             tls_enabled: true,

@@ -155,20 +155,26 @@ pub struct WebSocketConnection {
 }
 
 /// MCP-Web bridge for integrating MCP protocol with web services
+/// Bridge for integrating MCP with web services
 #[derive(Debug, Clone)]
 pub struct McpWebBridge {
+    /// Configuration for the MCP web bridge
     pub config: McpBridgeConfig,
 }
 
 impl McpWebBridge {
+    /// Create a new MCP web bridge with the given configuration
     pub fn new(config: McpBridgeConfig) -> Self {
         Self { config }
     }
 }
 
+/// Configuration for the MCP web bridge
 #[derive(Debug, Clone)]
 pub struct McpBridgeConfig {
+    /// Enable metrics collection
     pub enable_metrics: bool,
+    /// Enable event publishing
     pub enable_events: bool,
 }
 

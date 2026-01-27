@@ -126,7 +126,7 @@ impl MdnsDiscovery {
         service_name: &str,
         port: u16,
         capabilities: Vec<String>,
-        metadata: HashMap<String, String>,
+        _metadata: HashMap<String, String>,
     ) -> DiscoveryResult<()> {
         if !self.enabled {
             return Ok(());
