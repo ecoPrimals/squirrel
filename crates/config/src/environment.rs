@@ -275,12 +275,19 @@ impl AIProviderConfig {
 }
 
 /// Ecosystem service configuration from environment variables
+///
+/// ⚠️ DEPRECATED: This struct uses hardcoded primal endpoint names which violates
+/// primal sovereignty. Use capability-based discovery instead.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemConfig {
+    /// NestGate networking endpoint (DEPRECATED: use capability discovery)
     pub nestgate_endpoint: String,
+    /// BearDog security endpoint (DEPRECATED: use capability discovery)
     pub beardog_endpoint: String,
+    /// ToadStool compute endpoint (DEPRECATED: use capability discovery)
     pub toadstool_endpoint: String,
-    pub songbird_endpoint: String,
+    /// Service mesh endpoint (generic, not primal-specific)
+    pub service_mesh_endpoint: String,
     pub service_timeout_ms: u64,
 }
 
@@ -290,7 +297,7 @@ impl Default for EcosystemConfig {
             nestgate_endpoint: "http://localhost:8444".to_string(),
             beardog_endpoint: "http://localhost:8443".to_string(),
             toadstool_endpoint: "http://localhost:8445".to_string(),
-            songbird_endpoint: "http://localhost:8446".to_string(),
+            service_mesh_endpoint: "http://localhost:8446".to_string(),
             service_timeout_ms: 5000,
         }
     }
@@ -341,7 +348,7 @@ impl EcosystemConfig {
             nestgate_endpoint,
             beardog_endpoint,
             toadstool_endpoint,
-            songbird_endpoint: biomeos_endpoint, // Assuming songbird_endpoint is the same as biomeos_endpoint
+            service_mesh_endpoint: biomeos_endpoint, // Service mesh endpoint (was songbird_endpoint)
             service_timeout_ms,
         })
     }

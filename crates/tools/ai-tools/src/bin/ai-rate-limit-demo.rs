@@ -26,14 +26,14 @@ async fn main() -> Result<()> {
         "openai" => std::env::var("OPENAI_API_KEY")
             .or_else(|_| std::env::var("OPENAI_KEY"))
             .map_err(|_| {
-                squirrel_ai_tools::Error::Configuration(
+                squirrel_ai_tools::Error::Generic(
                     "OpenAI API key not found. Set OPENAI_API_KEY environment variable.".into(),
                 )
             })?,
         "anthropic" => std::env::var("ANTHROPIC_API_KEY")
             .or_else(|_| std::env::var("ANTHROPIC_KEY"))
             .map_err(|_| {
-                squirrel_ai_tools::Error::Configuration(
+                squirrel_ai_tools::Error::Generic(
                     "Anthropic API key not found. Set ANTHROPIC_API_KEY environment variable."
                         .into(),
                 )
@@ -41,12 +41,12 @@ async fn main() -> Result<()> {
         "gemini" => std::env::var("GEMINI_API_KEY")
             .or_else(|_| std::env::var("GOOGLE_API_KEY"))
             .map_err(|_| {
-                squirrel_ai_tools::Error::Configuration(
+                squirrel_ai_tools::Error::Generic(
                     "Gemini API key not found. Set GEMINI_API_KEY environment variable.".into(),
                 )
             })?,
         _ => {
-            return Err(squirrel_ai_tools::Error::Configuration(format!(
+            return Err(squirrel_ai_tools::Error::Generic(format!(
                 "Unsupported provider: {provider}"
             )))
         }

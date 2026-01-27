@@ -37,44 +37,82 @@ mod tests {
     }
 
     #[test]
-    fn test_get_capabilities_squirrel() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::Squirrel);
+    fn test_get_capabilities_for_ai_service() {
+        // ✅ NEW: Capability-based test
+        let caps = DiscoveryOps::get_capabilities_for_service("ai_coordination");
         assert!(caps.len() > 0);
         assert!(caps.iter().any(|c| &**c == "ai_coordination"));
     }
 
     #[test]
     #[allow(deprecated)]
-    fn test_get_capabilities_songbird() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::Songbird);
+    fn test_get_capabilities_squirrel_deprecated() {
+        // Testing deprecated API for backward compatibility
+        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::Squirrel);
+        assert!(caps.len() > 0);
+        assert!(caps.iter().any(|c| &**c == "ai_coordination"));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_mesh() {
+        // ✅ NEW: Capability-based test
+        let caps = DiscoveryOps::get_capabilities_for_service("service_mesh");
         assert!(caps.len() > 0);
         assert!(caps.iter().any(|c| &**c == "service_mesh"));
     }
 
     #[test]
-    #[allow(deprecated)]
-    fn test_get_capabilities_toadstool() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::ToadStool);
+    fn test_get_capabilities_for_compute() {
+        // ✅ NEW: Capability-based test
+        let caps = DiscoveryOps::get_capabilities_for_service("compute");
         assert!(caps.len() > 0);
         assert!(caps.iter().any(|c| &**c == "compute" || &**c == "storage"));
     }
 
     #[test]
     #[allow(deprecated)]
-    fn test_get_capabilities_beardog() {
-        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::BearDog);
+    fn test_get_capabilities_toadstool_deprecated() {
+        // Testing deprecated API for backward compatibility
+        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::ToadStool);
+        assert!(caps.len() > 0);
+        assert!(caps.iter().any(|c| &**c == "compute" || &**c == "storage"));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_security() {
+        // ✅ NEW: Capability-based test
+        let caps = DiscoveryOps::get_capabilities_for_service("security");
         assert!(caps.len() > 0);
         assert!(caps.iter().any(|c| &**c == "security"));
     }
 
     #[test]
-    fn test_get_capabilities_biomeos() {
+    fn test_get_capabilities_for_networking() {
+        // ✅ NEW: Capability-based test
+        let caps = DiscoveryOps::get_capabilities_for_service("networking");
+        assert!(caps.len() > 0);
+        assert!(caps.iter().any(|c| &**c == "networking" || &**c == "gateway"));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_os() {
+        // ✅ NEW: Capability-based test
+        let caps = DiscoveryOps::get_capabilities_for_service("operating_system");
+        assert!(caps.len() > 0);
+        assert!(caps.iter().any(|c| &**c == "operating_system"));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_get_capabilities_biomeos_deprecated() {
+        // Testing deprecated API for backward compatibility
         let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::BiomeOS);
         assert!(caps.len() > 0);
         assert!(caps.iter().any(|c| &**c == "operating_system"));
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_get_capabilities_custom() {
         let custom_type = EcosystemPrimalType::Custom("test".to_string());
         let caps = DiscoveryOps::get_capabilities_for_primal(&custom_type);

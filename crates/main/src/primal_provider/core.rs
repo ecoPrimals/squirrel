@@ -760,20 +760,18 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
         self.dynamic_port_info()
     }
 
-    /// Register with service mesh
-    async fn register_with_songbird(
+    /// Register with service mesh (capability-based)
+    async fn register_with_service_mesh(
         &mut self,
-        _songbird_endpoint: &str,
+        _service_mesh_endpoint: &str,
     ) -> UniversalResult<String> {
         // TODO: Implement songbird registration
         Ok("registered (stubbed)".to_string())
     }
 
     /// Deregister from service mesh
-    async fn deregister_from_songbird(&mut self) -> UniversalResult<()> {
-        self.deregister_from_service_mesh()
-            .await
-            .map_err(|e| PrimalError::Internal(e.to_string()))?;
+    async fn deregister_from_service_mesh(&mut self) -> UniversalResult<()> {
+        // TODO: Implement service mesh deregistration
         Ok(())
     }
 

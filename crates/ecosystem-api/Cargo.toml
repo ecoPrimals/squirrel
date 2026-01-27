@@ -41,4 +41,5 @@ default = ["ecosystem-integration"]
 ecosystem-integration = []
 # HTTP APIs (brings reqwest → ring, for dev/testing)
 http-api = ["dep:reqwest"]
+http-client = ["dep:reqwest"]  # Alias for backward compatibility
 testing = [] 

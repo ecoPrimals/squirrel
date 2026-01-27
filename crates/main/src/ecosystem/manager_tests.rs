@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn test_service_endpoint_format() {
         let config = EcosystemConfig::default();
-        assert!(config.songbird_endpoint.starts_with("http"));
+        assert!(config.service_mesh_endpoint.starts_with("http"));
     }
 
     #[tokio::test]

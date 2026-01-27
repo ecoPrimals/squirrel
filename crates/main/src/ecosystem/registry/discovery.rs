@@ -190,42 +190,67 @@ impl DiscoveryOps {
         Ok(())
     }
 
-    /// Get capabilities for a primal type with Arc<str> optimization
+    /// Get capabilities for a service by its primary capability
+    ///
+    /// This replaces the hardcoded primal-type-based capability mapping with
+    /// a more flexible capability-based approach.
     #[must_use]
-    pub fn get_capabilities_for_primal(primal_type: &EcosystemPrimalType) -> Vec<Arc<str>> {
-        match primal_type {
-            EcosystemPrimalType::Squirrel => vec![
+    pub fn get_capabilities_for_service(primary_capability: &str) -> Vec<Arc<str>> {
+        match primary_capability {
+            "ai.orchestration" | "ai_coordination" => vec![
                 intern_registry_string("ai_coordination"),
                 intern_registry_string("request_routing"),
                 intern_registry_string("response_aggregation"),
                 intern_registry_string("context_management"),
             ],
-            EcosystemPrimalType::Songbird => vec![
+            "service_mesh" => vec![
                 intern_registry_string("service_mesh"),
                 intern_registry_string("load_balancing"),
                 intern_registry_string("health_monitoring"),
             ],
-            EcosystemPrimalType::ToadStool => vec![
+            "compute.container" | "compute" => vec![
                 intern_registry_string("compute"),
                 intern_registry_string("storage"),
                 intern_registry_string("scaling"),
             ],
-            EcosystemPrimalType::BearDog => vec![
+            "security.auth" | "security" => vec![
                 intern_registry_string("security"),
                 intern_registry_string("authentication"),
                 intern_registry_string("authorization"),
                 intern_registry_string("compliance"),
             ],
-            EcosystemPrimalType::NestGate => vec![
+            "storage.object" | "networking" => vec![
                 intern_registry_string("networking"),
                 intern_registry_string("gateway"),
                 intern_registry_string("routing"),
             ],
-            EcosystemPrimalType::BiomeOS => vec![
+            "platform.orchestration" | "operating_system" => vec![
                 intern_registry_string("operating_system"),
                 intern_registry_string("process_management"),
                 intern_registry_string("resource_allocation"),
             ],
+            _ => vec![], // Default: no capabilities
         }
+    }
+
+    /// Get capabilities for a primal type (DEPRECATED - use get_capabilities_for_service)
+    ///
+    /// This method is deprecated. Use `get_capabilities_for_service()` with capability strings instead.
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use get_capabilities_for_service() for capability-based discovery"
+    )]
+    #[must_use]
+    pub fn get_capabilities_for_primal(primal_type: &EcosystemPrimalType) -> Vec<Arc<str>> {
+        // Map deprecated primal types to capabilities
+        let capability = match primal_type {
+            EcosystemPrimalType::Squirrel => "ai_coordination",
+            EcosystemPrimalType::Songbird => "service_mesh",
+            EcosystemPrimalType::ToadStool => "compute",
+            EcosystemPrimalType::BearDog => "security",
+            EcosystemPrimalType::NestGate => "networking",
+            EcosystemPrimalType::BiomeOS => "operating_system",
+        };
+        Self::get_capabilities_for_service(capability)
     }
 }

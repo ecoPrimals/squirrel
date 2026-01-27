@@ -228,66 +228,68 @@ impl SecurityHardening {
             let incident_handler = self.incident_handler.clone();
             let environment = self.config.environment.clone();
 
-            std::panic::set_hook(Box::new(move |panic_info: &std::panic::PanicInfo<'_>| {
-                let panic_message = panic_info.to_string();
-                let location = panic_info
-                    .location()
-                    .map(|loc| format!("{}:{}:{}", loc.file(), loc.line(), loc.column()));
+            std::panic::set_hook(Box::new(
+                move |panic_info: &std::panic::PanicHookInfo<'_>| {
+                    let panic_message = panic_info.to_string();
+                    let location = panic_info
+                        .location()
+                        .map(|loc| format!("{}:{}:{}", loc.file(), loc.line(), loc.column()));
 
-                let thread_name = std::thread::current()
-                    .name()
-                    .unwrap_or("<unnamed>")
-                    .to_string();
+                    let thread_name = std::thread::current()
+                        .name()
+                        .unwrap_or("<unnamed>")
+                        .to_string();
 
-                // Log panic with appropriate severity based on environment
-                match environment {
-                    Environment::Production => {
-                        error!(
-                            "🚨 PRODUCTION PANIC: {} (thread: {}, location: {:?})",
-                            panic_message, thread_name, location
-                        );
+                    // Log panic with appropriate severity based on environment
+                    match environment {
+                        Environment::Production => {
+                            error!(
+                                "🚨 PRODUCTION PANIC: {} (thread: {}, location: {:?})",
+                                panic_message, thread_name, location
+                            );
+                        }
+                        Environment::Staging => {
+                            error!(
+                                "⚠️ STAGING PANIC: {} (thread: {}, location: {:?})",
+                                panic_message, thread_name, location
+                            );
+                        }
+                        _ => {
+                            warn!(
+                                "🐛 DEV PANIC: {} (thread: {}, location: {:?})",
+                                panic_message, thread_name, location
+                            );
+                        }
                     }
-                    Environment::Staging => {
-                        error!(
-                            "⚠️ STAGING PANIC: {} (thread: {}, location: {:?})",
-                            panic_message, thread_name, location
-                        );
+
+                    // Create security incident
+                    let incident = SecurityIncident::ApplicationPanic {
+                        message: panic_message.clone(),
+                        location: location.clone(),
+                        thread: thread_name.clone(),
+                        timestamp: Utc::now(),
+                    };
+
+                    // Handle incident asynchronously (best effort)
+                    let handler = incident_handler.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = handler.handle_incident(incident).await {
+                            eprintln!("Failed to handle panic incident: {}", e);
+                        }
+                    });
+
+                    // Attempt graceful shutdown for production
+                    if environment == Environment::Production {
+                        eprintln!("🚨 PRODUCTION PANIC DETECTED - INITIATING GRACEFUL SHUTDOWN");
+
+                        // Give time for incident handling
+                        std::thread::sleep(Duration::from_millis(100));
+
+                        // Exit with error code
+                        std::process::exit(1);
                     }
-                    _ => {
-                        warn!(
-                            "🐛 DEV PANIC: {} (thread: {}, location: {:?})",
-                            panic_message, thread_name, location
-                        );
-                    }
-                }
-
-                // Create security incident
-                let incident = SecurityIncident::ApplicationPanic {
-                    message: panic_message.clone(),
-                    location: location.clone(),
-                    thread: thread_name.clone(),
-                    timestamp: Utc::now(),
-                };
-
-                // Handle incident asynchronously (best effort)
-                let handler = incident_handler.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = handler.handle_incident(incident).await {
-                        eprintln!("Failed to handle panic incident: {}", e);
-                    }
-                });
-
-                // Attempt graceful shutdown for production
-                if environment == Environment::Production {
-                    eprintln!("🚨 PRODUCTION PANIC DETECTED - INITIATING GRACEFUL SHUTDOWN");
-
-                    // Give time for incident handling
-                    std::thread::sleep(Duration::from_millis(100));
-
-                    // Exit with error code
-                    std::process::exit(1);
-                }
-            }));
+                },
+            ));
 
             info!("🛡️ Production panic handler installed");
         }

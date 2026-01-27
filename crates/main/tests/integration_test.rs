@@ -1,4 +1,4 @@
-use squirrel::biomeos_integration::ecosystem_client::AuthenticationConfig;
+// Imports updated - ecosystem_client removed (was HTTP-based, violates TRUE PRIMAL)
 use squirrel::biomeos_integration::*;
 use squirrel::error::PrimalError;
 use squirrel::protocol::types::*;
@@ -235,28 +235,38 @@ mod biomeos_integration_tests {
         assert_eq!(health_status.deployed_agents, 3);
     }
 
+    // REMOVED: test_ecosystem_client_creation and test_authentication_config
+    // Reason: EcosystemClient was HTTP-based (reqwest), violates TRUE PRIMAL
+    // TRUE PRIMAL uses capability discovery over Unix sockets, not HTTP clients
+    // See: PRIMAL_IPC_PROTOCOL.md - "Zero hardcoded primal dependencies"
+
     #[tokio::test]
-    async fn test_ecosystem_client_creation() {
-        // Test 20: Ecosystem client
-        let client = EcosystemClient::new();
-        assert_eq!(client.songbird_url, "http://localhost:8080");
-        assert_eq!(client.retry_count, 3);
+    async fn test_manifest_auth_config() {
+        // Test 20: Manifest authentication configuration (from manifest module)
+        let auth_config = ManifestAuthConfig::default();
+        assert_eq!(auth_config.auth_type, "ecosystem_jwt");
+        assert_eq!(auth_config.trust_domain, "biome.local");
     }
 
     #[tokio::test]
-    async fn test_authentication_config() {
-        // Test 21: Authentication configuration
-        let auth_config = AuthenticationConfig::default();
-        assert_eq!(auth_config.auth_type, "ecosystem_jwt");
-        assert_eq!(auth_config.trust_domain, "biome.local"); // Correct domain name
+    async fn test_service_registration_capabilities() {
+        // Test 21: Service capabilities via registration
+        let capabilities = EcosystemCapabilities::default();
+        assert_eq!(capabilities.ai_inference.len(), 5);
+        assert!(capabilities
+            .ai_inference
+            .contains(&"text_generation".to_string()));
+        assert!(capabilities
+            .ai_inference
+            .contains(&"semantic_analysis".to_string()));
     }
 }
 
-// Coverage summary: 21 tests covering comprehensive functionality
+// Coverage summary: 21 tests covering TRUE PRIMAL compliant functionality
 // This provides excellent test coverage for the essential components:
 // - Error handling (4 tests)
 // - Protocol types (4 tests)
 // - Session management (4 tests)
-// - BiomeOS integration (8 tests)
+// - BiomeOS integration (8 tests) - HTTP client tests REMOVED for TRUE PRIMAL
 // - Basic integration (1 test)
-// Total: 21 comprehensive integration tests
+// Total: 21 comprehensive integration tests (evolved from HTTP to capability-based)

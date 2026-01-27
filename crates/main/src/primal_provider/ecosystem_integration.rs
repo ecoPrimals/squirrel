@@ -107,8 +107,8 @@ impl SquirrelPrimalProvider {
 
         // Set configuration for ecosystem manager
         info!(
-            "EcosystemManager configuring Songbird endpoint: {}",
-            &self.config.songbird_endpoint
+            "EcosystemManager configuring service mesh endpoint: {}",
+            &self.config.service_mesh_endpoint
         );
 
         // Initialize service discovery through ecosystem manager (simplified)
@@ -133,13 +133,13 @@ impl SquirrelPrimalProvider {
         // Stop service discovery (simplified)
         info!("EcosystemManager stopping service discovery");
 
-        // Deregister from Songbird via ecosystem manager
+        // Deregister from service mesh via ecosystem manager
         let service_id = format!("{}-{}", self.primal_id(), self.instance_id);
         info!(
-            "EcosystemManager deregistering from Songbird at {}: {}",
-            &self.config.songbird_endpoint, service_id
+            "EcosystemManager deregistering from service mesh at {}: {}",
+            &self.config.service_mesh_endpoint, service_id
         );
-        info!("Successfully deregistered from Songbird via EcosystemManager");
+        info!("Successfully deregistered from service mesh via EcosystemManager");
 
         // Shutdown ecosystem manager (simplified)
         info!("EcosystemManager shutdown completed");
@@ -241,7 +241,7 @@ impl SquirrelPrimalProvider {
             } else {
                 "initializing".to_string()
             },
-            songbird_endpoint: None, // Removed hardcoded endpoint - use capability discovery
+            service_mesh_endpoint: None, // Removed hardcoded endpoint - use capability discovery
             registration_time: Some(chrono::Utc::now()),
             last_heartbeat: Some(chrono::Utc::now()),
             mesh_version: "1.0.0".to_string(),

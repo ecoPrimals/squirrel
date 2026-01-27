@@ -60,13 +60,13 @@ impl Default for WebSocketConfig {
     fn default() -> Self {
         // Using universal-constants for all configuration values
         use universal_constants::limits::DEFAULT_MAX_MESSAGE_SIZE;
-        use universal_constants::network::DEFAULT_WEBSOCKET_PORT;
+        use universal_constants::network::get_service_port;
         use universal_constants::timeouts::{
             DEFAULT_CONNECTION_TIMEOUT, DEFAULT_INITIAL_DELAY, DEFAULT_PING_INTERVAL,
         };
 
         Self {
-            url: format!("ws://localhost:{}", DEFAULT_WEBSOCKET_PORT),
+            url: format!("ws://localhost:{}", get_service_port("websocket")),
             max_message_size: DEFAULT_MAX_MESSAGE_SIZE,
             connection_timeout: DEFAULT_CONNECTION_TIMEOUT.as_secs(),
             ping_interval: Some(DEFAULT_PING_INTERVAL.as_secs()),

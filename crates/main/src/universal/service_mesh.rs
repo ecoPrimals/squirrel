@@ -31,7 +31,7 @@ pub struct CircuitBreakerStatus {
 pub struct ServiceMeshStatus {
     pub registered: bool,
     pub connected: bool,
-    pub songbird_endpoint: Option<String>,
+    pub service_mesh_endpoint: Option<String>,
     pub registration_time: Option<DateTime<Utc>>,
     pub last_heartbeat: Option<DateTime<Utc>>,
     pub mesh_version: String,
@@ -49,7 +49,7 @@ impl Default for ServiceMeshStatus {
         Self {
             registered: false,
             connected: false,
-            songbird_endpoint: None,
+            service_mesh_endpoint: None,
             registration_time: None,
             last_heartbeat: None,
             mesh_version: "1.0.0".to_string(),

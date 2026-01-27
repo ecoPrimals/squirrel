@@ -573,22 +573,28 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         })
     }
 
-    async fn register_with_songbird(&mut self, songbird_endpoint: &str) -> UniversalResult<String> {
+    async fn register_with_service_mesh(
+        &mut self,
+        service_mesh_endpoint: &str,
+    ) -> UniversalResult<String> {
         let service_id = format!("{}-{}", self.primal_id(), self.instance_id());
-        info!("Registering with Songbird at: {}", songbird_endpoint);
+        info!(
+            "Registering with service mesh at: {}",
+            service_mesh_endpoint
+        );
         Ok(service_id)
     }
 
-    async fn deregister_from_songbird(&mut self) -> UniversalResult<()> {
+    async fn deregister_from_service_mesh(&mut self) -> UniversalResult<()> {
         let service_id = format!("{}-{}", self.primal_id(), self.instance_id());
-        info!("Deregistering from Songbird: {}", service_id);
+        info!("Deregistering from service mesh: {}", service_id);
         Ok(())
     }
 
     fn get_service_mesh_status(&self) -> ServiceMeshStatus {
         ServiceMeshStatus {
             connected: self.initialized,
-            songbird_endpoint: Some(self.config.songbird_endpoint.clone()),
+            service_mesh_endpoint: None, // Use capability discovery instead of hardcoded endpoints
             registration_time: Some(Utc::now()),
             last_heartbeat: Some(Utc::now()),
             metadata: {
@@ -672,9 +678,9 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
 
 #[async_trait]
 impl EcosystemIntegration for UniversalSquirrelProvider {
-    async fn register_with_songbird(&self) -> Result<String, EcosystemError> {
+    async fn register_with_service_mesh(&self) -> Result<String, EcosystemError> {
         let service_id = format!("{}-{}", self.primal_type().as_str(), self.instance_id);
-        info!("Registering with Songbird service mesh: {}", service_id);
+        info!("Registering with service mesh: {}", service_id);
         Ok(service_id)
     }
 

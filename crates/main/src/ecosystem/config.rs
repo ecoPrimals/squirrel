@@ -22,8 +22,10 @@ pub struct EcosystemConfig {
     /// Service port
     pub service_port: u16,
 
-    /// Service mesh endpoint URL (e.g., Songbird)
-    pub songbird_endpoint: String,
+    /// Service mesh endpoint URL (capability-based discovery)
+    /// This is the endpoint for discovering other services via capabilities,
+    /// not a hardcoded reference to any specific primal.
+    pub service_mesh_endpoint: String,
 
     /// Biome identifier (if applicable)
     pub biome_id: Option<String>,
@@ -57,7 +59,7 @@ impl Default for EcosystemConfig {
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8002),
-            songbird_endpoint: std::env::var("SONGBIRD_ENDPOINT")
+            service_mesh_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
                 .unwrap_or_else(|_| "http://localhost:8001".to_string()),
             biome_id: std::env::var("BIOME_ID").ok(),
             registry_config: EcosystemRegistryConfig::default(),
@@ -88,7 +90,7 @@ impl EcosystemConfig {
     /// Uses environment variables with sensible defaults:
     /// - `SQUIRREL_HOST` (default: localhost)
     /// - `SQUIRREL_PORT` (default: 8002)
-    /// - `SONGBIRD_ENDPOINT` (default: http://localhost:8001)
+    /// - `SERVICE_MESH_ENDPOINT` (default: http://localhost:8001)
     /// - `BIOME_ID` (optional)
     pub fn from_env() -> Self {
         Self::default()
@@ -110,8 +112,8 @@ impl EcosystemConfig {
             return Err("Service port must be greater than 0".to_string());
         }
 
-        if self.songbird_endpoint.is_empty() {
-            return Err("Songbird endpoint cannot be empty".to_string());
+        if self.service_mesh_endpoint.is_empty() {
+            return Err("Service mesh endpoint cannot be empty".to_string());
         }
 
         Ok(())

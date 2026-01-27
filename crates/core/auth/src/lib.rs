@@ -85,7 +85,7 @@ pub use types::{AuthContext, JwtClaims, LoginRequest, LoginResponse, Permission,
 
 // TRUE ecoBin: Capability-based crypto & JWT (Production - Pure Rust!)
 #[cfg(feature = "delegated-jwt")]
-pub use capability_crypto::{CryptoClient, CryptoClientConfig};
+pub use capability_crypto::{CapabilityCryptoProvider, CapabilityCryptoConfig};
 #[cfg(feature = "delegated-jwt")]
 pub use capability_jwt::{
     CapabilityJwtConfig, CapabilityJwtService, JwtClaims as CapabilityJwtClaims,

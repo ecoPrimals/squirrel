@@ -62,8 +62,11 @@ pub trait UniversalPrimalProvider: Send + Sync {
     async fn shutdown(&mut self) -> UniversalResult<()>;
     fn can_serve_context(&self, context: &PrimalContext) -> bool;
     fn dynamic_port_info(&self) -> Option<DynamicPortInfo>;
-    async fn register_with_songbird(&mut self, songbird_endpoint: &str) -> UniversalResult<String>;
-    async fn deregister_from_songbird(&mut self) -> UniversalResult<()>;
+    async fn register_with_service_mesh(
+        &mut self,
+        service_mesh_endpoint: &str,
+    ) -> UniversalResult<String>;
+    async fn deregister_from_service_mesh(&mut self) -> UniversalResult<()>;
     fn get_service_mesh_status(&self) -> ServiceMeshStatus;
     async fn handle_ecosystem_request(
         &self,

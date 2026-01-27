@@ -73,11 +73,18 @@ pub mod endpoint_helpers {
     }
 }
 
-/// Test helpers for creating mock responses
+/// Test helpers for creating test responses
+/// 
+/// ⚠️ Note: These are TEST HELPERS ONLY. They create simple HashMap responses
+/// for use in unit tests. Real production code uses proper types and error handling.
 pub mod response_helpers {
     use std::collections::HashMap;
     
-    /// Create a successful mock response
+    /// Create a successful test response (for unit tests only)
+    /// 
+    /// # Testing Only
+    /// This is a simplified helper for unit tests. Production code should use
+    /// proper response types with full error handling.
     pub fn mock_success_response(data: &str) -> HashMap<String, String> {
         let mut response = HashMap::new();
         response.insert("status".to_string(), "success".to_string());
@@ -85,7 +92,11 @@ pub mod response_helpers {
         response
     }
     
-    /// Create an error mock response
+    /// Create an error test response (for unit tests only)
+    /// 
+    /// # Testing Only
+    /// This is a simplified helper for unit tests. Production code should use
+    /// proper error types with full context.
     pub fn mock_error_response(error: &str) -> HashMap<String, String> {
         let mut response = HashMap::new();
         response.insert("status".to_string(), "error".to_string());

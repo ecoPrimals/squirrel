@@ -486,8 +486,8 @@ pub struct ServiceMeshStatus {
     /// Is connected to service mesh
     pub connected: bool,
 
-    /// Songbird endpoint
-    pub songbird_endpoint: Option<String>,
+    /// Service mesh endpoint (capability-based, not primal-specific)
+    pub service_mesh_endpoint: Option<String>,
 
     /// Registration timestamp
     pub registration_time: Option<DateTime<Utc>>,

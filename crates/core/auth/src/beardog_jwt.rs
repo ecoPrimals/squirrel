@@ -1,11 +1,11 @@
-//! JWT Implementation Using BearDog Ed25519 (Pure Rust!)
+//! JWT Implementation Using Capability-Based Crypto (Pure Rust!)
 //!
 //! This module provides JWT token creation and verification by delegating
-//! cryptographic operations to BearDog, the ecosystem's crypto specialist.
+//! cryptographic operations to a capability-discovered crypto provider.
 //!
 //! **Architecture**: TRUE PRIMAL + TRUE ecoBin
 //! - No `jsonwebtoken` crate → No `ring` → No C dependencies!
-//! - Delegates to BearDog (crypto specialist)
+//! - Discovers crypto.signing capability at runtime (no hardcoded primal)
 //! - Uses Ed25519 (EdDSA) instead of HMAC-SHA256
 //! - 100% Pure Rust!
 //!
@@ -15,7 +15,7 @@
 //! - Claims: Same as before (sub, exp, iat, etc.)
 //! - Signature: Ed25519 (64 bytes, base64url-encoded)
 
-use crate::beardog_client::{BearDogClient, BearDogClientConfig};
+use crate::capability_crypto::{CapabilityCryptoProvider, CapabilityCryptoConfig};
 use crate::{AuthContext, AuthError};
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as BASE64_URL, Engine};
@@ -115,13 +115,13 @@ impl JwtClaims {
     }
 }
 
-/// BearDog JWT service configuration
+/// Capability-based JWT service configuration
 #[derive(Debug, Clone)]
 pub struct BearDogJwtConfig {
-    /// BearDog client configuration
-    pub beardog_config: BearDogClientConfig,
+    /// Crypto provider configuration (capability-based)
+    pub crypto_config: CapabilityCryptoConfig,
 
-    /// Key ID in BearDog for JWT signing/verification
+    /// Key ID for JWT signing/verification (optional, provider-specific)
     pub key_id: String,
 
     /// Token expiry duration in hours (default: 24)
@@ -131,14 +131,14 @@ pub struct BearDogJwtConfig {
 impl Default for BearDogJwtConfig {
     fn default() -> Self {
         Self {
-            beardog_config: BearDogClientConfig::default(),
+            crypto_config: CapabilityCryptoConfig::default(),
             key_id: "squirrel-jwt-signing-key".to_string(),
             expiry_hours: 24,
         }
     }
 }
 
-/// JWT token manager using BearDog Ed25519 (Pure Rust!)
+/// JWT token manager using capability-based crypto (Pure Rust!)
 ///
 /// # Examples
 ///
@@ -168,22 +168,22 @@ impl Default for BearDogJwtConfig {
 /// }
 /// ```
 pub struct BearDogJwtService {
-    beardog_client: BearDogClient,
+    crypto: CapabilityCryptoProvider,
     key_id: String,
 }
 
 impl BearDogJwtService {
-    /// Create new BearDog JWT service
+    /// Create new capability-based JWT service
     pub fn new(config: BearDogJwtConfig) -> Result<Self> {
         info!(
-            "Initializing BearDog JWT service: key_id={}, socket={}",
-            config.key_id, config.beardog_config.socket_path
+            "Initializing capability-based JWT service: key_id={}, endpoint={:?}",
+            config.key_id, config.crypto_config.endpoint
         );
 
-        let beardog_client = BearDogClient::new(config.beardog_config)?;
+        let crypto = CapabilityCryptoProvider::from_config(config.crypto_config);
 
         Ok(Self {
-            beardog_client,
+            crypto,
             key_id: config.key_id,
         })
     }
@@ -225,12 +225,13 @@ impl BearDogJwtService {
         // 3. Create signing input
         let signing_input = format!("{}.{}", header_b64, claims_b64);
 
-        // 4. Sign via BearDog (Pure Rust!)
+        // 4. Sign via discovered crypto provider (Pure Rust!)
         let signature = self
-            .beardog_client
-            .ed25519_sign(signing_input.as_bytes(), &self.key_id)
+            .crypto
+            .clone()  // Clone for async mutable access
+            .sign_ed25519(signing_input.as_bytes())
             .await
-            .context("Failed to sign JWT via BearDog")
+            .context("Failed to sign JWT via capability crypto")
             .map_err(|e| AuthError::Internal {
                 message: e.to_string(),
             })?;
@@ -285,13 +286,14 @@ impl BearDogJwtService {
             AuthError::InvalidToken
         })?;
 
-        // 3. Verify signature via BearDog (Pure Rust!)
+        // 3. Verify signature via discovered crypto provider (Pure Rust!)
         let signing_input = format!("{}.{}", header_b64, claims_b64);
         let is_valid = self
-            .beardog_client
-            .ed25519_verify(signing_input.as_bytes(), &signature, &self.key_id)
+            .crypto
+            .clone()  // Clone for async mutable access
+            .verify_ed25519_with_key_id(signing_input.as_bytes(), &signature, &self.key_id)
             .await
-            .context("Failed to verify JWT signature via BearDog")
+            .context("Failed to verify JWT signature via capability crypto")
             .map_err(|e| AuthError::Internal {
                 message: e.to_string(),
             })?;

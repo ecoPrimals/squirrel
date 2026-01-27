@@ -94,11 +94,9 @@ impl DelegatedJwtClient {
         );
 
         let capability_config = CapabilityJwtConfig {
-            crypto_config: crate::capability_crypto::CryptoClientConfig {
-                socket_path: socket_path.into(),
-                timeout_secs: 5,
-                max_retries: 3,
-                retry_delay_ms: 100,
+            crypto_config: crate::capability_crypto::CapabilityCryptoConfig {
+                endpoint: Some(socket_path),
+                discovery_timeout_ms: Some(5000),
             },
             key_id,
             expiry_hours,

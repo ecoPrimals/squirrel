@@ -59,14 +59,17 @@ pub trait UniversalPrimalProvider: Send + Sync {
     /// Check if this primal can serve the given context
     fn can_serve_context(&self, context: &PrimalContext) -> bool;
 
-    /// Get dynamic port information (managed by Songbird)
+    /// Get dynamic port information (managed by service mesh)
     fn dynamic_port_info(&self) -> Option<DynamicPortInfo>;
 
-    /// Register with Songbird service mesh
-    async fn register_with_songbird(&mut self, songbird_endpoint: &str) -> UniversalResult<String>;
+    /// Register with service mesh
+    async fn register_with_service_mesh(
+        &mut self,
+        service_mesh_endpoint: &str,
+    ) -> UniversalResult<String>;
 
-    /// Deregister from Songbird service mesh
-    async fn deregister_from_songbird(&mut self) -> UniversalResult<()>;
+    /// Deregister from service mesh
+    async fn deregister_from_service_mesh(&mut self) -> UniversalResult<()>;
 
     /// Get service mesh status
     fn get_service_mesh_status(&self) -> ServiceMeshStatus;
@@ -88,12 +91,12 @@ pub trait UniversalPrimalProvider: Send + Sync {
 /// Ecosystem integration trait - ALL PRIMALS MUST IMPLEMENT
 ///
 /// This trait handles communication with the broader ecosystem through
-/// the Songbird service mesh. It provides standardized request/response
+/// the service mesh. It provides standardized request/response
 /// handling and service lifecycle management.
 #[async_trait]
 pub trait EcosystemIntegration: Send + Sync {
-    /// Register service with Songbird
-    async fn register_with_songbird(&self) -> Result<String, EcosystemError>;
+    /// Register service with service mesh
+    async fn register_with_service_mesh(&self) -> Result<String, EcosystemError>;
 
     /// Handle incoming requests from other services
     async fn handle_ecosystem_request(

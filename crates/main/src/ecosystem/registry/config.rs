@@ -22,8 +22,9 @@ pub struct RetryConfig {
 /// Configuration for ecosystem registry manager
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemRegistryConfig {
-    /// Songbird service mesh endpoint for service discovery
-    pub songbird_endpoint: String,
+    /// Service mesh endpoint for capability-based service discovery
+    /// This is a generic endpoint, not tied to any specific primal
+    pub service_mesh_endpoint: String,
     /// Registration retry configuration
     pub retry_config: RetryConfig,
     /// Health check configuration
@@ -69,7 +70,7 @@ pub struct SecurityConfig {
 impl Default for EcosystemRegistryConfig {
     fn default() -> Self {
         Self {
-            songbird_endpoint: "http://localhost:8000".to_string(),
+            service_mesh_endpoint: "http://localhost:8000".to_string(),
             retry_config: RetryConfig::default(),
             health_config: HealthConfig::default(),
             discovery_config: DiscoveryConfig::default(),

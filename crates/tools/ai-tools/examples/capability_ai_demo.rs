@@ -68,7 +68,10 @@ async fn demo_basic_chat() -> anyhow::Result<()> {
     let response = client.chat_completion("gpt-4", messages, None).await?;
 
     info!("   Response: {}", response.content);
-    info!("   Tokens used: {}", response.usage.total_tokens);
+    info!(
+        "   Tokens used: {}",
+        response.usage.as_ref().map(|u| u.total_tokens).unwrap_or(0)
+    );
     info!("");
 
     Ok(())

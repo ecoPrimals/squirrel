@@ -10,7 +10,7 @@ fn create_test_config() -> EcosystemConfig {
         service_host: "localhost".to_string(),
         service_port: 8080,
         biome_id: Some("test-biome".to_string()),
-        songbird_endpoint: "http://localhost:8000".to_string(),
+        service_mesh_endpoint: "http://localhost:8000".to_string(),
         ..Default::default()
     }
 }
@@ -42,7 +42,9 @@ async fn test_ecosystem_config_default() {
 }
 
 #[tokio::test]
-async fn test_ecosystem_primal_type_as_str() {
+#[allow(deprecated)]
+async fn test_ecosystem_primal_type_as_str_deprecated() {
+    // Testing deprecated API for backward compatibility
     assert_eq!(EcosystemPrimalType::Squirrel.as_str(), "squirrel");
     assert_eq!(EcosystemPrimalType::Songbird.as_str(), "songbird");
     assert_eq!(EcosystemPrimalType::BearDog.as_str(), "beardog");
@@ -207,7 +209,24 @@ async fn test_ecosystem_manager_discover_services() {
 }
 
 #[tokio::test]
-async fn test_ecosystem_manager_find_services_by_type() {
+async fn test_ecosystem_manager_find_services_by_capability() {
+    let config = create_test_config();
+    let metrics = create_test_metrics();
+    let mut manager = EcosystemManager::new(config, metrics);
+
+    manager.initialize().await.expect("test: should initialize");
+
+    // ✅ NEW: Use capability-based discovery instead of hardcoded primal type
+    let result = manager
+        .find_services_by_capability("service_mesh")
+        .await;
+    assert!(result.is_ok(), "Find services by capability should not fail");
+}
+
+#[tokio::test]
+#[allow(deprecated)]
+async fn test_ecosystem_manager_find_services_by_type_deprecated() {
+    // Test that deprecated method returns proper error
     let config = create_test_config();
     let metrics = create_test_metrics();
     let mut manager = EcosystemManager::new(config, metrics);
@@ -217,7 +236,7 @@ async fn test_ecosystem_manager_find_services_by_type() {
     let result = manager
         .find_services_by_type(EcosystemPrimalType::Songbird)
         .await;
-    assert!(result.is_ok(), "Find services by type should not fail");
+    assert!(result.is_err(), "Deprecated method should return error");
 }
 
 #[tokio::test]

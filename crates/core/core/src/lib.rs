@@ -298,14 +298,18 @@ pub struct QueuedTask {
 pub const SQUIRREL_MCP_VERSION: &str = "2.2.0";
 pub const PRIMAL_TYPE: &str = "squirrel";
 
-// Songbird Load Balancer Integration
+// Service Mesh Load Balancer Integration Config
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct SongbirdLoadBalancerConfig {
+pub struct ServiceMeshLoadBalancerConfig {
     pub endpoint: String,
     pub enabled: bool,
     pub fallback_strategy: LoadBalancingStrategy,
     pub coordination_timeout: std::time::Duration,
 }
+
+// Deprecated alias for backward compatibility
+#[deprecated(since = "0.1.0", note = "Use ServiceMeshLoadBalancerConfig instead")]
+pub type SongbirdLoadBalancerConfig = ServiceMeshLoadBalancerConfig;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LoadBalancingStrategy {
@@ -324,7 +328,7 @@ pub enum LoadBalancingStrategy {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct McpLoadBalancerConfig {
     pub local_strategy: LoadBalancingStrategy,
-    pub songbird_integration: Option<SongbirdLoadBalancerConfig>,
+    pub service_mesh_integration: Option<ServiceMeshLoadBalancerConfig>,
     pub federation_enabled: bool,
     pub cross_primal_routing: bool,
 }
@@ -380,24 +384,28 @@ pub struct RoutingStats {
     pub federation_nodes: u32,
 }
 
-// Songbird Load Balancer Integration Trait
+// Service Mesh Load Balancer Integration Trait (Capability-Based)
 #[async_trait::async_trait]
-pub trait SongbirdLoadBalancerIntegration {
-    /// Register Squirrel MCP with Songbird's load balancer
-    async fn register_with_songbird(&self, config: &SongbirdLoadBalancerConfig) -> Result<()>;
+pub trait ServiceMeshLoadBalancerIntegration {
+    /// Register Squirrel MCP with service mesh load balancer
+    async fn register_with_service_mesh(&self, config: &ServiceMeshLoadBalancerConfig) -> Result<()>;
 
     /// Find a capable primal for cross-primal task routing
     async fn find_capable_primal(&self, task: &McpTask) -> Result<Option<PrimalEndpoint>>;
 
-    /// Report load metrics to Songbird for ecosystem-wide load balancing
+    /// Report load metrics to service mesh for ecosystem-wide load balancing
     async fn report_load_metrics(&self, metrics: &LoadBalancerStats) -> Result<()>;
 
-    /// Query Songbird for ecosystem load distribution recommendations
+    /// Query service mesh for ecosystem load distribution recommendations
     async fn query_load_distribution(&self) -> Result<EcosystemLoadDistribution>;
 
-    /// Coordinate with Songbird during scaling events
+    /// Coordinate with service mesh during scaling events
     async fn coordinate_scaling(&self, scale_event: &ScaleEvent) -> Result<ScaleRecommendation>;
 }
+
+// Deprecated alias for backward compatibility
+#[deprecated(since = "0.1.0", note = "Use ServiceMeshLoadBalancerIntegration instead")]
+pub trait SongbirdLoadBalancerIntegration: ServiceMeshLoadBalancerIntegration {}
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EcosystemLoadDistribution {
@@ -448,13 +456,13 @@ pub struct CrossPrimalRoute {
     pub estimated_benefit: f64,
 }
 
-// Enhanced MCP Router with Songbird Integration
+// Enhanced MCP Router with Service Mesh Integration
 #[async_trait::async_trait]
-pub trait EnhancedMcpRouter: McpRouter + SongbirdLoadBalancerIntegration {
-    /// Route task with Songbird coordination
-    async fn route_task_with_songbird(&self, task: McpTask) -> Result<TaskResponse>;
+pub trait EnhancedMcpRouter: McpRouter + ServiceMeshLoadBalancerIntegration {
+    /// Route task with service mesh coordination
+    async fn route_task_with_service_mesh(&self, task: McpTask) -> Result<TaskResponse>;
 
-    /// Get comprehensive routing statistics including Songbird coordination
+    /// Get comprehensive routing statistics including service mesh coordination
     async fn get_comprehensive_stats(&self) -> Result<LoadBalancerStats>;
 
     /// Handle cross-primal task coordination

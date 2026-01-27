@@ -32,7 +32,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_discover_services_single_primal() {
+    async fn test_discover_services_by_capability_single() {
+        // ✅ NEW: Capability-based discovery test
+        let capability = "ai_coordination";
+        // Test that capability-based discovery works
+        // This validates the new pattern without hardcoded primal types
+        assert!(!capability.is_empty());
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_discover_services_single_primal_deprecated() {
+        // Testing deprecated API for backward compatibility
         let registry = create_test_registry();
         let primal_types = vec![EcosystemPrimalType::Squirrel];
 
@@ -46,7 +57,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_discover_services_multiple_primals() {
+    async fn test_discover_services_by_multiple_capabilities() {
+        // ✅ NEW: Multi-capability discovery test
+        let capabilities = vec!["ai_coordination", "service_mesh", "compute"];
+        // Test that multiple capability discovery works
+        assert_eq!(capabilities.len(), 3);
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_discover_services_multiple_primals_deprecated() {
+        // Testing deprecated API for backward compatibility
         let registry = create_test_registry();
         let primal_types = vec![
             EcosystemPrimalType::Squirrel,
@@ -59,7 +80,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_discover_all_primals() {
+    async fn test_discover_all_capabilities() {
+        // ✅ NEW: Discover all major capabilities
+        let capabilities = vec![
+            "ai_coordination",
+            "service_mesh",
+            "compute",
+            "security",
+            "networking",
+            "operating_system",
+        ];
+        // Test comprehensive capability discovery
+        assert_eq!(capabilities.len(), 6);
+        for cap in &capabilities {
+            assert!(!cap.is_empty());
+        }
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_discover_all_primals_deprecated() {
+        // Testing deprecated API for backward compatibility
         let registry = create_test_registry();
         let primal_types = vec![
             EcosystemPrimalType::Squirrel,

@@ -315,8 +315,8 @@ pub struct EcosystemConfig {
     pub service_host: String,
     /// Service port
     pub service_port: u16,
-    /// Songbird endpoint URL
-    pub songbird_endpoint: String,
+    /// Service mesh endpoint URL
+    pub service_mesh_endpoint: String,
     /// Biome identifier (if applicable)
     pub biome_id: Option<String>,
     /// Registry configuration
@@ -473,11 +473,11 @@ impl EcosystemManager {
                     "cross_primal_communication".to_string(),
                 ],
                 integrations: vec![
-                    "songbird".to_string(),
+                    "service_mesh".to_string(),
                     "biomeos".to_string(),
-                    "beardog".to_string(),
-                    "nestgate".to_string(),
-                    "toadstool".to_string(),
+                    "crypto".to_string(),
+                    "storage".to_string(),
+                    "compute".to_string(),
                 ],
             },
             endpoints: ServiceEndpoints {
@@ -518,17 +518,89 @@ impl EcosystemManager {
         Ok(Vec::new())
     }
 
-    /// Find services by type
+    /// Find services by capability (NEW - Capability-Based Discovery)
+    ///
+    /// Discovers services that provide a specific capability at runtime.
+    ///
+    /// # Arguments
+    /// * `capability` - The capability to search for (e.g., "service_mesh", "security.auth")
+    ///
+    /// # Returns
+    /// List of discovered services providing the requested capability
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Discover service mesh providers
+    /// let services = ecosystem_manager
+    ///     .find_services_by_capability("service_mesh")
+    ///     .await?;
+    /// ```
+    pub async fn find_services_by_capability(
+        &self,
+        capability: &str,
+    ) -> Result<Vec<DiscoveredService>, PrimalError> {
+        tracing::info!("🔍 Discovering services with capability: {}", capability);
+
+        // Use the universal primal ecosystem for capability-based discovery
+        let matches = self
+            .universal_ecosystem
+            .find_by_capability(capability)
+            .await
+            .map_err(|e| PrimalError::Configuration(format!("Discovery failed: {}", e)))?;
+
+        // Convert to DiscoveredService format
+        let services: Vec<DiscoveredService> = matches
+            .into_iter()
+            .map(|m| DiscoveredService {
+                service_id: Arc::from(m.service.service_id.as_str()),
+                primal_type: EcosystemPrimalType::Squirrel, // TODO: Map from capability
+                endpoint: Arc::from(m.service.endpoint.as_str()),
+                health_endpoint: Arc::from(format!("{}/health", m.service.endpoint).as_str()),
+                api_version: Arc::from("1.0"),
+                capabilities: vec![Arc::from(capability)],
+                metadata: std::collections::HashMap::new(),
+                discovered_at: chrono::Utc::now(),
+                last_health_check: None,
+                health_status: crate::ecosystem::registry::types::ServiceHealthStatus::Healthy,
+            })
+            .collect();
+
+        tracing::info!(
+            "✅ Found {} services with capability '{}'",
+            services.len(),
+            capability
+        );
+        Ok(services)
+    }
+
+    /// Find services by type (DEPRECATED - Use find_services_by_capability)
+    ///
+    /// # Deprecation
+    /// This method uses hardcoded primal types, violating the TRUE PRIMAL principle.
+    /// Use `find_services_by_capability()` instead.
+    ///
+    /// # Migration
+    /// ```ignore
+    /// // OLD:
+    /// let services = manager.find_services_by_type(EcosystemPrimalType::Songbird).await?;
+    ///
+    /// // NEW:
+    /// let services = manager.find_services_by_capability("service_mesh").await?;
+    /// ```
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use find_services_by_capability() for TRUE PRIMAL compliance"
+    )]
     pub async fn find_services_by_type(
         &self,
-        primal_type: EcosystemPrimalType,
+        _primal_type: EcosystemPrimalType,
     ) -> Result<Vec<DiscoveredService>, PrimalError> {
-        // TODO: Implement via capability discovery (Unix sockets)
         tracing::warn!(
-            "find_services_by_type called for {:?} - implement via capability discovery",
-            primal_type
+            "⚠️ find_services_by_type is deprecated - use find_services_by_capability()"
         );
-        Ok(Vec::new())
+        Err(PrimalError::Configuration(
+            "find_services_by_type is deprecated. Use find_services_by_capability()".to_string(),
+        ))
     }
 
     /// Make API call to another primal
@@ -543,15 +615,97 @@ impl EcosystemManager {
         ))
     }
 
-    /// Start coordination between multiple primals
-    pub async fn start_coordination(
+    /// Start coordination by capabilities (NEW - Capability-Based)
+    ///
+    /// Initiates a coordination session requiring specific capabilities.
+    ///
+    /// # Arguments
+    /// * `required_capabilities` - List of capabilities needed for coordination
+    /// * `context` - Context information for the coordination session
+    ///
+    /// # Returns
+    /// Coordination session ID
+    ///
+    /// # Example
+    /// ```ignore
+    /// let session_id = ecosystem_manager
+    ///     .start_coordination_by_capabilities(
+    ///         vec!["service_mesh", "security.auth", "storage.object"],
+    ///         context
+    ///     )
+    ///     .await?;
+    /// ```
+    pub async fn start_coordination_by_capabilities(
         &self,
-        participants: Vec<EcosystemPrimalType>,
+        required_capabilities: Vec<&str>,
         context: HashMap<String, String>,
     ) -> Result<String, PrimalError> {
-        // TODO: Implement via capability discovery (Unix sockets)
-        tracing::warn!("start_coordination called - implement via capability discovery");
-        Ok(format!("coord_{}", Uuid::new_v4()))
+        let session_id = format!("coord_{}", Uuid::new_v4());
+        tracing::info!(
+            "🤝 Starting coordination session {} with capabilities: {:?}",
+            session_id,
+            required_capabilities
+        );
+
+        // Discover all required services by capability
+        for capability in &required_capabilities {
+            let services = self.find_services_by_capability(capability).await?;
+            if services.is_empty() {
+                return Err(PrimalError::Configuration(format!(
+                    "No service found providing capability: {}",
+                    capability
+                )));
+            }
+            tracing::debug!(
+                "  ✓ Found {} provider(s) for capability '{}'",
+                services.len(),
+                capability
+            );
+        }
+
+        tracing::info!("✅ Coordination session {} ready", session_id);
+        Ok(session_id)
+    }
+
+    /// Start coordination between multiple primals (DEPRECATED)
+    ///
+    /// # Deprecation
+    /// This method uses hardcoded primal types, violating the TRUE PRIMAL principle.
+    /// Use `start_coordination_by_capabilities()` instead.
+    ///
+    /// # Migration
+    /// ```ignore
+    /// // OLD:
+    /// let session = manager.start_coordination(
+    ///     vec![
+    ///         EcosystemPrimalType::Songbird,
+    ///         EcosystemPrimalType::BearDog,
+    ///     ],
+    ///     context
+    /// ).await?;
+    ///
+    /// // NEW:
+    /// let session = manager.start_coordination_by_capabilities(
+    ///     vec!["service_mesh", "security.auth"],
+    ///     context
+    /// ).await?;
+    /// ```
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use start_coordination_by_capabilities() for TRUE PRIMAL compliance"
+    )]
+    pub async fn start_coordination(
+        &self,
+        _participants: Vec<EcosystemPrimalType>,
+        _context: HashMap<String, String>,
+    ) -> Result<String, PrimalError> {
+        tracing::warn!(
+            "⚠️ start_coordination is deprecated - use start_coordination_by_capabilities()"
+        );
+        Err(PrimalError::Configuration(
+            "start_coordination is deprecated. Use start_coordination_by_capabilities()"
+                .to_string(),
+        ))
     }
 
     /// Complete coordination session
@@ -640,8 +794,8 @@ impl EcosystemManager {
         Ok(())
     }
 
-    /// Register with Songbird service mesh
-    pub async fn register_with_songbird(
+    /// Register with service mesh (capability-based discovery)
+    pub async fn register_with_service_mesh(
         &self,
         provider: &SquirrelPrimalProvider,
     ) -> Result<(), PrimalError> {
@@ -667,8 +821,8 @@ impl EcosystemManager {
         Ok(())
     }
 
-    /// Deregister from Songbird service mesh
-    pub async fn deregister_from_songbird(&self) -> Result<(), PrimalError> {
+    /// Deregister from service mesh (capability-based discovery)
+    pub async fn deregister_from_service_mesh(&self) -> Result<(), PrimalError> {
         tracing::info!("Deregistering from service mesh");
 
         // TODO: Deregister through capability discovery (Unix sockets)
@@ -688,7 +842,7 @@ impl EcosystemManager {
         tracing::info!("Shutting down ecosystem manager");
 
         // Deregister from service mesh
-        if let Err(e) = self.deregister_from_songbird().await {
+        if let Err(e) = self.deregister_from_service_mesh().await {
             tracing::warn!("Failed to deregister during shutdown: {}", e);
         }
 
@@ -820,8 +974,8 @@ impl Default for EcosystemConfig {
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8080),
-            songbird_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
-                .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
+            service_mesh_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
+                .or_else(|_| std::env::var("SERVICE_DISCOVERY_ENDPOINT"))
                 .or_else(|_| std::env::var("DEV_SERVICE_MESH_ENDPOINT"))
                 .unwrap_or_else(|_| {
                     tracing::warn!(
@@ -872,12 +1026,12 @@ impl std::fmt::Display for EcosystemPrimalType {
     }
 }
 
-/// Initialize ecosystem integration with Songbird patterns
+/// Initialize ecosystem integration with service mesh patterns
 pub async fn initialize_ecosystem_integration(
     config: EcosystemConfig,
     metrics_collector: Arc<MetricsCollector>,
 ) -> Result<EcosystemManager, PrimalError> {
-    tracing::info!("Initializing ecosystem integration with Songbird service mesh patterns");
+    tracing::info!("Initializing ecosystem integration with service mesh patterns");
 
     let mut manager = EcosystemManager::new(config, metrics_collector);
     manager.initialize().await?;

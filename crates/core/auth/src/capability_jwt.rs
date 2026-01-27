@@ -9,7 +9,7 @@
 //! - Squirrel discovers "crypto.ed25519.sign" capability
 //! - Could be BearDog, could be any crypto primal, could be multiple!
 
-use crate::capability_crypto::{CryptoClient, CryptoClientConfig};
+use crate::capability_crypto::{CapabilityCryptoProvider, CapabilityCryptoConfig};
 use crate::{AuthContext, AuthError};
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as BASE64_URL, Engine};
@@ -114,7 +114,7 @@ impl JwtClaims {
 pub struct CapabilityJwtConfig {
     /// Crypto capability client configuration
     /// (Socket path from capability discovery!)
-    pub crypto_config: CryptoClientConfig,
+    pub crypto_config: CapabilityCryptoConfig,
 
     /// Key ID in crypto provider for JWT signing
     /// (Provider-specific, we don't care which primal!)
@@ -127,7 +127,7 @@ pub struct CapabilityJwtConfig {
 impl Default for CapabilityJwtConfig {
     fn default() -> Self {
         Self {
-            crypto_config: CryptoClientConfig::default(),
+            crypto_config: CapabilityCryptoConfig::default(),
             key_id: "squirrel-jwt-signing-key".to_string(),
             expiry_hours: 24,
         }
@@ -170,7 +170,7 @@ impl Default for CapabilityJwtConfig {
 /// }
 /// ```
 pub struct CapabilityJwtService {
-    crypto_client: CryptoClient,
+    crypto_client: CapabilityCryptoProvider,
     key_id: String,
 }
 
@@ -181,12 +181,12 @@ impl CapabilityJwtService {
     pub fn new(config: CapabilityJwtConfig) -> Result<Self> {
         info!("🌍 Initializing TRUE PRIMAL JWT service (capability-based discovery!)");
         info!(
-            "Crypto capability: socket={}, key_id={}",
-            config.crypto_config.socket_path.display(),
+            "Crypto capability: endpoint={:?}, key_id={}",
+            config.crypto_config.endpoint,
             config.key_id
         );
 
-        let crypto_client = CryptoClient::new(config.crypto_config)?;
+        let crypto_client = CapabilityCryptoProvider::from_config(config.crypto_config);
 
         Ok(Self {
             crypto_client,
@@ -228,7 +228,8 @@ impl CapabilityJwtService {
         // 4. Sign via discovered crypto capability (Pure Rust!)
         let signature = self
             .crypto_client
-            .ed25519_sign(signing_input.as_bytes(), &self.key_id)
+            .clone()  // Clone for async mutable access
+            .sign_ed25519(signing_input.as_bytes())
             .await
             .context("Failed to sign JWT via crypto capability")
             .map_err(|e| AuthError::Internal {
@@ -278,7 +279,8 @@ impl CapabilityJwtService {
         let signing_input = format!("{}.{}", header_b64, claims_b64);
         let is_valid = self
             .crypto_client
-            .ed25519_verify(signing_input.as_bytes(), &signature, &self.key_id)
+            .clone()  // Clone for async mutable access
+            .verify_ed25519_with_key_id(signing_input.as_bytes(), &signature, &self.key_id)
             .await
             .context("Failed to verify JWT signature via crypto capability")
             .map_err(|e| AuthError::Internal {

@@ -186,15 +186,58 @@ impl SquirrelSystem {
             .await
     }
 
-    /// Start ecosystem coordination
-    pub async fn start_coordination(
+    /// Start ecosystem coordination by capabilities (NEW - Capability-Based)
+    ///
+    /// Initiates coordination requiring specific capabilities.
+    ///
+    /// # Arguments
+    /// * `required_capabilities` - List of capabilities needed
+    ///
+    /// # Example
+    /// ```ignore
+    /// let session_id = squirrel
+    ///     .start_coordination_by_capabilities(vec!["service_mesh", "security.auth"])
+    ///     .await?;
+    /// ```
+    pub async fn start_coordination_by_capabilities(
         &self,
-        participants: Vec<EcosystemPrimalType>,
+        required_capabilities: Vec<&str>,
     ) -> Result<String, crate::error::PrimalError> {
         let context = std::collections::HashMap::new();
         self.ecosystem_manager
-            .start_coordination(participants, context)
+            .start_coordination_by_capabilities(required_capabilities, context)
             .await
+    }
+
+    /// Start ecosystem coordination (DEPRECATED - Use start_coordination_by_capabilities)
+    ///
+    /// # Deprecation
+    /// This method uses hardcoded primal types. Use `start_coordination_by_capabilities()` instead.
+    ///
+    /// # Migration
+    /// ```ignore
+    /// // OLD:
+    /// let session = squirrel.start_coordination(
+    ///     vec![EcosystemPrimalType::Songbird]
+    /// ).await?;
+    ///
+    /// // NEW:
+    /// let session = squirrel.start_coordination_by_capabilities(
+    ///     vec!["service_mesh"]
+    /// ).await?;
+    /// ```
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use start_coordination_by_capabilities() for TRUE PRIMAL compliance"
+    )]
+    pub async fn start_coordination(
+        &self,
+        _participants: Vec<EcosystemPrimalType>,
+    ) -> Result<String, crate::error::PrimalError> {
+        Err(crate::error::PrimalError::Configuration(
+            "start_coordination is deprecated. Use start_coordination_by_capabilities()"
+                .to_string(),
+        ))
     }
 
     /// Get comprehensive system status
