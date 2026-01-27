@@ -11,8 +11,7 @@
 
 use super::{AiProviderAdapter, QualityTier};
 use crate::api::ai::types::{
-    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
-    TextGenerationResponse,
+    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
 };
 use crate::capabilities::discover_capability;
 use crate::error::PrimalError;
@@ -76,9 +75,8 @@ impl OpenAiAdapter {
     ///
     /// Reads API key from OPENAI_API_KEY environment variable
     pub fn new() -> Result<Self, PrimalError> {
-        let api_key = std::env::var("OPENAI_API_KEY").map_err(|_| {
-            PrimalError::ConfigError("OPENAI_API_KEY not set".to_string())
-        })?;
+        let api_key = std::env::var("OPENAI_API_KEY")
+            .map_err(|_| PrimalError::ConfigError("OPENAI_API_KEY not set".to_string()))?;
 
         Ok(Self {
             api_key,
@@ -100,9 +98,7 @@ impl OpenAiAdapter {
         // Discover who provides HTTP capability (TRUE PRIMAL!)
         let http_provider = discover_capability("http.request")
             .await
-            .map_err(|e| {
-                PrimalError::NetworkError(format!("No HTTP provider found: {}", e))
-            })?;
+            .map_err(|e| PrimalError::NetworkError(format!("No HTTP provider found: {}", e)))?;
 
         debug!(
             "Delegating HTTP to {} (discovered via capability)",
@@ -161,9 +157,7 @@ impl OpenAiAdapter {
     ) -> Result<TextGenerationResponse, PrimalError> {
         // Build OpenAI-specific request
         let openai_request = OpenAiRequest {
-            model: request
-                .model
-                .unwrap_or_else(|| self.default_model.clone()),
+            model: request.model.unwrap_or_else(|| self.default_model.clone()),
             messages: vec![OpenAiMessage {
                 role: "user".to_string(),
                 content: request.prompt.clone(),
@@ -191,10 +185,10 @@ impl OpenAiAdapter {
             .await?;
 
         // Parse HTTP response
-        let http_response: serde_json::Value =
-            response_json.get("body").cloned().ok_or_else(|| {
-                PrimalError::ParsingError("No body in HTTP response".to_string())
-            })?;
+        let http_response: serde_json::Value = response_json
+            .get("body")
+            .cloned()
+            .ok_or_else(|| PrimalError::ParsingError("No body in HTTP response".to_string()))?;
 
         // Parse OpenAI response
         let openai_response: OpenAiResponse = serde_json::from_value(http_response)?;
@@ -318,4 +312,3 @@ mod tests {
         assert!(adapter.supports_image_generation());
     }
 }
-

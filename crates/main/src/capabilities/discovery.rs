@@ -104,9 +104,7 @@ pub async fn discover_capability(capability: &str) -> Result<CapabilityProvider,
 ///
 /// Format: CAPABILITY_NAME_PROVIDER_SOCKET=/path/to/socket
 /// Example: CRYPTO_SIGNING_PROVIDER_SOCKET=/tmp/provider.sock
-async fn try_explicit_env(
-    capability: &str,
-) -> Result<Option<CapabilityProvider>, DiscoveryError> {
+async fn try_explicit_env(capability: &str) -> Result<Option<CapabilityProvider>, DiscoveryError> {
     let env_var = format!(
         "{}_PROVIDER_SOCKET",
         capability.to_uppercase().replace('.', "_")
@@ -143,37 +141,37 @@ async fn try_socket_scan(capability: &str) -> Result<Option<CapabilityProvider>,
     let socket_dirs = get_socket_directories();
 
     // BIOME OS FIX: Total scan timeout of 5 seconds (was unlimited)
-    let scan_result = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        async {
-            for socket_dir in socket_dirs {
-                debug!("Scanning socket directory: {:?}", socket_dir);
+    let scan_result = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        for socket_dir in socket_dirs {
+            debug!("Scanning socket directory: {:?}", socket_dir);
 
-                if let Ok(mut entries) = fs::read_dir(&socket_dir).await {
-                    while let Ok(Some(entry)) = entries.next_entry().await {
-                        let path = entry.path();
+            if let Ok(mut entries) = fs::read_dir(&socket_dir).await {
+                while let Ok(Some(entry)) = entries.next_entry().await {
+                    let path = entry.path();
 
-                        // Only check Unix sockets
-                        if is_unix_socket(&path).await {
-                            debug!("Probing socket: {:?}", path);
+                    // Only check Unix sockets
+                    if is_unix_socket(&path).await {
+                        debug!("Probing socket: {:?}", path);
 
-                            // Probe each socket to see what it provides
-                            // Errors are logged but don't stop the scan
-                            if let Ok(provider) = probe_socket(&path).await {
-                                if provider.capabilities.contains(&capability.to_string()) {
-                                    return Ok::<Option<CapabilityProvider>, DiscoveryError>(Some(CapabilityProvider {
+                        // Probe each socket to see what it provides
+                        // Errors are logged but don't stop the scan
+                        if let Ok(provider) = probe_socket(&path).await {
+                            if provider.capabilities.contains(&capability.to_string()) {
+                                return Ok::<Option<CapabilityProvider>, DiscoveryError>(Some(
+                                    CapabilityProvider {
                                         discovered_via: format!("scan:{}", socket_dir.display()),
                                         ..provider
-                                    }));
-                                }
+                                    },
+                                ));
                             }
                         }
                     }
                 }
             }
-            Ok(None)
         }
-    ).await;
+        Ok(None)
+    })
+    .await;
 
     match scan_result {
         Ok(result) => result,
@@ -257,7 +255,10 @@ async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Discover
                 debug!(
                     "Socket {:?} returned JSON-RPC error: {} (code: {})",
                     socket_path,
-                    error.get("message").and_then(|m| m.as_str()).unwrap_or("unknown"),
+                    error
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("unknown"),
                     error.get("code").and_then(|c| c.as_i64()).unwrap_or(-1)
                 );
                 // Socket doesn't support discover_capabilities method - return error
@@ -267,8 +268,9 @@ async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Discover
             }
 
             if let Some(result) = response.get("result") {
-                let capabilities: Vec<String> =
-                    serde_json::from_value(result.get("capabilities").cloned().unwrap_or_default())?;
+                let capabilities: Vec<String> = serde_json::from_value(
+                    result.get("capabilities").cloned().unwrap_or_default(),
+                )?;
 
                 let metadata: HashMap<String, String> =
                     serde_json::from_value(result.get("metadata").cloned().unwrap_or_default())?;
@@ -335,7 +337,11 @@ async fn query_registry(
         // Extract primary_socket and build CapabilityProvider
         if let Some(socket_path) = result.get("primary_socket").and_then(|s| s.as_str()) {
             Ok(CapabilityProvider {
-                id: result.get("capability").and_then(|c| c.as_str()).unwrap_or("unknown").to_string(),
+                id: result
+                    .get("capability")
+                    .and_then(|c| c.as_str())
+                    .unwrap_or("unknown")
+                    .to_string(),
                 capabilities: vec![capability.to_string()],
                 socket: PathBuf::from(socket_path),
                 metadata: std::collections::HashMap::new(),
@@ -464,4 +470,3 @@ mod tests {
         assert!(dirs.contains(&PathBuf::from("/tmp")));
     }
 }
-

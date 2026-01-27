@@ -231,13 +231,15 @@ async fn run_server(
 }
 
 /// Announce capabilities to registry
-async fn announce_capabilities_to_registry(config: &squirrel::config::SquirrelConfig) -> Result<()> {
+async fn announce_capabilities_to_registry(
+    config: &squirrel::config::SquirrelConfig,
+) -> Result<()> {
     use tracing::info;
-    
+
     // If registry socket is configured, announce via Unix socket
     if let Some(registry_socket) = &config.discovery.registry_socket {
         info!("📢 Announcing to registry at: {}", registry_socket);
-        
+
         // Create JSON-RPC announcement request
         let _announcement = serde_json::json!({
             "jsonrpc": "2.0",
@@ -251,7 +253,7 @@ async fn announce_capabilities_to_registry(config: &squirrel::config::SquirrelCo
             },
             "id": 1
         });
-        
+
         // Try to connect and announce (best-effort, non-blocking)
         match std::path::Path::new(registry_socket).exists() {
             true => {
@@ -261,7 +263,10 @@ async fn announce_capabilities_to_registry(config: &squirrel::config::SquirrelCo
                 Ok(())
             }
             false => {
-                info!("⚠️  Registry socket not found ({}), skipping announcement", registry_socket);
+                info!(
+                    "⚠️  Registry socket not found ({}), skipping announcement",
+                    registry_socket
+                );
                 Ok(())
             }
         }

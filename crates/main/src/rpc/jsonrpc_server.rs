@@ -284,9 +284,10 @@ impl JsonRpcServer {
 
         // Dispatch to method handler with tracing span
         use tracing::Span;
-        let span = tracing::info_span!("jsonrpc_method", method = %request.method, id = ?request.id);
+        let span =
+            tracing::info_span!("jsonrpc_method", method = %request.method, id = ?request.id);
         let _enter = span.enter();
-        
+
         let result = match request.method.as_str() {
             "query_ai" => self.handle_query_ai(request.params).await,
             "list_providers" => self.handle_list_providers(request.params).await,
@@ -573,7 +574,7 @@ impl JsonRpcServer {
     /// Handle execute_tool method
     async fn handle_execute_tool(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
         use tracing::instrument;
-        
+
         info!("🔧 execute_tool request");
 
         // Parse parameters
@@ -593,7 +594,10 @@ impl JsonRpcServer {
                 data: None,
             })?;
 
-        let args = tool_params.get("args").cloned().unwrap_or(serde_json::json!({}));
+        let args = tool_params
+            .get("args")
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
 
         info!("🔧 Executing tool: {}", tool_name);
 
@@ -614,6 +618,7 @@ impl JsonRpcServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn test_jsonrpc_request_serialization() {

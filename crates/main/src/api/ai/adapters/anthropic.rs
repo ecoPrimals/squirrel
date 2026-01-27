@@ -11,8 +11,7 @@
 
 use super::{AiProviderAdapter, QualityTier};
 use crate::api::ai::types::{
-    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
-    TextGenerationResponse,
+    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
 };
 use crate::capabilities::discover_capability;
 use crate::error::PrimalError;
@@ -77,9 +76,8 @@ impl AnthropicAdapter {
     ///
     /// Reads API key from ANTHROPIC_API_KEY environment variable
     pub fn new() -> Result<Self, PrimalError> {
-        let api_key = std::env::var("ANTHROPIC_API_KEY").map_err(|_| {
-            PrimalError::ConfigError("ANTHROPIC_API_KEY not set".to_string())
-        })?;
+        let api_key = std::env::var("ANTHROPIC_API_KEY")
+            .map_err(|_| PrimalError::ConfigError("ANTHROPIC_API_KEY not set".to_string()))?;
 
         Ok(Self {
             api_key,
@@ -101,9 +99,7 @@ impl AnthropicAdapter {
         // Discover who provides HTTP capability (TRUE PRIMAL!)
         let http_provider = discover_capability("http.request")
             .await
-            .map_err(|e| {
-                PrimalError::NetworkError(format!("No HTTP provider found: {}", e))
-            })?;
+            .map_err(|e| PrimalError::NetworkError(format!("No HTTP provider found: {}", e)))?;
 
         debug!(
             "Delegating HTTP to {} (discovered via capability)",
@@ -162,9 +158,7 @@ impl AnthropicAdapter {
     ) -> Result<TextGenerationResponse, PrimalError> {
         // Build Anthropic-specific request
         let anthropic_request = AnthropicRequest {
-            model: request
-                .model
-                .unwrap_or_else(|| self.default_model.clone()),
+            model: request.model.unwrap_or_else(|| self.default_model.clone()),
             max_tokens: request.max_tokens,
             messages: vec![AnthropicMessage {
                 role: "user".to_string(),
@@ -177,10 +171,7 @@ impl AnthropicAdapter {
         // Build headers with API key
         let mut headers = HashMap::new();
         headers.insert("x-api-key".to_string(), self.api_key.clone());
-        headers.insert(
-            "anthropic-version".to_string(),
-            "2023-06-01".to_string(),
-        );
+        headers.insert("anthropic-version".to_string(), "2023-06-01".to_string());
         headers.insert("content-type".to_string(), "application/json".to_string());
 
         // Delegate HTTP to discovered provider (TRUE PRIMAL!)
@@ -194,10 +185,10 @@ impl AnthropicAdapter {
             .await?;
 
         // Parse HTTP response
-        let http_response: serde_json::Value =
-            response_json.get("body").cloned().ok_or_else(|| {
-                PrimalError::ParsingError("No body in HTTP response".to_string())
-            })?;
+        let http_response: serde_json::Value = response_json
+            .get("body")
+            .cloned()
+            .ok_or_else(|| PrimalError::ParsingError("No body in HTTP response".to_string()))?;
 
         // Parse Anthropic response
         let anthropic_response: AnthropicResponse = serde_json::from_value(http_response)?;
@@ -320,4 +311,3 @@ mod tests {
         assert!(!adapter.supports_image_generation());
     }
 }
-

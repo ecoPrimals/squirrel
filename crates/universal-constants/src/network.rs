@@ -244,17 +244,19 @@ mod tests {
 
     #[test]
     fn test_addresses() {
-        assert_eq!(DEFAULT_BIND_ADDRESS, "127.0.0.1");
+        // Evolved: Use runtime discovery instead of deprecated constants
+        assert_eq!(get_bind_address(), "127.0.0.1");
         assert_eq!(DEFAULT_LOCALHOST, "localhost");
     }
 
     #[test]
     fn test_ports() {
-        assert_eq!(DEFAULT_WEBSOCKET_PORT, 8080);
-        assert_eq!(DEFAULT_HTTP_PORT, 8081);
-        assert_eq!(DEFAULT_ADMIN_PORT, 8082);
-        assert_eq!(DEFAULT_METRICS_PORT, 9090);
-        assert_eq!(DEFAULT_DISCOVERY_PORT, 8500);
+        // Evolved: Use runtime discovery functions
+        assert_eq!(get_service_port("websocket"), 8080);
+        assert_eq!(get_service_port("http"), 8081);
+        assert_eq!(get_service_port("admin"), 8082);
+        assert_eq!(get_service_port("metrics"), 9090);
+        assert_eq!(get_service_port("discovery"), 8500);
     }
 
     #[test]

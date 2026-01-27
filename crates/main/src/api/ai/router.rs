@@ -97,7 +97,6 @@ impl AiRouter {
                 // 1. Try capability-based HTTP adapters (Anthropic, OpenAI)
                 // These use capability discovery for HTTP delegation (TRUE PRIMAL!)
                 info!("🔍 Initializing capability-based HTTP adapters...");
-                
                 // BIOME OS FIX: Timeout each adapter init (2s each)
                 if let Ok(Ok(adapter)) = tokio::time::timeout(
                     std::time::Duration::from_secs(2),
@@ -115,7 +114,6 @@ impl AiRouter {
                         }
                     }
                 }
-                
                 if let Ok(Ok(adapter)) = tokio::time::timeout(
                     std::time::Duration::from_secs(2),
                     async { OpenAiAdapter::new().and_then(|a| Ok(a)) }
@@ -139,7 +137,6 @@ impl AiRouter {
                     info!("🎯 Using AI_PROVIDER_SOCKETS hint: {}", socket_paths);
                     for socket_path in socket_paths.split(',') {
                         let socket_path = socket_path.trim();
-                        
                         // BIOME OS FIX: Timeout each socket connection (2s max)
                         match tokio::time::timeout(
                             std::time::Duration::from_secs(2),
