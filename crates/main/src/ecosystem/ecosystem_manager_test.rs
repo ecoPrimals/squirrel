@@ -45,6 +45,7 @@ async fn test_ecosystem_config_default() {
 #[allow(deprecated)]
 async fn test_ecosystem_primal_type_as_str_deprecated() {
     // Testing deprecated API for backward compatibility
+    // These tests intentionally use the deprecated enum to ensure it remains functional
     assert_eq!(EcosystemPrimalType::Squirrel.as_str(), "squirrel");
     assert_eq!(EcosystemPrimalType::Songbird.as_str(), "songbird");
     assert_eq!(EcosystemPrimalType::BearDog.as_str(), "beardog");

@@ -2,15 +2,23 @@
 //!
 //! This module provides thorough testing of all ecosystem integration types
 //! including primal types, service registration, capabilities, and configuration.
+//!
+//! ## Deprecated API Tests
+//!
+//! This module includes tests for the deprecated `EcosystemPrimalType` enum.
+//! These tests are intentionally kept to ensure backward compatibility.
+//! They use `#[allow(deprecated)]` to acknowledge testing deprecated APIs.
 
 #[cfg(test)]
 mod tests {
     use super::super::*;
     use crate::ecosystem::arc_str;
 
-    // ========== EcosystemPrimalType Tests ==========
+    // ========== EcosystemPrimalType Tests (Backward Compatibility) ==========
+    // These tests verify the deprecated EcosystemPrimalType API remains functional
 
     #[test]
+    #[allow(deprecated)]
     fn test_primal_type_variants() {
         let types = [
             EcosystemPrimalType::ToadStool,
@@ -35,6 +43,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_primal_type_as_str() {
         assert_eq!(EcosystemPrimalType::ToadStool.as_str(), "toadstool");
         assert_eq!(EcosystemPrimalType::Songbird.as_str(), "songbird");
@@ -45,6 +54,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_primal_type_from_str() {
         assert_eq!(
             "toadstool".parse::<EcosystemPrimalType>().unwrap(),
@@ -82,6 +92,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_primal_type_from_str_custom() {
         // Unknown primal types now parse as Custom variants (forward compatibility)
         assert_eq!(

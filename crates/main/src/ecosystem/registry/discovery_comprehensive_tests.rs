@@ -116,6 +116,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_build_service_endpoint_env_var() {
         // Use explicit override instead of env var mutation for concurrent safety
         let primal_type = EcosystemPrimalType::Squirrel;
@@ -129,6 +130,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_build_service_endpoint_dns_domain() {
         // Use explicit override instead of env var mutation for concurrent safety
         let primal_type = EcosystemPrimalType::Songbird;
@@ -142,6 +144,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_build_service_endpoint_localhost_fallback() {
         // Test localhost fallback with explicit "local" domain for concurrent safety
         let primal_type = EcosystemPrimalType::Squirrel;
@@ -156,6 +159,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_build_service_endpoint_all_primals_fallback() {
         // Verify all primals have fallback ports
         std::env::remove_var("SERVICE_DISCOVERY_DOMAIN");
@@ -180,6 +184,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_build_service_endpoint_mdns_pattern() {
         // Test mDNS pattern (local domain)
         std::env::set_var("SERVICE_DISCOVERY_DOMAIN", "local");
@@ -195,6 +200,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_build_service_endpoint_priority_order() {
         // Test that environment variable takes precedence over DNS
         std::env::set_var("BEARDOG_SERVICE_URL", "http://env-override.com");
@@ -212,6 +218,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn test_perform_service_discovery_basic() {
         let registry = create_test_registry();
         let primal_type = EcosystemPrimalType::NestGate;
@@ -232,6 +239,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn test_discover_services_concurrent() {
         let registry = create_test_registry();
         
