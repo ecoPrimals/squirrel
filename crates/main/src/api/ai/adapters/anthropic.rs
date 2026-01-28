@@ -110,6 +110,13 @@ impl AnthropicAdapter {
         let stream = UnixStream::connect(&http_provider.socket).await?;
 
         // Build JSON-RPC request for HTTP delegation
+        // BIOME OS FIX (Jan 28, 2026): Songbird expects body as STRING, not object
+        let body_string = match body {
+            serde_json::Value::String(s) => serde_json::Value::String(s),
+            serde_json::Value::Null => serde_json::Value::Null,
+            other => serde_json::Value::String(serde_json::to_string(&other)?),
+        };
+
         let rpc_request = serde_json::json!({
             "jsonrpc": "2.0",
             "method": "http.request",
@@ -117,7 +124,7 @@ impl AnthropicAdapter {
                 "method": method,
                 "url": url,
                 "headers": headers,
-                "body": body,
+                "body": body_string,
             },
             "id": Uuid::new_v4().to_string(),
         });
