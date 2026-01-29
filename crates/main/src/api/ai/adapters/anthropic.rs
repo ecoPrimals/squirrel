@@ -1,13 +1,22 @@
 //! Anthropic AI Provider Adapter with Capability-Based HTTP Delegation
 //!
-//! TRUE PRIMAL Pattern: Discovers HTTP capability provider at runtime (no hardcoding!)
+//! ⚠️ **DEPRECATED**: This vendor-specific adapter is deprecated.
 //!
-//! This adapter:
-//! - Reads API key from environment (ANTHROPIC_API_KEY)
-//! - Builds Anthropic-specific HTTP requests
-//! - Discovers HTTP provider via capability discovery
-//! - Delegates HTTP to whoever provides "http.request" capability
-//! - NO knowledge of Songbird, BearDog, or any other primal names!
+//! **Migration Path**:
+//! - The router now uses universal capability discovery
+//! - No code changes needed - providers are auto-discovered
+//! - See `crates/main/src/api/ai/universal.rs` for the new interface
+//!
+//! **For direct use**:
+//! ```rust,ignore
+//! // OLD (deprecated):
+//! let adapter = AnthropicAdapter::new()?;
+//!
+//! // NEW (universal):
+//! let providers = discover_ai_providers().await;
+//! ```
+//!
+//! This adapter will be removed in a future release.
 
 use super::{AiProviderAdapter, QualityTier};
 use crate::api::ai::types::{
@@ -66,6 +75,14 @@ struct AnthropicUsage {
 /// Anthropic AI Provider Adapter
 ///
 /// Uses capability discovery to find HTTP provider (TRUE PRIMAL!)
+///
+/// ⚠️ **DEPRECATED**: Use universal capability discovery instead.
+/// See module documentation for migration guide.
+#[deprecated(
+    since = "0.2.0",
+    note = "Use universal capability discovery (discover_ai_providers) instead. \
+            This vendor-specific adapter will be removed in 0.3.0."
+)]
 pub struct AnthropicAdapter {
     api_key: String,
     default_model: String,
@@ -75,6 +92,12 @@ impl AnthropicAdapter {
     /// Create new Anthropic adapter
     ///
     /// Reads API key from ANTHROPIC_API_KEY environment variable
+    ///
+    /// ⚠️ **DEPRECATED**: Use `discover_ai_providers()` instead.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use discover_ai_providers() for automatic provider discovery"
+    )]
     pub fn new() -> Result<Self, PrimalError> {
         let api_key = std::env::var("ANTHROPIC_API_KEY")
             .map_err(|_| PrimalError::ConfigError("ANTHROPIC_API_KEY not set".to_string()))?;
