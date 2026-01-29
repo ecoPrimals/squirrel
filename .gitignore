@@ -222,3 +222,4 @@ checkpoints/
 *.seed
 *.cover
 *.nyc_output
+coverage.json

@@ -118,3 +118,6 @@ impl From<crate::capabilities::discovery::DiscoveryError> for PrimalError {
         PrimalError::NetworkError(format!("Discovery error: {}", err))
     }
 }
+
+#[cfg(test)]
+mod tests;

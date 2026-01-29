@@ -60,6 +60,9 @@ pub mod runtime_engine;
 pub mod self_knowledge;
 pub mod types;
 
+#[cfg(test)]
+mod capability_resolver_tests;
+
 // Re-exports
 pub use capability_resolver::CapabilityResolver;
 pub use runtime_engine::RuntimeDiscoveryEngine;
