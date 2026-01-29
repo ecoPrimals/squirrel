@@ -191,11 +191,19 @@ impl AnthropicAdapter {
             )
             .await?;
 
-        // Parse HTTP response
-        let http_response: serde_json::Value = response_json
+        // Parse HTTP response - body comes as string from Songbird
+        let body_value = response_json
             .get("body")
             .cloned()
             .ok_or_else(|| PrimalError::ParsingError("No body in HTTP response".to_string()))?;
+
+        // BIOME OS FIX (Jan 29, 2026): Songbird returns body as string, parse it
+        let http_response: serde_json::Value = match body_value {
+            serde_json::Value::String(s) => serde_json::from_str(&s).map_err(|e| {
+                PrimalError::ParsingError(format!("Failed to parse body JSON: {}", e))
+            })?,
+            other => other, // Already parsed (for future compatibility)
+        };
 
         // Parse Anthropic response
         let anthropic_response: AnthropicResponse = serde_json::from_value(http_response)?;
