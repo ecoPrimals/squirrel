@@ -68,3 +68,117 @@ impl ZeroCopyUtils {
         url
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_concat_strings_empty() {
+        let result = ZeroCopyUtils::concat_strings(&[]);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_concat_strings_single() {
+        let result = ZeroCopyUtils::concat_strings(&["hello"]);
+        assert_eq!(result, "hello");
+    }
+
+    #[test]
+    fn test_concat_strings_multiple() {
+        let result = ZeroCopyUtils::concat_strings(&["hello", " ", "world", "!"]);
+        assert_eq!(result, "hello world!");
+    }
+
+    #[test]
+    fn test_concat_strings_with_empty_parts() {
+        let result = ZeroCopyUtils::concat_strings(&["hello", "", "world"]);
+        assert_eq!(result, "helloworld");
+    }
+
+    #[test]
+    fn test_format_key_value_pairs_empty() {
+        let result = ZeroCopyUtils::format_key_value_pairs(&[]);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_format_key_value_pairs_single() {
+        let pairs = vec![(Arc::from("key1"), Arc::from("value1"))];
+        let result = ZeroCopyUtils::format_key_value_pairs(&pairs);
+        assert_eq!(result, "key1=value1");
+    }
+
+    #[test]
+    fn test_format_key_value_pairs_multiple() {
+        let pairs = vec![
+            (Arc::from("name"), Arc::from("squirrel")),
+            (Arc::from("type"), Arc::from("primal")),
+            (Arc::from("version"), Arc::from("0.1.0")),
+        ];
+        let result = ZeroCopyUtils::format_key_value_pairs(&pairs);
+        assert_eq!(result, "name=squirrel,type=primal,version=0.1.0");
+    }
+
+    #[test]
+    fn test_format_key_value_pairs_with_special_chars() {
+        let pairs = vec![
+            (Arc::from("url"), Arc::from("http://example.com")),
+            (Arc::from("path"), Arc::from("/api/v1")),
+        ];
+        let result = ZeroCopyUtils::format_key_value_pairs(&pairs);
+        assert_eq!(result, "url=http://example.com,path=/api/v1");
+    }
+
+    #[test]
+    fn test_build_url_with_params_no_params() {
+        let result = ZeroCopyUtils::build_url_with_params("http://example.com", "/api/users", &[]);
+        assert_eq!(result, "http://example.com/api/users");
+    }
+
+    #[test]
+    fn test_build_url_with_params_single_param() {
+        let params = vec![(Arc::from("id"), Arc::from("123"))];
+        let result =
+            ZeroCopyUtils::build_url_with_params("http://example.com", "/api/users", &params);
+        assert_eq!(result, "http://example.com/api/users?id=123");
+    }
+
+    #[test]
+    fn test_build_url_with_params_multiple_params() {
+        let params = vec![
+            (Arc::from("page"), Arc::from("1")),
+            (Arc::from("limit"), Arc::from("10")),
+            (Arc::from("sort"), Arc::from("name")),
+        ];
+        let result =
+            ZeroCopyUtils::build_url_with_params("http://example.com", "/api/users", &params);
+        assert_eq!(
+            result,
+            "http://example.com/api/users?page=1&limit=10&sort=name"
+        );
+    }
+
+    #[test]
+    fn test_build_url_with_params_empty_base() {
+        let params = vec![(Arc::from("q"), Arc::from("search"))];
+        let result = ZeroCopyUtils::build_url_with_params("", "/search", &params);
+        assert_eq!(result, "/search?q=search");
+    }
+
+    #[test]
+    fn test_build_url_with_params_empty_path() {
+        let params = vec![(Arc::from("debug"), Arc::from("true"))];
+        let result = ZeroCopyUtils::build_url_with_params("http://example.com", "", &params);
+        assert_eq!(result, "http://example.com?debug=true");
+    }
+
+    #[test]
+    fn test_build_url_with_params_with_slash() {
+        let params = vec![(Arc::from("path"), Arc::from("/data/file.txt"))];
+        let result =
+            ZeroCopyUtils::build_url_with_params("http://example.com", "/api/files", &params);
+        assert_eq!(result, "http://example.com/api/files?path=/data/file.txt");
+    }
+}

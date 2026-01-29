@@ -133,3 +133,271 @@ impl MetricsSnapshot {
         (self.string_interning_hits as f64 / self.total_operations as f64) * 100.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_zero_copy_metrics_new() {
+        let metrics = ZeroCopyMetrics::new();
+        assert_eq!(metrics.allocations_saved.load(Ordering::Relaxed), 0);
+        assert_eq!(metrics.bytes_saved.load(Ordering::Relaxed), 0);
+        assert_eq!(metrics.clone_operations_avoided.load(Ordering::Relaxed), 0);
+        assert_eq!(metrics.string_interning_hits.load(Ordering::Relaxed), 0);
+        assert_eq!(metrics.total_operations.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn test_zero_copy_metrics_default() {
+        let metrics = ZeroCopyMetrics::default();
+        assert_eq!(metrics.get_operations_count(), 0);
+    }
+
+    #[test]
+    fn test_record_allocation_saved() {
+        let metrics = ZeroCopyMetrics::new();
+        metrics.record_allocation_saved(1024);
+        assert_eq!(metrics.allocations_saved.load(Ordering::Relaxed), 1);
+        assert_eq!(metrics.bytes_saved.load(Ordering::Relaxed), 1024);
+
+        metrics.record_allocation_saved(2048);
+        assert_eq!(metrics.allocations_saved.load(Ordering::Relaxed), 2);
+        assert_eq!(metrics.bytes_saved.load(Ordering::Relaxed), 3072);
+    }
+
+    #[test]
+    fn test_record_clone_avoided() {
+        let metrics = ZeroCopyMetrics::new();
+        metrics.record_clone_avoided();
+        assert_eq!(metrics.clone_operations_avoided.load(Ordering::Relaxed), 1);
+
+        metrics.record_clone_avoided();
+        assert_eq!(metrics.clone_operations_avoided.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
+    fn test_record_string_interning_hit() {
+        let metrics = ZeroCopyMetrics::new();
+        metrics.record_string_interning_hit();
+        assert_eq!(metrics.string_interning_hits.load(Ordering::Relaxed), 1);
+
+        metrics.record_string_interning_hit();
+        assert_eq!(metrics.string_interning_hits.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
+    fn test_record_operation() {
+        let metrics = ZeroCopyMetrics::new();
+        metrics.record_operation();
+        assert_eq!(metrics.total_operations.load(Ordering::Relaxed), 1);
+
+        metrics.record_operation();
+        assert_eq!(metrics.total_operations.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
+    fn test_get_metrics() {
+        let metrics = ZeroCopyMetrics::new();
+        metrics.record_allocation_saved(1024);
+        metrics.record_clone_avoided();
+        metrics.record_string_interning_hit();
+        metrics.record_operation();
+
+        let snapshot = metrics.get_metrics();
+        assert_eq!(snapshot.allocations_saved, 1);
+        assert_eq!(snapshot.bytes_saved, 1024);
+        assert_eq!(snapshot.clone_operations_avoided, 1);
+        assert_eq!(snapshot.string_interning_hits, 1);
+        assert_eq!(snapshot.total_operations, 1);
+    }
+
+    #[test]
+    fn test_get_efficiency_score_zero_operations() {
+        let metrics = ZeroCopyMetrics::new();
+        assert_eq!(metrics.get_efficiency_score(), 0.0);
+    }
+
+    #[test]
+    fn test_get_efficiency_score_with_optimizations() {
+        let metrics = ZeroCopyMetrics::new();
+        metrics.record_operation();
+        metrics.record_operation();
+        metrics.record_operation();
+        metrics.record_operation();
+        metrics.record_clone_avoided();
+        metrics.record_string_interning_hit();
+
+        // 2 optimizations out of 4 operations = 0.5
+        assert_eq!(metrics.get_efficiency_score(), 0.5);
+    }
+
+    #[test]
+    fn test_get_efficiency_score_perfect() {
+        let metrics = ZeroCopyMetrics::new();
+        metrics.record_operation();
+        metrics.record_operation();
+        metrics.record_clone_avoided();
+        metrics.record_clone_avoided();
+
+        // 2 optimizations out of 2 operations = 1.0
+        assert_eq!(metrics.get_efficiency_score(), 1.0);
+    }
+
+    #[test]
+    fn test_get_operations_count() {
+        let metrics = ZeroCopyMetrics::new();
+        assert_eq!(metrics.get_operations_count(), 0);
+
+        metrics.record_operation();
+        assert_eq!(metrics.get_operations_count(), 1);
+
+        metrics.record_operation();
+        metrics.record_operation();
+        assert_eq!(metrics.get_operations_count(), 3);
+    }
+
+    #[test]
+    fn test_get_clones_avoided() {
+        let metrics = ZeroCopyMetrics::new();
+        assert_eq!(metrics.get_clones_avoided(), 0);
+
+        metrics.record_clone_avoided();
+        assert_eq!(metrics.get_clones_avoided(), 1);
+
+        metrics.record_clone_avoided();
+        metrics.record_clone_avoided();
+        assert_eq!(metrics.get_clones_avoided(), 3);
+    }
+
+    #[test]
+    fn test_metrics_snapshot_efficiency_percentage_zero() {
+        let snapshot = MetricsSnapshot {
+            allocations_saved: 0,
+            bytes_saved: 0,
+            clone_operations_avoided: 0,
+            string_interning_hits: 0,
+            total_operations: 0,
+        };
+        assert_eq!(snapshot.efficiency_percentage(), 0.0);
+    }
+
+    #[test]
+    fn test_metrics_snapshot_efficiency_percentage() {
+        let snapshot = MetricsSnapshot {
+            allocations_saved: 10,
+            bytes_saved: 10240,
+            clone_operations_avoided: 30,
+            string_interning_hits: 20,
+            total_operations: 100,
+        };
+        // (30 + 20) / 100 * 100 = 50%
+        assert_eq!(snapshot.efficiency_percentage(), 50.0);
+    }
+
+    #[test]
+    fn test_metrics_snapshot_efficiency_percentage_perfect() {
+        let snapshot = MetricsSnapshot {
+            allocations_saved: 10,
+            bytes_saved: 10240,
+            clone_operations_avoided: 50,
+            string_interning_hits: 50,
+            total_operations: 100,
+        };
+        // (50 + 50) / 100 * 100 = 100%
+        assert_eq!(snapshot.efficiency_percentage(), 100.0);
+    }
+
+    #[test]
+    fn test_metrics_snapshot_average_bytes_saved_zero() {
+        let snapshot = MetricsSnapshot {
+            allocations_saved: 0,
+            bytes_saved: 0,
+            clone_operations_avoided: 0,
+            string_interning_hits: 0,
+            total_operations: 0,
+        };
+        assert_eq!(snapshot.average_bytes_saved(), 0.0);
+    }
+
+    #[test]
+    fn test_metrics_snapshot_average_bytes_saved() {
+        let snapshot = MetricsSnapshot {
+            allocations_saved: 10,
+            bytes_saved: 10240,
+            clone_operations_avoided: 0,
+            string_interning_hits: 0,
+            total_operations: 10,
+        };
+        // 10240 / 10 = 1024.0
+        assert_eq!(snapshot.average_bytes_saved(), 1024.0);
+    }
+
+    #[test]
+    fn test_metrics_snapshot_string_interning_hit_rate_zero() {
+        let snapshot = MetricsSnapshot {
+            allocations_saved: 0,
+            bytes_saved: 0,
+            clone_operations_avoided: 0,
+            string_interning_hits: 0,
+            total_operations: 0,
+        };
+        assert_eq!(snapshot.string_interning_hit_rate(), 0.0);
+    }
+
+    #[test]
+    fn test_metrics_snapshot_string_interning_hit_rate() {
+        let snapshot = MetricsSnapshot {
+            allocations_saved: 10,
+            bytes_saved: 10240,
+            clone_operations_avoided: 20,
+            string_interning_hits: 25,
+            total_operations: 100,
+        };
+        // 25 / 100 * 100 = 25%
+        assert_eq!(snapshot.string_interning_hit_rate(), 25.0);
+    }
+
+    #[test]
+    fn test_metrics_snapshot_string_interning_hit_rate_perfect() {
+        let snapshot = MetricsSnapshot {
+            allocations_saved: 10,
+            bytes_saved: 10240,
+            clone_operations_avoided: 0,
+            string_interning_hits: 100,
+            total_operations: 100,
+        };
+        // 100 / 100 * 100 = 100%
+        assert_eq!(snapshot.string_interning_hit_rate(), 100.0);
+    }
+
+    #[test]
+    fn test_concurrent_metric_updates() {
+        use std::sync::Arc as StdArc;
+        use std::thread;
+
+        let metrics = StdArc::new(ZeroCopyMetrics::new());
+        let mut handles = vec![];
+
+        // Spawn 10 threads, each incrementing metrics 100 times
+        for _ in 0..10 {
+            let metrics_clone = StdArc::clone(&metrics);
+            let handle = thread::spawn(move || {
+                for _ in 0..100 {
+                    metrics_clone.record_operation();
+                    metrics_clone.record_clone_avoided();
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all threads to complete
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        // Verify totals: 10 threads * 100 operations = 1000
+        assert_eq!(metrics.get_operations_count(), 1000);
+        assert_eq!(metrics.get_clones_avoided(), 1000);
+    }
+}

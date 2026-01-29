@@ -254,3 +254,359 @@ impl DiscoveryOps {
         Self::get_capabilities_for_service(capability)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    /// Helper to create a test registry
+    fn create_test_registry() -> Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>> {
+        Arc::new(RwLock::new(HashMap::new()))
+    }
+
+    /// Helper to create a test service
+    #[allow(deprecated)]
+    fn create_test_service(primal_type: EcosystemPrimalType) -> Arc<DiscoveredService> {
+        Arc::new(DiscoveredService {
+            service_id: Arc::from(format!("{:?}-test", primal_type)),
+            primal_type,
+            endpoint: Arc::from("http://test.local"),
+            health_endpoint: Arc::from("http://test.local/health"),
+            api_version: Arc::from("0.1.0"),
+            capabilities: vec![],
+            metadata: HashMap::new(),
+            discovered_at: Utc::now(),
+            last_health_check: Some(Utc::now()),
+            health_status: ServiceHealthStatus::Healthy,
+        })
+    }
+
+    // Tests for get_capabilities_for_service (capability-based, not deprecated)
+    #[test]
+    fn test_get_capabilities_for_service_ai_orchestration() {
+        let caps = DiscoveryOps::get_capabilities_for_service("ai.orchestration");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("ai_coordination")));
+        assert!(caps.contains(&intern_registry_string("request_routing")));
+        assert!(caps.contains(&intern_registry_string("response_aggregation")));
+        assert!(caps.contains(&intern_registry_string("context_management")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_ai_coordination() {
+        let caps = DiscoveryOps::get_capabilities_for_service("ai_coordination");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("ai_coordination")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_service_mesh() {
+        let caps = DiscoveryOps::get_capabilities_for_service("service_mesh");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("service_mesh")));
+        assert!(caps.contains(&intern_registry_string("load_balancing")));
+        assert!(caps.contains(&intern_registry_string("health_monitoring")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_compute_container() {
+        let caps = DiscoveryOps::get_capabilities_for_service("compute.container");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("compute")));
+        assert!(caps.contains(&intern_registry_string("storage")));
+        assert!(caps.contains(&intern_registry_string("scaling")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_compute() {
+        let caps = DiscoveryOps::get_capabilities_for_service("compute");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("compute")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_security_auth() {
+        let caps = DiscoveryOps::get_capabilities_for_service("security.auth");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("security")));
+        assert!(caps.contains(&intern_registry_string("authentication")));
+        assert!(caps.contains(&intern_registry_string("authorization")));
+        assert!(caps.contains(&intern_registry_string("compliance")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_security() {
+        let caps = DiscoveryOps::get_capabilities_for_service("security");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("security")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_storage_object() {
+        let caps = DiscoveryOps::get_capabilities_for_service("storage.object");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("networking")));
+        assert!(caps.contains(&intern_registry_string("gateway")));
+        assert!(caps.contains(&intern_registry_string("routing")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_networking() {
+        let caps = DiscoveryOps::get_capabilities_for_service("networking");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("networking")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_platform_orchestration() {
+        let caps = DiscoveryOps::get_capabilities_for_service("platform.orchestration");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("operating_system")));
+        assert!(caps.contains(&intern_registry_string("process_management")));
+        assert!(caps.contains(&intern_registry_string("resource_allocation")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_operating_system() {
+        let caps = DiscoveryOps::get_capabilities_for_service("operating_system");
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("operating_system")));
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_unknown() {
+        let caps = DiscoveryOps::get_capabilities_for_service("unknown_capability");
+        assert!(caps.is_empty());
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_empty_string() {
+        let caps = DiscoveryOps::get_capabilities_for_service("");
+        assert!(caps.is_empty());
+    }
+
+    // Tests for get_capabilities_for_primal (deprecated, but should still work)
+    #[test]
+    #[allow(deprecated)]
+    fn test_get_capabilities_for_primal_squirrel() {
+        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::Squirrel);
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("ai_coordination")));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_get_capabilities_for_primal_songbird() {
+        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::Songbird);
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("service_mesh")));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_get_capabilities_for_primal_toadstool() {
+        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::ToadStool);
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("compute")));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_get_capabilities_for_primal_beardog() {
+        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::BearDog);
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("security")));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_get_capabilities_for_primal_nestgate() {
+        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::NestGate);
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("networking")));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_get_capabilities_for_primal_biomeos() {
+        let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::BiomeOS);
+        assert!(!caps.is_empty());
+        assert!(caps.contains(&intern_registry_string("operating_system")));
+    }
+
+    // Tests for discover_services
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_discover_services_empty_primal_types() {
+        let registry = create_test_registry();
+        let result = DiscoveryOps::discover_services(&registry, vec![]).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_discover_services_single_primal_type() {
+        let registry = create_test_registry();
+        let primal_types = vec![EcosystemPrimalType::Squirrel];
+        let result = DiscoveryOps::discover_services(&registry, primal_types).await;
+        assert!(result.is_ok());
+        // The discovery may or may not succeed depending on environment,
+        // but the function should not panic
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_discover_services_multiple_primal_types() {
+        let registry = create_test_registry();
+        let primal_types = vec![
+            EcosystemPrimalType::Squirrel,
+            EcosystemPrimalType::Songbird,
+            EcosystemPrimalType::BearDog,
+        ];
+        let result = DiscoveryOps::discover_services(&registry, primal_types).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_discover_services_all_primal_types() {
+        let registry = create_test_registry();
+        let primal_types = vec![
+            EcosystemPrimalType::Squirrel,
+            EcosystemPrimalType::Songbird,
+            EcosystemPrimalType::ToadStool,
+            EcosystemPrimalType::BearDog,
+            EcosystemPrimalType::NestGate,
+            EcosystemPrimalType::BiomeOS,
+        ];
+        let result = DiscoveryOps::discover_services(&registry, primal_types).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_discover_services_returns_registered_services() {
+        let registry = create_test_registry();
+
+        // Manually register a service
+        {
+            let mut reg = registry.write().await;
+            let service = create_test_service(EcosystemPrimalType::Squirrel);
+            reg.insert(service.service_id.clone(), service);
+        }
+
+        // Discover services (won't find new ones, but should return existing)
+        let result = DiscoveryOps::discover_services(&registry, vec![]).await;
+        assert!(result.is_ok());
+        let services = result.unwrap();
+        assert_eq!(services.len(), 1);
+    }
+
+    // Tests for build_service_endpoint (indirectly through discover_services)
+    #[test]
+    #[allow(deprecated)]
+    fn test_build_service_endpoint_uses_env_var() {
+        // Set environment variable
+        std::env::set_var("SQUIRREL_ENDPOINT", "http://custom.squirrel");
+
+        let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Squirrel);
+        assert_eq!(endpoint, "http://custom.squirrel");
+
+        // Clean up
+        std::env::remove_var("SQUIRREL_ENDPOINT");
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_build_service_endpoint_uses_service_discovery() {
+        // Set SERVICE_DISCOVERY_URL
+        std::env::set_var("SERVICE_DISCOVERY_URL", "http://discovery.local");
+        std::env::remove_var("SONGBIRD_ENDPOINT"); // Ensure specific endpoint not set
+
+        let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Songbird);
+        assert!(endpoint.contains("discovery.local"));
+
+        // Clean up
+        std::env::remove_var("SERVICE_DISCOVERY_URL");
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_build_service_endpoint_falls_back_to_default() {
+        // Ensure no environment variables are set
+        std::env::remove_var("BEARDOG_ENDPOINT");
+        std::env::remove_var("SERVICE_DISCOVERY_URL");
+        std::env::remove_var("SQUIRREL_CONFIG");
+
+        let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::BearDog);
+        // In debug mode, should return a localhost endpoint
+        // In release mode, should return "http://unconfigured.endpoint"
+        if cfg!(debug_assertions) {
+            assert!(endpoint.contains("localhost") || endpoint.contains("127.0.0.1"));
+        } else {
+            assert_eq!(endpoint, "http://unconfigured.endpoint");
+        }
+    }
+
+    // Test intern_registry_string basic functionality
+    #[test]
+    fn test_intern_registry_string_returns_arc_str() {
+        let s = intern_registry_string("test_capability");
+        assert_eq!(s.as_ref(), "test_capability");
+    }
+
+    #[test]
+    fn test_intern_registry_string_common_string() {
+        let s = intern_registry_string("squirrel");
+        assert_eq!(s.as_ref(), "squirrel");
+    }
+
+    #[test]
+    fn test_intern_registry_string_preserves_content() {
+        let input = "ai_coordination";
+        let result = intern_registry_string(input);
+        assert_eq!(result.as_ref(), input);
+    }
+
+    // Edge case tests
+    #[test]
+    fn test_get_capabilities_for_service_case_sensitive() {
+        let caps1 = DiscoveryOps::get_capabilities_for_service("ai.orchestration");
+        let caps2 = DiscoveryOps::get_capabilities_for_service("AI.ORCHESTRATION");
+        // Should be case-sensitive
+        assert!(!caps1.is_empty());
+        assert!(caps2.is_empty());
+    }
+
+    #[test]
+    fn test_get_capabilities_for_service_whitespace() {
+        let caps = DiscoveryOps::get_capabilities_for_service(" ai.orchestration ");
+        // Should not match due to whitespace
+        assert!(caps.is_empty());
+    }
+
+    #[tokio::test]
+    #[allow(deprecated)]
+    async fn test_discover_services_concurrent_access() {
+        let registry = create_test_registry();
+
+        // Spawn multiple concurrent discovery operations
+        let handles: Vec<_> = (0..5)
+            .map(|_| {
+                let reg_clone = Arc::clone(&registry);
+                tokio::spawn(async move {
+                    let primal_types = vec![EcosystemPrimalType::Squirrel];
+                    DiscoveryOps::discover_services(&reg_clone, primal_types).await
+                })
+            })
+            .collect();
+
+        // Wait for all to complete
+        for handle in handles {
+            let result = handle.await;
+            assert!(result.is_ok());
+        }
+    }
+}
