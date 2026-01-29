@@ -23,6 +23,7 @@ pub mod ecosystem;
 pub mod error;
 pub mod error_handling;
 pub mod hardware;
+pub mod metrics; // Capability-based metrics and observability
 pub mod monitoring;
 pub mod observability;
 pub mod optimization;
