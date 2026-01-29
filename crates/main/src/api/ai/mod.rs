@@ -12,6 +12,9 @@ pub(crate) mod selector;
 pub(crate) mod types;
 pub mod universal; // Universal AI interface (vendor-agnostic)
 
+#[cfg(test)]
+mod router_tests;
+
 // Re-export main router for tarpc_server
 pub use router::AiRouter;
 
