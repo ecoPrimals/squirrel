@@ -505,3 +505,390 @@ impl Default for ShutdownManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    // Mock shutdown handler for testing
+    struct MockHandler {
+        name: String,
+        shutdown_called: Arc<AtomicBool>,
+        complete: Arc<AtomicBool>,
+        delay: Duration,
+    }
+
+    impl MockHandler {
+        fn new(name: &str) -> Self {
+            Self {
+                name: name.to_string(),
+                shutdown_called: Arc::new(AtomicBool::new(false)),
+                complete: Arc::new(AtomicBool::new(false)),
+                delay: Duration::from_millis(10),
+            }
+        }
+
+        fn with_delay(name: &str, delay: Duration) -> Self {
+            Self {
+                name: name.to_string(),
+                shutdown_called: Arc::new(AtomicBool::new(false)),
+                complete: Arc::new(AtomicBool::new(false)),
+                delay,
+            }
+        }
+
+        fn was_shutdown_called(&self) -> bool {
+            self.shutdown_called.load(Ordering::SeqCst)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ShutdownHandler for MockHandler {
+        fn component_name(&self) -> &str {
+            &self.name
+        }
+
+        async fn shutdown(&self, _phase: ShutdownPhase) -> Result<(), PrimalError> {
+            self.shutdown_called.store(true, Ordering::SeqCst);
+            tokio::time::sleep(self.delay).await;
+            self.complete.store(true, Ordering::SeqCst);
+            Ok(())
+        }
+
+        async fn is_shutdown_complete(&self) -> bool {
+            self.complete.load(Ordering::SeqCst)
+        }
+
+        fn estimated_shutdown_time(&self) -> Duration {
+            self.delay
+        }
+    }
+
+    // Failing handler for testing error handling
+    struct FailingHandler {
+        name: String,
+    }
+
+    impl FailingHandler {
+        fn new(name: &str) -> Self {
+            Self {
+                name: name.to_string(),
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ShutdownHandler for FailingHandler {
+        fn component_name(&self) -> &str {
+            &self.name
+        }
+
+        async fn shutdown(&self, _phase: ShutdownPhase) -> Result<(), PrimalError> {
+            Err(PrimalError::Internal("Shutdown failed".to_string()))
+        }
+
+        async fn is_shutdown_complete(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn test_shutdown_phase_description() {
+        assert_eq!(
+            ShutdownPhase::StopAccepting.description(),
+            "Stop accepting new requests"
+        );
+        assert_eq!(
+            ShutdownPhase::DrainRequests.description(),
+            "Drain existing requests"
+        );
+        assert_eq!(
+            ShutdownPhase::CloseConnections.description(),
+            "Close network connections"
+        );
+        assert_eq!(
+            ShutdownPhase::CleanupResources.description(),
+            "Cleanup resources"
+        );
+        assert_eq!(
+            ShutdownPhase::ShutdownTasks.description(),
+            "Shutdown background tasks"
+        );
+        assert_eq!(ShutdownPhase::FinalCleanup.description(), "Final cleanup");
+    }
+
+    #[test]
+    fn test_shutdown_phase_ordering() {
+        assert!(ShutdownPhase::StopAccepting < ShutdownPhase::DrainRequests);
+        assert!(ShutdownPhase::DrainRequests < ShutdownPhase::CloseConnections);
+        assert!(ShutdownPhase::CloseConnections < ShutdownPhase::CleanupResources);
+        assert!(ShutdownPhase::CleanupResources < ShutdownPhase::ShutdownTasks);
+        assert!(ShutdownPhase::ShutdownTasks < ShutdownPhase::FinalCleanup);
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_manager_new() {
+        let manager = ShutdownManager::new();
+        assert!(!manager.is_shutdown_complete().await);
+        assert!(!manager.is_shutdown_requested());
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_manager_default() {
+        let manager = ShutdownManager::default();
+        assert!(!manager.is_shutdown_complete().await);
+        assert!(!manager.is_shutdown_requested());
+    }
+
+    #[tokio::test]
+    async fn test_register_handler() {
+        let manager = ShutdownManager::new();
+        let handler = Arc::new(MockHandler::new("test-component"));
+
+        manager
+            .register_handler("test-component".to_string(), handler.clone())
+            .await;
+
+        // Verify handler is registered (by attempting to unregister)
+        assert!(manager.unregister_handler("test-component").await);
+    }
+
+    #[tokio::test]
+    async fn test_register_multiple_handlers() {
+        let manager = ShutdownManager::new();
+        let handler1 = Arc::new(MockHandler::new("component-1"));
+        let handler2 = Arc::new(MockHandler::new("component-2"));
+        let handler3 = Arc::new(MockHandler::new("component-3"));
+
+        manager
+            .register_handler("component-1".to_string(), handler1)
+            .await;
+        manager
+            .register_handler("component-2".to_string(), handler2)
+            .await;
+        manager
+            .register_handler("component-3".to_string(), handler3)
+            .await;
+
+        // Verify all registered
+        assert!(manager.unregister_handler("component-1").await);
+        assert!(manager.unregister_handler("component-2").await);
+        assert!(manager.unregister_handler("component-3").await);
+    }
+
+    #[tokio::test]
+    async fn test_unregister_nonexistent_handler() {
+        let manager = ShutdownManager::new();
+        assert!(!manager.unregister_handler("nonexistent").await);
+    }
+
+    #[tokio::test]
+    async fn test_request_shutdown() {
+        let manager = ShutdownManager::new();
+
+        let result = manager.request_shutdown().await;
+        assert!(result.is_ok());
+        assert!(manager.is_shutdown_requested());
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_signal_clone() {
+        let signal1 = ShutdownSignal::Graceful;
+        let signal2 = signal1.clone();
+
+        assert!(matches!(signal2, ShutdownSignal::Graceful));
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_signal_immediate() {
+        let signal = ShutdownSignal::Immediate;
+        assert!(matches!(signal, ShutdownSignal::Immediate));
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_signal_timeout() {
+        let signal = ShutdownSignal::Timeout(ShutdownPhase::DrainRequests);
+        assert!(matches!(
+            signal,
+            ShutdownSignal::Timeout(ShutdownPhase::DrainRequests)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_mock_handler_shutdown() {
+        let handler = MockHandler::new("test");
+
+        assert!(!handler.was_shutdown_called());
+        assert!(!handler.is_shutdown_complete().await);
+
+        let result = handler.shutdown(ShutdownPhase::StopAccepting).await;
+        assert!(result.is_ok());
+        assert!(handler.was_shutdown_called());
+        assert!(handler.is_shutdown_complete().await);
+    }
+
+    #[tokio::test]
+    async fn test_mock_handler_estimated_time() {
+        let handler = MockHandler::with_delay("test", Duration::from_millis(100));
+        assert_eq!(
+            handler.estimated_shutdown_time(),
+            Duration::from_millis(100)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_failing_handler() {
+        let handler = FailingHandler::new("failing");
+
+        let result = handler.shutdown(ShutdownPhase::StopAccepting).await;
+        assert!(result.is_err());
+        assert!(!handler.is_shutdown_complete().await);
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_phase_equality() {
+        assert_eq!(ShutdownPhase::StopAccepting, ShutdownPhase::StopAccepting);
+        assert_ne!(ShutdownPhase::StopAccepting, ShutdownPhase::DrainRequests);
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_phase_hash() {
+        use std::collections::HashSet;
+
+        let mut phases = HashSet::new();
+        phases.insert(ShutdownPhase::StopAccepting);
+        phases.insert(ShutdownPhase::DrainRequests);
+        phases.insert(ShutdownPhase::StopAccepting); // Duplicate
+
+        assert_eq!(phases.len(), 2); // Only 2 unique phases
+    }
+
+    #[tokio::test]
+    async fn test_default_phase_timeouts() {
+        let manager = ShutdownManager::new();
+
+        // Verify default timeouts are set
+        assert_eq!(
+            manager.phase_timeouts.get(&ShutdownPhase::StopAccepting),
+            Some(&Duration::from_secs(5))
+        );
+        assert_eq!(
+            manager.phase_timeouts.get(&ShutdownPhase::DrainRequests),
+            Some(&Duration::from_secs(30))
+        );
+        assert_eq!(
+            manager.phase_timeouts.get(&ShutdownPhase::CloseConnections),
+            Some(&Duration::from_secs(10))
+        );
+        assert_eq!(
+            manager.phase_timeouts.get(&ShutdownPhase::CleanupResources),
+            Some(&Duration::from_secs(15))
+        );
+        assert_eq!(
+            manager.phase_timeouts.get(&ShutdownPhase::ShutdownTasks),
+            Some(&Duration::from_secs(10))
+        );
+        assert_eq!(
+            manager.phase_timeouts.get(&ShutdownPhase::FinalCleanup),
+            Some(&Duration::from_secs(5))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_requested_flag() {
+        let manager = ShutdownManager::new();
+
+        assert!(!manager.is_shutdown_requested());
+
+        manager.request_shutdown().await.unwrap();
+
+        assert!(manager.is_shutdown_requested());
+    }
+
+    #[tokio::test]
+    async fn test_multiple_handler_registration_same_name() {
+        let manager = ShutdownManager::new();
+        let handler1 = Arc::new(MockHandler::new("component"));
+        let handler2 = Arc::new(MockHandler::new("component"));
+
+        manager
+            .register_handler("component".to_string(), handler1)
+            .await;
+        manager
+            .register_handler("component".to_string(), handler2)
+            .await; // Replaces first
+
+        // Should only unregister once
+        assert!(manager.unregister_handler("component").await);
+        assert!(!manager.unregister_handler("component").await); // Already removed
+    }
+
+    #[tokio::test]
+    async fn test_handler_component_name() {
+        let handler = MockHandler::new("my-component");
+        assert_eq!(handler.component_name(), "my-component");
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_complete_flag() {
+        let manager = ShutdownManager::new();
+        assert!(!manager.is_shutdown_complete().await);
+
+        // Complete flag is set internally by coordinate_shutdown
+        // We can't easily test this without running a full shutdown
+        // so we just verify the initial state
+    }
+
+    #[tokio::test]
+    async fn test_register_and_unregister_sequence() {
+        let manager = ShutdownManager::new();
+        let handler = Arc::new(MockHandler::new("test"));
+
+        // Register
+        manager
+            .register_handler("test".to_string(), handler.clone())
+            .await;
+
+        // Unregister
+        assert!(manager.unregister_handler("test").await);
+
+        // Try to unregister again (should fail)
+        assert!(!manager.unregister_handler("test").await);
+
+        // Re-register
+        manager.register_handler("test".to_string(), handler).await;
+
+        // Verify it's there
+        assert!(manager.unregister_handler("test").await);
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_handler_with_different_delays() {
+        let fast_handler = MockHandler::with_delay("fast", Duration::from_millis(10));
+        let slow_handler = MockHandler::with_delay("slow", Duration::from_millis(100));
+
+        assert_eq!(
+            fast_handler.estimated_shutdown_time(),
+            Duration::from_millis(10)
+        );
+        assert_eq!(
+            slow_handler.estimated_shutdown_time(),
+            Duration::from_millis(100)
+        );
+    }
+
+    #[test]
+    fn test_shutdown_phase_debug() {
+        let phase = ShutdownPhase::DrainRequests;
+        let debug_str = format!("{:?}", phase);
+        assert!(debug_str.contains("DrainRequests"));
+    }
+
+    #[test]
+    fn test_shutdown_signal_debug() {
+        let signal = ShutdownSignal::Graceful;
+        let debug_str = format!("{:?}", signal);
+        assert!(debug_str.contains("Graceful"));
+    }
+}
