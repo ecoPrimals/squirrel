@@ -7,6 +7,7 @@ pub mod bridge; // Bridge between universal and legacy interfaces
 pub(crate) mod constraint_router;
 pub(crate) mod constraints;
 pub mod discovery; // Capability-based AI provider discovery
+pub(crate) mod http_provider_config; // HTTP provider configuration (vendor-agnostic)
 pub(crate) mod router;
 pub(crate) mod selector;
 pub(crate) mod types;
