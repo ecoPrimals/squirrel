@@ -834,3 +834,536 @@ impl ShutdownHandler for SecurityMonitoringSystem {
         Duration::from_secs(10)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_security_monitoring_config_default() {
+        let config = SecurityMonitoringConfig::default();
+
+        assert!(config.enable_real_time_monitoring);
+        assert_eq!(config.event_buffer_size, 1000);
+        assert_eq!(
+            config.event_retention_period,
+            Duration::from_secs(24 * 3600)
+        );
+        assert!(config.enable_behavioral_analysis);
+        assert_eq!(config.behavioral_window, Duration::from_secs(3600));
+        assert!(config.enable_automated_response);
+        assert_eq!(config.max_events_per_batch, 100);
+    }
+
+    #[test]
+    fn test_security_monitoring_config_custom() {
+        let config = SecurityMonitoringConfig {
+            enable_real_time_monitoring: false,
+            event_buffer_size: 500,
+            event_retention_period: Duration::from_secs(3600),
+            alert_thresholds: AlertThresholds::default(),
+            enable_behavioral_analysis: false,
+            behavioral_window: Duration::from_secs(1800),
+            enable_automated_response: false,
+            max_events_per_batch: 50,
+        };
+
+        assert!(!config.enable_real_time_monitoring);
+        assert_eq!(config.event_buffer_size, 500);
+        assert_eq!(config.event_retention_period, Duration::from_secs(3600));
+        assert!(!config.enable_behavioral_analysis);
+        assert_eq!(config.behavioral_window, Duration::from_secs(1800));
+        assert!(!config.enable_automated_response);
+        assert_eq!(config.max_events_per_batch, 50);
+    }
+
+    #[test]
+    fn test_alert_thresholds_default() {
+        let thresholds = AlertThresholds::default();
+
+        assert_eq!(thresholds.failed_auth_per_hour, 10);
+        assert_eq!(thresholds.rate_limit_violations_per_hour, 50);
+        assert_eq!(thresholds.input_violations_per_hour, 20);
+        assert_eq!(thresholds.suspicious_activities_per_hour, 5);
+        assert_eq!(thresholds.max_concurrent_sessions_per_user, 5);
+        assert_eq!(thresholds.max_failed_requests_ratio, 0.3);
+    }
+
+    #[test]
+    fn test_alert_thresholds_custom() {
+        let thresholds = AlertThresholds {
+            failed_auth_per_hour: 20,
+            rate_limit_violations_per_hour: 100,
+            input_violations_per_hour: 40,
+            suspicious_activities_per_hour: 10,
+            max_concurrent_sessions_per_user: 10,
+            max_failed_requests_ratio: 0.5,
+        };
+
+        assert_eq!(thresholds.failed_auth_per_hour, 20);
+        assert_eq!(thresholds.rate_limit_violations_per_hour, 100);
+        assert_eq!(thresholds.input_violations_per_hour, 40);
+        assert_eq!(thresholds.suspicious_activities_per_hour, 10);
+        assert_eq!(thresholds.max_concurrent_sessions_per_user, 10);
+        assert_eq!(thresholds.max_failed_requests_ratio, 0.5);
+    }
+
+    #[test]
+    fn test_event_severity_ordering() {
+        assert!(EventSeverity::Info < EventSeverity::Warning);
+        assert!(EventSeverity::Warning < EventSeverity::High);
+        assert!(EventSeverity::High < EventSeverity::Critical);
+    }
+
+    #[test]
+    fn test_event_severity_equality() {
+        assert_eq!(EventSeverity::Info, EventSeverity::Info);
+        assert_eq!(EventSeverity::Warning, EventSeverity::Warning);
+        assert_eq!(EventSeverity::High, EventSeverity::High);
+        assert_eq!(EventSeverity::Critical, EventSeverity::Critical);
+    }
+
+    #[test]
+    fn test_security_event_type_authentication_success() {
+        let event = SecurityEventType::Authentication {
+            success: true,
+            user_id: Some("user123".to_string()),
+            method: "oauth2".to_string(),
+        };
+
+        if let SecurityEventType::Authentication {
+            success,
+            user_id,
+            method,
+        } = event
+        {
+            assert!(success);
+            assert_eq!(user_id.unwrap(), "user123");
+            assert_eq!(method, "oauth2");
+        } else {
+            panic!("Expected Authentication event");
+        }
+    }
+
+    #[test]
+    fn test_security_event_type_authentication_failure() {
+        let event = SecurityEventType::Authentication {
+            success: false,
+            user_id: None,
+            method: "password".to_string(),
+        };
+
+        if let SecurityEventType::Authentication {
+            success,
+            user_id,
+            method,
+        } = event
+        {
+            assert!(!success);
+            assert!(user_id.is_none());
+            assert_eq!(method, "password");
+        } else {
+            panic!("Expected Authentication event");
+        }
+    }
+
+    #[test]
+    fn test_security_event_type_authorization_granted() {
+        let event = SecurityEventType::Authorization {
+            granted: true,
+            user_id: "user123".to_string(),
+            resource: "/api/data".to_string(),
+            action: "read".to_string(),
+        };
+
+        if let SecurityEventType::Authorization {
+            granted,
+            user_id,
+            resource,
+            action,
+        } = event
+        {
+            assert!(granted);
+            assert_eq!(user_id, "user123");
+            assert_eq!(resource, "/api/data");
+            assert_eq!(action, "read");
+        } else {
+            panic!("Expected Authorization event");
+        }
+    }
+
+    #[test]
+    fn test_security_event_type_authorization_denied() {
+        let event = SecurityEventType::Authorization {
+            granted: false,
+            user_id: "user456".to_string(),
+            resource: "/api/admin".to_string(),
+            action: "write".to_string(),
+        };
+
+        if let SecurityEventType::Authorization {
+            granted,
+            user_id,
+            resource,
+            action,
+        } = event
+        {
+            assert!(!granted);
+            assert_eq!(user_id, "user456");
+            assert_eq!(resource, "/api/admin");
+            assert_eq!(action, "write");
+        } else {
+            panic!("Expected Authorization event");
+        }
+    }
+
+    #[test]
+    fn test_security_event_type_rate_limit_violation() {
+        let event = SecurityEventType::RateLimitViolation {
+            client_ip: "192.168.1.100".to_string(),
+            endpoint: "/api/query".to_string(),
+            violation_count: 5,
+        };
+
+        if let SecurityEventType::RateLimitViolation {
+            client_ip,
+            endpoint,
+            violation_count,
+        } = event
+        {
+            assert_eq!(client_ip, "192.168.1.100");
+            assert_eq!(endpoint, "/api/query");
+            assert_eq!(violation_count, 5);
+        } else {
+            panic!("Expected RateLimitViolation event");
+        }
+    }
+
+    #[test]
+    fn test_security_event_type_input_validation_violation() {
+        let event = SecurityEventType::InputValidationViolation {
+            client_ip: "10.0.0.1".to_string(),
+            violation_type: "sql_injection".to_string(),
+            risk_level: "high".to_string(),
+        };
+
+        if let SecurityEventType::InputValidationViolation {
+            client_ip,
+            violation_type,
+            risk_level,
+        } = event
+        {
+            assert_eq!(client_ip, "10.0.0.1");
+            assert_eq!(violation_type, "sql_injection");
+            assert_eq!(risk_level, "high");
+        } else {
+            panic!("Expected InputValidationViolation event");
+        }
+    }
+
+    #[test]
+    fn test_security_event_type_suspicious_activity() {
+        let mut details = HashMap::new();
+        details.insert("pattern".to_string(), "port_scan".to_string());
+        details.insert("count".to_string(), "50".to_string());
+
+        let event = SecurityEventType::SuspiciousActivity {
+            client_ip: "172.16.0.1".to_string(),
+            activity_type: "port_scanning".to_string(),
+            details: details.clone(),
+        };
+
+        if let SecurityEventType::SuspiciousActivity {
+            client_ip,
+            activity_type,
+            details: event_details,
+        } = event
+        {
+            assert_eq!(client_ip, "172.16.0.1");
+            assert_eq!(activity_type, "port_scanning");
+            assert_eq!(event_details.get("pattern").unwrap(), "port_scan");
+            assert_eq!(event_details.get("count").unwrap(), "50");
+        } else {
+            panic!("Expected SuspiciousActivity event");
+        }
+    }
+
+    #[test]
+    fn test_security_event_type_policy_violation() {
+        let event = SecurityEventType::PolicyViolation {
+            policy_id: "POLICY-001".to_string(),
+            user_id: Some("user789".to_string()),
+            details: "Access attempted outside allowed hours".to_string(),
+        };
+
+        if let SecurityEventType::PolicyViolation {
+            policy_id,
+            user_id,
+            details,
+        } = event
+        {
+            assert_eq!(policy_id, "POLICY-001");
+            assert_eq!(user_id.unwrap(), "user789");
+            assert_eq!(details, "Access attempted outside allowed hours");
+        } else {
+            panic!("Expected PolicyViolation event");
+        }
+    }
+
+    #[test]
+    fn test_security_event_type_system_access() {
+        let event = SecurityEventType::SystemAccess {
+            user_id: "admin123".to_string(),
+            access_type: "console".to_string(),
+            resource: "production_database".to_string(),
+        };
+
+        if let SecurityEventType::SystemAccess {
+            user_id,
+            access_type,
+            resource,
+        } = event
+        {
+            assert_eq!(user_id, "admin123");
+            assert_eq!(access_type, "console");
+            assert_eq!(resource, "production_database");
+        } else {
+            panic!("Expected SystemAccess event");
+        }
+    }
+
+    #[test]
+    fn test_security_event_creation() {
+        let event = SecurityEvent {
+            event_id: Uuid::new_v4(),
+            event_type: SecurityEventType::Authentication {
+                success: true,
+                user_id: Some("test_user".to_string()),
+                method: "password".to_string(),
+            },
+            timestamp: SystemTime::now(),
+            source_ip: "127.0.0.1".to_string(),
+            user_agent: Some("TestAgent/1.0".to_string()),
+            correlation_id: CorrelationId::new(),
+            severity: EventSeverity::Info,
+            metadata: HashMap::new(),
+            source_component: "auth_service".to_string(),
+        };
+
+        assert_eq!(event.source_ip, "127.0.0.1");
+        assert_eq!(event.user_agent.unwrap(), "TestAgent/1.0");
+        assert_eq!(event.severity, EventSeverity::Info);
+        assert_eq!(event.source_component, "auth_service");
+    }
+
+    #[tokio::test]
+    async fn test_security_monitoring_system_new() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+
+        let stats = system.get_statistics().await;
+        assert_eq!(stats.total_events, 0);
+        assert_eq!(stats.alerts_generated, 0);
+    }
+
+    #[tokio::test]
+    async fn test_security_monitoring_system_record_event() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+
+        // Start the system to begin background processing
+        let _ = system.start().await;
+
+        let event = SecurityEvent {
+            event_id: Uuid::new_v4(),
+            event_type: SecurityEventType::Authentication {
+                success: true,
+                user_id: Some("test_user".to_string()),
+                method: "password".to_string(),
+            },
+            timestamp: SystemTime::now(),
+            source_ip: "127.0.0.1".to_string(),
+            user_agent: Some("TestAgent/1.0".to_string()),
+            correlation_id: CorrelationId::new(),
+            severity: EventSeverity::Info,
+            metadata: HashMap::new(),
+            source_component: "test".to_string(),
+        };
+
+        system.record_event(event).await;
+
+        // Give background processing time
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        let stats = system.get_statistics().await;
+        assert!(stats.total_events >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_security_monitoring_system_multiple_events() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+
+        // Start the system to begin background processing
+        let _ = system.start().await;
+
+        for i in 0..5 {
+            let event = SecurityEvent {
+                event_id: Uuid::new_v4(),
+                event_type: SecurityEventType::Authentication {
+                    success: i % 2 == 0,
+                    user_id: Some(format!("user{}", i)),
+                    method: "password".to_string(),
+                },
+                timestamp: SystemTime::now(),
+                source_ip: format!("192.168.1.{}", i),
+                user_agent: Some("TestAgent/1.0".to_string()),
+                correlation_id: CorrelationId::new(),
+                severity: EventSeverity::Info,
+                metadata: HashMap::new(),
+                source_component: "test".to_string(),
+            };
+
+            system.record_event(event).await;
+        }
+
+        // Give background processing time
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        let stats = system.get_statistics().await;
+        assert!(stats.total_events >= 5);
+    }
+
+    #[tokio::test]
+    async fn test_security_monitoring_system_get_active_alerts() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+
+        let alerts = system.get_active_alerts().await;
+        assert_eq!(alerts.len(), 0); // No alerts initially
+    }
+
+    #[tokio::test]
+    async fn test_security_event_type_equality() {
+        let event1 = SecurityEventType::Authentication {
+            success: true,
+            user_id: Some("user123".to_string()),
+            method: "oauth2".to_string(),
+        };
+
+        let event2 = SecurityEventType::Authentication {
+            success: true,
+            user_id: Some("user123".to_string()),
+            method: "oauth2".to_string(),
+        };
+
+        assert_eq!(event1, event2);
+    }
+
+    #[test]
+    fn test_config_serialization() {
+        let config = SecurityMonitoringConfig::default();
+        let serialized = serde_json::to_string(&config);
+        assert!(serialized.is_ok());
+    }
+
+    #[test]
+    fn test_alert_thresholds_serialization() {
+        let thresholds = AlertThresholds::default();
+        let serialized = serde_json::to_string(&thresholds);
+        assert!(serialized.is_ok());
+    }
+
+    #[test]
+    fn test_event_severity_debug() {
+        let severity = EventSeverity::Critical;
+        let debug_str = format!("{:?}", severity);
+        assert!(debug_str.contains("Critical"));
+    }
+
+    #[test]
+    fn test_security_event_type_debug() {
+        let event = SecurityEventType::Authentication {
+            success: true,
+            user_id: Some("test".to_string()),
+            method: "password".to_string(),
+        };
+        let debug_str = format!("{:?}", event);
+        assert!(debug_str.contains("Authentication"));
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_handler_component_name() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+
+        assert_eq!(system.component_name(), "security_monitoring");
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_handler_estimated_time() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+
+        let estimated = system.estimated_shutdown_time();
+        assert_eq!(estimated, Duration::from_secs(10));
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_handler_is_complete() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+
+        let is_complete = system.is_shutdown_complete().await;
+        assert!(!is_complete); // Should be false initially
+    }
+
+    #[test]
+    fn test_config_clone() {
+        let config = SecurityMonitoringConfig::default();
+        let cloned = config.clone();
+
+        assert_eq!(
+            config.enable_real_time_monitoring,
+            cloned.enable_real_time_monitoring
+        );
+        assert_eq!(config.event_buffer_size, cloned.event_buffer_size);
+        assert_eq!(config.max_events_per_batch, cloned.max_events_per_batch);
+    }
+
+    #[test]
+    fn test_alert_thresholds_clone() {
+        let thresholds = AlertThresholds::default();
+        let cloned = thresholds.clone();
+
+        assert_eq!(thresholds.failed_auth_per_hour, cloned.failed_auth_per_hour);
+        assert_eq!(
+            thresholds.rate_limit_violations_per_hour,
+            cloned.rate_limit_violations_per_hour
+        );
+        assert_eq!(
+            thresholds.max_concurrent_sessions_per_user,
+            cloned.max_concurrent_sessions_per_user
+        );
+    }
+
+    #[test]
+    fn test_event_severity_clone() {
+        let severity = EventSeverity::High;
+        let cloned = severity.clone();
+
+        assert_eq!(severity, cloned);
+    }
+
+    #[test]
+    fn test_security_event_type_clone() {
+        let event = SecurityEventType::Authentication {
+            success: true,
+            user_id: Some("test".to_string()),
+            method: "password".to_string(),
+        };
+        let cloned = event.clone();
+
+        assert_eq!(event, cloned);
+    }
+}
