@@ -18,8 +18,9 @@
 use super::adapters::{
     AiProviderAdapter, AnthropicAdapter, OpenAiAdapter, ProviderMetadata, UniversalAiAdapter,
 };
-
+use super::bridge::BridgeAdapter;
 use super::constraint_router::select_provider_with_constraints;
+use super::discovery::discover_ai_providers;
 use super::selector::{ProviderInfo, ProviderSelector};
 use super::types::{
     ActionRequirements, ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
@@ -89,77 +90,61 @@ impl AiRouter {
         // }
 
         // BIOME OS FIX: Add overall timeout to prevent hangs (10s max)
-        let initialization_result = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            async {
+        // TRUE PRIMAL EVOLUTION (Jan 29, 2026): Use universal capability discovery
+        let initialization_result =
+            tokio::time::timeout(std::time::Duration::from_secs(10), async {
                 let mut local_providers: Vec<Arc<dyn AiProviderAdapter>> = Vec::new();
 
-                // 1. Try capability-based HTTP adapters (Anthropic, OpenAI)
-                // These use capability discovery for HTTP delegation (TRUE PRIMAL!)
-                info!("🔍 Initializing capability-based HTTP adapters...");
-                // BIOME OS FIX (Jan 27, 2026): Increased timeout from 2s to 5s
-                // is_available() can try env var, registry query, and socket scan
-                if let Ok(Ok(adapter)) = tokio::time::timeout(
-                    std::time::Duration::from_secs(2),
-                    async { AnthropicAdapter::new() }
-                ).await {
-                    if let Ok(available) = tokio::time::timeout(
-                        std::time::Duration::from_secs(5),
-                        adapter.is_available()
-                    ).await {
-                        if available {
-                            info!("✅ Anthropic adapter available (HTTP via capability discovery)");
-                            local_providers.push(Arc::new(adapter));
-                        } else {
-                            debug!("⚠️  Anthropic adapter not available (check ANTHROPIC_API_KEY + HTTP provider)");
-                        }
-                    }
-                }
-                if let Ok(Ok(adapter)) = tokio::time::timeout(
-                    std::time::Duration::from_secs(2),
-                    async { OpenAiAdapter::new() }
-                ).await {
-                    if let Ok(available) = tokio::time::timeout(
-                        std::time::Duration::from_secs(5),
-                        adapter.is_available()
-                    ).await {
-                        if available {
-                            info!("✅ OpenAI adapter available (HTTP via capability discovery)");
-                            local_providers.push(Arc::new(adapter));
-                        } else {
-                            debug!("⚠️  OpenAI adapter not available (check OPENAI_API_KEY + HTTP provider)");
-                        }
+                info!("🔍 Discovering AI providers via capability discovery...");
+
+                // Discover all AI providers via capability discovery (TRUE PRIMAL!)
+                let discovered = discover_ai_providers().await;
+
+                for capability in discovered {
+                    let provider_id = capability.provider_id().to_string();
+
+                    // Check if available
+                    if capability.is_available().await {
+                        info!("✅ AI provider available: {}", provider_id);
+
+                        // Wrap in bridge adapter to work with existing router
+                        let bridge = BridgeAdapter::new(capability);
+                        local_providers.push(Arc::new(bridge));
+                    } else {
+                        debug!("⚠️  AI provider not available: {}", provider_id);
                     }
                 }
 
-                // 2. Check for Unix socket providers (other primals)
-                // BIOME OS RECOMMENDATION: Use AI_PROVIDER_SOCKETS hint (simple & fast)
-                if let Ok(socket_paths) = std::env::var("AI_PROVIDER_SOCKETS") {
-                    info!("🎯 Using AI_PROVIDER_SOCKETS hint: {}", socket_paths);
-                    for socket_path in socket_paths.split(',') {
-                        let socket_path = socket_path.trim();
-                        // BIOME OS FIX: Timeout each socket connection (2s max)
-                        match tokio::time::timeout(
-                            std::time::Duration::from_secs(2),
-                            Self::create_universal_adapter_from_path(socket_path)
-                        ).await {
-                            Ok(Ok(adapter)) => {
-                                info!("✅ Connected to provider: {}", socket_path);
-                                local_providers.push(Arc::new(adapter));
-                            }
-                            Ok(Err(e)) => {
-                                warn!("⚠️  Failed to connect to {}: {}", socket_path, e);
-                            }
-                            Err(_) => {
-                                warn!("⚠️  Timeout connecting to {} (>2s)", socket_path);
+                // Fallback: Check for explicit AI_PROVIDER_SOCKETS (backward compat)
+                if local_providers.is_empty() {
+                    if let Ok(socket_paths) = std::env::var("AI_PROVIDER_SOCKETS") {
+                        info!("🎯 Using AI_PROVIDER_SOCKETS fallback: {}", socket_paths);
+                        for socket_path in socket_paths.split(',') {
+                            let socket_path = socket_path.trim();
+                            match tokio::time::timeout(
+                                std::time::Duration::from_secs(2),
+                                Self::create_universal_adapter_from_path(socket_path),
+                            )
+                            .await
+                            {
+                                Ok(Ok(adapter)) => {
+                                    info!("✅ Connected to provider: {}", socket_path);
+                                    local_providers.push(Arc::new(adapter));
+                                }
+                                Ok(Err(e)) => {
+                                    warn!("⚠️  Failed to connect to {}: {}", socket_path, e);
+                                }
+                                Err(_) => {
+                                    warn!("⚠️  Timeout connecting to {} (>2s)", socket_path);
+                                }
                             }
                         }
                     }
                 }
 
                 Ok::<Vec<Arc<dyn AiProviderAdapter>>, PrimalError>(local_providers)
-            }
-        ).await;
+            })
+            .await;
 
         // BIOME OS FIX: Handle timeout gracefully
         match initialization_result {
@@ -176,12 +161,13 @@ impl AiRouter {
 
         // Summary
         if providers.is_empty() {
-            warn!("⚠️  No AI providers available!");
-            warn!("⚠️  For external AI APIs:");
-            warn!("     - Set ANTHROPIC_API_KEY or OPENAI_API_KEY");
-            warn!("     - Ensure HTTP provider available (http.request capability)");
-            warn!("⚠️  For local AI primals:");
-            warn!("     - Set AI_PROVIDER_SOCKETS=/tmp/provider.sock");
+            warn!("⚠️  No AI providers discovered!");
+            warn!("⚠️  To enable AI capabilities:");
+            warn!("     - Start an AI primal with ai.complete or ai.chat capability");
+            warn!("     - Or use capability registry: CAPABILITY_REGISTRY_SOCKET");
+            warn!("     - Or set explicit socket: AI_COMPLETE_PROVIDER_SOCKET");
+            warn!("     - Or use fallback: AI_PROVIDER_SOCKETS=/tmp/provider.sock");
+            warn!("⚠️  TRUE PRIMAL: No vendor-specific config needed!");
         } else {
             info!(
                 "✅ AI router initialized with {} provider(s) via capability discovery",

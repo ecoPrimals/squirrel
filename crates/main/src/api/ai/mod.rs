@@ -3,6 +3,7 @@
 pub(crate) mod action_registry;
 pub mod adapter; // Universal AI adapter (vendor-agnostic)
 pub(crate) mod adapters;
+pub mod bridge; // Bridge between universal and legacy interfaces
 pub(crate) mod constraint_router;
 pub(crate) mod constraints;
 pub mod discovery; // Capability-based AI provider discovery

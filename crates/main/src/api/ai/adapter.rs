@@ -66,7 +66,7 @@ impl UniversalAiAdapter {
     }
 
     /// Extract metadata from capability provider
-    fn extract_metadata(provider: &CapabilityProvider, capability: &str) -> ProviderMetadata {
+    fn extract_metadata(provider: &CapabilityProvider, _capability: &str) -> ProviderMetadata {
         // Try to extract provider type from metadata
         let provider_type = provider
             .metadata
