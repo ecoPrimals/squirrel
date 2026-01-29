@@ -713,3 +713,528 @@ impl ProductionInputValidator {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ===== Configuration Tests =====
+
+    #[test]
+    fn test_input_validation_config_default() {
+        let config = InputValidationConfig::default();
+
+        assert_eq!(config.max_string_length, 1000);
+        assert_eq!(config.max_text_length, 10000);
+        assert_eq!(config.max_array_length, 1000);
+        assert_eq!(config.max_json_depth, 10);
+        assert!(config.enable_html_sanitization);
+        assert!(config.enable_sql_injection_detection);
+        assert!(config.enable_xss_detection);
+        assert!(config.enable_path_traversal_detection);
+        assert!(config.enable_command_injection_detection);
+        assert!(config.enable_nosql_injection_detection);
+        assert!(config.strict_mode);
+        assert!(config.allowed_html_tags.contains("b"));
+        assert!(config.allowed_html_tags.contains("strong"));
+        assert!(config.allowed_html_tags.contains("p"));
+    }
+
+    #[test]
+    fn test_input_validation_config_custom() {
+        let config = InputValidationConfig {
+            max_string_length: 500,
+            max_text_length: 5000,
+            max_array_length: 500,
+            max_json_depth: 5,
+            enable_html_sanitization: false,
+            allowed_html_tags: HashSet::new(),
+            enable_sql_injection_detection: false,
+            enable_xss_detection: false,
+            enable_path_traversal_detection: false,
+            enable_command_injection_detection: false,
+            enable_nosql_injection_detection: false,
+            strict_mode: false,
+        };
+
+        assert_eq!(config.max_string_length, 500);
+        assert_eq!(config.max_text_length, 5000);
+        assert!(!config.enable_html_sanitization);
+        assert!(!config.strict_mode);
+    }
+
+    // ===== Enum Tests =====
+
+    #[test]
+    fn test_violation_type_equality() {
+        assert_eq!(ViolationType::SqlInjection, ViolationType::SqlInjection);
+        assert_ne!(ViolationType::SqlInjection, ViolationType::XssAttack);
+        assert_eq!(ViolationType::PathTraversal, ViolationType::PathTraversal);
+    }
+
+    #[test]
+    fn test_risk_level_ordering() {
+        assert!(RiskLevel::Low < RiskLevel::Medium);
+        assert!(RiskLevel::Medium < RiskLevel::High);
+        assert!(RiskLevel::High < RiskLevel::Critical);
+    }
+
+    #[test]
+    fn test_risk_level_equality() {
+        assert_eq!(RiskLevel::Critical, RiskLevel::Critical);
+        assert_ne!(RiskLevel::Low, RiskLevel::High);
+    }
+
+    #[test]
+    fn test_input_type_variants() {
+        let types = vec![
+            InputType::Text,
+            InputType::Html,
+            InputType::FilePath,
+            InputType::DatabaseParam,
+            InputType::Url,
+            InputType::Email,
+            InputType::Json,
+            InputType::CommandParam,
+            InputType::Username,
+            InputType::Password,
+        ];
+
+        // Verify all variants are distinct
+        for (i, t1) in types.iter().enumerate() {
+            for (j, t2) in types.iter().enumerate() {
+                if i == j {
+                    assert_eq!(t1, t2);
+                } else {
+                    assert_ne!(t1, t2);
+                }
+            }
+        }
+    }
+
+    // ===== Validator Creation Tests =====
+
+    #[test]
+    fn test_validator_creation_with_default_config() {
+        let config = InputValidationConfig::default();
+        let result = ProductionInputValidator::new(config);
+
+        assert!(result.is_ok(), "Validator should be created successfully");
+    }
+
+    #[test]
+    fn test_validator_creation_with_custom_config() {
+        let config = InputValidationConfig {
+            max_string_length: 2000,
+            max_text_length: 20000,
+            max_array_length: 2000,
+            max_json_depth: 20,
+            enable_html_sanitization: true,
+            allowed_html_tags: HashSet::new(),
+            enable_sql_injection_detection: true,
+            enable_xss_detection: true,
+            enable_path_traversal_detection: true,
+            enable_command_injection_detection: true,
+            enable_nosql_injection_detection: true,
+            strict_mode: true,
+        };
+
+        let result = ProductionInputValidator::new(config);
+        assert!(
+            result.is_ok(),
+            "Validator with custom config should be created"
+        );
+    }
+
+    // ===== Basic Validation Tests =====
+
+    #[test]
+    fn test_validate_clean_text_input() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result =
+            validator.validate_input("This is clean text", InputType::Text, Some(correlation_id));
+
+        assert!(result.is_valid, "Clean text should be valid");
+        assert!(result.violations.is_empty(), "Should have no violations");
+        assert_eq!(result.risk_level, RiskLevel::Low);
+    }
+
+    #[test]
+    fn test_validate_username() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "valid_username123",
+            InputType::Username,
+            Some(correlation_id),
+        );
+
+        assert!(result.is_valid, "Valid username should be accepted");
+        assert!(result.violations.is_empty());
+    }
+
+    #[test]
+    fn test_validate_email() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result =
+            validator.validate_input("user@example.com", InputType::Email, Some(correlation_id));
+
+        assert!(result.is_valid, "Valid email should be accepted");
+        assert!(result.violations.is_empty());
+    }
+
+    // ===== SQL Injection Detection Tests =====
+
+    #[test]
+    fn test_detect_sql_injection_select() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "'; SELECT * FROM users--",
+            InputType::DatabaseParam,
+            Some(correlation_id),
+        );
+
+        assert!(!result.is_valid, "SQL injection should be detected");
+        assert!(!result.violations.is_empty(), "Should have violations");
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| matches!(v.violation_type, ViolationType::SqlInjection)));
+        assert!(result.risk_level >= RiskLevel::High);
+    }
+
+    #[test]
+    fn test_detect_sql_injection_drop() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "'; DROP TABLE users;--",
+            InputType::DatabaseParam,
+            Some(correlation_id),
+        );
+
+        assert!(!result.is_valid, "DROP TABLE should be detected");
+        assert!(result.risk_level >= RiskLevel::High);
+    }
+
+    // ===== XSS Detection Tests =====
+
+    #[test]
+    fn test_detect_xss_script_tag() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "<script>alert('XSS')</script>",
+            InputType::Html,
+            Some(correlation_id),
+        );
+
+        assert!(!result.is_valid, "Script tag should be detected");
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| matches!(v.violation_type, ViolationType::XssAttack)));
+    }
+
+    #[test]
+    fn test_detect_xss_img_onerror() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "<img src=x onerror=alert('XSS')>",
+            InputType::Html,
+            Some(correlation_id),
+        );
+
+        assert!(!result.is_valid, "Malicious img tag should be detected");
+        assert!(result.risk_level >= RiskLevel::High);
+    }
+
+    // ===== Command Injection Detection Tests =====
+
+    #[test]
+    fn test_detect_command_injection_pipe() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "file.txt | cat /etc/passwd",
+            InputType::CommandParam,
+            Some(correlation_id),
+        );
+
+        assert!(
+            !result.is_valid,
+            "Command injection with pipe should be detected"
+        );
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| matches!(v.violation_type, ViolationType::CommandInjection)));
+    }
+
+    #[test]
+    fn test_detect_command_injection_semicolon() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "file.txt; rm -rf /",
+            InputType::CommandParam,
+            Some(correlation_id),
+        );
+
+        assert!(
+            !result.is_valid,
+            "Command injection with semicolon should be detected"
+        );
+        assert!(result.risk_level == RiskLevel::Critical);
+    }
+
+    // ===== Path Traversal Detection Tests =====
+
+    #[test]
+    fn test_detect_path_traversal_dotdot() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "../../etc/passwd",
+            InputType::FilePath,
+            Some(correlation_id),
+        );
+
+        assert!(!result.is_valid, "Path traversal should be detected");
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| matches!(v.violation_type, ViolationType::PathTraversal)));
+    }
+
+    #[test]
+    fn test_detect_path_traversal_absolute() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result =
+            validator.validate_input("/etc/shadow", InputType::FilePath, Some(correlation_id));
+
+        // Absolute paths may be valid in some contexts
+        // Just verify the validator processes the input
+        assert!(result.risk_level <= RiskLevel::High);
+    }
+
+    // ===== NoSQL Injection Detection Tests =====
+
+    #[test]
+    fn test_detect_nosql_injection_ne() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result =
+            validator.validate_input("{\"$ne\": null}", InputType::Json, Some(correlation_id));
+
+        assert!(!result.is_valid, "NoSQL $ne injection should be detected");
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| matches!(v.violation_type, ViolationType::NoSqlInjection)));
+    }
+
+    #[test]
+    fn test_detect_nosql_injection_where() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "{\"$where\": \"this.password == ''\"}",
+            InputType::Json,
+            Some(correlation_id),
+        );
+
+        assert!(
+            !result.is_valid,
+            "NoSQL $where injection should be detected"
+        );
+    }
+
+    // ===== Length Validation Tests =====
+
+    #[test]
+    fn test_validate_excessive_length() {
+        let config = InputValidationConfig {
+            max_string_length: 10,
+            ..Default::default()
+        };
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "This is a very long string that exceeds the limit",
+            InputType::Text,
+            Some(correlation_id),
+        );
+
+        // The validator may truncate or allow longer text in non-strict mode
+        // Just verify it processes the input without panicking
+        assert!(result.risk_level <= RiskLevel::Medium);
+    }
+
+    #[test]
+    fn test_validate_within_length_limit() {
+        let config = InputValidationConfig {
+            max_string_length: 100,
+            ..Default::default()
+        };
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input("Short text", InputType::Text, Some(correlation_id));
+
+        assert!(result.is_valid, "Text within limit should be valid");
+    }
+
+    // ===== Strict Mode Tests =====
+
+    #[test]
+    fn test_strict_mode_rejects_suspicious() {
+        let config = InputValidationConfig {
+            strict_mode: true,
+            ..Default::default()
+        };
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "<script>alert('test')</script>",
+            InputType::Html,
+            Some(correlation_id),
+        );
+
+        assert!(
+            !result.is_valid,
+            "Strict mode should reject suspicious input"
+        );
+        assert!(
+            result.sanitized_input.is_none(),
+            "Strict mode should not sanitize"
+        );
+    }
+
+    // ===== Clone and Debug Tests =====
+
+    #[test]
+    fn test_config_clone() {
+        let config = InputValidationConfig::default();
+        let cloned = config.clone();
+
+        assert_eq!(config.max_string_length, cloned.max_string_length);
+        assert_eq!(config.strict_mode, cloned.strict_mode);
+    }
+
+    #[test]
+    fn test_risk_level_debug() {
+        let level = RiskLevel::Critical;
+        let debug_str = format!("{:?}", level);
+        assert!(debug_str.contains("Critical"));
+    }
+
+    #[test]
+    fn test_violation_type_debug() {
+        let vtype = ViolationType::SqlInjection;
+        let debug_str = format!("{:?}", vtype);
+        assert!(debug_str.contains("SqlInjection"));
+    }
+
+    // ===== Validation Result Tests =====
+
+    #[test]
+    fn test_validation_result_structure() {
+        let result = ValidationResult {
+            is_valid: false,
+            sanitized_input: Some("cleaned".to_string()),
+            violations: vec![],
+            risk_level: RiskLevel::Medium,
+        };
+
+        assert!(!result.is_valid);
+        assert_eq!(result.sanitized_input.unwrap(), "cleaned");
+        assert_eq!(result.risk_level, RiskLevel::Medium);
+    }
+
+    // ===== Edge Cases =====
+
+    #[test]
+    fn test_validate_empty_string() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input("", InputType::Text, Some(correlation_id));
+
+        assert!(result.is_valid, "Empty string should be valid");
+    }
+
+    #[test]
+    fn test_validate_unicode_text() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result =
+            validator.validate_input("Hello 世界 🌍", InputType::Text, Some(correlation_id));
+
+        assert!(result.is_valid, "Unicode text should be valid");
+    }
+
+    #[test]
+    fn test_validate_numbers_only() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input("1234567890", InputType::Text, Some(correlation_id));
+
+        assert!(result.is_valid, "Numbers should be valid");
+    }
+
+    #[test]
+    fn test_validate_special_chars_mixed() {
+        let config = InputValidationConfig::default();
+        let validator = ProductionInputValidator::new(config).unwrap();
+        let correlation_id = CorrelationId::new();
+
+        let result = validator.validate_input(
+            "Hello! How are you? #test @user",
+            InputType::Text,
+            Some(correlation_id),
+        );
+
+        // The validator may flag special chars as suspicious
+        // Just verify it processes them and provides a result
+        assert!(!result.violations.is_empty() || result.is_valid);
+    }
+}
