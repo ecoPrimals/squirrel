@@ -154,8 +154,12 @@ mod tests {
             Some("local"),
         );
 
-        // Should fall back to localhost with default port
-        assert_eq!(endpoint, "http://localhost:8080");
+        // Should fall back to localhost with default port (configurable via TEST_DISCOVERY_FALLBACK_PORT)
+        let expected_port = std::env::var("TEST_DISCOVERY_FALLBACK_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8080);
+        assert_eq!(endpoint, format!("http://localhost:{}", expected_port));
     }
 
     #[test]
@@ -164,13 +168,19 @@ mod tests {
         // Verify all primals have fallback ports
         std::env::remove_var("SERVICE_DISCOVERY_DOMAIN");
 
+        // Base port configurable via TEST_DISCOVERY_BASE_PORT (default 8080)
+        let base_port = std::env::var("TEST_DISCOVERY_BASE_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8080);
+        
         let test_cases = vec![
-            (EcosystemPrimalType::Squirrel, "http://localhost:8080"),
-            (EcosystemPrimalType::Songbird, "http://localhost:8081"),
-            (EcosystemPrimalType::ToadStool, "http://localhost:8082"),
-            (EcosystemPrimalType::BearDog, "http://localhost:8083"),
-            (EcosystemPrimalType::NestGate, "http://localhost:8084"),
-            (EcosystemPrimalType::BiomeOS, "http://localhost:8085"),
+            (EcosystemPrimalType::Squirrel, format!("http://localhost:{}", base_port)),
+            (EcosystemPrimalType::Songbird, format!("http://localhost:{}", base_port + 1)),
+            (EcosystemPrimalType::ToadStool, format!("http://localhost:{}", base_port + 2)),
+            (EcosystemPrimalType::BearDog, format!("http://localhost:{}", base_port + 3)),
+            (EcosystemPrimalType::NestGate, format!("http://localhost:{}", base_port + 4)),
+            (EcosystemPrimalType::BiomeOS, format!("http://localhost:{}", base_port + 5)),
         ];
 
         for (primal_type, expected) in test_cases {

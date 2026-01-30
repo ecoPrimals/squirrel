@@ -91,8 +91,12 @@ impl OptimizedServiceRegistration {
         // Build service ID efficiently
         let service_id = format!("squirrel-{instance_id}");
 
-        // Build endpoints efficiently
-        let base_url = "http://localhost:8080".to_string();
+        // Build endpoints efficiently (configurable via TEST_BIOMEOS_OPT_PORT)
+        let test_port = std::env::var("TEST_BIOMEOS_OPT_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8080);
+        let base_url = format!("http://localhost:{}", test_port);
         let endpoints = crate::ecosystem::ServiceEndpoints {
             primary: base_url.to_string(),
             secondary: vec![

@@ -36,9 +36,16 @@ pub struct SongbirdClientConfig {
 
 impl Default for SongbirdClientConfig {
     fn default() -> Self {
-        // PRODUCTION SAFE: Using environment variable for service endpoint
+        // Multi-tier Songbird endpoint resolution
         let endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
-            .unwrap_or_else(|_| "http://localhost:8500".to_string());
+            .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = std::env::var("SONGBIRD_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8500);  // Default Songbird service mesh port
+                format!("http://localhost:{}", port)
+            });
 
         let service_name = std::env::var("MCP_SERVICE_NAME")
             .unwrap_or_else(|_| "squirrel-mcp".to_string());

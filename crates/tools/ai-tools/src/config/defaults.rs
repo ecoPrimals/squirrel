@@ -58,8 +58,19 @@ impl DefaultEndpoints {
     }
 
     /// Get WebSocket server URL from environment or default
+    ///
+    /// Multi-tier resolution:
+    /// 1. MCP_SERVER_URL (full URL override)
+    /// 2. MCP_SERVER_PORT (port with ws:// prefix)
+    /// 3. Default: ws://127.0.0.1:8080
     pub fn websocket_server_url() -> String {
-        env::var("MCP_SERVER_URL").unwrap_or_else(|_| "ws://127.0.0.1:8080".to_string())
+        env::var("MCP_SERVER_URL").unwrap_or_else(|_| {
+            let port = env::var("MCP_SERVER_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8080);
+            format!("ws://127.0.0.1:{}", port)
+        })
     }
 
     /// Get security service endpoint from environment (capability-based discovery)

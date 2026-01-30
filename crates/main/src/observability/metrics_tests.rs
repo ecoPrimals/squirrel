@@ -21,7 +21,16 @@ mod tests {
         let config = MetricsConfig {
             collection_interval: Duration::from_secs(60),
             enable_prometheus: false,
-            custom_endpoints: vec!["http://localhost:9090".to_string()],
+            custom_endpoints: vec![
+                std::env::var("TEST_METRICS_ENDPOINT")
+                    .unwrap_or_else(|_| {
+                        let port = std::env::var("TEST_METRICS_PORT")
+                            .ok()
+                            .and_then(|p| p.parse::<u16>().ok())
+                            .unwrap_or(9090);
+                        format!("http://localhost:{}", port)
+                    })
+            ],
             max_metrics_history: 5000,
         };
 
@@ -65,9 +74,13 @@ mod tests {
 
     #[test]
     fn test_metrics_endpoint_creation() {
+        let test_port = std::env::var("TEST_METRICS_ENDPOINT_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8080);
         let endpoint = MetricsEndpoint {
             primal_type: "squirrel".to_string(),
-            endpoint: "http://localhost:8080/metrics".to_string(),
+            endpoint: format!("http://localhost:{}/metrics", test_port),
             capabilities: vec![MetricCapability::Counter, MetricCapability::Gauge],
             discovered_at: chrono::Utc::now(),
         };
@@ -100,7 +113,16 @@ mod tests {
         let config = MetricsConfig {
             collection_interval: Duration::from_secs(30),
             enable_prometheus: true,
-            custom_endpoints: vec!["http://localhost:9090".to_string()],
+            custom_endpoints: vec![
+                std::env::var("TEST_METRICS_ENDPOINT")
+                    .unwrap_or_else(|_| {
+                        let port = std::env::var("TEST_METRICS_PORT")
+                            .ok()
+                            .and_then(|p| p.parse::<u16>().ok())
+                            .unwrap_or(9090);
+                        format!("http://localhost:{}", port)
+                    })
+            ],
             max_metrics_history: 10000,
         };
         let collector = UniversalMetricsCollector::new(config);

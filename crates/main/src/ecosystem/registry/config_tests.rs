@@ -414,8 +414,12 @@ fn test_production_config() {
 
 #[test]
 fn test_development_config() {
+    let test_port = std::env::var("TEST_REGISTRY_CONFIG_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(8080);
     let config = EcosystemRegistryConfig {
-        songbird_endpoint: "http://localhost:8080".to_string(),
+        songbird_endpoint: format!("http://localhost:{}", test_port),
         retry_config: RetryConfig {
             max_retries: 1,
             initial_delay: Duration::from_millis(100),

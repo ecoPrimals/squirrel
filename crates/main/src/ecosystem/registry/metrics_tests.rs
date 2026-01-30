@@ -15,11 +15,16 @@ mod tests {
     use tokio::sync::RwLock;
 
     fn create_test_service(id: &str, primal_type: EcosystemPrimalType) -> DiscoveredService {
+        let test_port = std::env::var("TEST_REGISTRY_METRICS_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8080);
+        
         DiscoveredService {
             service_id: id.into(),
             primal_type,
-            endpoint: format!("http://localhost:8080/{}", id).into(),
-            health_endpoint: format!("http://localhost:8080/{}/health", id).into(),
+            endpoint: format!("http://localhost:{}/{}", test_port, id).into(),
+            health_endpoint: format!("http://localhost:{}/{}/health", test_port, id).into(),
             api_version: "v1".into(),
             capabilities: vec!["test".into()],
             discovered_at: Utc::now(),

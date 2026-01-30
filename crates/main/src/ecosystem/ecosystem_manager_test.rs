@@ -8,9 +8,19 @@ fn create_test_config() -> EcosystemConfig {
         service_id: "test-squirrel-001".to_string(),
         service_name: "Test Squirrel".to_string(),
         service_host: "localhost".to_string(),
-        service_port: 8080,
+        service_port: std::env::var("TEST_ECOSYSTEM_MANAGER_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8080),
         biome_id: Some("test-biome".to_string()),
-        service_mesh_endpoint: "http://localhost:8000".to_string(),
+        service_mesh_endpoint: std::env::var("TEST_ECOSYSTEM_MESH_ENDPOINT")
+            .unwrap_or_else(|_| {
+                let port = std::env::var("TEST_ECOSYSTEM_MESH_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8000);
+                format!("http://localhost:{}", port)
+            }),
         ..Default::default()
     }
 }

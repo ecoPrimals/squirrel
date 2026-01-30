@@ -129,8 +129,18 @@ impl Default for TcpTransportConfig {
             .map(|c| c.timeouts.get_custom_timeout("tcp_reconnect").as_millis() as u64)
             .unwrap_or(1000);
         
+        // Multi-tier MCP TCP endpoint resolution
+        let remote_address = std::env::var("MCP_TCP_ENDPOINT")
+            .unwrap_or_else(|_| {
+                let port = std::env::var("MCP_TCP_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(9000);  // Default MCP TCP port
+                format!("127.0.0.1:{}", port)
+            });
+        
         Self {
-            remote_address: "127.0.0.1:9000".to_string(),
+            remote_address,
             local_bind_address: None,
             max_message_size: 10 * 1024 * 1024, // 10MB
             connection_timeout,

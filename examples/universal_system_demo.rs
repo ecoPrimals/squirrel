@@ -102,8 +102,19 @@ async fn demonstrate_configuration_methods() -> Result<(), Box<dyn std::error::E
     
     // Method 2: Programmatic configuration
     println!("\n2. Programmatic configuration:");
+    
+    // Discovery endpoint configurable via EXAMPLE_DISCOVERY_ENDPOINT or EXAMPLE_DISCOVERY_PORT
+    let discovery_endpoint = std::env::var("EXAMPLE_DISCOVERY_ENDPOINT")
+        .unwrap_or_else(|_| {
+            let port = std::env::var("EXAMPLE_DISCOVERY_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8500);
+            format!("http://localhost:{}", port)
+        });
+    
     let config = UniversalServiceConfig::new()
-        .add_discovery_endpoint("http://localhost:8500".to_string())?
+        .add_discovery_endpoint(discovery_endpoint)?
         .with_default_timeout(Duration::from_secs(30))?
         .add_service(
             "ai-service".to_string(),

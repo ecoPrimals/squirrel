@@ -212,8 +212,8 @@ mod error_path_tests {
         let service = DiscoveredService::new(
             "test",
             EcosystemPrimalType::Squirrel,
-            "http://localhost:8080",
-            "http://localhost:8080/health",
+            &format!("http://localhost:{}", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080)),
+            &format!("http://localhost:{}/health", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080)),
             "v1",
             vec!["storage", "compute", "network"],
             HashMap::new(),
@@ -298,8 +298,8 @@ mod error_path_tests {
         let service = DiscoveredService::new(
             "test",
             EcosystemPrimalType::Squirrel,
-            "http://localhost:8080",
-            "http://localhost:8080/health",
+            &format!("http://localhost:{}", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080)),
+            &format!("http://localhost:{}/health", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080)),
             "v1",
             vec!["test"],
             HashMap::new(),
@@ -328,8 +328,8 @@ mod error_path_tests {
         let service2 = DiscoveredService::new(
             "test2",
             EcosystemPrimalType::BearDog,
-            "http://localhost:8081",
-            "http://localhost:8081/health",
+            &format!("http://localhost:{}", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080) + 1),
+            &format!("http://localhost:{}/health", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080) + 1),
             "v1",
             vec!["test"],
             HashMap::new(),

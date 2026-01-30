@@ -350,9 +350,14 @@ async fn test_songbird_register() -> Result<()> {
     let server = TestSquirrelServer::start(port).await?;
     let client = Client::new();
 
+    // Port configurable via TEST_SONGBIRD_PORT environment variable
+    let songbird_port = std::env::var("TEST_SONGBIRD_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(9020);
     let registration_data = json!({
         "service_name": "test_songbird",
-        "service_url": "http://localhost:9020",
+        "service_url": format!("http://localhost:{}", songbird_port),
         "capabilities": ["orchestration"]
     });
 

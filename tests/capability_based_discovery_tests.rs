@@ -30,6 +30,15 @@ fn create_test_context(user_id: &str) -> PrimalContext {
     }
 }
 
+/// Helper function to get test endpoint with flexible port configuration
+fn get_test_endpoint(base_port: u16) -> String {
+    let port = std::env::var(format!("TEST_CAPABILITY_PORT_{}", base_port))
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(base_port);
+    format!("http://localhost:{}", port)
+}
+
 /// Helper function to create a mock discovered service
 fn create_mock_service(
     service_id: &str,
@@ -52,42 +61,42 @@ fn create_mock_service(
 async fn populate_ecosystem_with_mock_services(ecosystem: &UniversalPrimalEcosystem) {
     let mut services = ecosystem.discovered_services.write().await;
     
-    // Security service provider
+    // Security service provider (port configurable via TEST_CAPABILITY_PORT_8001)
     let security_service = create_mock_service(
         "security-provider-1",
-        "http://localhost:8001",
+        &get_test_endpoint(8001),
         vec!["authentication", "encryption", "audit-logging"],
         ServiceHealth::Healthy,
     );
     
-    // Storage service provider
+    // Storage service provider (port configurable via TEST_CAPABILITY_PORT_8002)
     let storage_service = create_mock_service(
         "storage-provider-1", 
-        "http://localhost:8002",
+        &get_test_endpoint(8002),
         vec!["data-persistence", "file-storage", "high-availability"],
         ServiceHealth::Healthy,
     );
     
-    // Compute service provider
+    // Compute service provider (port configurable via TEST_CAPABILITY_PORT_8003)
     let compute_service = create_mock_service(
         "compute-provider-1",
-        "http://localhost:8003", 
+        &get_test_endpoint(8003), 
         vec!["task-execution", "sandboxing", "gpu-acceleration"],
         ServiceHealth::Healthy,
     );
     
-    // Multi-capability service provider
+    // Multi-capability service provider (port configurable via TEST_CAPABILITY_PORT_8004)
     let multi_service = create_mock_service(
         "multi-provider-1",
-        "http://localhost:8004",
+        &get_test_endpoint(8004),
         vec!["authentication", "data-persistence", "task-execution"],
         ServiceHealth::Healthy,
     );
     
-    // Degraded service provider
+    // Degraded service provider (port configurable via TEST_CAPABILITY_PORT_8005)
     let degraded_service = create_mock_service(
         "degraded-provider-1",
-        "http://localhost:8005",
+        &get_test_endpoint(8005),
         vec!["data-persistence", "backup-storage"],
         ServiceHealth::Degraded,
     );

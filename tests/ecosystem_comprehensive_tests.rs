@@ -7,6 +7,15 @@ use squirrel::error::PrimalError;
 use std::time::Duration;
 use tokio::time::sleep;
 
+/// Helper function to get configurable test endpoint
+fn get_test_service_endpoint(default_port: u16) -> String {
+    let port = std::env::var("TEST_ECOSYSTEM_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(default_port);
+    format!("http://localhost:{}", port)
+}
+
 #[tokio::test]
 async fn test_ecosystem_manager_initialization() {
     let config = EcosystemConfig::default();
@@ -23,7 +32,7 @@ async fn test_service_registration_flow() {
     let registration = ServiceRegistration {
         service_id: "test-service".to_string(),
         capabilities: vec!["ai_inference".to_string()],
-        endpoint: "http://localhost:8080".to_string(),
+        endpoint: get_test_service_endpoint(8080),
         ..Default::default()
     };
     
@@ -40,7 +49,7 @@ async fn test_capability_discovery() {
     let registration = ServiceRegistration {
         service_id: "ai-service".to_string(),
         capabilities: vec!["chat".to_string(), "vision".to_string()],
-        endpoint: "http://localhost:8080".to_string(),
+        endpoint: get_test_service_endpoint(8080),
         ..Default::default()
     };
     
@@ -60,7 +69,7 @@ async fn test_service_health_monitoring() {
     let registration = ServiceRegistration {
         service_id: "health-test".to_string(),
         capabilities: vec!["test".to_string()],
-        endpoint: "http://localhost:8080".to_string(),
+        endpoint: get_test_service_endpoint(8080),
         health_check_enabled: true,
         ..Default::default()
     };
@@ -80,7 +89,7 @@ async fn test_service_deregistration() {
     let registration = ServiceRegistration {
         service_id: "dereg-test".to_string(),
         capabilities: vec!["test".to_string()],
-        endpoint: "http://localhost:8080".to_string(),
+        endpoint: get_test_service_endpoint(8080),
         ..Default::default()
     };
     
@@ -162,7 +171,7 @@ async fn test_service_metadata_storage() {
     let registration = ServiceRegistration {
         service_id: "metadata-test".to_string(),
         capabilities: vec!["test".to_string()],
-        endpoint: "http://localhost:8080".to_string(),
+        endpoint: get_test_service_endpoint(8080),
         metadata: Some(metadata.clone()),
         ..Default::default()
     };
@@ -214,7 +223,7 @@ async fn test_service_filtering_by_status() {
     let reg1 = ServiceRegistration {
         service_id: "healthy-service".to_string(),
         capabilities: vec!["test".to_string()],
-        endpoint: "http://localhost:8080".to_string(),
+        endpoint: get_test_service_endpoint(8080),
         health_check_enabled: true,
         ..Default::default()
     };
@@ -249,7 +258,7 @@ async fn test_service_ttl_expiration() {
     let registration = ServiceRegistration {
         service_id: "ttl-test".to_string(),
         capabilities: vec!["test".to_string()],
-        endpoint: "http://localhost:8080".to_string(),
+        endpoint: get_test_service_endpoint(8080),
         ..Default::default()
     };
     
@@ -333,7 +342,7 @@ async fn test_service_update_capabilities() {
     let registration = ServiceRegistration {
         service_id: "update-test".to_string(),
         capabilities: vec!["initial".to_string()],
-        endpoint: "http://localhost:8080".to_string(),
+        endpoint: get_test_service_endpoint(8080),
         ..Default::default()
     };
     
@@ -378,7 +387,7 @@ async fn test_service_dependency_tracking() {
     let registration = ServiceRegistration {
         service_id: "dependent-service".to_string(),
         capabilities: vec!["requires-db".to_string()],
-        endpoint: "http://localhost:8080".to_string(),
+        endpoint: get_test_service_endpoint(8080),
         dependencies: Some(vec!["database-service".to_string()]),
         ..Default::default()
     };
