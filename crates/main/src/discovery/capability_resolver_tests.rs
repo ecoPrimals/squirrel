@@ -67,8 +67,13 @@ fn test_discovery_method_clone() {
 async fn test_discover_from_env_found() {
     let resolver = CapabilityResolver::new();
 
-    // Set environment variable
-    env::set_var("AI_COMPLETE_ENDPOINT", "http://localhost:8000");
+    // Set environment variable with flexible test port
+    let test_port = env::var("TEST_AI_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(8000);
+    let test_endpoint = format!("http://localhost:{}", test_port);
+    env::set_var("AI_COMPLETE_ENDPOINT", &test_endpoint);
 
     let request = CapabilityRequest {
         capability: "ai.complete".to_string(),
@@ -86,7 +91,7 @@ async fn test_discover_from_env_found() {
     // Verify discovery succeeded
     assert!(result.is_ok());
     let service = result.unwrap();
-    assert_eq!(service.endpoint, "http://localhost:8000");
+    assert_eq!(service.endpoint, test_endpoint);
     assert!(service.capabilities.contains(&"ai.complete".to_string()));
     assert_eq!(service.priority, 100); // Highest priority for env vars
 }

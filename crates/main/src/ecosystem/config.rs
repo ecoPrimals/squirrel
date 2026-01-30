@@ -60,8 +60,14 @@ impl Default for EcosystemConfig {
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8002),
-            service_mesh_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:8001".to_string()),
+            service_mesh_endpoint: std::env::var("SERVICE_MESH_ENDPOINT").unwrap_or_else(|_| {
+                use universal_constants::network::get_service_port;
+                let port = std::env::var("SERVICE_MESH_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or_else(|| get_service_port("service_mesh"));
+                format!("http://localhost:{}", port)
+            }),
             biome_id: std::env::var("BIOME_ID").ok(),
             registry_config: EcosystemRegistryConfig::default(),
             resource_requirements: ResourceSpec::default(),

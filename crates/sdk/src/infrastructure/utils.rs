@@ -20,7 +20,7 @@ extern "C" {
 /// Macro for logging to the browser console
 #[macro_export]
 macro_rules! console_log {
-    ($($t:tt)*) => (crate::utils::console_log(&format_args!($($t)*).to_string()))
+    ($($t:tt)*) => ($crate::utils::console_log(&format_args!($($t)*).to_string()))
 }
 
 /// Log a message to the browser console

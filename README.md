@@ -246,7 +246,23 @@ See **[deployment/](deployment/)** for detailed deployment guides.
 
 ## License
 
-[Add license information here]
+**AGPL-3.0-only**
+
+Squirrel Universal AI Primal is licensed under the GNU Affero General Public License v3.0 only.
+
+Copyright (C) 2026 DataScienceBioLab
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+### Network Service Requirement
+
+Under AGPL Section 13, if you modify Squirrel and run it as a network service, you **must** offer users interacting with it remotely the opportunity to receive the Corresponding Source code. This ensures that improvements to network services remain free and available to the community.
+
+See [LICENSE-AGPL3](LICENSE-AGPL3) for the complete license text.
 
 ## Contact & Support
 

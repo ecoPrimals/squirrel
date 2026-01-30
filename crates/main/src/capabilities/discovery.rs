@@ -383,23 +383,52 @@ async fn query_registry(
 }
 
 /// Get socket directories to scan
+/// Get socket directories to scan, prioritizing biomeOS standard locations
+///
+/// ## Priority Order (for NUCLEUS-compliant discovery)
+///
+/// 1. `SOCKET_SCAN_DIR` env var (explicit override)
+/// 2. `/run/user/<uid>/biomeos/` (STANDARD biomeOS path - highest priority!)
+/// 3. `$XDG_RUNTIME_DIR/biomeos/` (XDG-compliant standard path)
+/// 4. `/run/user/<uid>/` (fallback for old socket locations)
+/// 5. `/tmp/` and `/var/run/` (dev/testing fallback)
+///
+/// This order enables:
+/// - Tower Atomic discovery (BearDog + Songbird)
+/// - Node Atomic discovery (Tower + Toadstool)
+/// - Nest Atomic discovery (Tower + NestGate)
+/// - Full NUCLEUS discovery (all primals)
 fn get_socket_directories() -> Vec<PathBuf> {
     let mut dirs = vec![];
 
-    // Check environment variable
+    // Priority 1: Check explicit environment variable override
     if let Ok(dir) = std::env::var("SOCKET_SCAN_DIR") {
         dirs.push(PathBuf::from(dir));
     }
 
-    // Standard locations
-    dirs.push(PathBuf::from("/tmp"));
-    dirs.push(PathBuf::from("/var/run"));
+    // Priority 2: Standard biomeOS socket directory (NUCLEUS-compliant!)
+    // This is where BearDog, Songbird, NestGate, Toadstool sockets live
+    let uid = nix::unistd::getuid();
+    let biomeos_dir = PathBuf::from(format!("/run/user/{}/biomeos", uid));
+    if biomeos_dir.exists() {
+        dirs.push(biomeos_dir);
+    }
 
-    // User-specific location
+    // Priority 3: XDG Runtime Directory with biomeos subdirectory
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+        let xdg_biomeos = PathBuf::from(format!("{}/biomeos", runtime_dir));
+        if xdg_biomeos.exists() {
+            dirs.push(xdg_biomeos);
+        }
+        // Also check XDG root (for backward compatibility)
         dirs.push(PathBuf::from(runtime_dir));
     }
 
+    // Priority 4: Fallback to standard temp/run directories (dev/testing)
+    dirs.push(PathBuf::from("/tmp"));
+    dirs.push(PathBuf::from("/var/run"));
+
+    debug!("Socket scan directories (in order): {:?}", dirs);
     dirs
 }
 
@@ -457,6 +486,215 @@ pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<Capabilit
     );
 
     Ok(all_capabilities)
+}
+
+// ============================================================================
+// STANDARD PRIMAL DISCOVERY HELPERS
+// ============================================================================
+//
+// These convenience functions discover specific primals in the NUCLEUS stack.
+// They follow TRUE PRIMAL principles:
+// - Check environment variables first (explicit configuration)
+// - Then check standard biomeOS paths (NUCLEUS-compliant discovery)
+// - No hardcoded assumptions about what capabilities each primal provides
+//
+// Used for:
+// - Tower Atomic: BearDog + Songbird
+// - Node Atomic: Tower + Toadstool
+// - Nest Atomic: Tower + NestGate
+// - Full NUCLEUS: All primals
+
+/// Discover Songbird primal (network, discovery, TLS capabilities)
+///
+/// ## Discovery Order
+/// 1. `SONGBIRD_SOCKET` environment variable
+/// 2. `/run/user/<uid>/biomeos/songbird.sock` (standard path)
+/// 3. Socket scan fallback (slow)
+///
+/// ## Example
+/// ```no_run
+/// # use squirrel::capabilities::discovery::discover_songbird;
+/// # async fn example() -> anyhow::Result<()> {
+/// let songbird = discover_songbird().await?;
+/// println!("Found Songbird at: {:?}", songbird.socket);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn discover_songbird() -> Result<CapabilityProvider, DiscoveryError> {
+    discover_standard_primal("songbird", &["network", "discovery", "tls"]).await
+}
+
+/// Discover BearDog primal (security, crypto, JWT capabilities)
+///
+/// ## Discovery Order
+/// 1. `BEARDOG_SOCKET` environment variable
+/// 2. `/run/user/<uid>/biomeos/beardog.sock` (standard path)
+/// 3. Socket scan fallback (slow)
+///
+/// ## Example
+/// ```no_run
+/// # use squirrel::capabilities::discovery::discover_beardog;
+/// # async fn example() -> anyhow::Result<()> {
+/// let beardog = discover_beardog().await?;
+/// println!("Found BearDog at: {:?}", beardog.socket);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn discover_beardog() -> Result<CapabilityProvider, DiscoveryError> {
+    discover_standard_primal("beardog", &["security", "crypto", "jwt"]).await
+}
+
+/// Discover Toadstool primal (compute, GPU capabilities)
+///
+/// ## Discovery Order
+/// 1. `TOADSTOOL_SOCKET` environment variable
+/// 2. `/run/user/<uid>/biomeos/toadstool.sock` (standard path)
+/// 3. Socket scan fallback (slow)
+///
+/// ## Example
+/// ```no_run
+/// # use squirrel::capabilities::discovery::discover_toadstool;
+/// # async fn example() -> anyhow::Result<()> {
+/// let toadstool = discover_toadstool().await?;
+/// println!("Found Toadstool at: {:?}", toadstool.socket);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn discover_toadstool() -> Result<CapabilityProvider, DiscoveryError> {
+    discover_standard_primal("toadstool", &["compute", "gpu"]).await
+}
+
+/// Discover NestGate primal (storage, persistence capabilities)
+///
+/// ## Discovery Order
+/// 1. `NESTGATE_SOCKET` environment variable
+/// 2. `/run/user/<uid>/biomeos/nestgate.sock` (standard path)
+/// 3. Socket scan fallback (slow)
+///
+/// ## Example
+/// ```no_run
+/// # use squirrel::capabilities::discovery::discover_nestgate;
+/// # async fn example() -> anyhow::Result<()> {
+/// let nestgate = discover_nestgate().await?;
+/// println!("Found NestGate at: {:?}", nestgate.socket);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn discover_nestgate() -> Result<CapabilityProvider, DiscoveryError> {
+    discover_standard_primal("nestgate", &["storage", "persistence"]).await
+}
+
+/// Generic discovery for standard biomeOS primals
+///
+/// This function implements the standardized discovery pattern used by all primals
+/// in the NUCLEUS stack. It's TRUE PRIMAL - checks environment first, then standard
+/// paths, then falls back to socket scanning.
+///
+/// ## Discovery Order
+/// 1. `{PRIMAL}_SOCKET` env var (e.g., `SONGBIRD_SOCKET`)
+/// 2. `/run/user/<uid>/biomeos/{primal}.sock` (standard path)
+/// 3. Socket scan of all directories (fallback)
+///
+/// ## Arguments
+/// - `primal_name`: Name of the primal (e.g., "songbird", "beardog")
+/// - `expected_capabilities`: Capabilities we expect this primal to provide
+///
+/// ## Returns
+/// - `Ok(CapabilityProvider)` if primal found and reachable
+/// - `Err(DiscoveryError)` if primal not found or unreachable
+async fn discover_standard_primal(
+    primal_name: &str,
+    expected_capabilities: &[&str],
+) -> Result<CapabilityProvider, DiscoveryError> {
+    debug!("🔍 Discovering {} primal...", primal_name);
+
+    // Priority 1: Check environment variable (explicit configuration)
+    let env_var = format!("{}_SOCKET", primal_name.to_uppercase());
+    if let Ok(socket_path) = std::env::var(&env_var) {
+        let path = PathBuf::from(&socket_path);
+        if path.exists() {
+            info!(
+                "✅ Found {} via env var {} = {}",
+                primal_name, env_var, socket_path
+            );
+
+            // Try to probe the socket to verify it's reachable
+            // If probe fails, we still trust the env var (operator knows best)
+            match probe_socket(&path).await {
+                Ok(provider) => return Ok(provider),
+                Err(e) => {
+                    debug!(
+                        "Probe failed for {} socket, trusting env var anyway: {}",
+                        primal_name, e
+                    );
+                    return Ok(CapabilityProvider {
+                        id: primal_name.to_string(),
+                        capabilities: expected_capabilities
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect(),
+                        socket: path,
+                        metadata: HashMap::new(),
+                        discovered_via: format!("env:{}", env_var),
+                    });
+                }
+            }
+        }
+    }
+
+    // Priority 2: Check standard biomeOS path (NUCLEUS-compliant!)
+    let uid = nix::unistd::getuid();
+    let standard_path = PathBuf::from(format!("/run/user/{}/biomeos/{}.sock", uid, primal_name));
+
+    if standard_path.exists() {
+        info!(
+            "✅ Found {} at standard path: {}",
+            primal_name,
+            standard_path.display()
+        );
+
+        // Try to probe the socket
+        match probe_socket(&standard_path).await {
+            Ok(provider) => return Ok(provider),
+            Err(e) => {
+                debug!("Probe failed for {} at standard path: {}", primal_name, e);
+                // Return it anyway - socket exists, might just not respond to probe
+                return Ok(CapabilityProvider {
+                    id: primal_name.to_string(),
+                    capabilities: expected_capabilities
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
+                    socket: standard_path,
+                    metadata: HashMap::new(),
+                    discovered_via: "standard_path".to_string(),
+                });
+            }
+        }
+    }
+
+    // Priority 3: Fallback to socket scan (slow, but comprehensive)
+    debug!(
+        "Standard path not found, falling back to socket scan for {}",
+        primal_name
+    );
+
+    // Try to discover by capability
+    for capability in expected_capabilities {
+        if let Ok(provider) = discover_capability(capability).await {
+            info!(
+                "✅ Found {} via capability scan: {}",
+                primal_name, capability
+            );
+            return Ok(provider);
+        }
+    }
+
+    warn!("❌ Could not discover {} primal", primal_name);
+    Err(DiscoveryError::CapabilityNotFound(format!(
+        "Primal '{}' not found via env var, standard path, or socket scan",
+        primal_name
+    )))
 }
 
 #[cfg(test)]

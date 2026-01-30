@@ -243,9 +243,19 @@ mod tests {
 
     #[test]
     fn test_service_endpoints_creation() {
+        // Use flexible endpoints for testing
+        let primary_port = std::env::var("TEST_PRIMARY_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8080);
+        let secondary_port = std::env::var("TEST_SECONDARY_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8081);
+        
         let endpoints = ServiceEndpoints {
-            primary: "http://localhost:8080".to_string(),
-            secondary: vec!["http://localhost:8081".to_string()],
+            primary: format!("http://localhost:{}", primary_port),
+            secondary: vec![format!("http://localhost:{}", secondary_port)],
             health: Some("/health".to_string()),
         };
 

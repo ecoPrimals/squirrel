@@ -359,7 +359,6 @@ impl<'a> ScopedLogger<'a> {
 }
 
 /// Convenience macros for logging
-
 /// Log a trace-level message using the global logger
 ///
 /// This macro logs trace-level messages through the global logger instance.

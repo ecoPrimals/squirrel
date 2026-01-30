@@ -188,7 +188,7 @@ impl FileSystem {
 
         // Simulate metadata retrieval
         let metadata = FileMetadata {
-            name: path.split('/').last().unwrap_or(&path).to_string(),
+            name: path.split('/').next_back().unwrap_or(&path).to_string(),
             size: 0,
             file_type: "text/plain".to_string(),
             last_modified: crate::utils::current_timestamp(),
@@ -364,12 +364,12 @@ impl FileUploadHandler {
 pub mod utils {
     /// Get file extension from path
     pub fn get_file_extension(path: &str) -> Option<&str> {
-        path.split('.').last()
+        path.split('.').next_back()
     }
 
     /// Get file name from path
     pub fn get_file_name(path: &str) -> &str {
-        path.split('/').last().unwrap_or(path)
+        path.split('/').next_back().unwrap_or(path)
     }
 
     /// Get directory from path

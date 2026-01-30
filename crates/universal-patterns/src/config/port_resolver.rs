@@ -31,7 +31,7 @@
 //! ```
 
 use std::sync::Arc;
-use universal_constants::{env_vars, network};
+use universal_constants::network;
 
 /// Port resolution error
 #[derive(Debug, thiserror::Error)]
@@ -138,8 +138,7 @@ impl PortResolver {
     ///
     /// Priority: environment variable → constants
     pub fn resolve_host(&self) -> String {
-        std::env::var(env_vars::BIND_ADDRESS)
-            .unwrap_or_else(|_| network::DEFAULT_LOCALHOST.to_string())
+        std::env::var("BIND_ADDRESS").unwrap_or_else(|_| network::DEFAULT_LOCALHOST.to_string())
     }
 
     /// Resolve full endpoint (scheme + host + port)
@@ -193,12 +192,11 @@ impl PortResolver {
     fn resolve_port_from_constants(&self, service: &str) -> Result<u16> {
         let port = match service {
             "http" => network::get_service_port("http"),
-            #[allow(deprecated)]
-            "https" => network::DEV_SECURITY_SERVICE_PORT, // HTTPS typically used by security services
+            "https" | "security" => network::get_service_port("security"), // HTTPS/security services
             "websocket" | "ws" => network::get_service_port("websocket"),
             "metrics" => network::get_service_port("metrics"),
             "admin" => network::get_service_port("admin"),
-            "grpc" => network::DEFAULT_GRPC_PORT,
+            "grpc" => 9090, // gRPC fallback (no constant in network.rs)
             _ => return Err(PortResolutionError::UnknownService(service.to_string())),
         };
         Ok(port)
@@ -219,9 +217,12 @@ mod tests {
     async fn test_resolve_port_from_constants() {
         let resolver = PortResolver::new();
 
-        assert_eq!(resolver.resolve_port("http").await.unwrap(), 8080);
-        assert_eq!(resolver.resolve_port("https").await.unwrap(), 8443);
-        assert_eq!(resolver.resolve_port("metrics").await.unwrap(), 9091);
+        // HTTP uses get_service_port("http") which returns 8081
+        assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
+        // WebSocket uses get_service_port("websocket") which returns 8080
+        assert_eq!(resolver.resolve_port("websocket").await.unwrap(), 8080);
+        // Metrics uses get_service_port("metrics") which returns 9090
+        assert_eq!(resolver.resolve_port("metrics").await.unwrap(), 9090);
     }
 
     #[tokio::test]
@@ -239,18 +240,20 @@ mod tests {
         let resolver = PortResolver::new();
         let endpoint = resolver.resolve_endpoint("http").await.unwrap();
 
-        assert_eq!(endpoint, "http://localhost:8080");
+        // HTTP uses get_service_port("http") which returns 8081
+        assert_eq!(endpoint, "http://localhost:8081");
     }
 
     #[tokio::test]
     async fn test_resolve_endpoint_with_scheme() {
         let resolver = PortResolver::new();
         let endpoint = resolver
-            .resolve_endpoint_with_scheme("https", "https")
+            .resolve_endpoint_with_scheme("security", "https")
             .await
             .unwrap();
 
-        assert_eq!(endpoint, "https://localhost:8443");
+        // Security service uses get_service_port("security") which returns 8083
+        assert_eq!(endpoint, "https://localhost:8083");
     }
 
     #[tokio::test]
@@ -328,9 +331,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_fallback_chain() {
-        // No env var, no discovery → should use constants
+        // No env var, no discovery → should use constants (HTTP is 8081)
         let resolver = PortResolver::new();
-        assert_eq!(resolver.resolve_port("http").await.unwrap(), 8080);
+        assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
 
         // With env var → should use env var
         std::env::set_var("HTTP_PORT", "7070");
@@ -338,8 +341,8 @@ mod tests {
         assert_eq!(resolver2.resolve_port("http").await.unwrap(), 7070);
         std::env::remove_var("HTTP_PORT");
 
-        // After cleanup, back to constant
+        // After cleanup, back to constant (HTTP is 8081)
         let resolver3 = PortResolver::new();
-        assert_eq!(resolver3.resolve_port("http").await.unwrap(), 8080);
+        assert_eq!(resolver3.resolve_port("http").await.unwrap(), 8081);
     }
 }

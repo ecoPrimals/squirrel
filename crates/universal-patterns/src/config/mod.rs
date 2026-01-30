@@ -70,15 +70,19 @@
 
 // Core modules
 pub mod builder;
+pub mod endpoint_resolver;
 pub mod loader;
 pub mod methods;
+pub mod port_resolver;
 pub mod presets;
 pub mod types;
 pub mod validation;
 
 // Re-export main types for convenience
 pub use builder::ConfigBuilder;
+pub use endpoint_resolver::{Endpoint, EndpointResolver, ResolutionStrategy};
 pub use loader::ConfigLoader;
+pub use port_resolver::PortResolver;
 pub use presets::{ConfigPresets, UniversalConfigPresets};
 pub use types::*;
 pub use validation::ConfigValidator;

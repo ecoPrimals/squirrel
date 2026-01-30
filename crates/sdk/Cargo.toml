@@ -18,6 +18,7 @@ fs = []
 storage = []
 web = []
 mcp = []
+config = ["squirrel-mcp-config"]
 
 [dependencies]
 # Core WASM dependencies
@@ -117,7 +118,7 @@ semver = "1.0"
 # Optional dependencies
 console_error_panic_hook = { version = "0.1", optional = true }
 reqwest = { version = "0.11", optional = true, default-features = false, features = ["json", "rustls-tls"] }
-squirrel-mcp-config = { path = "../config" }
+squirrel-mcp-config = { path = "../config", optional = true }
 
 # Universal error system
 universal-error = { path = "../universal-error" }

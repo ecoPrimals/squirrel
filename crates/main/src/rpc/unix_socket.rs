@@ -2,12 +2,13 @@
 //!
 //! Helper functions for Unix socket management following biomeOS atomic standards.
 //!
-//! ## Socket Configuration Priority (4-Tier Fallback)
+//! ## Socket Configuration Priority (5-Tier Fallback)
 //!
 //! 1. `SQUIRREL_SOCKET` environment variable (primal-specific override)
 //! 2. `BIOMEOS_SOCKET_PATH` environment variable (Neural API orchestration) ⭐
-//! 3. XDG Runtime Directory: `/run/user/<uid>/squirrel-<family>.sock` (secure user mode)
-//! 4. Temp Directory (fallback): `/tmp/squirrel-<family>-<node>.sock` (system default)
+//! 3. `PRIMAL_SOCKET` environment variable with family suffix (generic primal coordination)
+//! 4. XDG Runtime Directory: `/run/user/<uid>/biomeos/squirrel.sock` (STANDARD biomeOS path)
+//! 5. Temp Directory (fallback): `/tmp/squirrel-<family>-<node>.sock` (dev/testing only)
 //!
 //! ## Environment Variables
 //!
@@ -31,12 +32,13 @@ use tracing::{debug, info, warn};
 
 /// Get the socket path following biomeOS atomic standards
 ///
-/// ## Priority Order (4-Tier Fallback)
+/// ## Priority Order (5-Tier Fallback)
 ///
 /// 1. `SQUIRREL_SOCKET` env var (primal-specific override)
 /// 2. `BIOMEOS_SOCKET_PATH` env var (Neural API orchestration) ⭐
-/// 3. XDG runtime directory (`/run/user/<uid>/squirrel-<family>.sock`)
-/// 4. Temp directory fallback (`/tmp/squirrel-<family>-<node>.sock`)
+/// 3. `PRIMAL_SOCKET` env var with family suffix (generic primal coordination)
+/// 4. XDG runtime directory (`/run/user/<uid>/biomeos/squirrel.sock`) - STANDARD
+/// 5. Temp directory fallback (`/tmp/squirrel-<family>-<node>.sock`) - dev only
 ///
 /// ## Examples
 ///
@@ -81,40 +83,100 @@ pub fn get_socket_path(node_id: &str) -> String {
     // Get family ID for atomic grouping
     let family_id = get_family_id();
 
-    // Tier 3: XDG runtime directory (preferred for standalone, secure)
-    if let Some(xdg_path) = get_xdg_socket_path(&family_id) {
+    // Tier 3: Generic PRIMAL_SOCKET with family suffix (like BearDog A++ pattern)
+    if let Ok(generic_socket) = std::env::var("PRIMAL_SOCKET") {
+        let suffixed_path = format!("{}-{}", generic_socket, family_id);
         debug!(
-            "Socket Path: {} (from XDG runtime ⭐ Tier 3 - user mode)",
+            "Socket Path: {} (from PRIMAL_SOCKET env var ⭐ Tier 3 - generic primal)",
+            suffixed_path
+        );
+        return suffixed_path;
+    }
+
+    // Tier 4: XDG runtime directory with biomeos subdirectory (STANDARD biomeOS path)
+    if let Some(xdg_path) = get_xdg_socket_path() {
+        debug!(
+            "Socket Path: {} (from XDG runtime ⭐ Tier 4 - STANDARD biomeOS)",
             xdg_path
         );
         return xdg_path;
     }
 
-    // Tier 4: Temp directory fallback (system default)
+    // Tier 5: Temp directory fallback (dev/testing only - NOT for production!)
     let fallback_path = format!("/tmp/squirrel-{}-{}.sock", family_id, node_id);
     debug!(
-        "Socket Path: {} (from /tmp ⭐ Tier 4 - system default)",
+        "Socket Path: {} (from /tmp ⭐ Tier 5 - dev/testing ONLY)",
         fallback_path
     );
     fallback_path
 }
 
-/// Get XDG-compliant socket path if runtime directory exists
+/// Get XDG-compliant socket path with biomeos subdirectory (STANDARD)
 ///
-/// Returns `/run/user/<uid>/squirrel-<family>.sock` if XDG directory exists.
-fn get_xdg_socket_path(family_id: &str) -> Option<String> {
+/// Returns `/run/user/<uid>/biomeos/squirrel.sock` - the standardized biomeOS path
+/// that enables inter-primal discovery and NUCLEUS deployment.
+///
+/// This path is used by all primals: BearDog, Songbird, NestGate, Toadstool, Squirrel.
+fn get_xdg_socket_path() -> Option<String> {
     // Get current user ID
     let uid = nix::unistd::getuid();
     let xdg_runtime_dir = format!("/run/user/{}", uid);
 
     // Check if XDG runtime directory exists
     if Path::new(&xdg_runtime_dir).exists() {
-        let socket_path = format!("{}/squirrel-{}.sock", xdg_runtime_dir, family_id);
+        // Ensure biomeos subdirectory exists with proper permissions
+        if let Err(e) = ensure_biomeos_directory() {
+            warn!("Failed to create biomeos directory: {}", e);
+            return None;
+        }
+
+        // Standard biomeOS socket path (no family suffix for simplicity)
+        let socket_path = format!("{}/biomeos/squirrel.sock", xdg_runtime_dir);
         Some(socket_path)
     } else {
         debug!("XDG runtime directory does not exist: {}", xdg_runtime_dir);
         None
     }
+}
+
+/// Ensure biomeos directory exists with proper permissions
+///
+/// Creates `/run/user/<uid>/biomeos/` with 0700 permissions (user-only access).
+/// This is the standardized directory for all biomeOS primal sockets.
+///
+/// ## Security
+///
+/// Directory permissions are set to 0700 to ensure only the owning user can:
+/// - List sockets in the directory
+/// - Connect to sockets
+/// - Create new sockets
+///
+/// ## Errors
+///
+/// Returns error if:
+/// - Cannot create directory
+/// - Cannot set permissions
+pub fn ensure_biomeos_directory() -> std::io::Result<PathBuf> {
+    let uid = nix::unistd::getuid();
+    let biomeos_dir = format!("/run/user/{}/biomeos", uid);
+    let path = PathBuf::from(&biomeos_dir);
+
+    // Create directory if it doesn't exist
+    if !path.exists() {
+        debug!("Creating biomeos directory: {}", biomeos_dir);
+        std::fs::create_dir_all(&path)?;
+
+        // Set permissions to 0700 (user-only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = std::fs::Permissions::from_mode(0o700);
+            std::fs::set_permissions(&path, perms)?;
+            debug!("Set biomeos directory permissions to 0700");
+        }
+    }
+
+    Ok(path)
 }
 
 /// Get family ID from environment or use default
@@ -234,6 +296,7 @@ mod tests {
     fn clear_env_vars() {
         std::env::remove_var("SQUIRREL_SOCKET");
         std::env::remove_var("BIOMEOS_SOCKET_PATH");
+        std::env::remove_var("PRIMAL_SOCKET");
         std::env::remove_var("SQUIRREL_FAMILY_ID");
         std::env::remove_var("SQUIRREL_NODE_ID");
     }
@@ -278,13 +341,27 @@ mod tests {
 
     #[test]
     #[serial] // Serialize env var tests
-    fn test_socket_path_tier3_and_tier4_fallback() {
+    fn test_socket_path_tier3_primal_socket() {
+        clear_env_vars();
+        std::env::set_var("PRIMAL_SOCKET", "/custom/primal");
+        std::env::set_var("SQUIRREL_FAMILY_ID", "nat0");
+
+        let path = get_socket_path("test-node");
+        // Tier 3 should append family suffix
+        assert_eq!(path, "/custom/primal-nat0");
+
+        clear_env_vars();
+    }
+
+    #[test]
+    #[serial] // Serialize env var tests
+    fn test_socket_path_tier4_and_tier5_fallback() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_FAMILY_ID", "test0");
 
         let path = get_socket_path("test-node");
-        // Should use Tier 3 (XDG) or Tier 4 (/tmp) fallback
-        assert!(path.contains("squirrel-test0") || path.contains("/run/user/"));
+        // Should use Tier 4 (XDG with biomeos) or Tier 5 (/tmp) fallback
+        assert!(path.contains("/biomeos/squirrel.sock") || path.contains("/tmp/squirrel-test0"));
 
         clear_env_vars();
     }
@@ -362,10 +439,41 @@ mod tests {
     fn test_xdg_socket_path_format() {
         clear_env_vars();
 
-        let family_id = "nat0";
-        if let Some(xdg_path) = get_xdg_socket_path(family_id) {
+        if let Some(xdg_path) = get_xdg_socket_path() {
             assert!(xdg_path.starts_with("/run/user/"));
-            assert!(xdg_path.ends_with("/squirrel-nat0.sock"));
+            assert!(xdg_path.contains("/biomeos/"));
+            assert!(xdg_path.ends_with("/squirrel.sock"));
         }
+    }
+
+    #[test]
+    fn test_ensure_biomeos_directory() {
+        // Test directory creation (idempotent - works even if already exists)
+        let result = ensure_biomeos_directory();
+        assert!(result.is_ok());
+
+        let path = result.unwrap();
+        assert!(path.exists());
+        assert!(path.to_str().unwrap().ends_with("biomeos"));
+
+        // Verify directory is accessible (Unix only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = std::fs::metadata(&path).unwrap();
+            let mode = metadata.permissions().mode();
+            // Check that user has rwx permissions (at minimum)
+            assert_eq!(mode & 0o700, 0o700, "User should have rwx permissions");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_socket_path_uses_biomeos_directory() {
+        clear_env_vars();
+
+        let path = get_socket_path("test-node");
+        // Should contain biomeos directory if XDG exists, or /tmp if not
+        assert!(path.contains("/biomeos/squirrel.sock") || path.starts_with("/tmp/"));
     }
 }

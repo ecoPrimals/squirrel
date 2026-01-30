@@ -84,11 +84,52 @@ impl BeardogSecurityCoordinator {
     }
 
     /// Create a new security coordinator with fallback endpoint
+    ///
+    /// **Note**: Prefer `with_capability_discovery()` for async runtime discovery.
+    /// This synchronous constructor uses environment variables and fallback defaults.
     #[must_use]
     pub fn new() -> Self {
+        use universal_constants::network::get_service_port;
+
+        // Try environment variables in priority order
+        let endpoint = if let Ok(endpoint) = std::env::var("SECURITY_SERVICE_ENDPOINT") {
+            info!(
+                "Using security endpoint from SECURITY_SERVICE_ENDPOINT: {}",
+                endpoint
+            );
+            endpoint
+        } else if let Ok(endpoint) = std::env::var("BEARDOG_ENDPOINT") {
+            info!("Using BearDog endpoint from BEARDOG_ENDPOINT: {}", endpoint);
+            endpoint
+        } else if let Ok(socket) = std::env::var("BEARDOG_SOCKET") {
+            info!("Using BearDog Unix socket from BEARDOG_SOCKET: {}", socket);
+            format!("unix://{}", socket)
+        } else {
+            // Check standard biomeOS socket path
+            let uid = nix::unistd::getuid();
+            let standard_socket = format!("/run/user/{}/biomeos/beardog.sock", uid);
+            if std::path::Path::new(&standard_socket).exists() {
+                info!("Found BearDog at standard socket: {}", standard_socket);
+                format!("unix://{}", standard_socket)
+            } else {
+                // Fallback to HTTP with port discovery
+                let port = std::env::var("SECURITY_PORT")
+                    .or_else(|_| std::env::var("BEARDOG_PORT"))
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or_else(|| get_service_port("security"));
+
+                let fallback = format!("http://localhost:{}", port);
+                warn!(
+                    "Using fallback security endpoint: {} (set BEARDOG_SOCKET or BEARDOG_ENDPOINT for production)",
+                    fallback
+                );
+                fallback
+            }
+        };
+
         Self {
-            security_service_endpoint: std::env::var("SECURITY_SERVICE_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:8443".to_string()),
+            security_service_endpoint: endpoint,
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
     }

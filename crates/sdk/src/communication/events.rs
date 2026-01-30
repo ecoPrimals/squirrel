@@ -148,19 +148,25 @@ pub struct EventBus {
     listeners: std::sync::Mutex<HashMap<String, Vec<ListenerEntry>>>,
 }
 
-impl EventBus {
-    /// Create a new event bus
-    pub fn new() -> Self {
+impl Default for EventBus {
+    fn default() -> Self {
         Self {
             listeners: std::sync::Mutex::new(HashMap::new()),
         }
+    }
+}
+
+impl EventBus {
+    /// Create a new event bus
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Get the global event bus instance
     pub fn global() -> &'static EventBus {
         use std::sync::OnceLock;
         static INSTANCE: OnceLock<EventBus> = OnceLock::new();
-        INSTANCE.get_or_init(|| EventBus::new())
+        INSTANCE.get_or_init(EventBus::default)
     }
 
     /// Subscribe to an event
