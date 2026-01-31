@@ -96,7 +96,8 @@ pub use usage::TokenCounter;
 // Additional utility functions for backward compatibility
 
 /// Create a provider client (factory function) - backward compatibility
-/// TODO: These HTTP-based clients should be replaced with capability-based clients
+/// NOTE: HTTP clients removed. Use capability-based patterns via Universal Transport.
+/// See: crates/universal-patterns/src/transport.rs (Isomorphic IPC complete Jan 31, 2026)
 pub fn create_provider_client(_provider: &str, _api_key: &str) -> crate::Result<Box<dyn AIClient>> {
     // Old HTTP-based providers removed - use capability_ai::AiClient instead
     Err(universal_error::tools::AIToolsError::Configuration(

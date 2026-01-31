@@ -2,7 +2,9 @@
 //!
 //! **LEGACY MODULE** - being evolved to capability-based architecture
 //!
-//! TODO: Rebuild using capability_ai instead of deleted HTTP API
+//! NOTE: This module is not actively maintained. Future rebuild will use capability_ai
+//! and Universal Transport abstractions. HTTP API was removed in favor of socket-based
+//! communication. See: crates/universal-patterns/src/transport.rs
 
 // Legacy modules REMOVED - used deleted HTTP API (api::ai)
 // pub(crate) mod handlers; // DELETED
