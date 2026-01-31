@@ -507,6 +507,84 @@ pub async fn run_echo_server(service_name: &str) -> Result<()> {
 
 ---
 
+## 🧬 **Isomorphic IPC (NEW - Jan 31, 2026)**
+
+### **What Is Isomorphic IPC?**
+
+**Isomorphic IPC** means your binary automatically adapts to platform constraints (like SELinux on Android) without configuration - biological adaptation!
+
+### **The Try→Detect→Adapt→Succeed Pattern**
+
+```rust
+// Server automatically adapts to platform
+let listener = UniversalListener::bind("service", None).await?;
+
+// Logs on Linux (optimal):
+// [INFO] 🔌 Starting IPC server (isomorphic mode)...
+// [INFO]    Trying UnixAbstract...
+// [INFO] ✅ Listening on UnixAbstract
+// [INFO]    Status: READY ✅
+
+// Logs on Android (SELinux blocks Unix sockets):
+// [INFO] 🔌 Starting IPC server (isomorphic mode)...
+// [INFO]    Trying UnixAbstract...
+// [WARN] ⚠️  UnixAbstract unavailable: Permission denied
+// [WARN]    Detected platform constraint, adapting...
+// [INFO]    Trying Tcp...
+// [INFO] ✅ Listening on Tcp
+// [INFO] 📁 TCP discovery file written
+// [INFO]    Status: READY ✅ (isomorphic TCP fallback active)
+```
+
+### **Auto-Discovery (Recommended)**
+
+```rust
+// Client automatically discovers Unix socket OR TCP endpoint
+let transport = UniversalTransport::connect_discovered("service").await?;
+
+// Tries in order:
+// 1. Unix socket ($XDG_RUNTIME_DIR/service.sock, /tmp/service.sock, /var/run/service.sock)
+// 2. Named pipe (Windows: \\.\pipe\service)
+// 3. TCP discovery file ($XDG_RUNTIME_DIR/service-ipc-port)
+
+// Logs:
+// [INFO] 🔍 Discovering IPC endpoint for service...
+// [INFO] 📁 Discovered TCP endpoint: 127.0.0.1:45763 (from /tmp/service-ipc-port)
+// [INFO]    Found: TcpLocal(127.0.0.1:45763)
+```
+
+### **When to Use**
+
+**Use `connect_discovered()`** when:
+- You don't know if server is using Unix sockets or TCP fallback
+- Running on Android or constrained environments
+- Want zero configuration
+- Want isomorphic adaptation
+
+**Use `connect()`** when:
+- You control both client and server
+- Want to explicitly prefer a transport type
+- Need custom timeout or configuration
+
+### **Discovery File Format**
+
+**Server writes** (when TCP fallback used):
+```
+# File: $XDG_RUNTIME_DIR/service-ipc-port
+tcp:127.0.0.1:45763
+```
+
+**Client reads** automatically via `connect_discovered()`
+
+### **XDG Compliance**
+
+Discovery files are written/read from (in order):
+1. `$XDG_RUNTIME_DIR/service-ipc-port` (preferred)
+2. `$HOME/.local/share/service-ipc-port` (fallback)
+3. `/tmp/service-ipc-port` (universal fallback)
+
+---
+
 ## 📈 **Expected Improvements**
 
 ### **Code Metrics**:
@@ -532,6 +610,9 @@ Migration is successful when:
 - ✅ No hardcoded platform paths
 - ✅ Automatic fallback works
 - ✅ Documentation updated
+- ✅ **NEW**: Isomorphic IPC logging appears
+- ✅ **NEW**: Discovery files written for TCP fallback
+- ✅ **NEW**: Clients can use `connect_discovered()`
 
 ---
 
@@ -540,13 +621,14 @@ Migration is successful when:
 - **UniversalTransport API**: `crates/universal-patterns/src/transport.rs`
 - **Integration Tests**: `tests/integration/universal_transport_integration.rs`
 - **Examples**: See test cases for real-world usage
-- **Documentation**: See phase completion docs
+- **Isomorphic IPC**: See `ISOMORPHIC_IPC_SESSION_SUMMARY_JAN_31_2026.md`
+- **Phase Docs**: See phase completion documents
 
 ---
 
 **Philosophy**: "Instead of windows, mac, arm, we have 1 unified codebase"
 
-**Result**: Write once, run everywhere, automatic platform selection, graceful fallback!
+**Result**: Write once, run everywhere, automatic platform selection, graceful fallback, **isomorphic adaptation**!
 
 ---
 
