@@ -36,16 +36,20 @@ use universal_constants::network;
 /// Port resolution error
 #[derive(Debug, thiserror::Error)]
 pub enum PortResolutionError {
+    /// Service name not found in registry or constants
     #[error("Unknown service: {0}")]
     UnknownService(String),
 
+    /// Port number is invalid (outside 1-65535 range)
     #[error("Invalid port number: {0}")]
     InvalidPort(String),
 
+    /// Service discovery mechanism failed
     #[error("Service discovery failed: {0}")]
     DiscoveryFailed(String),
 }
 
+/// Result type for port resolution operations
 pub type Result<T> = std::result::Result<T, PortResolutionError>;
 
 /// Port resolver with proper fallback chain
