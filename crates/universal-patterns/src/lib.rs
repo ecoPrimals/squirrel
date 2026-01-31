@@ -52,6 +52,7 @@ pub mod federation;
 pub mod registry;
 pub mod security;
 pub mod traits;
+pub mod transport;
 
 // Re-export commonly used types for convenience
 pub use builder::UniversalConfigBuilder;
@@ -67,6 +68,10 @@ pub use traits::{
     DynamicPortInfo, PrimalCapability, PrimalContext, PrimalError, PrimalHealth, PrimalProvider,
     PrimalRequest, PrimalRequestType, PrimalResponse, PrimalResponseType, PrimalResult, PrimalType,
     SecurityLevel,
+};
+pub use transport::{
+    ListenerConfig, RemoteAddr, TransportConfig, TransportType, UniversalListener,
+    UniversalTransport,
 };
 
 /// Initialize the universal primal system

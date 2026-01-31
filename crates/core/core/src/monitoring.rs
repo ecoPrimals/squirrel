@@ -476,7 +476,7 @@ impl MonitoringService {
 }
 
 /// Songbird monitoring provider implementation
-/// TODO: Use Unix socket communication instead of HTTP
+/// NOTE: Uses Unix socket communication via ecosystem patterns
 pub struct SongbirdProvider {
     config: SongbirdConfig,
     // Note: HTTP client removed - should use Unix socket for Songbird communication

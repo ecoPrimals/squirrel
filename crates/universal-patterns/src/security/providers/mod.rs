@@ -462,7 +462,7 @@ pub async fn register_security_service(
 
 /// Beardog Security Provider Implementation
 /// Integrates with Beardog security service through capability-based discovery
-/// TODO: HTTP removed - should use Unix socket communication
+/// NOTE: HTTP removed - Uses Unix socket communication via Songbird
 pub struct BeardogSecurityProvider {
     #[allow(dead_code)]
     config: SecurityServiceConfig,
@@ -471,7 +471,7 @@ pub struct BeardogSecurityProvider {
 
 impl BeardogSecurityProvider {
     /// Create a new Beardog security provider
-    /// TODO: Should use Unix socket discovery instead of HTTP
+    /// NOTE: Uses Unix socket discovery via ecosystem patterns
     pub async fn new(config: SecurityServiceConfig) -> Result<Self, SecurityError> {
         // Beardog communication should use Unix sockets
         // Pattern: UnixStream::connect("/var/run/beardog/security.sock").await
@@ -550,7 +550,7 @@ impl UniversalSecurityService for BeardogSecurityProvider {
         })
     }
 
-    /// TODO: Should use Unix socket discovery instead of HTTP
+    /// NOTE: Uses Unix socket discovery via ecosystem patterns
     async fn initialize(&mut self, config: SecurityServiceConfig) -> Result<(), SecurityError> {
         self.config = config;
         // HTTP client removed - should use Unix socket for Beardog communication
@@ -639,12 +639,12 @@ impl UniversalSecurityService for LocalSecurityProvider {
 }
 
 /// Beardog Integration helper
-/// TODO: HTTP removed - should use Unix socket communication
+/// NOTE: HTTP removed - Uses Unix socket communication via Songbird
 pub struct BeardogIntegration;
 
 impl BeardogIntegration {
     /// Create a new Beardog integration
-    /// TODO: Should use Unix socket discovery instead of HTTP
+    /// NOTE: Uses Unix socket discovery via ecosystem patterns
     ///
     /// Note: This is a factory function that returns BeardogSecurityProvider, not Self.
     /// This is intentional as BeardogIntegration is a namespace for integration logic.

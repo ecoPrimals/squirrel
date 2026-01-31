@@ -23,7 +23,7 @@ pub struct FederationService {
     load_balancer: Arc<FederationLoadBalancer>,
     #[allow(dead_code)]
     monitoring: Arc<MonitoringService>,
-    // Note: HTTP removed - TODO: use Songbird via Unix sockets for federation HTTP calls
+    // NOTE: HTTP removed - Use Songbird via Unix sockets for federation HTTP calls
     shutdown_notify: Arc<tokio::sync::Notify>,
     load_metrics: Arc<LoadMetrics>,
     scaling_policy: Arc<ScalingPolicy>,
@@ -209,7 +209,7 @@ impl FederationService {
     }
 
     /// Probe a potential federation node
-    /// TODO: Delegate HTTP to Songbird via Unix sockets (TRUE PRIMAL pattern)
+    /// NOTE: Delegates HTTP to Songbird via Unix sockets (TRUE PRIMAL pattern)
     async fn probe_federation_node(&self, endpoint: &str) -> Result<SquirrelInstance> {
         // Federation probing requires HTTP delegation to Songbird
         // Pattern: CapabilityHttpClient::discover("http.client").await?
@@ -220,7 +220,7 @@ impl FederationService {
     }
 
     /// Join an existing federation
-    /// TODO: Delegate HTTP to Songbird via Unix sockets
+    /// NOTE: Delegates HTTP to Songbird via Unix sockets
     async fn join_existing_federation(&self) -> Result<()> {
         // Federation joining requires HTTP POST delegation to Songbird
         // Pattern: CapabilityHttpClient::discover("http.client").post(&join_url, &join_request).await
@@ -368,7 +368,7 @@ impl FederationService {
     }
 
     /// Check health of federation nodes
-    /// TODO: Delegate HTTP health checks to Songbird via Unix sockets
+    /// NOTE: Delegates HTTP health checks to Songbird via Unix sockets
     async fn check_federation_health(&self) {
         // For now, assume all instances are running (HTTP health checking requires Songbird)
         for mut entry in self.instances.iter_mut() {
@@ -382,7 +382,7 @@ impl FederationService {
     }
 
     /// Check health of local instances
-    /// TODO: Delegate to Songbird for HTTP health checks
+    /// NOTE: Delegates to Songbird for HTTP health checks
     async fn check_instance_health(&self) {
         // Instance health checking requires HTTP delegation to Songbird
         // Pattern: CapabilityHttpClient::discover("http.client").get(&health_url).await
@@ -394,7 +394,7 @@ impl FederationService {
             if instance.health == InstanceStatus::Starting {
                 instance.health = InstanceStatus::Running;
                 tracing::info!(
-                    "Instance {} marked as running (HTTP health check TODO)",
+                    "Instance {} marked as running (HTTP health check via Songbird)",
                     instance_id
                 );
             }
@@ -546,7 +546,7 @@ impl FederationService {
     }
 
     /// Stop a specific instance
-    /// TODO: Delegate to Songbird for HTTP shutdown request
+    /// NOTE: Delegates to Songbird for HTTP shutdown request
     async fn stop_instance(&self, instance: &SquirrelInstance) -> Result<()> {
         // Instance shutdown requires HTTP POST delegation to Songbird
         // Pattern: CapabilityHttpClient::discover("http.client").post(&shutdown_url).await

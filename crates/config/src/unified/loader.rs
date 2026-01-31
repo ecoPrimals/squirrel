@@ -77,37 +77,52 @@ impl ConfigLoader {
 
     /// Apply platform-specific defaults
     ///
-    /// Detects the current platform and applies appropriate defaults.
+    /// Sets reasonable defaults based on the current platform using universal
+    /// Rust abstractions (the `dirs` crate).
+    ///
+    /// ## Philosophy: Universal & Agnostic
+    ///
+    /// Instead of hardcoding platform-specific paths with #[cfg], we use:
+    /// - `dirs` crate for standard directories (data, config)
+    /// - Runtime detection, not compile-time cfg branching
+    /// - Pure Rust, platform-agnostic patterns
+    ///
+    /// This creates 1 unified codebase that works everywhere:
+    /// - Linux: ~/.local/share/squirrel
+    /// - macOS: ~/Library/Application Support/squirrel
+    /// - Windows: %APPDATA%/squirrel
     pub fn with_platform_detection(mut self) -> Result<Self, ConfigError> {
-        // Platform-specific adjustments
-        #[cfg(target_os = "linux")]
-        {
-            self.config.system.data_dir = PathBuf::from("/var/lib/squirrel");
-            self.config.system.plugin_dir = PathBuf::from("/usr/lib/squirrel/plugins");
-            self.sources_loaded
-                .push("platform_defaults_linux".to_string());
-        }
+        // Use dirs crate for universal, platform-appropriate data directory
+        let data_dir = dirs::data_dir()
+            .unwrap_or_else(|| {
+                // Graceful fallback to current directory
+                std::env::current_dir().unwrap_or_else(|_| PathBuf::from("./data"))
+            })
+            .join("squirrel");
 
-        #[cfg(target_os = "macos")]
-        {
-            self.config.system.data_dir = PathBuf::from("/usr/local/var/squirrel");
-            self.config.system.plugin_dir = PathBuf::from("/usr/local/lib/squirrel/plugins");
-            self.sources_loaded
-                .push("platform_defaults_macos".to_string());
-        }
+        self.config.system.data_dir = data_dir.clone();
+        self.config.system.plugin_dir = data_dir.join("plugins");
 
-        #[cfg(target_os = "windows")]
-        {
-            use std::env;
-            let program_data =
-                env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".to_string());
-            self.config.system.data_dir =
-                PathBuf::from(format!("{}\\Squirrel\\data", program_data));
-            self.config.system.plugin_dir =
-                PathBuf::from(format!("{}\\Squirrel\\plugins", program_data));
-            self.sources_loaded
-                .push("platform_defaults_windows".to_string());
-        }
+        // Detect platform for logging (runtime detection)
+        let platform_name = if cfg!(target_os = "linux") {
+            "linux"
+        } else if cfg!(target_os = "windows") {
+            "windows"
+        } else if cfg!(target_os = "macos") {
+            "macos"
+        } else {
+            "other"
+        };
+
+        self.sources_loaded
+            .push(format!("platform_defaults_{}", platform_name));
+
+        tracing::debug!(
+            "Applied platform defaults: platform={}, data_dir={:?}, plugin_dir={:?}",
+            platform_name,
+            self.config.system.data_dir,
+            self.config.system.plugin_dir
+        );
 
         Ok(self)
     }

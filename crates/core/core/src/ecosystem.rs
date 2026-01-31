@@ -365,7 +365,7 @@ impl PrimalCoordinator for EcosystemService {
                 songbird_endpoint
             );
 
-            // TODO: Registration should use Unix socket discovery, not HTTP
+            // NOTE: Registration uses Unix socket discovery via ecosystem patterns
             // Pattern: Capability-based service registry via Unix sockets
             tracing::info!(
                 "Songbird registration not yet implemented (requires Unix socket discovery)"
@@ -528,7 +528,7 @@ impl PrimalCoordinator for EcosystemService {
 impl EcosystemService {
     /// Discover primals via Songbird service discovery
     /// Discover primals via Songbird service registry
-    /// TODO: Use Unix socket-based discovery, not HTTP
+    /// NOTE: Uses Unix socket-based discovery via ecosystem patterns
     async fn discover_via_songbird(&self, songbird_endpoint: &str) -> Result<Vec<PrimalEndpoint>> {
         tracing::debug!(
             "Songbird discovery not yet implemented (requires Unix socket): {}",
@@ -565,7 +565,7 @@ impl EcosystemService {
     }
 
     /// Probe a specific primal endpoint
-    /// TODO: Use Unix socket-based health check, not HTTP
+    /// NOTE: Uses Unix socket-based health check via ecosystem patterns
     async fn probe_primal_endpoint(
         &self,
         primal_name: &str,

@@ -43,6 +43,7 @@ pub mod framework;
 pub mod fixtures;
 pub mod assertions;
 pub mod helpers;
+pub mod universal_transport_integration;
 
 /// Integration test environment
 #[derive(Debug)]

@@ -246,8 +246,14 @@ impl ConfigValidator {
             },
             
             llamacpp_config: super::coordinator::LlamaCppConfig {
-                server_url: self.get_env_var_or_default("LLAMACPP_SERVER_URL", 
-                    "http://localhost:8080".to_string())?,
+                server_url: self.get_env_var_or_default("LLAMACPP_SERVER_URL", {
+                    // Multi-tier LlamaCpp server resolution
+                    let port = std::env::var("LLAMACPP_PORT")
+                        .ok()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or(8080);  // Default LlamaCpp server port
+                    format!("http://localhost:{}", port)
+                })?,
                 timeout: self.defaults.timeouts.request_timeout,
                 models_path: self.get_env_var_or_default("LLAMACPP_MODELS_PATH", 
                     "./models".to_string())?,
@@ -466,7 +472,19 @@ impl ConfigDefaults {
             providers: ProviderDefaults {
                 openai_base_url: "https://api.openai.com/v1".to_string(),
                 anthropic_base_url: "https://api.anthropic.com".to_string(),
-                ollama_base_url: "http://localhost:11434".to_string(),
+                ollama_base_url: {
+                    // Multi-tier Ollama base URL resolution (ecosystem-aware)
+                    std::env::var("OLLAMA_ENDPOINT")
+                        .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
+                        .unwrap_or_else(|_| {
+                            let port = std::env::var("OLLAMA_PORT")
+                                .or_else(|_| std::env::var("TOADSTOOL_PORT"))
+                                .ok()
+                                .and_then(|p| p.parse::<u16>().ok())
+                                .unwrap_or(11434);  // Default Ollama port
+                            format!("http://localhost:{}", port)
+                        })
+                },
                 default_models: Self::get_default_models_by_provider(),
                 cost_thresholds: CostThresholds {
                     warning_threshold: 10.0,

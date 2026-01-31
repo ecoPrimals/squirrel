@@ -93,30 +93,48 @@ impl NetworkConfig {
         
         // Get environment-specific timeout multipliers
         let (timeout_multiplier, (host, port, external_url, max_conn, tls, cert, key)) = match env {
-            Environment::Development => (
-                1.0,
+            Environment::Development => {
+                // Multi-tier development server configuration
+                let port = std::env::var("MCP_DEV_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8080);  // Default development port
+                let base_url = format!("http://localhost:{}", port);
+                
                 (
-                    IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                    8080,
-                    "http://localhost:8080".to_string(),
-                    100,
-                    false,
-                    None,
-                    None,
+                    1.0,
+                    (
+                        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                        port,
+                        base_url,
+                        100,
+                        false,
+                        None,
+                        None,
+                    )
                 )
-            ),
-            Environment::Testing => (
-                0.5,
+            },
+            Environment::Testing => {
+                // Multi-tier testing server configuration  
+                let port = std::env::var("MCP_TEST_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8081);  // Default testing port
+                let base_url = format!("http://localhost:{}", port);
+                
                 (
-                    IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                    8081,
-                    "http://localhost:8081".to_string(),
-                    50,
-                    false,
-                    None,
-                    None,
+                    0.5,
+                    (
+                        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                        port,
+                        base_url,
+                        50,
+                        false,
+                        None,
+                        None,
+                    )
                 )
-            ),
+            },
             Environment::Staging => (
                 2.0,
                 (
@@ -362,10 +380,23 @@ impl SecurityConfig {
             .ok();
         
         let (secret, api_len, rate_reqs, cors_origins, csrf, max_attempts, timeout_multiplier) = match env {
-            Environment::Development => (
-                "dev-secret-key-must-be-at-least-32-characters-long".to_string(),
-                32, 1000, vec!["http://localhost:3000".to_string()], false, 10, 1.0
-            ),
+            Environment::Development => {
+                // Multi-tier CORS origins for development
+                let cors_origin = std::env::var("CORS_ORIGINS")
+                    .or_else(|_| std::env::var("WEB_UI_URL"))
+                    .unwrap_or_else(|_| {
+                        let port = std::env::var("WEB_UI_PORT")
+                            .ok()
+                            .and_then(|p| p.parse::<u16>().ok())
+                            .unwrap_or(3000);  // Default Web UI port
+                        format!("http://localhost:{}", port)
+                    });
+                
+                (
+                    "dev-secret-key-must-be-at-least-32-characters-long".to_string(),
+                    32, 1000, vec![cors_origin], false, 10, 1.0
+                )
+            },
             Environment::Testing => (
                 "test-secret-key-must-be-at-least-32-characters-long".to_string(),
                 16, 100, vec!["*".to_string()], false, 5, 0.25
