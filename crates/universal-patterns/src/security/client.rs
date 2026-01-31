@@ -382,13 +382,16 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        config.beardog_endpoint = Some(
-            Url::parse(
-                &std::env::var("BEARDOG_ENDPOINT")
-                    .unwrap_or_else(|_| "http://localhost:8443".to_string()),
-            )
-            .expect("Failed to parse endpoint URL"),
-        );
+        // Multi-tier BearDog endpoint resolution
+        let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8443); // Default BearDog security port
+            format!("http://localhost:{}", port)
+        });
+        config.beardog_endpoint =
+            Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;
         config.audit_logging = true;
 
@@ -402,13 +405,16 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        config.beardog_endpoint = Some(
-            Url::parse(
-                &std::env::var("BEARDOG_ENDPOINT")
-                    .unwrap_or_else(|_| "http://localhost:8443".to_string()),
-            )
-            .expect("Failed to parse endpoint URL"),
-        );
+        // Multi-tier BearDog endpoint resolution
+        let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8443); // Default BearDog security port
+            format!("http://localhost:{}", port)
+        });
+        config.beardog_endpoint =
+            Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;
         config.audit_logging = true;
 
@@ -422,13 +428,16 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        config.beardog_endpoint = Some(
-            Url::parse(
-                &std::env::var("BEARDOG_ENDPOINT")
-                    .unwrap_or_else(|_| "http://localhost:8443".to_string()),
-            )
-            .expect("Failed to parse endpoint URL"),
-        );
+        // Multi-tier BearDog endpoint resolution
+        let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8443); // Default BearDog security port
+            format!("http://localhost:{}", port)
+        });
+        config.beardog_endpoint =
+            Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = false;
         config.audit_logging = false;
 
@@ -457,13 +466,16 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        config.beardog_endpoint = Some(
-            Url::parse(
-                &std::env::var("BEARDOG_ENDPOINT")
-                    .unwrap_or_else(|_| "http://localhost:8443".to_string()),
-            )
-            .expect("Failed to parse endpoint URL"),
-        );
+        // Multi-tier BearDog endpoint resolution
+        let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8443); // Default BearDog security port
+            format!("http://localhost:{}", port)
+        });
+        config.beardog_endpoint =
+            Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;
         config.fallback.fallback_timeout = 1; // Short timeout to trigger fallback
         config.audit_logging = false;

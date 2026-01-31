@@ -63,8 +63,19 @@ pub struct DashboardIntegrationConfig {
 
 impl Default for DashboardIntegrationConfig {
     fn default() -> Self {
+        // Multi-tier dashboard observability API resolution
+        let dashboard_url = std::env::var("DASHBOARD_OBSERVABILITY_URL")
+            .or_else(|_| std::env::var("UI_ENDPOINT").map(|e| format!("{}/api/observability", e)))
+            .unwrap_or_else(|_| {
+                let port = std::env::var("WEB_UI_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8080);  // Default dashboard API port
+                format!("http://localhost:{}/api/observability", port)
+            });
+
         Self {
-            dashboard_url: "http://localhost:8080/api/observability".to_string(),
+            dashboard_url,
             auth_token: None,
             metrics_interval: 15,
             traces_interval: 10,

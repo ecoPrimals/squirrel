@@ -75,20 +75,57 @@ impl DefaultEndpoints {
 
     /// Get security service endpoint from environment (capability-based discovery)
     /// Note: This is a fallback - services should use capability discovery
+    ///
+    /// Multi-tier resolution:
+    /// 1. SECURITY_SERVICE_ENDPOINT (full endpoint)
+    /// 2. SECURITY_AUTH_SERVICE_ENDPOINT (alt full endpoint)
+    /// 3. SECURITY_AUTHENTICATION_PORT (port override)
+    /// 4. Default: http://localhost:8443
     pub fn security_service_endpoint() -> String {
         env::var("SECURITY_SERVICE_ENDPOINT")
             .or_else(|_| env::var("SECURITY_AUTH_SERVICE_ENDPOINT"))
-            .unwrap_or_else(|_| "http://localhost:8443".to_string())
+            .unwrap_or_else(|_| {
+                let port = env::var("SECURITY_AUTHENTICATION_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8443); // Default security auth port
+                format!("http://localhost:{}", port)
+            })
     }
 
     /// Get Songbird endpoint from environment or default
+    ///
+    /// Multi-tier resolution:
+    /// 1. SERVICE_MESH_ENDPOINT (full endpoint)
+    /// 2. SONGBIRD_ENDPOINT (songbird-specific endpoint)
+    /// 3. SONGBIRD_PORT (port override)
+    /// 4. Default: http://localhost:8500
     pub fn songbird_endpoint() -> String {
-        env::var("SERVICE_MESH_ENDPOINT").unwrap_or_else(|_| "http://localhost:8500".to_string())
+        env::var("SERVICE_MESH_ENDPOINT")
+            .or_else(|_| env::var("SONGBIRD_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = env::var("SONGBIRD_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8500); // Default Songbird service mesh port
+                format!("http://localhost:{}", port)
+            })
     }
 
     /// Get ToadStool endpoint from environment or default
+    ///
+    /// Multi-tier resolution:
+    /// 1. TOADSTOOL_ENDPOINT (full endpoint)
+    /// 2. TOADSTOOL_PORT (port override)
+    /// 3. Default: http://localhost:9001
     pub fn toadstool_endpoint() -> String {
-        env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| "http://localhost:9001".to_string())
+        env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
+            let port = env::var("TOADSTOOL_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(9001); // Default ToadStool compute port
+            format!("http://localhost:{}", port)
+        })
     }
 
     /// Get network host from environment or default
@@ -142,8 +179,11 @@ Security Services (Capability-Based Discovery):
 - SECURITY_COMPLIANCE_PORT: Compliance service port (default: 8445)
 
 ecoPrimals Services:
-- SONGBIRD_ENDPOINT: Songbird orchestration service (default: http://localhost:8080)
+- SERVICE_MESH_ENDPOINT: Songbird service mesh endpoint (primary)
+- SONGBIRD_ENDPOINT: Songbird orchestration service (default: http://localhost:8500)
+- SONGBIRD_PORT: Songbird port override (default: 8500)
 - TOADSTOOL_ENDPOINT: ToadStool compute service (default: http://localhost:9001)
+- TOADSTOOL_PORT: ToadStool port override (default: 9001)
 
 Network:
 - DEV_SERVER_HOST: Development server host (default: 127.0.0.1)

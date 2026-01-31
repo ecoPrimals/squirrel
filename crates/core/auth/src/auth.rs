@@ -62,8 +62,14 @@ impl AuthService {
     /// Discover security capability through universal adapter - no hardcoded primal knowledge
     async fn discover_security_capability(client: &Client) -> AuthProvider {
         // Try to discover ANY primal with security capabilities through universal adapter
-        let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT")
-            .unwrap_or_else(|_| "http://localhost:8443".to_string());
+        // Multi-tier security endpoint resolution
+        let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8443);  // Default security auth port
+            format!("http://localhost:{}", port)
+        });
 
         debug!(
             "Attempting security capability discovery at: {}",

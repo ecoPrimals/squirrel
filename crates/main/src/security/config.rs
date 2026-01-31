@@ -152,9 +152,21 @@ pub struct SecurityServiceConfig {
 
 impl Default for SecurityServiceConfig {
     fn default() -> Self {
+        // Multi-tier security endpoint resolution
+        // 1. SECURITY_SERVICE_ENDPOINT (full endpoint)
+        // 2. SECURITY_AUTHENTICATION_PORT (port override)
+        // 3. Default: http://localhost:8443
+        let security_service_endpoint =
+            std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {
+                let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8443); // Default security auth port
+                format!("http://localhost:{}", port)
+            });
+
         Self {
-            security_service_endpoint: std::env::var("SECURITY_SERVICE_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:8443".to_string()),
+            security_service_endpoint,
             enabled: true,
             timeout_seconds: 30,
         }

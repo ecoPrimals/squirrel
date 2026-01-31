@@ -212,9 +212,17 @@ pub struct JaegerExporter {
 impl JaegerExporter {
     /// Create a new Jaeger exporter
     pub fn new(mut config: ExternalTracingConfig) -> Self {
-        // Jaeger typically uses a different default endpoint
+        // Multi-tier Jaeger endpoint resolution
         if config.endpoint_url == ExternalTracingConfig::default().endpoint_url {
-            config.endpoint_url = "http://localhost:14268/api/traces".to_string();
+            config.endpoint_url = std::env::var("JAEGER_ENDPOINT")
+                .or_else(|_| std::env::var("TRACING_ENDPOINT"))
+                .unwrap_or_else(|_| {
+                    let port = std::env::var("JAEGER_PORT")
+                        .ok()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or(14268);  // Default Jaeger collector port
+                    format!("http://localhost:{}/api/traces", port)
+                });
         }
         
         let otlp_exporter = OpenTelemetryExporter::new(config.clone());
@@ -272,9 +280,17 @@ pub struct ZipkinExporter {
 impl ZipkinExporter {
     /// Create a new Zipkin exporter
     pub fn new(mut config: ExternalTracingConfig) -> Self {
-        // Zipkin typically uses a different default endpoint
+        // Multi-tier Zipkin endpoint resolution
         if config.endpoint_url == ExternalTracingConfig::default().endpoint_url {
-            config.endpoint_url = "http://localhost:9411/api/v2/spans".to_string();
+            config.endpoint_url = std::env::var("ZIPKIN_ENDPOINT")
+                .or_else(|_| std::env::var("TRACING_ENDPOINT"))
+                .unwrap_or_else(|_| {
+                    let port = std::env::var("ZIPKIN_PORT")
+                        .ok()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or(9411);  // Default Zipkin collector port
+                    format!("http://localhost:{}/api/v2/spans", port)
+                });
         }
         
         let timeout = std::time::Duration::from_secs(

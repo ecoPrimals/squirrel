@@ -106,11 +106,27 @@ pub struct McpAiToolsConfig {
 
 impl Default for McpAiToolsConfig {
     fn default() -> Self {
+        // Multi-tier Ollama endpoint resolution
+        // 1. OLLAMA_ENDPOINT (full endpoint)
+        // 2. TOADSTOOL_ENDPOINT (ToadStool as Ollama host)
+        // 3. OLLAMA_PORT or TOADSTOOL_PORT (port override)
+        // 4. Default: http://localhost:11434
+        let default_ollama_endpoint = std::env::var("OLLAMA_ENDPOINT")
+            .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = std::env::var("OLLAMA_PORT")
+                    .or_else(|_| std::env::var("TOADSTOOL_PORT"))
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(11434); // Default Ollama port
+                format!("http://localhost:{}", port)
+            });
+
         Self {
             providers: HashMap::new(),
             timeout_ms: 30000,
             streaming: true,
-            default_ollama_endpoint: "http://localhost:11434".to_string(),
+            default_ollama_endpoint,
         }
     }
 }

@@ -125,8 +125,14 @@ impl Default for ObservabilityConfig {
             
             // Dashboard
             enable_dashboard_integration: false,
-            dashboard_url: std::env::var("UI_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:3000".to_string()),
+            dashboard_url: std::env::var("UI_ENDPOINT").unwrap_or_else(|_| {
+                // Multi-tier dashboard URL resolution
+                let port = std::env::var("WEB_UI_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(3000);  // Default Web UI port
+                format!("http://localhost:{}", port)
+            }),
             dashboard_auth_token: None,
             dashboard_metrics_interval: 60,
             dashboard_traces_interval: 30,

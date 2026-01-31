@@ -104,11 +104,28 @@ pub use beardog_jwt::{BearDogJwtConfig, BearDogJwtService, JwtClaims as BearDogJ
 pub use jwt::JwtTokenManager;
 
 /// Initialize the authentication system with current configuration
+///
+/// Multi-tier endpoint resolution:
+/// - Security: SECURITY_SERVICE_ENDPOINT → SECURITY_AUTHENTICATION_PORT → 8443
+/// - MCP: MCP_ENDPOINT → MCP_PORT → 8444
 pub async fn initialize() -> AuthResult<()> {
-    let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT")
-        .unwrap_or_else(|_| "http://localhost:8443".to_string());
-    let mcp_endpoint =
-        std::env::var("MCP_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:8444".to_string());
+    // Multi-tier security endpoint resolution
+    let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {
+        let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8443);  // Default security auth port
+        format!("http://localhost:{}", port)
+    });
+
+    // Multi-tier MCP endpoint resolution
+    let mcp_endpoint = std::env::var("MCP_ENDPOINT").unwrap_or_else(|_| {
+        let port = std::env::var("MCP_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8444);  // Default MCP HTTP port
+        format!("http://127.0.0.1:{}", port)
+    });
 
     #[cfg(feature = "delegated-jwt")]
     tracing::info!(

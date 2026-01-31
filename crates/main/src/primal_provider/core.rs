@@ -118,15 +118,30 @@ impl SquirrelPrimalProvider {
     }
 
     /// Get biomeos endpoints from environment
+    ///
+    /// Multi-tier resolution for each endpoint:
+    /// 1. Full URL env var (BIOMEOS_*_URL)
+    /// 2. Base endpoint + path (BIOMEOS_ENDPOINT)
+    /// 3. Port override (BIOMEOS_PORT)
+    /// 4. Default: http://localhost:5000/path
     pub fn get_biomeos_endpoints(&self) -> Result<serde_json::Value, PrimalError> {
-        // Get BiomeOS endpoints from environment variables
+        // Helper to construct endpoint with multi-tier resolution
+        let build_endpoint = |url_var: &str, path: &str| -> String {
+            std::env::var(url_var)
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}{}", e, path)))
+                .unwrap_or_else(|_| {
+                    let port = std::env::var("BIOMEOS_PORT")
+                        .ok()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or(5000); // Default BiomeOS port
+                    format!("http://localhost:{}{}", port, path)
+                })
+        };
+
         let endpoints = serde_json::json!({
-            "registration_url": std::env::var("BIOMEOS_REGISTRATION_URL")
-                .unwrap_or_else(|_| "http://localhost:5000/register".to_string()),
-            "health_url": std::env::var("BIOMEOS_HEALTH_URL")
-                .unwrap_or_else(|_| "http://localhost:5000/health".to_string()),
-            "metrics_url": std::env::var("BIOMEOS_METRICS_URL")
-                .unwrap_or_else(|_| "http://localhost:5000/metrics".to_string()),
+            "registration_url": build_endpoint("BIOMEOS_REGISTRATION_URL", "/register"),
+            "health_url": build_endpoint("BIOMEOS_HEALTH_URL", "/health"),
+            "metrics_url": build_endpoint("BIOMEOS_METRICS_URL", "/metrics"),
         });
 
         info!("BiomeOS endpoints retrieved from environment");

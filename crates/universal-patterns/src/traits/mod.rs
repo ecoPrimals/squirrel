@@ -736,9 +736,21 @@ pub struct PrimalEndpoints {
 
 impl Default for PrimalEndpoints {
     fn default() -> Self {
+        // Multi-tier primal endpoint resolution
+        // 1. PRIMAL_ENDPOINT (full endpoint)
+        // 2. PRIMAL_PORT (port override)
+        // 3. Default: http://localhost:8080
+        let port = std::env::var("PRIMAL_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8080); // Default primal port
+        let primary = std::env::var("PRIMAL_ENDPOINT")
+            .unwrap_or_else(|_| format!("http://localhost:{}", port));
+        let health = format!("{}/health", primary);
+
         Self {
-            primary: "http://localhost:8080".to_string(),
-            health: "http://localhost:8080/health".to_string(),
+            primary,
+            health,
             metrics: None,
             admin: None,
             websocket: None,

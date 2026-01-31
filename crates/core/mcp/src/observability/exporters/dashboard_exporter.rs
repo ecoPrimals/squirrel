@@ -169,9 +169,17 @@ pub struct DashboardExporterConfig {
 
 impl Default for DashboardExporterConfig {
     fn default() -> Self {
+        // Multi-tier dashboard URL resolution
+        let dashboard_url = std::env::var("UI_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("WEB_UI_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(3000);  // Default Web UI port
+            format!("http://localhost:{}", port)
+        });
+
         Self {
-            dashboard_url: std::env::var("UI_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:3000".to_string()),
+            dashboard_url,
             max_batch_size: 100,
             export_interval_secs: 5,
             service_name: "unknown".to_string(),

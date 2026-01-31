@@ -110,12 +110,24 @@ impl NetworkConfig {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
                 "http://biomeos-ui:3000".to_string() // Production service name
             } else {
-                "http://localhost:3000".to_string() // Development fallback
+                // Multi-tier dev UI resolution
+                let port = env::var("WEB_UI_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(3000); // Default Web UI port
+                format!("http://localhost:{}", port)
             }
         });
 
         let cors_origins = env::var("MCP_CORS_ORIGINS")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string())
+            .unwrap_or_else(|_| {
+                // Multi-tier CORS origins resolution
+                let port = env::var("WEB_UI_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(3000); // Default Web UI port
+                format!("http://localhost:{}", port)
+            })
             .split(',')
             .map(|s| s.trim().to_string())
             .collect();
@@ -248,8 +260,21 @@ impl AIProviderConfig {
         let anthropic_endpoint = env::var("ANTHROPIC_ENDPOINT")
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".to_string());
 
-        let ollama_endpoint =
-            env::var("OLLAMA_ENDPOINT").unwrap_or_else(|_| "http://localhost:11434".to_string());
+        // Multi-tier Ollama endpoint resolution
+        // 1. OLLAMA_ENDPOINT (full endpoint)
+        // 2. TOADSTOOL_ENDPOINT (ToadStool as Ollama host)
+        // 3. OLLAMA_PORT or TOADSTOOL_PORT (port override)
+        // 4. Default: http://localhost:11434
+        let ollama_endpoint = env::var("OLLAMA_ENDPOINT")
+            .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = env::var("OLLAMA_PORT")
+                    .or_else(|_| env::var("TOADSTOOL_PORT"))
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(11434); // Default Ollama port
+                format!("http://localhost:{}", port)
+            });
 
         let default_model =
             env::var("MCP_DEFAULT_MODEL").unwrap_or_else(|_| "gpt-3.5-turbo".to_string());
@@ -293,11 +318,46 @@ pub struct EcosystemConfig {
 
 impl Default for EcosystemConfig {
     fn default() -> Self {
+        // Multi-tier ecosystem endpoint defaults with port-only overrides
+        let nestgate_endpoint = std::env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("NESTGATE_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8444); // Default NestGate port
+            format!("http://localhost:{}", port)
+        });
+
+        let beardog_endpoint = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8443); // Default BearDog security port
+            format!("http://localhost:{}", port)
+        });
+
+        let toadstool_endpoint = std::env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("TOADSTOOL_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8445); // Default ToadStool port
+            format!("http://localhost:{}", port)
+        });
+
+        let service_mesh_endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
+            .or_else(|_| std::env::var("BIOMEOS_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = std::env::var("BIOMEOS_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8446); // Default BiomeOS service mesh port
+                format!("http://localhost:{}", port)
+            });
+
         Self {
-            nestgate_endpoint: "http://localhost:8444".to_string(),
-            beardog_endpoint: "http://localhost:8443".to_string(),
-            toadstool_endpoint: "http://localhost:8445".to_string(),
-            service_mesh_endpoint: "http://localhost:8446".to_string(),
+            nestgate_endpoint,
+            beardog_endpoint,
+            toadstool_endpoint,
+            service_mesh_endpoint,
             service_timeout_ms: 5000,
         }
     }
@@ -307,37 +367,59 @@ impl EcosystemConfig {
     /// Load ecosystem configuration from environment variables
     pub fn from_env() -> Result<Self, EnvironmentError> {
         // Primal endpoints with service discovery
+        // Multi-tier NestGate endpoint resolution
         let nestgate_endpoint = env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
                 "http://nestgate:8444".to_string()
             } else {
-                "http://localhost:8444".to_string()
+                let port = env::var("NESTGATE_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8444); // Default NestGate port
+                format!("http://localhost:{}", port)
             }
         });
 
+        // Multi-tier BearDog endpoint resolution
         let beardog_endpoint = env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
                 "http://beardog:8443".to_string()
             } else {
-                "http://localhost:8443".to_string()
+                let port = env::var("SECURITY_AUTHENTICATION_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8443); // Default BearDog security port
+                format!("http://localhost:{}", port)
             }
         });
 
+        // Multi-tier ToadStool endpoint resolution
         let toadstool_endpoint = env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
                 "http://toadstool:8445".to_string()
             } else {
-                "http://localhost:8445".to_string()
+                let port = env::var("TOADSTOOL_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8445); // Default ToadStool port
+                format!("http://localhost:{}", port)
             }
         });
 
-        let biomeos_endpoint = env::var("BIOMEOS_ENDPOINT").unwrap_or_else(|_| {
-            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                "http://biomeos:8446".to_string()
-            } else {
-                "http://localhost:8446".to_string()
-            }
-        });
+        // Multi-tier BiomeOS service mesh endpoint resolution
+        let biomeos_endpoint = env::var("BIOMEOS_ENDPOINT")
+            .or_else(|_| env::var("SERVICE_MESH_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                    "http://biomeos:8446".to_string()
+                } else {
+                    let port = env::var("BIOMEOS_PORT")
+                        .ok()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or(8446); // Default BiomeOS service mesh port
+                    format!("http://localhost:{}", port)
+                }
+            });
 
         let service_timeout_ms = env::var("ECOSYSTEM_SERVICE_TIMEOUT_MS")
             .ok()

@@ -287,10 +287,20 @@ impl EcosystemService {
     }
 
     /// Get the current service endpoint
+    /// Get Squirrel MCP endpoint with multi-tier resolution
+    ///
+    /// Resolution tiers:
+    /// 1. SQUIRREL_MCP_ENDPOINT (full endpoint)
+    /// 2. SQUIRREL_PORT (port override)
+    /// 3. Default: http://localhost:8080
     pub fn get_endpoint(&self) -> String {
-        // This would be configured based on the actual server setup
-        std::env::var("SQUIRREL_MCP_ENDPOINT")
-            .unwrap_or_else(|_| "http://localhost:8080".to_string())
+        std::env::var("SQUIRREL_MCP_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("SQUIRREL_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8080);  // Default Squirrel MCP port
+            format!("http://localhost:{}", port)
+        })
     }
 
     /// Get service metadata for registration

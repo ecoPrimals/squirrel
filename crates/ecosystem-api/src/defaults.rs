@@ -10,30 +10,78 @@ pub struct DefaultEndpoints;
 
 impl DefaultEndpoints {
     /// Get Songbird endpoint from environment or default (now using `service_mesh_endpoint`)
+    ///
+    /// Multi-tier resolution:
+    /// 1. SERVICE_MESH_ENDPOINT (full endpoint)
+    /// 2. SONGBIRD_ENDPOINT (songbird-specific)
+    /// 3. SONGBIRD_PORT (port override)
+    /// 4. Default: http://localhost:8500
     #[must_use]
     pub fn songbird_endpoint() -> String {
-        env::var("SERVICE_MESH_ENDPOINT").unwrap_or_else(|_| "http://localhost:8500".to_string())
+        env::var("SERVICE_MESH_ENDPOINT")
+            .or_else(|_| env::var("SONGBIRD_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = env::var("SONGBIRD_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8500); // Default Songbird service mesh port
+                format!("http://localhost:{}", port)
+            })
     }
 
     /// Get `ToadStool` endpoint from environment or default
+    ///
+    /// Multi-tier resolution:
+    /// 1. TOADSTOOL_ENDPOINT (full endpoint)
+    /// 2. TOADSTOOL_PORT (port override)
+    /// 3. Default: http://localhost:8081
     #[must_use]
     pub fn toadstool_endpoint() -> String {
-        env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| "http://localhost:8081".to_string())
+        env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
+            let port = env::var("TOADSTOOL_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8081); // Default ToadStool compute port (alt)
+            format!("http://localhost:{}", port)
+        })
     }
 
     /// Get `NestGate` endpoint from environment or default
+    ///
+    /// Multi-tier resolution:
+    /// 1. NESTGATE_ENDPOINT (full endpoint)
+    /// 2. NESTGATE_PORT (port override)
+    /// 3. Default: http://localhost:8082
     #[must_use]
     pub fn nestgate_endpoint() -> String {
-        env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| "http://localhost:8082".to_string())
+        env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| {
+            let port = env::var("NESTGATE_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8082); // Default NestGate UniBin port
+            format!("http://localhost:{}", port)
+        })
     }
 
     /// Get security service endpoint from environment (capability-based discovery)
     /// Note: This is a fallback - services should use capability discovery
+    ///
+    /// Multi-tier resolution:
+    /// 1. SECURITY_SERVICE_ENDPOINT (full endpoint)
+    /// 2. SECURITY_AUTH_SERVICE_ENDPOINT (alt full endpoint)
+    /// 3. SECURITY_AUTHENTICATION_PORT (port override)
+    /// 4. Default: http://localhost:8443
     #[must_use]
     pub fn security_service_endpoint() -> String {
         env::var("SECURITY_SERVICE_ENDPOINT")
             .or_else(|_| env::var("SECURITY_AUTH_SERVICE_ENDPOINT"))
-            .unwrap_or_else(|_| "http://localhost:8443".to_string())
+            .unwrap_or_else(|_| {
+                let port = env::var("SECURITY_AUTHENTICATION_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8443); // Default security auth port
+                format!("http://localhost:{}", port)
+            })
     }
 
     /// Get development bind address from environment or default

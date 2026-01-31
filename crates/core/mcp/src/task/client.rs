@@ -55,8 +55,20 @@ pub struct MCPTaskClient {
 impl MCPTaskClient {
     /// Default task client configuration
     pub fn default_config() -> TaskClientConfig {
+        // Multi-tier gRPC task server resolution
+        let server_address = std::env::var("TASK_SERVER_ENDPOINT")
+            .or_else(|_| std::env::var("GRPC_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = std::env::var("TASK_SERVER_PORT")
+                    .or_else(|_| std::env::var("GRPC_PORT"))
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(50051);  // Default gRPC task server port
+                format!("http://localhost:{}", port)
+            });
+
         TaskClientConfig {
-            server_address: "http://localhost:50051".to_string(),
+            server_address,
             max_retries: 3,
             connect_timeout_ms: 5000,
             request_timeout_ms: 10000,

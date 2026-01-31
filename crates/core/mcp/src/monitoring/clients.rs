@@ -532,9 +532,17 @@ impl MonitoringClient for ProductionMonitoringClient {
 
 impl Default for MonitoringClientConfig {
     fn default() -> Self {
+        // Multi-tier monitoring endpoint resolution
+        let endpoint = std::env::var("MONITORING_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("MONITORING_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8080);  // Default monitoring port
+            format!("http://localhost:{}", port)
+        });
+
         Self {
-            endpoint: std::env::var("MONITORING_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
+            endpoint,
             api_key: std::env::var("MONITORING_API_KEY").ok(),
             timeout_ms: std::env::var("MONITORING_TIMEOUT_MS")
                 .unwrap_or_else(|_| "5000".to_string())

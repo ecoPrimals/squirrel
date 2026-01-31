@@ -94,12 +94,22 @@ impl Default for McpClientConfig {
 
 impl McpClientConfig {
     /// Load MCP configuration from environment variables
+    ///
+    /// Multi-tier server URL resolution:
+    /// 1. MCP_SERVER_URL (full WebSocket URL)
+    /// 2. MCP_SERVER_PORT (port override)
+    /// 3. Default: ws://127.0.0.1:8080
     pub fn from_env() -> Self {
+        let server_url = std::env::var("MCP_SERVER_URL").unwrap_or_else(|_| {
+            let port = std::env::var("MCP_SERVER_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8080); // Default MCP WebSocket port
+            format!("ws://127.0.0.1:{}", port)
+        });
+
         Self {
-            server_url: std::env::var("MCP_SERVER_URL").unwrap_or_else(|_| {
-                std::env::var("MCP_SERVER_URL")
-                    .unwrap_or_else(|_| "ws://127.0.0.1:8080".to_string())
-            }),
+            server_url,
             timeout_ms: std::env::var("MCP_TIMEOUT_MS")
                 .unwrap_or_else(|_| "30000".to_string())
                 .parse()

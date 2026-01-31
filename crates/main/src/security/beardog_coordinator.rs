@@ -69,8 +69,15 @@ impl BeardogSecurityCoordinator {
             return Ok(endpoint);
         }
 
-        // Default fallback
-        Ok("http://localhost:8090".to_string())
+        // Multi-tier default fallback
+        // 1. SECURITY_SERVICE_ENDPOINT (checked above)
+        // 2. SECURITY_AUTHENTICATION_PORT (port override)
+        // 3. Default: http://localhost:8090
+        let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or(8090); // Default BearDog security port
+        Ok(format!("http://localhost:{}", port))
     }
 
     /// Create new coordinator with capability-based discovery

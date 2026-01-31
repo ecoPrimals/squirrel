@@ -207,9 +207,21 @@ impl MetricsExporter for JsonExporter {
 
 impl Default for ExporterConfig {
     fn default() -> Self {
+        // Multi-tier metrics endpoint resolution
+        // 1. METRICS_EXPORTER_ENDPOINT (full endpoint)
+        // 2. METRICS_EXPORTER_PORT (port override)
+        // 3. Default: http://localhost:9090/metrics
+        let endpoint = std::env::var("METRICS_EXPORTER_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("METRICS_EXPORTER_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(9090); // Default metrics exporter port
+            format!("http://localhost:{}/metrics", port)
+        });
+
         Self {
             name: "default".to_string(),
-            endpoint: "http://localhost:9090/metrics".to_string(),
+            endpoint,
             interval: std::time::Duration::from_secs(60),
             auth: None,
             headers: HashMap::new(),

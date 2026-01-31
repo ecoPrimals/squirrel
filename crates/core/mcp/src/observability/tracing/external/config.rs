@@ -30,8 +30,19 @@ pub struct ExternalTracingConfig {
 
 impl Default for ExternalTracingConfig {
     fn default() -> Self {
+        // Multi-tier Jaeger tracing endpoint resolution
+        let endpoint_url = std::env::var("JAEGER_ENDPOINT")
+            .or_else(|_| std::env::var("TRACING_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = std::env::var("JAEGER_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(14268);  // Default Jaeger collector port
+                format!("http://localhost:{}/api/traces", port)
+            });
+
         Self {
-            endpoint_url: "http://localhost:14268/api/traces".to_string(),
+            endpoint_url,
             auth_token: None,
             flush_interval_seconds: 30,
             max_buffer_size: 1000,
