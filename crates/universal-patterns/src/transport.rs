@@ -152,10 +152,75 @@ pub struct InProcessTransport {
 }
 
 impl UniversalTransport {
+    /// Detect if an error is a platform constraint (not a real error)
+    ///
+    /// Platform constraints indicate the platform lacks support for
+    /// the attempted transport, requiring automatic fallback.
+    ///
+    /// ## Platform Constraints vs Real Errors
+    ///
+    /// Platform constraints (expected, adapt automatically):
+    /// - SELinux/AppArmor blocking Unix sockets (Android, hardened Linux)
+    /// - Address family not supported (platform lacks Unix sockets)
+    /// - Connection refused (socket doesn't exist yet)
+    /// - Not found (socket path doesn't exist)
+    ///
+    /// Real errors (unexpected, should fail):
+    /// - Network unreachable
+    /// - Host unreachable
+    /// - Protocol errors
+    fn is_platform_constraint(error: &io::Error) -> bool {
+        match error.kind() {
+            // Permission denied often means SELinux/AppArmor blocking
+            io::ErrorKind::PermissionDenied => Self::is_security_constraint(),
+
+            // Address family not supported (platform lacks Unix sockets)
+            io::ErrorKind::Unsupported => true,
+
+            // Connection refused: socket doesn't exist (expected for fallback)
+            io::ErrorKind::ConnectionRefused => true,
+
+            // Not found: socket path doesn't exist (expected for fallback)
+            io::ErrorKind::NotFound => true,
+
+            _ => false,
+        }
+    }
+
+    /// Check if security constraints (SELinux, AppArmor) are enforcing
+    ///
+    /// Used to distinguish permission errors caused by security policies
+    /// (platform constraint) from real permission errors.
+    fn is_security_constraint() -> bool {
+        // Check SELinux enforcement (Android, Fedora, RHEL)
+        if let Ok(enforce) = std::fs::read_to_string("/sys/fs/selinux/enforce") {
+            if enforce.trim() == "1" {
+                tracing::debug!("SELinux is enforcing (platform constraint detected)");
+                return true;
+            }
+        }
+
+        // Check AppArmor (Ubuntu, Debian)
+        if std::fs::metadata("/sys/kernel/security/apparmor").is_ok() {
+            tracing::debug!("AppArmor is active (platform constraint detected)");
+            return true;
+        }
+
+        false
+    }
+
     /// Connect to a service using automatic transport selection
     ///
     /// Automatically selects the best transport for the current platform
     /// with fallback to TCP if preferred transport fails.
+    ///
+    /// ## Isomorphic IPC
+    ///
+    /// This implements the Try→Detect→Adapt→Succeed pattern:
+    /// 1. **TRY** optimal transport (Unix sockets, Named pipes)
+    /// 2. **DETECT** platform constraints vs real errors
+    /// 3. **ADAPT** automatically to TCP fallback
+    /// 4. **SUCCEED** or fail with real error
     ///
     /// # Arguments
     ///
@@ -172,7 +237,7 @@ impl UniversalTransport {
     /// use universal_patterns::transport::UniversalTransport;
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// // Automatic platform detection and connection
+    /// // Automatic platform detection and connection (isomorphic)
     /// let transport = UniversalTransport::connect("squirrel", None).await?;
     /// # Ok(())
     /// # }
@@ -183,26 +248,37 @@ impl UniversalTransport {
         // Determine transport hierarchy based on platform
         let transport_order = Self::get_transport_hierarchy(&config);
 
+        tracing::info!("🔌 Starting IPC client connection (isomorphic mode)...");
+        tracing::info!("   Service: {}", service_name);
+
         let mut last_error = None;
 
         for transport_type in transport_order {
+            tracing::info!("   Trying {:?}...", transport_type);
+
             match Self::try_connect(service_name, transport_type, &config).await {
                 Ok(transport) => {
-                    tracing::info!("Connected to {} using {:?}", service_name, transport_type);
+                    tracing::info!("✅ Connected using {:?}", transport_type);
                     return Ok(transport);
                 }
-                Err(e) => {
-                    tracing::debug!(
-                        "Failed to connect to {} using {:?}: {}",
-                        service_name,
-                        transport_type,
-                        e
-                    );
+
+                // DETECT: Platform constraint (expected, adapt)
+                Err(e) if Self::is_platform_constraint(&e) => {
+                    tracing::warn!("⚠️  {:?} unavailable: {}", transport_type, e);
+                    tracing::warn!("   Detected platform constraint, adapting...");
+
                     last_error = Some(e);
 
                     if !config.enable_fallback {
                         break;
                     }
+                    // Continue to next transport in hierarchy
+                }
+
+                // Real error (unexpected, fail)
+                Err(e) => {
+                    tracing::error!("❌ Real error (not platform constraint): {}", e);
+                    return Err(e);
                 }
             }
         }
@@ -210,7 +286,10 @@ impl UniversalTransport {
         Err(last_error.unwrap_or_else(|| {
             io::Error::new(
                 io::ErrorKind::NotFound,
-                format!("Failed to connect to service: {}", service_name),
+                format!(
+                    "Failed to connect to service: {} (all transports exhausted)",
+                    service_name
+                ),
             )
         }))
     }
@@ -635,10 +714,18 @@ pub enum RemoteAddr {
 }
 
 impl UniversalListener {
-    /// Bind a server listener using automatic transport selection
+    /// Bind a listener using automatic transport selection
     ///
     /// Automatically selects the best transport for the current platform
     /// with fallback to TCP if preferred transport fails.
+    ///
+    /// ## Isomorphic IPC
+    ///
+    /// This implements the Try→Detect→Adapt→Succeed pattern:
+    /// 1. **TRY** optimal transport (Unix sockets, Named pipes)
+    /// 2. **DETECT** platform constraints vs real errors
+    /// 3. **ADAPT** automatically to TCP fallback
+    /// 4. **SUCCEED** or fail with real error
     ///
     /// # Arguments
     ///
@@ -655,7 +742,7 @@ impl UniversalListener {
     /// use universal_patterns::transport::UniversalListener;
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// // Automatic platform detection and binding
+    /// // Automatic platform detection and binding (isomorphic)
     /// let listener = UniversalListener::bind("squirrel", None).await?;
     /// # Ok(())
     /// # }
@@ -666,21 +753,37 @@ impl UniversalListener {
         // Determine transport hierarchy based on platform
         let transport_order = Self::get_transport_hierarchy(&config);
 
+        tracing::info!("🔌 Starting IPC server (isomorphic mode)...");
+        tracing::info!("   Service: {}", service_name);
+
         let mut last_error = None;
 
         for transport_type in transport_order {
+            tracing::info!("   Trying {:?}...", transport_type);
+
             match Self::try_bind(service_name, transport_type, &config).await {
                 Ok(listener) => {
-                    tracing::info!("Bound {} server using {:?}", service_name, transport_type);
+                    tracing::info!("✅ Listening on {:?}", transport_type);
+                    tracing::info!("   Status: READY ✅");
                     return Ok(listener);
                 }
+
+                // DETECT: Platform constraint (expected, adapt)
+                Err(e) if UniversalTransport::is_platform_constraint(&e) => {
+                    tracing::warn!("⚠️  {:?} unavailable: {}", transport_type, e);
+                    tracing::warn!("   Detected platform constraint, adapting...");
+
+                    last_error = Some(e);
+
+                    if !config.enable_fallback {
+                        break;
+                    }
+                    // Continue to next transport in hierarchy
+                }
+
+                // Real error (unexpected, fail)
                 Err(e) => {
-                    tracing::debug!(
-                        "Failed to bind {} using {:?}: {}",
-                        service_name,
-                        transport_type,
-                        e
-                    );
+                    tracing::error!("❌ Real error (not platform constraint): {}", e);
                     last_error = Some(e);
 
                     if !config.enable_fallback {
@@ -693,7 +796,10 @@ impl UniversalListener {
         Err(last_error.unwrap_or_else(|| {
             io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
-                format!("Failed to bind service: {}", service_name),
+                format!(
+                    "Failed to bind service: {} (all transports exhausted)",
+                    service_name
+                ),
             )
         }))
     }
