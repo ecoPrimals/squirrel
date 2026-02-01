@@ -1,13 +1,14 @@
-//! JSON-RPC 2.0 Server over Unix Sockets
+//! JSON-RPC 2.0 Server with Universal Transport (Isomorphic IPC)
 //!
 //! Modern, idiomatic Rust implementation of JSON-RPC 2.0 protocol for
-//! biomeOS integration. This server handles all Squirrel<->biomeOS communication
-//! over Unix domain sockets.
+//! biomeOS integration. This server uses Universal Transport abstractions
+//! for automatic platform adaptation (Unix sockets OR TCP with discovery files).
 //!
 //! ## Architecture
 //!
 //! ```text
-//! Unix Socket → JSON-RPC 2.0 → Handler → AI Router → Response
+//! Universal Transport → JSON-RPC 2.0 → Handler → AI Router → Response
+//! (Unix socket on Linux/macOS, TCP fallback on Android/constrained)
 //! ```
 //!
 //! ## Supported Methods
@@ -33,13 +34,12 @@ use super::types::*;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{UnixListener, UnixStream};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
+use universal_patterns::transport::{UniversalListener, UniversalTransport};
 
 /// JSON-RPC 2.0 Request
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,9 +146,12 @@ impl ServerMetrics {
     }
 }
 
-/// JSON-RPC Server
+/// JSON-RPC Server with Universal Transport (Isomorphic IPC)
 pub struct JsonRpcServer {
-    /// Socket path
+    /// Service name for Universal Transport discovery
+    service_name: String,
+
+    /// Legacy socket path (kept for backward compatibility, used as fallback)
     socket_path: String,
 
     /// Server metrics
@@ -159,9 +162,10 @@ pub struct JsonRpcServer {
 }
 
 impl JsonRpcServer {
-    /// Create a new JSON-RPC server
+    /// Create a new JSON-RPC server with Universal Transport
     pub fn new(socket_path: String) -> Self {
         Self {
+            service_name: "squirrel".to_string(), // Standard service name for NUCLEUS
             socket_path,
             metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: None,
@@ -171,41 +175,45 @@ impl JsonRpcServer {
     /// Create server with AI router
     pub fn with_ai_router(socket_path: String, ai_router: Arc<crate::api::ai::AiRouter>) -> Self {
         Self {
+            service_name: "squirrel".to_string(), // Standard service name for NUCLEUS
             socket_path,
             metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: Some(ai_router),
         }
     }
 
-    /// Start the JSON-RPC server
+    /// Start the JSON-RPC server with Universal Transport (Isomorphic IPC)
+    ///
+    /// This method uses Universal Transport abstractions for automatic platform adaptation:
+    /// - Linux/macOS: Unix sockets (preferred)
+    /// - Android (SELinux): TCP fallback with discovery files
+    /// - Windows: Named pipes (when available)
+    ///
+    /// The server will automatically:
+    /// 1. Try Unix socket first
+    /// 2. Detect platform constraints (SELinux, AppArmor, etc.)
+    /// 3. Adapt to TCP fallback if needed
+    /// 4. Write discovery files for client auto-discovery
     ///
     /// This method will block until the server is stopped (Ctrl+C).
     pub async fn start(self: Arc<Self>) -> Result<()> {
-        // Prepare socket path (remove old socket, create parent directory)
-        let socket_path = Path::new(&self.socket_path);
-        if let Some(parent) = socket_path.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent).context("Failed to create socket directory")?;
-            }
-        }
+        info!("🔌 Starting JSON-RPC server with Universal Transport...");
 
-        if socket_path.exists() {
-            std::fs::remove_file(socket_path).context("Failed to remove old socket file")?;
-        }
+        // Bind using Universal Transport (automatic fallback)
+        let mut listener = UniversalListener::bind(&self.service_name, None)
+            .await
+            .context("Failed to bind Universal Transport listener")?;
 
-        // Bind Unix socket
-        let listener = UnixListener::bind(&self.socket_path)
-            .context(format!("Failed to bind Unix socket: {}", self.socket_path))?;
-
-        info!("🚀 JSON-RPC server listening on {}", self.socket_path);
+        info!("✅ JSON-RPC server ready (service: {})", self.service_name);
 
         // Accept connections loop
         loop {
             match listener.accept().await {
-                Ok((stream, _addr)) => {
+                Ok((transport, _remote_addr)) => {
+                    debug!("📥 New connection accepted");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
-                        if let Err(e) = server.handle_connection(stream).await {
+                        if let Err(e) = server.handle_universal_connection(transport).await {
                             error!("Error handling connection: {}", e);
                         }
                     });
@@ -217,8 +225,52 @@ impl JsonRpcServer {
         }
     }
 
-    /// Handle a client connection
-    async fn handle_connection(&self, stream: UnixStream) -> Result<()> {
+    /// Handle a client connection via Universal Transport
+    ///
+    /// This method works with ANY transport type (Unix socket, TCP, Named pipe)
+    /// using polymorphic AsyncRead + AsyncWrite traits.
+    async fn handle_universal_connection(&self, transport: UniversalTransport) -> Result<()> {
+        // Wrap transport in BufReader for line-oriented protocol
+        let mut reader = BufReader::new(transport);
+        let mut line = String::new();
+
+        loop {
+            line.clear();
+            match reader.read_line(&mut line).await {
+                Ok(0) => {
+                    // EOF - client disconnected
+                    debug!("Client disconnected");
+                    break;
+                }
+                Ok(_) => {
+                    let response = self.handle_request(&line).await;
+
+                    // Write response
+                    let mut response_json = serde_json::to_string(&response)?;
+                    response_json.push('\n');
+
+                    reader.get_mut().write_all(response_json.as_bytes()).await?;
+                    reader.get_mut().flush().await?;
+                }
+                Err(e) => {
+                    warn!("Error reading from connection: {}", e);
+                    break;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Handle a client connection (LEGACY - kept for backward compatibility)
+    ///
+    /// Note: New code should use handle_universal_connection() instead.
+    /// This method is kept for any legacy direct Unix socket usage.
+    #[deprecated(note = "Use handle_universal_connection() with UniversalTransport instead")]
+    async fn handle_connection<S>(&self, stream: S) -> Result<()>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
         let mut reader = BufReader::new(stream);
         let mut line = String::new();
 
