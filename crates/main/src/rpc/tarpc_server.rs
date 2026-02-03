@@ -1,245 +1,297 @@
-//! tarpc Server Implementation
+//! tarpc RPC Server Implementation
 //!
-//! High-performance RPC server for Squirrel-to-Squirrel communication.
-//! Based on working implementations from Songbird and BearDog primals.
+//! High-performance binary RPC server using tarpc framework.
+//! Provides the same functionality as JSON-RPC but with:
+//! - Type safety
+//! - Binary serialization
+//! - Lower latency
+//! - Smaller payloads
+//! - Cascading cancellation
+//! - Deadline propagation
+
+#![cfg(feature = "tarpc-rpc")]
 
 use super::tarpc_service::*;
-use crate::api::ai::AiRouter;
-use crate::error::PrimalError;
+use anyhow::{Context, Result};
 use futures::prelude::*;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
-use tarpc::context;
-use tarpc::server::{BaseChannel, Channel};
-use tokio::net::TcpListener;
-use tokio_serde::formats::Bincode;
-use tokio_util::codec::LengthDelimitedCodec;
+use tarpc::{
+    context,
+    server::{self, incoming::Incoming, Channel},
+};
+use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
+use universal_patterns::transport::UniversalTransport;
 
-/// tarpc server implementation
+use super::jsonrpc_server::ServerMetrics;
+
+/// tarpc RPC Server
+///
+/// Implements the SquirrelRpc service trait with actual business logic.
 #[derive(Clone)]
-pub struct SquirrelRpcServer {
-    /// AI router for query handling
-    ai_router: Option<Arc<AiRouter>>,
+pub struct TarpcRpcServer {
+    /// Service name
+    service_name: String,
 
-    /// Start time for uptime calculation
-    start_time: Instant,
+    /// Server metrics (shared with JSON-RPC)
+    metrics: Arc<RwLock<ServerMetrics>>,
+
+    /// AI router (optional)
+    ai_router: Option<Arc<crate::api::ai::AiRouter>>,
 }
 
-impl SquirrelRpcServer {
-    /// Create a new tarpc server
-    pub fn new() -> Self {
+impl TarpcRpcServer {
+    /// Create a new tarpc RPC server
+    pub fn new(service_name: String) -> Self {
         Self {
+            service_name,
+            metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: None,
-            start_time: Instant::now(),
         }
     }
 
-    /// Create a new tarpc server with AI router
-    pub fn with_ai_router(ai_router: Arc<AiRouter>) -> Self {
+    /// Create server with AI router
+    pub fn with_ai_router(service_name: String, ai_router: Arc<crate::api::ai::AiRouter>) -> Self {
         Self {
+            service_name,
+            metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: Some(ai_router),
-            start_time: Instant::now(),
         }
     }
 
-    /// Start the tarpc server on a TCP address
-    pub async fn start(self, addr: SocketAddr) -> Result<(), PrimalError> {
-        info!("🚀 Starting tarpc server on {}", addr);
-
-        let listener = TcpListener::bind(addr).await.map_err(|e| {
-            PrimalError::NetworkError(format!("Failed to bind tarpc server: {}", e))
-        })?;
-
-        info!("✅ tarpc server listening on {}", addr);
-
-        loop {
-            let (stream, peer_addr) = match listener.accept().await {
-                Ok(conn) => conn,
-                Err(e) => {
-                    error!("❌ Failed to accept connection: {}", e);
-                    continue;
-                }
-            };
-
-            debug!("🔌 New tarpc connection from {}", peer_addr);
-
-            let server = self.clone();
-
-            tokio::spawn(async move {
-                // Create codec transport using tokio-serde with bincode
-                // Pattern from Songbird: LengthDelimitedCodec + Bincode format
-                let transport = tarpc::serde_transport::new(
-                    LengthDelimitedCodec::builder()
-                        .max_frame_length(16 * 1024 * 1024) // 16 MB max frame
-                        .new_framed(stream),
-                    Bincode::default(),
-                );
-
-                // Create server channel
-                let channel = BaseChannel::with_defaults(transport);
-
-                // Execute server - serve() returns a Stream of requests
-                // Use for_each to handle each request as it comes in
-                channel
-                    .execute(server.serve())
-                    .for_each(|response| async move {
-                        tokio::spawn(response);
-                    })
-                    .await;
-
-                debug!("🔌 tarpc connection from {} closed", peer_addr);
-            });
+    /// Create server with shared metrics
+    pub fn with_metrics(
+        service_name: String,
+        metrics: Arc<RwLock<ServerMetrics>>,
+        ai_router: Option<Arc<crate::api::ai::AiRouter>>,
+    ) -> Self {
+        Self {
+            service_name,
+            metrics,
+            ai_router,
         }
     }
-}
 
-impl Default for SquirrelRpcServer {
-    fn default() -> Self {
-        Self::new()
+    /// Handle a single tarpc connection
+    ///
+    /// This method sets up a tarpc server channel for a single client connection.
+    pub async fn handle_connection(self, transport: UniversalTransport) -> Result<()> {
+        info!("🔌 tarpc: New connection accepted");
+
+        // Create a tarpc transport from UniversalTransport
+        // tarpc expects a Stream + Sink, but UniversalTransport is AsyncRead + AsyncWrite
+        // We need to use tokio-serde to bridge this gap
+
+        // For now, return an error indicating implementation needed
+        // TODO: Implement transport adapter
+        warn!("tarpc connection handling not yet fully implemented");
+        Err(anyhow::anyhow!(
+            "tarpc transport adapter not yet implemented - use JSON-RPC for now"
+        ))
     }
 }
 
-// Implement the SquirrelRpc trait (generated by #[tarpc::service])
-// No #[tarpc::server] attribute needed - just implement the trait directly
-impl SquirrelRpc for SquirrelRpcServer {
-    async fn query_ai(
-        self,
-        _context: context::Context,
-        request: TarpcQueryRequest,
-    ) -> Result<TarpcQueryResponse, String> {
-        info!(
-            "🤖 tarpc: query_ai - prompt length: {}",
-            request.prompt.len()
-        );
-
+/// Implement the SquirrelRpc service trait
+impl SquirrelRpc for TarpcRpcServer {
+    async fn query_ai(self, _ctx: context::Context, params: QueryAiParams) -> QueryAiResult {
         let start = Instant::now();
 
-        // Check if AI router is available
+        info!(
+            "🤖 tarpc::query_ai - prompt length: {}",
+            params.prompt.len()
+        );
+
+        // Update metrics
+        let mut metrics = self.metrics.write().await;
+        metrics.requests_handled += 1;
+
+        // If AI router available, use it; otherwise return error
         if let Some(router) = &self.ai_router {
-            // Use actual AI router
             use crate::api::ai::types::TextGenerationRequest;
+
             let ai_request = TextGenerationRequest {
-                prompt: request.prompt.clone(),
+                prompt: params.prompt,
                 system: None,
-                max_tokens: request.max_tokens.map(|v| v as u32).unwrap_or(1024),
-                temperature: request.temperature.unwrap_or(0.7),
-                model: request.model.clone(),
+                max_tokens: params.max_tokens.map(|v| v as u32).unwrap_or(1024),
+                temperature: params.temperature.unwrap_or(0.7) as f32,
+                model: params.model,
                 constraints: vec![],
                 params: std::collections::HashMap::new(),
             };
 
+            drop(metrics); // Release lock before async call
+
             match router.generate_text(ai_request, None).await {
                 Ok(ai_response) => {
-                    let response = TarpcQueryResponse {
+                    let latency_ms = start.elapsed().as_millis() as u64;
+                    let mut metrics = self.metrics.write().await;
+                    metrics.total_response_time_ms += latency_ms;
+
+                    QueryAiResult {
                         response: ai_response.text,
                         provider: ai_response.provider_id,
                         model: ai_response.model,
                         tokens_used: ai_response.usage.map(|u| u.total_tokens as usize),
-                        latency_ms: start.elapsed().as_millis() as u64,
-                    };
-                    debug!("✅ tarpc: query_ai completed in {}ms", response.latency_ms);
-                    Ok(response)
+                        latency_ms,
+                        success: true,
+                    }
                 }
                 Err(e) => {
-                    error!("❌ tarpc: AI router error: {}", e);
-                    Err(format!("AI router error: {}", e))
+                    error!("AI router error: {}", e);
+                    let mut metrics = self.metrics.write().await;
+                    metrics.errors += 1;
+
+                    QueryAiResult {
+                        response: format!("Error: {}", e),
+                        provider: "error".to_string(),
+                        model: "none".to_string(),
+                        tokens_used: None,
+                        latency_ms: start.elapsed().as_millis() as u64,
+                        success: false,
+                    }
                 }
             }
         } else {
-            // Graceful degradation when AI router not configured
-            warn!("AI router not configured for tarpc request");
-            Err("AI router not configured. Configure providers to enable AI inference.".to_string())
+            metrics.errors += 1;
+            QueryAiResult {
+                response: "AI router not configured".to_string(),
+                provider: "none".to_string(),
+                model: "none".to_string(),
+                tokens_used: None,
+                latency_ms: start.elapsed().as_millis() as u64,
+                success: false,
+            }
         }
     }
 
-    async fn list_providers(
-        self,
-        _context: context::Context,
-    ) -> Result<Vec<TarpcProviderInfo>, String> {
-        info!("📋 tarpc: list_providers");
+    async fn list_providers(self, _ctx: context::Context) -> ListProvidersResult {
+        info!("📋 tarpc::list_providers");
+
+        let mut metrics = self.metrics.write().await;
+        metrics.requests_handled += 1;
+        drop(metrics);
 
         if let Some(router) = &self.ai_router {
-            let providers: Vec<TarpcProviderInfo> = router
+            let providers: Vec<ProviderInfo> = router
                 .list_providers()
                 .await
                 .into_iter()
-                .map(|p| {
-                    let cost_tier = if p.cost_per_unit.unwrap_or(0.0) > 0.01 {
-                        "high"
+                .map(|p| ProviderInfo {
+                    id: p.provider_id.clone(),
+                    name: p.provider_name,
+                    models: vec![], // TODO: Add models list
+                    capabilities: p.capabilities,
+                    online: p.is_available,
+                    avg_latency_ms: None, // TODO: Add latency tracking
+                    cost_tier: if p.cost_per_unit.unwrap_or(0.0) > 0.01 {
+                        "high".to_string()
                     } else if p.cost_per_unit.unwrap_or(0.0) > 0.0 {
-                        "medium"
+                        "medium".to_string()
                     } else {
-                        "free"
-                    };
-
-                    TarpcProviderInfo {
-                        id: p.provider_id,
-                        name: p.provider_name,
-                        capabilities: p.capabilities,
-                        online: p.is_available,
-                        cost_tier: cost_tier.to_string(),
-                    }
+                        "free".to_string()
+                    },
                 })
                 .collect();
 
-            debug!(
-                "✅ tarpc: list_providers returned {} providers",
-                providers.len()
-            );
-            Ok(providers)
+            ListProvidersResult {
+                total: providers.len(),
+                providers,
+            }
         } else {
-            // No providers configured
-            Ok(vec![TarpcProviderInfo {
-                id: "unconfigured".to_string(),
-                name: "No Providers Configured".to_string(),
-                capabilities: vec!["ai.inference".to_string()],
-                online: false,
-                cost_tier: "N/A".to_string(),
-            }])
+            ListProvidersResult {
+                total: 0,
+                providers: vec![],
+            }
         }
     }
 
-    async fn health_check(self, _context: context::Context) -> Result<TarpcHealthStatus, String> {
-        debug!("💚 tarpc: health_check");
+    async fn announce_capabilities(
+        self,
+        _ctx: context::Context,
+        params: AnnounceCapabilitiesParams,
+    ) -> AnnounceCapabilitiesResult {
+        info!(
+            "📢 tarpc::announce_capabilities - {} capabilities",
+            params.capabilities.len()
+        );
 
-        let status = TarpcHealthStatus {
+        let mut metrics = self.metrics.write().await;
+        metrics.requests_handled += 1;
+        drop(metrics);
+
+        AnnounceCapabilitiesResult {
+            success: true,
+            message: format!("Acknowledged {} capabilities", params.capabilities.len()),
+            announced_at: chrono::Utc::now().to_rfc3339(),
+        }
+    }
+
+    async fn health(self, _ctx: context::Context) -> HealthCheckResult {
+        debug!("💚 tarpc::health check");
+
+        let mut metrics = self.metrics.write().await;
+        metrics.requests_handled += 1;
+
+        let result = HealthCheckResult {
             status: "healthy".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
-            uptime_seconds: self.start_time.elapsed().as_secs(),
+            uptime_seconds: metrics.uptime_seconds(),
             active_providers: if let Some(router) = &self.ai_router {
                 router.provider_count().await
             } else {
                 0
             },
+            requests_processed: metrics.requests_handled,
+            avg_response_time_ms: metrics.avg_response_time_ms(),
         };
 
-        debug!(
-            "✅ tarpc: health_check - uptime: {}s",
-            status.uptime_seconds
-        );
-        Ok(status)
+        drop(metrics);
+        result
     }
 
-    async fn announce_capabilities(
+    async fn ping(self, _ctx: context::Context) -> String {
+        debug!("🏓 tarpc::ping");
+
+        let mut metrics = self.metrics.write().await;
+        metrics.requests_handled += 1;
+        drop(metrics);
+
+        format!(
+            "pong from {} ({})",
+            self.service_name,
+            env!("CARGO_PKG_VERSION")
+        )
+    }
+
+    async fn discover_peers(self, _ctx: context::Context) -> Vec<String> {
+        info!("🔍 tarpc::discover_peers");
+
+        let mut metrics = self.metrics.write().await;
+        metrics.requests_handled += 1;
+        drop(metrics);
+
+        // TODO: Integrate with actual primal discovery
+        vec![]
+    }
+
+    async fn execute_tool(
         self,
-        _context: context::Context,
-        capabilities: Vec<String>,
-    ) -> Result<bool, String> {
-        info!(
-            "📢 tarpc: announce_capabilities - {} capabilities",
-            capabilities.len()
-        );
-        debug!("✅ tarpc: capabilities acknowledged");
-        Ok(true)
-    }
+        _ctx: context::Context,
+        tool: String,
+        args: std::collections::HashMap<String, String>,
+    ) -> String {
+        info!("🔧 tarpc::execute_tool: {}", tool);
 
-    async fn discover_peers(self, _context: context::Context) -> Result<Vec<String>, String> {
-        info!("🔍 tarpc: discover_peers");
-        // Future: Implement peer discovery via capability registry or UDP multicast
-        // Currently returns empty list (no peer-to-peer discovery)
-        Ok(vec![])
+        let mut metrics = self.metrics.write().await;
+        metrics.requests_handled += 1;
+        drop(metrics);
+
+        // TODO: Integrate with actual tool execution system
+        format!(
+            "Tool '{}' execution not yet implemented (args: {:?})",
+            tool, args
+        )
     }
 }
 
@@ -247,17 +299,36 @@ impl SquirrelRpc for SquirrelRpcServer {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_server_creation() {
-        let server = SquirrelRpcServer::new();
-        assert!(server.ai_router.is_none());
+    #[tokio::test]
+    async fn test_tarpc_server_creation() {
+        let server = TarpcRpcServer::new("squirrel".to_string());
+        assert_eq!(server.service_name, "squirrel");
     }
 
-    #[test]
-    fn test_server_with_router() {
-        // Can't easily test with real AiRouter without async setup
-        // but we can test the structure
-        let server = SquirrelRpcServer::new();
-        assert!(server.ai_router.is_none());
+    #[tokio::test]
+    async fn test_tarpc_ping() {
+        let server = TarpcRpcServer::new("squirrel".to_string());
+        let ctx = context::current();
+        let response = server.ping(ctx).await;
+        assert!(response.contains("pong"));
+        assert!(response.contains("squirrel"));
+    }
+
+    #[tokio::test]
+    async fn test_tarpc_health() {
+        let server = TarpcRpcServer::new("squirrel".to_string());
+        let ctx = context::current();
+        let health = server.health(ctx).await;
+        assert_eq!(health.status, "healthy");
+        assert_eq!(health.version, env!("CARGO_PKG_VERSION"));
+    }
+
+    #[tokio::test]
+    async fn test_tarpc_list_providers_no_router() {
+        let server = TarpcRpcServer::new("squirrel".to_string());
+        let ctx = context::current();
+        let result = server.list_providers(ctx).await;
+        assert_eq!(result.total, 0);
+        assert!(result.providers.is_empty());
     }
 }

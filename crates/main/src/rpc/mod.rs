@@ -3,19 +3,20 @@
 //! **MODERN ARCHITECTURE** (Post-HTTP cleanup, Jan 19, 2026):
 //! - JSON-RPC 2.0 over Unix sockets (for biomeOS integration) ✅
 //! - tarpc for high-performance peer-to-peer RPC ✅
+//! - Protocol selection and negotiation ✅
 //! - NO HTTP! TRUE PRIMAL uses Unix sockets only! 🎉
 //!
 //! ## Architecture
 //!
 //! ```text
-//! Request → Unix Socket
+//! Request → Universal Transport
 //!              ↓
-//!      [JSON-RPC or tarpc]
+//!      [Protocol Selection]
 //!              ↓
 //!      ┌───────┴───────┐
 //!      ↓               ↓
 //!   JSON-RPC        tarpc
-//!   (biomeOS)       (P2P)
+//!   (default)       (performance)
 //! ```
 //!
 //! ## Implementation Notes
@@ -28,17 +29,19 @@
 
 // Core modules (Pure Rust!)
 pub mod jsonrpc_server;
+pub mod protocol;
 pub mod types;
 pub mod unix_socket;
 
 // tarpc binary RPC (feature-gated)
-// tarpc RPC is now CORE functionality (not optional!)
-pub mod tarpc_client;
+#[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_server;
+#[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_service;
 
 // Re-exports for convenience
 pub use jsonrpc_server::JsonRpcServer;
+pub use protocol::{IpcProtocol, ProtocolNegotiation};
 pub use types::{
     AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckRequest,
     HealthCheckResponse, ListProvidersRequest, ListProvidersResponse, QueryAiRequest,
@@ -46,10 +49,7 @@ pub use types::{
 };
 
 // tarpc re-exports (feature-gated)
-// Re-export tarpc types (core functionality)
-pub use tarpc_client::connect as connect_tarpc;
-pub use tarpc_server::SquirrelRpcServer;
-pub use tarpc_service::{
-    SquirrelRpc, SquirrelRpcClient, TarpcHealthStatus, TarpcProviderInfo, TarpcQueryRequest,
-    TarpcQueryResponse,
-};
+#[cfg(feature = "tarpc-rpc")]
+pub use tarpc_server::TarpcRpcServer;
+#[cfg(feature = "tarpc-rpc")]
+pub use tarpc_service::SquirrelRpc;
