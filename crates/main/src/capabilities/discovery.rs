@@ -192,17 +192,62 @@ async fn try_socket_scan(capability: &str) -> Result<Option<CapabilityProvider>,
 /// Query capability registry if available
 ///
 /// TRUE PRIMAL: Even the registry is discovered, not hardcoded!
+/// Now uses Neural API for semantic capability routing.
 async fn try_registry_query(
     capability: &str,
 ) -> Result<Option<CapabilityProvider>, DiscoveryError> {
-    // First, discover the registry itself (no hardcoding!)
+    // Try Neural API first (NUCLEUS-compliant semantic routing)
+    // Neural API provides capability.discover for finding providers
+    info!("🧠 Checking Neural API for capability: {}", capability);
+
+    let neural_api_socket = std::env::var("NEURAL_API_SOCKET").ok().or_else(|| {
+        // Standard Neural API locations
+        let uid = nix::unistd::getuid();
+        let paths = [
+            format!("/tmp/neural-api.sock"),
+            format!("/run/user/{}/biomeos/neural-api.sock", uid),
+        ];
+        paths.into_iter().find(|p| Path::new(p).exists())
+    });
+
+    if let Some(socket_path) = neural_api_socket {
+        info!("🧠 Found Neural API socket: {}", socket_path);
+        let registry_path = PathBuf::from(&socket_path);
+
+        if registry_path.exists() {
+            info!("🧠 Querying Neural API at: {:?}", registry_path);
+
+            // Connect to Neural API and query capability
+            match query_registry(&registry_path, capability).await {
+                Ok(provider) => {
+                    info!(
+                        "✅ Neural API found provider for {}: {:?}",
+                        capability, provider.socket
+                    );
+                    return Ok(Some(CapabilityProvider {
+                        discovered_via: "neural_api".to_string(),
+                        ..provider
+                    }));
+                }
+                Err(e) => {
+                    warn!("⚠️  Neural API query failed for {}: {}", capability, e);
+                }
+            }
+        }
+    } else {
+        debug!("Neural API socket not found");
+    }
+
+    // Fallback: Legacy registry (for backward compatibility)
     if let Ok(registry_socket) = std::env::var("CAPABILITY_REGISTRY_SOCKET") {
         let registry_path = PathBuf::from(registry_socket);
 
         if registry_path.exists() {
-            debug!("Querying capability registry at: {:?}", registry_path);
+            debug!(
+                "Querying legacy capability registry at: {:?}",
+                registry_path
+            );
 
-            // Connect to registry and query
             if let Ok(provider) = query_registry(&registry_path, capability).await {
                 return Ok(Some(CapabilityProvider {
                     discovered_via: "registry".to_string(),
@@ -308,6 +353,10 @@ async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Discover
 }
 
 /// Query capability registry for a specific capability
+///
+/// Uses Neural API's `capability.discover` method for semantic routing.
+/// This is the TRUE PRIMAL way - primals don't know about each other,
+/// they just discover capabilities via Neural API.
 async fn query_registry(
     registry_path: &Path,
     capability: &str,
@@ -316,15 +365,20 @@ async fn query_registry(
         .await
         .map_err(|e| DiscoveryError::ProbeFailed(e.to_string()))?;
 
-    // Build registry query (JSON-RPC 2.0)
-    // BIOME OS FIX (Jan 20, 2026): Use correct Neural API method name
+    // Build capability.discover query (Neural API semantic routing)
+    // NUCLEUS FIX (Feb 3, 2026): Use correct method name for Neural API
+    // NOTE: Neural API requires integer IDs, not string UUIDs
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static REQUEST_ID: AtomicU64 = AtomicU64::new(1);
+    let id = REQUEST_ID.fetch_add(1, Ordering::SeqCst);
+
     let request = serde_json::json!({
         "jsonrpc": "2.0",
-        "method": "neural_api.discover_capability",
+        "method": "capability.discover",
         "params": {
             "capability": capability,
         },
-        "id": Uuid::new_v4().to_string(),
+        "id": id,
     });
 
     let mut request_str = serde_json::to_string(&request)?;
@@ -357,12 +411,24 @@ async fn query_registry(
         }
     }
 
-    let response: serde_json::Value = serde_json::from_str(&response_line)?;
+    debug!("Neural API raw response: {}", response_line.trim());
+
+    let response: serde_json::Value = serde_json::from_str(&response_line).map_err(|e| {
+        warn!("Failed to parse Neural API response: {}", e);
+        DiscoveryError::Json(e)
+    })?;
+
+    // Check for errors
+    if let Some(error) = response.get("error") {
+        warn!("Neural API returned error for {}: {:?}", capability, error);
+        return Err(DiscoveryError::CapabilityNotFound(capability.to_string()));
+    }
 
     if let Some(result) = response.get("result") {
         // Neural API returns: {"capability": "...", "primary_socket": "...", "primals": [...]}
         // Extract primary_socket and build CapabilityProvider
         if let Some(socket_path) = result.get("primary_socket").and_then(|s| s.as_str()) {
+            info!("✅ Neural API discovered {} at {}", capability, socket_path);
             Ok(CapabilityProvider {
                 id: result
                     .get("capability")
@@ -372,12 +438,14 @@ async fn query_registry(
                 capabilities: vec![capability.to_string()],
                 socket: PathBuf::from(socket_path),
                 metadata: std::collections::HashMap::new(),
-                discovered_via: "registry".to_string(),
+                discovered_via: "neural_api".to_string(),
             })
         } else {
+            warn!("Neural API result has no primary_socket: {:?}", result);
             Err(DiscoveryError::CapabilityNotFound(capability.to_string()))
         }
     } else {
+        warn!("Neural API response has no result field: {:?}", response);
         Err(DiscoveryError::CapabilityNotFound(capability.to_string()))
     }
 }

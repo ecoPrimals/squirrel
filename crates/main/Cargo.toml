@@ -30,7 +30,9 @@ parking_lot = "0.12"
 # HTTP client (OPTIONAL - for dev/testing)
 # Production uses Unix sockets for all external communication!
 # reqwest REMOVED - Use neural-api-client (delegates to Songbird via Unix sockets) instead!
-neural-api-client = { path = "/home/eastgate/Development/ecoPrimals/phase2/biomeOS/crates/neural-api-client" }
+# Neural API client for capability routing (relative path for portability)
+# Path: phase1/squirrel/crates/main -> ecoPrimals -> phase2/biomeOS/crates/neural-api-client
+neural-api-client = { path = "../../../../phase2/biomeOS/crates/neural-api-client" }
 # warp REMOVED - HTTP API deleted! Squirrel uses Unix sockets + JSON-RPC + tarpc
 # Modern idiomatic Rust - no HTTP frameworks needed!
 base64 = "0.21"
@@ -114,6 +116,11 @@ monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics
 benchmarking = ["criterion", "pprof", "iai"]     # Benchmarking tools
 enhanced_error_handling = []                     # Enhanced error handling
 optimizations = []                               # Performance optimizations
+
+# DEPRECATED: Vendor-specific adapters (Anthropic, OpenAI)
+# These use direct HTTP rather than capability-based discovery.
+# Scheduled for removal in v0.3.0. Use UniversalAiAdapter instead.
+deprecated-adapters = []
 
 [dev-dependencies]
 tokio-test = "0.4"

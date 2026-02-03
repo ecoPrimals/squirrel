@@ -102,9 +102,14 @@ impl AnthropicAdapter {
         let api_key = std::env::var("ANTHROPIC_API_KEY")
             .map_err(|_| PrimalError::ConfigError("ANTHROPIC_API_KEY not set".to_string()))?;
 
+        // NUCLEUS FIX (Feb 3, 2026): Use haiku as default (available on most API keys)
+        // Can be overridden per-request via the model field
+        let default_model = std::env::var("ANTHROPIC_DEFAULT_MODEL")
+            .unwrap_or_else(|_| "claude-3-haiku-20240307".to_string());
+
         Ok(Self {
             api_key,
-            default_model: "claude-3-opus-20240229".to_string(),
+            default_model,
         })
     }
 
@@ -227,6 +232,23 @@ impl AnthropicAdapter {
             })?,
             other => other, // Already parsed (for future compatibility)
         };
+
+        // NUCLEUS FIX (Feb 3, 2026): Check for Anthropic error response before parsing
+        // Anthropic errors have format: {"error": {"type": "...", "message": "..."}, ...}
+        if let Some(error_obj) = http_response.get("error") {
+            let error_type = error_obj
+                .get("type")
+                .and_then(|t| t.as_str())
+                .unwrap_or("unknown");
+            let error_msg = error_obj
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("Unknown error");
+            return Err(PrimalError::NetworkError(format!(
+                "Anthropic API error ({}): {}",
+                error_type, error_msg
+            )));
+        }
 
         // Parse Anthropic response
         let anthropic_response: AnthropicResponse = serde_json::from_value(http_response)?;

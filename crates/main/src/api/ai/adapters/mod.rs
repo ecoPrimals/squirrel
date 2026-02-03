@@ -5,18 +5,34 @@
 //! All adapters use capability-based HTTP delegation (TRUE PRIMAL pattern).
 //! HTTP requests are delegated to whoever provides "http.request" capability.
 //! NO hardcoded primal names (Songbird, etc.) - discovered at runtime!
+//!
+//! ## Migration Note (v0.3.0)
+//!
+//! The vendor-specific adapters (Anthropic, OpenAI) are **deprecated** and
+//! feature-gated behind `deprecated-adapters`. Use `UniversalAiAdapter` instead.
+//!
+//! To enable deprecated adapters (temporary):
+//! ```toml
+//! squirrel = { features = ["deprecated-adapters"] }
+//! ```
 
 // Universal adapter (always available - Unix socket providers)
 mod universal;
 
-// HTTP-delegating adapters (discover HTTP provider at runtime)
+// Re-exports (always available)
+pub use universal::{ProviderMetadata, UniversalAiAdapter};
+
+// DEPRECATED: HTTP-delegating adapters (v0.3.0 removal planned)
+// Enable with `deprecated-adapters` feature
+#[cfg(feature = "deprecated-adapters")]
 pub mod anthropic;
+#[cfg(feature = "deprecated-adapters")]
 pub mod openai;
 
-// Re-exports
+#[cfg(feature = "deprecated-adapters")]
 pub use anthropic::AnthropicAdapter;
+#[cfg(feature = "deprecated-adapters")]
 pub use openai::OpenAiAdapter;
-pub use universal::{ProviderMetadata, UniversalAiAdapter};
 
 use super::types::{
     ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,

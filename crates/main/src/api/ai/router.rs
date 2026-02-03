@@ -15,9 +15,11 @@
 //! ```
 
 // Always available (production + dev)
-use super::adapters::{
-    AiProviderAdapter, AnthropicAdapter, OpenAiAdapter, ProviderMetadata, UniversalAiAdapter,
-};
+use super::adapters::{AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
+
+// Deprecated adapters (feature-gated, v0.3.0 removal planned)
+#[cfg(feature = "deprecated-adapters")]
+use super::adapters::{AnthropicAdapter, OpenAiAdapter};
 use super::http_provider_config::{get_enabled_http_providers, HttpAiProviderConfig};
 
 use super::constraint_router::select_provider_with_constraints;
@@ -201,16 +203,17 @@ impl AiRouter {
     /// Initialize HTTP provider adapter based on configuration
     ///
     /// Maps provider_id to the appropriate adapter implementation.
-    /// For now, uses existing vendor adapters (AnthropicAdapter, OpenAiAdapter)
-    /// which are marked as deprecated but still functional.
     ///
-    /// Future: Replace with fully generic HTTP adapter.
+    /// **Note**: Vendor-specific adapters (Anthropic, OpenAI) are deprecated
+    /// and gated behind the `deprecated-adapters` feature.
+    /// Use capability-based discovery with UniversalAiAdapter instead.
     async fn init_http_provider(
         config: &HttpAiProviderConfig,
     ) -> Result<Option<Arc<dyn AiProviderAdapter>>, PrimalError> {
-        // Initialize adapter (synchronous)
+        // Initialize adapter based on provider_id
         let adapter_result: Result<Arc<dyn AiProviderAdapter>, PrimalError> =
             match config.provider_id.as_str() {
+                #[cfg(feature = "deprecated-adapters")]
                 "anthropic" =>
                 {
                     #[allow(deprecated)]
@@ -219,6 +222,7 @@ impl AiRouter {
                         Err(e) => Err(e),
                     }
                 }
+                #[cfg(feature = "deprecated-adapters")]
                 "openai" =>
                 {
                     #[allow(deprecated)]
@@ -227,9 +231,18 @@ impl AiRouter {
                         Err(e) => Err(e),
                     }
                 }
+                #[cfg(not(feature = "deprecated-adapters"))]
+                "anthropic" | "openai" => {
+                    warn!(
+                        "⚠️  Provider '{}' requires deprecated-adapters feature. \
+                         Use capability-based discovery instead.",
+                        config.provider_id
+                    );
+                    return Ok(None);
+                }
                 _ => {
                     return Err(PrimalError::Configuration(format!(
-                        "Unknown HTTP provider: {}",
+                        "Unknown HTTP provider: {}. Use capability-based discovery instead.",
                         config.provider_id
                     )));
                 }

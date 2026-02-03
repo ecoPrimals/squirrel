@@ -44,7 +44,9 @@ squirrel-mcp-config = { path = "../../config" }
 
 # Neural API Client - Pure Rust HTTP routing (TRUE PRIMAL!)
 # Replace reqwest/openai/anthropic-sdk in production
-neural-api-client = { path = "/home/eastgate/Development/ecoPrimals/phase2/biomeOS/crates/neural-api-client" }
+# Neural API client for capability routing (relative path for portability)
+# Path: ai-tools -> tools -> crates -> squirrel -> phase1 -> ecoPrimals -> phase2/biomeOS/crates/neural-api-client
+neural-api-client = { path = "../../../../../phase2/biomeOS/crates/neural-api-client" }
 
 # Universal error system
 universal-error = { path = "../../universal-error" }
