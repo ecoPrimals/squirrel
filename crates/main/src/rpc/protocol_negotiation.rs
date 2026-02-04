@@ -200,12 +200,11 @@ where
             // Got a line, check if it's a protocol request
             if first_line.trim().starts_with("PROTOCOLS: ") {
                 // Parse request
-                let request = ProtocolResponse::from_wire(&first_line)
+                let request = ProtocolRequest::from_wire(&first_line)
                     .context("Failed to parse protocol request")?;
 
-                // TODO: Select best protocol from client's list
-                // For now, just return the first supported
-                let selected = request.selected;
+                // Select best protocol using preference matching
+                let selected = select_protocol(&request.supported, &server_supported);
 
                 // Send response
                 let response = ProtocolResponse::new(selected);
