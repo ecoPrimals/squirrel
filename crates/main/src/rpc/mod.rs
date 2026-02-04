@@ -38,6 +38,12 @@ pub mod unix_socket;
 pub mod tarpc_server;
 #[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_service;
+#[cfg(feature = "tarpc-rpc")]
+pub mod tarpc_transport;
+
+// Integration tests (test-only)
+#[cfg(all(test, feature = "tarpc-rpc"))]
+mod tarpc_integration_tests;
 
 // Re-exports for convenience
 pub use jsonrpc_server::JsonRpcServer;

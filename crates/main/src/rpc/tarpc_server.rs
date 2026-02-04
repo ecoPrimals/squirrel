@@ -75,20 +75,32 @@ impl TarpcRpcServer {
 
     /// Handle a single tarpc connection
     ///
-    /// This method sets up a tarpc server channel for a single client connection.
+    /// This method sets up a tarpc server channel for a single client connection
+    /// over Universal Transport (Unix socket, TCP, or Named pipe).
     pub async fn handle_connection(self, transport: UniversalTransport) -> Result<()> {
         info!("🔌 tarpc: New connection accepted");
 
-        // Create a tarpc transport from UniversalTransport
-        // tarpc expects a Stream + Sink, but UniversalTransport is AsyncRead + AsyncWrite
-        // We need to use tokio-serde to bridge this gap
+        // Bridge UniversalTransport (AsyncRead + AsyncWrite) to Stream + Sink
+        use super::tarpc_transport::TarpcTransportAdapter;
+        let transport_adapter = TarpcTransportAdapter::new(transport);
 
-        // For now, return an error indicating implementation needed
-        // TODO: Implement transport adapter
-        warn!("tarpc connection handling not yet fully implemented");
-        Err(anyhow::anyhow!(
-            "tarpc transport adapter not yet implemented - use JSON-RPC for now"
-        ))
+        // Create tarpc transport using tokio-serde for serialization
+        use tokio_serde::formats::Bincode;
+        let transport = tokio_serde::Framed::new(transport_adapter, Bincode::default());
+
+        // Create tarpc server channel
+        let server = server::BaseChannel::with_defaults(transport);
+
+        // Serve requests using this server's trait implementation
+        server
+            .execute(self.serve())
+            .for_each(|response| async move {
+                tokio::spawn(response);
+            })
+            .await;
+
+        info!("🔌 tarpc: Connection closed");
+        Ok(())
     }
 }
 
