@@ -30,6 +30,7 @@
 // Core modules (Pure Rust!)
 pub mod jsonrpc_server;
 pub mod protocol;
+pub mod protocol_negotiation;
 pub mod types;
 pub mod unix_socket;
 
@@ -50,6 +51,9 @@ mod tarpc_integration_tests;
 // Re-exports for convenience
 pub use jsonrpc_server::JsonRpcServer;
 pub use protocol::{IpcProtocol, ProtocolNegotiation};
+pub use protocol_negotiation::{
+    negotiate_client, negotiate_server, select_protocol, ProtocolRequest, ProtocolResponse,
+};
 pub use types::{
     AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckRequest,
     HealthCheckResponse, ListProvidersRequest, ListProvidersResponse, QueryAiRequest,
