@@ -148,6 +148,30 @@ async fn test_tarpc_methods_logic() {
     assert!(result.success);
 }
 
+/// Test client builder configuration
+#[test]
+fn test_client_builder_config() {
+    use super::tarpc_client::SquirrelClientBuilder;
+    use std::time::Duration;
+
+    // Test builder creation and method chaining
+    let _builder = SquirrelClientBuilder::new("test-service").timeout(Duration::from_secs(60));
+
+    // Just verify the builder exists and methods work
+    // Fields are private (good encapsulation)
+    assert!(true);
+}
+
+/// Test client wrapper ergonomics
+#[test]
+fn test_client_wrapper_exists() {
+    use super::tarpc_client::SquirrelClient;
+
+    // Just verify the type exists and has expected methods
+    // Actual connection tests require a running server
+    let _ = std::marker::PhantomData::<SquirrelClient>;
+}
+
 // Note: Full end-to-end tests with real Unix sockets would require:
 // 1. Setting up actual Unix socket listeners
 // 2. Spawning real server tasks

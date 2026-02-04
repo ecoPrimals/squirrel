@@ -35,6 +35,8 @@ pub mod unix_socket;
 
 // tarpc binary RPC (feature-gated)
 #[cfg(feature = "tarpc-rpc")]
+pub mod tarpc_client;
+#[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_server;
 #[cfg(feature = "tarpc-rpc")]
 pub mod tarpc_service;
@@ -55,6 +57,8 @@ pub use types::{
 };
 
 // tarpc re-exports (feature-gated)
+#[cfg(feature = "tarpc-rpc")]
+pub use tarpc_client::{SquirrelClient, SquirrelClientBuilder};
 #[cfg(feature = "tarpc-rpc")]
 pub use tarpc_server::TarpcRpcServer;
 #[cfg(feature = "tarpc-rpc")]

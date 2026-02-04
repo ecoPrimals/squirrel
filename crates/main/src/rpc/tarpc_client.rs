@@ -1,44 +1,292 @@
-//! tarpc Client Implementation
+//! tarpc RPC Client Implementation
 //!
-//! High-performance RPC client for connecting to remote Squirrel instances.
-//! Based on working implementations from Songbird and BearDog primals.
+//! Type-safe, high-performance binary RPC client using tarpc framework.
+//! Provides automatic discovery and connection to Squirrel servers via
+//! Universal Transport.
 //!
-//! The `#[tarpc::service]` macro generates a client type automatically.
-//! This module provides helper functions for connection management.
+//! ## Usage
+//!
+//! ```no_run
+//! use squirrel::rpc::tarpc_client::SquirrelClient;
+//!
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     // Connect to Squirrel via auto-discovery
+//!     let client = SquirrelClient::connect("squirrel").await?;
+//!     
+//!     // Make type-safe RPC calls
+//!     let response = client.ping().await?;
+//!     println!("Response: {}", response);
+//!     
+//!     Ok(())
+//! }
+//! ```
+
+#![cfg(feature = "tarpc-rpc")]
 
 use super::tarpc_service::*;
-use crate::error::PrimalError;
-use std::net::SocketAddr;
-use tarpc::client;
-use tokio::net::TcpStream;
-use tokio_serde::formats::Bincode;
-use tokio_util::codec::LengthDelimitedCodec;
-use tracing::info;
+use super::tarpc_transport::TarpcTransportAdapter;
+use anyhow::{Context, Result};
+use std::time::Duration;
+use tarpc::{client, context};
+use universal_patterns::transport::UniversalTransport;
 
-/// Connect to a remote Squirrel instance via tarpc
+/// Ergonomic wrapper around tarpc SquirrelRpcClient
 ///
-/// Returns the generated client type that implements the SquirrelRpc trait
-pub async fn connect(addr: SocketAddr) -> Result<SquirrelRpcClient, PrimalError> {
-    info!("🔌 Connecting to Squirrel instance at {}", addr);
+/// This client provides:
+/// - Automatic service discovery
+/// - Universal Transport support (Unix sockets, TCP, Named pipes)
+/// - Type-safe RPC calls
+/// - Deadline management
+/// - Connection lifecycle management
+pub struct SquirrelClient {
+    /// Underlying tarpc client
+    client: SquirrelRpcClient,
 
-    let stream = TcpStream::connect(addr)
-        .await
-        .map_err(|e| PrimalError::NetworkError(format!("Failed to connect: {}", e)))?;
+    /// Service name for reconnection
+    service_name: String,
 
-    // Create codec transport using tokio-serde with bincode
-    // Pattern from Songbird: LengthDelimitedCodec + Bincode format
-    let transport = tarpc::serde_transport::new(
-        LengthDelimitedCodec::builder()
-            .max_frame_length(16 * 1024 * 1024) // 16 MB max frame
-            .new_framed(stream),
-        Bincode::default(),
-    );
+    /// Default timeout for RPC calls
+    default_timeout: Duration,
+}
 
-    let client = SquirrelRpcClient::new(client::Config::default(), transport).spawn();
+impl SquirrelClient {
+    /// Connect to a Squirrel server by service name
+    ///
+    /// Uses Universal Transport's auto-discovery to locate and connect
+    /// to the server. Supports Unix sockets, TCP, and Named pipes.
+    ///
+    /// # Arguments
+    ///
+    /// * `service_name` - Service name (e.g., "squirrel")
+    ///
+    /// # Returns
+    ///
+    /// Connected client ready for RPC calls
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use squirrel::rpc::tarpc_client::SquirrelClient;
+    /// # #[tokio::main]
+    /// # async fn main() -> anyhow::Result<()> {
+    /// let client = SquirrelClient::connect("squirrel").await?;
+    /// let health = client.health().await?;
+    /// println!("Status: {}", health.status);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn connect(service_name: &str) -> Result<Self> {
+        // Connect via Universal Transport auto-discovery
+        let transport = UniversalTransport::connect_discovered(service_name)
+            .await
+            .context("Failed to discover and connect to service")?;
 
-    info!("✅ Connected to Squirrel instance at {}", addr);
+        Self::from_transport(service_name, transport).await
+    }
 
-    Ok(client)
+    /// Create a client from an existing Universal Transport
+    ///
+    /// Useful for custom connection scenarios or testing.
+    ///
+    /// # Arguments
+    ///
+    /// * `service_name` - Service name (for reconnection)
+    /// * `transport` - Connected Universal Transport
+    pub async fn from_transport(service_name: &str, transport: UniversalTransport) -> Result<Self> {
+        // Wrap transport in tarpc adapter
+        let adapter = TarpcTransportAdapter::new(transport);
+
+        // Create tarpc transport with bincode serialization
+        use tokio_serde::formats::Bincode;
+        let transport = tokio_serde::Framed::new(adapter, Bincode::default());
+
+        // Create tarpc client with default config
+        let client = SquirrelRpcClient::new(client::Config::default(), transport).spawn();
+
+        Ok(Self {
+            client,
+            service_name: service_name.to_string(),
+            default_timeout: Duration::from_secs(30),
+        })
+    }
+
+    /// Set default timeout for RPC calls
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout` - Default timeout duration
+    pub fn set_default_timeout(&mut self, timeout: Duration) {
+        self.default_timeout = timeout;
+    }
+
+    /// Get the service name
+    pub fn service_name(&self) -> &str {
+        &self.service_name
+    }
+
+    /// Create a context with default timeout
+    fn create_context(&self) -> context::Context {
+        let mut ctx = context::current();
+        ctx.deadline = std::time::SystemTime::now() + self.default_timeout;
+        ctx
+    }
+
+    /// Ping the server (connectivity test)
+    ///
+    /// # Returns
+    ///
+    /// Pong response with server info
+    pub async fn ping(&self) -> Result<String> {
+        let ctx = self.create_context();
+        self.client.ping(ctx).await.context("Ping RPC failed")
+    }
+
+    /// Get server health status
+    ///
+    /// # Returns
+    ///
+    /// Health check result with metrics
+    pub async fn health(&self) -> Result<HealthCheckResult> {
+        let ctx = self.create_context();
+        self.client.health(ctx).await.context("Health RPC failed")
+    }
+
+    /// List available AI providers
+    ///
+    /// # Returns
+    ///
+    /// List of providers with status and capabilities
+    pub async fn list_providers(&self) -> Result<ListProvidersResult> {
+        let ctx = self.create_context();
+        self.client
+            .list_providers(ctx)
+            .await
+            .context("List providers RPC failed")
+    }
+
+    /// Query AI with a prompt
+    ///
+    /// # Arguments
+    ///
+    /// * `prompt` - The prompt to send
+    /// * `model` - Optional model name
+    /// * `max_tokens` - Optional max tokens
+    /// * `temperature` - Optional temperature (0.0-1.0)
+    ///
+    /// # Returns
+    ///
+    /// AI response with metadata
+    pub async fn query_ai(
+        &self,
+        prompt: impl Into<String>,
+        model: Option<String>,
+        max_tokens: Option<usize>,
+        temperature: Option<f64>,
+    ) -> Result<QueryAiResult> {
+        let params = QueryAiParams {
+            prompt: prompt.into(),
+            model,
+            max_tokens,
+            temperature,
+        };
+
+        let ctx = self.create_context();
+        self.client
+            .query_ai(ctx, params)
+            .await
+            .context("Query AI RPC failed")
+    }
+
+    /// Announce service capabilities
+    ///
+    /// # Arguments
+    ///
+    /// * `service` - Service name
+    /// * `capabilities` - List of capabilities
+    /// * `metadata` - Additional metadata
+    pub async fn announce_capabilities(
+        &self,
+        service: impl Into<String>,
+        capabilities: Vec<String>,
+        metadata: std::collections::HashMap<String, String>,
+    ) -> Result<AnnounceCapabilitiesResult> {
+        let params = AnnounceCapabilitiesParams {
+            service: service.into(),
+            capabilities,
+            metadata,
+        };
+
+        let ctx = self.create_context();
+        self.client
+            .announce_capabilities(ctx, params)
+            .await
+            .context("Announce capabilities RPC failed")
+    }
+
+    /// Discover peer services
+    ///
+    /// # Returns
+    ///
+    /// List of discovered peer service names
+    pub async fn discover_peers(&self) -> Result<Vec<String>> {
+        let ctx = self.create_context();
+        self.client
+            .discover_peers(ctx)
+            .await
+            .context("Discover peers RPC failed")
+    }
+
+    /// Execute a tool
+    ///
+    /// # Arguments
+    ///
+    /// * `tool` - Tool name
+    /// * `args` - Tool arguments
+    ///
+    /// # Returns
+    ///
+    /// Tool execution result
+    pub async fn execute_tool(
+        &self,
+        tool: impl Into<String>,
+        args: std::collections::HashMap<String, String>,
+    ) -> Result<String> {
+        let ctx = self.create_context();
+        self.client
+            .execute_tool(ctx, tool.into(), args)
+            .await
+            .context("Execute tool RPC failed")
+    }
+}
+
+/// Builder for SquirrelClient with custom configuration
+pub struct SquirrelClientBuilder {
+    service_name: String,
+    timeout: Duration,
+}
+
+impl SquirrelClientBuilder {
+    /// Create a new client builder
+    pub fn new(service_name: impl Into<String>) -> Self {
+        Self {
+            service_name: service_name.into(),
+            timeout: Duration::from_secs(30),
+        }
+    }
+
+    /// Set custom timeout
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Build and connect the client
+    pub async fn connect(self) -> Result<SquirrelClient> {
+        let mut client = SquirrelClient::connect(&self.service_name).await?;
+        client.set_default_timeout(self.timeout);
+        Ok(client)
+    }
 }
 
 #[cfg(test)]
@@ -46,16 +294,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_client_types() {
-        // Test that types are properly defined
-        let request = TarpcQueryRequest {
-            prompt: "test".to_string(),
-            provider: None,
-            model: None,
-            max_tokens: None,
-            temperature: None,
-        };
+    fn test_client_builder() {
+        let builder = SquirrelClientBuilder::new("test-service").timeout(Duration::from_secs(60));
 
-        assert_eq!(request.prompt, "test");
+        assert_eq!(builder.service_name, "test-service");
+        assert_eq!(builder.timeout, Duration::from_secs(60));
     }
+
+    #[test]
+    fn test_default_timeout() {
+        let builder = SquirrelClientBuilder::new("test");
+        assert_eq!(builder.timeout, Duration::from_secs(30));
+    }
+
+    // Note: Full integration tests with actual connections are in
+    // tarpc_integration_tests.rs and require a running server
 }
