@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use std::error::Error;
 use std::fmt;
 
@@ -69,5 +72,90 @@ impl From<String> for PluginError {
 impl From<&str> for PluginError {
     fn from(err: &str) -> Self {
         PluginError::Unknown(err.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_plugin_error_display() {
+        assert_eq!(
+            PluginError::NotFound("foo".into()).to_string(),
+            "Plugin not found: foo"
+        );
+        assert_eq!(
+            PluginError::AlreadyExists("bar".into()).to_string(),
+            "Plugin already exists: bar"
+        );
+        assert_eq!(
+            PluginError::LoadError("load fail".into()).to_string(),
+            "Plugin loading error: load fail"
+        );
+        assert_eq!(
+            PluginError::InitError("init fail".into()).to_string(),
+            "Plugin initialization error: init fail"
+        );
+        assert_eq!(
+            PluginError::ValidationError("bad".into()).to_string(),
+            "Plugin validation error: bad"
+        );
+        assert_eq!(
+            PluginError::RegisterError("reg fail".into()).to_string(),
+            "Command registration error: reg fail"
+        );
+        assert_eq!(
+            PluginError::SecurityError("sec fail".into()).to_string(),
+            "Security error: sec fail"
+        );
+        assert_eq!(
+            PluginError::Unknown("unknown".into()).to_string(),
+            "Unknown plugin error: unknown"
+        );
+    }
+
+    #[test]
+    fn test_io_error_display() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+        let plugin_err = PluginError::IoError(io_err);
+        assert!(plugin_err.to_string().contains("IO error"));
+    }
+
+    #[test]
+    fn test_plugin_not_found_helper() {
+        let err = PluginError::plugin_not_found("test-plugin");
+        assert!(matches!(err, PluginError::NotFound(ref s) if s == "test-plugin"));
+    }
+
+    #[test]
+    fn test_plugin_already_exists_helper() {
+        let err = PluginError::plugin_already_exists("test-plugin");
+        assert!(matches!(err, PluginError::AlreadyExists(ref s) if s == "test-plugin"));
+    }
+
+    #[test]
+    fn test_from_io_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let err: PluginError = io_err.into();
+        assert!(matches!(err, PluginError::IoError(_)));
+    }
+
+    #[test]
+    fn test_from_string() {
+        let err: PluginError = "something broke".to_string().into();
+        assert!(matches!(err, PluginError::Unknown(ref s) if s == "something broke"));
+    }
+
+    #[test]
+    fn test_from_str() {
+        let err: PluginError = "oops".into();
+        assert!(matches!(err, PluginError::Unknown(ref s) if s == "oops"));
+    }
+
+    #[test]
+    fn test_error_trait() {
+        let err = PluginError::NotFound("test".into());
+        let _: &dyn Error = &err;
     }
 }

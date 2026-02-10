@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! `ResourceManager` core implementation
 //!
 //! Handles resource lifecycle, background tasks, and cleanup operations.
@@ -260,7 +263,7 @@ impl ResourceManager {
     async fn start_health_monitoring_task(&self) -> JoinHandle<()> {
         // connection_pools removed - no pooling needed
         let shutdown = Arc::clone(&self.shutdown_requested);
-        let usage_stats = Arc::clone(&self.usage_stats);
+        let _usage_stats = Arc::clone(&self.usage_stats);
         let interval = self.config.health_check_interval;
 
         let monitoring_task = async move {

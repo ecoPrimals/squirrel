@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin manager for rule-specific plugins
 use async_trait::async_trait;
 use serde_json::Value;

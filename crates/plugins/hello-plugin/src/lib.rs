@@ -1,7 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Hello World plugin for Squirrel CLI
 //!
 //! This is a simple plugin that adds a "hello" command to the CLI.
 
+#![deny(unsafe_code)]
 use async_trait::async_trait;
 use clap::{Arg, Command as ClapCommand};
 use log::{debug, info};

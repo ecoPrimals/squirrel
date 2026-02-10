@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Protocol Versioning for MCP Plugin System
 //
 // This module implements protocol versioning for MCP plugins, ensuring

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Dashboard server for the MCP monitoring system
 //!
 //! This module provides a dashboard server for the MCP monitoring system.

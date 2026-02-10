@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI types and data structures for the enhanced coordinator
 //!
 //! This module provides core data types for AI requests, responses,
@@ -8,13 +11,13 @@ use std::time::Duration;
 use std::sync::Arc;
 use serde::{Serialize, Deserialize};
 use futures::Stream;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::error::types::Result;
 use crate::enhanced::providers::ProviderType;
 
 /// String interning for common AI values
-static AI_STRINGS: Lazy<HashMap<&'static str, Arc<str>>> = Lazy::new(|| {
+static AI_STRINGS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::new(|| {
         let mut map = HashMap::new();
         // Common AI models
         map.insert("gpt-4", Arc::from("gpt-4"));
@@ -31,9 +34,9 @@ static AI_STRINGS: Lazy<HashMap<&'static str, Arc<str>>> = Lazy::new(|| {
         map.insert("openai", Arc::from("openai"));
         map.insert("anthropic", Arc::from("anthropic"));
         map.insert("google", Arc::from("google"));
-        map.insert("ollama", Arc::from("ollama"));
-        map.insert("llamacpp", Arc::from("llamacpp"));
-        map.insert("huggingface", Arc::from("huggingface"));
+        map.insert("local", Arc::from("local"));
+        map.insert("local-server", Arc::from("local-server"));
+        map.insert("model-hub", Arc::from("model-hub"));
         
         // Common roles
         map.insert("user", Arc::from("user"));

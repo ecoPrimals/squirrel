@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Models for the rule system
 
 use chrono::{DateTime, Utc};
@@ -62,24 +65,28 @@ impl Rule {
     }
 
     /// Sets the rule name
+    #[must_use]
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
         self.name = name.into();
         self
     }
 
     /// Sets the rule description
+    #[must_use]
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
         self.description = description.into();
         self
     }
 
     /// Sets the rule version
+    #[must_use]
     pub fn with_version(mut self, version: impl Into<String>) -> Self {
         self.version = version.into();
         self
     }
 
     /// Sets the rule category
+    #[must_use]
     pub fn with_category(mut self, category: impl Into<String>) -> Self {
         self.category = category.into();
         self
@@ -93,6 +100,7 @@ impl Rule {
     }
 
     /// Adds a pattern to the rule
+    #[must_use]
     pub fn with_pattern(mut self, pattern: impl Into<String>) -> Self {
         self.patterns.push(pattern.into());
         self
@@ -113,18 +121,21 @@ impl Rule {
     }
 
     /// Adds a dependency to the rule
+    #[must_use]
     pub fn with_dependency(mut self, dependency: impl Into<String>) -> Self {
         self.dependencies.push(dependency.into());
         self
     }
 
     /// Adds metadata to the rule
+    #[must_use]
     pub fn with_metadata(mut self, key: impl Into<String>, value: Value) -> Self {
         self.metadata.insert(key.into(), value);
         self
     }
 
     /// Sets the file path for the rule
+    #[must_use]
     pub fn with_file_path(mut self, path: impl Into<PathBuf>) -> Self {
         self.file_path = Some(path.into());
         self

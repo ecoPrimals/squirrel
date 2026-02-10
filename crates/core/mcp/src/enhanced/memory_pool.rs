@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Advanced Memory Pool System for Maximum Performance
 //!
 //! This module provides enterprise-grade memory pool management including:
@@ -23,7 +26,7 @@ use crate::protocol::types::{MCPMessage, MessageType};
 use crate::enhanced::ai_types::{UniversalAIRequest, UniversalAIResponse};
 
 /// Global memory pool manager
-static GLOBAL_MEMORY_POOL: once_cell::sync::OnceCell<Arc<AdvancedMemoryPool>> = once_cell::sync::OnceCell::new();
+static GLOBAL_MEMORY_POOL: std::sync::OnceLock<Arc<AdvancedMemoryPool>> = std::sync::OnceLock::new();
 
 /// Get or initialize the global memory pool
 pub fn get_global_memory_pool() -> Arc<AdvancedMemoryPool> {

@@ -1,87 +1,54 @@
-# 🐿️ Squirrel AI Primal
+# Squirrel AI Primal
 
-**Status**: ✅ **PRODUCTION-HARDENED + INTEGRATED + ISOMORPHIC + TARPC COMPLETE** | Grade A++ (98/100) | Complete!  
-**Last Updated**: February 3, 2026 (tarpc PROTOCOL NEGOTIATION COMPLETE!)  
-**Build**: ✅ **GREEN** (0 errors, 216 tests passing, 100% rate)
+**Universal AI Coordination Primal** for the ecoPrimals ecosystem.
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](COMPLETE_SESSION_REPORT_JAN_31_2026.md)
-[![Test Coverage](https://img.shields.io/badge/coverage-45--54%25-green)](TRACK_6_ALL_COMPLETE_JAN_30_2026.md)
-[![Chaos Tests](https://img.shields.io/badge/chaos-13/15%20complete-brightgreen)](TRACK_6_ALL_COMPLETE_JAN_30_2026.md)
-[![Isomorphic IPC](https://img.shields.io/badge/isomorphic%20IPC-100%25-blue)](ISOMORPHIC_IPC_SESSION_SUMMARY_JAN_31_2026.md)
-[![Universal Transport](https://img.shields.io/badge/transport-universal%20stack-blue)](UNIVERSAL_TRANSPORT_PHASE4_COMPLETE.md)
-[![Deep Debt](https://img.shields.io/badge/deep%20debt-100%25%20complete-brightgreen)](COMPLETE_SESSION_REPORT_JAN_31_2026.md)
-[![Production Ready](https://img.shields.io/badge/status-PRODUCTION%20HARDENED-brightgreen)](COMPLETE_SESSION_REPORT_JAN_31_2026.md)
+**License**: AGPL-3.0-only | **Build**: GREEN | **Tests**: 1,957 passing | **Rust**: 1.80+
+
+---
 
 ## Overview
 
-Squirrel is a sovereign AI Model Context Protocol (MCP) primal in the ecoPrimals ecosystem, providing advanced AI capabilities through a TRUE PRIMAL architecture with zero compile-time coupling, runtime capability-based discovery, comprehensive production hardening, **universal transport abstractions**, and **100% Isomorphic IPC** for platform-agnostic communication.
+Squirrel is a sovereign AI Model Context Protocol (MCP) primal providing advanced AI capabilities through a TRUE PRIMAL architecture: zero compile-time coupling, runtime capability-based discovery, vendor-agnostic AI provider integration, universal transport abstractions, and isomorphic IPC for platform-agnostic communication.
 
-### Key Features
+### Core Capabilities
 
-- 🎯 **TRUE PRIMAL Architecture**: Complete runtime service discovery via capabilities
-- 🧬 **Isomorphic IPC**: Same binary adapts to ALL platforms automatically (Linux, Android, Windows, macOS, BSD, mobile, WASM)
-- 🌍 **Universal Transport**: Platform-agnostic client/server stack with automatic fallback
-- 🔍 **Discovery File System**: Auto-discovers TCP endpoints when Unix sockets unavailable
-- 🔒 **Production Hardened**: 13/15 chaos tests complete, comprehensive resilience testing
-- 🚀 **Modern Rust**: Idiomatic patterns, pure Rust (no C deps), zero-copy optimizations
-- 📦 **ecoBin Certified**: TRUE ecoBin #5, genomeBin-ready (multi-arch evolution planned)
-- 🎨 **1 Unified Codebase**: Zero platform branches, automatic fallback, runtime detection
-- 🧪 **Comprehensively Tested**: 216 tests passing (100%), ~45-54% coverage, 29 tarpc tests
-- 🛡️ **Security Hardened**: Input validation, rate limiting, threat monitoring fully tested
-- 🔌 **Multi-Protocol**: JSON-RPC + tarpc with automatic protocol negotiation
-- 🎨 **UniBin Compliant**: Single binary, multiple modes via subcommands
-- 🤖 **Vendor-Agnostic AI**: Zero compile-time coupling to AI vendors
-- 🎉 **Capability-Based**: 95%+ production hardcoding evolved, ecosystem-aware
+- **AI Processing**: Model inference, task routing, multi-MCP coordination
+- **Context Management**: Advanced context window management, memory optimization
+- **Intelligent Routing**: Cost, quality, and latency-based provider selection
+- **Ecosystem Coordination**: Sovereign operation with optional ecosystem integration
 
-## 📋 Latest Updates (Feb 3, 2026)
+### Architecture Principles
 
-### 🎊 **tarpc PROTOCOL NEGOTIATION COMPLETE!**
-
-**What's New**:
-- 🎊 **PROTOCOL NEGOTIATION COMPLETE!** Automatic selection between JSON-RPC and tarpc
-- 🚀 **tarpc Phases 1-4 COMPLETE!** Full client/server stack with auto-negotiation
-- ✅ **Type-Safe RPC**: Compile-time checked tarpc service (8 methods)
-- ✅ **Binary Protocol**: Bincode serialization for high performance
-- ✅ **Universal Transport**: tarpc works over Unix sockets, TCP, Named pipes
-- ✅ **Auto-Discovery**: `SquirrelClient::connect("squirrel")` just works
-- ✅ **Protocol Selection**: Wire protocol negotiation at connection time
-- ✅ **Backward Compatible**: Old clients use JSON-RPC automatically
-- ✅ **Zero Unsafe**: 100% safe production code maintained
-- ✅ **Deep Debt**: A++ (98/100) maintained throughout
-
-**Session Achievements** (Feb 3, 2026):
-- 🎊 **Phase 1: Foundation** - Protocol abstraction, service definition, server implementation (1,443 lines, 12 tests)
-- 🎊 **Phase 2: Transport Integration** - AsyncRead/Write → Stream/Sink adapter (329 lines, 5 tests)
-- 🎊 **Phase 3: Client Implementation** - SquirrelClient with auto-discovery (439 lines, 4 tests)
-- 🎊 **Phase 4: Protocol Negotiation** - Automatic protocol selection (346 lines, 8 tests)
-- 📊 **Total**: 3,919 lines code + docs, 29 new tests (all passing), 6 commits
-
-**See**: [archive/sessions_feb_3_2026/](archive/sessions_feb_3_2026/) for complete session documentation.
+- **TRUE PRIMAL**: Self-knowledge only, discovers other primals at runtime
+- **Vendor-Agnostic AI**: No compile-time coupling to any AI vendor -- supports any OpenAI-compatible server, cloud API, or model hub
+- **Isomorphic IPC**: Same binary adapts to all platforms automatically (Linux, Android, Windows, macOS, BSD, WASM)
+- **Capability-Based Discovery**: Runtime service discovery via capabilities, not hardcoded names
+- **Pure Rust**: 100% Rust dependencies, zero C deps, zero unsafe code in production
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
-- Rust 1.75+ (stable)
+
+- Rust 1.80+ (stable) -- required for `std::sync::LazyLock`
 - Cargo
 
 ### Build
+
 ```bash
 # Build the project
 cargo build --release
 
-# Run tests
-cargo test --lib -p squirrel
+# Run all workspace tests
+cargo test --workspace
 
 # Check code quality
-cargo clippy --lib -p squirrel
-
-# Generate documentation
-cargo doc --lib -p squirrel --no-deps --open
+cargo clippy --workspace
 ```
 
 ### Run
+
 ```bash
 # Start in standalone mode
 ./target/release/squirrel standalone
@@ -93,314 +60,166 @@ cargo doc --lib -p squirrel --no-deps --open
 ./target/release/squirrel --help
 ```
 
----
+### Socket Path
 
-## 🧬 Isomorphic IPC (NEW - Jan 31, 2026)
-
-### The Same Binary Runs EVERYWHERE
-
-**Isomorphic IPC** means Squirrel automatically adapts to platform constraints without configuration - the biological adaptation pattern from biomeOS/NUCLEUS.
-
-#### **Try→Detect→Adapt→Succeed**
-
-```rust
-// Server: Automatically adapts to platform constraints
-let listener = UniversalListener::bind("squirrel", None).await?;
-// Linux: Uses Unix sockets
-// Android (SELinux): Detects constraint, falls back to TCP automatically
-// Windows: Uses Named pipes or TCP
-
-// Client: Automatically discovers endpoint
-let transport = UniversalTransport::connect_discovered("squirrel").await?;
-// Finds Unix socket OR TCP endpoint automatically!
+```bash
+# NUCLEUS-compliant path
+/run/user/<uid>/biomeos/squirrel.sock
 ```
 
-#### **What Makes It Isomorphic?**
-
-1. **Platform Constraints as DATA** (not CONFIG)
-   - Detects SELinux enforcement at runtime
-   - Detects AppArmor blocking at runtime
-   - No environment variables needed
-   - No platform-specific flags
-
-2. **Automatic Adaptation**
-   ```log
-   [INFO] 🔌 Starting IPC server (isomorphic mode)...
-   [INFO]    Trying UnixAbstract...
-   [WARN] ⚠️  UnixAbstract unavailable: Permission denied
-   [WARN]    Detected platform constraint, adapting...
-   [INFO]    Trying Tcp...
-   [INFO] ✅ Listening on Tcp
-   [INFO] 📁 TCP discovery file written
-   [INFO]    Status: READY ✅ (isomorphic TCP fallback active)
-   ```
-
-3. **Discovery File System**
-   - Server writes: `$XDG_RUNTIME_DIR/squirrel-ipc-port`
-   - Format: `tcp:127.0.0.1:45763`
-   - Client discovers automatically
-   - XDG-compliant paths
-
-#### **Validated on Production**
-
-Songbird (v3.33.0) proves this works on Android Pixel 8a with SELinux enforcing!
-
-**See**: [ISOMORPHIC_IPC_SESSION_SUMMARY_JAN_31_2026.md](ISOMORPHIC_IPC_SESSION_SUMMARY_JAN_31_2026.md)
-
 ---
-
-## Recent Progress (January 30-31, 2026)
-
-### Extraordinary Session - Production Hardening Complete! 🎯🔒🏆
-
-**Headline**: **ALL CHAOS TESTS COMPLETE** - Production-hardened system!
-
-**Major Accomplishments**:
-1. ✅ **13/15 CHAOS TESTS COMPLETE** (87% - all usable tests)
-2. ✅ **PRODUCTION HARDENING COMPLETE** - Network, resource, concurrency fully tested
-3. ✅ **3,600+ LINES CHAOS TEST CODE** - Production-ready implementations
-4. ✅ **TRACK 4 COMPLETE** - 95%+ production code evolved
-5. ✅ **DEEP DEBT 100%** - All priorities addressed
-6. ✅ **GREEN BUILD** - All tests passing, zero errors
-7. ✅ **A++ GRADE (96/100)** - Production-hardened with exceptional testing
-
-**Chaos Test Coverage**:
-- ✅ Network Resilience (6/6): Crash recovery, cascading failures, latency, partitions, intermittent failures, DNS failures
-- ✅ Resource Exhaustion (2/2): Memory pressure (cache eviction, OOM detection), CPU saturation (queuing, priorities)
-- ✅ Concurrency & Load (5/5): Thundering herd (1000 clients, rate limiting), long-running under load (no starvation), race conditions (zero lost updates, proper locking), cancellation cascade (zero resource leaks), mixed read/write storm (zero deadlocks)
-
-**Production Hardening Verified**:
-- ✅ Service crash recovery
-- ✅ Graceful degradation under pressure
-- ✅ No race conditions or data corruption
-- ✅ Proper resource cleanup
-- ✅ No deadlocks under load
-- ✅ Rate limiting and queuing
-
-**Quality Metrics**:
-- Tests: 700+ passing (100%) ✅
-- Chaos Tests: 13/15 (87%) ✅
-- Coverage: ~45-54% ✅
-- Grade: A++ (96/100) ✅
-- Build: GREEN (0 errors) ✅
-- Production Hardening: Complete ✅
-
-**Path Forward**:
-- **genomeBin Evolution**: Multi-arch support (ARM64, RISC-V) awaiting Infrastructure + BearDog teams
-- **Test Coverage**: Expand 45% → 60%+ (high-value modules)
-- **Musl Compilation**: Fix 19 errors for static linking
-
-See **[TRACK_6_ALL_COMPLETE_JAN_30_2026.md](TRACK_6_ALL_COMPLETE_JAN_30_2026.md)** for complete details.
-
-## Architecture
-
-### TRUE PRIMAL Principles
-
-Squirrel implements the TRUE PRIMAL architecture:
-
-- **Self-Knowledge Only**: Knows only its own identity and capabilities
-- **Runtime Discovery**: Discovers other primals by capability, not hardcoded names
-- **Semantic Naming**: Uses `domain.operation[.variant]` pattern for all IPC
-- **Provider Agnostic**: No compile-time coupling to specific primals
-- **Zero Hardcoding**: All service interactions via capability-based discovery
-
-### Capability-Based Discovery
-
-```rust
-// OLD (Deprecated):
-let songbird = ecosystem.get_primal(EcosystemPrimalType::Songbird)?;
-
-// NEW (TRUE PRIMAL):
-let ai_services = ecosystem
-    .find_services_by_capability(PrimalCapability::ModelInference)
-    .await?;
-```
-
-### Core Capabilities
-
-Squirrel provides the following capabilities:
-- **AI Processing**: Model inference, task routing, multi-MCP coordination
-- **Context Management**: Advanced context window management, memory optimization
-- **Model Inference**: Support for multiple AI models and providers
-- **Task Routing**: Intelligent routing based on task requirements
-- **Ecosystem Coordination**: Sovereign operation with optional ecosystem integration
 
 ## Project Structure
 
 ```
 squirrel/
 ├── crates/
-│   ├── main/               # Main library crate
-│   ├── core/               # Core functionality
-│   ├── sdk/                # SDK for Squirrel integration
-│   └── integration/        # Integration libraries
-├── specs/                  # Specifications and architecture docs
-├── archive/                # Historical records and certifications
-├── tests/                  # Comprehensive test suite (chaos, integration, E2E)
-└── docs/                   # Additional documentation
+│   ├── main/                  # Main library and binary
+│   ├── core/                  # Core functionality
+│   │   ├── mcp/              # MCP protocol + enhanced AI coordinator
+│   │   ├── auth/             # Authentication and JWT
+│   │   ├── context/          # Context management + learning
+│   │   ├── core/             # Service discovery + federation
+│   │   ├── interfaces/       # Core trait definitions
+│   │   └── plugins/          # Plugin system
+│   ├── config/               # Unified configuration
+│   ├── tools/                # CLI, AI tools, rule system
+│   ├── services/             # Command services
+│   ├── integration/          # Integration libraries
+│   ├── sdk/                  # SDK for Squirrel integration
+│   ├── universal-constants/  # Shared constants
+│   ├── universal-error/      # Unified error types
+│   └── universal-patterns/   # Transport and traits
+├── tests/                    # Integration + chaos test suites
+├── specs/                    # Specifications
+├── docs/                     # Additional documentation
+└── archive/                  # Historical records
 ```
 
-## Documentation
+---
 
-### Quick Reference
-- **[READ_ME_FIRST.md](READ_ME_FIRST.md)** - Entry point for all developers
-- **[START_NEXT_SESSION_HERE_JAN_30_2026.md](START_NEXT_SESSION_HERE_JAN_30_2026.md)** - Next steps and priorities
-- **[PRODUCTION_READINESS_STATUS.md](PRODUCTION_READINESS_STATUS.md)** - Production status
+## Architecture
 
-### Technical Documentation
-- **[TRACK_6_ALL_COMPLETE_JAN_30_2026.md](TRACK_6_ALL_COMPLETE_JAN_30_2026.md)** - Chaos test suite completion
-- **[DEEP_DEBT_SESSION_COMPLETE_JAN_30_2026.md](DEEP_DEBT_SESSION_COMPLETE_JAN_30_2026.md)** - Deep debt philosophy alignment
-- **[HARDCODING_MIGRATION_GUIDE_JAN_30_2026.md](HARDCODING_MIGRATION_GUIDE_JAN_30_2026.md)** - Production evolution patterns
+### TRUE PRIMAL Pattern
 
-### Standards & Specifications
-- **[wateringHole/](../wateringHole/)** - Inter-primal standards and patterns
-- **[specs/active/](specs/active/)** - Active specifications
-- **[archive/certifications/](archive/certifications/)** - ecoBin certification
+```
+┌─────────────┐
+│  Squirrel   │  Self-knowledge only
+└──────┬──────┘
+       │ Runtime Discovery:
+       │
+       ├──> AI Providers (via capability discovery, vendor-agnostic)
+       ├──> Neural API (via socket scanning)
+       ├──> Security (via capability discovery)
+       └──> Peers (via registry)
+```
 
-## Development
+### Capability-Based Discovery
 
-### Code Quality Standards
+```rust
+// Discovers services by capability at runtime
+let ai_services = ecosystem
+    .find_services_by_capability(PrimalCapability::ModelInference)
+    .await?;
+```
 
-- ✅ **Green Build**: Zero compilation errors
-- ✅ **All Tests Passing**: 700+ tests, 0 failures
-- ✅ **Production Hardened**: 13/15 chaos tests complete
-- ✅ **Production Safety**: Zero unsafe code in main crate
-- ✅ **Zero Critical Unwraps**: Proper error handling in critical paths
-- ✅ **Modern Rust**: Idiomatic patterns throughout
-- ✅ **Comprehensive Tests**: Unit, integration, E2E, chaos testing
+### Vendor-Agnostic AI
+
+All AI provider interactions are capability-based, not vendor-specific:
+
+- **Cloud APIs**: OpenAI, Anthropic, Gemini, etc. via API key configuration
+- **Local Servers**: Any OpenAI-compatible server (Ollama, llama.cpp, vLLM, LocalAI, etc.) via `LOCAL_AI_ENDPOINT`
+- **Model Hubs**: HuggingFace, ModelScope, etc. via `MODEL_HUB_CACHE_DIR`
+- **Custom Providers**: Register any provider via the universal provider interface
+
+### Multi-Protocol RPC
+
+- JSON-RPC 2.0 over Unix sockets (default)
+- tarpc with automatic protocol negotiation
+- Universal transport: automatic fallback (Unix sockets -> Named pipes -> TCP)
+
+---
+
+## Testing
+
+```bash
+# Run full workspace tests (1,957 tests, ~25 seconds)
+cargo test --workspace
+
+# Run main crate tests only
+cargo test -p squirrel
+
+# Run with coverage
+cargo llvm-cov --workspace --html
+```
 
 ### Test Coverage
 
-```bash
-# Run tests with coverage report
-cargo llvm-cov --lib -p squirrel --html
+- **1,957 tests** across 85 test suites, 0 failures
+- Unit, integration, E2E, and chaos testing
+- Network resilience, resource exhaustion, and concurrency chaos tests (13/15)
 
-# Open coverage report
-open target/llvm-cov/html/index.html
-```
+---
 
-**Current Coverage**: ~45-54%  
-**Target**: 60% (Phase 1), 90% (Final)
+## Configuration
 
-### Code Quality Checks
+### Environment Variables
 
-```bash
-# Run clippy
-cargo clippy --lib -p squirrel
+Squirrel uses environment-first configuration with multi-tier resolution:
 
-# Check documentation
-cargo doc --lib -p squirrel --no-deps
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `LOCAL_AI_ENDPOINT` | Local AI server URL | `http://localhost:11434` |
+| `LOCAL_AI_PORT` | Local AI server port | `11434` |
+| `OPENAI_API_KEY` | OpenAI API key | -- |
+| `ANTHROPIC_API_KEY` | Anthropic API key | -- |
+| `MCP_DEFAULT_MODEL` | Default model | `gpt-3.5-turbo` |
+| `SQUIRREL_SOCKET` | Custom socket path | auto-detected |
 
-# Run all tests
-cargo test --lib -p squirrel
+Legacy vendor-specific env vars (`OLLAMA_ENDPOINT`, `LLAMACPP_ENDPOINT`, etc.) are still supported as fallbacks.
 
-# Run chaos tests
-cargo test --test chaos_testing
-```
+See `squirrel.toml.example` for file-based configuration.
 
-## Chaos Testing
+---
 
-### Test Categories
-
-**Network Resilience** (6/6 tests):
-- Service crash recovery
-- Cascading failure prevention
-- Slow service handling
-- Network partition resilience
-- Intermittent failure retry logic
-- DNS resolution fallbacks
-
-**Resource Exhaustion** (2/2 core tests):
-- Memory pressure (cache eviction, OOM detection)
-- CPU saturation (queuing, priority handling)
-
-**Concurrency & Load** (5/5 tests):
-- Thundering herd (1000 simultaneous clients)
-- Long-running operations under load
-- Concurrent write race conditions
-- Request cancellation cascade
-- Mixed read/write storm
-
-See **[TRACK_6_ALL_COMPLETE_JAN_30_2026.md](TRACK_6_ALL_COMPLETE_JAN_30_2026.md)** for detailed chaos test documentation.
-
-## Deployment
-
-### Docker
-
-```bash
-# Build Docker image
-docker build -t squirrel:latest .
-
-# Run container
-docker run -p 3000:3000 squirrel:latest
-```
-
-### Kubernetes
-
-```bash
-# Deploy with Helm
-helm install squirrel ./deployment/helm/squirrel
-
-# Check status
-kubectl get pods -l app=squirrel
-```
-
-See **[deployment/](deployment/)** for detailed deployment guides.
-
-## Contributing
-
-### Before You Start
-1. Read **[READ_ME_FIRST.md](READ_ME_FIRST.md)** for current status
-2. Check **[START_NEXT_SESSION_HERE_JAN_30_2026.md](START_NEXT_SESSION_HERE_JAN_30_2026.md)** for priorities
-3. Review **[wateringHole/](../wateringHole/)** for ecosystem standards
-
-### Development Workflow
-1. Create feature branch from `main`
-2. Ensure all tests pass: `cargo test --lib -p squirrel`
-3. Verify green build: `cargo build --lib -p squirrel`
-4. Run clippy: `cargo clippy --lib -p squirrel`
-5. Update documentation as needed
-6. Submit PR with clear description
+## Development
 
 ### Code Standards
-- Follow TRUE PRIMAL architecture principles
-- Use capability-based discovery (not hardcoded primal types)
-- Maintain zero unsafe code in main crate
-- Keep files under 1000 lines (smart refactoring)
-- Add tests for new functionality
-- Document public APIs
+
+- Zero unsafe code in production (`#![deny(unsafe_code)]`)
+- All files under 1,000 lines (smart refactoring)
+- Capability-based discovery (not hardcoded primal types)
+- `std::sync::LazyLock` / `OnceLock` for statics (no `lazy_static` / `once_cell`)
+- Proper error handling throughout (no `unwrap()` in production paths)
+- SPDX license headers on all source files
+
+### Pre-Push Workflow
+
+```bash
+cargo build --release
+cargo test --workspace
+cargo clippy --workspace
+```
+
+### Contributing
+
+1. Read [READ_ME_FIRST.md](READ_ME_FIRST.md) for current status
+2. Follow TRUE PRIMAL architecture principles
+3. Add tests for new functionality
+4. Ensure all workspace tests pass before submitting
+
+---
 
 ## License
 
 **AGPL-3.0-only**
 
-Squirrel Universal AI Primal is licensed under the GNU Affero General Public License v3.0 only.
-
 Copyright (C) 2026 DataScienceBioLab
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, version 3 of the License.
 
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+See [LICENSE-AGPL3](LICENSE-AGPL3) for the complete license text.
 
 ### Network Service Requirement
 
-Under AGPL Section 13, if you modify Squirrel and run it as a network service, you **must** offer users interacting with it remotely the opportunity to receive the Corresponding Source code. This ensures that improvements to network services remain free and available to the community.
-
-See [LICENSE-AGPL3](LICENSE-AGPL3) for the complete license text.
-
-## Contact & Support
-
-For questions, issues, or contributions:
-- See specifications in **[specs/active/](specs/active/)**
-- Check ecosystem standards in **[wateringHole/](../wateringHole/)**
-- Review session reports in **[archive/](archive/)**
-
----
-
-**Current Status**: ✅ **PRODUCTION-HARDENED**  
-**Grade**: **A++ (96/100)**  
-**Last Updated**: January 30, 2026
-
-See **[TRACK_6_ALL_COMPLETE_JAN_30_2026.md](TRACK_6_ALL_COMPLETE_JAN_30_2026.md)** for detailed session report.
+Under AGPL Section 13, if you modify Squirrel and run it as a network service, you must offer users interacting with it remotely the opportunity to receive the Corresponding Source code.

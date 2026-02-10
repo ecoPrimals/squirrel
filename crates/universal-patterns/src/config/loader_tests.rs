@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for configuration loader
 //!
 //! These tests focus on error paths, edge cases, and coverage expansion

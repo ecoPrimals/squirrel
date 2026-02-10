@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Performance Initialization System
 //!
 //! This module provides a comprehensive initialization system for all performance
@@ -439,7 +442,7 @@ impl PerformanceReport {
 }
 
 /// Global performance manager instance
-static GLOBAL_PERFORMANCE_MANAGER: once_cell::sync::OnceCell<Arc<tokio::sync::Mutex<PerformanceManager>>> = once_cell::sync::OnceCell::new();
+static GLOBAL_PERFORMANCE_MANAGER: std::sync::OnceLock<Arc<tokio::sync::Mutex<PerformanceManager>>> = std::sync::OnceLock::new();
 
 /// Initialize global performance systems
 #[instrument]

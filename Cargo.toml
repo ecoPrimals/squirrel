@@ -103,6 +103,7 @@ prometheus = "0.14"
 
 # Security and additional deps
 secrecy = { version = "0.8", features = ["serde"] }
+zeroize = { version = "1.7", features = ["zeroize_derive"] }
 # axum REMOVED - NOT ecoPrimals standard (use JSON-RPC + tarpc!)
 # tower REMOVED - NOT ecoPrimals standard  
 # tower-http REMOVED - NOT ecoPrimals standard
@@ -149,6 +150,3 @@ unused_imports = "warn"
 unused_variables = "warn"
 
 [workspace.lints.clippy]
-# Modern async Rust uses async fn in traits (stable since Rust 1.75)
-# This is idiomatic and the warning is overly conservative
-async_fn_in_trait = "allow"

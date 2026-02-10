@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration management for plugins
 //!
 //! This module provides configuration loading and management capabilities for WASM plugins.
@@ -10,7 +13,7 @@ use std::collections::HashMap;
 // Sandbox security handled by BearDog framework
 
 /// Comprehensive SDK configuration structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PluginSdkConfig {
     /// Plugin-specific configuration
     pub plugin: PluginConfig,
@@ -26,20 +29,6 @@ pub struct PluginSdkConfig {
     pub http: HttpConfig,
     /// Performance configuration
     pub performance: PerformanceConfig,
-}
-
-impl Default for PluginSdkConfig {
-    fn default() -> Self {
-        Self {
-            plugin: PluginConfig::default(),
-            mcp: McpClientConfig::default(),
-            logging: LoggingConfig::default(),
-            sandbox: SandboxConfig::default(),
-            network: NetworkConfig::default(),
-            http: HttpConfig::default(),
-            performance: PerformanceConfig::default(),
-        }
-    }
 }
 
 impl PluginSdkConfig {

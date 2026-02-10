@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Audit service for MCP security
 //!
 //! This module provides audit functionality for the MCP system.

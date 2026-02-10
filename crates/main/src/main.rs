@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Squirrel AI Coordinator Main Entry Point
 //!
 //! UniBin Architecture v1.0.0 compliant entry point.
@@ -8,36 +11,13 @@ mod doctor;
 
 use anyhow::Result;
 use clap::Parser;
-use serde::Serialize;
-// ApiServer REMOVED - HTTP API deleted, use JSON-RPC instead
-// use squirrel::api::ApiServer; // DELETED
 use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
 use squirrel::shutdown::ShutdownManager;
 #[cfg(feature = "monitoring")]
 use squirrel::MetricsCollector;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use cli::{Cli, Commands};
-
-/// Capability manifest for BiomeOS integration
-#[derive(Serialize)]
-struct CapabilityManifest {
-    name: &'static str,
-    category: &'static str,
-    version: &'static str,
-    api_type: &'static str,
-    capabilities: Vec<&'static str>,
-    endpoints: HashMap<&'static str, String>,
-    discovery: DiscoveryInfo,
-}
-
-#[derive(Serialize)]
-struct DiscoveryInfo {
-    protocol: &'static str,
-    default_port: u16,
-    health_check: String,
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -98,7 +78,8 @@ async fn run_server(
         &config.logging.level
     };
 
-    // TODO: Add JSON logging support with tracing-subscriber json feature
+    // FUTURE: [Feature] Add JSON logging support with tracing-subscriber json feature
+    // Tracking: Planned for v0.2.0 - enhanced logging features
     tracing_subscriber::fmt()
         .with_env_filter(format!("squirrel={},debug", log_level))
         .with_target(false)
@@ -121,7 +102,7 @@ async fn run_server(
     let metrics_collector = Arc::new(squirrel::monitoring::metrics::MetricsCollector::new());
 
     let ecosystem_config = EcosystemConfig::default();
-    let ecosystem_manager = Arc::new(EcosystemManager::new(
+    let _ecosystem_manager = Arc::new(EcosystemManager::new(
         ecosystem_config,
         metrics_collector.clone(),
     ));
@@ -163,7 +144,7 @@ async fn run_server(
     println!("   Bind: {} (unused in Unix socket mode)", bind);
     println!("   Port: {} (unused in Unix socket mode)", port);
     if daemon {
-        println!("   Daemon mode: enabled (TODO: implement background detach)");
+        println!("   Daemon mode: enabled (FUTURE: implement background detach)");
     }
     println!();
     println!("✅ Squirrel AI/MCP Primal Ready!");
@@ -228,52 +209,6 @@ async fn run_server(
     }
 
     Ok(())
-}
-
-/// Announce capabilities to registry
-async fn announce_capabilities_to_registry(
-    config: &squirrel::config::SquirrelConfig,
-) -> Result<()> {
-    use tracing::info;
-
-    // If registry socket is configured, announce via Unix socket
-    if let Some(registry_socket) = &config.discovery.registry_socket {
-        info!("📢 Announcing to registry at: {}", registry_socket);
-
-        // Create JSON-RPC announcement request
-        let _announcement = serde_json::json!({
-            "jsonrpc": "2.0",
-            "method": "register_service",
-            "params": {
-                "service_name": "squirrel",
-                "service_type": "ai_coordinator",
-                "capabilities": config.discovery.capabilities,
-                "version": env!("CARGO_PKG_VERSION"),
-                "socket": config.server.socket.clone().unwrap_or_else(|| "/tmp/squirrel.sock".to_string()),
-            },
-            "id": 1
-        });
-
-        // Try to connect and announce (best-effort, non-blocking)
-        match std::path::Path::new(registry_socket).exists() {
-            true => {
-                info!("✅ Registry socket found, announcing capabilities");
-                // TODO: Actually send the announcement
-                // For now, just log that we would announce
-                Ok(())
-            }
-            false => {
-                info!(
-                    "⚠️  Registry socket not found ({}), skipping announcement",
-                    registry_socket
-                );
-                Ok(())
-            }
-        }
-    } else {
-        info!("📄 No registry socket configured, skipping announcement");
-        Ok(())
-    }
 }
 
 /// Print version information

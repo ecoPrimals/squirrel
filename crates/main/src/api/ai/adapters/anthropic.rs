@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+// Allow deprecated items for backward compatibility
+#![allow(deprecated)]
+
 //! Anthropic AI Provider Adapter with Capability-Based HTTP Delegation
 //!
 //! ⚠️ **DEPRECATED**: This vendor-specific adapter is deprecated.
@@ -138,7 +144,7 @@ impl AnthropicAdapter {
         let stream = UnixStream::connect(&http_provider.socket).await?;
 
         // Build JSON-RPC request for HTTP delegation
-        // BIOME OS FIX (Jan 28, 2026): Songbird expects body as STRING, not object
+        // Songbird expects body as STRING, not object
         let body_string = match body {
             serde_json::Value::String(s) => serde_json::Value::String(s),
             serde_json::Value::Null => serde_json::Value::Null,
@@ -209,6 +215,9 @@ impl AnthropicAdapter {
         headers.insert("anthropic-version".to_string(), "2023-06-01".to_string());
         headers.insert("content-type".to_string(), "application/json".to_string());
 
+        // Track request start time for latency calculation
+        let start_time = std::time::Instant::now();
+
         // Delegate HTTP to discovered provider (TRUE PRIMAL!)
         let response_json = self
             .delegate_http(
@@ -219,13 +228,16 @@ impl AnthropicAdapter {
             )
             .await?;
 
+        // Calculate latency
+        let latency_ms = start_time.elapsed().as_millis() as u64;
+
         // Parse HTTP response - body comes as string from Songbird
         let body_value = response_json
             .get("body")
             .cloned()
             .ok_or_else(|| PrimalError::ParsingError("No body in HTTP response".to_string()))?;
 
-        // BIOME OS FIX (Jan 29, 2026): Songbird returns body as string, parse it
+        // Songbird returns body as string, parse it
         let http_response: serde_json::Value = match body_value {
             serde_json::Value::String(s) => serde_json::from_str(&s).map_err(|e| {
                 PrimalError::ParsingError(format!("Failed to parse body JSON: {}", e))
@@ -253,6 +265,18 @@ impl AnthropicAdapter {
         // Parse Anthropic response
         let anthropic_response: AnthropicResponse = serde_json::from_value(http_response)?;
 
+        // Calculate cost based on token usage (approximate pricing per 1M tokens)
+        // Cost tiers are configurable; defaults provide reasonable estimates.
+        // NOTE(config): Cost tables could be loaded from squirrel.toml / env at startup
+        let model = &anthropic_response.model;
+        let (input_cost_per_1m, output_cost_per_1m) = Self::estimate_cost_per_1m_tokens(model);
+
+        let cost_usd = Some(
+            (anthropic_response.usage.input_tokens as f64 / 1_000_000.0 * input_cost_per_1m)
+                + (anthropic_response.usage.output_tokens as f64 / 1_000_000.0
+                    * output_cost_per_1m),
+        );
+
         // Convert to universal format
         Ok(TextGenerationResponse {
             text: anthropic_response.content[0].text.clone(),
@@ -264,9 +288,26 @@ impl AnthropicAdapter {
                 total_tokens: anthropic_response.usage.input_tokens
                     + anthropic_response.usage.output_tokens,
             }),
-            cost_usd: None, // TODO: Calculate cost based on usage
-            latency_ms: 0,  // TODO: Track request time
+            cost_usd,
+            latency_ms,
         })
+    }
+
+    /// Estimate cost per 1M tokens for a given model identifier.
+    ///
+    /// Uses model family pattern matching with reasonable defaults.
+    /// These are approximate and should eventually be loaded from
+    /// configuration at startup.
+    fn estimate_cost_per_1m_tokens(model: &str) -> (f64, f64) {
+        let model_lower = model.to_lowercase();
+        if model_lower.contains("opus") {
+            (15.0, 75.0)
+        } else if model_lower.contains("sonnet") {
+            (3.0, 15.0)
+        } else {
+            // Haiku / default — conservative estimate
+            (0.25, 1.25)
+        }
     }
 }
 
@@ -369,5 +410,68 @@ mod tests {
         assert!(!adapter.is_local());
         assert!(adapter.supports_text_generation());
         assert!(!adapter.supports_image_generation());
+    }
+
+    #[test]
+    fn test_cost_estimation_opus() {
+        let (input, output) = AnthropicAdapter::estimate_cost_per_1m_tokens("claude-3-opus");
+        assert!((input - 15.0).abs() < f64::EPSILON);
+        assert!((output - 75.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cost_estimation_opus_case_insensitive() {
+        let (input, output) =
+            AnthropicAdapter::estimate_cost_per_1m_tokens("Claude-3-Opus-20240229");
+        assert!((input - 15.0).abs() < f64::EPSILON);
+        assert!((output - 75.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cost_estimation_sonnet() {
+        let (input, output) = AnthropicAdapter::estimate_cost_per_1m_tokens("claude-3-sonnet");
+        assert!((input - 3.0).abs() < f64::EPSILON);
+        assert!((output - 15.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cost_estimation_haiku_default() {
+        let (input, output) = AnthropicAdapter::estimate_cost_per_1m_tokens("claude-3-haiku");
+        assert!((input - 0.25).abs() < f64::EPSILON);
+        assert!((output - 1.25).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cost_estimation_unknown_model() {
+        let (input, output) = AnthropicAdapter::estimate_cost_per_1m_tokens("unknown-model-xyz");
+        // Should use conservative default (Haiku pricing)
+        assert!((input - 0.25).abs() < f64::EPSILON);
+        assert!((output - 1.25).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_adapter_quality_tier() {
+        std::env::set_var("ANTHROPIC_API_KEY", "test-key-qt");
+        let adapter = AnthropicAdapter::new().unwrap();
+        assert_eq!(adapter.quality_tier(), QualityTier::Premium);
+        assert_eq!(adapter.avg_latency_ms(), 2000);
+        assert!(adapter.cost_per_unit().is_some());
+    }
+
+    #[test]
+    fn test_default_model() {
+        std::env::remove_var("ANTHROPIC_DEFAULT_MODEL");
+        std::env::set_var("ANTHROPIC_API_KEY", "test-key-dm");
+        let adapter = AnthropicAdapter::new().unwrap();
+        assert_eq!(adapter.default_model, "claude-3-haiku-20240307");
+    }
+
+    #[test]
+    fn test_custom_default_model() {
+        std::env::set_var("ANTHROPIC_API_KEY", "test-key-cdm");
+        std::env::set_var("ANTHROPIC_DEFAULT_MODEL", "claude-3-opus");
+        let adapter = AnthropicAdapter::new().unwrap();
+        assert_eq!(adapter.default_model, "claude-3-opus");
+        std::env::remove_var("ANTHROPIC_DEFAULT_MODEL");
     }
 }

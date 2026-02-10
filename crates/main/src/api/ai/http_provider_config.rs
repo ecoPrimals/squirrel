@@ -1,27 +1,31 @@
-///! HTTP-based AI provider configuration (vendor-agnostic)
-///!
-///! This module provides a registry of HTTP-based AI providers that can be
-///! discovered at runtime through environment variables, eliminating hardcoded
-///! vendor dependencies.
-///!
-///! ## TRUE PRIMAL Compliance
-///!
-///! - ✅ Zero compile-time coupling to specific vendors
-///! - ✅ Runtime configuration via environment
-///! - ✅ HTTP delegation via capability discovery
-///!
-///! ## Usage
-///!
-///! ```bash
-///! # Configure which HTTP providers to use
-///! export AI_HTTP_PROVIDERS="anthropic,openai"
-///! export ANTHROPIC_API_KEY="sk-..."
-///! export OPENAI_API_KEY="sk-..."
-///! export HTTP_REQUEST_PROVIDER_SOCKET="/run/user/1000/biomeos/songbird.sock"
-///!
-///! # Squirrel discovers and initializes providers at runtime
-///! ./squirrel server
-///! ```
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+//! HTTP-based AI provider configuration (vendor-agnostic)
+#![allow(dead_code)] // Runtime provider config awaiting activation
+//!
+//! This module provides a registry of HTTP-based AI providers that can be
+//! discovered at runtime through environment variables, eliminating hardcoded
+//! vendor dependencies.
+//!
+//! ## TRUE PRIMAL Compliance
+//!
+//! - ✅ Zero compile-time coupling to specific vendors
+//! - ✅ Runtime configuration via environment
+//! - ✅ HTTP delegation via capability discovery
+//!
+//! ## Usage
+//!
+//! ```bash
+//! # Configure which HTTP providers to use
+//! export AI_HTTP_PROVIDERS="anthropic,openai"
+//! export ANTHROPIC_API_KEY="sk-..."
+//! export OPENAI_API_KEY="sk-..."
+//! export HTTP_REQUEST_PROVIDER_SOCKET="/run/user/1000/biomeos/songbird.sock"
+//!
+//! # Squirrel discovers and initializes providers at runtime
+//! ./squirrel server
+//! ```
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

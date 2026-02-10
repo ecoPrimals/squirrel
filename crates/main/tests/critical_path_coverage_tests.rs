@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Critical path tests for capability matching edge cases
 //!
 //! These tests cover error paths, edge cases, and integration scenarios
@@ -362,19 +365,19 @@ mod config_loading_error_tests {
     fn test_config_with_missing_required_fields() {
         // Test configuration loading with missing required fields
         // This covers error paths that currently use unwrap()
-        // TODO: Implement once config error paths are exposed
+        // NOTE: Requires config error paths to be publicly exposed
     }
 
     #[test]
     fn test_config_with_invalid_values() {
         // Test configuration with invalid value types
         // e.g., string where number expected
-        // TODO: Implement once config validation is exposed
+        // NOTE: Requires config validation to be publicly exposed
     }
 
     #[test]
     fn test_config_with_malformed_toml() {
         // Test malformed TOML parsing
-        // TODO: Implement once config parsing error paths are exposed
+        // NOTE: Requires config parsing error paths to be publicly exposed
     }
 }

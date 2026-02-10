@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Songbird Monitoring Client
 //!
 //! Production monitoring client that integrates with Songbird's observability system
-//! to replace MockMonitoringClient with real monitoring capabilities.
+//! to replace InMemoryMonitoringClient with real monitoring capabilities.
 
 use std::collections::HashMap;
 use std::sync::Arc;

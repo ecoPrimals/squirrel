@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Circuit breaker pattern implementation for limiting calls to failing services.
 
 mod breaker;

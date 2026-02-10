@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Network Configuration - Infant Primal Pattern
 //!
 //! **Philosophy**: Zero hardcoded knowledge. All network configuration discovered at runtime.
@@ -239,24 +242,46 @@ pub fn http_url(host: &str, port: u16, path: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_addresses() {
-        // Evolved: Use runtime discovery instead of deprecated constants
         assert_eq!(get_bind_address(), "127.0.0.1");
         assert_eq!(DEFAULT_LOCALHOST, "localhost");
+        assert_eq!(LOCALHOST_IPV4, "127.0.0.1");
     }
 
     #[test]
-    fn test_ports() {
-        // Evolved: Use runtime discovery functions
+    fn test_ports_all_services() {
         assert_eq!(get_service_port("websocket"), 8080);
+        assert_eq!(get_service_port("ws"), 8080);
         assert_eq!(get_service_port("http"), 8081);
         assert_eq!(get_service_port("admin"), 8082);
+        assert_eq!(get_service_port("security"), 8083);
+        assert_eq!(get_service_port("storage"), 8084);
+        assert_eq!(get_service_port("ui"), 3000);
+        assert_eq!(get_service_port("service_mesh"), 8085);
+        assert_eq!(get_service_port("mesh"), 8085);
+        assert_eq!(get_service_port("compute"), 8086);
         assert_eq!(get_service_port("metrics"), 9090);
         assert_eq!(get_service_port("discovery"), 8500);
+    }
+
+    #[test]
+    fn test_unknown_service_port() {
+        assert_eq!(get_service_port("unknown_service_xyz"), 0);
+    }
+
+    #[test]
+    fn test_deprecated_constants() {
+        assert_eq!(DEFAULT_BIND_ADDRESS, "127.0.0.1");
+        assert_eq!(DEFAULT_WEBSOCKET_PORT, 8080);
+        assert_eq!(DEFAULT_HTTP_PORT, 8081);
+        assert_eq!(DEFAULT_ADMIN_PORT, 8082);
+        assert_eq!(DEFAULT_METRICS_PORT, 9090);
+        assert_eq!(DEFAULT_DISCOVERY_PORT, 8500);
     }
 
     #[test]
@@ -265,17 +290,37 @@ mod tests {
         assert_eq!(METRICS_ENDPOINT, "/metrics");
         assert_eq!(ADMIN_ENDPOINT, "/admin");
         assert_eq!(WS_ENDPOINT, "/ws");
+        assert_eq!(DISCOVERY_ENDPOINT, "/discovery");
+        assert_eq!(REGISTRATION_ENDPOINT, "/register");
     }
 
     #[test]
     fn test_url_templates() {
         assert_eq!(
-            format!("{}", LOCALHOST_HTTP_TEMPLATE.replace("{}", "8080")),
+            LOCALHOST_HTTP_TEMPLATE.replace("{}", "8080"),
             "http://localhost:8080"
         );
         assert_eq!(
-            format!("{}", LOCALHOST_WS_TEMPLATE.replace("{}", "8080")),
+            LOCALHOST_WS_TEMPLATE.replace("{}", "8080"),
             "ws://localhost:8080"
         );
+    }
+
+    #[test]
+    fn test_http_url_helper() {
+        assert_eq!(http_url("localhost", 8080, ""), "http://localhost:8080");
+        assert_eq!(
+            http_url("localhost", 8080, "/api"),
+            "http://localhost:8080/api"
+        );
+        assert_eq!(
+            http_url("10.0.0.1", 9090, "/health"),
+            "http://10.0.0.1:9090/health"
+        );
+    }
+
+    #[test]
+    fn test_get_port_from_env() {
+        assert_eq!(get_port_from_env("NONEXISTENT_PORT_XYZ", 1234), 1234);
     }
 }

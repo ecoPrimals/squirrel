@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive Ecosystem Benchmarks
 //!
 //! This benchmark suite provides comprehensive performance testing for the entire

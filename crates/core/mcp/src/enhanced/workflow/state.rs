@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Workflow State Manager
 //!
 //! Manages workflow state persistence, recovery, and synchronization.
@@ -202,7 +205,7 @@ impl WorkflowStateManager {
     /// Clear old snapshots based on age
     pub async fn cleanup_old_snapshots(&self, max_age: Duration) -> Result<usize> {
         let mut snapshots = self.snapshots.write().await;
-        let cutoff_time = chrono::Utc::now() - chrono::Duration::from_std(max_age).unwrap();
+        let cutoff_time = chrono::Utc::now() - chrono::Duration::from_std(max_age).expect("max_age should be representable as chrono::Duration");
         let mut removed_count = 0;
         
         for workflow_snapshots in snapshots.values_mut() {

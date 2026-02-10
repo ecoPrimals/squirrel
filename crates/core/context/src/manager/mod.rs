@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context manager module
 //!
 //! This module provides context management functionality for storing, retrieving,
@@ -249,5 +252,147 @@ impl ContextManager {
     ) -> crate::Result<()> {
         // Stub implementation for now
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_context_manager_config_default() {
+        let config = ContextManagerConfig::default();
+        assert!(config.enable_plugins);
+        assert!(config.plugin_paths.is_none());
+    }
+
+    #[test]
+    fn test_context_manager_config_custom() {
+        let config = ContextManagerConfig {
+            enable_plugins: false,
+            plugin_paths: Some(vec!["/path/to/plugins".to_string()]),
+        };
+        assert!(!config.enable_plugins);
+        assert!(config.plugin_paths.is_some());
+        assert_eq!(config.plugin_paths.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_context_manager_new() {
+        let manager = ContextManager::new();
+        assert!(manager.config.enable_plugins);
+    }
+
+    #[test]
+    fn test_context_manager_default() {
+        let manager = ContextManager::default();
+        assert!(manager.config.enable_plugins);
+    }
+
+    #[test]
+    fn test_context_manager_with_config() {
+        let config = ContextManagerConfig {
+            enable_plugins: false,
+            plugin_paths: None,
+        };
+        let manager = ContextManager::with_config(config);
+        assert!(!manager.config.enable_plugins);
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_initialize() {
+        let manager = ContextManager::new();
+        let result = manager.initialize().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_initialize_idempotent() {
+        use squirrel_interfaces::context::ContextManager as InterfaceContextManager;
+        let manager = ContextManager::new();
+        manager.initialize().await.unwrap();
+        // Second init should succeed (no-op)
+        manager.initialize().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_get_plugin_manager_before_init() {
+        let manager = ContextManager::new();
+        let pm = manager.get_plugin_manager().await;
+        assert!(pm.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_get_plugin_manager_after_init() {
+        use squirrel_interfaces::context::ContextManager as InterfaceContextManager;
+        let manager = ContextManager::new();
+        manager.initialize().await.unwrap();
+        let pm = manager.get_plugin_manager().await;
+        assert!(pm.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_plugins_disabled() {
+        use squirrel_interfaces::context::ContextManager as InterfaceContextManager;
+        let config = ContextManagerConfig {
+            enable_plugins: false,
+            plugin_paths: None,
+        };
+        let manager = ContextManager::with_config(config);
+        manager.initialize().await.unwrap();
+        let pm = manager.get_plugin_manager().await;
+        assert!(pm.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_transform_before_init() {
+        use squirrel_interfaces::context::ContextManager as InterfaceContextManager;
+        let manager = ContextManager::new();
+        let result = manager.transform_data("test", serde_json::json!({})).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_get_context_state() {
+        let manager = ContextManager::new();
+        let state = manager.get_context_state("test-id").await.unwrap();
+        assert_eq!(state.id, "test-id");
+        assert_eq!(state.version, 1);
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_create_recovery_point() {
+        use std::collections::HashMap;
+        use std::time::SystemTime;
+        let manager = ContextManager::new();
+        let state = crate::ContextState {
+            id: "test".to_string(),
+            version: 1,
+            timestamp: 0,
+            data: serde_json::json!({}),
+            metadata: HashMap::new(),
+            synchronized: false,
+            last_modified: SystemTime::now(),
+        };
+        let result = manager.create_recovery_point(&state).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_context_manager_update_context_state() {
+        use std::collections::HashMap;
+        use std::time::SystemTime;
+        let manager = ContextManager::new();
+        let state = crate::ContextState {
+            id: "test".to_string(),
+            version: 1,
+            timestamp: 0,
+            data: serde_json::json!({}),
+            metadata: HashMap::new(),
+            synchronized: false,
+            last_modified: SystemTime::now(),
+        };
+        let result = manager.update_context_state("test", state).await;
+        assert!(result.is_ok());
     }
 }

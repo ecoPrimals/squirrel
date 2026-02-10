@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Manifest module - placeholder implementation
 // This module handles biome.yaml manifest generation and biomeOS integration
 

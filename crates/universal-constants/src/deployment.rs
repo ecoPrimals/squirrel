@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Deployment configuration with environment variable support
 //!
 //! This module provides functions to retrieve configuration values from

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Visualization Manager
 //!
 //! This module provides the core visualization management functionality for the Context Management System.

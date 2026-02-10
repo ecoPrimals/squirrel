@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core Squirrel Primal Provider Implementation
+#![allow(dead_code)] // Provider fields used by ecosystem integration at runtime
 
 // TryFutureExt removed - not currently used in this module
 use std::collections::HashMap;
@@ -186,7 +190,11 @@ impl SquirrelPrimalProvider {
         // Discover all available primals dynamically
         // capability_registry removed - use ecosystem discovery
         // Type can be anything that has .is_healthy and .display_name fields
-        let available_primals: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
+        // FUTURE: [Ecosystem-Integration] Implement primal discovery via ecosystem manager
+        // Tracking: Planned for v0.2.0 - ecosystem integration work
+        // This should query the ecosystem_manager for available primals with their capabilities
+        // and health status. The discovery should be capability-based rather than name-based.
+        let available_primals: Vec<serde_json::Value> = Vec::new();
 
         let participating_primals: Vec<String> = available_primals
             .iter()
@@ -287,7 +295,14 @@ impl SquirrelPrimalProvider {
         );
 
         // Service mesh discovery removed - use Unix socket delegation
-        // TODO: Implement via capability discovery
+        // FUTURE: [Service-Mesh-Integration] Implement service mesh coordination via capability discovery
+        // Tracking: Planned for v0.2.0 - service mesh integration work
+        // This should:
+        // 1. Discover service mesh capabilities via ecosystem_manager
+        // 2. Use Unix socket delegation for communication with service mesh (songbird)
+        // 3. Handle coordination requests (routing, load balancing, circuit breaking)
+        // 4. Return proper coordination results with mesh status
+        // Tracked in: service mesh integration work
         let response = serde_json::json!({
             "status": "completed",
             "operation": operation,
@@ -304,7 +319,7 @@ impl SquirrelPrimalProvider {
     pub async fn leverage_security_capabilities(
         &self,
         operation: &str,
-        payload: serde_json::Value,
+        _payload: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
         info!(
             "Leveraging security capabilities from ecosystem: {}",
@@ -325,7 +340,7 @@ impl SquirrelPrimalProvider {
     pub async fn leverage_compute_capabilities(
         &self,
         operation: &str,
-        payload: serde_json::Value,
+        _payload: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
         info!("Leveraging compute capabilities from ecosystem");
 
@@ -458,7 +473,12 @@ impl SquirrelPrimalProvider {
 
         // Discover all primals dynamically
         // capability_registry removed - use ecosystem discovery
-        let all_primals: Vec<serde_json::Value> = Vec::new(); // TODO: Implement via ecosystem discovery
+        // FUTURE: [Ecosystem-Integration] Implement ecosystem status gathering via ecosystem manager
+        // Tracking: Planned for v0.2.0 - ecosystem integration work
+        // This should query ecosystem_manager for all registered primals, their health status,
+        // and capabilities. Should aggregate status across all discovered services.
+        // Tracked in: ecosystem integration work
+        let all_primals: Vec<serde_json::Value> = Vec::new();
 
         let healthy_services = all_primals
             .iter()
@@ -780,13 +800,23 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
         &mut self,
         _service_mesh_endpoint: &str,
     ) -> UniversalResult<String> {
-        // TODO: Implement songbird registration
+        // FUTURE: [Service-Mesh-Integration] Implement service mesh registration via capability discovery
+        // Tracking: Planned for v0.2.0 - service mesh integration work
+        // This should:
+        // 1. Discover service mesh (songbird) via ecosystem_manager capability discovery
+        // 2. Register this primal's endpoints and capabilities with the service mesh
+        // 3. Return registration ID or confirmation token
         Ok("registered (stubbed)".to_string())
     }
 
     /// Deregister from service mesh
     async fn deregister_from_service_mesh(&mut self) -> UniversalResult<()> {
-        // TODO: Implement service mesh deregistration
+        // FUTURE: [Service-Mesh-Integration] Implement service mesh deregistration
+        // Tracking: Planned for v0.2.0 - service mesh integration work
+        // This should:
+        // 1. Discover service mesh via ecosystem_manager
+        // 2. Deregister this primal from the service mesh
+        // 3. Clean up any service mesh state
         Ok(())
     }
 
@@ -800,7 +830,13 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
         &self,
         _request: EcosystemRequest,
     ) -> UniversalResult<EcosystemResponse> {
-        // TODO: Implement ecosystem request handling
+        // FUTURE: [Ecosystem-Integration] Implement ecosystem request handling
+        // Tracking: Planned for v0.2.0 - ecosystem integration work
+        // This should:
+        // 1. Parse the ecosystem request (capability queries, service discovery, etc.)
+        // 2. Route to appropriate handler based on request type
+        // 3. Use ecosystem_manager for capability discovery and coordination
+        // 4. Return proper ecosystem response with results
         Ok(EcosystemResponse {
             request_id: uuid::Uuid::new_v4(),
             response_id: uuid::Uuid::new_v4(),
@@ -815,7 +851,12 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
 
     /// Report health to ecosystem registry
     async fn report_health(&self, _health: PrimalHealth) -> UniversalResult<()> {
-        // TODO: Implement health reporting
+        // FUTURE: [Ecosystem-Integration] Implement health reporting to ecosystem registry
+        // Tracking: Planned for v0.2.0 - ecosystem integration work
+        // This should:
+        // 1. Convert PrimalHealth to ecosystem health format
+        // 2. Report to ecosystem_manager or health registry
+        // 3. Handle reporting failures gracefully
         Ok(())
     }
 
@@ -824,7 +865,13 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
         &self,
         _capabilities: Vec<PrimalCapability>,
     ) -> UniversalResult<()> {
-        // TODO: Implement capability updates
+        // FUTURE: [Ecosystem-Integration] Implement capability updates in ecosystem registry
+        // Tracking: Planned for v0.2.0 - ecosystem integration work
+        // This should:
+        // 1. Update local capability list
+        // 2. Notify ecosystem_manager of capability changes
+        // 3. Update service mesh registration if needed
+        // Tracked in: ecosystem integration work
         Ok(())
     }
 }

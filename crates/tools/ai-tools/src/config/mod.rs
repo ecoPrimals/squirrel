@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration module for AI tools
 //!
 //! This module provides configuration management for AI service integrations.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Federation Module - Universal Cross-Platform Sovereignty
 //!
 //! This module implements the core federation capabilities for creating
@@ -336,13 +339,14 @@ pub struct ConsensusResult {
 }
 
 /// Consensus status
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum ConsensusStatus {
     /// Consensus reached
     Agreed,
     /// Consensus not reached
     Disagreed,
     /// Consensus in progress
+    #[default]
     InProgress,
     /// Consensus timed out
     TimedOut,
@@ -496,12 +500,6 @@ pub struct ExecutionResult {
 impl Default for NodeStatus {
     fn default() -> Self {
         Self::Unknown
-    }
-}
-
-impl Default for ConsensusStatus {
-    fn default() -> Self {
-        Self::InProgress
     }
 }
 

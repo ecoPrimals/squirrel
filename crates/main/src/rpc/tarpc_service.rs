@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! tarpc RPC Service Definition
 //!
 //! Modern, high-performance binary RPC using tarpc framework.
@@ -14,7 +17,9 @@
 //! Universal Transport → tarpc Protocol → Service Impl → AI Router → Response
 //! ```
 
-#![cfg(feature = "tarpc-rpc")]
+// Note: This module is feature-gated via #[cfg(feature = "tarpc-rpc")] in mod.rs
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -145,9 +150,28 @@ pub struct HealthCheckResult {
 /// This service defines the RPC interface for Squirrel using tarpc.
 /// It mirrors the JSON-RPC interface but provides type-safe,
 /// high-performance binary RPC.
+///
+/// ## Semantic Naming Convention (wateringHole standard)
+///
+/// These methods follow the semantic naming convention `{domain}_{operation}`:
+///
+/// | Method | Domain | Semantic Name |
+/// |--------|--------|---------------|
+/// | `query_ai` | ai | `ai.query` (JSON-RPC) |
+/// | `list_providers` | ai | `ai.list_providers` (JSON-RPC) |
+/// | `announce_capabilities` | capability | `capability.announce` (JSON-RPC) |
+/// | `health` | system | `system.health` (JSON-RPC) |
+/// | `ping` | system | `system.ping` (JSON-RPC) |
+/// | `discover_peers` | discovery | `discovery.peers` (JSON-RPC) |
+/// | `execute_tool` | tool | `tool.execute` (JSON-RPC) |
+///
+/// Note: tarpc uses Rust method names directly. For protocol-level semantic
+/// names, use the JSON-RPC interface which supports both legacy and semantic names.
 #[tarpc::service]
 pub trait SquirrelRpc {
     /// Query AI with a prompt
+    ///
+    /// Semantic: `ai.query` (JSON-RPC)
     ///
     /// # Arguments
     ///
@@ -160,12 +184,16 @@ pub trait SquirrelRpc {
 
     /// List available AI providers
     ///
+    /// Semantic: `ai.list_providers` (JSON-RPC)
+    ///
     /// # Returns
     ///
     /// List of providers with status and capabilities
     async fn list_providers() -> ListProvidersResult;
 
     /// Announce service capabilities
+    ///
+    /// Semantic: `capability.announce` (JSON-RPC)
     ///
     /// # Arguments
     ///
@@ -180,12 +208,16 @@ pub trait SquirrelRpc {
 
     /// Health check
     ///
+    /// Semantic: `system.health` (JSON-RPC)
+    ///
     /// # Returns
     ///
     /// Server health status and metrics
     async fn health() -> HealthCheckResult;
 
     /// Ping (connectivity test)
+    ///
+    /// Semantic: `system.ping` (JSON-RPC)
     ///
     /// # Returns
     ///
@@ -194,12 +226,16 @@ pub trait SquirrelRpc {
 
     /// Discover peers (other primals)
     ///
+    /// Semantic: `discovery.peers` (JSON-RPC)
+    ///
     /// # Returns
     ///
     /// List of discovered primal services
     async fn discover_peers() -> Vec<String>;
 
     /// Execute a tool
+    ///
+    /// Semantic: `tool.execute` (JSON-RPC)
     ///
     /// # Arguments
     ///

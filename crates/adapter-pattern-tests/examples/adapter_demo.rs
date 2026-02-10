@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Adapter Pattern Demonstration
 //!
 //! This example demonstrates the adapter pattern by showing three different adapters:

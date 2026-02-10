@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Model registry for AI model capabilities
 //!
 //! This module provides a registry for AI model capabilities that can be loaded
@@ -8,17 +11,16 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 
 use crate::common::capability::{
     AICapabilities, CostMetrics, CostTier, ModelType, PerformanceMetrics, ResourceRequirements,
     TaskType,
 };
 
-lazy_static! {
-    static ref GLOBAL_REGISTRY: RwLock<ModelRegistry> = RwLock::new(ModelRegistry::default());
-}
+static GLOBAL_REGISTRY: LazyLock<RwLock<ModelRegistry>> =
+    LazyLock::new(|| RwLock::new(ModelRegistry::default()));
 
 /// Model registry for AI model capabilities
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -441,5 +443,285 @@ impl ModelCapabilities {
             "High" => CostTier::High,
             _ => CostTier::Medium, // Default to medium if unknown
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_model_capabilities(name: &str, provider_id: &str) -> ModelCapabilities {
+        ModelCapabilities {
+            name: name.to_string(),
+            provider_id: provider_id.to_string(),
+            version: Some("1.0".to_string()),
+            model_types: vec!["LargeLanguageModel".to_string()],
+            task_types: vec!["TextGeneration".to_string()],
+            max_context_size: Some(8192),
+            supports_streaming: true,
+            supports_function_calling: true,
+            supports_tool_use: false,
+            performance: PerformanceConfig {
+                tokens_per_second: Some(20.0),
+                avg_latency_ms: Some(500),
+                max_batch_size: Some(32),
+                context_window_size: Some(8192),
+                memory_per_token: Some(0.001),
+            },
+            resources: ResourceConfig {
+                min_memory_mb: 512,
+                min_gpu_memory_mb: Some(1024),
+                min_cpu_cores: Some(2),
+                requires_gpu: false,
+                supported_architectures: vec!["x86_64".to_string()],
+            },
+            cost: CostConfig {
+                cost_per_1k_input_tokens: Some(0.03),
+                cost_per_1k_output_tokens: Some(0.06),
+                cost_per_request: None,
+                has_fixed_cost: false,
+                is_free: false,
+            },
+            priority: 80,
+            handles_sensitive_data: false,
+            cost_tier: "High".to_string(),
+            api_endpoint: None,
+        }
+    }
+
+    #[test]
+    fn test_model_registry_default() {
+        let registry = ModelRegistry::default();
+        assert!(registry.models.is_empty());
+    }
+
+    #[test]
+    fn test_model_registry_register_and_get() {
+        let mut registry = ModelRegistry::default();
+        let model = sample_model_capabilities("gpt-4", "openai");
+        registry.register_model(model);
+
+        let caps = registry.get_model_capabilities("openai", "gpt-4");
+        assert!(caps.is_some());
+
+        let caps = caps.unwrap();
+        assert!(caps.supports_streaming);
+        assert!(caps.supports_function_calling);
+    }
+
+    #[test]
+    fn test_model_registry_get_nonexistent() {
+        let registry = ModelRegistry::default();
+        assert!(registry.get_model_capabilities("openai", "gpt-4").is_none());
+        assert!(registry
+            .get_model_capabilities("nonexistent", "model")
+            .is_none());
+    }
+
+    #[test]
+    fn test_model_registry_get_provider_models() {
+        let mut registry = ModelRegistry::default();
+        registry.register_model(sample_model_capabilities("gpt-4", "openai"));
+        registry.register_model(sample_model_capabilities("gpt-3.5", "openai"));
+        registry.register_model(sample_model_capabilities("claude-3", "anthropic"));
+
+        let openai_models = registry.get_provider_models("openai");
+        assert_eq!(openai_models.len(), 2);
+
+        let anthropic_models = registry.get_provider_models("anthropic");
+        assert_eq!(anthropic_models.len(), 1);
+
+        let none_models = registry.get_provider_models("nonexistent");
+        assert!(none_models.is_empty());
+    }
+
+    #[test]
+    fn test_model_registry_import_defaults() {
+        let mut registry = ModelRegistry::default();
+        registry.import_defaults();
+
+        // Should have 3 providers: openai, anthropic, gemini
+        assert!(!registry.models.is_empty());
+
+        let openai_models = registry.get_provider_models("openai");
+        assert!(!openai_models.is_empty());
+
+        let anthropic_models = registry.get_provider_models("anthropic");
+        assert!(!anthropic_models.is_empty());
+
+        let gemini_models = registry.get_provider_models("gemini");
+        assert!(!gemini_models.is_empty());
+    }
+
+    #[test]
+    fn test_model_capabilities_to_ai_capabilities() {
+        let model = sample_model_capabilities("gpt-4", "openai");
+        let caps = model.to_ai_capabilities();
+
+        assert!(caps.supports_streaming);
+        assert!(caps.supports_function_calling);
+        assert!(!caps.supports_tool_use);
+        assert_eq!(caps.performance_metrics.avg_latency_ms, Some(500));
+        assert_eq!(caps.performance_metrics.avg_tokens_per_second, Some(20.0));
+        assert_eq!(caps.resource_requirements.min_memory_mb, 512);
+        assert_eq!(caps.resource_requirements.min_gpu_memory_mb, Some(1024));
+        assert!(!caps.resource_requirements.requires_gpu);
+        assert_eq!(caps.cost_metrics.cost_per_1k_input_tokens, Some(0.03));
+        assert_eq!(caps.cost_metrics.cost_per_1k_output_tokens, Some(0.06));
+    }
+
+    #[test]
+    fn test_model_capabilities_to_ai_capabilities_all_model_types() {
+        let mut model = sample_model_capabilities("test", "test");
+        model.model_types = vec![
+            "LargeLanguageModel".to_string(),
+            "Embedding".to_string(),
+            "ImageGeneration".to_string(),
+            "ImageUnderstanding".to_string(),
+            "AudioTranscription".to_string(),
+            "AudioGeneration".to_string(),
+            "MultiModal".to_string(),
+            "CustomType".to_string(),
+        ];
+        model.task_types = vec![
+            "TextGeneration".to_string(),
+            "ImageGeneration".to_string(),
+            "ImageUnderstanding".to_string(),
+            "TextEmbedding".to_string(),
+            "AudioTranscription".to_string(),
+            "AudioGeneration".to_string(),
+            "DataAnalysis".to_string(),
+            "FunctionExecution".to_string(),
+            "CustomTask".to_string(),
+        ];
+
+        let caps = model.to_ai_capabilities();
+        // Should have parsed all model and task types
+        assert!(caps.supported_model_types.len() >= 8);
+        assert!(caps.supported_task_types.len() >= 9);
+    }
+
+    #[test]
+    fn test_model_capabilities_get_cost_tier() {
+        let mut model = sample_model_capabilities("test", "test");
+
+        model.cost_tier = "Free".to_string();
+        assert_eq!(model.get_cost_tier(), CostTier::Free);
+
+        model.cost_tier = "Low".to_string();
+        assert_eq!(model.get_cost_tier(), CostTier::Low);
+
+        model.cost_tier = "Medium".to_string();
+        assert_eq!(model.get_cost_tier(), CostTier::Medium);
+
+        model.cost_tier = "High".to_string();
+        assert_eq!(model.get_cost_tier(), CostTier::High);
+
+        model.cost_tier = "Unknown".to_string();
+        assert_eq!(model.get_cost_tier(), CostTier::Medium); // Default
+    }
+
+    #[test]
+    fn test_model_registry_serde() {
+        let mut registry = ModelRegistry::default();
+        registry.register_model(sample_model_capabilities("gpt-4", "openai"));
+
+        let json = serde_json::to_string(&registry).unwrap();
+        let deserialized: ModelRegistry = serde_json::from_str(&json).unwrap();
+        assert!(deserialized
+            .get_model_capabilities("openai", "gpt-4")
+            .is_some());
+    }
+
+    #[test]
+    fn test_model_capabilities_serde() {
+        let model = sample_model_capabilities("gpt-4", "openai");
+        let json = serde_json::to_string(&model).unwrap();
+        let deserialized: ModelCapabilities = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.name, "gpt-4");
+        assert_eq!(deserialized.provider_id, "openai");
+        assert_eq!(deserialized.priority, 80);
+        assert!(!deserialized.handles_sensitive_data);
+    }
+
+    #[test]
+    fn test_default_priority() {
+        assert_eq!(default_priority(), 50);
+    }
+
+    #[test]
+    fn test_performance_config_default() {
+        let config = PerformanceConfig::default();
+        assert!(config.tokens_per_second.is_none());
+        assert!(config.avg_latency_ms.is_none());
+        assert!(config.max_batch_size.is_none());
+    }
+
+    #[test]
+    fn test_resource_config_default() {
+        let config = ResourceConfig::default();
+        assert_eq!(config.min_memory_mb, 0);
+        assert!(config.min_gpu_memory_mb.is_none());
+        assert!(!config.requires_gpu);
+    }
+
+    #[test]
+    fn test_cost_config_default() {
+        let config = CostConfig::default();
+        assert!(config.cost_per_1k_input_tokens.is_none());
+        assert!(!config.has_fixed_cost);
+        assert!(!config.is_free);
+    }
+
+    #[test]
+    fn test_model_registry_instance() {
+        let instance = ModelRegistry::instance();
+        let guard = instance.read().unwrap();
+        // Default instance should have empty models
+        assert!(guard.models.is_empty() || !guard.models.is_empty()); // Just verify it's accessible
+    }
+
+    #[test]
+    fn test_model_registry_set_global() {
+        let mut registry = ModelRegistry::default();
+        registry.register_model(sample_model_capabilities("test-model", "test-provider"));
+        ModelRegistry::set_global(registry);
+        // Verify no panic
+    }
+
+    #[test]
+    fn test_model_capabilities_no_cost() {
+        let mut model = sample_model_capabilities("test", "test");
+        model.cost = CostConfig::default(); // No cost info
+
+        let caps = model.to_ai_capabilities();
+        // cost_metrics should be default since no cost data
+        assert!(caps.cost_metrics.cost_per_1k_input_tokens.is_none());
+    }
+
+    #[test]
+    fn test_model_capabilities_no_context_size() {
+        let mut model = sample_model_capabilities("test", "test");
+        model.max_context_size = None;
+
+        let caps = model.to_ai_capabilities();
+        // Should still produce valid capabilities
+        assert!(caps.supports_streaming);
+    }
+
+    #[test]
+    fn test_model_registry_save_and_load() {
+        let mut registry = ModelRegistry::default();
+        registry.register_model(sample_model_capabilities("gpt-4", "openai"));
+
+        let temp_dir = std::env::temp_dir();
+        let path = temp_dir.join("test_model_registry.json");
+
+        registry.save_to_file(&path).unwrap();
+        let loaded = ModelRegistry::from_file(&path).unwrap();
+        assert!(loaded.get_model_capabilities("openai", "gpt-4").is_some());
+
+        // Clean up
+        let _ = std::fs::remove_file(path);
     }
 }

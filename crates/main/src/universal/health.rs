@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Health and dependency tracking for primals
 //!
 //! This module defines types for monitoring primal health and managing

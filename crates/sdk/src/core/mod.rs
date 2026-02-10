@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Core Plugin Framework
 //!
 //! This module contains the core plugin framework components including

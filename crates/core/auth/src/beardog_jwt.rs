@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! JWT Implementation Using Capability-Based Crypto (Pure Rust!)
 //!
 //! This module provides JWT token creation and verification by delegating
@@ -15,7 +18,7 @@
 //! - Claims: Same as before (sub, exp, iat, etc.)
 //! - Signature: Ed25519 (64 bytes, base64url-encoded)
 
-use crate::capability_crypto::{CapabilityCryptoProvider, CapabilityCryptoConfig};
+use crate::capability_crypto::{CapabilityCryptoConfig, CapabilityCryptoProvider};
 use crate::{AuthContext, AuthError};
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as BASE64_URL, Engine};
@@ -228,7 +231,7 @@ impl BearDogJwtService {
         // 4. Sign via discovered crypto provider (Pure Rust!)
         let signature = self
             .crypto
-            .clone()  // Clone for async mutable access
+            .clone() // Clone for async mutable access
             .sign_ed25519(signing_input.as_bytes())
             .await
             .context("Failed to sign JWT via capability crypto")
@@ -290,7 +293,7 @@ impl BearDogJwtService {
         let signing_input = format!("{}.{}", header_b64, claims_b64);
         let is_valid = self
             .crypto
-            .clone()  // Clone for async mutable access
+            .clone() // Clone for async mutable access
             .verify_ed25519_with_key_id(signing_input.as_bytes(), &signature, &self.key_id)
             .await
             .context("Failed to verify JWT signature via capability crypto")

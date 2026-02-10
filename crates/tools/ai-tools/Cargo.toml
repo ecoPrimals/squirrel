@@ -42,19 +42,16 @@ anthropic-sdk = { version = "0.1", optional = true }
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
 
-# Neural API Client - Pure Rust HTTP routing (TRUE PRIMAL!)
-# Replace reqwest/openai/anthropic-sdk in production
-# Neural API client for capability routing (relative path for portability)
-# Path: ai-tools -> tools -> crates -> squirrel -> phase1 -> ecoPrimals -> phase2/biomeOS/crates/neural-api-client
-neural-api-client = { path = "../../../../../phase2/biomeOS/crates/neural-api-client" }
+# IPC client from universal patterns (primal autonomy - no shared external IPC crates!)
+universal-patterns = { path = "../../universal-patterns" }
 
 # Universal error system
 universal-error = { path = "../../universal-error" }
 
-# Web framework for API
-axum = { version = "0.7", features = ["json"] }
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+# Web framework for API (OPTIONAL - for HTTP API routes only)
+axum = { version = "0.7", features = ["json"], optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["cors", "trace"], optional = true }
 
 # Configuration
 config = "0.13"
@@ -70,8 +67,7 @@ secrecy = "0.8"
 dirs = "5.0"
 tempfile = "3.0"
 
-# Lazy static
-lazy_static = "1.4"
+# lazy_static removed - evolved to std::sync::LazyLock (stable Rust 1.80+)
 
 # CLI
 clap = { version = "4.0", features = ["derive"] }

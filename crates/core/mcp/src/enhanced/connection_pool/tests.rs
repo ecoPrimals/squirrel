@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for Connection Pool functionality
 //!
 //! Tests cover connection pool management, request routing, load balancing,

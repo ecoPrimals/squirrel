@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Protocol-related types for MCP
 
 use chrono; // Needed for MCPMessage

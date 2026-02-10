@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Integration Tests for Observability Framework
 //!
 //! These tests verify the integration between different components of

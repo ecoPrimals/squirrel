@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Frame module for message encoding and transmission
 //!
 //! This module provides functionality for framing MCP messages before transmission

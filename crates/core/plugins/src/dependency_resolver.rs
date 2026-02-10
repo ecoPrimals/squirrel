@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin dependency resolution system
 //!
 //! This module provides comprehensive dependency resolution capabilities for the plugin system,

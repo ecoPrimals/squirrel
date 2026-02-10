@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tool Manager Core Implementation
 //!
 //! This module contains the core ToolManager struct and its initialization methods.

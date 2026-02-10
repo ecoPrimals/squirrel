@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+//! Squirrel CLI — command-line interface for the Squirrel AI primal.
+
 use log::{debug, info, warn, LevelFilter};
 use serde_json::json;
 use squirrel_cli::commands::registry::CommandRegistry;
@@ -255,18 +260,10 @@ async fn main() {
                         .find(|arg| !arg.starts_with("-"))
                         .map(|s| s.as_str());
 
-                    if let Some(subcmd) = subcommand {
-                        match subcmd {
-                            "status" => {
-                                println!("Help for status command:");
-                                println!("Usage: squirrel status [--verbose]");
-                                println!("\nDisplays information about the current state of Squirrel CLI.");
-                            }
-                            _ => {
-                                println!("Available commands:");
-                                println!("{}", app.render_help());
-                            }
-                        }
+                    if let Some("status") = subcommand {
+                        println!("Help for status command:");
+                        println!("Usage: squirrel status [--verbose]");
+                        println!("\nDisplays information about the current state of Squirrel CLI.");
                     } else {
                         println!("Available commands:");
                         println!("{}", app.render_help());

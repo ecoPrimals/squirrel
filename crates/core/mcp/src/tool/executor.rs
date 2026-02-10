@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tool execution implementations for MCP
 //!
 //! This module provides concrete executor implementations for the tool management system.

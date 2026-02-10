@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive monitoring system for MCP
 //!
 //! This module provides a complete monitoring solution for the Machine Context Protocol,
@@ -24,7 +27,7 @@
 //! * Web dashboard for visualization and management
 //! * Circuit breaker monitoring and reporting
 //! * Integration with external monitoring services
-//! * Mock clients for testing and development
+//! * In-memory and production clients for monitoring backends
 //!
 //! ## Usage
 //!
@@ -60,7 +63,7 @@ pub use health::{HealthStatus, HealthMonitor, SyncHealth, PersistenceHealth, Res
 pub use metrics::{Metrics, MetricsCollector};
 pub use alerts::{AlertManager, AlertLevel, AlertSummary};
 pub use dashboard::DashboardServer;
-pub use clients::{MonitoringClient, MonitoringEvent, MetricValue, MockMonitoringClient, ProductionMonitoringClient, MonitoringClientConfig};
+pub use clients::{MonitoringClient, MonitoringEvent, MetricValue, InMemoryMonitoringClient, ProductionMonitoringClient, MonitoringClientConfig};
 pub use system::{MonitoringSystem, MonitoringStatus, MonitoringSystemSummary, MonitoringError};
 pub use songbird_client::{SongbirdMonitoringClient, SongbirdClientConfig, create_songbird_client, create_songbird_client_with_config};
 
@@ -79,7 +82,7 @@ use std::sync::Arc;
 
 /// Create a production monitoring client
 /// 
-/// This function replaces MockMonitoringClient usage with a real Songbird integration.
+/// This function replaces InMemoryMonitoringClient usage with a real Songbird integration.
 /// In production, this connects to Songbird for observability.
 /// In development/testing, it provides safe fallback behavior.
 pub fn create_production_monitoring_client() -> Arc<dyn MonitoringClient> {

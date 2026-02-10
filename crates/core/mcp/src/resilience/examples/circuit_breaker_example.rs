@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Example of using the circuit breaker pattern
 //!
 //! This example demonstrates how to use the circuit breaker pattern

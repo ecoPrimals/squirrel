@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Messages for AI chat interfaces
 //!
 //! This module defines the common message types used across different AI providers.
@@ -113,5 +116,91 @@ impl ChatMessage {
     pub fn with_tool_calls(mut self, tool_calls: Vec<ToolCall>) -> Self {
         self.tool_calls = Some(tool_calls);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_message_role_display() {
+        assert_eq!(MessageRole::System.to_string(), "system");
+        assert_eq!(MessageRole::User.to_string(), "user");
+        assert_eq!(MessageRole::Assistant.to_string(), "assistant");
+        assert_eq!(MessageRole::Tool.to_string(), "tool");
+        assert_eq!(MessageRole::Function.to_string(), "function");
+    }
+
+    #[test]
+    fn test_message_role_serde() {
+        for role in [
+            MessageRole::System,
+            MessageRole::User,
+            MessageRole::Assistant,
+            MessageRole::Tool,
+            MessageRole::Function,
+        ] {
+            let json = serde_json::to_string(&role).expect("serialize");
+            let deser: MessageRole = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(deser, role);
+        }
+    }
+
+    #[test]
+    fn test_chat_message_system() {
+        let msg = ChatMessage::system("You are a helpful assistant");
+        assert_eq!(msg.role, MessageRole::System);
+        assert_eq!(msg.content.as_deref(), Some("You are a helpful assistant"));
+        assert!(msg.name.is_none());
+        assert!(msg.tool_calls.is_none());
+        assert!(msg.tool_call_id.is_none());
+    }
+
+    #[test]
+    fn test_chat_message_user() {
+        let msg = ChatMessage::user("Hello");
+        assert_eq!(msg.role, MessageRole::User);
+        assert_eq!(msg.content.as_deref(), Some("Hello"));
+    }
+
+    #[test]
+    fn test_chat_message_assistant() {
+        let msg = ChatMessage::assistant("Hi there!");
+        assert_eq!(msg.role, MessageRole::Assistant);
+        assert_eq!(msg.content.as_deref(), Some("Hi there!"));
+    }
+
+    #[test]
+    fn test_chat_message_tool() {
+        let msg = ChatMessage::tool("result data", "call-123");
+        assert_eq!(msg.role, MessageRole::Tool);
+        assert_eq!(msg.content.as_deref(), Some("result data"));
+        assert_eq!(msg.tool_call_id.as_deref(), Some("call-123"));
+    }
+
+    #[test]
+    fn test_chat_message_with_name() {
+        let msg = ChatMessage::user("Hello").with_name("alice");
+        assert_eq!(msg.name.as_deref(), Some("alice"));
+    }
+
+    #[test]
+    fn test_chat_message_serde() {
+        let msg = ChatMessage::user("Hello");
+        let json = serde_json::to_string(&msg).expect("serialize");
+        let deser: ChatMessage = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser.role, MessageRole::User);
+        assert_eq!(deser.content.as_deref(), Some("Hello"));
+    }
+
+    #[test]
+    fn test_chat_message_serde_skip_none() {
+        let msg = ChatMessage::user("Hello");
+        let json = serde_json::to_string(&msg).expect("serialize");
+        // None fields should be skipped
+        assert!(!json.contains("name"));
+        assert!(!json.contains("tool_calls"));
+        assert!(!json.contains("tool_call_id"));
     }
 }

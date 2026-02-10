@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Ecosystem Integration Module
 //!
 //! This module provides pure service discovery and communication for the ecoPrimals ecosystem.
@@ -26,10 +29,11 @@
 //! ```
 //!
 //! **New Pattern (Capability-Based)**:
-//! ```ignore
-//! use CapabilityRegistry;
+//! ```text
 //! let registry = CapabilityRegistry::new(Default::default());
-//! let coordinator = registry.discover_by_capability(&PrimalCapability::ServiceMeshPrimalCapability::ServiceDiscovery  // ServiceMesh variant removed).await?;
+//! let coordinator = registry.discover_by_capability(
+//!     &PrimalCapability::ServiceDiscovery
+//! ).await?;
 //! ```
 
 use chrono::Utc;
@@ -50,6 +54,13 @@ use crate::universal_primal_ecosystem::{
 pub mod config;
 pub mod status;
 pub mod types;
+
+#[cfg(test)]
+mod ecosystem_manager_test;
+#[cfg(test)]
+mod manager_tests;
+#[cfg(test)]
+mod mod_tests;
 
 // Re-export all public items
 pub use config::EcosystemConfig;
@@ -123,15 +134,16 @@ pub struct EcosystemServiceRegistration {
 ///
 /// ## Migration Path
 ///
-/// ```ignore
+/// ```text
 /// // OLD (hardcoded):
 /// let primal_type = EcosystemPrimalType::Songbird;
 /// let endpoint = primal_type.default_endpoint();
 ///
 /// // NEW (capability-based):
-/// use crate::capability_registry::{CapabilityRegistry, PrimalCapability};
 /// let registry = CapabilityRegistry::new(Default::default());
-/// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMeshPrimalCapability::ServiceDiscovery  // ServiceMesh variant removed).await?;
+/// let primals = registry.discover_by_capability(
+///     &PrimalCapability::ServiceDiscovery
+/// ).await?;
 /// let endpoint = &primals[0].endpoint;
 /// ```
 #[deprecated(
@@ -200,29 +212,33 @@ impl EcosystemPrimalType {
     /// **DEPRECATED**: Use capability-based discovery instead.
     ///
     /// # Migration Example
-    /// ```ignore
+    /// ```text
     /// // OLD:
     /// let primal = EcosystemPrimalType::Songbird;
-    /// let service_name = primal.service_name(); // "songbird"
-    /// let url = format!("http://consul:8500/{}", service_name);
+    /// let service_name = primal.service_name();
     ///
     /// // NEW:
-    /// use crate::capability_registry::{CapabilityRegistry, PrimalCapability};
     /// let registry = CapabilityRegistry::new(Default::default());
-    /// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMeshPrimalCapability::ServiceDiscovery  // ServiceMesh variant removed).await?;
-    /// let endpoint = &primals[0].endpoint; // Discovered endpoint
+    /// let primals = registry.discover_by_capability(
+    ///     &PrimalCapability::ServiceDiscovery
+    /// ).await?;
+    /// let endpoint = &primals[0].endpoint;
     /// ```
     #[must_use]
     #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
     pub fn service_name(&self) -> &'static str {
         self.as_str()
     }
+}
+
+#[allow(deprecated)]
+impl std::str::FromStr for EcosystemPrimalType {
+    type Err = String;
 
     /// Parse from string
     ///
     /// **DEPRECATED**: Use capability-based discovery instead.
-    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
-    pub fn from_str(s: &str) -> Result<Self, String> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "toadstool" => Ok(EcosystemPrimalType::ToadStool),
             "songbird" => Ok(EcosystemPrimalType::Songbird),
@@ -553,7 +569,7 @@ impl EcosystemManager {
     pub async fn start_coordination_by_capabilities(
         &self,
         required_capabilities: Vec<&str>,
-        context: HashMap<String, String>,
+        _context: HashMap<String, String>,
     ) -> Result<String, PrimalError> {
         let session_id = format!("coord_{}", Uuid::new_v4());
         tracing::info!(
@@ -629,40 +645,87 @@ impl EcosystemManager {
         session_id: &str,
         success: bool,
     ) -> Result<(), PrimalError> {
-        // TODO: Implement via capability discovery (Unix sockets)
+        // Log coordination completion with context
         tracing::info!(
-            "complete_coordination called for session {} (success: {})",
+            "Coordination session {} completed (success: {})",
             session_id,
             success
         );
         Ok(())
     }
 
-    /// Get ecosystem status
+    /// Get ecosystem status via runtime capability discovery
+    ///
+    /// Probes the socket directory to discover running primals and their
+    /// capabilities, then builds a status report from actual runtime state.
     pub async fn get_ecosystem_status(&self) -> EcosystemIntegrationStatus {
-        // ✅ Use CapabilityResolver for runtime service discovery
-        let overall_health = 1.0; // Healthy by default
+        // Discover actual peers via capability scanning
+        let (discovered_services, peer_count) =
+            match crate::capabilities::discovery::discover_all_capabilities().await {
+                Ok(capabilities_map) => {
+                    let mut services = Vec::new();
+                    let mut seen = std::collections::HashSet::new();
+
+                    for providers in capabilities_map.values() {
+                        for provider in providers {
+                            let socket_str = provider.socket.display().to_string();
+                            if seen.insert(socket_str.clone()) {
+                                let caps: Vec<&str> =
+                                    provider.capabilities.iter().map(|s| s.as_str()).collect();
+                                let metadata = provider
+                                    .metadata
+                                    .iter()
+                                    .map(|(k, v)| (k.as_str(), v.as_str()))
+                                    .collect();
+
+                                #[allow(deprecated)]
+                                services.push(
+                                    crate::ecosystem::registry::types::DiscoveredService::new(
+                                        &provider.id,
+                                        EcosystemPrimalType::BiomeOS, // Generic type for discovered primals
+                                        &format!("unix://{}", socket_str),
+                                        &format!("unix://{}", socket_str),
+                                        "1.0",
+                                        caps,
+                                        metadata,
+                                    ),
+                                );
+                            }
+                        }
+                    }
+
+                    let count = seen.len();
+                    (services, count)
+                }
+                Err(_) => (Vec::new(), 0),
+            };
+
+        let overall_health = if peer_count > 0 { 1.0 } else { 0.5 };
 
         EcosystemIntegrationStatus {
-            status: "active".to_string(),
+            status: if peer_count > 0 {
+                "active".to_string()
+            } else {
+                "degraded".to_string()
+            },
             timestamp: Utc::now(),
-            discovered_services: Vec::new(), // ✅ Available via CapabilityResolver
-            active_integrations: Vec::new(), // ✅ Available via CapabilityRegistry
+            discovered_services,
+            active_integrations: Vec::new(),
             service_mesh_status: ServiceMeshStatus {
                 enabled: true,
-                registered: false, // ✅ Check via CapabilityRegistry
+                registered: peer_count > 0,
                 load_balancing: LoadBalancingStatus {
                     enabled: true,
                     healthy: overall_health > 0.7,
-                    active_connections: 0,
+                    active_connections: peer_count as u32,
                     algorithm: "round_robin".to_string(),
                     health_score: overall_health,
                     last_check: chrono::Utc::now(),
                 },
                 cross_primal_communication: CrossPrimalStatus {
                     enabled: true,
-                    active_connections: 0,
-                    supported_protocols: vec!["unix_socket".to_string()],
+                    active_connections: peer_count as u32,
+                    supported_protocols: vec!["unix_socket".to_string(), "jsonrpc_2.0".to_string()],
                 },
             },
             overall_health,
@@ -778,7 +841,7 @@ impl EcosystemManager {
         &self,
         key: &str,
         data: &[u8],
-        metadata: HashMap<String, String>,
+        _metadata: HashMap<String, String>,
     ) -> Result<String, PrimalError> {
         tracing::info!("Storing data using universal storage patterns: {}", key);
         self.universal_ecosystem.store_data(key, data).await?;
@@ -818,7 +881,7 @@ impl EcosystemManager {
         tracing::info!("🐻 Authenticating via BearDog coordination");
 
         // Simple authentication delegation to BearDog
-        let user_id = credentials
+        let _user_id = credentials
             .get("user_id")
             .or_else(|| credentials.get("username"))
             .cloned()

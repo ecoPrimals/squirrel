@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! HTTP Connection Pool for AI Provider Clients
 //!
 //! This module provides an efficient connection pool manager for HTTP clients

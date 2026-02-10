@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use crate::plugins::error::PluginError;
 use std::path::{Path, PathBuf};
 
@@ -40,5 +43,68 @@ impl DefaultPluginDiscovery {
             return extension == "dylib";
         }
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_discover_nonexistent_dir() {
+        let discovery = DefaultPluginDiscovery;
+        let result = discovery.discover(Path::new("/nonexistent/path"));
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_discover_empty_dir() {
+        let dir = TempDir::new().expect("create temp dir");
+        let discovery = DefaultPluginDiscovery;
+        let result = discovery.discover(dir.path());
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_discover_dir_with_non_plugin_files() {
+        let dir = TempDir::new().expect("create temp dir");
+        std::fs::write(dir.path().join("readme.txt"), "hello").expect("write");
+        std::fs::write(dir.path().join("config.toml"), "key = 1").expect("write");
+
+        let discovery = DefaultPluginDiscovery;
+        let result = discovery.discover(dir.path());
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_discover_dir_with_so_files() {
+        let dir = TempDir::new().expect("create temp dir");
+        std::fs::write(dir.path().join("plugin.so"), b"ELF").expect("write");
+
+        let discovery = DefaultPluginDiscovery;
+        let result = discovery.discover(dir.path());
+        assert!(result.is_ok());
+        let paths = result.unwrap();
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].to_string_lossy().contains("plugin.so"));
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_is_plugin_library_linux() {
+        assert!(DefaultPluginDiscovery::is_plugin_library(Path::new(
+            "lib.so"
+        )));
+        assert!(!DefaultPluginDiscovery::is_plugin_library(Path::new(
+            "lib.txt"
+        )));
+        assert!(!DefaultPluginDiscovery::is_plugin_library(Path::new(
+            "noext"
+        )));
     }
 }

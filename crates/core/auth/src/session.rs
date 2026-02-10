@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Session management for Squirrel authentication system
 //!
 //! Provides in-memory session storage with cleanup and validation.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Basic Lifecycle Hook Implementation
 //!
 //! This module provides a basic implementation of the ToolLifecycleHook trait

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Default configuration values for ecosystem API
 //!
 //! This module provides environment-driven defaults to eliminate hardcoded values.
@@ -147,5 +150,180 @@ impl DefaultEndpoints {
     #[must_use]
     pub fn service_mesh_endpoint(base_url: &str) -> String {
         format!("{}/mesh", base_url.trim_end_matches('/'))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ========== URL Building Tests ==========
+
+    #[test]
+    fn test_health_endpoint() {
+        assert_eq!(
+            DefaultEndpoints::health_endpoint("http://localhost:8080"),
+            "http://localhost:8080/health"
+        );
+    }
+
+    #[test]
+    fn test_health_endpoint_trailing_slash() {
+        assert_eq!(
+            DefaultEndpoints::health_endpoint("http://localhost:8080/"),
+            "http://localhost:8080/health"
+        );
+    }
+
+    #[test]
+    fn test_metrics_endpoint() {
+        assert_eq!(
+            DefaultEndpoints::metrics_endpoint("http://localhost:8080"),
+            "http://localhost:8080/metrics"
+        );
+    }
+
+    #[test]
+    fn test_admin_endpoint() {
+        assert_eq!(
+            DefaultEndpoints::admin_endpoint("http://localhost:8080"),
+            "http://localhost:8080/admin"
+        );
+    }
+
+    #[test]
+    fn test_websocket_endpoint_http() {
+        assert_eq!(
+            DefaultEndpoints::websocket_endpoint("http://localhost:8080"),
+            "ws://localhost:8080/ws"
+        );
+    }
+
+    #[test]
+    fn test_websocket_endpoint_https() {
+        assert_eq!(
+            DefaultEndpoints::websocket_endpoint("https://example.com"),
+            "wss://example.com/ws"
+        );
+    }
+
+    #[test]
+    fn test_websocket_endpoint_trailing_slash() {
+        assert_eq!(
+            DefaultEndpoints::websocket_endpoint("http://localhost:8080/"),
+            "ws://localhost:8080/ws"
+        );
+    }
+
+    #[test]
+    fn test_mcp_endpoint() {
+        assert_eq!(
+            DefaultEndpoints::mcp_endpoint("http://localhost:8080"),
+            "http://localhost:8080/mcp"
+        );
+    }
+
+    #[test]
+    fn test_ai_coordination_endpoint() {
+        assert_eq!(
+            DefaultEndpoints::ai_coordination_endpoint("http://localhost:8080"),
+            "http://localhost:8080/ai"
+        );
+    }
+
+    #[test]
+    fn test_service_mesh_endpoint() {
+        assert_eq!(
+            DefaultEndpoints::service_mesh_endpoint("http://localhost:8080"),
+            "http://localhost:8080/mesh"
+        );
+    }
+
+    // ========== Environment Override Tests ==========
+    // These tests modify environment variables and must run sequentially
+    // to avoid race conditions. Combined into a single test function.
+
+    fn clear_all_endpoint_env_vars() {
+        for var in &[
+            "DEV_BIND_ADDRESS",
+            "SERVICE_MESH_ENDPOINT",
+            "SONGBIRD_ENDPOINT",
+            "SONGBIRD_PORT",
+            "TOADSTOOL_ENDPOINT",
+            "TOADSTOOL_PORT",
+            "NESTGATE_ENDPOINT",
+            "NESTGATE_PORT",
+            "SECURITY_SERVICE_ENDPOINT",
+            "SECURITY_AUTH_SERVICE_ENDPOINT",
+            "SECURITY_AUTHENTICATION_PORT",
+            "DISCOVERY_ENDPOINT",
+            "REGISTRATION_ENDPOINT",
+        ] {
+            env::remove_var(var);
+        }
+    }
+
+    #[test]
+    fn test_endpoint_env_overrides() {
+        // Run all env-dependent tests sequentially in one test function
+        // to prevent parallel env var races.
+        clear_all_endpoint_env_vars();
+
+        // --- dev_bind_address ---
+        assert_eq!(DefaultEndpoints::dev_bind_address(), "127.0.0.1");
+
+        env::set_var("DEV_BIND_ADDRESS", "0.0.0.0");
+        assert_eq!(DefaultEndpoints::dev_bind_address(), "0.0.0.0");
+        env::remove_var("DEV_BIND_ADDRESS");
+
+        // --- songbird_endpoint ---
+        assert_eq!(
+            DefaultEndpoints::songbird_endpoint(),
+            "http://localhost:8500"
+        );
+
+        env::set_var("SERVICE_MESH_ENDPOINT", "http://mesh:9000");
+        assert_eq!(DefaultEndpoints::songbird_endpoint(), "http://mesh:9000");
+        env::remove_var("SERVICE_MESH_ENDPOINT");
+
+        env::set_var("SONGBIRD_PORT", "9999");
+        assert_eq!(
+            DefaultEndpoints::songbird_endpoint(),
+            "http://localhost:9999"
+        );
+        env::remove_var("SONGBIRD_PORT");
+
+        // --- toadstool_endpoint ---
+        assert_eq!(
+            DefaultEndpoints::toadstool_endpoint(),
+            "http://localhost:8081"
+        );
+
+        // --- nestgate_endpoint ---
+        assert_eq!(
+            DefaultEndpoints::nestgate_endpoint(),
+            "http://localhost:8082"
+        );
+
+        // --- security_service_endpoint ---
+        assert_eq!(
+            DefaultEndpoints::security_service_endpoint(),
+            "http://localhost:8443"
+        );
+
+        // --- discovery_endpoint ---
+        assert_eq!(
+            DefaultEndpoints::discovery_endpoint(),
+            "http://localhost:8500/api/v1/discovery"
+        );
+
+        // --- registration_endpoint ---
+        assert_eq!(
+            DefaultEndpoints::registration_endpoint(),
+            "http://localhost:8500/api/v1/register"
+        );
+
+        // Clean up
+        clear_all_endpoint_env_vars();
     }
 }

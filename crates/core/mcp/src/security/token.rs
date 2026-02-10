@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Token management for MCP security
 //!
 //! This module provides token management functionality for the MCP system.

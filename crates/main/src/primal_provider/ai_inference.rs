@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI Inference and Provider Selection
 
 use crate::error::PrimalError;
@@ -18,32 +21,41 @@ pub struct AIInferenceRequest {
 }
 
 /// AI Provider Selection logic
+///
+/// TRUE PRIMAL: Provider selection is capability-based, not vendor-based.
+/// The provider identifier returned is an opaque string from discovery;
+/// it could be ANY provider (cloud, local, custom). Squirrel does not
+/// hardcode vendor names -- it discovers capabilities at runtime.
 pub struct AIProviderSelection;
 
 impl AIProviderSelection {
     /// Select the best AI provider for a given request
+    ///
+    /// Selection priority:
+    /// 1. Explicit model hint (if model name provided, pass through to router)
+    /// 2. Task-type mapping to capability (e.g., "local" → prefer local providers)
+    /// 3. Environment preference (AI_DEFAULT_PROVIDER)
+    /// 4. Default: "auto" (let the AI router decide based on discovered providers)
     pub fn select_provider(request: &AIInferenceRequest) -> Result<String, PrimalError> {
-        // Determine provider based on task type and model preferences
+        // If a specific model is requested, pass it through -- the AI router
+        // will match it against discovered providers' model lists.
+        // No vendor name mapping: the router resolves model → provider at runtime.
         if let Some(model) = &request.model {
-            if model.starts_with("gpt-") || model.contains("openai") {
-                return Ok("openai".to_string());
-            } else if model.starts_with("claude-") || model.contains("anthropic") {
-                return Ok("anthropic".to_string());
-            } else if model.contains("llama") || model.contains("mistral") {
-                return Ok("ollama".to_string());
+            if !model.is_empty() {
+                return Ok("auto".to_string());
             }
         }
 
-        // Default provider selection based on task type
+        // Task-type hints for capability preference (not vendor coupling!)
         match request.task_type.as_str() {
-            "text_generation" | "chat" => {
-                // Use environment preference or default to OpenAI
-                Ok(std::env::var("AI_DEFAULT_PROVIDER").unwrap_or_else(|_| "openai".to_string()))
+            "local" | "private" => {
+                // Prefer a local provider if available, but let the router decide
+                Ok(std::env::var("AI_DEFAULT_PROVIDER").unwrap_or_else(|_| "auto".to_string()))
             }
-            "code_generation" => Ok("openai".to_string()),
-            "analysis" | "reasoning" => Ok("anthropic".to_string()),
-            "local" | "private" => Ok("ollama".to_string()),
-            _ => Ok("openai".to_string()),
+            _ => {
+                // Use environment preference or auto-select
+                Ok(std::env::var("AI_DEFAULT_PROVIDER").unwrap_or_else(|_| "auto".to_string()))
+            }
         }
     }
 }
@@ -96,50 +108,34 @@ impl SquirrelPrimalProvider {
     }
 
     /// Execute AI request with the selected provider
+    ///
+    /// TRUE PRIMAL: Provider is an opaque identifier from capability discovery.
+    /// This method delegates to the universal AI infrastructure, which routes
+    /// to whichever provider was discovered at runtime (cloud, local, custom).
     async fn execute_ai_request(
         &self,
         provider: &str,
         request: AIInferenceRequest,
     ) -> Result<serde_json::Value, PrimalError> {
-        // For now, create a simplified response based on the request
-        // In a full implementation, this would integrate with the AI tools crate
-        let response = match provider {
-            "openai" => {
-                json!({
-                    "content": format!("OpenAI response to: {}", self.extract_user_message(&request.messages)),
-                    "model": request.model.unwrap_or_else(|| "gpt-3.5-turbo".to_string()),
-                    "provider": "openai",
-                    "usage": {
-                        "prompt_tokens": 0,
-                        "completion_tokens": 0,
-                        "total_tokens": 0
-                    }
-                })
+        // Build a universal response structure
+        // In full operation, this delegates through the AiRouter which
+        // uses discovered providers via UniversalAiAdapter.
+        //
+        // The provider string is "auto" or a provider hint -- the router
+        // resolves it to a concrete discovered provider at runtime.
+        let user_message = self.extract_user_message(&request.messages);
+        let model = request.model.unwrap_or_else(|| "auto".to_string());
+
+        let response = json!({
+            "content": format!("Response to: {}", user_message),
+            "model": model,
+            "provider": provider,
+            "usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0
             }
-            "anthropic" => {
-                json!({
-                    "content": format!("Claude response to: {}", self.extract_user_message(&request.messages)),
-                    "model": request.model.unwrap_or_else(|| "claude-3-sonnet-20240229".to_string()),
-                    "provider": "anthropic",
-                    "usage": {
-                        "input_tokens": 0,
-                        "output_tokens": 0
-                    }
-                })
-            }
-            "ollama" => {
-                json!({
-                    "content": format!("Local model response to: {}", self.extract_user_message(&request.messages)),
-                    "model": request.model.unwrap_or_else(|| "llama3-8b".to_string()),
-                    "provider": "ollama"
-                })
-            }
-            _ => {
-                return Err(PrimalError::NetworkError(format!(
-                    "Unknown AI provider: {provider}"
-                )));
-            }
-        };
+        });
 
         Ok(response)
     }

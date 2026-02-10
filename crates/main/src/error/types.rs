@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error types for MCP Core
 //!
 //! This module re-exports the canonical MCPError from squirrel_mcp_core.

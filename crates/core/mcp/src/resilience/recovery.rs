@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Recovery strategy for handling failures in the MCP resilience framework
 //! 
 //! This module provides functionality to recover from failures in a structured way.

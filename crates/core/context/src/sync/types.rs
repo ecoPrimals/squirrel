@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Sync type definitions
 //!
 //! This module contains all type definitions for synchronization operations.

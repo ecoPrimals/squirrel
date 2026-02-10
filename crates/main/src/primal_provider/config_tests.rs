@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Simplified tests for primal_provider configuration and basic functionality
 //!
 //! This module tests the configuration interfaces and basic operations

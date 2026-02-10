@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Size, Count, and Capacity Limit Constants
 //!
 //! All limit values used throughout the Squirrel system, consolidated from:

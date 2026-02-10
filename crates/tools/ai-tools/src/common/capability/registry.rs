@@ -1,18 +1,20 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 use tracing::{info, warn};
 
 use super::{AICapabilities, CostMetrics, CostTier, ModelType, TaskType};
 
 // Global registry singleton
-lazy_static! {
-    static ref GLOBAL_REGISTRY: RwLock<ModelRegistry> = RwLock::new(ModelRegistry::default());
-}
+static GLOBAL_REGISTRY: LazyLock<RwLock<ModelRegistry>> =
+    LazyLock::new(|| RwLock::new(ModelRegistry::default()));
 
 /// Model registry for AI model capabilities
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

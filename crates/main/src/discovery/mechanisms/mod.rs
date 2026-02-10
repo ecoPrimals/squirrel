@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Discovery mechanism implementations
 //!
 //! Each module implements a different discovery mechanism:

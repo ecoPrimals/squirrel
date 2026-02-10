@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Context State Management for biomeOS
 //!
 //! This module provides context state management capabilities for maintaining

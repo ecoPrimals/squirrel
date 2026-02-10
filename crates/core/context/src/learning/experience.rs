@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Experience Replay System
 //!
 //! This module implements the Experience Replay system for the Context Learning System.

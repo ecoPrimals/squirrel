@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Example Dynamic Plugin for Testing
 //
 // This file provides a sample plugin implementation that can be compiled
@@ -15,7 +18,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use uuid::Uuid;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use squirrel_mcp::plugins::interfaces::{Plugin as McpPlugin, PluginMetadata as McpPluginMetadata};
 use crate::plugins::{
@@ -116,7 +119,7 @@ impl McpPluginMetadata for MockMetadata {
 impl McpPlugin for TestDynamicPlugin {
     fn metadata(&self) -> &dyn McpPluginMetadata {
         // Create a static metadata instance
-        static METADATA: Lazy<MockMetadata> = Lazy::new(|| {
+        static METADATA: LazyLock<MockMetadata> = LazyLock::new(|| {
             MockMetadata {
                 id: Uuid::new_v4(),
                 name: "test-dynamic-plugin".to_string(),
@@ -286,7 +289,7 @@ pub extern "C" fn get_plugin_metadata() -> *mut PluginMetadata {
 /// This function demonstrates how to eliminate ALL unsafe code by using
 /// proper Rust ownership patterns and reference counting.
 pub fn destroy_plugin_completely_safe(plugin_id: String) -> bool {
-    // TODO: In a real implementation, this would:
+    // NOTE: In a real implementation, this would:
     // 1. Look up the plugin in a safe registry (HashMap<String, Arc<dyn McpPlugin>>)
     // 2. Remove it from the registry 
     // 3. Let Arc's reference counting handle memory cleanup automatically

@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin Performance Optimizer
+#![allow(dead_code)] // Performance optimizer infrastructure awaiting activation
 //!
 //! This module provides advanced performance optimizations for plugin operations including:
 //! - Hot path caching for frequent operations
@@ -21,8 +25,8 @@ use crate::zero_copy::{
 };
 
 /// Global plugin performance optimizer
-static GLOBAL_OPTIMIZER: once_cell::sync::OnceCell<Arc<PluginPerformanceOptimizer>> =
-    once_cell::sync::OnceCell::new();
+static GLOBAL_OPTIMIZER: std::sync::OnceLock<Arc<PluginPerformanceOptimizer>> =
+    std::sync::OnceLock::new();
 
 /// Get or initialize the global plugin performance optimizer
 pub fn get_global_optimizer() -> Arc<PluginPerformanceOptimizer> {

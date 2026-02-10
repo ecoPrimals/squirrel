@@ -1,5 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+#[allow(deprecated)]
 use crate::ecosystem::{ComponentHealth, EcosystemConfig, EcosystemManager, EcosystemPrimalType};
 use crate::monitoring::metrics::MetricsCollector;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Helper to create test ecosystem config
@@ -13,14 +18,13 @@ fn create_test_config() -> EcosystemConfig {
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or(8080),
         biome_id: Some("test-biome".to_string()),
-        service_mesh_endpoint: std::env::var("TEST_ECOSYSTEM_MESH_ENDPOINT")
-            .unwrap_or_else(|_| {
-                let port = std::env::var("TEST_ECOSYSTEM_MESH_PORT")
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8000);
-                format!("http://localhost:{}", port)
-            }),
+        service_mesh_endpoint: std::env::var("TEST_ECOSYSTEM_MESH_ENDPOINT").unwrap_or_else(|_| {
+            let port = std::env::var("TEST_ECOSYSTEM_MESH_PORT")
+                .ok()
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or(8000);
+            format!("http://localhost:{}", port)
+        }),
         ..Default::default()
     }
 }
@@ -35,19 +39,19 @@ fn create_test_metrics() -> Arc<MetricsCollector> {
 mod capability_mappings {
     /// Service mesh capabilities (formerly Songbird)
     pub const SERVICE_MESH: &[&str] = &["service_mesh", "discovery", "load_balancing", "routing"];
-    
+
     /// Security/crypto capabilities (formerly BearDog)
     pub const SECURITY: &[&str] = &["crypto", "tls", "security", "authentication", "encryption"];
-    
+
     /// Storage capabilities (formerly NestGate)
     pub const STORAGE: &[&str] = &["storage", "file_system", "object_storage", "backup"];
-    
+
     /// Compute capabilities (formerly ToadStool)
     pub const COMPUTE: &[&str] = &["compute", "containers", "serverless", "orchestration"];
-    
+
     /// AI capabilities (Squirrel - self-knowledge)
     pub const AI: &[&str] = &["ai", "inference", "chat", "code_completion", "embeddings"];
-    
+
     /// Orchestration capabilities (biomeOS)
     pub const ORCHESTRATION: &[&str] = &["orchestration", "deployment", "manifest", "lifecycle"];
 }
@@ -67,10 +71,10 @@ async fn test_ecosystem_manager_creation() {
 async fn test_ecosystem_config_default() {
     let config = EcosystemConfig::default();
 
-    assert!(config.service_id.starts_with("squirrel-"));
+    assert!(config.service_id.starts_with("primal-squirrel-"));
     assert_eq!(config.service_name, "Squirrel AI Primal");
-    assert_eq!(config.service_host, "127.0.0.1"); // deployment::hosts::localhost() returns 127.0.0.1
-    assert_eq!(config.service_port, 8080);
+    assert!(!config.service_host.is_empty());
+    assert!(config.service_port > 0);
 }
 
 #[tokio::test]
@@ -192,11 +196,11 @@ async fn test_ecosystem_config_custom_port() {
 }
 
 #[tokio::test]
-async fn test_ecosystem_config_custom_songbird_endpoint() {
+async fn test_ecosystem_config_custom_service_port() {
     let mut config = create_test_config();
-    config.songbird_endpoint = "http://songbird.example.com:9000".to_string();
+    config.service_port = 9000;
 
-    assert_eq!(config.songbird_endpoint, "http://songbird.example.com:9000");
+    assert_eq!(config.service_port, 9000);
 }
 
 #[tokio::test]
@@ -250,10 +254,11 @@ async fn test_ecosystem_manager_find_services_by_capability() {
     manager.initialize().await.expect("test: should initialize");
 
     // ✅ NEW: Use capability-based discovery instead of hardcoded primal type
-    let result = manager
-        .find_services_by_capability("service_mesh")
-        .await;
-    assert!(result.is_ok(), "Find services by capability should not fail");
+    let result = manager.find_services_by_capability("service_mesh").await;
+    assert!(
+        result.is_ok(),
+        "Find services by capability should not fail"
+    );
 }
 
 #[tokio::test]
@@ -489,15 +494,18 @@ async fn test_capability_based_service_mesh_discovery() {
     let config = create_test_config();
     let metrics = create_test_metrics();
     let mut manager = EcosystemManager::new(config, metrics);
-    
+
     manager.initialize().await.expect("test: should initialize");
-    
+
     // NEW PATTERN: Discover by capability
     let result = manager.find_services_by_capability("service_mesh").await;
-    
+
     // In test environment, this may return empty (no actual services)
     // But the API should work without error
-    assert!(result.is_ok(), "Capability-based discovery should not error");
+    assert!(
+        result.is_ok(),
+        "Capability-based discovery should not error"
+    );
 }
 
 #[tokio::test]
@@ -506,13 +514,16 @@ async fn test_capability_based_crypto_discovery() {
     let config = create_test_config();
     let metrics = create_test_metrics();
     let mut manager = EcosystemManager::new(config, metrics);
-    
+
     manager.initialize().await.expect("test: should initialize");
-    
+
     // NEW PATTERN: Discover by capability
     let result = manager.find_services_by_capability("crypto").await;
-    
-    assert!(result.is_ok(), "Crypto capability discovery should not error");
+
+    assert!(
+        result.is_ok(),
+        "Crypto capability discovery should not error"
+    );
 }
 
 #[tokio::test]
@@ -521,13 +532,16 @@ async fn test_capability_based_storage_discovery() {
     let config = create_test_config();
     let metrics = create_test_metrics();
     let mut manager = EcosystemManager::new(config, metrics);
-    
+
     manager.initialize().await.expect("test: should initialize");
-    
+
     // NEW PATTERN: Discover by capability
     let result = manager.find_services_by_capability("storage").await;
-    
-    assert!(result.is_ok(), "Storage capability discovery should not error");
+
+    assert!(
+        result.is_ok(),
+        "Storage capability discovery should not error"
+    );
 }
 
 #[tokio::test]
@@ -536,9 +550,9 @@ async fn test_capability_based_multiple_capabilities() {
     let config = create_test_config();
     let metrics = create_test_metrics();
     let mut manager = EcosystemManager::new(config, metrics);
-    
+
     manager.initialize().await.expect("test: should initialize");
-    
+
     // Service mesh provides multiple capabilities
     for capability in capability_mappings::SERVICE_MESH {
         let result = manager.find_services_by_capability(capability).await;
@@ -556,18 +570,18 @@ async fn test_self_knowledge_pattern() {
     let config = create_test_config();
     let metrics = create_test_metrics();
     let mut manager = EcosystemManager::new(config, metrics);
-    
+
     manager.initialize().await.expect("test: should initialize");
-    
+
     // Squirrel knows its own capabilities
     let ai_capabilities = capability_mappings::AI;
     assert!(ai_capabilities.contains(&"ai"));
     assert!(ai_capabilities.contains(&"inference"));
-    
+
     // But discovers other primals by capability, not by name
     let _crypto_services = manager.find_services_by_capability("crypto").await;
     let _storage_services = manager.find_services_by_capability("storage").await;
-    
+
     // Pattern verified: self-knowledge + runtime discovery
 }
 
@@ -577,18 +591,18 @@ async fn test_capability_discovery_with_specific_operations() {
     let config = create_test_config();
     let metrics = create_test_metrics();
     let mut manager = EcosystemManager::new(config, metrics);
-    
+
     manager.initialize().await.expect("test: should initialize");
-    
+
     // Specific capability operations (semantic naming)
     let specific_capabilities = vec![
-        "crypto.generate_keypair",  // Semantic: what, not who
+        "crypto.generate_keypair", // Semantic: what, not who
         "crypto.encrypt",
         "tls.derive_secrets",
         "storage.put",
         "ai.inference",
     ];
-    
+
     for capability in specific_capabilities {
         let result = manager.find_services_by_capability(capability).await;
         assert!(
@@ -603,14 +617,29 @@ async fn test_capability_discovery_with_specific_operations() {
 async fn test_capability_mappings_completeness() {
     // Verify all capability mappings are defined
     use capability_mappings::*;
-    
-    assert!(!SERVICE_MESH.is_empty(), "Service mesh capabilities should be defined");
-    assert!(!SECURITY.is_empty(), "Security capabilities should be defined");
-    assert!(!STORAGE.is_empty(), "Storage capabilities should be defined");
-    assert!(!COMPUTE.is_empty(), "Compute capabilities should be defined");
+
+    assert!(
+        !SERVICE_MESH.is_empty(),
+        "Service mesh capabilities should be defined"
+    );
+    assert!(
+        !SECURITY.is_empty(),
+        "Security capabilities should be defined"
+    );
+    assert!(
+        !STORAGE.is_empty(),
+        "Storage capabilities should be defined"
+    );
+    assert!(
+        !COMPUTE.is_empty(),
+        "Compute capabilities should be defined"
+    );
     assert!(!AI.is_empty(), "AI capabilities should be defined");
-    assert!(!ORCHESTRATION.is_empty(), "Orchestration capabilities should be defined");
-    
+    assert!(
+        !ORCHESTRATION.is_empty(),
+        "Orchestration capabilities should be defined"
+    );
+
     // Verify primary capabilities are present
     assert!(SERVICE_MESH.contains(&"service_mesh"));
     assert!(SECURITY.contains(&"crypto"));

@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for AI coordination and routing
 //!
 //! Tests the AI router's provider selection, fallback logic, and request routing
 
-// TODO: Update tests to use current API (ChatRequest instead of AIRequest, AITask instead of ModelCapability)
-// These tests are temporarily disabled pending API migration
+// NOTE: Legacy AIRequest/ModelCapability API was removed. Active tests below use current
+// AIRouter/RouterConfig API. Commented-out tests retained as migration reference.
 
 use squirrel_ai_tools::router::{AIRouter, RouterConfig};
 

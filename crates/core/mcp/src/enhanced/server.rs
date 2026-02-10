@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Enhanced MCP Server - Core Implementation
 //!
 //! This module provides the enhanced MCP server with unified architecture,
@@ -549,7 +552,8 @@ impl EnhancedMCPServer {
         
         let stream_id = self.stream_manager.create_stream(
             session_id.to_string(),
-            "client".to_string(), // TODO: Get from connection info
+            "client".to_string(), // FUTURE: [Enhancement] Get from connection info
+            // Tracking: Requires connection info tracking enhancement
             stream_type,
             direction,
             config,
@@ -757,7 +761,8 @@ pub struct ProductionPluginManagerAdapter {
 impl ProductionPluginManagerAdapter {
     pub fn new() -> Self {
         // For now, create a simplified adapter
-        // TODO: Integrate with actual DefaultPluginManager when async runtime is available
+        // FUTURE: [Integration] Integrate with actual DefaultPluginManager when async runtime is available
+        // Tracking: Requires async runtime integration work
         Self {
             _manager: Arc::new(std::sync::Mutex::new(())),
         }

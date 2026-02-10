@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP protocol types and data structures
 //!
 //! This module contains all the core data structures used in the MCP protocol,
@@ -346,5 +349,144 @@ mod tests {
         assert!(capabilities
             .supported_methods
             .contains(&"custom_method".to_string()));
+    }
+
+    #[test]
+    fn test_mcp_capabilities_add_duplicate_method() {
+        let capabilities = McpCapabilities::new().add_method("ping".to_string()); // "ping" already exists in default
+
+        // Should not add duplicate
+        let ping_count = capabilities
+            .supported_methods
+            .iter()
+            .filter(|m| *m == "ping")
+            .count();
+        assert_eq!(ping_count, 1);
+    }
+
+    #[test]
+    fn test_mcp_capabilities_default() {
+        let capabilities = McpCapabilities::default();
+        assert!(!capabilities.supports_mcp);
+        assert!(capabilities.protocol_version.is_empty());
+        assert!(capabilities.supported_methods.is_empty());
+        assert!(capabilities.max_payload_size.is_none());
+    }
+
+    #[test]
+    fn test_mcp_capabilities_chaining() {
+        let capabilities = McpCapabilities::default()
+            .enable_mcp()
+            .add_method("method1".to_string())
+            .add_method("method2".to_string());
+
+        assert!(capabilities.supports_mcp);
+        assert!(capabilities
+            .supported_methods
+            .contains(&"method1".to_string()));
+        assert!(capabilities
+            .supported_methods
+            .contains(&"method2".to_string()));
+    }
+
+    #[test]
+    fn test_mcp_capabilities_serde() {
+        let capabilities = McpCapabilities::new();
+        let json = serde_json::to_string(&capabilities).unwrap();
+        let deserialized: McpCapabilities = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.supports_mcp, capabilities.supports_mcp);
+        assert_eq!(deserialized.protocol_version, capabilities.protocol_version);
+        assert_eq!(
+            deserialized.supported_methods.len(),
+            capabilities.supported_methods.len()
+        );
+    }
+
+    #[test]
+    fn test_connection_state_equality() {
+        assert_eq!(ConnectionState::Connected, ConnectionState::Connected);
+        assert_ne!(ConnectionState::Connected, ConnectionState::Disconnected);
+        assert_ne!(ConnectionState::Connecting, ConnectionState::Reconnecting);
+    }
+
+    #[test]
+    fn test_mcp_tool_serialization() {
+        let tool = McpTool {
+            name: "calculator".to_string(),
+            description: "Performs arithmetic".to_string(),
+            input_schema: json!({"type": "object"}),
+            output_schema: Some(json!({"type": "number"})),
+        };
+
+        let json_str = serde_json::to_string(&tool).unwrap();
+        let deserialized: McpTool = serde_json::from_str(&json_str).unwrap();
+
+        assert_eq!(deserialized.name, "calculator");
+        assert_eq!(deserialized.description, "Performs arithmetic");
+        assert!(deserialized.output_schema.is_some());
+    }
+
+    #[test]
+    fn test_mcp_tool_without_output_schema() {
+        let tool = McpTool {
+            name: "notify".to_string(),
+            description: "Sends notification".to_string(),
+            input_schema: json!({"message": "string"}),
+            output_schema: None,
+        };
+
+        let json_str = serde_json::to_string(&tool).unwrap();
+        let deserialized: McpTool = serde_json::from_str(&json_str).unwrap();
+
+        assert!(deserialized.output_schema.is_none());
+    }
+
+    #[test]
+    fn test_mcp_resource_serialization() {
+        let resource = McpResource {
+            uri: "file:///data.json".to_string(),
+            name: "Data File".to_string(),
+            description: "Test data".to_string(),
+            metadata: json!({"size": 1024}),
+        };
+
+        let json_str = serde_json::to_string(&resource).unwrap();
+        let deserialized: McpResource = serde_json::from_str(&json_str).unwrap();
+
+        assert_eq!(deserialized.uri, "file:///data.json");
+        assert_eq!(deserialized.name, "Data File");
+        assert_eq!(deserialized.metadata["size"], 1024);
+    }
+
+    #[test]
+    fn test_mcp_prompt_serialization() {
+        let prompt = McpPrompt {
+            name: "summarize".to_string(),
+            description: "Summarizes text".to_string(),
+            template: "Summarize: {text}".to_string(),
+            parameters: json!({"text": {"type": "string"}}),
+        };
+
+        let json_str = serde_json::to_string(&prompt).unwrap();
+        let deserialized: McpPrompt = serde_json::from_str(&json_str).unwrap();
+
+        assert_eq!(deserialized.name, "summarize");
+        assert_eq!(deserialized.template, "Summarize: {text}");
+    }
+
+    #[test]
+    fn test_mcp_message_clone() {
+        let message = McpMessage {
+            id: "msg-1".to_string(),
+            message_type: "ping".to_string(),
+            payload: json!({"ts": 12345}),
+            timestamp: "2024-01-01".to_string(),
+        };
+
+        let cloned = message.clone();
+        assert_eq!(cloned.id, message.id);
+        assert_eq!(cloned.message_type, message.message_type);
+        assert_eq!(cloned.payload, message.payload);
     }
 }

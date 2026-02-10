@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Additional tests for the context tracker module
 
 use super::tracker::{ContextTracker, ContextTrackerConfig};

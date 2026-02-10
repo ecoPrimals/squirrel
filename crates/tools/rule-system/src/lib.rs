@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rule System for Squirrel
 //!
 //! This crate provides a rule system for the Squirrel Context Management System,
+#![deny(unsafe_code)]
 //! allowing for the definition, parsing, evaluation, and application of rules to context data.
 //!
 //! # Overview
@@ -21,6 +25,8 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::needless_raw_string_hashes)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
 
 pub mod actions;
 pub mod directory;

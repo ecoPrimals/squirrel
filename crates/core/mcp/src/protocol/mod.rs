@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP Protocol Implementation
 //!
 //! Core protocol types and handlers for Machine Context Protocol.

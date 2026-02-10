@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Security Service Coordinator
 //!
 //! Coordinates with security primals for AI security operations via capability-based discovery.
@@ -72,11 +76,11 @@ impl BeardogSecurityCoordinator {
         // Multi-tier default fallback
         // 1. SECURITY_SERVICE_ENDPOINT (checked above)
         // 2. SECURITY_AUTHENTICATION_PORT (port override)
-        // 3. Default: http://localhost:8090
+        // 3. Default: http://localhost:8443 (standard security port)
         let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or(8090); // Default BearDog security port
+            .unwrap_or(8443); // Standard security port (capability-based, not primal-specific)
         Ok(format!("http://localhost:{}", port))
     }
 
@@ -105,30 +109,34 @@ impl BeardogSecurityCoordinator {
                 endpoint
             );
             endpoint
-        } else if let Ok(endpoint) = std::env::var("BEARDOG_ENDPOINT") {
-            info!("Using BearDog endpoint from BEARDOG_ENDPOINT: {}", endpoint);
-            endpoint
-        } else if let Ok(socket) = std::env::var("BEARDOG_SOCKET") {
-            info!("Using BearDog Unix socket from BEARDOG_SOCKET: {}", socket);
+        } else if let Ok(socket) = std::env::var("SECURITY_SOCKET") {
+            // TRUE PRIMAL: Use capability-based env var, not primal-specific
+            info!(
+                "Using security Unix socket from SECURITY_SOCKET: {}",
+                socket
+            );
             format!("unix://{}", socket)
         } else {
-            // Check standard biomeOS socket path
+            // Check standard biomeOS socket path (capability-based, not primal-specific)
             let uid = nix::unistd::getuid();
-            let standard_socket = format!("/run/user/{}/biomeos/beardog.sock", uid);
+            let standard_socket = format!("/run/user/{}/biomeos/security.sock", uid);
             if std::path::Path::new(&standard_socket).exists() {
-                info!("Found BearDog at standard socket: {}", standard_socket);
+                info!(
+                    "Found security service at standard socket: {}",
+                    standard_socket
+                );
                 format!("unix://{}", standard_socket)
             } else {
                 // Fallback to HTTP with port discovery
                 let port = std::env::var("SECURITY_PORT")
-                    .or_else(|_| std::env::var("BEARDOG_PORT"))
+                    .or_else(|_| std::env::var("SECURITY_AUTHENTICATION_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("security"));
 
                 let fallback = format!("http://localhost:{}", port);
                 warn!(
-                    "Using fallback security endpoint: {} (set BEARDOG_SOCKET or BEARDOG_ENDPOINT for production)",
+                    "Using fallback security endpoint: {} (set SECURITY_SOCKET or SECURITY_SERVICE_ENDPOINT for production)",
                     fallback
                 );
                 fallback
@@ -262,5 +270,143 @@ impl BeardogSecurityCoordinator {
     #[must_use]
     pub fn is_healthy(&self) -> bool {
         !self.security_service_endpoint.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[serial]
+    fn test_coordinator_new() {
+        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
+        std::env::remove_var("SECURITY_SOCKET");
+        std::env::remove_var("SECURITY_PORT");
+        std::env::remove_var("SECURITY_AUTHENTICATION_PORT");
+
+        let coord = BeardogSecurityCoordinator::new();
+        assert!(coord.is_healthy());
+    }
+
+    #[test]
+    fn test_coordinator_default() {
+        let coord = BeardogSecurityCoordinator::default();
+        // Default has empty endpoint
+        assert!(!coord.is_healthy());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_discover_security_endpoint_default() {
+        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
+        std::env::remove_var("SECURITY_AUTHENTICATION_PORT");
+        let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
+            .await
+            .expect("discover");
+        assert!(endpoint.contains("localhost:8443"), "got: {endpoint}");
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_discover_security_endpoint_env() {
+        std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://secure.test");
+        let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
+            .await
+            .expect("discover");
+        assert_eq!(endpoint, "https://secure.test");
+        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_with_capability_discovery() {
+        std::env::set_var("SECURITY_SERVICE_ENDPOINT", "http://test:9999");
+        let coord = BeardogSecurityCoordinator::with_capability_discovery()
+            .await
+            .expect("create");
+        assert!(coord.is_healthy());
+        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
+    }
+
+    #[test]
+    fn test_requires_security_coordination() {
+        let coord = BeardogSecurityCoordinator::new();
+        assert!(coord.requires_security_coordination(&SecurityRequestType::Authentication));
+        assert!(coord.requires_security_coordination(&SecurityRequestType::Authorization));
+        assert!(coord.requires_security_coordination(&SecurityRequestType::Encryption));
+        assert!(coord.requires_security_coordination(&SecurityRequestType::Decryption));
+        assert!(coord.requires_security_coordination(&SecurityRequestType::Audit));
+    }
+
+    #[tokio::test]
+    async fn test_coordinate_security() {
+        let mut coord = BeardogSecurityCoordinator {
+            security_service_endpoint: "http://test:8443".to_string(),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+        };
+
+        let request = SecurityRequest {
+            request_id: "test-123".to_string(),
+            request_type: SecurityRequestType::Authentication,
+            payload: serde_json::json!({"user": "test"}),
+            metadata: HashMap::new(),
+            context: SecurityContext::new("test", "user1"),
+            timestamp: chrono::Utc::now(),
+        };
+
+        let response = coord
+            .coordinate_security(request)
+            .await
+            .expect("coordinate");
+        assert_eq!(response.status, SecurityResponseStatus::Success);
+        assert_eq!(response.request_id, "test-123");
+    }
+
+    #[tokio::test]
+    async fn test_authenticate_with_security_service() {
+        let mut coord = BeardogSecurityCoordinator {
+            security_service_endpoint: "http://test:8443".to_string(),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+        };
+
+        let session = coord
+            .authenticate_with_security_service("user1")
+            .await
+            .expect("authenticate");
+        assert!(session.starts_with("security_session_"));
+    }
+
+    #[test]
+    fn test_get_security_context() {
+        let coord = BeardogSecurityCoordinator {
+            security_service_endpoint: "http://test:8443".to_string(),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+        };
+
+        // No context initially
+        assert!(coord.get_security_context("nonexistent").is_none());
+
+        // Insert a context
+        {
+            let mut sessions = coord.sessions.write().unwrap();
+            sessions.insert(
+                "session-1".to_string(),
+                SecurityContext::new("test", "user1"),
+            );
+        }
+
+        let ctx = coord.get_security_context("session-1");
+        assert!(ctx.is_some());
+    }
+
+    #[test]
+    #[serial]
+    fn test_coordinator_new_with_env_endpoint() {
+        std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://prod.security");
+        let coord = BeardogSecurityCoordinator::new();
+        assert!(coord.is_healthy());
+        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
     }
 }

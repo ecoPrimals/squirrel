@@ -1,7 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin system for the Squirrel AI Coordination System
 //!
 //! This crate provides plugin functionality and example plugin implementations.
 
+#![deny(unsafe_code)]
 /// Plugin system version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

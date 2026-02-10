@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core cleanup execution logic for comprehensive resource management.
 //!
 //! This module handles the execution of cleanup operations including

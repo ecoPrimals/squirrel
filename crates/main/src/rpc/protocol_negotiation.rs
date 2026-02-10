@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Protocol Negotiation
 //!
 //! Enables automatic protocol selection between JSON-RPC and tarpc
@@ -57,11 +60,10 @@ impl ProtocolRequest {
     pub fn from_wire(line: &str) -> Result<Self> {
         let line = line.trim();
 
-        if !line.starts_with("PROTOCOLS: ") {
-            anyhow::bail!("Invalid protocol request: {}", line);
-        }
+        let protocols_str = line
+            .strip_prefix("PROTOCOLS: ")
+            .ok_or_else(|| anyhow::anyhow!("Invalid protocol request: {}", line))?;
 
-        let protocols_str = line.strip_prefix("PROTOCOLS: ").unwrap();
         let mut supported = Vec::new();
 
         for proto_name in protocols_str.split(',') {
@@ -102,11 +104,10 @@ impl ProtocolResponse {
     pub fn from_wire(line: &str) -> Result<Self> {
         let line = line.trim();
 
-        if !line.starts_with("PROTOCOL: ") {
-            anyhow::bail!("Invalid protocol response: {}", line);
-        }
+        let proto_name = line
+            .strip_prefix("PROTOCOL: ")
+            .ok_or_else(|| anyhow::anyhow!("Invalid protocol response: {}", line))?;
 
-        let proto_name = line.strip_prefix("PROTOCOL: ").unwrap();
         let selected = IpcProtocol::from_str(proto_name)
             .ok_or_else(|| anyhow::anyhow!("Unknown protocol: {}", proto_name))?;
 
@@ -194,7 +195,7 @@ where
     {
         Ok(Ok(0)) => {
             // EOF - no negotiation
-            return Ok(None);
+            Ok(None)
         }
         Ok(Ok(_)) => {
             // Got a line, check if it's a protocol request
@@ -222,21 +223,21 @@ where
                     .context("Failed to flush protocol response")?;
 
                 info!("Server negotiated protocol: {}", selected);
-                return Ok(Some(selected));
+                Ok(Some(selected))
             } else {
                 // Not a protocol request - this is a regular RPC request
                 // Assume JSON-RPC (default) and let the handler deal with it
                 warn!("No protocol negotiation, assuming JSON-RPC");
-                return Ok(None);
+                Ok(None)
             }
         }
         Ok(Err(e)) => {
             warn!("Error reading protocol negotiation: {}", e);
-            return Ok(None);
+            Ok(None)
         }
         Err(_) => {
             // Timeout - no negotiation request
-            return Ok(None);
+            Ok(None)
         }
     }
 }

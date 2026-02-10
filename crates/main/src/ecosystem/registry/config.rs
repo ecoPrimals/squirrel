@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration types for the ecosystem registry manager
 
 use serde::{Deserialize, Serialize};

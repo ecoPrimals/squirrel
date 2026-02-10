@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal AI Coordinator Types
 //!
 //! This module contains all the data structures, enums, and configuration types
@@ -211,16 +214,14 @@ pub struct AICoordinatorConfig {
     pub gemini_api_key: Option<String>,
     pub openrouter_api_key: Option<String>,
     
-    // Local model configuration
-    pub enable_ollama: bool,
-    pub enable_llamacpp: bool,
+    // Local model configuration (capability-based, vendor-agnostic)
+    pub enable_local_server: bool,
     pub enable_native: bool,
-    pub enable_huggingface: bool,
+    pub enable_model_hub: bool,
     
-    pub ollama_config: OllamaConfig,
-    pub llamacpp_config: LlamaCppConfig,
+    pub local_server_config: LocalServerConfig,
     pub native_config: NativeConfig,
-    pub huggingface_config: HuggingFaceConfig,
+    pub model_hub_config: ModelHubConfig,
     
     // Custom providers
     pub custom_providers: HashMap<String, serde_json::Value>,
@@ -244,23 +245,27 @@ pub struct RoutingConfig {
     pub quality_optimization: bool,
 }
 
-/// Ollama configuration
+/// Local AI server configuration (vendor-agnostic)
+///
+/// Works with any OpenAI-compatible API server:
+/// Ollama, llama.cpp, vLLM, LocalAI, text-generation-webui, etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OllamaConfig {
+pub struct LocalServerConfig {
+    /// Base URL of the local server (e.g., http://localhost:11434)
     pub base_url: String,
+    /// Request timeout
     pub timeout: Duration,
+    /// Available models on this server
     pub models: Vec<String>,
+    /// Optional: path to models directory (for servers that need it)
+    pub models_path: Option<String>,
 }
 
-/// LlamaCpp configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LlamaCppConfig {
-    pub server_url: String,
-    pub timeout: Duration,
-    pub models_path: String,
-}
+/// Backward-compatible type aliases for vendor-specific configs
+pub type OllamaConfig = LocalServerConfig;
+pub type LlamaCppConfig = LocalServerConfig;
 
-/// Native model configuration
+/// Native model configuration (direct model loading without server)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativeConfig {
     pub models_directory: String,
@@ -268,13 +273,18 @@ pub struct NativeConfig {
     pub use_gpu: bool,
 }
 
-/// HuggingFace configuration
+/// Model hub configuration (vendor-agnostic)
+///
+/// Works with any model hub: HuggingFace, ModelScope, etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HuggingFaceConfig {
+pub struct ModelHubConfig {
     pub api_token: Option<String>,
     pub cache_directory: String,
     pub use_local_cache: bool,
 }
+
+/// Backward-compatible type alias
+pub type HuggingFaceConfig = ModelHubConfig;
 
 /// Custom provider configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

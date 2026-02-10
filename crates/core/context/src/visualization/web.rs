@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Web Visualization Server
 //!
 //! This module provides a web-based interface for visualization management.
@@ -42,5 +45,27 @@ impl WebVisualizationServer {
     pub async fn stop(&self) -> Result<()> {
         // Stop web server
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_web_visualization_server_new() {
+        let config = Arc::new(VisualizationSystemConfig::default());
+        let (tx, _rx) = broadcast::channel(16);
+        let server = WebVisualizationServer::new(config, tx).await;
+        assert!(server.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_web_visualization_server_start_stop() {
+        let config = Arc::new(VisualizationSystemConfig::default());
+        let (tx, _rx) = broadcast::channel(16);
+        let server = WebVisualizationServer::new(config, tx).await.unwrap();
+        assert!(server.start().await.is_ok());
+        assert!(server.stop().await.is_ok());
     }
 }

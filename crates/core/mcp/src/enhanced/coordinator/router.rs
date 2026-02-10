@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal AI Router
 //!
 //! This module contains the AIRouter implementation for intelligent routing
@@ -565,7 +568,7 @@ impl AIRouter {
             "prefer_local" => {
                 // Prefer providers with "local" in their ID
                 for (provider_id, _provider) in providers {
-                    if provider_id.contains("local") || provider_id.contains("ollama") {
+                    if provider_id.contains("local") || provider_id.contains("native") {
                         return Ok(provider_id.clone());
                     }
                 }

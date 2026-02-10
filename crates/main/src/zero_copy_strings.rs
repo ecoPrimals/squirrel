@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Zero-copy string utilities using Arc<str>
 //!
 //! This module provides efficient string handling that minimizes cloning
@@ -52,8 +55,8 @@ impl StringCache {
             cache.get_or_insert(s);
         }
 
-        // Common primal names
-        for s in &["squirrel", "beardog", "songbird", "toadstool", "nestgate"] {
+        // Primal self-identity and capability domains
+        for s in &["squirrel", "ai", "security", "network", "compute", "storage"] {
             cache.get_or_insert(s);
         }
 

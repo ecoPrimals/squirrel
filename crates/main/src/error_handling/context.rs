@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error Context Helpers
 //!
 //! This module provides utilities for adding rich context to errors,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Tool Executor and Management
 //!
 //! This module contains the UniversalToolExecutor and tool management
@@ -100,7 +103,8 @@ impl UniversalToolExecutor {
         let execution = ToolExecution {
             id: Uuid::new_v4().to_string(),
             tool_name: tool_name.to_string(),
-            ai_model: "mock".to_string(), // TODO: Get actual model from session
+            ai_model: "mock".to_string(), // FUTURE: [Enhancement] Get actual model from session
+            // Tracking: Requires session model tracking enhancement
             parameters: params,
             result: result.clone(),
             duration: start_time.elapsed(),

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration management for the Squirrel CLI
 //!
 //! This module provides functionality for loading, saving, and managing
@@ -9,7 +12,7 @@ use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 /// Configuration errors
 #[derive(Debug, Error)]

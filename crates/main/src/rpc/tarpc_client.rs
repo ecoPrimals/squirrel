@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! tarpc RPC Client Implementation
 //!
 //! Type-safe, high-performance binary RPC client using tarpc framework.
@@ -22,7 +25,7 @@
 //! }
 //! ```
 
-#![cfg(feature = "tarpc-rpc")]
+// Note: This module is feature-gated via #[cfg(feature = "tarpc-rpc")] in mod.rs
 
 use super::tarpc_service::*;
 use super::tarpc_transport::TarpcTransportAdapter;

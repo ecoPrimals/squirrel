@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! JSON schemas for PrimalPulse tools
+#![allow(dead_code)] // Schema functions used for dynamic MCP tool registration
 //!
 //! Defines input/output schemas for dynamic tool registration
 
@@ -211,4 +215,123 @@ pub fn neural_graph_optimize_output_schema() -> serde_json::Value {
         },
         "required": ["analysis", "recommendations"]
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_object_schema(val: &Value) {
+        assert_eq!(val.get("type").and_then(|v| v.as_str()), Some("object"));
+        assert!(val.get("properties").is_some());
+    }
+
+    #[test]
+    fn test_primal_analyze_input_schema() {
+        let schema = primal_analyze_input_schema();
+        assert_object_schema(&schema);
+        let props = schema["properties"].as_object().expect("properties");
+        assert!(props.contains_key("primal_path"));
+        assert!(props.contains_key("depth"));
+        let required = schema["required"].as_array().expect("required");
+        assert!(required.contains(&json!("primal_path")));
+    }
+
+    #[test]
+    fn test_primal_analyze_output_schema() {
+        let schema = primal_analyze_output_schema();
+        assert_object_schema(&schema);
+        let props = schema["properties"].as_object().expect("properties");
+        assert!(props.contains_key("primal_name"));
+        assert!(props.contains_key("grade"));
+        assert!(props.contains_key("capabilities"));
+        assert!(props.contains_key("hardcoding_issues"));
+    }
+
+    #[test]
+    fn test_primal_audit_input_schema() {
+        let schema = primal_audit_input_schema();
+        assert_object_schema(&schema);
+        let props = schema["properties"].as_object().expect("properties");
+        assert!(props.contains_key("primal_path"));
+        assert!(props.contains_key("check_types"));
+        let required = schema["required"].as_array().expect("required");
+        assert!(required.contains(&json!("primal_path")));
+    }
+
+    #[test]
+    fn test_primal_audit_output_schema() {
+        let schema = primal_audit_output_schema();
+        assert_object_schema(&schema);
+        let props = schema["properties"].as_object().expect("properties");
+        assert!(props.contains_key("total_violations"));
+        assert!(props.contains_key("grade"));
+        assert!(props.contains_key("suggested_fixes"));
+    }
+
+    #[test]
+    fn test_rootpulse_commit_input_schema() {
+        let schema = rootpulse_commit_input_schema();
+        assert_object_schema(&schema);
+        let props = schema["properties"].as_object().expect("properties");
+        assert!(props.contains_key("diff"));
+        assert!(props.contains_key("context"));
+        let required = schema["required"].as_array().expect("required");
+        assert!(required.contains(&json!("diff")));
+    }
+
+    #[test]
+    fn test_rootpulse_commit_output_schema() {
+        let schema = rootpulse_commit_output_schema();
+        assert_object_schema(&schema);
+        let props = schema["properties"].as_object().expect("properties");
+        assert!(props.contains_key("commit_message"));
+        assert!(props.contains_key("semantic_tags"));
+        assert!(props.contains_key("attribution_weight"));
+    }
+
+    #[test]
+    fn test_neural_graph_optimize_input_schema() {
+        let schema = neural_graph_optimize_input_schema();
+        assert_object_schema(&schema);
+        let props = schema["properties"].as_object().expect("properties");
+        assert!(props.contains_key("graph_description"));
+        assert!(props.contains_key("purpose"));
+        assert!(props.contains_key("expected_latency_ms"));
+        let required = schema["required"].as_array().expect("required");
+        assert!(required.contains(&json!("graph_description")));
+        assert!(required.contains(&json!("purpose")));
+    }
+
+    #[test]
+    fn test_neural_graph_optimize_output_schema() {
+        let schema = neural_graph_optimize_output_schema();
+        assert_object_schema(&schema);
+        let props = schema["properties"].as_object().expect("properties");
+        assert!(props.contains_key("analysis"));
+        assert!(props.contains_key("recommendations"));
+        assert!(props.contains_key("optimized_graph"));
+        let required = schema["required"].as_array().expect("required");
+        assert!(required.contains(&json!("analysis")));
+        assert!(required.contains(&json!("recommendations")));
+    }
+
+    #[test]
+    fn test_schemas_are_valid_json() {
+        // All schemas should serialize to valid JSON strings
+        let schemas: Vec<Value> = vec![
+            primal_analyze_input_schema(),
+            primal_analyze_output_schema(),
+            primal_audit_input_schema(),
+            primal_audit_output_schema(),
+            rootpulse_commit_input_schema(),
+            rootpulse_commit_output_schema(),
+            neural_graph_optimize_input_schema(),
+            neural_graph_optimize_output_schema(),
+        ];
+        for schema in schemas {
+            let json_str = serde_json::to_string(&schema).expect("serialize");
+            let _roundtrip: Value = serde_json::from_str(&json_str).expect("roundtrip");
+        }
+    }
 }

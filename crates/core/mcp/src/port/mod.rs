@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 /// Port management module for MCP (Machine Context Protocol)
 ///
 /// This module provides functionality for managing network ports used by MCP services.

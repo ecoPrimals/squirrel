@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Compute Adapter
 //!
 //! Capability-based compute coordination that can work with `ToadStool` or any
@@ -60,7 +63,7 @@ impl UniversalComputeAdapter {
             ("optimization".to_string(), serde_json::json!("ai_enhanced")),
         ]);
 
-        let request = UniversalRequest {
+        let _request = UniversalRequest {
             request_id: uuid::Uuid::new_v4().to_string(),
             operation: operation.to_string(),
             parameters: request_params,
@@ -461,7 +464,7 @@ pub async fn register_toadstool_service(
             load_balancing_weight: 14,
         },
         extensions: HashMap::from([
-            ("primal_type".to_string(), serde_json::json!("toadstool")), // Registry metadata only
+            ("provider_domain".to_string(), serde_json::json!("compute")), // Capability-based metadata
             (
                 "ecosystem_role".to_string(),
                 serde_json::json!("compute_provider"),

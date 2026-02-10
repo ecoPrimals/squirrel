@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Adaptive Rule System
 //!
 //! This module implements an adaptive rule system that can modify and evolve rules

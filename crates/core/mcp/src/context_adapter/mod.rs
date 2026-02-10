@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP Context Adapter
 //!
 //! This module provides an adapter for connecting the MCP system with the general

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Workflow Scheduler
 //!
 //! Manages workflow scheduling, cron jobs, and time-based execution.
@@ -373,7 +376,11 @@ impl WorkflowScheduler {
         match schedule_type {
             ScheduleType::OneTime(time) => Ok(Some(*time)),
             ScheduleType::Interval(duration) => {
-                Ok(Some(chrono::Utc::now() + chrono::Duration::from_std(*duration).unwrap()))
+                let duration_chrono = chrono::Duration::from_std(*duration)
+                    .map_err(|e| crate::error::types::MCPError::InvalidArgument(format!(
+                        "Invalid duration for interval schedule: {}", e
+                    )))?;
+                Ok(Some(chrono::Utc::now() + duration_chrono))
             }
             ScheduleType::Cron(expr) => {
                 // Parse cron expression and calculate next execution time

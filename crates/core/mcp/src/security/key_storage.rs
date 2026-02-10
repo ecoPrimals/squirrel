@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Key storage for MCP security
 //!
 //! This module provides key storage functionality for the MCP system.

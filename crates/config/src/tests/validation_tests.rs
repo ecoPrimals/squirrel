@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration validation tests
 //!
 //! Comprehensive tests for configuration validation, edge cases, and error handling.

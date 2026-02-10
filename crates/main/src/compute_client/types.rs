@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Compute Client Types and Structures
 
 use chrono::{DateTime, Utc};
@@ -506,5 +509,236 @@ impl Default for ComputeClientConfig {
                 network_security: NetworkSecurityLevel::Basic,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_client_config_default() {
+        let config = ComputeClientConfig::default();
+        assert_eq!(config.operation_timeout, Duration::from_secs(3600));
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.preferred_capabilities.len(), 2);
+        assert_eq!(config.resource_requirements.cpu_cores, 2);
+        assert_eq!(config.resource_requirements.memory_gb, 4);
+        assert!(config.resource_requirements.gpu_units.is_none());
+    }
+
+    #[test]
+    fn test_compute_client_config_serde() {
+        let config = ComputeClientConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: ComputeClientConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.max_retries, 3);
+        assert_eq!(deserialized.preferred_capabilities.len(), 2);
+    }
+
+    #[test]
+    fn test_compute_capability_types_serde() {
+        let cpu = ComputeCapabilityType::CpuIntensive {
+            cores: 16,
+            memory_gb: 64,
+            architecture: "x86_64".to_string(),
+        };
+        let json = serde_json::to_string(&cpu).unwrap();
+        assert!(json.contains("CpuIntensive"));
+
+        let gpu = ComputeCapabilityType::GpuAccelerated {
+            gpu_memory_gb: 24,
+            cuda_support: true,
+            frameworks: vec!["pytorch".to_string()],
+        };
+        let json = serde_json::to_string(&gpu).unwrap();
+        assert!(json.contains("GpuAccelerated"));
+
+        let ml = ComputeCapabilityType::MachineLearning {
+            frameworks: vec!["pytorch".to_string()],
+            training_support: true,
+            inference_support: true,
+        };
+        let json = serde_json::to_string(&ml).unwrap();
+        assert!(json.contains("MachineLearning"));
+
+        let serverless = ComputeCapabilityType::ServerlessExecution {
+            languages: vec!["rust".to_string()],
+            cold_start_ms: 50,
+        };
+        let json = serde_json::to_string(&serverless).unwrap();
+        assert!(json.contains("ServerlessExecution"));
+
+        let hpc = ComputeCapabilityType::HighPerformanceComputing {
+            interconnect: "infiniband".to_string(),
+            parallel_processing: true,
+            distributed_compute: true,
+        };
+        let json = serde_json::to_string(&hpc).unwrap();
+        assert!(json.contains("HighPerformanceComputing"));
+    }
+
+    #[test]
+    fn test_isolation_level_serde() {
+        let levels = vec![
+            IsolationLevel::Process,
+            IsolationLevel::Container,
+            IsolationLevel::VirtualMachine,
+            IsolationLevel::Hardware,
+        ];
+        for level in levels {
+            let json = serde_json::to_string(&level).unwrap();
+            let deserialized: IsolationLevel = serde_json::from_str(&json).unwrap();
+            assert_eq!(format!("{:?}", deserialized), format!("{:?}", level));
+        }
+    }
+
+    #[test]
+    fn test_network_security_level_serde() {
+        let levels = vec![
+            NetworkSecurityLevel::Basic,
+            NetworkSecurityLevel::VpnProtected,
+            NetworkSecurityLevel::PrivateNetwork,
+            NetworkSecurityLevel::AirGapped,
+        ];
+        for level in levels {
+            let json = serde_json::to_string(&level).unwrap();
+            let deserialized: NetworkSecurityLevel = serde_json::from_str(&json).unwrap();
+            assert_eq!(format!("{:?}", deserialized), format!("{:?}", level));
+        }
+    }
+
+    #[test]
+    fn test_compute_operation_serde() {
+        let ops = vec![
+            ComputeOperation::Execute {
+                language: "rust".to_string(),
+                entrypoint: "main".to_string(),
+            },
+            ComputeOperation::TrainModel {
+                framework: "pytorch".to_string(),
+                model_type: "transformer".to_string(),
+            },
+            ComputeOperation::RunInference {
+                model_id: "model-123".to_string(),
+                batch_size: 32,
+            },
+            ComputeOperation::BatchProcess {
+                job_type: "etl".to_string(),
+                parallelism: 4,
+            },
+        ];
+        for op in ops {
+            let json = serde_json::to_string(&op).unwrap();
+            let deserialized: ComputeOperation = serde_json::from_str(&json).unwrap();
+            assert_eq!(format!("{:?}", deserialized), format!("{:?}", op));
+        }
+    }
+
+    #[test]
+    fn test_compute_priority_serde() {
+        let priorities = vec![
+            ComputePriority::Low,
+            ComputePriority::Normal,
+            ComputePriority::High,
+            ComputePriority::Critical,
+        ];
+        for priority in priorities {
+            let json = serde_json::to_string(&priority).unwrap();
+            let deserialized: ComputePriority = serde_json::from_str(&json).unwrap();
+            assert_eq!(format!("{:?}", deserialized), format!("{:?}", priority));
+        }
+    }
+
+    #[test]
+    fn test_cost_performance_preference_serde() {
+        let prefs = vec![
+            CostPerformancePreference::MinimizeCost,
+            CostPerformancePreference::Balanced,
+            CostPerformancePreference::MaximizePerformance,
+            CostPerformancePreference::Custom {
+                cost_weight: 0.3,
+                performance_weight: 0.7,
+            },
+        ];
+        for pref in prefs {
+            let json = serde_json::to_string(&pref).unwrap();
+            let deserialized: CostPerformancePreference = serde_json::from_str(&json).unwrap();
+            assert_eq!(format!("{:?}", deserialized), format!("{:?}", pref));
+        }
+    }
+
+    #[test]
+    fn test_compute_results_serde() {
+        let results = ComputeResults {
+            output_data: Some(vec![1, 2, 3]),
+            return_code: 0,
+            stdout: "Success".to_string(),
+            stderr: String::new(),
+            metadata: HashMap::new(),
+        };
+        let json = serde_json::to_string(&results).unwrap();
+        let deserialized: ComputeResults = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.return_code, 0);
+        assert_eq!(deserialized.stdout, "Success");
+    }
+
+    #[test]
+    fn test_resource_utilization_serde() {
+        let util = ResourceUtilization {
+            cpu_utilization: 0.75,
+            memory_utilization: 0.5,
+            gpu_utilization: Some(0.9),
+            network_utilization: None,
+        };
+        let json = serde_json::to_string(&util).unwrap();
+        let deserialized: ResourceUtilization = serde_json::from_str(&json).unwrap();
+        assert!((deserialized.cpu_utilization - 0.75).abs() < f64::EPSILON);
+        assert!(deserialized.gpu_utilization.is_some());
+        assert!(deserialized.network_utilization.is_none());
+    }
+
+    #[test]
+    fn test_cost_breakdown_serde() {
+        let cost = CostBreakdown {
+            cpu_cost: 10.0,
+            memory_cost: 5.0,
+            gpu_cost: Some(20.0),
+            storage_cost: 2.0,
+            network_cost: 1.0,
+            total_cost: 38.0,
+        };
+        let json = serde_json::to_string(&cost).unwrap();
+        let deserialized: CostBreakdown = serde_json::from_str(&json).unwrap();
+        assert!((deserialized.total_cost - 38.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_workload_characteristics_serde() {
+        let wc = WorkloadCharacteristics {
+            cpu_intensity: 0.8,
+            memory_intensity: 0.6,
+            io_intensity: 0.2,
+            gpu_requirement: 0.9,
+            parallelizability: 0.7,
+        };
+        let json = serde_json::to_string(&wc).unwrap();
+        let deserialized: WorkloadCharacteristics = serde_json::from_str(&json).unwrap();
+        assert!((deserialized.cpu_intensity - 0.8).abs() < f64::EPSILON);
+        assert!((deserialized.gpu_requirement - 0.9).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_encryption_requirements_serde() {
+        let enc = EncryptionRequirements {
+            data_at_rest: true,
+            data_in_transit: true,
+            data_in_use: false,
+        };
+        let json = serde_json::to_string(&enc).unwrap();
+        let deserialized: EncryptionRequirements = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.data_at_rest);
+        assert!(deserialized.data_in_transit);
+        assert!(!deserialized.data_in_use);
     }
 }

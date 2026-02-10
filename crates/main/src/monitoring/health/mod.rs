@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Health monitoring module
 //!
 //! This module provides comprehensive health monitoring capabilities for all ecosystem components.

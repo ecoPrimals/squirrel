@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration types for visualizations
 
 use serde::{Deserialize, Serialize};
@@ -146,5 +149,111 @@ impl Default for QualityConfig {
             dpi: 300,
             compression: 80,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_visualization_config_default() {
+        let config = VisualizationConfig::default();
+        assert_eq!(config.format, "html");
+        assert!(config.interactive);
+        assert!(config.custom_options.is_empty());
+    }
+
+    #[test]
+    fn test_grid_config_default() {
+        let config = GridConfig::default();
+        assert!(config.enabled);
+        assert_eq!(config.color, "#f0f0f0");
+        assert_eq!(config.line_width, 1);
+        assert_eq!(config.spacing, 20);
+    }
+
+    #[test]
+    fn test_animation_config_default() {
+        let config = AnimationConfig::default();
+        assert!(config.enabled);
+        assert_eq!(config.duration, 1000);
+        assert_eq!(config.easing, "ease-in-out");
+        assert_eq!(config.delay, 0);
+    }
+
+    #[test]
+    fn test_export_config_default() {
+        let config = ExportConfig::default();
+        assert_eq!(config.formats.len(), 4);
+        assert!(config.formats.contains(&"png".to_string()));
+        assert!(config.formats.contains(&"svg".to_string()));
+        assert!(config.formats.contains(&"pdf".to_string()));
+        assert!(config.formats.contains(&"json".to_string()));
+        assert_eq!(config.default_format, "png");
+    }
+
+    #[test]
+    fn test_quality_config_default() {
+        let config = QualityConfig::default();
+        assert_eq!(config.image_quality, 95);
+        assert_eq!(config.dpi, 300);
+        assert_eq!(config.compression, 80);
+    }
+
+    #[test]
+    fn test_visualization_config_serde_roundtrip() {
+        let config = VisualizationConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: VisualizationConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.format, config.format);
+        assert_eq!(deserialized.interactive, config.interactive);
+    }
+
+    #[test]
+    fn test_grid_config_serde_roundtrip() {
+        let config = GridConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: GridConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.enabled, config.enabled);
+        assert_eq!(deserialized.color, config.color);
+        assert_eq!(deserialized.line_width, config.line_width);
+    }
+
+    #[test]
+    fn test_animation_config_serde_roundtrip() {
+        let config = AnimationConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: AnimationConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.enabled, config.enabled);
+        assert_eq!(deserialized.duration, config.duration);
+        assert_eq!(deserialized.easing, config.easing);
+    }
+
+    #[test]
+    fn test_quality_config_equality() {
+        let q1 = QualityConfig::default();
+        let q2 = QualityConfig::default();
+        assert_eq!(q1, q2);
+
+        let q3 = QualityConfig {
+            image_quality: 50,
+            dpi: 72,
+            compression: 50,
+        };
+        assert_ne!(q1, q3);
+    }
+
+    #[test]
+    fn test_visualization_config_custom_options() {
+        let mut config = VisualizationConfig::default();
+        config
+            .custom_options
+            .insert("key".to_string(), serde_json::json!("value"));
+        assert_eq!(config.custom_options.len(), 1);
+
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: VisualizationConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.custom_options.len(), 1);
     }
 }

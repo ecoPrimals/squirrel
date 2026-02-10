@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Machine Context Protocol (MCP) implementation
 //!
 //! This module provides MCP protocol support for the CLI, allowing structured
@@ -252,13 +255,14 @@ mod tests {
             .start()
             .map_err(|e| format!("Failed to start server: {}", e))?;
 
-        // Reducing server wait time from 1000ms to 500ms for faster testing
-        println!("Waiting for server to fully initialize...");
-        tokio::time::sleep(Duration::from_millis(500)).await;
-
-        // Check if server is running
-        if !server.is_running() {
-            return Err("Server failed to start properly".to_string());
+        // Poll for server readiness instead of fixed sleep
+        let start = std::time::Instant::now();
+        let max_wait = Duration::from_millis(500);
+        while !server.is_running() {
+            if start.elapsed() > max_wait {
+                return Err("Server failed to start within timeout".to_string());
+            }
+            tokio::task::yield_now().await;
         }
 
         // Try to connect client with timeout

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Production Resource Management System
 //!
 //! Comprehensive resource management with lifecycle control, background cleanup,
@@ -12,9 +15,9 @@
 //!
 //! ## Module Organization
 //!
-//! - [`types`] - Core type definitions (Config, Stats, Metrics)
-//! - [`core`] - `ResourceManager` implementation
-//! - [`shutdown`] - Graceful shutdown handling
+//! - `types` - Core type definitions (Config, Stats, Metrics)
+//! - `core` - `ResourceManager` implementation
+//! - `shutdown` - Graceful shutdown handling
 //!
 //! ## Usage Example
 //!

@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Squirrel Commands Service
+#![allow(dead_code)] // Command service awaiting full wiring
 //!
 //! Core command processing functionality for the Squirrel MCP ecosystem.
+#![deny(unsafe_code)]
 //! This service handles basic command execution and validation.
 
 use std::sync::Arc;
@@ -75,4 +80,70 @@ pub struct CommandMetadata {
     pub name: String,
     pub description: String,
     pub version: String,
+}
+
+#[cfg(test)]
+mod lib_tests {
+    use super::*;
+
+    #[test]
+    fn test_command_metadata_serde() {
+        let metadata = CommandMetadata {
+            name: "test-cmd".to_string(),
+            description: "A test command".to_string(),
+            version: "1.0.0".to_string(),
+        };
+        let json = serde_json::to_string(&metadata).unwrap();
+        let deserialized: CommandMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.name, "test-cmd");
+        assert_eq!(deserialized.description, "A test command");
+        assert_eq!(deserialized.version, "1.0.0");
+    }
+
+    #[test]
+    fn test_command_metadata_clone() {
+        let metadata = CommandMetadata {
+            name: "clone-test".to_string(),
+            description: "desc".to_string(),
+            version: "0.1.0".to_string(),
+        };
+        let cloned = metadata.clone();
+        assert_eq!(cloned.name, metadata.name);
+        assert_eq!(cloned.version, metadata.version);
+    }
+
+    #[tokio::test]
+    async fn test_commands_service_ping() {
+        let context_manager = Arc::new(ContextManager::default());
+        let service = CommandsService::new(context_manager);
+        let result = service.process_command("ping", vec![]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "pong");
+    }
+
+    #[tokio::test]
+    async fn test_commands_service_version() {
+        let context_manager = Arc::new(ContextManager::default());
+        let service = CommandsService::new(context_manager);
+        let result = service.process_command("version", vec![]).await;
+        assert!(result.is_ok());
+        assert!(!result.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_commands_service_status() {
+        let context_manager = Arc::new(ContextManager::default());
+        let service = CommandsService::new(context_manager);
+        let result = service.process_command("status", vec![]).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("running"));
+    }
+
+    #[tokio::test]
+    async fn test_commands_service_unknown_command() {
+        let context_manager = Arc::new(ContextManager::default());
+        let service = CommandsService::new(context_manager);
+        let result = service.process_command("nonexistent", vec![]).await;
+        assert!(result.is_err());
+    }
 }

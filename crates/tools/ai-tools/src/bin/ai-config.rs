@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+//! AI configuration management CLI tool.
+
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::error::Error;

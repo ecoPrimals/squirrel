@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -214,7 +217,7 @@ impl PluginManager {
             let _metadata_content =
                 std::fs::read_to_string(&metadata_file).map_err(PluginError::IoError)?;
 
-            // For now, create basic metadata - TODO: implement TOML parsing
+            // For now, create basic metadata - NOTE(phase2): implement TOML manifest parsing
             Ok(PluginMetadata {
                 name: name.to_string(),
                 version: "1.0.0".to_string(),
@@ -740,7 +743,7 @@ impl PluginManager {
     /// Remove the plugin library reference when unloading
     pub fn unload_plugin(&mut self, name: &str) -> Result<(), PluginError> {
         // Remove from loaded plugins
-        if let Some(plugin) = self.loaded_plugins.remove(name) {
+        if let Some(_plugin) = self.loaded_plugins.remove(name) {
             info!("🔄 Unloading plugin: {}", name);
 
             // Update plugin state

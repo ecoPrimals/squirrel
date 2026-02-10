@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Primal Registry for auto-discovery and management
 //!
 //! This module provides a multi-instance registry system that's fully compatible

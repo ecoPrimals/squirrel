@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Mock client implementation for testing
 //!
 //! This module provides a mock AI client that can be used for testing
@@ -132,8 +135,7 @@ impl AIClient for MockAIClient {
         let input = request
             .messages
             .iter()
-            .filter(|msg| msg.role == MessageRole::User)
-            .next_back()
+            .rfind(|msg| msg.role == MessageRole::User)
             .and_then(|msg| msg.content.as_ref())
             .map_or("default", |v| v);
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error types and handling for resilience operations
 //!
 //! This module defines the various error types used in the resilience framework

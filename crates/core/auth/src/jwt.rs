@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! JWT Token Management (Feature-Gated for Dev Mode)
 //!
 //! This module provides LOCAL JWT validation using jsonwebtoken crate.

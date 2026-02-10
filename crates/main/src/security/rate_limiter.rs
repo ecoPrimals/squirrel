@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Production Rate Limiting & `DoS` Protection
+#![allow(dead_code)] // Rate limiting infrastructure awaiting activation
 //!
 //! This module provides comprehensive rate limiting to protect against:
 //! - Denial of Service (`DoS`) attacks

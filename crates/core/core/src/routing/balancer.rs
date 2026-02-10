@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Load balancer for MCP task routing
 //!
 //! This module handles load balancing across multiple MCP agents, performance tracking,
@@ -329,7 +332,7 @@ impl LoadBalancer {
     }
 
     /// Acquire a permit for concurrent execution
-    pub async fn acquire_permit(&'_ self) -> tokio::sync::SemaphorePermit {
+    pub async fn acquire_permit(&'_ self) -> tokio::sync::SemaphorePermit<'_> {
         self.semaphore
             .acquire()
             .await

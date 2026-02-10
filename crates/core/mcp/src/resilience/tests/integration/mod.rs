@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Resilience Integration Tests
 //!
 //! This module contains integration tests for resilience components including

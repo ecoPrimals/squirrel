@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive Security Hardening Tests
 //!
 //! Modern, idiomatic security validation following 2024-2025 best practices.

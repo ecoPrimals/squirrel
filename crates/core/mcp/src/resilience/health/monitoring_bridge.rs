@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // This file contains a minimal implementation for testing monitoring integration.
 
 use std::sync::{atomic::{AtomicUsize, Ordering}, Arc, Mutex};
@@ -45,7 +48,7 @@ impl MonitoringAdapter for TestMonitoringAdapter {
             forward_count.fetch_add(1, Ordering::SeqCst);
             
             // Store last results
-            let mut last_results = last_results.lock().unwrap();
+            let mut last_results = last_results.lock().expect("monitoring results lock poisoned");
             *last_results = results;
             
             Ok(())

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Environment variable-based discovery
 //!
 //! Highest priority discovery mechanism. Allows users to override

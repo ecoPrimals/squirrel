@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! PrimalPulse - AI-Powered Ecosystem Intelligence
 //!
 //! **LEGACY MODULE** - being evolved to capability-based architecture

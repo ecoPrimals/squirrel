@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for ecosystem manager
 
 #[cfg(test)]
@@ -63,8 +66,8 @@ mod tests {
 
         let ecosystem_status = manager.get_ecosystem_status().await;
 
-        assert_eq!(ecosystem_status.status, "active");
-        // When no services discovered, health should be 0.5
+        // When no peers are discovered, status is "degraded" and health is 0.5
+        assert_eq!(ecosystem_status.status, "degraded");
         assert!((ecosystem_status.overall_health - 0.5).abs() < 0.01);
         assert_eq!(ecosystem_status.discovered_services.len(), 0);
         assert_eq!(ecosystem_status.active_integrations.len(), 0);

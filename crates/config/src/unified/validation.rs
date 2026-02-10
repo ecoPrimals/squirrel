@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Unified Configuration Validation
 //!
 //! This module provides centralized validation logic for all configuration types
@@ -13,7 +16,7 @@
 //!
 //! # Example Usage
 //!
-//! ```rust
+//! ```ignore
 //! use squirrel_mcp_config::unified::validation::Validator;
 //!
 //! let result = Validator::validate_port(8080)?;

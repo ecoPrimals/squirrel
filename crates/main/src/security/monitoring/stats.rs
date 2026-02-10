@@ -2,6 +2,7 @@
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Security monitoring statistics
+#![allow(dead_code)] // Security monitoring infrastructure awaiting activation
 //!
 //! Tracks and reports statistics about security events, alerts, and
 //! monitoring system health.
@@ -117,29 +118,21 @@ impl StatsCollector {
     }
 
     /// Calculate derived statistics (rates, etc.)
+    ///
+    /// Always recalculates from current time. Safe to call at any frequency.
     pub async fn calculate_derived_stats(&self) {
         let now = Instant::now();
         let mut last_calc = self.last_calculation.write().await;
-        let elapsed = now.duration_since(*last_calc);
-
-        if elapsed < Duration::from_secs(1) {
-            return; // Don't calculate too frequently
-        }
-
         let mut stats = self.stats.write().await;
 
         // Update uptime
         stats.uptime = now.duration_since(self.start_time);
 
-        // Calculate events per second
-        if elapsed.as_secs() > 0 {
-            stats.events_per_second = stats.total_events as f64 / stats.uptime.as_secs_f64();
-        }
-
-        // Calculate alert rate (alerts per hour)
-        if stats.uptime.as_secs() > 0 {
-            stats.alert_rate =
-                (stats.alerts_generated as f64 / stats.uptime.as_secs_f64()) * 3600.0;
+        // Calculate events per second (use fractional seconds for sub-second precision)
+        let uptime_secs = stats.uptime.as_secs_f64();
+        if uptime_secs > 0.0 {
+            stats.events_per_second = stats.total_events as f64 / uptime_secs;
+            stats.alert_rate = (stats.alerts_generated as f64 / uptime_secs) * 3600.0;
         }
 
         *last_calc = now;
@@ -268,13 +261,18 @@ mod tests {
                 .await;
         }
 
-        // Wait to ensure uptime > 0 and calculation interval passes
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        // Minimal wait for clock to advance past zero
+        tokio::time::sleep(Duration::from_millis(10)).await;
 
         collector.calculate_derived_stats().await;
 
         let stats = collector.get_stats().await;
-        assert!(stats.uptime.as_secs() >= 2);
+        // Uptime should be measurably > 0; events_per_second is events/uptime_secs
+        assert!(
+            stats.uptime > Duration::ZERO,
+            "uptime should be > 0, got {:?}",
+            stats.uptime
+        );
         assert!(stats.events_per_second > 0.0);
     }
 

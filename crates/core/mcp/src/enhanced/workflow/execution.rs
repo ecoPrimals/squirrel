@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Workflow Execution Engine
 //!
 //! Executes workflow steps, manages execution flow, handles retries and error recovery.
@@ -10,10 +13,17 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::error::{Result, types::MCPError};
-use super::coordinator::{AICoordinator, UniversalAIRequest, UniversalAIResponse};
+use super::coordinator::{AICoordinator};
 use super::events::{EventBroadcaster, EventType, MCPEvent};
-use super::service_composition::{AIService, ExecutionResult, ServiceCompositionEngine};
+use super::service_composition::{ServiceCompositionEngine};
 use super::types::*;
+
+mod execution {
+    pub mod handlers;
+    pub mod resolver;
+    pub mod condition;
+}
+use execution::{handlers, resolver, condition};
 
 #[cfg(test)]
 mod execution_tests;
@@ -96,6 +106,19 @@ pub struct ExecutionContext {
     
     /// Variables
     pub variables: HashMap<String, serde_json::Value>,
+}
+
+impl ExecutionContext {
+    /// Get a variable value
+    pub fn get_variable(&self, name: &str) -> Option<&serde_json::Value> {
+        self.variables.get(name)
+    }
+    
+    /// Set a variable value
+    pub fn set_variable(&mut self, name: &str, value: serde_json::Value) -> Result<()> {
+        self.variables.insert(name.to_string(), value);
+        Ok(())
+    }
 }
 
 /// Execution record for history
@@ -254,7 +277,7 @@ impl WorkflowExecutionEngine {
         for step in steps {
             // Check if should execute based on condition
             if let Some(condition) = &step.condition {
-                if !self.evaluate_condition(condition, context).await? {
+                if !condition::evaluate_condition(condition, context).await? {
                     debug!("Skipping step {} due to condition", step.id);
                     continue;
                 }
@@ -318,23 +341,27 @@ impl WorkflowExecutionEngine {
         // Execute based on step type
         let result = match &step.step_type {
             WorkflowStepType::AIInference => {
-                self.execute_ai_step(step, context, ai_coordinator).await?
+                handlers::execute_ai_step(step, context, ai_coordinator).await?
             }
-            WorkflowStepType::ServiceCall => {
-                self.execute_service_step(step, context, service_composition)
+            WorkflowStepType::ServiceComposition => {
+                handlers::execute_service_step(step, context, service_composition, self.config.default_timeout)
                     .await?
             }
-            WorkflowStepType::DataTransform => {
-                self.execute_transform_step(step, context).await?
+            WorkflowStepType::DataProcessing => {
+                handlers::execute_transform_step(step, context).await?
             }
-            WorkflowStepType::Condition => self.execute_condition_step(step, context).await?,
+            WorkflowStepType::Condition => handlers::execute_condition_step(step, context).await?,
             WorkflowStepType::Parallel => {
-                self.execute_parallel_step(step, context, ai_coordinator, service_composition, event_broadcaster)
+                handlers::execute_parallel_step(step, context, ai_coordinator, service_composition, event_broadcaster, self.config.max_parallel_steps)
                     .await?
             }
-            WorkflowStepType::Sequential => {
-                self.execute_sequential_step(step, context, ai_coordinator, service_composition, event_broadcaster)
+            WorkflowStepType::Custom(ref custom_type) if custom_type == "sequential" => {
+                handlers::execute_sequential_step(step, context, ai_coordinator, service_composition, event_broadcaster)
                     .await?
+            }
+            _ => {
+                warn!("Unsupported step type: {:?}", step.step_type);
+                return Err(MCPError::InvalidWorkflow(format!("Unsupported step type: {:?}", step.step_type)));
             }
         };
 
@@ -356,661 +383,6 @@ impl WorkflowExecutionEngine {
         Ok(result)
     }
 
-    /// Execute AI inference step
-    async fn execute_ai_step(
-        &self,
-        step: &WorkflowStep,
-        context: &ExecutionContext,
-        ai_coordinator: &Arc<AICoordinator>,
-    ) -> Result<serde_json::Value> {
-        let input = self.resolve_input(&step.input, context)?;
-
-        let request = UniversalAIRequest {
-            request_id: uuid::Uuid::new_v4().to_string(),
-            prompt: input
-                .get("prompt")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string(),
-            model: input
-                .get("model")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            parameters: input.get("parameters").cloned(),
-            context: Some(serde_json::json!({
-                "workflow_instance": context.instance_id,
-                "step_id": step.id,
-            })),
-            constraints: None,
-            routing_hints: None,
-        };
-
-        let response = ai_coordinator.coordinate_ai_request(request).await?;
-        Ok(serde_json::to_value(response)?)
-    }
-
-    /// Execute service call step
-    async fn execute_service_step(
-        &self,
-        step: &WorkflowStep,
-        context: &ExecutionContext,
-        service_composition: &Arc<ServiceCompositionEngine>,
-    ) -> Result<serde_json::Value> {
-        let input = self.resolve_input(&step.input, context)?;
-
-        let service = AIService {
-            id: step
-                .config
-                .get("service_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("default")
-                .to_string(),
-            name: step.name.clone(),
-            service_type: step
-                .config
-                .get("service_type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("generic")
-                .to_string(),
-            endpoint: step
-                .config
-                .get("endpoint")
-                .and_then(|v| v.as_str())
-                .unwrap_or("http://localhost")
-                .to_string(),
-            capabilities: vec![],
-            priority: 0,
-            timeout: self.config.default_timeout,
-            retry_config: None,
-        };
-
-        let result = service_composition
-            .execute_service(&service, input)
-            .await?;
-
-        match result {
-            ExecutionResult::Success(data) => Ok(data),
-            ExecutionResult::PartialSuccess { data, .. } => Ok(data),
-            ExecutionResult::Failure(err) => Err(MCPError::ServiceError(err).into()),
-        }
-    }
-
-    /// Execute data transform step
-    pub(crate) async fn execute_transform_step(
-        &self,
-        step: &WorkflowStep,
-        context: &ExecutionContext,
-    ) -> Result<serde_json::Value> {
-        let input = self.resolve_input(&step.input, context)?;
-        
-        // Get transformation configuration
-        let transform_type = step.config.get("transform_type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("passthrough");
-        
-        match transform_type {
-            "passthrough" => {
-                // No transformation, return input as-is
-                Ok(input)
-            }
-            "extract" => {
-                // Extract specific field(s) from input
-                if let Some(field) = step.config.get("field").and_then(|v| v.as_str()) {
-                    Ok(input.get(field).cloned().unwrap_or(serde_json::Value::Null))
-                } else {
-                    Ok(input)
-                }
-            }
-            "map" => {
-                // Map transformation: apply function to each element
-                if let Some(array) = input.as_array() {
-                    let mapped: Vec<serde_json::Value> = array.iter()
-                        .map(|item| self.apply_map_function(item, step))
-                        .collect();
-                    Ok(serde_json::Value::Array(mapped))
-                } else {
-                    Ok(input)
-                }
-            }
-            "filter" => {
-                // Filter transformation: keep elements matching condition
-                if let Some(array) = input.as_array() {
-                    let filtered: Vec<serde_json::Value> = array.iter()
-                        .filter(|item| self.matches_filter(item, step))
-                        .cloned()
-                        .collect();
-                    Ok(serde_json::Value::Array(filtered))
-                } else {
-                    Ok(input)
-                }
-            }
-            "merge" => {
-                // Merge with additional data from context
-                if let Some(merge_key) = step.config.get("merge_with").and_then(|v| v.as_str()) {
-                    if let Some(merge_data) = context.get_variable(merge_key) {
-                        let mut result = input.clone();
-                        if let (Some(obj1), Some(obj2)) = (result.as_object_mut(), merge_data.as_object()) {
-                            for (k, v) in obj2 {
-                                obj1.insert(k.clone(), v.clone());
-                            }
-                        }
-                        Ok(result)
-                    } else {
-                        Ok(input)
-                    }
-                } else {
-                    Ok(input)
-                }
-            }
-            _ => {
-                warn!("Unknown transform type: {}, using passthrough", transform_type);
-                Ok(input)
-            }
-        }
-    }
-    
-    /// Apply map function to a single item
-    fn apply_map_function(&self, item: &serde_json::Value, step: &WorkflowStep) -> serde_json::Value {
-        // Simple transformation: extract specified fields
-        if let Some(fields) = step.config.get("map_fields").and_then(|v| v.as_array()) {
-            let mut result = serde_json::Map::new();
-            for field in fields {
-                if let Some(field_name) = field.as_str() {
-                    if let Some(value) = item.get(field_name) {
-                        result.insert(field_name.to_string(), value.clone());
-                    }
-                }
-            }
-            serde_json::Value::Object(result)
-        } else {
-            item.clone()
-        }
-    }
-    
-    /// Check if item matches filter condition
-    fn matches_filter(&self, item: &serde_json::Value, step: &WorkflowStep) -> bool {
-        if let Some(filter_field) = step.config.get("filter_field").and_then(|v| v.as_str()) {
-            if let Some(filter_value) = step.config.get("filter_value") {
-                if let Some(item_value) = item.get(filter_field) {
-                    return item_value == filter_value;
-                }
-            }
-        }
-        true // No filter specified, keep all items
-    }
-
-    /// Execute condition step
-    async fn execute_condition_step(
-        &self,
-        step: &WorkflowStep,
-        context: &ExecutionContext,
-    ) -> Result<serde_json::Value> {
-        if let Some(condition) = &step.condition {
-            let result = self.evaluate_condition(condition, context).await?;
-            Ok(serde_json::Value::Bool(result))
-        } else {
-            Ok(serde_json::Value::Bool(true))
-        }
-    }
-
-    /// Execute parallel step
-    pub(crate) async fn execute_parallel_step(
-        &self,
-        step: &WorkflowStep,
-        context: &ExecutionContext,
-        ai_coordinator: &Arc<AICoordinator>,
-        service_composition: &Arc<ServiceCompositionEngine>,
-        event_broadcaster: &Arc<EventBroadcaster>,
-    ) -> Result<serde_json::Value> {
-        // Get sub-steps to execute in parallel
-        let sub_steps = step.config.get("steps")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| MCPError::InvalidWorkflow("Parallel step missing 'steps' array".to_string()))?;
-        
-        // Limit parallel execution
-        let max_parallel = self.config.max_parallel_steps.min(sub_steps.len());
-        
-        info!("Executing {} steps in parallel (max concurrency: {})", sub_steps.len(), max_parallel);
-        
-        // Convert JSON steps to WorkflowStep structs
-        let steps: Vec<WorkflowStep> = sub_steps.iter()
-            .filter_map(|v| serde_json::from_value(v.clone()).ok())
-            .collect();
-        
-        // Execute all steps in parallel using tokio::spawn
-        let mut tasks = Vec::new();
-        for (idx, sub_step) in steps.into_iter().enumerate() {
-            let ctx = context.clone();
-            let ai = ai_coordinator.clone();
-            let svc = service_composition.clone();
-            let evt = event_broadcaster.clone();
-            let step_name = sub_step.name.clone();
-            
-            let task = tokio::spawn(async move {
-                debug!("Parallel step {}: {} starting", idx, step_name);
-                let result = Self::execute_step_static(&sub_step, &ctx, &ai, &svc, &evt).await;
-                debug!("Parallel step {}: {} completed", idx, step_name);
-                result
-            });
-            
-            tasks.push(task);
-        }
-        
-        // Collect all results
-        let mut results = Vec::new();
-        let mut errors = Vec::new();
-        
-        for (idx, task) in tasks.into_iter().enumerate() {
-            match task.await {
-                Ok(Ok(value)) => results.push(value),
-                Ok(Err(e)) => {
-                    error!("Parallel step {} failed: {}", idx, e);
-                    errors.push(format!("Step {}: {}", idx, e));
-                }
-                Err(e) => {
-                    error!("Parallel step {} panicked: {}", idx, e);
-                    errors.push(format!("Step {} panicked", idx));
-                }
-            }
-        }
-        
-        // Return results or error
-        if errors.is_empty() {
-            Ok(serde_json::Value::Array(results))
-        } else {
-            Err(MCPError::WorkflowExecutionFailed(
-                format!("Parallel execution had {} errors: {:?}", errors.len(), errors)
-            ))
-        }
-    }
-    
-    /// Static version of step execution for spawning
-    async fn execute_step_static(
-        step: &WorkflowStep,
-        context: &ExecutionContext,
-        ai_coordinator: &Arc<AICoordinator>,
-        service_composition: &Arc<ServiceCompositionEngine>,
-        event_broadcaster: &Arc<EventBroadcaster>,
-    ) -> Result<serde_json::Value> {
-        // Simple execution for parallel context
-        match step.step_type.as_str() {
-            "ai_task" => {
-                // Execute AI task
-                if let Some(prompt) = step.config.get("prompt").and_then(|v| v.as_str()) {
-                    let request = UniversalAIRequest {
-                        prompt: prompt.to_string(),
-                        context: step.config.clone(),
-                        priority: 50,
-                    };
-                    
-                    let response = ai_coordinator.route_request(request).await?;
-                    Ok(serde_json::json!({
-                        "result": response.result,
-                        "provider": response.provider,
-                        "confidence": response.confidence
-                    }))
-                } else {
-                    Ok(serde_json::Value::Null)
-                }
-            }
-            _ => {
-                // Return step input for other types
-                Ok(step.input.clone())
-            }
-        }
-    }
-
-    /// Execute sequential step
-    pub(crate) async fn execute_sequential_step(
-        &self,
-        step: &WorkflowStep,
-        context: &ExecutionContext,
-        ai_coordinator: &Arc<AICoordinator>,
-        service_composition: &Arc<ServiceCompositionEngine>,
-        event_broadcaster: &Arc<EventBroadcaster>,
-    ) -> Result<serde_json::Value> {
-        // Get sub-steps to execute sequentially
-        let sub_steps = step.config.get("steps")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| MCPError::InvalidWorkflow("Sequential step missing 'steps' array".to_string()))?;
-        
-        info!("Executing {} steps sequentially", sub_steps.len());
-        
-        // Convert JSON steps to WorkflowStep structs
-        let steps: Vec<WorkflowStep> = sub_steps.iter()
-            .filter_map(|v| serde_json::from_value(v.clone()).ok())
-            .collect();
-        
-        // Execute steps in order, passing results through context
-        let mut ctx = context.clone();
-        let mut last_result = serde_json::Value::Null;
-        let mut all_results = Vec::new();
-        
-        for (idx, sub_step) in steps.iter().enumerate() {
-            debug!("Sequential step {}: {} starting", idx, sub_step.name);
-            
-            // Set previous result in context
-            ctx.set_variable("previous_result", last_result.clone())?;
-            ctx.set_variable(&format!("step_{}_result", idx.saturating_sub(1)), last_result.clone())?;
-            
-            // Execute step
-            match Self::execute_step_static(sub_step, &ctx, ai_coordinator, service_composition, event_broadcaster).await {
-                Ok(result) => {
-                    debug!("Sequential step {}: {} completed successfully", idx, sub_step.name);
-                    last_result = result.clone();
-                    all_results.push(result);
-                    
-                    // Update context with step result
-                    ctx.set_variable(&sub_step.name, last_result.clone())?;
-                }
-                Err(e) => {
-                    error!("Sequential step {}: {} failed: {}", idx, sub_step.name, e);
-                    
-                    // Check if we should continue on error
-                    let continue_on_error = step.config.get("continue_on_error")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false);
-                    
-                    if continue_on_error {
-                        warn!("Continuing after error in step {}", idx);
-                        last_result = serde_json::json!({
-                            "error": e.to_string(),
-                            "step": idx
-                        });
-                        all_results.push(last_result.clone());
-                    } else {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-        
-        // Return last result or all results based on configuration
-        let return_all = step.config.get("return_all_results")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        
-        if return_all {
-            Ok(serde_json::Value::Array(all_results))
-        } else {
-            Ok(last_result)
-        }
-    }
-
-    /// Evaluate condition
-    pub(crate) async fn evaluate_condition(
-        &self,
-        condition: &str,
-        context: &ExecutionContext,
-    ) -> Result<bool> {
-        // Parse and evaluate condition
-        // Supports simple expressions like:
-        // - "variable == value"
-        // - "variable != value"
-        // - "variable > value"
-        // - "variable < value"
-        // - "variable contains value"
-        // - "exists variable"
-        
-        let condition = condition.trim();
-        
-        // Check for "exists" condition
-        if condition.starts_with("exists ") {
-            let var_name = condition.strip_prefix("exists ").unwrap().trim();
-            return Ok(context.get_variable(var_name).is_some());
-        }
-        
-        // Parse comparison operators
-        let operators = vec![
-            ("==", |a: &str, b: &str| a == b),
-            ("!=", |a: &str, b: &str| a != b),
-            ("contains", |a: &str, b: &str| a.contains(b)),
-        ];
-        
-        for (op, compare) in operators {
-            if let Some(pos) = condition.find(op) {
-                let var_name = condition[..pos].trim();
-                let expected = condition[pos + op.len()..].trim().trim_matches('"');
-                
-                if let Some(value) = context.get_variable(var_name) {
-                    let value_str = match value {
-                        serde_json::Value::String(s) => s.clone(),
-                        serde_json::Value::Number(n) => n.to_string(),
-                        serde_json::Value::Bool(b) => b.to_string(),
-                        _ => value.to_string(),
-                    };
-                    
-                    return Ok(compare(&value_str, expected));
-                } else {
-                    // Variable doesn't exist
-                    return Ok(false);
-                }
-            }
-        }
-        
-        // Parse numeric comparisons
-        if let Some(pos) = condition.find('>') {
-            let var_name = condition[..pos].trim();
-            let expected = condition[pos + 1..].trim();
-            
-            if let Some(value) = context.get_variable(var_name) {
-                if let (Some(val_num), Ok(exp_num)) = (
-                    value.as_f64(),
-                    expected.parse::<f64>()
-                ) {
-                    return Ok(val_num > exp_num);
-                }
-            }
-            return Ok(false);
-        }
-        
-        if let Some(pos) = condition.find('<') {
-            let var_name = condition[..pos].trim();
-            let expected = condition[pos + 1..].trim();
-            
-            if let Some(value) = context.get_variable(var_name) {
-                if let (Some(val_num), Ok(exp_num)) = (
-                    value.as_f64(),
-                    expected.parse::<f64>()
-                ) {
-                    return Ok(val_num < exp_num);
-                }
-            }
-            return Ok(false);
-        }
-        
-        // If no operator found, treat as boolean variable
-        if let Some(value) = context.get_variable(condition) {
-            return Ok(value.as_bool().unwrap_or(false));
-        }
-        
-        // Default to false for unknown conditions
-        warn!("Could not evaluate condition: {}", condition);
-        Ok(false)
-    }
-
-    /// Resolve input with variable substitution
-    ///
-    /// Supports variable references in the format:
-    /// - `${variable_name}` - Direct variable reference
-    /// - `${step_outputs.step_id.field}` - Reference to step output
-    /// - `${context.field}` - Reference to execution context
-    fn resolve_input(
-        &self,
-        input: &serde_json::Value,
-        context: &ExecutionContext,
-    ) -> Result<serde_json::Value> {
-        match input {
-            serde_json::Value::String(s) => {
-                // Check if the entire string is a variable reference
-                if s.starts_with("${") && s.ends_with('}') {
-                    let var_name = &s[2..s.len() - 1];
-                    self.resolve_variable(var_name, context)
-                } else if s.contains("${") {
-                    // String contains embedded variable references
-                    let mut result = s.clone();
-                    
-                    // Find all ${...} patterns and replace them
-                    let mut start = 0;
-                    while let Some(begin) = result[start..].find("${") {
-                        let begin = start + begin;
-                        if let Some(end) = result[begin..].find('}') {
-                            let end = begin + end;
-                            let var_name = &result[begin + 2..end];
-                            
-                            // Resolve the variable
-                            match self.resolve_variable(var_name, context) {
-                                Ok(value) => {
-                                    let replacement = match value {
-                                        serde_json::Value::String(s) => s,
-                                        serde_json::Value::Number(n) => n.to_string(),
-                                        serde_json::Value::Bool(b) => b.to_string(),
-                                        serde_json::Value::Null => "null".to_string(),
-                                        _ => value.to_string(),
-                                    };
-                                    
-                                    result.replace_range(begin..=end, &replacement);
-                                    start = begin + replacement.len();
-                                }
-                                Err(_) => {
-                                    // If variable not found, leave it as is and continue
-                                    start = end + 1;
-                                }
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-                    
-                    Ok(serde_json::Value::String(result))
-                } else {
-                    Ok(input.clone())
-                }
-            }
-            serde_json::Value::Array(arr) => {
-                let mut result = Vec::new();
-                for item in arr {
-                    result.push(self.resolve_input(item, context)?);
-                }
-                Ok(serde_json::Value::Array(result))
-            }
-            serde_json::Value::Object(obj) => {
-                let mut result = serde_json::Map::new();
-                for (key, value) in obj {
-                    result.insert(key.clone(), self.resolve_input(value, context)?);
-                }
-                Ok(serde_json::Value::Object(result))
-            }
-            // Numbers, booleans, and null are returned as-is
-            other => Ok(other.clone()),
-        }
-    }
-    
-    /// Resolve a variable reference
-    ///
-    /// Supports:
-    /// - Direct variable names: `variable_name`
-    /// - Step outputs: `step_outputs.step_id.field`
-    /// - Context fields: `context.field`
-    fn resolve_variable(
-        &self,
-        var_name: &str,
-        context: &ExecutionContext,
-    ) -> Result<serde_json::Value> {
-        // Check for step output reference
-        if let Some(rest) = var_name.strip_prefix("step_outputs.") {
-            let parts: Vec<&str> = rest.splitn(2, '.').collect();
-            if parts.len() == 2 {
-                let step_id = parts[0];
-                let field_path = parts[1];
-                
-                if let Some(output) = context.step_outputs.get(step_id) {
-                    return self.resolve_json_path(output, field_path);
-                }
-            } else if parts.len() == 1 {
-                let step_id = parts[0];
-                if let Some(output) = context.step_outputs.get(step_id) {
-                    return Ok(output.clone());
-                }
-            }
-        }
-        
-        // Check for context field reference
-        if let Some(field) = var_name.strip_prefix("context.") {
-            match field {
-                "workflow_id" => return Ok(serde_json::json!(context.workflow_id)),
-                "execution_id" => return Ok(serde_json::json!(context.execution_id)),
-                "started_at" => return Ok(serde_json::json!(context.started_at.to_rfc3339())),
-                _ => {
-                    // Check in context variables
-                    if let Some(value) = context.variables.get(field) {
-                        return Ok(value.clone());
-                    }
-                }
-            }
-        }
-        
-        // Check in context variables
-        if let Some(value) = context.variables.get(var_name) {
-            return Ok(value.clone());
-        }
-        
-        // Variable not found
-        Err(MCPError::InvalidArgument(format!(
-            "Variable '{}' not found in execution context",
-            var_name
-        )))
-    }
-    
-    /// Resolve a JSON path within a value
-    ///
-    /// Supports simple dot notation: `field1.field2.field3`
-    fn resolve_json_path(
-        &self,
-        value: &serde_json::Value,
-        path: &str,
-    ) -> Result<serde_json::Value> {
-        let parts: Vec<&str> = path.split('.').collect();
-        let mut current = value;
-        
-        for part in parts {
-            match current {
-                serde_json::Value::Object(obj) => {
-                    current = obj.get(part).ok_or_else(|| {
-                        MCPError::InvalidArgument(format!(
-                            "Field '{}' not found in JSON path '{}'",
-                            part, path
-                        ))
-                    })?;
-                }
-                serde_json::Value::Array(arr) => {
-                    // Support array indexing
-                    if let Ok(index) = part.parse::<usize>() {
-                        current = arr.get(index).ok_or_else(|| {
-                            MCPError::InvalidArgument(format!(
-                                "Array index {} out of bounds (length: {})",
-                                index,
-                                arr.len()
-                            ))
-                        })?;
-                    } else {
-                        return Err(MCPError::InvalidArgument(format!(
-                            "Invalid array index '{}' in path '{}'",
-                            part, path
-                        )));
-                    }
-                }
-                _ => {
-                    return Err(MCPError::InvalidArgument(format!(
-                        "Cannot navigate into non-object/non-array value at '{}' in path '{}'",
-                        part, path
-                    )));
-                }
-            }
-        }
-        
-        Ok(current.clone())
-    }
 
     /// Get active executions
     pub async fn get_active_executions(&self) -> Vec<ExecutionContext> {

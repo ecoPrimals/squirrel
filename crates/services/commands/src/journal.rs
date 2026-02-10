@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Command Journaling System
 //!
 //! This module provides persistent logging of command execution with support for

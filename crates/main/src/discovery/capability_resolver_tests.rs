@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for capability resolver
 
 use super::capability_resolver::{CapabilityResolver, DiscoveryMethod};

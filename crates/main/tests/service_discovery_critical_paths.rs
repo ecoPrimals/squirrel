@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Critical Path Service Discovery Tests
 //!
 //! Comprehensive tests for capability-based service discovery - the core

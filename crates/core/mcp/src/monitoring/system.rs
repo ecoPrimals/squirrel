@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Monitoring system orchestration
 //!
 //! This module provides the main MonitoringSystem that orchestrates all monitoring
@@ -9,7 +12,7 @@ use super::{
     dashboard::DashboardServer,
     health::HealthMonitor,
     metrics::MetricsCollector,
-    clients::{MonitoringClient, MockMonitoringClient},
+    clients::{MonitoringClient, InMemoryMonitoringClient},
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -55,7 +58,7 @@ impl MonitoringSystem {
         let metrics_collector = Arc::new(MetricsCollector::new());
         let alert_manager = Arc::new(AlertManager::new());
         let health_monitor = Arc::new(HealthMonitor::new());
-        let monitoring_client = Arc::new(MockMonitoringClient::new("monitoring_system"));
+        let monitoring_client = Arc::new(InMemoryMonitoringClient::new("monitoring_system"));
 
         Self {
             metrics_collector,

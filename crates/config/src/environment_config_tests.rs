@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for environment configuration
 //!
 //! These tests significantly improve coverage for the config module.
@@ -124,12 +127,12 @@ mod tests {
         let config = AIToolsConfig {
             anthropic_url: "https://api.anthropic.com".to_string(),
             openai_url: "https://api.openai.com".to_string(),
-            ollama_url: "http://localhost:11434".to_string(),
+            local_server_url: "http://localhost:11434".to_string(),
         };
 
         assert!(config.anthropic_url.starts_with("https://"));
         assert!(config.openai_url.contains("openai"));
-        assert!(config.ollama_url.contains("localhost"));
+        assert!(config.local_server_url.contains("localhost"));
     }
 
     #[test]

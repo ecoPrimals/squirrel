@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Test Utilities - Modern Concurrent Patterns
 //!
 //! Reusable test helpers with proper timeout and concurrency handling
@@ -152,7 +155,8 @@ mod tests {
     #[tokio::test]
     async fn test_with_timeout_success() {
         let result = with_test_timeout(1, async {
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            // Fast actual work instead of sleep
+            tokio::task::yield_now().await;
             42
         })
         .await;
@@ -163,7 +167,8 @@ mod tests {
     #[tokio::test]
     async fn test_with_timeout_failure() {
         let result = with_test_timeout(1, async {
-            tokio::time::sleep(Duration::from_secs(5)).await;
+            // pending() never completes -- tests timeout without wasting time sleeping
+            std::future::pending::<()>().await;
             42
         })
         .await;

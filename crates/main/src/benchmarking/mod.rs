@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive Benchmarking Framework for ecoPrimals Ecosystem
+#![allow(dead_code)] // Benchmarking infrastructure awaiting activation
 //!
 //! This module provides a unified benchmarking framework for measuring performance
 //! across all ecosystem components including:
@@ -56,6 +60,23 @@ impl Default for BenchmarkConfig {
     fn default() -> Self {
         Self {
             name: "default_benchmark".to_string(),
+            duration: Duration::from_millis(100),
+            concurrency_levels: vec![1, 4, 8],
+            operation_count: 100,
+            warm_up_duration: Duration::from_millis(10),
+            cool_down_duration: Duration::ZERO,
+            memory_monitoring: true,
+            cpu_monitoring: true,
+            collect_detailed_metrics: true,
+        }
+    }
+}
+
+impl BenchmarkConfig {
+    /// Create a production benchmark config with longer durations for real perf measurement.
+    pub fn production() -> Self {
+        Self {
+            name: "production_benchmark".to_string(),
             duration: Duration::from_secs(30),
             concurrency_levels: vec![1, 4, 8, 16, 32],
             operation_count: 1000,
@@ -273,15 +294,21 @@ impl BenchmarkSuite {
     }
 
     // Individual benchmark implementations
+    //
+    // Each benchmark exercises actual code paths (serialization, hashing,
+    // collection operations) rather than sleeping. This produces meaningful
+    // perf data and doesn't block the executor.
+
     async fn benchmark_text_generation(&self) -> Result<BenchmarkResult, PrimalError> {
         let config = BenchmarkConfig {
             name: "text_generation".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("text_generation", config, || async {
-            // Simulate text generation
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            // JSON-RPC request/response cycle (real serialization work)
+            let req = serde_json::json!({"method":"ai.query","params":{"prompt":"bench"},"id":1});
+            let _s = serde_json::to_string(&req).unwrap();
+            let _v: serde_json::Value = serde_json::from_str(&_s).unwrap();
             Ok(())
         })
         .await
@@ -292,10 +319,15 @@ impl BenchmarkSuite {
             name: "context_processing".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("context_processing", config, || async {
-            // Simulate context processing
-            tokio::time::sleep(Duration::from_millis(30)).await;
+            // HashMap insert/lookup cycle
+            let mut map = std::collections::HashMap::new();
+            for i in 0..100 {
+                map.insert(format!("key_{i}"), format!("val_{i}"));
+            }
+            for i in 0..100 {
+                let _ = map.get(&format!("key_{i}"));
+            }
             Ok(())
         })
         .await
@@ -306,10 +338,12 @@ impl BenchmarkSuite {
             name: "tool_orchestration".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("tool_orchestration", config, || async {
-            // Simulate tool orchestration
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            // Concurrent task spawn and join
+            let handles: Vec<_> = (0..4).map(|i| tokio::spawn(async move { i * i })).collect();
+            for h in handles {
+                let _ = h.await;
+            }
             Ok(())
         })
         .await
@@ -320,10 +354,12 @@ impl BenchmarkSuite {
             name: "response_synthesis".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("response_synthesis", config, || async {
-            // Simulate response synthesis
-            tokio::time::sleep(Duration::from_millis(75)).await;
+            let mut s = String::with_capacity(4096);
+            for i in 0..100 {
+                s.push_str(&format!("token_{i} "));
+            }
+            let _ = s.len();
             Ok(())
         })
         .await
@@ -334,10 +370,9 @@ impl BenchmarkSuite {
             name: "task_scheduling".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("task_scheduling", config, || async {
-            // Simulate task scheduling
-            tokio::time::sleep(Duration::from_millis(25)).await;
+            let mut v: Vec<u64> = (0..200).rev().collect();
+            v.sort_unstable();
             Ok(())
         })
         .await
@@ -348,10 +383,11 @@ impl BenchmarkSuite {
             name: "service_discovery".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("service_discovery", config, || async {
-            // Simulate service discovery
-            tokio::time::sleep(Duration::from_millis(40)).await;
+            // UUID generation + string formatting (discovery ID generation)
+            for _ in 0..10 {
+                let _ = uuid::Uuid::new_v4().to_string();
+            }
             Ok(())
         })
         .await
@@ -362,10 +398,17 @@ impl BenchmarkSuite {
             name: "load_balancing".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("load_balancing", config, || async {
-            // Simulate load balancing
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            // Weighted random selection (load balancer hot path)
+            let weights = [10u32, 20, 30, 40];
+            let total: u32 = weights.iter().sum();
+            let _ = weights
+                .iter()
+                .scan(0u32, |acc, &w| {
+                    *acc += w;
+                    Some(*acc)
+                })
+                .position(|acc| acc >= total / 2);
             Ok(())
         })
         .await
@@ -376,10 +419,9 @@ impl BenchmarkSuite {
             name: "health_monitoring".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("health_monitoring", config, || async {
-            // Simulate health monitoring
-            tokio::time::sleep(Duration::from_millis(15)).await;
+            let _ = chrono::Utc::now().to_rfc3339();
+            let _ = serde_json::json!({"status":"healthy","ts": chrono::Utc::now().timestamp()});
             Ok(())
         })
         .await
@@ -390,13 +432,11 @@ impl BenchmarkSuite {
             name: "job_submission".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("job_submission", config, || async {
-            // Simulate job submission
-            tokio::time::sleep(Duration::from_millis(35)).await;
+            let job = serde_json::json!({"id": uuid::Uuid::new_v4().to_string(), "type":"compute","priority":5});
+            let _ = serde_json::to_vec(&job).unwrap();
             Ok(())
-        })
-        .await
+        }).await
     }
 
     async fn benchmark_resource_allocation(&self) -> Result<BenchmarkResult, PrimalError> {
@@ -404,10 +444,10 @@ impl BenchmarkSuite {
             name: "resource_allocation".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("resource_allocation", config, || async {
-            // Simulate resource allocation
-            tokio::time::sleep(Duration::from_millis(45)).await;
+            let mut resources: Vec<(String, u64)> =
+                (0..50).map(|i| (format!("res_{i}"), i * 1024)).collect();
+            resources.sort_by_key(|r| std::cmp::Reverse(r.1));
             Ok(())
         })
         .await
@@ -418,10 +458,23 @@ impl BenchmarkSuite {
             name: "parallel_processing".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("parallel_processing", config, || async {
-            // Simulate parallel processing
-            tokio::time::sleep(Duration::from_millis(80)).await;
+            let handles: Vec<_> = (0..8)
+                .map(|i| {
+                    tokio::spawn(async move {
+                        let mut sum = 0u64;
+                        for j in 0..1000 {
+                            sum += (i * 1000 + j) as u64;
+                        }
+                        sum
+                    })
+                })
+                .collect();
+            let mut total = 0u64;
+            for h in handles {
+                total += h.await.unwrap_or(0);
+            }
+            let _ = total;
             Ok(())
         })
         .await
@@ -432,10 +485,10 @@ impl BenchmarkSuite {
             name: "job_completion".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("job_completion", config, || async {
-            // Simulate job completion
-            tokio::time::sleep(Duration::from_millis(60)).await;
+            let result =
+                serde_json::json!({"status":"complete","duration_ms":42,"output_size":1024});
+            let _ = serde_json::to_string(&result).unwrap();
             Ok(())
         })
         .await
@@ -446,10 +499,11 @@ impl BenchmarkSuite {
             name: "data_storage".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("data_storage", config, || async {
-            // Simulate data storage
-            tokio::time::sleep(Duration::from_millis(70)).await;
+            let data: Vec<u8> = (0..1024).map(|i| (i % 256) as u8).collect();
+            let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
+            let _ = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &encoded)
+                .unwrap();
             Ok(())
         })
         .await
@@ -460,10 +514,13 @@ impl BenchmarkSuite {
             name: "data_retrieval".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("data_retrieval", config, || async {
-            // Simulate data retrieval
-            tokio::time::sleep(Duration::from_millis(40)).await;
+            let map: std::collections::HashMap<String, String> = (0..200)
+                .map(|i| (format!("k{i}"), format!("v{i}")))
+                .collect();
+            for i in 0..200 {
+                let _ = map.get(&format!("k{i}"));
+            }
             Ok(())
         })
         .await
@@ -474,13 +531,12 @@ impl BenchmarkSuite {
             name: "context_persistence".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("context_persistence", config, || async {
-            // Simulate context persistence
-            tokio::time::sleep(Duration::from_millis(55)).await;
+            let ctx = serde_json::json!({"session":"abc","data":{"k1":"v1","k2":"v2"},"ts": chrono::Utc::now().timestamp()});
+            let bytes = serde_json::to_vec(&ctx).unwrap();
+            let _: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
             Ok(())
-        })
-        .await
+        }).await
     }
 
     async fn benchmark_model_caching(&self) -> Result<BenchmarkResult, PrimalError> {
@@ -488,10 +544,14 @@ impl BenchmarkSuite {
             name: "model_caching".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("model_caching", config, || async {
-            // Simulate model caching
-            tokio::time::sleep(Duration::from_millis(30)).await;
+            let cache = dashmap::DashMap::new();
+            for i in 0..100 {
+                cache.insert(format!("model_{i}"), vec![0u8; 64]);
+            }
+            for i in 0..100 {
+                let _ = cache.get(&format!("model_{i}"));
+            }
             Ok(())
         })
         .await
@@ -502,10 +562,17 @@ impl BenchmarkSuite {
             name: "authentication".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("authentication", config, || async {
-            // Simulate authentication
-            tokio::time::sleep(Duration::from_millis(25)).await;
+            // Token generation and base64 encoding
+            let token = format!(
+                "{}:{}",
+                uuid::Uuid::new_v4(),
+                chrono::Utc::now().timestamp()
+            );
+            let _ = base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                token.as_bytes(),
+            );
             Ok(())
         })
         .await
@@ -516,10 +583,10 @@ impl BenchmarkSuite {
             name: "authorization".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("authorization", config, || async {
-            // Simulate authorization
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            let perms = ["read", "write", "admin", "execute"];
+            let required = ["read", "write"];
+            let _ = required.iter().all(|r| perms.contains(r));
             Ok(())
         })
         .await
@@ -530,10 +597,16 @@ impl BenchmarkSuite {
             name: "token_validation".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("token_validation", config, || async {
-            // Simulate token validation
-            tokio::time::sleep(Duration::from_millis(15)).await;
+            let token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.test";
+            let parts: Vec<&str> = token.split('.').collect();
+            let _ = parts.len() == 3;
+            if let Some(payload) = parts.get(1) {
+                let _ = base64::Engine::decode(
+                    &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+                    payload,
+                );
+            }
             Ok(())
         })
         .await
@@ -544,10 +617,14 @@ impl BenchmarkSuite {
             name: "credential_management".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("credential_management", config, || async {
-            // Simulate credential management
-            tokio::time::sleep(Duration::from_millis(35)).await;
+            let mut store = std::collections::HashMap::new();
+            for i in 0..20 {
+                store.insert(format!("svc_{i}"), uuid::Uuid::new_v4().to_string());
+            }
+            for i in 0..20 {
+                let _ = store.get(&format!("svc_{i}"));
+            }
             Ok(())
         })
         .await
@@ -558,13 +635,12 @@ impl BenchmarkSuite {
             name: "message_serialization".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("message_serialization", config, || async {
-            // Simulate message serialization
-            tokio::time::sleep(Duration::from_millis(10)).await;
+            let msg = serde_json::json!({"jsonrpc":"2.0","method":"test","params":{"data":[1,2,3]},"id":42});
+            let bytes = serde_json::to_vec(&msg).unwrap();
+            let _: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
             Ok(())
-        })
-        .await
+        }).await
     }
 
     async fn benchmark_connection_management(&self) -> Result<BenchmarkResult, PrimalError> {
@@ -572,10 +648,15 @@ impl BenchmarkSuite {
             name: "connection_management".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("connection_management", config, || async {
-            // Simulate connection management
-            tokio::time::sleep(Duration::from_millis(30)).await;
+            // Connection pool simulation: Arc allocation and drop
+            let pool: Vec<std::sync::Arc<String>> = (0..10)
+                .map(|i| std::sync::Arc::new(format!("conn_{i}")))
+                .collect();
+            for conn in &pool {
+                let _ = std::sync::Arc::strong_count(conn);
+            }
+            drop(pool);
             Ok(())
         })
         .await
@@ -586,13 +667,11 @@ impl BenchmarkSuite {
             name: "session_handling".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("session_handling", config, || async {
-            // Simulate session handling
-            tokio::time::sleep(Duration::from_millis(25)).await;
+            let session = serde_json::json!({"id": uuid::Uuid::new_v4().to_string(), "created": chrono::Utc::now().to_rfc3339()});
+            let _ = serde_json::to_string(&session).unwrap();
             Ok(())
-        })
-        .await
+        }).await
     }
 
     async fn benchmark_protocol_negotiation(&self) -> Result<BenchmarkResult, PrimalError> {
@@ -600,10 +679,11 @@ impl BenchmarkSuite {
             name: "protocol_negotiation".to_string(),
             ..Default::default()
         };
-
         self.run_benchmark("protocol_negotiation", config, || async {
-            // Simulate protocol negotiation
-            tokio::time::sleep(Duration::from_millis(40)).await;
+            // Protocol header parsing
+            let header = r#"{"jsonrpc":"2.0","method":"capability.discover","id":1}"#;
+            let v: serde_json::Value = serde_json::from_str(header).unwrap();
+            let _ = v.get("method").and_then(|m| m.as_str());
             Ok(())
         })
         .await
@@ -628,9 +708,7 @@ impl BenchmarkSuite {
         debug!("Starting warm-up phase for {}", name);
         let warm_up_end = Instant::now() + config.warm_up_duration;
         while Instant::now() < warm_up_end {
-            if let Err(_) = operation().await {
-                // Ignore warm-up failures
-            }
+            let _ = operation().await; // Ignore warm-up failures
         }
 
         // Main benchmark phase
@@ -651,9 +729,9 @@ impl BenchmarkSuite {
             operation_count += 1;
         }
 
-        // Cool-down phase
-        debug!("Starting cool-down phase for {}", name);
-        tokio::time::sleep(config.cool_down_duration).await;
+        // Cool-down phase: yield to let other tasks run (no sleep)
+        debug!("Cool-down yield for {}", name);
+        tokio::task::yield_now().await;
 
         // Calculate metrics
         let total_duration = start_time.elapsed();
@@ -806,7 +884,15 @@ mod tests {
     async fn test_benchmark_config_default() {
         let config = BenchmarkConfig::default();
         assert_eq!(config.name, "default_benchmark");
+        assert_eq!(config.duration, Duration::from_millis(100));
+    }
+
+    #[test]
+    async fn test_benchmark_config_production() {
+        let config = BenchmarkConfig::production();
+        assert_eq!(config.name, "production_benchmark");
         assert_eq!(config.duration, Duration::from_secs(30));
+        assert_eq!(config.operation_count, 1000);
     }
 
     #[test]
@@ -816,7 +902,8 @@ mod tests {
 
         let result = suite
             .run_benchmark("test_operation", config, || async {
-                tokio::time::sleep(Duration::from_millis(1)).await;
+                // Actual work instead of sleep
+                let _ = serde_json::json!({"op": "test"});
                 Ok(())
             })
             .await;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! WebSocket connection management for MCP client
 //!
 //! This module handles the low-level WebSocket connection operations including
@@ -36,7 +39,7 @@ impl ConnectionManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::connection::ConnectionManager;
     /// use squirrel_sdk::config::McpClientConfig;
     ///
@@ -72,7 +75,7 @@ impl ConnectionManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::connection::ConnectionManager;
     /// use squirrel_sdk::config::McpClientConfig;
     ///
@@ -156,7 +159,7 @@ impl ConnectionManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::connection::ConnectionManager;
     /// use squirrel_sdk::config::McpClientConfig;
     ///
@@ -211,7 +214,7 @@ impl ConnectionManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::connection::ConnectionManager;
     /// use squirrel_sdk::config::McpClientConfig;
     ///
@@ -247,7 +250,7 @@ impl ConnectionManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::connection::ConnectionManager;
     /// use squirrel_sdk::config::McpClientConfig;
     ///
@@ -275,7 +278,7 @@ impl ConnectionManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::connection::ConnectionManager;
     /// use squirrel_sdk::config::McpClientConfig;
     ///

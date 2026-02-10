@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Metric value types.
 
 use chrono::{DateTime, Duration, Utc};
@@ -27,4 +30,105 @@ pub enum MetricValue {
     Duration(Duration),
     /// Timestamp value
     Timestamp(DateTime<Utc>),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_metric_value_counter_serde() {
+        let val = MetricValue::Counter(42);
+        let json = serde_json::to_string(&val).unwrap();
+        let deserialized: MetricValue = serde_json::from_str(&json).unwrap();
+        if let MetricValue::Counter(v) = deserialized {
+            assert_eq!(v, 42);
+        } else {
+            panic!("Expected Counter variant");
+        }
+    }
+
+    #[test]
+    fn test_metric_value_gauge_serde() {
+        let val = MetricValue::Gauge(3.14);
+        let json = serde_json::to_string(&val).unwrap();
+        let deserialized: MetricValue = serde_json::from_str(&json).unwrap();
+        if let MetricValue::Gauge(v) = deserialized {
+            assert!((v - 3.14).abs() < f64::EPSILON);
+        } else {
+            panic!("Expected Gauge variant");
+        }
+    }
+
+    #[test]
+    fn test_metric_value_histogram_serde() {
+        let val = MetricValue::Histogram {
+            count: 100,
+            sum: 500.0,
+            buckets: vec![(1.0, 10), (5.0, 50), (10.0, 90)],
+        };
+        let json = serde_json::to_string(&val).unwrap();
+        let deserialized: MetricValue = serde_json::from_str(&json).unwrap();
+        if let MetricValue::Histogram {
+            count,
+            sum,
+            buckets,
+        } = deserialized
+        {
+            assert_eq!(count, 100);
+            assert!((sum - 500.0).abs() < f64::EPSILON);
+            assert_eq!(buckets.len(), 3);
+        } else {
+            panic!("Expected Histogram variant");
+        }
+    }
+
+    #[test]
+    fn test_metric_value_string_serde() {
+        let val = MetricValue::String("hello".to_string());
+        let json = serde_json::to_string(&val).unwrap();
+        let deserialized: MetricValue = serde_json::from_str(&json).unwrap();
+        if let MetricValue::String(v) = deserialized {
+            assert_eq!(v, "hello");
+        } else {
+            panic!("Expected String variant");
+        }
+    }
+
+    #[test]
+    fn test_metric_value_boolean_serde() {
+        let val = MetricValue::Boolean(true);
+        let json = serde_json::to_string(&val).unwrap();
+        let deserialized: MetricValue = serde_json::from_str(&json).unwrap();
+        if let MetricValue::Boolean(v) = deserialized {
+            assert!(v);
+        } else {
+            panic!("Expected Boolean variant");
+        }
+    }
+
+    #[test]
+    fn test_metric_value_duration_serde() {
+        let val = MetricValue::Duration(Duration::seconds(60));
+        let json = serde_json::to_string(&val).unwrap();
+        let deserialized: MetricValue = serde_json::from_str(&json).unwrap();
+        if let MetricValue::Duration(v) = deserialized {
+            assert_eq!(v.num_seconds(), 60);
+        } else {
+            panic!("Expected Duration variant");
+        }
+    }
+
+    #[test]
+    fn test_metric_value_timestamp_serde() {
+        let now = Utc::now();
+        let val = MetricValue::Timestamp(now);
+        let json = serde_json::to_string(&val).unwrap();
+        let deserialized: MetricValue = serde_json::from_str(&json).unwrap();
+        if let MetricValue::Timestamp(v) = deserialized {
+            assert_eq!(v.timestamp(), now.timestamp());
+        } else {
+            panic!("Expected Timestamp variant");
+        }
+    }
 }

@@ -1,18 +1,24 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI Tools for Squirrel MCP
 //!
 //! This crate provides AI provider integrations and routing capabilities.
 
+#![deny(unsafe_code)]
 // Allow deprecated items during error type migration to universal-error crate
 #![allow(deprecated)]
-// TODO(docs): Systematically add documentation to all public items (enum variants, struct fields)
+// NOTE(docs): Public items need documentation (enum variants, struct fields) - ongoing
 // Currently 324 items need docs. This is tracked as part of Week 8 completion.
 // Priority: Document high-traffic APIs first, then complete rest incrementally.
 #![allow(missing_docs)]
-// TODO: Fix all items_after_test_module warnings by moving implementations before test modules
+// NOTE: items_after_test_module warnings - move implementations before test modules when refactoring
 // This is a structural issue affecting ~140 locations in this crate. Allowing temporarily while
 // we prioritize more critical issues (error handling, hardcoding elimination).
 // Will be fixed in systematic refactoring pass.
 #![allow(clippy::items_after_test_module)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
 
 // Capability-based AI client (TRUE PRIMAL!)
 // Delegates AI HTTP calls via capability discovery (network specialist)
@@ -23,9 +29,9 @@ pub mod capability_ai;
 // Discovers http.client capability - could be Songbird, could be ANY network primal!
 pub mod capability_http;
 
-// Neural API HTTP client (NEXT GENERATION - TRUE PRIMAL via Neural Routing!)
-// Uses neural-api-client for capability-based HTTP routing
-// NO reqwest, NO ring! 100% Pure Rust via Neural API!
+// Neural API HTTP client (TRUE PRIMAL via Ecosystem Routing!)
+// Uses squirrel's own IPC client (primal autonomy - no shared IPC crates!)
+// NO reqwest, NO ring! 100% Pure Rust via ecosystem routing!
 pub mod neural_http;
 
 pub mod common;

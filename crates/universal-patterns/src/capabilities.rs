@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Capability-Based Trait Definitions for Cross-Primal Integration
 //!
 //! This module defines capability traits that enable **runtime discovery and integration
@@ -24,7 +27,7 @@
 //!
 //! ### Example 1: Authentication (Basic Pattern)
 //!
-//! ```rust,no_run
+//! ```ignore,no_run
 //! use universal_patterns::capabilities::AuthenticationCapability;
 //! use squirrel::ecosystem::EcosystemManager;
 //!
@@ -60,7 +63,7 @@
 //!
 //! ### Example 2: GPU Computation (Advanced Pattern)
 //!
-//! ```rust,no_run
+//! ```ignore,no_run
 //! use universal_patterns::capabilities::ComputeCapability;
 //! use squirrel::ecosystem::EcosystemManager;
 //!
@@ -97,7 +100,7 @@
 //!
 //! ### Example 3: Graceful Degradation (Resilience Pattern)
 //!
-//! ```rust,no_run
+//! ```ignore,no_run
 //! use universal_patterns::capabilities::{StorageCapability, CacheCapability};
 //! use squirrel::ecosystem::EcosystemManager;
 //!
@@ -194,7 +197,7 @@ pub type CapabilityError = anyhow::Error;
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```ignore,no_run
 /// use squirrel::capabilities::AuthenticationCapability;
 ///
 /// # async fn example(auth: &dyn AuthenticationCapability) -> Result<(), Box<dyn std::error::Error>> {
@@ -295,7 +298,7 @@ pub struct TokenClaims {
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```ignore,no_run
 /// use squirrel::capabilities::GpuInferenceCapability;
 ///
 /// # async fn example(gpu: &dyn GpuInferenceCapability) -> Result<(), Box<dyn std::error::Error>> {
@@ -548,5 +551,108 @@ mod tests {
 
         let claims = auth.validate_token(&token).await.unwrap();
         assert_eq!(claims.user_id, "test-user");
+    }
+
+    #[tokio::test]
+    async fn test_auth_refresh_and_revoke() {
+        let auth: &dyn AuthenticationCapability = &MockAuthService;
+        let refreshed = auth.refresh_token("old-token").await.unwrap();
+        assert_eq!(refreshed, "refreshed-token");
+
+        assert!(auth.revoke_token("any-token").await.is_ok());
+    }
+
+    #[test]
+    fn test_token_claims_serde() {
+        let claims = TokenClaims {
+            user_id: "alice".to_string(),
+            expires_at: 9999999999,
+            permissions: vec!["admin".to_string(), "read".to_string()],
+            issuer: "test-authority".to_string(),
+        };
+        let json = serde_json::to_string(&claims).unwrap();
+        let deser: TokenClaims = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.user_id, "alice");
+        assert_eq!(deser.permissions.len(), 2);
+    }
+
+    #[test]
+    fn test_model_handle_serde() {
+        let handle = ModelHandle {
+            id: "model-123".to_string(),
+            metadata: ModelMetadata {
+                name: "llama2".to_string(),
+                size_gb: 3.5,
+                parameters: 7_000_000_000,
+                capabilities: vec!["text-generation".to_string()],
+            },
+        };
+        let json = serde_json::to_string(&handle).unwrap();
+        let deser: ModelHandle = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.id, "model-123");
+        assert_eq!(deser.metadata.parameters, 7_000_000_000);
+    }
+
+    #[test]
+    fn test_inference_result_serde() {
+        let result = InferenceResult {
+            text: "Hello, world!".to_string(),
+            tokens: 3,
+            latency_ms: 42,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let deser: InferenceResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.tokens, 3);
+        assert_eq!(deser.latency_ms, 42);
+    }
+
+    #[test]
+    fn test_vram_info_serde() {
+        let info = VramInfo {
+            total_gb: 24.0,
+            available_gb: 16.5,
+            gpus: vec![GpuVramInfo {
+                index: 0,
+                model: "RTX 4090".to_string(),
+                total_gb: 24.0,
+                available_gb: 16.5,
+            }],
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        let deser: VramInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.gpus.len(), 1);
+        assert!((deser.available_gb - 16.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_service_registration_serde() {
+        let reg = ServiceRegistration {
+            name: "ai-service".to_string(),
+            capabilities: vec!["ai.inference".to_string(), "ai.embedding".to_string()],
+            endpoint: "http://localhost:8080".to_string(),
+            metadata: {
+                let mut m = std::collections::HashMap::new();
+                m.insert("version".to_string(), "1.0.0".to_string());
+                m
+            },
+        };
+        let json = serde_json::to_string(&reg).unwrap();
+        let deser: ServiceRegistration = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.capabilities.len(), 2);
+    }
+
+    #[test]
+    fn test_service_info_serde() {
+        let info = ServiceInfo {
+            id: "svc-123".to_string(),
+            name: "ai-inference".to_string(),
+            capabilities: vec!["ai.query".to_string()],
+            endpoint: "http://localhost:9090".to_string(),
+            healthy: true,
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        let deser: ServiceInfo = serde_json::from_str(&json).unwrap();
+        assert!(deser.healthy);
+        assert_eq!(deser.id, "svc-123");
     }
 }

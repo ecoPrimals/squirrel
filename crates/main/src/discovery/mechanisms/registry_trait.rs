@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Agnostic Service Registry Trait - Infant Primal Pattern
 //!
 //! **Philosophy**: Zero vendor lock-in. Any service registry can implement this trait.

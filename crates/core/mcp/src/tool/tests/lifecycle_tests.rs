@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tool lifecycle tests
 //!
 //! Comprehensive tests for tool registration, initialization, state transitions, and cleanup.

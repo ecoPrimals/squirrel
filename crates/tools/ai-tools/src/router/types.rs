@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core types and configurations for the AI router system.
 //!
 //! This module defines all the fundamental types used throughout the router

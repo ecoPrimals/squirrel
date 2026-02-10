@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Test helpers for learning system
 //!
 //! This module provides utilities and helpers for testing the learning system components.

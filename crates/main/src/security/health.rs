@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Security health monitoring and status reporting
 //!
 //! This module provides health checking capabilities for the security system,
@@ -266,5 +269,183 @@ impl UniversalSecurityHealthChecker {
 impl Default for UniversalSecurityHealthChecker {
     fn default() -> Self {
         Self::new(Duration::from_secs(30))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_health_status_serde() {
+        for status in [
+            HealthStatus::Healthy,
+            HealthStatus::Warning,
+            HealthStatus::Degraded,
+            HealthStatus::Critical,
+            HealthStatus::Down,
+        ] {
+            let json = serde_json::to_string(&status).expect("serialize");
+            let deser: HealthStatus = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(deser, status);
+        }
+    }
+
+    #[test]
+    fn test_security_health_default() {
+        let health = SecurityHealth::default();
+        assert_eq!(health.overall_status, HealthStatus::Healthy);
+        assert!(health.component_health.is_empty());
+        assert!(health.warnings.is_empty());
+    }
+
+    #[test]
+    fn test_security_health_new() {
+        let health = SecurityHealth::new();
+        assert_eq!(health.overall_status, HealthStatus::Healthy);
+    }
+
+    #[test]
+    fn test_is_healthy() {
+        let mut health = SecurityHealth::new();
+        assert!(health.is_healthy());
+
+        health.overall_status = HealthStatus::Warning;
+        assert!(health.is_healthy());
+
+        health.overall_status = HealthStatus::Degraded;
+        assert!(!health.is_healthy());
+
+        health.overall_status = HealthStatus::Critical;
+        assert!(!health.is_healthy());
+
+        health.overall_status = HealthStatus::Down;
+        assert!(!health.is_healthy());
+    }
+
+    #[test]
+    fn test_add_component() {
+        let mut health = SecurityHealth::new();
+        let comp = ComponentHealth::default();
+        health.add_component("auth".to_string(), comp);
+        assert_eq!(health.component_health.len(), 1);
+        assert!(health.component_health.contains_key("auth"));
+    }
+
+    #[test]
+    fn test_update_component_status() {
+        let mut health = SecurityHealth::new();
+        health.add_component("auth".to_string(), ComponentHealth::default());
+        health.update_component_status("auth", HealthStatus::Warning);
+        assert_eq!(
+            health.component_health.get("auth").unwrap().status,
+            HealthStatus::Warning
+        );
+        assert_eq!(health.overall_status, HealthStatus::Warning);
+    }
+
+    #[test]
+    fn test_update_component_status_nonexistent() {
+        let mut health = SecurityHealth::new();
+        // Should not panic
+        health.update_component_status("nonexistent", HealthStatus::Critical);
+        assert_eq!(health.overall_status, HealthStatus::Healthy);
+    }
+
+    #[test]
+    fn test_add_warning() {
+        let mut health = SecurityHealth::new();
+        health.add_warning("test warning".to_string());
+        assert_eq!(health.warnings.len(), 1);
+        assert_eq!(health.overall_status, HealthStatus::Warning);
+    }
+
+    #[test]
+    fn test_overall_status_escalation() {
+        let mut health = SecurityHealth::new();
+
+        let mut healthy_comp = ComponentHealth::default();
+        healthy_comp.status = HealthStatus::Healthy;
+        health.add_component("a".to_string(), healthy_comp);
+        assert_eq!(health.overall_status, HealthStatus::Healthy);
+
+        let mut warning_comp = ComponentHealth::default();
+        warning_comp.status = HealthStatus::Warning;
+        health.add_component("b".to_string(), warning_comp);
+        assert_eq!(health.overall_status, HealthStatus::Warning);
+
+        let mut degraded_comp = ComponentHealth::default();
+        degraded_comp.status = HealthStatus::Degraded;
+        health.add_component("c".to_string(), degraded_comp);
+        assert_eq!(health.overall_status, HealthStatus::Degraded);
+
+        let mut critical_comp = ComponentHealth::default();
+        critical_comp.status = HealthStatus::Critical;
+        health.add_component("d".to_string(), critical_comp);
+        assert_eq!(health.overall_status, HealthStatus::Critical);
+
+        let mut down_comp = ComponentHealth::default();
+        down_comp.status = HealthStatus::Down;
+        health.add_component("e".to_string(), down_comp);
+        assert_eq!(health.overall_status, HealthStatus::Down);
+    }
+
+    #[test]
+    fn test_summary() {
+        let mut health = SecurityHealth::new();
+        health.add_component("auth".to_string(), ComponentHealth::default());
+        health.add_warning("test".to_string());
+        let summary = health.summary();
+        assert!(summary.contains("Warning"));
+        assert!(summary.contains("1 components"));
+        assert!(summary.contains("1 warnings"));
+    }
+
+    #[test]
+    fn test_component_health_default() {
+        let comp = ComponentHealth::default();
+        assert_eq!(comp.status, HealthStatus::Healthy);
+        assert!(comp.metrics.is_empty());
+        assert!(comp.last_success.is_some());
+        assert_eq!(comp.error_count, 0);
+        assert!(comp.messages.is_empty());
+    }
+
+    #[test]
+    fn test_health_checker_new() {
+        let checker = UniversalSecurityHealthChecker::new(Duration::from_secs(60));
+        assert!(checker.current_health().is_healthy());
+    }
+
+    #[test]
+    fn test_health_checker_default() {
+        let checker = UniversalSecurityHealthChecker::default();
+        assert!(checker.current_health().is_healthy());
+    }
+
+    #[test]
+    fn test_health_checker_is_check_due() {
+        let checker = UniversalSecurityHealthChecker::new(Duration::from_millis(0));
+        // With 0ms interval, check is immediately due
+        assert!(checker.is_check_due());
+    }
+
+    #[tokio::test]
+    async fn test_health_checker_check_health() {
+        let mut checker = UniversalSecurityHealthChecker::new(Duration::from_secs(30));
+        let health = checker.check_health().await.expect("check health");
+        assert!(health.is_healthy());
+        assert!(health.component_health.contains_key("authentication"));
+        assert!(health.component_health.contains_key("authorization"));
+        assert!(health.component_health.contains_key("rate_limiting"));
+        assert!(health.component_health.contains_key("capability_discovery"));
+    }
+
+    #[test]
+    fn test_security_health_serde() {
+        let health = SecurityHealth::default();
+        let json = serde_json::to_string(&health).expect("serialize");
+        let deser: SecurityHealth = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser.overall_status, HealthStatus::Healthy);
     }
 }

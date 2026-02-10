@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Ecosystem Integration and Service Mesh
 
 use super::core::SquirrelPrimalProvider;

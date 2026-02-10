@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Message types for inter-primal communication
 //!
 //! This module defines request/response structures for communication

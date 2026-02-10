@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Integration tests for MCP platform components
 //!
 //! These tests verify the interaction between different MCP components

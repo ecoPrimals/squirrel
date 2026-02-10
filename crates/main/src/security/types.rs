@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Security Types
 //!
 //! This module contains all security-related enums, types, and basic data structures
@@ -144,7 +147,7 @@ pub struct SecurityResponse {
 }
 
 /// Security response status
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SecurityResponseStatus {
     /// Success
     Success,
@@ -215,5 +218,207 @@ impl SecurityContext {
     pub fn with_environment(mut self, key: String, value: String) -> Self {
         self.environment.insert(key, value);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- SecurityCapability tests ---
+
+    #[test]
+    fn test_security_capability_serde_roundtrip() {
+        let capabilities = vec![
+            SecurityCapability::Authentication,
+            SecurityCapability::Encryption,
+            SecurityCapability::AccessControl,
+            SecurityCapability::Auditing,
+            SecurityCapability::ThreatDetection,
+            SecurityCapability::ComplianceMonitoring,
+            SecurityCapability::SecurityAnalytics,
+        ];
+        for cap in capabilities {
+            let json = serde_json::to_string(&cap).unwrap();
+            let deserialized: SecurityCapability = serde_json::from_str(&json).unwrap();
+            assert_eq!(deserialized, cap);
+        }
+    }
+
+    // --- SecurityLevel tests ---
+
+    #[test]
+    fn test_security_level_serde_roundtrip() {
+        let levels = vec![
+            SecurityLevel::Low,
+            SecurityLevel::Standard,
+            SecurityLevel::High,
+            SecurityLevel::Critical,
+        ];
+        for level in levels {
+            let json = serde_json::to_string(&level).unwrap();
+            let deserialized: SecurityLevel = serde_json::from_str(&json).unwrap();
+            assert_eq!(deserialized, level);
+        }
+    }
+
+    // --- AuthorizationLevel tests ---
+
+    #[test]
+    fn test_authorization_level_serde_roundtrip() {
+        let levels = vec![
+            AuthorizationLevel::None,
+            AuthorizationLevel::User,
+            AuthorizationLevel::Elevated,
+            AuthorizationLevel::Admin,
+            AuthorizationLevel::System,
+        ];
+        for level in levels {
+            let json = serde_json::to_string(&level).unwrap();
+            let deserialized: AuthorizationLevel = serde_json::from_str(&json).unwrap();
+            assert_eq!(deserialized, level);
+        }
+    }
+
+    // --- SecurityContext tests ---
+
+    #[test]
+    fn test_security_context_default() {
+        let ctx = SecurityContext::default();
+        assert!(ctx.user_id.is_none());
+        assert!(ctx.session_id.is_none());
+        assert_eq!(ctx.operation, "unknown");
+        assert_eq!(ctx.resource, "unknown");
+        assert!(ctx.client_info.is_empty());
+        assert!(ctx.environment.is_empty());
+    }
+
+    #[test]
+    fn test_security_context_new() {
+        let ctx = SecurityContext::new("read", "database");
+        assert!(ctx.user_id.is_none());
+        assert_eq!(ctx.operation, "read");
+        assert_eq!(ctx.resource, "database");
+    }
+
+    #[test]
+    fn test_security_context_builder_chain() {
+        let ctx = SecurityContext::new("write", "config")
+            .with_user_id("user-123".to_string())
+            .with_session_id("sess-456".to_string())
+            .with_client_info("ip".to_string(), "127.0.0.1".to_string())
+            .with_environment("env".to_string(), "production".to_string());
+
+        assert_eq!(ctx.user_id.as_deref(), Some("user-123"));
+        assert_eq!(ctx.session_id.as_deref(), Some("sess-456"));
+        assert_eq!(ctx.client_info.get("ip").unwrap(), "127.0.0.1");
+        assert_eq!(ctx.environment.get("env").unwrap(), "production");
+    }
+
+    #[test]
+    fn test_security_context_serde_roundtrip() {
+        let ctx = SecurityContext::new("delete", "record").with_user_id("admin".to_string());
+        let json = serde_json::to_string(&ctx).unwrap();
+        let deserialized: SecurityContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.operation, "delete");
+        assert_eq!(deserialized.resource, "record");
+        assert_eq!(deserialized.user_id.as_deref(), Some("admin"));
+    }
+
+    // --- AuthenticationHandler tests ---
+
+    #[test]
+    fn test_authentication_handler_serde() {
+        let handler = AuthenticationHandler {
+            name: "jwt_handler".to_string(),
+            handler_type: "jwt".to_string(),
+            config: HashMap::from([("issuer".to_string(), serde_json::json!("biome-os"))]),
+            priority: 1,
+            enabled: true,
+        };
+        let json = serde_json::to_string(&handler).unwrap();
+        let deserialized: AuthenticationHandler = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.name, "jwt_handler");
+        assert_eq!(deserialized.priority, 1);
+        assert!(deserialized.enabled);
+    }
+
+    // --- SecurityRequestType tests ---
+
+    #[test]
+    fn test_security_request_type_serde() {
+        let types = vec![
+            SecurityRequestType::Authentication,
+            SecurityRequestType::Authorization,
+            SecurityRequestType::Encryption,
+            SecurityRequestType::Decryption,
+            SecurityRequestType::Audit,
+            SecurityRequestType::PolicyCheck,
+            SecurityRequestType::HealthCheck,
+            SecurityRequestType::TokenValidation,
+        ];
+        for rt in types {
+            let json = serde_json::to_string(&rt).unwrap();
+            let deserialized: SecurityRequestType = serde_json::from_str(&json).unwrap();
+            let json2 = serde_json::to_string(&deserialized).unwrap();
+            assert_eq!(json, json2);
+        }
+    }
+
+    // --- SecurityRequest tests ---
+
+    #[test]
+    fn test_security_request_serde() {
+        let request = SecurityRequest {
+            request_id: "req-001".to_string(),
+            request_type: SecurityRequestType::Authentication,
+            payload: serde_json::json!({"token": "abc123"}),
+            metadata: HashMap::new(),
+            context: SecurityContext::new("login", "auth_service"),
+            timestamp: chrono::Utc::now(),
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: SecurityRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.request_id, "req-001");
+    }
+
+    // --- SecurityResponseStatus tests ---
+
+    #[test]
+    fn test_security_response_status_serde() {
+        let statuses = vec![
+            SecurityResponseStatus::Success,
+            SecurityResponseStatus::AuthenticationFailed,
+            SecurityResponseStatus::AuthorizationFailed,
+            SecurityResponseStatus::PolicyViolation,
+            SecurityResponseStatus::ThreatDetected,
+            SecurityResponseStatus::Error {
+                code: "E001".to_string(),
+                message: "Internal error".to_string(),
+            },
+        ];
+        for status in statuses {
+            let json = serde_json::to_string(&status).unwrap();
+            let deserialized: SecurityResponseStatus = serde_json::from_str(&json).unwrap();
+            let json2 = serde_json::to_string(&deserialized).unwrap();
+            assert_eq!(json, json2);
+        }
+    }
+
+    // --- SecurityResponse tests ---
+
+    #[test]
+    fn test_security_response_serde() {
+        let response = SecurityResponse {
+            request_id: "req-001".to_string(),
+            status: SecurityResponseStatus::Success,
+            payload: serde_json::json!({"authenticated": true}),
+            metadata: HashMap::new(),
+            processing_time: Duration::from_millis(42),
+            timestamp: chrono::Utc::now(),
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: SecurityResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.request_id, "req-001");
     }
 }

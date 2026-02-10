@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Multi-Agent Coordination Types
 //!
 //! This module contains all the type definitions for the multi-agent coordination system.

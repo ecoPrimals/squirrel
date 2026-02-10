@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Security context and health types
 //!
 //! This module defines the security context and health monitoring types
@@ -17,7 +20,7 @@ use crate::traits::{AuthResult, Principal};
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```ignore
 /// use universal_patterns::security::SecurityContext;
 /// use universal_patterns::traits::{AuthResult, Principal, PrincipalType};
 /// use std::collections::HashMap;
@@ -159,7 +162,7 @@ impl SecurityContext {
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```ignore
 /// use universal_patterns::security::{SecurityHealth, HealthStatus};
 /// use std::time::Duration;
 /// use std::collections::HashMap;
@@ -404,5 +407,127 @@ mod tests {
 
         context.add_metadata("key".to_string(), "value".to_string());
         assert_eq!(context.get_metadata("key"), Some(&"value".to_string()));
+    }
+
+    #[test]
+    fn test_security_context_from_auth_result() {
+        let auth_result = AuthResult {
+            principal: Principal {
+                id: "user1".to_string(),
+                name: "User One".to_string(),
+                principal_type: PrincipalType::User,
+                roles: vec!["admin".to_string()],
+                permissions: vec!["read".to_string(), "write".to_string()],
+                metadata: HashMap::new(),
+            },
+            token: "tok-123".to_string(),
+            expires_at: Utc::now() + chrono::Duration::hours(2),
+            permissions: vec!["read".to_string(), "write".to_string()],
+            metadata: {
+                let mut m = HashMap::new();
+                m.insert("source".to_string(), "local".to_string());
+                m
+            },
+        };
+        let ctx = SecurityContext::from_auth_result(&auth_result);
+        assert_eq!(ctx.principal.id, "user1");
+        assert_eq!(ctx.token, "tok-123");
+        assert!(ctx.has_permission("read"));
+        assert!(ctx.has_permission("write"));
+        assert!(!ctx.has_permission("delete"));
+        assert_eq!(ctx.metadata.get("source"), Some(&"local".to_string()));
+    }
+
+    #[test]
+    fn test_security_context_time_until_expiration() {
+        let principal = Principal {
+            id: "user".to_string(),
+            name: "User".to_string(),
+            principal_type: PrincipalType::User,
+            roles: vec![],
+            permissions: vec![],
+            metadata: HashMap::new(),
+        };
+        let context = SecurityContext::from_principal(&principal);
+        // Should have ~1 hour until expiration
+        let time_left = context.time_until_expiration();
+        assert!(time_left.as_secs() > 3500); // ~1 hour minus small delta
+    }
+
+    #[test]
+    fn test_security_context_expired_time_until_expiration() {
+        let principal = Principal {
+            id: "user".to_string(),
+            name: "User".to_string(),
+            principal_type: PrincipalType::User,
+            roles: vec![],
+            permissions: vec![],
+            metadata: HashMap::new(),
+        };
+        let mut context = SecurityContext::from_principal(&principal);
+        context.expires_at = Utc::now() - chrono::Duration::hours(1);
+        assert_eq!(context.time_until_expiration(), Duration::ZERO);
+    }
+
+    #[test]
+    fn test_security_context_serde() {
+        let principal = Principal {
+            id: "user".to_string(),
+            name: "User".to_string(),
+            principal_type: PrincipalType::User,
+            roles: vec![],
+            permissions: vec!["read".to_string()],
+            metadata: HashMap::new(),
+        };
+        let context = SecurityContext::from_principal(&principal);
+        let json = serde_json::to_string(&context).unwrap();
+        let deserialized: SecurityContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.principal.id, "user");
+        assert!(deserialized.has_permission("read"));
+    }
+
+    #[test]
+    fn test_security_health_is_recent() {
+        let health = SecurityHealth::healthy(Duration::from_millis(50));
+        // Just created, should be recent
+        assert!(health.is_recent(Duration::from_secs(60)));
+    }
+
+    #[test]
+    fn test_security_health_add_detail() {
+        let mut health = SecurityHealth::healthy(Duration::from_millis(100));
+        health.add_detail("component".to_string(), "auth-service".to_string());
+        assert_eq!(
+            health.details.get("component"),
+            Some(&"auth-service".to_string())
+        );
+    }
+
+    #[test]
+    fn test_security_health_serde() {
+        let health = SecurityHealth::healthy(Duration::from_millis(100));
+        let json = serde_json::to_string(&health).unwrap();
+        let deserialized: SecurityHealth = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.is_healthy());
+    }
+
+    #[test]
+    fn test_health_status_display() {
+        assert_eq!(HealthStatus::Healthy.to_string(), "Healthy");
+        assert_eq!(HealthStatus::Unhealthy.to_string(), "Unhealthy");
+        assert_eq!(HealthStatus::Unknown.to_string(), "Unknown");
+    }
+
+    #[test]
+    fn test_health_status_serde() {
+        for status in [
+            HealthStatus::Healthy,
+            HealthStatus::Unhealthy,
+            HealthStatus::Unknown,
+        ] {
+            let json = serde_json::to_string(&status).unwrap();
+            let deserialized: HealthStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(deserialized, status);
+        }
     }
 }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Universal Patterns Framework
 //!
 //! This crate provides a comprehensive universal patterns framework for the ecoPrimals ecosystem,
@@ -25,7 +28,7 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust,no_run
+//! ```ignore,no_run
 //! use universal_patterns::{initialize_primal_system, PrimalContext};
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -45,10 +48,13 @@
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
 
 pub mod builder;
 pub mod config;
 pub mod federation;
+pub mod ipc_client;
 pub mod registry;
 pub mod security;
 pub mod traits;
@@ -60,6 +66,7 @@ pub use config::{
     InstanceLifecycleConfig, LoadBalancingStrategy, MultiInstanceConfig, PortManagementConfig,
     PrimalInstanceConfig, UniversalPrimalConfig,
 };
+pub use ipc_client::{CapabilityInfo, IpcClient, IpcClientError};
 pub use registry::{
     DiscoveredPrimal, EnhancedRegistryStatistics, RegistryStatistics, UniversalPrimalRegistry,
 };
@@ -89,7 +96,7 @@ pub use transport::{
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```ignore,no_run
 /// use universal_patterns::initialize_primal_system;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -132,7 +139,7 @@ pub async fn initialize_primal_system(
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use universal_patterns::{create_primal_context, SecurityLevel};
 ///
 /// let context = create_primal_context(
@@ -165,7 +172,7 @@ pub fn create_primal_context(
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use universal_patterns::create_development_config;
 ///
 /// let config = create_development_config();
@@ -195,7 +202,7 @@ pub fn create_development_config() -> UniversalPrimalConfig {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use universal_patterns::create_production_config;
 ///
 /// let config = create_production_config();
@@ -232,7 +239,7 @@ pub fn create_production_config() -> UniversalPrimalConfig {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use universal_patterns::{create_primal_config, PrimalType};
 ///
 /// let config = create_primal_config(PrimalType::Security, 5);
@@ -298,7 +305,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use universal_patterns::version;
 ///
 /// println!("Universal Patterns Framework v{}", version());

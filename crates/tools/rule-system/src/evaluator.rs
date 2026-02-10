@@ -1,4 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rule evaluator for evaluating rules against context data
+//!
+//! Evaluator methods use `&self` for consistency and future state access.
+
+#![allow(clippy::unused_self)]
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -87,18 +94,15 @@ impl RuleEvaluator {
     }
 
     /// Initialize the evaluator
-    pub async fn initialize(&self) -> RuleSystemResult<()> {
+    pub fn initialize(&self) {
         // Register built-in evaluators
-        self.register_builtin_evaluators().await?;
-
-        Ok(())
+        self.register_builtin_evaluators();
     }
 
     /// Register built-in condition evaluators
-    async fn register_builtin_evaluators(&self) -> RuleSystemResult<()> {
+    fn register_builtin_evaluators(&self) {
         // Built-in evaluators are handled directly in evaluate_condition
         // This is a placeholder for future plugin architecture
-        Ok(())
     }
 
     /// Evaluate a rule against context data
@@ -313,10 +317,15 @@ impl RuleEvaluator {
             stats.cached_evaluations += 1;
         }
 
-        // Update average duration
-        let total_duration =
-            stats.average_duration * (stats.total_evaluations as i32 - 1) + duration;
-        stats.average_duration = total_duration / (stats.total_evaluations as i32);
+        // Update average duration using saturating arithmetic to avoid truncation
+        #[allow(clippy::cast_possible_truncation)]
+        let count = stats.total_evaluations.min(i32::MAX as u64) as i32;
+        let total_duration = stats.average_duration * (count.saturating_sub(1)) + duration;
+        stats.average_duration = if count > 0 {
+            total_duration / count
+        } else {
+            chrono::Duration::zero()
+        };
 
         stats.successful_evaluations += 1;
     }

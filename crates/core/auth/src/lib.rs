@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+#![allow(clippy::missing_docs_in_private_items)]
 //! Squirrel Authentication & Security System
 //!
 //! Modern authentication system leveraging capability-based discovery and ecosystem integration.
+#![deny(unsafe_code)]
 //! This completely replaces the severely outdated legacy auth code with a clean, modern architecture.
 //!
 //! ## TRUE ecoBin Architecture (v1.3.0) via Capability Discovery
@@ -85,7 +90,7 @@ pub use types::{AuthContext, JwtClaims, LoginRequest, LoginResponse, Permission,
 
 // TRUE ecoBin: Capability-based crypto & JWT (Production - Pure Rust!)
 #[cfg(feature = "delegated-jwt")]
-pub use capability_crypto::{CapabilityCryptoProvider, CapabilityCryptoConfig};
+pub use capability_crypto::{CapabilityCryptoConfig, CapabilityCryptoProvider};
 #[cfg(feature = "delegated-jwt")]
 pub use capability_jwt::{
     CapabilityJwtConfig, CapabilityJwtService, JwtClaims as CapabilityJwtClaims,
@@ -114,7 +119,7 @@ pub async fn initialize() -> AuthResult<()> {
         let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or(8443);  // Default security auth port
+            .unwrap_or(8443); // Default security auth port
         format!("http://localhost:{}", port)
     });
 
@@ -123,7 +128,7 @@ pub async fn initialize() -> AuthResult<()> {
         let port = std::env::var("MCP_PORT")
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or(8444);  // Default MCP HTTP port
+            .unwrap_or(8444); // Default MCP HTTP port
         format!("http://127.0.0.1:{}", port)
     });
 

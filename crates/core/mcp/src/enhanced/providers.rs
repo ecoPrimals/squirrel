@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI Provider Implementations with Proper Mock Framework
 //!
 //! This module provides configuration-driven AI provider implementations
@@ -24,7 +27,7 @@ pub enum ProviderType {
     /// Cloud API providers (OpenAI, Anthropic, Gemini, etc.)
     CloudAPI,
     
-    /// Local model servers (Ollama, llamacpp server, etc.)
+    /// Local model servers (any OpenAI-compatible server: Ollama, llama.cpp, vLLM, etc.)
     LocalServer,
     
     /// Native local models (direct model loading)
@@ -417,16 +420,20 @@ impl ProviderConfig for AnthropicConfig {
     }
 }
 
+/// Local AI server config (vendor-agnostic: works with Ollama, llama.cpp, vLLM, etc.)
 #[derive(Debug, Clone)]
-pub struct OllamaConfig {
+pub struct LocalServerProviderConfig {
     pub base_url: String,
     pub timeout: Duration,
     pub models: Vec<String>,
 }
 
-impl ProviderConfig for OllamaConfig {
+/// Backward-compatible type alias
+pub type OllamaConfig = LocalServerProviderConfig;
+
+impl ProviderConfig for LocalServerProviderConfig {
     fn name(&self) -> &str {
-        "ollama"
+        "local-server"
     }
     
     fn provider_type(&self) -> ProviderType {
@@ -512,8 +519,8 @@ impl ProviderFactory {
         )
     }
     
-    /// Create Ollama provider with configuration
-    pub fn create_ollama(config: OllamaConfig) -> Result<ConfigurableProvider> {
+    /// Create local server provider (vendor-agnostic: Ollama, llama.cpp, vLLM, etc.)
+    pub fn create_local_server(config: LocalServerProviderConfig) -> Result<ConfigurableProvider> {
         let capabilities = ModelCapabilities {
             max_tokens: Some(2048),
             supports_streaming: true,
@@ -522,11 +529,16 @@ impl ProviderFactory {
         };
         
         ConfigurableProvider::new(
-            "ollama".to_string(),
+            "local-server".to_string(),
             ProviderType::LocalServer,
             Box::new(config),
             capabilities,
         )
+    }
+    
+    /// Backward-compatible alias
+    pub fn create_ollama(config: OllamaConfig) -> Result<ConfigurableProvider> {
+        Self::create_local_server(config)
     }
     
     /// Create local provider with configuration
@@ -571,14 +583,14 @@ mod tests {
     
     #[tokio::test]
     async fn test_mock_behavior() {
-        let config = OllamaConfig {
+        let config = LocalServerProviderConfig {
             base_url: "http://localhost:11434".to_string(),
             timeout: Duration::from_secs(30),
             models: vec!["llama2".to_string()],
         };
         
-        let mut provider = ProviderFactory::create_ollama(config)
-            .map_err(|e| EnhancedMCPError::provider_init("ollama", e))
+        let mut provider = ProviderFactory::create_local_server(config)
+            .map_err(|e| EnhancedMCPError::provider_init("local-server", e))
             .expect("Provider creation should succeed in test");
         
         // Test with failure simulation

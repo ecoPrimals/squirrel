@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Unified Retry Configuration
 //!
 //! This module provides the canonical retry configuration used throughout Squirrel.

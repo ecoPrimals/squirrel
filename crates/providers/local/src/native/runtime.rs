@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Native AI Provider Runtime Implementation
 //!
 //! This module contains the core runtime functionality for the native AI provider,
@@ -75,8 +78,8 @@ impl NativeAIProvider {
             self.config.capabilities.clone(),
         );
 
-        // Simulate model loading (in a real implementation, this would load the actual model)
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        // Yield to executor while model loads (real impl would do I/O here)
+        tokio::task::yield_now().await;
 
         // Check if model file exists
         if !tokio::fs::try_exists(&self.config.model_config.model_path)
@@ -181,7 +184,8 @@ impl NativeAIProvider {
                 // Check if we can process more requests
                 let active_count = state.active_request_count().await;
                 if active_count >= config.resource_limits.max_concurrent_requests {
-                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    // Yield and re-check (tasks completing will free slots)
+                    tokio::task::yield_now().await;
                     continue;
                 }
 
@@ -208,8 +212,8 @@ impl NativeAIProvider {
                         let _ = queued_request.response_sender.send(result);
                     });
                 } else {
-                    // No requests in queue, sleep briefly
-                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    // No requests in queue; yield to avoid busy-spin
+                    tokio::task::yield_now().await;
                 }
             }
         });
@@ -302,8 +306,8 @@ impl NativeAIProvider {
             .and_then(|v| v.as_str())
             .ok_or_else(|| ProviderError::InvalidInput("Missing prompt".to_string()))?;
 
-        // Simulate text generation processing
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        // Yield to executor (real impl delegates to model backend)
+        tokio::task::yield_now().await;
 
         // Generate response based on prompt
         let generated_text = format!(
@@ -340,8 +344,8 @@ impl NativeAIProvider {
             .and_then(|v| v.as_str())
             .ok_or_else(|| ProviderError::InvalidInput("Missing text".to_string()))?;
 
-        // Simulate text completion processing
-        tokio::time::sleep(Duration::from_millis(80)).await;
+        // Yield to executor (real impl delegates to model backend)
+        tokio::task::yield_now().await;
 
         let completion = format!(
             "{} [Completed by {} model]",
@@ -377,8 +381,8 @@ impl NativeAIProvider {
             .and_then(|v| v.as_str())
             .ok_or_else(|| ProviderError::InvalidInput("Missing text".to_string()))?;
 
-        // Simulate embedding generation
-        tokio::time::sleep(Duration::from_millis(60)).await;
+        // Yield to executor (real impl delegates to model backend)
+        tokio::task::yield_now().await;
 
         // Generate mock embedding (in reality, this would use the actual model)
         let embedding_size = 768; // Common embedding size
@@ -424,8 +428,8 @@ impl NativeAIProvider {
             .and_then(|v| v.as_array())
             .ok_or_else(|| ProviderError::InvalidInput("Missing labels".to_string()))?;
 
-        // Simulate classification processing
-        tokio::time::sleep(Duration::from_millis(70)).await;
+        // Yield to executor (real impl delegates to model backend)
+        tokio::task::yield_now().await;
 
         // Mock classification result
         let predicted_label = labels.first()
@@ -473,8 +477,8 @@ impl NativeAIProvider {
             .and_then(|v| v.as_str())
             .ok_or_else(|| ProviderError::InvalidInput("Missing text".to_string()))?;
 
-        // Simulate summarization processing
-        tokio::time::sleep(Duration::from_millis(120)).await;
+        // Yield to executor (real impl delegates to model backend)
+        tokio::task::yield_now().await;
 
         // Mock summarization (take first and last sentences)
         let sentences: Vec<&str> = text.split('.').collect();
@@ -524,8 +528,8 @@ impl NativeAIProvider {
             .and_then(|v| v.as_str())
             .ok_or_else(|| ProviderError::InvalidInput("Missing target_language".to_string()))?;
 
-        // Simulate translation processing
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        // Yield to executor (real impl delegates to model backend)
+        tokio::task::yield_now().await;
 
         // Mock translation
         let translated_text = format!(
@@ -574,8 +578,8 @@ impl NativeAIProvider {
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
-        // Simulate question answering processing
-        tokio::time::sleep(Duration::from_millis(110)).await;
+        // Yield to executor (real impl delegates to model backend)
+        tokio::task::yield_now().await;
 
         // Mock answer generation
         let answer = if !context.is_empty() {
@@ -623,8 +627,8 @@ impl NativeAIProvider {
             .and_then(|v| v.as_str())
             .unwrap_or("python");
 
-        // Simulate code generation processing
-        tokio::time::sleep(Duration::from_millis(150)).await;
+        // Yield to executor (real impl delegates to model backend)
+        tokio::task::yield_now().await;
 
         // Mock code generation
         let generated_code = match language {

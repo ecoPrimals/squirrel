@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error conversion and mapping tests
 //!
 //! Comprehensive tests for error type conversions, code mapping, and severity classification.

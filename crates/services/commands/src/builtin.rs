@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Built-in commands for the Squirrel system
 //!
 //! This module provides basic built-in commands such as help and version.

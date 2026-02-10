@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Default plugin manager implementation
 //!
 //! This module provides the default implementation of the plugin manager.
@@ -201,7 +204,7 @@ impl PluginManagerTrait for DefaultPluginManager {
     }
 
     async fn load_plugins(&self, _directory: &str) -> Result<Vec<Uuid>> {
-        // TODO: Implement plugin loading from directory
+        // NOTE(phase2): Plugin loading from directory - requires WASM sandbox integration
         Ok(vec![])
     }
 

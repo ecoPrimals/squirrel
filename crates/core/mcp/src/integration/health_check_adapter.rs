@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Adapter for integrating resilience health checks with the monitoring system.
 //!
 //! This module provides an adapter that allows resilience health checks to be
@@ -246,9 +249,9 @@ mod tests {
         
         fn config(&self) -> &crate::resilience::health::HealthCheckConfig {
             // Return a static default config for testing
-            use once_cell::sync::Lazy;
-            static CONFIG: Lazy<crate::resilience::health::HealthCheckConfig> = 
-                Lazy::new(|| crate::resilience::health::HealthCheckConfig::default());
+            use std::sync::LazyLock;
+            static CONFIG: LazyLock<crate::resilience::health::HealthCheckConfig> = 
+                LazyLock::new(|| crate::resilience::health::HealthCheckConfig::default());
             &CONFIG
         }
         

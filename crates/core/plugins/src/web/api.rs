@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin Management REST API
 //!
 //! This module provides REST API endpoints for plugin management including:

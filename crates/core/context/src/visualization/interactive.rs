@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Interactive Visualization
 //!
 //! This module provides interactive visualization capabilities and session management.
@@ -54,5 +57,42 @@ impl InteractiveSession {
     /// Create a new interactive session
     pub fn new(id: String, config: Value) -> Self {
         Self { id, config }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_interactive_visualization_new() {
+        let config = Arc::new(VisualizationSystemConfig::default());
+        let viz = InteractiveVisualization::new(config).await;
+        assert!(viz.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_interactive_visualization_start_stop() {
+        let config = Arc::new(VisualizationSystemConfig::default());
+        let viz = InteractiveVisualization::new(config).await.unwrap();
+        assert!(viz.start().await.is_ok());
+        assert!(viz.stop().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_interactive_visualization_start_session() {
+        let config = Arc::new(VisualizationSystemConfig::default());
+        let viz = InteractiveVisualization::new(config).await.unwrap();
+        let session_id = viz.start_session(json!({"mode": "interactive"})).await;
+        assert!(session_id.is_ok());
+        assert!(!session_id.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_interactive_session_new() {
+        let session = InteractiveSession::new("s1".to_string(), json!({"theme": "dark"}));
+        assert_eq!(session.id, "s1");
+        assert_eq!(session.config["theme"], "dark");
     }
 }

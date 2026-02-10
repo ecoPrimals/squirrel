@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Zero-Copy Plugin Types
 //!
 //! High-performance plugin types that minimize allocations and eliminate

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Connection management for MCP clients
 //!
 //! This module handles client connection states, transport creation, and connection lifecycle management.

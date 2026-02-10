@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Common types used throughout the MCP system.
 //!
 //! This module contains the core data structures and enumerations that define the Machine Context Protocol (MCP).

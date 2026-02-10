@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;

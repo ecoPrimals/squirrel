@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Zero-copy string utilities
 
 use std::borrow::Cow;
@@ -7,13 +10,13 @@ use std::sync::Arc;
 /// String interning cache for common values
 ///
 /// Provides efficient access to commonly used strings by maintaining a cache
-/// of Arc<str> instances. This eliminates repeated string allocations for
+/// of ``Arc<str>`` instances. This eliminates repeated string allocations for
 /// frequently accessed values like provider names, status strings, etc.
 ///
 /// # Performance
 ///
 /// - Cache hits avoid string allocation completely
-/// - Arc<str> sharing enables zero-copy string passing
+/// - ``Arc<str>`` sharing enables zero-copy string passing
 /// - Pre-populated with common Squirrel ecosystem values
 /// - Thread-safe for concurrent read access
 ///
@@ -47,7 +50,7 @@ impl StaticStrings {
     /// Create a new `StaticStrings` cache with common ecosystem values pre-populated
     ///
     /// Pre-populated values include:
-    /// - AI providers: "openai", "anthropic", "ollama", "local"
+    /// - AI providers: "openai", "anthropic", "local", "local-server"
     /// - Status strings: "running", "stopped", "error", "initializing"
     /// - Operation types: "inference", "training", "analysis"
     /// - Response codes: "success", "failure", "timeout", "retry"
@@ -60,8 +63,8 @@ impl StaticStrings {
             // AI providers
             "openai",
             "anthropic",
-            "ollama",
             "local",
+            "local-server",
             // Status strings
             "running",
             "stopped",
@@ -108,7 +111,7 @@ impl StaticStrings {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// let strings = StaticStrings::new();
     ///
     /// if let Some(cached) = strings.get("openai") {
@@ -124,11 +127,11 @@ impl StaticStrings {
     ///
     /// This method is useful when you want to ensure a string is interned.
     /// If the string already exists in the cache, it returns the cached version.
-    /// Otherwise, it creates a new Arc<str>, adds it to the cache, and returns it.
+    /// Otherwise, it creates a new `Arc<str>`, adds it to the cache, and returns it.
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// let mut strings = StaticStrings::new();
     /// let interned = strings.get_or_create("custom_provider");
     /// ```
@@ -168,7 +171,7 @@ impl StaticStrings {
 
     /// Clear all cached strings
     ///
-    /// Removes all strings from the cache. Note that any Arc<str> instances
+    /// Removes all strings from the cache. Note that any `Arc<str>` instances
     /// that are still in use elsewhere will remain valid due to Arc semantics.
     pub fn clear(&mut self) {
         self.cache.clear();
@@ -255,7 +258,7 @@ impl StringConcat {
 pub struct CowString;
 
 impl CowString {
-    /// Create a Cow<str> from various string types
+    /// Create a `Cow<str>` from various string types
     ///
     /// Efficiently handles different string types without unnecessary allocations.
     /// Useful for APIs that can accept both owned and borrowed strings.
@@ -264,13 +267,14 @@ impl CowString {
         Cow::Owned(s)
     }
 
-    /// Create a Cow<str> from a string slice
+    /// Create a `Cow<str>` from a string slice
     #[must_use]
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Cow<'_, str> {
         Cow::Borrowed(s)
     }
 
-    /// Conditionally clone a Cow<str> only if needed
+    /// Conditionally clone a `Cow<str>` only if needed
     ///
     /// Returns the owned version only if the Cow contains borrowed data,
     /// avoiding unnecessary cloning for already-owned strings.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Enhanced MCP Server Architecture
 //!
 //! Unified, high-performance MCP platform with tarpc internal communication
@@ -82,7 +85,7 @@ pub use metrics::{
 /// 
 /// This platform provides universal support for ANY AI system:
 /// - Cloud APIs (OpenAI, Anthropic, Gemini, etc.)
-/// - Local models (Ollama, llama.cpp, native)
+/// - Local models (any OpenAI-compatible server: Ollama, llama.cpp, vLLM, etc.)
 /// - Aggregators (OpenRouter, etc.)  
 /// - Model hubs (Hugging Face, etc.)
 /// - Custom/homemade AI systems

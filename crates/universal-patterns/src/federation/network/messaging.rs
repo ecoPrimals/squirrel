@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Network Messaging
 //!
 //! Message handling, routing, and broadcasting functionality for

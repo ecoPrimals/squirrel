@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Integration tests for the plugin system
 //
 // These tests verify the functionality of the plugin interfaces within the MCP system.

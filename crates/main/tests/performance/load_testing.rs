@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Load and Stress Testing Framework
 //!
 //! Validates system performance under various load conditions.

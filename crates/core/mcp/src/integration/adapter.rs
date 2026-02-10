@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core MCP Adapter implementation.
 
 use std::sync::Arc;
@@ -122,7 +125,8 @@ impl CoreMCPAdapter {
     #[instrument(skip(self), name = "core_adapter_init")]
     pub async fn initialize(&self) -> crate::error::Result<()> {
         info!("Initializing Core-MCP adapter");
-        // TODO: Register handlers with a message router
+        // FUTURE: [Integration] Register handlers with a message router
+        // Tracking: Planned for v0.2.0 - message routing integration
         info!("Core-MCP adapter initialization complete");
         Ok(())
     }

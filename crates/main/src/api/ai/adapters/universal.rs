@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal AI Adapter - Capability-Based Discovery
+#![allow(dead_code)] // Public API surface awaiting consumer activation
 //!
 //! This adapter works with ANY AI provider via Unix socket communication,
 //! discovered through Songbird's capability-based discovery system.

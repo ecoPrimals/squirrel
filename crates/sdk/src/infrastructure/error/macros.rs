@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Helper macros for error creation in the Squirrel Plugin SDK
 
 /// Helper macro for creating parameter validation errors

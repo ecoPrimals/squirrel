@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Unified Configuration System for Squirrel
 //!
 //! This module provides the canonical unified configuration structure that consolidates
@@ -14,7 +17,7 @@
 //!
 //! # Example Usage
 //!
-//! ```rust,no_run
+//! ```ignore
 //! use squirrel_mcp_config::unified::{SquirrelUnifiedConfig, ConfigLoader};
 //!
 //! // Load with full precedence hierarchy

@@ -7,7 +7,6 @@
 //! potentially dangerous content while preserving legitimate data.
 
 use regex::Regex;
-use std::collections::HashSet;
 
 use super::types::{InputType, InputValidationConfig};
 
@@ -163,7 +162,7 @@ pub fn sanitize_html(
     // Remove non-whitelisted tags (simplified - in production use a proper HTML sanitizer)
     sanitized = patterns
         .tag_regex
-        .replace_all(&sanitized, |caps: &regex::Captures| {
+        .replace_all(&sanitized, |caps: &regex::Captures<'_>| {
             // SAFETY: Regex pattern guarantees capture group 1 exists for tag name
             if let Some(tag_match) = caps.get(2) {
                 let tag = tag_match.as_str().to_lowercase();
@@ -292,6 +291,7 @@ pub fn sanitize_general_text(input: &str, patterns: &SanitizationPatterns) -> St
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     fn create_test_config() -> InputValidationConfig {
         let mut allowed_html_tags = HashSet::new();

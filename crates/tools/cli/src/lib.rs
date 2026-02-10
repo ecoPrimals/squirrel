@@ -1,7 +1,15 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Squirrel CLI library
 //!
 //! This crate provides the command-line interface components for the Squirrel platform.
+#![deny(unsafe_code)]
 //! It includes commands, formatters, and configuration management.
+
+// Allow missing docs for internal implementation details
+#![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
 
 /// Output formatter for CLI commands
 pub mod formatter;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Web Integration for MCP
 //!
 //! This module provides HTTP REST API and WebSocket endpoints for

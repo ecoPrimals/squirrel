@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Dynamic Plugin Example
 //
 // This module provides an example of how to implement a dynamically loadable plugin.
@@ -6,7 +9,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::Value;
 use uuid::Uuid;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::plugins::interfaces::{Plugin, CommandsPlugin, CommandInfo, CommandHelp, CommandArgument, CommandOption};
 use crate::plugins::errors::Result;
@@ -57,7 +60,7 @@ impl squirrel_mcp::plugins::interfaces::PluginMetadata for MockMetadata {
 impl Plugin for DynamicExamplePlugin {
     fn metadata(&self) -> &dyn squirrel_mcp::plugins::interfaces::PluginMetadata {
         // Create a static metadata instance
-        static METADATA: Lazy<MockMetadata> = Lazy::new(|| {
+        static METADATA: LazyLock<MockMetadata> = LazyLock::new(|| {
             MockMetadata {
                 id: Uuid::new_v4(),
                 name: "dynamic-example-plugin".to_string(),

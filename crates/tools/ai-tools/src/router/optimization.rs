@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Provider selection and optimization algorithms for AI routing.
 //!
 //! This module implements various strategies for selecting the best AI provider

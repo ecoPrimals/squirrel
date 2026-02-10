@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Proto files have been moved to ecosystem projects:
     // - mcp_task.proto → ToadStool (task execution)

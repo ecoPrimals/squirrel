@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Modern error handling for Squirrel Authentication System
 //!
 //! Clean error types using thiserror patterns from beardog architecture.

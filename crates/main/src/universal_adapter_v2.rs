@@ -1,4 +1,8 @@
-//! # 🌟 Universal Adapter V2 - Infant Primal Pattern
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+//! # Universal Adapter V2 - Infant Primal Pattern
+#![allow(dead_code)] // Adapter V2 infrastructure awaiting activation
 //!
 //! **Philosophy**: Like an infant, Squirrel starts with ZERO hardcoded knowledge
 //! and discovers its world through universal patterns.

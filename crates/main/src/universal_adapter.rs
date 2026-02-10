@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+#![allow(dead_code)] // Universal adapter fields used by ecosystem at runtime
+
 //! Universal Adapter for Squirrel AI Primal
 //!
 //! This adapter implements the complete ecosystem integration patterns,
@@ -6,7 +11,7 @@
 //! ## Architecture
 //!
 //! The adapter follows the Songbird-centric communication model:
-//! ```
+//! ```text
 //! biomeOS → Songbird (Service Mesh) → Squirrel Universal Adapter
 //!                                           ↓
 //!                        AI Coordination + MCP Protocol + Session Management
@@ -48,15 +53,15 @@ pub struct UniversalAdapterConfig {
     pub service_port: u16,
 }
 
-/// Universal Adapter for Squirrel Primal with Arc<str> optimization
+/// Universal Adapter for Squirrel Primal with ``Arc<str>`` optimization
 pub struct UniversalAdapter {
     /// Configuration for the adapter
     config: UniversalAdapterConfig,
 
-    /// Ecosystem manager for service coordination with Arc<str> types
+    /// Ecosystem manager for service coordination with `Arc<str>` types
     ecosystem_manager: Arc<EcosystemManager>,
 
-    /// Metrics collector with Arc<str> optimization
+    /// Metrics collector with `Arc<str>` optimization
     metrics_collector: Arc<MetricsCollector>,
 
     /// Shutdown manager
@@ -70,7 +75,7 @@ pub struct UniversalAdapter {
 }
 
 impl UniversalAdapter {
-    /// Create new universal adapter with Arc<str> ecosystem integration
+    /// Create new universal adapter with `Arc<str>` ecosystem integration
     #[must_use]
     pub fn new(
         config: UniversalAdapterConfig,
@@ -173,7 +178,7 @@ impl UniversalAdapter {
             ));
         }
 
-        let registration = EcosystemServiceRegistration {
+        let _registration = EcosystemServiceRegistration {
             service_id: "squirrel-universal-adapter".to_string(),
             name: "Squirrel Universal Adapter".to_string(),
             description: "Universal adapter for AI coordination and ecosystem integration"
@@ -231,5 +236,157 @@ impl UniversalAdapter {
 
         info!("✅ Universal Adapter shutdown completed");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ecosystem::config::EcosystemConfig;
+    use crate::monitoring::metrics::MetricsCollector;
+
+    fn create_test_adapter() -> UniversalAdapter {
+        let config = UniversalAdapterConfig {
+            service_host: "localhost".to_string(),
+            service_port: 8080,
+        };
+        let eco_config = EcosystemConfig::default();
+        let metrics = Arc::new(MetricsCollector::new());
+        let ecosystem_manager = Arc::new(EcosystemManager::new(eco_config, metrics));
+        let metrics_collector = Arc::new(MetricsCollector::new());
+        let shutdown_manager = Arc::new(ShutdownManager::new());
+
+        UniversalAdapter::new(
+            config,
+            ecosystem_manager,
+            metrics_collector,
+            shutdown_manager,
+        )
+    }
+
+    #[test]
+    fn test_adapter_creation() {
+        let adapter = create_test_adapter();
+        assert!(!adapter.initialized);
+        assert_eq!(adapter.config.service_host, "localhost");
+        assert_eq!(adapter.config.service_port, 8080);
+    }
+
+    #[test]
+    fn test_adapter_config() {
+        let config = UniversalAdapterConfig {
+            service_host: "0.0.0.0".to_string(),
+            service_port: 9090,
+        };
+        assert_eq!(config.service_host, "0.0.0.0");
+        assert_eq!(config.service_port, 9090);
+    }
+
+    #[tokio::test]
+    async fn test_adapter_initialize() {
+        let mut adapter = create_test_adapter();
+        assert!(!adapter.initialized);
+
+        let result = adapter.initialize().await;
+        assert!(result.is_ok());
+        assert!(adapter.initialized);
+    }
+
+    #[tokio::test]
+    async fn test_adapter_start() {
+        let mut adapter = create_test_adapter();
+        assert!(!adapter.initialized);
+
+        let result = adapter.start().await;
+        assert!(result.is_ok());
+        assert!(adapter.initialized);
+    }
+
+    #[tokio::test]
+    async fn test_adapter_get_status_uninitialized() {
+        let adapter = create_test_adapter();
+        let status = adapter.get_status().await;
+
+        assert!(!status.initialized);
+        assert_eq!(status.provider_health, HealthStatus::Healthy);
+        assert!(!status.rpc_server_running);
+        assert!(status.service_registration.is_some());
+
+        let reg = status.service_registration.unwrap();
+        assert_eq!(reg.service_id, "squirrel-adapter");
+        assert!(reg.endpoints.primary.contains("localhost:8080"));
+    }
+
+    #[tokio::test]
+    async fn test_adapter_get_status_initialized() {
+        let mut adapter = create_test_adapter();
+        adapter.initialize().await.unwrap();
+
+        let status = adapter.get_status().await;
+        assert!(status.initialized);
+        assert!(status.uptime < 5); // Just created, uptime should be tiny
+    }
+
+    #[tokio::test]
+    async fn test_adapter_register_before_init() {
+        let adapter = create_test_adapter();
+        let result = adapter.register_with_ecosystem().await;
+        assert!(result.is_err());
+
+        match result {
+            Err(PrimalError::OperationFailed(msg)) => {
+                assert!(msg.contains("not initialized"));
+            }
+            _ => panic!("Expected OperationFailed error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_adapter_register_after_init() {
+        let mut adapter = create_test_adapter();
+        adapter.initialize().await.unwrap();
+
+        let result = adapter.register_with_ecosystem().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_adapter_shutdown() {
+        let mut adapter = create_test_adapter();
+        adapter.initialize().await.unwrap();
+
+        let result = adapter.shutdown().await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_adapter_status_debug() {
+        let status = AdapterStatus {
+            initialized: true,
+            provider_health: HealthStatus::Healthy,
+            ecosystem_health: 0.95,
+            service_registration: None,
+            rpc_server_running: false,
+            uptime: 42,
+        };
+        let debug = format!("{:?}", status);
+        assert!(debug.contains("initialized: true"));
+        assert!(debug.contains("uptime: 42"));
+    }
+
+    #[test]
+    fn test_adapter_status_clone() {
+        let status = AdapterStatus {
+            initialized: true,
+            provider_health: HealthStatus::Healthy,
+            ecosystem_health: 0.95,
+            service_registration: None,
+            rpc_server_running: true,
+            uptime: 100,
+        };
+        let cloned = status.clone();
+        assert_eq!(cloned.initialized, true);
+        assert_eq!(cloned.rpc_server_running, true);
+        assert_eq!(cloned.uptime, 100);
     }
 }

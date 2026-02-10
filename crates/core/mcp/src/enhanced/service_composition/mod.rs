@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Service Composition Engine
 //!
 //! This module provides a modular service composition system with clear separation of concerns.

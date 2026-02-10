@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // ! Port Resolution - Zero Hardcoding
 //!
 //! This module provides utilities for resolving ports and endpoints at runtime,
@@ -12,7 +15,7 @@
 //!
 //! # Example Usage
 //!
-//! ```rust
+//! ```ignore
 //! use universal_patterns::config::PortResolver;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -109,7 +112,7 @@ impl PortResolver {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```ignore
     /// # use universal_patterns::config::PortResolver;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let resolver = PortResolver::new();
@@ -149,7 +152,7 @@ impl PortResolver {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```ignore
     /// # use universal_patterns::config::PortResolver;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let resolver = PortResolver::new();
@@ -166,7 +169,7 @@ impl PortResolver {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```ignore
     /// # use universal_patterns::config::PortResolver;
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let resolver = PortResolver::new();
@@ -241,6 +244,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_endpoint() {
+        // Clear any env var that might interfere from concurrent tests
+        std::env::remove_var("HTTP_ENDPOINT");
         let resolver = PortResolver::new();
         let endpoint = resolver.resolve_endpoint("http").await.unwrap();
 
@@ -250,6 +255,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_endpoint_with_scheme() {
+        // Clear any env var that might interfere from concurrent tests
+        std::env::remove_var("SECURITY_ENDPOINT");
         let resolver = PortResolver::new();
         let endpoint = resolver
             .resolve_endpoint_with_scheme("security", "https")

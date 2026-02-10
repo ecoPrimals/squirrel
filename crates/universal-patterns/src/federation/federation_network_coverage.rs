@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive error path testing for federation network
 //!
 //! This module expands test coverage for the federation network system by testing:

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Command handling functionality for plugins
 //!
 //! This module provides command registration and execution capabilities for WASM plugins.
@@ -7,6 +10,7 @@ use crate::utils::{generate_command_id, safe_lock, safe_lock_or_fallback};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tokio::sync::Mutex as TokioMutex;
 
 /// Command definition structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,9 +57,8 @@ pub struct CommandContext {
     pub environment: HashMap<String, String>,
 }
 
-impl CommandContext {
-    /// Create a new command context
-    pub fn new() -> Self {
+impl Default for CommandContext {
+    fn default() -> Self {
         Self {
             execution_id: generate_command_id(),
             user_id: None,
@@ -63,6 +66,13 @@ impl CommandContext {
             timestamp: crate::utils::current_timestamp_iso(),
             environment: HashMap::new(),
         }
+    }
+}
+
+impl CommandContext {
+    /// Create a new command context
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Create a command context with user ID
@@ -133,24 +143,30 @@ pub trait CommandHandler: Send + Sync + std::fmt::Debug {
 pub struct CommandRegistry {
     /// Registered commands
     commands: Arc<Mutex<HashMap<String, CommandDefinition>>>,
-    /// Command handlers
-    handlers: Arc<Mutex<HashMap<String, Box<dyn CommandHandler>>>>,
+    /// Command handlers - using tokio::Mutex for async-safe access across await points
+    handlers: Arc<TokioMutex<HashMap<String, Box<dyn CommandHandler>>>>,
+}
+
+impl Default for CommandRegistry {
+    fn default() -> Self {
+        Self {
+            commands: Arc::new(Mutex::new(HashMap::new())),
+            handlers: Arc::new(TokioMutex::new(HashMap::new())),
+        }
+    }
 }
 
 impl CommandRegistry {
     /// Create a new command registry
     pub fn new() -> Self {
-        Self {
-            commands: Arc::new(Mutex::new(HashMap::new())),
-            handlers: Arc::new(Mutex::new(HashMap::new())),
-        }
+        Self::default()
     }
 
     /// Get the global command registry instance
     pub fn global() -> &'static CommandRegistry {
         use std::sync::OnceLock;
         static INSTANCE: OnceLock<CommandRegistry> = OnceLock::new();
-        INSTANCE.get_or_init(|| CommandRegistry::new())
+        INSTANCE.get_or_init(CommandRegistry::default)
     }
 
     /// Register a command
@@ -179,8 +195,8 @@ impl CommandRegistry {
         // Register the command definition
         self.register_command(definition.clone()).await?;
 
-        // Register the handler
-        let mut handlers = safe_lock(&self.handlers, "handlers")?;
+        // Register the handler using tokio mutex
+        let mut handlers = self.handlers.lock().await;
         handlers.insert(definition.name, Box::new(handler));
 
         Ok(())
@@ -188,10 +204,12 @@ impl CommandRegistry {
 
     /// Unregister a command
     pub async fn unregister_command(&self, name: &str) -> PluginResult<()> {
-        let mut commands = safe_lock(&self.commands, "commands")?;
-        let mut handlers = safe_lock(&self.handlers, "handlers")?;
+        {
+            let mut commands = safe_lock(&self.commands, "commands")?;
+            commands.remove(name);
+        }
 
-        commands.remove(name);
+        let mut handlers = self.handlers.lock().await;
         handlers.remove(name);
 
         Ok(())
@@ -229,15 +247,15 @@ impl CommandRegistry {
         // Validate parameters
         self.validate_parameters(&command, &params)?;
 
-        // Get handler
-        let handlers = safe_lock(&self.handlers, "handlers")?;
+        // Execute command using tokio mutex - safe to hold across await
+        let handlers = self.handlers.lock().await;
         let handler = handlers
             .get(name)
             .ok_or_else(|| PluginError::UnknownCommand {
                 command: format!("No handler for command: {}", name),
             })?;
 
-        // Execute command
+        // Execute command - tokio::Mutex is designed to be held across await points
         handler.execute(params, context).await
     }
 
@@ -275,7 +293,7 @@ impl CommandRegistry {
     pub fn search_by_category(&self, category: &str) -> Vec<CommandDefinition> {
         safe_lock_or_fallback(&self.commands, HashMap::new, "commands")
             .values()
-            .filter(|cmd| cmd.category.as_ref().map_or(false, |c| c == category))
+            .filter(|cmd| cmd.category.as_ref().is_some_and(|c| c == category))
             .cloned()
             .collect()
     }

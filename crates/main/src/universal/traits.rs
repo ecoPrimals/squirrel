@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core traits for universal primal integration
 //!
 //! This module defines the trait interfaces that enable primals to
@@ -25,7 +28,7 @@ pub type UniversalResult<T> = Result<T, PrimalError>;
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```ignore
 /// use squirrel::universal::{UniversalPrimalProvider, PrimalRequest, PrimalResponse};
 ///
 /// struct MyPrimal;

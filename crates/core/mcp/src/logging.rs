@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Logging module for MCP
 //!
 //! This module provides structured logging functionality for MCP components.

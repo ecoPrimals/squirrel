@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Synchronization moved to ToadStool and NestGate
 //!
 //! This module previously provided synchronization primitives for the MCP system.

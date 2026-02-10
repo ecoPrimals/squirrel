@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Basic Sync Flow Tests
 //!
 //! Tests for core sync functionality including state management,

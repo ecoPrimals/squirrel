@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin manager metrics and status structures
 //!
 //! This module provides structures for tracking plugin manager performance and status.

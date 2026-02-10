@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for MCP client functionality
 //!
 //! This module contains comprehensive tests for all MCP client components

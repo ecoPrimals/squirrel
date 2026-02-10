@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Mock Implementations for Testing
 //!
 //! This module provides mock implementations for testing the task server functionality.

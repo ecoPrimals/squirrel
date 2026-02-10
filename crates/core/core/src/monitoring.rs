@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Monitoring Abstraction for Squirrel MCP
+#![allow(dead_code)] // Monitoring infrastructure awaiting activation
 //!
 //! This module provides a monitoring abstraction layer that delegates to external
 //! monitoring systems while maintaining sovereignty. It can work with:

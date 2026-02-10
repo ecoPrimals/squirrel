@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Policy Network
 //!
 //! This module implements the policy network for reinforcement learning in the Context Management System.

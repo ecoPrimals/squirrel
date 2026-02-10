@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Custom Command Example
 //!
 //! This example demonstrates creating custom command implementations that integrate

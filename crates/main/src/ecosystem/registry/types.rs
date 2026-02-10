@@ -1,55 +1,58 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+#![allow(dead_code)] // Registry types awaiting full ecosystem wiring
+
 //! Core types for the ecosystem registry manager
 
+#[allow(deprecated)] // EcosystemPrimalType is deprecated but needed for backward compatibility
 use chrono::{DateTime, Utc};
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use crate::ecosystem::EcosystemPrimalType;
 
 /// String interning for common service registry values
-lazy_static! {
-    static ref REGISTRY_STRINGS: HashMap<&'static str, Arc<str>> = {
-        let mut map = HashMap::new();
-        // Common service IDs and types
-        map.insert("squirrel", Arc::from("squirrel"));
-        map.insert("songbird", Arc::from("songbird"));
-        map.insert("toadstool", Arc::from("toadstool"));
-        map.insert("beardog", Arc::from("beardog"));
-        map.insert("ecosystem", Arc::from("ecosystem"));
+static REGISTRY_STRINGS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::new(|| {
+    let mut map = HashMap::new();
+    // Common service IDs and types
+    map.insert("squirrel", Arc::from("squirrel"));
+    map.insert("songbird", Arc::from("songbird"));
+    map.insert("toadstool", Arc::from("toadstool"));
+    map.insert("beardog", Arc::from("beardog"));
+    map.insert("ecosystem", Arc::from("ecosystem"));
 
-        // Common capabilities
-        map.insert("ai_coordination", Arc::from("ai_coordination"));
-        map.insert("service_mesh", Arc::from("service_mesh"));
-        map.insert("security", Arc::from("security"));
-        map.insert("monitoring", Arc::from("monitoring"));
-        map.insert("discovery", Arc::from("discovery"));
-        map.insert("orchestration", Arc::from("orchestration"));
-        map.insert("intelligence", Arc::from("intelligence"));
-        map.insert("biome_integration", Arc::from("biome_integration"));
+    // Common capabilities
+    map.insert("ai_coordination", Arc::from("ai_coordination"));
+    map.insert("service_mesh", Arc::from("service_mesh"));
+    map.insert("security", Arc::from("security"));
+    map.insert("monitoring", Arc::from("monitoring"));
+    map.insert("discovery", Arc::from("discovery"));
+    map.insert("orchestration", Arc::from("orchestration"));
+    map.insert("intelligence", Arc::from("intelligence"));
+    map.insert("biome_integration", Arc::from("biome_integration"));
 
-        // Common metadata keys
-        map.insert("version", Arc::from("version"));
-        map.insert("environment", Arc::from("environment"));
-        map.insert("region", Arc::from("region"));
-        map.insert("instance_id", Arc::from("instance_id"));
-        map.insert("last_updated", Arc::from("last_updated"));
-        map.insert("health_endpoint", Arc::from("health_endpoint"));
-        map.insert("metrics_endpoint", Arc::from("metrics_endpoint"));
+    // Common metadata keys
+    map.insert("version", Arc::from("version"));
+    map.insert("environment", Arc::from("environment"));
+    map.insert("region", Arc::from("region"));
+    map.insert("instance_id", Arc::from("instance_id"));
+    map.insert("last_updated", Arc::from("last_updated"));
+    map.insert("health_endpoint", Arc::from("health_endpoint"));
+    map.insert("metrics_endpoint", Arc::from("metrics_endpoint"));
 
-        // Common operation names
-        map.insert("register", Arc::from("register"));
-        map.insert("discover", Arc::from("discover"));
-        map.insert("health_check", Arc::from("health_check"));
-        map.insert("metrics", Arc::from("metrics"));
+    // Common operation names
+    map.insert("register", Arc::from("register"));
+    map.insert("discover", Arc::from("discover"));
+    map.insert("health_check", Arc::from("health_check"));
+    map.insert("metrics", Arc::from("metrics"));
 
-        map
-    };
-}
+    map
+});
 
-/// Get Arc<str> for registry string with zero allocation for common values
+/// Get ```Arc<str>``` for registry string with zero allocation for common values
 #[must_use]
 pub fn intern_registry_string(s: &str) -> Arc<str> {
     // Common registry strings for zero-allocation lookups
@@ -70,52 +73,52 @@ pub fn intern_registry_string(s: &str) -> Arc<str> {
     }
 }
 
-/// Registry state tracking with Arc<str> optimization
+/// Registry state tracking with ``Arc<str>`` optimization
 #[derive(Debug, Default)]
 pub struct RegistryState {
-    /// Service registrations with Arc<str> keys for zero-copy performance
+    /// Service registrations with `Arc<str>` keys for zero-copy performance
     pub registered_services: HashMap<Arc<str>, Arc<crate::ecosystem::EcosystemServiceRegistration>>,
-    /// Service discovery cache with Arc<str> keys and Arc<DiscoveredService> values
+    /// Service discovery cache with `Arc<str>` keys and `Arc<DiscoveredService>` values
     pub service_discovery_cache: HashMap<Arc<str>, Arc<DiscoveredService>>,
     pub last_discovery_sync: Option<DateTime<Utc>>,
     pub registration_attempts: u32,
 }
 
-/// Discovered service information with Arc<str> optimization
+/// Discovered service information with `Arc<str>` optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveredService {
-    /// Service ID as Arc<str> for efficient sharing
+    /// Service ID as `Arc<str>` for efficient sharing
     #[serde(
         serialize_with = "serialize_arc_str",
         deserialize_with = "deserialize_arc_str"
     )]
     pub service_id: Arc<str>,
     pub primal_type: EcosystemPrimalType,
-    /// Endpoint as Arc<str> for efficient sharing
+    /// Endpoint as `Arc<str>` for efficient sharing
     #[serde(
         serialize_with = "serialize_arc_str",
         deserialize_with = "deserialize_arc_str"
     )]
     pub endpoint: Arc<str>,
-    /// Health endpoint as Arc<str>
+    /// Health endpoint as `Arc<str>`
     #[serde(
         serialize_with = "serialize_arc_str",
         deserialize_with = "deserialize_arc_str"
     )]
     pub health_endpoint: Arc<str>,
-    /// API version as Arc<str>
+    /// API version as `Arc<str>`
     #[serde(
         serialize_with = "serialize_arc_str",
         deserialize_with = "deserialize_arc_str"
     )]
     pub api_version: Arc<str>,
-    /// Capabilities as Arc<str> for efficient sharing
+    /// Capabilities as `Arc<str>` for efficient sharing
     #[serde(
         serialize_with = "serialize_arc_str_vec",
         deserialize_with = "deserialize_arc_str_vec"
     )]
     pub capabilities: Vec<Arc<str>>,
-    /// Metadata with Arc<str> keys and values for zero-copy
+    /// Metadata with `Arc<str>` keys and values for zero-copy
     #[serde(
         serialize_with = "serialize_arc_str_map",
         deserialize_with = "deserialize_arc_str_map"
@@ -191,7 +194,7 @@ where
     Ok(Arc::from(s))
 }
 
-fn serialize_arc_str_vec<S>(vec: &Vec<Arc<str>>, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_arc_str_vec<S>(vec: &[Arc<str>], serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
@@ -259,10 +262,10 @@ pub enum ServiceHealthStatus {
     Offline,
 }
 
-/// Standard API request for inter-primal communication with Arc<str> optimization
+/// Standard API request for inter-primal communication with ``Arc<str>`` optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalApiRequest {
-    /// Request ID as Arc<str> for efficient sharing across async boundaries
+    /// Request ID as `Arc<str>` for efficient sharing across async boundaries
     #[serde(
         serialize_with = "serialize_arc_str",
         deserialize_with = "deserialize_arc_str"
@@ -270,14 +273,14 @@ pub struct PrimalApiRequest {
     pub request_id: Arc<str>,
     pub from_primal: EcosystemPrimalType,
     pub to_primal: EcosystemPrimalType,
-    /// Operation name as Arc<str> with string interning
+    /// Operation name as `Arc<str>` with string interning
     #[serde(
         serialize_with = "serialize_arc_str",
         deserialize_with = "deserialize_arc_str"
     )]
     pub operation: Arc<str>,
     pub payload: serde_json::Value,
-    /// Headers with Arc<str> keys and values for zero-copy
+    /// Headers with `Arc<str>` keys and values for zero-copy
     #[serde(
         serialize_with = "serialize_arc_str_map",
         deserialize_with = "deserialize_arc_str_map"
@@ -322,10 +325,10 @@ impl PrimalApiRequest {
     }
 }
 
-/// Standard API response for inter-primal communication with Arc<str> optimization
+/// Standard API response for inter-primal communication with ``Arc<str>`` optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalApiResponse {
-    /// Request ID as Arc<str> for efficient correlation
+    /// Request ID as `Arc<str>` for efficient correlation
     #[serde(
         serialize_with = "serialize_arc_str",
         deserialize_with = "deserialize_arc_str"
@@ -333,13 +336,13 @@ pub struct PrimalApiResponse {
     pub request_id: Arc<str>,
     pub success: bool,
     pub data: Option<serde_json::Value>,
-    /// Error message as Arc<str> for efficient sharing
+    /// Error message as `Arc<str>` for efficient sharing
     #[serde(
         serialize_with = "serialize_optional_arc_str",
         deserialize_with = "deserialize_optional_arc_str"
     )]
     pub error: Option<Arc<str>>,
-    /// Headers with Arc<str> keys and values for zero-copy
+    /// Headers with `Arc<str>` keys and values for zero-copy
     #[serde(
         serialize_with = "serialize_arc_str_map",
         deserialize_with = "deserialize_arc_str_map"
@@ -372,7 +375,7 @@ impl PrimalApiResponse {
     }
 }
 
-/// Ecosystem registry events with Arc<str> optimization for efficient event sharing
+/// Ecosystem registry events with ``Arc<str>`` optimization for efficient event sharing
 #[derive(Debug, Clone)]
 pub enum EcosystemRegistryEvent {
     /// Service discovered in the ecosystem

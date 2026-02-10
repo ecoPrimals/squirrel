@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Capability-Based HTTP Client (TRUE PRIMAL!)
+#![allow(dead_code)] // HTTP capability client awaiting activation
 //!
 //! **Philosophy**: Deploy like an infant - knows nothing, discovers everything!
 //! - Squirrel doesn't know "Songbird" exists

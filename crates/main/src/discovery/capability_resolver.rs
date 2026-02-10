@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Capability resolver - Core discovery engine
 //!
 //! This module implements the central capability resolution engine that

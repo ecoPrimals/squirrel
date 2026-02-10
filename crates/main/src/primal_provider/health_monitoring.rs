@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Health Monitoring and Reporting
 
 use super::core::SquirrelPrimalProvider;

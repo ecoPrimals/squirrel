@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Compatibility utilities for plugin system interoperability
 //!
 //! This module provides conversion utilities between Squirrel's two plugin systems:

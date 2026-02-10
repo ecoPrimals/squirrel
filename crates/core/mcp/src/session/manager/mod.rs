@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 /// Module for session manager functionality.
 ///
 /// Contains the persistence layer for sessions and handles

@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Error System for Squirrel
 //!
 //! This crate provides a unified error handling system that extends the excellent
+#![deny(unsafe_code)]
 //! MCP error architecture to the entire Squirrel codebase. It re-exports the
 //! world-class MCP error system (validated Phase 3E) and adds domain error modules
 //! for SDK, Tools, and Integration components following the same patterns.

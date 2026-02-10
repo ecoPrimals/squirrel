@@ -1,6 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Squirrel Integration
 //!
 //! This crate provides integration adapters for Squirrel components.
+
+#![deny(unsafe_code)]
+// Allow missing docs for internal implementation details
+#![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
 
 pub mod mcp_ai_tools;
 pub mod web_integration;

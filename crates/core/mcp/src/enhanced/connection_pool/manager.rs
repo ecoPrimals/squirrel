@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Connection Pool Manager
 //!
 //! This module provides the high-level manager for HTTP connection pools,
@@ -357,7 +360,7 @@ impl ConnectionPoolManager {
             "model": request.model,
             "messages": request.messages,
             "max_tokens": request.parameters.get("max_tokens").unwrap_or(&serde_json::Value::Number(serde_json::Number::from(1000))),
-            "temperature": request.parameters.get("temperature").unwrap_or(&serde_json::Value::Number(serde_json::Number::from_f64(0.7).unwrap())),
+            "temperature": request.parameters.get("temperature").unwrap_or(&serde_json::Value::Number(serde_json::Number::from_f64(0.7).expect("0.7 is a valid f64"))),
         });
         
         serde_json::to_vec(&body).map_err(|e| {

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Resilience framework for the MCP protocol
 //! 
 //! This module provides mechanisms for enhancing fault tolerance and reliability

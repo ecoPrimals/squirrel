@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+//! Model registry management CLI tool.
+
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;

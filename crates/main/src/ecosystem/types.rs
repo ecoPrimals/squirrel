@@ -1,9 +1,15 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Ecosystem type definitions and configurations
 //!
 //! This module contains all type definitions for ecosystem integration,
 //! including service registration, primal types, capabilities, and
 //! configuration structures.
 
+#[allow(deprecated)]
+use super::EcosystemPrimalType;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -80,115 +86,9 @@ pub struct EcosystemServiceRegistration {
 /// ```ignore
 /// // OLD (hardcoded):
 /// let primal_type = EcosystemPrimalType::Songbird;
-/// let endpoint = primal_type.default_endpoint();
-///
-/// // NEW (capability-based):
-/// use crate::capability_registry::{CapabilityRegistry, PrimalCapability};
-/// let registry = CapabilityRegistry::new(Default::default());
-/// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMeshPrimalCapability::ServiceDiscovery  // ServiceMesh variant removed).await?;
-/// let endpoint = &primals[0].endpoint;
 /// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use CapabilityRegistry for capability-based discovery instead of hardcoded primal types"
-)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum EcosystemPrimalType {
-    ToadStool,
-    Songbird,
-    BearDog,
-    NestGate,
-    Squirrel,
-    BiomeOS,
-}
-
-impl EcosystemPrimalType {
-    /// Convert to string representation
-    ///
-    /// **DEPRECATED**: Use capability-based discovery instead.
-    #[must_use]
-    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry instead")]
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            EcosystemPrimalType::ToadStool => "toadstool",
-            EcosystemPrimalType::Songbird => "songbird",
-            EcosystemPrimalType::BearDog => "beardog",
-            EcosystemPrimalType::NestGate => "nestgate",
-            EcosystemPrimalType::Squirrel => "squirrel",
-            EcosystemPrimalType::BiomeOS => "biomeos",
-        }
-    }
-
-    /// Get environment variable name for this primal's endpoint
-    ///
-    /// **DEPRECATED**: Use generic environment variables like `SERVICE_MESH_ENDPOINT`.
-    ///
-    /// # Migration Example
-    /// ```ignore
-    /// // OLD:
-    /// let primal = EcosystemPrimalType::Songbird;
-    /// let env_name = primal.env_name(); // "SONGBIRD"
-    /// let endpoint = std::env::var(format!("{}_ENDPOINT", env_name))?;
-    ///
-    /// // NEW:
-    /// let endpoint = std::env::var("SERVICE_MESH_ENDPOINT")?; // Capability-agnostic
-    /// ```
-    #[must_use]
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use generic env vars like SERVICE_MESH_ENDPOINT"
-    )]
-    pub fn env_name(&self) -> &'static str {
-        match self {
-            EcosystemPrimalType::ToadStool => "TOADSTOOL",
-            EcosystemPrimalType::Songbird => "SONGBIRD",
-            EcosystemPrimalType::BearDog => "BEARDOG",
-            EcosystemPrimalType::NestGate => "NESTGATE",
-            EcosystemPrimalType::Squirrel => "SQUIRREL",
-            EcosystemPrimalType::BiomeOS => "BIOMEOS",
-        }
-    }
-
-    /// Get service name for service discovery
-    ///
-    /// **DEPRECATED**: Use capability-based discovery instead.
-    ///
-    /// # Migration Example
-    /// ```ignore
-    /// // OLD:
-    /// let primal = EcosystemPrimalType::Songbird;
-    /// let service_name = primal.service_name(); // "songbird"
-    /// let url = format!("http://consul:8500/{}", service_name);
-    ///
-    /// // NEW:
-    /// use crate::capability_registry::{CapabilityRegistry, PrimalCapability};
-    /// let registry = CapabilityRegistry::new(Default::default());
-    /// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMeshPrimalCapability::ServiceDiscovery  // ServiceMesh variant removed).await?;
-    /// let endpoint = &primals[0].endpoint; // Discovered endpoint
-    /// ```
-    #[must_use]
-    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
-    pub fn service_name(&self) -> &'static str {
-        self.as_str()
-    }
-
-    /// Parse from string
-    ///
-    /// **DEPRECATED**: Use capability-based discovery instead.
-    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
-    pub fn from_str(s: &str) -> Result<Self, String> {
-        match s.to_lowercase().as_str() {
-            "toadstool" => Ok(EcosystemPrimalType::ToadStool),
-            "songbird" => Ok(EcosystemPrimalType::Songbird),
-            "beardog" => Ok(EcosystemPrimalType::BearDog),
-            "nestgate" => Ok(EcosystemPrimalType::NestGate),
-            "squirrel" => Ok(EcosystemPrimalType::Squirrel),
-            "biomeos" => Ok(EcosystemPrimalType::BiomeOS),
-            _ => Err(format!("Unknown primal type: {s}")),
-        }
-    }
-}
-
+// NOTE: EcosystemPrimalType is defined in ecosystem/mod.rs (canonical source)
+// and re-exported via `pub use types::*` -- do not duplicate here.
 /// Service capabilities with proper Default implementation
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ServiceCapabilities {
@@ -259,4 +159,162 @@ pub struct ResourceRequirements {
     pub max_memory_mb: Option<u64>,
     /// Storage requirements in GB
     pub storage_gb: Option<u64>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- ServiceCapabilities ---
+
+    #[test]
+    fn test_service_capabilities_default() {
+        let caps = ServiceCapabilities::default();
+        assert!(caps.core.is_empty());
+        assert!(caps.extended.is_empty());
+        assert!(caps.integrations.is_empty());
+    }
+
+    #[test]
+    fn test_service_capabilities_serde() {
+        let caps = ServiceCapabilities {
+            core: vec!["ai_coordination".to_string()],
+            extended: vec!["universal_patterns".to_string()],
+            integrations: vec!["ecosystem_integration".to_string()],
+        };
+        let json = serde_json::to_string(&caps).unwrap();
+        let deserialized: ServiceCapabilities = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.core, vec!["ai_coordination"]);
+        assert_eq!(deserialized.extended, vec!["universal_patterns"]);
+    }
+
+    // --- ServiceEndpoints ---
+
+    #[test]
+    fn test_service_endpoints_default() {
+        let endpoints = ServiceEndpoints::default();
+        assert!(endpoints.primary.is_empty());
+        assert!(endpoints.secondary.is_empty());
+        assert!(endpoints.health.is_none());
+    }
+
+    #[test]
+    fn test_service_endpoints_serde() {
+        let endpoints = ServiceEndpoints {
+            primary: "http://localhost:8080".to_string(),
+            secondary: vec!["http://localhost:8081".to_string()],
+            health: Some("http://localhost:8080/health".to_string()),
+        };
+        let json = serde_json::to_string(&endpoints).unwrap();
+        let deserialized: ServiceEndpoints = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.primary, "http://localhost:8080");
+        assert!(deserialized.health.is_some());
+    }
+
+    // --- HealthCheckConfig ---
+
+    #[test]
+    fn test_health_check_config_default() {
+        let config = HealthCheckConfig::default();
+        assert!(!config.enabled);
+        assert_eq!(config.interval_secs, 0);
+        assert_eq!(config.timeout_secs, 0);
+        assert_eq!(config.failure_threshold, 0);
+    }
+
+    #[test]
+    fn test_health_check_config_serde() {
+        let config = HealthCheckConfig {
+            enabled: true,
+            interval_secs: 30,
+            timeout_secs: 5,
+            failure_threshold: 3,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: HealthCheckConfig = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.enabled);
+        assert_eq!(deserialized.interval_secs, 30);
+        assert_eq!(deserialized.failure_threshold, 3);
+    }
+
+    // --- ResourceSpec ---
+
+    #[test]
+    fn test_resource_spec_default() {
+        let spec = ResourceSpec::default();
+        assert!(spec.cpu.is_empty());
+        assert!(spec.memory.is_empty());
+        assert!(spec.gpu.is_none());
+    }
+
+    #[test]
+    fn test_resource_spec_serde() {
+        let spec = ResourceSpec {
+            cpu: "500m".to_string(),
+            memory: "1Gi".to_string(),
+            storage: "10Gi".to_string(),
+            network: "1Gbps".to_string(),
+            gpu: Some("nvidia-t4".to_string()),
+        };
+        let json = serde_json::to_string(&spec).unwrap();
+        let deserialized: ResourceSpec = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.cpu, "500m");
+        assert_eq!(deserialized.gpu.as_deref(), Some("nvidia-t4"));
+    }
+
+    // --- SecurityConfig ---
+
+    #[test]
+    fn test_security_config_default() {
+        let config = SecurityConfig::default();
+        assert!(!config.auth_required);
+        assert!(config.encryption_level.is_empty());
+        assert!(config.policies.is_empty());
+        assert!(!config.audit_enabled);
+    }
+
+    #[test]
+    fn test_security_config_serde() {
+        let config = SecurityConfig {
+            auth_required: true,
+            encryption_level: "tls1.3".to_string(),
+            access_level: "admin".to_string(),
+            policies: vec!["strict".to_string()],
+            audit_enabled: true,
+            security_level: "high".to_string(),
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: SecurityConfig = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.auth_required);
+        assert_eq!(deserialized.encryption_level, "tls1.3");
+        assert!(deserialized.audit_enabled);
+    }
+
+    // --- ResourceRequirements ---
+
+    #[test]
+    fn test_resource_requirements_default() {
+        let req = ResourceRequirements::default();
+        assert!(req.min_cpu.is_none());
+        assert!(req.max_cpu.is_none());
+        assert!(req.min_memory_mb.is_none());
+        assert!(req.max_memory_mb.is_none());
+        assert!(req.storage_gb.is_none());
+    }
+
+    #[test]
+    fn test_resource_requirements_serde() {
+        let req = ResourceRequirements {
+            min_cpu: Some(2),
+            max_cpu: Some(8),
+            min_memory_mb: Some(4096),
+            max_memory_mb: Some(16384),
+            storage_gb: Some(100),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let deserialized: ResourceRequirements = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.min_cpu, Some(2));
+        assert_eq!(deserialized.max_cpu, Some(8));
+        assert_eq!(deserialized.storage_gb, Some(100));
+    }
 }

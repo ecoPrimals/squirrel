@@ -1,4 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Parser for rule files
+//!
+//! Methods use `&self` for future extensibility and consistent API
+
+#![allow(clippy::unused_self)]
 
 use regex::Regex;
 use serde_json::Value;
@@ -11,6 +18,7 @@ use crate::models::{Rule, RuleAction, RuleCondition};
 
 /// Parser configuration
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct ParserConfig {
     /// Whether to validate rules during parsing
     pub validate: bool,
@@ -67,12 +75,6 @@ impl RuleParser {
         Self { config }
     }
 
-    /// Creates a new rule parser with the default configuration
-    #[must_use]
-    pub fn default() -> Self {
-        Self::new(ParserConfig::default())
-    }
-
     /// Parse a rule from a file
     ///
     /// # Errors
@@ -110,7 +112,7 @@ impl RuleParser {
         let sections = self.parse_sections(body)?;
 
         // Create rule from frontmatter and sections
-        let rule = self.create_rule(frontmatter, sections)?;
+        let rule = self.create_rule(&frontmatter, sections)?;
 
         // Validate the rule
         if self.config.validate {
@@ -303,47 +305,47 @@ impl RuleParser {
     /// Returns an error if the rule cannot be created.
     fn create_rule(
         &self,
-        frontmatter: HashMap<String, Value>,
+        frontmatter: &HashMap<String, Value>,
         sections: Vec<RuleSection>,
     ) -> Result<Rule, RuleParserError> {
         // Extract required fields from frontmatter
         let id = self
-            .extract_string_field(&frontmatter, "id")
+            .extract_string_field(frontmatter, "id")
             .map_err(|_| RuleParserError::MissingField("id".to_string()))?;
 
         // Start building the rule
         let mut rule = Rule::new(id);
 
         // Extract other fields from frontmatter
-        if let Ok(name) = self.extract_string_field(&frontmatter, "name") {
+        if let Ok(name) = self.extract_string_field(frontmatter, "name") {
             rule.name = name;
         }
 
-        if let Ok(description) = self.extract_string_field(&frontmatter, "description") {
+        if let Ok(description) = self.extract_string_field(frontmatter, "description") {
             rule.description = description;
         }
 
-        if let Ok(version) = self.extract_string_field(&frontmatter, "version") {
+        if let Ok(version) = self.extract_string_field(frontmatter, "version") {
             rule.version = version;
         }
 
-        if let Ok(category) = self.extract_string_field(&frontmatter, "category") {
+        if let Ok(category) = self.extract_string_field(frontmatter, "category") {
             rule.category = category;
         }
 
-        if let Ok(priority) = self.extract_integer_field(&frontmatter, "priority") {
+        if let Ok(priority) = self.extract_integer_field(frontmatter, "priority") {
             rule.priority = priority;
         }
 
         // Extract patterns
-        if let Ok(patterns) = self.extract_string_array_field(&frontmatter, "patterns") {
+        if let Ok(patterns) = self.extract_string_array_field(frontmatter, "patterns") {
             rule.patterns = patterns;
-        } else if let Ok(pattern) = self.extract_string_field(&frontmatter, "pattern") {
+        } else if let Ok(pattern) = self.extract_string_field(frontmatter, "pattern") {
             rule.patterns = vec![pattern];
         }
 
         // Extract dependencies
-        if let Ok(dependencies) = self.extract_string_array_field(&frontmatter, "dependencies") {
+        if let Ok(dependencies) = self.extract_string_array_field(frontmatter, "dependencies") {
             rule.dependencies = dependencies;
         }
 
@@ -467,7 +469,7 @@ impl RuleParser {
         map.get(key)
             .ok_or_else(|| RuleParserError::MissingField(key.to_string()))?
             .as_i64()
-            .map(|i| i as i32)
+            .and_then(|i| i32::try_from(i).ok())
             .ok_or_else(|| RuleParserError::InvalidFieldValue {
                 field: key.to_string(),
                 reason: "Not an integer".to_string(),
@@ -508,6 +510,12 @@ impl RuleParser {
         }
 
         Ok(result)
+    }
+}
+
+impl Default for RuleParser {
+    fn default() -> Self {
+        Self::new(ParserConfig::default())
     }
 }
 

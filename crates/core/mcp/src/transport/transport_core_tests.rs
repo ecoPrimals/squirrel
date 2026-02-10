@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for MCP transport layer core types and functionality
 //!
 //! This module provides thorough testing of transport types, metadata,

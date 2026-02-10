@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 /// Core tool manager implementation
 #[derive(Debug)]
 pub struct CoreToolManager {

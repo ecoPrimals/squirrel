@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Squirrel Universal AI Primal
 //!
 //! A universal AI coordination primal that implements the standardized ecosystem
@@ -9,6 +13,11 @@
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(async_fn_in_trait)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::unnecessary_wraps)]
 
 // Core modules
 pub mod api;
@@ -44,6 +53,9 @@ pub mod universal_provider;
 
 /// Universal adapters for capability-based primal integration
 pub mod universal_adapters;
+
+/// Tool execution and management
+pub mod tool;
 
 /// JSON-RPC and tarpc protocol implementation for inter-primal communication
 pub mod rpc;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Delegated JWT Client - Production JWT via Capability Discovery (TRUE PRIMAL!)
 //!
 //! **Evolution**: BearDog → Capability Discovery

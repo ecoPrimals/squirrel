@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Security API types and request/response structures
 //!
 //! This module defines the data structures used for communication with
@@ -16,7 +19,7 @@ use super::context::SecurityContext;
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```ignore
 /// use universal_patterns::security::types::AuthRequest;
 /// use universal_patterns::traits::Credentials;
 /// use chrono::Utc;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Safe type casting utilities
 //!
 //! This module provides safe casting helpers that prevent overflow

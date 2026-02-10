@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP protocol implementation
 //!
 //! Defines the message structures and serialization for the Machine Context Protocol.

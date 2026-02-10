@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Cleanup strategy implementations for comprehensive resource management.
 //!
 //! This module provides the implementation logic for different cleanup strategies

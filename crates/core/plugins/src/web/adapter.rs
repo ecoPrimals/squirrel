@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Web plugin adapter module
 //!
 //! This module provides adapter functionality to bridge between legacy and new plugin systems.

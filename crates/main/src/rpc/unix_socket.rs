@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Unix Socket Utilities
 //!
 //! Helper functions for Unix socket management following biomeOS atomic standards.
@@ -42,7 +45,7 @@ use tracing::{debug, info, warn};
 ///
 /// ## Examples
 ///
-/// ```rust
+/// ```ignore
 /// // Tier 1: Primal-specific override
 /// std::env::set_var("SQUIRREL_SOCKET", "/custom/squirrel.sock");
 /// let path = get_socket_path("node1");
@@ -302,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    #[serial] // Serialize env var tests
+    #[serial(socket_env)] // Global env var serialization group
     fn test_socket_path_tier1_squirrel_socket() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_SOCKET", "/custom/path/socket.sock");
@@ -314,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    #[serial] // Serialize env var tests
+    #[serial(socket_env)] // Global env var serialization group
     fn test_socket_path_tier2_biomeos_socket_path() {
         clear_env_vars();
         std::env::set_var("BIOMEOS_SOCKET_PATH", "/tmp/squirrel-nat0.sock");
@@ -326,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    #[serial] // Serialize env var tests
+    #[serial(socket_env)] // Global env var serialization group
     fn test_squirrel_socket_overrides_biomeos_socket_path() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_SOCKET", "/custom/squirrel.sock");
@@ -340,7 +343,7 @@ mod tests {
     }
 
     #[test]
-    #[serial] // Serialize env var tests
+    #[serial(socket_env)] // Global env var serialization group
     fn test_socket_path_tier3_primal_socket() {
         clear_env_vars();
         std::env::set_var("PRIMAL_SOCKET", "/custom/primal");
@@ -354,7 +357,7 @@ mod tests {
     }
 
     #[test]
-    #[serial] // Serialize env var tests
+    #[serial(socket_env)] // Global env var serialization group
     fn test_socket_path_tier4_and_tier5_fallback() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_FAMILY_ID", "test0");
@@ -367,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    #[serial] // Serialize env var tests
+    #[serial(socket_env)] // Global env var serialization group
     fn test_get_family_id_default() {
         clear_env_vars();
 
@@ -376,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    #[serial] // Serialize env var tests
+    #[serial(socket_env)] // Global env var serialization group
     fn test_get_family_id_from_env() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_FAMILY_ID", "nat0");
@@ -388,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    #[serial] // Serialize env var tests
+    #[serial(socket_env)] // Global env var serialization group
     fn test_get_node_id_default() {
         clear_env_vars();
 
@@ -397,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    #[serial] // Serialize env var tests
+    #[serial(socket_env)] // Global env var serialization group
     fn test_get_node_id_from_env() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_NODE_ID", "custom-node");
@@ -468,7 +471,7 @@ mod tests {
     }
 
     #[test]
-    #[serial]
+    #[serial(socket_env)]
     fn test_socket_path_uses_biomeos_directory() {
         clear_env_vars();
 

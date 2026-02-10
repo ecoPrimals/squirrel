@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for rule evaluator
 
 #[cfg(test)]
@@ -41,13 +44,14 @@ mod tests {
     #[tokio::test]
     async fn test_evaluator_creation() {
         let evaluator = RuleEvaluator::new();
-        assert!(evaluator.initialize().await.is_ok());
+        evaluator.initialize();
+        // If we get here without panic, initialization succeeded
     }
 
     #[tokio::test]
     async fn test_evaluate_equals_condition_match() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-equals")
             .with_name("Equals Test")
@@ -70,7 +74,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_equals_condition_no_match() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-equals-nomatch")
             .with_name("Equals No Match")
@@ -91,7 +95,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_exists_condition() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-exists")
             .with_name("Exists Test")
@@ -111,7 +115,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_not_exists_condition() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-not-exists")
             .with_name("Not Exists Test")
@@ -131,7 +135,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_greater_than_condition() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-gt")
             .with_name("Greater Than Test")
@@ -152,7 +156,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_less_than_condition() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-lt")
             .with_name("Less Than Test")
@@ -173,7 +177,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_matches_condition() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-matches")
             .with_name("Matches Test")
@@ -194,7 +198,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_all_conditions_success() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-all")
             .with_name("All Conditions Test")
@@ -226,7 +230,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_all_conditions_failure() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-all-fail")
             .with_name("All Conditions Fail")
@@ -255,7 +259,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_any_conditions_success() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-any")
             .with_name("Any Conditions Test")
@@ -284,7 +288,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_any_conditions_all_fail() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-any-fail")
             .with_name("Any Conditions All Fail")
@@ -313,7 +317,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_not_condition() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-not")
             .with_name("Not Condition Test")
@@ -336,7 +340,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluate_empty_conditions() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-empty");
 
@@ -352,7 +356,7 @@ mod tests {
     #[tokio::test]
     async fn test_evaluation_caching() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-cache")
             .with_name("Cache Test")
@@ -382,7 +386,7 @@ mod tests {
     #[tokio::test]
     async fn test_nested_conditions() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-nested")
             .with_name("Nested Conditions")
@@ -418,7 +422,7 @@ mod tests {
     #[tokio::test]
     async fn test_numeric_comparison_edge_cases() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         // Test with exact equality edge case for greater than
         let rule = Rule::new("test-gt-edge")
@@ -440,7 +444,7 @@ mod tests {
     #[tokio::test]
     async fn test_missing_path_conditions() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-missing")
             .with_name("Missing Path")
@@ -461,7 +465,7 @@ mod tests {
     #[tokio::test]
     async fn test_statistics_collection() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-stats").with_condition(RuleCondition::Exists {
             path: "user".to_string(),
@@ -484,7 +488,7 @@ mod tests {
     #[tokio::test]
     async fn test_cache_expiration() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-cache-exp").with_condition(RuleCondition::Exists {
             path: "user".to_string(),
@@ -507,7 +511,7 @@ mod tests {
     #[tokio::test]
     async fn test_clear_cache() {
         let evaluator = RuleEvaluator::new();
-        evaluator.initialize().await.unwrap();
+        evaluator.initialize();
 
         let rule = Rule::new("test-clear").with_condition(RuleCondition::Exists {
             path: "user".to_string(),

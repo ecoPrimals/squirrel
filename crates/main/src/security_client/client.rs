@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Security Client Implementation
 
 use base64::{engine::general_purpose, Engine as _};
+use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, info};
 use uuid::Uuid;
 
@@ -42,7 +45,7 @@ pub struct UniversalSecurityClient {
     config: SecurityClientConfig,
 
     /// Active security providers (discovered dynamically)
-    providers: Arc<RwLock<HashMap<String, SecurityProvider>>>,
+    providers: Arc<DashMap<String, SecurityProvider>>,
 
     /// Request context for routing
     context: PrimalContext,
@@ -60,7 +63,7 @@ impl UniversalSecurityClient {
         Self {
             ecosystem,
             config,
-            providers: Arc::new(RwLock::new(HashMap::new())),
+            providers: Arc::new(DashMap::new()),
             context,
             // Removed ai_metadata: AISecurityMetadata::default(),
         }
@@ -130,10 +133,13 @@ impl UniversalSecurityClient {
             }
         }
 
-        let mut providers = self.providers.write().await;
-        *providers = discovered_providers;
+        // Clear existing providers and insert discovered ones
+        self.providers.clear();
+        for (key, value) in discovered_providers {
+            self.providers.insert(key, value);
+        }
 
-        info!("Discovered {} security providers", providers.len());
+        info!("Discovered {} security providers", self.providers.len());
         Ok(())
     }
 
@@ -196,9 +202,7 @@ impl UniversalSecurityClient {
         &self,
         request: &UniversalSecurityRequest,
     ) -> UniversalResult<SecurityProvider> {
-        let providers = self.providers.read().await;
-
-        if providers.is_empty() {
+        if self.providers.is_empty() {
             return Err(PrimalError::ResourceNotFound(
                 "No security providers available".to_string(),
             ));
@@ -208,7 +212,8 @@ impl UniversalSecurityClient {
         let mut best_provider: Option<SecurityProvider> = None;
         let mut best_score = 0.0;
 
-        for provider in providers.values() {
+        for entry in self.providers.iter() {
+            let provider = entry.value();
             let score = self.calculate_provider_score(provider, request).await;
             if score > best_score {
                 best_score = score;
@@ -255,7 +260,7 @@ impl UniversalSecurityClient {
             score *= 0.9; // Penalty for slow response
         }
 
-        score.min(1.0).max(0.0)
+        score.clamp(0.0, 1.0)
     }
 
     /// Process response and generate AI insights
@@ -343,8 +348,7 @@ impl UniversalSecurityClient {
         provider_id: &str,
         response: &UniversalSecurityResponse,
     ) {
-        let mut providers = self.providers.write().await;
-        if let Some(provider) = providers.get_mut(provider_id) {
+        if let Some(mut provider) = self.providers.get_mut(provider_id) {
             // Update health metrics based on operation performance
             provider.health.response_time_ms =
                 response.security_metrics.processing_time.as_millis() as f64;

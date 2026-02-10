@@ -1,7 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+#![allow(clippy::missing_docs_in_private_items)]
 //! Compatibility module for legacy squirrel_core references
 //!
 //! This module re-exports types from squirrel_context for backward compatibility.
 
+#![deny(unsafe_code)]
 // Core modules for Squirrel MCP ecosystem coordination
 pub mod api;
 pub mod config;
@@ -388,7 +393,10 @@ pub struct RoutingStats {
 #[async_trait::async_trait]
 pub trait ServiceMeshLoadBalancerIntegration {
     /// Register Squirrel MCP with service mesh load balancer
-    async fn register_with_service_mesh(&self, config: &ServiceMeshLoadBalancerConfig) -> Result<()>;
+    async fn register_with_service_mesh(
+        &self,
+        config: &ServiceMeshLoadBalancerConfig,
+    ) -> Result<()>;
 
     /// Find a capable primal for cross-primal task routing
     async fn find_capable_primal(&self, task: &McpTask) -> Result<Option<PrimalEndpoint>>;
@@ -404,7 +412,10 @@ pub trait ServiceMeshLoadBalancerIntegration {
 }
 
 // Deprecated alias for backward compatibility
-#[deprecated(since = "0.1.0", note = "Use ServiceMeshLoadBalancerIntegration instead")]
+#[deprecated(
+    since = "0.1.0",
+    note = "Use ServiceMeshLoadBalancerIntegration instead"
+)]
 pub trait SongbirdLoadBalancerIntegration: ServiceMeshLoadBalancerIntegration {}
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

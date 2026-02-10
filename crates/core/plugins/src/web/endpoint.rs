@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Endpoint handling for web plugins
 //!
 //! This module provides structs and traits for handling HTTP endpoints in web plugins.

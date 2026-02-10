@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context interfaces for plugin system integration
 //!
 //! This module defines shared interfaces for the context system to avoid

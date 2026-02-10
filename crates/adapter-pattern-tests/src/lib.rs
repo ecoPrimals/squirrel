@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Adapter Pattern Implementation and Tests
 //!
 //! This crate demonstrates the adapter pattern in Rust with a command-based
+#![deny(unsafe_code)]
 //! architecture. Three main adapters are implemented:
 //!
 //! 1. Registry Adapter - Basic adapter for command registry operations

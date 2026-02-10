@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive cleanup system for advanced resource management.
 //!
 //! This module provides a sophisticated cleanup system for tool resources

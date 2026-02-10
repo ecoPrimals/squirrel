@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Bidirectional Streaming for Enhanced MCP
 //!
 //! This module provides bidirectional streaming capabilities for real-time
@@ -592,7 +595,7 @@ impl BidirectionalStreamManager {
                         let metadata = stream.metadata.read().await;
                         let inactive_duration = now - metadata.last_activity;
                         
-                        if inactive_duration > chrono::Duration::from_std(stream_timeout).unwrap() {
+                        if inactive_duration > chrono::Duration::from_std(stream_timeout).expect("stream_timeout should be representable as chrono::Duration") {
                             to_remove.push(stream_id.clone());
                         }
                     }

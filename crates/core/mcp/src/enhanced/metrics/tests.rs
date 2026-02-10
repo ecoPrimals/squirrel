@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive Tests for Enhanced MCP Metrics System
 //!
 //! This module contains tests that verify the metrics collection, aggregation,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for zero-copy collection utilities
 
 #[cfg(test)]
@@ -74,11 +77,11 @@ mod tests {
 
         set.insert_arc("openai".to_string());
         set.insert_arc("anthropic".to_string());
-        set.insert_arc("ollama".to_string());
+        set.insert_arc("local".to_string());
 
         assert!(set.contains_str("openai"));
         assert!(set.contains_str("anthropic"));
-        assert!(set.contains_str("ollama"));
+        assert!(set.contains_str("local"));
         assert!(!set.contains_str("nonexistent"));
     }
 

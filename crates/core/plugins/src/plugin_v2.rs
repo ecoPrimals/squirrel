@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
 // The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
 #![allow(deprecated)]

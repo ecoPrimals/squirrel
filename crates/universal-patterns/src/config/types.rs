@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core configuration types and structures
 //!
 //! This module defines all the configuration types used throughout the universal
@@ -852,5 +855,170 @@ mod tests {
             AuthMethod::Beardog { .. } => {}
             _ => panic!("Expected Beardog variant"),
         }
+    }
+
+    #[test]
+    fn test_primal_type_equality() {
+        assert_eq!(PrimalType::Coordinator, PrimalType::Coordinator);
+        assert_ne!(PrimalType::Coordinator, PrimalType::Security);
+        assert_eq!(
+            PrimalType::Custom("a".to_string()),
+            PrimalType::Custom("a".to_string())
+        );
+        assert_ne!(
+            PrimalType::Custom("a".to_string()),
+            PrimalType::Custom("b".to_string())
+        );
+    }
+
+    #[test]
+    fn test_credential_storage_variants() {
+        let memory = CredentialStorage::Memory;
+        let file = CredentialStorage::File {
+            path: PathBuf::from("/tmp/creds"),
+        };
+        let beardog = CredentialStorage::Beardog;
+
+        let memory_json = serde_json::to_string(&memory).unwrap();
+        let file_json = serde_json::to_string(&file).unwrap();
+        let beardog_json = serde_json::to_string(&beardog).unwrap();
+
+        let _: CredentialStorage = serde_json::from_str(&memory_json).unwrap();
+        let _: CredentialStorage = serde_json::from_str(&file_json).unwrap();
+        let _: CredentialStorage = serde_json::from_str(&beardog_json).unwrap();
+    }
+
+    #[test]
+    fn test_encryption_algorithm_serialization() {
+        let aes = EncryptionAlgorithm::Aes256Gcm;
+        let chacha = EncryptionAlgorithm::ChaCha20Poly1305;
+
+        let aes_json = serde_json::to_string(&aes).unwrap();
+        let chacha_json = serde_json::to_string(&chacha).unwrap();
+
+        let _: EncryptionAlgorithm = serde_json::from_str(&aes_json).unwrap();
+        let _: EncryptionAlgorithm = serde_json::from_str(&chacha_json).unwrap();
+    }
+
+    #[test]
+    fn test_key_management_variants() {
+        let file = KeyManagement::File {
+            path: PathBuf::from("/tmp/key"),
+        };
+        let beardog = KeyManagement::Beardog;
+        let env = KeyManagement::Environment {
+            var_name: "MY_KEY".to_string(),
+        };
+
+        for variant in [file, beardog, env] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let _: KeyManagement = serde_json::from_str(&json).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_orchestration_mode_serialization() {
+        for mode in [
+            OrchestrationMode::Standalone,
+            OrchestrationMode::Managed,
+            OrchestrationMode::Hybrid,
+        ] {
+            let json = serde_json::to_string(&mode).unwrap();
+            let _: OrchestrationMode = serde_json::from_str(&json).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_log_level_equality() {
+        assert_eq!(LogLevel::Info, LogLevel::Info);
+        assert_ne!(LogLevel::Debug, LogLevel::Error);
+    }
+
+    #[test]
+    fn test_log_format_equality() {
+        assert_eq!(LogFormat::Json, LogFormat::Json);
+        assert_ne!(LogFormat::Human, LogFormat::Compact);
+    }
+
+    #[test]
+    fn test_log_output_serialization() {
+        for output in [
+            LogOutput::Stdout,
+            LogOutput::Stderr,
+            LogOutput::File {
+                path: PathBuf::from("/var/log/squirrel.log"),
+            },
+            LogOutput::Syslog,
+        ] {
+            let json = serde_json::to_string(&output).unwrap();
+            let _: LogOutput = serde_json::from_str(&json).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_load_balancing_strategy_serialization() {
+        for strategy in [
+            LoadBalancingStrategy::RoundRobin,
+            LoadBalancingStrategy::LeastConnections,
+            LoadBalancingStrategy::Random,
+            LoadBalancingStrategy::Weighted,
+            LoadBalancingStrategy::HealthBased,
+        ] {
+            let json = serde_json::to_string(&strategy).unwrap();
+            let deserialized: LoadBalancingStrategy = serde_json::from_str(&json).unwrap();
+            assert_eq!(strategy, deserialized);
+        }
+    }
+
+    #[test]
+    fn test_port_allocation_strategy_serialization() {
+        for strategy in [
+            PortAllocationStrategy::Sequential,
+            PortAllocationStrategy::Random,
+            PortAllocationStrategy::LeastRecentlyUsed,
+        ] {
+            let json = serde_json::to_string(&strategy).unwrap();
+            let _: PortAllocationStrategy = serde_json::from_str(&json).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_service_discovery_method_serialization() {
+        for method in [
+            ServiceDiscoveryMethod::Dns {
+                domain: "primals.local".to_string(),
+            },
+            ServiceDiscoveryMethod::File {
+                path: PathBuf::from("/etc/primals/services"),
+            },
+            ServiceDiscoveryMethod::Songbird,
+        ] {
+            let json = serde_json::to_string(&method).unwrap();
+            let _: ServiceDiscoveryMethod = serde_json::from_str(&json).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_port_range_boundary_cases() {
+        let range = PortRange::new(8000, 8000);
+        assert!(range.contains(8000));
+        assert_eq!(range.size(), 1);
+        assert_eq!(range.ports().count(), 1);
+    }
+
+    #[test]
+    fn test_primal_instance_config_defaults() {
+        let config = PrimalInstanceConfig::new(
+            "http://localhost:8080".to_string(),
+            "inst-1".to_string(),
+            "user-1".to_string(),
+            "dev-1".to_string(),
+        );
+
+        assert_eq!(config.security_level, "standard");
+        assert!(config.api_key.is_none());
+        assert!(config.headers.is_empty());
+        assert_eq!(config.timeout_seconds, 30);
+        assert!(config.health_check.enabled);
     }
 }

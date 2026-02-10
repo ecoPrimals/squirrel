@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Alert management for the MCP monitoring system
 //!
 //! This module provides alert management functionality for the MCP system.
@@ -436,17 +439,36 @@ pub struct AlertManager {
     metrics_collector: Option<Arc<MetricsCollector>>,
     /// Whether the manager is running (shared state for task)
     running: Arc<RwLock<bool>>,
+    /// Check interval in seconds (default: 10)
+    check_interval_secs: u64,
 }
 
 impl AlertManager {
-    /// Create a new `AlertManager`
+    /// Create a new `AlertManager` with default check interval (10 seconds)
     #[must_use]
     pub fn new() -> Self {
         Self {
             alerts: Arc::new(RwLock::new(HashMap::new())),
             metrics_collector: None,
             running: Arc::new(RwLock::new(false)), // Wrap in Arc
+            check_interval_secs: 10,
         }
+    }
+
+    /// Create a new `AlertManager` with custom check interval
+    #[must_use]
+    pub fn with_check_interval(check_interval_secs: u64) -> Self {
+        Self {
+            alerts: Arc::new(RwLock::new(HashMap::new())),
+            metrics_collector: None,
+            running: Arc::new(RwLock::new(false)),
+            check_interval_secs,
+        }
+    }
+
+    /// Set the check interval for alert monitoring
+    pub fn set_check_interval(&mut self, check_interval_secs: u64) {
+        self.check_interval_secs = check_interval_secs;
     }
 
     /// Set the metrics collector
@@ -596,6 +618,7 @@ impl AlertManager {
         // Create a new Arc<RwLock> for the cloned alerts map for the task
         let task_alerts = Arc::new(RwLock::new(alerts_map)); 
         let task_running = self.running.clone(); // Clone the Arc<RwLock<bool>> 
+        let check_interval_secs = self.check_interval_secs; // Capture check interval
         
         // Spawn the alert checking loop
         tokio::spawn(async move {
@@ -618,9 +641,8 @@ impl AlertManager {
                 // Check all alerts using the task's alerts map
                 check_alerts(&task_alerts, &metrics_collector).await; // Pass task_alerts
                 
-                // Sleep for the check interval (use a default or config value)
-                // TODO: Make check interval configurable
-                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                // Sleep for the configured check interval
+                tokio::time::sleep(std::time::Duration::from_secs(check_interval_secs)).await;
             }
             
             info!("Alert manager stopped");

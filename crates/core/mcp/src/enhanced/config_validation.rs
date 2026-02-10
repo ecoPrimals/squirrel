@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration Validation and Default Management
 //!
 //! This module removes hardcoded values from the codebase and provides:
@@ -90,7 +93,8 @@ pub struct ResourceDefaults {
 pub struct ProviderDefaults {
     pub openai_base_url: String,
     pub anthropic_base_url: String,
-    pub ollama_base_url: String,
+    /// Base URL for local AI server (agnostic: works with Ollama, llama.cpp, vLLM, etc.)
+    pub local_server_base_url: String,
     pub default_models: HashMap<String, Vec<String>>,
     pub cost_thresholds: CostThresholds,
 }
@@ -233,30 +237,27 @@ impl ConfigValidator {
             gemini_api_key: gemini_key,
             openrouter_api_key: openrouter_key,
             
-            enable_ollama: self.get_env_bool("MCP_ENABLE_OLLAMA", true),
-            enable_llamacpp: self.get_env_bool("MCP_ENABLE_LLAMACPP", false),
+            // Capability-based: enable local server if any local AI env is configured
+            enable_local_server: self.get_env_bool("MCP_ENABLE_LOCAL_SERVER",
+                // Backward compat: check legacy vendor-specific env vars too
+                self.get_env_bool("MCP_ENABLE_OLLAMA", true)
+                || self.get_env_bool("MCP_ENABLE_LLAMACPP", false)),
             enable_native: self.get_env_bool("MCP_ENABLE_NATIVE", false),
-            enable_huggingface: self.get_env_bool("MCP_ENABLE_HUGGINGFACE", true),
+            enable_model_hub: self.get_env_bool("MCP_ENABLE_MODEL_HUB",
+                self.get_env_bool("MCP_ENABLE_HUGGINGFACE", true)),
             
-            ollama_config: super::coordinator::OllamaConfig {
-                base_url: self.get_env_var_or_default("OLLAMA_BASE_URL", 
-                    self.defaults.providers.ollama_base_url.clone())?,
+            // Local server config (agnostic: works with Ollama, llama.cpp, vLLM, LocalAI, etc.)
+            local_server_config: super::coordinator::LocalServerConfig {
+                base_url: self.get_env_var_or_default("LOCAL_AI_BASE_URL",
+                    // Backward compat: fall back to vendor-specific env vars
+                    self.get_env_var_or_default("OLLAMA_BASE_URL",
+                        self.defaults.providers.local_server_base_url.clone())
+                        .unwrap_or_else(|_| self.defaults.providers.local_server_base_url.clone()))?,
                 timeout: self.defaults.timeouts.request_timeout,
-                models: self.get_default_models("ollama"),
-            },
-            
-            llamacpp_config: super::coordinator::LlamaCppConfig {
-                server_url: self.get_env_var_or_default("LLAMACPP_SERVER_URL", {
-                    // Multi-tier LlamaCpp server resolution
-                    let port = std::env::var("LLAMACPP_PORT")
-                        .ok()
-                        .and_then(|p| p.parse::<u16>().ok())
-                        .unwrap_or(8080);  // Default LlamaCpp server port
-                    format!("http://localhost:{}", port)
-                })?,
-                timeout: self.defaults.timeouts.request_timeout,
-                models_path: self.get_env_var_or_default("LLAMACPP_MODELS_PATH", 
-                    "./models".to_string())?,
+                models: self.get_default_models("local"),
+                models_path: self.get_env_var_or_default("LOCAL_AI_MODELS_PATH",
+                    self.get_env_var_or_default("LLAMACPP_MODELS_PATH", "./models".to_string())
+                        .unwrap_or_else(|_| "./models".to_string())).ok(),
             },
             
             native_config: super::coordinator::NativeConfig {
@@ -266,10 +267,12 @@ impl ConfigValidator {
                 use_gpu: self.get_env_bool("MCP_USE_GPU", true),
             },
             
-            huggingface_config: super::coordinator::HuggingFaceConfig {
+            // Model hub config (agnostic: works with HuggingFace, ModelScope, etc.)
+            model_hub_config: super::coordinator::ModelHubConfig {
                 api_token: huggingface_token,
-                cache_directory: self.get_env_var_or_default("HF_CACHE_DIR", 
-                    "./hf_cache".to_string())?,
+                cache_directory: self.get_env_var_or_default("MODEL_HUB_CACHE_DIR",
+                    self.get_env_var_or_default("HF_CACHE_DIR", "./model_cache".to_string())
+                        .unwrap_or_else(|_| "./model_cache".to_string()))?,
                 use_local_cache: true,
             },
             
@@ -472,16 +475,19 @@ impl ConfigDefaults {
             providers: ProviderDefaults {
                 openai_base_url: "https://api.openai.com/v1".to_string(),
                 anthropic_base_url: "https://api.anthropic.com".to_string(),
-                ollama_base_url: {
-                    // Multi-tier Ollama base URL resolution (ecosystem-aware)
-                    std::env::var("OLLAMA_ENDPOINT")
+                local_server_base_url: {
+                    // Multi-tier local AI server URL resolution (capability-based)
+                    // Checks agnostic env vars first, then legacy vendor-specific ones
+                    std::env::var("LOCAL_AI_ENDPOINT")
+                        .or_else(|_| std::env::var("OLLAMA_ENDPOINT"))
                         .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
                         .unwrap_or_else(|_| {
-                            let port = std::env::var("OLLAMA_PORT")
+                            let port = std::env::var("LOCAL_AI_PORT")
+                                .or_else(|_| std::env::var("OLLAMA_PORT"))
                                 .or_else(|_| std::env::var("TOADSTOOL_PORT"))
                                 .ok()
                                 .and_then(|p| p.parse::<u16>().ok())
-                                .unwrap_or(11434);  // Default Ollama port
+                                .unwrap_or(11434); // Default OpenAI-compatible local server port
                             format!("http://localhost:{}", port)
                         })
                 },
@@ -510,7 +516,8 @@ impl ConfigDefaults {
             "claude-3-haiku-20240307".to_string(),
         ]);
         
-        models.insert("ollama".to_string(), vec![
+        // Local models (agnostic: works with any local AI server)
+        models.insert("local".to_string(), vec![
             "llama2".to_string(),
             "codellama".to_string(),
             "mistral".to_string(),

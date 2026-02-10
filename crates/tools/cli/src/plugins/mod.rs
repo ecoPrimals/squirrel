@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin system for the Squirrel CLI
 //!
 //! This module implements a plugin system that allows extending the
@@ -7,6 +10,8 @@ pub mod discovery;
 pub mod error;
 pub mod example_plugin;
 pub mod manager;
+#[cfg(test)]
+mod mod_tests;
 pub mod plugin;
 pub mod security;
 pub mod state;

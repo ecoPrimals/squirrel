@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Ecosystem status and health monitoring types
 //!
 //! This module contains all status-related types for ecosystem monitoring,
@@ -154,5 +157,186 @@ mod tests {
         assert_eq!(health.health_score, 0.75);
         assert_eq!(health.health_errors.len(), 1);
         assert!(health.component_statuses.contains_key("database"));
+    }
+
+    #[test]
+    fn test_ecosystem_integration_status_serde() {
+        let status = EcosystemIntegrationStatus {
+            status: "healthy".to_string(),
+            timestamp: Utc::now(),
+            discovered_services: Vec::new(),
+            active_integrations: vec!["ai".to_string(), "storage".to_string()],
+            service_mesh_status: ServiceMeshStatus {
+                enabled: true,
+                registered: false,
+                load_balancing: LoadBalancingStatus {
+                    enabled: false,
+                    healthy: false,
+                    active_connections: 0,
+                    algorithm: "random".to_string(),
+                    health_score: 0.5,
+                    last_check: Utc::now(),
+                },
+                cross_primal_communication: CrossPrimalStatus {
+                    enabled: false,
+                    active_connections: 0,
+                    supported_protocols: vec![],
+                },
+            },
+            overall_health: 0.85,
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        let deserialized: EcosystemIntegrationStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.status, "healthy");
+        assert_eq!(deserialized.active_integrations.len(), 2);
+        assert_eq!(deserialized.overall_health, 0.85);
+        assert!(deserialized.service_mesh_status.enabled);
+        assert!(!deserialized.service_mesh_status.registered);
+    }
+
+    #[test]
+    fn test_service_mesh_status_serde() {
+        let status = ServiceMeshStatus {
+            enabled: true,
+            registered: true,
+            load_balancing: LoadBalancingStatus {
+                enabled: true,
+                healthy: true,
+                active_connections: 5,
+                algorithm: "round-robin".to_string(),
+                health_score: 0.95,
+                last_check: Utc::now(),
+            },
+            cross_primal_communication: CrossPrimalStatus {
+                enabled: true,
+                active_connections: 3,
+                supported_protocols: vec!["json-rpc".to_string(), "grpc".to_string()],
+            },
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        let deserialized: ServiceMeshStatus = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.enabled);
+        assert!(deserialized.registered);
+        assert_eq!(deserialized.load_balancing.active_connections, 5);
+        assert_eq!(
+            deserialized.cross_primal_communication.active_connections,
+            3
+        );
+    }
+
+    #[test]
+    fn test_cross_primal_status_serde() {
+        let status = CrossPrimalStatus {
+            enabled: true,
+            active_connections: 10,
+            supported_protocols: vec!["http".to_string(), "ws".to_string()],
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        let deserialized: CrossPrimalStatus = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.enabled);
+        assert_eq!(deserialized.active_connections, 10);
+        assert_eq!(deserialized.supported_protocols.len(), 2);
+    }
+
+    #[test]
+    fn test_ecosystem_manager_status_creation() {
+        let status = EcosystemManagerStatus {
+            status: "running".to_string(),
+            initialized_at: Some(Utc::now()),
+            last_registration: None,
+            active_registrations: vec!["service-1".to_string()],
+            health_status: HealthStatus {
+                health_score: 1.0,
+                component_statuses: HashMap::new(),
+                last_check: Utc::now(),
+                health_errors: vec![],
+            },
+            error_count: 0,
+            last_error: None,
+        };
+
+        assert_eq!(status.status, "running");
+        assert!(status.initialized_at.is_some());
+        assert!(status.last_registration.is_none());
+        assert_eq!(status.active_registrations.len(), 1);
+        assert_eq!(status.error_count, 0);
+        assert!(status.last_error.is_none());
+    }
+
+    #[test]
+    fn test_ecosystem_manager_status_serde() {
+        let status = EcosystemManagerStatus {
+            status: "error".to_string(),
+            initialized_at: None,
+            last_registration: None,
+            active_registrations: vec![],
+            health_status: HealthStatus {
+                health_score: 0.0,
+                component_statuses: HashMap::new(),
+                last_check: Utc::now(),
+                health_errors: vec!["Critical failure".to_string()],
+            },
+            error_count: 5,
+            last_error: Some("Connection refused".to_string()),
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        let deserialized: EcosystemManagerStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.status, "error");
+        assert_eq!(deserialized.error_count, 5);
+        assert_eq!(
+            deserialized.last_error.as_deref(),
+            Some("Connection refused")
+        );
+    }
+
+    #[test]
+    fn test_component_health_creation() {
+        let mut metadata = HashMap::new();
+        metadata.insert("version".to_string(), "1.0".to_string());
+
+        let health = ComponentHealth {
+            status: "healthy".to_string(),
+            last_check: Utc::now(),
+            error: None,
+            metadata,
+        };
+
+        assert_eq!(health.status, "healthy");
+        assert!(health.error.is_none());
+        assert_eq!(health.metadata.get("version").unwrap(), "1.0");
+    }
+
+    #[test]
+    fn test_component_health_serde() {
+        let health = ComponentHealth {
+            status: "unhealthy".to_string(),
+            last_check: Utc::now(),
+            error: Some("Out of memory".to_string()),
+            metadata: HashMap::new(),
+        };
+
+        let json = serde_json::to_string(&health).unwrap();
+        let deserialized: ComponentHealth = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.status, "unhealthy");
+        assert_eq!(deserialized.error.as_deref(), Some("Out of memory"));
+    }
+
+    #[test]
+    fn test_health_status_serde() {
+        let health = HealthStatus {
+            health_score: 0.92,
+            component_statuses: HashMap::new(),
+            last_check: Utc::now(),
+            health_errors: vec![],
+        };
+
+        let json = serde_json::to_string(&health).unwrap();
+        let deserialized: HealthStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.health_score, 0.92);
+        assert!(deserialized.health_errors.is_empty());
     }
 }

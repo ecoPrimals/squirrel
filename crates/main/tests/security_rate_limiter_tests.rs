@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for ProductionRateLimiter
 //!
 //! Tests DoS protection, rate limiting enforcement, ban mechanisms,
@@ -126,7 +129,7 @@ async fn test_per_ip_isolation() {
 #[tokio::test]
 async fn test_token_refill_over_time() {
     let mut config = RateLimitConfig::default();
-    config.api_requests_per_minute = 60; // 1 per second
+    config.api_requests_per_minute = 6000; // 100 per second → refill every 10ms
     config.burst_capacity = 2;
     config.whitelist = vec![];
 
@@ -147,8 +150,8 @@ async fn test_token_refill_over_time() {
         .await;
     assert!(!result.allowed, "Should be rate limited after burst");
 
-    // Wait for token refill (slightly more than 1 second for 1 token at 60/min)
-    sleep(Duration::from_millis(1100)).await;
+    // Wait just enough for token refill (10ms per token at 6000/min)
+    sleep(Duration::from_millis(15)).await;
 
     // Should be allowed again after refill
     let result = limiter
@@ -342,8 +345,8 @@ async fn test_cleanup_expired_data() {
             .await;
     }
 
-    // Wait for data to become stale
-    sleep(Duration::from_secs(2)).await;
+    // Wait just past the ban_duration (100ms) for data to become stale
+    sleep(Duration::from_millis(120)).await;
 
     // Run cleanup
     limiter.cleanup_expired_data().await;

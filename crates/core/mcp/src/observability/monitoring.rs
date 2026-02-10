@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Performance monitoring for observability framework
 //!
 //! This module provides system performance monitoring capabilities

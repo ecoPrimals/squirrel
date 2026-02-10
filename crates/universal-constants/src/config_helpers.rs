@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration helpers for modern, env-driven configuration
 //!
 //! This module provides helpers to replace hardcoded values with environment-driven config.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error handling for the Squirrel primal
 
 use thiserror::Error;
@@ -119,5 +122,7 @@ impl From<crate::capabilities::discovery::DiscoveryError> for PrimalError {
     }
 }
 
+#[cfg(test)]
+mod error_path_coverage_tests;
 #[cfg(test)]
 mod tests;

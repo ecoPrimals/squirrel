@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Modern Network Configuration Module
 //!
 //! This module provides a modernized, testable network configuration with:

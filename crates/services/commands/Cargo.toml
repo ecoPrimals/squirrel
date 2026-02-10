@@ -33,7 +33,7 @@ glob.workspace = true
 tempfile.workspace = true
 sled.workspace = true
 parking_lot.workspace = true
-once_cell.workspace = true
+# once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
 bytes.workspace = true
 dashmap.workspace = true
 regex.workspace = true

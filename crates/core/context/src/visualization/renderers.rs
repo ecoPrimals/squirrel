@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Visualization Renderers
 //!
 //! This module provides different renderers for various output formats (JSON, HTML, Terminal, Markdown).
@@ -169,4 +172,193 @@ fn format_as_markdown(value: &Value) -> String {
     );
     markdown.push_str("\n```\n");
     markdown
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // JsonRenderer tests
+    #[tokio::test]
+    async fn test_json_renderer_new() {
+        let renderer = JsonRenderer::new();
+        let _ = format!("{:?}", renderer);
+    }
+
+    #[tokio::test]
+    async fn test_json_renderer_default() {
+        let renderer = JsonRenderer::default();
+        let _ = format!("{:?}", renderer);
+    }
+
+    #[tokio::test]
+    async fn test_json_renderer_render_object() {
+        let renderer = JsonRenderer::new();
+        let data = json!({"key": "value", "count": 42});
+        let result = renderer.render(&data).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.contains("key"));
+        assert!(output.contains("value"));
+        assert!(output.contains("42"));
+    }
+
+    #[tokio::test]
+    async fn test_json_renderer_render_null() {
+        let renderer = JsonRenderer::new();
+        let result = renderer.render(&json!(null)).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "null");
+    }
+
+    // TerminalRenderer tests
+    #[tokio::test]
+    async fn test_terminal_renderer_new() {
+        let renderer = TerminalRenderer::new();
+        let _ = format!("{:?}", renderer);
+    }
+
+    #[tokio::test]
+    async fn test_terminal_renderer_default() {
+        let renderer = TerminalRenderer::default();
+        let _ = format!("{:?}", renderer);
+    }
+
+    #[tokio::test]
+    async fn test_terminal_renderer_render_null() {
+        let renderer = TerminalRenderer::new();
+        let result = renderer.render(&json!(null)).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("null"));
+    }
+
+    #[tokio::test]
+    async fn test_terminal_renderer_render_bool() {
+        let renderer = TerminalRenderer::new();
+        let result = renderer.render(&json!(true)).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("true"));
+    }
+
+    #[tokio::test]
+    async fn test_terminal_renderer_render_number() {
+        let renderer = TerminalRenderer::new();
+        let result = renderer.render(&json!(42)).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("42"));
+    }
+
+    #[tokio::test]
+    async fn test_terminal_renderer_render_string() {
+        let renderer = TerminalRenderer::new();
+        let result = renderer.render(&json!("hello")).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("hello"));
+    }
+
+    #[tokio::test]
+    async fn test_terminal_renderer_render_array() {
+        let renderer = TerminalRenderer::new();
+        let result = renderer.render(&json!([1, 2, 3])).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.contains("["));
+        assert!(output.contains("]"));
+        assert!(output.contains("1"));
+    }
+
+    #[tokio::test]
+    async fn test_terminal_renderer_render_object() {
+        let renderer = TerminalRenderer::new();
+        let data = json!({"name": "test", "value": 42});
+        let result = renderer.render(&data).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.contains("name"));
+        assert!(output.contains("test"));
+    }
+
+    // HtmlRenderer tests
+    #[tokio::test]
+    async fn test_html_renderer_new() {
+        let renderer = HtmlRenderer::new();
+        let _ = format!("{:?}", renderer);
+    }
+
+    #[tokio::test]
+    async fn test_html_renderer_default() {
+        let renderer = HtmlRenderer::default();
+        let _ = format!("{:?}", renderer);
+    }
+
+    #[tokio::test]
+    async fn test_html_renderer_render() {
+        let renderer = HtmlRenderer::new();
+        let data = json!({"key": "value"});
+        let result = renderer.render(&data).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.contains("<!DOCTYPE html>"));
+        assert!(output.contains("<html>"));
+        assert!(output.contains("</html>"));
+        assert!(output.contains("key"));
+    }
+
+    // MarkdownRenderer tests
+    #[tokio::test]
+    async fn test_markdown_renderer_new() {
+        let renderer = MarkdownRenderer::new();
+        let _ = format!("{:?}", renderer);
+    }
+
+    #[tokio::test]
+    async fn test_markdown_renderer_default() {
+        let renderer = MarkdownRenderer::default();
+        let _ = format!("{:?}", renderer);
+    }
+
+    #[tokio::test]
+    async fn test_markdown_renderer_render() {
+        let renderer = MarkdownRenderer::new();
+        let data = json!({"key": "value"});
+        let result = renderer.render(&data).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.contains("# Visualization Data"));
+        assert!(output.contains("```json"));
+        assert!(output.contains("key"));
+    }
+
+    // format_for_terminal helper tests
+    #[test]
+    fn test_format_for_terminal_nested_object() {
+        let data = json!({"outer": {"inner": "value"}});
+        let output = format_for_terminal(&data, 0);
+        assert!(output.contains("outer"));
+        assert!(output.contains("inner"));
+        assert!(output.contains("value"));
+    }
+
+    #[test]
+    fn test_format_for_terminal_with_indent() {
+        let data = json!("hello");
+        let output = format_for_terminal(&data, 2);
+        assert!(output.starts_with("    ")); // 2 levels of indent
+    }
+
+    #[test]
+    fn test_format_as_html_empty_object() {
+        let output = format_as_html(&json!({}));
+        assert!(output.contains("<!DOCTYPE html>"));
+        assert!(output.contains("<pre>"));
+        assert!(output.contains("</pre>"));
+    }
+
+    #[test]
+    fn test_format_as_markdown_empty_object() {
+        let output = format_as_markdown(&json!({}));
+        assert!(output.contains("# Visualization Data"));
+        assert!(output.contains("```json"));
+    }
 }

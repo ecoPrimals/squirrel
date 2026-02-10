@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context Analysis and Classification
 
 use serde_json::json;
@@ -58,33 +61,53 @@ impl ContextAnalysis {
         }
     }
 
-    /// Classify intent from user input
+    /// Classify intent from user input using keyword matching
+    ///
+    /// Confidence is computed based on keyword density in the input text.
+    /// Higher keyword density → higher confidence in the classification.
     #[must_use]
     pub fn classify_intent(text: &str) -> IntentResult {
         let text_lower = text.to_lowercase();
+        let words: Vec<&str> = text_lower.split_whitespace().collect();
+        let word_count = words.len().max(1);
 
-        let intent = if text_lower.contains("help") || text_lower.contains("assist") {
-            "help_request"
-        } else if text_lower.contains("create") || text_lower.contains("make") {
-            "creation"
-        } else if text_lower.contains("search") || text_lower.contains("find") {
-            "search"
-        } else if text_lower.contains("delete") || text_lower.contains("remove") {
-            "deletion"
-        } else if text_lower.contains("update") || text_lower.contains("modify") {
-            "modification"
-        } else if text_lower.contains("what")
-            || text_lower.contains("how")
-            || text_lower.contains("why")
-        {
-            "question"
+        // Count matching keywords per intent category and pick the best
+        let categories: &[(&str, &[&str])] = &[
+            ("help_request", &["help", "assist", "support", "guide"]),
+            ("creation", &["create", "make", "build", "new", "generate"]),
+            ("search", &["search", "find", "look", "query", "locate"]),
+            ("deletion", &["delete", "remove", "drop", "clear", "purge"]),
+            (
+                "modification",
+                &["update", "modify", "change", "edit", "alter"],
+            ),
+            (
+                "question",
+                &["what", "how", "why", "when", "where", "which"],
+            ),
+        ];
+
+        let mut best_intent = "general";
+        let mut best_match_count = 0usize;
+
+        for &(intent_name, keywords) in categories {
+            let match_count = words.iter().filter(|w| keywords.contains(w)).count();
+            if match_count > best_match_count {
+                best_match_count = match_count;
+                best_intent = intent_name;
+            }
+        }
+
+        // Confidence: base 0.5 for keyword match, scaled by keyword density
+        let confidence = if best_match_count > 0 {
+            (0.5 + 0.5 * (best_match_count as f64 / word_count as f64)).min(0.95)
         } else {
-            "general"
+            0.3 // Low confidence for "general" fallback
         };
 
         IntentResult {
-            intent: intent.to_string(),
-            confidence: 0.8, // Mock confidence score
+            intent: best_intent.to_string(),
+            confidence,
             entities: extract_entities(&text_lower),
         }
     }

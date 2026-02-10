@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 #[cfg(test)]
 mod memory_transport_tests {
     use crate::transport::memory::{MemoryChannel, MemoryTransport, MemoryTransportConfig};

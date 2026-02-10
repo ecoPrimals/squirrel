@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for the integration module
 //!
 //! This module contains tests for the integration components of the MCP resilience framework,

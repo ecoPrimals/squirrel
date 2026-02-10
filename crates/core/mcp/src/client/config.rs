@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Client configuration for MCP connections
 //!
 //! This module provides configuration options for MCP clients including connection settings,

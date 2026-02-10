@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Health monitoring core types and traits
 //!
 //! This module provides the core types and traits for health monitoring.

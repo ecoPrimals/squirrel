@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI client trait and related functionality
 //!
 //! This module defines the core AIClient trait that provides a unified interface
-//! for interacting with various AI providers (OpenAI, Anthropic, Ollama, etc.).
+//! for interacting with various AI providers (cloud APIs, local servers, etc.).
 
 use async_trait::async_trait;
 
@@ -238,5 +241,167 @@ impl ClientMetrics {
         } else {
             self.total_tokens as f64 / self.total_requests as f64
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- ClientMetrics tests ---
+    #[test]
+    fn test_client_metrics_default() {
+        let metrics = ClientMetrics::default();
+        assert_eq!(metrics.total_requests, 0);
+        assert_eq!(metrics.successful_requests, 0);
+        assert_eq!(metrics.failed_requests, 0);
+        assert!((metrics.avg_response_time_ms - 0.0).abs() < f64::EPSILON);
+        assert_eq!(metrics.total_tokens, 0);
+        assert!((metrics.total_cost - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_client_metrics_success_rate_empty() {
+        let metrics = ClientMetrics::default();
+        assert!((metrics.success_rate() - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_client_metrics_success_rate() {
+        let metrics = ClientMetrics {
+            total_requests: 100,
+            successful_requests: 95,
+            failed_requests: 5,
+            avg_response_time_ms: 150.0,
+            total_tokens: 10000,
+            total_cost: 1.5,
+        };
+        assert!((metrics.success_rate() - 0.95).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_client_metrics_failure_rate_empty() {
+        let metrics = ClientMetrics::default();
+        assert!((metrics.failure_rate() - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_client_metrics_failure_rate() {
+        let metrics = ClientMetrics {
+            total_requests: 100,
+            successful_requests: 80,
+            failed_requests: 20,
+            avg_response_time_ms: 200.0,
+            total_tokens: 5000,
+            total_cost: 0.75,
+        };
+        assert!((metrics.failure_rate() - 0.20).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_client_metrics_avg_cost_per_request_empty() {
+        let metrics = ClientMetrics::default();
+        assert!((metrics.avg_cost_per_request() - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_client_metrics_avg_cost_per_request() {
+        let metrics = ClientMetrics {
+            total_requests: 10,
+            successful_requests: 10,
+            failed_requests: 0,
+            avg_response_time_ms: 100.0,
+            total_tokens: 1000,
+            total_cost: 5.0,
+        };
+        assert!((metrics.avg_cost_per_request() - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_client_metrics_avg_tokens_per_request_empty() {
+        let metrics = ClientMetrics::default();
+        assert!((metrics.avg_tokens_per_request() - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_client_metrics_avg_tokens_per_request() {
+        let metrics = ClientMetrics {
+            total_requests: 5,
+            successful_requests: 5,
+            failed_requests: 0,
+            avg_response_time_ms: 50.0,
+            total_tokens: 2500,
+            total_cost: 0.25,
+        };
+        assert!((metrics.avg_tokens_per_request() - 500.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_client_metrics_all_failed() {
+        let metrics = ClientMetrics {
+            total_requests: 10,
+            successful_requests: 0,
+            failed_requests: 10,
+            avg_response_time_ms: 5000.0,
+            total_tokens: 0,
+            total_cost: 0.0,
+        };
+        assert!((metrics.success_rate() - 0.0).abs() < f64::EPSILON);
+        assert!((metrics.failure_rate() - 1.0).abs() < f64::EPSILON);
+    }
+
+    // --- HealthCheckResult tests ---
+    #[test]
+    fn test_health_check_result_available() {
+        let result = HealthCheckResult {
+            available: true,
+            response_time_ms: 42,
+            error: None,
+            metadata: std::collections::HashMap::new(),
+        };
+        assert!(result.available);
+        assert_eq!(result.response_time_ms, 42);
+        assert!(result.error.is_none());
+    }
+
+    #[test]
+    fn test_health_check_result_unavailable() {
+        let result = HealthCheckResult {
+            available: false,
+            response_time_ms: 0,
+            error: Some("Connection refused".to_string()),
+            metadata: std::collections::HashMap::new(),
+        };
+        assert!(!result.available);
+        assert_eq!(result.error.as_deref(), Some("Connection refused"));
+    }
+
+    #[test]
+    fn test_health_check_result_with_metadata() {
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert("version".to_string(), "1.0.0".to_string());
+        metadata.insert("region".to_string(), "us-east".to_string());
+
+        let result = HealthCheckResult {
+            available: true,
+            response_time_ms: 100,
+            error: None,
+            metadata,
+        };
+        assert_eq!(result.metadata.len(), 2);
+        assert_eq!(result.metadata.get("version").unwrap(), "1.0.0");
+    }
+
+    #[test]
+    fn test_health_check_result_clone() {
+        let result = HealthCheckResult {
+            available: true,
+            response_time_ms: 50,
+            error: None,
+            metadata: std::collections::HashMap::new(),
+        };
+        let cloned = result.clone();
+        assert_eq!(cloned.available, result.available);
+        assert_eq!(cloned.response_time_ms, result.response_time_ms);
     }
 }

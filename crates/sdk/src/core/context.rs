@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin Context Module
 //!
 //! This module provides context management for plugins running in the sandbox environment.
@@ -40,9 +43,9 @@ impl PluginContext {
     /// # Arguments
     ///
     /// * `plugin_id` - A unique identifier for the plugin instance. This should match
-    ///                 the ID used when initializing the SDK.
+    ///   the ID used when initializing the SDK.
     /// * `session_id` - A unique identifier for the user session. This allows the plugin
-    ///                  to maintain separate state for different user sessions.
+    ///   to maintain separate state for different user sessions.
     ///
     /// # Returns
     ///
@@ -50,7 +53,7 @@ impl PluginContext {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::context::PluginContext;
     ///
     /// let context = PluginContext::new(
@@ -133,5 +136,170 @@ impl ContextData {
 impl Default for ContextData {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_context_data_new() {
+        let data = ContextData::new();
+        assert!(data.is_empty());
+        assert_eq!(data.len(), 0);
+        assert_eq!(data.version, 1);
+        assert!(data.updated_at > 0);
+    }
+
+    #[test]
+    fn test_context_data_default() {
+        let data = ContextData::default();
+        assert!(data.is_empty());
+        assert_eq!(data.version, 1);
+    }
+
+    #[test]
+    fn test_context_data_serde() {
+        let data = ContextData::new();
+        let json = serde_json::to_string(&data).unwrap();
+        let deserialized: ContextData = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.version, data.version);
+        assert!(deserialized.is_empty());
+    }
+
+    #[test]
+    fn test_plugin_context_new() {
+        let ctx = PluginContext::new("plugin-1".to_string(), "session-abc".to_string());
+        assert_eq!(ctx.plugin_id, "plugin-1");
+        assert_eq!(ctx.session_id, "session-abc");
+        assert!(ctx.data.is_empty());
+        assert!(ctx.metadata.is_empty());
+    }
+
+    #[test]
+    fn test_plugin_context_set_and_get() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        ctx.set("name", "test_value".to_string()).unwrap();
+        let result: Option<String> = ctx.get("name").unwrap();
+        assert_eq!(result, Some("test_value".to_string()));
+    }
+
+    #[test]
+    fn test_plugin_context_get_missing_key() {
+        let ctx = PluginContext::new("p".to_string(), "s".to_string());
+        let result: Option<String> = ctx.get("missing").unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_plugin_context_set_increments_version() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        let initial_version = ctx.data.version;
+        ctx.set("key", 42).unwrap();
+        assert_eq!(ctx.data.version, initial_version + 1);
+    }
+
+    #[test]
+    fn test_plugin_context_set_updates_timestamp() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        let initial_ts = ctx.data.updated_at;
+        // Small sleep to ensure timestamp changes (ms resolution)
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        ctx.set("key", "value").unwrap();
+        assert!(ctx.data.updated_at >= initial_ts);
+    }
+
+    #[test]
+    fn test_plugin_context_remove() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        ctx.set("key", "value").unwrap();
+        let removed = ctx.remove("key");
+        assert!(removed.is_some());
+        assert_eq!(removed.unwrap(), serde_json::json!("value"));
+        let result: Option<String> = ctx.get("key").unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_plugin_context_remove_missing() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        let removed = ctx.remove("nonexistent");
+        assert!(removed.is_none());
+    }
+
+    #[test]
+    fn test_plugin_context_remove_increments_version() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        ctx.set("key", "value").unwrap();
+        let version_after_set = ctx.data.version;
+        ctx.remove("key");
+        assert_eq!(ctx.data.version, version_after_set + 1);
+    }
+
+    #[test]
+    fn test_plugin_context_clear() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        ctx.set("key1", "value1").unwrap();
+        ctx.set("key2", "value2").unwrap();
+        assert_eq!(ctx.data.len(), 2);
+        ctx.clear();
+        assert!(ctx.data.is_empty());
+        assert_eq!(ctx.data.len(), 0);
+    }
+
+    #[test]
+    fn test_plugin_context_clear_increments_version() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        ctx.set("key", "value").unwrap();
+        let version_after_set = ctx.data.version;
+        ctx.clear();
+        assert_eq!(ctx.data.version, version_after_set + 1);
+    }
+
+    #[test]
+    fn test_plugin_context_set_various_types() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        ctx.set("string", "hello").unwrap();
+        ctx.set("number", 42).unwrap();
+        ctx.set("float", 3.14).unwrap();
+        ctx.set("bool", true).unwrap();
+        ctx.set("vec", vec![1, 2, 3]).unwrap();
+
+        let s: Option<String> = ctx.get("string").unwrap();
+        assert_eq!(s, Some("hello".to_string()));
+
+        let n: Option<i32> = ctx.get("number").unwrap();
+        assert_eq!(n, Some(42));
+
+        let f: Option<f64> = ctx.get("float").unwrap();
+        assert_eq!(f, Some(3.14));
+
+        let b: Option<bool> = ctx.get("bool").unwrap();
+        assert_eq!(b, Some(true));
+
+        let v: Option<Vec<i32>> = ctx.get("vec").unwrap();
+        assert_eq!(v, Some(vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn test_plugin_context_serde() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        ctx.set("key", "value").unwrap();
+        let json = serde_json::to_string(&ctx).unwrap();
+        let deserialized: PluginContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.plugin_id, "p");
+        assert_eq!(deserialized.session_id, "s");
+        assert_eq!(deserialized.data.len(), 1);
+    }
+
+    #[test]
+    fn test_plugin_context_overwrite_key() {
+        let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
+        ctx.set("key", "first").unwrap();
+        ctx.set("key", "second").unwrap();
+        let result: Option<String> = ctx.get("key").unwrap();
+        assert_eq!(result, Some("second".to_string()));
+        assert_eq!(ctx.data.len(), 1);
     }
 }

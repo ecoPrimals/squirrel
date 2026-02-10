@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Copyright DataScienceBioLab 2024
 // For MCP Plugin System Infrastructure
 //

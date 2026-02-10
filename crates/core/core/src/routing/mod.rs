@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP Task Routing Service
 //!
 //! This module provides a comprehensive task routing service for the Machine Context Protocol.
@@ -379,7 +382,8 @@ impl McpRoutingService {
             average_response_time: *state.average_response_time.read(),
             registered_agents: self.agent_registry.get_all_agents().len() as u32,
             queued_tasks: self.task_queue.len() as u64,
-            federation_nodes: 0, // TODO: implement federation node counting
+            federation_nodes: 0, // FUTURE: [Feature] implement federation node counting
+                                 // Tracking: Planned for v0.2.0 - federation support
         }
     }
 

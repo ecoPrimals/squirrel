@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Compute Client Implementation
 
 use base64::{engine::general_purpose, Engine as _};
+use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
@@ -40,7 +43,7 @@ pub struct UniversalComputeClient {
     config: ComputeClientConfig,
 
     /// Active compute providers (discovered dynamically)
-    providers: Arc<RwLock<HashMap<String, ComputeProvider>>>,
+    providers: Arc<DashMap<String, ComputeProvider>>,
 
     /// Request context for routing
     context: PrimalContext,
@@ -58,7 +61,7 @@ impl UniversalComputeClient {
         Self {
             ecosystem,
             config,
-            providers: Arc::new(RwLock::new(HashMap::new())),
+            providers: Arc::new(DashMap::new()),
             context,
             // Removed ai_metadata: AIComputeMetadata::default(),
         }
@@ -132,10 +135,13 @@ impl UniversalComputeClient {
             }
         }
 
-        let mut providers = self.providers.write().await;
-        *providers = discovered_providers;
+        // Clear existing providers and insert discovered ones
+        self.providers.clear();
+        for (key, value) in discovered_providers {
+            self.providers.insert(key, value);
+        }
 
-        info!("Discovered {} compute providers", providers.len());
+        info!("Discovered {} compute providers", self.providers.len());
         Ok(())
     }
 
@@ -195,9 +201,7 @@ impl UniversalComputeClient {
         &self,
         request: &UniversalComputeRequest,
     ) -> UniversalResult<ComputeProvider> {
-        let providers = self.providers.read().await;
-
-        if providers.is_empty() {
+        if self.providers.is_empty() {
             return Err(PrimalError::ResourceNotFound(
                 "No compute providers available".to_string(),
             ));
@@ -207,7 +211,8 @@ impl UniversalComputeClient {
         let mut best_provider: Option<ComputeProvider> = None;
         let mut best_score = 0.0;
 
-        for provider in providers.values() {
+        for entry in self.providers.iter() {
+            let provider = entry.value();
             let score = self.calculate_provider_score(provider, request).await;
             if score > best_score {
                 best_score = score;
@@ -247,7 +252,7 @@ impl UniversalComputeClient {
             score *= 0.5; // High penalty for CPU-intensive tasks on loaded providers
         }
 
-        score.min(1.0).max(0.0)
+        score.clamp(0.0, 1.0)
     }
 
     /// Process response and generate AI insights
@@ -271,15 +276,19 @@ impl UniversalComputeClient {
                             .ok()
                     })
                 }),
-                return_code: response
-                    .data
-                    .as_ref()
-                    .and_then(|data| data.get("return_code"))
-                    .and_then(serde_json::Value::as_i64)
-                    .unwrap_or_else(|| {
-                        warn!("Missing return_code in compute response, defaulting to 0");
-                        0
-                    }) as i32,
+                return_code: {
+                    let code = response
+                        .data
+                        .as_ref()
+                        .and_then(|data| data.get("return_code"))
+                        .and_then(serde_json::Value::as_i64)
+                        .unwrap_or_else(|| {
+                            warn!("Missing return_code in compute response, defaulting to 0");
+                            0
+                        });
+                    // Clamp i64 to i32::MAX to avoid truncation
+                    code.min(i32::MAX as i64).max(i32::MIN as i64) as i32
+                },
                 stdout: response
                     .data
                     .as_ref()
@@ -349,8 +358,7 @@ impl UniversalComputeClient {
 
     /// Update provider health based on operation results
     async fn update_provider_health(&self, provider_id: &str, response: &UniversalComputeResponse) {
-        let mut providers = self.providers.write().await;
-        if let Some(provider) = providers.get_mut(provider_id) {
+        if let Some(mut provider) = self.providers.get_mut(provider_id) {
             provider.health.avg_execution_time_ms =
                 response.performance.execution_time.as_millis() as f64;
             provider.health.last_check = chrono::Utc::now();

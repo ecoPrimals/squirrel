@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // CLI Application Example
 //!
 //! This example demonstrates a complete command-line application built using the adapter pattern,

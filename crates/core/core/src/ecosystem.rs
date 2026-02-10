@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use parking_lot::RwLock;
@@ -298,7 +301,7 @@ impl EcosystemService {
             let port = std::env::var("SQUIRREL_PORT")
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8080);  // Default Squirrel MCP port
+                .unwrap_or(8080); // Default Squirrel MCP port
             format!("http://localhost:{}", port)
         })
     }

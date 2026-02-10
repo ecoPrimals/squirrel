@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Ecosystem API - Shared types and traits for ecoPrimals ecosystem integration
 //!
 //! This crate provides the standardized API types and traits that all primals
@@ -61,4 +64,26 @@ pub const ECOSYSTEM_API_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn init() -> Result<(), EcosystemError> {
     tracing::info!("Initializing Ecosystem API v{}", ECOSYSTEM_API_VERSION);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ecosystem_api_version_is_set() {
+        assert!(!ECOSYSTEM_API_VERSION.is_empty());
+    }
+
+    #[test]
+    fn test_init_succeeds() {
+        let result = init();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_init_can_be_called_multiple_times() {
+        assert!(init().is_ok());
+        assert!(init().is_ok());
+    }
 }

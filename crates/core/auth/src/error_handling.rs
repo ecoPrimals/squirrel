@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Authentication error handling utilities
 //!
 //! This module provides safer alternatives to unwrap/expect patterns in production code

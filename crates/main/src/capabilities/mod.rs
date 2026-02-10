@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Capability-based service discovery and interaction
 //!
 //! TRUE PRIMAL pattern: Discover capabilities at runtime, NO hardcoded primal names.

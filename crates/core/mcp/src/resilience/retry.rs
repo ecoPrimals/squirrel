@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Retry mechanism for the MCP resilience framework
 //! 
 //! This module provides functionality to retry operations that might fail transiently.

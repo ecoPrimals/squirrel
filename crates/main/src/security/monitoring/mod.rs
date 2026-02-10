@@ -44,7 +44,7 @@ pub use stats::SecurityMonitoringStats;
 pub use types::{EventSeverity, SecurityEvent, SecurityEventType};
 
 // Internal types
-use types::{BehavioralPattern, RequestPattern};
+use types::BehavioralPattern;
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
@@ -352,12 +352,9 @@ impl SecurityMonitoringSystem {
                 }
 
                 let now = SystemTime::now();
-                let mut cleaned_events = 0;
-                let mut cleaned_alerts = 0;
-                let mut cleaned_patterns = 0;
 
                 // Cleanup old events
-                {
+                let cleaned_events = {
                     let mut history = event_history.write().await;
                     let original_len = history.len();
 
@@ -367,11 +364,11 @@ impl SecurityMonitoringSystem {
                             .unwrap_or(false)
                     });
 
-                    cleaned_events = original_len - history.len();
-                }
+                    original_len - history.len()
+                };
 
                 // Cleanup resolved alerts (older than 24 hours)
-                {
+                let cleaned_alerts = {
                     let mut alerts = active_alerts.write().await;
                     let original_len = alerts.len();
 
@@ -381,11 +378,11 @@ impl SecurityMonitoringSystem {
                             .unwrap_or(false)
                     });
 
-                    cleaned_alerts = original_len - alerts.len();
-                }
+                    original_len - alerts.len()
+                };
 
                 // Cleanup old behavioral patterns
-                {
+                let cleaned_patterns = {
                     let mut patterns = behavioral_patterns.write().await;
                     let original_len = patterns.len();
 
@@ -393,8 +390,8 @@ impl SecurityMonitoringSystem {
                         pattern.last_activity.elapsed() < Duration::from_secs(24 * 3600)
                     });
 
-                    cleaned_patterns = original_len - patterns.len();
-                }
+                    original_len - patterns.len()
+                };
 
                 if cleaned_events > 0 || cleaned_alerts > 0 || cleaned_patterns > 0 {
                     info!(
@@ -460,7 +457,7 @@ impl SecurityMonitoringSystem {
     /// Analyze event for immediate threats
     async fn analyze_event_for_threats(
         event: &SecurityEvent,
-        config: &SecurityMonitoringConfig,
+        _config: &SecurityMonitoringConfig,
     ) -> Option<SecurityAlert> {
         match &event.event_type {
             SecurityEventType::Authentication { success: false, .. } => {

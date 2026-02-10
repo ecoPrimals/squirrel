@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Security manager for MCP security
 //!
 //! This module provides security management functionality for the MCP system.

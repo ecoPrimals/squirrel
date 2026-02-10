@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Federation Network Module
 //!
 //! This module handles networking and communication between federation nodes.

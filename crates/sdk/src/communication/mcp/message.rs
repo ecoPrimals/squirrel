@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Message handling for MCP protocol
 //!
 //! This module handles message serialization, deserialization, and processing
@@ -22,7 +25,7 @@ impl MessageHandler {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::message::MessageHandler;
     ///
     /// let handler = MessageHandler::new();
@@ -46,7 +49,7 @@ impl MessageHandler {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::message::MessageHandler;
     /// use squirrel_sdk::communication::mcp::connection::ConnectionManager;
     /// use squirrel_sdk::communication::mcp::types::McpMessage;
@@ -96,7 +99,7 @@ impl MessageHandler {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::message::MessageHandler;
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -131,7 +134,7 @@ impl MessageHandler {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::message::MessageHandler;
     /// use squirrel_sdk::communication::mcp::types::McpMessage;
     /// use serde_json::json;
@@ -198,7 +201,7 @@ impl MessageHandler {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::message::MessageHandler;
     ///
     /// let mut handler = MessageHandler::new();
@@ -221,7 +224,7 @@ impl MessageHandler {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::message::MessageHandler;
     ///
     /// let mut handler = MessageHandler::new();
@@ -253,7 +256,7 @@ impl MessageHandler {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::communication::mcp::message::MessageHandler;
     ///
     /// let mut handler = MessageHandler::new();

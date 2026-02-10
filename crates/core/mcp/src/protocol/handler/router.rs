@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use crate::mcp::{
     MCPMessage, MessageType, SecurityMetadata, SecurityLevel,
     MCPProtocol, PortManager, PortConfig, PortStatus,
@@ -363,7 +366,7 @@ impl TeamWorkflowManager {
             };
 
             // Update workflow metadata
-            workflow.metadata.insert("last_transition".to_string(), serde_json::to_string(&transition).unwrap());
+            workflow.metadata.insert("last_transition".to_string(), serde_json::to_string(&transition).expect("transition should serialize to JSON"));
             workflow.metadata.insert("last_updated".to_string(), Utc::now().to_string());
 
             info!(

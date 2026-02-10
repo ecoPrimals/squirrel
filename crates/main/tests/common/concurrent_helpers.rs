@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Concurrent test helpers - Modern Rust patterns for robust testing
 //!
 //! Philosophy: Test issues ARE production issues

@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+// Allow deprecated items for backward compatibility
+#![allow(deprecated)]
+
 //! OpenAI AI Provider Adapter with Capability-Based HTTP Delegation
 //!
 //! ⚠️ **DEPRECATED**: This vendor-specific adapter is deprecated.
@@ -132,7 +138,7 @@ impl OpenAiAdapter {
         let stream = UnixStream::connect(&http_provider.socket).await?;
 
         // Build JSON-RPC request for HTTP delegation
-        // BIOME OS FIX (Jan 28, 2026): Songbird expects body as STRING, not object
+        // Songbird expects body as STRING, not object
         let body_string = match body {
             serde_json::Value::String(s) => serde_json::Value::String(s),
             serde_json::Value::Null => serde_json::Value::Null,
@@ -204,6 +210,9 @@ impl OpenAiAdapter {
         );
         headers.insert("content-type".to_string(), "application/json".to_string());
 
+        // Track request start time for latency calculation
+        let start_time = std::time::Instant::now();
+
         // Delegate HTTP to discovered provider (TRUE PRIMAL!)
         let response_json = self
             .delegate_http(
@@ -214,13 +223,16 @@ impl OpenAiAdapter {
             )
             .await?;
 
+        // Calculate latency
+        let latency_ms = start_time.elapsed().as_millis() as u64;
+
         // Parse HTTP response - body comes as string from Songbird
         let body_value = response_json
             .get("body")
             .cloned()
             .ok_or_else(|| PrimalError::ParsingError("No body in HTTP response".to_string()))?;
 
-        // BIOME OS FIX (Jan 29, 2026): Songbird returns body as string, parse it
+        // Songbird returns body as string, parse it
         let http_response: serde_json::Value = match body_value {
             serde_json::Value::String(s) => serde_json::from_str(&s).map_err(|e| {
                 PrimalError::ParsingError(format!("Failed to parse body JSON: {}", e))
@@ -230,6 +242,18 @@ impl OpenAiAdapter {
 
         // Parse OpenAI response
         let openai_response: OpenAiResponse = serde_json::from_value(http_response)?;
+
+        // Calculate cost based on token usage (approximate pricing per 1K tokens)
+        // Cost tiers are configurable; defaults provide reasonable estimates.
+        // NOTE(config): Cost tables could be loaded from squirrel.toml / env at startup
+        let model = &openai_response.model;
+        let (prompt_cost_per_1k, completion_cost_per_1k) = Self::estimate_cost_per_1k_tokens(model);
+
+        let cost_usd = Some(
+            (openai_response.usage.prompt_tokens as f64 / 1000.0 * prompt_cost_per_1k)
+                + (openai_response.usage.completion_tokens as f64 / 1000.0
+                    * completion_cost_per_1k),
+        );
 
         // Convert to universal format
         Ok(TextGenerationResponse {
@@ -241,9 +265,27 @@ impl OpenAiAdapter {
                 completion_tokens: openai_response.usage.completion_tokens,
                 total_tokens: openai_response.usage.total_tokens,
             }),
-            cost_usd: None, // TODO: Calculate cost based on usage
-            latency_ms: 0,  // TODO: Track request time
+            cost_usd,
+            latency_ms,
         })
+    }
+
+    /// Estimate cost per 1K tokens for a given model identifier.
+    ///
+    /// Uses model name pattern matching with reasonable defaults.
+    /// These are approximate and should eventually be loaded from
+    /// configuration at startup.
+    fn estimate_cost_per_1k_tokens(model: &str) -> (f64, f64) {
+        // Match on model family (not exact hardcoded model name)
+        let model_lower = model.to_lowercase();
+        if model_lower.contains("gpt-4") {
+            (0.01, 0.03)
+        } else if model_lower.contains("gpt-3") {
+            (0.0005, 0.0015)
+        } else {
+            // Conservative default for unknown models
+            (0.01, 0.03)
+        }
     }
 }
 
@@ -322,10 +364,11 @@ impl AiProviderAdapter for OpenAiAdapter {
         &self,
         _request: ImageGenerationRequest,
     ) -> Result<ImageGenerationResponse, PrimalError> {
-        // TODO: Implement DALL-E image generation
+        // FUTURE: [Feature] Implement DALL-E image generation
+        // Tracking: Planned for v0.2.0 - image generation support
         // For now, return unsupported
         Err(PrimalError::OperationNotSupported(
-            "OpenAI image generation not yet implemented (TODO: DALL-E)".to_string(),
+            "OpenAI image generation not yet implemented (FUTURE: DALL-E)".to_string(),
         ))
     }
 }
@@ -348,5 +391,55 @@ mod tests {
         assert!(!adapter.is_local());
         assert!(adapter.supports_text_generation());
         assert!(adapter.supports_image_generation());
+    }
+
+    #[test]
+    fn test_cost_estimation_gpt4() {
+        let (prompt, completion) = OpenAiAdapter::estimate_cost_per_1k_tokens("gpt-4");
+        assert!((prompt - 0.01).abs() < f64::EPSILON);
+        assert!((completion - 0.03).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cost_estimation_gpt4_variants() {
+        // Case insensitive matching
+        let (prompt, completion) = OpenAiAdapter::estimate_cost_per_1k_tokens("GPT-4-turbo");
+        assert!((prompt - 0.01).abs() < f64::EPSILON);
+        assert!((completion - 0.03).abs() < f64::EPSILON);
+
+        let (prompt, completion) = OpenAiAdapter::estimate_cost_per_1k_tokens("gpt-4o");
+        assert!((prompt - 0.01).abs() < f64::EPSILON);
+        assert!((completion - 0.03).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cost_estimation_gpt3() {
+        let (prompt, completion) = OpenAiAdapter::estimate_cost_per_1k_tokens("gpt-3.5-turbo");
+        assert!((prompt - 0.0005).abs() < f64::EPSILON);
+        assert!((completion - 0.0015).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cost_estimation_unknown_model() {
+        let (prompt, completion) = OpenAiAdapter::estimate_cost_per_1k_tokens("unknown-model-xyz");
+        // Should use conservative default
+        assert!((prompt - 0.01).abs() < f64::EPSILON);
+        assert!((completion - 0.03).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_adapter_quality_tier() {
+        std::env::set_var("OPENAI_API_KEY", "test-key-qt");
+        let adapter = OpenAiAdapter::new().unwrap();
+        assert_eq!(adapter.quality_tier(), QualityTier::Premium);
+        assert_eq!(adapter.avg_latency_ms(), 1500);
+        assert!(adapter.cost_per_unit().is_some());
+    }
+
+    #[test]
+    fn test_default_model() {
+        std::env::set_var("OPENAI_API_KEY", "test-key-dm");
+        let adapter = OpenAiAdapter::new().unwrap();
+        assert_eq!(adapter.default_model, "gpt-4");
     }
 }

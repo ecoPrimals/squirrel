@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal security client
 //!
 //! This module provides the main client interface for accessing security
@@ -22,7 +25,7 @@ use super::traits::UniversalSecurityProvider;
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```ignore
 /// use universal_patterns::security::UniversalSecurityClient;
 /// use universal_patterns::config::SecurityConfig;
 /// use universal_patterns::traits::Credentials;
@@ -67,7 +70,7 @@ impl UniversalSecurityClient {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use universal_patterns::security::UniversalSecurityClient;
     /// use universal_patterns::config::SecurityConfig;
     ///

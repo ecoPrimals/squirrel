@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Integration tests for centralized configuration management
 //!
 //! These tests verify that the configuration system works correctly

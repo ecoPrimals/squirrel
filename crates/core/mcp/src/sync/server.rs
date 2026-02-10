@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // use crate::generated::mcp_sync::{SyncRequest, SyncResponse};
 use crate::sync::state::StateSyncManager;
 use crate::sync::{proto_to_state_change, state_change_to_proto};

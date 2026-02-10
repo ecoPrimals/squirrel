@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Integration tests for learning system components
 //!
 //! These tests verify that the learning system components work together correctly,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for Universal Storage Client types and configurations
 //!
 //! Tests storage types, configurations, capability preferences, and data classification.

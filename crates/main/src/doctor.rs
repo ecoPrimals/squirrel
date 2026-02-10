@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Health diagnostics for Squirrel
 //!
 //! Comprehensive health checking system for all Squirrel subsystems.
@@ -29,7 +32,8 @@ pub enum HealthStatus {
     Ok,
     /// System has warnings but is functional
     Warning,
-    /// System has errors
+    /// System has errors (constructed via deserialization)
+    #[allow(dead_code)]
     Error,
 }
 
@@ -185,13 +189,15 @@ async fn check_ai_providers(comprehensive: bool) -> HealthCheck {
     // Check for AI provider configuration
     let openai_key = std::env::var("OPENAI_API_KEY").ok();
     let huggingface_key = std::env::var("HUGGINGFACE_API_KEY").ok();
-    let ollama_url = std::env::var("OLLAMA_URL").ok();
+    let local_ai_url = std::env::var("LOCAL_AI_ENDPOINT")
+        .or_else(|_| std::env::var("OLLAMA_URL"))
+        .ok();
     let ai_provider_sockets = std::env::var("AI_PROVIDER_SOCKETS").ok();
 
     let provider_count = [
         openai_key.is_some(),
         huggingface_key.is_some(),
-        ollama_url.is_some() || comprehensive, // Ollama might be on default port
+        local_ai_url.is_some() || comprehensive, // Local AI server might be on default port
         ai_provider_sockets.is_some(),
     ]
     .iter()
@@ -218,7 +224,7 @@ async fn check_ai_providers(comprehensive: bool) -> HealthCheck {
         details: Some(serde_json::json!({
             "openai": openai_key.is_some(),
             "huggingface": huggingface_key.is_some(),
-            "ollama": ollama_url.is_some(),
+            "local_server": local_ai_url.is_some(),
             "universal": ai_provider_sockets.is_some(),
             "count": provider_count,
         })),

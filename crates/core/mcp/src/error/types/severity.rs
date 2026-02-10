@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error severity levels for categorizing and prioritizing errors.
 
 use serde::{Deserialize, Serialize};

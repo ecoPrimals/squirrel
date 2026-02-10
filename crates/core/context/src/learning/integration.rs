@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Learning Integration Layer
 //!
 //! This module provides the integration layer that connects the learning system
@@ -20,86 +23,12 @@ use crate::manager::ContextManager;
 use crate::rules::RuleManager;
 use crate::visualization::VisualizationSystem;
 
-/// Learning request type for context optimization
-///
-/// Note: Planned feature for queuing optimization tasks - implementation in progress
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum LearningRequestType {
-    ContextOptimization,
-    PatternAnalysis,
-    PerformanceOptimization,
-}
-
-/// Learning request for queuing optimization tasks
-///
-/// Note: Planned feature for queuing optimization tasks - implementation in progress
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct LearningRequest {
-    pub context_id: String,
-    pub request_type: LearningRequestType,
-    pub priority: u8,
-    pub metadata: std::collections::HashMap<String, serde_json::Value>,
-}
-
-/// Context usage pattern analysis results
-///
-/// Note: Planned feature for pattern analysis - implementation in progress
-#[allow(dead_code)]
-#[derive(Debug, Clone, Default)]
-pub struct ContextUsagePattern {
-    pub frequency: f64,
-    pub efficiency: f64,
-    pub error_rate: f64,
-    pub complexity_score: f64,
-}
-
-impl ContextUsagePattern {
-    #[allow(dead_code)]
-    pub fn requires_learning_intervention(&self) -> bool {
-        self.efficiency < 0.7 || self.error_rate > 0.1 || self.complexity_score > 0.8
-    }
-
-    #[allow(dead_code)]
-    pub fn get_priority(&self) -> u8 {
-        if self.error_rate > 0.2 {
-            1
-        }
-        // High priority
-        else if self.efficiency < 0.5 {
-            2
-        }
-        // Medium priority
-        else {
-            3
-        } // Low priority
-    }
-
-    #[allow(dead_code)]
-    pub fn to_metadata(&self) -> std::collections::HashMap<String, serde_json::Value> {
-        let mut metadata = std::collections::HashMap::new();
-        metadata.insert("frequency".to_string(), serde_json::json!(self.frequency));
-        metadata.insert("efficiency".to_string(), serde_json::json!(self.efficiency));
-        metadata.insert("error_rate".to_string(), serde_json::json!(self.error_rate));
-        metadata.insert(
-            "complexity_score".to_string(),
-            serde_json::json!(self.complexity_score),
-        );
-        metadata
-    }
-}
-
-/// State change pattern analysis results
-///
-/// Note: Planned feature for pattern analysis - implementation in progress
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct StateChangePatternAnalysis {
-    pub suggests_optimization: bool,
-    pub optimization_type: String,
-    pub confidence: f64,
-}
+// Re-export planned feature types (available for downstream consumers)
+#[allow(unused_imports)]
+pub use super::integration_types::{
+    analyze_state_change_patterns, ContextUsagePattern, LearningRequest, LearningRequestType,
+    StateChange, StateChangePatternAnalysis,
+};
 
 /// Context monitoring results for tracking
 ///
@@ -113,46 +42,6 @@ pub struct ContextMonitoringResults {
     pub contexts_needing_intervention: usize,
     #[allow(dead_code)]
     pub monitoring_timestamp: chrono::DateTime<chrono::Utc>,
-}
-
-/// Analyze state change patterns to identify optimization opportunities
-///
-/// Note: Planned feature for pattern analysis - implementation in progress
-#[allow(dead_code)]
-fn analyze_state_change_patterns(state_changes: &[StateChange]) -> StateChangePatternAnalysis {
-    // Analyze patterns in state changes
-    let has_rapid_changes = state_changes.len() > 5; // More than 5 changes suggests high activity
-    let has_error_patterns = state_changes
-        .iter()
-        .any(|change| change.change_type == "error" || change.change_type == "failure");
-
-    let suggests_optimization = has_rapid_changes || has_error_patterns;
-    let optimization_type = if has_error_patterns {
-        "error_reduction".to_string()
-    } else if has_rapid_changes {
-        "state_stabilization".to_string()
-    } else {
-        "general_optimization".to_string()
-    };
-
-    let confidence = if has_error_patterns { 0.9 } else { 0.6 };
-
-    StateChangePatternAnalysis {
-        suggests_optimization,
-        optimization_type,
-        confidence,
-    }
-}
-
-/// State change for pattern analysis
-///
-/// Note: Planned feature for pattern tracking - implementation in progress
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct StateChange {
-    pub change_type: String,
-    pub timestamp: chrono::DateTime<chrono::Utc>,
-    pub metadata: std::collections::HashMap<String, String>,
 }
 
 /// Learning integration configuration
@@ -776,7 +665,8 @@ impl LearningIntegration {
             debug!("Starting simplified context change monitoring");
 
             // Use simplified monitoring since specific methods don't exist yet
-            // TODO: Implement proper context monitoring when ContextManager API is enhanced
+            // FUTURE: [API-Enhancement] Implement proper context monitoring when ContextManager API is enhanced
+            // Tracking: Planned for v0.2.0 - ContextManager API enhancement
 
             // Placeholder for future context monitoring implementation
             debug!("Context monitoring placeholder - actual implementation pending");

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Ecosystem registry manager modules
 //!
 //! This module contains the decomposed ecosystem registry manager functionality.
@@ -7,6 +10,11 @@ pub mod discovery;
 // health removed - HTTP-based health checks
 pub mod metrics;
 pub mod types;
+
+#[cfg(test)]
+mod discovery_error_tests;
+#[cfg(test)]
+mod metrics_tests;
 
 // Re-export all public types and functions
 pub use config::*;

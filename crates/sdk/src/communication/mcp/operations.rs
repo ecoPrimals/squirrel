@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! High-level MCP protocol operations
 //!
 //! This module provides high-level operations for the MCP protocol including
@@ -152,12 +155,12 @@ impl OperationHandler {
                         "add" => numbers.iter().sum(),
                         "multiply" => numbers.iter().product(),
                         "subtract" => {
-                            numbers.get(0).unwrap_or(&0.0) - numbers.get(1).unwrap_or(&0.0)
+                            numbers.first().unwrap_or(&0.0) - numbers.get(1).unwrap_or(&0.0)
                         }
                         "divide" => {
                             let divisor = numbers.get(1).unwrap_or(&1.0);
                             if *divisor != 0.0 {
-                                numbers.get(0).unwrap_or(&0.0) / divisor
+                                numbers.first().unwrap_or(&0.0) / divisor
                             } else {
                                 return Err(PluginError::McpError {
                                     message: "Division by zero".to_string(),

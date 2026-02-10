@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Main AI router implementation and request dispatching logic.
 //!
 //! This module contains the core AIRouter that processes requests and routes them

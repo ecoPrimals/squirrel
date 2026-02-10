@@ -1,6 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(async_fn_in_trait)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::unnecessary_wraps)]
 //! Machine Context Protocol (MCP) Implementation
 //!
 //! This crate provides a complete implementation of the Machine Context Protocol,
+#![deny(unsafe_code)]
 //! including message types, transport layers, and utility functions.
 
 pub mod constants;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Real Monitoring API Provider Example
 //!
 //! This example demonstrates how to implement a real monitoring API provider

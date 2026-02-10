@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! GPU Detection and Management
+#![allow(dead_code)] // Hardware detection API used at runtime
 //!
 //! Provides GPU detection and VRAM tracking for AI model management.
 //! Maintains primal self-knowledge - only reports on THIS instance's GPU.
@@ -228,6 +232,8 @@ fn architecture_from_compute_capability(cc: &str) -> Option<String> {
 /// Estimate memory bandwidth from GPU model
 fn estimate_bandwidth(model: &str) -> Option<u32> {
     // Bandwidth in GB/s (approximate)
+    // Different GPU models can have identical specs; these are intentionally the same values
+    #[allow(clippy::if_same_then_else)]
     let bandwidth = if model.contains("RTX 5090") {
         1792 // GDDR7
     } else if model.contains("RTX 4090") {
@@ -320,7 +326,8 @@ fn estimate_performance(model: &str, architecture: &Option<String>) -> Option<f3
 
 /// Estimate power draw from GPU model
 fn estimate_power(model: &str) -> Option<u32> {
-    // Power in watts (TDP)
+    // Power in watts (TDP) — different GPU models can share TDP values
+    #[allow(clippy::if_same_then_else)]
     let power = if model.contains("RTX 5090") {
         575 // Power hungry beast
     } else if model.contains("RTX 4090") {

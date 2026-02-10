@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Event handling and pub/sub functionality for plugins
 //!
 //! This module provides event handling and communication between plugins.
@@ -5,10 +8,11 @@
 use std::collections::HashMap;
 
 use crate::infrastructure::error::PluginResult;
-use crate::utils::{current_timestamp_iso, generate_listener_id, safe_lock};
+use crate::utils::{current_timestamp_iso, generate_listener_id};
 use serde::{Deserialize, Serialize};
 use std::future::Future;
 use std::pin::Pin;
+use tokio::sync::Mutex as TokioMutex;
 
 /// Event data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,16 +146,21 @@ struct ListenerEntry {
 }
 
 /// Event bus for pub/sub functionality
+///
+/// Uses `tokio::sync::Mutex` for async-safe locking that can be held across await points.
+/// This is the recommended approach for async Rust code that needs to hold locks
+/// while awaiting futures.
 #[derive(Debug)]
 pub struct EventBus {
     /// Event listeners organized by event type with their IDs
-    listeners: std::sync::Mutex<HashMap<String, Vec<ListenerEntry>>>,
+    /// Using tokio Mutex for async-safe access across await points
+    listeners: TokioMutex<HashMap<String, Vec<ListenerEntry>>>,
 }
 
 impl Default for EventBus {
     fn default() -> Self {
         Self {
-            listeners: std::sync::Mutex::new(HashMap::new()),
+            listeners: TokioMutex::new(HashMap::new()),
         }
     }
 }
@@ -170,13 +179,16 @@ impl EventBus {
     }
 
     /// Subscribe to an event
-    pub fn subscribe(
+    ///
+    /// Note: This is now an async function to use the tokio mutex.
+    /// For sync contexts, use `subscribe_blocking()`.
+    pub async fn subscribe_async(
         &self,
         event_type: &str,
         listener: Box<dyn EventListener + Send + Sync>,
     ) -> PluginResult<String> {
         let listener_id = generate_listener_id();
-        let mut listeners = safe_lock(&self.listeners, "listeners")?;
+        let mut listeners = self.listeners.lock().await;
 
         let entry = ListenerEntry {
             id: listener_id.clone(),
@@ -191,14 +203,46 @@ impl EventBus {
         Ok(listener_id)
     }
 
-    /// Publish an event
-    pub async fn publish(&self, event: Event) -> PluginResult<()> {
-        // Get listeners and handle the event in a single lock acquisition
-        let listeners_guard = safe_lock(&self.listeners, "listeners")?;
+    /// Subscribe to an event (blocking version for sync contexts)
+    ///
+    /// Uses `futures::executor::block_on` to subscribe from sync code.
+    /// Prefer `subscribe_async` in async contexts.
+    pub fn subscribe(
+        &self,
+        event_type: &str,
+        listener: Box<dyn EventListener + Send + Sync>,
+    ) -> PluginResult<String> {
+        // Use try_lock first to avoid blocking if possible
+        if let Ok(mut listeners) = self.listeners.try_lock() {
+            let listener_id = generate_listener_id();
+            let entry = ListenerEntry {
+                id: listener_id.clone(),
+                listener,
+            };
 
-        if let Some(listeners) = listeners_guard.get(&event.event_type) {
-            // Handle event for each listener entry
-            for entry in listeners {
+            listeners
+                .entry(event_type.to_string())
+                .or_default()
+                .push(entry);
+
+            return Ok(listener_id);
+        }
+
+        // Fallback: if try_lock fails, we need to block
+        // This should be rare in practice
+        futures::executor::block_on(self.subscribe_async(event_type, listener))
+    }
+
+    /// Publish an event
+    ///
+    /// Uses tokio::Mutex which is designed to be held across await points,
+    /// making this safe for async event handling without risk of deadlocks.
+    pub async fn publish(&self, event: Event) -> PluginResult<()> {
+        // tokio::Mutex is explicitly designed for holding across await points
+        let listeners = self.listeners.lock().await;
+
+        if let Some(event_listeners) = listeners.get(&event.event_type) {
+            for entry in event_listeners {
                 if let Err(e) = entry.listener.handle_event(event.clone()).await {
                     eprintln!("Error handling event for listener {}: {:?}", entry.id, e);
                 }
@@ -208,9 +252,9 @@ impl EventBus {
         Ok(())
     }
 
-    /// Unsubscribe from an event
-    pub fn unsubscribe(&self, event_type: &str, listener_id: &str) -> PluginResult<()> {
-        let mut listeners = safe_lock(&self.listeners, "listeners")?;
+    /// Unsubscribe from an event (async version)
+    pub async fn unsubscribe_async(&self, event_type: &str, listener_id: &str) -> PluginResult<()> {
+        let mut listeners = self.listeners.lock().await;
 
         if let Some(event_listeners) = listeners.get_mut(event_type) {
             // Find and remove the listener with the matching ID
@@ -243,20 +287,55 @@ impl EventBus {
         Ok(())
     }
 
+    /// Unsubscribe from an event (sync version for backward compatibility)
+    pub fn unsubscribe(&self, event_type: &str, listener_id: &str) -> PluginResult<()> {
+        // Try non-blocking first
+        if let Ok(mut listeners) = self.listeners.try_lock() {
+            if let Some(event_listeners) = listeners.get_mut(event_type) {
+                let original_len = event_listeners.len();
+                event_listeners.retain(|entry| entry.id != listener_id);
+
+                if event_listeners.len() == original_len {
+                    return Err(
+                        crate::infrastructure::error::PluginError::EventHandlingError {
+                            event_type: event_type.to_string(),
+                            message: format!("Listener with ID '{}' not found", listener_id),
+                        },
+                    );
+                }
+
+                if event_listeners.is_empty() {
+                    listeners.remove(event_type);
+                }
+                return Ok(());
+            } else {
+                return Err(
+                    crate::infrastructure::error::PluginError::EventHandlingError {
+                        event_type: event_type.to_string(),
+                        message: format!("Event listeners for type '{}' not found", event_type),
+                    },
+                );
+            }
+        }
+
+        // Fallback to blocking
+        futures::executor::block_on(self.unsubscribe_async(event_type, listener_id))
+    }
+
     /// Get all event types
     pub fn list_event_types(&self) -> Vec<String> {
-        match safe_lock(&self.listeners, "listeners") {
-            Ok(listeners) => listeners.keys().cloned().collect(),
-            Err(_) => Vec::new(),
-        }
+        self.listeners
+            .try_lock()
+            .map(|listeners| listeners.keys().cloned().collect())
+            .unwrap_or_default()
     }
 
     /// Get listener count for an event type
     pub fn get_listener_count(&self, event_type: &str) -> usize {
-        match safe_lock(&self.listeners, "listeners") {
-            Ok(listeners) => listeners.get(event_type).map(|v| v.len()).unwrap_or(0),
-            Err(_) => 0,
-        }
+        self.listeners
+            .try_lock()
+            .map(|listeners| listeners.get(event_type).map(|v| v.len()).unwrap_or(0))
+            .unwrap_or(0)
     }
 }
 

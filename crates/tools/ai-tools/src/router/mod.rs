@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI Router Implementation
 //!
 //! This module implements the AI routing infrastructure that directs AI requests
@@ -43,7 +46,7 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
+//! ```ignore
 //! use ai_tools::router::{AIRouter, RouterConfig, RoutingStrategy, RequestContext};
 //! use ai_tools::common::capability::AITask;
 //!

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Conversion functions between Task and protobuf types.
 //!
 //! This module provides conversions between the internal Task struct and

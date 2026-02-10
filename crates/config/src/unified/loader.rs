@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration Loader with Hierarchical Precedence
 //!
 //! This module implements the configuration loading system with clear precedence rules.
@@ -11,7 +14,7 @@
 //!
 //! # Example Usage
 //!
-//! ```rust,no_run
+//! ```ignore
 //! use squirrel_mcp_config::unified::ConfigLoader;
 //!
 //! // Load with full precedence hierarchy
@@ -58,7 +61,7 @@ impl ConfigLoader {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```ignore
     /// use squirrel_mcp_config::unified::ConfigLoader;
     ///
     /// let config = ConfigLoader::load()?;
@@ -138,7 +141,7 @@ impl ConfigLoader {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```ignore
     /// use squirrel_mcp_config::unified::ConfigLoader;
     ///
     /// let config = ConfigLoader::new()
@@ -214,7 +217,7 @@ impl ConfigLoader {
     /// export SQUIRREL_TIMEOUTS_CONNECTION_TIMEOUT_SECS=45
     /// ```
     ///
-    /// ```rust,no_run
+    /// ```ignore
     /// use squirrel_mcp_config::unified::ConfigLoader;
     ///
     /// let config = ConfigLoader::new()

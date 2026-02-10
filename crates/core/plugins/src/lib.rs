@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin system for Squirrel
 //!
 //! This module provides a comprehensive plugin system with support for:
+#![deny(unsafe_code)]
 //! - Plugin loading and management
 //! - Security validation and sandboxing
 //! - Dependency resolution
@@ -9,6 +13,7 @@
 
 // Allow deprecated items during plugin system migration to squirrel_interfaces
 #![allow(deprecated)]
+#![allow(clippy::missing_docs_in_private_items)]
 
 mod default_manager;
 mod dependency_resolver;

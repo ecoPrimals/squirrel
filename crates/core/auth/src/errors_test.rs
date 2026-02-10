@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for authentication error types
 //!
 //! Comprehensive test coverage for AuthError and AuthResult types.

@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Adapter Pattern Examples
 //!
 //! This crate demonstrates the Adapter Pattern in Rust with a command-based architecture.
+#![deny(unsafe_code)]
 //! It focuses on three main adapter implementations:
 //!
 //! 1. Registry Adapter - Basic adapter for command registry operations

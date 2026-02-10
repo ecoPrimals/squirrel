@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Agnostic Compute Provider Trait - Infant Primal Pattern
 //!
 //! **Philosophy**: Zero vendor lock-in for compute resources.

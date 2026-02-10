@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Dashboard Integration
 //! 
 //! This module provides integration between the MCP tracing system and
@@ -23,7 +26,7 @@ use crate::observability::{
     metrics::MetricsRegistry, 
     tracing::Tracer,
     health::HealthChecker,
-    alerting::AlertManager,
+    alerting::{AlertManager, AlertState},
     ObservabilityResult
 };
 
@@ -401,8 +404,110 @@ impl DashboardIntegrationAdapter {
         config: &DashboardIntegrationConfig,
         metrics_registry: &MetricsRegistry,
     ) -> ObservabilityResult<()> {
-        // Implement metrics collection and export
-        // This is a placeholder for now
+        use crate::observability::metrics::{MetricSnapshot, MetricValue};
+        use std::time::{SystemTime, UNIX_EPOCH};
+        
+        // Collect all metrics from the registry
+        let mut metric_data = Vec::new();
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        
+        // Collect counters
+        if let Ok(counter_names) = metrics_registry.counter_names() {
+            for name in counter_names {
+                if let Ok(Some(counter)) = metrics_registry.get_counter(&name) {
+                    if let Ok(value) = counter.value() {
+                        let labels = counter.labels().clone();
+                        metric_data.push(MetricData {
+                            name: name.clone(),
+                            metric_type: "counter".to_string(),
+                            value: serde_json::Value::Number(value.into()),
+                            labels,
+                            timestamp: timestamp_ms,
+                            service: config.service_name.clone(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Collect gauges
+        if let Ok(gauge_names) = metrics_registry.gauge_names() {
+            for name in gauge_names {
+                if let Ok(Some(gauge)) = metrics_registry.get_gauge(&name) {
+                    if let Ok(value) = gauge.value() {
+                        let labels = gauge.labels().clone();
+                        metric_data.push(MetricData {
+                            name: name.clone(),
+                            metric_type: "gauge".to_string(),
+                            value: serde_json::Value::Number(
+                                serde_json::Number::from_f64(value).unwrap_or(serde_json::Number::from(0))
+                            ),
+                            labels,
+                            timestamp: timestamp_ms,
+                            service: config.service_name.clone(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Collect histograms
+        if let Ok(histogram_names) = metrics_registry.histogram_names() {
+            for name in histogram_names {
+                if let Ok(Some(histogram)) = metrics_registry.get_histogram(&name) {
+                    if let Ok(buckets) = histogram.buckets() {
+                        if let Ok(count) = histogram.count() {
+                            if let Ok(sum) = histogram.sum() {
+                                let labels = histogram.labels().clone();
+                                let histogram_value = serde_json::json!({
+                                    "buckets": buckets.iter().map(|b| serde_json::json!({
+                                        "bound": b.bound,
+                                        "count": b.count
+                                    })).collect::<Vec<_>>(),
+                                    "count": count,
+                                    "sum": sum
+                                });
+                                metric_data.push(MetricData {
+                                    name: name.clone(),
+                                    metric_type: "histogram".to_string(),
+                                    value: histogram_value,
+                                    labels,
+                                    timestamp: timestamp_ms,
+                                    service: config.service_name.clone(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Batch and send metrics
+        for chunk in metric_data.chunks(config.max_metrics_per_batch) {
+            let url = format!("{}/metrics", config.dashboard_url);
+            let mut request = client.post(&url).json(chunk);
+            
+            if let Some(token) = &config.auth_token {
+                request = request.bearer_auth(token);
+            }
+            
+            match request.send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        debug!("Exported {} metrics to dashboard", chunk.len());
+                    } else {
+                        tracing::warn!("Failed to export metrics: HTTP {}", response.status());
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Error exporting metrics to dashboard: {}", e);
+                }
+            }
+        }
+        
         Ok(())
     }
     
@@ -412,8 +517,80 @@ impl DashboardIntegrationAdapter {
         config: &DashboardIntegrationConfig,
         tracer: &Tracer,
     ) -> ObservabilityResult<()> {
-        // Implement trace collection and export
-        // This is a placeholder for now
+        use std::time::{SystemTime, UNIX_EPOCH};
+        
+        // Export completed spans as snapshots
+        let span_snapshots = tracer.export_spans_batch(config.max_traces_per_batch).await?;
+        
+        if span_snapshots.is_empty() {
+            return Ok(());
+        }
+        
+        // Group spans by trace_id
+        let mut traces: std::collections::HashMap<String, Vec<SpanData>> = std::collections::HashMap::new();
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        
+        for snapshot in span_snapshots {
+            let span_data = SpanData {
+                span_id: snapshot.id.clone(),
+                parent_id: snapshot.parent_id.clone(),
+                name: snapshot.name.clone(),
+                start_time: snapshot.start_time
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64,
+                end_time: snapshot.end_time.map(|et| {
+                    et.duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64
+                }),
+                duration_ms: snapshot.duration_ms,
+                status: format!("{:?}", snapshot.status),
+                attributes: snapshot.attributes,
+            };
+            
+            traces.entry(snapshot.trace_id.clone())
+                .or_insert_with(Vec::new)
+                .push(span_data);
+        }
+        
+        // Convert to TraceData format and send
+        let mut trace_data_vec = Vec::new();
+        for (trace_id, spans) in traces {
+            trace_data_vec.push(TraceData {
+                trace_id,
+                spans,
+                service: config.service_name.clone(),
+                timestamp: timestamp_ms,
+            });
+        }
+        
+        // Send traces in batches
+        for chunk in trace_data_vec.chunks(config.max_traces_per_batch) {
+            let url = format!("{}/traces", config.dashboard_url);
+            let mut request = client.post(&url).json(chunk);
+            
+            if let Some(token) = &config.auth_token {
+                request = request.bearer_auth(token);
+            }
+            
+            match request.send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        debug!("Exported {} traces to dashboard", chunk.len());
+                    } else {
+                        tracing::warn!("Failed to export traces: HTTP {}", response.status());
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Error exporting traces to dashboard: {}", e);
+                }
+            }
+        }
+        
         Ok(())
     }
     
@@ -423,8 +600,60 @@ impl DashboardIntegrationAdapter {
         config: &DashboardIntegrationConfig,
         health_checker: &HealthChecker,
     ) -> ObservabilityResult<()> {
-        // Implement health data collection and export
-        // This is a placeholder for now
+        use std::time::{SystemTime, UNIX_EPOCH};
+        
+        // Get health report
+        let health_report = health_checker.get_health_report()?;
+        
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        
+        // Convert component health to ComponentHealthData
+        let components: Vec<ComponentHealthData> = health_report.component_statuses
+            .iter()
+            .map(|(name, component_health)| {
+                ComponentHealthData {
+                    name: name.clone(),
+                    status: format!("{:?}", component_health.status),
+                    message: component_health.message.clone(),
+                    last_check: component_health.last_check
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() * 1000, // Convert to milliseconds
+                }
+            })
+            .collect();
+        
+        let health_data = HealthData {
+            system_status: format!("{:?}", health_report.overall_status),
+            components,
+            service: config.service_name.clone(),
+            timestamp: timestamp_ms,
+        };
+        
+        // Send health data to dashboard
+        let url = format!("{}/health", config.dashboard_url);
+        let mut request = client.post(&url).json(&health_data);
+        
+        if let Some(token) = &config.auth_token {
+            request = request.bearer_auth(token);
+        }
+        
+        match request.send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    debug!("Exported health data to dashboard");
+                } else {
+                    tracing::warn!("Failed to export health data: HTTP {}", response.status());
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Error exporting health data to dashboard: {}", e);
+            }
+        }
+        
         Ok(())
     }
     
@@ -434,8 +663,61 @@ impl DashboardIntegrationAdapter {
         config: &DashboardIntegrationConfig,
         alert_manager: &AlertManager,
     ) -> ObservabilityResult<()> {
-        // Implement alert collection and export
-        // This is a placeholder for now
+        use std::time::{SystemTime, UNIX_EPOCH};
+        
+        // Get all recent alerts (active and recent resolved)
+        let alerts = alert_manager.get_all_recent_alerts().await?;
+        
+        if alerts.is_empty() {
+            return Ok(());
+        }
+        
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        
+        // Convert alerts to AlertData format
+        let alert_data: Vec<AlertData> = alerts
+            .iter()
+            .map(|alert| {
+                AlertData {
+                    alert_id: alert.id().to_string(),
+                    name: alert.name().to_string(),
+                    severity: format!("{:?}", alert.severity()),
+                    message: alert.message().to_string(),
+                    component: alert.source().to_string(),
+                    timestamp: alert.created_at()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() * 1000, // Convert to milliseconds
+                    service: config.service_name.clone(),
+                    active: alert.state() == AlertState::Active,
+                }
+            })
+            .collect();
+        
+        // Send alerts to dashboard
+        let url = format!("{}/alerts", config.dashboard_url);
+        let mut request = client.post(&url).json(&alert_data);
+        
+        if let Some(token) = &config.auth_token {
+            request = request.bearer_auth(token);
+        }
+        
+        match request.send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    debug!("Exported {} alerts to dashboard", alert_data.len());
+                } else {
+                    tracing::warn!("Failed to export alerts: HTTP {}", response.status());
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Error exporting alerts to dashboard: {}", e);
+            }
+        }
+        
         Ok(())
     }
 }

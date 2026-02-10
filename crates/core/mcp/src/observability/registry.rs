@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Component registry for observability framework
 //!
 //! This module provides component registration and tracking functionality

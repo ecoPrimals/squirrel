@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context Management System Learning System
 //!
 //! This module provides reinforcement learning capabilities for the Context Management System.
@@ -24,7 +27,7 @@
 //!
 //! ## Learning Process
 //!
-//! ```
+//! ```text
 //! Context State → Learning Agent → Action → Context Update → Reward → Policy Update
 //! ```
 
@@ -32,6 +35,7 @@ mod adaptive;
 mod engine;
 mod experience;
 mod integration;
+mod integration_types;
 mod manager;
 mod metrics;
 mod policy;

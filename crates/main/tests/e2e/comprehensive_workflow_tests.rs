@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive End-to-End Workflow Tests
 //!
 //! These tests validate complete user workflows across the entire system.
@@ -274,8 +277,6 @@ mod tests {
     #[tokio::test]
     async fn test_complete_error_handling_workflow() {
         use squirrel::error::{PrimalError, PrimalErrorKind};
-        use squirrel::error_handling::safe_operations::{SafeOps, SafeResult};
-        use std::sync::Arc;
         
         // 1. Trigger various error types
         let not_found_error = PrimalError::new(
@@ -300,11 +301,11 @@ mod tests {
             assert_eq!(e.kind, PrimalErrorKind::Internal);
         }
         
-        // 4. Test safe operations (using world-class infrastructure)
-        let safe_parse = SafeOps::safe_parse::<i32>("invalid", "test_context");
+        // 4. Test safe parse pattern using standard Result
+        let safe_parse: Result<i32, _> = "invalid".parse::<i32>();
         assert!(safe_parse.is_err(), "Safe parse should handle invalid input");
         
-        // 5. Test error recovery with safe operations
+        // 5. Test error recovery with default
         let recovered_value = safe_parse.unwrap_or_default();
         assert_eq!(recovered_value, 0, "Should recover with default value");
         
@@ -321,10 +322,8 @@ mod tests {
         use tokio::time::{timeout, Duration};
         let timeout_result = timeout(
             Duration::from_millis(1),
-            async {
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                Ok::<(), PrimalError>(())
-            }
+            // pending() never completes -- ideal for timeout testing, no sleep
+            std::future::pending::<Result<(), PrimalError>>()
         ).await;
         assert!(timeout_result.is_err(), "Timeout should trigger error");
         
@@ -345,7 +344,6 @@ mod tests {
     #[tokio::test]
     async fn test_complete_observability_workflow() {
         use squirrel::observability::metrics::MetricsCollector;
-        use squirrel::observability::correlation::CorrelationContext;
         use std::sync::Arc;
         use std::collections::HashMap;
         

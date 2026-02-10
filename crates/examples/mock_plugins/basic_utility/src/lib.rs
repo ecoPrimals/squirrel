@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use squirrel_app::plugin::{
     Plugin, PluginContext, PluginResult, PluginError,
     command::{Command, CommandResult},

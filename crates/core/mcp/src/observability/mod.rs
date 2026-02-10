@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # MCP Observability Framework
 //! 
 //! This module provides a comprehensive observability framework for the Machine Context Protocol,

@@ -28,16 +28,12 @@ thiserror = "1.0"
 async-trait = "0.1"
 dashmap = "5.5"
 parking_lot = "0.12"
-# HTTP client (OPTIONAL - for dev/testing)
-# Production uses Unix sockets for all external communication!
-# reqwest REMOVED - Use neural-api-client (delegates to Songbird via Unix sockets) instead!
-neural-api-client = { path = "/home/eastgate/Development/ecoPrimals/phase2/biomeOS/crates/neural-api-client" }
-# warp REMOVED - HTTP API deleted! Squirrel uses Unix sockets + JSON-RPC + tarpc
-# Modern idiomatic Rust - no HTTP frameworks needed!
+# HTTP framework REMOVED - Squirrel uses Unix sockets + JSON-RPC + tarpc
+# All external HTTP is proxied via ecosystem capability routing (own IPC client)
 base64 = "0.21"
 rand = "0.8"
 futures = "0.3"
-lazy_static = "1.4"
+# lazy_static removed - evolved to std::sync::LazyLock (stable Rust 1.80+)
 sysinfo = "0.30"
 
 # Text processing and validation (CRITICAL FIX: Missing regex dependency)
@@ -70,6 +66,7 @@ squirrel-mcp-auth = { path = "../core/auth" }
 # Universal patterns
 universal-patterns = { path = "../universal-patterns" }
 universal-constants = { path = "../universal-constants" }
+zeroize.workspace = true
 
 # SDK dependencies
 squirrel-sdk = { path = "../sdk" }
@@ -115,6 +112,8 @@ monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics
 benchmarking = ["criterion", "pprof", "iai"]     # Benchmarking tools
 enhanced_error_handling = []                     # Enhanced error handling
 optimizations = []                               # Performance optimizations
+deprecated-adapters = []                          # Enable deprecated AI adapters (Anthropic, OpenAI) for backward compatibility
+nvml = []                                         # NVIDIA NVML GPU detection (requires nvml-wrapper)
 
 [dev-dependencies]
 tokio-test = "0.4"

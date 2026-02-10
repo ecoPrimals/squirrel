@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin system interfaces
 //!
 //! This module defines the shared interfaces for the plugin system.
@@ -175,4 +178,76 @@ pub trait PluginFactory: Send + Sync {
 
     /// Get the ID of the plugin that this factory creates
     fn plugin_id(&self) -> &str;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_plugin_metadata_new() {
+        let meta = PluginMetadata::new("test-plugin", "1.0.0", "A test plugin", "TestAuthor");
+        assert_eq!(meta.id, "test-plugin");
+        assert_eq!(meta.name, "test-plugin");
+        assert_eq!(meta.version, "1.0.0");
+        assert_eq!(meta.description, "A test plugin");
+        assert_eq!(meta.author, "TestAuthor");
+        assert!(meta.capabilities.is_empty());
+    }
+
+    #[test]
+    fn test_plugin_metadata_with_capability() {
+        let meta = PluginMetadata::new("test", "1.0", "desc", "auth")
+            .with_capability("ai.inference")
+            .with_capability("storage.read");
+        assert_eq!(meta.capabilities.len(), 2);
+        assert_eq!(meta.capabilities[0], "ai.inference");
+        assert_eq!(meta.capabilities[1], "storage.read");
+    }
+
+    #[test]
+    fn test_plugin_metadata_serde() {
+        let meta = PluginMetadata::new("test", "1.0.0", "desc", "author").with_capability("cap1");
+        let json = serde_json::to_string(&meta).expect("serialize");
+        let deser: PluginMetadata = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser.id, "test");
+        assert_eq!(deser.capabilities, vec!["cap1"]);
+    }
+
+    #[test]
+    fn test_command_metadata_serde() {
+        let meta = CommandMetadata {
+            id: "cmd1".to_string(),
+            name: "Test Command".to_string(),
+            description: "A test command".to_string(),
+            input_schema: serde_json::json!({"type": "object"}),
+            output_schema: serde_json::json!({"type": "string"}),
+            permissions: vec!["read".to_string()],
+        };
+        let json = serde_json::to_string(&meta).expect("serialize");
+        let deser: CommandMetadata = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser.id, "cmd1");
+        assert_eq!(deser.permissions, vec!["read"]);
+    }
+
+    #[test]
+    fn test_plugin_execution_context_default() {
+        let ctx = PluginExecutionContext::default();
+        assert!(ctx.user_id.is_none());
+        assert!(ctx.roles.is_empty());
+        assert!(ctx.context.is_empty());
+    }
+
+    #[test]
+    fn test_plugin_execution_context_serde() {
+        let ctx = PluginExecutionContext {
+            user_id: Some("user1".to_string()),
+            roles: vec!["admin".to_string()],
+            context: HashMap::from([("key".to_string(), serde_json::json!("value"))]),
+        };
+        let json = serde_json::to_string(&ctx).expect("serialize");
+        let deser: PluginExecutionContext = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser.user_id, Some("user1".to_string()));
+        assert_eq!(deser.roles, vec!["admin"]);
+    }
 }

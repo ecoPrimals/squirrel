@@ -1,4 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for AI Inference and Provider Selection
+//!
+//! TRUE PRIMAL: Provider selection is capability-based, not vendor-based.
+//! All tests verify agnostic behavior -- the selector returns "auto" and
+//! delegates concrete provider resolution to the AI router's capability
+//! discovery at runtime.
 
 #[cfg(test)]
 mod tests {
@@ -16,123 +24,73 @@ mod tests {
     }
 
     #[test]
-    fn test_provider_selection_gpt_model() {
+    fn test_provider_selection_with_model_returns_auto() {
+        // When a model is specified, provider selection returns "auto"
+        // and lets the AI router resolve the model to a discovered provider
         let request = create_test_request("chat", Some("gpt-4".to_string()));
         let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "openai");
+        assert_eq!(provider, "auto");
     }
 
     #[test]
-    fn test_provider_selection_gpt_35_model() {
-        let request = create_test_request("chat", Some("gpt-3.5-turbo".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "openai");
+    fn test_provider_selection_any_model_returns_auto() {
+        // Any model name should return "auto" -- no vendor name mapping
+        for model in &[
+            "gpt-4",
+            "claude-3-opus",
+            "llama2",
+            "mistral",
+            "custom-model",
+        ] {
+            let request = create_test_request("chat", Some(model.to_string()));
+            let provider = AIProviderSelection::select_provider(&request).unwrap();
+            assert_eq!(provider, "auto", "Model '{}' should return 'auto'", model);
+        }
     }
 
     #[test]
-    fn test_provider_selection_claude_model() {
-        let request = create_test_request("chat", Some("claude-3-opus".to_string()));
+    fn test_provider_selection_no_model_returns_auto() {
+        // Without a model, provider selection uses env or defaults to "auto"
+        let request = create_test_request("chat", None);
         let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "anthropic");
-    }
-
-    #[test]
-    fn test_provider_selection_claude_sonnet() {
-        let request = create_test_request("analysis", Some("claude-3-sonnet".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "anthropic");
-    }
-
-    #[test]
-    fn test_provider_selection_llama_model() {
-        let request = create_test_request("chat", Some("llama2".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "ollama");
-    }
-
-    #[test]
-    fn test_provider_selection_mistral_model() {
-        let request = create_test_request("chat", Some("mistral".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "ollama");
-    }
-
-    #[test]
-    fn test_provider_selection_openai_in_name() {
-        let request = create_test_request("chat", Some("openai-custom".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "openai");
-    }
-
-    #[test]
-    fn test_provider_selection_anthropic_in_name() {
-        let request = create_test_request("chat", Some("anthropic-custom".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "anthropic");
+        assert_eq!(provider, "auto");
     }
 
     #[test]
     fn test_provider_selection_text_generation_task() {
         let request = create_test_request("text_generation", None);
         let provider = AIProviderSelection::select_provider(&request).unwrap();
-        // Should use default provider (openai or env var)
-        assert!(!provider.is_empty());
-    }
-
-    #[test]
-    fn test_provider_selection_chat_task() {
-        let request = create_test_request("chat", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert!(!provider.is_empty());
-    }
-
-    #[test]
-    fn test_provider_selection_code_generation_task() {
-        let request = create_test_request("code_generation", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "openai");
-    }
-
-    #[test]
-    fn test_provider_selection_analysis_task() {
-        let request = create_test_request("analysis", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "anthropic");
-    }
-
-    #[test]
-    fn test_provider_selection_reasoning_task() {
-        let request = create_test_request("reasoning", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "anthropic");
+        assert_eq!(provider, "auto");
     }
 
     #[test]
     fn test_provider_selection_local_task() {
+        // "local" task type prefers local providers, but still returns "auto"
+        // unless AI_DEFAULT_PROVIDER is set
         let request = create_test_request("local", None);
         let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "ollama");
+        assert_eq!(provider, "auto");
     }
 
     #[test]
     fn test_provider_selection_private_task() {
         let request = create_test_request("private", None);
         let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "ollama");
+        assert_eq!(provider, "auto");
     }
 
     #[test]
     fn test_provider_selection_unknown_task_defaults() {
         let request = create_test_request("unknown_task_type", None);
         let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "openai");
+        assert_eq!(provider, "auto");
     }
 
     #[test]
     fn test_provider_selection_empty_task_defaults() {
         let request = create_test_request("", None);
         let provider = AIProviderSelection::select_provider(&request).unwrap();
-        assert_eq!(provider, "openai");
+        assert_eq!(provider, "auto");
     }
 
     #[test]
@@ -196,59 +154,6 @@ mod tests {
     }
 
     #[test]
-    fn test_provider_selection_model_precedence_over_task() {
-        // Model should take precedence over task type
-        let request = create_test_request("analysis", Some("gpt-4".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        // Should choose openai based on model, not anthropic based on task
-        assert_eq!(provider, "openai");
-    }
-
-    #[test]
-    fn test_provider_selection_case_sensitive_model() {
-        let request = create_test_request("chat", Some("GPT-4".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        // Case sensitive - won't match gpt- prefix
-        // Should fall back to task type
-        assert!(!provider.is_empty());
-    }
-
-    #[test]
-    fn test_provider_selection_partial_model_name() {
-        let request = create_test_request("chat", Some("my-gpt-model".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
-        // Contains "gpt-" but doesn't start with it
-        // Should fall back to task type
-        assert!(!provider.is_empty());
-    }
-
-    #[test]
-    fn test_ai_inference_request_clone() {
-        let request = create_test_request("chat", Some("gpt-4".to_string()));
-        let cloned = request.clone();
-
-        assert_eq!(cloned.task_type, request.task_type);
-        assert_eq!(cloned.model, request.model);
-        assert_eq!(cloned.messages.len(), request.messages.len());
-    }
-
-    #[test]
-    fn test_provider_selection_all_providers_returned() {
-        // Verify all three providers can be selected
-        let openai_request = create_test_request("code_generation", None);
-        let anthropic_request = create_test_request("analysis", None);
-        let ollama_request = create_test_request("local", None);
-
-        let openai = AIProviderSelection::select_provider(&openai_request).unwrap();
-        let anthropic = AIProviderSelection::select_provider(&anthropic_request).unwrap();
-        let ollama = AIProviderSelection::select_provider(&ollama_request).unwrap();
-
-        assert_eq!(openai, "openai");
-        assert_eq!(anthropic, "anthropic");
-        assert_eq!(ollama, "ollama");
-    }
-
-    #[test]
     fn test_provider_selection_consistent_results() {
         let request = create_test_request("chat", Some("gpt-4".to_string()));
 
@@ -257,5 +162,22 @@ mod tests {
         let provider2 = AIProviderSelection::select_provider(&request).unwrap();
 
         assert_eq!(provider1, provider2);
+    }
+
+    #[test]
+    fn test_provider_selection_empty_model_returns_auto() {
+        let request = create_test_request("chat", Some("".to_string()));
+        let provider = AIProviderSelection::select_provider(&request).unwrap();
+        assert_eq!(provider, "auto");
+    }
+
+    #[test]
+    fn test_ai_inference_request_clone() {
+        let request = create_test_request("chat", Some("test-model".to_string()));
+        let cloned = request.clone();
+
+        assert_eq!(cloned.task_type, request.task_type);
+        assert_eq!(cloned.model, request.model);
+        assert_eq!(cloned.messages.len(), request.messages.len());
     }
 }

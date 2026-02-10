@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Federation Network Core Manager
 //!
 //! Core federation network manager providing the main struct,

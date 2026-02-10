@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive Error Path Coverage Tests
 //!
 //! Deep testing philosophy: Every error variant should be tested

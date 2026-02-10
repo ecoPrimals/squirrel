@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core Health Checker Implementation
 //!
 //! This module contains the main HealthChecker struct and its core

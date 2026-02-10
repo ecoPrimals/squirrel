@@ -1,18 +1,28 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Unified Plugin Manager
 //!
 //! High-performance plugin manager that combines the best features from both
 //! CLI and Core plugin systems, using zero-copy optimizations for maximum
 //! performance. Provides 10-100x faster plugin loading and management.
+//!
+//! ## Current Status
+//!
+//! This module contains placeholder implementations to allow compilation.
+//! The full plugin system is planned for future implementation.
 
-// TODO: These modules need to be implemented - currently placeholders
-// pub mod manager;
-// pub mod loader;
-// pub mod native;
-// pub mod wasm;
-// pub mod script;
-// pub mod event_bus;
-// pub mod security;
-// pub mod builtin;
+// NOTE(plugin-system): Unified plugin manager modules - implementation deferred to Phase 2
+// The following modules need to be implemented when rebuilding the plugin system:
+// - manager: Core plugin manager with lifecycle management
+// - loader: Plugin loading and discovery
+// - native: Native Rust plugin support
+// - wasm: WebAssembly plugin support
+// - script: Script-based plugin support (Python, Lua, etc.)
+// - event_bus: Plugin event communication system
+// - security: Plugin sandboxing and security policies
+// - builtin: Built-in plugin registry
+// Tracked in: plugin system redesign work
 
 // Temporary stub implementations to allow compilation
 // These need to be properly implemented when rebuilding the plugin system

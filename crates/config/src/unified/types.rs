@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Unified Configuration Types
 //!
 //! This module defines the canonical configuration structure for the entire
@@ -29,7 +32,7 @@ use super::TimeoutConfig;
 ///
 /// # Example Usage
 ///
-/// ```rust,no_run
+/// ```ignore
 /// use squirrel_mcp_config::unified::{SquirrelUnifiedConfig, ConfigLoader};
 ///
 /// // Load complete configuration
@@ -283,7 +286,7 @@ pub struct AiProvidersConfig {
     #[serde(default)]
     pub providers: HashMap<String, ProviderConfig>,
 
-    /// Enable local providers (Ollama, LlamaCpp, etc.)
+    /// Enable local providers (any OpenAI-compatible server: Ollama, llama.cpp, vLLM, etc.)
     #[serde(default = "default_true")]
     pub enable_local: bool,
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Workflow Template Engine
 //!
 //! Manages workflow templates for reusable patterns.
@@ -104,7 +107,11 @@ fn validate_parameter_value(param: &TemplateParameter, value: &serde_json::Value
             // Validate string length if specified
             if let Some(validation) = &param.validation {
                 if let Some(min_length) = validation.get("min_length").and_then(|v| v.as_u64()) {
-                    if value.as_str().unwrap().len() < min_length as usize {
+                    let str_value = value.as_str().ok_or_else(|| MCPError::InvalidArgument(format!(
+                        "Parameter '{}' must be a string for length validation",
+                        param.name
+                    )))?;
+                    if str_value.len() < min_length as usize {
                         return Err(MCPError::InvalidArgument(format!(
                             "Parameter '{}' must be at least {} characters",
                             param.name, min_length
@@ -113,7 +120,11 @@ fn validate_parameter_value(param: &TemplateParameter, value: &serde_json::Value
                 }
                 
                 if let Some(max_length) = validation.get("max_length").and_then(|v| v.as_u64()) {
-                    if value.as_str().unwrap().len() > max_length as usize {
+                    let str_value = value.as_str().ok_or_else(|| MCPError::InvalidArgument(format!(
+                        "Parameter '{}' must be a string for length validation",
+                        param.name
+                    )))?;
+                    if str_value.len() > max_length as usize {
                         return Err(MCPError::InvalidArgument(format!(
                             "Parameter '{}' must be at most {} characters",
                             param.name, max_length
@@ -130,7 +141,11 @@ fn validate_parameter_value(param: &TemplateParameter, value: &serde_json::Value
                         ))
                     })?;
                     
-                    if !regex.is_match(value.as_str().unwrap()) {
+                    let str_value = value.as_str().ok_or_else(|| MCPError::InvalidArgument(format!(
+                        "Parameter '{}' must be a string for pattern validation",
+                        param.name
+                    )))?;
+                    if !regex.is_match(str_value) {
                         return Err(MCPError::InvalidArgument(format!(
                             "Parameter '{}' does not match required pattern: {}",
                             param.name, pattern
@@ -150,7 +165,10 @@ fn validate_parameter_value(param: &TemplateParameter, value: &serde_json::Value
             
             // Validate number range if specified
             if let Some(validation) = &param.validation {
-                let num_value = value.as_f64().unwrap();
+                let num_value = value.as_f64().ok_or_else(|| MCPError::InvalidArgument(format!(
+                    "Parameter '{}' must be a number for range validation",
+                    param.name
+                )))?;
                 
                 if let Some(min) = validation.get("min").and_then(|v| v.as_f64()) {
                     if num_value < min {
@@ -191,7 +209,10 @@ fn validate_parameter_value(param: &TemplateParameter, value: &serde_json::Value
             
             // Validate array length if specified
             if let Some(validation) = &param.validation {
-                let arr = value.as_array().unwrap();
+                let arr = value.as_array().ok_or_else(|| MCPError::InvalidArgument(format!(
+                    "Parameter '{}' must be an array for length validation",
+                    param.name
+                )))?;
                 
                 if let Some(min_items) = validation.get("min_items").and_then(|v| v.as_u64()) {
                     if arr.len() < min_items as usize {

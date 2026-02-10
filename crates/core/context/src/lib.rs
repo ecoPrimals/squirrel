@@ -1,6 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context Management Module
 //!
 //! This module provides context management functionality for the application.
+
+#![deny(unsafe_code)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::missing_docs_in_private_items)]
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

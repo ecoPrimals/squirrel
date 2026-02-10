@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! CLI Commands module
 //!
 //! This module provides command handling for the CLI interface.
@@ -240,5 +243,125 @@ pub mod error {
         ExecutionFailed(String),
         #[error("Invalid command: {0}")]
         InvalidCommand(String),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // adapter tests
+    #[test]
+    fn test_command_adapter_new() {
+        let adapter = adapter::CommandAdapter::new();
+        assert!(adapter.state.is_empty());
+    }
+
+    #[test]
+    fn test_command_adapter_default() {
+        let adapter = adapter::CommandAdapter::default();
+        assert!(adapter.state.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_command_adapter_execute() {
+        use adapter::CommandAdapterTrait;
+        let adapter = adapter::CommandAdapter::new();
+        let result = adapter.execute("test", &[]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Command executed");
+    }
+
+    // adapter::registry tests
+    #[test]
+    fn test_command_registry_adapter_new() {
+        let adapter = adapter::registry::CommandRegistryAdapter::new();
+        assert!(adapter.state.is_empty());
+    }
+
+    #[test]
+    fn test_command_registry_adapter_default() {
+        let adapter = adapter::registry::CommandRegistryAdapter::default();
+        assert!(adapter.state.is_empty());
+    }
+
+    // adapter::error tests
+    #[test]
+    fn test_adapter_error_display() {
+        let err = adapter::error::AdapterError::ExecutionFailed("fail".to_string());
+        assert_eq!(err.to_string(), "Command execution failed: fail");
+
+        let err = adapter::error::AdapterError::InvalidCommand("bad".to_string());
+        assert_eq!(err.to_string(), "Invalid command: bad");
+    }
+
+    // context tests
+    #[test]
+    fn test_command_context_new() {
+        let ctx = context::CommandContext::new();
+        assert!(ctx.state.is_empty());
+    }
+
+    #[test]
+    fn test_command_context_default() {
+        let ctx = context::CommandContext::default();
+        assert!(ctx.state.is_empty());
+    }
+
+    // executor tests
+    #[test]
+    fn test_execution_context_new() {
+        let ctx = executor::ExecutionContext::new();
+        assert!(ctx.state.is_empty());
+    }
+
+    #[test]
+    fn test_execution_context_default() {
+        let ctx = executor::ExecutionContext::default();
+        assert!(ctx.state.is_empty());
+    }
+
+    // registry tests
+    #[test]
+    fn test_command_registry_new() {
+        let reg = registry::CommandRegistry::new();
+        assert!(reg.list_commands().is_empty());
+    }
+
+    #[test]
+    fn test_command_registry_default() {
+        let reg = registry::CommandRegistry::default();
+        assert!(reg.list_commands().is_empty());
+    }
+
+    #[test]
+    fn test_command_registry_execute_not_found() {
+        let reg = registry::CommandRegistry::new();
+        let result = reg.execute("nonexistent", &[]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn test_command_registry_get_command_not_found() {
+        let reg = registry::CommandRegistry::new();
+        assert!(reg.get_command("nonexistent").is_none());
+    }
+
+    // error tests
+    #[test]
+    fn test_command_error_display() {
+        let err = error::CommandError::ExecutionFailed("test".to_string());
+        assert_eq!(err.to_string(), "Command execution failed: test");
+
+        let err = error::CommandError::InvalidCommand("bad cmd".to_string());
+        assert_eq!(err.to_string(), "Invalid command: bad cmd");
+    }
+
+    // register_commands test
+    #[test]
+    fn test_register_commands() {
+        let result = register_commands();
+        assert!(result.is_ok());
     }
 }

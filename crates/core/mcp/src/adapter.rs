@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP Adapter module for dependency injection.
 //!
 //! This module provides an adapter implementation for the Machine Context Protocol (MCP)

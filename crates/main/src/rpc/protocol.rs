@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! RPC Protocol Abstraction
 //!
 //! This module defines the protocol selection layer that allows Squirrel
@@ -18,7 +21,7 @@ use std::fmt;
 ///
 /// Defines which RPC protocol to use for communication.
 /// Supports multiple protocols for gradual evolution and performance optimization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum IpcProtocol {
     /// JSON-RPC 2.0 (text-based, human-readable)
     ///
@@ -26,6 +29,7 @@ pub enum IpcProtocol {
     /// - Backward compatible
     /// - Easy debugging
     /// - Language-agnostic
+    #[default]
     JsonRpc,
 
     /// tarpc (binary, type-safe, high-performance)
@@ -38,12 +42,6 @@ pub enum IpcProtocol {
     /// - Deadline propagation
     #[cfg(feature = "tarpc-rpc")]
     Tarpc,
-}
-
-impl Default for IpcProtocol {
-    fn default() -> Self {
-        Self::JsonRpc
-    }
 }
 
 impl fmt::Display for IpcProtocol {
@@ -67,6 +65,7 @@ impl IpcProtocol {
     /// assert_eq!(IpcProtocol::from_str("jsonrpc"), Some(IpcProtocol::JsonRpc));
     /// assert_eq!(IpcProtocol::from_str("invalid"), None);
     /// ```
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "jsonrpc" | "json-rpc" | "json_rpc" => Some(Self::JsonRpc),

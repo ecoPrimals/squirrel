@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Additional comprehensive tests for service discovery
 //!
 //! These tests expand coverage of service discovery functionality

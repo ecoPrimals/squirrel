@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI Resilience Testing for Squirrel Coordinator
 //!
 //! Simple resilience testing focused on AI coordination scenarios.
@@ -314,4 +317,322 @@ impl Default for AIResilienceCoordinator {
 #[must_use]
 pub fn create_ai_resilience_coordinator() -> AIResilienceCoordinator {
     AIResilienceCoordinator::new()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_coordinator_new() {
+        let coordinator = AIResilienceCoordinator::new();
+        assert!(coordinator.get_test_results().is_empty());
+    }
+
+    #[test]
+    fn test_coordinator_default() {
+        let coordinator = AIResilienceCoordinator::default();
+        assert!(coordinator.get_test_results().is_empty());
+    }
+
+    #[test]
+    fn test_create_ai_resilience_coordinator() {
+        let coordinator = create_ai_resilience_coordinator();
+        assert!(coordinator.get_test_results().is_empty());
+    }
+
+    #[test]
+    fn test_resilience_recommendations() {
+        let coordinator = AIResilienceCoordinator::new();
+        let recs = coordinator.get_resilience_recommendations();
+        assert!(!recs.is_empty());
+        assert!(recs.iter().any(|r| r.contains("circuit breaker")));
+        assert!(recs.iter().any(|r| r.contains("exponential backoff")));
+    }
+
+    #[test]
+    fn test_test_status_serde() {
+        let running = TestStatus::Running;
+        let json = serde_json::to_string(&running).unwrap();
+        let deserialized: TestStatus = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, TestStatus::Running));
+
+        let completed = TestStatus::Completed;
+        let json = serde_json::to_string(&completed).unwrap();
+        let deserialized: TestStatus = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, TestStatus::Completed));
+
+        let cancelled = TestStatus::Cancelled;
+        let json = serde_json::to_string(&cancelled).unwrap();
+        let deserialized: TestStatus = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, TestStatus::Cancelled));
+
+        let failed = TestStatus::Failed {
+            reason: "timeout".to_string(),
+        };
+        let json = serde_json::to_string(&failed).unwrap();
+        let deserialized: TestStatus = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, TestStatus::Failed { .. }));
+    }
+
+    #[test]
+    fn test_resilience_test_type_serde_service_unavailable() {
+        let test_type = AIResilienceTestType::AIServiceUnavailable {
+            service_name: "openai".to_string(),
+            failure_rate: 0.5,
+        };
+        let json = serde_json::to_string(&test_type).unwrap();
+        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            AIResilienceTestType::AIServiceUnavailable {
+                service_name,
+                failure_rate,
+            } => {
+                assert_eq!(service_name, "openai");
+                assert_eq!(failure_rate, 0.5);
+            }
+            _ => panic!("Wrong test type"),
+        }
+    }
+
+    #[test]
+    fn test_resilience_test_type_serde_slow_response() {
+        let test_type = AIResilienceTestType::SlowAIResponse {
+            service_name: "anthropic".to_string(),
+            delay_ms: 5000,
+        };
+        let json = serde_json::to_string(&test_type).unwrap();
+        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            AIResilienceTestType::SlowAIResponse {
+                service_name,
+                delay_ms,
+            } => {
+                assert_eq!(service_name, "anthropic");
+                assert_eq!(delay_ms, 5000);
+            }
+            _ => panic!("Wrong test type"),
+        }
+    }
+
+    #[test]
+    fn test_resilience_test_type_serde_coordination_failure() {
+        let test_type = AIResilienceTestType::CoordinationFailure {
+            affected_primals: vec!["squirrel".to_string(), "songbird".to_string()],
+            failure_type: "network_partition".to_string(),
+        };
+        let json = serde_json::to_string(&test_type).unwrap();
+        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            AIResilienceTestType::CoordinationFailure {
+                affected_primals,
+                failure_type,
+            } => {
+                assert_eq!(affected_primals.len(), 2);
+                assert_eq!(failure_type, "network_partition");
+            }
+            _ => panic!("Wrong test type"),
+        }
+    }
+
+    #[test]
+    fn test_resilience_test_type_serde_circuit_breaker() {
+        let test_type = AIResilienceTestType::CircuitBreakerTest {
+            service_name: "ai-service".to_string(),
+            failure_threshold: 5,
+        };
+        let json = serde_json::to_string(&test_type).unwrap();
+        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            AIResilienceTestType::CircuitBreakerTest {
+                service_name,
+                failure_threshold,
+            } => {
+                assert_eq!(service_name, "ai-service");
+                assert_eq!(failure_threshold, 5);
+            }
+            _ => panic!("Wrong test type"),
+        }
+    }
+
+    #[test]
+    fn test_resilience_test_type_serde_retry_pattern() {
+        let test_type = AIResilienceTestType::RetryPatternTest {
+            service_name: "ml-service".to_string(),
+            max_retries: 3,
+        };
+        let json = serde_json::to_string(&test_type).unwrap();
+        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            AIResilienceTestType::RetryPatternTest {
+                service_name,
+                max_retries,
+            } => {
+                assert_eq!(service_name, "ml-service");
+                assert_eq!(max_retries, 3);
+            }
+            _ => panic!("Wrong test type"),
+        }
+    }
+
+    #[test]
+    fn test_resilience_test_result_serde() {
+        let result = ResilienceTestResult {
+            test_id: "test-001".to_string(),
+            test_type: AIResilienceTestType::CircuitBreakerTest {
+                service_name: "test".to_string(),
+                failure_threshold: 10,
+            },
+            duration_ms: 500,
+            status: TestStatus::Completed,
+            ai_operations_tested: 50,
+            failures_detected: 2,
+            recovery_time_ms: Some(200),
+            lessons_learned: vec!["Circuit breaker works".to_string()],
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let deserialized: ResilienceTestResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.test_id, "test-001");
+        assert_eq!(deserialized.duration_ms, 500);
+        assert_eq!(deserialized.ai_operations_tested, 50);
+        assert_eq!(deserialized.failures_detected, 2);
+        assert_eq!(deserialized.recovery_time_ms, Some(200));
+        assert_eq!(deserialized.lessons_learned.len(), 1);
+    }
+
+    #[test]
+    fn test_ai_resilience_status_serde() {
+        let status = AIResilienceStatus {
+            overall_healthy: true,
+            security_coordination: "healthy".to_string(),
+            orchestration_coordination: "healthy".to_string(),
+            storage_coordination: "degraded".to_string(),
+            compute_coordination: "healthy".to_string(),
+            active_tests_count: 2,
+            last_check: chrono::Utc::now(),
+        };
+        let json = serde_json::to_string(&status).unwrap();
+        let deserialized: AIResilienceStatus = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.overall_healthy);
+        assert_eq!(deserialized.security_coordination, "healthy");
+        assert_eq!(deserialized.storage_coordination, "degraded");
+        assert_eq!(deserialized.active_tests_count, 2);
+    }
+
+    #[tokio::test]
+    async fn test_start_ai_resilience_test() {
+        let coordinator = AIResilienceCoordinator::new();
+        let test_type = AIResilienceTestType::AIServiceUnavailable {
+            service_name: "test-service".to_string(),
+            failure_rate: 0.3,
+        };
+        let test_id = coordinator
+            .start_ai_resilience_test(test_type, Duration::from_secs(10))
+            .await
+            .unwrap();
+        assert!(!test_id.is_empty());
+
+        let active = coordinator.get_active_tests().await;
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].test_id, test_id);
+        assert!(matches!(active[0].status, TestStatus::Running));
+    }
+
+    #[tokio::test]
+    async fn test_start_multiple_resilience_tests() {
+        let coordinator = AIResilienceCoordinator::new();
+
+        let t1 = coordinator
+            .start_ai_resilience_test(
+                AIResilienceTestType::SlowAIResponse {
+                    service_name: "s1".to_string(),
+                    delay_ms: 1000,
+                },
+                Duration::from_secs(5),
+            )
+            .await
+            .unwrap();
+
+        let t2 = coordinator
+            .start_ai_resilience_test(
+                AIResilienceTestType::RetryPatternTest {
+                    service_name: "s2".to_string(),
+                    max_retries: 3,
+                },
+                Duration::from_secs(5),
+            )
+            .await
+            .unwrap();
+
+        assert_ne!(t1, t2);
+        let active = coordinator.get_active_tests().await;
+        assert_eq!(active.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_stop_resilience_test() {
+        let mut coordinator = AIResilienceCoordinator::new();
+        let test_type = AIResilienceTestType::CircuitBreakerTest {
+            service_name: "test".to_string(),
+            failure_threshold: 5,
+        };
+        let test_id = coordinator
+            .start_ai_resilience_test(test_type, Duration::from_secs(10))
+            .await
+            .unwrap();
+
+        let result = coordinator.stop_resilience_test(&test_id).await.unwrap();
+        assert_eq!(result.test_id, test_id);
+        assert!(matches!(result.status, TestStatus::Completed));
+        assert_eq!(result.ai_operations_tested, 25);
+        assert_eq!(result.failures_detected, 3);
+        assert_eq!(result.recovery_time_ms, Some(150));
+        assert!(!result.lessons_learned.is_empty());
+
+        // Should be removed from active tests
+        let active = coordinator.get_active_tests().await;
+        assert!(active.is_empty());
+
+        // Should be in results history
+        assert_eq!(coordinator.get_test_results().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_stop_nonexistent_test() {
+        let mut coordinator = AIResilienceCoordinator::new();
+        let result = coordinator.stop_resilience_test("nonexistent-id").await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn test_quick_ai_resilience_check() {
+        let coordinator = AIResilienceCoordinator::new();
+        let status = coordinator.quick_ai_resilience_check().await;
+
+        assert!(status.overall_healthy);
+        assert_eq!(status.security_coordination, "healthy");
+        assert_eq!(status.orchestration_coordination, "healthy");
+        assert_eq!(status.storage_coordination, "healthy");
+        assert_eq!(status.compute_coordination, "healthy");
+        assert_eq!(status.active_tests_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_quick_resilience_check_with_active_tests() {
+        let coordinator = AIResilienceCoordinator::new();
+        coordinator
+            .start_ai_resilience_test(
+                AIResilienceTestType::AIServiceUnavailable {
+                    service_name: "test".to_string(),
+                    failure_rate: 0.5,
+                },
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+
+        let status = coordinator.quick_ai_resilience_check().await;
+        assert_eq!(status.active_tests_count, 1);
+    }
 }

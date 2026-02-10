@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Analysis structures for error, throughput, and latency analysis
 
 use std::collections::HashMap;

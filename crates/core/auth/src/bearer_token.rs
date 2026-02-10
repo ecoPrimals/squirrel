@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use crate::{AuthContext, AuthError, Permission};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -6,10 +9,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct BearerToken {
     pub id: Uuid,
+    #[zeroize(drop)]
     pub token: String,
     pub user_id: Uuid,
     pub username: String,

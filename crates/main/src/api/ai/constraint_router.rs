@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Constraint-based provider selection
+#![allow(dead_code)] // Public API surface awaiting consumer activation
 //!
 //! Applies routing constraints to filter and score providers.
 

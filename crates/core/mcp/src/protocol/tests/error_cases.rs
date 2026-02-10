@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error case tests for MCP protocol
 //!
 //! These tests verify proper error handling and edge cases in the protocol implementation.

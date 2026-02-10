@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for zero-copy string utilities
 
 #[cfg(test)]
@@ -95,8 +98,8 @@ mod tests {
         // All common providers should be cached
         assert!(strings.contains("openai"));
         assert!(strings.contains("anthropic"));
-        assert!(strings.contains("ollama"));
         assert!(strings.contains("local"));
+        assert!(strings.contains("local-server"));
     }
 
     #[test]

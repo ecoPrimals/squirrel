@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Active Span Management
 //!
 //! This module provides the ActiveSpan wrapper that manages the lifecycle

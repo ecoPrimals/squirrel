@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
@@ -340,7 +343,8 @@ impl Message {
         };
 
         // Extract payload as content string (assuming JSON - potentially lossy)
-        // TODO: Review payload handling - should content be Value or handle binary?
+        // FUTURE: [Protocol-Spec] Review payload handling - should content be Value or handle binary?
+        // Tracking: Requires MCP protocol specification review
         let content = serde_json::to_string(&message.payload).unwrap_or_else(|_| "{}".to_string());
 
         // Extract metadata from MCPMessage.metadata (Option<Value>)
@@ -354,18 +358,22 @@ impl Message {
         }
 
         // Extract other fields. 
-        // TODO: Review source/destination mapping based on specs. Should it come from metadata or security context?
+        // FUTURE: [Protocol-Spec] Review source/destination mapping based on specs. Should it come from metadata or security context?
+        // Tracking: Requires MCP protocol specification review
         let source = metadata_map.get("source").cloned().unwrap_or_else(|| "unknown_source".to_string());
         let destination = metadata_map.get("destination").cloned().unwrap_or_else(|| "unknown_destination".to_string());
-        // TODO: Review in_reply_to logic. Should only be set if explicitly present?
+        // FUTURE: [Protocol-Spec] Review in_reply_to logic. Should only be set if explicitly present?
+        // Tracking: Requires MCP protocol specification review
         let in_reply_to = metadata_map.get("in_reply_to").cloned(); // Attempt to get from metadata, no fallback for now.
 
         Ok(Self {
             id: message.id.0.clone(),
             message_type,
-            priority: MessagePriority::Normal, // TODO: Map priority if available in MCPMessage
+            priority: MessagePriority::Normal, // FUTURE: [Protocol-Spec] Map priority if available in MCPMessage
+            // Tracking: Requires MCP protocol specification review
             content,
-            binary_payload: None, // TODO: Handle binary payload if needed
+            binary_payload: None, // FUTURE: [Protocol-Spec] Handle binary payload if needed
+            // Tracking: Requires MCP protocol specification review
             timestamp: message.timestamp, // Use timestamp from MCPMessage
             in_reply_to, // Use extracted value (or None)
             source,

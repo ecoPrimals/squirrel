@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Fast-Path Serialization Codecs
 //!
 //! This module provides optimized serialization codecs for specific message types

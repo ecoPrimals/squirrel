@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! tarpc Transport Adapter
 //!
 //! Bridges UniversalTransport (AsyncRead + AsyncWrite) to tarpc's
@@ -16,7 +19,7 @@
 //!     tarpc Server
 //! ```
 
-#![cfg(feature = "tarpc-rpc")]
+// Note: This module is feature-gated via #[cfg(feature = "tarpc-rpc")] in mod.rs
 
 use anyhow::Result;
 use bytes::{Bytes, BytesMut};
@@ -114,13 +117,10 @@ impl Sink<Bytes> for TarpcTransportAdapter {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
     #[tokio::test]
     async fn test_transport_adapter_creation() {
         // Create an in-memory transport for testing
-        let (client, _server) = tokio::io::duplex(1024);
+        let (_client, _server) = tokio::io::duplex(1024);
 
         // Note: We can't easily create a UniversalTransport for testing
         // without the full infrastructure, so this test is more conceptual

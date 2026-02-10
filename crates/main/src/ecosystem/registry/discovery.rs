@@ -1,5 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Service discovery operations for the ecosystem registry
 
+#[allow(deprecated)] // EcosystemPrimalType is deprecated but needed for backward compatibility
 use super::types::{intern_registry_string, DiscoveredService, ServiceHealthStatus};
 use crate::EcosystemPrimalType;
 use std::collections::HashMap;
@@ -507,9 +512,12 @@ mod tests {
     // Tests for build_service_endpoint (indirectly through discover_services)
     #[test]
     #[allow(deprecated)]
+    #[serial_test::serial]
     fn test_build_service_endpoint_uses_env_var() {
         // Set environment variable
         std::env::set_var("SQUIRREL_ENDPOINT", "http://custom.squirrel");
+        // Clean potential interfering vars
+        std::env::remove_var("SERVICE_DISCOVERY_URL");
 
         let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Squirrel);
         assert_eq!(endpoint, "http://custom.squirrel");
@@ -520,6 +528,7 @@ mod tests {
 
     #[test]
     #[allow(deprecated)]
+    #[serial_test::serial]
     fn test_build_service_endpoint_uses_service_discovery() {
         // Set SERVICE_DISCOVERY_URL
         std::env::set_var("SERVICE_DISCOVERY_URL", "http://discovery.local");
@@ -534,6 +543,7 @@ mod tests {
 
     #[test]
     #[allow(deprecated)]
+    #[serial_test::serial]
     fn test_build_service_endpoint_falls_back_to_default() {
         // Ensure no environment variables are set
         std::env::remove_var("BEARDOG_ENDPOINT");

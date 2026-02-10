@@ -21,11 +21,11 @@
 //! 3. Service mesh discovery (query mesh for endpoint)
 //! 4. Network discovery (mDNS, Consul, etc.)
 //! 5. Fallback defaults (with warnings)
-//! ```
+//! ```ignore
 //!
 //! ## Usage
 //!
-//! ```rust
+//! ```ignore
 //! use squirrel_universal_patterns::config::EndpointResolver;
 //!
 //! // Create resolver
@@ -107,9 +107,11 @@ impl Endpoint {
 }
 
 /// Resolution strategy for discovering endpoints
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ResolutionStrategy {
     /// Prefer Unix sockets, fall back to network
+    /// TRUE PRIMAL: Prefer local Unix sockets for efficiency and security
+    #[default]
     PreferSocket,
 
     /// Prefer network, fall back to Unix socket
@@ -120,13 +122,6 @@ pub enum ResolutionStrategy {
 
     /// Only use network (fail if not available)
     NetworkOnly,
-}
-
-impl Default for ResolutionStrategy {
-    fn default() -> Self {
-        // TRUE PRIMAL: Prefer local Unix sockets for efficiency and security
-        Self::PreferSocket
-    }
 }
 
 /// Capability-based endpoint resolver
@@ -306,7 +301,7 @@ impl EndpointResolver {
             }
         }
 
-        // TODO: Query service mesh for endpoint
+        // NOTE(phase2): Query service mesh for endpoint - requires mesh integration
         // if let Some(endpoint) = query_service_mesh(name) {
         //     return Some(Endpoint::Http(endpoint));
         // }

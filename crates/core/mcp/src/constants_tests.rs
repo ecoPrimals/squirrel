@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for MCP constants module
 //!
 //! Testing deprecated constants to ensure they work during migration period.

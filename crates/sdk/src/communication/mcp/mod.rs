@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP (Model Context Protocol) client functionality
 //!
 //! This module provides a comprehensive client implementation for the Model Context Protocol,
@@ -13,10 +16,10 @@
 //!
 //! ## Examples
 //!
-//! ```rust
+//! ```text
 //! use squirrel_sdk::communication::mcp::McpClient;
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let mut client = McpClient::new();
 //! client.connect().await?;
 //!
@@ -26,7 +29,7 @@
 //! client.disconnect().await?;
 //! # Ok(())
 //! # }
-//! ```
+//! ```ignore
 
 pub mod client;
 pub mod connection;

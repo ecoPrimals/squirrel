@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Zero-Copy Optimizations for BiomeOS Integration
 //!
 //! This module provides zero-copy string handling for BiomeOS service identifiers,

@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Squirrel Provider Implementation
+#![allow(dead_code)] // Provider implementation used at ecosystem runtime
 //!
 //! This module provides the implementation of the ecosystem-api `UniversalPrimalProvider`
 //! and `EcosystemIntegration` traits for the Squirrel AI primal.
@@ -88,10 +92,7 @@ impl UniversalSquirrelProvider {
         })
     }
 
-    /// Set BiomeOS client - removed (HTTP-based, use capability discovery)
-    // pub fn set_biomeos_client(&mut self, client: Arc<crate::biomeos_integration::EcosystemClient>) {
-    //     self.biomeos_client = Some(client);
-    // }
+    // BiomeOS client removed — use capability discovery instead
 
     /// Set session manager
     pub fn set_session_manager(&mut self, manager: Arc<RwLock<SessionManagerImpl>>) {
@@ -260,9 +261,9 @@ impl UniversalSquirrelProvider {
                     "context_awareness".to_string(),
                     "session_management".to_string(),
                 ],
-                // Note: These are example integrations for demo/test purposes
-                // Production: Discover integrations dynamically via UniversalAdapterV2
-                integrations: vec!["nestgate".to_string(), "toadstool".to_string()],
+                // Integrations are discovered dynamically at runtime via capability discovery
+                // No hardcoded primal names -- only capability domains
+                integrations: vec!["storage".to_string(), "compute".to_string()],
             },
             endpoints: ServiceEndpoints {
                 health: format!(

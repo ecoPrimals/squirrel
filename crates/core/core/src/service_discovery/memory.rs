@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! In-memory service discovery implementation
 //!
 //! This module provides a simple in-memory implementation of the service discovery

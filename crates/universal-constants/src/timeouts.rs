@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Timeout and Duration Constants
 //!
 //! All timeout values used throughout the Squirrel system, consolidated from:
@@ -131,6 +134,7 @@ pub const fn duration_to_secs(duration: Duration) -> u64 {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
 
@@ -149,14 +153,37 @@ mod tests {
     }
 
     #[test]
+    fn test_health_check_and_monitoring() {
+        assert_eq!(DEFAULT_HEALTH_CHECK_INTERVAL.as_secs(), 30);
+        assert_eq!(DEFAULT_MONITORING_INTERVAL.as_secs(), 60);
+    }
+
+    #[test]
     fn test_retry_values() {
         assert_eq!(DEFAULT_INITIAL_DELAY.as_secs(), 1);
         assert_eq!(DEFAULT_RETRY_DELAY.as_secs(), 5);
     }
 
     #[test]
+    fn test_database_timeout() {
+        assert_eq!(DEFAULT_DATABASE_TIMEOUT.as_secs(), 30);
+    }
+
+    #[test]
+    fn test_legacy_ms_values() {
+        assert_eq!(DEFAULT_CONNECTION_TIMEOUT_MS, 30_000);
+        assert_eq!(DEFAULT_REQUEST_TIMEOUT_MS, 60_000);
+        assert_eq!(DEFAULT_OPERATION_TIMEOUT_MS, 10_000);
+        assert_eq!(DEFAULT_HEARTBEAT_INTERVAL_MS, 30_000);
+        assert_eq!(DEFAULT_INITIAL_DELAY_MS, 1_000);
+        assert_eq!(DEFAULT_RETRY_DELAY_MS, 5_000);
+    }
+
+    #[test]
     fn test_duration_helpers() {
         assert_eq!(duration_to_millis(DEFAULT_CONNECTION_TIMEOUT), 30_000);
         assert_eq!(duration_to_secs(DEFAULT_CONNECTION_TIMEOUT), 30);
+        assert_eq!(duration_to_millis(DEFAULT_OPERATION_TIMEOUT), 10_000);
+        assert_eq!(duration_to_secs(DEFAULT_REQUEST_TIMEOUT), 60);
     }
 }

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Core security monitoring types
+#![allow(dead_code)] // Security monitoring types awaiting activation
 //!
 //! This module contains the fundamental types used throughout the security
 //! monitoring system, including events, severity levels, and patterns.

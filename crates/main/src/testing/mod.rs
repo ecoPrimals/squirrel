@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Testing utilities for Squirrel main crate
 //!
 //! This module provides comprehensive testing utilities including:

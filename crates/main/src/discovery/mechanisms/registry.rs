@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+#![allow(dead_code)] // Discovery infrastructure awaiting activation
+
 //! Service Registry discovery mechanism
 //!
 //! **DEPRECATED**: This module uses hardcoded vendor-specific registry types.
@@ -195,6 +200,7 @@ impl RegistryDiscovery {
     /// * `capabilities` - Capabilities/tags
     /// * `health_endpoint` - Health check endpoint (optional)
     /// * `metadata` - Additional metadata
+    #[allow(clippy::too_many_arguments)]
     pub async fn register_service(
         &self,
         service_id: &str,

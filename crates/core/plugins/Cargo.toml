@@ -34,7 +34,8 @@ log = "0.4"
 
 # Version management and synchronization (CRITICAL FIX: Missing dependencies)
 semver = "1.0"
-once_cell = "1.0"
+# once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
+dashmap = "5.0"
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }

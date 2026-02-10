@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Simple Security Coordination Traits
 //!
 //! Focused on coordinating with `BearDog` for security operations.

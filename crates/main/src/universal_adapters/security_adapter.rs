@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Security Adapter
 //!
 //! Capability-based security coordination that can work with `BearDog` or any
@@ -52,7 +55,7 @@ impl UniversalSecurityAdapter {
         })?;
 
         // Create universal request
-        let request = UniversalRequest {
+        let _request = UniversalRequest {
             request_id: uuid::Uuid::new_v4().to_string(),
             operation: operation.to_string(),
             parameters,
@@ -300,9 +303,9 @@ pub async fn register_beardog_service(
             load_balancing_weight: 10,
         },
         extensions: HashMap::from([
-            // Note: This is registry metadata, not a hardcoded dependency
+            // Provider domain (capability-based, not primal-specific)
             // The actual provider is discovered dynamically at runtime
-            ("primal_type".to_string(), serde_json::json!("beardog")),
+            ("provider_domain".to_string(), serde_json::json!("security")),
             (
                 "ecosystem_role".to_string(),
                 serde_json::json!("security_provider"),

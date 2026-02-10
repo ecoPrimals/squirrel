@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Service Discovery Engine Implementation
 //!
 //! This module contains the service discovery engine for finding and managing services.

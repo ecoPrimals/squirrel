@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 /// State Synchronization Module
 ///
 /// This module provides mechanisms for synchronizing state between primary

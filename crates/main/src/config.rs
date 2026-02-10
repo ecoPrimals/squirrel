@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Squirrel Configuration Module
 //!
 //! Provides configuration loading with hierarchical precedence:
@@ -280,5 +283,167 @@ mod tests {
         assert!(toml.contains("[ai]"));
         assert!(toml.contains("[logging]"));
         assert!(toml.contains("[discovery]"));
+    }
+
+    #[test]
+    fn test_default_server_config() {
+        let server = ServerConfig::default();
+        assert_eq!(server.bind, "0.0.0.0");
+        assert_eq!(server.port, 9010);
+        assert!(!server.daemon);
+        assert_eq!(server.max_connections, 100);
+        assert_eq!(server.request_timeout_secs, 30);
+        assert!(server.socket.is_none());
+    }
+
+    #[test]
+    fn test_default_ai_config() {
+        let ai = AiConfig::default();
+        assert!(ai.enabled);
+        assert!(ai.provider_sockets.is_none());
+        assert!(ai.enable_retry);
+        assert_eq!(ai.max_retries, 2);
+    }
+
+    #[test]
+    fn test_default_logging_config() {
+        let logging = LoggingConfig::default();
+        assert_eq!(logging.level, "info");
+        assert!(!logging.json);
+        assert!(logging.file.is_none());
+    }
+
+    #[test]
+    fn test_default_discovery_config() {
+        let discovery = DiscoveryConfig::default();
+        assert!(discovery.announce_capabilities);
+        assert!(discovery
+            .capabilities
+            .contains(&"ai.text_generation".to_string()));
+        assert!(discovery
+            .capabilities
+            .contains(&"ai.image_generation".to_string()));
+        assert!(discovery.capabilities.contains(&"ai.routing".to_string()));
+        assert!(discovery
+            .capabilities
+            .contains(&"tool.orchestration".to_string()));
+        assert!(discovery.registry_socket.is_none());
+    }
+
+    #[test]
+    fn test_config_json_roundtrip() {
+        let config = SquirrelConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: SquirrelConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.server.port, config.server.port);
+        assert_eq!(deserialized.server.bind, config.server.bind);
+        assert_eq!(deserialized.ai.enabled, config.ai.enabled);
+        assert_eq!(deserialized.logging.level, config.logging.level);
+    }
+
+    #[test]
+    fn test_config_toml_roundtrip() {
+        let config = SquirrelConfig::default();
+        let toml_str = toml::to_string(&config).unwrap();
+        let deserialized: SquirrelConfig = toml::from_str(&toml_str).unwrap();
+        assert_eq!(deserialized.server.port, config.server.port);
+        assert_eq!(deserialized.ai.max_retries, config.ai.max_retries);
+    }
+
+    /// Helper to clear all squirrel config env vars to prevent cross-test interference
+    fn clear_squirrel_env_vars() {
+        for var in &[
+            "SQUIRREL_SOCKET",
+            "SQUIRREL_BIND",
+            "SQUIRREL_PORT",
+            "SQUIRREL_DAEMON",
+            "AI_PROVIDER_SOCKETS",
+            "SQUIRREL_AI_ENABLED",
+            "SQUIRREL_LOG_LEVEL",
+            "SQUIRREL_LOG_JSON",
+            "SQUIRREL_REGISTRY_SOCKET",
+        ] {
+            std::env::remove_var(var);
+        }
+    }
+
+    #[test]
+    fn test_env_overrides_all() {
+        // Combined into a single test to prevent env var races between parallel tests.
+        // apply_env_overrides reads ALL env vars at once, so parallel tests that set
+        // different env vars (e.g. SQUIRREL_PORT="not-a-number") can break each other.
+        clear_squirrel_env_vars();
+
+        // --- Server overrides ---
+        std::env::set_var("SQUIRREL_SOCKET", "/tmp/test-squirrel.sock");
+        std::env::set_var("SQUIRREL_BIND", "127.0.0.1");
+        std::env::set_var("SQUIRREL_PORT", "9999");
+        std::env::set_var("SQUIRREL_DAEMON", "true");
+
+        let mut config = SquirrelConfig::default();
+        ConfigLoader::apply_env_overrides(&mut config).unwrap();
+        assert_eq!(
+            config.server.socket.as_deref(),
+            Some("/tmp/test-squirrel.sock")
+        );
+        assert_eq!(config.server.bind, "127.0.0.1");
+        assert_eq!(config.server.port, 9999);
+        assert!(config.server.daemon);
+        clear_squirrel_env_vars();
+
+        // --- AI overrides ---
+        std::env::set_var("AI_PROVIDER_SOCKETS", "/tmp/ai1.sock,/tmp/ai2.sock");
+        std::env::set_var("SQUIRREL_AI_ENABLED", "false");
+
+        let mut config = SquirrelConfig::default();
+        ConfigLoader::apply_env_overrides(&mut config).unwrap();
+        assert_eq!(
+            config.ai.provider_sockets.as_deref(),
+            Some("/tmp/ai1.sock,/tmp/ai2.sock")
+        );
+        assert!(!config.ai.enabled);
+        clear_squirrel_env_vars();
+
+        // --- Logging overrides ---
+        std::env::set_var("SQUIRREL_LOG_LEVEL", "debug");
+        std::env::set_var("SQUIRREL_LOG_JSON", "true");
+
+        let mut config = SquirrelConfig::default();
+        ConfigLoader::apply_env_overrides(&mut config).unwrap();
+        assert_eq!(config.logging.level, "debug");
+        assert!(config.logging.json);
+        clear_squirrel_env_vars();
+
+        // --- Discovery overrides ---
+        std::env::set_var("SQUIRREL_REGISTRY_SOCKET", "/tmp/registry.sock");
+
+        let mut config = SquirrelConfig::default();
+        ConfigLoader::apply_env_overrides(&mut config).unwrap();
+        assert_eq!(
+            config.discovery.registry_socket.as_deref(),
+            Some("/tmp/registry.sock")
+        );
+        clear_squirrel_env_vars();
+
+        // --- Invalid port ---
+        std::env::set_var("SQUIRREL_PORT", "not-a-number");
+        let mut config = SquirrelConfig::default();
+        let result = ConfigLoader::apply_env_overrides(&mut config);
+        clear_squirrel_env_vars();
+        assert!(result.is_err());
+
+        // --- Invalid daemon ---
+        std::env::set_var("SQUIRREL_DAEMON", "not-a-bool");
+        let mut config = SquirrelConfig::default();
+        let result = ConfigLoader::apply_env_overrides(&mut config);
+        clear_squirrel_env_vars();
+        assert!(result.is_err());
+
+        // --- Load defaults when no file ---
+        // This must be in the same sequential test because ConfigLoader::load()
+        // calls apply_env_overrides internally, so parallel env var changes break it.
+        clear_squirrel_env_vars();
+        let config = ConfigLoader::load(None).unwrap();
+        assert_eq!(config.server.port, 9010);
     }
 }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core types and data structures for comprehensive cleanup system.
 //!
 //! This module defines the fundamental data structures used throughout the 

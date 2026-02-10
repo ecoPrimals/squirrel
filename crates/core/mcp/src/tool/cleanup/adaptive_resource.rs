@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -175,8 +178,8 @@ impl AdaptiveResourceManager {
 
             // Calculate trend
             let trend = if type_history.len() > 1 {
-                let first = type_history.first().unwrap().usage.parse::<f64>().unwrap_or(0.0);
-                let last = type_history.last().unwrap().usage.parse::<f64>().unwrap_or(0.0);
+                let first = type_history.first().expect("type_history checked non-empty").usage.parse::<f64>().unwrap_or(0.0);
+                let last = type_history.last().expect("type_history checked non-empty").usage.parse::<f64>().unwrap_or(0.0);
                 (last - first) / USAGE_HISTORY_WINDOW as f64
             } else {
                 0.0
@@ -186,7 +189,8 @@ impl AdaptiveResourceManager {
             new_patterns.insert(*resource_type, ResourcePattern {
                 average_usage,
                 trend,
-                seasonality: None, // TODO: Implement seasonality detection
+                seasonality: None, // FUTURE: [Feature] Implement seasonality detection
+                // Tracking: Planned for v0.2.0 - advanced resource pattern analysis
                 last_update: Utc::now(),
             });
         }

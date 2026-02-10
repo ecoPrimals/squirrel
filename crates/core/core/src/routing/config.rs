@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Routing configuration for MCP task routing
 //!
 //! This module contains all configuration structures and enums for the MCP routing service,

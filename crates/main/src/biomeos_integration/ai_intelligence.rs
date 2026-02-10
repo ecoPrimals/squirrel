@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # AI Capabilities for biomeOS Integration
 //!
 //! This module provides AI-powered capabilities for ecosystem intelligence,

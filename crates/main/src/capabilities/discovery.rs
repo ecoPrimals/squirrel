@@ -1,7 +1,24 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Capability Discovery - TRUE PRIMAL Infant Pattern
 //!
 //! Discovers capabilities at runtime with ZERO hardcoded primal names.
 //! Deploy like an infant - knows nothing, discovers everything.
+//!
+//! ## Discovery Protocol
+//!
+//! This module sends `{"method":"discover_capabilities"}` JSON-RPC probes
+//! to sockets during scanning. Any primal that responds with its capabilities
+//! list can be discovered. Squirrel's own JSON-RPC server also handles
+//! this method (see `jsonrpc_server.rs` - `handle_discover_capabilities`),
+//! making Squirrel discoverable by other primals.
+//!
+//! ## Songbird Alignment (Feb 9, 2026)
+//!
+//! Once Songbird implements its own `discover_capabilities` handler,
+//! Squirrel will auto-discover Songbird's `http.request` capability
+//! without needing the `HTTP_REQUEST_PROVIDER_SOCKET` env var bypass.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -82,8 +99,7 @@ pub async fn discover_capability(capability: &str) -> Result<CapabilityProvider,
     }
 
     // Method 2: Query capability registry (instant, event-driven!)
-    // BIOME OS FIX (Jan 20, 2026): Registry BEFORE socket scan for speed
-    // Registry query is <1ms vs socket scan 2s+ timeout
+    // Registry query first: <1ms vs socket scan 2s+ timeout
     if let Some(provider) = try_registry_query(capability).await? {
         info!("✅ Found {} via capability registry", capability);
         return Ok(provider);
@@ -105,7 +121,7 @@ pub async fn discover_capability(capability: &str) -> Result<CapabilityProvider,
 /// Format: CAPABILITY_NAME_PROVIDER_SOCKET=/path/to/socket
 /// Example: CRYPTO_SIGNING_PROVIDER_SOCKET=/tmp/provider.sock
 ///
-/// BIOME OS FIX (Jan 27, 2026): Trust explicit env vars without probing.
+/// Trust explicit env vars without probing.
 /// Not all primals implement discover_capabilities, and operators know
 /// what they're configuring. Skip the probe and trust the env var.
 async fn try_explicit_env(capability: &str) -> Result<Option<CapabilityProvider>, DiscoveryError> {
@@ -141,13 +157,13 @@ async fn try_explicit_env(capability: &str) -> Result<Option<CapabilityProvider>
 
 /// Scan socket directory for capability providers
 ///
-/// TRUE PRIMAL: Scans all sockets, probes each to ask what it provides
-/// BIOME OS FIX: Added overall timeout to prevent infinite hangs
+/// TRUE PRIMAL: Scans all sockets, probes each to ask what it provides.
+/// Uses overall timeout to prevent infinite hangs during socket scanning.
 async fn try_socket_scan(capability: &str) -> Result<Option<CapabilityProvider>, DiscoveryError> {
     // Get socket directory from environment or use default
     let socket_dirs = get_socket_directories();
 
-    // BIOME OS FIX: Total scan timeout of 5 seconds (was unlimited)
+    // Total scan timeout of 5 seconds
     let scan_result = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         for socket_dir in socket_dirs {
             debug!("Scanning socket directory: {:?}", socket_dir);
@@ -204,7 +220,7 @@ async fn try_registry_query(
         // Standard Neural API locations
         let uid = nix::unistd::getuid();
         let paths = [
-            format!("/tmp/neural-api.sock"),
+            "/tmp/neural-api.sock".to_string(),
             format!("/run/user/{}/biomeos/neural-api.sock", uid),
         ];
         paths.into_iter().find(|p| Path::new(p).exists())
@@ -263,7 +279,7 @@ async fn try_registry_query(
 /// Probe a socket to discover what capabilities it provides
 ///
 /// Sends a JSON-RPC discovery request and parses the response
-async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, DiscoveryError> {
+pub async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, DiscoveryError> {
     // Connect to socket
     let stream = UnixStream::connect(socket_path)
         .await
@@ -291,7 +307,7 @@ async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Discover
     let mut reader = BufReader::new(read_half);
     let mut response_line = String::new();
 
-    // BIOME OS FIX: Use 2s timeout per socket (was 500ms)
+    // 2s timeout per socket probe
     match tokio::time::timeout(
         std::time::Duration::from_secs(2),
         reader.read_line(&mut response_line),
@@ -302,7 +318,7 @@ async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Discover
             // Parse JSON-RPC response
             let response: serde_json::Value = serde_json::from_str(&response_line)?;
 
-            // BIOME OS FIX: Handle JSON-RPC error responses gracefully!
+            // Handle JSON-RPC error responses gracefully
             if let Some(error) = response.get("error") {
                 debug!(
                     "Socket {:?} returned JSON-RPC error: {} (code: {})",
@@ -390,7 +406,7 @@ async fn query_registry(
     let mut reader = BufReader::new(read_half);
     let mut response_line = String::new();
 
-    // BIOME OS FIX (Jan 27, 2026): Add timeout to prevent hangs
+    // Timeout to prevent hangs on unresponsive sockets
     match tokio::time::timeout(
         std::time::Duration::from_secs(2),
         reader.read_line(&mut response_line),
@@ -572,82 +588,114 @@ pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<Capabilit
 // - Nest Atomic: Tower + NestGate
 // - Full NUCLEUS: All primals
 
-/// Discover Songbird primal (network, discovery, TLS capabilities)
+/// Discover network/service mesh capability provider
+///
+/// **DEPRECATED**: Use `discover_capability("network")` instead for TRUE PRIMAL compliance.
+/// This function is maintained for backward compatibility only.
 ///
 /// ## Discovery Order
-/// 1. `SONGBIRD_SOCKET` environment variable
-/// 2. `/run/user/<uid>/biomeos/songbird.sock` (standard path)
+/// 1. `NETWORK_PROVIDER_SOCKET` or `SONGBIRD_SOCKET` environment variable
+/// 2. `/run/user/<uid>/biomeos/network.sock` or `/run/user/<uid>/biomeos/songbird.sock` (standard path)
 /// 3. Socket scan fallback (slow)
 ///
 /// ## Example
 /// ```no_run
-/// # use squirrel::capabilities::discovery::discover_songbird;
+/// # use squirrel::capabilities::discovery::discover_capability;
 /// # async fn example() -> anyhow::Result<()> {
-/// let songbird = discover_songbird().await?;
-/// println!("Found Songbird at: {:?}", songbird.socket);
+/// // TRUE PRIMAL: Discover by capability, not primal name
+/// let network_provider = discover_capability("network").await?;
+/// println!("Found network provider at: {:?}", network_provider.socket);
 /// # Ok(())
 /// # }
 /// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use discover_capability(\"network\") instead for capability-based discovery"
+)]
 pub async fn discover_songbird() -> Result<CapabilityProvider, DiscoveryError> {
     discover_standard_primal("songbird", &["network", "discovery", "tls"]).await
 }
 
-/// Discover BearDog primal (security, crypto, JWT capabilities)
+/// Discover security capability provider
+///
+/// **DEPRECATED**: Use `discover_capability("security")` instead for TRUE PRIMAL compliance.
+/// This function is maintained for backward compatibility only.
 ///
 /// ## Discovery Order
-/// 1. `BEARDOG_SOCKET` environment variable
-/// 2. `/run/user/<uid>/biomeos/beardog.sock` (standard path)
+/// 1. `SECURITY_PROVIDER_SOCKET` or `BEARDOG_SOCKET` environment variable
+/// 2. `/run/user/<uid>/biomeos/security.sock` or `/run/user/<uid>/biomeos/beardog.sock` (standard path)
 /// 3. Socket scan fallback (slow)
 ///
 /// ## Example
 /// ```no_run
-/// # use squirrel::capabilities::discovery::discover_beardog;
+/// # use squirrel::capabilities::discovery::discover_capability;
 /// # async fn example() -> anyhow::Result<()> {
-/// let beardog = discover_beardog().await?;
-/// println!("Found BearDog at: {:?}", beardog.socket);
+/// // TRUE PRIMAL: Discover by capability, not primal name
+/// let security_provider = discover_capability("security").await?;
+/// println!("Found security provider at: {:?}", security_provider.socket);
 /// # Ok(())
 /// # }
 /// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use discover_capability(\"security\") instead for capability-based discovery"
+)]
 pub async fn discover_beardog() -> Result<CapabilityProvider, DiscoveryError> {
     discover_standard_primal("beardog", &["security", "crypto", "jwt"]).await
 }
 
-/// Discover Toadstool primal (compute, GPU capabilities)
+/// Discover compute capability provider
+///
+/// **DEPRECATED**: Use `discover_capability("compute")` instead for TRUE PRIMAL compliance.
+/// This function is maintained for backward compatibility only.
 ///
 /// ## Discovery Order
-/// 1. `TOADSTOOL_SOCKET` environment variable
-/// 2. `/run/user/<uid>/biomeos/toadstool.sock` (standard path)
+/// 1. `COMPUTE_PROVIDER_SOCKET` or `TOADSTOOL_SOCKET` environment variable
+/// 2. `/run/user/<uid>/biomeos/compute.sock` or `/run/user/<uid>/biomeos/toadstool.sock` (standard path)
 /// 3. Socket scan fallback (slow)
 ///
 /// ## Example
 /// ```no_run
-/// # use squirrel::capabilities::discovery::discover_toadstool;
+/// # use squirrel::capabilities::discovery::discover_capability;
 /// # async fn example() -> anyhow::Result<()> {
-/// let toadstool = discover_toadstool().await?;
-/// println!("Found Toadstool at: {:?}", toadstool.socket);
+/// // TRUE PRIMAL: Discover by capability, not primal name
+/// let compute_provider = discover_capability("compute").await?;
+/// println!("Found compute provider at: {:?}", compute_provider.socket);
 /// # Ok(())
 /// # }
 /// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use discover_capability(\"compute\") instead for capability-based discovery"
+)]
 pub async fn discover_toadstool() -> Result<CapabilityProvider, DiscoveryError> {
     discover_standard_primal("toadstool", &["compute", "gpu"]).await
 }
 
-/// Discover NestGate primal (storage, persistence capabilities)
+/// Discover storage capability provider
+///
+/// **DEPRECATED**: Use `discover_capability("storage")` instead for TRUE PRIMAL compliance.
+/// This function is maintained for backward compatibility only.
 ///
 /// ## Discovery Order
-/// 1. `NESTGATE_SOCKET` environment variable
-/// 2. `/run/user/<uid>/biomeos/nestgate.sock` (standard path)
+/// 1. `STORAGE_PROVIDER_SOCKET` or `NESTGATE_SOCKET` environment variable
+/// 2. `/run/user/<uid>/biomeos/storage.sock` or `/run/user/<uid>/biomeos/nestgate.sock` (standard path)
 /// 3. Socket scan fallback (slow)
 ///
 /// ## Example
 /// ```no_run
-/// # use squirrel::capabilities::discovery::discover_nestgate;
+/// # use squirrel::capabilities::discovery::discover_capability;
 /// # async fn example() -> anyhow::Result<()> {
-/// let nestgate = discover_nestgate().await?;
-/// println!("Found NestGate at: {:?}", nestgate.socket);
+/// // TRUE PRIMAL: Discover by capability, not primal name
+/// let storage_provider = discover_capability("storage").await?;
+/// println!("Found storage provider at: {:?}", storage_provider.socket);
 /// # Ok(())
 /// # }
 /// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use discover_capability(\"storage\") instead for capability-based discovery"
+)]
 pub async fn discover_nestgate() -> Result<CapabilityProvider, DiscoveryError> {
     discover_standard_primal("nestgate", &["storage", "persistence"]).await
 }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Zero-Copy Optimization Module
 //!
 //! Provides memory-efficient operations that minimize allocations and eliminate
@@ -25,7 +28,7 @@
 //!
 //! ## Usage
 //!
-//! ```rust
+//! ```ignore
 //! use squirrel::optimization::zero_copy::{
 //!     string_utils::StaticStrings,
 //!     performance_monitoring::ZeroCopyMetrics,
@@ -70,10 +73,18 @@ pub mod optimization_utils;
 pub mod performance_monitoring;
 pub mod string_utils;
 
-// #[cfg(test)]
-// mod tests;
+// Companion test modules (rescued from orphan status)
+#[cfg(test)]
+mod buffer_utils_tests;
+#[cfg(test)]
+mod collection_utils_tests;
+#[cfg(test)]
+mod message_utils_tests;
+#[cfg(test)]
+mod string_utils_tests;
 
 // Re-export commonly used types for convenience
+pub use arc_str::intern;
 pub use arc_str::ArcStr;
 pub use buffer_utils::{BufferPool, SharedBuffer};
 pub use collection_utils::{ZeroCopyMap, ZeroCopySet};

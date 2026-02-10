@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tracer Implementation
 //!
 //! This module provides the main Tracer implementation for creating and managing

@@ -1,12 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Runtime discovery engine
 //!
 //! Implements the multi-stage discovery process for finding services at runtime.
 
 use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
+use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
 use tracing::{debug, info};
 
 /// Runtime service discovery engine
@@ -14,7 +18,7 @@ use tracing::{debug, info};
 /// Discovers services by capability at runtime with zero hardcoded knowledge.
 pub struct RuntimeDiscoveryEngine {
     /// Cache of discovered services
-    cache: Arc<RwLock<HashMap<String, DiscoveredService>>>,
+    cache: Arc<DashMap<String, DiscoveredService>>,
 
     /// Cache TTL
     cache_ttl: Duration,
@@ -25,7 +29,7 @@ impl RuntimeDiscoveryEngine {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            cache: Arc::new(RwLock::new(HashMap::new())),
+            cache: Arc::new(DashMap::new()),
             cache_ttl: Duration::from_secs(300), // 5 minutes
         }
     }
@@ -49,7 +53,8 @@ impl RuntimeDiscoveryEngine {
         debug!("🔍 Discovering capability: {}", capability);
 
         // Check cache first
-        if let Some(service) = self.cache.read().await.get(capability) {
+        if let Some(service_entry) = self.cache.get(capability) {
+            let service = service_entry.value();
             if service.is_fresh(self.cache_ttl) {
                 debug!("✓ Found cached service for '{}'", capability);
                 return Ok(service.clone());
@@ -76,11 +81,8 @@ impl RuntimeDiscoveryEngine {
                 priority: 100,
             };
 
-            // Cache it (use String::from for HashMap key as it needs ownership)
-            self.cache
-                .write()
-                .await
-                .insert(capability.into(), service.clone());
+            // Cache it
+            self.cache.insert(capability.into(), service.clone());
 
             return Ok(service);
         }
@@ -139,7 +141,7 @@ impl RuntimeDiscoveryEngine {
 
     /// Clear discovery cache
     pub async fn clear_cache(&self) {
-        self.cache.write().await.clear();
+        self.cache.clear();
         debug!("🗑️  Discovery cache cleared");
     }
 }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tool executor trait
 //!
 //! This module defines the ToolExecutor trait for executing tool capabilities.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt::Debug;

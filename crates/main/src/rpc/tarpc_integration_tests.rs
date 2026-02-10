@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Integration Tests for tarpc Over Universal Transport
 //!
 //! These tests verify the tarpc transport adapter and server logic.

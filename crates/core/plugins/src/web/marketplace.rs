@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin Marketplace Integration
 //!
 //! This module provides marketplace functionality for discovering, browsing, and installing

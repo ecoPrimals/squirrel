@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Consensus Message Processing
 //!
 //! Handles all consensus-related messaging including proposals, votes,
@@ -215,5 +218,251 @@ async fn handle_result_notification(
     // Limit history size
     if state.completed_proposals.len() > 100 {
         state.completed_proposals.drain(0..10);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::federation::ConsensusStatus;
+
+    fn make_state() -> Arc<RwLock<ConsensusManagerState>> {
+        Arc::new(RwLock::new(ConsensusManagerState::new()))
+    }
+
+    fn make_proposal() -> ConsensusProposal {
+        ConsensusProposal {
+            id: Uuid::new_v4(),
+            value: b"test value".to_vec(),
+            proposer: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            deadline: Utc::now() + chrono::Duration::seconds(30),
+            votes: std::collections::HashMap::new(),
+            status: ConsensusStatus::InProgress,
+            round: 1,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_propose_with_leader() {
+        let state = make_state();
+        {
+            let mut s = state.write().await;
+            s.current_leader = Some(Uuid::new_v4());
+        }
+        let proposal = make_proposal();
+        let pid = proposal.id;
+
+        handle_propose(state.clone(), proposal).await;
+
+        let s = state.read().await;
+        assert!(s.active_proposals.contains_key(&pid));
+    }
+
+    #[tokio::test]
+    async fn test_handle_propose_without_leader_rejected() {
+        let state = make_state();
+        let proposal = make_proposal();
+        let pid = proposal.id;
+
+        handle_propose(state.clone(), proposal).await;
+
+        let s = state.read().await;
+        assert!(!s.active_proposals.contains_key(&pid));
+    }
+
+    #[tokio::test]
+    async fn test_handle_vote_updates_stats() {
+        let state = make_state();
+        let voter = Uuid::new_v4();
+        let proposal_id = Uuid::new_v4();
+
+        handle_vote(state.clone(), proposal_id, Vote::For, voter).await;
+
+        let s = state.read().await;
+        let stats = s.participation_stats.get(&voter).unwrap();
+        assert_eq!(stats.votes_for, 1);
+        assert_eq!(stats.total_proposals, 1);
+    }
+
+    #[tokio::test]
+    async fn test_handle_vote_against_updates_stats() {
+        let state = make_state();
+        let voter = Uuid::new_v4();
+        let proposal_id = Uuid::new_v4();
+
+        handle_vote(state.clone(), proposal_id, Vote::Against, voter).await;
+
+        let s = state.read().await;
+        let stats = s.participation_stats.get(&voter).unwrap();
+        assert_eq!(stats.votes_against, 1);
+    }
+
+    #[tokio::test]
+    async fn test_handle_vote_abstain_updates_stats() {
+        let state = make_state();
+        let voter = Uuid::new_v4();
+        let proposal_id = Uuid::new_v4();
+
+        handle_vote(state.clone(), proposal_id, Vote::Abstain, voter).await;
+
+        let s = state.read().await;
+        let stats = s.participation_stats.get(&voter).unwrap();
+        assert_eq!(stats.abstentions, 1);
+    }
+
+    #[tokio::test]
+    async fn test_handle_heartbeat_updates_state() {
+        let state = make_state();
+        let leader = Uuid::new_v4();
+
+        handle_heartbeat(state.clone(), leader, 5).await;
+
+        let s = state.read().await;
+        assert_eq!(s.current_term, 5);
+        assert_eq!(s.current_leader, Some(leader));
+        assert!(s.last_heartbeat.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_heartbeat_ignores_old_term() {
+        let state = make_state();
+        let leader1 = Uuid::new_v4();
+        let leader2 = Uuid::new_v4();
+
+        handle_heartbeat(state.clone(), leader1, 10).await;
+        handle_heartbeat(state.clone(), leader2, 5).await; // Old term
+
+        let s = state.read().await;
+        assert_eq!(s.current_term, 10);
+        assert_eq!(s.current_leader, Some(leader1));
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_vote_grants_for_higher_term() {
+        let state = make_state();
+        let candidate = Uuid::new_v4();
+
+        handle_request_vote(state.clone(), candidate, 5).await;
+
+        let s = state.read().await;
+        assert_eq!(s.current_term, 5);
+        assert!(s.votes_received.get(&candidate).copied().unwrap_or(false));
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_vote_denies_same_term() {
+        let state = make_state();
+        let candidate = Uuid::new_v4();
+
+        // Set term to 5
+        {
+            let mut s = state.write().await;
+            s.current_term = 5;
+        }
+
+        handle_request_vote(state.clone(), candidate, 5).await;
+
+        let s = state.read().await;
+        // Same term should not grant
+        assert!(!s.votes_received.get(&candidate).copied().unwrap_or(true));
+    }
+
+    #[tokio::test]
+    async fn test_handle_vote_response_as_candidate() {
+        let state = make_state();
+        let voter = Uuid::new_v4();
+
+        // Set up as candidate
+        {
+            let mut s = state.write().await;
+            s.current_term = 3;
+            s.node_state = ConsensusNodeState::Candidate;
+        }
+
+        handle_vote_response(state.clone(), voter, 3, true).await;
+
+        let s = state.read().await;
+        assert!(s.votes_received.get(&voter).copied().unwrap_or(false));
+    }
+
+    #[tokio::test]
+    async fn test_handle_result_notification_moves_to_completed() {
+        let state = make_state();
+        let proposal_id = Uuid::new_v4();
+        let result = ConsensusResult {
+            proposal_id,
+            status: ConsensusStatus::Agreed,
+            value: Some(b"result".to_vec()),
+            votes_for: 3,
+            votes_against: 1,
+            participating_nodes: vec![Uuid::new_v4()],
+        };
+
+        handle_result_notification(state.clone(), proposal_id, result).await;
+
+        let s = state.read().await;
+        assert_eq!(s.completed_proposals.len(), 1);
+        assert_eq!(s.completed_proposals[0].status, ConsensusStatus::Agreed);
+    }
+
+    #[tokio::test]
+    async fn test_handle_result_notification_limits_history() {
+        let state = make_state();
+
+        // Add 105 results
+        for i in 0..105 {
+            let proposal_id = Uuid::new_v4();
+            let result = ConsensusResult {
+                proposal_id,
+                status: ConsensusStatus::Agreed,
+                value: Some(vec![i as u8]),
+                votes_for: 1,
+                votes_against: 0,
+                participating_nodes: vec![],
+            };
+            handle_result_notification(state.clone(), proposal_id, result).await;
+        }
+
+        let s = state.read().await;
+        // After exceeding 100, 10 should be drained
+        assert!(s.completed_proposals.len() <= 100);
+    }
+
+    #[tokio::test]
+    async fn test_process_messages_handles_all_types() {
+        let state = make_state();
+        let config = ConsensusConfig::default();
+        let node_id = Uuid::new_v4();
+        let (tx, rx) = mpsc::unbounded_channel();
+
+        // Set up leader
+        {
+            let mut s = state.write().await;
+            s.current_leader = Some(Uuid::new_v4());
+        }
+
+        let proposal = make_proposal();
+
+        // Send messages
+        tx.send(ConsensusMessage::Propose {
+            proposal: proposal.clone(),
+        })
+        .unwrap();
+        tx.send(ConsensusMessage::Heartbeat {
+            leader: node_id,
+            term: 1,
+        })
+        .unwrap();
+
+        // Drop sender so the receiver loop ends
+        drop(tx);
+
+        // Process messages
+        process_messages(state.clone(), config, node_id, rx).await;
+
+        let s = state.read().await;
+        assert!(s.active_proposals.contains_key(&proposal.id));
+        assert_eq!(s.current_term, 1);
     }
 }

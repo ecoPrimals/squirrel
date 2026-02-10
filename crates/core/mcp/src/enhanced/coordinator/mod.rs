@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal AI Coordinator Module
 //!
 //! This module provides the main AICoordinator that manages ALL AI systems
@@ -128,16 +131,11 @@ impl AICoordinator {
         Ok(())
     }
     
-    /// Register local providers
+    /// Register local providers (capability-based, vendor-agnostic)
     async fn register_local_providers(&self) -> Result<()> {
-        if self.config.enable_ollama {
-            let provider = Arc::new(OllamaProvider::new(self.config.ollama_config.clone()));
-            self.register_provider("ollama", provider).await?;
-        }
-        
-        if self.config.enable_llamacpp {
-            let provider = Arc::new(LlamaCppProvider::new(self.config.llamacpp_config.clone()));
-            self.register_provider("llamacpp", provider).await?;
+        if self.config.enable_local_server {
+            let provider = Arc::new(LocalServerProvider::new(self.config.local_server_config.clone()));
+            self.register_provider("local", provider).await?;
         }
         
         if self.config.enable_native {

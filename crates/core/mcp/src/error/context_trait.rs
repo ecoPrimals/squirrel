@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error Context Trait - Standardized error context access across all error types
 //!
 //! This module provides a standardized trait for accessing contextual information

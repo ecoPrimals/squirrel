@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Capability-Based JWT Service (TRUE PRIMAL!)
 //!
 //! **Evolution**: BearDog JWT → Capability JWT
@@ -9,7 +12,7 @@
 //! - Squirrel discovers "crypto.ed25519.sign" capability
 //! - Could be BearDog, could be any crypto primal, could be multiple!
 
-use crate::capability_crypto::{CapabilityCryptoProvider, CapabilityCryptoConfig};
+use crate::capability_crypto::{CapabilityCryptoConfig, CapabilityCryptoProvider};
 use crate::{AuthContext, AuthError};
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as BASE64_URL, Engine};
@@ -182,8 +185,7 @@ impl CapabilityJwtService {
         info!("🌍 Initializing TRUE PRIMAL JWT service (capability-based discovery!)");
         info!(
             "Crypto capability: endpoint={:?}, key_id={}",
-            config.crypto_config.endpoint,
-            config.key_id
+            config.crypto_config.endpoint, config.key_id
         );
 
         let crypto_client = CapabilityCryptoProvider::from_config(config.crypto_config);
@@ -228,7 +230,7 @@ impl CapabilityJwtService {
         // 4. Sign via discovered crypto capability (Pure Rust!)
         let signature = self
             .crypto_client
-            .clone()  // Clone for async mutable access
+            .clone() // Clone for async mutable access
             .sign_ed25519(signing_input.as_bytes())
             .await
             .context("Failed to sign JWT via crypto capability")
@@ -279,7 +281,7 @@ impl CapabilityJwtService {
         let signing_input = format!("{}.{}", header_b64, claims_b64);
         let is_valid = self
             .crypto_client
-            .clone()  // Clone for async mutable access
+            .clone() // Clone for async mutable access
             .verify_ed25519_with_key_id(signing_input.as_bytes(), &signature, &self.key_id)
             .await
             .context("Failed to verify JWT signature via crypto capability")

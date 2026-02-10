@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Hierarchical AI Router Demo
 //!
 //! This demo shows how to use the hierarchical routing capabilities

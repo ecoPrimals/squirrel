@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Team workflow management implementation
 //!
 //! This module implements the TeamWorkflowManager which handles:

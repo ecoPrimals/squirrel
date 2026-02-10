@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Event handling for MCP clients
 //!
 //! This module provides event handling capabilities including the EventHandler trait

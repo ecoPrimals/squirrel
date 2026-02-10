@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Message framing for transport layer
 //! 
 //! This module provides the framing implementation for MCP messages

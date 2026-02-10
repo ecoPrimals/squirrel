@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI provider adapters
 //!
 //! Adapters for different AI providers
@@ -25,13 +28,17 @@ pub use universal::{ProviderMetadata, UniversalAiAdapter};
 // DEPRECATED: HTTP-delegating adapters (v0.3.0 removal planned)
 // Enable with `deprecated-adapters` feature
 #[cfg(feature = "deprecated-adapters")]
+#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 pub mod anthropic;
 #[cfg(feature = "deprecated-adapters")]
+#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 pub mod openai;
 
 #[cfg(feature = "deprecated-adapters")]
+#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 pub use anthropic::AnthropicAdapter;
 #[cfg(feature = "deprecated-adapters")]
+#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 pub use openai::OpenAiAdapter;
 
 use super::types::{

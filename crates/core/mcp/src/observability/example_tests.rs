@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use tokio::time::sleep;
 use std::time::Duration;
 use crate::observability::example::run_observability_example;

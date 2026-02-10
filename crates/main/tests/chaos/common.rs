@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Common test utilities for chaos engineering tests
 //!
 //! This module provides shared infrastructure for chaos tests including:

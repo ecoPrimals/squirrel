@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Common types and structures for AI tools
 //!
 //! This module contains the core types used across the AI tools system,
@@ -301,5 +304,285 @@ pub fn create_assistant_message(content: &str) -> ChatMessage {
         name: None,
         tool_calls: None,
         tool_call_id: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- MessageRole tests ---
+    #[test]
+    fn test_message_role_serde() {
+        let roles = vec![
+            MessageRole::System,
+            MessageRole::User,
+            MessageRole::Assistant,
+            MessageRole::Tool,
+            MessageRole::Function,
+        ];
+        for role in roles {
+            let json = serde_json::to_string(&role).unwrap();
+            let deserialized: MessageRole = serde_json::from_str(&json).unwrap();
+            assert_eq!(deserialized, role);
+        }
+    }
+
+    // --- ChatRequest builder tests ---
+    #[test]
+    fn test_chat_request_new() {
+        let req = ChatRequest::new();
+        assert!(req.model.is_none());
+        assert!(req.messages.is_empty());
+        assert!(req.parameters.is_none());
+        assert!(req.tools.is_none());
+    }
+
+    #[test]
+    fn test_chat_request_default() {
+        let req = ChatRequest::default();
+        assert!(req.messages.is_empty());
+    }
+
+    #[test]
+    fn test_chat_request_add_system() {
+        let req = ChatRequest::new().add_system("You are helpful");
+        assert_eq!(req.messages.len(), 1);
+        assert_eq!(req.messages[0].role, MessageRole::System);
+        assert_eq!(req.messages[0].content.as_deref(), Some("You are helpful"));
+    }
+
+    #[test]
+    fn test_chat_request_add_user() {
+        let req = ChatRequest::new().add_user("Hello");
+        assert_eq!(req.messages.len(), 1);
+        assert_eq!(req.messages[0].role, MessageRole::User);
+        assert_eq!(req.messages[0].content.as_deref(), Some("Hello"));
+    }
+
+    #[test]
+    fn test_chat_request_add_assistant() {
+        let req = ChatRequest::new().add_assistant("Hi there!");
+        assert_eq!(req.messages.len(), 1);
+        assert_eq!(req.messages[0].role, MessageRole::Assistant);
+    }
+
+    #[test]
+    fn test_chat_request_builder_chain() {
+        let req = ChatRequest::new()
+            .with_model("gpt-4")
+            .add_system("You are helpful")
+            .add_user("Hello")
+            .add_assistant("Hi!");
+
+        assert_eq!(req.model.as_deref(), Some("gpt-4"));
+        assert_eq!(req.messages.len(), 3);
+    }
+
+    #[test]
+    fn test_chat_request_with_parameters() {
+        let params = super::super::parameters::ModelParameters::new();
+        let req = ChatRequest::new().with_parameters(params);
+        assert!(req.parameters.is_some());
+    }
+
+    #[test]
+    fn test_chat_request_with_tools() {
+        let tool = Tool::new(
+            "test".to_string(),
+            "A test tool".to_string(),
+            serde_json::json!({}),
+        );
+        let req = ChatRequest::new().with_tools(vec![tool]);
+        assert!(req.tools.is_some());
+        assert_eq!(req.tools.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_chat_request_serde() {
+        let req = ChatRequest::new()
+            .with_model("gpt-4")
+            .add_system("System message")
+            .add_user("User message");
+
+        let json = serde_json::to_string(&req).unwrap();
+        let deserialized: ChatRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.model.as_deref(), Some("gpt-4"));
+        assert_eq!(deserialized.messages.len(), 2);
+    }
+
+    // --- ChatResponse tests ---
+    #[test]
+    fn test_chat_response_serde() {
+        let resp = ChatResponse {
+            choices: vec![ChatChoice {
+                index: 0,
+                role: MessageRole::Assistant,
+                content: Some("Hello!".to_string()),
+                finish_reason: Some("stop".to_string()),
+                tool_calls: None,
+            }],
+            usage: Some(UsageInfo {
+                prompt_tokens: 10,
+                completion_tokens: 5,
+                total_tokens: 15,
+            }),
+            model: "gpt-4".to_string(),
+            id: "resp-1".to_string(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let deserialized: ChatResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.choices.len(), 1);
+        assert_eq!(deserialized.model, "gpt-4");
+        assert!(deserialized.usage.is_some());
+        assert_eq!(deserialized.usage.unwrap().total_tokens, 15);
+    }
+
+    // --- ToolCall tests ---
+    #[test]
+    fn test_tool_call_serde() {
+        let tc = ToolCall {
+            id: "tc-1".to_string(),
+            name: "search".to_string(),
+            arguments: serde_json::json!({"query": "test"}),
+        };
+        let json = serde_json::to_string(&tc).unwrap();
+        let deserialized: ToolCall = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "tc-1");
+        assert_eq!(deserialized.name, "search");
+    }
+
+    // --- Tool tests ---
+    #[test]
+    fn test_tool_new() {
+        let tool = Tool::new(
+            "search".to_string(),
+            "Search the web".to_string(),
+            serde_json::json!({"type": "object"}),
+        );
+        assert_eq!(tool.name, "search");
+        assert_eq!(tool.description, "Search the web");
+        assert!(tool.function.is_none());
+    }
+
+    #[test]
+    fn test_tool_with_function() {
+        let tool = Tool::with_function(
+            "calculator".to_string(),
+            "Do math".to_string(),
+            serde_json::json!({"type": "object"}),
+        );
+        assert_eq!(tool.name, "calculator");
+        assert!(tool.function.is_some());
+        let func = tool.function.unwrap();
+        assert_eq!(func.name, "calculator");
+        assert_eq!(func.description, "Do math");
+    }
+
+    #[test]
+    fn test_tool_serde() {
+        let tool = Tool::new(
+            "test".to_string(),
+            "A test tool".to_string(),
+            serde_json::json!({"type": "object"}),
+        );
+        let json = serde_json::to_string(&tool).unwrap();
+        let deserialized: Tool = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.name, "test");
+    }
+
+    // --- ToolChoice tests ---
+    #[test]
+    fn test_tool_choice_serde() {
+        let choices = vec![
+            ToolChoice::Auto,
+            ToolChoice::None,
+            ToolChoice::Required,
+            ToolChoice::Specific("search".to_string()),
+        ];
+        for choice in choices {
+            let json = serde_json::to_string(&choice).unwrap();
+            let _deserialized: ToolChoice = serde_json::from_str(&json).unwrap();
+        }
+    }
+
+    // --- ChatResponseChunk tests ---
+    #[test]
+    fn test_chat_response_chunk_serde() {
+        let chunk = ChatResponseChunk {
+            id: "chunk-1".to_string(),
+            model: "gpt-4".to_string(),
+            choices: vec![ChatChoiceChunk {
+                index: 0,
+                delta: ChatMessage {
+                    role: MessageRole::Assistant,
+                    content: Some("Hello".to_string()),
+                    name: None,
+                    tool_calls: None,
+                    tool_call_id: None,
+                },
+                finish_reason: None,
+            }],
+        };
+        let json = serde_json::to_string(&chunk).unwrap();
+        let deserialized: ChatResponseChunk = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "chunk-1");
+        assert_eq!(deserialized.choices.len(), 1);
+    }
+
+    // --- UsageInfo tests ---
+    #[test]
+    fn test_usage_info_serde() {
+        let usage = UsageInfo {
+            prompt_tokens: 100,
+            completion_tokens: 50,
+            total_tokens: 150,
+        };
+        let json = serde_json::to_string(&usage).unwrap();
+        let deserialized: UsageInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.prompt_tokens, 100);
+        assert_eq!(deserialized.completion_tokens, 50);
+        assert_eq!(deserialized.total_tokens, 150);
+    }
+
+    // --- Helper function tests ---
+    #[test]
+    fn test_create_chat_request_fn() {
+        let messages = vec![
+            create_system_message("You are helpful"),
+            create_text_message("Hello"),
+        ];
+        let req = create_chat_request(messages, Some("gpt-4".to_string()));
+        assert_eq!(req.messages.len(), 2);
+        assert_eq!(req.model.as_deref(), Some("gpt-4"));
+    }
+
+    #[test]
+    fn test_create_chat_request_no_model() {
+        let messages = vec![create_text_message("Hello")];
+        let req = create_chat_request(messages, None);
+        assert!(req.model.is_none());
+    }
+
+    #[test]
+    fn test_create_text_message_fn() {
+        let msg = create_text_message("test");
+        assert_eq!(msg.role, MessageRole::User);
+        assert_eq!(msg.content.as_deref(), Some("test"));
+        assert!(msg.name.is_none());
+        assert!(msg.tool_calls.is_none());
+        assert!(msg.tool_call_id.is_none());
+    }
+
+    #[test]
+    fn test_create_system_message_fn() {
+        let msg = create_system_message("sys");
+        assert_eq!(msg.role, MessageRole::System);
+    }
+
+    #[test]
+    fn test_create_assistant_message_fn() {
+        let msg = create_assistant_message("asst");
+        assert_eq!(msg.role, MessageRole::Assistant);
     }
 }

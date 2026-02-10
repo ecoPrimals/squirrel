@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Environment Variable Names
 //!
 //! All environment variable names used throughout the Squirrel system,
@@ -101,13 +104,19 @@ mod tests {
         assert_eq!(BIND_ADDRESS, "MCP_BIND_ADDRESS");
         assert_eq!(WEBSOCKET_PORT, "MCP_WEBSOCKET_PORT");
         assert_eq!(HTTP_PORT, "MCP_HTTP_PORT");
+        assert_eq!(ADMIN_PORT, "MCP_ADMIN_PORT");
+        assert_eq!(METRICS_PORT, "MCP_METRICS_PORT");
+        assert_eq!(MAX_CONNECTIONS, "MAX_CONNECTIONS");
     }
 
     #[test]
     fn test_timeout_vars() {
         assert_eq!(CONNECTION_TIMEOUT, "MCP_CONNECTION_TIMEOUT");
         assert_eq!(REQUEST_TIMEOUT, "REQUEST_TIMEOUT");
+        assert_eq!(OPERATION_TIMEOUT, "OPERATION_TIMEOUT");
         assert_eq!(DATABASE_TIMEOUT, "DATABASE_TIMEOUT");
+        assert_eq!(HEARTBEAT_INTERVAL, "SONGBIRD_HEARTBEAT_INTERVAL");
+        assert_eq!(INITIAL_DELAY, "SONGBIRD_INITIAL_DELAY_MS");
     }
 
     #[test]
@@ -122,5 +131,12 @@ mod tests {
         assert_eq!(BIOMEOS_REGISTRATION_URL, "BIOMEOS_REGISTRATION_URL");
         assert_eq!(BIOMEOS_HEALTH_URL, "BIOMEOS_HEALTH_URL");
         assert_eq!(BIOMEOS_METRICS_URL, "BIOMEOS_METRICS_URL");
+    }
+
+    #[test]
+    fn test_feature_flag_vars() {
+        assert_eq!(DEBUG_MODE, "SQUIRREL_DEBUG");
+        assert_eq!(VERBOSE_LOGGING, "SQUIRREL_VERBOSE");
+        assert_eq!(LOG_LEVEL, "RUST_LOG");
     }
 }

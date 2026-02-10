@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Adapter Pattern Demo
 //!
 //! This demo showcases the adapter pattern implementations including registry,

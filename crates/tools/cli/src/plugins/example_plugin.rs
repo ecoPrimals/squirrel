@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use crate::commands::registry::CommandRegistry;
 use async_trait::async_trait;
 use clap::{Arg, Command as ClapCommand};
@@ -70,6 +73,7 @@ impl ExamplePlugin {
     }
 
     /// Handle state transition
+    #[allow(dead_code)] // State machine infrastructure for plugin lifecycle
     fn transition_to(&mut self, new_state: PluginState) -> Result<(), PluginError> {
         if !PluginState::is_valid_transition(self.state, new_state) {
             return Err(PluginError::ValidationError(format!(

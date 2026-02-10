@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Transport layer for MCP
 //!
 //! Simplified transport layer focusing on core functionality.

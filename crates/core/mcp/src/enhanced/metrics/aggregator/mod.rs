@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Metrics Aggregator
 //!
 //! This module processes and aggregates metrics from the unified collector,

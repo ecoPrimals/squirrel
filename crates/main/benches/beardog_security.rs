@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Beardog Security Integration Performance Benchmarks
 //!
 //! This benchmark suite tests the performance of Beardog security components:

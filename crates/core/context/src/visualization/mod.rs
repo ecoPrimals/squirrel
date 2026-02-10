@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context Visualization System
 //!
 //! This module provides comprehensive visualization capabilities for the Context Management System.

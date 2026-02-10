@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! JSON-RPC and tarpc Protocol Implementation
 //!
 //! **MODERN ARCHITECTURE** (Post-HTTP cleanup, Jan 19, 2026):
@@ -28,6 +31,8 @@
 //! - Feature-gated behind `tarpc-rpc` feature flag
 
 // Core modules (Pure Rust!)
+pub mod ipc_client;
+mod jsonrpc_handlers;
 pub mod jsonrpc_server;
 pub mod protocol;
 pub mod protocol_negotiation;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Plugin discovery and registration module
 //
 // This module provides functionality for discovering and registering plugins

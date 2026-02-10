@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Recovery Strategies and Hooks for Tool Lifecycle Management
 //!
 //! This module provides recovery mechanisms for handling tool errors and failures.

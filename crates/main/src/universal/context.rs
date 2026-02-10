@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context types for primal operations
 //!
 //! This module defines context structures that carry information about
@@ -44,9 +47,10 @@ impl Default for NetworkLocation {
 }
 
 /// Security level requirements for operations
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum SecurityLevel {
     /// Basic security - standard operations
+    #[default]
     Basic,
     /// Standard security - normal operations
     Standard,
@@ -68,12 +72,6 @@ pub enum SecurityLevel {
     Maximum,
     /// Custom security level
     Custom(String),
-}
-
-impl Default for SecurityLevel {
-    fn default() -> Self {
-        Self::Basic
-    }
 }
 
 impl std::fmt::Display for SecurityLevel {

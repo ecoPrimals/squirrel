@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Dynamic action registry for provider-advertised capabilities
+#![allow(dead_code)] // Public API surface awaiting consumer activation
 //!
 //! The `ActionRegistry` is the heart of Phase 6 - it allows providers to
 //! dynamically register new AI actions at runtime without code changes.

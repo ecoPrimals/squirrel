@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Unit tests for MCP protocol handlers
 //!
 //! These tests verify the core MCP protocol message handling logic.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Provider Factory for Tests
 //!
 //! Creates properly configured SquirrelPrimalProvider instances for testing
@@ -12,6 +15,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[allow(deprecated)] // EcosystemPrimalType is deprecated but needed for backward compatibility in tests
 use squirrel::{
     capability_registry::{CapabilityRegistry, CapabilityRegistryConfig},
     ecosystem::EcosystemManager,

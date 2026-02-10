@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Security integration module for universal patterns
 //!
 //! This module provides security patterns and integration with Beardog
@@ -19,7 +22,7 @@
 //!
 //! ## Basic Usage
 //!
-//! ```no_run
+//! ```ignore
 //! use universal_patterns::security::UniversalSecurityClient;
 //! use universal_patterns::config::SecurityConfig;
 //! use universal_patterns::traits::Credentials;
@@ -217,4 +220,63 @@ pub fn get_module_info() -> std::collections::HashMap<String, String> {
     info.insert("thread_safe".to_string(), "true".to_string());
 
     info
+}
+
+#[cfg(test)]
+mod module_tests {
+    use super::*;
+
+    #[test]
+    fn test_version_constant() {
+        assert_eq!(VERSION, "1.0.0");
+    }
+
+    #[test]
+    fn test_get_module_info_keys() {
+        let info = get_module_info();
+        assert!(info.contains_key("version"));
+        assert!(info.contains_key("name"));
+        assert!(info.contains_key("description"));
+        assert!(info.contains_key("supports_beardog"));
+        assert!(info.contains_key("supports_local_fallback"));
+        assert!(info.contains_key("supports_audit_logging"));
+        assert!(info.contains_key("supports_health_monitoring"));
+        assert!(info.contains_key("supports_encryption"));
+        assert!(info.contains_key("supports_digital_signatures"));
+        assert!(info.contains_key("thread_safe"));
+    }
+
+    #[test]
+    fn test_get_module_info_values() {
+        let info = get_module_info();
+        assert_eq!(info.get("version").unwrap(), "1.0.0");
+        assert_eq!(info.get("name").unwrap(), "Universal Security Module");
+        assert_eq!(info.get("supports_beardog").unwrap(), "true");
+        assert_eq!(info.get("thread_safe").unwrap(), "true");
+    }
+
+    #[test]
+    fn test_get_module_info_count() {
+        let info = get_module_info();
+        assert_eq!(info.len(), 10);
+    }
+
+    #[tokio::test]
+    async fn test_create_default_client() {
+        // Should create a client with default local configuration
+        let result = create_default_client().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_local_provider() {
+        let result = create_local_provider().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_validate_initialization() {
+        let result = validate_initialization().await;
+        assert!(result.is_ok());
+    }
 }

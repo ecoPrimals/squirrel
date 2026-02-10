@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Standard implementation of CircuitBreakerState
 //!
 //! This module provides the standard state implementation for circuit breakers.
@@ -150,25 +153,25 @@ impl StandardBreakerState {
     async fn close_circuit(&self) {
         // Set the state to Closed
         {
-            let mut state = self.current_state.write().unwrap();
+            let mut state = self.current_state.write().expect("circuit breaker state lock poisoned");
             *state = BreakerState::Closed;
         }
         
         // Clear opened time
         {
-            let mut opened_time = self.opened_time.write().unwrap();
+            let mut opened_time = self.opened_time.write().expect("circuit breaker opened_time lock poisoned");
             *opened_time = None;
         }
         
         // Reset the success counter
         {
-            let mut success_count = self.half_open_success_count.write().unwrap();
+            let mut success_count = self.half_open_success_count.write().expect("circuit breaker success count lock poisoned");
             *success_count = 0;
         }
         
         // Update metrics
         {
-            let mut metrics = self.metrics.write().unwrap();
+            let mut metrics = self.metrics.write().expect("circuit breaker metrics lock poisoned");
             metrics.state = BreakerState::Closed;
         }
         
@@ -179,7 +182,7 @@ impl StandardBreakerState {
 #[async_trait]
 impl CircuitBreakerState for StandardBreakerState {
     async fn state(&self) -> BreakerState {
-        *self.current_state.read().unwrap()
+        *self.current_state.read().expect("circuit breaker state lock poisoned")
     }
     
     fn config(&self) -> &BreakerConfig {
@@ -188,7 +191,7 @@ impl CircuitBreakerState for StandardBreakerState {
     
     async fn try_request(&self) -> BreakerResult<()> {
         // Check current state
-        let current_state = { *self.current_state.read().unwrap() };
+        let current_state = { *self.current_state.read().expect("circuit breaker state lock poisoned") };
         
         match current_state {
             BreakerState::Closed => {
@@ -209,7 +212,7 @@ impl CircuitBreakerState for StandardBreakerState {
                     
                     // Increment rejection count
                     {
-                        let mut metrics = self.metrics.write().unwrap();
+                        let mut metrics = self.metrics.write().expect("circuit breaker metrics lock poisoned");
                         metrics.rejected_count += 1;
                     }
                     
@@ -225,11 +228,11 @@ impl CircuitBreakerState for StandardBreakerState {
     
     async fn on_success(&self) {
         // Get current state
-        let current_state = { *self.current_state.read().unwrap() };
+        let current_state = { *self.current_state.read().expect("circuit breaker state lock poisoned") };
         
         // Update metrics
         {
-            let mut metrics = self.metrics.write().unwrap();
+            let mut metrics = self.metrics.write().expect("circuit breaker metrics lock poisoned");
             metrics.success_count += 1;
             metrics.last_success_time = Some(Utc::now());
         }
@@ -238,7 +241,7 @@ impl CircuitBreakerState for StandardBreakerState {
         if current_state == BreakerState::HalfOpen {
             // Increment success counter
             let success_count = {
-                let mut count = self.half_open_success_count.write().unwrap();
+                let mut count = self.half_open_success_count.write().expect("circuit breaker success count lock poisoned");
                 *count += 1;
                 *count
             };
@@ -254,11 +257,11 @@ impl CircuitBreakerState for StandardBreakerState {
     
     async fn on_error(&self, _err: Box<dyn std::error::Error + Send + Sync>) {
         // Get current state
-        let current_state = { *self.current_state.read().unwrap() };
+        let current_state = { *self.current_state.read().expect("circuit breaker state lock poisoned") };
         
         // Update metrics
         {
-            let mut metrics = self.metrics.write().unwrap();
+            let mut metrics = self.metrics.write().expect("circuit breaker metrics lock poisoned");
             metrics.failure_count += 1;
             metrics.last_failure_time = Some(Utc::now());
         }
@@ -267,7 +270,7 @@ impl CircuitBreakerState for StandardBreakerState {
             BreakerState::Closed => {
                 // In closed state, check failure threshold
                 let failure_rate = {
-                    let metrics = self.metrics.read().unwrap();
+                    let metrics = self.metrics.read().expect("circuit breaker metrics lock poisoned");
                     self.calculate_failure_rate(&metrics)
                 };
                 
@@ -292,6 +295,6 @@ impl CircuitBreakerState for StandardBreakerState {
     }
     
     async fn metrics(&self) -> BreakerMetrics {
-        self.metrics.read().unwrap().clone()
+        self.metrics.read().expect("circuit breaker metrics lock poisoned").clone()
     }
 } 

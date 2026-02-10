@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 /// A simple standalone function to test
 pub fn add(a: i32, b: i32) -> i32 {
     a + b

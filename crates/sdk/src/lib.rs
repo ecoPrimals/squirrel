@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Squirrel Plugin SDK
 //!
 //! The Squirrel Plugin SDK provides a comprehensive set of tools and APIs for developing
+#![deny(unsafe_code)]
 //! plugins that integrate with the Squirrel MCP (Model Context Protocol) platform.
 //!
 //! ## Features
@@ -20,6 +24,9 @@
 
 // Allow deprecated items during SDK migration to universal-error crate
 #![allow(deprecated)]
+#![allow(async_fn_in_trait)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::unnecessary_wraps)]
 //!
 //! #[wasm_bindgen]
 //! pub struct MyPlugin {
@@ -124,16 +131,16 @@ pub fn version() -> &'static str {
 /// Get SDK build information
 /// Get enabled features as a Vec<String>
 fn get_enabled_features() -> Vec<String> {
-    let mut features = Vec::new();
-    #[cfg(feature = "http")]
-    features.push("http".to_string());
-    #[cfg(feature = "fs")]
-    features.push("fs".to_string());
-    #[cfg(feature = "mcp")]
-    features.push("mcp".to_string());
-    #[cfg(feature = "console_error_panic_hook")]
-    features.push("console_error_panic_hook".to_string());
-    features
+    vec![
+        #[cfg(feature = "http")]
+        "http".to_string(),
+        #[cfg(feature = "fs")]
+        "fs".to_string(),
+        #[cfg(feature = "mcp")]
+        "mcp".to_string(),
+        #[cfg(feature = "console_error_panic_hook")]
+        "console_error_panic_hook".to_string(),
+    ]
 }
 
 /// Retrieves comprehensive build information for the SDK.
@@ -195,21 +202,16 @@ pub fn has_feature(feature: &str) -> bool {
 
 /// Get list of enabled features
 pub fn enabled_features() -> Vec<&'static str> {
-    let mut features = Vec::new();
-
-    #[cfg(feature = "http")]
-    features.push("http");
-
-    #[cfg(feature = "fs")]
-    features.push("fs");
-
-    #[cfg(feature = "mcp")]
-    features.push("mcp");
-
-    #[cfg(feature = "console_error_panic_hook")]
-    features.push("console_error_panic_hook");
-
-    features
+    vec![
+        #[cfg(feature = "http")]
+        "http",
+        #[cfg(feature = "fs")]
+        "fs",
+        #[cfg(feature = "mcp")]
+        "mcp",
+        #[cfg(feature = "console_error_panic_hook")]
+        "console_error_panic_hook",
+    ]
 }
 
 /// Get SDK configuration

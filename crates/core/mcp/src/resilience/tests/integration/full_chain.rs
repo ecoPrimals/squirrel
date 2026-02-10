@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Full Resilience Chain Integration Tests
 //!
 //! Tests for the complete resilience chain including circuit breaker,

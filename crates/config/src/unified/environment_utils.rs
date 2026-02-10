@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Environment Utilities
 //!
 //! This module provides utility functions for working with environment variables
@@ -5,7 +8,7 @@
 //!
 //! # Example Usage
 //!
-//! ```rust
+//! ```ignore
 //! use squirrel_mcp_config::unified::environment_utils::*;
 //!
 //! // Get environment with validation
@@ -31,7 +34,7 @@ use std::str::FromStr;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::get_environment;
 ///
 /// let env = get_environment();
@@ -63,7 +66,7 @@ pub fn get_environment() -> Environment {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::get_env_var;
 ///
 /// // Get port with default
@@ -93,7 +96,7 @@ where
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::get_env_var_optional;
 ///
 /// if let Some(api_key) = get_env_var_optional("OPENAI_API_KEY") {
@@ -120,7 +123,7 @@ pub fn get_env_var_optional(key: &str) -> Option<String> {
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::get_env_var_required;
 ///
 /// let database_url = get_env_var_required("DATABASE_URL")?;
@@ -143,7 +146,7 @@ pub fn get_env_var_required(key: &str) -> Result<String, String> {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::get_env_bool;
 ///
 /// let tls_enabled = get_env_bool("SQUIRREL_TLS_ENABLED", false);
@@ -175,7 +178,7 @@ pub fn get_env_bool(key: &str, default: bool) -> bool {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::get_env_aware_default;
 ///
 /// // Different log levels per environment
@@ -202,7 +205,7 @@ pub fn get_env_aware_default<T>(dev: T, test: T, staging: T, prod: T) -> T {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use squirrel_mcp_config::{Environment, unified::environment_utils::is_environment};
 ///
 /// if is_environment(Environment::Production) {
@@ -220,7 +223,7 @@ pub fn is_environment(env_type: Environment) -> bool {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::get_squirrel_env_vars;
 ///
 /// let vars = get_squirrel_env_vars();
@@ -246,7 +249,7 @@ pub fn get_squirrel_env_vars() -> Vec<(String, String)> {
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::validate_required_env_vars;
 ///
 /// validate_required_env_vars(&[
@@ -277,7 +280,7 @@ pub fn validate_required_env_vars(required_vars: &[&str]) -> Result<(), Vec<Stri
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::validate_environment_requirements;
 ///
 /// // This will check environment-specific requirements

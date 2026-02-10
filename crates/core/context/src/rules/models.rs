@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rule data models
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

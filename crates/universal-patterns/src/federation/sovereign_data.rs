@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Sovereign Data Management for Federation
 //!
 //! This module implements secure, user-controlled data management across

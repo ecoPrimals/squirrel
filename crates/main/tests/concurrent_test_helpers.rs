@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Modern Concurrent Test Helpers
 //!
 //! This module provides utilities for writing truly concurrent tests without sleeps.

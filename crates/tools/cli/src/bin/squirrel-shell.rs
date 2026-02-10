@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Main executable for the Squirrel CLI.
 
 use squirrel_cli::commands::registry::CommandRegistry;

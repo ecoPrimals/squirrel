@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // sync/mod.rs
 // Fix gRPC import
 // use crate::generated::mcp::sync::{sync_service_client::SyncServiceClient, ...}; // OLD

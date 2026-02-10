@@ -1,8 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for capability-based discovery
 //!
 //! Tests the new environment variable and service discovery features
 
+#[allow(deprecated)]
+// EcosystemPrimalType is deprecated but needed for backward compatibility in tests
 use squirrel::ecosystem::EcosystemPrimalType;
+use std::str::FromStr;
 
 #[test]
 fn test_env_name_all_primals() {

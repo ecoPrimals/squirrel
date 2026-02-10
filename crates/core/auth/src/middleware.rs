@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use crate::{AuthContext, AuthError, AuthenticationService, JwtTokenManager};
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive performance benchmarks for ecoPrimals Squirrel
 //!
 //! This benchmark suite tests the performance of key components:
@@ -49,7 +52,7 @@ fn bench_error_handling(c: &mut Criterion) {
 fn bench_protocol_types(c: &mut Criterion) {
     let mut group = c.benchmark_group("protocol_types");
 
-    // TODO: Implement AuthCredentials and SecurityMetadata types
+    // NOTE: AuthCredentials and SecurityMetadata types needed for full benchmark
     // Benchmark AuthCredentials creation
     // group.bench_function("create_auth_credentials", |b| {
     //     b.iter(|| {

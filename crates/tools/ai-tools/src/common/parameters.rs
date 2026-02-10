@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Model parameters for AI chat interfaces
 //!
 //! This module defines common parameters used to control AI model behavior.
@@ -131,4 +134,96 @@ pub enum ResponseFormat {
     Text,
     /// JSON response
     Json,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_model_parameters_new() {
+        let params = ModelParameters::new();
+        assert!(params.temperature.is_none());
+        assert!(params.max_tokens.is_none());
+        assert!(params.top_p.is_none());
+        assert!(params.top_k.is_none());
+        assert!(params.frequency_penalty.is_none());
+        assert!(params.presence_penalty.is_none());
+        assert!(params.stop.is_none());
+        assert_eq!(params.stream, Some(false));
+        assert!(params.tool_choice.is_none());
+    }
+
+    #[test]
+    fn test_model_parameters_default() {
+        let params = ModelParameters::default();
+        assert_eq!(params.stream, Some(false));
+    }
+
+    #[test]
+    fn test_model_parameters_builders() {
+        let params = ModelParameters::new()
+            .with_temperature(0.7)
+            .with_top_p(0.9)
+            .with_top_k(40.0)
+            .with_max_tokens(1000)
+            .with_frequency_penalty(0.5)
+            .with_presence_penalty(0.5)
+            .with_stream(true)
+            .with_tool_choice(ToolChoice::Auto);
+        assert!((params.temperature.unwrap() - 0.7).abs() < f32::EPSILON);
+        assert!((params.top_p.unwrap() - 0.9).abs() < f32::EPSILON);
+        assert!((params.top_k.unwrap() - 40.0).abs() < f32::EPSILON);
+        assert_eq!(params.max_tokens, Some(1000));
+        assert_eq!(params.stream, Some(true));
+    }
+
+    #[test]
+    fn test_model_parameters_with_stop() {
+        let params = ModelParameters::new().with_stop("STOP").with_stop("END");
+        let stops = params.stop.unwrap();
+        assert_eq!(stops.len(), 2);
+        assert_eq!(stops[0], "STOP");
+        assert_eq!(stops[1], "END");
+    }
+
+    #[test]
+    fn test_model_parameters_with_stops() {
+        let params = ModelParameters::new().with_stops(vec!["A".to_string(), "B".to_string()]);
+        let stops = params.stop.unwrap();
+        assert_eq!(stops.len(), 2);
+    }
+
+    #[test]
+    fn test_model_parameters_serde() {
+        let params = ModelParameters::new()
+            .with_temperature(0.7)
+            .with_max_tokens(512);
+        let json = serde_json::to_string(&params).expect("serialize");
+        let deser: ModelParameters = serde_json::from_str(&json).expect("deserialize");
+        assert!((deser.temperature.unwrap() - 0.7).abs() < f32::EPSILON);
+        assert_eq!(deser.max_tokens, Some(512));
+    }
+
+    #[test]
+    fn test_tool_choice_serde() {
+        for tc in [
+            ToolChoice::Auto,
+            ToolChoice::None,
+            ToolChoice::Required,
+            ToolChoice::Specific("my_tool".to_string()),
+        ] {
+            let json = serde_json::to_string(&tc).expect("serialize");
+            let _deser: ToolChoice = serde_json::from_str(&json).expect("deserialize");
+        }
+    }
+
+    #[test]
+    fn test_response_format_serde() {
+        for fmt in [ResponseFormat::Text, ResponseFormat::Json] {
+            let json = serde_json::to_string(&fmt).expect("serialize");
+            let deser: ResponseFormat = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(deser, fmt);
+        }
+    }
 }

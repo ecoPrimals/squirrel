@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Model Splitting Module - MOVED TO TOADSTOOL & SONGBIRD
 //!
 //! ⚠️ **THIS MODULE HAS BEEN RELOCATED** ⚠️
@@ -44,8 +47,8 @@
 
 use serde::{Deserialize, Serialize};
 
-/// STUB: Model split configuration
-/// MOVED TO: ToadStool (`toadstool/crates/model-loading/src/split_config.rs`)
+/// Deprecated compatibility stub for model split configuration.
+/// Moved to ToadStool (`toadstool/crates/model-loading/src/split_config.rs`).
 #[deprecated(
     since = "0.2.0",
     note = "Moved to ToadStool. Use ToadStool's model loading API instead."
@@ -58,8 +61,8 @@ pub struct ModelSplitConfig {
     pub vram_per_layer: f32,
 }
 
-/// STUB: Tower assignment
-/// MOVED TO: Songbird (`songbird/crates/coordination/src/tower_assignment.rs`)
+/// Deprecated compatibility stub for tower assignment.
+/// Moved to Songbird (`songbird/crates/coordination/src/tower_assignment.rs`).
 #[deprecated(
     since = "0.2.0",
     note = "Moved to Songbird. Use Songbird's coordination API instead."
@@ -72,8 +75,8 @@ pub struct TowerAssignment {
     pub vram_allocated_gb: f32,
 }
 
-/// STUB: Split status
-/// MOVED TO: Songbird coordination
+/// Deprecated compatibility stub for split status.
+/// Moved to Songbird coordination.
 #[deprecated(since = "0.2.0", note = "Moved to Songbird coordination API")]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SplitStatus {
@@ -83,8 +86,8 @@ pub enum SplitStatus {
     Failed,
 }
 
-/// STUB: Split session
-/// MOVED TO: Songbird coordination
+/// Deprecated compatibility stub for split session.
+/// Moved to Songbird coordination.
 #[deprecated(since = "0.2.0", note = "Moved to Songbird coordination API")]
 #[derive(Debug, Clone)]
 pub struct SplitSession {
@@ -92,8 +95,8 @@ pub struct SplitSession {
     pub status: SplitStatus,
 }
 
-/// STUB: Model split state
-/// MOVED TO: ToadStool model loading
+/// Deprecated compatibility stub for model split state.
+/// Moved to ToadStool model loading.
 #[deprecated(since = "0.2.0", note = "Moved to ToadStool model loading")]
 #[derive(Debug, Clone)]
 pub struct ModelSplitState {
@@ -111,8 +114,8 @@ impl ModelSplitState {
     }
 }
 
-/// STUB: Model split coordinator
-/// MOVED TO: Songbird coordination
+/// Deprecated compatibility stub for model split coordinator.
+/// Moved to Songbird coordination.
 #[deprecated(since = "0.2.0", note = "Use Songbird's coordination API")]
 #[derive(Debug)]
 pub struct ModelSplitCoordinator {
@@ -128,8 +131,8 @@ impl ModelSplitCoordinator {
     }
 }
 
-/// STUB: Layer distribution strategy
-/// MOVED TO: ToadStool model loading
+/// Deprecated compatibility stub for layer distribution strategy.
+/// Moved to ToadStool model loading.
 #[deprecated(since = "0.2.0", note = "Moved to ToadStool model loading")]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LayerDistributionStrategy {
@@ -139,8 +142,8 @@ pub enum LayerDistributionStrategy {
     EfficiencyOptimized,
 }
 
-/// STUB: Tower capability
-/// MOVED TO: ToadStool GPU detection
+/// Deprecated compatibility stub for tower capability.
+/// Moved to ToadStool GPU detection.
 #[deprecated(since = "0.2.0", note = "Use ToadStool's GPU detection API")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TowerCapability {
@@ -150,8 +153,8 @@ pub struct TowerCapability {
     pub gpu_model: String,
 }
 
-/// STUB: Layer distribution
-/// MOVED TO: ToadStool model loading
+/// Deprecated compatibility stub for layer distribution.
+/// Moved to ToadStool model loading.
 #[deprecated(since = "0.2.0", note = "Use ToadStool's layer distribution API")]
 #[derive(Debug, Clone)]
 pub struct LayerDistribution {
@@ -180,8 +183,8 @@ impl LayerDistribution {
     }
 }
 
-/// STUB: Tensor message
-/// MOVED TO: Songbird tensor routing
+/// Deprecated compatibility stub for tensor message.
+/// Moved to Songbird tensor routing.
 #[deprecated(since = "0.2.0", note = "Use Songbird's tensor routing API")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TensorMessage {
@@ -191,13 +194,13 @@ pub struct TensorMessage {
     pub layer_index: u32,
 }
 
-/// STUB: Tensor protocol
-/// MOVED TO: Songbird tensor routing
+/// Deprecated compatibility stub for tensor protocol.
+/// Moved to Songbird tensor routing.
 #[deprecated(since = "0.2.0", note = "Use Songbird's tensor routing API")]
 pub struct TensorProtocol;
 
-/// STUB: Performance prediction
-/// MOVED TO: ToadStool performance analysis
+/// Deprecated compatibility stub for performance prediction.
+/// Moved to ToadStool performance analysis.
 #[deprecated(since = "0.2.0", note = "Use ToadStool's performance API")]
 pub struct PerformancePrediction;
 

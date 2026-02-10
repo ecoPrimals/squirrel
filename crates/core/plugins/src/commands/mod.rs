@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Commands plugin module
 //!
 //! This module provides functionality for creating and managing command plugins.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration loader for loading PrimalConfig from various sources
 //!
 //! This module provides functionality to load configuration from:

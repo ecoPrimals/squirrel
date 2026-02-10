@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! # Production Security System
 //!
 //! This module provides comprehensive enterprise-grade security including:
@@ -19,6 +23,9 @@ pub mod rate_limiter;
 pub mod session;
 pub mod traits;
 pub mod types;
+
+#[cfg(test)]
+mod session_tests;
 
 // Re-export core types and components
 pub use beardog_coordinator::BeardogSecurityCoordinator;
@@ -103,6 +110,76 @@ impl SecuritySystemBuilder {
 impl Default for SecuritySystemBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod security_mod_tests {
+    use super::*;
+
+    #[test]
+    fn test_security_system_builder_new() {
+        let builder = SecuritySystemBuilder::new();
+        assert!(!builder.enable_beardog_integration);
+        assert!(builder.orchestration_config.is_none());
+    }
+
+    #[test]
+    fn test_security_system_builder_default() {
+        let builder = SecuritySystemBuilder::default();
+        assert!(!builder.enable_beardog_integration);
+    }
+
+    #[test]
+    fn test_security_system_builder_with_beardog() {
+        let builder = SecuritySystemBuilder::new().with_beardog_integration(true);
+        assert!(builder.enable_beardog_integration);
+    }
+
+    #[test]
+    fn test_security_system_builder_with_config() {
+        let config = SecurityOrchestrationConfig::default();
+        let builder = SecuritySystemBuilder::new().with_orchestration_config(config);
+        assert!(builder.orchestration_config.is_some());
+    }
+
+    #[test]
+    fn test_security_system_builder_chaining() {
+        let config = SecurityOrchestrationConfig::default();
+        let builder = SecuritySystemBuilder::new()
+            .with_orchestration_config(config)
+            .with_beardog_integration(true);
+        assert!(builder.orchestration_config.is_some());
+        assert!(builder.enable_beardog_integration);
+    }
+
+    #[tokio::test]
+    async fn test_security_system_builder_build() {
+        let result = SecuritySystemBuilder::new().build().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_production_security_system_new() {
+        let config = SecurityOrchestrationConfig::default();
+        let result = ProductionSecuritySystem::new(config).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_production_security_system_orchestrator() {
+        let config = SecurityOrchestrationConfig::default();
+        let system = ProductionSecuritySystem::new(config).await.unwrap();
+        let orchestrator = system.orchestrator();
+        // Just verify we get an Arc back
+        assert!(Arc::strong_count(&orchestrator) >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_production_security_system_no_beardog() {
+        let config = SecurityOrchestrationConfig::default();
+        let system = ProductionSecuritySystem::new(config).await.unwrap();
+        assert!(system.beardog_coordinator().is_none());
     }
 }
 

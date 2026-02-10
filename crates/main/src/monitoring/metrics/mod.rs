@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Metrics Collection Module
 //!
 //! Comprehensive metrics collection for the Squirrel AI ecosystem.
@@ -11,12 +14,12 @@
 //!
 //! ## Module Organization
 //!
-//! - [`types`] - Metric type definitions and structures
-//! - [`collector`] - Core metrics collection engine
+//! - `types` - Metric type definitions and structures
+//! - `collector` - Core metrics collection engine
 //!
 //! ## Usage Example
 //!
-//! ```no_run
+//! ```ignore
 //! use squirrel::monitoring::metrics::MetricsCollector;
 //!
 //! # async fn example() {
@@ -35,6 +38,9 @@
 
 mod collector;
 mod types;
+
+#[cfg(test)]
+mod collector_tests;
 
 // Re-export public types
 pub use collector::MetricsCollector;

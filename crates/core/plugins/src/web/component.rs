@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Component handling for web plugins
 //!
 //! This module provides structs and traits for handling UI components in web plugins.

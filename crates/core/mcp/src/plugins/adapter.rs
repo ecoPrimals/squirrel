@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // MCP plugin adaptation layer
 //
 // This module provides an adaptation layer between the MCP tool system and the new unified 

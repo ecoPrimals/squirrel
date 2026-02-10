@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Protocol adapter module for MCP.
 //!
 //! This module provides a thread-safe adapter implementation for the Machine Context Protocol (MCP),

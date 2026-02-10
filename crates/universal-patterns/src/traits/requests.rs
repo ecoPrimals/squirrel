@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Primal request types.
 
 use chrono::{DateTime, Utc};
@@ -51,4 +54,71 @@ pub enum PrimalRequestType {
     Infer,
     /// Custom request type
     Custom(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_primal_request_serde() {
+        let request = PrimalRequest {
+            id: Uuid::new_v4(),
+            request_type: PrimalRequestType::Authenticate,
+            payload: {
+                let mut m = HashMap::new();
+                m.insert("username".to_string(), serde_json::json!("admin"));
+                m
+            },
+            timestamp: Utc::now(),
+            context: Some("user-session-1".to_string()),
+            priority: Some(5),
+            security_level: Some("high".to_string()),
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: PrimalRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, request.id);
+        assert_eq!(deserialized.request_type, PrimalRequestType::Authenticate);
+        assert_eq!(deserialized.priority, Some(5));
+    }
+
+    #[test]
+    fn test_primal_request_type_serde() {
+        let types = vec![
+            PrimalRequestType::Authenticate,
+            PrimalRequestType::Encrypt,
+            PrimalRequestType::Decrypt,
+            PrimalRequestType::Authorize,
+            PrimalRequestType::AuditLog,
+            PrimalRequestType::ThreatDetection,
+            PrimalRequestType::HealthCheck,
+            PrimalRequestType::Store,
+            PrimalRequestType::Retrieve,
+            PrimalRequestType::Compute,
+            PrimalRequestType::Infer,
+            PrimalRequestType::Custom("my-op".to_string()),
+        ];
+        for rt in types {
+            let json = serde_json::to_string(&rt).unwrap();
+            let deserialized: PrimalRequestType = serde_json::from_str(&json).unwrap();
+            assert_eq!(deserialized, rt);
+        }
+    }
+
+    #[test]
+    fn test_primal_request_minimal() {
+        let request = PrimalRequest {
+            id: Uuid::nil(),
+            request_type: PrimalRequestType::HealthCheck,
+            payload: HashMap::new(),
+            timestamp: Utc::now(),
+            context: None,
+            priority: None,
+            security_level: None,
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: PrimalRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, Uuid::nil());
+        assert!(deserialized.context.is_none());
+    }
 }

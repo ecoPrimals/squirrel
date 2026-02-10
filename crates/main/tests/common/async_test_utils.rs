@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Async test utilities for concurrent, robust testing
 //!
 //! This module provides utilities to eliminate sleeps and make tests deterministic.

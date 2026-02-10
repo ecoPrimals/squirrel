@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Idiomatic constraint system for AI routing
+#![allow(dead_code)] // Public API surface awaiting consumer activation
 //!
 //! Allows users, teams, and other primals to configure routing preferences.
 //! Designed to be extensible for future constraint types.
@@ -50,16 +54,19 @@ pub enum RoutingConstraint {
 pub use super::adapters::QualityTier;
 
 /// Constraint priority for conflict resolution
+///
+/// Variants are ordered from lowest to highest so derived `Ord`
+/// gives `Optional < Preferred < Required`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConstraintPriority {
-    /// Must be satisfied (hard constraint)
-    Required,
+    /// Nice to have but not important
+    Optional,
 
     /// Should be satisfied if possible
     Preferred,
 
-    /// Nice to have but not important
-    Optional,
+    /// Must be satisfied (hard constraint)
+    Required,
 }
 
 /// A constraint with its priority
@@ -464,5 +471,180 @@ mod tests {
 
         // Primal constraints are preferred by default, not required
         assert!(!constraints.requires_local());
+    }
+
+    #[test]
+    fn test_constraint_set_default_empty() {
+        let set = ConstraintSet::default();
+        assert!(set.required().is_empty());
+        assert!(set.preferred().is_empty());
+        assert!(!set.optimizes_cost());
+        assert!(!set.requires_local());
+        assert!(set.max_cost().is_none());
+        assert!(set.max_latency().is_none());
+        assert!(set.min_quality().is_none());
+    }
+
+    #[test]
+    fn test_min_quality() {
+        let constraints = ConstraintBuilder::new()
+            .min_quality(QualityTier::High)
+            .build();
+        assert_eq!(constraints.min_quality(), Some(QualityTier::High));
+    }
+
+    #[test]
+    fn test_multiple_max_costs_takes_minimum() {
+        let mut set = ConstraintSet::new();
+        set.require(RoutingConstraint::MaxCost(0.05), ConstraintSource::User);
+        set.require(
+            RoutingConstraint::MaxCost(0.01),
+            ConstraintSource::Team("eng".to_string()),
+        );
+        assert!((set.max_cost().unwrap() - 0.01).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_multiple_max_latencies_takes_minimum() {
+        let mut set = ConstraintSet::new();
+        set.require(RoutingConstraint::MaxLatency(5000), ConstraintSource::User);
+        set.require(
+            RoutingConstraint::MaxLatency(1000),
+            ConstraintSource::System,
+        );
+        assert_eq!(set.max_latency(), Some(1000));
+    }
+
+    #[test]
+    fn test_by_source() {
+        let mut set = ConstraintSet::new();
+        set.require(RoutingConstraint::RequireLocal, ConstraintSource::User);
+        set.require(RoutingConstraint::MaxCost(0.01), ConstraintSource::System);
+        set.prefer(RoutingConstraint::OptimizeCost, ConstraintSource::User);
+
+        let user_constraints = set.by_source(&ConstraintSource::User);
+        assert_eq!(user_constraints.len(), 2);
+
+        let system_constraints = set.by_source(&ConstraintSource::System);
+        assert_eq!(system_constraints.len(), 1);
+    }
+
+    #[test]
+    fn test_routing_constraint_serde_roundtrip() {
+        let constraints = vec![
+            RoutingConstraint::OptimizeCost,
+            RoutingConstraint::OptimizeSpeed,
+            RoutingConstraint::OptimizeQuality,
+            RoutingConstraint::RequireLocal,
+            RoutingConstraint::PreferLocal,
+            RoutingConstraint::RequireProvider("openai".to_string()),
+            RoutingConstraint::PreferQuality(QualityTier::Premium),
+            RoutingConstraint::MaxCost(0.05),
+            RoutingConstraint::MaxLatency(3000),
+            RoutingConstraint::MinQuality(QualityTier::High),
+            RoutingConstraint::Custom {
+                key: "region".to_string(),
+                value: serde_json::json!("us-east-1"),
+            },
+        ];
+        for c in &constraints {
+            let json = serde_json::to_string(c).unwrap();
+            let deser: RoutingConstraint = serde_json::from_str(&json).unwrap();
+            assert_eq!(*c, deser, "Failed roundtrip for: {:?}", c);
+        }
+    }
+
+    #[test]
+    fn test_constraint_source_serde() {
+        let sources = vec![
+            ConstraintSource::User,
+            ConstraintSource::Team("eng".to_string()),
+            ConstraintSource::Primal {
+                name: "compute".to_string(),
+                reason: "gpu needed".to_string(),
+            },
+            ConstraintSource::System,
+            ConstraintSource::Compliance("GDPR".to_string()),
+        ];
+        for s in &sources {
+            let json = serde_json::to_string(s).unwrap();
+            let deser: ConstraintSource = serde_json::from_str(&json).unwrap();
+            assert_eq!(*s, deser, "Failed roundtrip for: {:?}", s);
+        }
+    }
+
+    #[test]
+    fn test_constraint_priority_ordering() {
+        assert!(ConstraintPriority::Required > ConstraintPriority::Preferred);
+        assert!(ConstraintPriority::Preferred > ConstraintPriority::Optional);
+    }
+
+    #[test]
+    fn test_from_request_quality() {
+        let req = serde_json::json!({"quality": "premium"});
+        let constraints = from_request(&req);
+        assert_eq!(constraints.min_quality(), Some(QualityTier::Premium));
+    }
+
+    #[test]
+    fn test_from_request_speed() {
+        let req = serde_json::json!({"speed_preference": "fast"});
+        let constraints = from_request(&req);
+        let preferred = constraints.preferred();
+        assert!(preferred
+            .iter()
+            .any(|c| matches!(c, RoutingConstraint::OptimizeSpeed)));
+    }
+
+    #[test]
+    fn test_from_request_constraints_array() {
+        let req = serde_json::json!({
+            "constraints": [
+                {"type": "max_cost", "value": 0.05},
+                {"type": "max_latency", "value": 2000},
+                {"type": "require_local"}
+            ]
+        });
+        let constraints = from_request(&req);
+        assert_eq!(constraints.max_cost(), Some(0.05));
+        assert_eq!(constraints.max_latency(), Some(2000));
+        assert!(constraints.requires_local());
+    }
+
+    #[test]
+    fn test_from_request_empty() {
+        let req = serde_json::json!({});
+        let constraints = from_request(&req);
+        assert!(!constraints.optimizes_cost());
+        assert!(!constraints.requires_local());
+    }
+
+    #[test]
+    fn test_compliance_constraint() {
+        let constraints = ConstraintBuilder::new()
+            .with_compliance("GDPR".to_string(), RoutingConstraint::RequireLocal)
+            .build();
+        assert!(constraints.requires_local());
+        let gdpr = constraints.by_source(&ConstraintSource::Compliance("GDPR".to_string()));
+        assert_eq!(gdpr.len(), 1);
+    }
+
+    #[test]
+    fn test_custom_constraint() {
+        let constraints = ConstraintBuilder::new()
+            .with_custom("region".to_string(), serde_json::json!("us-east"))
+            .build();
+        let preferred = constraints.preferred();
+        assert!(preferred
+            .iter()
+            .any(|c| matches!(c, RoutingConstraint::Custom { .. })));
+    }
+
+    #[test]
+    fn test_quality_tier_ordering() {
+        assert!(QualityTier::Premium > QualityTier::High);
+        assert!(QualityTier::High > QualityTier::Standard);
+        assert!(QualityTier::Standard > QualityTier::Fast);
+        assert!(QualityTier::Fast > QualityTier::Basic);
     }
 }

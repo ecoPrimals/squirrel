@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Advanced Adapter Pattern Demonstration
 //!
 //! This example demonstrates advanced features of the adapter pattern implementation,

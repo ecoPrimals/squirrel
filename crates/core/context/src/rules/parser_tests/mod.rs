@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tests for the Rules Parser
 //!
 //! These tests cover the core functionality of parsing MDC/YAML formatted rules.

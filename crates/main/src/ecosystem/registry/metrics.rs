@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Metrics collection operations for the ecosystem registry manager
 
 use std::collections::HashMap;

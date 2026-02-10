@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use crate::error::types::ErrorContext;
 use crate::error::types::MCPError;
 use serde::{Deserialize, Serialize};

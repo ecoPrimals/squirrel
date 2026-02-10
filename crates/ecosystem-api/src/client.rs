@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Service mesh client implementation
 //!
 //! **DEPRECATED**: This module provides a legacy implementation for communicating with
@@ -599,7 +602,7 @@ mod tests {
     // Integration tests should use real SongbirdClient with a test server,
     // not mock implementations.
     //
-    // TODO: Add integration test in tests/ directory that:
+    // NOTE: Integration test plan for tests/ directory:
     // 1. Starts a test Songbird server
     // 2. Uses real SongbirdClient to test all methods
     // 3. Verifies actual network communication

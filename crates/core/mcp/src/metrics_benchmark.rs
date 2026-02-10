@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Benchmark comparing optimized vs original MetricsCollector performance
 //!
 //! This module demonstrates the dramatic performance improvements achieved

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Zero-Copy Serialization System for MCP
 //!
 //! This module provides high-performance serialization optimizations including:
@@ -662,7 +665,7 @@ impl SerializationPerformanceReport {
 }
 
 /// Global zero-copy serializer instance
-static GLOBAL_SERIALIZER: once_cell::sync::OnceCell<Arc<ZeroCopySerializer>> = once_cell::sync::OnceCell::new();
+static GLOBAL_SERIALIZER: std::sync::OnceLock<Arc<ZeroCopySerializer>> = std::sync::OnceLock::new();
 
 /// Get or initialize the global zero-copy serializer
 pub fn get_global_serializer() -> &'static Arc<ZeroCopySerializer> {

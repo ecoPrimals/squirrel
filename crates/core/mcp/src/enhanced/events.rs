@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Event Broadcasting System
 //!
 //! This module provides a universal event system that can handle events from

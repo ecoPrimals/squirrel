@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tools for AI chat interfaces
 //!
 //! This module defines the common tool types used across different AI providers.
@@ -228,5 +231,117 @@ impl PropertySchema {
             properties: None,
             required: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tool_function_constructor() {
+        let func = FunctionDefinition {
+            name: "test_fn".to_string(),
+            description: "A test function".to_string(),
+            parameters: ParameterSchema::object(),
+        };
+        let tool = Tool::function(func);
+        assert!(matches!(tool.tool_type, ToolType::Function));
+        assert!(tool.function.is_some());
+        assert_eq!(tool.function.unwrap().name, "test_fn");
+    }
+
+    #[test]
+    fn test_tool_type_serde() {
+        let tt = ToolType::Function;
+        let json = serde_json::to_string(&tt).expect("serialize");
+        assert_eq!(json, "\"function\"");
+        let deser: ToolType = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser, ToolType::Function);
+    }
+
+    #[test]
+    fn test_parameter_schema_object() {
+        let schema = ParameterSchema::object();
+        assert_eq!(schema.schema_type, "object");
+        assert!(schema.properties.is_some());
+        assert!(schema.required.is_some());
+        assert!(schema.items.is_none());
+    }
+
+    #[test]
+    fn test_parameter_schema_with_property() {
+        let schema = ParameterSchema::object()
+            .with_property("name", PropertySchema::string("The name"), true)
+            .with_property("age", PropertySchema::integer("The age"), false);
+        let props = schema.properties.unwrap();
+        assert_eq!(props.len(), 2);
+        assert!(props.contains_key("name"));
+        assert!(props.contains_key("age"));
+        let req = schema.required.unwrap();
+        assert_eq!(req.len(), 1);
+        assert!(req.contains(&"name".to_string()));
+    }
+
+    #[test]
+    fn test_property_schema_types() {
+        let s = PropertySchema::string("desc");
+        assert_eq!(s.schema_type, "string");
+        assert_eq!(s.description.as_deref(), Some("desc"));
+
+        let n = PropertySchema::number("num");
+        assert_eq!(n.schema_type, "number");
+
+        let i = PropertySchema::integer("int");
+        assert_eq!(i.schema_type, "integer");
+
+        let b = PropertySchema::boolean("bool");
+        assert_eq!(b.schema_type, "boolean");
+    }
+
+    #[test]
+    fn test_property_schema_array() {
+        let arr = PropertySchema::array("items", PropertySchema::string("item"));
+        assert_eq!(arr.schema_type, "array");
+        assert!(arr.items.is_some());
+    }
+
+    #[test]
+    fn test_property_schema_enum() {
+        let e = PropertySchema::enum_type("pick", vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(e.schema_type, "string");
+        assert_eq!(e.enum_values.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_tool_serde_roundtrip() {
+        let tool = Tool::function(FunctionDefinition {
+            name: "search".to_string(),
+            description: "Search for items".to_string(),
+            parameters: ParameterSchema::object().with_property(
+                "query",
+                PropertySchema::string("search query"),
+                true,
+            ),
+        });
+        let json = serde_json::to_string(&tool).expect("serialize");
+        let deser: Tool = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser.function.unwrap().name, "search");
+    }
+
+    #[test]
+    fn test_tool_call_serde() {
+        let call = ToolCall {
+            id: "call-1".to_string(),
+            tool_type: ToolType::Function,
+            function: FunctionCall {
+                name: "search".to_string(),
+                arguments: r#"{"query":"test"}"#.to_string(),
+            },
+        };
+        let json = serde_json::to_string(&call).expect("serialize");
+        let deser: ToolCall = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser.id, "call-1");
+        assert_eq!(deser.function.name, "search");
     }
 }

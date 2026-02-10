@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Config Loader Tests
 //!
 //! Comprehensive test suite for configuration loading from various sources.

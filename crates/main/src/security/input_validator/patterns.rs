@@ -2,6 +2,7 @@
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Regex pattern compilation for attack detection
+#![allow(dead_code)] // Security infrastructure awaiting orchestrator wiring
 //!
 //! Compiles and stores regex patterns used to detect various types
 //! of injection attacks and malicious input patterns.

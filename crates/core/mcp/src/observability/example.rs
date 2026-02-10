@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Example file showing how to use the enhanced ObservabilityFramework
 
 use std::sync::Arc;
@@ -117,7 +120,7 @@ pub async fn run_observability_example() -> ObservabilityResult<()> {
         // Create a trace span for this operation
         let operation_span = framework.tracer.start_span(format!("example_operation_{}", i))?;
         {
-            let span_guard = operation_span.lock().unwrap();
+            let span_guard = operation_span.lock().expect("span lock poisoned");
             println!("Starting operation {} with span ID: {}", i, span_guard.span().id());
         }
         
@@ -139,7 +142,7 @@ pub async fn run_observability_example() -> ObservabilityResult<()> {
             sleep(Duration::from_millis(50)).await;
             
             // End the span properly by consuming it
-            let span_guard = sub_span.lock().unwrap();
+            let span_guard = sub_span.lock().expect("span lock poisoned");
             drop(span_guard);
             // The span will be automatically ended when the Arc is dropped
         }
@@ -154,7 +157,7 @@ pub async fn run_observability_example() -> ObservabilityResult<()> {
             sleep(Duration::from_millis(100)).await;
             
             // End the span properly by consuming it
-            let span_guard = sub_span.lock().unwrap();
+            let span_guard = sub_span.lock().expect("span lock poisoned");
             drop(span_guard);
             // The span will be automatically ended when the Arc is dropped
         }
@@ -165,7 +168,7 @@ pub async fn run_observability_example() -> ObservabilityResult<()> {
         
         // End the main span
         {
-            let span_guard = operation_span.lock().unwrap(); 
+            let span_guard = operation_span.lock().expect("span lock poisoned"); 
             drop(span_guard);
             // The span will be automatically ended when the Arc is dropped
         }

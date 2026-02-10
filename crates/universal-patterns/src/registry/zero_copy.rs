@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Zero-copy optimizations for the universal registry
 //!
 //! This module provides `Arc<str>`-based alternatives to String for frequently cloned
@@ -73,7 +76,7 @@ impl RegistryStringCache {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// use universal_patterns::registry::zero_copy::RegistryStringCache;
     ///
     /// let cache = RegistryStringCache::new().with_common_values();

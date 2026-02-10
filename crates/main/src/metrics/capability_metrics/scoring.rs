@@ -95,8 +95,6 @@ pub fn calculate_reliability_score(routing: &RoutingMetrics, errors: &ErrorMetri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
-    use std::collections::HashMap;
 
     #[test]
     fn test_health_score_perfect() {

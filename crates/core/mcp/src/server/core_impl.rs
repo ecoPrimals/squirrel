@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core MCPServer implementation
 //!
 //! This module contains the main implementation of the MCPServer including:
@@ -12,20 +15,21 @@ use crate::protocol::adapter_wire::{WireFormatAdapter, DomainObject as WireDomai
 use crate::transport::Transport;
 
 use super::{ClientConnection, ConnectionHandler};
+use dashmap::DashMap;
 use serde_json::json;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tokio::sync::{RwLock, watch};
+use tokio::sync::{watch, RwLock};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
 /// Start the listener task to accept client connections
 pub async fn start_listener_task(
     listener: TcpListener,
-    clients: Arc<RwLock<HashMap<String, ClientConnection>>>,
+    clients: Arc<DashMap<String, ClientConnection>>,
     wire_format_adapter: Arc<WireFormatAdapter>,
     message_router: Arc<MessageRouter>,
     shutdown_rx: watch::Receiver<bool>,
@@ -80,10 +84,7 @@ pub async fn start_listener_task(
                             };
                             
                             // Store client connection
-                            {
-                                let mut clients_guard = clients.write().await;
-                                clients_guard.insert(client_id.clone(), client.clone());
-                            }
+                            clients.insert(client_id.clone(), client.clone());
                             
                             // Notify connection handlers
                             {
@@ -139,7 +140,7 @@ pub async fn start_listener_task(
 /// Handle a client connection
 pub async fn handle_client_connection(
     client: ClientConnection,
-    clients: Arc<RwLock<HashMap<String, ClientConnection>>>,
+    clients: Arc<DashMap<String, ClientConnection>>,
     wire_format_adapter: Arc<WireFormatAdapter>,
     message_router: Arc<MessageRouter>,
 ) -> Result<()> {
@@ -226,10 +227,7 @@ pub async fn handle_client_connection(
     }
     
     // Clean up: remove client from active connections
-    {
-        let mut clients_guard = clients.write().await;
-        clients_guard.remove(&client.client_id);
-    }
+    clients.remove(&client.client_id);
     
     info!(client_id = %client.client_id, "Client message handling loop ended");
     Ok(())

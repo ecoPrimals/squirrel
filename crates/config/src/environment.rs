@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::str::FromStr;
@@ -244,7 +247,8 @@ pub struct AIProviderConfig {
     pub openai_endpoint: String,
     pub anthropic_api_key: Option<String>,
     pub anthropic_endpoint: String,
-    pub ollama_endpoint: String,
+    /// Local AI server endpoint (agnostic: works with Ollama, llama.cpp, vLLM, etc.)
+    pub local_server_endpoint: String,
     pub default_model: String,
     pub request_timeout_ms: u64,
 }
@@ -260,19 +264,22 @@ impl AIProviderConfig {
         let anthropic_endpoint = env::var("ANTHROPIC_ENDPOINT")
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".to_string());
 
-        // Multi-tier Ollama endpoint resolution
-        // 1. OLLAMA_ENDPOINT (full endpoint)
-        // 2. TOADSTOOL_ENDPOINT (ToadStool as Ollama host)
-        // 3. OLLAMA_PORT or TOADSTOOL_PORT (port override)
-        // 4. Default: http://localhost:11434
-        let ollama_endpoint = env::var("OLLAMA_ENDPOINT")
+        // Multi-tier local AI server endpoint resolution (capability-based)
+        // 1. LOCAL_AI_ENDPOINT (agnostic)
+        // 2. OLLAMA_ENDPOINT (backward compat)
+        // 3. TOADSTOOL_ENDPOINT (ecosystem primal)
+        // 4. Port override via LOCAL_AI_PORT / OLLAMA_PORT / TOADSTOOL_PORT
+        // 5. Default: http://localhost:11434
+        let local_server_endpoint = env::var("LOCAL_AI_ENDPOINT")
+            .or_else(|_| env::var("OLLAMA_ENDPOINT"))
             .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
             .unwrap_or_else(|_| {
-                let port = env::var("OLLAMA_PORT")
+                let port = env::var("LOCAL_AI_PORT")
+                    .or_else(|_| env::var("OLLAMA_PORT"))
                     .or_else(|_| env::var("TOADSTOOL_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(11434); // Default Ollama port
+                    .unwrap_or(11434); // Default OpenAI-compatible server port
                 format!("http://localhost:{}", port)
             });
 
@@ -292,7 +299,7 @@ impl AIProviderConfig {
             openai_endpoint,
             anthropic_api_key,
             anthropic_endpoint,
-            ollama_endpoint,
+            local_server_endpoint,
             default_model,
             request_timeout_ms,
         })

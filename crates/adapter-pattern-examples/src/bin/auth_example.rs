@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Authentication Example
 //!
 //! This example demonstrates authentication and authorization patterns using the MCP adapter,

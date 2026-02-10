@@ -1,10 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive error handling system for the Squirrel Plugin SDK
 //!
 //! **DEPRECATED**: This error system is being replaced by `universal-error`.
 //! Please migrate to the unified error system for all new code.
 //!
 //! Migration guide:
-//! ```ignore
+//! ```text
 //! // Old:
 //! use crate::infrastructure::error::*;
 //! // New:
@@ -32,11 +35,11 @@
 //! - [`validation`] - Validation errors and helper functions
 //! - [`conversions`] - WASM compatibility and From implementations
 //! - [`macros`] - Helper macros for error creation
-//! - [`tests`] - Comprehensive test suite
+//! - `tests` - Comprehensive test suite
 //!
 //! # Usage
 //!
-//! ```rust
+//! ```ignore
 //! use crate::infrastructure::error::*;
 //! use crate::{param_error, missing_param, network_error};
 //!
@@ -288,5 +291,270 @@ pub mod utils {
             PluginError::TemporaryFailure { .. } => 2000 * (2u64.pow(attempt.min(4))),
             _ => 1000,
         }
+    }
+}
+
+#[cfg(test)]
+mod mod_tests {
+    #![allow(deprecated)]
+    use super::*;
+
+    #[test]
+    fn test_retry_config_default() {
+        let config = retry::RetryConfig::default();
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.initial_delay, 1000);
+        assert_eq!(config.backoff_multiplier, 2.0);
+        assert_eq!(config.max_delay, 30000);
+    }
+
+    #[test]
+    fn test_retry_config_custom() {
+        let config = retry::RetryConfig {
+            max_retries: 5,
+            initial_delay: 500,
+            backoff_multiplier: 1.5,
+            max_delay: 10000,
+        };
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.initial_delay, 500);
+    }
+
+    #[test]
+    fn test_plugin_error_user_error() {
+        let err = PluginError::user_error("bad input");
+        match err {
+            PluginError::InvalidParameter { name, reason } => {
+                assert_eq!(name, "user_input");
+                assert_eq!(reason, "bad input");
+            }
+            _ => panic!("Expected InvalidParameter"),
+        }
+    }
+
+    #[test]
+    fn test_plugin_error_system_error() {
+        let err = PluginError::system_error("crash");
+        match err {
+            PluginError::InternalError { message } => assert_eq!(message, "crash"),
+            _ => panic!("Expected InternalError"),
+        }
+    }
+
+    #[test]
+    fn test_plugin_error_network_error() {
+        let err = PluginError::network_error("fetch", "timeout");
+        match err {
+            PluginError::NetworkError { operation, message } => {
+                assert_eq!(operation, "fetch");
+                assert_eq!(message, "timeout");
+            }
+            _ => panic!("Expected NetworkError"),
+        }
+    }
+
+    #[test]
+    fn test_plugin_error_config_error() {
+        let err = PluginError::config_error("bad config");
+        match err {
+            PluginError::ConfigurationError { message } => assert_eq!(message, "bad config"),
+            _ => panic!("Expected ConfigurationError"),
+        }
+    }
+
+    #[test]
+    fn test_plugin_error_permission_error() {
+        let err = PluginError::permission_error("write", "read only");
+        match err {
+            PluginError::PermissionDenied { operation, reason } => {
+                assert_eq!(operation, "write");
+                assert_eq!(reason, "read only");
+            }
+            _ => panic!("Expected PermissionDenied"),
+        }
+    }
+
+    #[test]
+    fn test_plugin_error_resource_error() {
+        let err = PluginError::resource_error("config.json", "not found");
+        match err {
+            PluginError::ResourceNotFound { resource } => assert_eq!(resource, "config.json"),
+            _ => panic!("Expected ResourceNotFound"),
+        }
+    }
+
+    #[test]
+    fn test_plugin_error_temporary_error() {
+        let err = PluginError::temporary_error("api_call", "service busy");
+        match err {
+            PluginError::TemporaryFailure { operation, message } => {
+                assert_eq!(operation, "api_call");
+                assert_eq!(message, "service busy");
+            }
+            _ => panic!("Expected TemporaryFailure"),
+        }
+    }
+
+    #[test]
+    fn test_plugin_error_validation_error() {
+        let err = PluginError::validation_error("email", "invalid format");
+        match err {
+            PluginError::ValidationError { field, message } => {
+                assert_eq!(field, "email");
+                assert_eq!(message, "invalid format");
+            }
+            _ => panic!("Expected ValidationError"),
+        }
+    }
+
+    #[test]
+    fn test_utils_is_recoverable_error() {
+        let err = PluginError::NetworkError {
+            operation: "fetch".into(),
+            message: "timeout".into(),
+        };
+        assert!(utils::is_recoverable_error(&err));
+
+        let err = PluginError::SecurityViolation {
+            violation: "unauthorized".into(),
+        };
+        assert!(!utils::is_recoverable_error(&err));
+    }
+
+    #[test]
+    fn test_utils_get_error_category() {
+        let err = PluginError::NetworkError {
+            operation: "fetch".into(),
+            message: "timeout".into(),
+        };
+        assert_eq!(utils::get_error_category(&err), "NETWORK");
+    }
+
+    #[test]
+    fn test_utils_get_error_severity() {
+        let err = PluginError::SecurityViolation {
+            violation: "test".into(),
+        };
+        assert_eq!(utils::get_error_severity(&err), "CRITICAL");
+    }
+
+    #[test]
+    fn test_utils_get_recovery_suggestions() {
+        let err = PluginError::NetworkError {
+            operation: "fetch".into(),
+            message: "timeout".into(),
+        };
+        let suggestions = utils::get_recovery_suggestions(&err);
+        assert!(!suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_utils_format_error_for_logging() {
+        let err = PluginError::NetworkError {
+            operation: "fetch".into(),
+            message: "timeout".into(),
+        };
+        let formatted = utils::format_error_for_logging(&err);
+        assert!(formatted.contains("HIGH"));
+        assert!(formatted.contains("NETWORK"));
+        assert!(formatted.contains("NetworkError"));
+    }
+
+    #[test]
+    fn test_utils_format_enhanced_error_for_logging() {
+        let err = PluginError::NetworkError {
+            operation: "fetch".into(),
+            message: "timeout".into(),
+        };
+        let enhanced = err.with_operation("test_op");
+        let formatted = utils::format_enhanced_error_for_logging(&enhanced);
+        assert!(formatted.contains("HIGH"));
+        assert!(formatted.contains("NETWORK"));
+        assert!(formatted.contains("test_op"));
+    }
+
+    #[test]
+    fn test_utils_should_retry_network() {
+        let err = PluginError::NetworkError {
+            operation: "fetch".into(),
+            message: "timeout".into(),
+        };
+        assert!(utils::should_retry_error(&err));
+    }
+
+    #[test]
+    fn test_utils_should_retry_external() {
+        let err = PluginError::ExternalServiceError {
+            service: "api".into(),
+            message: "down".into(),
+        };
+        assert!(utils::should_retry_error(&err));
+    }
+
+    #[test]
+    fn test_utils_should_not_retry_temporary() {
+        // TemporaryFailure maps to ErrorCategory::Unknown, not System
+        // so should_retry_error returns false (only System+TemporaryFailure would retry)
+        let err = PluginError::TemporaryFailure {
+            operation: "call".into(),
+            message: "retry".into(),
+        };
+        assert!(!utils::should_retry_error(&err));
+    }
+
+    #[test]
+    fn test_utils_should_not_retry_security() {
+        let err = PluginError::SecurityViolation {
+            violation: "test".into(),
+        };
+        assert!(!utils::should_retry_error(&err));
+    }
+
+    #[test]
+    fn test_utils_should_not_retry_user() {
+        let err = PluginError::MissingParameter {
+            parameter: "name".into(),
+        };
+        assert!(!utils::should_retry_error(&err));
+    }
+
+    #[test]
+    fn test_utils_get_retry_delay_rate_limit() {
+        let err = PluginError::RateLimitError {
+            resource: "api".into(),
+            retry_after: 60,
+        };
+        assert_eq!(utils::get_retry_delay(&err, 0), 60000);
+    }
+
+    #[test]
+    fn test_utils_get_retry_delay_network_exponential() {
+        let err = PluginError::NetworkError {
+            operation: "fetch".into(),
+            message: "timeout".into(),
+        };
+        assert_eq!(utils::get_retry_delay(&err, 0), 1000);
+        assert_eq!(utils::get_retry_delay(&err, 1), 2000);
+        assert_eq!(utils::get_retry_delay(&err, 2), 4000);
+        assert_eq!(utils::get_retry_delay(&err, 3), 8000);
+    }
+
+    #[test]
+    fn test_utils_get_retry_delay_temporary_exponential() {
+        let err = PluginError::TemporaryFailure {
+            operation: "call".into(),
+            message: "retry".into(),
+        };
+        assert_eq!(utils::get_retry_delay(&err, 0), 2000);
+        assert_eq!(utils::get_retry_delay(&err, 1), 4000);
+    }
+
+    #[test]
+    fn test_utils_get_retry_delay_default() {
+        let err = PluginError::Unknown {
+            message: "???".into(),
+        };
+        assert_eq!(utils::get_retry_delay(&err, 0), 1000);
+        assert_eq!(utils::get_retry_delay(&err, 5), 1000);
     }
 }

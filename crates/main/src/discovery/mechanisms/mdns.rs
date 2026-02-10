@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! mDNS (Multicast DNS) discovery mechanism
+#![allow(dead_code)] // Discovery infrastructure awaiting activation
 //!
 //! Discovers services on the local network using mDNS/Bonjour/Avahi.
 //! Ideal for zero-configuration local network discovery.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Optimized Metrics Collector with Arc<str> Keys
 //!
 //! This module demonstrates the performance improvements possible by using
@@ -8,10 +11,10 @@ use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::HashMap;
 use std::sync::RwLock;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 /// String interning for common metric names
-static COMMON_METRICS: Lazy<HashMap<&'static str, Arc<str>>> = Lazy::new(|| {
+static COMMON_METRICS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::new(|| {
         let mut map = HashMap::new();
         // Pre-allocate common metric names to avoid any allocation overhead
         map.insert("request_count", Arc::from("request_count"));

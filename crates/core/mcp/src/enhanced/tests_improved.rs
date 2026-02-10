@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Enhanced Test Coverage for MCP Platform
 //!
 //! This module provides comprehensive test coverage for areas that were

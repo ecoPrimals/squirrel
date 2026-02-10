@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core configuration for AI tools
 //!
 //! This module provides configuration structures for AI providers and tools.
@@ -31,7 +34,7 @@ pub struct AIToolsConfig {
 /// Configuration for a specific AI provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderConfig {
-    /// Provider type (openai, anthropic, ollama, etc.)
+    /// Provider type (openai, anthropic, local-server, etc.)
     pub provider_type: String,
 
     /// API key for the provider
@@ -145,21 +148,30 @@ impl AIToolsConfig {
             self.providers.insert("gemini".to_string(), provider_config);
         }
 
-        // Ollama configuration
-        if env::var("OLLAMA_HOST").is_ok() || env::var("OLLAMA_URL").is_ok() {
+        // Local AI server configuration (agnostic: works with Ollama, llama.cpp, vLLM, etc.)
+        // Checks agnostic env vars first, then falls back to legacy vendor-specific ones
+        if env::var("LOCAL_AI_HOST").is_ok()
+            || env::var("LOCAL_AI_URL").is_ok()
+            || env::var("OLLAMA_HOST").is_ok()
+            || env::var("OLLAMA_URL").is_ok()
+        {
             let mut settings = HashMap::new();
-            if let Ok(host) = env::var("OLLAMA_HOST") {
+            if let Ok(host) = env::var("LOCAL_AI_HOST").or_else(|_| env::var("OLLAMA_HOST")) {
                 settings.insert("host".to_string(), serde_json::Value::String(host));
             }
 
             let provider_config = ProviderConfig {
-                provider_type: "ollama".to_string(),
+                provider_type: "local-server".to_string(),
                 api_key: None,
-                base_url: env::var("OLLAMA_URL").ok(),
-                default_model: env::var("OLLAMA_DEFAULT_MODEL").ok(),
+                base_url: env::var("LOCAL_AI_URL")
+                    .or_else(|_| env::var("OLLAMA_URL"))
+                    .ok(),
+                default_model: env::var("LOCAL_AI_DEFAULT_MODEL")
+                    .or_else(|_| env::var("OLLAMA_DEFAULT_MODEL"))
+                    .ok(),
                 settings,
             };
-            self.providers.insert("ollama".to_string(), provider_config);
+            self.providers.insert("local".to_string(), provider_config);
         }
 
         Ok(())
@@ -251,8 +263,237 @@ impl ProviderConfig {
     pub fn is_valid(&self) -> bool {
         match self.provider_type.as_str() {
             "openai" | "anthropic" | "gemini" => self.api_key.is_some(),
-            "ollama" | "llamacpp" => true, // Local providers don't need API keys
-            _ => false,                    // Unknown provider type
+            "local-server" | "local" | "native" => true, // Local providers don't need API keys
+            // Legacy names still valid for backward compat
+            "ollama" | "llamacpp" => true,
+            _ => false, // Unknown provider type
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ai_tools_config_default() {
+        let config = AIToolsConfig::default();
+        assert_eq!(config.default_provider, "openai");
+        assert!(config.providers.is_empty());
+        assert_eq!(config.request_timeout, 30);
+        assert_eq!(config.max_retries, 3);
+        assert!(config.enable_logging);
+        assert_eq!(config.routing_strategy, "round_robin");
+    }
+
+    #[test]
+    fn test_provider_config_default() {
+        let config = ProviderConfig::default();
+        assert_eq!(config.provider_type, "openai");
+        assert!(config.api_key.is_none());
+        assert!(config.base_url.is_none());
+        assert!(config.default_model.is_none());
+        assert!(config.settings.is_empty());
+    }
+
+    #[test]
+    fn test_provider_config_new() {
+        let config = ProviderConfig::new("anthropic".to_string());
+        assert_eq!(config.provider_type, "anthropic");
+        assert!(config.api_key.is_none());
+    }
+
+    #[test]
+    fn test_provider_config_builder() {
+        let config = ProviderConfig::new("openai".to_string())
+            .with_api_key("sk-test".to_string())
+            .with_base_url("https://api.openai.com".to_string())
+            .with_default_model("gpt-4".to_string())
+            .with_setting("timeout".to_string(), serde_json::json!(30));
+
+        assert_eq!(config.provider_type, "openai");
+        assert_eq!(config.api_key.as_deref(), Some("sk-test"));
+        assert_eq!(config.base_url.as_deref(), Some("https://api.openai.com"));
+        assert_eq!(config.default_model.as_deref(), Some("gpt-4"));
+        assert_eq!(config.get_setting("timeout"), Some(&serde_json::json!(30)));
+        assert!(config.get_setting("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_provider_config_is_valid_cloud_providers() {
+        // Cloud providers need API keys
+        let without_key = ProviderConfig::new("openai".to_string());
+        assert!(!without_key.is_valid());
+
+        let with_key =
+            ProviderConfig::new("openai".to_string()).with_api_key("sk-test".to_string());
+        assert!(with_key.is_valid());
+
+        let anthropic_no_key = ProviderConfig::new("anthropic".to_string());
+        assert!(!anthropic_no_key.is_valid());
+
+        let gemini_with_key =
+            ProviderConfig::new("gemini".to_string()).with_api_key("key".to_string());
+        assert!(gemini_with_key.is_valid());
+    }
+
+    #[test]
+    fn test_provider_config_is_valid_local_providers() {
+        // Local providers don't need API keys
+        assert!(ProviderConfig::new("local-server".to_string()).is_valid());
+        assert!(ProviderConfig::new("local".to_string()).is_valid());
+        assert!(ProviderConfig::new("native".to_string()).is_valid());
+        assert!(ProviderConfig::new("ollama".to_string()).is_valid());
+        assert!(ProviderConfig::new("llamacpp".to_string()).is_valid());
+    }
+
+    #[test]
+    fn test_provider_config_is_valid_unknown() {
+        let unknown = ProviderConfig::new("unknown-provider".to_string());
+        assert!(!unknown.is_valid());
+    }
+
+    #[test]
+    fn test_ai_tools_config_add_and_get_provider() {
+        let mut config = AIToolsConfig::default();
+        let provider =
+            ProviderConfig::new("openai".to_string()).with_api_key("sk-test".to_string());
+
+        config.add_provider("openai".to_string(), provider);
+        assert!(config.get_provider("openai").is_some());
+        assert!(config.get_provider("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_ai_tools_config_remove_provider() {
+        let mut config = AIToolsConfig::default();
+        config.add_provider(
+            "openai".to_string(),
+            ProviderConfig::new("openai".to_string()),
+        );
+
+        let removed = config.remove_provider("openai");
+        assert!(removed.is_some());
+        assert!(config.get_provider("openai").is_none());
+
+        let not_found = config.remove_provider("nonexistent");
+        assert!(not_found.is_none());
+    }
+
+    #[test]
+    fn test_ai_tools_config_provider_names() {
+        let mut config = AIToolsConfig::default();
+        config.add_provider(
+            "openai".to_string(),
+            ProviderConfig::new("openai".to_string()),
+        );
+        config.add_provider(
+            "anthropic".to_string(),
+            ProviderConfig::new("anthropic".to_string()),
+        );
+
+        let names = config.provider_names();
+        assert_eq!(names.len(), 2);
+    }
+
+    #[test]
+    fn test_ai_tools_config_validate_no_providers() {
+        let config = AIToolsConfig::default();
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No providers configured"));
+    }
+
+    #[test]
+    fn test_ai_tools_config_validate_missing_default() {
+        let mut config = AIToolsConfig::default();
+        config.add_provider(
+            "anthropic".to_string(),
+            ProviderConfig::new("anthropic".to_string()),
+        );
+        // default_provider is "openai" but only "anthropic" is configured
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Default provider"));
+    }
+
+    #[test]
+    fn test_ai_tools_config_validate_zero_timeout() {
+        let mut config = AIToolsConfig::default();
+        config.add_provider(
+            "openai".to_string(),
+            ProviderConfig::new("openai".to_string()),
+        );
+        config.request_timeout = 0;
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("timeout"));
+    }
+
+    #[test]
+    fn test_ai_tools_config_validate_success() {
+        let mut config = AIToolsConfig::default();
+        config.add_provider(
+            "openai".to_string(),
+            ProviderConfig::new("openai".to_string()),
+        );
+        let result = config.validate();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_ai_tools_config_serde() {
+        let mut config = AIToolsConfig::default();
+        config.add_provider(
+            "openai".to_string(),
+            ProviderConfig::new("openai".to_string()).with_api_key("sk-test".to_string()),
+        );
+
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: AIToolsConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.default_provider, config.default_provider);
+        assert_eq!(deserialized.request_timeout, config.request_timeout);
+        assert!(deserialized.get_provider("openai").is_some());
+    }
+
+    #[test]
+    fn test_provider_config_serde() {
+        let config = ProviderConfig::new("anthropic".to_string())
+            .with_api_key("key-123".to_string())
+            .with_base_url("https://api.anthropic.com".to_string())
+            .with_default_model("claude-3-opus".to_string());
+
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: ProviderConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.provider_type, "anthropic");
+        assert_eq!(deserialized.api_key.as_deref(), Some("key-123"));
+        assert_eq!(
+            deserialized.base_url.as_deref(),
+            Some("https://api.anthropic.com")
+        );
+        assert_eq!(deserialized.default_model.as_deref(), Some("claude-3-opus"));
+    }
+
+    #[test]
+    fn test_ai_tools_config_from_env_defaults() {
+        // Ensure env vars don't interfere - clean state
+        std::env::remove_var("SQUIRREL_AI_CONFIG");
+        std::env::remove_var("SQUIRREL_DEFAULT_AI_PROVIDER");
+        std::env::remove_var("SQUIRREL_AI_REQUEST_TIMEOUT");
+        std::env::remove_var("SQUIRREL_AI_MAX_RETRIES");
+        std::env::remove_var("SQUIRREL_AI_ENABLE_LOGGING");
+        std::env::remove_var("OPENAI_API_KEY");
+        std::env::remove_var("ANTHROPIC_API_KEY");
+        std::env::remove_var("GEMINI_API_KEY");
+        std::env::remove_var("LOCAL_AI_HOST");
+        std::env::remove_var("LOCAL_AI_URL");
+        std::env::remove_var("OLLAMA_HOST");
+        std::env::remove_var("OLLAMA_URL");
+
+        let config = AIToolsConfig::from_env().unwrap();
+        assert_eq!(config.default_provider, "openai");
+        assert_eq!(config.request_timeout, 30);
+        assert_eq!(config.max_retries, 3);
+        assert!(config.enable_logging);
     }
 }

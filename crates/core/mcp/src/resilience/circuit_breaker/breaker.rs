@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Circuit breaker implementation
 //!
 //! This module defines the core CircuitBreaker trait and its standard implementation.

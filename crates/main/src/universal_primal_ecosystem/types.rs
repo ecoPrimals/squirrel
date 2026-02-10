@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Type definitions for Universal Primal Ecosystem
 //!
 //! This module contains the core data structures for service discovery,

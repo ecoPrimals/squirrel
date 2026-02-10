@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // State transition validation for tool lifecycle
 //
 // This module provides state transition validation for tools in the MCP system.
@@ -604,11 +607,17 @@ impl StateValidationHook {
         // self.validate_transition(prev_state, &state)?;
 
         // Update the state
+        let prev_state = states.get(tool_id).copied();
         debug!(tool_id = %tool_id, new_state = ?state, "Updating tool state");
         states.insert(tool_id.to_string(), state);
         drop(states);
 
-        // TODO: Potentially emit an event or log the state change
+        // Log state change for observability
+        if let Some(prev) = prev_state {
+            info!(tool_id = %tool_id, from_state = ?prev, to_state = ?state, "Tool state changed");
+        } else {
+            info!(tool_id = %tool_id, state = ?state, "Tool state initialized");
+        }
 
         Ok(())
     }

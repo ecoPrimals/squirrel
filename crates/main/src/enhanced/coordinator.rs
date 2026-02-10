@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI Coordinator for enhanced MCP functionality
 //!
 //! Coordination and orchestration of AI capabilities within MCP.

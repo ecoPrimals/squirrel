@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Ecosystem configuration
 //!
 //! Configuration types and defaults for ecosystem integration.

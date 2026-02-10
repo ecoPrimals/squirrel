@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::RwLock;
@@ -345,9 +348,10 @@ mod tests {
 
     #[test]
     fn test_resource_limit_reset() {
-        let mut limit = ResourceLimit::new(100, Some(Duration::from_secs(1)));
+        let mut limit = ResourceLimit::new(100, Some(Duration::from_millis(1)));
         assert!(limit.check_and_update(50).is_ok());
-        std::thread::sleep(Duration::from_secs(2));
+        // Wait just past the 1ms reset interval
+        std::thread::sleep(Duration::from_millis(2));
         assert!(limit.check_and_update(60).is_ok()); // Should reset and allow this
     }
 }

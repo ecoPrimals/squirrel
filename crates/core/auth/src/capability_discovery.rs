@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Capability-based discovery for authentication and security services
 //!
 //! This module implements capability-based discovery for security services,

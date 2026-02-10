@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP server implementation
 //!
 //! This module provides the server-side functionality for the Machine Context Protocol (MCP).
@@ -516,12 +519,12 @@ impl MCPServer {
                     });
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    // No new connection, sleep a bit
-                    thread::sleep(Duration::from_millis(100));
+                    // No new connection; brief wait to avoid busy-spinning
+                    thread::sleep(Duration::from_millis(1));
                 }
                 Err(e) => {
                     error!("Error accepting connection: {}", e);
-                    thread::sleep(Duration::from_millis(100));
+                    thread::sleep(Duration::from_millis(1));
                 }
             }
         }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Enhanced MCP Simple Test
 //!
 //! Comprehensive tests for biomeOS integration functionality using the actual API.
@@ -54,29 +57,6 @@ async fn test_context_state_management() -> Result<()> {
 
     // Verify session was created
     assert_eq!(context_state.get_active_sessions(), 1);
-
-    Ok(())
-}
-
-/// Test ecosystem client authentication and configuration
-#[tokio::test]
-async fn test_ecosystem_client_configuration() -> Result<()> {
-    // Test authentication configuration using the correct type
-    let auth_config = EcosystemAuthConfig {
-        auth_type: "ecosystem_jwt".to_string(),
-        client_id: Some("squirrel-test".to_string()),
-        client_secret: Some("test-secret".to_string()),
-        token: Some("test-jwt-token".to_string()),
-        trust_domain: "biome.local".to_string(),
-    };
-
-    assert_eq!(auth_config.auth_type, "ecosystem_jwt");
-    assert!(auth_config.client_id.is_some());
-    assert_eq!(auth_config.trust_domain, "biome.local");
-
-    // Test ecosystem client creation
-    let ecosystem_client = EcosystemClient::new();
-    assert_eq!(ecosystem_client.songbird_url, "http://localhost:8080");
 
     Ok(())
 }
@@ -176,17 +156,6 @@ pub mod test_utils {
     /// Create a test biomeOS integration instance
     pub fn create_test_integration() -> SquirrelBiomeOSIntegration {
         SquirrelBiomeOSIntegration::new("test-biome".to_string())
-    }
-
-    /// Create test authentication configuration using the correct type
-    pub fn create_test_auth_config() -> EcosystemAuthConfig {
-        EcosystemAuthConfig {
-            auth_type: "ecosystem_jwt".to_string(),
-            client_id: Some("test-client".to_string()),
-            client_secret: Some("test-secret".to_string()),
-            token: Some("test-token".to_string()),
-            trust_domain: "biome.local".to_string(),
-        }
     }
 
     /// Create test health status with all required fields

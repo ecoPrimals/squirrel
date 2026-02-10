@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context management tests
 //!
 //! Comprehensive tests for context creation, lifecycle, state management, and cleanup.

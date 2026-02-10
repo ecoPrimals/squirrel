@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error propagation and recovery tests
 //!
 //! Tests for error propagation through layers, retry logic, and recovery strategies.

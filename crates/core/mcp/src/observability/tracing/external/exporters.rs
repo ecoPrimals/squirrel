@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! External Span Exporters
 //!
 //! This module provides concrete implementations of span exporters for
@@ -75,7 +78,7 @@ impl OpenTelemetryExporter {
                 
                 // Take spans from buffer
                 let spans = {
-                    let mut buffer_guard = buffer.lock().unwrap();
+                    let mut buffer_guard = buffer.lock().expect("OpenTelemetryExporter: buffer lock poisoned");
                     if buffer_guard.is_empty() {
                         continue;
                     }
@@ -89,7 +92,7 @@ impl OpenTelemetryExporter {
                     tracing::error!("Failed to export spans to OpenTelemetry: {}", e);
                     
                     // Return spans to buffer
-                    let mut buffer_guard = buffer.lock().unwrap();
+                    let mut buffer_guard = buffer.lock().expect("OpenTelemetryExporter: buffer lock poisoned");
                     buffer_guard.extend(spans);
                     
                     // Update metrics
@@ -151,7 +154,7 @@ impl SpanExporter for OpenTelemetryExporter {
         async move {
             // Add spans to buffer
             {
-                let mut buffer_guard = buffer.lock().unwrap();
+                let mut buffer_guard = buffer.lock().expect("OpenTelemetryExporter: buffer lock poisoned");
                 buffer_guard.extend(spans.clone());
                 
                 // Check if we need to flush
@@ -185,7 +188,7 @@ impl SpanExporter for OpenTelemetryExporter {
         async move {
             // Flush any remaining spans
             let spans = {
-                let mut buffer_guard = buffer.lock().unwrap();
+                let mut buffer_guard = buffer.lock().expect("OpenTelemetryExporter: buffer lock poisoned");
                 std::mem::take(&mut *buffer_guard)
             };
             
@@ -334,7 +337,7 @@ impl ZipkinExporter {
                 
                 // Take spans from buffer
                 let spans = {
-                    let mut buffer_guard = buffer.lock().unwrap();
+                    let mut buffer_guard = buffer.lock().expect("ZipkinExporter: buffer lock poisoned");
                     if buffer_guard.is_empty() {
                         continue;
                     }
@@ -348,7 +351,7 @@ impl ZipkinExporter {
                     tracing::error!("Failed to export spans to Zipkin: {}", e);
                     
                     // Return spans to buffer
-                    let mut buffer_guard = buffer.lock().unwrap();
+                    let mut buffer_guard = buffer.lock().expect("ZipkinExporter: buffer lock poisoned");
                     buffer_guard.extend(spans);
                     
                     // Update metrics
@@ -402,7 +405,7 @@ impl SpanExporter for ZipkinExporter {
         async move {
             // Add spans to buffer
             {
-                let mut buffer_guard = buffer.lock().unwrap();
+                let mut buffer_guard = buffer.lock().expect("ZipkinExporter: buffer lock poisoned");
                 buffer_guard.extend(spans.clone());
                 
                 // Check if we need to flush
@@ -436,7 +439,7 @@ impl SpanExporter for ZipkinExporter {
         async move {
             // Flush any remaining spans
             let spans = {
-                let mut buffer_guard = buffer.lock().unwrap();
+                let mut buffer_guard = buffer.lock().expect("ZipkinExporter: buffer lock poisoned");
                 std::mem::take(&mut *buffer_guard)
             };
             

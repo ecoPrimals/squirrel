@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Tracing Interfaces
 //!
 //! This module contains interfaces for distributed tracing that are used

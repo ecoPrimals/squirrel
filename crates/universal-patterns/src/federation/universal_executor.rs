@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Executor - Cross-Platform Execution Environment
 //!
 //! This module provides a unified execution environment that can run code

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Dashboard UI structures and theming
 
 use serde::{Deserialize, Serialize};

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Modern authentication types for Squirrel MCP system
 //!
 //! Supports both standalone operation and capability-based beardog integration
@@ -6,15 +9,17 @@
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// Authentication request for login operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct LoginRequest {
     /// Username for authentication
     pub username: String,
     /// Password for authentication (will be securely handled)
     pub password: String,
     /// Optional additional authentication factors
+    #[zeroize(skip)]
     pub additional_factors: Option<serde_json::Value>,
 }
 
@@ -36,15 +41,17 @@ impl LoginRequest {
 }
 
 /// Authentication response containing user context and session info
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct LoginResponse {
     /// Authentication success status
     pub success: bool,
     /// User context if authentication succeeded
+    #[zeroize(skip)]
     pub user_context: Option<AuthContext>,
     /// Session token for subsequent requests
     pub session_token: Option<String>,
     /// Token expiration time
+    #[zeroize(skip)]
     pub expires_at: Option<DateTime<Utc>>,
     /// Error message if authentication failed
     pub error_message: Option<String>,

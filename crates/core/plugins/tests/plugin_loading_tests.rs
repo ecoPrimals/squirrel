@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin Directory Loading Tests
 //!
 //! Comprehensive tests for plugin loading from directory functionality

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Resilience Pipeline Integration Tests
 //!
 //! Tests for complete resilience pipeline integration including complex workflows,

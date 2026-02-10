@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Task management system moved to ToadStool Universal Compute Platform
 //!
 //! This module previously provided task management capabilities for the MCP system.

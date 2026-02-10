@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Unit tests for circuit breaker implementation
 
 use std::sync::Arc;
@@ -15,7 +18,7 @@ mod tests {
     use tokio::time::sleep;
     use anyhow::anyhow;
     
-    use crate::monitoring::MockMonitoringClient;
+    use crate::monitoring::InMemoryMonitoringClient;
     use super::super::{
         BreakerConfig,
         BreakerState,

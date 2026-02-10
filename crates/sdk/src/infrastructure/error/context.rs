@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error context and enhanced error handling for the Squirrel Plugin SDK
 
 use super::core::PluginError;
@@ -165,6 +168,10 @@ impl PluginErrorExt for PluginError {
 }
 
 /// Extension trait for adding context to Results
+///
+/// Note: The large error size is intentional for comprehensive error context.
+/// Boxing would add indirection overhead for a common path.
+#[allow(clippy::result_large_err)]
 pub trait ResultExt<T> {
     /// Add context to an error result
     fn with_context(self, context: ErrorContext) -> EnhancedResult<T>;
@@ -180,5 +187,218 @@ impl<T> ResultExt<T> for Result<T, PluginError> {
 
     fn with_operation(self, operation: &str) -> EnhancedResult<T> {
         self.map_err(|e| e.with_operation(operation))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[allow(deprecated)]
+    fn network_error() -> PluginError {
+        PluginError::NetworkError {
+            operation: "fetch".to_string(),
+            message: "timeout".to_string(),
+        }
+    }
+
+    #[allow(deprecated)]
+    fn security_error() -> PluginError {
+        PluginError::SecurityViolation {
+            violation: "unauthorized".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_error_context_new() {
+        let ctx = ErrorContext::new("test_op");
+        assert_eq!(ctx.operation, "test_op");
+        assert!(ctx.module.is_none());
+        assert!(ctx.function.is_none());
+        assert!(ctx.line.is_none());
+        assert!(ctx.context_data.is_empty());
+        assert!(!ctx.timestamp.is_empty());
+    }
+
+    #[test]
+    fn test_error_context_with_module() {
+        let ctx = ErrorContext::new("op").with_module("auth");
+        assert_eq!(ctx.module, Some("auth".to_string()));
+    }
+
+    #[test]
+    fn test_error_context_with_function() {
+        let ctx = ErrorContext::new("op").with_function("login");
+        assert_eq!(ctx.function, Some("login".to_string()));
+    }
+
+    #[test]
+    fn test_error_context_with_line() {
+        let ctx = ErrorContext::new("op").with_line(42);
+        assert_eq!(ctx.line, Some(42));
+    }
+
+    #[test]
+    fn test_error_context_with_data() {
+        let ctx = ErrorContext::new("op")
+            .with_data("key1", serde_json::json!("value1"))
+            .with_data("key2", serde_json::json!(42));
+        assert_eq!(ctx.context_data.len(), 2);
+        assert_eq!(ctx.context_data["key1"], serde_json::json!("value1"));
+        assert_eq!(ctx.context_data["key2"], serde_json::json!(42));
+    }
+
+    #[test]
+    fn test_error_context_builder_chain() {
+        let ctx = ErrorContext::new("operation")
+            .with_module("module")
+            .with_function("function")
+            .with_line(100)
+            .with_data("extra", serde_json::json!(true));
+        assert_eq!(ctx.operation, "operation");
+        assert_eq!(ctx.module, Some("module".to_string()));
+        assert_eq!(ctx.function, Some("function".to_string()));
+        assert_eq!(ctx.line, Some(100));
+        assert_eq!(ctx.context_data.len(), 1);
+    }
+
+    #[test]
+    fn test_error_context_serde() {
+        let ctx = ErrorContext::new("test")
+            .with_module("mod")
+            .with_function("func");
+        let json = serde_json::to_string(&ctx).unwrap();
+        let deserialized: ErrorContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.operation, ctx.operation);
+        assert_eq!(deserialized.module, ctx.module);
+        assert_eq!(deserialized.function, ctx.function);
+    }
+
+    #[test]
+    fn test_enhanced_error_new() {
+        let err = network_error();
+        let ctx = ErrorContext::new("network_call");
+        let enhanced = EnhancedError::new(err, ctx);
+        assert_eq!(enhanced.severity, ErrorSeverity::High);
+        assert_eq!(enhanced.category, ErrorCategory::Network);
+        assert!(enhanced.recoverable);
+        assert!(!enhanced.recovery_suggestions.is_empty());
+        assert!(enhanced.source.is_none());
+    }
+
+    #[test]
+    fn test_enhanced_error_with_source() {
+        let root = EnhancedError::new(network_error(), ErrorContext::new("root"));
+        let chained =
+            EnhancedError::new(security_error(), ErrorContext::new("chain")).with_source(root);
+        assert!(chained.source.is_some());
+        assert_eq!(
+            chained.source.as_ref().unwrap().category,
+            ErrorCategory::Network
+        );
+    }
+
+    #[test]
+    fn test_enhanced_error_error_type() {
+        let enhanced = EnhancedError::new(network_error(), ErrorContext::new("op"));
+        assert_eq!(enhanced.error_type(), "NetworkError");
+    }
+
+    #[test]
+    fn test_enhanced_error_full_chain_single() {
+        let enhanced = EnhancedError::new(network_error(), ErrorContext::new("op"));
+        let chain = enhanced.full_chain();
+        assert!(chain.contains("Network error"));
+        assert!(!chain.contains("->"));
+    }
+
+    #[test]
+    fn test_enhanced_error_full_chain_multi() {
+        let root = EnhancedError::new(network_error(), ErrorContext::new("root"));
+        let mid = EnhancedError::new(security_error(), ErrorContext::new("mid")).with_source(root);
+        let chain = mid.full_chain();
+        assert!(chain.contains("->"));
+        assert!(chain.contains("Security violation"));
+        assert!(chain.contains("Network error"));
+    }
+
+    #[test]
+    fn test_enhanced_error_display() {
+        let enhanced = EnhancedError::new(network_error(), ErrorContext::new("test_op"));
+        let display = enhanced.to_string();
+        assert!(display.contains("HIGH"));
+        assert!(display.contains("NETWORK"));
+        assert!(display.contains("test_op"));
+    }
+
+    #[test]
+    fn test_enhanced_error_std_error_source() {
+        let root = EnhancedError::new(network_error(), ErrorContext::new("root"));
+        let chained =
+            EnhancedError::new(security_error(), ErrorContext::new("chain")).with_source(root);
+        use std::error::Error;
+        assert!(chained.source().is_some());
+    }
+
+    #[test]
+    fn test_enhanced_error_std_error_no_source() {
+        let enhanced = EnhancedError::new(network_error(), ErrorContext::new("op"));
+        use std::error::Error;
+        assert!(enhanced.source().is_none());
+    }
+
+    #[test]
+    fn test_enhanced_error_serde() {
+        let enhanced = EnhancedError::new(network_error(), ErrorContext::new("test"));
+        let json = serde_json::to_string(&enhanced).unwrap();
+        let deserialized: EnhancedError = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.severity, enhanced.severity);
+        assert_eq!(deserialized.category, enhanced.category);
+        assert_eq!(deserialized.recoverable, enhanced.recoverable);
+    }
+
+    #[test]
+    fn test_plugin_error_ext_with_context() {
+        let err = network_error();
+        let ctx = ErrorContext::new("test");
+        let enhanced = err.with_context(ctx);
+        assert_eq!(enhanced.context.operation, "test");
+    }
+
+    #[test]
+    fn test_plugin_error_ext_with_operation() {
+        let err = network_error();
+        let enhanced = err.with_operation("simple_op");
+        assert_eq!(enhanced.context.operation, "simple_op");
+    }
+
+    #[test]
+    fn test_result_ext_with_context_ok() {
+        let result: Result<i32, PluginError> = Ok(42);
+        let enhanced = result.with_context(ErrorContext::new("op"));
+        assert_eq!(enhanced.unwrap(), 42);
+    }
+
+    #[test]
+    fn test_result_ext_with_context_err() {
+        let result: Result<i32, PluginError> = Err(network_error());
+        let enhanced = result.with_context(ErrorContext::new("op"));
+        assert!(enhanced.is_err());
+        let err = enhanced.unwrap_err();
+        assert_eq!(err.context.operation, "op");
+    }
+
+    #[test]
+    fn test_result_ext_with_operation_ok() {
+        let result: Result<i32, PluginError> = Ok(42);
+        let enhanced = result.with_operation("op");
+        assert_eq!(enhanced.unwrap(), 42);
+    }
+
+    #[test]
+    fn test_result_ext_with_operation_err() {
+        let result: Result<i32, PluginError> = Err(network_error());
+        let enhanced = result.with_operation("op");
+        assert!(enhanced.is_err());
     }
 }

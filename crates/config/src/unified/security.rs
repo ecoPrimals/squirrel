@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Modern Security Configuration Module
 //!
 //! This module provides a modernized, testable security configuration with:
@@ -28,6 +31,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// Authentication mode for the system
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -110,8 +114,8 @@ pub enum AuthModeError {
 }
 
 /// Validated JWT secret
-#[derive(Clone, Serialize, Deserialize)]
-pub struct JwtSecret(String);
+#[derive(Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+pub struct JwtSecret(#[zeroize(drop)] String);
 
 impl JwtSecret {
     /// Create a new JWT secret with validation
@@ -156,8 +160,8 @@ pub enum JwtSecretError {
 }
 
 /// Validated API key
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ApiKey(String);
+#[derive(Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+pub struct ApiKey(#[zeroize(drop)] String);
 
 impl ApiKey {
     /// Create a new API key with validation

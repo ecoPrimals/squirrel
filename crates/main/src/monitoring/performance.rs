@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Performance Tracking Module
 //!
 //! This module provides comprehensive performance tracking and analysis for the Squirrel AI ecosystem.
@@ -331,16 +334,16 @@ impl PerformanceTracker {
     ) -> Result<HashMap<String, HashMap<String, f64>>, PrimalError> {
         let mut component_metrics = HashMap::new();
 
-        // Simulate component performance data
+        // Internal components and capability domains
         let components = vec![
             "ai_intelligence",
             "mcp_integration",
             "context_state",
             "agent_deployment",
-            "songbird",
-            "toadstool",
-            "nestgate",
-            "beardog",
+            "network",  // Network/orchestration capability domain
+            "compute",  // Compute capability domain
+            "storage",  // Storage capability domain
+            "security", // Security capability domain
         ];
 
         for component in components {
@@ -386,47 +389,32 @@ impl PerformanceTracker {
                 metrics.insert("resource_usage".to_string(), 0.7 + time_factor * 0.2);
                 metrics.insert("agent_count".to_string(), 12.0 + time_factor * 5.0);
             }
-            "songbird" => {
-                metrics.insert(
-                    "orchestration_latency".to_string(),
-                    45.0 + time_factor * 20.0,
-                );
-                metrics.insert(
-                    "service_discovery_time".to_string(),
-                    100.0 + time_factor * 30.0,
-                );
-                metrics.insert(
-                    "load_balancer_efficiency".to_string(),
-                    0.88 + time_factor * 0.1,
-                );
-                metrics.insert("health_check_time".to_string(), 20.0 + time_factor * 10.0);
+            // Capability-domain metrics (agnostic -- no primal names)
+            // These zero-initialize; actual values come from the discovered provider's
+            // metrics endpoint at runtime.
+            "network" => {
+                metrics.insert("orchestration_latency".to_string(), 0.0);
+                metrics.insert("service_discovery_time".to_string(), 0.0);
+                metrics.insert("load_balancer_efficiency".to_string(), 0.0);
+                metrics.insert("health_check_time".to_string(), 0.0);
             }
-            "toadstool" => {
-                metrics.insert(
-                    "job_processing_time".to_string(),
-                    180.0 + time_factor * 60.0,
-                );
-                metrics.insert("queue_depth".to_string(), 6.0 + time_factor * 3.0);
-                metrics.insert("cpu_utilization".to_string(), 0.72 + time_factor * 0.2);
-                metrics.insert("throughput".to_string(), 25.0 + time_factor * 10.0);
+            "compute" => {
+                metrics.insert("job_processing_time".to_string(), 0.0);
+                metrics.insert("queue_depth".to_string(), 0.0);
+                metrics.insert("cpu_utilization".to_string(), 0.0);
+                metrics.insert("throughput".to_string(), 0.0);
             }
-            "nestgate" => {
-                metrics.insert("storage_latency".to_string(), 35.0 + time_factor * 15.0);
-                metrics.insert(
-                    "io_throughput".to_string(),
-                    1024.0 * (100.0 + time_factor * 50.0),
-                );
-                metrics.insert("storage_efficiency".to_string(), 0.82 + time_factor * 0.15);
-                metrics.insert("backup_time".to_string(), 300.0 + time_factor * 100.0);
+            "storage" => {
+                metrics.insert("storage_latency".to_string(), 0.0);
+                metrics.insert("io_throughput".to_string(), 0.0);
+                metrics.insert("storage_efficiency".to_string(), 0.0);
+                metrics.insert("backup_time".to_string(), 0.0);
             }
-            "beardog" => {
-                metrics.insert("auth_latency".to_string(), 18.0 + time_factor * 8.0);
-                metrics.insert("auth_success_rate".to_string(), 0.99 + time_factor * 0.008);
-                metrics.insert(
-                    "token_processing_time".to_string(),
-                    12.0 + time_factor * 5.0,
-                );
-                metrics.insert("security_overhead".to_string(), 8.0 + time_factor * 3.0);
+            "security" => {
+                metrics.insert("auth_latency".to_string(), 0.0);
+                metrics.insert("auth_success_rate".to_string(), 0.0);
+                metrics.insert("token_processing_time".to_string(), 0.0);
+                metrics.insert("security_overhead".to_string(), 0.0);
             }
             _ => {
                 metrics.insert("response_time".to_string(), 100.0 + time_factor * 20.0);
@@ -640,10 +628,7 @@ mod tests {
             .await
             .unwrap();
 
-        // Wait a bit to ensure different performance values
-        tokio::time::sleep(Duration::from_millis(10)).await;
-
-        // Compare to baseline
+        // Compare to baseline (no sleep needed -- values come from current snapshot)
         let comparison = tracker.compare_to_baseline("test_baseline").await.unwrap();
         assert!(!comparison.is_empty());
         assert!(comparison.contains_key("cpu_usage"));

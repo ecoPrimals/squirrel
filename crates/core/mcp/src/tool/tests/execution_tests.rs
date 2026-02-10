@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tool execution tests
 //!
 //! Comprehensive tests for tool execution, parameter validation, timeout handling, and error cases.

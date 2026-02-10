@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context System Adapter for MCP
 //!
 //! This module provides an adapter layer between the general context system

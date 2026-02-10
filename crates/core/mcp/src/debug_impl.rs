@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Debug trait implementations for MCP types
 //
 // This file defines manual implementations of the Debug trait for types

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tool definitions and state management
 //!
 //! This module contains the core tool types including Tool, ToolInfo, and ToolState.

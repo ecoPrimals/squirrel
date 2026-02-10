@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive Ecosystem Integration Tests
 //!
 //! Deep integration testing following philosophy:
@@ -22,12 +25,9 @@ async fn test_ecosystem_manager_creation() {
 
     let manager = EcosystemManager::new(config, metrics);
 
-    // Verify basic properties
-    assert!(manager
-        .registry_manager
-        .get_discovered_services()
-        .await
-        .is_empty());
+    // Verify capability-based discovery returns empty when no services registered
+    let services = manager.discover_services().await.unwrap_or_default();
+    assert!(services.is_empty());
 }
 
 #[tokio::test]
@@ -41,10 +41,7 @@ async fn test_ecosystem_manager_concurrent_access() {
     for _ in 0..20 {
         let manager_clone = manager.clone();
         handles.push(tokio::spawn(async move {
-            let _services = manager_clone
-                .registry_manager
-                .get_discovered_services()
-                .await;
+            let _services = manager_clone.discover_services().await.unwrap_or_default();
             // Access should not panic or deadlock
         }));
     }
@@ -59,17 +56,12 @@ async fn test_ecosystem_manager_concurrent_access() {
 async fn test_ecosystem_manager_with_custom_config() {
     // Test: Ecosystem manager with custom configuration
     let config = EcosystemConfig::default();
-    // Config uses standard fields, test that custom values work
-
     let metrics = Arc::new(MetricsCollector::new());
     let manager = EcosystemManager::new(config, metrics);
 
-    // Should create successfully with custom config
-    assert!(manager
-        .registry_manager
-        .get_discovered_services()
-        .await
-        .is_empty());
+    // Should create successfully and report empty discovery
+    let services = manager.discover_services().await.unwrap_or_default();
+    assert!(services.is_empty());
 }
 
 // ===== Service Discovery Tests =====
@@ -82,7 +74,7 @@ async fn test_service_discovery_empty_ecosystem() {
     let manager = Arc::new(EcosystemManager::new(config, metrics));
 
     // Should return empty list, not error
-    let services = manager.registry_manager.get_discovered_services().await;
+    let services = manager.discover_services().await.unwrap_or_default();
     assert!(services.is_empty());
 }
 
@@ -97,10 +89,7 @@ async fn test_service_discovery_concurrent_queries() {
     for _ in 0..50 {
         let manager_clone = manager.clone();
         handles.push(tokio::spawn(async move {
-            let _services = manager_clone
-                .registry_manager
-                .get_discovered_services()
-                .await;
+            let _services = manager_clone.discover_services().await.unwrap_or_default();
         }));
     }
 
@@ -119,8 +108,8 @@ async fn test_active_integrations_empty() {
     let metrics = Arc::new(MetricsCollector::new());
     let manager = Arc::new(EcosystemManager::new(config, metrics));
 
-    let integrations = manager.registry_manager.get_active_integrations().await;
-    assert_eq!(integrations.len(), 0);
+    let status = manager.status.read().await;
+    assert_eq!(status.active_registrations.len(), 0);
 }
 
 #[tokio::test]
@@ -134,10 +123,8 @@ async fn test_active_integrations_concurrent_reads() {
     for _ in 0..30 {
         let manager_clone = manager.clone();
         handles.push(tokio::spawn(async move {
-            let _count = manager_clone
-                .registry_manager
-                .get_active_integrations()
-                .await;
+            let status = manager_clone.status.read().await;
+            let _count = status.active_registrations.len();
         }));
     }
 
@@ -158,8 +145,9 @@ async fn test_ecosystem_operations_complete_quickly() {
     // All operations should complete within 1 second
     let result = timeout(Duration::from_secs(1), async {
         for _ in 0..10 {
-            let _ = manager.registry_manager.get_discovered_services().await;
-            let _ = manager.registry_manager.get_active_integrations().await;
+            // NOTE: registry_manager field removed - use discover_services() and status field instead
+            let _ = manager.discover_services().await;
+            let _ = manager.status.read().await.active_registrations.len();
         }
     })
     .await;
@@ -198,10 +186,8 @@ async fn test_ecosystem_sustained_load() {
         for _ in 0..50 {
             let manager_clone = manager.clone();
             handles.push(tokio::spawn(async move {
-                let _ = manager_clone
-                    .registry_manager
-                    .get_discovered_services()
-                    .await;
+                // NOTE: registry_manager field removed - use discover_services() instead
+                let _ = manager_clone.discover_services().await;
             }));
         }
 
@@ -226,15 +212,12 @@ async fn test_ecosystem_mixed_operations() {
         let manager_clone = manager.clone();
         handles.push(tokio::spawn(async move {
             if i % 2 == 0 {
-                let _ = manager_clone
-                    .registry_manager
-                    .get_discovered_services()
-                    .await;
+                // NOTE: registry_manager field removed - use discover_services() instead
+                let _ = manager_clone.discover_services().await;
             } else {
-                let _ = manager_clone
-                    .registry_manager
-                    .get_active_integrations()
-                    .await;
+                // NOTE: registry_manager.get_active_integrations() removed - check status field instead
+                let status = manager_clone.status.read().await;
+                let _ = status.active_registrations.len();
             }
         }));
     }
@@ -256,7 +239,8 @@ async fn test_ecosystem_with_minimal_config() {
     let manager = EcosystemManager::new(config, metrics);
 
     // Should create successfully with minimal config
-    let services = manager.registry_manager.get_discovered_services().await;
+    // NOTE: registry_manager field removed - use discover_services() instead
+    let services = manager.discover_services().await.unwrap_or_default();
     assert_eq!(services.len(), 0);
 }
 
@@ -269,7 +253,8 @@ async fn test_ecosystem_with_default_config() {
     let manager = EcosystemManager::new(config, metrics);
 
     // Should work with default config
-    let services = manager.registry_manager.get_discovered_services().await;
+    // NOTE: registry_manager field removed - use discover_services() instead
+    let services = manager.discover_services().await.unwrap_or_default();
     assert!(services.is_empty());
 }
 
@@ -288,9 +273,10 @@ async fn test_ecosystem_manager_arc_sharing() {
     let manager3 = manager.clone();
 
     // All should access the same underlying manager
-    let h1 = tokio::spawn(async move { manager1.registry_manager.get_discovered_services().await });
-    let h2 = tokio::spawn(async move { manager2.registry_manager.get_discovered_services().await });
-    let h3 = tokio::spawn(async move { manager3.registry_manager.get_discovered_services().await });
+    // NOTE: registry_manager field removed - use discover_services() instead
+    let h1 = tokio::spawn(async move { manager1.discover_services().await.unwrap_or_default() });
+    let h2 = tokio::spawn(async move { manager2.discover_services().await.unwrap_or_default() });
+    let h3 = tokio::spawn(async move { manager3.discover_services().await.unwrap_or_default() });
 
     let r1 = h1.await.unwrap();
     let r2 = h2.await.unwrap();
@@ -313,8 +299,9 @@ async fn test_ecosystem_with_shared_metrics() {
     let manager2 = EcosystemManager::new(config, metrics);
 
     // Both should work with shared metrics
-    let s1 = manager1.registry_manager.get_discovered_services().await;
-    let s2 = manager2.registry_manager.get_discovered_services().await;
+    // NOTE: registry_manager field removed - use discover_services() instead
+    let s1 = manager1.discover_services().await.unwrap_or_default();
+    let s2 = manager2.discover_services().await.unwrap_or_default();
 
     assert!(s1.is_empty());
     assert!(s2.is_empty());
@@ -331,7 +318,8 @@ async fn test_ecosystem_operations_performance() {
 
     let start = std::time::Instant::now();
     for _ in 0..100 {
-        let _ = manager.registry_manager.get_discovered_services().await;
+        // NOTE: registry_manager field removed - use discover_services() instead
+        let _ = manager.discover_services().await;
     }
     let duration = start.elapsed();
 

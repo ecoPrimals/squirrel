@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tracing Types and Configuration
 //!
 //! This module contains the core types used by the distributed tracing system,

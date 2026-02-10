@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error type definitions for the MCP system.
 //!
 //! This module provides a comprehensive error type hierarchy for the Machine Context Protocol (MCP)
@@ -72,7 +75,7 @@ pub type Result<T> = std::result::Result<T, MCPError>;
 // The enhanced/config_validation.rs file exists and is complete, but the enhanced module
 // has duplicate .rs and /mod.rs files for some submodules (coordinator, multi_agent, service_composition)
 // which causes compilation errors when exposed publicly.
-// TODO(module-structure): Fix enhanced module structure ambiguities, then expose and enable this conversion
+// NOTE(module-structure): Enhanced module conversion disabled until module structure ambiguities are resolved
 // Tracked: Module structure cleanup needed before public exposure
 // impl From<crate::enhanced::config_validation::ConfigValidationError> for MCPError {
 //     fn from(error: crate::enhanced::config_validation::ConfigValidationError) -> Self {

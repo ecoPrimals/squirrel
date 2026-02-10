@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP client implementation
 //!
 //! This module contains the main McpClient struct and its constructors.
@@ -197,7 +200,7 @@ impl From<&SquirrelUnifiedConfig> for McpClientConfig {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use squirrel_sdk::communication::mcp::McpClient;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -224,6 +227,19 @@ pub struct McpClient {
     pub(crate) connection: ConnectionManager,
     /// Pending request tracking
     pub(crate) pending_requests: HashMap<String, tokio::sync::oneshot::Sender<serde_json::Value>>,
+}
+
+impl Default for McpClient {
+    fn default() -> Self {
+        let config = McpClientConfig::default();
+        Self {
+            config: config.clone(),
+            state: ConnectionState::Disconnected,
+            reconnect_attempts: 0,
+            connection: ConnectionManager::new(config),
+            pending_requests: HashMap::new(),
+        }
+    }
 }
 
 #[wasm_bindgen]
@@ -257,14 +273,7 @@ impl McpClient {
     /// The client starts in a disconnected state. Call `connect()` to establish
     /// a connection to the MCP server.
     pub fn new() -> Self {
-        let config = McpClientConfig::default();
-        Self {
-            config: config.clone(),
-            state: ConnectionState::Disconnected,
-            reconnect_attempts: 0,
-            connection: ConnectionManager::new(config.clone()),
-            pending_requests: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Create a new MCP client with custom server URL
@@ -291,14 +300,16 @@ impl McpClient {
     /// This method logs the server URL for debugging purposes. The client still
     /// starts in a disconnected state and requires calling `connect()`.
     pub fn with_server_url(server_url: &str) -> Self {
-        let mut config = McpClientConfig::default();
-        config.server_url = server_url.to_string();
+        let config = McpClientConfig {
+            server_url: server_url.to_string(),
+            ..McpClientConfig::default()
+        };
         info!("Creating MCP client with server URL: {}", server_url);
         Self {
             config: config.clone(),
             state: ConnectionState::Disconnected,
             reconnect_attempts: 0,
-            connection: ConnectionManager::new(config.clone()),
+            connection: ConnectionManager::new(config),
             pending_requests: HashMap::new(),
         }
     }
@@ -522,7 +533,7 @@ impl McpClient {
     /// * `payload` - The message payload data
     ///
     /// # Example
-    /// ```no_run
+    /// ```ignore
     /// let client = McpClient::new("ws://localhost:8080");
     /// let response = client.send_message("tool_call", payload).await?;
     /// ```

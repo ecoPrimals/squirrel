@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Client implementation for task management with the Task Service API.
 //!
 //! This module provides a client wrapper for the TaskService gRPC service,
@@ -265,13 +268,16 @@ impl MCPTaskClient {
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> Result<Vec<Task>> {
+        // Clamp u32 values to i32::MAX to avoid truncation
+        let limit_value = limit.unwrap_or(100);
+        let offset_value = offset.unwrap_or(0);
         let request = ListTasksRequest {
             status: status.map(|s| s as i32).unwrap_or(-1),
             agent_id: agent_id.unwrap_or("").to_string(),
             agent_type: agent_type.map(|a| a as i32).unwrap_or(-1),
             context_id: context_id.unwrap_or("").to_string(),
-            limit: limit.unwrap_or(100) as i32,
-            offset: offset.unwrap_or(0) as i32,
+            limit: limit_value.min(i32::MAX as u32) as i32,
+            offset: offset_value.min(i32::MAX as u32) as i32,
         };
         
         let request_clone = request.clone();

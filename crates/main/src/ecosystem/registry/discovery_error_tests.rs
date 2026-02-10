@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive error path tests for service discovery
 //!
 //! These tests expand coverage by validating error handling paths
@@ -212,8 +215,20 @@ mod error_path_tests {
         let service = DiscoveredService::new(
             "test",
             EcosystemPrimalType::Squirrel,
-            &format!("http://localhost:{}", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080)),
-            &format!("http://localhost:{}/health", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080)),
+            &format!(
+                "http://localhost:{}",
+                std::env::var("TEST_DISCOVERY_ERROR_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8080)
+            ),
+            &format!(
+                "http://localhost:{}/health",
+                std::env::var("TEST_DISCOVERY_ERROR_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8080)
+            ),
             "v1",
             vec!["storage", "compute", "network"],
             HashMap::new(),
@@ -298,8 +313,20 @@ mod error_path_tests {
         let service = DiscoveredService::new(
             "test",
             EcosystemPrimalType::Squirrel,
-            &format!("http://localhost:{}", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080)),
-            &format!("http://localhost:{}/health", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080)),
+            &format!(
+                "http://localhost:{}",
+                std::env::var("TEST_DISCOVERY_ERROR_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8080)
+            ),
+            &format!(
+                "http://localhost:{}/health",
+                std::env::var("TEST_DISCOVERY_ERROR_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8080)
+            ),
             "v1",
             vec!["test"],
             HashMap::new(),
@@ -328,8 +355,22 @@ mod error_path_tests {
         let service2 = DiscoveredService::new(
             "test2",
             EcosystemPrimalType::BearDog,
-            &format!("http://localhost:{}", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080) + 1),
-            &format!("http://localhost:{}/health", std::env::var("TEST_DISCOVERY_ERROR_PORT").ok().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8080) + 1),
+            &format!(
+                "http://localhost:{}",
+                std::env::var("TEST_DISCOVERY_ERROR_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8080)
+                    + 1
+            ),
+            &format!(
+                "http://localhost:{}/health",
+                std::env::var("TEST_DISCOVERY_ERROR_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8080)
+                    + 1
+            ),
             "v1",
             vec!["test"],
             HashMap::new(),
@@ -369,7 +410,7 @@ mod error_path_tests {
             // In production: registry.find_services_by_capability(capability).await
             // Should return empty result, not error
             assert!(!capability.is_empty());
-            
+
             // Error message should reference capability, not primal name
             let error_msg = format!("Capability '{}' not found", capability);
             assert!(error_msg.contains(capability));
@@ -389,13 +430,13 @@ mod error_path_tests {
 
         for (domain, operation) in invalid_operations {
             let semantic_capability = format!("{}.{}", domain, operation);
-            
+
             // Error should use semantic format
             let error_msg = format!(
                 "Operation '{}' not supported for domain '{}'",
                 operation, domain
             );
-            
+
             assert!(error_msg.contains(domain));
             assert!(error_msg.contains(operation));
             assert!(!error_msg.contains("Primal"));
@@ -485,7 +526,7 @@ mod error_path_tests {
         for (capability, deps) in capability_dependencies {
             // Simulate missing dependency
             let missing_dep = "compression";
-            
+
             let error_msg = format!(
                 "Cannot resolve capability '{}': dependency '{}' not available",
                 capability, missing_dep
@@ -505,11 +546,12 @@ mod error_path_tests {
             ("service_c", "service_a"), // Circular!
         ];
 
-        let error_msg = "Circular dependency detected: service_a → service_b → service_c → service_a";
-        
+        let error_msg =
+            "Circular dependency detected: service_a → service_b → service_c → service_a";
+
         assert!(error_msg.contains("Circular dependency"));
         assert!(error_msg.contains("→")); // Visual representation
-        
+
         // Should NOT contain primal type names
         assert!(!error_msg.contains("EcosystemPrimalType"));
     }
@@ -535,11 +577,8 @@ mod error_path_tests {
     async fn test_capability_authentication_error() {
         // Test authentication errors in capability access
         let capability = "crypto.decrypt";
-        
-        let error_msg = format!(
-            "Authentication required for capability '{}'",
-            capability
-        );
+
+        let error_msg = format!("Authentication required for capability '{}'", capability);
 
         assert!(error_msg.contains("Authentication"));
         assert!(error_msg.contains(capability));
@@ -566,7 +605,7 @@ mod error_path_tests {
     async fn test_capability_resource_exhaustion_error() {
         // Test resource exhaustion errors
         let capability = "compute.execute";
-        
+
         let error_msg = format!(
             "Resource exhaustion for capability '{}': insufficient memory",
             capability
@@ -581,7 +620,7 @@ mod error_path_tests {
     async fn test_capability_network_error() {
         // Test network-related errors in capability discovery
         let capability = "service_mesh.discover";
-        
+
         let network_errors = vec![
             format!("Network timeout discovering '{}'", capability),
             format!("Connection refused for '{}'", capability),
@@ -598,7 +637,7 @@ mod error_path_tests {
     async fn test_capability_serialization_error() {
         // Test serialization/deserialization errors
         let capability = "ai.inference";
-        
+
         let error_msg = format!(
             "Failed to serialize request for capability '{}': invalid UTF-8",
             capability
@@ -611,14 +650,14 @@ mod error_path_tests {
     #[tokio::test]
     async fn test_capability_graceful_degradation() {
         // Test graceful degradation when preferred capability unavailable
-        
+
         // Try specific capability first
         let preferred = "ai.inference.gpt4";
         let fallback = "ai.inference";
         let final_fallback = "ai";
 
         let degradation_chain = vec![preferred, fallback, final_fallback];
-        
+
         // Simulate degradation
         for (i, capability) in degradation_chain.iter().enumerate() {
             if i > 0 {
@@ -644,7 +683,7 @@ mod error_path_tests {
         // Simulate retries
         for attempt in 1..=max_retries {
             retry_counts.insert(capability, attempt);
-            
+
             if attempt == max_retries {
                 let error_msg = format!(
                     "Max retries ({}) exceeded for capability '{}'",
@@ -660,9 +699,9 @@ mod error_path_tests {
     async fn test_capability_partial_failure() {
         // Test handling of partial failures in multi-capability operations
         let requested_capabilities = vec![
-            ("ai.inference", true),      // Success
-            ("crypto.encrypt", false),   // Failure
-            ("storage.put", true),       // Success
+            ("ai.inference", true),    // Success
+            ("crypto.encrypt", false), // Failure
+            ("storage.put", true),     // Success
         ];
 
         let failed: Vec<_> = requested_capabilities
@@ -699,7 +738,7 @@ mod error_path_tests {
         assert!(error_msg.contains(capability));
         assert!(error_msg.contains(operation));
         assert!(error_msg.contains(request_id));
-        
+
         // Context should not leak internal implementation details
         assert!(!error_msg.contains("EcosystemPrimalType"));
         assert!(!error_msg.contains("localhost:8080"));

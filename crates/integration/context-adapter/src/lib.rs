@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context adapter for Squirrel
 //!
 //! This crate provides adapters for interfacing with the context subsystem,
+#![deny(unsafe_code)]
 //! including context management, persistence, and synchronization.
 //!
 //! ## Plugin Support

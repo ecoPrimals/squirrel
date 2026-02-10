@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
 // The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
 #![allow(deprecated)]
@@ -15,6 +18,7 @@ use crate::traits::PluginManagerTrait;
 use crate::types::PluginStatus;
 use crate::{Plugin, PluginConfig};
 use async_trait::async_trait;
+use dashmap::DashMap;
 use log::{debug, error, info};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -24,9 +28,9 @@ use uuid::Uuid;
 /// Plugin manager for handling plugin lifecycle and dependencies
 pub struct PluginManager {
     /// Registered plugins
-    plugins: Arc<RwLock<HashMap<Uuid, Arc<dyn Plugin>>>>,
+    plugins: Arc<DashMap<Uuid, Arc<dyn Plugin>>>,
     /// Plugin configurations
-    plugin_configs: Arc<RwLock<HashMap<Uuid, PluginConfig>>>,
+    plugin_configs: Arc<DashMap<Uuid, PluginConfig>>,
     /// Plugin statuses
     statuses: RwLock<HashMap<Uuid, PluginStatus>>,
     /// Plugin name to ID mapping
@@ -40,8 +44,8 @@ impl PluginManager {
     /// Create a new plugin manager
     pub fn new() -> Self {
         Self {
-            plugins: Arc::new(RwLock::new(HashMap::new())),
-            plugin_configs: Arc::new(RwLock::new(HashMap::new())),
+            plugins: Arc::new(DashMap::new()),
+            plugin_configs: Arc::new(DashMap::new()),
             statuses: RwLock::new(HashMap::new()),
             name_to_id: RwLock::new(HashMap::new()),
             dependency_resolver: RwLock::new(DependencyResolver::new()),
@@ -82,13 +86,11 @@ impl PluginManager {
             // Security verification handled by BearDog framework
         }
 
-        let mut plugins = self.plugins.write().await;
-        let mut plugin_configs = self.plugin_configs.write().await;
         let mut statuses = self.statuses.write().await;
         let mut name_to_id = self.name_to_id.write().await;
 
-        plugins.insert(id, plugin.clone());
-        plugin_configs.insert(id, PluginConfig::default());
+        self.plugins.insert(id, plugin.clone());
+        self.plugin_configs.insert(id, PluginConfig::default());
         statuses.insert(id, PluginStatus::Registered);
         name_to_id.insert(metadata.name.clone(), id);
 
@@ -113,12 +115,12 @@ impl PluginRegistry for PluginManager {
     }
 
     async fn unregister_plugin(&self, id: Uuid) -> Result<()> {
-        let mut plugins = self.plugins.write().await;
         let mut statuses = self.statuses.write().await;
         let mut name_to_id = self.name_to_id.write().await;
 
-        if let Some(plugin) = plugins.remove(&id) {
+        if let Some((_, plugin)) = self.plugins.remove(&id) {
             let metadata = plugin.metadata();
+            self.plugin_configs.remove(&id);
             statuses.remove(&id);
             name_to_id.remove(&metadata.name);
             info!("Plugin {} unregistered successfully", metadata.name);
@@ -129,10 +131,9 @@ impl PluginRegistry for PluginManager {
     }
 
     async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
-        let plugins = self.plugins.read().await;
-        plugins
+        self.plugins
             .get(&id)
-            .cloned()
+            .map(|entry| entry.value().clone())
             .ok_or_else(|| PluginError::PluginNotFound(id.to_string()))
     }
 
@@ -145,8 +146,11 @@ impl PluginRegistry for PluginManager {
     }
 
     async fn list_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
-        let plugins = self.plugins.read().await;
-        Ok(plugins.values().cloned().collect())
+        Ok(self
+            .plugins
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect())
     }
 
     async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus> {

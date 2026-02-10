@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Utility functions for the rule system
 
 use chrono::{DateTime, Utc};
@@ -49,7 +52,7 @@ This is a sample rule template. Add your notes here.
 
 /// Extracts value from a JSON object using a path
 ///
-/// Path format: "key1.key2.key3" or "key1[0].key2"
+/// Path format: `key1.key2.key3` or `key1[0].key2`
 ///
 /// # Errors
 ///
@@ -96,7 +99,7 @@ fn parse_array_index(part: &str) -> Option<(&str, usize)> {
 
 /// Sets a value in a JSON object using a path
 ///
-/// Path format: "key1.key2.key3" or "key1[0].key2"
+/// Path format: `key1.key2.key3` or `key1[0].key2`
 ///
 /// # Errors
 ///

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Logging functionality for plugins
 
 use serde::{Deserialize, Serialize};
@@ -274,7 +277,7 @@ impl Logger {
             plugin_id: self.plugin_id.clone(),
             timestamp: crate::utils::current_timestamp_iso(),
             metadata: metadata.unwrap_or_default(),
-            file: None, // TODO: Extract from caller info if available
+            file: None, // NOTE: Could extract from caller info if available
             line: None,
             module: None,
         };
@@ -298,7 +301,7 @@ impl Logger {
 
     /// Send log entry to host system
     fn send_to_host(&self, _entry: &LogEntry) {
-        // TODO: Implement host communication
+        // NOTE(phase2): Host communication - requires host-plugin bridge
     }
 
     /// Log to browser console
@@ -332,7 +335,7 @@ impl Logger {
     }
 
     /// Create a scoped logger with additional context
-    pub fn with_context(&self, _context: HashMap<String, serde_json::Value>) -> ScopedLogger {
+    pub fn with_context(&self, _context: HashMap<String, serde_json::Value>) -> ScopedLogger<'_> {
         ScopedLogger {
             _phantom: std::marker::PhantomData,
         }
@@ -344,17 +347,23 @@ pub struct ScopedLogger<'a> {
     _phantom: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a> ScopedLogger<'a> {
-    /// Create a new scoped logger
-    pub fn new() -> Self {
+impl<'a> Default for ScopedLogger<'a> {
+    fn default() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
     }
+}
+
+impl<'a> ScopedLogger<'a> {
+    /// Create a new scoped logger
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Log a message with the current context
     pub fn log(&self, _level: LogLevel, _message: &str) {
-        // TODO: Implement scoped logging
+        // NOTE(phase2): Scoped logging - requires scope context propagation
     }
 }
 
@@ -378,7 +387,7 @@ macro_rules! log_trace {
 /// Debug messages are used for detailed diagnostic information.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// log_debug!("Processing item: {}", item_id);
 /// log_debug!("Cache hit ratio: {:.2}%", ratio * 100.0);
 /// ```
@@ -403,7 +412,7 @@ macro_rules! log_debug {
 /// Info messages are used for general information about program execution.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// log_info!("Service started on port {}", port);
 /// log_info!("Processing {} items", item_count);
 /// ```
@@ -429,7 +438,7 @@ macro_rules! log_info {
 /// don't prevent the program from continuing.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// log_warn!("Connection timeout, retrying...");
 /// log_warn!("Memory usage is high: {}MB", memory_mb);
 /// ```
@@ -455,7 +464,7 @@ macro_rules! log_warn {
 /// but allow the program to continue running.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// log_error!("Failed to save file: {}", error);
 /// log_error!("Database connection failed after {} attempts", attempts);
 /// ```

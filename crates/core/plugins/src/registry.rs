@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin registry traits and implementations
 //!
 //! This module provides the core registry functionality for plugin management.

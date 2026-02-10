@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 /// Command validation module.
 /// 
 /// This module provides functionality for validating commands before execution,

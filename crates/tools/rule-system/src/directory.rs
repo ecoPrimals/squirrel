@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rule directory structure and utilities
 
 use glob::glob;
@@ -62,12 +65,6 @@ impl RuleDirectoryManager {
             config: Arc::new(RwLock::new(config)),
             sources: Arc::new(RwLock::new(HashMap::new())),
         }
-    }
-
-    /// Creates a new rule directory manager with the default configuration
-    #[must_use]
-    pub fn default() -> Self {
-        Self::new(RuleDirectoryConfig::default())
     }
 
     /// Initialize the rule directory manager
@@ -329,6 +326,12 @@ impl RuleDirectoryManager {
     pub async fn get_config(&self) -> RuleDirectoryConfig {
         let config = self.config.read().await;
         config.clone()
+    }
+}
+
+impl Default for RuleDirectoryManager {
+    fn default() -> Self {
+        Self::new(RuleDirectoryConfig::default())
     }
 }
 

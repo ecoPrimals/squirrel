@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Command execution handlers for the task service.
 //!
 //! This module provides command execution capabilities for the task service,

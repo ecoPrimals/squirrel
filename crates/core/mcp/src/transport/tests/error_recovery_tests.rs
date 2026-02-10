@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Transport error recovery tests
 //!
 //! These tests verify proper error handling, recovery, and resilience in the transport layer.

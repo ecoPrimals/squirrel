@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Session management for MCP clients
 //!
 //! This module handles session creation, message sending/receiving, event processing, and task management.

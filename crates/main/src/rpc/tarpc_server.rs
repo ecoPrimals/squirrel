@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! tarpc RPC Server Implementation
 //!
 //! High-performance binary RPC server using tarpc framework.
@@ -9,16 +12,16 @@
 //! - Cascading cancellation
 //! - Deadline propagation
 
-#![cfg(feature = "tarpc-rpc")]
+// Note: This module is feature-gated via #[cfg(feature = "tarpc-rpc")] in mod.rs
 
 use super::tarpc_service::*;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
 use tarpc::{
     context,
-    server::{self, incoming::Incoming, Channel},
+    server::{self, Channel},
 };
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -189,20 +192,23 @@ impl SquirrelRpc for TarpcRpcServer {
                 .list_providers()
                 .await
                 .into_iter()
-                .map(|p| ProviderInfo {
-                    id: p.provider_id.clone(),
-                    name: p.provider_name,
-                    models: vec![], // TODO: Add models list
-                    capabilities: p.capabilities,
-                    online: p.is_available,
-                    avg_latency_ms: None, // TODO: Add latency tracking
-                    cost_tier: if p.cost_per_unit.unwrap_or(0.0) > 0.01 {
-                        "high".to_string()
-                    } else if p.cost_per_unit.unwrap_or(0.0) > 0.0 {
-                        "medium".to_string()
-                    } else {
-                        "free".to_string()
-                    },
+                .map(|p| {
+                    let cost_tier = match p.cost_per_unit {
+                        Some(cost) if cost > 0.01 => "high",
+                        Some(cost) if cost > 0.0 => "medium",
+                        _ => "free",
+                    }
+                    .to_string();
+
+                    ProviderInfo {
+                        id: p.provider_id.clone(),
+                        name: p.provider_name,
+                        models: p.capabilities.clone(),
+                        capabilities: p.capabilities,
+                        online: p.is_available,
+                        avg_latency_ms: Some(p.avg_latency_ms as f64),
+                        cost_tier,
+                    }
                 })
                 .collect();
 
@@ -283,8 +289,26 @@ impl SquirrelRpc for TarpcRpcServer {
         metrics.requests_handled += 1;
         drop(metrics);
 
-        // TODO: Integrate with actual primal discovery
-        vec![]
+        // Use actual capability discovery to find peers
+        match crate::capabilities::discovery::discover_all_capabilities().await {
+            Ok(capabilities_map) => {
+                let mut seen = std::collections::HashSet::new();
+                let mut peers = Vec::new();
+                for providers in capabilities_map.values() {
+                    for provider in providers {
+                        let id = provider.id.clone();
+                        if seen.insert(id.clone()) {
+                            peers.push(format!("{}@{}", id, provider.socket.display()));
+                        }
+                    }
+                }
+                peers
+            }
+            Err(e) => {
+                warn!("Peer discovery failed: {}", e);
+                vec![]
+            }
+        }
     }
 
     async fn execute_tool(
@@ -299,11 +323,24 @@ impl SquirrelRpc for TarpcRpcServer {
         metrics.requests_handled += 1;
         drop(metrics);
 
-        // TODO: Integrate with actual tool execution system
-        format!(
-            "Tool '{}' execution not yet implemented (args: {:?})",
-            tool, args
-        )
+        // Delegate to ToolExecutor
+        let executor = crate::tool::ToolExecutor::new();
+        let args_str = serde_json::to_string(&args).unwrap_or_default();
+
+        match executor.execute_tool(&tool, &args_str).await {
+            Ok(result) => {
+                if result.success {
+                    result.output
+                } else {
+                    format!(
+                        "Tool '{}' failed: {}",
+                        tool,
+                        result.error.unwrap_or_default()
+                    )
+                }
+            }
+            Err(e) => format!("Tool '{}' execution error: {}", tool, e),
+        }
     }
 }
 

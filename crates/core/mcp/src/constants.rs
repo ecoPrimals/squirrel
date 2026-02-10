@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Constants for MCP configuration
 //!
 //! **DEPRECATED**: This module is being phased out in favor of `universal-constants` crate.

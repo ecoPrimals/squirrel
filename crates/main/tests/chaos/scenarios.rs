@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Pre-defined chaos scenarios
 //!
 //! Common chaos engineering scenarios for testing system resilience.

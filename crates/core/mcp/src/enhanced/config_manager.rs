@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration Management for Enhanced MCP Platform
 //!
 //! This module provides centralized configuration management to replace

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Command System Observability
 //!
 //! This module provides comprehensive observability features for the Command System, including distributed tracing and metrics collection.
@@ -142,5 +145,66 @@ impl ObservabilitySystem {
 impl Default for ObservabilitySystem {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_observability_error_display() {
+        let err = ObservabilityError::MetricsError("bad metric".to_string());
+        assert_eq!(err.to_string(), "Metrics error: bad metric");
+
+        let err = ObservabilityError::TracingError("trace fail".to_string());
+        assert_eq!(err.to_string(), "Tracing error: trace fail");
+
+        let err = ObservabilityError::ConfigurationError("bad config".to_string());
+        assert_eq!(err.to_string(), "Configuration error: bad config");
+    }
+
+    #[test]
+    fn test_observability_system_new() {
+        let _sys = ObservabilitySystem::new();
+    }
+
+    #[test]
+    fn test_observability_system_default() {
+        let _sys = ObservabilitySystem::default();
+    }
+
+    #[test]
+    fn test_log_command_execution_success() {
+        let result: CommandResult<String> = Ok("done".to_string());
+        // Should not panic
+        log_command_execution("test_cmd", &["arg1".to_string()], &result, 42);
+    }
+
+    #[test]
+    fn test_log_command_execution_failure() {
+        let result: CommandResult<String> = Err(crate::error::CommandError::ExecutionError(
+            "fail".to_string(),
+        ));
+        // Should not panic
+        log_command_execution("test_cmd", &[], &result, 100);
+    }
+
+    #[test]
+    fn test_record_resource_usage() {
+        // Should not panic
+        record_resource_usage("test_cmd", 1024, 50.0);
+    }
+
+    #[test]
+    fn test_observability_system_log_command() {
+        let sys = ObservabilitySystem::new();
+        let result: CommandResult<String> = Ok("ok".to_string());
+        sys.log_command("test", &[], &result);
+
+        let result: CommandResult<String> = Err(crate::error::CommandError::InputError(
+            "missing".to_string(),
+        ));
+        sys.log_command("test", &[], &result);
     }
 }

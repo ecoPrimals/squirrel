@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Metrics Exporters
 //!
 //! This module provides exporters for sending metrics to external monitoring
@@ -335,7 +338,7 @@ impl PrometheusExporter {
             default_labels: config.parameters.iter()
                 .filter_map(|(k, v)| {
                     if k.starts_with("label_") {
-                        Some((k.strip_prefix("label_").unwrap().to_string(), v.clone()))
+                        Some((k.strip_prefix("label_").expect("starts_with checked above").to_string(), v.clone()))
                     } else {
                         None
                     }

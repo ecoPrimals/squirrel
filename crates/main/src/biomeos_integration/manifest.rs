@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # biome.yaml Manifest Support for biomeOS Integration
 //!
 //! This module provides comprehensive support for parsing and processing biome.yaml
@@ -76,9 +79,10 @@ pub struct AgentSpec {
     pub config: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ExecutionEnvironment {
     #[serde(rename = "native")]
+    #[default]
     Native,
     #[serde(rename = "wasm")]
     Wasm,
@@ -607,12 +611,6 @@ impl Default for ManifestParserConfig {
 impl Default for BiomeManifestParser {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Default for ExecutionEnvironment {
-    fn default() -> Self {
-        Self::Native
     }
 }
 

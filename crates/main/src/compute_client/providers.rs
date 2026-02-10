@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Compute Provider Management
 
 use chrono::{DateTime, Utc};
@@ -103,5 +106,116 @@ impl ComputeProvider {
             },
             routing_score: 0.8, // Base score, would be calculated by AI
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use universal_patterns::traits::{
+        NetworkLocation, PrimalContext, PrimalHealth, PrimalType, SecurityLevel,
+    };
+
+    fn make_discovered_primal() -> DiscoveredPrimal {
+        DiscoveredPrimal {
+            id: "test-compute-primal".to_string(),
+            instance_id: "instance-001".to_string(),
+            primal_type: PrimalType::Custom("compute".to_string()),
+            capabilities: vec![],
+            endpoint: "http://localhost:9000".to_string(),
+            health: PrimalHealth::Healthy,
+            context: PrimalContext {
+                user_id: "test-user".to_string(),
+                device_id: "test-device".to_string(),
+                session_id: "test-session".to_string(),
+                network_location: NetworkLocation {
+                    ip_address: "127.0.0.1".to_string(),
+                    subnet: None,
+                    network_id: None,
+                    geo_location: None,
+                },
+                security_level: SecurityLevel::Standard,
+                metadata: Default::default(),
+            },
+            port_info: None,
+        }
+    }
+
+    #[test]
+    fn test_compute_provider_from_discovered_primal() {
+        let primal = make_discovered_primal();
+        let provider = ComputeProvider::from_discovered_primal(&primal);
+
+        assert_eq!(provider.provider_id, "instance-001");
+        assert_eq!(provider.metadata.name, "test-compute-primal");
+        assert_eq!(provider.metadata.version, "unknown");
+        assert!(!provider.metadata.architectures.is_empty());
+        assert!(!provider.metadata.frameworks.is_empty());
+        assert_eq!(provider.metadata.regions, vec!["local".to_string()]);
+        assert!(provider.metadata.compliance.is_empty());
+        assert_eq!(provider.capabilities.len(), 1);
+        assert!((provider.health.health_score - 1.0).abs() < f64::EPSILON);
+        assert!((provider.routing_score - 0.8).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_compute_provider_health_fields() {
+        let primal = make_discovered_primal();
+        let provider = ComputeProvider::from_discovered_primal(&primal);
+
+        assert!((provider.health.cpu_load - 0.5).abs() < f64::EPSILON);
+        assert!((provider.health.memory_usage - 0.4).abs() < f64::EPSILON);
+        assert_eq!(provider.health.queue_length, 0);
+        assert!((provider.health.avg_execution_time_ms - 1000.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_compute_provider_serde() {
+        let primal = make_discovered_primal();
+        let provider = ComputeProvider::from_discovered_primal(&primal);
+
+        let json = serde_json::to_string(&provider).unwrap();
+        let deserialized: ComputeProvider = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.provider_id, provider.provider_id);
+        assert_eq!(deserialized.metadata.name, provider.metadata.name);
+        assert!((deserialized.routing_score - provider.routing_score).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_compute_provider_metadata_serde() {
+        let metadata = ComputeProviderMetadata {
+            name: "test-provider".to_string(),
+            version: "1.0.0".to_string(),
+            architectures: vec!["x86_64".to_string(), "aarch64".to_string()],
+            frameworks: vec!["pytorch".to_string()],
+            regions: vec!["us-east-1".to_string()],
+            compliance: vec!["SOC2".to_string()],
+        };
+
+        let json = serde_json::to_string(&metadata).unwrap();
+        let deserialized: ComputeProviderMetadata = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.name, "test-provider");
+        assert_eq!(deserialized.architectures.len(), 2);
+        assert_eq!(deserialized.compliance.len(), 1);
+    }
+
+    #[test]
+    fn test_compute_provider_health_serde() {
+        let health = ComputeProviderHealth {
+            health_score: 0.95,
+            cpu_load: 0.3,
+            memory_usage: 0.7,
+            queue_length: 5,
+            avg_execution_time_ms: 250.0,
+            last_check: Utc::now(),
+        };
+
+        let json = serde_json::to_string(&health).unwrap();
+        let deserialized: ComputeProviderHealth = serde_json::from_str(&json).unwrap();
+
+        assert!((deserialized.health_score - 0.95).abs() < f64::EPSILON);
+        assert_eq!(deserialized.queue_length, 5);
     }
 }

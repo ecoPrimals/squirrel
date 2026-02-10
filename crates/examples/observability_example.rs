@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 /// Example demonstrating the observability features of the command system
 ///
 /// This example creates a command registry with observability hooks and executes

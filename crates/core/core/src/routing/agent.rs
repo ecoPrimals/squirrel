@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Agent management for MCP task routing
 //!
 //! This module handles agent registration, health monitoring, and lifecycle management
@@ -228,7 +231,7 @@ impl AgentRegistry {
         info!(
             "Registered agent '{}' with {} capabilities",
             agent_id,
-            agents.get(&agent_id).unwrap().capabilities.len()
+            agents.get(&agent_id).expect("agent just inserted").capabilities.len()
         );
         Ok(())
     }

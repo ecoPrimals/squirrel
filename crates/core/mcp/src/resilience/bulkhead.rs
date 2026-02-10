@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Bulkhead isolation pattern for limiting concurrent calls
 //!
 //! The bulkhead pattern is used to limit the number of concurrent calls
@@ -8,7 +11,7 @@ use tokio::sync::{Semaphore, Mutex, RwLock};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::task::block_in_place;
+// Removed block_in_place - use async methods or try_lock instead for non-blocking access
 
 use crate::resilience::{ResilienceError, Result};
 
@@ -171,34 +174,89 @@ impl Bulkhead {
         &self.config
     }
     
-    /// Get the current metrics for this bulkhead
-    pub fn metrics(&self) -> BulkheadMetrics {
-        block_in_place(|| futures::executor::block_on(async {
-            // Update metrics first
-            let available = self.permits.available_permits();
-            let queue_len = self.queue.lock().await.len();
-            
-            let mut metrics = self.metrics.write().await;
+    /// Get the current metrics for this bulkhead (async version)
+    /// 
+    /// This is the preferred method for async contexts. Use `metrics_sync()` only
+    /// when you absolutely need synchronous access.
+    pub async fn metrics(&self) -> BulkheadMetrics {
+        // Update metrics first
+        let available = self.permits.available_permits();
+        let queue_len = self.queue.lock().await.len();
+        
+        let mut metrics = self.metrics.write().await;
+        metrics.available_permits = available;
+        metrics.queue_depth = queue_len;
+        
+        // Return a clone of the metrics
+        metrics.clone()
+    }
+    
+    /// Get metrics synchronously using try_lock (best-effort)
+    /// 
+    /// Returns cached metrics if locks cannot be acquired immediately.
+    /// For accurate metrics in async code, use `metrics()` instead.
+    pub fn metrics_sync(&self) -> BulkheadMetrics {
+        let available = self.permits.available_permits();
+        
+        // Try to get queue length without blocking
+        let queue_len = self.queue.try_lock()
+            .map(|q| q.len())
+            .unwrap_or(0);
+        
+        // Try to update and return metrics without blocking
+        if let Ok(mut metrics) = self.metrics.try_write() {
             metrics.available_permits = available;
             metrics.queue_depth = queue_len;
-            
-            // Return a clone of the metrics
             metrics.clone()
-        }))
+        } else if let Ok(metrics) = self.metrics.try_read() {
+            // Return cached metrics if write lock unavailable
+            BulkheadMetrics {
+                available_permits: available,
+                queue_depth: queue_len,
+                ..metrics.clone()
+            }
+        } else {
+            // Fallback to basic metrics
+            BulkheadMetrics {
+                available_permits: available,
+                max_permits: self.config.max_concurrent_calls,
+                queue_depth: queue_len,
+                queue_capacity: self.config.max_queue_size,
+                rejection_count: 0,
+                timeout_count: 0,
+            }
+        }
     }
     
     /// Check if there are available permits without acquiring them
+    /// 
+    /// This method is optimized for synchronous access and avoids blocking.
+    /// It checks permits first (fast path) and only checks queue if needed.
     pub fn has_permits(&self) -> bool {
         let available = self.permits.available_permits();
         if available > 0 {
             return true;
         }
         
+        // If no permits available, check if queue has space using try_lock
+        // This avoids blocking in async context
+        self.queue.try_lock()
+            .map(|queue| queue.len() < self.config.max_queue_size)
+            .unwrap_or(false) // Conservative: assume no space if lock unavailable
+    }
+    
+    /// Check if there are available permits (async version)
+    /// 
+    /// Use this in async contexts for accurate results.
+    pub async fn has_permits_async(&self) -> bool {
+        let available = self.permits.available_permits();
+        if available > 0 {
+            return true;
+        }
+        
         // If no permits available, check if queue has space
-        block_in_place(|| futures::executor::block_on(async {
-            let queue = self.queue.lock().await;
-            queue.len() < self.config.max_queue_size
-        }))
+        let queue = self.queue.lock().await;
+        queue.len() < self.config.max_queue_size
     }
 
     /// Execute an operation with bulkhead isolation

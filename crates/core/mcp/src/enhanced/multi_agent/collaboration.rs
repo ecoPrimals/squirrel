@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Collaboration Engine
 //!
 //! Manages multi-agent collaboration sessions and strategies.
@@ -184,7 +187,7 @@ impl CollaborationStrategy for SequentialCollaborationStrategy {
                 "strategy": "sequential",
                 "agents_executed": results.len(),
                 "total_agents": session.agents.len()
-            }).as_object().unwrap().clone(),
+            }).as_object().expect("json! macro always produces an object").clone(),
         })
     }
     
@@ -277,7 +280,7 @@ impl CollaborationStrategy for ParallelCollaborationStrategy {
                 "agents_succeeded": results.len(),
                 "agents_failed": errors.len(),
                 "total_agents": session.agents.len()
-            }).as_object().unwrap().clone(),
+            }).as_object().expect("json! macro always produces an object").clone(),
         })
     }
     

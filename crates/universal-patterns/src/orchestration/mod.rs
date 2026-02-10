@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Orchestration integration module for universal patterns
 //!
 //! This module provides orchestration patterns and integration with Songbird

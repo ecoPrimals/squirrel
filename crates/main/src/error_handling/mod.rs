@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // error_handling module
 //
 // safe_operations removed - HTTP test utilities not needed in Pure Rust build
@@ -8,7 +11,7 @@
 ///
 /// **v1.4.3**: HTTP-based safe_operations utilities have been removed.
 /// Production code uses standard Rust error handling with Result<T, E>.
-pub mod error_handling {}
+pub mod core {}
 
 // Version information for error handling features
 pub const ERROR_HANDLING_VERSION: &str = "1.4.3";

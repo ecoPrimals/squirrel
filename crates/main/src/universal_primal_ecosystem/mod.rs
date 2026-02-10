@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Universal Primal Ecosystem Integration
 //!
 //! This module implements the universal patterns for ecosystem integration,
@@ -532,7 +536,7 @@ impl UniversalPrimalEcosystem {
     async fn delegate_to_songbird(
         &self,
         service: &DiscoveredService,
-        request: PrimalRequest,
+        _request: PrimalRequest,
     ) -> UniversalResult<PrimalResponse> {
         // TRUE PRIMAL: discover Songbird via capability, don't hardcode
         tracing::warn!(
@@ -672,10 +676,25 @@ impl UniversalPrimalEcosystem {
     }
 
     /// Query service capabilities from an endpoint
-    async fn query_service_capabilities(&self, _endpoint: &str) -> UniversalResult<Vec<String>> {
-        // connection_pool removed - Unix sockets don't need HTTP connection pooling
-        // TODO: Implement Unix socket client discovery via capability discovery
-        Ok(Vec::new()) // Stub: return empty capabilities until Unix socket implementation
+    ///
+    /// For Unix socket endpoints, uses the capability discovery system
+    /// to probe the socket and retrieve its capabilities.
+    async fn query_service_capabilities(&self, endpoint: &str) -> UniversalResult<Vec<String>> {
+        // Parse endpoint to extract socket path (unix:// prefix)
+        if let Some(socket_path) = endpoint.strip_prefix("unix://") {
+            let path = std::path::PathBuf::from(socket_path);
+            match crate::capabilities::discovery::probe_socket(&path).await {
+                Ok(provider) => Ok(provider.capabilities),
+                Err(e) => {
+                    debug!("Failed to probe socket {}: {}", socket_path, e);
+                    Ok(Vec::new())
+                }
+            }
+        } else {
+            // Non-socket endpoints not supported in primal architecture
+            debug!("Non-socket endpoint, skipping: {}", endpoint);
+            Ok(Vec::new())
+        }
     }
 
     /// Find services by capability without caching (internal method)

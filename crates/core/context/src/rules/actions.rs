@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rule action executor for executing rule actions
 use chrono::{DateTime, Utc};
 use log::{debug, error, info, trace, warn};

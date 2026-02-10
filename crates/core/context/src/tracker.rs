@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context tracking functionality
 //!
 //! This module provides functionality for tracking context changes.
@@ -394,5 +397,205 @@ impl ContextTrackerFactory {
             config,
             self.manager.clone(),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn make_state(version: u64) -> ContextState {
+        ContextState {
+            id: Uuid::new_v4().to_string(),
+            version,
+            timestamp: Utc::now().timestamp() as u64,
+            data: json!({"test": true}),
+            metadata: HashMap::new(),
+            synchronized: false,
+            last_modified: SystemTime::now(),
+        }
+    }
+
+    // ContextTrackerConfig tests
+    #[test]
+    fn test_tracker_config_default() {
+        let config = ContextTrackerConfig::default();
+        assert_eq!(config.sync_interval_seconds, 60);
+        assert!(config.auto_recovery);
+        assert_eq!(config.max_recovery_points, 10);
+    }
+
+    // ContextTracker tests
+    #[tokio::test]
+    async fn test_tracker_new() {
+        let state = make_state(1);
+        let tracker = ContextTracker::new(state.clone());
+        let got = tracker.get_state().await.unwrap();
+        assert_eq!(got.version, 1);
+    }
+
+    #[tokio::test]
+    async fn test_tracker_with_config_and_manager() {
+        let state = make_state(1);
+        let config = ContextTrackerConfig {
+            sync_interval_seconds: 30,
+            auto_recovery: false,
+            max_recovery_points: 5,
+        };
+        let tracker = ContextTracker::with_config_and_manager(state, config, None);
+        let got = tracker.get_state().await.unwrap();
+        assert_eq!(got.version, 1);
+    }
+
+    #[tokio::test]
+    async fn test_tracker_update_state_newer_version() {
+        let state1 = make_state(1);
+        let tracker = ContextTracker::new(state1);
+
+        let state2 = make_state(2);
+        let result = tracker.update_state(state2).await;
+        assert!(result.is_ok());
+
+        let got = tracker.get_state().await.unwrap();
+        assert_eq!(got.version, 2);
+    }
+
+    #[tokio::test]
+    async fn test_tracker_update_state_older_version_ignored() {
+        let state2 = make_state(2);
+        let tracker = ContextTracker::new(state2);
+
+        let state1 = make_state(1);
+        let result = tracker.update_state(state1).await;
+        assert!(result.is_ok());
+
+        // State should still be version 2
+        let got = tracker.get_state().await.unwrap();
+        assert_eq!(got.version, 2);
+    }
+
+    #[tokio::test]
+    async fn test_tracker_active_context_id() {
+        let state = make_state(1);
+        let tracker = ContextTracker::new(state);
+
+        // Initially no active context
+        let active = tracker.get_active_context_id().await.unwrap();
+        assert!(active.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_tracker_deactivate_context() {
+        let state = make_state(1);
+        let tracker = ContextTracker::new(state);
+        let result = tracker.deactivate_context().await;
+        assert!(result.is_ok());
+
+        let active = tracker.get_active_context_id().await.unwrap();
+        assert!(active.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_tracker_activate_no_manager_fails() {
+        let state = make_state(1);
+        let tracker = ContextTracker::new(state);
+        let result = tracker.activate_context("some-id").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_tracker_sync_no_manager_fails() {
+        let state = make_state(1);
+        let tracker = ContextTracker::new(state);
+        let result = tracker.sync_state().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_tracker_create_recovery_point_no_manager_fails() {
+        let state = make_state(1);
+        let tracker = ContextTracker::new(state);
+        let result = tracker.create_recovery_point().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_tracker_is_sync_needed_disabled() {
+        let state = make_state(1);
+        let config = ContextTrackerConfig {
+            sync_interval_seconds: 0, // disabled
+            auto_recovery: false,
+            max_recovery_points: 5,
+        };
+        let tracker = ContextTracker::with_config_and_manager(state, config, None);
+        assert!(!tracker.is_sync_needed().await);
+    }
+
+    #[tokio::test]
+    async fn test_tracker_is_sync_needed_not_due() {
+        let state = make_state(1);
+        let config = ContextTrackerConfig {
+            sync_interval_seconds: 3600, // 1 hour
+            auto_recovery: false,
+            max_recovery_points: 5,
+        };
+        let tracker = ContextTracker::with_config_and_manager(state, config, None);
+        assert!(!tracker.is_sync_needed().await);
+    }
+
+    // ContextTrackerFactory tests
+    #[test]
+    fn test_factory_new() {
+        let factory = ContextTrackerFactory::new(None);
+        let tracker = factory.create();
+        assert!(tracker.is_ok());
+    }
+
+    #[test]
+    fn test_factory_with_config() {
+        let config = ContextTrackerConfig {
+            sync_interval_seconds: 120,
+            auto_recovery: true,
+            max_recovery_points: 20,
+        };
+        let factory = ContextTrackerFactory::with_config(None, config);
+        let tracker = factory.create();
+        assert!(tracker.is_ok());
+    }
+
+    #[test]
+    fn test_factory_set_default_state() {
+        let mut factory = ContextTrackerFactory::new(None);
+        let state = make_state(5);
+        factory.set_default_state(state);
+        let tracker = factory.create().unwrap();
+
+        // The tracker should use the default state
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let got = rt.block_on(tracker.get_state()).unwrap();
+        assert_eq!(got.version, 5);
+    }
+
+    #[test]
+    fn test_factory_create_tracker_arc() {
+        let factory = ContextTrackerFactory::new(None);
+        let state = make_state(3);
+        let tracker = factory.create_tracker(state);
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let got = rt.block_on(tracker.get_state()).unwrap();
+        assert_eq!(got.version, 3);
+    }
+
+    #[test]
+    fn test_factory_create_with_config() {
+        let factory = ContextTrackerFactory::new(None);
+        let config = ContextTrackerConfig {
+            sync_interval_seconds: 10,
+            auto_recovery: false,
+            max_recovery_points: 3,
+        };
+        let tracker = factory.create_with_config(config);
+        assert!(tracker.is_ok());
     }
 }

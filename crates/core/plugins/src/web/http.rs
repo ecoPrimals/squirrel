@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! HTTP utilities for web plugins
 //!
 //! This module provides HTTP-related utilities for web plugins.

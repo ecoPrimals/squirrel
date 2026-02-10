@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rate limiter for AI service requests
 //!
 //! This module provides rate limiting capabilities for AI service clients
@@ -391,7 +394,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // TODO: Fix async runtime issue - block_on called within async context
+    #[ignore] // NOTE: Requires async runtime refactor - block_on called within async context
     async fn test_rate_limiter_with_retry() {
         let limiter = RateLimiter::new(
             RateLimiterConfig {

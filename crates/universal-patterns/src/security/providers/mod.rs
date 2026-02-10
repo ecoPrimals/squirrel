@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Security Capability Definitions
 //!
 //! This module defines security capabilities and traits that any security service

@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI client implementations
 //!
 //! This module contains concrete implementations of AI clients for various providers.
 //! Each client implements the AIClient trait for seamless integration.
 //!
-//! **Note**: Old HTTP-based clients (OpenAI, Anthropic, Ollama) have been removed.
+//! **Note**: Old vendor-specific HTTP clients have been replaced with capability-based routing.
 //! Use `capability_ai::AiClient` instead for TRUE ecoBin compliance.
 
 pub mod mock;

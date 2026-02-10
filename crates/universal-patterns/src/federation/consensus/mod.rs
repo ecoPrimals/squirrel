@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Consensus Mechanism for Federation Coordination
 //!
 //! This module provides a distributed consensus mechanism for coordinating

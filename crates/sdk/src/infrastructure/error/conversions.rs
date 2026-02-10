@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error conversions and WASM compatibility for the Squirrel Plugin SDK
 
 use super::context::{EnhancedError, ErrorContext};

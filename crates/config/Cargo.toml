@@ -18,9 +18,10 @@ chrono = { version = "0.4", features = ["serde"] }
 # Production uses Unix sockets or local files (Pure Rust!)
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
 tokio = { version = "1.0", features = ["full"] }
-once_cell = "1.19"
+# once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
 universal-constants = { path = "../universal-constants" }
 dirs = "5.0" # For platform-agnostic directory resolution
+zeroize.workspace = true
 
 # No build-time dependencies on other primals
 # Coordination happens at runtime via HTTP APIs

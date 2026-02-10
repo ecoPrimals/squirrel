@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Squirrel Primal Provider Module
 //!
 //! This module provides the concrete implementation of the `PrimalProvider` trait
@@ -10,6 +13,13 @@ pub mod core;
 pub mod ecosystem_integration;
 pub mod health_monitoring;
 pub mod session_integration;
+
+#[cfg(test)]
+mod ai_inference_tests;
+#[cfg(test)]
+mod config_tests;
+#[cfg(test)]
+mod core_tests;
 
 // Re-export the main provider type
 pub use core::SquirrelPrimalProvider;

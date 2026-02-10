@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for the Service Composition Engine
 //!
 //! Tests cover different composition strategies (sequential, parallel, conditional, pipeline),
@@ -207,7 +210,7 @@ async fn test_parallel_composition_execution() {
     let services = vec![
         create_test_service("service1", "Service 1", "gpt-4", vec!["generation".to_string()]),
         create_test_service("service2", "Service 2", "claude-3", vec!["analysis".to_string()]),
-        create_test_service("service3", "Service 3", "ollama", vec!["processing".to_string()]),
+        create_test_service("service3", "Service 3", "local", vec!["processing".to_string()]),
     ];
     
     let composition = create_test_composition(
@@ -285,7 +288,7 @@ async fn test_pipeline_composition_execution() {
     let services = vec![
         create_test_service("preprocessor", "Preprocessor", "gpt-4", vec!["preprocessing".to_string()]),
         create_test_service("processor", "Processor", "claude-3", vec!["processing".to_string()]),
-        create_test_service("postprocessor", "Postprocessor", "ollama", vec!["postprocessing".to_string()]),
+        create_test_service("postprocessor", "Postprocessor", "local", vec!["postprocessing".to_string()]),
     ];
     
     let composition = create_test_composition(

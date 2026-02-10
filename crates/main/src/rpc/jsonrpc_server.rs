@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! JSON-RPC 2.0 Server with Universal Transport (Isomorphic IPC)
+#![allow(dead_code)] // JSON-RPC request/response fields used in deserialization
 //!
 //! Modern, idiomatic Rust implementation of JSON-RPC 2.0 protocol for
 //! biomeOS integration. This server uses Universal Transport abstractions
@@ -11,12 +15,22 @@
 //! (Unix socket on Linux/macOS, TCP fallback on Android/constrained)
 //! ```
 //!
-//! ## Supported Methods
+//! ## Supported Methods (Semantic Naming — wateringHole standard)
 //!
-//! - `query_ai` - Send prompt to AI and get response
-//! - `list_providers` - List available AI providers
-//! - `announce_capabilities` - Announce Squirrel capabilities
-//! - `health` - Health check endpoint
+//! Semantic names (preferred):
+//! - `ai.query` - Send prompt to AI and get response
+//! - `ai.list_providers` - List available AI providers
+//! - `capability.announce` - Announce capabilities
+//! - `capability.discover` - Report own capabilities for socket scanning
+//! - `system.health` - Health check endpoint
+//! - `system.metrics` - Server metrics
+//! - `system.ping` - Connectivity test
+//! - `discovery.peers` - Peer discovery
+//! - `tool.execute` - Tool execution
+//!
+//! Legacy aliases (deprecated, emit warnings — Phase 2):
+//! `query_ai`, `list_providers`, `announce_capabilities`, `discover_capabilities`,
+//! `health`, `metrics`, `ping`, `discover_peers`, `execute_tool`
 //!
 //! ## Protocol
 //!
@@ -24,13 +38,12 @@
 //! ```json
 //! {
 //!   "jsonrpc": "2.0",
-//!   "method": "query_ai",
+//!   "method": "ai.query",
 //!   "params": {...},
 //!   "id": 1
 //! }
 //! ```
 
-use super::types::*;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -149,16 +162,16 @@ impl ServerMetrics {
 /// JSON-RPC Server with Universal Transport (Isomorphic IPC)
 pub struct JsonRpcServer {
     /// Service name for Universal Transport discovery
-    service_name: String,
+    pub(crate) service_name: String,
 
     /// Legacy socket path (kept for backward compatibility, used as fallback)
-    socket_path: String,
+    pub(crate) socket_path: String,
 
     /// Server metrics
-    metrics: Arc<RwLock<ServerMetrics>>,
+    pub(crate) metrics: Arc<RwLock<ServerMetrics>>,
 
     /// AI router (optional, for actual AI calls)
-    ai_router: Option<Arc<crate::api::ai::AiRouter>>,
+    pub(crate) ai_router: Option<Arc<crate::api::ai::AiRouter>>,
 }
 
 impl JsonRpcServer {
@@ -200,7 +213,7 @@ impl JsonRpcServer {
         info!("🔌 Starting JSON-RPC server with Universal Transport...");
 
         // Bind using Universal Transport (automatic fallback)
-        let mut listener = UniversalListener::bind(&self.service_name, None)
+        let listener = UniversalListener::bind(&self.service_name, None)
             .await
             .context("Failed to bind Universal Transport listener")?;
 
@@ -225,13 +238,82 @@ impl JsonRpcServer {
         }
     }
 
-    /// Handle a client connection via Universal Transport
+    /// Handle a client connection via Universal Transport with protocol negotiation
     ///
     /// This method works with ANY transport type (Unix socket, TCP, Named pipe)
     /// using polymorphic AsyncRead + AsyncWrite traits.
+    ///
+    /// ## Protocol Negotiation
+    ///
+    /// The server supports both JSON-RPC and tarpc protocols:
+    /// - If client sends "PROTOCOLS: ..." → negotiate and route to selected protocol
+    /// - If client sends JSON-RPC request → default to JSON-RPC
+    /// - tarpc provides higher performance for bulk operations
     async fn handle_universal_connection(&self, transport: UniversalTransport) -> Result<()> {
         // Wrap transport in BufReader for line-oriented protocol
         let mut reader = BufReader::new(transport);
+        let mut line = String::new();
+
+        // Read first line with timeout to detect protocol negotiation
+        match reader.read_line(&mut line).await {
+            Ok(0) => {
+                // EOF - client disconnected immediately
+                debug!("Client disconnected before sending data");
+                Ok(())
+            }
+            Ok(_) => {
+                let trimmed = line.trim();
+
+                // Check if this is a protocol negotiation request
+                if trimmed.starts_with("PROTOCOLS:") {
+                    #[cfg(feature = "tarpc-rpc")]
+                    {
+                        self.handle_protocol_negotiation(reader, &line).await
+                    }
+                    #[cfg(not(feature = "tarpc-rpc"))]
+                    {
+                        // tarpc not available, respond with JSON-RPC only
+                        info!(
+                            "Protocol negotiation requested, tarpc not enabled, selecting JSON-RPC"
+                        );
+                        let response = "PROTOCOL: jsonrpc\n";
+                        reader.get_mut().write_all(response.as_bytes()).await?;
+                        reader.get_mut().flush().await?;
+                        // Continue with JSON-RPC handling below
+                        self.handle_jsonrpc_loop(reader).await
+                    }
+                } else {
+                    // Not a protocol request - treat as JSON-RPC request
+                    // Process this first line and continue with JSON-RPC loop
+                    self.handle_jsonrpc_with_first_line(reader, line).await
+                }
+            }
+            Err(e) => {
+                warn!("Error reading from connection: {}", e);
+                Err(e.into())
+            }
+        }
+    }
+
+    /// Handle JSON-RPC loop after processing first line
+    async fn handle_jsonrpc_with_first_line(
+        &self,
+        mut reader: BufReader<UniversalTransport>,
+        first_line: String,
+    ) -> Result<()> {
+        // Process the first line we already read
+        let response = self.handle_request(&first_line).await;
+        let mut response_json = serde_json::to_string(&response)?;
+        response_json.push('\n');
+        reader.get_mut().write_all(response_json.as_bytes()).await?;
+        reader.get_mut().flush().await?;
+
+        // Continue with normal JSON-RPC loop
+        self.handle_jsonrpc_loop(reader).await
+    }
+
+    /// Standard JSON-RPC request/response loop
+    async fn handle_jsonrpc_loop(&self, mut reader: BufReader<UniversalTransport>) -> Result<()> {
         let mut line = String::new();
 
         loop {
@@ -260,6 +342,67 @@ impl JsonRpcServer {
         }
 
         Ok(())
+    }
+
+    /// Handle protocol negotiation for multi-protocol support
+    #[cfg(feature = "tarpc-rpc")]
+    async fn handle_protocol_negotiation(
+        &self,
+        mut reader: BufReader<UniversalTransport>,
+        first_line: &str,
+    ) -> Result<()> {
+        use super::protocol::IpcProtocol;
+        use super::protocol_negotiation::{select_protocol, ProtocolRequest, ProtocolResponse};
+        use super::tarpc_server::TarpcRpcServer;
+
+        info!("🔄 Protocol negotiation requested");
+
+        // Parse the protocol request
+        let request = match ProtocolRequest::from_wire(first_line) {
+            Ok(req) => req,
+            Err(e) => {
+                warn!("Invalid protocol request: {}", e);
+                // Fallback to JSON-RPC
+                let response = "PROTOCOL: jsonrpc\n";
+                reader.get_mut().write_all(response.as_bytes()).await?;
+                reader.get_mut().flush().await?;
+                return self.handle_jsonrpc_loop(reader).await;
+            }
+        };
+
+        // Server supports both protocols
+        let server_supported = vec![IpcProtocol::Tarpc, IpcProtocol::JsonRpc];
+        let selected = select_protocol(&request.supported, &server_supported);
+
+        // Send response
+        let response = ProtocolResponse::new(selected);
+        let response_line = response.to_wire();
+        reader.get_mut().write_all(response_line.as_bytes()).await?;
+        reader.get_mut().flush().await?;
+
+        info!("✅ Protocol negotiated: {}", selected);
+
+        // Route to appropriate handler
+        match selected {
+            IpcProtocol::Tarpc => {
+                // Extract the transport from the reader to pass to tarpc
+                let transport = reader.into_inner();
+
+                // Create tarpc server with shared metrics and AI router
+                let tarpc_server = TarpcRpcServer::with_metrics(
+                    self.service_name.clone(),
+                    Arc::clone(&self.metrics),
+                    self.ai_router.clone(),
+                );
+
+                // Handle connection with tarpc
+                tarpc_server.handle_connection(transport).await
+            }
+            IpcProtocol::JsonRpc => {
+                // Continue with JSON-RPC
+                self.handle_jsonrpc_loop(reader).await
+            }
+        }
     }
 
     /// Handle a client connection (LEGACY - kept for backward compatibility)
@@ -340,15 +483,94 @@ impl JsonRpcServer {
             tracing::info_span!("jsonrpc_method", method = %request.method, id = ?request.id);
         let _enter = span.enter();
 
+        // Method dispatch with semantic naming (wateringHole standard: {domain}.{operation})
+        // Semantic names are preferred; legacy aliases emit deprecation warnings (Phase 2)
         let result = match request.method.as_str() {
-            "query_ai" => self.handle_query_ai(request.params).await,
-            "list_providers" => self.handle_list_providers(request.params).await,
-            "announce_capabilities" => self.handle_announce_capabilities(request.params).await,
-            "health" => self.handle_health().await,
-            "metrics" => self.handle_metrics().await,
-            "discover_peers" => self.handle_discover_peers(request.params).await,
-            "ping" => self.handle_ping().await,
-            "execute_tool" => self.handle_execute_tool(request.params).await,
+            // AI domain — semantic names (preferred)
+            "ai.query" => self.handle_query_ai(request.params).await,
+            "ai.list_providers" => self.handle_list_providers(request.params).await,
+
+            // Capability domain — semantic names (preferred)
+            "capability.announce" => self.handle_announce_capabilities(request.params).await,
+            "capability.discover" => self.handle_discover_capabilities().await,
+
+            // System domain — semantic names (preferred)
+            "system.health" => self.handle_health().await,
+            "system.metrics" => self.handle_metrics().await,
+            "system.ping" => self.handle_ping().await,
+
+            // Discovery domain — semantic names (preferred)
+            "discovery.peers" => self.handle_discover_peers(request.params).await,
+
+            // Tool domain — semantic names (preferred)
+            "tool.execute" => self.handle_execute_tool(request.params).await,
+
+            // Legacy aliases (deprecated — Phase 2 of wateringHole semantic naming standard)
+            "query_ai" => {
+                warn!(
+                    "Deprecated method '{}'. Use 'ai.query' instead.",
+                    request.method
+                );
+                self.handle_query_ai(request.params).await
+            }
+            "list_providers" => {
+                warn!(
+                    "Deprecated method '{}'. Use 'ai.list_providers' instead.",
+                    request.method
+                );
+                self.handle_list_providers(request.params).await
+            }
+            "announce_capabilities" => {
+                warn!(
+                    "Deprecated method '{}'. Use 'capability.announce' instead.",
+                    request.method
+                );
+                self.handle_announce_capabilities(request.params).await
+            }
+            "discover_capabilities" => {
+                warn!(
+                    "Deprecated method '{}'. Use 'capability.discover' instead.",
+                    request.method
+                );
+                self.handle_discover_capabilities().await
+            }
+            "health" => {
+                warn!(
+                    "Deprecated method '{}'. Use 'system.health' instead.",
+                    request.method
+                );
+                self.handle_health().await
+            }
+            "metrics" => {
+                warn!(
+                    "Deprecated method '{}'. Use 'system.metrics' instead.",
+                    request.method
+                );
+                self.handle_metrics().await
+            }
+            "ping" => {
+                warn!(
+                    "Deprecated method '{}'. Use 'system.ping' instead.",
+                    request.method
+                );
+                self.handle_ping().await
+            }
+            "discover_peers" => {
+                warn!(
+                    "Deprecated method '{}'. Use 'discovery.peers' instead.",
+                    request.method
+                );
+                self.handle_discover_peers(request.params).await
+            }
+            "execute_tool" => {
+                warn!(
+                    "Deprecated method '{}'. Use 'tool.execute' instead.",
+                    request.method
+                );
+                self.handle_execute_tool(request.params).await
+            }
+
+            // Method not found
             _ => Err(self.method_not_found(&request.method)),
         };
 
@@ -377,292 +599,7 @@ impl JsonRpcServer {
         }
     }
 
-    /// Handle query_ai method
-    async fn handle_query_ai(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
-        let request: QueryAiRequest = self.parse_params(params)?;
-
-        info!("🤖 query_ai - prompt length: {}", request.prompt.len());
-
-        // If AI router available, use it; otherwise return mock/error
-        if let Some(router) = &self.ai_router {
-            use crate::api::ai::types::TextGenerationRequest;
-
-            let ai_request = TextGenerationRequest {
-                prompt: request.prompt,
-                system: None,
-                max_tokens: request.max_tokens.map(|v| v as u32).unwrap_or(1024),
-                temperature: request.temperature.unwrap_or(0.7),
-                model: request.model,
-                constraints: vec![],
-                params: std::collections::HashMap::new(),
-            };
-
-            let start = Instant::now();
-            match router.generate_text(ai_request, None).await {
-                Ok(ai_response) => {
-                    let response = QueryAiResponse {
-                        response: ai_response.text,
-                        provider: ai_response.provider_id,
-                        model: ai_response.model,
-                        tokens_used: ai_response.usage.map(|u| u.total_tokens as usize),
-                        latency_ms: start.elapsed().as_millis() as u64,
-                        success: true,
-                    };
-                    serde_json::to_value(response).map_err(|e| JsonRpcError {
-                        code: error_codes::INTERNAL_ERROR,
-                        message: format!("Serialization error: {}", e),
-                        data: None,
-                    })
-                }
-                Err(e) => Err(JsonRpcError {
-                    code: error_codes::INTERNAL_ERROR,
-                    message: format!("AI router error: {}", e),
-                    data: None,
-                }),
-            }
-        } else {
-            // No AI router configured
-            Err(JsonRpcError {
-                code: error_codes::INTERNAL_ERROR,
-                message: "AI router not configured. Configure providers to enable AI inference."
-                    .to_string(),
-                data: None,
-            })
-        }
-    }
-
-    /// Handle list_providers method
-    async fn handle_list_providers(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
-        info!("📋 list_providers");
-
-        if let Some(router) = &self.ai_router {
-            let providers: Vec<ProviderInfo> = router
-                .list_providers()
-                .await
-                .into_iter()
-                .map(|p| ProviderInfo {
-                    id: p.provider_id.clone(),
-                    name: p.provider_name,
-                    models: vec![], // TODO: Add models list
-                    capabilities: p.capabilities,
-                    online: p.is_available,
-                    avg_latency_ms: None, // TODO: Add latency tracking
-                    cost_tier: if p.cost_per_unit.unwrap_or(0.0) > 0.01 {
-                        "high".to_string()
-                    } else if p.cost_per_unit.unwrap_or(0.0) > 0.0 {
-                        "medium".to_string()
-                    } else {
-                        "free".to_string()
-                    },
-                })
-                .collect();
-
-            let response = ListProvidersResponse {
-                total: providers.len(),
-                providers,
-            };
-
-            serde_json::to_value(response).map_err(|e| JsonRpcError {
-                code: error_codes::INTERNAL_ERROR,
-                message: format!("Serialization error: {}", e),
-                data: None,
-            })
-        } else {
-            // No providers
-            let response = ListProvidersResponse {
-                total: 0,
-                providers: vec![],
-            };
-            serde_json::to_value(response).map_err(|e| JsonRpcError {
-                code: error_codes::INTERNAL_ERROR,
-                message: format!("Serialization error: {}", e),
-                data: None,
-            })
-        }
-    }
-
-    /// Handle announce_capabilities method
-    async fn handle_announce_capabilities(
-        &self,
-        params: Option<Value>,
-    ) -> Result<Value, JsonRpcError> {
-        let request: AnnounceCapabilitiesRequest = self.parse_params(params)?;
-
-        info!(
-            "📢 announce_capabilities - {} capabilities",
-            request.capabilities.len()
-        );
-
-        let response = AnnounceCapabilitiesResponse {
-            success: true,
-            message: format!("Acknowledged {} capabilities", request.capabilities.len()),
-            announced_at: chrono::Utc::now().to_rfc3339(),
-        };
-
-        serde_json::to_value(response).map_err(|e| JsonRpcError {
-            code: error_codes::INTERNAL_ERROR,
-            message: format!("Serialization error: {}", e),
-            data: None,
-        })
-    }
-
-    /// Handle health method
-    async fn handle_health(&self) -> Result<Value, JsonRpcError> {
-        debug!("💚 health check");
-
-        let metrics = self.metrics.read().await;
-
-        let response = HealthCheckResponse {
-            status: "healthy".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
-            uptime_seconds: metrics.uptime_seconds(),
-            active_providers: if let Some(router) = &self.ai_router {
-                router.provider_count().await
-            } else {
-                0
-            },
-            requests_processed: metrics.requests_handled,
-            avg_response_time_ms: metrics.avg_response_time_ms(),
-        };
-
-        serde_json::to_value(response).map_err(|e| JsonRpcError {
-            code: error_codes::INTERNAL_ERROR,
-            message: format!("Serialization error: {}", e),
-            data: None,
-        })
-    }
-
-    /// Parse parameters into expected type
-    fn parse_params<T: serde::de::DeserializeOwned>(
-        &self,
-        params: Option<Value>,
-    ) -> Result<T, JsonRpcError> {
-        match params {
-            Some(value) => serde_json::from_value(value).map_err(|e| JsonRpcError {
-                code: error_codes::INVALID_PARAMS,
-                message: format!("Invalid parameters: {}", e),
-                data: None,
-            }),
-            None => Err(JsonRpcError {
-                code: error_codes::INVALID_PARAMS,
-                message: "Missing parameters".to_string(),
-                data: None,
-            }),
-        }
-    }
-
-    /// Create method not found error
-    fn method_not_found(&self, method: &str) -> JsonRpcError {
-        JsonRpcError {
-            code: error_codes::METHOD_NOT_FOUND,
-            message: format!("Method not found: {}", method),
-            data: None,
-        }
-    }
-
-    /// Create error response
-    fn error_response(&self, id: Value, code: i32, message: &str) -> JsonRpcResponse {
-        JsonRpcResponse {
-            jsonrpc: "2.0".to_string(),
-            result: None,
-            error: Some(JsonRpcError {
-                code,
-                message: message.to_string(),
-                data: None,
-            }),
-            id,
-        }
-    }
-
-    /// Handle metrics method
-    async fn handle_metrics(&self) -> Result<Value, JsonRpcError> {
-        debug!("📊 metrics request");
-
-        let metrics = self.metrics.read().await;
-
-        let response = serde_json::json!({
-            "requests_handled": metrics.requests_handled,
-            "errors": metrics.errors,
-            "uptime_seconds": metrics.uptime_seconds(),
-            "avg_response_time_ms": metrics.avg_response_time_ms(),
-            "success_rate": if metrics.requests_handled > 0 {
-                (metrics.requests_handled - metrics.errors) as f64 / metrics.requests_handled as f64
-            } else {
-                1.0
-            }
-        });
-
-        Ok(response)
-    }
-
-    /// Handle discover_peers method
-    async fn handle_discover_peers(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
-        info!("🔍 discover_peers request");
-
-        // TODO: Integrate with actual primal discovery
-        // For now, return discovered primals from registry or environment
-        let peers = Vec::<serde_json::Value>::new();
-
-        let response = serde_json::json!({
-            "peers": peers,
-            "total": peers.len(),
-            "discovery_method": "capability_registry"
-        });
-
-        Ok(response)
-    }
-
-    /// Handle ping method (simple connectivity test)
-    async fn handle_ping(&self) -> Result<Value, JsonRpcError> {
-        debug!("🏓 ping");
-
-        Ok(serde_json::json!({
-            "pong": true,
-            "timestamp": chrono::Utc::now().to_rfc3339(),
-            "version": env!("CARGO_PKG_VERSION")
-        }))
-    }
-
-    /// Handle execute_tool method
-    async fn handle_execute_tool(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
-        info!("🔧 execute_tool request");
-
-        // Parse parameters
-        let tool_params = params.ok_or_else(|| JsonRpcError {
-            code: error_codes::INVALID_PARAMS,
-            message: "Missing parameters for execute_tool".to_string(),
-            data: None,
-        })?;
-
-        // Extract tool name and arguments
-        let tool_name = tool_params
-            .get("tool")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| JsonRpcError {
-                code: error_codes::INVALID_PARAMS,
-                message: "Missing 'tool' parameter".to_string(),
-                data: None,
-            })?;
-
-        let args = tool_params
-            .get("args")
-            .cloned()
-            .unwrap_or(serde_json::json!({}));
-
-        info!("🔧 Executing tool: {}", tool_name);
-
-        // TODO: Integrate with actual tool execution system
-        // For now, return a placeholder response
-        let response = serde_json::json!({
-            "tool": tool_name,
-            "status": "not_implemented",
-            "message": "Tool execution system not yet implemented",
-            "args": args,
-            "timestamp": chrono::Utc::now().to_rfc3339()
-        });
-
-        Ok(response)
-    }
+    // Handler methods are in jsonrpc_handlers.rs (organized by domain)
 }
 
 #[cfg(test)]
@@ -730,7 +667,7 @@ mod tests {
     #[test]
     fn test_metrics_uptime() {
         let metrics = ServerMetrics::new();
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        // uptime_seconds() is always >= 0 from the moment of creation
         assert!(metrics.uptime_seconds() >= 0);
     }
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Parser for MDC/YAML rule format
 use serde_json::Value;
 use std::collections::HashMap;

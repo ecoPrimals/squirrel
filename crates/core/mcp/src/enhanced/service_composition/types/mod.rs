@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Service Composition Types
 //!
 //! This module organizes all type definitions for the service composition system

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Circuit breaker state management
 //!
 //! This module defines the state types and traits for circuit breakers.

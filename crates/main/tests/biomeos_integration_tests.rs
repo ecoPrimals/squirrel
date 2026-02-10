@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for BiomeOS Integration Agent Status
 //!
 //! Tests agent deployment status variants and lifecycle.

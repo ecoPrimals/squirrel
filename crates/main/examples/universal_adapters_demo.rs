@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Adapters Demonstration
 //!
 //! This example shows how Squirrel AI Coordinator uses universal, capability-based

@@ -44,6 +44,9 @@ ecosystem-api = { path = "../ecosystem-api" }
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../config" }
 
+# Security: zeroize for sensitive data
+zeroize.workspace = true
+
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3.0"

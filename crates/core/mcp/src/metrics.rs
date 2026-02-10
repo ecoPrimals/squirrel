@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Metrics module for MCP
 //!
 //! This module provides metrics collection functionality for MCP components.
@@ -9,10 +12,10 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 /// String interning for common metric names - eliminates allocation overhead
-static COMMON_METRICS: Lazy<HashMap<&'static str, Arc<str>>> = Lazy::new(|| {
+static COMMON_METRICS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::new(|| {
         let mut map = HashMap::new();
         // Pre-allocate the most frequently used metric names
         map.insert("request_count", Arc::from("request_count"));

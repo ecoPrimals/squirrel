@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive Integration Tests for Enhanced MCP Platform
 //! 
 //! This module provides comprehensive test coverage for all Phase 3 features:
@@ -16,7 +19,7 @@ use uuid::Uuid;
 
 use crate::error::Result;
 use super::*;
-use super::providers::{MockBehavior, ProviderFactory, OpenAIConfig, OllamaConfig};
+use super::providers::{MockBehavior, ProviderFactory, OpenAIConfig, LocalServerProviderConfig};
 use super::coordinator::{UniversalAIRequest, AIRequestType, MessageContent, RequestContext, RoutingHints, QualityRequirements, RoutingStrategy};
 use super::events::{MCPEvent, EventType, EventSource, SourceType, EventPriority};
 use super::intelligent_router::{IntelligentRouter, RoutingRule, RoutingConditions, RoutingActions};
@@ -36,7 +39,7 @@ impl TestConfigBuilder {
     pub fn with_mock_providers(mut self) -> Self {
         // Configure test providers with mock behaviors
         self.platform_config.ai_coordinator.openai_api_key = Some("test-key".to_string());
-        self.platform_config.ai_coordinator.enable_ollama = true;
+        self.platform_config.ai_coordinator.enable_local_server = true;
         self.platform_config.ai_coordinator.enable_native = false; // Disable complex providers for tests
         self
     }
@@ -48,7 +51,7 @@ impl TestConfigBuilder {
     }
     
     pub fn with_test_models(mut self) -> Self {
-        self.platform_config.ai_coordinator.ollama_config.models = vec![
+        self.platform_config.ai_coordinator.local_server_config.models = vec![
             "test-model-1".to_string(),
             "test-model-2".to_string(),
         ];
@@ -200,11 +203,11 @@ mod integration_tests {
             conditions: RoutingConditions {
                 max_cost_per_token: Some(0.0001),
                 min_success_rate: Some(0.95),
-                allowed_providers: Some(vec!["ollama".to_string()]),
+                allowed_providers: Some(vec!["local-server".to_string()]),
                 ..Default::default()
             },
             actions: RoutingActions {
-                force_provider: Some("ollama".to_string()),
+                force_provider: Some("local-server".to_string()),
                 ..Default::default()
             },
             enabled: true,
@@ -222,7 +225,7 @@ mod integration_tests {
         ).await.expect("Performance update should succeed");
         
         router.update_performance(
-            "ollama", 
+            "local-server", 
             "llama2",
             Duration::from_millis(500),
             Some(0.0),
@@ -232,19 +235,19 @@ mod integration_tests {
         // Check that routing considers performance data
         let stats = router.get_performance_stats().await;
         assert!(stats.contains_key("openai:gpt-4"));
-        assert!(stats.contains_key("ollama:llama2"));
+        assert!(stats.contains_key("local-server:llama2"));
     }
     
     #[tokio::test]
     async fn test_provider_mock_behaviors() {
-        // Test provider with failure simulation
-        let failing_config = OllamaConfig {
+        // Test provider with failure simulation (using local server, vendor-agnostic)
+        let failing_config = LocalServerProviderConfig {
             base_url: "http://localhost:11434".to_string(),
             timeout: Duration::from_secs(30),
             models: vec!["test-model".to_string()],
         };
         
-        let mut failing_provider = ProviderFactory::create_ollama(failing_config)
+        let mut failing_provider = ProviderFactory::create_local_server(failing_config)
             .expect("Provider should be created");
         
         let failure_behavior = MockBehavior {

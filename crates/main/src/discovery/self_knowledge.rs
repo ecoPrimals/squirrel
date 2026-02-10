@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Primal Self-Knowledge - Each primal knows ONLY itself
 //!
 //! Following Songbird's sovereignty principle: primals discover their OWN identity
@@ -78,13 +82,26 @@ impl PrimalSelfKnowledge {
         });
 
         // Discover capabilities (from ENV)
+        //
+        // Capability namespace follows the {domain}.{operation} convention
+        // used by the discovery system (probe_socket, discover_capability, etc.)
+        // This ensures Squirrel is discoverable by other primals scanning sockets.
         let capabilities = env::var("PRIMAL_CAPABILITIES")
             .ok()
             .map(|s| s.split(',').map(|c| c.trim().to_string()).collect())
             .unwrap_or_else(|| {
                 // Default Squirrel capabilities
-                // ZERO-COPY: Use static strings instead of allocating on every call
-                vec!["ai".into(), "ai-inference".into(), "text-generation".into()]
+                // Uses standard {domain}.{operation} namespace for discovery alignment
+                vec![
+                    "ai.query".into(),
+                    "ai.complete".into(),
+                    "ai.chat".into(),
+                    "ai.inference".into(),
+                    "ai.list_providers".into(),
+                    "tool.execute".into(),
+                    "system.health".into(),
+                    "capability.discover".into(),
+                ]
             });
 
         // Version

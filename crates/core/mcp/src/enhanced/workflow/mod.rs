@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Workflow Management Engine
 //!
 //! This module provides comprehensive workflow management capabilities including:
@@ -175,7 +178,8 @@ impl WorkflowManagementEngine {
         // Use Arc references to avoid heavy cloning
         let workflow_ref = Arc::clone(&workflow);
         let instance_ref = Arc::clone(&instance);
-        let engine = Arc::clone(&Arc::new(self.clone())); // TODO: Refactor to use &self with proper lifetimes
+        let engine = Arc::clone(&Arc::new(self.clone())); // FUTURE: [Refactor] Refactor to use &self with proper lifetimes
+        // Tracking: Requires lifetime analysis and refactoring
         
         tokio::spawn(async move {
             if let Err(e) = (*engine).execute_workflow_steps(workflow_ref, instance_ref).await {

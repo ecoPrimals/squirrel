@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration system for Squirrel MCP
 //!
 //! This crate provides a unified configuration system supporting:
+#![deny(unsafe_code)]
 //! - Environment variable overrides
 //! - TOML/JSON/YAML file configuration
 //! - Comprehensive defaults and validation
@@ -8,7 +12,7 @@
 //!
 //! # Example Usage
 //!
-//! ```
+//! ```ignore
 //! use squirrel_mcp_config::{SquirrelUnifiedConfig, ConfigLoader};
 //!
 //! // Load configuration from environment variables

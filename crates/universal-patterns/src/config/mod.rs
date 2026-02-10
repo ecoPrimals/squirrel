@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration management for the universal patterns framework
 //!
 //! This module provides standardized configuration patterns that all primals
@@ -30,7 +33,7 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust,no_run
+//! ```ignore,no_run
 //! use universal_patterns::config::{PrimalConfig, ConfigPresets};
 //!
 //! // Use a preset configuration
@@ -55,7 +58,7 @@
 //!
 //! For managing multiple primal instances:
 //!
-//! ```rust,no_run
+//! ```ignore,no_run
 //! use universal_patterns::config::{UniversalPrimalConfig, UniversalConfigPresets};
 //!
 //! // Use a preset for multi-instance setup

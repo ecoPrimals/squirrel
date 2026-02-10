@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP Protocol Performance Benchmarks
 //!
 //! This benchmark suite tests the performance of MCP protocol components:

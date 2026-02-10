@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Modern authentication service with capability discovery and standalone fallback
 //!
 //! Uses universal adapter pattern for capability discovery - no hardcoded primal dependencies.
@@ -67,7 +70,7 @@ impl AuthService {
             let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8443);  // Default security auth port
+                .unwrap_or(8443); // Default security auth port
             format!("http://localhost:{}", port)
         });
 
@@ -128,6 +131,13 @@ impl AuthService {
     }
 
     /// Parse security capability information from any primal
+    ///
+    /// # TRUE PRIMAL Pattern
+    ///
+    /// Squirrel identifies capabilities by **what they can do** (auth, session,
+    /// security), not by **who provides them**. The `provider_id` field is
+    /// extracted from the JSON-RPC response's `primal_id` field if present,
+    /// falling back to `"discovered"`.
     fn parse_security_capability(response_body: &str) -> AuthResult<SecurityCapabilityInfo> {
         // Look for generic security capability indicators (not primal-specific)
         let has_auth = response_body.contains("auth") || response_body.contains("authentication");
@@ -135,24 +145,20 @@ impl AuthService {
         let has_session = response_body.contains("session") || response_body.contains("token");
 
         if has_auth || has_security || has_session {
-            // Try to determine what type of primal this is from generic indicators
-            let primal_type = if response_body.contains("beardog")
-                || response_body.contains("BearDog")
-            {
-                "beardog".to_string()
-            } else if response_body.contains("toadstool") || response_body.contains("ToadStool") {
-                "toadstool".to_string()
-            } else if response_body.contains("songbird") || response_body.contains("SongBird") {
-                "songbird".to_string()
-            } else {
-                "unknown".to_string()
-            };
+            // Capability-based: extract provider_id from response if available
+            let primal_type = serde_json::from_str::<serde_json::Value>(response_body)
+                .ok()
+                .and_then(|v| {
+                    v.get("primal_id")
+                        .and_then(|id| id.as_str().map(String::from))
+                })
+                .unwrap_or_else(|| "discovered".to_string());
 
             Ok(SecurityCapabilityInfo {
                 primal_type,
                 supports_auth: has_auth,
                 supports_sessions: has_session,
-                api_version: "v1".to_string(), // Default
+                api_version: "v1".to_string(),
             })
         } else {
             Err(AuthError::authorization_error(

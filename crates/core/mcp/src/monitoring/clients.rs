@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Monitoring client interfaces and implementations
 //!
 //! This module provides the MonitoringClient trait and various implementations
@@ -83,8 +86,12 @@ pub struct MonitoringEvent {
     pub metadata: HashMap<String, String>,
 }
 
-/// Mock implementation of MonitoringClient for testing
-pub struct MockMonitoringClient {
+/// In-memory implementation of MonitoringClient
+///
+/// A lightweight monitoring backend that stores metrics, events, and health
+/// status in memory. Used as the default when no external monitoring system
+/// is configured, and also useful for testing.
+pub struct InMemoryMonitoringClient {
     /// Component ID for this client
     component_id: String,
     /// Count of events by type
@@ -95,7 +102,7 @@ pub struct MockMonitoringClient {
     health_status: Mutex<bool>,
 }
 
-impl MockMonitoringClient {
+impl InMemoryMonitoringClient {
     /// Create a new mock monitoring client
     pub fn new(component_id: &str) -> Self {
         Self {
@@ -110,7 +117,7 @@ impl MockMonitoringClient {
     pub fn get_event_count(&self, event_type: &str) -> usize {
         self.event_counts
             .lock()
-            .unwrap()
+            .expect("InMemoryMonitoringClient: event_counts lock poisoned")
             .get(event_type)
             .copied()
             .unwrap_or(0)
@@ -118,24 +125,24 @@ impl MockMonitoringClient {
 
     /// Get all recorded metrics
     pub fn get_recorded_metrics(&self) -> HashMap<String, MetricValue> {
-        self.metrics.lock().unwrap().clone()
+        self.metrics.lock().expect("InMemoryMonitoringClient: metrics lock poisoned").clone()
     }
 
     /// Set the health status for testing
     pub fn set_health_status(&self, healthy: bool) {
-        *self.health_status.lock().unwrap() = healthy;
+        *self.health_status.lock().expect("InMemoryMonitoringClient: health_status lock poisoned") = healthy;
     }
 
     /// Clear all recorded data
     pub fn clear(&self) {
-        self.event_counts.lock().unwrap().clear();
-        self.metrics.lock().unwrap().clear();
-        *self.health_status.lock().unwrap() = true;
+        self.event_counts.lock().expect("InMemoryMonitoringClient: event_counts lock poisoned").clear();
+        self.metrics.lock().expect("InMemoryMonitoringClient: metrics lock poisoned").clear();
+        *self.health_status.lock().expect("InMemoryMonitoringClient: health_status lock poisoned") = true;
     }
 
     /// Get total event count across all types
     pub fn get_total_event_count(&self) -> usize {
-        self.event_counts.lock().unwrap().values().sum()
+        self.event_counts.lock().expect("InMemoryMonitoringClient: event_counts lock poisoned").values().sum()
     }
 
     /// Get component ID
@@ -144,17 +151,17 @@ impl MockMonitoringClient {
     }
 }
 
-impl MonitoringClient for MockMonitoringClient {
+impl MonitoringClient for InMemoryMonitoringClient {
     fn report_breaker_success(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
         let component_id = self.component_id.clone();
         let event_counts = self.event_counts.clone();
         let breaker_name = breaker_name.to_string();
         
         async move {
-            debug!("MockMonitoringClient[{}]: Circuit breaker success for '{}'", 
+            debug!("InMemoryMonitoringClient[{}]: Circuit breaker success for '{}'", 
                    component_id, breaker_name);
             
-            let mut counts = event_counts.lock().unwrap();
+            let mut counts = event_counts.lock().expect("InMemoryMonitoringClient: event_counts lock poisoned");
             *counts.entry(format!("breaker_success_{}", breaker_name)).or_insert(0) += 1;
             
             Ok(())
@@ -167,10 +174,10 @@ impl MonitoringClient for MockMonitoringClient {
         let breaker_name = breaker_name.to_string();
         
         async move {
-            debug!("MockMonitoringClient[{}]: Circuit breaker failure for '{}'", 
+            debug!("InMemoryMonitoringClient[{}]: Circuit breaker failure for '{}'", 
                    component_id, breaker_name);
             
-            let mut counts = event_counts.lock().unwrap();
+            let mut counts = event_counts.lock().expect("InMemoryMonitoringClient: event_counts lock poisoned");
             *counts.entry(format!("breaker_failure_{}", breaker_name)).or_insert(0) += 1;
             
             Ok(())
@@ -183,10 +190,10 @@ impl MonitoringClient for MockMonitoringClient {
         let breaker_name = breaker_name.to_string();
         
         async move {
-            debug!("MockMonitoringClient[{}]: Circuit breaker rejection for '{}'", 
+            debug!("InMemoryMonitoringClient[{}]: Circuit breaker rejection for '{}'", 
                    component_id, breaker_name);
             
-            let mut counts = event_counts.lock().unwrap();
+            let mut counts = event_counts.lock().expect("InMemoryMonitoringClient: event_counts lock poisoned");
             *counts.entry(format!("breaker_rejection_{}", breaker_name)).or_insert(0) += 1;
             
             Ok(())
@@ -198,10 +205,10 @@ impl MonitoringClient for MockMonitoringClient {
         let event_counts = self.event_counts.clone();
         
         async move {
-            debug!("MockMonitoringClient[{}]: Recording event '{}' with level {:?}", 
+            debug!("InMemoryMonitoringClient[{}]: Recording event '{}' with level {:?}", 
                    component_id, event.event_type, event.level);
             
-            let mut counts = event_counts.lock().unwrap();
+            let mut counts = event_counts.lock().expect("InMemoryMonitoringClient: event_counts lock poisoned");
             *counts.entry(event.event_type.clone()).or_insert(0) += 1;
             
             // Also count by alert level
@@ -219,7 +226,7 @@ impl MonitoringClient for MockMonitoringClient {
         let name = name.to_string();
         
         async move {
-            debug!("MockMonitoringClient[{}]: Recording metric '{}' = {:?}", 
+            debug!("InMemoryMonitoringClient[{}]: Recording metric '{}' = {:?}", 
                    component_id, name, value);
             
             let mut metrics = metrics.lock().map_err(|e| {
@@ -242,8 +249,8 @@ impl MonitoringClient for MockMonitoringClient {
         let health_status = self.health_status.clone();
         
         async move {
-            let healthy = *health_status.lock().unwrap();
-            debug!("MockMonitoringClient[{}]: Health status = {}", component_id, healthy);
+            let healthy = *health_status.lock().expect("InMemoryMonitoringClient: health_status lock poisoned");
+            debug!("InMemoryMonitoringClient[{}]: Health status = {}", component_id, healthy);
             Ok(healthy)
         }
     }
@@ -254,15 +261,15 @@ impl MonitoringClient for MockMonitoringClient {
         let event_counts = self.event_counts.clone();
         
         async move {
-            let metrics = metrics.lock().unwrap().clone();
+            let metrics = metrics.lock().expect("InMemoryMonitoringClient: metrics lock poisoned").clone();
             
             // Add some summary metrics
             let mut summary = metrics;
-            let total_events: usize = event_counts.lock().unwrap().values().sum();
+            let total_events: usize = event_counts.lock().expect("InMemoryMonitoringClient: event_counts lock poisoned").values().sum();
             summary.insert("total_events".to_string(), MetricValue::Integer(total_events as i64));
             summary.insert("component_id".to_string(), MetricValue::String(component_id.clone()));
             
-            debug!("MockMonitoringClient[{}]: Returning metrics summary with {} entries", 
+            debug!("InMemoryMonitoringClient[{}]: Returning metrics summary with {} entries", 
                    component_id, summary.len());
             
             Ok(summary)
@@ -474,7 +481,7 @@ impl MonitoringClient for ProductionMonitoringClient {
         async move {
             // Store locally
             {
-                let mut metrics = me.metrics.lock().unwrap();
+                let mut metrics = me.metrics.lock().expect("ProductionMonitoringClient: metrics lock poisoned");
                 metrics.insert(name.clone(), value.clone());
             }
 
@@ -511,7 +518,7 @@ impl MonitoringClient for ProductionMonitoringClient {
     fn get_metrics_summary(&self) -> impl Future<Output = Result<HashMap<String, MetricValue>>> + Send {
         let me = self.clone();
         async move {
-            let local_metrics = me.metrics.lock().unwrap().clone();
+            let local_metrics = me.metrics.lock().expect("ProductionMonitoringClient: metrics lock poisoned").clone();
             
             // Try to get remote metrics as well
             match me.http_client.get(&format!("{}/metrics/summary", me.config.endpoint)).send().await {

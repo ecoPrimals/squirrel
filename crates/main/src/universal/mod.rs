@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Primal Patterns for Squirrel AI Primal
 //!
 //! This module implements the universal, agnostic patterns that allow any primal

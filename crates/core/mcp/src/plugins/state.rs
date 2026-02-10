@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use crate::error::{Result, PluginError};
 use crate::plugins::interfaces::PluginState;
 use std::path::{Path, PathBuf};

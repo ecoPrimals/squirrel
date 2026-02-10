@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Default configuration values for AI tools
 //!
 //! This module provides environment-driven defaults to eliminate hardcoded values.
@@ -9,17 +12,30 @@ use std::env;
 pub struct DefaultEndpoints;
 
 impl DefaultEndpoints {
-    /// Get Ollama endpoint from environment or default
-    pub fn ollama_endpoint() -> String {
-        env::var("OLLAMA_ENDPOINT").unwrap_or_else(|_| {
-            let host = env::var("TOADSTOOL_HOST").unwrap_or_else(|_| "localhost".to_string());
-            format!("http://{}:11434", host)
-        })
+    /// Get local AI server endpoint from environment or default
+    ///
+    /// Agnostic: works with any OpenAI-compatible local server (Ollama, llama.cpp, vLLM, etc.)
+    /// Checks LOCAL_AI_ENDPOINT first, then falls back to legacy vendor-specific env vars.
+    pub fn local_server_endpoint() -> String {
+        env::var("LOCAL_AI_ENDPOINT")
+            .or_else(|_| env::var("OLLAMA_ENDPOINT"))
+            .or_else(|_| env::var("LLAMACPP_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let host = env::var("LOCAL_AI_HOST")
+                    .or_else(|_| env::var("TOADSTOOL_HOST"))
+                    .unwrap_or_else(|_| "localhost".to_string());
+                format!("http://{}:11434", host)
+            })
     }
 
-    /// Get LlamaCpp endpoint from environment or default
+    /// Backward-compatible alias
+    pub fn ollama_endpoint() -> String {
+        Self::local_server_endpoint()
+    }
+
+    /// Backward-compatible alias
     pub fn llamacpp_endpoint() -> String {
-        env::var("LLAMACPP_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:8444".to_string())
+        Self::local_server_endpoint()
     }
 
     /// Get MCP server endpoint from environment or default
@@ -158,10 +174,12 @@ impl DefaultEndpoints {
 pub const ENV_DOCS: &str = r#"
 Environment Variables for AI Tools Configuration:
 
-AI Services:
-- OLLAMA_ENDPOINT: Ollama service endpoint (default: http://localhost:11434)
-- LLAMACPP_ENDPOINT: LlamaCpp service endpoint (default: http://localhost:8080)
+AI Services (Vendor-Agnostic):
+- LOCAL_AI_ENDPOINT: Local AI server endpoint (default: http://localhost:11434)
+- LOCAL_AI_HOST: Local AI server host (default: localhost)
 - AI_SERVICE_HOST: General AI service host (default: localhost)
+- OLLAMA_ENDPOINT: Backward-compatible alias for LOCAL_AI_ENDPOINT
+- LLAMACPP_ENDPOINT: Backward-compatible alias for LOCAL_AI_ENDPOINT
 
 MCP Protocol:
 - MCP_SERVER_ENDPOINT: MCP server endpoint (default: localhost:50051)

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Types used within the integration module.
 
 use serde::{Serialize, Deserialize};
@@ -69,7 +72,8 @@ impl CoreState {
     /// This implementation currently does not return errors, but in a full implementation
     /// it could return an `MCPError` if the update is invalid or cannot be applied
     pub fn apply_update(&mut self, _update: &StateUpdate) -> Result<(), MCPError> {
-        // TODO: Implement actual state update logic
+        // FUTURE: [Integration] Implement actual state update logic
+        // Tracking: Planned for v0.2.0 - state management integration
         Ok(())
     }
 }

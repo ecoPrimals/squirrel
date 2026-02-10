@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use std::sync::{Arc, Mutex, atomic::{AtomicU32, Ordering}};
 use std::time::{Duration, Instant};
 use std::error::Error as StdError;

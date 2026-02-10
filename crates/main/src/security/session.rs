@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Security Session Management
 //!
 //! This module contains all session-related types and functionality
@@ -128,14 +131,14 @@ impl SecuritySession {
     pub fn has_authorization_level(&self, required_level: &AuthorizationLevel) -> bool {
         use AuthorizationLevel::{Admin, Elevated, None, System, User};
 
-        match (&self.authorization_level, required_level) {
-            (System, _) => true,
-            (Admin, Admin | Elevated | User | None) => true,
-            (Elevated, Elevated | User | None) => true,
-            (User, User | None) => true,
-            (None, None) => true,
-            _ => false,
-        }
+        matches!(
+            (&self.authorization_level, required_level),
+            (System, _)
+                | (Admin, Admin | Elevated | User | None)
+                | (Elevated, Elevated | User | None)
+                | (User, User | None)
+                | (None, None)
+        )
     }
 
     /// Get session duration

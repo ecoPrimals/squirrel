@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Storage Adapter
 //!
 //! Capability-based storage coordination that can work with `NestGate` or any
@@ -60,7 +63,7 @@ impl UniversalStorageAdapter {
             ("optimization".to_string(), serde_json::json!("ai_enhanced")),
         ]);
 
-        let request = UniversalRequest {
+        let _request = UniversalRequest {
             request_id: uuid::Uuid::new_v4().to_string(),
             operation: operation.to_string(),
             parameters: request_params,
@@ -394,7 +397,7 @@ pub async fn register_nestgate_service(
             load_balancing_weight: 12,
         },
         extensions: HashMap::from([
-            ("primal_type".to_string(), serde_json::json!("nestgate")),
+            ("provider_domain".to_string(), serde_json::json!("storage")),
             (
                 "ecosystem_role".to_string(),
                 serde_json::json!("storage_provider"),

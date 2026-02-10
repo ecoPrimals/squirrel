@@ -1,8 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+#![allow(deprecated)]
+
 //! Optimized `BiomeOS` Integration Implementations
 //!
 //! This module provides optimized versions of `BiomeOS` integration components
 //! that use zero-copy patterns to reduce memory allocations and improve performance.
 
+#[allow(deprecated)] // EcosystemPrimalType is deprecated but needed for backward compatibility
 use crate::biomeos_integration::IntelligenceResponse; // Add missing import
 use crate::ecosystem::{
     EcosystemPrimalType,
@@ -218,15 +223,12 @@ impl OptimizedMessageProcessor {
         Ok(response)
     }
 
-    /// Cache a message for reuse
+    /// Cache a message for reuse and return a reference-counted handle to it
     pub fn cache_message(&mut self, key: String, message: ZeroCopyMessage) -> Arc<ZeroCopyMessage> {
-        let key_arc: Arc<str> = Arc::from(key);
-        self.message_cache.insert(key_arc, message);
-        // Return mock Arc for now
-        Arc::new(ZeroCopyMessage::new(
-            Arc::from("type"),
-            Arc::from("content"),
-        ))
+        let key_arc: Arc<str> = Arc::from(key.as_str());
+        let cached = Arc::new(message);
+        self.message_cache.insert(key_arc, (*cached).clone());
+        cached
     }
 
     /// Get cached message
@@ -292,7 +294,7 @@ impl OptimizedContextState {
             .insert(key_arc, session_context.clone());
         self.metrics.record_clone_avoided();
 
-        // Return the created context (use actual session data, not mock!)
+        // Return the created session context
         Arc::new(SessionContext {
             session_id,
             user_id: user_id.to_string(),

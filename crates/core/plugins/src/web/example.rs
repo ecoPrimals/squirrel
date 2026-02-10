@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Example web plugin implementation
 //!
 //! This module provides an example implementation of a web plugin using the new API.

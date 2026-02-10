@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error types for the commands crate
 //!
 //! This module defines the errors that can occur in the commands crate.

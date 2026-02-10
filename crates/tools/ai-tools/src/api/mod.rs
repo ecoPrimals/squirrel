@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use axum::{
@@ -320,7 +323,7 @@ async fn list_providers(
             
             // Determine provider type based on provider name
             let provider_type = match provider_id.as_str() {
-                "local" | "ollama" | "llamacpp" | "native" => ProviderType::Local,
+                "local" | "local-server" | "native" => ProviderType::Local,
                 "openai" | "anthropic" | "gemini" => ProviderType::Cloud,
                 _ => ProviderType::Hybrid,
             };
@@ -371,7 +374,7 @@ async fn get_provider_info(
         
         // Determine provider type based on provider name
         let provider_type = match provider_id.as_str() {
-            "local" | "ollama" | "llamacpp" | "native" => ProviderType::Local,
+            "local" | "local-server" | "native" => ProviderType::Local,
             "openai" | "anthropic" | "gemini" => ProviderType::Cloud,
             _ => ProviderType::Hybrid,
         };

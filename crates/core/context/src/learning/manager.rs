@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Context Learning Manager
 //!
 //! This module provides the Context Learning Manager that integrates reinforcement learning
@@ -568,7 +571,8 @@ impl ContextLearningManager {
         debug!("🐿️ Starting MCP-aware context observation using manager");
 
         // Get active contexts from the actual context manager (simplified since method doesn't exist)
-        // TODO: Implement get_active_context_ids when ContextManager API is enhanced
+        // FUTURE: [API-Enhancement] Implement get_active_context_ids when ContextManager API is enhanced
+        // Tracking: Planned for v0.2.0 - ContextManager API enhancement
         let active_contexts: Vec<String> = Vec::new(); // Placeholder since method doesn't exist
 
         // If no active contexts, create default observation point for MCP coordination
@@ -586,7 +590,8 @@ impl ContextLearningManager {
 
         for context_id in &context_ids {
             // Use simplified context state since get_context_state doesn't exist
-            // TODO: Implement get_context_state when ContextManager API is enhanced
+            // FUTURE: [API-Enhancement] Implement get_context_state when ContextManager API is enhanced
+            // Tracking: Planned for v0.2.0 - ContextManager API enhancement
             let context_state = crate::ContextState {
                 id: context_id.clone(),
                 version: 1,

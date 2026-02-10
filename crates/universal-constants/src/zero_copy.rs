@@ -1,13 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Zero-copy string utilities using ArcStr
 //!
 //! This module provides utilities for efficient string handling with zero-copy semantics.
 
 use arcstr::ArcStr;
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// Common strings used throughout the system
-static COMMON_STRINGS: Lazy<HashMap<&'static str, ArcStr>> = Lazy::new(|| {
+static COMMON_STRINGS: LazyLock<HashMap<&'static str, ArcStr>> = LazyLock::new(|| {
     let mut map = HashMap::new();
 
     // HTTP methods

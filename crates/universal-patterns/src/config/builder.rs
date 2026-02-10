@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration builder for creating PrimalConfig instances
 //!
 //! This module provides a fluent API for building configuration objects

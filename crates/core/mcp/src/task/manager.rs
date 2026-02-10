@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Task manager for managing tasks and their lifecycle.
 //!
 //! This module provides a TaskManager that handles task creation,

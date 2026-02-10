@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rule System for Context Management
 //!
 //! This module provides the Rule System functionality for the Context Management System.

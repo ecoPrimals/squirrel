@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core type definitions for the universal primal system
 //!
 //! This module contains fundamental type definitions including primal types,
@@ -242,4 +245,161 @@ pub enum SquirrelCapability {
     GracefulShutdown,
     LoadBalancing,
     CircuitBreaking,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_primal_type_serialization() {
+        let pt = PrimalType::AI;
+        let json = serde_json::to_string(&pt).expect("serialize");
+        assert_eq!(json, "\"AI\"");
+        let deser: PrimalType = serde_json::from_str("\"Storage\"").expect("deserialize");
+        assert_eq!(deser, PrimalType::Storage);
+    }
+
+    #[test]
+    fn test_primal_type_display() {
+        assert_eq!(PrimalType::AI.to_string(), "AI");
+        assert_eq!(PrimalType::Storage.to_string(), "Storage");
+        assert_eq!(PrimalType::Compute.to_string(), "Compute");
+        assert_eq!(PrimalType::Network.to_string(), "Network");
+        assert_eq!(PrimalType::Security.to_string(), "Security");
+        assert_eq!(PrimalType::Coordination.to_string(), "Coordination");
+    }
+
+    #[test]
+    fn test_primal_type_all_variants_serde() {
+        for variant in [
+            PrimalType::AI,
+            PrimalType::Storage,
+            PrimalType::Compute,
+            PrimalType::Network,
+            PrimalType::Security,
+            PrimalType::Coordination,
+        ] {
+            let json = serde_json::to_string(&variant).expect("serialize");
+            let deser: PrimalType = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(deser, variant);
+        }
+    }
+
+    #[test]
+    fn test_primal_type_hash() {
+        let mut set = HashSet::new();
+        set.insert(PrimalType::AI);
+        set.insert(PrimalType::Storage);
+        assert!(set.contains(&PrimalType::AI));
+        assert!(!set.contains(&PrimalType::Compute));
+    }
+
+    #[test]
+    fn test_primal_info_serde() {
+        let info = PrimalInfo {
+            primal_id: "squirrel-1".to_string(),
+            instance_id: "inst-123".to_string(),
+            primal_type: PrimalType::AI,
+            capabilities: vec![PrimalCapability::ServiceDiscovery],
+            endpoints: vec!["http://localhost:9010".to_string()],
+            metadata: HashMap::from([("version".to_string(), "1.0".to_string())]),
+            id: None,
+            version: "1.0.0".to_string(),
+        };
+        let json = serde_json::to_string(&info).expect("serialize");
+        let deser: PrimalInfo = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser.primal_id, "squirrel-1");
+        assert_eq!(deser.primal_type, PrimalType::AI);
+        assert_eq!(deser.endpoints.len(), 1);
+    }
+
+    #[test]
+    fn test_primal_capability_model_inference_serde() {
+        let cap = PrimalCapability::ModelInference {
+            models: vec!["gpt-4".to_string()],
+        };
+        let json = serde_json::to_string(&cap).expect("serialize");
+        let deser: PrimalCapability = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser, cap);
+    }
+
+    #[test]
+    fn test_primal_capability_data_storage_serde() {
+        let cap = PrimalCapability::DataStorage {
+            storage_type: "object".to_string(),
+            max_size_bytes: 1_000_000,
+        };
+        let json = serde_json::to_string(&cap).expect("serialize");
+        let deser: PrimalCapability = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser, cap);
+    }
+
+    #[test]
+    fn test_primal_capability_custom_serde() {
+        let cap = PrimalCapability::Custom {
+            name: "test".to_string(),
+            description: "test capability".to_string(),
+            metadata: HashMap::new(),
+            attributes: HashMap::new(),
+        };
+        let json = serde_json::to_string(&cap).expect("serialize");
+        let deser: PrimalCapability = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deser, cap);
+    }
+
+    #[test]
+    fn test_primal_capability_hash() {
+        let mut set = HashSet::new();
+        set.insert(PrimalCapability::ServiceDiscovery);
+        set.insert(PrimalCapability::LoadBalancing);
+        assert!(set.contains(&PrimalCapability::ServiceDiscovery));
+        assert!(!set.contains(&PrimalCapability::CircuitBreaking));
+    }
+
+    #[test]
+    fn test_squirrel_capability_serde() {
+        for cap in [
+            SquirrelCapability::AICoordination,
+            SquirrelCapability::MCPProtocol,
+            SquirrelCapability::ContextAwareness,
+            SquirrelCapability::MultiTenancy,
+            SquirrelCapability::ServiceMeshIntegration,
+            SquirrelCapability::DynamicRouting,
+            SquirrelCapability::HealthMonitoring,
+            SquirrelCapability::GracefulShutdown,
+            SquirrelCapability::LoadBalancing,
+            SquirrelCapability::CircuitBreaking,
+        ] {
+            let json = serde_json::to_string(&cap).expect("serialize");
+            let deser: SquirrelCapability = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(deser, cap);
+        }
+    }
+
+    #[test]
+    fn test_primal_capability_gpu_acceleration_hash() {
+        let cap = PrimalCapability::GpuAcceleration {
+            gpu_types: vec!["nvidia".to_string()],
+            cuda_support: true,
+        };
+        let mut set = HashSet::new();
+        set.insert(cap.clone());
+        assert!(set.contains(&cap));
+    }
+
+    #[test]
+    fn test_primal_capability_all_unit_variants() {
+        let caps = vec![
+            PrimalCapability::ServiceDiscovery,
+            PrimalCapability::LoadBalancing,
+            PrimalCapability::CircuitBreaking,
+        ];
+        for cap in caps {
+            let json = serde_json::to_string(&cap).expect("serialize");
+            let deser: PrimalCapability = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(deser, cap);
+        }
+    }
 }

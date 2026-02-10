@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Cross-Platform Module
 //!
 //! This module provides utilities for cross-platform compatibility and detection.
@@ -142,9 +145,10 @@ impl CrossPlatform {
         {
             // XDG_RUNTIME_DIR on Linux
             if let Ok(xdg_runtime) = std::env::var("XDG_RUNTIME_DIR") {
-                return std::path::PathBuf::from(xdg_runtime).join(app_name);
+                std::path::PathBuf::from(xdg_runtime).join(app_name)
+            } else {
+                std::path::PathBuf::from("/tmp").join(app_name)
             }
-            return std::path::PathBuf::from("/tmp").join(app_name);
         }
 
         #[cfg(target_os = "windows")]

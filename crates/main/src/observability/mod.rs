@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Comprehensive Observability Framework
 //!
 //! This module provides standardized observability utilities for the entire ecosystem,
@@ -346,6 +349,9 @@ macro_rules! log_with_correlation {
         );
     };
 }
+
+#[cfg(test)]
+mod error_path_tests;
 
 /// Utility functions for observability
 pub mod utils {

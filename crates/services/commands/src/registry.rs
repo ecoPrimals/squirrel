@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Command registry for managing and executing commands
+#![allow(clippy::type_complexity)] // Complex handler types are inherent to the command pattern
 //!
 //! This module provides the core types and interfaces for the command system.
 

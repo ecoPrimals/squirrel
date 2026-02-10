@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! External Tracer
 //!
 //! This module provides the ExternalTracer that combines internal span
@@ -69,7 +72,7 @@ impl<E: SpanExporter> ExternalTracer<E> {
     pub async fn export_completed_spans(&self) -> ObservabilityResult<usize> {
         // Get all spans
         let spans = {
-            let spans_lock = self.inner.spans.lock().unwrap();
+            let spans_lock = self.inner.spans.lock().expect("spans lock poisoned");
             spans_lock.values()
                 .filter(|span| span.end_time.is_some()) // Only completed spans
                 .cloned()

@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! DNS-SD (DNS Service Discovery) mechanism
+#![allow(dead_code)] // Discovery infrastructure awaiting activation
 //!
 //! Discovers services across networks using DNS-based service discovery (RFC 6763).
 //! Works globally, unlike mDNS which is limited to local networks.

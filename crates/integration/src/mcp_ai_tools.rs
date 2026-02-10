@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP AI Tools Adapter
+#![allow(dead_code)] // Integration adapter awaiting activation
 //!
 //! This module provides an adapter for the MCP AI tools.
 
@@ -387,7 +391,8 @@ impl McpAiToolsAdapter {
     }
 
     /// Send a streaming chat request
-    /// **TODO**: Implement streaming with capability_ai
+    /// **FUTURE**: Implement streaming with `capability_ai`
+    /// Tracking: Planned for v0.2.0 - streaming support
     #[allow(dead_code)]
     pub async fn send_streaming_chat_request(
         &self,

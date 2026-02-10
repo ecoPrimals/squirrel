@@ -112,6 +112,7 @@ tmp/
 test-results/
 test-reports/
 coverage/
+tarpaulin-report.json
 
 # Generated protocol files
 *.pb.py

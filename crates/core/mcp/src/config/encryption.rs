@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Encryption configuration for MCP services, workflows, and compositions.
 //!
 //! This module provides the canonical `EncryptionConfig` used across the MCP subsystem

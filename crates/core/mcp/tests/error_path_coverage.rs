@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error path coverage tests for MCP protocol
 //!
 //! These tests specifically target error handling paths to improve coverage

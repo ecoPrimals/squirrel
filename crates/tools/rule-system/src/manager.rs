@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rule manager for high-level rule operations
 
 use chrono::{DateTime, Utc};
@@ -49,7 +52,7 @@ impl RuleManager {
         self.repository.initialize().await?;
 
         // Initialize evaluator
-        self.evaluator.initialize().await?;
+        self.evaluator.initialize();
 
         // Initialize action executor
         self.action_executor.initialize().await?;
@@ -485,7 +488,7 @@ pub struct ManagerStatistics {
 }
 
 /// Create a new rule manager with default configuration
-pub async fn create_rule_manager() -> RuleSystemResult<RuleManager> {
+pub fn create_rule_manager() -> RuleSystemResult<RuleManager> {
     let repository = Arc::new(crate::repository::create_rule_repository()?);
     let evaluator = Arc::new(crate::evaluator::create_rule_evaluator()?);
     let action_executor = Arc::new(crate::actions::create_action_executor()?);

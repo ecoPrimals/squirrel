@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! URL and Configuration Builder Helpers
 //!
 //! Helper functions for building URLs, configurations, and parsing
@@ -237,27 +240,114 @@ mod tests {
         assert_eq!(health_url(base), "http://localhost:8080/health");
         assert_eq!(metrics_url(base), "http://localhost:8080/metrics");
         assert_eq!(admin_url(base), "http://localhost:8080/admin");
+        assert_eq!(ws_url(base), "http://localhost:8080/ws");
     }
 
     #[test]
-    fn test_parse_bool() {
-        std::env::set_var("TEST_BOOL_TRUE", "true");
-        std::env::set_var("TEST_BOOL_FALSE", "false");
-        std::env::set_var("TEST_BOOL_1", "1");
-        std::env::set_var("TEST_BOOL_0", "0");
+    fn test_parse_bool_all() {
+        // Sequential to avoid env var conflicts
+        std::env::set_var("UC_TEST_BOOL_T", "true");
+        assert!(parse_bool("UC_TEST_BOOL_T", false));
+        std::env::remove_var("UC_TEST_BOOL_T");
 
-        assert!(parse_bool("TEST_BOOL_TRUE", false));
-        assert!(!parse_bool("TEST_BOOL_FALSE", true));
-        assert!(parse_bool("TEST_BOOL_1", false));
-        assert!(!parse_bool("TEST_BOOL_0", true));
-        assert!(parse_bool("NONEXISTENT", true)); // Default
+        std::env::set_var("UC_TEST_BOOL_F", "false");
+        assert!(!parse_bool("UC_TEST_BOOL_F", true));
+        std::env::remove_var("UC_TEST_BOOL_F");
+
+        std::env::set_var("UC_TEST_BOOL_1", "1");
+        assert!(parse_bool("UC_TEST_BOOL_1", false));
+        std::env::remove_var("UC_TEST_BOOL_1");
+
+        std::env::set_var("UC_TEST_BOOL_0", "0");
+        assert!(!parse_bool("UC_TEST_BOOL_0", true));
+        std::env::remove_var("UC_TEST_BOOL_0");
+
+        std::env::set_var("UC_TEST_BOOL_YES", "yes");
+        assert!(parse_bool("UC_TEST_BOOL_YES", false));
+        std::env::remove_var("UC_TEST_BOOL_YES");
+
+        std::env::set_var("UC_TEST_BOOL_NO", "no");
+        assert!(!parse_bool("UC_TEST_BOOL_NO", true));
+        std::env::remove_var("UC_TEST_BOOL_NO");
+
+        std::env::set_var("UC_TEST_BOOL_ON", "on");
+        assert!(parse_bool("UC_TEST_BOOL_ON", false));
+        std::env::remove_var("UC_TEST_BOOL_ON");
+
+        std::env::set_var("UC_TEST_BOOL_OFF", "off");
+        assert!(!parse_bool("UC_TEST_BOOL_OFF", true));
+        std::env::remove_var("UC_TEST_BOOL_OFF");
+
+        // Invalid falls back to default
+        std::env::set_var("UC_TEST_BOOL_INV", "maybe");
+        assert!(parse_bool("UC_TEST_BOOL_INV", true));
+        std::env::remove_var("UC_TEST_BOOL_INV");
+
+        assert!(parse_bool("UC_NONEXISTENT_BOOL", true));
+        assert!(!parse_bool("UC_NONEXISTENT_BOOL", false));
     }
 
     #[test]
     fn test_parse_port() {
-        std::env::set_var("TEST_PORT", "9090");
-        assert_eq!(parse_port("TEST_PORT", 8080), 9090);
-        assert_eq!(parse_port("NONEXISTENT", 8080), 8080);
+        std::env::set_var("UC_TEST_PORT", "9090");
+        assert_eq!(parse_port("UC_TEST_PORT", 8080), 9090);
+        std::env::remove_var("UC_TEST_PORT");
+        assert_eq!(parse_port("UC_NONEXISTENT_PORT", 8080), 8080);
+    }
+
+    #[test]
+    fn test_parse_u32() {
+        std::env::set_var("UC_TEST_U32", "42");
+        assert_eq!(parse_u32("UC_TEST_U32", 10), 42);
+        std::env::remove_var("UC_TEST_U32");
+        assert_eq!(parse_u32("UC_NONEXISTENT_U32", 10), 10);
+    }
+
+    #[test]
+    fn test_parse_limit() {
+        std::env::set_var("UC_TEST_LIMIT", "500");
+        assert_eq!(parse_limit("UC_TEST_LIMIT", 100), 500);
+        std::env::remove_var("UC_TEST_LIMIT");
+        assert_eq!(parse_limit("UC_NONEXISTENT_LIMIT", 100), 100);
+    }
+
+    #[test]
+    fn test_parse_timeout_duration() {
+        std::env::set_var("UC_TEST_TIMEOUT", "45");
+        let timeout = parse_timeout_duration("UC_TEST_TIMEOUT", Duration::from_secs(30));
+        assert_eq!(timeout, Duration::from_secs(45));
+        std::env::remove_var("UC_TEST_TIMEOUT");
+
+        let default = parse_timeout_duration("UC_NONEXISTENT_TIMEOUT", Duration::from_secs(30));
+        assert_eq!(default, Duration::from_secs(30));
+    }
+
+    #[test]
+    fn test_specific_env_getters_defaults() {
+        // These should return defaults when env vars are not set
+        let db_timeout = get_database_timeout();
+        assert_eq!(db_timeout, timeouts::DEFAULT_DATABASE_TIMEOUT);
+
+        let hb_interval = get_heartbeat_interval();
+        assert_eq!(hb_interval, timeouts::DEFAULT_HEARTBEAT_INTERVAL);
+
+        let initial = get_initial_delay();
+        assert_eq!(initial, timeouts::DEFAULT_INITIAL_DELAY);
+
+        let max_svcs = get_service_mesh_max_services();
+        assert_eq!(max_svcs, limits::DEFAULT_MAX_SERVICES);
+
+        let max_conn = get_max_connections();
+        assert_eq!(max_conn, limits::DEFAULT_MAX_CONNECTIONS);
+
+        let buf_size = get_buffer_size();
+        assert_eq!(buf_size, limits::DEFAULT_BUFFER_SIZE);
+
+        let conn_timeout = get_connection_timeout();
+        assert_eq!(conn_timeout, timeouts::DEFAULT_CONNECTION_TIMEOUT);
+
+        let req_timeout = get_request_timeout();
+        assert_eq!(req_timeout, timeouts::DEFAULT_REQUEST_TIMEOUT);
     }
 
     #[test]

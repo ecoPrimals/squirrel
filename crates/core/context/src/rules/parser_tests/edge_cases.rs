@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Edge Case Tests
 //!
 //! Tests for edge cases and boundary conditions including:

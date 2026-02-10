@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Monitoring bridge for observability framework
 //!
 //! This module provides a bridge between the observability framework

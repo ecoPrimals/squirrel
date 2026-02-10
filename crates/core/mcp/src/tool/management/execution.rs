@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tool Execution Implementation
 //!
 //! This module handles tool execution, lifecycle management (start/stop/pause/resume),

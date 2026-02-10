@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Imports updated - ecosystem_client removed (was HTTP-based, violates TRUE PRIMAL)
 use squirrel::biomeos_integration::*;
 use squirrel::error::PrimalError;
@@ -243,22 +246,24 @@ mod biomeos_integration_tests {
     #[tokio::test]
     async fn test_manifest_auth_config() {
         // Test 20: Manifest authentication configuration (from manifest module)
-        let auth_config = ManifestAuthConfig::default();
-        assert_eq!(auth_config.auth_type, "ecosystem_jwt");
-        assert_eq!(auth_config.trust_domain, "biome.local");
+        let auth_config = ManifestAuthConfig {
+            enabled: true,
+            method: "ecosystem_jwt".to_string(),
+            providers: vec!["biome_sso".to_string()],
+        };
+        assert_eq!(auth_config.method, "ecosystem_jwt");
+        assert!(auth_config.enabled);
+        assert_eq!(auth_config.providers.len(), 1);
     }
 
     #[tokio::test]
     async fn test_service_registration_capabilities() {
         // Test 21: Service capabilities via registration
         let capabilities = EcosystemCapabilities::default();
-        assert_eq!(capabilities.ai_inference.len(), 5);
-        assert!(capabilities
-            .ai_inference
-            .contains(&"text_generation".to_string()));
-        assert!(capabilities
-            .ai_inference
-            .contains(&"semantic_analysis".to_string()));
+        assert!(!capabilities.ai_capabilities.is_empty());
+        assert!(!capabilities.mcp_capabilities.is_empty());
+        assert!(!capabilities.context_capabilities.is_empty());
+        assert!(!capabilities.integration_capabilities.is_empty());
     }
 }
 

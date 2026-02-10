@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tool management module for MCP
 //!
 //! Core tool management functionality that remains in Squirrel MCP.

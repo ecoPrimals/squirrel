@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Circuit Breaker and Retry Integration Tests
 //!
 //! Tests for the integration between circuit breakers and retry mechanisms,

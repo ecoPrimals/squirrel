@@ -1,18 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Session Management Integration
 
 use serde_json::json;
 
 use super::core::SquirrelPrimalProvider;
 use crate::error::PrimalError;
-
-/// Simple session data structure for mock operations
-#[derive(Debug, Clone)]
-struct SessionData {
-    session_id: String,
-    user_id: String,
-    created_at: String,
-    last_accessed: chrono::DateTime<chrono::Utc>,
-}
 
 /// Session Operations functionality
 pub struct SessionOperations;
@@ -106,7 +100,7 @@ impl SquirrelPrimalProvider {
         }))
     }
 
-    /// Delete session
+    /// Delete (terminate) a session
     pub async fn delete_session(
         &self,
         request: serde_json::Value,
@@ -116,11 +110,8 @@ impl SquirrelPrimalProvider {
             .and_then(|v| v.as_str())
             .ok_or_else(|| PrimalError::ValidationError("Missing session_id".to_string()))?;
 
-        // Delete session through session manager - using create_session as placeholder
-        self.session_manager
-            .create_session(Some("placeholder".to_string()))
-            .await
-            .map_err(|e| PrimalError::Internal(format!("Session operation failed: {e}")))?;
+        // Terminate session via session manager
+        self.session_manager.terminate_session(session_id).await?;
 
         Ok(json!({
             "session_id": session_id,
@@ -130,6 +121,9 @@ impl SquirrelPrimalProvider {
     }
 
     /// List user sessions
+    ///
+    /// Note: The session manager trait supports per-session operations.
+    /// Listing requires passing known session IDs from the caller.
     pub async fn list_user_sessions(
         &self,
         request: serde_json::Value,
@@ -139,26 +133,34 @@ impl SquirrelPrimalProvider {
             .and_then(|v| v.as_str())
             .ok_or_else(|| PrimalError::ValidationError("Missing user_id".to_string()))?;
 
-        // List sessions through session manager - mock response for now
-        let sessions: Vec<SessionData> = vec![];
-
-        let session_list: Vec<serde_json::Value> = sessions
-            .into_iter()
-            .map(|session| {
-                json!({
-                    "session_id": session.session_id,
-                    "user_id": session.user_id,
-                    "created_at": session.created_at,
-                    "last_accessed": session.last_accessed.to_rfc3339(),
-                    "status": "active"
-                })
+        // Extract optional session IDs to check
+        let session_ids: Vec<String> = request
+            .get("session_ids")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
             })
-            .collect();
+            .unwrap_or_default();
+
+        // Probe each requested session for its metadata
+        let mut active_sessions = Vec::new();
+        for sid in &session_ids {
+            if let Ok(metadata) = self.session_manager.get_session_metadata(sid).await {
+                active_sessions.push(json!({
+                    "session_id": sid,
+                    "created_at": metadata.created_at.to_rfc3339(),
+                    "last_activity": metadata.last_activity.to_rfc3339(),
+                    "capabilities": metadata.capabilities,
+                }));
+            }
+        }
 
         Ok(json!({
             "user_id": user_id,
-            "sessions": session_list,
-            "total_count": session_list.len()
+            "sessions": active_sessions,
+            "total_count": active_sessions.len()
         }))
     }
 }

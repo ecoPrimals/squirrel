@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rate Limiter implementation for the MCP resilience framework
 //! 
 //! This module provides a rate limiting implementation to protect services from
@@ -10,7 +13,7 @@ use tokio::sync::Mutex;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::future::Future;
-use tokio::task::block_in_place;
+// Removed block_in_place - use async methods or try_lock for non-blocking access
 
 use crate::resilience::{ResilienceError, Result};
 
@@ -397,14 +400,29 @@ impl RateLimiter {
     }
     
     /// Check if there are at least the specified number of permits available
-    /// without actually acquiring them
+    /// without actually acquiring them (sync version using try_lock)
+    /// 
+    /// For accurate results in async contexts, use `has_permits_async()` instead.
     pub fn has_permits(&self, count: usize) -> bool {
-        block_in_place(|| futures::executor::block_on(async {
-            self.clean_token_bucket().await;
-            let token_bucket = self.token_bucket.lock().await;
+        // Use try_lock to avoid blocking in async context
+        if let Ok(token_bucket) = self.token_bucket.try_lock() {
             let available = self.config.limit_for_period as usize - token_bucket.len();
             available >= count
-        }))
+        } else {
+            // Conservative: assume no permits if lock unavailable
+            false
+        }
+    }
+    
+    /// Check if there are at least the specified number of permits available (async version)
+    /// 
+    /// This is the preferred method for async contexts as it properly cleans
+    /// expired tokens before checking availability.
+    pub async fn has_permits_async(&self, count: usize) -> bool {
+        self.clean_token_bucket().await;
+        let token_bucket = self.token_bucket.lock().await;
+        let available = self.config.limit_for_period as usize - token_bucket.len();
+        available >= count
     }
 
     /// Refresh the available permits based on the time elapsed since the last refresh

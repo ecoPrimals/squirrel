@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Tool lifecycle hooks
 //!
 //! This module defines the ToolLifecycleHook trait for tool lifecycle management.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI Tools Multi-Model Dispatch Demo
 //!
 //! This demo showcases the multi-model dispatch system that can seamlessly
@@ -361,7 +364,7 @@ async fn test_local_models(dispatcher: &MultiModelDispatcher) -> Result<()> {
             warn!("Local model test failed: {}", e);
             println!("\n=== Local Model Test ===");
             println!("Local models may not be available. Error: {e}");
-            println!("To use local models, ensure Ollama is installed and running.");
+            println!("To use local models, ensure a local AI server is running (Ollama, llama.cpp, vLLM, etc.).");
             println!("========================\n");
         }
     }

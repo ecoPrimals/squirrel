@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Enhanced recovery strategies for tool errors
 //
 // This module provides improved error recovery capabilities for tools in the MCP system.

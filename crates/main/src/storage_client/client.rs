@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Storage Client Implementation
+#![allow(dead_code)] // Storage client infrastructure awaiting activation
 
 use base64::{engine::general_purpose, Engine as _};
+use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, info};
 use uuid::Uuid;
 
@@ -39,7 +43,7 @@ pub struct UniversalStorageClient {
     config: StorageClientConfig,
 
     /// Active storage providers (discovered dynamically)
-    providers: Arc<RwLock<HashMap<String, StorageProvider>>>,
+    providers: Arc<DashMap<String, StorageProvider>>,
 
     /// Request context for routing
     context: PrimalContext,
@@ -57,7 +61,7 @@ impl UniversalStorageClient {
         Self {
             ecosystem,
             config,
-            providers: Arc::new(RwLock::new(HashMap::new())),
+            providers: Arc::new(DashMap::new()),
             context,
             // Removed ai_metadata: AIStorageMetadata::default(),
         }
@@ -120,10 +124,13 @@ impl UniversalStorageClient {
             }
         }
 
-        let mut providers = self.providers.write().await;
-        *providers = discovered_providers;
+        // Clear existing providers and insert discovered ones
+        self.providers.clear();
+        for (key, value) in discovered_providers {
+            self.providers.insert(key, value);
+        }
 
-        info!("Discovered {} storage providers", providers.len());
+        info!("Discovered {} storage providers", self.providers.len());
         Ok(())
     }
 
@@ -178,9 +185,7 @@ impl UniversalStorageClient {
         &self,
         request: &UniversalStorageRequest,
     ) -> UniversalResult<StorageProvider> {
-        let providers = self.providers.read().await;
-
-        if providers.is_empty() {
+        if self.providers.is_empty() {
             return Err(PrimalError::ResourceNotFound(
                 "No storage providers available".to_string(),
             ));
@@ -190,7 +195,8 @@ impl UniversalStorageClient {
         let mut best_provider: Option<StorageProvider> = None;
         let mut best_score = 0.0;
 
-        for provider in providers.values() {
+        for entry in self.providers.iter() {
+            let provider = entry.value();
             let score = self.calculate_provider_score(provider, request).await;
             if score > best_score {
                 best_score = score;
@@ -238,7 +244,7 @@ impl UniversalStorageClient {
             score *= throughput_score;
         }
 
-        score.min(1.0).max(0.0)
+        score.clamp(0.0, 1.0)
     }
 
     /// Process response and generate AI insights
@@ -291,8 +297,7 @@ impl UniversalStorageClient {
 
     /// Update provider health based on operation results
     async fn update_provider_health(&self, provider_id: &str, response: &UniversalStorageResponse) {
-        let mut providers = self.providers.write().await;
-        if let Some(provider) = providers.get_mut(provider_id) {
+        if let Some(mut provider) = self.providers.get_mut(provider_id) {
             // Update health metrics based on operation performance
             provider.health.current_latency_ms = response.performance.latency_ms;
             provider.health.last_check = chrono::Utc::now();
@@ -443,9 +448,12 @@ impl UniversalStorageClient {
         }
 
         // Apply AI-based provider selection for storage
+        // TRUE PRIMAL: Use capability-based discovery, not hardcoded primal names
         if operation != "delete" {
-            request["preferred_provider"] = serde_json::json!("nestgate");
-            debug!("AI selected optimal storage provider: nestgate");
+            // Discover storage provider by capability at runtime
+            // The actual provider name will be determined by capability discovery
+            request["preferred_capability"] = serde_json::json!("storage.persistence");
+            debug!("AI selected storage capability: storage.persistence (discovered at runtime)");
         }
 
         // Apply AI-based compression recommendations
@@ -472,7 +480,8 @@ impl UniversalStorageClient {
 
         serde_json::json!({
             "storage_efficiency": 0.87,
-            "recommended_providers": ["nestgate", "cloud_storage"],
+            // TRUE PRIMAL: Recommend capabilities, not hardcoded primal names
+            "recommended_capabilities": ["storage.persistence", "storage.replication"],
             "compression_recommendations": ["gzip", "lz4"],
             "replication_insights": {
                 "optimal_factor": 3,

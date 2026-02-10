@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error Handling Tests
 //!
 //! Tests for sync error handling including uninitialized state errors,

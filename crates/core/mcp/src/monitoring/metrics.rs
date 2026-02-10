@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Metrics collection for the MCP monitoring system
 //!
 //! This module provides metrics collection functionality for the MCP system.

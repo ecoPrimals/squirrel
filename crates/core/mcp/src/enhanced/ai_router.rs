@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI routing functionality for the enhanced coordinator
 //!
 //! This module provides intelligent routing of AI requests to the most

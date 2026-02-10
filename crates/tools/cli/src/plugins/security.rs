@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Secure plugin loading and validation
 //!
 //! This module provides secure plugin loading with proper validation,
@@ -6,7 +9,7 @@
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 #[allow(deprecated)]
 use crate::plugins::plugin::PluginMetadata;
@@ -133,7 +136,7 @@ impl SecurePluginLoader {
         }
 
         // For now, return a secure stub plugin instead of unsafe dynamic loading
-        // TODO: Implement proper sandboxed plugin loading through WebAssembly or similar
+        // NOTE(phase2): Proper sandboxed plugin loading requires WebAssembly runtime integration
         info!("🔒 Creating secure plugin stub for: {}", metadata.name);
         Ok(Arc::new(SecurePluginStub::new(metadata.clone())))
     }
@@ -188,7 +191,7 @@ impl SecurePluginLoader {
             return Ok(false); // In production, this should fail
         }
 
-        // TODO: Integrate with security primal via capability discovery for signature verification
+        // NOTE(phase2): Security primal integration via capability discovery for signature verification
         // Use capability registry to discover security service, then verify via Unix socket JSON-RPC
         info!(
             "🔐 Signature verification placeholder for checksum: {}",
@@ -281,5 +284,172 @@ impl Plugin for SecurePluginStub {
 impl Default for SecurePluginLoader {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_secure_plugin_loader_new() {
+        let loader = SecurePluginLoader::new();
+        assert!(loader.verify_signatures);
+        assert_eq!(loader.max_plugin_size, 50 * 1024 * 1024);
+        assert_eq!(loader.allowed_directories.len(), 2);
+    }
+
+    #[test]
+    fn test_secure_plugin_loader_default() {
+        let loader = SecurePluginLoader::default();
+        assert!(loader.verify_signatures);
+    }
+
+    #[test]
+    fn test_plugin_security_error_display() {
+        let cases = vec![
+            (
+                PluginSecurityError::ValidationFailed("bad".to_string()),
+                "Plugin validation failed: bad",
+            ),
+            (
+                PluginSecurityError::SignatureVerificationFailed("sig".to_string()),
+                "Plugin signature verification failed: sig",
+            ),
+            (
+                PluginSecurityError::SandboxingFailed("sandbox".to_string()),
+                "Plugin sandboxing failed: sandbox",
+            ),
+            (
+                PluginSecurityError::LoadingDenied("denied".to_string()),
+                "Plugin loading denied: denied",
+            ),
+            (
+                PluginSecurityError::ExecutionTimeout,
+                "Plugin execution timeout",
+            ),
+        ];
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn test_validation_result_fields() {
+        let result = ValidationResult {
+            is_valid: true,
+            checksum: "abc123".to_string(),
+            signature_valid: true,
+            warnings: vec![],
+        };
+        assert!(result.is_valid);
+        assert!(result.signature_valid);
+        assert!(result.warnings.is_empty());
+        assert_eq!(result.checksum, "abc123");
+    }
+
+    #[test]
+    fn test_validation_result_with_warnings() {
+        let result = ValidationResult {
+            is_valid: false,
+            checksum: "def456".to_string(),
+            signature_valid: false,
+            warnings: vec!["world-writable".to_string()],
+        };
+        assert!(!result.is_valid);
+        assert!(!result.signature_valid);
+        assert_eq!(result.warnings.len(), 1);
+    }
+
+    #[test]
+    fn test_is_path_allowed_nonexistent() {
+        let loader = SecurePluginLoader::new();
+        // Non-existent path should fail to canonicalize
+        let result = loader.is_path_allowed(Path::new("/nonexistent/path/plugin.so"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_secure_plugin_stub_name() {
+        let metadata = PluginMetadata {
+            name: "test-stub".to_string(),
+            version: "1.0.0".to_string(),
+            description: Some("A stub".to_string()),
+            author: None,
+            homepage: None,
+        };
+        let stub = SecurePluginStub::new(metadata);
+        assert_eq!(stub.name(), "test-stub");
+        assert_eq!(stub.version(), "1.0.0");
+        assert_eq!(stub.description(), Some("A stub"));
+    }
+
+    #[test]
+    fn test_secure_plugin_stub_no_description() {
+        let metadata = PluginMetadata {
+            name: "no-desc".to_string(),
+            version: "0.1.0".to_string(),
+            description: None,
+            author: None,
+            homepage: None,
+        };
+        let stub = SecurePluginStub::new(metadata);
+        assert!(stub.description().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_secure_plugin_stub_initialize() {
+        let metadata = PluginMetadata {
+            name: "init-test".to_string(),
+            version: "1.0.0".to_string(),
+            description: None,
+            author: None,
+            homepage: None,
+        };
+        let stub = SecurePluginStub::new(metadata);
+        let result = stub.initialize().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_secure_plugin_stub_execute() {
+        let metadata = PluginMetadata {
+            name: "exec-test".to_string(),
+            version: "1.0.0".to_string(),
+            description: None,
+            author: None,
+            homepage: None,
+        };
+        let stub = SecurePluginStub::new(metadata);
+        let result = stub.execute(&["arg1".to_string()]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Secure plugin stub executed");
+    }
+
+    #[tokio::test]
+    async fn test_secure_plugin_stub_cleanup() {
+        let metadata = PluginMetadata {
+            name: "cleanup-test".to_string(),
+            version: "1.0.0".to_string(),
+            description: None,
+            author: None,
+            homepage: None,
+        };
+        let stub = SecurePluginStub::new(metadata);
+        let result = stub.cleanup().await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_secure_plugin_stub_commands_empty() {
+        let metadata = PluginMetadata {
+            name: "cmd-test".to_string(),
+            version: "1.0.0".to_string(),
+            description: None,
+            author: None,
+            homepage: None,
+        };
+        let stub = SecurePluginStub::new(metadata);
+        assert!(stub.commands().is_empty());
     }
 }

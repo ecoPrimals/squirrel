@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal AI Interface - Vendor-Agnostic
+#![allow(dead_code)] // Public API types awaiting consumer activation
 //!
 //! This module defines a universal, capability-based interface for AI providers.
 //! NO vendor-specific code. Works with ANY AI provider (cloud or local).
@@ -19,7 +23,7 @@ use crate::error::PrimalError;
 /// Universal AI capability interface
 ///
 /// This trait defines the interface that ALL AI providers must implement,
-/// whether they are cloud-based (Anthropic, OpenAI) or local (Ollama, llama.cpp).
+/// whether cloud-based, local, or custom -- Squirrel is agnostic.
 ///
 /// TRUE PRIMAL: Providers are discovered at runtime via capability discovery,
 /// not hardcoded at compile time.
@@ -239,7 +243,7 @@ pub enum ProviderType {
     /// Cloud-based provider (e.g., Anthropic, OpenAI)
     Cloud,
 
-    /// Local provider (e.g., Ollama, llama.cpp)
+    /// Local provider (any local inference engine)
     Local,
 
     /// Custom provider (e.g., fine-tuned models)

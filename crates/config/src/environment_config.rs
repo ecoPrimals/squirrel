@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Environment-specific configuration loader (DEPRECATED)
 //!
 //! **This module is deprecated. Use `crate::unified` instead.**
@@ -103,7 +106,8 @@ pub struct McpConfig {
 pub struct AIToolsConfig {
     pub anthropic_url: String,
     pub openai_url: String,
-    pub ollama_url: String,
+    /// Local AI server URL (agnostic: works with Ollama, llama.cpp, vLLM, etc.)
+    pub local_server_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

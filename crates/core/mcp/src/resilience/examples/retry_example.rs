@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Example demonstrating the retry mechanism with different retry policies
 
 use std::time::Duration;

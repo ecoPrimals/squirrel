@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Composite Lifecycle Hook Implementation
 //!
 //! This module provides a composite implementation that can combine multiple

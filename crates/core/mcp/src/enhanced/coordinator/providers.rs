@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal AI Provider Implementations
 //!
 //! This module contains all the AI provider implementations that support
@@ -12,7 +15,7 @@ use crate::error::types::Result;
 use crate::enhanced::providers::{UniversalAIProvider, ProviderType};
 use super::types::{
     UniversalAIRequest, UniversalAIResponse, UniversalAIStream, ModelInfo, CostEstimate,
-    CustomProviderConfig, OllamaConfig, LlamaCppConfig, NativeConfig, HuggingFaceConfig,
+    CustomProviderConfig, LocalServerConfig, NativeConfig, ModelHubConfig,
     AIRequestType
 };
 
@@ -113,6 +116,25 @@ impl UniversalAIProvider for OpenAIProvider {
             .and_then(|content| content.as_str())
             .unwrap_or("No response content");
         
+        // Calculate cost based on token usage
+        let cost = openai_response
+            .get("usage")
+            .and_then(|usage| {
+                let prompt_tokens = usage.get("prompt_tokens")?.as_u64()? as f64;
+                let completion_tokens = usage.get("completion_tokens")?.as_u64()? as f64;
+                let model_str = request.model.as_ref();
+                let (prompt_cost_per_1k, completion_cost_per_1k) = if model_str.contains("gpt-4") {
+                    (0.01, 0.03) // GPT-4 pricing
+                } else {
+                    (0.0005, 0.0015) // GPT-3.5 pricing
+                };
+                Some(
+                    (prompt_tokens / 1000.0 * prompt_cost_per_1k)
+                        + (completion_tokens / 1000.0 * completion_cost_per_1k)
+                )
+            })
+            .unwrap_or(0.001); // Fallback to default if usage not available
+        
         let duration = start_time.elapsed();
         
         // Use the modernized constructor with Arc<str> optimization
@@ -122,7 +144,7 @@ impl UniversalAIProvider for OpenAIProvider {
             &request.model.as_ref(),  // Convert Arc<str> to &str
             request.request_type,
             content,
-            0.001, // TODO: Calculate actual cost based on tokens
+            cost,
             duration,
         ))
     }
@@ -237,6 +259,27 @@ impl UniversalAIProvider for AnthropicProvider {
             .unwrap_or("No response content")
             .to_string();
         
+        // Calculate cost based on token usage
+        let cost = anthropic_response
+            .get("usage")
+            .and_then(|usage| {
+                let input_tokens = usage.get("input_tokens")?.as_u64()? as f64;
+                let output_tokens = usage.get("output_tokens")?.as_u64()? as f64;
+                let model_str = request.model.as_ref();
+                let (input_cost_per_1m, output_cost_per_1m) = if model_str.contains("opus") {
+                    (15.0, 75.0)
+                } else if model_str.contains("sonnet") {
+                    (3.0, 15.0)
+                } else {
+                    (0.25, 1.25) // Haiku or default
+                };
+                Some(
+                    (input_tokens / 1_000_000.0 * input_cost_per_1m)
+                        + (output_tokens / 1_000_000.0 * output_cost_per_1m)
+                )
+            })
+            .unwrap_or(0.002); // Fallback to default if usage not available
+        
         let duration = start_time.elapsed();
         
         Ok(UniversalAIResponse {
@@ -245,7 +288,7 @@ impl UniversalAIProvider for AnthropicProvider {
             model: request.model,
             response_type: request.request_type,
             content,
-            cost: 0.002, // TODO: Calculate actual cost based on tokens
+            cost,
             duration,
             metadata: HashMap::new(),
         })
@@ -341,23 +384,30 @@ impl UniversalAIProvider for GeminiProvider {
     }
 }
 
-/// Ollama Provider Implementation
-pub struct OllamaProvider;
+/// Local Server Provider Implementation (vendor-agnostic)
+///
+/// Works with any OpenAI-compatible local AI server:
+/// Ollama, llama.cpp server, vLLM, LocalAI, text-generation-webui, etc.
+pub struct LocalServerProvider;
 
-impl OllamaProvider {
-    pub fn new(_config: OllamaConfig) -> Self { 
+impl LocalServerProvider {
+    pub fn new(_config: LocalServerConfig) -> Self { 
         Self 
     }
 }
 
+/// Backward-compatible type aliases
+pub type OllamaProvider = LocalServerProvider;
+pub type LlamaCppProvider = LocalServerProvider;
+
 #[async_trait::async_trait]
-impl UniversalAIProvider for OllamaProvider {
+impl UniversalAIProvider for LocalServerProvider {
     fn provider_type(&self) -> ProviderType { 
         ProviderType::LocalServer 
     }
     
     fn name(&self) -> &str { 
-        "ollama" 
+        "local" 
     }
     
     async fn get_models(&self) -> Result<Vec<ModelInfo>> { 
@@ -375,11 +425,11 @@ impl UniversalAIProvider for OllamaProvider {
     async fn process_request(&self, request: UniversalAIRequest) -> Result<UniversalAIResponse> {
         Ok(UniversalAIResponse {
             id: Uuid::new_v4().to_string(),
-            provider: "ollama".to_string(),
+            provider: "local".to_string(),
             model: request.model,
             response_type: request.request_type,
-            content: "Mock response from Ollama".to_string(),
-            cost: 0.0, // Local models have no cost
+            content: "Response from local AI server".to_string(),
+            cost: 0.0, // Local models have no per-request cost
             duration: Duration::from_millis(500),
             metadata: HashMap::new(),
         })
@@ -387,74 +437,7 @@ impl UniversalAIProvider for OllamaProvider {
     
     async fn stream_request(&self, _request: UniversalAIRequest) -> Result<UniversalAIStream> {
         Err(crate::error::types::MCPError::ProviderError(
-            "Streaming not yet implemented for Ollama provider".to_string()
-        ))
-    }
-    
-    async fn health_check(&self) -> Result<bool> { 
-        Ok(true) 
-    }
-    
-    async fn estimate_cost(&self, _request: &UniversalAIRequest) -> Result<CostEstimate> {
-        Ok(CostEstimate {
-            estimated_cost: 0.0,
-            currency: "USD".to_string(),
-            breakdown: HashMap::new(),
-        })
-    }
-    
-    async fn configure(&mut self, _config: serde_json::Value) -> Result<()> { 
-        Ok(()) 
-    }
-}
-
-/// LlamaCpp Provider Implementation
-pub struct LlamaCppProvider;
-
-impl LlamaCppProvider {
-    pub fn new(_config: LlamaCppConfig) -> Self { 
-        Self 
-    }
-}
-
-#[async_trait::async_trait]
-impl UniversalAIProvider for LlamaCppProvider {
-    fn provider_type(&self) -> ProviderType { 
-        ProviderType::LocalServer 
-    }
-    
-    fn name(&self) -> &str { 
-        "llamacpp" 
-    }
-    
-    async fn get_models(&self) -> Result<Vec<ModelInfo>> { 
-        Ok(Vec::new()) 
-    }
-    
-    async fn list_models(&self) -> Result<Vec<ModelInfo>> { 
-        Ok(Vec::new()) 
-    }
-    
-    fn get_capabilities(&self) -> Vec<String> {
-        vec!["text-generation".to_string(), "local".to_string()]
-    }
-    
-    async fn process_request(&self, request: UniversalAIRequest) -> Result<UniversalAIResponse> {
-        Ok(UniversalAIResponse {
-            id: Uuid::new_v4().to_string(),
-            provider: "llamacpp".to_string(),
-            model: request.model,
-            response_type: request.request_type,
-            content: "Mock response from LlamaCpp".to_string(),
-            cost: 0.0, // Local models have no cost
-            duration: Duration::from_millis(400),
-            metadata: HashMap::new(),
-        })
-    }
-    
-    async fn stream_request(&self, _request: UniversalAIRequest) -> Result<UniversalAIStream> {
-        Err(crate::error::types::MCPError::ProviderError(
-            "Streaming not yet implemented for LlamaCpp provider".to_string()
+            "Streaming not yet implemented for local server provider".to_string()
         ))
     }
     
@@ -609,23 +592,28 @@ impl UniversalAIProvider for OpenRouterProvider {
     }
 }
 
-/// HuggingFace Provider Implementation
-pub struct HuggingFaceProvider;
+/// Model Hub Provider Implementation (vendor-agnostic)
+///
+/// Works with any model hub: HuggingFace, ModelScope, etc.
+pub struct ModelHubProvider;
 
-impl HuggingFaceProvider {
-    pub fn new(_config: HuggingFaceConfig) -> Self { 
+/// Backward-compatible type alias
+pub type HuggingFaceProvider = ModelHubProvider;
+
+impl ModelHubProvider {
+    pub fn new(_config: ModelHubConfig) -> Self { 
         Self 
     }
 }
 
 #[async_trait::async_trait]
-impl UniversalAIProvider for HuggingFaceProvider {
+impl UniversalAIProvider for ModelHubProvider {
     fn provider_type(&self) -> ProviderType { 
         ProviderType::ModelHub 
     }
     
     fn name(&self) -> &str { 
-        "huggingface" 
+        "model-hub" 
     }
     
     async fn get_models(&self) -> Result<Vec<ModelInfo>> { 
@@ -643,10 +631,10 @@ impl UniversalAIProvider for HuggingFaceProvider {
     async fn process_request(&self, request: UniversalAIRequest) -> Result<UniversalAIResponse> {
         Ok(UniversalAIResponse {
             id: Uuid::new_v4().to_string(),
-            provider: "huggingface".to_string(),
+            provider: "model-hub".to_string(),
             model: request.model,
             response_type: request.request_type,
-            content: "Mock response from HuggingFace".to_string(),
+            content: "Response from model hub".to_string(),
             cost: 0.0005,
             duration: Duration::from_millis(300),
             metadata: HashMap::new(),
@@ -655,7 +643,7 @@ impl UniversalAIProvider for HuggingFaceProvider {
     
     async fn stream_request(&self, _request: UniversalAIRequest) -> Result<UniversalAIStream> {
         Err(crate::error::types::MCPError::ProviderError(
-            "Streaming not yet implemented for HuggingFace provider".to_string()
+            "Streaming not yet implemented for model hub provider".to_string()
         ))
     }
     

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP Utility Functions
 //!
 //! This module provides utility functions for the Machine Context Protocol implementation.

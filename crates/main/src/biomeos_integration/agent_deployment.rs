@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Agent Deployment for biomeOS Integration
 //!
 //! This module provides agent deployment capabilities that can deploy and manage

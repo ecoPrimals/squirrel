@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin trait and core functionality for the Squirrel Plugin SDK
 //!
 //! This module provides the core plugin trait and related types that WASM plugins

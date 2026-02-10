@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! MCP Adapter for AI Router
+#![allow(dead_code)] // MCP adapter awaiting activation
 //!
 //! This module provides an adapter between the AIRouter and MCP for
 //! remote AI capabilities.
@@ -276,7 +280,7 @@ impl MCPInterface for MCPAdapter {
 
 // Placeholder types for MCP protocol
 // These would be replaced with actual MCP protocol types
-// TODO: Complete MCP adapter implementation
+// NOTE(phase2): MCP adapter implementation - pending full MCP protocol integration
 #[derive(Debug)]
 #[allow(dead_code)] // Planned functionality
 struct McpClient;

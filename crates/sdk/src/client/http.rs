@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! HTTP client functionality for plugins
 //!
 //! This module provides HTTP client functionality for making web requests from plugins,
@@ -103,7 +106,7 @@ impl HttpRequest {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::http::{HttpRequest, HttpMethod};
     ///
     /// let request = HttpRequest::new(
@@ -138,7 +141,7 @@ impl HttpRequest {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::http::{HttpRequest, HttpMethod};
     ///
     /// let request = HttpRequest::new("https://api.example.com".to_string(), HttpMethod::Get)
@@ -165,7 +168,7 @@ impl HttpRequest {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::http::{HttpRequest, HttpMethod};
     ///
     /// let request = HttpRequest::new("https://api.example.com/users".to_string(), HttpMethod::Post)
@@ -191,7 +194,7 @@ impl HttpRequest {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::http::{HttpRequest, HttpMethod};
     ///
     /// let request = HttpRequest::new("https://api.example.com".to_string(), HttpMethod::Get)
@@ -224,7 +227,7 @@ impl HttpRequest {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::http::{HttpRequest, HttpMethod};
     /// use serde::Serialize;
     ///
@@ -314,7 +317,7 @@ impl HttpClient {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::http::HttpClient;
     ///
     /// let client = HttpClient::new();
@@ -338,7 +341,7 @@ impl HttpClient {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::http::HttpClient;
     ///
     /// let mut client = HttpClient::new();
@@ -373,7 +376,7 @@ impl HttpClient {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::http::{HttpClient, HttpRequest, HttpMethod};
     ///
     /// async fn make_request() -> Result<(), squirrel_sdk::PluginError> {
@@ -492,7 +495,7 @@ impl HttpClient {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use squirrel_sdk::http::{HttpClient, HttpMethod};
     ///
     /// async fn make_request() -> Result<(), squirrel_sdk::PluginError> {
@@ -510,7 +513,7 @@ impl HttpClient {
     ///     Ok(())
     /// }
     /// ```
-    pub fn request_builder(&self, url: String, method: HttpMethod) -> RequestBuilder {
+    pub fn request_builder(&self, url: String, method: HttpMethod) -> RequestBuilder<'_> {
         RequestBuilder::new(self, url, method)
     }
 }

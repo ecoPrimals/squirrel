@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Enhanced Error Types for MCP Platform
 //!
 //! This module provides comprehensive error handling to replace unwrap/expect

@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! WebSocket Transport Implementation for MCP Protocol
 //!
 //! This module provides WebSocket transport capabilities for the Machine Context Protocol,
 //! replacing mock implementations with real WebSocket connections.
 
-use std::collections::HashMap;
+use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -130,9 +133,9 @@ pub struct WebSocketServer {
     /// Configuration
     config: WebSocketConfig,
     /// Active connections
-    connections: Arc<RwLock<HashMap<String, ConnectionInfo>>>,
+    connections: Arc<DashMap<String, ConnectionInfo>>,
     /// Connection message senders
-    connection_senders: Arc<RwLock<HashMap<String, mpsc::Sender<MCPMessage>>>>,
+    connection_senders: Arc<DashMap<String, mpsc::Sender<MCPMessage>>>,
     /// Message codec
     codec: MessageCodec,
     /// Broadcast sender for server events
@@ -146,8 +149,8 @@ impl WebSocketServer {
 
         Self {
             config,
-            connections: Arc::new(RwLock::new(HashMap::new())),
-            connection_senders: Arc::new(RwLock::new(HashMap::new())),
+            connections: Arc::new(DashMap::new()),
+            connection_senders: Arc::new(DashMap::new()),
             codec: MessageCodec::new(),
             event_sender,
         }
@@ -205,8 +208,8 @@ impl WebSocketServer {
         connection_id: String,
         peer_addr: String,
         _config: Arc<WebSocketConfig>, // Reserved for future connection configuration
-        connections: Arc<RwLock<HashMap<String, ConnectionInfo>>>,
-        connection_senders: Arc<RwLock<HashMap<String, mpsc::Sender<MCPMessage>>>>,
+        connections: Arc<DashMap<String, ConnectionInfo>>,
+        connection_senders: Arc<DashMap<String, mpsc::Sender<MCPMessage>>>,
         codec: Arc<MessageCodec>,
         event_sender: broadcast::Sender<ServerEvent>,
     ) -> Result<()> {
@@ -232,10 +235,7 @@ impl WebSocketServer {
         };
 
         // Store connection info
-        {
-            let mut connections_guard = connections.write().await;
-            connections_guard.insert(connection_id.clone(), connection_info);
-        }
+        connections.insert(connection_id.clone(), connection_info);
 
         // Send connection event
         let _ = event_sender.send(ServerEvent::ClientConnected(connection_id.clone()));
@@ -244,10 +244,7 @@ impl WebSocketServer {
         let (msg_tx, mut msg_rx) = mpsc::channel(100);
 
         // Store message sender
-        {
-            let mut senders = connection_senders.write().await;
-            senders.insert(connection_id.clone(), msg_tx);
-        }
+        connection_senders.insert(connection_id.clone(), msg_tx);
 
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
@@ -265,7 +262,13 @@ impl WebSocketServer {
                     }
                 };
 
-                let ws_message = Message::Text(serde_json::to_string(&frame).unwrap());
+                let ws_message = match serde_json::to_string(&frame) {
+                    Ok(json) => Message::Text(json),
+                    Err(e) => {
+                        error!("Failed to serialize WebSocket frame: {}", e);
+                        continue;
+                    }
+                };
                 if let Err(e) = ws_sender.send(ws_message).await {
                     error!("Failed to send WebSocket message: {}", e);
                     break;
@@ -320,14 +323,8 @@ impl WebSocketServer {
         }
 
         // Cleanup
-        {
-            let mut connections_guard = connections.write().await;
-            connections_guard.remove(&connection_id);
-        }
-        {
-            let mut senders = connection_senders.write().await;
-            senders.remove(&connection_id);
-        }
+        connections.remove(&connection_id);
+        connection_senders.remove(&connection_id);
 
         // Send disconnect event
         let _ = event_sender.send(ServerEvent::ClientDisconnected(connection_id));
@@ -337,9 +334,9 @@ impl WebSocketServer {
 
     /// Send message to a specific client
     pub async fn send_to_client(&self, client_id: &str, message: MCPMessage) -> Result<()> {
-        let senders = self.connection_senders.read().await;
-        if let Some(sender) = senders.get(client_id) {
+        if let Some(sender) = self.connection_senders.get(client_id) {
             sender
+                .value()
                 .send(message)
                 .await
                 .map_err(|_| MCPError::Transport("Failed to send message to client".into()))?;
@@ -353,8 +350,10 @@ impl WebSocketServer {
 
     /// Get active connections
     pub async fn get_connections(&self) -> Vec<ConnectionInfo> {
-        let connections = self.connections.read().await;
-        connections.values().cloned().collect()
+        self.connections
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
     }
 
     /// Subscribe to server events
@@ -439,7 +438,13 @@ impl WebSocketClient {
                     }
                 };
 
-                let ws_message = Message::Text(serde_json::to_string(&frame).unwrap());
+                let ws_message = match serde_json::to_string(&frame) {
+                    Ok(json) => Message::Text(json),
+                    Err(e) => {
+                        error!("Failed to serialize WebSocket frame: {}", e);
+                        continue;
+                    }
+                };
                 if let Err(e) = ws_sender.send(ws_message).await {
                     error!("Failed to send WebSocket message: {}", e);
                     break;
@@ -479,7 +484,8 @@ impl WebSocketClient {
                             }
                         };
 
-                        // TODO: Handle received message
+                        // FUTURE: [Protocol] Handle received message
+                        // Tracking: Requires message routing implementation
                     }
                     Message::Close(_) => {
                         info!("Server disconnected");

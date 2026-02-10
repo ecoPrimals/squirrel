@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Production-focused Tests for Enhanced MCP Platform
 //!
 //! This module provides comprehensive test coverage for production-critical functionality

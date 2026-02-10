@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! CLI structure for Squirrel UniBin architecture
 //!
 //! Modern, idiomatic Rust CLI using clap derive API.
@@ -28,7 +31,7 @@ pub enum Commands {
     /// Start Squirrel in server mode
     ///
     /// Runs the AI orchestration server with HTTP and Unix socket APIs.
-    /// Supports multiple AI providers (OpenAI, HuggingFace, Ollama) with
+    /// Supports multiple AI providers (cloud APIs, local servers, model hubs) with
     /// intelligent routing based on cost, quality, and latency.
     Server {
         /// Server port for HTTP API

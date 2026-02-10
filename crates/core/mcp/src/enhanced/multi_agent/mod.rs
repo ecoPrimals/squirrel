@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Multi-Agent Coordination System
 //!
 //! This module provides comprehensive multi-agent coordination functionality including:

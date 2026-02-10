@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Message Templates for Fast Serialization
 //!
 //! This module provides a template-based serialization system that pre-compiles

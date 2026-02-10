@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Test Fixtures for MCP Core Testing
 //!
 //! This module provides reusable test fixtures, mocks, and helpers

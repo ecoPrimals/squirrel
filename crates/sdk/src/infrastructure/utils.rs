@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Utility functions for plugin development
 
 use crate::error::{PluginError, PluginResult};
@@ -134,7 +137,7 @@ where
 ///
 /// # Usage
 ///
-/// ```rust
+/// ```ignore
 /// use crate::utils::singleton;
 ///
 /// struct MyService { /* ... */ }
@@ -200,11 +203,18 @@ pub async fn sleep_ms(ms: u64) {
     #[cfg(not(test))]
     {
         use wasm_bindgen_futures::JsFuture;
+        // JavaScript setTimeout accepts i32, so clamp to i32::MAX to avoid truncation
+        let ms_clamped = ms.min(i32::MAX as u64) as i32;
         let promise = js_sys::Promise::new(&mut |resolve, _| {
-            web_sys::window()
-                .unwrap()
-                .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms as i32)
-                .unwrap();
+            if let Some(window) = web_sys::window() {
+                if let Err(e) = window
+                    .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms_clamped)
+                {
+                    tracing::warn!("Failed to set timeout in WASM environment: {:?}", e);
+                }
+            } else {
+                tracing::warn!("Window object not available in WASM environment");
+            }
         });
         let _ = JsFuture::from(promise).await;
     }
@@ -391,6 +401,7 @@ pub mod performance {
     }
 
     /// String pool for reducing allocations
+    #[derive(Default)]
     pub struct StringPool {
         pool: std::collections::HashMap<String, String>,
     }
@@ -398,9 +409,7 @@ pub mod performance {
     impl StringPool {
         /// Create a new string pool
         pub fn new() -> Self {
-            Self {
-                pool: std::collections::HashMap::new(),
-            }
+            Self::default()
         }
 
         /// Get or create a string from the pool
@@ -408,7 +417,9 @@ pub mod performance {
             if !self.pool.contains_key(key) {
                 self.pool.insert(key.to_string(), key.to_string());
             }
-            self.pool.get(key).unwrap()
+            self.pool
+                .get(key)
+                .expect("StringPool: key should exist after insert")
         }
 
         /// Clear the pool

@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
+#![allow(clippy::missing_docs_in_private_items)]
 //! Squirrel Ecosystem Integration
 //!
 //! This crate provides integration points with the broader ecosystem:
+#![deny(unsafe_code)]
 //! - Songbird service orchestration
 //! - Toadstool compute integration
 //! - Cross-platform service discovery
@@ -34,9 +39,11 @@ impl EcosystemIntegration {
 
     /// Register Squirrel MCP services with the ecosystem
     pub async fn register_mcp_services(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // TODO: Implement service mesh registration via capability discovery
+        // FUTURE: [Ecosystem-Integration] Implement service mesh registration via capability discovery
+        // Tracking: Planned for v0.2.0 - ecosystem integration work
         // Use capability registry to discover service mesh, then register via Unix socket
-        // TODO: Implement compute integration via capability discovery
+        // FUTURE: [Ecosystem-Integration] Implement compute integration via capability discovery
+        // Tracking: Planned for v0.2.0 - ecosystem integration work
         // Use capability registry to discover compute providers, then integrate via universal adapter
         Ok(())
     }
@@ -45,5 +52,58 @@ impl EcosystemIntegration {
 impl Default for EcosystemIntegration {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- ServiceRegistration tests ---
+    #[test]
+    fn test_service_registration_serde() {
+        let reg = ServiceRegistration {
+            service_id: "squirrel-1".to_string(),
+            service_type: "ai".to_string(),
+            capabilities: vec!["inference".to_string(), "embedding".to_string()],
+            endpoints: vec!["http://localhost:8080".to_string()],
+            metadata: HashMap::from([("version".to_string(), "1.0.0".to_string())]),
+        };
+        let json = serde_json::to_string(&reg).unwrap();
+        let deserialized: ServiceRegistration = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.service_id, "squirrel-1");
+        assert_eq!(deserialized.capabilities.len(), 2);
+        assert_eq!(deserialized.endpoints.len(), 1);
+    }
+
+    #[test]
+    fn test_service_registration_clone() {
+        let reg = ServiceRegistration {
+            service_id: "svc-1".to_string(),
+            service_type: "compute".to_string(),
+            capabilities: vec![],
+            endpoints: vec![],
+            metadata: HashMap::new(),
+        };
+        let cloned = reg.clone();
+        assert_eq!(cloned.service_id, reg.service_id);
+    }
+
+    // --- EcosystemIntegration tests ---
+    #[test]
+    fn test_ecosystem_integration_new() {
+        let _integration = EcosystemIntegration::new();
+    }
+
+    #[test]
+    fn test_ecosystem_integration_default() {
+        let _integration = EcosystemIntegration::default();
+    }
+
+    #[tokio::test]
+    async fn test_register_mcp_services() {
+        let integration = EcosystemIntegration::new();
+        let result = integration.register_mcp_services().await;
+        assert!(result.is_ok());
     }
 }

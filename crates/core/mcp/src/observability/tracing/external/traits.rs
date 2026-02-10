@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! External Tracing Traits
 //!
 //! This module defines the trait interfaces for external tracing

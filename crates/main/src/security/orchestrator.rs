@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Security Orchestration System
+#![allow(dead_code)] // Security infrastructure awaiting full wiring
 //!
 //! This module provides unified security orchestration that coordinates:
 //! - Authentication and authorization
@@ -661,8 +665,8 @@ impl ShutdownHandler for SecurityOrchestrator {
                         active_count
                     );
 
-                    // Brief yield to allow tasks to complete
-                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    // Yield to allow in-flight tasks to make progress
+                    tokio::task::yield_now().await;
                 }
 
                 Ok(())

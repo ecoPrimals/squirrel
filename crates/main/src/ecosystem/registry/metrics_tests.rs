@@ -1,14 +1,18 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Edge case tests for metrics operations
 //!
 //! Tests service statistics, concurrent access, and boundary conditions.
 
 #[cfg(test)]
 mod tests {
+    #[allow(deprecated)]
+    // EcosystemPrimalType is deprecated but needed for backward compatibility in tests
     use super::super::metrics::MetricsOps;
     use super::super::types::{DiscoveredService, ServiceHealthStatus};
     use crate::ecosystem::EcosystemPrimalType;
     use crate::monitoring::metrics::MetricsCollector;
-    use arcstr::ArcStr;
     use chrono::Utc;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -19,7 +23,7 @@ mod tests {
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or(8080);
-        
+
         DiscoveredService {
             service_id: id.into(),
             primal_type,
@@ -93,7 +97,8 @@ mod tests {
         let mut services = HashMap::new();
 
         for i in 0..5 {
-            let service = create_test_service(&format!("squirrel_{}", i), EcosystemPrimalType::Squirrel);
+            let service =
+                create_test_service(&format!("squirrel_{}", i), EcosystemPrimalType::Squirrel);
             services.insert(format!("squirrel_{}", i), service);
         }
 
@@ -110,7 +115,8 @@ mod tests {
         let mut services = HashMap::new();
 
         for i in 0..10 {
-            let mut service = create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
+            let mut service =
+                create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
             service.health_status = ServiceHealthStatus::Healthy;
             services.insert(format!("service_{}", i), service);
         }
@@ -130,7 +136,8 @@ mod tests {
         let mut services = HashMap::new();
 
         for i in 0..5 {
-            let mut service = create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
+            let mut service =
+                create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
             service.health_status = ServiceHealthStatus::Unhealthy;
             services.insert(format!("service_{}", i), service);
         }
@@ -204,7 +211,8 @@ mod tests {
     async fn test_record_service_registration() {
         let metrics_collector = Arc::new(MetricsCollector::new());
 
-        MetricsOps::record_service_registration(&metrics_collector, "test_service", "Squirrel").await;
+        MetricsOps::record_service_registration(&metrics_collector, "test_service", "Squirrel")
+            .await;
     }
 
     #[tokio::test]
@@ -249,7 +257,8 @@ mod tests {
         let mut services = HashMap::new();
 
         for i in 0..10 {
-            let mut service = create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
+            let mut service =
+                create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
             service.health_status = if i < 5 {
                 ServiceHealthStatus::Healthy
             } else {
@@ -275,7 +284,8 @@ mod tests {
         // Testing deprecated API for backward compatibility
         let mut services = HashMap::new();
         for i in 0..10 {
-            let service = create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
+            let service =
+                create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
             services.insert(format!("service_{}", i), service);
         }
 
@@ -318,7 +328,7 @@ mod tests {
         use std::collections::HashMap;
 
         let mut capability_metrics = HashMap::new();
-        
+
         let capabilities = vec![
             "ai.inference",
             "crypto.encrypt",
@@ -365,14 +375,10 @@ mod tests {
 
         // Verify performance metrics
         assert_eq!(performance_metrics.len(), 3);
-        
+
         // AI inference should be slowest
-        assert!(
-            performance_metrics["ai.inference"] > performance_metrics["crypto.encrypt"]
-        );
-        assert!(
-            performance_metrics["ai.inference"] > performance_metrics["storage.put"]
-        );
+        assert!(performance_metrics["ai.inference"] > performance_metrics["crypto.encrypt"]);
+        assert!(performance_metrics["ai.inference"] > performance_metrics["storage.put"]);
     }
 
     #[tokio::test]
@@ -394,11 +400,9 @@ mod tests {
 
         // Verify throughput metrics
         assert_eq!(throughput_metrics.len(), 3);
-        
+
         // Crypto should have highest throughput
-        assert!(
-            throughput_metrics["crypto.encrypt"] > throughput_metrics["ai.inference"]
-        );
+        assert!(throughput_metrics["crypto.encrypt"] > throughput_metrics["ai.inference"]);
     }
 
     #[tokio::test]
@@ -409,9 +413,9 @@ mod tests {
         let mut error_rates = HashMap::new();
 
         let capabilities = vec![
-            ("ai.inference", 0.01),   // 1% error rate
+            ("ai.inference", 0.01),    // 1% error rate
             ("crypto.encrypt", 0.001), // 0.1% error rate
-            ("storage.put", 0.005),   // 0.5% error rate
+            ("storage.put", 0.005),    // 0.5% error rate
         ];
 
         for (capability, error_rate) in capabilities {
@@ -420,7 +424,7 @@ mod tests {
 
         // Verify error rates
         assert_eq!(error_rates.len(), 3);
-        
+
         // All error rates should be low
         for (_, rate) in &error_rates {
             assert!(*rate < 0.05, "Error rate should be below 5%");
@@ -447,7 +451,7 @@ mod tests {
 
         // Verify availability metrics
         assert_eq!(availability_metrics.len(), 4);
-        
+
         // All should have high availability
         for (_, availability) in &availability_metrics {
             assert!(
@@ -500,15 +504,14 @@ mod tests {
 
         // Verify resource metrics
         assert_eq!(resource_metrics.len(), 3);
-        
+
         // AI should use most resources
         assert!(
             resource_metrics["ai.inference"].cpu_percent
                 > resource_metrics["crypto.encrypt"].cpu_percent
         );
         assert!(
-            resource_metrics["ai.inference"].memory_mb
-                > resource_metrics["storage.put"].memory_mb
+            resource_metrics["ai.inference"].memory_mb > resource_metrics["storage.put"].memory_mb
         );
     }
 
@@ -531,12 +534,8 @@ mod tests {
         }
 
         // Verify version metrics show migration trends
-        assert!(
-            version_metrics["ai.inference.v2"] > version_metrics["ai.inference.v1"]
-        );
-        assert!(
-            version_metrics["crypto.encrypt.v2"] > version_metrics["crypto.encrypt.v1"]
-        );
+        assert!(version_metrics["ai.inference.v2"] > version_metrics["ai.inference.v1"]);
+        assert!(version_metrics["crypto.encrypt.v2"] > version_metrics["crypto.encrypt.v1"]);
     }
 
     #[tokio::test]
@@ -553,7 +552,7 @@ mod tests {
             // Verify semantic structure
             assert!(label.starts_with("capability."));
             assert!(label.contains('.'));
-            
+
             // Count dots for depth
             let depth = label.matches('.').count();
             assert!(
@@ -583,9 +582,9 @@ mod tests {
             (
                 "crypto.encrypt",
                 vec![
-                    (1, 100),  // 100 requests in 0-1ms
-                    (5, 50),   // 50 requests in 1-5ms
-                    (10, 10),  // 10 requests in 5-10ms
+                    (1, 100), // 100 requests in 0-1ms
+                    (5, 50),  // 50 requests in 1-5ms
+                    (10, 10), // 10 requests in 5-10ms
                 ],
             ),
         ];
@@ -596,7 +595,7 @@ mod tests {
 
         // Verify histogram data
         assert_eq!(latency_histograms.len(), 2);
-        
+
         for (capability, buckets) in &latency_histograms {
             assert!(!buckets.is_empty());
             assert!(capability.contains('.'));
@@ -631,10 +630,10 @@ mod tests {
         // Verify counter values
         assert_eq!(counters["ai.inference.requests"], 100);
         assert_eq!(counters["ai.inference.errors"], 2);
-        
+
         // Calculate error rates
-        let ai_error_rate = counters["ai.inference.errors"] as f64
-            / counters["ai.inference.requests"] as f64;
+        let ai_error_rate =
+            counters["ai.inference.errors"] as f64 / counters["ai.inference.requests"] as f64;
         assert!(ai_error_rate < 0.05); // Less than 5%
     }
 
@@ -657,7 +656,7 @@ mod tests {
 
         // Verify gauge values
         assert_eq!(gauges.len(), 3);
-        
+
         // All gauges should be reasonable
         for (_, value) in &gauges {
             assert!(
@@ -693,7 +692,7 @@ mod tests {
         let mut aggregated = HashMap::new();
         for instance in &instance_metrics {
             for (metric, value) in instance {
-                *aggregated.entry(metric.as_str()).or_insert(0) += value;
+                *aggregated.entry(metric.as_ref()).or_insert(0) += value;
             }
         }
 
@@ -716,10 +715,9 @@ mod tests {
             assert!(!metric.contains("BearDog"));
             assert!(!metric.contains("Songbird"));
             assert!(!metric.contains("EcosystemPrimalType"));
-            
+
             // Should use capability naming
             assert!(metric.starts_with("capability."));
         }
     }
 }
-

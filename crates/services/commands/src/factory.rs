@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Factory for creating command registries.
 //!
 //! This module provides functionality for creating and configuring command registries.
@@ -67,11 +70,10 @@ pub fn create_command_registry() -> Result<Arc<Mutex<CommandRegistry>>, Box<dyn 
 ///
 /// A tuple containing the command registry and the plugin adapter
 pub fn create_command_registry_with_plugin() -> Result<RegistryWithPlugin, Box<dyn Error>> {
-    // Create the registry
-    let registry = create_command_registry()?;
+    // Create the registry (validates it can be built)
+    let _registry = create_command_registry()?;
 
-    // TODO: Implement plugin adapter when needed
-    // For now, return an error indicating the feature is not implemented
+    // Plugin adapter registration is planned for the next evolution phase
     Err("Plugin adapter not yet implemented".into())
 }
 

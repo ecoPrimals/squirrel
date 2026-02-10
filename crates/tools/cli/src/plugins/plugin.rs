@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin types and structures
 //!
 //! This module defines the core types for the plugin system.
@@ -193,4 +196,161 @@ pub trait PluginFactory: Send + Sync + 'static {
     ///
     /// A boxed plugin instance
     fn create(&self) -> Result<Arc<dyn Plugin>, PluginError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn sample_metadata() -> PluginMetadata {
+        PluginMetadata {
+            name: "test-plugin".to_string(),
+            version: "1.0.0".to_string(),
+            description: Some("A test plugin".to_string()),
+            author: Some("Test Author".to_string()),
+            homepage: Some("https://example.com".to_string()),
+        }
+    }
+
+    // --- PluginMetadata tests ---
+    #[test]
+    fn test_plugin_metadata_creation() {
+        let meta = sample_metadata();
+        assert_eq!(meta.name, "test-plugin");
+        assert_eq!(meta.version, "1.0.0");
+        assert_eq!(meta.description.as_deref(), Some("A test plugin"));
+        assert_eq!(meta.author.as_deref(), Some("Test Author"));
+        assert_eq!(meta.homepage.as_deref(), Some("https://example.com"));
+    }
+
+    #[test]
+    fn test_plugin_metadata_minimal() {
+        let meta = PluginMetadata {
+            name: "minimal".to_string(),
+            version: "0.1.0".to_string(),
+            description: None,
+            author: None,
+            homepage: None,
+        };
+        assert_eq!(meta.name, "minimal");
+        assert!(meta.description.is_none());
+        assert!(meta.author.is_none());
+    }
+
+    #[test]
+    fn test_plugin_metadata_clone() {
+        let meta = sample_metadata();
+        let cloned = meta.clone();
+        assert_eq!(cloned.name, meta.name);
+        assert_eq!(cloned.version, meta.version);
+    }
+
+    // --- PluginStatus tests ---
+    #[test]
+    fn test_plugin_status_installed() {
+        let status = PluginStatus::Installed;
+        assert_eq!(status, PluginStatus::Installed);
+    }
+
+    #[test]
+    fn test_plugin_status_enabled() {
+        let status = PluginStatus::Enabled;
+        assert_eq!(status, PluginStatus::Enabled);
+    }
+
+    #[test]
+    fn test_plugin_status_disabled() {
+        let status = PluginStatus::Disabled;
+        assert_eq!(status, PluginStatus::Disabled);
+    }
+
+    #[test]
+    fn test_plugin_status_failed() {
+        let status = PluginStatus::Failed("load error".to_string());
+        assert_eq!(status, PluginStatus::Failed("load error".to_string()));
+        assert_ne!(status, PluginStatus::Enabled);
+    }
+
+    #[test]
+    fn test_plugin_status_custom() {
+        let status = PluginStatus::Custom("testing".to_string());
+        assert_eq!(status, PluginStatus::Custom("testing".to_string()));
+    }
+
+    #[test]
+    fn test_plugin_status_clone() {
+        let status = PluginStatus::Failed("err".to_string());
+        let cloned = status.clone();
+        assert_eq!(status, cloned);
+    }
+
+    // --- PluginItem tests ---
+    #[test]
+    fn test_plugin_item_new() {
+        let meta = sample_metadata();
+        let path = PathBuf::from("/plugins/test.so");
+        let item = PluginItem::new(meta.clone(), path.clone(), PluginStatus::Installed);
+
+        assert_eq!(item.metadata().name, "test-plugin");
+        assert_eq!(item.path(), Path::new("/plugins/test.so"));
+        assert_eq!(item.status(), &PluginStatus::Installed);
+    }
+
+    #[test]
+    fn test_plugin_item_set_status() {
+        let meta = sample_metadata();
+        let path = PathBuf::from("/plugins/test.so");
+        let mut item = PluginItem::new(meta, path, PluginStatus::Installed);
+
+        assert_eq!(item.status(), &PluginStatus::Installed);
+        item.set_status(PluginStatus::Enabled);
+        assert_eq!(item.status(), &PluginStatus::Enabled);
+    }
+
+    #[test]
+    fn test_plugin_item_status_transitions() {
+        let meta = sample_metadata();
+        let path = PathBuf::from("/plugins/test.so");
+        let mut item = PluginItem::new(meta, path, PluginStatus::Installed);
+
+        // Installed -> Enabled -> Disabled -> Failed
+        item.set_status(PluginStatus::Enabled);
+        assert_eq!(item.status(), &PluginStatus::Enabled);
+
+        item.set_status(PluginStatus::Disabled);
+        assert_eq!(item.status(), &PluginStatus::Disabled);
+
+        item.set_status(PluginStatus::Failed("crash".to_string()));
+        assert_eq!(item.status(), &PluginStatus::Failed("crash".to_string()));
+    }
+
+    #[test]
+    fn test_plugin_item_clone() {
+        let meta = sample_metadata();
+        let path = PathBuf::from("/plugins/test.so");
+        let item = PluginItem::new(meta, path, PluginStatus::Enabled);
+        let cloned = item.clone();
+
+        assert_eq!(cloned.metadata().name, item.metadata().name);
+        assert_eq!(cloned.path(), item.path());
+        assert_eq!(cloned.status(), item.status());
+    }
+
+    #[test]
+    fn test_plugin_item_metadata_accessor() {
+        let meta = PluginMetadata {
+            name: "my-plugin".to_string(),
+            version: "2.0.0".to_string(),
+            description: Some("My awesome plugin".to_string()),
+            author: None,
+            homepage: None,
+        };
+        let item = PluginItem::new(meta, PathBuf::from("/opt/plugins"), PluginStatus::Installed);
+
+        let m = item.metadata();
+        assert_eq!(m.name, "my-plugin");
+        assert_eq!(m.version, "2.0.0");
+        assert!(m.description.is_some());
+    }
 }

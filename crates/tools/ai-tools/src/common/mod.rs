@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Common types and traits for AI clients
 //!
 //! This module provides a unified interface for interacting with various AI providers,
-//! including OpenAI, Anthropic, Ollama, and others. The module has been reorganized
+//! including OpenAI, Anthropic, local AI servers, and others. The module has been reorganized
 //! into focused sub-modules for better maintainability.
 //!
 //! ## Architecture
@@ -10,7 +13,7 @@
 //!
 //! * **types**: Core types and message structures
 //! * **client**: AI client trait and related functionality
-//! * **clients**: Concrete implementations (OpenAI, Anthropic, Ollama, Mock)
+//! * **clients**: Concrete implementations (capability-based, Mock)
 //! * **capability**: AI capabilities and task management
 //! * **message**: Message types and chat structures
 //! * **parameters**: Model parameters and configuration
@@ -21,7 +24,7 @@
 //!
 //! ## Features
 //!
-//! * **Multi-provider support**: OpenAI, Anthropic, Ollama, and more
+//! * **Multi-provider support**: Cloud APIs, local AI servers, model hubs, and more
 //! * **Intelligent routing**: Route requests based on cost, performance, or health
 //! * **Retry logic**: Automatic retry with exponential backoff
 //! * **Rate limiting**: Configurable rate limits per provider
@@ -32,7 +35,7 @@
 //!
 //! ## Usage
 //!
-//! ```rust,no_run
+//! ```ignore
 //! use squirrel_ai_tools::capability_ai::{AiClient, ChatMessage};
 //!
 //! // Create capability-based AI client (TRUE PRIMAL!)
@@ -190,5 +193,39 @@ mod tests {
         let message = create_assistant_message("I can help you");
         assert_eq!(message.role, MessageRole::Assistant);
         assert_eq!(message.content, Some("I can help you".to_string()));
+    }
+
+    #[test]
+    fn test_create_provider_client_returns_error() {
+        // Old HTTP providers are removed, this should always return an error
+        let result = create_provider_client("openai", "sk-test-key");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_create_provider_client_error_message() {
+        let result = create_provider_client("anthropic", "test-key");
+        let err = result.unwrap_err();
+        let err_str = err.to_string();
+        assert!(
+            err_str.contains("capability_ai") || err_str.contains("removed"),
+            "Expected migration message, got: {err_str}"
+        );
+    }
+
+    #[test]
+    fn test_create_chat_request_no_model() {
+        let messages = vec![create_text_message("Hello")];
+        let req = create_chat_request(messages, None);
+        assert!(req.model.is_none());
+        assert_eq!(req.messages.len(), 1);
+    }
+
+    #[test]
+    fn test_message_has_no_tool_calls() {
+        let msg = create_text_message("test");
+        assert!(msg.tool_calls.is_none());
+        assert!(msg.tool_call_id.is_none());
+        assert!(msg.name.is_none());
     }
 }

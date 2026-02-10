@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! gRPC Service Handler Implementations
 //!
 //! This module contains all the gRPC service method implementations for the TaskService.
@@ -221,7 +224,8 @@ impl TaskService for TaskServiceImpl {
         match task_manager.list_tasks(agent_id).await {
             Ok(tasks) => {
                 debug!("Found {} tasks", tasks.len());
-                let total_count = tasks.len() as i32;
+                // Clamp usize to i32::MAX to avoid truncation
+                let total_count = tasks.len().min(i32::MAX as usize) as i32;
                 let gen_tasks: Vec<GenTask> = tasks.into_iter().map(|t| t.into()).collect();
                 let response = ListTasksResponse {
                     tasks: gen_tasks,

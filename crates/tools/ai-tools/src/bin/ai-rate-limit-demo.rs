@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI Rate Limiting Demo command-line tool
 //!
 //! This binary demonstrates how the rate limiting functionality of the AI tools works.
@@ -22,18 +25,19 @@ async fn main() -> Result<()> {
     println!("Rate limit: {rate_limit} requests per minute");
 
     // Load API key from environment variables
+    #[allow(deprecated)] // Using legacy error type until full migration
     let api_key = match provider {
         "openai" => std::env::var("OPENAI_API_KEY")
             .or_else(|_| std::env::var("OPENAI_KEY"))
             .map_err(|_| {
-                squirrel_ai_tools::Error::Generic(
+                squirrel_ai_tools::Error::Configuration(
                     "OpenAI API key not found. Set OPENAI_API_KEY environment variable.".into(),
                 )
             })?,
         "anthropic" => std::env::var("ANTHROPIC_API_KEY")
             .or_else(|_| std::env::var("ANTHROPIC_KEY"))
             .map_err(|_| {
-                squirrel_ai_tools::Error::Generic(
+                squirrel_ai_tools::Error::Configuration(
                     "Anthropic API key not found. Set ANTHROPIC_API_KEY environment variable."
                         .into(),
                 )
@@ -41,12 +45,12 @@ async fn main() -> Result<()> {
         "gemini" => std::env::var("GEMINI_API_KEY")
             .or_else(|_| std::env::var("GOOGLE_API_KEY"))
             .map_err(|_| {
-                squirrel_ai_tools::Error::Generic(
+                squirrel_ai_tools::Error::Configuration(
                     "Gemini API key not found. Set GEMINI_API_KEY environment variable.".into(),
                 )
             })?,
         _ => {
-            return Err(squirrel_ai_tools::Error::Generic(format!(
+            return Err(squirrel_ai_tools::Error::UnsupportedProvider(format!(
                 "Unsupported provider: {provider}"
             )))
         }

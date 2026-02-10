@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! External Tracing Integrations
 //!
 //! This module provides integration with external tracing systems like

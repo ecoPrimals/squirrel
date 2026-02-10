@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! JSON-RPC Request/Response Types
 //!
 //! These types define the API contract between biomeOS and Squirrel.
@@ -11,7 +14,7 @@ pub struct QueryAiRequest {
     /// The prompt to send to the AI
     pub prompt: String,
 
-    /// Provider to use ("auto", "openai", "claude", "ollama", etc.)
+    /// Provider hint ("auto" for capability-based selection, or a provider ID from discovery)
     pub provider: Option<String>,
 
     /// Model to use (optional, provider-specific)
@@ -203,5 +206,118 @@ mod tests {
 
         assert_eq!(response.status, deserialized.status);
         assert_eq!(response.uptime_seconds, deserialized.uptime_seconds);
+    }
+
+    #[test]
+    fn test_query_ai_response_serialization() {
+        let response = QueryAiResponse {
+            response: "Hello, world!".to_string(),
+            provider: "openai".to_string(),
+            model: "gpt-4".to_string(),
+            tokens_used: Some(42),
+            latency_ms: 150,
+            success: true,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: QueryAiResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.response, "Hello, world!");
+        assert_eq!(deserialized.provider, "openai");
+        assert!(deserialized.success);
+    }
+
+    #[test]
+    fn test_provider_info_serialization() {
+        let info = ProviderInfo {
+            id: "openai-1".to_string(),
+            name: "OpenAI".to_string(),
+            models: vec!["gpt-4".to_string(), "gpt-3.5-turbo".to_string()],
+            capabilities: vec!["chat".to_string(), "completion".to_string()],
+            online: true,
+            avg_latency_ms: Some(150),
+            cost_tier: "premium".to_string(),
+        };
+
+        let json = serde_json::to_string(&info).unwrap();
+        let deserialized: ProviderInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "openai-1");
+        assert_eq!(deserialized.models.len(), 2);
+        assert!(deserialized.online);
+    }
+
+    #[test]
+    fn test_list_providers_response_serialization() {
+        let response = ListProvidersResponse {
+            providers: vec![ProviderInfo {
+                id: "test".to_string(),
+                name: "Test".to_string(),
+                models: vec![],
+                capabilities: vec![],
+                online: false,
+                avg_latency_ms: None,
+                cost_tier: "free".to_string(),
+            }],
+            total: 1,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: ListProvidersResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.total, 1);
+        assert_eq!(deserialized.providers.len(), 1);
+    }
+
+    #[test]
+    fn test_announce_capabilities_request_serialization() {
+        let request = AnnounceCapabilitiesRequest {
+            capabilities: vec!["ai.inference".to_string(), "ai.embedding".to_string()],
+            sub_federations: Some(vec!["federation-1".to_string()]),
+            genetic_families: None,
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: AnnounceCapabilitiesRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.capabilities.len(), 2);
+        assert!(deserialized.sub_federations.is_some());
+        assert!(deserialized.genetic_families.is_none());
+    }
+
+    #[test]
+    fn test_announce_capabilities_response_serialization() {
+        let response = AnnounceCapabilitiesResponse {
+            success: true,
+            message: "Capabilities registered".to_string(),
+            announced_at: "2026-01-01T00:00:00Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: AnnounceCapabilitiesResponse = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.success);
+        assert!(!deserialized.announced_at.is_empty());
+    }
+
+    #[test]
+    fn test_health_check_request_serialization() {
+        let request = HealthCheckRequest {};
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: HealthCheckRequest = serde_json::from_str(&json).unwrap();
+        let _ = format!("{:?}", deserialized);
+    }
+
+    #[test]
+    fn test_query_ai_request_minimal() {
+        let request = QueryAiRequest {
+            prompt: "Hello".to_string(),
+            provider: None,
+            model: None,
+            priority: None,
+            max_tokens: None,
+            temperature: None,
+            stream: None,
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: QueryAiRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.prompt, "Hello");
+        assert!(deserialized.provider.is_none());
     }
 }

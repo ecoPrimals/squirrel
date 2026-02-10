@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Arc<str> wrapper with serde support for zero-copy string optimization
 //!
 //! This module provides `ArcStr`, a wrapper around `Arc<str>` that implements

@@ -1,4 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Rule action executor for executing actions based on rule evaluations
+//!
+//! Action handlers use `&self` for future state access and consistent API.
+
+#![allow(clippy::unused_self)]
+#![allow(dead_code)] // Action types used during rule evaluation
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -129,12 +137,10 @@ impl ActionExecutor {
         let result = match action {
             RuleAction::ModifyContext { path, value } => {
                 self.execute_modify_context(path, value, context_id, rule_id)
-                    .await
             }
 
             RuleAction::CreateRecoveryPoint { description } => {
                 self.execute_create_recovery_point(description, context_id, rule_id)
-                    .await
             }
 
             RuleAction::ExecuteTransformation {
@@ -142,17 +148,13 @@ impl ActionExecutor {
                 config,
             } => {
                 self.execute_transformation(transformation_id, config.as_ref(), context_id, rule_id)
-                    .await
             }
 
             RuleAction::Notify {
                 channel,
                 message,
                 data,
-            } => {
-                self.execute_notify(channel, message, data.as_ref(), context_id, rule_id)
-                    .await
-            }
+            } => self.execute_notify(channel, message, data.as_ref(), context_id, rule_id),
 
             RuleAction::ExecutePlugin { plugin_id, config } => {
                 self.execute_plugin(plugin_id, config, context_id, rule_id)
@@ -161,12 +163,10 @@ impl ActionExecutor {
 
             RuleAction::ExecuteScript { script, language } => {
                 self.execute_script(script, language, context_id, rule_id)
-                    .await
             }
 
             RuleAction::ValidateContext { schema } => {
                 self.execute_validate_context(schema, context_id, rule_id)
-                    .await
             }
         };
 
@@ -198,7 +198,8 @@ impl ActionExecutor {
     }
 
     /// Execute modify context action
-    async fn execute_modify_context(
+    #[allow(clippy::unnecessary_wraps)]
+    fn execute_modify_context(
         &self,
         path: &str,
         value: &Value,
@@ -222,7 +223,8 @@ impl ActionExecutor {
     }
 
     /// Execute create recovery point action
-    async fn execute_create_recovery_point(
+    #[allow(clippy::unnecessary_wraps)]
+    fn execute_create_recovery_point(
         &self,
         description: &str,
         context_id: &str,
@@ -246,7 +248,8 @@ impl ActionExecutor {
     }
 
     /// Execute transformation action
-    async fn execute_transformation(
+    #[allow(clippy::unnecessary_wraps)]
+    fn execute_transformation(
         &self,
         transformation_id: &str,
         config: Option<&Value>,
@@ -269,7 +272,8 @@ impl ActionExecutor {
     }
 
     /// Execute notify action
-    async fn execute_notify(
+    #[allow(clippy::unnecessary_wraps)]
+    fn execute_notify(
         &self,
         channel: &str,
         message: &str,
@@ -323,7 +327,8 @@ impl ActionExecutor {
     }
 
     /// Execute script action
-    async fn execute_script(
+    #[allow(clippy::unnecessary_wraps)]
+    fn execute_script(
         &self,
         script: &str,
         language: &str,
@@ -347,7 +352,8 @@ impl ActionExecutor {
     }
 
     /// Execute validate context action
-    async fn execute_validate_context(
+    #[allow(clippy::unnecessary_wraps)]
+    fn execute_validate_context(
         &self,
         schema: &Value,
         context_id: &str,
@@ -402,9 +408,15 @@ impl ActionExecutor {
             stats.failed_actions += 1;
         }
 
-        // Update average duration
-        let total_duration = stats.average_duration * (stats.total_actions as i32 - 1) + duration;
-        stats.average_duration = total_duration / (stats.total_actions as i32);
+        // Update average duration using saturating arithmetic to avoid truncation
+        #[allow(clippy::cast_possible_truncation)]
+        let count = stats.total_actions.min(i32::MAX as u64) as i32;
+        let total_duration = stats.average_duration * (count.saturating_sub(1)) + duration;
+        stats.average_duration = if count > 0 {
+            total_duration / count
+        } else {
+            chrono::Duration::zero()
+        };
 
         // Update actions by type
         let action_type = match action {

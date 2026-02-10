@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Production Security Hardening Module
 //!
 //! This module provides production-ready security hardening features including:
@@ -282,8 +285,8 @@ impl SecurityHardening {
                     if environment == Environment::Production {
                         eprintln!("🚨 PRODUCTION PANIC DETECTED - INITIATING GRACEFUL SHUTDOWN");
 
-                        // Give time for incident handling
-                        std::thread::sleep(Duration::from_millis(100));
+                        // Brief grace period for incident handler (panic hook, tokio may be unavailable)
+                        std::thread::sleep(Duration::from_millis(10));
 
                         // Exit with error code
                         std::process::exit(1);

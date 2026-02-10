@@ -1,7 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive tests for Ecosystem Primal Types
 //!
 //! Tests ecosystem primal types and their properties.
 
+#[allow(deprecated)]
+// EcosystemPrimalType is deprecated but needed for backward compatibility in tests
 use squirrel::ecosystem::EcosystemPrimalType;
 
 #[test]

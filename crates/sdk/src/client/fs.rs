@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! File system functionality for plugins
 //!
 //! This module provides secure file system operations for WASM plugins,

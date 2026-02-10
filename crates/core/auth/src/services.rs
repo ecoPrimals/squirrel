@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Authentication service implementations and traits.
 //!
 //! This module contains the main authentication service trait and its

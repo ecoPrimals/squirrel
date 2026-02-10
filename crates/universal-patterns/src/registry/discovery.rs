@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! TRUE PRIMAL Discovery Implementation
 //!
 //! Capability-based primal discovery via Unix sockets.
@@ -297,7 +300,7 @@ impl PrimalDiscovery {
             }
         };
 
-        // TODO: Implement JSON-RPC "info" request
+        // NOTE(phase2): JSON-RPC "info" request - requires primal info protocol definition
         // For now, this is a placeholder that will be completed with actual JSON-RPC protocol
         drop(stream); // Close connection
 

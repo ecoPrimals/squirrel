@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Core Types for Tool Management
 //!
 //! This module contains all the fundamental types, enums, and data structures

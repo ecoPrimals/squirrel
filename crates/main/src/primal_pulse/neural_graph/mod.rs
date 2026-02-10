@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Neural Graph Optimizer
 //!
 //! Analyzes coordination patterns between primals and suggests optimal graph
@@ -219,23 +222,65 @@ impl CoordinationGraph {
         self.nodes.iter().find(|n| n.primal_name == primal_name)
     }
 
-    /// Calculate graph depth (longest path)
+    /// Calculate graph depth (longest path) using topological sort
+    ///
+    /// Performs Kahn's algorithm for topological ordering, then computes
+    /// the longest path through the DAG. Handles both sequential and
+    /// conditional edges. Returns 0 for empty graphs.
     #[must_use]
     pub fn calculate_depth(&self) -> usize {
-        // Simple DFS to find longest path
-        // TODO: Implement proper topological sort
         if self.nodes.is_empty() {
             return 0;
         }
 
-        // For now, count sequential edges
-        let sequential_edges = self
-            .edges
-            .iter()
-            .filter(|e| e.edge_type == EdgeType::Sequential)
-            .count();
+        // Build adjacency list and in-degree map (sequential + conditional edges form the DAG)
+        let node_names: Vec<&str> = self.nodes.iter().map(|n| n.primal_name.as_str()).collect();
+        let node_set: std::collections::HashSet<&str> = node_names.iter().copied().collect();
+        let mut in_degree: HashMap<&str, usize> = node_names.iter().map(|&n| (n, 0)).collect();
+        let mut adj: HashMap<&str, Vec<&str>> =
+            node_names.iter().map(|&n| (n, Vec::new())).collect();
 
-        sequential_edges + 1
+        for edge in &self.edges {
+            if edge.edge_type != EdgeType::Parallel {
+                let from = edge.from.as_str();
+                let to = edge.to.as_str();
+                // Skip orphaned edges referencing unknown nodes
+                if !node_set.contains(from) || !node_set.contains(to) {
+                    continue;
+                }
+                adj.entry(from).or_default().push(to);
+                *in_degree.entry(to).or_insert(0) += 1;
+            }
+        }
+
+        // Kahn's algorithm with longest-path tracking
+        let mut queue: std::collections::VecDeque<&str> = in_degree
+            .iter()
+            .filter(|(_, &deg)| deg == 0)
+            .map(|(&name, _)| name)
+            .collect();
+
+        let mut dist: HashMap<&str, usize> = node_names.iter().map(|&n| (n, 0)).collect();
+
+        while let Some(node) = queue.pop_front() {
+            if let Some(neighbors) = adj.get(node) {
+                for &next in neighbors {
+                    let new_dist = dist[node] + 1;
+                    if new_dist > dist[next] {
+                        dist.insert(next, new_dist);
+                    }
+                    if let Some(deg) = in_degree.get_mut(next) {
+                        *deg -= 1;
+                        if *deg == 0 {
+                            queue.push_back(next);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Depth is the maximum distance + 1 (counting nodes, not edges)
+        dist.values().copied().max().unwrap_or(0) + 1
     }
 
     /// Calculate graph width (max parallel branches)
@@ -259,12 +304,90 @@ impl CoordinationGraph {
         max_width
     }
 
-    /// Estimate total latency
+    /// Estimate total latency using critical path analysis
+    ///
+    /// Computes the longest-weight path through the graph, which represents
+    /// the minimum possible execution time. Sequential edges add latencies,
+    /// parallel branches take the max of their sub-paths.
     #[must_use]
     pub fn estimate_latency(&self) -> u64 {
-        // Simple estimate: sum of sequential, max of parallel
-        // TODO: Implement proper critical path analysis
-        self.nodes.iter().map(|n| n.estimated_latency_ms).sum()
+        if self.nodes.is_empty() {
+            return 0;
+        }
+
+        // Build node latency lookup
+        let node_latency: HashMap<&str, u64> = self
+            .nodes
+            .iter()
+            .map(|n| (n.primal_name.as_str(), n.estimated_latency_ms))
+            .collect();
+
+        // Build adjacency list for sequential/conditional edges
+        let node_names: Vec<&str> = self.nodes.iter().map(|n| n.primal_name.as_str()).collect();
+        let node_set: std::collections::HashSet<&str> = node_names.iter().copied().collect();
+        let mut adj: HashMap<&str, Vec<&str>> =
+            node_names.iter().map(|&n| (n, Vec::new())).collect();
+        let mut in_degree: HashMap<&str, usize> = node_names.iter().map(|&n| (n, 0)).collect();
+
+        for edge in &self.edges {
+            if edge.edge_type != EdgeType::Parallel {
+                let from = edge.from.as_str();
+                let to = edge.to.as_str();
+                // Skip orphaned edges
+                if !node_set.contains(from) || !node_set.contains(to) {
+                    continue;
+                }
+                adj.entry(from).or_default().push(to);
+                *in_degree.entry(to).or_insert(0) += 1;
+            }
+        }
+
+        // Critical path: longest-weight path via topological order
+        let mut earliest_finish: HashMap<&str, u64> = node_names
+            .iter()
+            .map(|&n| (n, *node_latency.get(n).unwrap_or(&0)))
+            .collect();
+
+        let mut queue: std::collections::VecDeque<&str> = in_degree
+            .iter()
+            .filter(|(_, &deg)| deg == 0)
+            .map(|(&name, _)| name)
+            .collect();
+
+        while let Some(node) = queue.pop_front() {
+            let finish = earliest_finish[node];
+            if let Some(neighbors) = adj.get(node) {
+                for &next in neighbors {
+                    let next_latency = *node_latency.get(next).unwrap_or(&0);
+                    let new_finish = finish + next_latency;
+                    if new_finish > earliest_finish[next] {
+                        earliest_finish.insert(next, new_finish);
+                    }
+                    if let Some(deg) = in_degree.get_mut(next) {
+                        *deg -= 1;
+                        if *deg == 0 {
+                            queue.push_back(next);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Also account for parallel branches: nodes without sequential edges
+        // still contribute their own latency
+        let critical_path = earliest_finish.values().copied().max().unwrap_or(0);
+
+        // If everything is parallel (no sequential edges), latency = max single node
+        if self.edges.iter().all(|e| e.edge_type == EdgeType::Parallel) {
+            return self
+                .nodes
+                .iter()
+                .map(|n| n.estimated_latency_ms)
+                .max()
+                .unwrap_or(0);
+        }
+
+        critical_path
     }
 
     /// Estimate total cost
@@ -330,11 +453,10 @@ impl GraphAnalyzer {
         bottlenecks
     }
 
-    /// Detect graph patterns
+    /// Detect graph patterns including cycle detection
     fn detect_patterns(graph: &CoordinationGraph) -> Vec<GraphPattern> {
         let mut patterns = Vec::new();
 
-        // Simple heuristics for pattern detection
         let sequential_count = graph
             .edges
             .iter()
@@ -346,22 +468,118 @@ impl GraphAnalyzer {
             .filter(|e| e.edge_type == EdgeType::Parallel)
             .count();
 
+        // Pipeline: all sequential, no parallel
         if sequential_count > 0 && parallel_count == 0 {
             patterns.push(GraphPattern::Pipeline);
         }
 
+        // Fan-out: a node has multiple parallel outgoing edges
         if parallel_count > 0 {
             patterns.push(GraphPattern::FanOut);
         }
 
-        // Check for circular dependencies
-        // TODO: Implement cycle detection
+        // Fan-in: a node has multiple incoming edges
+        let mut in_degree: HashMap<&str, usize> = HashMap::new();
+        for edge in &graph.edges {
+            *in_degree.entry(edge.to.as_str()).or_insert(0) += 1;
+        }
+        if in_degree.values().any(|&d| d > 1) {
+            patterns.push(GraphPattern::FanIn);
+        }
+
+        // Hub-spoke: one node connects to most others
+        let mut out_degree: HashMap<&str, usize> = HashMap::new();
+        for edge in &graph.edges {
+            *out_degree.entry(edge.from.as_str()).or_insert(0) += 1;
+        }
+        let node_count = graph.nodes.len();
+        if node_count > 2
+            && out_degree
+                .values()
+                .any(|&d| d >= node_count.saturating_sub(1))
+        {
+            patterns.push(GraphPattern::HubSpoke);
+        }
+
+        // Cycle detection using DFS with three-color marking
+        if Self::has_cycle(graph) {
+            patterns.push(GraphPattern::Circular);
+        }
+
+        // Mesh: high connectivity (edge count >= n*(n-1)/2)
+        let max_edges = node_count * node_count.saturating_sub(1) / 2;
+        if max_edges > 0 && graph.edges.len() >= max_edges {
+            patterns.push(GraphPattern::Mesh);
+        }
 
         if patterns.is_empty() {
             patterns.push(GraphPattern::Unknown);
         }
 
         patterns
+    }
+
+    /// Detect cycles in the graph using DFS three-color marking
+    ///
+    /// White (unvisited) → Gray (in progress) → Black (finished)
+    /// A back-edge to a gray node indicates a cycle.
+    fn has_cycle(graph: &CoordinationGraph) -> bool {
+        #[derive(Clone, Copy, PartialEq)]
+        enum Color {
+            White,
+            Gray,
+            Black,
+        }
+
+        let node_names: Vec<&str> = graph.nodes.iter().map(|n| n.primal_name.as_str()).collect();
+        let node_set: std::collections::HashSet<&str> = node_names.iter().copied().collect();
+        let mut color: HashMap<&str, Color> =
+            node_names.iter().map(|&n| (n, Color::White)).collect();
+        let mut adj: HashMap<&str, Vec<&str>> =
+            node_names.iter().map(|&n| (n, Vec::new())).collect();
+
+        for edge in &graph.edges {
+            let from = edge.from.as_str();
+            let to = edge.to.as_str();
+            // Skip orphaned edges
+            if !node_set.contains(from) || !node_set.contains(to) {
+                continue;
+            }
+            adj.entry(from).or_default().push(to);
+        }
+
+        fn dfs<'a>(
+            node: &'a str,
+            adj: &HashMap<&'a str, Vec<&'a str>>,
+            color: &mut HashMap<&'a str, Color>,
+        ) -> bool {
+            color.insert(node, Color::Gray);
+
+            if let Some(neighbors) = adj.get(node) {
+                for &next in neighbors {
+                    match color.get(next) {
+                        Some(Color::Gray) => return true, // Back edge → cycle
+                        Some(Color::White) => {
+                            if dfs(next, adj, color) {
+                                return true;
+                            }
+                        }
+                        _ => {} // Black = already fully explored
+                    }
+                }
+            }
+
+            color.insert(node, Color::Black);
+            false
+        }
+
+        for &node in &node_names {
+            if color[node] == Color::White && dfs(node, &adj, &mut color) {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Detect inefficiencies
@@ -393,6 +611,42 @@ impl GraphAnalyzer {
                         node.primal_name, node.estimated_latency_ms
                     ),
                     severity: 0.8,
+                    affected_components: vec![node.primal_name.clone()],
+                });
+            }
+        }
+
+        // Check for circular dependencies
+        if Self::has_cycle(graph) {
+            inefficiencies.push(Inefficiency {
+                inefficiency_type: InefficiencyType::CircularDependency,
+                description: "Graph contains circular dependencies which may cause deadlocks"
+                    .to_string(),
+                severity: 0.9,
+                affected_components: graph.nodes.iter().map(|n| n.primal_name.clone()).collect(),
+            });
+        }
+
+        // Check for single points of failure (nodes with no redundancy but high fan-in)
+        let mut in_degree: HashMap<&str, usize> = HashMap::new();
+        for edge in &graph.edges {
+            *in_degree.entry(edge.to.as_str()).or_insert(0) += 1;
+        }
+        for node in &graph.nodes {
+            let in_deg = in_degree
+                .get(node.primal_name.as_str())
+                .copied()
+                .unwrap_or(0);
+            if in_deg > 2 && node.reliability < 0.99 {
+                inefficiencies.push(Inefficiency {
+                    inefficiency_type: InefficiencyType::SinglePointOfFailure,
+                    description: format!(
+                        "{} is a single point of failure ({} dependents, {:.0}% reliability)",
+                        node.primal_name,
+                        in_deg,
+                        node.reliability * 100.0
+                    ),
+                    severity: 0.85,
                     affected_components: vec![node.primal_name.clone()],
                 });
             }

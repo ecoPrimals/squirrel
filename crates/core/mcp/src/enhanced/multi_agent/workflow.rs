@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Workflow Orchestration
 //!
 //! Manages workflow definitions and execution.
@@ -291,7 +294,7 @@ impl WorkflowOrchestrator {
                 Err(e) => {
                     last_error = Some(e);
                     if attempt < max_retries {
-                        tracing::warn!("Step {} failed, will retry: {}", step.name, last_error.as_ref().unwrap());
+                        tracing::warn!("Step {} failed, will retry: {}", step.name, last_error.as_ref().expect("last_error set on line above"));
                     }
                 }
             }

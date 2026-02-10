@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Real-World API Simulation Integration Tests
 //!
 //! Tests that simulate real-world API scenarios with resilience patterns,

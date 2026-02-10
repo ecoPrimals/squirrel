@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Infrastructure module for error handling, configuration, logging, and utilities
 
 // Error handling

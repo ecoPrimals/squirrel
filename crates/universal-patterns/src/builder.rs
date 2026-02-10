@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Configuration builder for universal patterns
 //!
 //! This module provides a fluent builder API for creating universal primal configurations.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Primal Adapters for Squirrel AI Coordinator
 //!
 //! Implements truly universal, capability-based adapters for all primal integration.
@@ -20,6 +23,12 @@ pub mod orchestration_adapter;
 pub mod registry;
 pub mod security_adapter;
 pub mod storage_adapter;
+pub mod types_modernized;
+
+#[cfg(test)]
+mod adapter_integration_tests;
+#[cfg(test)]
+mod mod_tests;
 
 // Re-export the universal types
 pub use registry::{ServiceMatcher, UniversalServiceRegistry};
@@ -153,7 +162,6 @@ pub struct IntegrationPreferences {
 }
 
 /// Universal Service Provider trait - all services implement this
-
 pub trait UniversalServiceProvider: Send + Sync {
     /// Get the capabilities this service provides
     fn get_capabilities(&self) -> Vec<ServiceCapability>;

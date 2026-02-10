@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Concurrent Test Utilities
 //!
 //! Modern, event-driven test utilities for truly concurrent testing.
@@ -404,7 +407,8 @@ mod tests {
 
         let n = notifier.clone();
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(10)).await;
+            // Yield once to prove concurrency, then signal
+            tokio::task::yield_now().await;
             n.signal_ready().await;
         });
 
@@ -418,7 +422,7 @@ mod tests {
         let sender = watcher.get_sender();
 
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(10)).await;
+            tokio::task::yield_now().await;
             let _ = sender.send("running");
         });
 
@@ -459,7 +463,8 @@ mod tests {
         for i in 0..5 {
             let t = tracker.clone();
             tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_millis(i * 10)).await;
+                // No sleep needed -- tasks run concurrently
+                tokio::task::yield_now().await;
                 t.mark_complete(i).await;
             });
         }
@@ -470,16 +475,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_oneshot_result() {
-        let result = OneshotResult::new();
+        let _result = OneshotResult::<i32>::new();
         let recv_result = OneshotResult::<i32>::new();
-        
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-            let _ = result.send(42);
-        });
 
-        // This should timeout since nothing sends
-        let timeout_result = recv_result.recv_timeout(Duration::from_millis(50)).await;
+        // Test timeout behavior: nothing sends to recv_result
+        let timeout_result = recv_result.recv_timeout(Duration::from_millis(5)).await;
         assert!(timeout_result.is_err());
     }
 }

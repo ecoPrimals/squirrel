@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Plugin state management
 //!
 //! This module defines the different states a plugin can be in
@@ -7,7 +10,7 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::sync::Arc;
 
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
 use tokio::sync::Mutex;
 
 use crate::plugins::manager::PluginManager;
@@ -74,10 +77,8 @@ impl fmt::Display for PluginState {
 }
 
 // Global state for plugin management
-lazy_static! {
-    static ref PLUGIN_MANAGER: Arc<Mutex<PluginManager>> =
-        Arc::new(Mutex::new(PluginManager::new()));
-}
+static PLUGIN_MANAGER: LazyLock<Arc<Mutex<PluginManager>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(PluginManager::new())));
 
 /// Get the global plugin manager instance
 pub fn get_plugin_manager() -> Arc<Mutex<PluginManager>> {

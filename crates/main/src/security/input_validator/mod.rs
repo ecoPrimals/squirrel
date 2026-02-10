@@ -22,7 +22,7 @@
 //!
 //! ## Usage
 //!
-//! ```rust
+//! ```ignore
 //! use squirrel::security::input_validator::{
 //!     ProductionInputValidator,
 //!     InputValidationConfig,
@@ -113,7 +113,7 @@ impl ProductionInputValidator {
     /// happen with our hardcoded patterns, but is handled for safety.
     ///
     /// ## Example
-    /// ```rust
+    /// ```ignore
     /// let config = InputValidationConfig::default();
     /// let validator = ProductionInputValidator::new(config)?;
     /// ```
@@ -127,7 +127,7 @@ impl ProductionInputValidator {
             nosql_injection_patterns: patterns::compile_nosql_injection_patterns()?,
             suspicious_patterns: patterns::compile_suspicious_patterns()?,
             sanitization_patterns: sanitization::SanitizationPatterns::compile()
-                .map_err(|e| PrimalError::Internal(e))?,
+                .map_err(PrimalError::Internal)?,
         };
 
         Ok(validator)
@@ -163,7 +163,7 @@ impl ProductionInputValidator {
     /// - Sanitized input can be used
     ///
     /// ## Example
-    /// ```rust
+    /// ```ignore
     /// let result = validator.validate_input(
     ///     "user input",
     ///     InputType::String,

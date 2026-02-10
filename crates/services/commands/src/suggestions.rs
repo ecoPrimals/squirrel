@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Command suggestions system for Squirrel
 //!
 //! This module provides functionality for generating context-aware command suggestions,

@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Bridge Adapter - Connect Universal AI to Legacy Router
+#![allow(dead_code)] // Migration bridge awaiting activation
 //!
 //! This module provides a bridge between the new universal AI interface
 //! (AiCapability) and the legacy router interface (AiProviderAdapter).

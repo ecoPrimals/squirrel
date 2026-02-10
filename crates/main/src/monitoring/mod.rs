@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Comprehensive Monitoring and Metrics Collection System
 //!
 //! This module provides comprehensive monitoring capabilities for the Squirrel AI ecosystem,
@@ -21,6 +24,13 @@ pub mod health;
 pub mod metric_names;
 pub mod metrics;
 pub mod performance;
+
+#[cfg(test)]
+mod mod_tests;
+#[cfg(test)]
+mod performance_types_tests;
+#[cfg(test)]
+mod types_tests;
 
 /// Main monitoring system coordinator
 pub struct MonitoringSystem {

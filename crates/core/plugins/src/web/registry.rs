@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Web plugin registry module
 //!
 //! This module provides functionality for managing web plugins.

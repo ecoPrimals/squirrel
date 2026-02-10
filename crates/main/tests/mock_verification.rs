@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Mock Verification Test - Ensures mocks are only in test code
 //
 // This test verifies our "zero mocks in production" discipline

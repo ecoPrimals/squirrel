@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal Orchestration Adapter
 //!
 //! Capability-based orchestration coordination that can work with Songbird or any
@@ -68,7 +71,7 @@ impl UniversalOrchestrationAdapter {
             ("priority".to_string(), serde_json::json!("high")),
         ]);
 
-        let request = UniversalRequest {
+        let _request = UniversalRequest {
             request_id: uuid::Uuid::new_v4().to_string(),
             operation: "coordinate_workflow".to_string(),
             parameters: request_params,
@@ -410,7 +413,7 @@ pub async fn register_songbird_service(
             load_balancing_weight: 15,
         },
         extensions: HashMap::from([
-            ("primal_type".to_string(), serde_json::json!("songbird")),
+            ("provider_domain".to_string(), serde_json::json!("orchestration")),
             ("ecosystem_role".to_string(), serde_json::json!("orchestration_provider")),
             ("ai_collaboration_level".to_string(), serde_json::json!("advanced")),
             ("gaming_support".to_string(), serde_json::json!(true)),

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Sync Test Modules
 //!
 //! This module contains modularized sync tests including basic flow tests,

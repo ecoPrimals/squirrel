@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Health monitoring components for the MCP resilience framework.
 //! 
 //! This module provides health monitoring capabilities for MCP components,

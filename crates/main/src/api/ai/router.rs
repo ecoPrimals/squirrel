@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! AI request router with intelligent provider selection and fallback
 //!
 //! Routes AI requests to the best available provider with retry logic.
@@ -19,6 +22,7 @@ use super::adapters::{AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
 
 // Deprecated adapters (feature-gated, v0.3.0 removal planned)
 #[cfg(feature = "deprecated-adapters")]
+#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 use super::adapters::{AnthropicAdapter, OpenAiAdapter};
 use super::http_provider_config::{get_enabled_http_providers, HttpAiProviderConfig};
 
@@ -91,7 +95,7 @@ impl AiRouter {
         //     providers.push(Arc::new(adapter));
         // }
 
-        // BIOME OS FIX: Add overall timeout to prevent hangs (10s max)
+        // Overall timeout to prevent hangs during provider initialization (10s max)
         let initialization_result = tokio::time::timeout(
             std::time::Duration::from_secs(10),
             async {
@@ -141,7 +145,7 @@ impl AiRouter {
                     info!("🎯 Using AI_PROVIDER_SOCKETS hint: {}", socket_paths);
                     for socket_path in socket_paths.split(',') {
                         let socket_path = socket_path.trim();
-                        // BIOME OS FIX: Timeout each socket connection (2s max)
+                        // Per-socket connection timeout (2s max)
                         match tokio::time::timeout(
                             std::time::Duration::from_secs(2),
                             Self::create_universal_adapter_from_path(socket_path)
@@ -164,7 +168,7 @@ impl AiRouter {
             }
         ).await;
 
-        // BIOME OS FIX: Handle timeout gracefully
+        // Handle initialization timeout gracefully
         match initialization_result {
             Ok(Ok(found_providers)) => {
                 providers = found_providers;
@@ -207,6 +211,7 @@ impl AiRouter {
     /// **Note**: Vendor-specific adapters (Anthropic, OpenAI) are deprecated
     /// and gated behind the `deprecated-adapters` feature.
     /// Use capability-based discovery with UniversalAiAdapter instead.
+    #[allow(unused_variables)]
     async fn init_http_provider(
         config: &HttpAiProviderConfig,
     ) -> Result<Option<Arc<dyn AiProviderAdapter>>, PrimalError> {
@@ -248,9 +253,10 @@ impl AiRouter {
                 }
             };
 
+        #[allow(unreachable_code)]
         match adapter_result {
             Ok(adapter) => {
-                // Check if adapter is available (BIOME OS FIX: 5s timeout for availability check)
+                // Availability check with 5s timeout to prevent hangs
                 match tokio::time::timeout(
                     std::time::Duration::from_secs(5),
                     adapter.is_available(),
@@ -501,7 +507,9 @@ impl AiRouter {
     }
 
     /// Get available providers for image generation
-    async fn get_image_generation_providers(&self) -> Result<Vec<ProviderInfo>, PrimalError> {
+    pub(crate) async fn get_image_generation_providers(
+        &self,
+    ) -> Result<Vec<ProviderInfo>, PrimalError> {
         let providers = self.providers.read().await;
         let mut provider_infos = Vec::new();
 
@@ -544,7 +552,9 @@ impl AiRouter {
     }
 
     /// Get available providers for text generation
-    async fn get_text_generation_providers(&self) -> Result<Vec<ProviderInfo>, PrimalError> {
+    pub(crate) async fn get_text_generation_providers(
+        &self,
+    ) -> Result<Vec<ProviderInfo>, PrimalError> {
         let providers = self.providers.read().await;
         let mut provider_infos = Vec::new();
 

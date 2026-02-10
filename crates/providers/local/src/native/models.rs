@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Native AI Provider Models and Configuration
 //!
 //! This module contains all configuration types, data structures, and model-related
@@ -590,8 +593,8 @@ mod tests {
         assert_eq!(info.request_id, "test-123");
         assert!(!info.is_overdue());
 
-        info.set_estimated_completion(Duration::from_millis(1));
-        std::thread::sleep(Duration::from_millis(10));
+        info.set_estimated_completion(Duration::ZERO);
+        // With a zero-duration estimate, it's already overdue
         assert!(info.is_overdue());
     }
 

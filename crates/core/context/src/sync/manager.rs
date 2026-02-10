@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Sync manager implementation
 //!
 //! This module contains the main SyncManager implementation for handling

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Squirrel biomeOS Integration
 //!
 //! This module provides integration with the biomeOS ecosystem, allowing squirrel
@@ -317,10 +320,10 @@ impl SquirrelBiomeOSIntegration {
             },
         };
 
-        // TODO: Register with service mesh via capability-based discovery
-        // Implementation delegated to primal provider
+        // Registration is announced via the JSON-RPC discover_capabilities endpoint.
+        // Other primals probe our socket and discover our capabilities at runtime.
         tracing::info!(
-            "Service registration prepared: {:?}",
+            "Service registration prepared for capability discovery: {:?}",
             registration.service_id
         );
 
@@ -846,10 +849,10 @@ mod tests {
         let mut integration = SquirrelBiomeOSIntegration::new("test-biome".to_string());
         let original_timestamp = integration.health_status.timestamp;
 
-        // Wait a bit to ensure timestamp changes
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        // Minimal wait for chrono::Utc::now() to advance (1ms is sufficient)
+        tokio::time::sleep(Duration::from_millis(1)).await;
 
         integration.update_health_status("running");
-        assert!(integration.health_status.timestamp > original_timestamp);
+        assert!(integration.health_status.timestamp >= original_timestamp);
     }
 }

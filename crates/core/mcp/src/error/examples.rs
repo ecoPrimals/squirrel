@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Error Context Trait Examples
 //!
 //! This module demonstrates how to implement and use the ErrorContextTrait

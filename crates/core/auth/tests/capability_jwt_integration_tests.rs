@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 // Integration tests for capability-based JWT
 //
 // These tests validate the TRUE PRIMAL capability-based crypto and JWT

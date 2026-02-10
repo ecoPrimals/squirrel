@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Chat History Integration for MCP
 //! 
 //! This module provides functionality for storing, synchronizing, and
