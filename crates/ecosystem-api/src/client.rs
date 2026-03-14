@@ -284,21 +284,21 @@ impl ServiceMeshClient for SongbirdClient {
 }
 
 /// Mock service mesh client for testing
-#[cfg(feature = "testing")]
+#[cfg(any(test, feature = "testing"))]
 #[derive(Clone)]
 pub struct MockServiceMeshClient {
     services: std::sync::Arc<tokio::sync::RwLock<HashMap<String, ServiceInfo>>>,
     health_reports: std::sync::Arc<tokio::sync::RwLock<HashMap<String, HealthStatus>>>,
 }
 
-#[cfg(feature = "testing")]
+#[cfg(any(test, feature = "testing"))]
 impl Default for MockServiceMeshClient {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(feature = "testing")]
+#[cfg(any(test, feature = "testing"))]
 impl MockServiceMeshClient {
     /// Create a new mock client
     pub fn new() -> Self {
@@ -321,7 +321,7 @@ impl MockServiceMeshClient {
     }
 }
 
-#[cfg(feature = "testing")]
+#[cfg(any(test, feature = "testing"))]
 #[async_trait]
 impl ServiceMeshClient for MockServiceMeshClient {
     async fn register_service(
@@ -473,7 +473,7 @@ impl ServiceMeshClientFactory {
     }
 
     /// Create a mock client for testing
-    #[cfg(feature = "testing")]
+    #[cfg(any(test, feature = "testing"))]
     pub fn create_mock_client() -> impl ServiceMeshClient {
         MockServiceMeshClient::new()
     }

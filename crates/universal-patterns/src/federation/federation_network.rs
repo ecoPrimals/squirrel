@@ -482,12 +482,14 @@ pub struct NetworkStats {
 }
 
 /// Network connection implementation for testing
+#[cfg(any(test, feature = "testing"))]
 pub struct MockNetworkConnection {
     peer_id: Uuid,
     connected: Arc<RwLock<bool>>,
     message_queue: Arc<RwLock<Vec<NetworkMessage>>>,
 }
 
+#[cfg(any(test, feature = "testing"))]
 impl MockNetworkConnection {
     /// Creates a new mock network connection for testing
     pub fn new(peer_id: Uuid) -> Self {
@@ -499,6 +501,7 @@ impl MockNetworkConnection {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
 #[async_trait]
 impl NetworkConnection for MockNetworkConnection {
     async fn send_message(&self, _peer_id: Uuid, message: NetworkMessage) -> FederationResult<()> {

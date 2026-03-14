@@ -28,6 +28,7 @@ mod types;
 
 // Re-export public API
 pub use core::{FederationNetwork, NetworkConnection};
+#[cfg(any(test, feature = "testing"))]
 pub use peers::MockNetworkConnection;
 pub use types::{
     DataOperation, NetworkConfig, NetworkMessage, NetworkProtocol, NetworkStats, NodeInfo,
