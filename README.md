@@ -188,6 +188,7 @@ See `squirrel.toml.example` for file-based configuration.
 ### Code Standards
 
 - Zero unsafe code in production (`#![forbid(unsafe_code)]`)
+- Production mocks isolated behind `#[cfg(test)]` / `#[cfg(testing)]`
 - All files under 1,000 lines (smart refactoring)
 - Capability-based discovery (not hardcoded primal types)
 - `std::sync::LazyLock` / `OnceLock` for statics (no `lazy_static` / `once_cell`)
