@@ -16,6 +16,7 @@
 //! - **`network`** - Network configuration (ports, addresses)
 //! - **`protocol`** - Protocol-specific constants
 //! - **`env_vars`** - Environment variable names
+//! - **`slo`** - Service Level Objective thresholds (latency, cost, quality)
 //! - **`builders`** - Helper functions for building URLs and configurations
 //!
 //! # Example Usage
@@ -66,6 +67,7 @@ pub mod env_vars;
 pub mod limits;
 pub mod network;
 pub mod protocol;
+pub mod slo;
 pub mod timeouts;
 
 // Re-export commonly used items for convenience

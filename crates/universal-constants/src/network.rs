@@ -186,6 +186,50 @@ pub const DEFAULT_SONGBIRD_PORT: u16 = 8001;
 pub const DEFAULT_SQUIRREL_SERVER_PORT: u16 = 9010;
 
 // ============================================================================
+// Unix Socket Path Constants (XDG ecosystem convention)
+// ============================================================================
+
+/// Subdirectory under `$XDG_RUNTIME_DIR` for all biomeos primal sockets.
+///
+/// Ecosystem convention (ludoSpring, airSpring, squirrel):
+///   Primary: `$XDG_RUNTIME_DIR/biomeos/{primal}.sock`
+///   Fallback: `/tmp/biomeos/{primal}.sock`
+pub const BIOMEOS_SOCKET_SUBDIR: &str = "biomeos";
+
+/// Fallback base directory when `$XDG_RUNTIME_DIR` is not available.
+///
+/// Used on systems without a user session manager (containers, CI).
+pub const BIOMEOS_SOCKET_FALLBACK_DIR: &str = "/tmp/biomeos";
+
+/// Get the XDG-compliant socket directory for biomeos primals.
+///
+/// Returns `$XDG_RUNTIME_DIR/biomeos` if the env var is set,
+/// otherwise falls back to `/tmp/biomeos`.
+#[must_use]
+pub fn get_socket_dir() -> std::path::PathBuf {
+    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
+        std::path::PathBuf::from(xdg).join(BIOMEOS_SOCKET_SUBDIR)
+    } else {
+        std::path::PathBuf::from(BIOMEOS_SOCKET_FALLBACK_DIR)
+    }
+}
+
+/// Get the full socket path for a named primal service.
+///
+/// Discovery order:
+/// 1. `{SERVICE}_SOCKET` env var (e.g. `SQUIRREL_SOCKET`)
+/// 2. `$XDG_RUNTIME_DIR/biomeos/{service}.sock`
+/// 3. `/tmp/biomeos/{service}.sock`
+#[must_use]
+pub fn get_socket_path(service: &str) -> std::path::PathBuf {
+    let env_key = format!("{}_SOCKET", service.to_uppercase());
+    if let Ok(path) = std::env::var(&env_key) {
+        return std::path::PathBuf::from(path);
+    }
+    get_socket_dir().join(format!("{service}.sock"))
+}
+
+// ============================================================================
 // URL Templates
 // ============================================================================
 
@@ -345,5 +389,34 @@ mod tests {
     #[allow(deprecated)] // Tests deprecated path for backward compatibility
     fn test_get_port_from_env() {
         assert_eq!(get_port_from_env("NONEXISTENT_PORT_XYZ", 1234), 1234);
+    }
+
+    #[test]
+    fn test_biomeos_socket_constants() {
+        assert_eq!(super::BIOMEOS_SOCKET_SUBDIR, "biomeos");
+        assert_eq!(super::BIOMEOS_SOCKET_FALLBACK_DIR, "/tmp/biomeos");
+    }
+
+    #[test]
+    fn test_get_socket_dir_fallback() {
+        std::env::remove_var("XDG_RUNTIME_DIR");
+        let dir = super::get_socket_dir();
+        assert_eq!(dir, std::path::PathBuf::from("/tmp/biomeos"));
+    }
+
+    #[test]
+    fn test_get_socket_path_fallback() {
+        std::env::remove_var("XDG_RUNTIME_DIR");
+        std::env::remove_var("SQUIRREL_SOCKET");
+        let path = super::get_socket_path("squirrel");
+        assert_eq!(path, std::path::PathBuf::from("/tmp/biomeos/squirrel.sock"));
+    }
+
+    #[test]
+    fn test_get_socket_path_env_override() {
+        std::env::set_var("TESTPRIMAL_SOCKET", "/custom/path.sock");
+        let path = super::get_socket_path("testprimal");
+        assert_eq!(path, std::path::PathBuf::from("/custom/path.sock"));
+        std::env::remove_var("TESTPRIMAL_SOCKET");
     }
 }

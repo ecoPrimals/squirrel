@@ -22,7 +22,10 @@ use super::adapters::{AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
 
 // Deprecated adapters (feature-gated, v0.3.0 removal planned)
 #[cfg(feature = "deprecated-adapters")]
-#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
+#[expect(
+    unexpected_cfgs,
+    reason = "deprecated-adapters feature defined in Cargo.toml"
+)]
 use super::adapters::{AnthropicAdapter, OpenAiAdapter};
 use super::http_provider_config::{get_enabled_http_providers, HttpAiProviderConfig};
 
@@ -236,7 +239,10 @@ impl AiRouter {
                 match config.provider_id.as_str() {
                     "anthropic" => {
                         // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
-                        #[allow(deprecated)]
+                        #[expect(
+                            deprecated,
+                            reason = "backward compat: AnthropicAdapter until v0.3.0 removal"
+                        )]
                         match AnthropicAdapter::new() {
                             Ok(adapter) => Ok(Arc::new(adapter) as Arc<dyn AiProviderAdapter>),
                             Err(e) => Err(e),
@@ -244,7 +250,10 @@ impl AiRouter {
                     }
                     "openai" => {
                         // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
-                        #[allow(deprecated)]
+                        #[expect(
+                            deprecated,
+                            reason = "backward compat: OpenAiAdapter until v0.3.0 removal"
+                        )]
                         match OpenAiAdapter::new() {
                             Ok(adapter) => Ok(Arc::new(adapter) as Arc<dyn AiProviderAdapter>),
                             Err(e) => Err(e),

@@ -32,11 +32,10 @@ pub struct DiscoveryConfig {
 impl Default for DiscoveryConfig {
     fn default() -> Self {
         Self {
-            // Standard Unix socket locations for TRUE PRIMAL discovery
+            // Ecosystem XDG socket convention for TRUE PRIMAL discovery
             socket_dirs: vec![
-                PathBuf::from("/tmp"),             // Development/testing
-                PathBuf::from("/var/run/primals"), // Production
-                PathBuf::from("/run/primals"),     // Alternative production
+                universal_constants::network::get_socket_dir(),
+                PathBuf::from(universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR),
             ],
             socket_patterns: vec![
                 "*.sock".to_string(),

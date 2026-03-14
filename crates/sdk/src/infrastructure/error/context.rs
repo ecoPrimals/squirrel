@@ -171,7 +171,10 @@ impl PluginErrorExt for PluginError {
 ///
 /// Note: The large error size is intentional for comprehensive error context.
 /// Boxing would add indirection overhead for a common path.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "Intentional for comprehensive error context; boxing would add indirection"
+)]
 pub trait ResultExt<T> {
     /// Add context to an error result
     fn with_context(self, context: ErrorContext) -> EnhancedResult<T>;

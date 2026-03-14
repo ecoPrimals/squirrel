@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN (0 errors) |
-| Tests | 4,240 passing / 0 failed |
+| Tests | 4,127 passing / 0 failed |
 | Test Duration | Single-threaded (full workspace) |
 | Clippy | CLEAN (-D warnings, 0 warnings) |
 | Formatting | CLEAN |
@@ -43,7 +43,8 @@
 
 ### Comprehensive Audit & Deep Debt Resolution
 
-- **Tests**: 4,240 passing / 0 failed
+- **Spring absorption**: SLO/tolerance registry, provenance tracking, XDG socket conventions, `#[expect]` migration, MCP handler evolution
+- **Tests**: 4,127 passing / 0 failed
 - **Clippy**: CLEAN (-D warnings, 0 warnings)
 - **Coverage**: 66% line, 68% region (target: 90%, via cargo llvm-cov)
 - **File sizes**: All .rs files under 1,000 lines
@@ -59,7 +60,7 @@
 ## Test Suite
 
 ```
-4,240 passed
+4,127 passed
 0 failed
 ```
 

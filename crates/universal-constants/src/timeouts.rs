@@ -97,7 +97,10 @@ pub const DEFAULT_DATABASE_TIMEOUT: Duration = Duration::from_secs(30);
 ///
 /// Truncation occurs if duration exceeds `u64::MAX` milliseconds (~584 million years).
 #[must_use]
-#[allow(clippy::cast_possible_truncation)]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Duration.as_millis() fits u64 for realistic durations; panics doc covers overflow"
+)]
 pub const fn duration_to_millis(duration: Duration) -> u64 {
     duration.as_millis() as u64
 }

@@ -92,6 +92,7 @@ pub mod builder;
 pub mod config;
 pub mod federation;
 pub mod ipc_client;
+pub mod provenance;
 pub mod registry;
 pub mod security;
 pub mod traits;

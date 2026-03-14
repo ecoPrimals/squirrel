@@ -151,6 +151,7 @@ async fn test_benchmark_result_serde() {
         success_rate: 1.0,
         timestamp: Utc::now(),
         metadata: HashMap::new(),
+        provenance: universal_patterns::provenance::Provenance::auto(),
     };
     let json = serde_json::to_string(&result).unwrap();
     let _: BenchmarkResult = serde_json::from_str(&json).unwrap();

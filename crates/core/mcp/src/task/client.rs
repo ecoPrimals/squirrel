@@ -43,7 +43,11 @@ impl MCPTaskClient {
     pub fn default_config() -> TaskClientConfig {
         let server_address = std::env::var("TASK_SERVER_SOCKET")
             .or_else(|_| std::env::var("TASK_SERVER_ENDPOINT"))
-            .unwrap_or_else(|_| "/tmp/mcp-task.sock".to_string());
+            .unwrap_or_else(|_| {
+                universal_constants::network::get_socket_path("mcp-task")
+                    .to_string_lossy()
+                    .into_owned()
+            });
 
         TaskClientConfig {
             server_address,

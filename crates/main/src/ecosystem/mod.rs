@@ -272,7 +272,7 @@ impl EcosystemPrimalType {
 }
 
 // Backward compatibility: kept for deserialization of legacy data
-#[allow(deprecated)]
+#[expect(deprecated, reason = "backward compat: deprecated ecosystem path")]
 impl std::str::FromStr for EcosystemPrimalType {
     type Err = String;
 
@@ -679,7 +679,10 @@ impl EcosystemManager {
                                     .collect();
 
                                 // Backward compatibility: DiscoveredService.primal_type for legacy format
-                                #[allow(deprecated)]
+                                #[expect(
+                                    deprecated,
+                                    reason = "backward compat: deprecated ecosystem path"
+                                )]
                                 services.push(
                                     crate::ecosystem::registry::types::DiscoveredService::new(
                                         &provider.id,

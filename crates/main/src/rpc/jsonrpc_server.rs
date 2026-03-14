@@ -26,7 +26,8 @@
 //! - `system.metrics` - Server metrics
 //! - `system.ping` - Connectivity test
 //! - `discovery.peers` - Peer discovery
-//! - `tool.execute` - Tool execution
+//! - `tool.execute` - Tool execution (local + forwarding to announced primals)
+//! - `tool.list` - List available tools (local + remote announced)
 //!
 //! Legacy aliases (deprecated, emit warnings — Phase 2):
 //! `query_ai`, `list_providers`, `announce_capabilities`, `discover_capabilities`,
@@ -199,26 +200,33 @@ pub struct JsonRpcServer {
 
     /// AI router (optional, for actual AI calls)
     pub(crate) ai_router: Option<Arc<crate::api::ai::AiRouter>>,
+
+    /// Registry of remote primals that announced their tools.
+    /// Key: tool name → socket path for forwarding.
+    pub(crate) announced_tools:
+        Arc<RwLock<std::collections::HashMap<String, super::types::AnnouncedPrimal>>>,
 }
 
 impl JsonRpcServer {
     /// Create a new JSON-RPC server with Universal Transport
     pub fn new(socket_path: String) -> Self {
         Self {
-            service_name: "squirrel".to_string(), // Standard service name for NUCLEUS
+            service_name: "squirrel".to_string(),
             socket_path,
             metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: None,
+            announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
         }
     }
 
     /// Create server with AI router
     pub fn with_ai_router(socket_path: String, ai_router: Arc<crate::api::ai::AiRouter>) -> Self {
         Self {
-            service_name: "squirrel".to_string(), // Standard service name for NUCLEUS
+            service_name: "squirrel".to_string(),
             socket_path,
             metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: Some(ai_router),
+            announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
         }
     }
 
@@ -531,6 +539,7 @@ impl JsonRpcServer {
 
             // Tool domain — semantic names (preferred)
             "tool.execute" => self.handle_execute_tool(request.params).await,
+            "tool.list" => self.handle_list_tools().await,
 
             // Legacy aliases (deprecated — Phase 2 of wateringHole semantic naming standard)
             "query_ai" => {

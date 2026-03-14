@@ -100,11 +100,26 @@ pub struct ListProvidersResponse {
     pub total: usize,
 }
 
-/// Request to announce Squirrel's capabilities
+/// Request to announce a primal's capabilities and tools.
+///
+/// Extended to support the neuralSpring adapter pattern where remote
+/// primals register their socket path and tools for routing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnnounceCapabilitiesRequest {
-    /// Capabilities to announce
+    /// Capability namespaces to announce (e.g. `["science.physics", "science.chem"]`)
     pub capabilities: Vec<String>,
+
+    /// Announcing primal's name (optional for backward compat, required for routing)
+    #[serde(default)]
+    pub primal: Option<String>,
+
+    /// Unix socket path where the announcing primal listens (for forwarding)
+    #[serde(default)]
+    pub socket_path: Option<String>,
+
+    /// Tool names the primal provides (e.g. `["science.simulate", "science.analyze"]`)
+    #[serde(default)]
+    pub tools: Option<Vec<String>>,
 
     /// Sub-federations (optional)
     pub sub_federations: Option<Vec<String>>,
@@ -124,6 +139,55 @@ pub struct AnnounceCapabilitiesResponse {
 
     /// Timestamp of announcement
     pub announced_at: String,
+
+    /// Number of tools registered for routing
+    pub tools_registered: usize,
+}
+
+/// An announced remote primal, stored for tool routing.
+#[derive(Debug, Clone)]
+pub struct AnnouncedPrimal {
+    /// Primal name (e.g. `"neuralSpring"`)
+    pub primal: String,
+    /// Socket path for forwarding
+    pub socket_path: String,
+    /// Capability namespaces
+    pub capabilities: Vec<String>,
+    /// Tool names this primal serves
+    pub tools: Vec<String>,
+    /// When the announcement was received
+    pub announced_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Response from tool.list
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolListResponse {
+    /// All available tools (local + remote)
+    pub tools: Vec<ToolListEntry>,
+    /// Total count
+    pub total: usize,
+}
+
+/// A single tool in the tool.list response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolListEntry {
+    /// Tool name
+    pub name: String,
+    /// Human-readable description
+    pub description: String,
+    /// Domain (e.g. "system", "discovery", "science")
+    pub domain: String,
+    /// Whether the tool is built-in or announced by a remote primal
+    pub source: ToolSource,
+}
+
+/// Where a tool comes from
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ToolSource {
+    /// Built into squirrel
+    Builtin,
+    /// Announced by a remote primal
+    Remote { primal: String },
 }
 
 /// Request for health check
@@ -270,6 +334,9 @@ mod tests {
     fn test_announce_capabilities_request_serialization() {
         let request = AnnounceCapabilitiesRequest {
             capabilities: vec!["ai.inference".to_string(), "ai.embedding".to_string()],
+            primal: Some("neuralSpring".to_string()),
+            socket_path: Some("/tmp/biomeos/neural.sock".to_string()),
+            tools: Some(vec!["science.simulate".to_string()]),
             sub_federations: Some(vec!["federation-1".to_string()]),
             genetic_families: None,
         };
@@ -287,6 +354,7 @@ mod tests {
             success: true,
             message: "Capabilities registered".to_string(),
             announced_at: "2026-01-01T00:00:00Z".to_string(),
+            tools_registered: 3,
         };
 
         let json = serde_json::to_string(&response).unwrap();

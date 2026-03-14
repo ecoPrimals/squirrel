@@ -23,7 +23,7 @@ use crate::PluginError;
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)] // Manifest structure for plugin discovery system
+#[expect(dead_code, reason = "Manifest structure for plugin discovery system")]
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -55,7 +55,10 @@ pub struct PluginManifest {
 impl PluginManifest {
     /// Convert to plugin metadata
     #[must_use]
-    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
+    #[expect(
+        deprecated,
+        reason = "backward compat: PluginMetadata during migration"
+    )]
     pub fn to_metadata(&self) -> PluginMetadata {
         let mut metadata =
             PluginMetadata::new(&self.name, &self.version, &self.description, &self.author);
@@ -92,7 +95,6 @@ pub trait PluginDiscovery: Send + Sync {
 }
 
 /// File-based plugin discovery
-#[allow(dead_code)] // Infrastructure for file-based plugin discovery
 #[derive(Debug)]
 pub struct FilePluginDiscovery<L> {
     /// Plugin loader
@@ -101,7 +103,7 @@ pub struct FilePluginDiscovery<L> {
 
 impl<L: PluginLoader> FilePluginDiscovery<L> {
     /// Create new file-based plugin discovery
-    #[allow(dead_code)] // Constructor for FilePluginDiscovery
+    #[expect(dead_code, reason = "Constructor for FilePluginDiscovery")]
     pub const fn new(loader: L) -> Self {
         Self { loader }
     }
@@ -154,21 +156,29 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
 }
 
 /// Create a placeholder plugin
-#[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
+#[expect(
+    deprecated,
+    reason = "backward compat: PluginMetadata during migration"
+)]
 pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
     Arc::new(PlaceholderPlugin { metadata })
 }
 
 /// A placeholder plugin implementation
-#[allow(dead_code)] // Placeholder for plugin template system
-#[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
+#[expect(
+    deprecated,
+    reason = "backward compat: PluginMetadata during migration"
+)]
 #[derive(Debug, Clone)]
 struct PlaceholderPlugin {
     metadata: PluginMetadata,
 }
 
 #[async_trait]
-#[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
+#[expect(
+    deprecated,
+    reason = "backward compat: PluginMetadata during migration"
+)]
 impl Plugin for PlaceholderPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
@@ -231,7 +241,10 @@ impl DefaultPluginDiscovery {
     }
 
     /// Load a plugin from a path
-    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
+    #[expect(
+        deprecated,
+        reason = "backward compat: PluginMetadata during migration"
+    )]
     pub async fn load_plugin(&self, _path: &Path) -> Result<Arc<dyn Plugin>> {
         // In a real implementation, this would load the plugin from the path
         // For now, just return a placeholder plugin
@@ -244,12 +257,10 @@ impl DefaultPluginDiscovery {
 }
 
 /// Default plugin loader implementation
-#[allow(dead_code)] // Infrastructure for default plugin loading
 #[derive(Debug, Copy, Clone)]
 pub struct DefaultPluginLoader;
 
 #[async_trait]
-#[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
 impl PluginLoader for DefaultPluginLoader {
     /// Load a plugin from a manifest
     async fn load_plugin(

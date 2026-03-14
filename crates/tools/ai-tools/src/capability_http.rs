@@ -45,7 +45,11 @@ impl Default for HttpClientConfig {
             // NO "songbird" in the name - could be any HTTP provider!
             socket_path: std::env::var("HTTP_CAPABILITY_SOCKET")
                 .or_else(|_| std::env::var("NETWORK_HTTP_SOCKET"))
-                .unwrap_or_else(|_| "/var/run/network/http.sock".to_string())
+                .unwrap_or_else(|_| {
+                    universal_constants::network::get_socket_path("http")
+                        .to_string_lossy()
+                        .into_owned()
+                })
                 .into(),
             timeout_secs: 30, // AI calls can be slow
             max_retries: 3,

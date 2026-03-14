@@ -116,7 +116,7 @@ impl PluginStatus {
 
     /// Convert the status to a string
     #[must_use]
-    #[allow(dead_code)] // Utility method for status string conversion
+    #[expect(dead_code, reason = "Utility method for status string conversion")]
     pub fn to_string(&self) -> String {
         match self {
             Self::Registered => "registered".to_string(),
@@ -147,7 +147,10 @@ pub trait Plugin: Send + Sync {
 
     /// Get the plugin metadata
     // Backward compatibility: PluginMetadata during migration to squirrel_interfaces
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "backward compat: PluginMetadata during migration to squirrel_interfaces"
+    )]
     fn metadata(&self) -> &PluginMetadata;
 
     /// Initialize the plugin
@@ -174,7 +177,7 @@ pub struct WebEndpoint {
 }
 
 /// Web plugin extension trait
-#[allow(dead_code)] // Reserved for future web plugin system
+#[expect(dead_code, reason = "Reserved for future web plugin system")]
 #[async_trait]
 pub trait WebPluginExt: Plugin {
     /// Get the endpoints provided by this plugin

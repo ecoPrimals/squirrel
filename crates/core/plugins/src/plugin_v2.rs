@@ -78,7 +78,7 @@ pub trait PluginV2: Send + Sync + std::fmt::Debug {
 }
 
 /// Web plugin extension trait for V2 plugins
-#[allow(dead_code)] // Reserved for future web plugin V2 system
+#[expect(dead_code, reason = "Reserved for future web plugin V2 system")]
 pub trait WebPluginExtV2: PluginV2 {
     /// Get the endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;
@@ -92,7 +92,6 @@ pub trait WebPluginExtV2: PluginV2 {
 }
 
 /// Helper struct to adapt PluginV2 to Plugin for backward compatibility
-#[allow(dead_code)] // Reserved for plugin V2 compatibility layer
 #[derive(Debug)]
 pub struct PluginWrapper<T: PluginV2> {
     inner: T,
@@ -100,7 +99,6 @@ pub struct PluginWrapper<T: PluginV2> {
 
 impl<T: PluginV2> PluginWrapper<T> {
     /// Create a new PluginWrapper with the given PluginV2 implementation
-    #[allow(dead_code)] // Reserved for plugin V2 compatibility layer
     pub fn new(inner: T) -> Self {
         Self { inner }
     }
@@ -108,7 +106,10 @@ impl<T: PluginV2> PluginWrapper<T> {
 
 #[async_trait]
 impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
-    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
+    #[expect(
+        deprecated,
+        reason = "backward compat: PluginMetadata during migration"
+    )]
     fn metadata(&self) -> &PluginMetadata {
         self.inner.metadata()
     }
@@ -127,7 +128,7 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
 }
 
 /// Helper function to adapt a PluginV2 to Plugin
-#[allow(dead_code)] // Reserved for plugin V2 compatibility layer
+#[expect(dead_code, reason = "Reserved for plugin V2 compatibility layer")]
 pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
     Arc::new(PluginWrapper::new(plugin))
 }

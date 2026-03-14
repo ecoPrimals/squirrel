@@ -194,6 +194,10 @@ impl JsonRpcServer {
     // -----------------------------------------------------------------------
 
     /// Handle `capability.announce` / `announce_capabilities` method
+    ///
+    /// When `primal` and `socket_path` are provided, the announcement is
+    /// stored for routing: subsequent `tool.execute` calls for the announced
+    /// tool names are forwarded to the remote primal's socket.
     pub(crate) async fn handle_announce_capabilities(
         &self,
         params: Option<Value>,
@@ -201,14 +205,40 @@ impl JsonRpcServer {
         let request: AnnounceCapabilitiesRequest = self.parse_params(params)?;
 
         info!(
-            "📢 announce_capabilities - {} capabilities",
-            request.capabilities.len()
+            "announce_capabilities - {} capabilities from {:?}",
+            request.capabilities.len(),
+            request.primal
         );
+
+        let mut tools_registered = 0usize;
+
+        if let (Some(primal), Some(socket_path)) = (&request.primal, &request.socket_path) {
+            let tools = request.tools.clone().unwrap_or_default();
+            tools_registered = tools.len();
+
+            let announced = super::types::AnnouncedPrimal {
+                primal: primal.clone(),
+                socket_path: socket_path.clone(),
+                capabilities: request.capabilities.clone(),
+                tools: tools.clone(),
+                announced_at: chrono::Utc::now(),
+            };
+
+            let mut registry = self.announced_tools.write().await;
+            for tool_name in &tools {
+                info!(
+                    "Registered remote tool '{}' -> {} at {}",
+                    tool_name, primal, socket_path
+                );
+                registry.insert(tool_name.clone(), announced.clone());
+            }
+        }
 
         let response = AnnounceCapabilitiesResponse {
             success: true,
             message: format!("Acknowledged {} capabilities", request.capabilities.len()),
             announced_at: chrono::Utc::now().to_rfc3339(),
+            tools_registered,
         };
 
         serde_json::to_value(response).map_err(|e| JsonRpcError {
@@ -380,11 +410,15 @@ impl JsonRpcServer {
     // -----------------------------------------------------------------------
 
     /// Handle `tool.execute` / `execute_tool` method
+    ///
+    /// Checks the announced-primal registry first. If the tool was registered
+    /// by a remote primal via `capability.announce`, the request is forwarded
+    /// to that primal's Unix socket. Otherwise, local execution proceeds.
     pub(crate) async fn handle_execute_tool(
         &self,
         params: Option<Value>,
     ) -> Result<Value, JsonRpcError> {
-        info!("🔧 execute_tool request");
+        info!("execute_tool request");
 
         let tool_params = params.ok_or_else(|| JsonRpcError {
             code: error_codes::INVALID_PARAMS,
@@ -406,7 +440,24 @@ impl JsonRpcServer {
             .cloned()
             .unwrap_or(serde_json::json!({}));
 
-        info!("🔧 Executing tool: {tool_name}");
+        // Check if tool is announced by a remote primal
+        let remote = {
+            let registry = self.announced_tools.read().await;
+            registry.get(tool_name).map(|a| a.socket_path.clone())
+        };
+
+        if let Some(socket_path) = remote {
+            info!(
+                "Forwarding tool '{}' to remote primal at {}",
+                tool_name, socket_path
+            );
+            return self
+                .forward_tool_to_remote(tool_name, &args, &socket_path)
+                .await;
+        }
+
+        // Local execution
+        info!("Executing local tool: {tool_name}");
 
         let executor = crate::tool::ToolExecutor::new();
         let args_str = serde_json::to_string(&args).map_err(|e| JsonRpcError {
@@ -432,6 +483,145 @@ impl JsonRpcServer {
                 data: Some(serde_json::json!({ "tool": tool_name })),
             }),
         }
+    }
+
+    /// Forward a `tool.execute` call to a remote primal via Unix socket.
+    async fn forward_tool_to_remote(
+        &self,
+        tool_name: &str,
+        args: &Value,
+        socket_path: &str,
+    ) -> Result<Value, JsonRpcError> {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixStream;
+
+        let stream = UnixStream::connect(socket_path)
+            .await
+            .map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Failed to connect to remote primal at {socket_path}: {e}"),
+                data: Some(serde_json::json!({ "tool": tool_name, "socket": socket_path })),
+            })?;
+
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "tool.execute",
+            "params": { "tool": tool_name, "args": args },
+            "id": 1
+        });
+
+        let mut request_line = serde_json::to_string(&request).map_err(|e| JsonRpcError {
+            code: error_codes::INTERNAL_ERROR,
+            message: format!("Serialization error: {e}"),
+            data: None,
+        })?;
+        request_line.push('\n');
+
+        let (reader, mut writer) = tokio::io::split(stream);
+        writer
+            .write_all(request_line.as_bytes())
+            .await
+            .map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Failed to write to remote primal: {e}"),
+                data: None,
+            })?;
+        writer.flush().await.map_err(|e| JsonRpcError {
+            code: error_codes::INTERNAL_ERROR,
+            message: format!("Failed to flush to remote primal: {e}"),
+            data: None,
+        })?;
+
+        let mut buf_reader = BufReader::new(reader);
+        let mut response_line = String::new();
+        buf_reader
+            .read_line(&mut response_line)
+            .await
+            .map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Failed to read from remote primal: {e}"),
+                data: None,
+            })?;
+
+        let response: Value =
+            serde_json::from_str(response_line.trim()).map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Invalid response from remote primal: {e}"),
+                data: None,
+            })?;
+
+        if let Some(result) = response.get("result") {
+            Ok(result.clone())
+        } else if let Some(error) = response.get("error") {
+            Err(JsonRpcError {
+                code: error.get("code").and_then(|c| c.as_i64()).unwrap_or(-1) as i32,
+                message: error
+                    .get("message")
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("Remote error")
+                    .to_string(),
+                data: error.get("data").cloned(),
+            })
+        } else {
+            Ok(response)
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Tool listing
+    // -----------------------------------------------------------------------
+
+    /// Handle `tool.list` method
+    ///
+    /// Returns all available tools: local built-ins + tools announced by
+    /// remote primals via `capability.announce`.
+    pub(crate) async fn handle_list_tools(&self) -> Result<Value, JsonRpcError> {
+        debug!("tool.list request");
+
+        let executor = crate::tool::ToolExecutor::new();
+        let mut entries: Vec<super::types::ToolListEntry> = executor
+            .list_tools()
+            .iter()
+            .map(|t| super::types::ToolListEntry {
+                name: t.name.to_string(),
+                description: t.description.clone(),
+                domain: t.domain.to_string(),
+                source: super::types::ToolSource::Builtin,
+            })
+            .collect();
+
+        // Add remote announced tools
+        let registry = self.announced_tools.read().await;
+        let mut seen = std::collections::HashSet::new();
+        for (tool_name, announced) in registry.iter() {
+            if seen.insert(tool_name.clone()) {
+                let domain = tool_name
+                    .split('.')
+                    .next()
+                    .unwrap_or("external")
+                    .to_string();
+                entries.push(super::types::ToolListEntry {
+                    name: tool_name.clone(),
+                    description: format!("Remote tool from {}", announced.primal),
+                    domain,
+                    source: super::types::ToolSource::Remote {
+                        primal: announced.primal.clone(),
+                    },
+                });
+            }
+        }
+
+        let total = entries.len();
+        let response = super::types::ToolListResponse {
+            tools: entries,
+            total,
+        };
+
+        serde_json::to_value(response).map_err(|e| JsonRpcError {
+            code: error_codes::INTERNAL_ERROR,
+            message: format!("Serialization error: {e}"),
+            data: None,
+        })
     }
 }
 

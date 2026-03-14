@@ -359,9 +359,8 @@ impl IpcClient {
             }
         }
 
-        // Fallback: /tmp/biomeos-$USER/
-        let user = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
-        PathBuf::from(format!("/tmp/biomeos-{user}/{sock_name}"))
+        // Fallback: /tmp/biomeos/{service_id}.sock (ecosystem convention)
+        PathBuf::from(universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR).join(sock_name)
     }
 }
 

@@ -222,11 +222,11 @@ type MessageHandler = Box<dyn Fn(NetworkMessage) -> FederationResult<()> + Send 
 #[derive(Debug, Clone)]
 struct QueuedMessage {
     message: NetworkMessage,
-    #[allow(dead_code)] // Reserved for message attribution and debugging
+    #[expect(dead_code, reason = "Reserved for message attribution and debugging")]
     sender: Uuid,
-    #[allow(dead_code)] // Reserved for time-based queue management
+    #[expect(dead_code, reason = "Reserved for time-based queue management")]
     timestamp: DateTime<Utc>,
-    #[allow(dead_code)] // Reserved for retry logic implementation
+    #[expect(dead_code, reason = "Reserved for retry logic implementation")]
     retry_count: u32,
 }
 

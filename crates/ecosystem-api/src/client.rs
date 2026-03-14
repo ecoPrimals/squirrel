@@ -49,7 +49,10 @@ pub struct SongbirdClient {
 }
 
 // Backward compatibility: kept for deserialization of legacy data / existing consumers
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "backward compat: SongbirdClient for legacy consumers"
+)]
 impl SongbirdClient {
     /// Create a new Songbird client
     pub fn new(
@@ -163,7 +166,10 @@ impl SongbirdClient {
 
 #[async_trait]
 // Backward compatibility: kept for deserialization of legacy data / existing consumers
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "backward compat: SongbirdClient ServiceMeshClient impl"
+)]
 impl ServiceMeshClient for SongbirdClient {
     async fn register_service(
         &self,
@@ -466,7 +472,10 @@ pub struct ServiceMeshClientFactory;
 impl ServiceMeshClientFactory {
     /// Create a new service mesh client
     // Backward compatibility: kept for deserialization of legacy data / existing consumers
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "backward compat: ServiceMeshClientFactory for legacy consumers"
+    )]
     pub fn create_client(
         base_url: String,
         auth_token: Option<String>,

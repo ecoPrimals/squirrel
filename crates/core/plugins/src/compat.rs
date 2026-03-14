@@ -23,7 +23,7 @@
 //! See **ADR-005** for complete architectural decision.
 
 // Backward compatibility: conversion between internal and squirrel_interfaces PluginMetadata
-#[allow(deprecated)]
+#[expect(deprecated, reason = "backward compat: PluginMetadata conversion during migration")]
 use crate::plugin::PluginMetadata as InternalMetadata;
 use squirrel_interfaces::plugins::PluginMetadata as ExternalMetadata;
 use uuid::Uuid;
@@ -48,7 +48,7 @@ use uuid::Uuid;
 /// // external.id is a String, dependencies are gone
 /// ```
 // Backward compatibility: conversion layer during PluginMetadata migration
-#[allow(deprecated)]
+#[expect(deprecated, reason = "backward compat: PluginMetadata conversion during migration")]
 pub fn to_external(internal: &InternalMetadata) -> ExternalMetadata {
     ExternalMetadata {
         id: internal.id.to_string(),
@@ -82,7 +82,7 @@ pub fn to_external(internal: &InternalMetadata) -> ExternalMetadata {
 /// // internal.dependencies is empty Vec
 /// ```
 // Backward compatibility: conversion layer during PluginMetadata migration
-#[allow(deprecated)]
+#[expect(deprecated, reason = "backward compat: PluginMetadata conversion during migration")]
 pub fn to_internal(external: &ExternalMetadata) -> InternalMetadata {
     let id = Uuid::parse_str(&external.id).unwrap_or_else(|_| {
         // If external ID is not a valid UUID, generate a new one
@@ -105,7 +105,7 @@ pub fn to_internal(external: &ExternalMetadata) -> InternalMetadata {
 ///
 /// Convenience wrapper around `to_external` for collections.
 // Backward compatibility: conversion layer during PluginMetadata migration
-#[allow(deprecated)]
+#[expect(deprecated, reason = "backward compat: PluginMetadata conversion during migration")]
 pub fn to_external_vec(internal: &[InternalMetadata]) -> Vec<ExternalMetadata> {
     internal.iter().map(to_external).collect()
 }
@@ -114,7 +114,7 @@ pub fn to_external_vec(internal: &[InternalMetadata]) -> Vec<ExternalMetadata> {
 ///
 /// Convenience wrapper around `to_internal` for collections.
 // Backward compatibility: conversion layer during PluginMetadata migration
-#[allow(deprecated)]
+#[expect(deprecated, reason = "backward compat: PluginMetadata conversion during migration")]
 pub fn to_internal_vec(external: &[ExternalMetadata]) -> Vec<InternalMetadata> {
     external.iter().map(to_internal).collect()
 }

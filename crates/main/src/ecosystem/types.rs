@@ -9,7 +9,10 @@
 //! configuration structures.
 
 // Backward compatibility: kept for deserialization of legacy data
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "backward compat: EcosystemPrimalType for legacy deserialization"
+)]
 use super::EcosystemPrimalType;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

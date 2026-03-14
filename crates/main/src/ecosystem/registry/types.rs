@@ -6,7 +6,6 @@
 //! Core types for the ecosystem registry manager
 
 // Backward compatibility: kept for deserialization of legacy data (EcosystemPrimalType in DiscoveredService, PrimalApiRequest)
-#[allow(deprecated)]
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

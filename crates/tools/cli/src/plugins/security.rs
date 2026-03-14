@@ -12,7 +12,6 @@ use thiserror::Error;
 use tracing::{info, warn};
 
 // Backward compatibility: PluginMetadata during migration to squirrel_interfaces
-#[allow(deprecated)]
 use crate::plugins::plugin::PluginMetadata;
 use crate::plugins::{Plugin, PluginError}; // Use local PluginMetadata for compatibility
 

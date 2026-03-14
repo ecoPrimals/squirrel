@@ -5,7 +5,6 @@
 
 //! Service discovery operations for the ecosystem registry
 
-#[allow(deprecated)]
 use super::types::{intern_registry_string, DiscoveredService, ServiceHealthStatus};
 use crate::EcosystemPrimalType;
 use std::collections::HashMap;

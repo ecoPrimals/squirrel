@@ -93,7 +93,10 @@ pub trait PluginErrorClassification {
 }
 
 // Backward compatibility: PluginError deprecated in favor of universal_error::sdk::SDKError
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "backward compat: PluginError during migration to universal_error::sdk::SDKError"
+)]
 impl PluginErrorClassification for PluginError {
     fn severity(&self) -> ErrorSeverity {
         match self {
@@ -159,7 +162,6 @@ impl PluginErrorClassification for PluginError {
             | PluginError::JsError { .. }
             | PluginError::JsonError { .. }
             | PluginError::SerializationError { .. } => ErrorCategory::Development,
-            #[allow(unreachable_patterns)]
             _ => ErrorCategory::Unknown,
         }
     }

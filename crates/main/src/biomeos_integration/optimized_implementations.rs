@@ -8,7 +8,6 @@
 //! that use zero-copy patterns to reduce memory allocations and improve performance.
 
 // Backward compatibility: kept for deserialization of legacy data
-#[allow(deprecated)]
 use crate::biomeos_integration::IntelligenceResponse; // Add missing import
 use crate::ecosystem::{
     EcosystemPrimalType,

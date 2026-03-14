@@ -47,10 +47,10 @@ pub struct LegacyWebPluginAdapter<T: Plugin + Send + Sync + ?Sized> {
     /// The wrapped legacy plugin
     plugin: Arc<T>,
     /// Cached endpoints
-    #[allow(dead_code)] // Reserved for endpoint caching system
+    #[expect(dead_code, reason = "Reserved for endpoint caching system")]
     endpoints: Vec<WebEndpoint>,
     /// Cached components
-    #[allow(dead_code)] // Reserved for component caching system
+    #[expect(dead_code, reason = "Reserved for component caching system")]
     components: Vec<WebComponent>,
 }
 
@@ -137,7 +137,10 @@ impl<T> Plugin for LegacyWebPluginAdapter<T>
 where
     T: LegacyWebPluginTrait + Plugin + Send + Sync + 'static,
 {
-    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
+    #[expect(
+        deprecated,
+        reason = "backward compat: PluginMetadata during migration"
+    )]
     fn metadata(&self) -> &crate::plugin::PluginMetadata {
         self.plugin.metadata()
     }
@@ -289,7 +292,10 @@ impl<T> Plugin for NewWebPluginAdapter<T>
 where
     T: Plugin + Send + Sync + 'static,
 {
-    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
+    #[expect(
+        deprecated,
+        reason = "backward compat: PluginMetadata during migration"
+    )]
     fn metadata(&self) -> &crate::plugin::PluginMetadata {
         self.plugin.metadata()
     }

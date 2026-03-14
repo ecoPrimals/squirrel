@@ -161,9 +161,15 @@ pub enum RiskLevel {
 struct AuthAttempt {
     timestamp: SystemTime,
     success: bool,
-    #[allow(dead_code)] // Reserved for IP-based rate limiting and geolocation
+    #[expect(
+        dead_code,
+        reason = "Reserved for IP-based rate limiting and geolocation"
+    )]
     ip_address: String,
-    #[allow(dead_code)] // Reserved for user agent analysis and bot detection
+    #[expect(
+        dead_code,
+        reason = "Reserved for user agent analysis and bot detection"
+    )]
     user_agent: Option<String>,
 }
 
@@ -171,7 +177,10 @@ struct AuthAttempt {
 #[derive(Debug, Clone)]
 struct AccountLockout {
     locked_until: SystemTime,
-    #[allow(dead_code)] // Reserved for lockout metrics and escalation logic
+    #[expect(
+        dead_code,
+        reason = "Reserved for lockout metrics and escalation logic"
+    )]
     failed_attempts: u32,
     lockout_reason: String,
 }

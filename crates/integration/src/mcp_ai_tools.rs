@@ -393,7 +393,6 @@ impl McpAiToolsAdapter {
     /// Send a streaming chat request
     /// **FUTURE**: Implement streaming with `capability_ai`
     /// Tracking: Planned for v0.2.0 - streaming support
-    #[allow(dead_code)] // Public API stub; callers use this interface, implementation planned for v0.2.0
     pub async fn send_streaming_chat_request(
         &self,
         _provider_id: &str,

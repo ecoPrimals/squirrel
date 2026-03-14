@@ -48,6 +48,9 @@ universal-patterns = { path = "../../universal-patterns" }
 # Universal error system
 universal-error = { path = "../../universal-error" }
 
+# Universal constants (socket paths, SLOs, ports)
+universal-constants = { path = "../../universal-constants" }
+
 # Web framework for API (OPTIONAL - for HTTP API routes only)
 axum = { version = "0.7", features = ["json"], optional = true }
 tower = { version = "0.4", optional = true }

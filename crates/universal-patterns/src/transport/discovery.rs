@@ -121,19 +121,22 @@ pub fn get_tcp_discovery_file_candidates(service_name: &str) -> Vec<PathBuf> {
 pub fn get_socket_paths(service_name: &str) -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
-    // XDG_RUNTIME_DIR
+    // XDG_RUNTIME_DIR/biomeos/{service}.sock (ecosystem convention)
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
         paths.push(PathBuf::from(format!(
-            "{}/{}.sock",
-            runtime_dir, service_name
+            "{}/{}/{}.sock",
+            runtime_dir,
+            universal_constants::network::BIOMEOS_SOCKET_SUBDIR,
+            service_name
         )));
     }
 
-    // /tmp
-    paths.push(PathBuf::from(format!("/tmp/{}.sock", service_name)));
-
-    // /var/run
-    paths.push(PathBuf::from(format!("/var/run/{}.sock", service_name)));
+    // /tmp/biomeos/{service}.sock (ecosystem fallback)
+    paths.push(PathBuf::from(format!(
+        "{}/{}.sock",
+        universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR,
+        service_name
+    )));
 
     paths
 }
@@ -256,12 +259,16 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn test_get_socket_paths_includes_var_run() {
+    fn test_get_socket_paths_uses_biomeos_convention() {
+        std::env::remove_var("XDG_RUNTIME_DIR");
         let paths = get_socket_paths("myservice");
-        let has_var_run = paths
+        let has_biomeos = paths
             .iter()
-            .any(|p| p.to_string_lossy().starts_with("/var/run/"));
-        assert!(has_var_run, "Should include /var/run/ path");
+            .any(|p| p.to_string_lossy().contains("biomeos"));
+        assert!(
+            has_biomeos,
+            "Should include biomeos path per ecosystem convention"
+        );
     }
 
     // --- discover_ipc_endpoint tests ---

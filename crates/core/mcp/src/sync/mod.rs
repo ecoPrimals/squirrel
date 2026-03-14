@@ -99,7 +99,9 @@ impl Default for SyncConfig {
     fn default() -> Self {
         Self {
             // Default Unix socket path for sync server
-            central_server_url: "/tmp/mcp-sync.sock".to_string(),
+            central_server_url: universal_constants::network::get_socket_path("mcp-sync")
+                .to_string_lossy()
+                .into_owned(),
             sync_interval: 60,
             max_retries: 3,
             timeout_ms: 5000,

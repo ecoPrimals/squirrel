@@ -266,7 +266,7 @@ impl CommandRegistry {
     /// # Errors
     /// 
     /// Returns a `CommandError` if the registry lock is poisoned
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Validation rule API for extensible command registry")]
     pub fn add_validation_rule(&mut self, rule: Box<dyn ValidationRule>) -> Result<(), CommandError> {
         let _ = self.validator.add_rule(rule);
         Ok(())
@@ -277,7 +277,7 @@ impl CommandRegistry {
     /// # Errors
     /// 
     /// Returns a `CommandError` if the registry lock is poisoned
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Lifecycle handler API for extensible command registry")]
     pub fn add_lifecycle_handler(&mut self, handler: Box<dyn LifecycleHandler>) -> Result<(), CommandError> {
         let _ = self.lifecycle.add_hook(handler);
         Ok(())
@@ -312,14 +312,14 @@ impl std::fmt::Debug for CommandRegistryFactory {
 impl CommandRegistryFactory {
     /// Creates a new command registry factory
     #[must_use]
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Factory constructor for command registry creation")]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Adds a validation rule to the factory
     #[must_use]
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Builder method for validation rules")]
     pub fn with_validation_rule(mut self, rule: Box<dyn validation::ValidationRule>) -> Self {
         self.validation_rules.push(rule);
         self
@@ -327,7 +327,7 @@ impl CommandRegistryFactory {
 
     /// Adds a lifecycle handler to the factory
     #[must_use]
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Builder method for lifecycle handlers")]
     pub fn with_lifecycle_handler(mut self, handler: Box<dyn lifecycle::LifecycleHook>) -> Self {
         self.lifecycle_handlers.push(handler);
         self
@@ -343,7 +343,7 @@ impl CommandRegistryFactory {
     /// # Errors
     ///
     /// Returns an error if the registry creation fails
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Registry creation API for command service wiring")]
     pub fn create(&self) -> Result<Arc<CommandRegistry>, CommandError> {
         let mut registry = CommandRegistry::new();
         
@@ -370,7 +370,7 @@ impl CommandRegistryFactory {
     /// # Errors
     ///
     /// Returns an error if a built-in command could not be registered.
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Registry creation with builtins for command service")]
     pub fn create_with_builtins(&self) -> Result<Arc<CommandRegistry>, CommandError> {
         let mut registry = CommandRegistry::new();
         
@@ -401,7 +401,7 @@ impl CommandRegistryFactory {
 /// # Errors
 ///
 /// Returns an error if the registry creation fails
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Convenience constructor for command registry")]
 pub fn create_command_registry() -> Result<Arc<CommandRegistry>, CommandError> {
     CommandRegistryFactory::new().create()
 }
@@ -416,7 +416,7 @@ pub fn create_command_registry() -> Result<Arc<CommandRegistry>, CommandError> {
 /// # Errors
 ///
 /// Returns an error if a built-in command could not be registered.
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Convenience constructor for registry with builtins")]
 pub fn create_command_registry_with_builtins() -> Result<Arc<CommandRegistry>, CommandError> {
     CommandRegistryFactory::new().create_with_builtins()
 }
@@ -429,7 +429,7 @@ pub fn create_command_registry_with_builtins() -> Result<Arc<CommandRegistry>, C
 /// # Errors
 /// 
 /// Returns an error if any of the built-in commands fail to register
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Builtin registration helper for command service")]
 pub fn register_builtin_commands(registry: &mut CommandRegistry) -> Result<(), Box<dyn Error>> {
     registry.register(Box::new(VersionCommand))
         .map_err(|e| Box::new(ValidationError {
@@ -441,7 +441,7 @@ pub fn register_builtin_commands(registry: &mut CommandRegistry) -> Result<(), B
 
 // Test implementations for validation and lifecycle
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Test implementation for unit tests")]
 /// Test implementation of `ValidationRule` for unit tests
 struct TestValidationRule;
 
@@ -464,7 +464,7 @@ impl ValidationRule for TestValidationRule {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Test implementation for unit tests")]
 /// Test implementation of `LifecycleHook` for unit tests
 struct TestLifecycleHandler;
 

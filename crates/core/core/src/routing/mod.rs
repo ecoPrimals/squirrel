@@ -99,7 +99,7 @@ struct RoutingState {
     /// Last scaling event
     last_scale_event: RwLock<Option<DateTime<Utc>>>,
     /// Federation nodes
-    #[allow(dead_code)] // Reserved for federation routing
+    #[expect(dead_code, reason = "Reserved for federation routing")]
     federation_nodes: RwLock<Vec<String>>,
 }
 

@@ -98,10 +98,16 @@ pub use capability_jwt::{
 
 // DEPRECATED: BearDog-specific exports (use capability_ instead!)
 // Backward compatibility: kept for deserialization of legacy data / existing consumers
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "backward compat: BearDogClient until capability_ migration"
+)]
 #[cfg(feature = "delegated-jwt")]
 pub use beardog_client::{BearDogClient, BearDogClientConfig};
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "backward compat: BearDogJwt until capability_ migration"
+)]
 #[cfg(feature = "delegated-jwt")]
 pub use beardog_jwt::{BearDogJwtConfig, BearDogJwtService, JwtClaims as BearDogJwtClaims};
 

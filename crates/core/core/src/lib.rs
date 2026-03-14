@@ -611,9 +611,9 @@ pub struct FederationConfig {
 // Missing types referenced in federation.rs
 #[derive(Debug)]
 pub struct FederationLoadBalancer {
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Load metrics for federation load balancing")]
     load_metrics: std::sync::Arc<LoadMetrics>,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Balancing strategy for federation routing")]
     balancing_strategy: LoadBalancingStrategy,
 }
 

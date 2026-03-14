@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### March 14, 2026 - Deep Debt Evolution & Public Release Preparation
 
 #### Build & Test Metrics
-- **TESTS**: 4,240 passing / 0 failed (single-threaded)
+- **TESTS**: 4,127 passing / 0 failed (single-threaded)
 - **BUILD**: GREEN (0 errors)
 - **CLIPPY**: CLEAN (-D warnings, 0 warnings)
 - **FORMATTING**: CLEAN
@@ -81,6 +81,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **UPDATED**: CHANGELOG.md — comprehensive evolution log
 - **UPDATED**: PRE_PUSH_CHECKLIST.md (clippy pedantic, forbid, llvm-cov, file size)
 - **UPDATED**: CAPABILITY_DISCOVERY_MIGRATION.md (marked COMPLETE)
+
+### Spring Pattern Absorption
+
+- `#[expect(..., reason = "...")]` migration: 60 directives migrated, 15 removed (self-cleaning lint suppressions)
+- `RUSTDOCFLAGS="-D warnings"` added to CI and pre-push checklist
+- SLO/tolerance registry created (`universal-constants/src/slo.rs`) with 18+ named AI latency/cost/quality constants
+- `Provenance` struct added to `universal-patterns` for benchmark baseline tracking
+- Socket paths aligned to ecosystem XDG convention (`$XDG_RUNTIME_DIR/biomeos/{primal}.sock`)
+- MCP handlers evolved: `capability.announce` now stores primal+socket for routing, `tool.execute` forwards to remote primals, `tool.list` added
+- Bare `unwrap()` audit: 9 production calls replaced with `expect("reason")`
+- `serde` `rc` feature enabled for `Arc<str>` serialization
+- Test count: 4,127 passing / 0 failed
 
 ---
 

@@ -32,7 +32,10 @@ async fn main() -> Result<()> {
 
     // Load API key from environment variables
     // Backward compatibility: using legacy error type until full migration to universal_error
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "backward compat: legacy Error type until migration to universal_error"
+    )]
     let api_key = match provider {
         "openai" => std::env::var("OPENAI_API_KEY")
             .or_else(|_| std::env::var("OPENAI_KEY"))

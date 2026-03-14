@@ -207,7 +207,7 @@ pub enum CloudProvider {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MobileVariant {
     /// Apple iOS
-    #[allow(non_camel_case_types)]
+    #[expect(non_camel_case_types, reason = "iOS is standard platform identifier")]
     iOS,
     /// Google Android
     Android,

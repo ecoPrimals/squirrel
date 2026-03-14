@@ -33,7 +33,10 @@ pub enum HealthStatus {
     /// System has warnings but is functional
     Warning,
     /// System has errors (used in match arms, JSON deserialization, and test fixtures)
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "Used in match arms, JSON deserialization, and test fixtures"
+    )]
     Error,
 }
 
@@ -284,14 +287,9 @@ async fn check_discovered_services() -> HealthCheck {
 async fn check_unix_socket() -> HealthCheck {
     let start = Instant::now();
 
-    let uid = std::env::var("UID")
-        .ok()
-        .and_then(|u| u.parse::<u32>().ok())
-        .unwrap_or(1000);
-
-    let socket_path = std::env::var("SQUIRREL_SOCKET")
-        .ok()
-        .unwrap_or_else(|| format!("/run/user/{}/squirrel.sock", uid));
+    let socket_path = universal_constants::network::get_socket_path("squirrel")
+        .to_string_lossy()
+        .into_owned();
 
     HealthCheck {
         name: "Unix Socket",
@@ -309,8 +307,9 @@ async fn check_unix_socket() -> HealthCheck {
 async fn check_rpc_server() -> HealthCheck {
     let start = Instant::now();
 
-    let socket_path =
-        std::env::var("SQUIRREL_SOCKET").unwrap_or_else(|_| "/tmp/squirrel.sock".to_string());
+    let socket_path = universal_constants::network::get_socket_path("squirrel")
+        .to_string_lossy()
+        .into_owned();
 
     HealthCheck {
         name: "RPC Server",

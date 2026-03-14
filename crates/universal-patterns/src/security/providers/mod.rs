@@ -66,7 +66,6 @@ impl Default for SecurityServiceConfig {
 }
 
 /// Security level enumeration
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum SecurityLevel {
     Low,
@@ -77,7 +76,6 @@ pub enum SecurityLevel {
 }
 
 /// Trust level for security services
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TrustLevel {
     Low,
@@ -111,7 +109,6 @@ pub enum SecurityOperation {
 
 /// Universal security capability definition
 /// Security services register these capabilities for discovery
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum SecurityCapability {
     /// Authentication capabilities
@@ -171,7 +168,7 @@ pub enum SecurityCapability {
 ///
 /// This trait defines the interface for security services that can be
 /// dynamically discovered and used based on their capabilities.
-#[allow(dead_code)] // API designed for future use
+#[expect(dead_code, reason = "API designed for future use")]
 pub trait UniversalSecurityService: Send + Sync {
     /// Get the capabilities this security service provides
     fn get_capabilities(&self) -> Vec<SecurityCapability>;
@@ -193,7 +190,6 @@ pub trait UniversalSecurityService: Send + Sync {
 }
 
 /// Universal security service information
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityServiceInfo {
     pub service_id: String,
@@ -208,7 +204,6 @@ pub struct SecurityServiceInfo {
 }
 
 /// Security service endpoint information  
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityEndpoint {
     pub name: String,
@@ -258,7 +253,7 @@ impl SecurityResponse {
     }
 
     /// Create a failed security response
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Failed response constructor for error paths")]
     pub fn failed(request_id: String, reason: String) -> Result<Self, SecurityError> {
         Ok(Self {
             request_id,

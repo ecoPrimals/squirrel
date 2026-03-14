@@ -34,7 +34,7 @@ pub struct ExampleWebPlugin {
 }
 
 /// Example data
-#[allow(dead_code)] // Reserved for example plugin data structures
+#[expect(dead_code, reason = "Reserved for example plugin data structures")]
 #[derive(Clone, Debug)]
 struct ExampleData {
     /// Example ID
@@ -214,7 +214,7 @@ impl ExampleWebPlugin {
     }
 
     /// Handle GET /api/examples/{id}/details request
-    #[allow(dead_code)] // Reserved for example plugin endpoint handlers
+    #[expect(dead_code, reason = "Reserved for example plugin endpoint handlers")]
     async fn handle_get_example_details(&self, id: &str) -> Result<WebResponse> {
         let data = self.data.read().await;
 
@@ -241,7 +241,7 @@ impl ExampleWebPlugin {
     }
 
     /// Handle POST /api/examples/{id}/activate request
-    #[allow(dead_code)] // Reserved for example plugin endpoint handlers
+    #[expect(dead_code, reason = "Reserved for example plugin endpoint handlers")]
     async fn handle_activate_example(&self, id: &str) -> Result<WebResponse> {
         let mut data = self.data.write().await;
 
@@ -326,7 +326,10 @@ impl ExampleWebPlugin {
 
 #[async_trait]
 impl Plugin for ExampleWebPlugin {
-    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
+    #[expect(
+        deprecated,
+        reason = "backward compat: PluginMetadata during migration"
+    )]
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }

@@ -2,13 +2,13 @@
 
 **Universal AI Coordination Primal** for the ecoPrimals ecosystem.
 
-**License**: AGPL-3.0-only | **Build**: GREEN | **Tests**: 4,240 passing | **Coverage**: 66% line | **Rust**: 1.80+
+**License**: AGPL-3.0-only | **Build**: GREEN | **Tests**: 4,127 passing | **Coverage**: 66% line | **Rust**: 1.81+
 
 ---
 
 ## Overview
 
-Squirrel is the AI Coordination Primal of the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem — a sovereign AI Model Context Protocol (MCP) service providing vendor-agnostic model routing, multi-MCP coordination, and context management through a TRUE PRIMAL architecture: zero compile-time coupling, runtime capability-based discovery, and isomorphic IPC.
+Squirrel is the AI Coordination Primal of the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem — a sovereign AI Model Context Protocol (MCP) service providing vendor-agnostic model routing, multi-MCP coordination, and context management through a TRUE PRIMAL architecture: zero compile-time coupling, runtime capability-based discovery, and isomorphic IPC. The codebase follows **Spring absorption** — evolving patterns from the ecosystem (e.g., SLO/tolerance registry, provenance tracking, XDG socket conventions) into shared primitives.
 
 Squirrel originated from Geoffrey Huntley's [stdlib thesis](https://ghuntley.com/stdlib/) on treating AI coding assistants as autonomous agents. That insight evolved into a formal methodology — **constrained evolution** — where the AI proposes code variants, Rust's type system and borrow checker act as natural selection, and validation suites serve as the fitness function. See [ORIGIN.md](ORIGIN.md) for the full story.
 
@@ -33,7 +33,7 @@ Squirrel originated from Geoffrey Huntley's [stdlib thesis](https://ghuntley.com
 
 ### Prerequisites
 
-- Rust 1.80+ (stable) -- required for `std::sync::LazyLock`
+- Rust 1.81+ (stable) -- required for `std::sync::LazyLock` and `#[expect]`
 - Cargo
 
 ### Build
@@ -146,7 +146,7 @@ All AI provider interactions are capability-based, not vendor-specific:
 ## Testing
 
 ```bash
-# Run full workspace tests (4,100+ tests, single-threaded)
+# Run full workspace tests (4,127 tests, single-threaded)
 cargo test --workspace
 
 # Run main crate tests only
@@ -158,7 +158,7 @@ cargo llvm-cov --workspace --html
 
 ### Test Coverage
 
-- **4,240 tests** passing across the workspace (incl. property-based via proptest)
+- **4,127 tests** passing across the workspace (incl. property-based via proptest)
 - Unit, integration, E2E, chaos, fault injection, and property-based testing
 - **66% line coverage** (target: 90%, tracked via `cargo llvm-cov`)
 

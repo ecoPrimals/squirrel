@@ -444,7 +444,10 @@ impl EcosystemConfig {
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or_else(|| {
                 // 10_000 ms fits in u64; allow for const conversion
-                #[allow(clippy::cast_possible_truncation)]
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    reason = "DEFAULT_OPERATION_TIMEOUT.as_millis() fits u64"
+                )]
                 {
                     timeouts::DEFAULT_OPERATION_TIMEOUT.as_millis() as u64
                 }
