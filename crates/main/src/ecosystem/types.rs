@@ -8,6 +8,7 @@
 //! including service registration, primal types, capabilities, and
 //! configuration structures.
 
+// Backward compatibility: kept for deserialization of legacy data
 #[allow(deprecated)]
 use super::EcosystemPrimalType;
 use chrono::{DateTime, Utc};

@@ -524,4 +524,41 @@ mod tests {
         assert!(validation::is_resolvable_host("127.0.0.1"));
         assert!(validation::is_resolvable_host("localhost"));
     }
+
+    #[test]
+    fn test_invalid_port_zero() {
+        assert!(!validation::is_valid_port(0));
+    }
+
+    #[test]
+    fn test_endpoint_validation() {
+        assert!(validation::is_valid_endpoint("http://localhost:8080"));
+        assert!(validation::is_valid_endpoint("https://api.example.com"));
+        assert!(validation::is_valid_endpoint("ws://localhost:8080"));
+        assert!(validation::is_valid_endpoint("wss://secure.example.com"));
+        assert!(!validation::is_valid_endpoint("ftp://example.com"));
+        assert!(!validation::is_valid_endpoint("invalid"));
+    }
+
+    #[test]
+    fn test_ports_websocket_health_cli_postgres() {
+        assert_eq!(ports::websocket(), 8448);
+        assert_eq!(ports::health(), 9091);
+        assert_eq!(ports::cli_mcp(), 9000);
+        assert_eq!(ports::postgres(), 5432);
+    }
+
+    #[test]
+    fn test_hosts_localhost_all_interfaces() {
+        assert_eq!(hosts::localhost(), "127.0.0.1");
+        assert_eq!(hosts::all_interfaces(), "0.0.0.0");
+    }
+
+    #[test]
+    fn test_endpoints_biomeos_ollama_metrics_health() {
+        assert!(endpoints::biomeos_ui().starts_with("http://"));
+        assert!(endpoints::ollama().contains("11434"));
+        assert!(endpoints::metrics().contains("/metrics"));
+        assert!(endpoints::health().contains("/health"));
+    }
 }

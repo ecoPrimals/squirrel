@@ -210,10 +210,11 @@ mod tests {
         assert!(config.discovery_timeout > 0);
     }
 
+    /// Tests legacy protocol handling: Grpc enum variant retained for compatibility.
     #[tokio::test]
     async fn test_network_protocol_variants() {
         let http = NetworkProtocol::Http;
-        let grpc = NetworkProtocol::Grpc;
+        let grpc = NetworkProtocol::Grpc; // Legacy: tests Grpc variant (protocol stack is JSON-RPC + tarpc)
         let websocket = NetworkProtocol::WebSocket;
         let custom = NetworkProtocol::Custom("my-protocol".to_string());
 

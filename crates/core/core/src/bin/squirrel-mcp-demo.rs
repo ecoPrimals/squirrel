@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Register AI agents with enhanced capabilities
     router.register_ai_agents().await?;
 
-    // Setup primal endpoints (NestGate=storage, ToadStool=compute, BearDog=security)
+    // Setup capability endpoints (discovery pattern - resolved at runtime in production)
     router.setup_primal_endpoints().await?;
 
     // Demo 1: Manual Agent Selection
@@ -36,8 +36,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n👥 Demo 2: Agent Groups & Priority Routing");
     demo_agent_groups(&mut router).await?;
 
-    // Demo 3: Primal Routing (Fixed Mappings)
-    println!("\n🏰 Demo 3: Cross-Primal Routing");
+    // Demo 3: Capability-based routing
+    println!("\n🏰 Demo 3: Capability-Based Routing");
     demo_primal_routing(&mut router).await?;
 
     // Demo 4: Configuration-based Rules
@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔗 biomeOS integration features:");
     println!("   • Manual agent selection via metadata");
     println!("   • Agent groups with failover");
-    println!("   • Cross-primal routing (NestGate=storage, ToadStool=compute)");
+    println!("   • Capability-based routing (storage, compute, security)");
     println!("   • Rule-based routing configuration");
     println!("   • Priority overrides and task rejection");
 
@@ -165,29 +165,29 @@ impl EnhancedDemoRouter {
             enabled: true,
         });
 
-        // Security tasks -> BearDog primal
+        // Security tasks -> security capability (discovered at runtime)
         self.manual_rules.push(ManualRoutingRule {
-            rule_id: "security-to-beardog".to_string(),
+            rule_id: "security-to-capability".to_string(),
             condition: "capability=security".to_string(),
-            action: "use_primal=beardog".to_string(),
+            action: "use_capability=security".to_string(),
             priority: 90,
             enabled: true,
         });
 
-        // Storage tasks -> NestGate primal
+        // Storage tasks -> storage capability (discovered at runtime)
         self.manual_rules.push(ManualRoutingRule {
-            rule_id: "storage-to-nestgate".to_string(),
+            rule_id: "storage-to-capability".to_string(),
             condition: "capability=storage".to_string(),
-            action: "use_primal=nestgate".to_string(),
+            action: "use_capability=storage".to_string(),
             priority: 90,
             enabled: true,
         });
 
-        // Compute tasks -> ToadStool primal
+        // Compute tasks -> compute capability (discovered at runtime)
         self.manual_rules.push(ManualRoutingRule {
-            rule_id: "compute-to-toadstool".to_string(),
+            rule_id: "compute-to-capability".to_string(),
             condition: "capability=compute".to_string(),
-            action: "use_primal=toadstool".to_string(),
+            action: "use_capability=compute".to_string(),
             priority: 90,
             enabled: true,
         });
@@ -254,29 +254,26 @@ impl EnhancedDemoRouter {
     }
 
     async fn setup_primal_endpoints(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Fixed mappings as requested
+        // DEMO: Placeholder discovery pattern. In production, endpoints are discovered
+        // at runtime via capability-based discovery (Songbird/socket-registry).
+        // These capability keys demonstrate the PATTERN - actual URLs come from discovery.
+        self.primal_endpoints
+            .insert("storage".to_string(), "discovered://storage".to_string()); // Storage capability - resolved via discovery
+        self.primal_endpoints
+            .insert("compute".to_string(), "discovered://compute".to_string()); // Compute capability
+        self.primal_endpoints
+            .insert("security".to_string(), "discovered://security".to_string()); // Security capability
         self.primal_endpoints.insert(
-            "nestgate".to_string(),
-            "http://nestgate:8080/api/v1".to_string(),
-        ); // Storage persistence
-        self.primal_endpoints.insert(
-            "toadstool".to_string(),
-            "http://toadstool:8080/api/v1".to_string(),
-        ); // Compute
-        self.primal_endpoints.insert(
-            "beardog".to_string(),
-            "http://beardog:8080/api/v1".to_string(),
-        ); // Security
-        self.primal_endpoints.insert(
-            "biomeos".to_string(),
-            "http://biomeos:8080/api/v1".to_string(),
-        ); // Integration
+            "service-mesh".to_string(),
+            "discovered://service-mesh".to_string(),
+        ); // Service mesh capability
 
-        println!("✅ Primal endpoints configured:");
-        println!("   • NestGate (storage): http://nestgate:8080/api/v1");
-        println!("   • ToadStool (compute): http://toadstool:8080/api/v1");
-        println!("   • BearDog (security): http://beardog:8080/api/v1");
-        println!("   • BiomeOS (integration): http://biomeos:8080/api/v1");
+        println!("✅ Primal endpoints configured (capability-based discovery pattern):");
+        println!("   • storage: discovered://storage");
+        println!("   • compute: discovered://compute");
+        println!("   • security: discovered://security");
+        println!("   • service-mesh: discovered://service-mesh");
+        println!("   (In production, these are resolved at runtime via capability discovery)");
         Ok(())
     }
 
@@ -320,16 +317,21 @@ impl EnhancedDemoRouter {
                 let group = self
                     .agent_groups
                     .get(preferred_group)
-                    .expect("contains_key checked above");
+                    .unwrap_or_else(|| unreachable!("contains_key checked above"));
                 if !group.agents.is_empty() {
                     return Ok(format!("group:{preferred_group}"));
                 }
             }
         }
 
-        if let Some(target_primal) = task.metadata.get("target_primal") {
-            if self.primal_endpoints.contains_key(target_primal) {
-                return Ok(format!("primal:{target_primal}"));
+        // Capability-based routing: target_primal or target_capability
+        if let Some(target) = task
+            .metadata
+            .get("target_primal")
+            .or_else(|| task.metadata.get("target_capability"))
+        {
+            if self.primal_endpoints.contains_key(target) {
+                return Ok(format!("primal:{target}"));
             }
         }
 
@@ -381,7 +383,7 @@ impl EnhancedDemoRouter {
         if condition.starts_with("task_type=") {
             let task_type = condition
                 .strip_prefix("task_type=")
-                .expect("starts_with checked above");
+                .unwrap_or_else(|| unreachable!("starts_with checked above"));
             return task
                 .metadata
                 .get("task_type")
@@ -391,7 +393,7 @@ impl EnhancedDemoRouter {
         if condition.starts_with("capability=") {
             let capability = condition
                 .strip_prefix("capability=")
-                .expect("starts_with checked above");
+                .unwrap_or_else(|| unreachable!("starts_with checked above"));
             return task.required_capabilities.contains(&capability.to_string());
         }
 
@@ -402,21 +404,27 @@ impl EnhancedDemoRouter {
         if action.starts_with("use_group=") {
             let group_name = action
                 .strip_prefix("use_group=")
-                .expect("starts_with checked above");
+                .unwrap_or_else(|| unreachable!("starts_with checked above"));
             return format!("group:{group_name}");
         }
 
-        if action.starts_with("use_primal=") {
-            let primal_name = action
-                .strip_prefix("use_primal=")
-                .expect("starts_with checked above");
-            return format!("primal:{primal_name}");
+        // use_primal= or use_capability= - both resolve to capability key for discovery
+        if action.starts_with("use_primal=") || action.starts_with("use_capability=") {
+            let prefix = if action.starts_with("use_primal=") {
+                "use_primal="
+            } else {
+                "use_capability="
+            };
+            let capability_key = action
+                .strip_prefix(prefix)
+                .unwrap_or_else(|| unreachable!("starts_with checked above"));
+            return format!("primal:{capability_key}");
         }
 
         if action.starts_with("use_agent=") {
             let agent_name = action
                 .strip_prefix("use_agent=")
-                .expect("starts_with checked above");
+                .unwrap_or_else(|| unreachable!("starts_with checked above"));
             return format!("agent:{agent_name}");
         }
 
@@ -457,6 +465,7 @@ impl EnhancedDemoRouter {
         if task.metadata.contains_key("preferred_agent")
             || task.metadata.contains_key("preferred_group")
             || task.metadata.contains_key("target_primal")
+            || task.metadata.contains_key("target_capability")
         {
             return "manual_override".to_string();
         }
@@ -480,7 +489,7 @@ impl EnhancedDemoRouter {
         let usage = if destination.starts_with("agent:") {
             let agent_name = destination
                 .strip_prefix("agent:")
-                .expect("starts_with checked above");
+                .unwrap_or_else(|| unreachable!("starts_with checked above"));
             self.request_count.get(agent_name).unwrap_or(&0)
         } else {
             &0
@@ -546,13 +555,13 @@ async fn demo_manual_selection(
         task.prompt, response.destination
     );
 
-    // Test 3: Manual primal selection
+    // Test 3: Manual capability selection (discovered at runtime)
     task.metadata.clear();
     task.metadata
-        .insert("target_primal".to_string(), "toadstool".to_string());
+        .insert("target_capability".to_string(), "compute".to_string());
     let response = router.route_task(&task).await?;
     println!(
-        "✅ Manual primal selection: {} -> {}",
+        "✅ Manual capability selection: {} -> {}",
         task.prompt, response.destination
     );
 
@@ -599,7 +608,7 @@ async fn demo_agent_groups(
 async fn demo_primal_routing(
     router: &mut EnhancedDemoRouter,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Testing cross-primal routing with fixed mappings...");
+    println!("Testing capability-based routing (discovery pattern)...");
 
     let tasks = vec![
         DemoTask {

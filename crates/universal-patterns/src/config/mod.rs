@@ -498,7 +498,6 @@ mod tests {
         // Port validation
         assert!(validate_port(0).is_ok()); // Random port
                                            // Note: Can't reliably test specific ports as they may be in use
-                                           // Testing with port 0 and privileged ports is sufficient
         assert!(validate_port(80).is_err()); // Privileged port
         assert!(validate_port(1023).is_err()); // Privileged port
 
@@ -509,5 +508,32 @@ mod tests {
         // Environment validation
         assert!(validate_environment("production").is_ok());
         assert!(validate_environment("invalid-env").is_err());
+    }
+}
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn primal_config_round_trip_serde(name in "[a-zA-Z0-9_-]{1,80}") {
+            let original = ConfigFactory::development(&name);
+            let json = ConfigUtils::to_json(&original).unwrap();
+            let deserialized: PrimalConfig = ConfigUtils::from_json(&json).unwrap();
+            prop_assert_eq!(original.info.name, deserialized.info.name);
+            prop_assert_eq!(original.info.version, deserialized.info.version);
+            prop_assert_eq!(original.network.port, deserialized.network.port);
+        }
+
+        #[test]
+        fn primal_config_yaml_round_trip(name in "[a-zA-Z0-9_-]{1,80}") {
+            let original = ConfigFactory::development(&name);
+            let yaml = ConfigUtils::to_yaml(&original).unwrap();
+            let deserialized: PrimalConfig = ConfigUtils::from_yaml(&yaml).unwrap();
+            prop_assert_eq!(original.info.name, deserialized.info.name);
+            prop_assert_eq!(original.network.port, deserialized.network.port);
+        }
     }
 }

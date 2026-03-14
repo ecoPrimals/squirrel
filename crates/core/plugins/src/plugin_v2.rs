@@ -108,7 +108,7 @@ impl<T: PluginV2> PluginWrapper<T> {
 
 #[async_trait]
 impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
-    #[allow(deprecated)]
+    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
     fn metadata(&self) -> &PluginMetadata {
         self.inner.metadata()
     }
@@ -175,7 +175,7 @@ mod tests {
 
     #[async_trait]
     impl PluginV2 for ExamplePluginV2 {
-        #[allow(deprecated)]
+        #[allow(deprecated)] // Tests deprecated path for backward compatibility
         fn metadata(&self) -> &PluginMetadata {
             &self.metadata
         }

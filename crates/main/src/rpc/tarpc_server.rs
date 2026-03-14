@@ -145,8 +145,8 @@ impl SquirrelRpc for TarpcRpcServer {
 
                     QueryAiResult {
                         response: ai_response.text,
-                        provider: ai_response.provider_id,
-                        model: ai_response.model,
+                        provider: ai_response.provider_id.to_string(),
+                        model: ai_response.model.to_string(),
                         tokens_used: ai_response.usage.map(|u| u.total_tokens as usize),
                         latency_ms,
                         success: true,

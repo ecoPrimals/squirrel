@@ -8,7 +8,8 @@
 use super::*;
 
 #[cfg(test)]
-#[allow(deprecated)] // Testing deprecated constants during migration period
+// Tests deprecated path for backward compatibility
+#[allow(deprecated)]
 mod tests {
     use super::*;
 

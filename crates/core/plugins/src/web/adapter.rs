@@ -5,7 +5,8 @@
 //!
 //! This module provides adapter functionality to bridge between legacy and new plugin systems.
 
-#![allow(deprecated)] // Allow use of plugin::PluginMetadata during migration to squirrel_interfaces
+// Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
+#![allow(deprecated)]
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -136,7 +137,7 @@ impl<T> Plugin for LegacyWebPluginAdapter<T>
 where
     T: LegacyWebPluginTrait + Plugin + Send + Sync + 'static,
 {
-    #[allow(deprecated)]
+    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
     fn metadata(&self) -> &crate::plugin::PluginMetadata {
         self.plugin.metadata()
     }
@@ -288,7 +289,7 @@ impl<T> Plugin for NewWebPluginAdapter<T>
 where
     T: Plugin + Send + Sync + 'static,
 {
-    #[allow(deprecated)]
+    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
     fn metadata(&self) -> &crate::plugin::PluginMetadata {
         self.plugin.metadata()
     }

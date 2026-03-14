@@ -35,6 +35,7 @@ use std::path::{Path, PathBuf};
 ///
 /// Implements a builder pattern for loading configuration from multiple sources
 /// with clear precedence rules.
+#[derive(Debug)]
 pub struct ConfigLoader {
     config: SquirrelUnifiedConfig,
     sources_loaded: Vec<String>,
@@ -396,6 +397,8 @@ pub enum ConfigError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_config_loader_default() {
@@ -428,5 +431,152 @@ mod tests {
         let loaded = loader.validate().unwrap().build_with_sources().unwrap();
         assert!(!loaded.sources().is_empty());
         assert!(loaded.has_source("secure_defaults"));
+    }
+
+    #[test]
+    fn test_unsupported_format_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.xyz");
+        fs::write(&config_path, "invalid").unwrap();
+
+        let result = ConfigLoader::new().with_file_if_exists(&config_path);
+        let err = result.expect_err("expected UnsupportedFormat error");
+        assert!(matches!(err, ConfigError::UnsupportedFormat { .. }));
+        assert!(err.to_string().contains("xyz"));
+    }
+
+    #[test]
+    fn test_invalid_toml_parse_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        fs::write(&config_path, "invalid toml [[[[").unwrap();
+
+        let result = ConfigLoader::new().with_file_if_exists(&config_path);
+        let err = result.expect_err("expected ParseError");
+        assert!(matches!(err, ConfigError::ParseError { .. }));
+    }
+
+    #[test]
+    fn test_invalid_json_parse_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.json");
+        fs::write(&config_path, "{ invalid json }").unwrap();
+
+        let result = ConfigLoader::new().with_file_if_exists(&config_path);
+        let err = result.expect_err("expected ParseError");
+        assert!(matches!(err, ConfigError::ParseError { .. }));
+    }
+
+    #[test]
+    fn test_loaded_config_into_config() {
+        let mut loader = ConfigLoader::new();
+        loader.config.security.enabled = false;
+        let loaded = loader.validate().unwrap().build_with_sources().unwrap();
+        let config = loaded.into_config();
+        assert!(!config.system.instance_id.is_empty());
+    }
+
+    #[test]
+    fn test_config_loader_default_impl() {
+        let loader = ConfigLoader::default();
+        let config = loader.build().unwrap();
+        assert!(!config.system.instance_id.is_empty());
+    }
+
+    #[test]
+    fn test_with_platform_detection() {
+        let result = ConfigLoader::new().with_platform_detection();
+        assert!(result.is_ok());
+        let loader = result.unwrap();
+        let config = loader.build().unwrap();
+        assert!(!config
+            .system
+            .data_dir
+            .as_os_str()
+            .to_string_lossy()
+            .is_empty());
+        assert!(!config
+            .system
+            .plugin_dir
+            .as_os_str()
+            .to_string_lossy()
+            .is_empty());
+    }
+
+    #[test]
+    fn test_with_env_prefix() {
+        let mut loader = ConfigLoader::new();
+        loader.config.security.enabled = false;
+        let result = loader.with_env_prefix("SQUIRREL_");
+        assert!(result.is_ok());
+        let loaded = result.unwrap().build_with_sources().unwrap();
+        assert!(loaded.has_source("env:"));
+    }
+
+    #[test]
+    fn test_valid_toml_file_loading() {
+        // Use round-trip: default config -> TOML -> load, to ensure format is valid
+        let default_config = SquirrelUnifiedConfig::default();
+        let toml_content = toml::to_string(&default_config).unwrap();
+
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("squirrel.toml");
+        fs::write(&config_path, &toml_content).unwrap();
+
+        let result = ConfigLoader::new().with_file_if_exists(&config_path);
+        assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result);
+        let loader = result.unwrap();
+        let config = loader.build().unwrap();
+        assert_eq!(config.system.environment, default_config.system.environment);
+        assert_eq!(config.network.http_port, default_config.network.http_port);
+    }
+
+    #[test]
+    fn test_valid_json_file_loading() {
+        // Use round-trip: default config -> JSON -> load
+        let default_config = SquirrelUnifiedConfig::default();
+        let json_content = serde_json::to_string(&default_config).unwrap();
+
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.json");
+        fs::write(&config_path, &json_content).unwrap();
+
+        let result = ConfigLoader::new().with_file_if_exists(&config_path);
+        assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result);
+        let config = result.unwrap().build().unwrap();
+        assert_eq!(config.system.environment, default_config.system.environment);
+        assert_eq!(config.network.http_port, default_config.network.http_port);
+    }
+
+    #[test]
+    fn test_valid_yaml_file_loading() {
+        // Use round-trip: default config -> YAML -> load
+        let default_config = SquirrelUnifiedConfig::default();
+        let yaml_content = serde_yaml::to_string(&default_config).unwrap();
+
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.yaml");
+        fs::write(&config_path, &yaml_content).unwrap();
+
+        let result = ConfigLoader::new().with_file_if_exists(&config_path);
+        assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result);
+        let config = result.unwrap().build().unwrap();
+        assert_eq!(config.system.environment, default_config.system.environment);
+        assert_eq!(config.network.http_port, default_config.network.http_port);
+    }
+
+    #[test]
+    fn test_config_error_display() {
+        let err = ConfigError::UnsupportedFormat {
+            format: "xml".to_string(),
+        };
+        assert!(err.to_string().contains("xml"));
+        assert!(err.to_string().contains("Unsupported"));
+
+        let err = ConfigError::FileRead {
+            path: PathBuf::from("/nonexistent"),
+            error: "Permission denied".to_string(),
+        };
+        assert!(err.to_string().contains("Permission denied"));
     }
 }

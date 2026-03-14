@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[allow(deprecated)] // EcosystemPrimalType is deprecated but needed for backward compatibility in tests
+#[allow(deprecated)] // Tests deprecated path for backward compatibility
 use squirrel::{
     capability_registry::{CapabilityRegistry, CapabilityRegistryConfig},
     ecosystem::EcosystemManager,

@@ -211,8 +211,8 @@ impl MCPTaskClient {
     /// Update a task
     pub async fn update_task(&self, task: &Task) -> Result<()> {
         let request = UpdateTaskRequest {
-            task_id: task.id.clone(),
-            name: task.name.clone(),
+            task_id: task.id.as_ref().to_string(),
+            name: task.name.as_ref().to_string(),
             description: task.description.clone(),
             priority: task.priority_code as i32,
             input_data: task
@@ -394,8 +394,8 @@ fn json_task_to_task(json: JsonTask) -> Task {
     };
 
     Task {
-        id: json.id,
-        name: json.name,
+        id: std::sync::Arc::from(json.id),
+        name: std::sync::Arc::from(json.name),
         description: json.description,
         status_code: TaskStatus::from(json.status),
         priority_code: TaskPriority::from(json.priority),

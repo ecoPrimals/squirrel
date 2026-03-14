@@ -229,13 +229,13 @@ pub struct EcosystemServiceRegistration {
 
 | Component | Status | Implementation Location |
 |-----------|--------|-------------------------|
-| Universal Patterns Framework | 80% | `code/crates/universal-patterns/` |
-| Ecosystem API | 85% | `code/crates/ecosystem-api/` |
-| Squirrel Universal Provider | 90% | `code/crates/main/src/universal_provider.rs` |
-| Squirrel Universal Adapter | 85% | `code/crates/main/src/universal_adapter.rs` |
-| Configuration System | 75% | `code/crates/universal-patterns/src/config/` |
-| Federation Framework | 60% | `code/crates/universal-patterns/src/federation/` |
-| Security Integration | 70% | `code/crates/universal-patterns/src/security/` |
+| Universal Patterns Framework | 80% | `crates/universal-patterns/` |
+| Ecosystem API | 85% | `crates/ecosystem-api/` |
+| Squirrel Universal Provider | 90% | `crates/main/src/universal_provider.rs` |
+| Squirrel Universal Adapter | 85% | `crates/main/src/universal_adapter.rs` |
+| Configuration System | 75% | `crates/universal-patterns/src/config/` |
+| Federation Framework | 60% | `crates/universal-patterns/src/federation/` |
+| Security Integration | 70% | `crates/universal-patterns/src/security/` |
 
 ### Primal Integration Status
 
@@ -251,7 +251,7 @@ pub struct EcosystemServiceRegistration {
 ## Missing Implementations
 
 ### 1. Federation Framework (40% Missing)
-- **Location**: `code/crates/universal-patterns/src/federation/`
+- **Location**: `crates/universal-patterns/src/federation/`
 - **Missing Components**:
   - Cross-platform executor implementation
   - Consensus mechanism completion
@@ -259,7 +259,7 @@ pub struct EcosystemServiceRegistration {
   - Universal execution environment
 
 ### 2. Advanced Configuration (25% Missing)
-- **Location**: `code/crates/universal-patterns/src/config/`
+- **Location**: `crates/universal-patterns/src/config/`
 - **Missing Components**:
   - Dynamic configuration updates
   - Environment-specific presets
@@ -267,7 +267,7 @@ pub struct EcosystemServiceRegistration {
   - Configuration migration tools
 
 ### 3. Security Integration (30% Missing)
-- **Location**: `code/crates/universal-patterns/src/security/`
+- **Location**: `crates/universal-patterns/src/security/`
 - **Missing Components**:
   - Universal security client
   - Security provider framework
@@ -275,7 +275,7 @@ pub struct EcosystemServiceRegistration {
   - Compliance frameworks
 
 ### 4. Registry Enhancements (20% Missing)
-- **Location**: `code/crates/universal-patterns/src/registry/`
+- **Location**: `crates/universal-patterns/src/registry/`
 - **Missing Components**:
   - Enhanced statistics
   - Dynamic service discovery

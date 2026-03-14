@@ -358,7 +358,7 @@ pub async fn register_songbird_service(
             version: "1.0.0".to_string(),
             description: "AI-collaborative service mesh with universal extensibility and predictive capabilities".to_string(),
             maintainer: "EcoPrimals Core Team".to_string(),
-            protocols: vec!["https".to_string(), "grpc".to_string(), "websocket".to_string()],
+            protocols: vec!["https".to_string(), "tarpc".to_string(), "websocket".to_string()],
         },
         capabilities: vec![
             ServiceCapability::Coordination {
@@ -377,7 +377,7 @@ pub async fn register_songbird_service(
             ServiceCapability::ArtificialIntelligence {
                 models: vec!["workload_classification".to_string(), "performance_prediction".to_string()],
                 tasks: vec!["optimization".to_string(), "prediction".to_string(), "collaboration".to_string()],
-                interfaces: vec!["rest_api".to_string(), "websocket".to_string(), "grpc".to_string()],
+                interfaces: vec!["rest_api".to_string(), "websocket".to_string(), "tarpc".to_string()],
             },
         ],
         endpoints: vec![
@@ -407,7 +407,7 @@ pub async fn register_songbird_service(
             ]),
         },
         integration: super::IntegrationPreferences {
-            preferred_protocols: vec!["https".to_string(), "grpc".to_string(), "websocket".to_string()],
+            preferred_protocols: vec!["https".to_string(), "tarpc".to_string(), "websocket".to_string()],
             retry_policy: "exponential_backoff".to_string(),
             timeout_seconds: 60,
             load_balancing_weight: 15,

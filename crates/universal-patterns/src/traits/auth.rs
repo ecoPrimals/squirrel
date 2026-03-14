@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// Credentials for authentication
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Credentials {
     /// Username and password
     Password {
@@ -250,5 +250,47 @@ mod tests {
         let deserialized: AuthResult = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.token, "token123");
         assert_eq!(deserialized.permissions.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn credentials_strategy() -> impl Strategy<Value = Credentials> {
+        prop_oneof![
+            (any::<String>(), any::<String>()).prop_map(|(u, p)| Credentials::Password {
+                username: u,
+                password: p,
+            }),
+            (any::<String>(), any::<String>()).prop_map(|(k, s)| Credentials::ApiKey {
+                key: k,
+                service_id: s,
+            }),
+            any::<String>().prop_map(|t| Credentials::Bearer { token: t }),
+            any::<String>().prop_map(|t| Credentials::Token { token: t }),
+            proptest::collection::vec(any::<u8>(), 0..64)
+                .prop_map(|c| Credentials::Certificate { cert: c }),
+            (any::<String>(), any::<String>()).prop_map(|(s, k)| Credentials::ServiceAccount {
+                service_id: s,
+                api_key: k,
+            }),
+            any::<String>().prop_map(|s| Credentials::Bootstrap { service_id: s }),
+            any::<String>().prop_map(|s| Credentials::Test { service_id: s }),
+            proptest::collection::hash_map(any::<String>(), any::<String>(), 0..8)
+                .prop_map(Credentials::Custom),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn credentials_round_trip_serde(creds in credentials_strategy()) {
+            let json = serde_json::to_string(&creds).unwrap();
+            let deserialized: Credentials = serde_json::from_str(&json).unwrap();
+            let json2 = serde_json::to_string(&deserialized).unwrap();
+            let round_tripped: Credentials = serde_json::from_str(&json2).unwrap();
+            prop_assert_eq!(deserialized, round_tripped);
+        }
     }
 }

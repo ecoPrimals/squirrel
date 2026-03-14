@@ -31,7 +31,7 @@ where
 /// Ecosystem configuration for Squirrel primal
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemConfig {
-    /// Service identifier (Arc<str> for O(1) clone when sharing across registrations)
+    /// Service identifier (`Arc<str>` for O(1) clone when sharing across registrations)
     #[serde(
         serialize_with = "serialize_arc_str",
         deserialize_with = "deserialize_arc_str"

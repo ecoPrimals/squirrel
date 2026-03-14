@@ -6,11 +6,11 @@ use super::types::{AgentType, Task, TaskPriority, TaskStatus};
 #[test]
 fn task_creation() {
     let task = Task::new("test-task", "A test task");
-    assert_eq!(task.name, "test-task");
+    assert_eq!(task.name.as_ref(), "test-task");
     assert_eq!(task.description, "A test task");
-    assert_eq!(task.status, TaskStatus::Pending);
+    assert_eq!(task.status_code, TaskStatus::Pending);
     assert_eq!(task.priority_code, TaskPriority::Medium);
-    assert_eq!(task.agent_type, AgentType::Generic);
+    assert_eq!(task.agent_type, AgentType::Unspecified);
     assert!(!task.id.is_empty());
 }
 
@@ -24,11 +24,11 @@ fn task_priority_ordering() {
 #[test]
 fn task_status_transitions() {
     let mut task = Task::new("status-test", "Testing status");
-    assert_eq!(task.status, TaskStatus::Pending);
+    assert_eq!(task.status_code, TaskStatus::Pending);
 
-    task.status = TaskStatus::InProgress;
-    assert_eq!(task.status, TaskStatus::InProgress);
+    task.status_code = TaskStatus::Running;
+    assert_eq!(task.status_code, TaskStatus::Running);
 
-    task.status = TaskStatus::Completed;
-    assert_eq!(task.status, TaskStatus::Completed);
+    task.status_code = TaskStatus::Completed;
+    assert_eq!(task.status_code, TaskStatus::Completed);
 }

@@ -543,35 +543,39 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    #[tokio::test]
-    async fn test_network_creation() {
-        let config = NetworkConfig::default();
-        let node_info = NodeInfo {
+    fn make_node_info() -> NodeInfo {
+        NodeInfo {
             id: Uuid::new_v4(),
             name: "test-node".to_string(),
             version: "1.0.0".to_string(),
             capabilities: vec!["test".to_string()],
             endpoints: vec!["http://localhost:8080".to_string()],
             metadata: HashMap::new(),
-        };
+        }
+    }
 
-        let network = FederationNetwork::new(config, node_info);
+    fn make_network() -> FederationNetwork {
+        FederationNetwork::new(NetworkConfig::default(), make_node_info())
+    }
+
+    #[tokio::test]
+    async fn test_network_creation() {
+        let network = FederationNetwork::new(NetworkConfig::default(), make_node_info());
         assert!(!*network.running.read().await);
     }
 
     #[tokio::test]
-    async fn test_peer_management() {
+    async fn test_network_config_default() {
         let config = NetworkConfig::default();
-        let node_info = NodeInfo {
-            id: Uuid::new_v4(),
-            name: "test-node".to_string(),
-            version: "1.0.0".to_string(),
-            capabilities: vec!["test".to_string()],
-            endpoints: vec!["http://localhost:8080".to_string()],
-            metadata: HashMap::new(),
-        };
+        assert_eq!(config.port, 8080);
+        assert!(config.encryption_enabled);
+        assert!(matches!(config.protocol, NetworkProtocol::Http));
+        assert_eq!(config.max_connections, 1000);
+    }
 
-        let network = FederationNetwork::new(config, node_info);
+    #[tokio::test]
+    async fn test_peer_management() {
+        let network = make_network();
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
@@ -594,35 +598,273 @@ mod tests {
 
     #[tokio::test]
     async fn test_message_handling() {
-        let config = NetworkConfig::default();
-        let node_info = NodeInfo {
-            id: Uuid::new_v4(),
-            name: "test-node".to_string(),
-            version: "1.0.0".to_string(),
-            capabilities: vec!["test".to_string()],
-            endpoints: vec!["http://localhost:8080".to_string()],
-            metadata: HashMap::new(),
-        };
-
-        let network = FederationNetwork::new(config, node_info);
-
-        let handler_called = Arc::new(RwLock::new(false));
-        let handler_called_clone = Arc::clone(&handler_called);
+        let network = make_network();
 
         network
-            .register_handler("test".to_string(), move |_msg| {
-                let handler_called_clone = handler_called_clone.clone();
-                tokio::spawn(async move {
-                    let mut called = handler_called_clone.write().await;
-                    *called = true;
-                });
-                Ok(())
+            .register_handler("test".to_string(), move |_msg| Ok(()))
+            .await
+            .unwrap();
+
+        let handlers = network.message_handlers.read().await;
+        assert!(handlers.contains_key("test"));
+    }
+
+    #[tokio::test]
+    async fn test_send_to_peer_not_found() {
+        let network = make_network();
+        let msg = NetworkMessage::HealthCheck {
+            node_id: network.node_id,
+            timestamp: Utc::now(),
+        };
+
+        let result = network.send_to_peer(Uuid::new_v4(), msg).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            FederationError::PeerNotFound(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_start_already_running() {
+        let network = make_network();
+        network.start().await.unwrap();
+
+        let result = network.start().await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            FederationError::AlreadyRunning(_)
+        ));
+
+        network.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_stop_clears_running() {
+        let network = make_network();
+        network.start().await.unwrap();
+        assert!(*network.running.read().await);
+
+        network.stop().await.unwrap();
+        assert!(!*network.running.read().await);
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_empty_peers_succeeds() {
+        let network = make_network();
+        network.start().await.unwrap();
+
+        let msg = NetworkMessage::HealthCheck {
+            node_id: network.node_id,
+            timestamp: Utc::now(),
+        };
+        let result = network.broadcast(msg).await;
+        assert!(result.is_ok());
+
+        network.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_discover_peers() {
+        let network = make_network();
+        network.start().await.unwrap();
+
+        let peers = network.discover_peers().await.unwrap();
+        assert!(peers.is_empty());
+
+        network.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_mock_connection_send_receive() {
+        let peer_id = Uuid::new_v4();
+        let conn = MockNetworkConnection::new(peer_id);
+
+        let msg = NetworkMessage::HealthCheck {
+            node_id: peer_id,
+            timestamp: Utc::now(),
+        };
+        conn.send_message(peer_id, msg.clone()).await.unwrap();
+
+        let (received_peer, received_msg) = conn.receive_message().await.unwrap();
+        assert_eq!(received_peer, peer_id);
+        assert!(matches!(received_msg, NetworkMessage::HealthCheck { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_mock_connection_receive_empty_fails() {
+        let conn = MockNetworkConnection::new(Uuid::new_v4());
+        let result = conn.receive_message().await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            FederationError::NoMessagesAvailable(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_mock_connection_send_when_disconnected_fails() {
+        let peer_id = Uuid::new_v4();
+        let conn = MockNetworkConnection::new(peer_id);
+        conn.close().await.unwrap();
+
+        let msg = NetworkMessage::HealthCheck {
+            node_id: peer_id,
+            timestamp: Utc::now(),
+        };
+        let result = conn.send_message(peer_id, msg).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            FederationError::ConnectionClosed(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_mock_connection_is_connected() {
+        let conn = MockNetworkConnection::new(Uuid::new_v4());
+        assert!(conn.is_connected().await);
+        conn.close().await.unwrap();
+        assert!(!conn.is_connected().await);
+    }
+
+    #[tokio::test]
+    async fn test_network_message_serialization() {
+        let msg = NetworkMessage::Discovery {
+            node_id: Uuid::new_v4(),
+            node_info: make_node_info(),
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        let _: NetworkMessage = serde_json::from_str(&json).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_network_stats_fields() {
+        let network = make_network();
+        network
+            .add_peer(PeerInfo {
+                id: Uuid::new_v4(),
+                address: "127.0.0.1:8080".parse().unwrap(),
+                last_seen: Utc::now(),
+                status: PeerStatus::Connected,
+                latency: None,
             })
             .await
             .unwrap();
 
-        // Test that handler was registered
-        let handlers = network.message_handlers.read().await;
-        assert!(handlers.contains_key("test"));
+        let stats = network.get_stats().await;
+        assert_eq!(stats.peer_count, 1);
+        assert_eq!(stats.node_id, network.node_id);
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_peer_operations() {
+        let network = Arc::new(make_network());
+
+        let mut handles = vec![];
+        for i in 0..10 {
+            let net = Arc::clone(&network);
+            handles.push(tokio::spawn(async move {
+                let peer_info = PeerInfo {
+                    id: Uuid::new_v4(),
+                    address: format!("127.0.0.1:{}", 8080 + i).parse().unwrap(),
+                    last_seen: Utc::now(),
+                    status: PeerStatus::Connected,
+                    latency: None,
+                };
+                net.add_peer(peer_info).await
+            }));
+        }
+
+        for handle in handles {
+            assert!(handle.await.unwrap().is_ok());
+        }
+
+        let stats = network.get_stats().await;
+        assert_eq!(stats.peer_count, 10);
+    }
+}
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+    use std::collections::HashMap;
+
+    fn node_info_strategy() -> impl Strategy<Value = NodeInfo> {
+        (
+            any::<[u8; 16]>().prop_map(|b| Uuid::from_bytes(b)),
+            any::<String>(),
+            any::<String>(),
+            proptest::collection::vec(any::<String>(), 0..4),
+            proptest::collection::vec(any::<String>(), 0..4),
+        )
+            .prop_map(|(id, name, version, caps, endpoints)| NodeInfo {
+                id,
+                name,
+                version,
+                capabilities: caps,
+                endpoints,
+                metadata: HashMap::new(),
+            })
+    }
+
+    proptest! {
+        #[test]
+        fn network_message_discovery_round_trip(
+            node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes),
+            node_info in node_info_strategy(),
+        ) {
+            let msg = NetworkMessage::Discovery { node_id, node_info };
+            let json = serde_json::to_string(&msg).unwrap();
+            let deserialized: NetworkMessage = serde_json::from_str(&json).unwrap();
+            if let (NetworkMessage::Discovery { node_id: a, node_info: ai }, NetworkMessage::Discovery { node_id: b, node_info: bi }) = (&msg, &deserialized) {
+                prop_assert_eq!(a, b);
+                prop_assert_eq!(ai.id, bi.id);
+                prop_assert_eq!(&ai.name, &bi.name);
+            } else {
+                prop_assert!(false, "variant mismatch");
+            }
+        }
+
+        #[test]
+        fn network_message_federation_round_trip(
+            msg_type in "[a-zA-Z0-9_-]{1,50}",
+            payload in proptest::collection::vec(any::<u8>(), 0..256),
+            sender in any::<[u8; 16]>().prop_map(Uuid::from_bytes),
+        ) {
+            let msg = NetworkMessage::Federation {
+                message_type: msg_type.clone(),
+                payload: payload.clone(),
+                sender,
+                recipient: None,
+            };
+            let json = serde_json::to_string(&msg).unwrap();
+            let deserialized: NetworkMessage = serde_json::from_str(&json).unwrap();
+            if let NetworkMessage::Federation { message_type, payload: p, sender: s, recipient } = deserialized {
+                prop_assert_eq!(message_type, msg_type);
+                prop_assert_eq!(p, payload);
+                prop_assert_eq!(s, sender);
+                prop_assert_eq!(recipient, None);
+            } else {
+                prop_assert!(false, "variant mismatch");
+            }
+        }
+
+        #[test]
+        fn network_message_health_check_round_trip(node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
+            let msg = NetworkMessage::HealthCheck {
+                node_id,
+                timestamp: Utc::now(),
+            };
+            let json = serde_json::to_string(&msg).unwrap();
+            let deserialized: NetworkMessage = serde_json::from_str(&json).unwrap();
+            if let NetworkMessage::HealthCheck { node_id: n, .. } = deserialized {
+                prop_assert_eq!(n, node_id);
+            } else {
+                prop_assert!(false, "variant mismatch");
+            }
+        }
     }
 }

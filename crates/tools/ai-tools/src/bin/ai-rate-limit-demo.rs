@@ -31,7 +31,8 @@ async fn main() -> Result<()> {
     println!("Rate limit: {rate_limit} requests per minute");
 
     // Load API key from environment variables
-    #[allow(deprecated)] // Using legacy error type until full migration
+    // Backward compatibility: using legacy error type until full migration to universal_error
+    #[allow(deprecated)]
     let api_key = match provider {
         "openai" => std::env::var("OPENAI_API_KEY")
             .or_else(|_| std::env::var("OPENAI_KEY"))

@@ -15,6 +15,7 @@
 use crate::error::PrimalError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Tool execution result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,12 +29,12 @@ pub struct ToolExecutionResult {
 /// Tool metadata registered in the executor
 #[derive(Debug, Clone)]
 pub struct ToolRegistration {
-    /// Tool name (unique identifier)
-    pub name: String,
+    /// Tool name (unique identifier) — `Arc<str>` for zero-copy (reused in lookups)
+    pub name: Arc<str>,
     /// Human-readable description
     pub description: String,
-    /// Required capability domain (e.g., "ai", "system")
-    pub domain: String,
+    /// Required capability domain (e.g., "ai", "system") — `Arc<str>` for zero-copy (interned constants)
+    pub domain: Arc<str>,
     /// Whether this is a built-in tool
     pub builtin: bool,
 }
@@ -45,8 +46,8 @@ pub struct ToolRegistration {
 /// registered dynamically via `register_tool`.
 #[derive(Debug)]
 pub struct ToolExecutor {
-    /// Registered tools: name → registration metadata
-    pub available_tools: HashMap<String, ToolRegistration>,
+    /// Registered tools: name → registration metadata (`Arc<str>` keys for zero-copy)
+    pub available_tools: HashMap<Arc<str>, ToolRegistration>,
 }
 
 impl ToolExecutor {
@@ -63,40 +64,40 @@ impl ToolExecutor {
     fn register_builtins(&mut self) {
         let builtins = vec![
             ToolRegistration {
-                name: "system.health".to_string(),
+                name: Arc::from("system.health"),
                 description: "Check system health status".to_string(),
-                domain: "system".to_string(),
+                domain: Arc::from("system"),
                 builtin: true,
             },
             ToolRegistration {
-                name: "system.info".to_string(),
+                name: Arc::from("system.info"),
                 description: "Get system information (version, uptime)".to_string(),
-                domain: "system".to_string(),
+                domain: Arc::from("system"),
                 builtin: true,
             },
             ToolRegistration {
-                name: "discovery.peers".to_string(),
+                name: Arc::from("discovery.peers"),
                 description: "Discover peer primals via socket scan".to_string(),
-                domain: "discovery".to_string(),
+                domain: Arc::from("discovery"),
                 builtin: true,
             },
             ToolRegistration {
-                name: "discovery.capabilities".to_string(),
+                name: Arc::from("discovery.capabilities"),
                 description: "List all discovered capabilities".to_string(),
-                domain: "discovery".to_string(),
+                domain: Arc::from("discovery"),
                 builtin: true,
             },
         ];
 
         for tool in builtins {
-            self.available_tools.insert(tool.name.clone(), tool);
+            self.available_tools.insert(Arc::clone(&tool.name), tool);
         }
     }
 
     /// Register an external tool
     pub fn register_tool(&mut self, registration: ToolRegistration) {
         self.available_tools
-            .insert(registration.name.clone(), registration);
+            .insert(Arc::clone(&registration.name), registration);
     }
 
     /// List available tools
@@ -251,9 +252,9 @@ mod tests {
         let initial_count = executor.available_tools.len();
 
         executor.register_tool(ToolRegistration {
-            name: "custom.test".to_string(),
+            name: Arc::from("custom.test"),
             description: "Test tool".to_string(),
-            domain: "custom".to_string(),
+            domain: Arc::from("custom"),
             builtin: false,
         });
 
@@ -333,9 +334,9 @@ mod tests {
     async fn test_execute_registered_external_tool() {
         let mut executor = ToolExecutor::new();
         executor.register_tool(ToolRegistration {
-            name: "external.foo".to_string(),
+            name: Arc::from("external.foo"),
             description: "External".to_string(),
-            domain: "external".to_string(),
+            domain: Arc::from("external"),
             builtin: false,
         });
         let result = executor.execute_tool("external.foo", "args").await.unwrap();

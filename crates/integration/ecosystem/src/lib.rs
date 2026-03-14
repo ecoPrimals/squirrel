@@ -4,13 +4,30 @@
 #![allow(clippy::missing_docs_in_private_items)]
 //! Squirrel Ecosystem Integration
 //!
-//! This crate provides integration points with the broader ecosystem:
-#![forbid(unsafe_code)]
-//! - Songbird service orchestration
-//! - Toadstool compute integration
-//! - Cross-platform service discovery
+//! This crate provides integration points with the broader ecoPrimals ecosystem.
+//! It is a **placeholder crate** for planned integration work—core types and
+//! registration logic are defined here; full integration is implemented in
+//! the main Squirrel crate via capability discovery.
 //!
-//! This is a placeholder for future ecosystem integration work.
+//! ## Integration Plan
+//!
+//! 1. **Songbird** (orchestration): Service mesh registration, health reporting,
+//!    and capability routing. Squirrel will discover Songbird via capability
+//!    registry and register MCP services.
+//!
+//! 2. **ToadStool** (compute): Task delegation, job submission, and resource
+//!    allocation. Integration via universal adapter when compute capability
+//!    is discovered.
+//!
+//! 3. **Cross-platform discovery**: Unix sockets (Linux/macOS), Named pipes
+//!    (Windows), TCP fallback. Uses `universal-patterns` transport layer.
+//!
+//! ## Capabilities This Crate Will Provide
+//!
+//! - `ServiceRegistration` and `EcosystemIntegration` types
+//! - `register_mcp_services()`: Register Squirrel MCP with service mesh
+//! - Future: Songbird client, ToadStool client (when those crates exist)
+#![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

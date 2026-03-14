@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Squirrel AI Ecosystem"]
 description = "Automated migration tool for converting HashMap<String,> patterns to Arc<str> optimization"
+license = "AGPL-3.0-only"
 
 [dependencies]
 regex = "1.10"

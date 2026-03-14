@@ -80,57 +80,93 @@ impl PrometheusExporter {
 #[async_trait]
 impl MetricsExporter for PrometheusExporter {
     async fn export_metrics(&self, metrics: AllMetrics) -> Result<String, PrimalError> {
-        // Stub implementation - convert metrics to Prometheus format
+        // Prometheus exposition format (text/plain; version=0.0.4)
+        // See: https://prometheus.io/docs/instrumenting/exposition_formats/
         let mut prometheus_output = String::new();
 
-        // Add help and type information
-        prometheus_output
-            .push_str("# HELP squirrel_system_metrics System metrics for Squirrel AI\n");
-        prometheus_output.push_str("# TYPE squirrel_system_metrics gauge\n");
+        // Exposition format header (informational)
+        prometheus_output.push_str("# Prometheus exposition format (text/plain; version=0.0.4)\n");
 
-        // Export system metrics
+        // Helper to emit a metric with HELP and TYPE (Prometheus exposition format)
+        let emit_gauge = |out: &mut String, name: &str, help: &str, value: f64| {
+            out.push_str(&format!("# HELP {name} {help}\n"));
+            out.push_str(&format!("# TYPE {name} gauge\n"));
+            out.push_str(&format!("{name} {value}\n"));
+        };
+        let emit_counter = |out: &mut String, name: &str, help: &str, value: f64| {
+            out.push_str(&format!("# HELP {name} {help}\n"));
+            out.push_str(&format!("# TYPE {name} counter\n"));
+            out.push_str(&format!("{name} {value}\n"));
+        };
+
+        // Export system metrics - each with proper HELP and TYPE
         let system_metrics = &metrics.system_metrics;
-        prometheus_output.push_str(&format!(
-            "squirrel_cpu_usage {}\n",
-            system_metrics.cpu_usage
-        ));
-        prometheus_output.push_str(&format!(
-            "squirrel_memory_usage {}\n",
-            system_metrics.memory_usage
-        ));
-        prometheus_output.push_str(&format!(
-            "squirrel_memory_percentage {}\n",
-            system_metrics.memory_percentage
-        ));
-        prometheus_output.push_str(&format!(
-            "squirrel_disk_usage {}\n",
-            system_metrics.disk_usage
-        ));
-        prometheus_output.push_str(&format!(
-            "squirrel_network_bytes_sent {}\n",
-            system_metrics.network_bytes_sent
-        ));
-        prometheus_output.push_str(&format!(
-            "squirrel_network_bytes_received {}\n",
-            system_metrics.network_bytes_received
-        ));
-        prometheus_output.push_str(&format!(
-            "squirrel_active_connections {}\n",
-            system_metrics.active_connections
-        ));
-        prometheus_output.push_str(&format!(
-            "squirrel_request_rate {}\n",
-            system_metrics.request_rate
-        ));
-        prometheus_output.push_str(&format!(
-            "squirrel_error_rate {}\n",
-            system_metrics.error_rate
-        ));
-        prometheus_output.push_str(&format!(
-            "squirrel_avg_response_time {}\n",
-            system_metrics.avg_response_time
-        ));
-        prometheus_output.push_str(&format!("squirrel_uptime {}\n", system_metrics.uptime));
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_cpu_usage",
+            "CPU usage percentage",
+            system_metrics.cpu_usage,
+        );
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_memory_usage",
+            "Memory usage in bytes",
+            system_metrics.memory_usage as f64,
+        );
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_memory_percentage",
+            "Memory usage as percentage of total",
+            system_metrics.memory_percentage,
+        );
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_disk_usage",
+            "Disk usage percentage",
+            system_metrics.disk_usage,
+        );
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_network_bytes_sent",
+            "Network bytes sent",
+            system_metrics.network_bytes_sent,
+        );
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_network_bytes_received",
+            "Network bytes received",
+            system_metrics.network_bytes_received,
+        );
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_active_connections",
+            "Number of active connections",
+            system_metrics.active_connections as f64,
+        );
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_request_rate",
+            "Requests per second",
+            system_metrics.request_rate,
+        );
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_error_rate",
+            "Error rate percentage",
+            system_metrics.error_rate,
+        );
+        emit_gauge(
+            &mut prometheus_output,
+            "squirrel_avg_response_time",
+            "Average response time in milliseconds",
+            system_metrics.avg_response_time,
+        );
+        emit_counter(
+            &mut prometheus_output,
+            "squirrel_uptime",
+            "Process uptime in seconds",
+            system_metrics.uptime as f64,
+        );
 
         // Export component metrics
         for (component, component_metrics) in &metrics.component_metrics {
@@ -213,12 +249,13 @@ impl Default for ExporterConfig {
         // Multi-tier metrics endpoint resolution
         // 1. METRICS_EXPORTER_ENDPOINT (full endpoint)
         // 2. METRICS_EXPORTER_PORT (port override)
-        // 3. Default: http://localhost:9090/metrics
+        // 3. Default: use universal_constants deployment::endpoints::metrics()
         let endpoint = std::env::var("METRICS_EXPORTER_ENDPOINT").unwrap_or_else(|_| {
             let port = std::env::var("METRICS_EXPORTER_PORT")
+                .or_else(|_| std::env::var("METRICS_PORT"))
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(9090); // Default metrics exporter port
+                .unwrap_or_else(universal_constants::deployment::ports::metrics);
             format!("http://localhost:{}/metrics", port)
         });
 
@@ -452,8 +489,8 @@ mod tests {
         let metrics = create_test_metrics();
 
         let output = exporter.export_metrics(metrics).await.unwrap();
-        assert!(output.contains("# HELP squirrel_system_metrics"));
-        assert!(output.contains("# TYPE squirrel_system_metrics gauge"));
+        assert!(output.contains("# HELP squirrel_cpu_usage"));
+        assert!(output.contains("# TYPE squirrel_cpu_usage gauge"));
     }
 
     // --- JsonExporter tests ---

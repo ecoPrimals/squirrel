@@ -32,7 +32,7 @@ pub enum HealthStatus {
     Ok,
     /// System has warnings but is functional
     Warning,
-    /// System has errors (constructed via deserialization or test fixtures)
+    /// System has errors (used in match arms, JSON deserialization, and test fixtures)
     #[allow(dead_code)]
     Error,
 }

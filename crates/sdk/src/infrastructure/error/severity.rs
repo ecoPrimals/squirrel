@@ -92,6 +92,7 @@ pub trait PluginErrorClassification {
     fn error_type(&self) -> &'static str;
 }
 
+// Backward compatibility: PluginError deprecated in favor of universal_error::sdk::SDKError
 #[allow(deprecated)]
 impl PluginErrorClassification for PluginError {
     fn severity(&self) -> ErrorSeverity {
@@ -274,7 +275,7 @@ impl PluginErrorClassification for PluginError {
 mod tests {
     use super::*;
 
-    #[allow(deprecated)]
+    #[allow(deprecated)] // Tests deprecated path for backward compatibility
     fn make_error(variant: &str) -> PluginError {
         match variant {
             "UnknownCommand" => PluginError::UnknownCommand {

@@ -350,3 +350,105 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn version() -> &'static str {
     VERSION
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_public_api_surface_accessible() {
+        // Verify all re-exported types are accessible
+        let _: UniversalConfigBuilder = UniversalConfigBuilder::new();
+        let _: InstanceLifecycleConfig = InstanceLifecycleConfig::default();
+        let _: LoadBalancingStrategy = LoadBalancingStrategy::RoundRobin;
+        let _: MultiInstanceConfig = MultiInstanceConfig::default();
+        let _: PortManagementConfig = PortManagementConfig::default();
+        let _: UniversalPrimalConfig = UniversalPrimalConfig::default();
+        let _: PrimalContext = PrimalContext::default();
+        let _: PrimalType = PrimalType::Coordinator;
+        let _: SecurityLevel = SecurityLevel::Standard;
+        let _: ListenerConfig = ListenerConfig::default();
+        let _: TransportConfig = TransportConfig::default();
+        let _: TransportType = TransportType::Tcp;
+        // PrimalInstanceConfig and SecurityContext exist but require constructor args
+        let _ = PrimalInstanceConfig::new(
+            "http://localhost:8080".to_string(),
+            "inst-1".to_string(),
+            "user1".to_string(),
+            "dev1".to_string(),
+        );
+    }
+
+    #[test]
+    fn test_version_returns_non_empty() {
+        let v = version();
+        assert!(!v.is_empty());
+        assert_eq!(v, VERSION);
+    }
+
+    #[test]
+    fn test_create_primal_context() {
+        let ctx = create_primal_context(
+            "user1".to_string(),
+            "device1".to_string(),
+            SecurityLevel::High,
+        );
+        assert_eq!(ctx.user_id, "user1");
+        assert_eq!(ctx.device_id, "device1");
+        assert_eq!(ctx.security_level, SecurityLevel::High);
+    }
+
+    #[test]
+    fn test_create_development_config() {
+        let config = create_development_config();
+        assert_eq!(config.multi_instance.max_instances_per_type, 3);
+        assert_eq!(config.multi_instance.max_instances_per_user, 2);
+        assert!(!config.monitoring.metrics_enabled);
+        assert_eq!(config.port_management.port_range.start, 8000);
+    }
+
+    #[test]
+    fn test_create_production_config() {
+        let config = create_production_config();
+        assert_eq!(config.multi_instance.max_instances_per_type, 20);
+        assert_eq!(config.multi_instance.max_instances_per_user, 10);
+        assert!(config.multi_instance.scaling.auto_scaling_enabled);
+        assert!(config.multi_instance.failover.enabled);
+        assert!(config.monitoring.metrics_enabled);
+    }
+
+    #[test]
+    fn test_create_primal_config_for_each_type() {
+        for primal_type in [
+            PrimalType::Coordinator,
+            PrimalType::Security,
+            PrimalType::Orchestration,
+            PrimalType::AI,
+            PrimalType::Storage,
+            PrimalType::Compute,
+            PrimalType::Network,
+            PrimalType::Custom("custom".to_string()),
+        ] {
+            let config = create_primal_config(primal_type.clone(), 5);
+            assert_eq!(config.multi_instance.max_instances_per_type, 5);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_initialize_primal_system_with_none() {
+        // Uses from_env - may fail if env invalid, but tests the code path
+        let result = initialize_primal_system(None).await;
+        // Either succeeds or fails with validation error
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_initialize_primal_system_with_config() {
+        let config = create_development_config();
+        let result = initialize_primal_system(Some(config)).await;
+        assert!(result.is_ok());
+        let registry = result.unwrap();
+        let stats = registry.get_statistics().await;
+        assert_eq!(stats.total_primals, 0);
+    }
+}

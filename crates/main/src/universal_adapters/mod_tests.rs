@@ -254,7 +254,7 @@ mod tests {
         let capability = ServiceCapability::ArtificialIntelligence {
             models: vec!["gpt-4".to_string(), "claude".to_string()],
             tasks: vec!["completion".to_string(), "embedding".to_string()],
-            interfaces: vec!["rest".to_string(), "grpc".to_string()],
+            interfaces: vec!["rest".to_string(), "tarpc".to_string()],
         };
 
         match capability {
@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn test_integration_preferences_creation() {
         let prefs = IntegrationPreferences {
-            preferred_protocols: vec!["grpc".to_string(), "http2".to_string()],
+            preferred_protocols: vec!["tarpc".to_string(), "http2".to_string()],
             retry_policy: "exponential_backoff".to_string(),
             timeout_seconds: 30,
             load_balancing_weight: 10,
@@ -358,14 +358,14 @@ mod tests {
             version: "1.0.0".to_string(),
             description: "Test service".to_string(),
             maintainer: "test@example.com".to_string(),
-            protocols: vec!["grpc".to_string()],
+            protocols: vec!["json-rpc".to_string(), "tarpc".to_string()],
         };
 
         assert_eq!(metadata.name, "test-service");
         assert_eq!(metadata.version, "1.0.0");
         assert_eq!(metadata.description, "Test service");
         assert_eq!(metadata.maintainer, "test@example.com");
-        assert_eq!(metadata.protocols.len(), 1);
+        assert_eq!(metadata.protocols.len(), 2);
     }
 
     #[test]

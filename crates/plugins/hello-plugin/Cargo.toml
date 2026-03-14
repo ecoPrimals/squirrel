@@ -4,6 +4,7 @@ version = "1.0.0"
 edition = "2021"
 authors = ["DataScienceBioLab"]
 description = "A simple hello world plugin for Squirrel CLI"
+license = "AGPL-3.0-only"
 
 [lib]
 name = "hello_plugin"

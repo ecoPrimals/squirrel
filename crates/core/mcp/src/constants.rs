@@ -180,8 +180,8 @@ pub mod env_vars {
 
 /// Helper functions for building common URLs
 pub mod url_builders {
-    use super::network;
     use super::url_templates;
+    use universal_constants::network;
 
     /// Build HTTP URL using centralized host configuration
     pub fn localhost_http(port: u16) -> String {
@@ -216,15 +216,16 @@ pub mod url_builders {
     }
 
     /// Build default localhost URLs
-    #[allow(deprecated)]
     pub fn default_localhost_urls() -> (String, String, String, String, String) {
-        let http_url = localhost_http(network::DEFAULT_HTTP_PORT);
+        let http_port = network::get_service_port("http");
+        let ws_port = network::get_service_port("websocket");
+        let http_url = localhost_http(http_port);
         (
             http_url.clone(),
             health_url(&http_url),
             metrics_url(&http_url),
             admin_url(&http_url),
-            ws_url(&localhost_ws(network::DEFAULT_WEBSOCKET_PORT)),
+            ws_url(&localhost_ws(ws_port)),
         )
     }
 }

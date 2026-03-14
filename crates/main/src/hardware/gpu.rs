@@ -232,8 +232,6 @@ fn architecture_from_compute_capability(cc: &str) -> Option<String> {
 /// Estimate memory bandwidth from GPU model
 fn estimate_bandwidth(model: &str) -> Option<u32> {
     // Bandwidth in GB/s (approximate)
-    // Different GPU models can have identical specs; these are intentionally the same values
-    #[allow(clippy::if_same_then_else)]
     let bandwidth = if model.contains("RTX 5090") {
         1792 // GDDR7
     } else if model.contains("RTX 4090") {
@@ -242,9 +240,8 @@ fn estimate_bandwidth(model: &str) -> Option<u32> {
         936
     } else if model.contains("RTX 3080") {
         760
-    } else if model.contains("RTX 3070") {
-        448
-    } else if model.contains("RTX 2070") {
+    } else if model.contains("RTX 3070") || model.contains("RTX 2070") || model.contains("RX 5700")
+    {
         448
     } else if model.contains("V100") {
         900
@@ -262,8 +259,6 @@ fn estimate_bandwidth(model: &str) -> Option<u32> {
         960 // AMD
     } else if model.contains("RX 6900") {
         512
-    } else if model.contains("RX 5700") {
-        448
     } else {
         return None; // Unknown
     };
@@ -327,7 +322,6 @@ fn estimate_performance(model: &str, architecture: &Option<String>) -> Option<f3
 /// Estimate power draw from GPU model
 fn estimate_power(model: &str) -> Option<u32> {
     // Power in watts (TDP) — different GPU models can share TDP values
-    #[allow(clippy::if_same_then_else)]
     let power = if model.contains("RTX 5090") {
         575 // Power hungry beast
     } else if model.contains("RTX 4090") {
@@ -342,20 +336,18 @@ fn estimate_power(model: &str) -> Option<u32> {
         215
     } else if model.contains("A100") {
         400
-    } else if model.contains("V100") {
+    } else if model.contains("V100")
+        || model.contains("K80")
+        || model.contains("RX 6900")
+        || model.contains("MI100")
+    {
         300
-    } else if model.contains("K80") {
-        300 // Actually quite power hungry for old tech
     } else if model.contains("RX 7900") {
         355
-    } else if model.contains("RX 6900") {
-        300
     } else if model.contains("RX 5700") {
         225
     } else if model.contains("MI200") {
         560
-    } else if model.contains("MI100") {
-        300
     } else {
         return None;
     };

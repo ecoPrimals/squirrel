@@ -8,6 +8,7 @@
 //! all tasks in the system.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::debug;
 use uuid::Uuid;
@@ -21,14 +22,14 @@ use crate::task::types::{Task, TaskStatus};
 /// in the system, handling their creation, updating, and assignment to agents.
 #[derive(Debug)]
 pub struct TaskManager {
-    /// Map of task IDs to tasks
-    tasks: RwLock<HashMap<String, Task>>,
+    /// Map of task IDs to tasks (`Arc<str>` keys for zero-copy)
+    tasks: RwLock<HashMap<Arc<str>, Task>>,
 
     /// Map of agent IDs to task IDs
-    agent_tasks: RwLock<HashMap<String, HashSet<String>>>,
+    agent_tasks: RwLock<HashMap<String, HashSet<Arc<str>>>>,
 
     /// Map of context IDs to task IDs
-    context_tasks: RwLock<HashMap<String, HashSet<String>>>,
+    context_tasks: RwLock<HashMap<String, HashSet<Arc<str>>>>,
 }
 
 impl TaskManager {
@@ -47,17 +48,17 @@ impl TaskManager {
     /// the context task mapping if a context ID is provided.
     pub async fn create_task(&self, mut task: Task) -> Result<Task> {
         if task.id.is_empty() {
-            task.id = Uuid::new_v4().to_string();
+            task.id = Arc::from(Uuid::new_v4().to_string());
         }
 
         // Update the maps
         let mut tasks = self.tasks.write().await;
 
         // Check if task with this ID already exists
-        if tasks.contains_key(&task.id) {
+        if tasks.contains_key(task.id.as_ref()) {
             return Err(Error::AlreadyExists(format!(
                 "Task with ID {} already exists",
-                task.id
+                task.id.as_ref()
             )));
         }
 
@@ -67,12 +68,12 @@ impl TaskManager {
             let tasks_set = context_tasks
                 .entry(context_id.clone())
                 .or_insert_with(HashSet::new);
-            tasks_set.insert(task.id.clone());
+            tasks_set.insert(Arc::clone(&task.id));
         }
 
         // Store the task
         let task_clone = task.clone();
-        tasks.insert(task.id.clone(), task);
+        tasks.insert(Arc::clone(&task.id), task);
 
         Ok(task_clone)
     }
@@ -95,8 +96,11 @@ impl TaskManager {
         let mut tasks = self.tasks.write().await;
 
         // Get the existing task
-        let existing_task = tasks.get(&updated_task.id).ok_or_else(|| {
-            Error::NotFound(format!("Task with ID {} not found", updated_task.id))
+        let existing_task = tasks.get(updated_task.id.as_ref()).ok_or_else(|| {
+            Error::NotFound(format!(
+                "Task with ID {} not found",
+                updated_task.id.as_ref()
+            ))
         })?;
 
         // Preserve creation time and other immutable fields
@@ -110,7 +114,7 @@ impl TaskManager {
             // Remove from old context
             if let Some(old_context_id) = &existing_task.context_id {
                 if let Some(tasks_set) = context_tasks.get_mut(old_context_id) {
-                    tasks_set.remove(&merged_task.id);
+                    tasks_set.remove(merged_task.id.as_ref());
                 }
             }
 
@@ -119,7 +123,7 @@ impl TaskManager {
                 let tasks_set = context_tasks
                     .entry(new_context_id.clone())
                     .or_insert_with(HashSet::new);
-                tasks_set.insert(merged_task.id.clone());
+                tasks_set.insert(Arc::clone(&merged_task.id));
             }
         }
 
@@ -130,7 +134,7 @@ impl TaskManager {
             // Remove from old agent
             if let Some(old_agent_id) = &existing_task.agent_id {
                 if let Some(tasks_set) = agent_tasks.get_mut(old_agent_id) {
-                    tasks_set.remove(&merged_task.id);
+                    tasks_set.remove(merged_task.id.as_ref());
                 }
             }
 
@@ -139,12 +143,12 @@ impl TaskManager {
                 let tasks_set = agent_tasks
                     .entry(new_agent_id.clone())
                     .or_insert_with(HashSet::new);
-                tasks_set.insert(merged_task.id.clone());
+                tasks_set.insert(Arc::clone(&merged_task.id));
             }
         }
 
         // Update the task
-        tasks.insert(merged_task.id.clone(), merged_task.clone());
+        tasks.insert(Arc::clone(&merged_task.id), merged_task.clone());
 
         Ok(merged_task)
     }
@@ -184,10 +188,10 @@ impl TaskManager {
         let tasks_set = agent_tasks
             .entry(agent_id.to_string())
             .or_insert_with(HashSet::new);
-        tasks_set.insert(task_id.to_string());
+        tasks_set.insert(Arc::clone(&task.id));
 
         // Update the task in the map
-        tasks.insert(task_id.to_string(), task.clone());
+        tasks.insert(Arc::clone(&task.id), task.clone());
 
         Ok(task)
     }
@@ -219,7 +223,7 @@ impl TaskManager {
         task.update_progress(progress, status_message);
 
         // Update the task in the map
-        tasks.insert(task_id.to_string(), task.clone());
+        tasks.insert(Arc::clone(&task.id), task.clone());
 
         Ok(task)
     }
@@ -250,7 +254,7 @@ impl TaskManager {
         task.mark_completed(output_data);
 
         // Update the task in the map
-        tasks.insert(task_id.to_string(), task.clone());
+        tasks.insert(Arc::clone(&task.id), task.clone());
 
         // Check dependent tasks
         drop(tasks); // Release the lock before calling another method
@@ -283,7 +287,7 @@ impl TaskManager {
         task.mark_failed(error_message);
 
         // Update the task in the map
-        tasks.insert(task_id.to_string(), task.clone());
+        tasks.insert(Arc::clone(&task.id), task.clone());
 
         Ok(task)
     }
@@ -310,7 +314,7 @@ impl TaskManager {
         task.mark_cancelled(reason);
 
         // Update the task in the map
-        tasks.insert(task_id.to_string(), task.clone());
+        tasks.insert(Arc::clone(&task.id), task.clone());
 
         Ok(task)
     }
@@ -323,7 +327,7 @@ impl TaskManager {
         if let Some(task_ids) = agent_tasks.get(agent_id) {
             let agent_tasks: Vec<Task> = task_ids
                 .iter()
-                .filter_map(|task_id| tasks.get(task_id).cloned())
+                .filter_map(|task_id| tasks.get(task_id.as_ref()).cloned())
                 .collect();
             Ok(agent_tasks)
         } else {
@@ -343,7 +347,7 @@ impl TaskManager {
 
         let result: Vec<Task> = task_ids
             .iter()
-            .filter_map(|id| tasks.get(id).cloned())
+            .filter_map(|id| tasks.get(id.as_ref()).cloned())
             .collect();
 
         Ok(result)
@@ -371,7 +375,7 @@ impl TaskManager {
         let tasks = self.tasks.read().await;
 
         for prereq_id in &task.prerequisites {
-            if let Some(prereq_task) = tasks.get(prereq_id) {
+            if let Some(prereq_task) = tasks.get(prereq_id.as_str()) {
                 if !prereq_task.is_completed() {
                     return Ok(false);
                 }
@@ -451,7 +455,7 @@ impl TaskManager {
                 task.updated_at = chrono::Utc::now();
 
                 let mut tasks = self.tasks.write().await;
-                tasks.insert(task.id.clone(), task);
+                tasks.insert(Arc::clone(&task.id), task);
             }
         }
 

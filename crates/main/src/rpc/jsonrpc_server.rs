@@ -48,6 +48,22 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
+
+// Serde helpers for Arc<str> (zero-copy for hot-path jsonrpc/method fields)
+fn serialize_arc_str<S>(arc_str: &Arc<str>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(arc_str)
+}
+
+fn deserialize_arc_str<'de, D>(deserializer: D) -> Result<Arc<str>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(Arc::from(s))
+}
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
@@ -57,11 +73,19 @@ use universal_patterns::transport::{UniversalListener, UniversalTransport};
 /// JSON-RPC 2.0 Request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
-    /// JSON-RPC version (must be "2.0")
-    pub jsonrpc: String,
+    /// JSON-RPC version (must be "2.0") — `Arc<str>` for zero-copy (always "2.0")
+    #[serde(
+        serialize_with = "serialize_arc_str",
+        deserialize_with = "deserialize_arc_str"
+    )]
+    pub jsonrpc: Arc<str>,
 
-    /// Method name
-    pub method: String,
+    /// Method name — `Arc<str>` for zero-copy (method names reused constantly)
+    #[serde(
+        serialize_with = "serialize_arc_str",
+        deserialize_with = "deserialize_arc_str"
+    )]
+    pub method: Arc<str>,
 
     /// Parameters (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -75,8 +99,12 @@ pub struct JsonRpcRequest {
 /// JSON-RPC 2.0 Response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcResponse {
-    /// JSON-RPC version
-    pub jsonrpc: String,
+    /// JSON-RPC version — `Arc<str>` for zero-copy (always "2.0")
+    #[serde(
+        serialize_with = "serialize_arc_str",
+        deserialize_with = "deserialize_arc_str"
+    )]
+    pub jsonrpc: Arc<str>,
 
     /// Result (if successful)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -453,7 +481,7 @@ impl JsonRpcServer {
             Ok(req) => req,
             Err(e) => {
                 return JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
+                    jsonrpc: Arc::from("2.0"),
                     result: None,
                     error: Some(JsonRpcError {
                         code: error_codes::PARSE_ERROR,
@@ -466,7 +494,7 @@ impl JsonRpcServer {
         };
 
         // Validate JSON-RPC version
-        if request.jsonrpc != "2.0" {
+        if request.jsonrpc.as_ref() != "2.0" {
             return self.error_response(
                 request.id.unwrap_or(Value::Null),
                 error_codes::INVALID_REQUEST,
@@ -484,7 +512,7 @@ impl JsonRpcServer {
 
         // Method dispatch with semantic naming (wateringHole standard: {domain}.{operation})
         // Semantic names are preferred; legacy aliases emit deprecation warnings (Phase 2)
-        let result = match request.method.as_str() {
+        let result = match request.method.as_ref() {
             // AI domain — semantic names (preferred)
             "ai.query" => self.handle_query_ai(request.params).await,
             "ai.list_providers" => self.handle_list_providers(request.params).await,
@@ -570,7 +598,7 @@ impl JsonRpcServer {
             }
 
             // Method not found
-            _ => Err(self.method_not_found(&request.method)),
+            _ => Err(self.method_not_found(request.method.as_ref())),
         };
 
         // Update metrics
@@ -581,7 +609,7 @@ impl JsonRpcServer {
 
         match result {
             Ok(value) => JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
+                jsonrpc: Arc::from("2.0"),
                 result: Some(value),
                 error: None,
                 id: request_id,
@@ -589,7 +617,7 @@ impl JsonRpcServer {
             Err(error) => {
                 metrics.errors += 1;
                 JsonRpcResponse {
-                    jsonrpc: "2.0".to_string(),
+                    jsonrpc: Arc::from("2.0"),
                     result: None,
                     error: Some(error),
                     id: request_id,
@@ -609,8 +637,8 @@ mod tests {
     #[test]
     fn test_jsonrpc_request_serialization() {
         let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            method: "query_ai".to_string(),
+            jsonrpc: Arc::from("2.0"),
+            method: Arc::from("query_ai"),
             params: Some(json!({"prompt": "Hello"})),
             id: Some(json!(1)),
         };
@@ -625,7 +653,7 @@ mod tests {
     #[test]
     fn test_jsonrpc_response_serialization() {
         let response = JsonRpcResponse {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: Arc::from("2.0"),
             result: Some(json!({"status": "ok"})),
             error: None,
             id: json!(1),
@@ -642,7 +670,7 @@ mod tests {
     #[test]
     fn test_jsonrpc_error_serialization() {
         let response = JsonRpcResponse {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: Arc::from("2.0"),
             result: None,
             error: Some(JsonRpcError {
                 code: error_codes::METHOD_NOT_FOUND,

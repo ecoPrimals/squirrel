@@ -6,7 +6,8 @@
 //! This module provides environment-driven defaults to eliminate hardcoded values.
 
 use std::env;
-// Removed: use squirrel_mcp_config::get_service_endpoints;
+
+use universal_constants::network::{get_service_port, DEFAULT_SECURITY_PORT};
 
 /// Default ecosystem service endpoints with environment override support
 pub struct DefaultEndpoints;
@@ -28,7 +29,7 @@ impl DefaultEndpoints {
                     .or_else(|_| env::var("SONGBIRD_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8500);
+                    .unwrap_or_else(|| get_service_port("discovery"));
                 format!("http://localhost:{port}")
             })
     }
@@ -49,7 +50,7 @@ impl DefaultEndpoints {
                     .or_else(|_| env::var("TOADSTOOL_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8081);
+                    .unwrap_or_else(|| get_service_port("http"));
                 format!("http://localhost:{port}")
             })
     }
@@ -70,7 +71,7 @@ impl DefaultEndpoints {
                     .or_else(|_| env::var("NESTGATE_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8082);
+                    .unwrap_or_else(|| get_service_port("admin"));
                 format!("http://localhost:{port}")
             })
     }
@@ -91,7 +92,7 @@ impl DefaultEndpoints {
                 let port = env::var("SECURITY_AUTHENTICATION_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8443); // Default security auth port
+                    .unwrap_or(DEFAULT_SECURITY_PORT);
                 format!("http://localhost:{port}")
             })
     }
@@ -99,7 +100,8 @@ impl DefaultEndpoints {
     /// Get development bind address from environment or default
     #[must_use]
     pub fn dev_bind_address() -> String {
-        env::var("DEV_BIND_ADDRESS").unwrap_or_else(|_| "127.0.0.1".to_string())
+        env::var("DEV_BIND_ADDRESS")
+            .unwrap_or_else(|_| universal_constants::network::LOCALHOST_IPV4.to_string())
     }
 
     /// Get discovery endpoint from environment or default

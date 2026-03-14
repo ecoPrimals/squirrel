@@ -252,9 +252,13 @@ impl UniversalSquirrelProvider {
 
         // Create service registration
         let registration = EcosystemServiceRegistration {
-            service_id: service_id.clone(),
+            service_id: Arc::from(service_id.as_str()),
             primal_type: self.primal_type(),
-            biome_id: self.context.biome_id.clone(),
+            biome_id: self
+                .context
+                .biome_id
+                .as_ref()
+                .map(|s| Arc::from(s.as_ref())),
             capabilities: ServiceCapabilities {
                 core: vec!["ai_inference".to_string(), "mcp_protocol".to_string()],
                 extended: vec![
@@ -346,18 +350,15 @@ impl UniversalSquirrelProvider {
     }
 
     /// Handle AI inference requests
+    ///
+    /// Coordinates with the internal inference pipeline: analyzes request complexity,
+    /// selects optimal model based on cost/complexity, and generates responses.
+    /// Uses capability-based discovery for AI providers when available.
     pub async fn handle_ai_inference(
         &self,
         payload: serde_json::Value,
     ) -> UniversalResult<serde_json::Value> {
-        // This is a placeholder implementation - in a real system this would
-        // coordinate with AI providers, route requests, etc.
-        Ok(serde_json::json!({
-            "response": "AI inference response",
-            "model": "squirrel-ai-v1",
-            "timestamp": Utc::now().to_rfc3339(),
-            "input": payload,
-        }))
+        self.handle_ai_inference_internal(payload).await
     }
 }
 
@@ -392,7 +393,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
                 languages: vec!["en".to_string(), "es".to_string()],
             },
             PrimalCapability::ServiceDiscovery {
-                protocols: vec!["http".to_string(), "grpc".to_string()],
+                protocols: vec!["http".to_string(), "tarpc".to_string()],
             },
         ]
     }
@@ -488,7 +489,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         &self,
         request: PrimalRequest,
     ) -> UniversalResult<PrimalResponse> {
-        let result = match request.operation.as_str() {
+        let result = match request.operation.as_ref() {
             "ai_inference" => {
                 let response = self.handle_ai_inference_internal(request.payload).await?;
                 PrimalResponse {
@@ -515,7 +516,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
             _ => PrimalResponse {
                 request_id: request.id,
                 status: ResponseStatus::Error {
-                    code: "400".to_string(),
+                    code: Arc::from("400"),
                     message: format!("Unknown operation: {}", request.operation),
                 },
                 payload: json!({"error": "Unknown operation"}),
@@ -548,7 +549,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         if let Some(registration) = &self.service_registration {
             if let Some(ref mesh_client) = self.service_mesh_client {
                 let _ = mesh_client
-                    .deregister_service(&registration.service_id)
+                    .deregister_service(registration.service_id.as_ref())
                     .await;
             }
         }
@@ -614,7 +615,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         &self,
         request: EcosystemRequest,
     ) -> UniversalResult<EcosystemResponse> {
-        match request.operation.as_str() {
+        match request.operation.as_ref() {
             "ai_inference" => {
                 let response = self.handle_ai_inference_internal(request.payload).await?;
                 Ok(EcosystemResponse {
@@ -640,7 +641,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
                         Ok(EcosystemResponse {
                             request_id: request.request_id,
                             status: ResponseStatus::Error {
-                                code: "SERIALIZATION_ERROR".to_string(),
+                                code: Arc::from("SERIALIZATION_ERROR"),
                                 message: format!("Failed to serialize health check: {e}"),
                             },
                             payload: serde_json::Value::Null,
@@ -653,7 +654,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
             _ => Ok(EcosystemResponse {
                 request_id: request.request_id,
                 status: ResponseStatus::Error {
-                    code: "UNSUPPORTED_OPERATION".to_string(),
+                    code: Arc::from("UNSUPPORTED_OPERATION"),
                     message: format!("Unsupported operation: {}", request.operation),
                 },
                 payload: serde_json::Value::Null,
@@ -689,7 +690,7 @@ impl EcosystemIntegration for UniversalSquirrelProvider {
         &self,
         request: EcosystemRequest,
     ) -> Result<EcosystemResponse, EcosystemError> {
-        match request.operation.as_str() {
+        match request.operation.as_ref() {
             "health_check" => {
                 let health = self.health_check().await;
                 Ok(EcosystemResponse {

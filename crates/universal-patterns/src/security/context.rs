@@ -531,3 +531,52 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use crate::traits::PrincipalType;
+    use proptest::prelude::*;
+
+    fn principal_strategy() -> impl Strategy<Value = Principal> {
+        (
+            any::<String>(),
+            any::<String>(),
+            prop_oneof![
+                Just(PrincipalType::User),
+                Just(PrincipalType::Service),
+                Just(PrincipalType::Client),
+                Just(PrincipalType::System),
+            ],
+            proptest::collection::vec(any::<String>(), 0..5),
+            proptest::collection::vec(any::<String>(), 0..5),
+        )
+            .prop_map(|(id, name, pt, roles, perms)| Principal {
+                id,
+                name,
+                principal_type: pt,
+                roles,
+                permissions: perms,
+                metadata: HashMap::new(),
+            })
+    }
+
+    proptest! {
+        #[test]
+        fn security_context_round_trip_serde(principal in principal_strategy(), token in any::<String>()) {
+            let original = SecurityContext {
+                principal: principal.clone(),
+                token: token.clone(),
+                expires_at: Utc::now() + chrono::Duration::hours(1),
+                permissions: principal.permissions.clone(),
+                metadata: HashMap::new(),
+            };
+            let json = serde_json::to_string(&original).unwrap();
+            let deserialized: SecurityContext = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(original.principal.id, deserialized.principal.id);
+            prop_assert_eq!(original.principal.name, deserialized.principal.name);
+            prop_assert_eq!(original.token, deserialized.token);
+            prop_assert_eq!(original.permissions, deserialized.permissions);
+        }
+    }
+}

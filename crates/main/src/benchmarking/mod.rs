@@ -716,10 +716,7 @@ impl BenchmarkSuite {
         let benchmark_start = Instant::now();
         let benchmark_end = benchmark_start + config.duration;
 
-        // Record initial system metrics
-        self.collect_system_metrics().await;
-
-        // Run operations
+        // Run operations (collect_system_metrics deferred to end - it can block)
         let mut operation_count = 0u64;
         while Instant::now() < benchmark_end && operation_count < config.operation_count {
             match operation().await {
@@ -766,17 +763,69 @@ impl BenchmarkSuite {
     }
 
     /// Collect system metrics
+    ///
+    /// Uses /proc/self/statm on Linux for memory, sysinfo elsewhere.
     async fn collect_system_metrics(&self) -> SystemMetrics {
-        // This would integrate with actual system monitoring in production
+        let (memory_usage_mb, cpu_usage_percent) = Self::measure_process_resources();
+        let (network_io_bytes, disk_io_bytes) = (0u64, 0u64); // Would integrate with /proc/net or similar
+        let thread_count = std::thread::available_parallelism()
+            .map(|p| p.get() as u32)
+            .unwrap_or(1);
         SystemMetrics {
-            memory_usage_mb: 128.0,  // Placeholder
-            cpu_usage_percent: 45.0, // Placeholder
-            network_io_bytes: 1024,
-            disk_io_bytes: 2048,
-            thread_count: 16,
+            memory_usage_mb,
+            cpu_usage_percent,
+            network_io_bytes,
+            disk_io_bytes,
+            thread_count,
             handle_count: 256,
             timestamp: Utc::now(),
         }
+    }
+
+    /// Measure process memory (RSS) and CPU usage.
+    ///
+    /// On Linux: reads /proc/self/statm for RSS (resident set size), with sysinfo fallback.
+    /// On other platforms: uses sysinfo crate.
+    fn measure_process_resources() -> (f64, f64) {
+        let pid = sysinfo::Pid::from(std::process::id() as usize);
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_all();
+        sys.refresh_process(pid);
+
+        let mem_mb = {
+            #[cfg(target_os = "linux")]
+            {
+                Self::read_proc_statm_rss_mb().unwrap_or_else(|_| {
+                    sys.process(pid)
+                        .map(|p| (p.memory() as f64) / (1024.0 * 1024.0))
+                        .unwrap_or(0.0)
+                })
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                sys.process(pid)
+                    .map(|p| (p.memory() as f64) / (1024.0 * 1024.0))
+                    .unwrap_or(0.0)
+            }
+        };
+
+        let cpu = sys
+            .process(pid)
+            .map(|p| p.cpu_usage() as f64)
+            .unwrap_or(0.0);
+
+        (mem_mb, cpu)
+    }
+
+    #[cfg(target_os = "linux")]
+    fn read_proc_statm_rss_mb() -> Result<f64, std::io::Error> {
+        let statm = std::fs::read_to_string("/proc/self/statm")?;
+        // Format: size resident shared text lib data dt (pages, typically 4KB)
+        let parts: Vec<&str> = statm.split_whitespace().collect();
+        let rss_pages: u64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+        let page_size = 4096u64; // Linux default
+        let rss_bytes = rss_pages * page_size;
+        Ok((rss_bytes as f64) / (1024.0 * 1024.0))
     }
 
     /// Get all benchmark results

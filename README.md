@@ -2,13 +2,15 @@
 
 **Universal AI Coordination Primal** for the ecoPrimals ecosystem.
 
-**License**: AGPL-3.0-only | **Build**: GREEN | **Tests**: 3,969 passing | **Rust**: 1.80+
+**License**: AGPL-3.0-only | **Build**: GREEN | **Tests**: 4,240 passing | **Coverage**: 66% line | **Rust**: 1.80+
 
 ---
 
 ## Overview
 
-Squirrel is a sovereign AI Model Context Protocol (MCP) primal providing advanced AI capabilities through a TRUE PRIMAL architecture: zero compile-time coupling, runtime capability-based discovery, vendor-agnostic AI provider integration, universal transport abstractions, and isomorphic IPC for platform-agnostic communication.
+Squirrel is the AI Coordination Primal of the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem — a sovereign AI Model Context Protocol (MCP) service providing vendor-agnostic model routing, multi-MCP coordination, and context management through a TRUE PRIMAL architecture: zero compile-time coupling, runtime capability-based discovery, and isomorphic IPC.
+
+Squirrel originated from Geoffrey Huntley's [stdlib thesis](https://ghuntley.com/stdlib/) on treating AI coding assistants as autonomous agents. That insight evolved into a formal methodology — **constrained evolution** — where the AI proposes code variants, Rust's type system and borrow checker act as natural selection, and validation suites serve as the fitness function. See [ORIGIN.md](ORIGIN.md) for the full story.
 
 ### Core Capabilities
 
@@ -144,7 +146,7 @@ All AI provider interactions are capability-based, not vendor-specific:
 ## Testing
 
 ```bash
-# Run full workspace tests (3,969 tests, single-threaded)
+# Run full workspace tests (4,100+ tests, single-threaded)
 cargo test --workspace
 
 # Run main crate tests only
@@ -156,9 +158,9 @@ cargo llvm-cov --workspace --html
 
 ### Test Coverage
 
-- **3,969 tests** passing, 0 failed, 9 ignored
-- Unit, integration, E2E, and chaos testing
-- Network resilience, resource exhaustion, and concurrency chaos tests (13/15)
+- **4,240 tests** passing across the workspace (incl. property-based via proptest)
+- Unit, integration, E2E, chaos, fault injection, and property-based testing
+- **66% line coverage** (target: 90%, tracked via `cargo llvm-cov`)
 
 ---
 

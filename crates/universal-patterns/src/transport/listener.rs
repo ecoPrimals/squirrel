@@ -410,6 +410,7 @@ impl UniversalListener {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_listener_config_default() {
@@ -442,10 +443,91 @@ mod tests {
     }
 
     #[test]
+    fn test_listener_hierarchy_with_preference_and_fallback() {
+        let mut config = ListenerConfig::default();
+        config.preferred_transport = Some(TransportType::Tcp);
+        config.enable_fallback = true;
+
+        let hierarchy = UniversalListener::get_transport_hierarchy(&config);
+        assert_eq!(hierarchy.len(), 2);
+        assert_eq!(hierarchy[0], TransportType::Tcp);
+        assert_eq!(hierarchy[1], TransportType::Tcp);
+    }
+
+    #[test]
+    fn test_listener_hierarchy_no_fallback() {
+        let mut config = ListenerConfig::default();
+        config.enable_fallback = false;
+        config.preferred_transport = Some(TransportType::UnixFilesystem);
+
+        let hierarchy = UniversalListener::get_transport_hierarchy(&config);
+        assert_eq!(hierarchy.len(), 1);
+        assert_eq!(hierarchy[0], TransportType::UnixFilesystem);
+    }
+
+    #[test]
     fn test_listener_socket_path() {
         let config = ListenerConfig::default();
         let path = UniversalListener::get_socket_path("test_service", &config);
 
         assert!(path.to_string_lossy().contains("test_service.sock"));
+    }
+
+    #[test]
+    fn test_listener_socket_path_with_custom_base_dir() {
+        let mut config = ListenerConfig::default();
+        config.socket_base_dir = Some(PathBuf::from("/tmp/custom_sockets"));
+
+        let path = UniversalListener::get_socket_path("my_service", &config);
+
+        assert!(path.to_string_lossy().contains("my_service.sock"));
+        assert!(path.to_string_lossy().contains("custom_sockets"));
+    }
+
+    #[tokio::test]
+    async fn test_listener_bind_tcp_and_accept() {
+        // Use TCP explicitly for reliable cross-platform binding
+        let mut config = ListenerConfig::default();
+        config.preferred_transport = Some(TransportType::Tcp);
+
+        let listener = UniversalListener::bind("test_bind_accept", Some(config))
+            .await
+            .expect("bind should succeed");
+
+        let addr = listener.local_addr().expect("local_addr should succeed");
+        assert!(!addr.is_empty());
+        assert!(addr.contains("127.0.0.1") || addr.contains("localhost"));
+
+        // Spawn a task to connect
+        let connect_addr = addr.clone();
+        let connect_handle =
+            tokio::spawn(async move { tokio::net::TcpStream::connect(connect_addr).await });
+
+        // Accept the connection
+        let accept_result = listener.accept().await;
+        assert!(
+            accept_result.is_ok(),
+            "accept should succeed: {:?}",
+            accept_result
+        );
+
+        let (_transport, remote_addr) = accept_result.unwrap();
+        assert!(matches!(remote_addr, RemoteAddr::Tcp(_)));
+
+        // Clean up - connect_handle may have failed if we parsed addr wrong, that's ok
+        let _ = connect_handle.await;
+    }
+
+    #[tokio::test]
+    async fn test_listener_bind_with_preferred_tcp() {
+        let mut config = ListenerConfig::default();
+        config.preferred_transport = Some(TransportType::Tcp);
+
+        let result = UniversalListener::bind("test_tcp_bind", Some(config)).await;
+        assert!(result.is_ok());
+
+        let listener = result.unwrap();
+        let addr_str = listener.local_addr().unwrap();
+        assert!(addr_str.contains(':'));
     }
 }

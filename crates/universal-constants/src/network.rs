@@ -60,10 +60,10 @@ pub fn get_service_port(service: &str) -> u16 {
         }
     }
 
-    // 2. Try SERVICE_MESH discovery (placeholder for future implementation)
-    // if let Some(port) = query_service_mesh(service) {
-    //     return port;
-    // }
+    // 2. Service mesh discovery (future implementation)
+    //    Intended pattern: Query service mesh (e.g. Consul, etcd) for service registration.
+    //    Discovery flow: SERVICE_MESH env -> mesh client -> lookup(service) -> port.
+    //    When implemented: if let Some(port) = query_service_mesh(service) { return port; }
 
     // 3. Use fallback (with warning)
     let fallback_port = match service.to_lowercase().as_str() {
@@ -168,6 +168,23 @@ pub const DEFAULT_METRICS_PORT: u16 = 9090;
 #[deprecated(since = "3.0.0", note = "Use get_service_port(\"discovery\")")]
 pub const DEFAULT_DISCOVERY_PORT: u16 = 8500;
 
+/// Fallback security/MCP port (use `deployment::ports::security_service()` or `deployment::ports::mcp_server()` for env-aware)
+pub const DEFAULT_SECURITY_PORT: u16 = 8443;
+
+/// Fallback gRPC port (standard gRPC default)
+pub const DEFAULT_GRPC_PORT: u16 = 50051;
+
+/// Bind to all network interfaces (0.0.0.0)
+///
+/// Use for production servers that accept external connections.
+pub const BIND_ALL_INTERFACES: &str = "0.0.0.0";
+
+/// Fallback Songbird/ecosystem API port (discovery, registration)
+pub const DEFAULT_SONGBIRD_PORT: u16 = 8001;
+
+/// Fallback Squirrel main server port
+pub const DEFAULT_SQUIRREL_SERVER_PORT: u16 = 9010;
+
 // ============================================================================
 // URL Templates
 // ============================================================================
@@ -243,14 +260,12 @@ pub fn http_url(host: &str, port: u16, path: &str) -> String {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
     use super::{
         get_bind_address, get_port_from_env, get_service_port, http_url, ADMIN_ENDPOINT,
-        DEFAULT_ADMIN_PORT, DEFAULT_BIND_ADDRESS, DEFAULT_DISCOVERY_PORT, DEFAULT_HTTP_PORT,
-        DEFAULT_LOCALHOST, DEFAULT_METRICS_PORT, DEFAULT_WEBSOCKET_PORT, DISCOVERY_ENDPOINT,
-        HEALTH_ENDPOINT, LOCALHOST_HTTP_TEMPLATE, LOCALHOST_IPV4, LOCALHOST_WS_TEMPLATE,
-        METRICS_ENDPOINT, REGISTRATION_ENDPOINT, WS_ENDPOINT,
+        DEFAULT_LOCALHOST, DISCOVERY_ENDPOINT, HEALTH_ENDPOINT, LOCALHOST_HTTP_TEMPLATE,
+        LOCALHOST_IPV4, LOCALHOST_WS_TEMPLATE, METRICS_ENDPOINT, REGISTRATION_ENDPOINT,
+        WS_ENDPOINT,
     };
 
     #[test]
@@ -282,13 +297,13 @@ mod tests {
     }
 
     #[test]
-    fn test_deprecated_constants() {
-        assert_eq!(DEFAULT_BIND_ADDRESS, "127.0.0.1");
-        assert_eq!(DEFAULT_WEBSOCKET_PORT, 8080);
-        assert_eq!(DEFAULT_HTTP_PORT, 8081);
-        assert_eq!(DEFAULT_ADMIN_PORT, 8082);
-        assert_eq!(DEFAULT_METRICS_PORT, 9090);
-        assert_eq!(DEFAULT_DISCOVERY_PORT, 8500);
+    fn test_service_port_matches_legacy_defaults() {
+        // Validates get_service_port returns same values as legacy constants
+        assert_eq!(get_service_port("websocket"), 8080);
+        assert_eq!(get_service_port("http"), 8081);
+        assert_eq!(get_service_port("admin"), 8082);
+        assert_eq!(get_service_port("metrics"), 9090);
+        assert_eq!(get_service_port("discovery"), 8500);
     }
 
     #[test]
@@ -327,6 +342,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)] // Tests deprecated path for backward compatibility
     fn test_get_port_from_env() {
         assert_eq!(get_port_from_env("NONEXISTENT_PORT_XYZ", 1234), 1234);
     }

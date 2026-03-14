@@ -10,11 +10,12 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN (0 errors) |
-| Tests | 3,969 passing / 0 failed / 9 ignored |
+| Tests | 4,240 passing / 0 failed |
 | Test Duration | Single-threaded (full workspace) |
-| Clippy | CLEAN (pedantic + nursery, 0 warnings) |
+| Clippy | CLEAN (-D warnings, 0 warnings) |
 | Formatting | CLEAN |
-| Test Coverage | ~70% line (squirrel crate), 66.45% workspace |
+| Doc Warnings | CLEAN (0 rustdoc warnings) |
+| Test Coverage | 66% line, 68% region (workspace, via cargo llvm-cov; target: 90%) |
 | Unsafe Code | 0 (all crates use `#![forbid(unsafe_code)]`) |
 | Pure Rust | 100% (zero C deps, sqlx uses rustls) |
 | SPDX Headers | All source files |
@@ -42,9 +43,9 @@
 
 ### Comprehensive Audit & Deep Debt Resolution
 
-- **Tests**: 3,969 passing / 0 failed / 9 ignored
-- **Clippy**: CLEAN with pedantic + nursery (0 warnings)
-- **Coverage**: ~70% line (squirrel), 66.45% workspace (target: 90%)
+- **Tests**: 4,240 passing / 0 failed
+- **Clippy**: CLEAN (-D warnings, 0 warnings)
+- **Coverage**: 66% line, 68% region (target: 90%, via cargo llvm-cov)
 - **File sizes**: All .rs files under 1,000 lines
 - **License**: AGPL-3.0-only on all crates
 - **gRPC/tonic**: Fully removed — JSON-RPC 2.0 + tarpc only
@@ -58,9 +59,8 @@
 ## Test Suite
 
 ```
-3,969 passed
+4,240 passed
 0 failed
-9 ignored
 ```
 
 ### Coverage Areas

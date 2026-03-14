@@ -32,8 +32,8 @@ fn bytes_to_hashmap(data: &[u8]) -> HashMap<String, String> {
 /// Convert Task to JsonTask for JSON-RPC response
 fn task_to_json_task(task: Task) -> JsonTask {
     JsonTask {
-        id: task.id,
-        name: task.name,
+        id: task.id.as_ref().to_string(),
+        name: task.name.as_ref().to_string(),
         description: task.description,
         status: task.status_code as i32,
         priority: task.priority_code as i32,
@@ -138,7 +138,7 @@ impl TaskServiceImpl {
                 info!("Task created successfully with ID: {}", created_task.id);
                 Ok(serde_json::to_value(CreateTaskResponse {
                     success: true,
-                    task_id: created_task.id,
+                    task_id: created_task.id.as_ref().to_string(),
                     error_message: String::new(),
                 })
                 .unwrap())
@@ -213,7 +213,7 @@ impl TaskServiceImpl {
 
         let mut updated_task = current_task.clone();
         if !req.name.is_empty() {
-            updated_task.name = req.name;
+            updated_task.name = std::sync::Arc::from(req.name);
         }
         if !req.description.is_empty() {
             updated_task.description = req.description;

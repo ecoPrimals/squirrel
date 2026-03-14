@@ -326,7 +326,7 @@ impl ExampleWebPlugin {
 
 #[async_trait]
 impl Plugin for ExampleWebPlugin {
-    #[allow(deprecated)]
+    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }

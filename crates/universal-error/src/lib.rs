@@ -377,4 +377,43 @@ mod tests {
         let universal_err: UniversalError = io_err.into();
         assert!(matches!(universal_err, UniversalError::General(_)));
     }
+
+    #[test]
+    fn test_json_error_conversion() {
+        let json_err = serde_json::from_str::<serde_json::Value>("invalid json").unwrap_err();
+        let universal_err: UniversalError = json_err.into();
+        assert!(matches!(universal_err, UniversalError::General(_)));
+        assert!(universal_err.to_string().contains("JSON error"));
+    }
+
+    #[test]
+    fn test_string_owned_conversion() {
+        let err: UniversalError = "owned error".to_string().into();
+        assert!(matches!(err, UniversalError::General(_)));
+        assert_eq!(err.to_string(), "General error: owned error");
+    }
+
+    #[test]
+    fn test_is_sdk() {
+        let sdk_err = sdk::SDKError::General("test".to_string());
+        let universal_err: UniversalError = sdk_err.into();
+        assert!(universal_err.is_sdk());
+        assert!(!universal_err.is_mcp());
+    }
+
+    #[test]
+    fn test_is_tools() {
+        let tools_err = tools::ToolsError::General("test".to_string());
+        let universal_err: UniversalError = tools_err.into();
+        assert!(universal_err.is_tools());
+        assert!(!universal_err.is_sdk());
+    }
+
+    #[test]
+    fn test_is_integration() {
+        let integ_err = integration::IntegrationError::General("test".to_string());
+        let universal_err: UniversalError = integ_err.into();
+        assert!(universal_err.is_integration());
+        assert!(!universal_err.is_tools());
+    }
 }

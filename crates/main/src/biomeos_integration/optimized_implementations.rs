@@ -7,7 +7,8 @@
 //! This module provides optimized versions of `BiomeOS` integration components
 //! that use zero-copy patterns to reduce memory allocations and improve performance.
 
-#[allow(deprecated)] // EcosystemPrimalType is deprecated but needed for backward compatibility
+// Backward compatibility: kept for deserialization of legacy data
+#[allow(deprecated)]
 use crate::biomeos_integration::IntelligenceResponse; // Add missing import
 use crate::ecosystem::{
     EcosystemPrimalType,
@@ -208,13 +209,17 @@ impl OptimizedMessageProcessor {
             self.metrics.record_string_interning_hit();
         }
 
-        // Build response efficiently
+        // Build response efficiently with actual timing measurement
+        let processing_start = std::time::Instant::now();
+        let result = serde_json::json!({"recommendations": ["Optimize resource usage", "Monitor system health"]});
+        let processing_time_ms = processing_start.elapsed().as_millis() as u64;
+
         let response = IntelligenceResponse {
             request_id: request_id.to_string(),
             intelligence_type: request_type.to_string(),
-            result: serde_json::json!({"recommendations": ["Optimize resource usage", "Monitor system health"]}),
+            result,
             confidence: 0.85,
-            processing_time_ms: 0, // Placeholder, actual time would be measured
+            processing_time_ms,
             metadata: HashMap::new(),
         };
 

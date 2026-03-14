@@ -271,8 +271,8 @@ impl AiCapability for UniversalAiAdapter {
 
         Ok(UniversalAiResponse {
             text,
-            provider_id: self.provider_id.clone(),
-            model,
+            provider_id: std::sync::Arc::from(self.provider_id.as_str()),
+            model: std::sync::Arc::from(model.as_str()),
             usage,
             stop_reason,
             latency_ms: Some(elapsed.as_millis() as u64),

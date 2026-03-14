@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::str::FromStr;
 use thiserror::Error;
+use universal_constants::capabilities;
 use universal_constants::timeouts;
 
 /// Environment configuration errors
@@ -116,9 +117,11 @@ impl NetworkConfig {
             .unwrap_or(8080);
 
         // Web UI configuration with environment awareness
+        // Production: Resolved at runtime via Songbird/socket-registry capability discovery.
+        // Use WEB_UI_URL env var to override; otherwise discovered via ecosystem UI capability.
         let _web_ui_url = env::var("WEB_UI_URL").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                "http://biomeos-ui:3000".to_string() // Production service name
+                format!("discovered://{}", capabilities::ECOSYSTEM_CAPABILITY)
             } else {
                 // Multi-tier dev UI resolution
                 let port = env::var("WEB_UI_PORT")
@@ -382,57 +385,56 @@ impl EcosystemConfig {
     /// # Errors
     /// Returns `EnvironmentError` if required environment variables have invalid values.
     pub fn from_env() -> Result<Self, EnvironmentError> {
-        // Primal endpoints with service discovery
-        // Multi-tier NestGate endpoint resolution
+        // Capability-based endpoint resolution (TRUE PRIMAL pattern).
+        // Production defaults use discovered://{capability} - actual endpoints are resolved
+        // at runtime via Songbird/socket-registry capability discovery.
+        // Env vars (NESTGATE_ENDPOINT, etc.) override for explicit configuration.
         let nestgate_endpoint = env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                "http://nestgate:8444".to_string()
+                format!("discovered://{}", capabilities::STORAGE_CAPABILITY)
             } else {
                 let port = env::var("NESTGATE_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8444); // Default NestGate port
+                    .unwrap_or(8444); // Default storage capability port
                 format!("http://localhost:{port}")
             }
         });
 
-        // Multi-tier BearDog endpoint resolution
         let beardog_endpoint = env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                "http://beardog:8443".to_string()
+                format!("discovered://{}", capabilities::SECURITY_CAPABILITY)
             } else {
                 let port = env::var("SECURITY_AUTHENTICATION_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8443); // Default BearDog security port
+                    .unwrap_or(8443); // Default security capability port
                 format!("http://localhost:{port}")
             }
         });
 
-        // Multi-tier ToadStool endpoint resolution
         let toadstool_endpoint = env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                "http://toadstool:8445".to_string()
+                format!("discovered://{}", capabilities::COMPUTE_CAPABILITY)
             } else {
                 let port = env::var("TOADSTOOL_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8445); // Default ToadStool port
+                    .unwrap_or(8445); // Default compute capability port
                 format!("http://localhost:{port}")
             }
         });
 
-        // Multi-tier BiomeOS service mesh endpoint resolution
         let biomeos_endpoint = env::var("BIOMEOS_ENDPOINT")
             .or_else(|_| env::var("SERVICE_MESH_ENDPOINT"))
             .unwrap_or_else(|_| {
                 if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                    "http://biomeos:8446".to_string()
+                    format!("discovered://{}", capabilities::SERVICE_MESH_CAPABILITY)
                 } else {
                     let port = env::var("BIOMEOS_PORT")
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
-                        .unwrap_or(8446); // Default BiomeOS service mesh port
+                        .unwrap_or(8446); // Default service mesh capability port
                     format!("http://localhost:{port}")
                 }
             });
@@ -543,6 +545,7 @@ impl EnvironmentConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
 
     #[test]
     fn test_environment_from_string() {
@@ -558,16 +561,173 @@ mod tests {
     }
 
     #[test]
-    fn test_environment_config_validation() {
-        let mut config = EnvironmentConfig::from_env().unwrap();
+    fn test_environment_from_str_all_variants() {
+        assert_eq!(
+            Environment::from_str("dev").unwrap(),
+            Environment::Development
+        );
+        assert_eq!(Environment::from_str("test").unwrap(), Environment::Testing);
+        assert_eq!(
+            Environment::from_str("staging").unwrap(),
+            Environment::Staging
+        );
+        assert_eq!(
+            Environment::from_str("prod").unwrap(),
+            Environment::Production
+        );
+    }
 
-        // Test invalid port
+    #[test]
+    fn test_environment_is_development() {
+        assert!(Environment::Development.is_development());
+        assert!(!Environment::Production.is_development());
+    }
+
+    #[test]
+    fn test_environment_is_production() {
+        assert!(Environment::Production.is_production());
+        assert!(!Environment::Development.is_production());
+    }
+
+    #[test]
+    fn test_environment_config_suffix() {
+        assert_eq!(Environment::Development.config_suffix(), "dev");
+        assert_eq!(Environment::Testing.config_suffix(), "test");
+        assert_eq!(Environment::Staging.config_suffix(), "staging");
+        assert_eq!(Environment::Production.config_suffix(), "prod");
+    }
+
+    #[test]
+    fn test_environment_from_env_default() {
+        env::remove_var("MCP_ENV");
+        let env_type = Environment::from_env();
+        assert!(matches!(
+            env_type,
+            Environment::Development | Environment::Testing
+        ));
+    }
+
+    #[test]
+    fn test_environment_from_env_production() {
+        env::set_var("MCP_ENV", "production");
+        let env_type = Environment::from_env();
+        assert_eq!(env_type, Environment::Production);
+        env::remove_var("MCP_ENV");
+    }
+
+    #[test]
+    fn test_environment_error_display() {
+        let err = EnvironmentError::MissingVariable("TEST_VAR".to_string());
+        assert!(err.to_string().contains("TEST_VAR"));
+
+        let err = EnvironmentError::InvalidValue {
+            variable: "PORT".to_string(),
+            value: "abc".to_string(),
+        };
+        assert!(err.to_string().contains("PORT"));
+    }
+
+    #[test]
+    fn test_environment_config_validation() {
+        let mut config = test_env_config();
+
         config.network.port = 0;
         assert!(config.validate().is_err());
 
-        // Test invalid timeout
         config.network.port = 8080;
         config.network.request_timeout_ms = 0;
         assert!(config.validate().is_err());
+    }
+
+    fn test_network_config() -> NetworkConfig {
+        NetworkConfig {
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+            cors_origins: vec![],
+            request_timeout_ms: 30000,
+            max_connections: 100,
+        }
+    }
+
+    fn test_ai_provider_config() -> AIProviderConfig {
+        AIProviderConfig {
+            openai_api_key: None,
+            openai_endpoint: "https://api.openai.com/v1".to_string(),
+            anthropic_api_key: None,
+            anthropic_endpoint: "https://api.anthropic.com/v1".to_string(),
+            local_server_endpoint: "http://localhost:11434".to_string(),
+            default_model: "gpt-3.5-turbo".to_string(),
+            request_timeout_ms: 30000,
+        }
+    }
+
+    fn test_database_config() -> DatabaseConfig {
+        DatabaseConfig {
+            connection_string: "sqlite::memory:".to_string(),
+            max_connections: 5,
+            timeout_seconds: 30,
+        }
+    }
+
+    fn test_ecosystem_config() -> EcosystemConfig {
+        EcosystemConfig {
+            nestgate_endpoint: "discovered://storage".to_string(),
+            beardog_endpoint: "discovered://security".to_string(),
+            toadstool_endpoint: "discovered://compute".to_string(),
+            service_mesh_endpoint: "discovered://service-mesh".to_string(),
+            service_timeout_ms: 5000,
+        }
+    }
+
+    fn test_env_config() -> EnvironmentConfig {
+        EnvironmentConfig {
+            environment: Environment::Testing,
+            network: test_network_config(),
+            ai_providers: test_ai_provider_config(),
+            database: test_database_config(),
+            ecosystem: test_ecosystem_config(),
+        }
+    }
+
+    #[test]
+    fn test_environment_config_validation_empty_database() {
+        let mut config = test_env_config();
+        config.database.connection_string = String::new();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_environment_config_validation_empty_openai_endpoint() {
+        let mut config = test_env_config();
+        config.ai_providers.openai_endpoint = String::new();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_network_config_fields() {
+        let config = test_network_config();
+        assert!(config.port > 0);
+        assert!(config.request_timeout_ms > 0);
+        assert!(config.max_connections > 0);
+    }
+
+    #[test]
+    fn test_ai_provider_config_fields() {
+        let config = test_ai_provider_config();
+        assert!(config.request_timeout_ms > 0);
+        assert!(!config.openai_endpoint.is_empty());
+    }
+
+    #[test]
+    fn test_ecosystem_config_fields() {
+        let config = test_ecosystem_config();
+        assert!(!config.nestgate_endpoint.is_empty());
+        assert!(!config.beardog_endpoint.is_empty());
+    }
+
+    #[test]
+    fn test_environment_config_validate_ok() {
+        let config = test_env_config();
+        assert!(config.validate().is_ok());
     }
 }

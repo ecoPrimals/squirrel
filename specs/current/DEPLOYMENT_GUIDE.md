@@ -16,7 +16,7 @@
 
 ### **Compilation Check**
 ```bash
-cd code/crates
+cd crates
 cargo check --all-features
 # Should complete with exit code 0 (warnings are acceptable)
 ```
@@ -27,7 +27,7 @@ cargo check --all-features
 
 ### **Step 1: Build Release Binary**
 ```bash
-cd code/crates
+cd crates
 cargo build --release --all-features
 ```
 
@@ -68,14 +68,14 @@ FROM rust:1.70 AS builder
 
 WORKDIR /app
 COPY . .
-RUN cd code/crates && cargo build --release --all-features
+RUN cd crates && cargo build --release --all-features
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/code/crates/target/release/squirrel /usr/local/bin/
+COPY --from=builder /app/crates/target/release/squirrel /usr/local/bin/
 EXPOSE 8080
 CMD ["squirrel"]
 ```

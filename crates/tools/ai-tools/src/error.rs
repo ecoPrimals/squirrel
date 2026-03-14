@@ -171,7 +171,7 @@ pub type Result<T> = std::result::Result<T, AIError>;
 pub type Error = AIError;
 
 #[cfg(test)]
-#[allow(deprecated)]
+#[allow(deprecated)] // Tests deprecated path for backward compatibility
 mod tests {
     use super::*;
 

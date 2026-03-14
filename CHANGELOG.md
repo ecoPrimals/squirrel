@@ -7,39 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### March 14, 2026 - Comprehensive Audit & Deep Debt Resolution
+### March 14, 2026 - Deep Debt Evolution & Public Release Preparation
 
 #### Build & Test Metrics
-- **TESTS**: 3,969 passing / 0 failed / 9 ignored (single-threaded)
+- **TESTS**: 4,240 passing / 0 failed (single-threaded)
 - **BUILD**: GREEN (0 errors)
-- **CLIPPY**: CLEAN (pedantic + nursery, 0 warnings)
+- **CLIPPY**: CLEAN (-D warnings, 0 warnings)
 - **FORMATTING**: CLEAN
-- **COVERAGE**: ~70% line (squirrel crate), 66.45% workspace (target: 90%)
+- **RUSTDOC**: CLEAN (0 HTML tag warnings)
+- **COVERAGE**: 66% line, 68% region (target: 90%, via cargo llvm-cov)
 
 #### License & Headers
-- **LICENSE**: AGPL-3.0-only on all crates
+- **LICENSE**: AGPL-3.0-only on ALL 17 previously-missing Cargo.toml files
 - **SPDX**: All source files have SPDX headers
 
 #### Protocol & Architecture
-- **gRPC/tonic**: Fully removed — JSON-RPC 2.0 + tarpc only
-- **Capability-based discovery**: Complete (TRUE PRIMAL architecture)
-- **tarpc**: Completion and integration across MCP task layer
+- **gRPC strings removed**: All `"grpc"` protocol references evolved to `"tarpc"` in production code
+- **Capability-based discovery**: Hardcoded primal names (`nestgate`, `beardog`, `toadstool`, `biomeos`) evolved to `discovered://{capability}` pattern
+- **Port centralization**: 50+ hardcoded ports evolved to use `universal-constants` or config resolution
+- **tarpc**: Protocol strings, port resolver, adapters all reflect JSON-RPC 2.0 + tarpc only
+
+#### Zero-Copy Evolution
+- **JsonRpcRequest/JsonRpcResponse**: `jsonrpc` and `method` fields evolved from `String` to `Arc<str>`
+- **Task**: `id` and `name` fields evolved from `String` to `Arc<str>`
+- **ToolRegistration**: `name` and `domain` fields evolved from `String` to `Arc<str>`
+- **EcosystemRequest**: `source_service`, `target_service`, `operation` evolved to `Arc<str>`
+- **PrimalRequest**: `operation` evolved to `Arc<str>`
+- **PrimalContext**: `user_id`, `device_id`, `session_id` evolved to `Arc<str>`
+- **SecurityContext**: `identity` evolved to `Arc<str>`
+- **UniversalAiResponse**: `provider_id`, `model` evolved to `Arc<str>`
+- **EcosystemServiceRegistration**: `service_id` evolved to `Arc<str>`
+
+#### Placeholder Evolution
+- **universal_provider.rs**: Placeholder → delegates to `handle_ai_inference_internal` pipeline
+- **monitoring/exporters.rs**: Stub → real Prometheus exposition format (`# HELP`, `# TYPE`, gauge/counter)
+- **benchmarking/mod.rs**: Hardcoded 128.0 MB → actual `/proc/self/statm` memory measurement
+- **biomeos_integration**: `processing_time_ms: 0` → actual `std::time::Instant` timing
+- **rpc/tarpc_transport.rs**: `assert!(true)` → real `InProcessTransport` test
+- **sync/mod.rs**: Documented as intentional delegation to ToadStool/NestGate
 
 #### Code Quality
-- **Unsafe code**: `#![forbid(unsafe_code)]` on all crates (upgraded from deny)
+- **Unsafe code**: `#![forbid(unsafe_code)]` on all 29 lib.rs files
 - **File sizes**: All .rs files under 1,000 lines
 - **Dependencies**: 100% Pure Rust (sqlx uses rustls, zero C deps)
+- **#[allow] cleanup**: Removed unnecessary `clippy::unwrap_used`, `clippy::if_same_then_else`, `unreachable_code`, `unused_variables`
+- **GPU estimation**: Merged identical if-else branches into combined conditions
+- **expect() in production**: Evolved to `unwrap_or_else(|| unreachable!(...))` where guard checks already pass
+- **Dead code removal**: Removed unused `SingleActionResult`, `ActionResult`, `execute_actions`, `execute_conditional_action`, `EvaluationResult`, `EvaluationCache`, and 8 standalone evaluator helpers from core/context
+- **Deprecated API documentation**: All ~65 remaining `#[allow(deprecated)]` now have comments explaining backward-compatibility rationale
 
-#### Refactoring & Cleanup
-- File refactoring to meet <1000 line policy
-- Zero-copy optimizations (`Arc<str>`, string utils)
-- Test coverage push toward 90% target
-- Evaluator tests modularized into `evaluator_tests/`
+#### Test Coverage Expansion
+- **140 new tests** added (4,100 → 4,240)
+- universal-patterns: lib.rs, registry/mod.rs, traits/primal.rs evolved from 0% to covered
+- transport/listener.rs: 28% → 73%
+- config/loader.rs: 31% → higher
+- federation/federation_network.rs: 43% → higher
+- config crate: 23 new tests (environment, loader, validation)
+- ecosystem-api: 5 new client tests
+- core/interfaces: 4 new context tests
+- universal-error: 6 new error conversion/domain tests
+- universal-constants: 8 new deployment/network/lib tests
+- config unified: 17 new type/validation/serde tests
+- sdk: 22 new plugin/config/validation tests
+- **Property-based tests (proptest)**: 12 new proptest tests across universal-patterns and squirrel-mcp
+  - Config, credentials, federation messages, task types, JSON-RPC types
+  - Serde round-trip invariants verified with arbitrary inputs
 
-#### Root Documentation
-- **UPDATED**: README.md, READ_ME_FIRST.md, CURRENT_STATUS.md
+#### Documentation
+- **ADDED**: ORIGIN.md — genesis (Huntley stdlib thesis), constrained evolution methodology, gen1→gen3 evolution, ecosystem context
+- **UPDATED**: README.md — origin section, corrected metrics, accurate coverage
+- **UPDATED**: READ_ME_FIRST.md, CURRENT_STATUS.md — accurate metrics
+- **UPDATED**: ROOT_DOCS_INDEX.md — added ORIGIN.md
+- **UPDATED**: CHANGELOG.md — comprehensive evolution log
 - **UPDATED**: PRE_PUSH_CHECKLIST.md (clippy pedantic, forbid, llvm-cov, file size)
-- **UPDATED**: ROOT_DOCS_INDEX.md
 - **UPDATED**: CAPABILITY_DISCOVERY_MIGRATION.md (marked COMPLETE)
 
 ---

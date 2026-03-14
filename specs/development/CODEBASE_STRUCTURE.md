@@ -16,40 +16,31 @@ The Squirrel project follows a logical directory structure organized by purpose:
 
 ```
 squirrel/
-├── code/               # All source code
-│   ├── crates/         # Rust crates organized by purpose
-│   │   ├── core/       # Core functionality
-│   │   │   ├── context/    # Context management
-│   │   │   ├── mcp/        # Machine Context Protocol
-│   │   │   ├── plugins/    # Plugin system
-│   │   │   ├── interfaces/ # Shared interfaces
-│   │   │   └── core/       # Core utilities and shared code
-│   │   ├── integration/    # Integration components
-│   │   │   ├── api-clients/    # API client implementations
-│   │   │   ├── context-adapter/ # Context adapter systems
-│   │   │   ├── web/            # Web integration
-│   │   │   └── mcp-pyo3-bindings/ # Python bindings
-│   │   ├── services/      # Service implementations
-│   │   │   ├── app/           # Application services
-│   │   │   ├── commands/      # Command system
-│   │   │   ├── dashboard-core/ # Dashboard core services
-│   │   │   └── monitoring/    # Monitoring services
-│   │   ├── tools/         # Development tools
-│   │   │   ├── ai-tools/      # AI integration tools
-│   │   │   ├── cli/           # Command-line tools
-│   │   │   └── rule-system/   # Rule system tools
-│   │   └── ui/            # User interface components
-│   │       ├── ui-tauri-react/ # Tauri React UI
-│   │       └── ui-terminal/    # Terminal UI
-│   ├── src/            # Frontend source code
-│   ├── src-tauri/      # Tauri integration
-│   ├── plugins/        # Plugin implementations
-│   ├── examples/       # Example code
-│   ├── proto/          # Protocol definitions
-│   ├── specs/          # Specifications
-│   ├── data/           # Data files
-│   ├── benches/        # Benchmarks
-│   └── standalone_server/ # Standalone server implementation
+├── crates/             # Rust crates organized by purpose
+│   ├── core/           # Core functionality
+│   │   ├── context/    # Context management
+│   │   ├── mcp/        # Machine Context Protocol
+│   │   ├── plugins/    # Plugin system
+│   │   ├── interfaces/ # Shared interfaces
+│   │   └── core/       # Core utilities and shared code
+│   ├── integration/    # Integration components
+│   │   ├── api-clients/    # API client implementations
+│   │   ├── context-adapter/ # Context adapter systems
+│   │   ├── web/            # Web integration
+│   │   └── mcp-pyo3-bindings/ # Python bindings
+│   ├── services/       # Service implementations
+│   │   ├── app/           # Application services
+│   │   ├── commands/      # Command system
+│   │   ├── dashboard-core/ # Dashboard core services
+│   │   └── monitoring/    # Monitoring services
+│   ├── tools/          # Development tools
+│   │   ├── ai-tools/      # AI integration tools
+│   │   ├── cli/           # Command-line tools
+│   │   └── rule-system/   # Rule system tools
+│   ├── main/           # Main application (src/ inside)
+│   └── ui/             # User interface components (if present)
+│       ├── ui-tauri-react/ # Tauri React UI
+│       └── ui-terminal/    # Terminal UI
 │
 ├── docs/               # All documentation
 │   ├── migration/      # Migration-related docs
@@ -253,7 +244,7 @@ The codebase follows a multi-layered testing approach:
 
 Documentation follows a similar structure to the code:
 
-- Specifications in `specs/` mirror the crate organization in `code/crates/`
+- Specifications in `specs/` mirror the crate organization in `crates/`
 - Implementation guides in `docs/implementation/`
 - API documentation generated from code comments
 

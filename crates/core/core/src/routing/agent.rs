@@ -224,18 +224,14 @@ impl AgentRegistry {
     pub fn register_agent(&self, spec: AgentSpec) -> Result<()> {
         let agent = RegisteredAgent::new(spec);
         let agent_id = agent.id.clone();
+        let capability_count = agent.capabilities.len();
 
         let mut agents = self.agents.write();
         agents.insert(agent_id.clone(), agent);
 
         info!(
             "Registered agent '{}' with {} capabilities",
-            agent_id,
-            agents
-                .get(&agent_id)
-                .expect("agent just inserted")
-                .capabilities
-                .len()
+            agent_id, capability_count
         );
         Ok(())
     }

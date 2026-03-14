@@ -1,42 +1,43 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
-//! Synchronization moved to ToadStool and NestGate
+//! MCP State Synchronization
 //!
-//! This module previously provided synchronization primitives for the MCP system.
-//! Synchronization functionality has been migrated to ecosystem projects:
-//! - ToadStool: Compute synchronization and task coordination
-//! - NestGate: Data synchronization and distributed state management
+//! ## Architectural Decision: Sync Delegation
 //!
-//! For synchronization capabilities, integrate with ToadStool and NestGate.
+//! Synchronization has been **intentionally delegated** to ecosystem projects:
+//!
+//! - **ToadStool**: Compute synchronization, task coordination, and job orchestration
+//! - **NestGate**: Data synchronization, distributed state management, and persistence
+//!
+//! This module provides MCP-specific state sync (context changes, JSON-RPC over Unix socket)
+//! while delegating broader sync concerns to the appropriate ecosystem primals. The
+//! `SyncManager` and `ContextChange` types below are **intentional placeholders** for
+//! backward compatibility—production code should use [`StateSyncManager`] and
+//! [`StateChange`] from the `state` submodule, or integrate with ToadStool/NestGate
+//! for full ecosystem sync.
 
-// Synchronization moved to ecosystem projects
-// All exports below are placeholders for ecosystem integration
-
-// NestGate handles data sync: Proto sync types moved to NestGate
-// ToadStool handles compute sync: Task coordination moved to ToadStool
-
-/// Placeholder for sync functionality - use ToadStool/NestGate integration.
+/// Deprecated placeholder - sync delegated to ToadStool/NestGate.
 ///
-/// **Pending integration**: Use [`StateSyncManager`] for production sync, or integrate
-/// with ToadStool/NestGate ecosystem projects. This type is only available when
-/// the `sync-placeholders` feature is enabled (for backward compatibility).
+/// **Intentional delegation**: Use [`StateSyncManager`] for MCP state sync, or integrate
+/// with ToadStool (compute) / NestGate (data) for ecosystem sync. Available only when
+/// `sync-placeholders` feature is enabled for backward compatibility.
 #[cfg(feature = "sync-placeholders")]
 #[deprecated(
     since = "0.1.0",
-    note = "Use StateSyncManager for sync. Integrate with ToadStool/NestGate for full sync."
+    note = "Sync delegated to ToadStool/NestGate. Use StateSyncManager for MCP state sync."
 )]
 pub struct SyncManager;
 
-/// Placeholder for context changes - use NestGate integration.
+/// Deprecated placeholder - context changes delegated to NestGate.
 ///
-/// **Pending integration**: Use [`StateChange`] from the `state` module for production,
-/// or integrate with NestGate for distributed state. This type is only available when
-/// the `sync-placeholders` feature is enabled (for backward compatibility).
+/// **Intentional delegation**: Use [`StateChange`] from `sync::state` for MCP context
+/// changes, or integrate with NestGate for distributed state. Available only when
+/// `sync-placeholders` feature is enabled for backward compatibility.
 #[cfg(feature = "sync-placeholders")]
 #[deprecated(
     since = "0.1.0",
-    note = "Use StateChange from sync::state for context changes. Integrate with NestGate for full sync."
+    note = "Context sync delegated to NestGate. Use StateChange from sync::state."
 )]
 pub struct ContextChange;
 

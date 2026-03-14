@@ -149,8 +149,8 @@ impl AiProviderAdapter for BridgeAdapter {
 
         Ok(TextGenerationResponse {
             text: response.text,
-            provider_id: response.provider_id,
-            model: response.model,
+            provider_id: response.provider_id.to_string(),
+            model: response.model.to_string(),
             usage: response.usage.map(|u| crate::api::ai::types::TokenUsage {
                 prompt_tokens: u.prompt_tokens,
                 completion_tokens: u.completion_tokens,
@@ -197,8 +197,8 @@ mod tests {
         ) -> Result<UniversalAiResponse, PrimalError> {
             Ok(UniversalAiResponse {
                 text: format!("Mock response to: {:?}", request.prompt.unwrap_or_default()),
-                provider_id: self.provider_id.clone(),
-                model: "mock-model".to_string(),
+                provider_id: std::sync::Arc::from(self.provider_id.as_str()),
+                model: std::sync::Arc::from("mock-model"),
                 usage: Some(TokenUsage {
                     prompt_tokens: 10,
                     completion_tokens: 20,

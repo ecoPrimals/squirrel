@@ -840,4 +840,89 @@ mod tests {
         assert!(config.is_path_allowed("./workspace/file.txt"));
         assert!(config.is_path_allowed("./other/file.txt"));
     }
+
+    #[test]
+    fn test_plugin_sdk_config_from_env() {
+        let config = PluginSdkConfig::from_env();
+        assert!(!config.mcp.server_url.is_empty());
+        assert!(config.mcp.timeout_ms > 0);
+        assert!(!config.logging.min_level.is_empty());
+        assert!(!config.network.host.is_empty());
+        assert!(config.network.port > 0);
+    }
+
+    #[test]
+    fn test_plugin_sdk_config_validate() {
+        let config = PluginSdkConfig::from_env();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_mcp_client_config_validation_empty_url() {
+        let mut config = McpClientConfig::from_env();
+        config.server_url = String::new();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_mcp_client_config_validation_zero_timeout() {
+        let mut config = McpClientConfig::from_env();
+        config.timeout_ms = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_mcp_client_config_validation_zero_message_size() {
+        let mut config = McpClientConfig::from_env();
+        config.max_message_size = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_logging_config_validation_invalid_level() {
+        let mut config = LoggingConfig::from_env();
+        config.min_level = "invalid_level".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_network_config_validation_empty_host() {
+        let mut config = NetworkConfig::from_env();
+        config.host = String::new();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_network_config_validation_zero_port() {
+        let mut config = NetworkConfig::from_env();
+        config.port = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_http_config_validation_empty_user_agent() {
+        let mut config = HttpConfig::from_env();
+        config.user_agent = String::new();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_performance_config_validation_zero_values() {
+        let mut config = PerformanceConfig::from_env();
+        config.max_plugin_id_length = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_sandbox_config_validation() {
+        let config = SandboxConfig::from_env();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_mcp_config_default() {
+        let config = McpConfig::default();
+        assert_eq!(config.protocol_version, "1.0");
+        assert!(config.supports_tools);
+    }
 }

@@ -59,7 +59,7 @@ impl JsonRpcServer {
         message: &str,
     ) -> super::jsonrpc_server::JsonRpcResponse {
         super::jsonrpc_server::JsonRpcResponse {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: std::sync::Arc::from("2.0"),
             result: None,
             error: Some(JsonRpcError {
                 code,
@@ -102,8 +102,8 @@ impl JsonRpcServer {
                 Ok(ai_response) => {
                     let response = QueryAiResponse {
                         response: ai_response.text,
-                        provider: ai_response.provider_id,
-                        model: ai_response.model,
+                        provider: ai_response.provider_id.to_string(),
+                        model: ai_response.model.to_string(),
                         tokens_used: ai_response.usage.map(|u| u.total_tokens as usize),
                         latency_ms: start.elapsed().as_millis() as u64,
                         success: true,
@@ -499,7 +499,7 @@ mod tests {
     async fn test_error_response() {
         let server = make_server();
         let response = server.error_response(json!(1), -32000, "Custom error");
-        assert_eq!(response.jsonrpc, "2.0");
+        assert_eq!(response.jsonrpc.as_ref(), "2.0");
         assert!(response.result.is_none());
         assert!(response.error.is_some());
         let err = response.error.unwrap();

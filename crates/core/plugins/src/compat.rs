@@ -22,6 +22,7 @@
 //!
 //! See **ADR-005** for complete architectural decision.
 
+// Backward compatibility: conversion between internal and squirrel_interfaces PluginMetadata
 #[allow(deprecated)]
 use crate::plugin::PluginMetadata as InternalMetadata;
 use squirrel_interfaces::plugins::PluginMetadata as ExternalMetadata;
@@ -46,6 +47,7 @@ use uuid::Uuid;
 /// let external = compat::to_external(&internal);
 /// // external.id is a String, dependencies are gone
 /// ```
+// Backward compatibility: conversion layer during PluginMetadata migration
 #[allow(deprecated)]
 pub fn to_external(internal: &InternalMetadata) -> ExternalMetadata {
     ExternalMetadata {
@@ -79,6 +81,7 @@ pub fn to_external(internal: &InternalMetadata) -> ExternalMetadata {
 /// // internal.id is a UUID (generated if external.id wasn't valid UUID)
 /// // internal.dependencies is empty Vec
 /// ```
+// Backward compatibility: conversion layer during PluginMetadata migration
 #[allow(deprecated)]
 pub fn to_internal(external: &ExternalMetadata) -> InternalMetadata {
     let id = Uuid::parse_str(&external.id).unwrap_or_else(|_| {
@@ -101,6 +104,7 @@ pub fn to_internal(external: &ExternalMetadata) -> InternalMetadata {
 /// Convert a collection of internal metadata to external.
 ///
 /// Convenience wrapper around `to_external` for collections.
+// Backward compatibility: conversion layer during PluginMetadata migration
 #[allow(deprecated)]
 pub fn to_external_vec(internal: &[InternalMetadata]) -> Vec<ExternalMetadata> {
     internal.iter().map(to_external).collect()
@@ -109,6 +113,7 @@ pub fn to_external_vec(internal: &[InternalMetadata]) -> Vec<ExternalMetadata> {
 /// Convert a collection of external metadata to internal.
 ///
 /// Convenience wrapper around `to_internal` for collections.
+// Backward compatibility: conversion layer during PluginMetadata migration
 #[allow(deprecated)]
 pub fn to_internal_vec(external: &[ExternalMetadata]) -> Vec<InternalMetadata> {
     external.iter().map(to_internal).collect()

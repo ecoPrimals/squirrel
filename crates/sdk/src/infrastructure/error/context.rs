@@ -194,7 +194,7 @@ impl<T> ResultExt<T> for Result<T, PluginError> {
 mod tests {
     use super::*;
 
-    #[allow(deprecated)]
+    #[allow(deprecated)] // Tests deprecated path for backward compatibility
     fn network_error() -> PluginError {
         PluginError::NetworkError {
             operation: "fetch".to_string(),
@@ -202,7 +202,7 @@ mod tests {
         }
     }
 
-    #[allow(deprecated)]
+    #[allow(deprecated)] // Tests deprecated path for backward compatibility
     fn security_error() -> PluginError {
         PluginError::SecurityViolation {
             violation: "unauthorized".to_string(),

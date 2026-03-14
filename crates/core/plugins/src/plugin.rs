@@ -146,6 +146,7 @@ pub trait Plugin: Send + Sync {
     }
 
     /// Get the plugin metadata
+    // Backward compatibility: PluginMetadata during migration to squirrel_interfaces
     #[allow(deprecated)]
     fn metadata(&self) -> &PluginMetadata;
 

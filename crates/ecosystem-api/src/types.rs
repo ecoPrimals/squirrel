@@ -9,6 +9,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Standardized request format for all ecosystem communication
@@ -17,14 +18,14 @@ pub struct EcosystemRequest {
     /// Unique request identifier
     pub request_id: Uuid,
 
-    /// Source service identifier
-    pub source_service: String,
+    /// Source service identifier (`Arc<str>` for O(1) clone when shared)
+    pub source_service: Arc<str>,
 
-    /// Target service identifier
-    pub target_service: String,
+    /// Target service identifier (`Arc<str>` for O(1) clone when shared)
+    pub target_service: Arc<str>,
 
-    /// Request operation
-    pub operation: String,
+    /// Request operation (`Arc<str>` for O(1) clone when shared)
+    pub operation: Arc<str>,
 
     /// Request payload
     pub payload: serde_json::Value,
@@ -65,9 +66,9 @@ pub enum ResponseStatus {
     Success,
     /// Request failed with error
     Error {
-        /// Error code identifier for categorization
-        code: String,
-        /// Human-readable error message description
+        /// Error code identifier for categorization (`Arc<str>` for O(1) clone)
+        code: Arc<str>,
+        /// Human-readable error message description (unique per instance)
         message: String,
     },
     /// Request timed out
@@ -82,8 +83,8 @@ pub struct SecurityContext {
     /// Authentication token
     pub auth_token: Option<String>,
 
-    /// User/service identity
-    pub identity: String,
+    /// User/service identity (`Arc<str>` for O(1) clone when shared)
+    pub identity: Arc<str>,
 
     /// Permissions/capabilities
     pub permissions: Vec<String>,
@@ -111,8 +112,8 @@ pub struct PrimalRequest {
     /// Request ID
     pub id: Uuid,
 
-    /// Operation to perform
-    pub operation: String,
+    /// Operation to perform (`Arc<str>` for O(1) clone when shared)
+    pub operation: Arc<str>,
 
     /// Request payload
     pub payload: serde_json::Value,
@@ -152,14 +153,14 @@ pub struct PrimalResponse {
 /// Context for primal operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalContext {
-    /// User identifier
-    pub user_id: String,
+    /// User identifier (`Arc<str>` for O(1) clone when shared)
+    pub user_id: Arc<str>,
 
-    /// Device identifier
-    pub device_id: String,
+    /// Device identifier (`Arc<str>` for O(1) clone when shared)
+    pub device_id: Arc<str>,
 
-    /// Session identifier
-    pub session_id: String,
+    /// Session identifier (`Arc<str>` for O(1) clone when shared)
+    pub session_id: Arc<str>,
 
     /// Network location information
     pub network_location: NetworkLocation,
@@ -167,8 +168,8 @@ pub struct PrimalContext {
     /// Security level
     pub security_level: SecurityLevel,
 
-    /// Biome identifier (if applicable)
-    pub biome_id: Option<String>,
+    /// Biome identifier (if applicable) (`Arc<str>` for O(1) clone when shared)
+    pub biome_id: Option<Arc<str>>,
 
     /// Additional context metadata
     pub metadata: HashMap<String, String>,
@@ -588,14 +589,14 @@ pub struct HealthCheckConfig {
 /// Ecosystem service registration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemServiceRegistration {
-    /// Service identifier
-    pub service_id: String,
+    /// Service identifier (`Arc<str>` for O(1) clone when shared)
+    pub service_id: Arc<str>,
 
     /// Primal type
     pub primal_type: PrimalType,
 
-    /// Associated biome identifier (if applicable)
-    pub biome_id: Option<String>,
+    /// Associated biome identifier (if applicable) (`Arc<str>` for O(1) clone when shared)
+    pub biome_id: Option<Arc<str>>,
 
     /// Service capabilities
     pub capabilities: ServiceCapabilities,
@@ -654,9 +655,9 @@ impl Default for EcosystemRequest {
     fn default() -> Self {
         Self {
             request_id: Uuid::new_v4(),
-            source_service: "unknown".to_string(),
-            target_service: "unknown".to_string(),
-            operation: "unknown".to_string(),
+            source_service: Arc::from("unknown"),
+            target_service: Arc::from("unknown"),
+            operation: Arc::from("unknown"),
             payload: serde_json::Value::Null,
             security_context: SecurityContext::default(),
             metadata: HashMap::new(),
@@ -669,7 +670,7 @@ impl Default for SecurityContext {
     fn default() -> Self {
         Self {
             auth_token: None,
-            identity: "anonymous".to_string(),
+            identity: Arc::from("anonymous"),
             permissions: vec![],
             security_level: SecurityLevel::Public,
         }
@@ -679,9 +680,9 @@ impl Default for SecurityContext {
 impl Default for PrimalContext {
     fn default() -> Self {
         Self {
-            user_id: "system".to_string(),
-            device_id: "unknown".to_string(),
-            session_id: Uuid::new_v4().to_string(),
+            user_id: Arc::from("system"),
+            device_id: Arc::from("unknown"),
+            session_id: Arc::from(Uuid::new_v4().to_string()),
             network_location: NetworkLocation::default(),
             security_level: SecurityLevel::Internal,
             biome_id: None,
@@ -750,7 +751,7 @@ mod tests {
         assert_eq!(success, deser);
 
         let error = ResponseStatus::Error {
-            code: "E001".to_string(),
+            code: Arc::from("E001"),
             message: "Something went wrong".to_string(),
         };
         let json = serde_json::to_string(&error).unwrap();
@@ -797,9 +798,9 @@ mod tests {
     #[test]
     fn test_ecosystem_request_default() {
         let req = EcosystemRequest::default();
-        assert_eq!(req.source_service, "unknown");
-        assert_eq!(req.target_service, "unknown");
-        assert_eq!(req.operation, "unknown");
+        assert_eq!(req.source_service.as_ref(), "unknown");
+        assert_eq!(req.target_service.as_ref(), "unknown");
+        assert_eq!(req.operation.as_ref(), "unknown");
         assert_eq!(req.payload, serde_json::Value::Null);
         assert!(req.metadata.is_empty());
     }
@@ -808,7 +809,7 @@ mod tests {
     fn test_security_context_default() {
         let ctx = SecurityContext::default();
         assert!(ctx.auth_token.is_none());
-        assert_eq!(ctx.identity, "anonymous");
+        assert_eq!(ctx.identity.as_ref(), "anonymous");
         assert!(ctx.permissions.is_empty());
         assert_eq!(ctx.security_level, SecurityLevel::Public);
     }
@@ -816,8 +817,8 @@ mod tests {
     #[test]
     fn test_primal_context_default() {
         let ctx = PrimalContext::default();
-        assert_eq!(ctx.user_id, "system");
-        assert_eq!(ctx.device_id, "unknown");
+        assert_eq!(ctx.user_id.as_ref(), "system");
+        assert_eq!(ctx.device_id.as_ref(), "unknown");
         assert!(!ctx.session_id.is_empty());
         assert_eq!(ctx.security_level, SecurityLevel::Internal);
         assert!(ctx.biome_id.is_none());
@@ -849,9 +850,9 @@ mod tests {
     fn test_ecosystem_request_serde() {
         let req = EcosystemRequest {
             request_id: Uuid::new_v4(),
-            source_service: "squirrel".to_string(),
-            target_service: "songbird".to_string(),
-            operation: "discover".to_string(),
+            source_service: Arc::from("squirrel"),
+            target_service: Arc::from("songbird"),
+            operation: Arc::from("discover"),
             payload: serde_json::json!({"key": "value"}),
             security_context: SecurityContext::default(),
             metadata: HashMap::new(),
@@ -860,9 +861,9 @@ mod tests {
 
         let json = serde_json::to_string(&req).unwrap();
         let deser: EcosystemRequest = serde_json::from_str(&json).unwrap();
-        assert_eq!(deser.source_service, "squirrel");
-        assert_eq!(deser.target_service, "songbird");
-        assert_eq!(deser.operation, "discover");
+        assert_eq!(deser.source_service.as_ref(), "squirrel");
+        assert_eq!(deser.target_service.as_ref(), "songbird");
+        assert_eq!(deser.operation.as_ref(), "discover");
     }
 
     #[test]

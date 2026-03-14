@@ -1,6 +1,6 @@
 ---
 description: ENFORCE universal ecosystem integration patterns for Squirrel AI primal following Songbird standards
-globs: ["squirrel/code/crates/**/*.rs", "squirrel/src/**/*.rs", "squirrel/crates/**/*.rs"]
+globs: ["squirrel/crates/**/*.rs", "squirrel/crates/main/src/**/*.rs"]
 crossRefs:
   - ENHANCED_MCP_GRPC_SPEC.md
   - context/README.md

@@ -35,10 +35,10 @@ This guide provides essential information for AI teams working on the Squirrel p
    cargo build
    
    # Install Python dependencies
-   pip install -r code/crates/integration/mcp-pyo3-bindings/requirements.txt
+   pip install -r crates/integration/mcp-pyo3-bindings/requirements.txt
    
    # Install Node.js dependencies (for UI development)
-   cd code/src
+   cd crates/main/src
    npm install
    ```
 
@@ -54,17 +54,17 @@ The AI components are primarily located in the following directories:
 
 ```
 squirrel/
-├── code/
-│   ├── crates/
-│   │   ├── tools/
-│   │   │   └── ai-tools/           # Primary AI integration tools
-│   │   ├── integration/
-│   │   │   └── mcp-pyo3-bindings/  # Python bindings for ML models
-│   │   └── core/
-│   │       └── mcp/                # Machine Context Protocol
-│   └── src/
-│       └── components/
-│           └── ai/                 # Frontend AI components
+├── crates/
+│   ├── tools/
+│   │   └── ai-tools/               # Primary AI integration tools
+│   ├── integration/
+│   │   └── mcp-pyo3-bindings/      # Python bindings for ML models
+│   ├── core/
+│   │   └── mcp/                    # Machine Context Protocol
+│   └── main/
+│       └── src/
+│           └── components/
+│               └── ai/             # Frontend AI components
 ├── specs/
 │   ├── tools/
 │   │   └── ai-tools/               # AI tools specifications
@@ -146,10 +146,10 @@ pub trait AIToolProvider: Send + Sync {
 ## AI Development Workflow
 
 1. **Specification First**: Begin by updating or creating specifications in `specs/tools/ai-tools/`
-2. **Implementation**: Implement the AI functionality in `code/crates/tools/ai-tools/`
+2. **Implementation**: Implement the AI functionality in `crates/tools/ai-tools/`
 3. **Testing**: Write tests in `tests/py/` and `tests/rs/`
 4. **Integration**: Integrate with the MCP using the ToolHandler interface
-5. **UI Integration**: Add any necessary UI components in `code/src/components/ai/`
+5. **UI Integration**: Add any necessary UI components in `crates/main/src/components/ai/`
 
 ## Best Practices for AI Development
 

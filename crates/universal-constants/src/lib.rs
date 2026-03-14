@@ -78,3 +78,18 @@ pub use timeouts::*;
 // Version information
 pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const CRATE_NAME: &str = env!("CARGO_PKG_NAME");
+
+#[cfg(test)]
+mod lib_tests {
+    use super::*;
+
+    #[test]
+    fn test_crate_version_non_empty() {
+        assert!(!CRATE_VERSION.is_empty());
+    }
+
+    #[test]
+    fn test_crate_name() {
+        assert_eq!(CRATE_NAME, "universal-constants");
+    }
+}

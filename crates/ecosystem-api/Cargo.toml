@@ -3,7 +3,7 @@ name = "ecosystem-api"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-license.workspace = true
+license = "AGPL-3.0-only"
 description = "Shared API types and traits for ecoPrimals ecosystem integration"
 
 [lints]
@@ -34,6 +34,7 @@ futures = "0.3"
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../config" }
+universal-constants = { path = "../universal-constants" }
 
 [features]
 # Production default: Unix sockets only (Pure Rust!)

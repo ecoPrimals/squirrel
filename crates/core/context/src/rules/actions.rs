@@ -2,46 +2,14 @@
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Rule action executor for executing rule actions
-use chrono::{DateTime, Utc};
 use log::{debug, error, info, trace, warn};
 use serde_json::json;
 use serde_json::Value;
 use std::sync::Arc;
 
 use super::error::{Result, RuleError};
-use super::evaluator::RuleEvaluator;
-use super::models::{Rule, RuleAction, RuleCondition};
+use super::models::{Rule, RuleAction};
 use super::plugin::RulePluginManager;
-
-/// Result of a single action execution
-#[derive(Debug, Clone)]
-#[allow(dead_code)] // Kept for future implementation
-pub struct SingleActionResult {
-    /// Action type
-    pub action_type: String,
-    /// Whether the action succeeded
-    pub success: bool,
-    /// Error message if the action failed
-    pub error: Option<String>,
-    /// Result value if the action succeeded
-    pub result: Option<serde_json::Value>,
-    /// Timestamp of the execution
-    pub timestamp: DateTime<Utc>,
-}
-
-/// Result of executing all actions for a rule
-#[derive(Debug, Clone)]
-#[allow(dead_code)] // Kept for future implementation
-pub struct ActionResult {
-    /// Rule ID
-    pub rule_id: String,
-    /// Context ID
-    pub context_id: String,
-    /// Results of individual actions
-    pub results: Vec<SingleActionResult>,
-    /// Timestamp of the execution
-    pub timestamp: DateTime<Utc>,
-}
 
 /// Result of applying rules to a context
 #[derive(Debug, Clone)]
@@ -321,50 +289,6 @@ impl ActionExecutor {
 
         Some(current)
     }
-}
-
-/// Execute actions for a rule match
-#[allow(dead_code)] // Kept for future implementation
-pub async fn execute_actions(
-    actions: &[RuleAction],
-    context: &Value,
-    plugin_manager: Arc<RulePluginManager>,
-) -> Result<ActionResult> {
-    let executor = ActionExecutor::new(plugin_manager);
-    let mut context_clone = context.clone();
-
-    for action in actions {
-        executor.execute_action(action, &mut context_clone).await?;
-    }
-
-    Ok(ActionResult {
-        rule_id: "".to_string(),
-        context_id: "".to_string(),
-        results: Vec::new(),
-        timestamp: Utc::now(),
-    })
-}
-
-/// Execute a conditional action
-#[allow(dead_code)] // Kept for future implementation
-pub async fn execute_conditional_action(
-    executor: &ActionExecutor,
-    condition: &RuleCondition,
-    action: &RuleAction,
-    context: &Value,
-) -> Result<Value> {
-    let evaluator = RuleEvaluator::new();
-    let mut context_clone = context.clone();
-
-    let result = evaluator
-        .evaluate_condition(condition, &context_clone)
-        .await?;
-
-    if result {
-        executor.execute_action(action, &mut context_clone).await?;
-    }
-
-    Ok(context_clone)
 }
 
 impl Default for ActionExecutor {

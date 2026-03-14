@@ -7,8 +7,7 @@
 
 #[cfg(test)]
 mod tests {
-    #[allow(deprecated)]
-    // EcosystemPrimalType is deprecated but needed for backward compatibility in tests
+    #[allow(deprecated)] // Tests deprecated path for backward compatibility
     use super::super::metrics::MetricsOps;
     use super::super::types::{DiscoveredService, ServiceHealthStatus};
     use crate::ecosystem::EcosystemPrimalType;
@@ -279,7 +278,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[allow(deprecated)]
+    #[allow(deprecated)] // Tests deprecated path for backward compatibility
     async fn test_concurrent_metrics_collection() {
         // Testing deprecated API for backward compatibility
         let mut services = HashMap::new();

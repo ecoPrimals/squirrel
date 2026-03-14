@@ -189,9 +189,10 @@ mod tests {
         assert!(matches!(port_type, PortType::Http));
     }
 
+    /// Tests legacy protocol handling: Grpc port type retained for compatibility.
     #[test]
     fn test_port_type_grpc() {
-        let port_type = PortType::Grpc;
+        let port_type = PortType::Grpc; // Legacy: protocol stack is JSON-RPC + tarpc
         assert!(matches!(port_type, PortType::Grpc));
     }
 

@@ -124,3 +124,62 @@ pub trait ContextManager: Send + Sync {
         plugin: Box<dyn ContextPlugin>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transformation_metadata() {
+        let meta = TransformationMetadata {
+            id: "transform-1".to_string(),
+            name: "Test Transform".to_string(),
+            description: "A test transformation".to_string(),
+            input_schema: serde_json::json!({"type": "object"}),
+            output_schema: serde_json::json!({"type": "string"}),
+        };
+        assert_eq!(meta.id, "transform-1");
+        assert_eq!(meta.name, "Test Transform");
+        assert_eq!(meta.description, "A test transformation");
+    }
+
+    #[test]
+    fn test_transformation_metadata_clone() {
+        let meta = TransformationMetadata {
+            id: "t1".to_string(),
+            name: "T1".to_string(),
+            description: "Desc".to_string(),
+            input_schema: serde_json::Value::Null,
+            output_schema: serde_json::Value::Null,
+        };
+        let cloned = meta.clone();
+        assert_eq!(cloned.id, meta.id);
+    }
+
+    #[test]
+    fn test_adapter_metadata() {
+        let meta = AdapterMetadata {
+            id: "adapter-1".to_string(),
+            name: "Test Adapter".to_string(),
+            description: "Converts format A to B".to_string(),
+            source_format: "json".to_string(),
+            target_format: "yaml".to_string(),
+        };
+        assert_eq!(meta.id, "adapter-1");
+        assert_eq!(meta.source_format, "json");
+        assert_eq!(meta.target_format, "yaml");
+    }
+
+    #[test]
+    fn test_adapter_metadata_clone() {
+        let meta = AdapterMetadata {
+            id: "a1".to_string(),
+            name: "A1".to_string(),
+            description: "Desc".to_string(),
+            source_format: "a".to_string(),
+            target_format: "b".to_string(),
+        };
+        let cloned = meta.clone();
+        assert_eq!(cloned.source_format, meta.source_format);
+    }
+}

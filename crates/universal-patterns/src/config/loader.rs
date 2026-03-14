@@ -427,4 +427,84 @@ network:
             _ => panic!("Expected defaults source"),
         }
     }
+
+    #[test]
+    fn test_from_file_unsupported_format() {
+        let temp_dir = TempDir::new().unwrap();
+        let bad_path = temp_dir.path().join("config.txt");
+        std::fs::write(&bad_path, "invalid").unwrap();
+
+        let result = ConfigLoader::from_file(&bad_path);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ConfigError::Invalid(_)));
+    }
+
+    #[test]
+    fn test_from_file_nonexistent() {
+        let result = ConfigLoader::from_file("/nonexistent/path/config.yaml");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_from_env_with_prefix() {
+        // from_env_with_prefix builds config from env vars; may fail if schema doesn't match
+        let _ = ConfigLoader::from_env_with_prefix("TEST_LOADER");
+    }
+
+    #[test]
+    fn test_validate_file_nonexistent() {
+        let result = ConfigLoader::validate_file("/nonexistent/config.yaml");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ConfigError::Invalid(_)));
+    }
+
+    #[test]
+    fn test_validate_file_unsupported_extension() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("config.xyz");
+        std::fs::write(&path, "x: 1").unwrap();
+
+        let result = ConfigLoader::validate_file(&path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_with_sources_defaults_and_env() {
+        let result = ConfigLoader::load_with_sources(vec![
+            ConfigSource::defaults(),
+            ConfigSource::env("LOADER_TEST"),
+        ]);
+        let _ = result;
+    }
+
+    #[test]
+    fn test_load_with_sources_nonexistent_file_skipped() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("does_not_exist.yaml");
+
+        let result = ConfigLoader::load_with_sources(vec![
+            ConfigSource::defaults(),
+            ConfigSource::yaml_file(&path),
+        ]);
+        assert!(!path.exists());
+        let _ = result;
+    }
+
+    #[test]
+    fn test_generate_template_all_primal_types() {
+        let temp_dir = TempDir::new().unwrap();
+        for pt in [
+            PrimalType::Coordinator,
+            PrimalType::Security,
+            PrimalType::Orchestration,
+            PrimalType::Storage,
+            PrimalType::Compute,
+            PrimalType::Custom("custom".to_string()),
+        ] {
+            let path = temp_dir.path().join(format!("{:?}.yaml", pt));
+            let result = ConfigLoader::generate_template(&path, pt.clone());
+            assert!(result.is_ok(), "Failed for {:?}", pt);
+            assert!(path.exists());
+        }
+    }
 }

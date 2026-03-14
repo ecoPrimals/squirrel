@@ -164,3 +164,64 @@ pub struct CancelTaskResponse {
     pub success: bool,
     pub error_message: String,
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn create_task_request_round_trip(
+            name in "[a-zA-Z0-9_-]{1,80}",
+            description in "[a-zA-Z0-9 _-]{0,200}",
+        ) {
+            let req = CreateTaskRequest {
+                name: name.clone(),
+                description: description.clone(),
+                priority: 1,
+                input_data: vec![],
+                metadata: vec![],
+                prerequisite_task_ids: vec![],
+                context_id: "ctx".to_string(),
+                agent_id: "agent".to_string(),
+                agent_type: 0,
+            };
+            let json = serde_json::to_string(&req).unwrap();
+            let deserialized: CreateTaskRequest = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(deserialized.name, name);
+            prop_assert_eq!(deserialized.description, description);
+        }
+
+        #[test]
+        fn json_task_round_trip(
+            id in "[a-zA-Z0-9-]{1,80}",
+            name in "[a-zA-Z0-9_-]{1,80}",
+        ) {
+            let task = JsonTask {
+                id: id.clone(),
+                name: name.clone(),
+                description: "desc".to_string(),
+                status: 1,
+                priority: 1,
+                agent_type: 0,
+                progress_percent: 0,
+                agent_id: String::new(),
+                context_id: String::new(),
+                prerequisite_task_ids: vec![],
+                created_at: Some(Utc::now()),
+                updated_at: Some(Utc::now()),
+                completed_at: None,
+                input_data: vec![],
+                output_data: vec![],
+                error_message: String::new(),
+                progress_message: String::new(),
+                metadata: vec![],
+            };
+            let json = serde_json::to_string(&task).unwrap();
+            let deserialized: JsonTask = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(deserialized.id, id);
+            prop_assert_eq!(deserialized.name, name);
+        }
+    }
+}

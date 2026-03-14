@@ -76,11 +76,11 @@ impl BeardogSecurityCoordinator {
         // Multi-tier default fallback
         // 1. SECURITY_SERVICE_ENDPOINT (checked above)
         // 2. SECURITY_AUTHENTICATION_PORT (port override)
-        // 3. Default: http://localhost:8443 (standard security port)
+        // 3. Default: use universal_constants DEFAULT_SECURITY_PORT
         let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or(8443); // Standard security port (capability-based, not primal-specific)
+            .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
         Ok(format!("http://localhost:{}", port))
     }
 

@@ -97,6 +97,7 @@ pub use capability_jwt::{
 };
 
 // DEPRECATED: BearDog-specific exports (use capability_ instead!)
+// Backward compatibility: kept for deserialization of legacy data / existing consumers
 #[allow(deprecated)]
 #[cfg(feature = "delegated-jwt")]
 pub use beardog_client::{BearDogClient, BearDogClientConfig};

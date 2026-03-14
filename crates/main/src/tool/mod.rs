@@ -90,9 +90,9 @@ mod tests {
 
         manager
             .register_tool(ToolRegistration {
-                name: "test.tool".to_string(),
+                name: Arc::from("test.tool"),
                 description: "A test tool".to_string(),
-                domain: "test".to_string(),
+                domain: Arc::from("test"),
                 builtin: false,
             })
             .await;
@@ -113,7 +113,7 @@ mod tests {
         let manager = ToolManager::new();
         let tools = manager.list_tools().await;
         assert!(!tools.is_empty());
-        assert!(tools.iter().any(|t| t.name == "system.health"));
+        assert!(tools.iter().any(|t| t.name.as_ref() == "system.health"));
     }
 
     #[tokio::test]

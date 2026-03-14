@@ -5,7 +5,8 @@
 //!
 //! This module provides functionality for discovering and loading plugins.
 
-#![allow(deprecated)] // Allow use of plugin::PluginMetadata during migration to squirrel_interfaces
+// Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
+#![allow(deprecated)]
 
 use std::any::Any;
 use std::path::Path;
@@ -54,7 +55,7 @@ pub struct PluginManifest {
 impl PluginManifest {
     /// Convert to plugin metadata
     #[must_use]
-    #[allow(deprecated)]
+    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
     pub fn to_metadata(&self) -> PluginMetadata {
         let mut metadata =
             PluginMetadata::new(&self.name, &self.version, &self.description, &self.author);

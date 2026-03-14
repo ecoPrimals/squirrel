@@ -204,7 +204,7 @@ impl std::str::FromStr for ServiceType {
 pub struct ServiceEndpoint {
     /// Endpoint URL
     pub url: String,
-    /// Protocol (http, https, grpc, websocket)
+    /// Protocol (http, https, tarpc, websocket)
     pub protocol: String,
     /// Port number
     pub port: u16,

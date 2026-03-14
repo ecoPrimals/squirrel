@@ -3,7 +3,7 @@ name = "squirrel-context-adapter"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-license.workspace = true
+license = "AGPL-3.0-only"
 description = "Context adapter components for Squirrel"
 
 [lints]

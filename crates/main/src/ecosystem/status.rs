@@ -81,7 +81,7 @@ pub struct EcosystemManagerStatus {
     pub initialized_at: Option<DateTime<Utc>>,
     /// Last successful registration
     pub last_registration: Option<DateTime<Utc>>,
-    /// Active service registrations (Arc<str> for O(1) clone)
+    /// Active service registrations (`Arc<str>` for O(1) clone)
     #[serde(
         serialize_with = "serialize_arc_str_vec",
         deserialize_with = "deserialize_arc_str_vec"
@@ -146,7 +146,7 @@ mod tests {
                 cross_primal_communication: CrossPrimalStatus {
                     enabled: true,
                     active_connections: 2,
-                    supported_protocols: vec!["http".to_string(), "grpc".to_string()],
+                    supported_protocols: vec!["http".to_string(), "tarpc".to_string()],
                 },
             },
             overall_health: 1.0,
@@ -233,7 +233,7 @@ mod tests {
             cross_primal_communication: CrossPrimalStatus {
                 enabled: true,
                 active_connections: 3,
-                supported_protocols: vec!["json-rpc".to_string(), "grpc".to_string()],
+                supported_protocols: vec!["json-rpc".to_string(), "tarpc".to_string()],
             },
         };
 

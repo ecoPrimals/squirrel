@@ -24,6 +24,8 @@ use tarpc::server;
 use crate::error::{Result, types::MCPError};
 use crate::protocol::types::MCPMessage;
 use super::{MCPEvent, EventBroadcaster};
+use universal_constants::deployment::hosts;
+use universal_constants::network::get_service_port;
 
 /// Unified Transport - Manages all communication channels
 #[derive(Debug)]
@@ -355,15 +357,19 @@ impl UnifiedTransport {
     }
     
     async fn get_service_address(&self, transport_type: &TransportType) -> Result<SocketAddr> {
+        let bind = hosts::all_interfaces();
         match transport_type {
             TransportType::WebSocket => {
-                Ok(format!("0.0.0.0:8081").parse()?)
+                let port = get_service_port("http");
+                Ok(format!("{bind}:{port}").parse()?)
             }
             TransportType::Tarpc => {
-                Ok(format!("0.0.0.0:8082").parse()?)
+                let port = get_service_port("admin");
+                Ok(format!("{bind}:{port}").parse()?)
             }
             TransportType::TCP => {
-                Ok(format!("0.0.0.0:8083").parse()?)
+                let port = get_service_port("security");
+                Ok(format!("{bind}:{port}").parse()?)
             }
             _ => Err(MCPError::NotSupported(format!("Transport type not supported: {:?}", transport_type))),
         }

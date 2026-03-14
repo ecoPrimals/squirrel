@@ -401,7 +401,7 @@ pub async fn register_toadstool_service(
             maintainer: "EcoPrimals Core Team".to_string(),
             protocols: vec![
                 "https".to_string(),
-                "grpc".to_string(),
+                "tarpc".to_string(),
                 // Note: "docker" here refers to Docker API protocol support,
                 // not a hardcoded requirement to use Docker
                 "docker".to_string(),
@@ -458,7 +458,7 @@ pub async fn register_toadstool_service(
             ]),
         },
         integration: super::IntegrationPreferences {
-            preferred_protocols: vec!["https".to_string(), "grpc".to_string()],
+            preferred_protocols: vec!["https".to_string(), "tarpc".to_string()],
             retry_policy: "exponential_backoff".to_string(),
             timeout_seconds: 300,
             load_balancing_weight: 14,

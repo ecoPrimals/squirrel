@@ -8,6 +8,7 @@ use crate::traits::{
 };
 use crate::types::{SecurityConfig, SecurityLevel};
 use std::collections::HashMap;
+use universal_constants::network::{get_service_port, BIND_ALL_INTERFACES};
 
 /// Configuration defaults for common scenarios
 pub struct ConfigDefaults;
@@ -22,7 +23,7 @@ impl ConfigDefaults {
                 version: "0.1.0".to_string(),
                 description: "Development Squirrel instance".to_string(),
                 bind_address: crate::defaults::DefaultEndpoints::dev_bind_address(),
-                port: 8080,
+                port: get_service_port("websocket"),
                 log_level: "debug".to_string(),
                 instance_id: uuid::Uuid::new_v4().to_string(),
             },
@@ -76,7 +77,7 @@ impl ConfigDefaults {
                 name: "squirrel".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 description: "Production Squirrel AI primal".to_string(),
-                bind_address: "0.0.0.0".to_string(),
+                bind_address: BIND_ALL_INTERFACES.to_string(),
                 port: 0,
                 log_level: "info".to_string(),
                 instance_id: uuid::Uuid::new_v4().to_string(),

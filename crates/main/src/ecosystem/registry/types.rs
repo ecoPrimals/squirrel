@@ -5,7 +5,8 @@
 
 //! Core types for the ecosystem registry manager
 
-#[allow(deprecated)] // EcosystemPrimalType is deprecated but needed for backward compatibility
+// Backward compatibility: kept for deserialization of legacy data (EcosystemPrimalType in DiscoveredService, PrimalApiRequest)
+#[allow(deprecated)]
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -15,7 +16,11 @@ use std::time::Duration;
 use crate::ecosystem::EcosystemPrimalType;
 
 /// String interning for common service registry values
-/// Uses capability constants for discovery; legacy primal names for backward compatibility
+/// Uses capability constants for discovery; legacy primal names for backward compatibility.
+///
+/// **TRUE PRIMAL**: Discovery uses capability names (storage, compute, security, etc.).
+/// Legacy primal names below are ONLY for display/fallback identifiers when deserializing
+/// external data - NOT for discovery routing. Actual discovery is capability-based.
 static REGISTRY_STRINGS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     use universal_constants::capabilities;
@@ -44,7 +49,8 @@ static REGISTRY_STRINGS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::n
         capabilities::ECOSYSTEM_CAPABILITY,
         Arc::from(capabilities::ECOSYSTEM_CAPABILITY),
     );
-    // Legacy primal names (backward compat)
+    // Legacy primal names: display/fallback only, NOT for discovery routing.
+    // Used when deserializing config or external responses that reference primal IDs.
     map.insert("songbird", Arc::from("songbird"));
     map.insert("toadstool", Arc::from("toadstool"));
     map.insert("beardog", Arc::from("beardog"));
@@ -81,8 +87,9 @@ static REGISTRY_STRINGS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::n
 
 /// Get ```Arc<str>``` for registry string with zero allocation for common values
 ///
-/// For capability names (storage, compute, etc.), returns the string as-is.
-/// For primal names, returns the primal identifier.
+/// **TRUE PRIMAL**: Capability constants resolve to capability names for discovery.
+/// Squirrel knows its own name ("squirrel"); other primal names are display/fallback only.
+/// Discovery routing uses capability names, not primal hostnames.
 #[must_use]
 pub fn intern_registry_string(s: &str) -> Arc<str> {
     use universal_constants::capabilities;
@@ -93,18 +100,25 @@ pub fn intern_registry_string(s: &str) -> Arc<str> {
         "security" => Arc::from("security"),
         "discovery" => Arc::from("discovery"),
         "ai_coordination" => Arc::from("ai_coordination"),
+        // Squirrel can know its own name (self-knowledge)
         "squirrel" => Arc::from("squirrel"),
+        // Legacy primal names: display/fallback only when deserializing external data
         "songbird" => Arc::from("songbird"),
         "toadstool" => Arc::from("toadstool"),
         "beardog" => Arc::from("beardog"),
         "nestgate" => Arc::from("nestgate"),
         "biomeos" => Arc::from("biomeos"),
+        // Capability constants -> capability names (for discovery, NOT primal names)
         n if n == capabilities::SELF_PRIMAL_NAME => Arc::from("squirrel"),
-        n if n == capabilities::SERVICE_MESH_CAPABILITY => Arc::from("songbird"),
-        n if n == capabilities::COMPUTE_CAPABILITY => Arc::from("toadstool"),
-        n if n == capabilities::SECURITY_CAPABILITY => Arc::from("beardog"),
-        n if n == capabilities::STORAGE_CAPABILITY => Arc::from("storage"),
-        n if n == capabilities::ECOSYSTEM_CAPABILITY => Arc::from("biomeos"),
+        n if n == capabilities::SERVICE_MESH_CAPABILITY => {
+            Arc::from(capabilities::SERVICE_MESH_CAPABILITY)
+        }
+        n if n == capabilities::COMPUTE_CAPABILITY => Arc::from(capabilities::COMPUTE_CAPABILITY),
+        n if n == capabilities::SECURITY_CAPABILITY => Arc::from(capabilities::SECURITY_CAPABILITY),
+        n if n == capabilities::STORAGE_CAPABILITY => Arc::from(capabilities::STORAGE_CAPABILITY),
+        n if n == capabilities::ECOSYSTEM_CAPABILITY => {
+            Arc::from(capabilities::ECOSYSTEM_CAPABILITY)
+        }
         "active" => Arc::from("active"),
         "inactive" => Arc::from("inactive"),
         "error" => Arc::from("error"),

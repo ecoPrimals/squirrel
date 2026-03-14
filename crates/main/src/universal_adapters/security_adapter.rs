@@ -255,7 +255,7 @@ pub async fn register_beardog_service(
                 "Enterprise security primal providing authentication, authorization, and compliance"
                     .to_string(),
             maintainer: "EcoPrimals Core Team".to_string(),
-            protocols: vec!["https".to_string(), "grpc".to_string()],
+            protocols: vec!["https".to_string(), "tarpc".to_string()],
         },
         capabilities: vec![ServiceCapability::Security {
             functions: vec![
@@ -297,7 +297,7 @@ pub async fn register_beardog_service(
             ]),
         },
         integration: super::IntegrationPreferences {
-            preferred_protocols: vec!["https".to_string(), "grpc".to_string()],
+            preferred_protocols: vec!["https".to_string(), "tarpc".to_string()],
             retry_policy: "exponential_backoff".to_string(),
             timeout_seconds: 30,
             load_balancing_weight: 10,

@@ -9,6 +9,7 @@
 pub mod model_splitting;
 
 // Re-export deprecated stubs for backward compatibility
+// Backward compatibility: AI module uses deprecated types during migration
 #[allow(deprecated)]
 pub use model_splitting::{
     LayerDistribution, LayerDistributionStrategy, ModelSplitConfig, ModelSplitCoordinator,

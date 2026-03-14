@@ -211,67 +211,72 @@ impl AiRouter {
     /// **Note**: Vendor-specific adapters (Anthropic, OpenAI) are deprecated
     /// and gated behind the `deprecated-adapters` feature.
     /// Use capability-based discovery with UniversalAiAdapter instead.
-    #[allow(unused_variables)]
     async fn init_http_provider(
         config: &HttpAiProviderConfig,
     ) -> Result<Option<Arc<dyn AiProviderAdapter>>, PrimalError> {
-        // Initialize adapter based on provider_id
-        let adapter_result: Result<Arc<dyn AiProviderAdapter>, PrimalError> =
-            match config.provider_id.as_str() {
-                #[cfg(feature = "deprecated-adapters")]
-                "anthropic" =>
-                {
-                    #[allow(deprecated)]
-                    match AnthropicAdapter::new() {
-                        Ok(adapter) => Ok(Arc::new(adapter) as Arc<dyn AiProviderAdapter>),
-                        Err(e) => Err(e),
-                    }
-                }
-                #[cfg(feature = "deprecated-adapters")]
-                "openai" =>
-                {
-                    #[allow(deprecated)]
-                    match OpenAiAdapter::new() {
-                        Ok(adapter) => Ok(Arc::new(adapter) as Arc<dyn AiProviderAdapter>),
-                        Err(e) => Err(e),
-                    }
-                }
-                #[cfg(not(feature = "deprecated-adapters"))]
-                "anthropic" | "openai" => {
-                    warn!(
-                        "⚠️  Provider '{}' requires deprecated-adapters feature. \
-                         Use capability-based discovery instead.",
-                        config.provider_id
-                    );
-                    return Ok(None);
-                }
-                _ => {
-                    return Err(PrimalError::Configuration(format!(
-                        "Unknown HTTP provider: {}. Use capability-based discovery instead.",
-                        config.provider_id
-                    )));
-                }
-            };
-
-        #[allow(unreachable_code)]
-        match adapter_result {
-            Ok(adapter) => {
-                // Availability check with 5s timeout to prevent hangs
-                match tokio::time::timeout(
-                    std::time::Duration::from_secs(5),
-                    adapter.is_available(),
-                )
-                .await
-                {
-                    Ok(true) => Ok(Some(adapter)),
-                    Ok(false) => Ok(None), // Not available (missing API key or HTTP provider)
-                    Err(_) => {
-                        warn!("⏱️  {} availability check timed out", config.provider_name);
-                        Ok(None)
-                    }
-                }
+        #[cfg(not(feature = "deprecated-adapters"))]
+        {
+            if config.provider_id == "anthropic" || config.provider_id == "openai" {
+                warn!(
+                    "⚠️  Provider '{}' requires deprecated-adapters feature. \
+                     Use capability-based discovery instead.",
+                    config.provider_id
+                );
+                return Ok(None);
             }
-            Err(e) => Err(e),
+            Err(PrimalError::Configuration(format!(
+                "Unknown HTTP provider: {}. Use capability-based discovery instead.",
+                config.provider_id
+            )))
+        }
+
+        #[cfg(feature = "deprecated-adapters")]
+        {
+            let adapter_result: Result<Arc<dyn AiProviderAdapter>, PrimalError> =
+                match config.provider_id.as_str() {
+                    "anthropic" => {
+                        // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
+                        #[allow(deprecated)]
+                        match AnthropicAdapter::new() {
+                            Ok(adapter) => Ok(Arc::new(adapter) as Arc<dyn AiProviderAdapter>),
+                            Err(e) => Err(e),
+                        }
+                    }
+                    "openai" => {
+                        // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
+                        #[allow(deprecated)]
+                        match OpenAiAdapter::new() {
+                            Ok(adapter) => Ok(Arc::new(adapter) as Arc<dyn AiProviderAdapter>),
+                            Err(e) => Err(e),
+                        }
+                    }
+                    _ => {
+                        return Err(PrimalError::Configuration(format!(
+                            "Unknown HTTP provider: {}. Use capability-based discovery instead.",
+                            config.provider_id
+                        )));
+                    }
+                };
+
+            match adapter_result {
+                Ok(adapter) => {
+                    // Availability check with 5s timeout to prevent hangs
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        adapter.is_available(),
+                    )
+                    .await
+                    {
+                        Ok(true) => Ok(Some(adapter)),
+                        Ok(false) => Ok(None), // Not available (missing API key or HTTP provider)
+                        Err(_) => {
+                            warn!("⏱️  {} availability check timed out", config.provider_name);
+                            Ok(None)
+                        }
+                    }
+                }
+                Err(e) => Err(e),
+            }
         }
     }
 

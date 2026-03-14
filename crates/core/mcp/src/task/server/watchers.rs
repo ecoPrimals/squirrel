@@ -40,10 +40,12 @@ impl TaskWatcherManager {
         // };
 
         // Send to all watchers for this task
-        if let Some(task_watchers) = watchers.get(&task.id) {
+        if let Some(task_watchers) = watchers.get(task.id.as_ref()) {
             for sender in task_watchers {
                 // Send a simple string update instead of protobuf
-                let _ = sender.send(format!("Task {} updated", task.id)).await;
+                let _ = sender
+                    .send(format!("Task {} updated", task.id.as_ref()))
+                    .await;
             }
         }
     }

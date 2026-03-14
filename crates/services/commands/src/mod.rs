@@ -168,7 +168,6 @@ impl CommandRegistry {
     /// Returns a `CommandError` if:
     /// - A command with the same name already exists
     /// - The registry lock is poisoned
-    #[allow(clippy::unwrap_used)]
     pub fn register(&mut self, command: Box<dyn Command>) -> Result<(), CommandError> {
         let mut commands = self.commands.write().map_err(|_| {
             CommandError::Lifecycle("Failed to acquire write lock on commands".to_string())
@@ -209,7 +208,6 @@ impl CommandRegistry {
     ///
     /// This function will panic if the command map cannot be accessed due to
     /// a poisoned lock.
-    #[allow(clippy::unwrap_used)]
     pub fn execute(&self, name: &str, args: Vec<String>) -> Result<(), CommandError> {
         let command = self.get(name)?
             .ok_or_else(|| CommandError::NotFound(name.to_string()))?;

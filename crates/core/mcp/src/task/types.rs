@@ -9,7 +9,24 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
+
+// Serde helpers for Arc<str> in Task
+fn serialize_arc_str<S>(arc_str: &Arc<str>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(arc_str)
+}
+
+fn deserialize_arc_str<'de, D>(deserializer: D) -> Result<Arc<str>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(Arc::from(s))
+}
 
 /// Represents the status of a task.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -31,7 +48,7 @@ pub enum TaskStatus {
 }
 
 /// Represents the priority of a task.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum TaskPriority {
     /// Unspecified priority
     Unspecified = -1,
@@ -74,11 +91,19 @@ pub enum AgentType {
 /// It represents a piece of work that needs to be performed by an agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
-    /// Unique identifier for the task
-    pub id: String,
+    /// Unique identifier for the task — `Arc<str>` for zero-copy (passed around extensively)
+    #[serde(
+        serialize_with = "serialize_arc_str",
+        deserialize_with = "deserialize_arc_str"
+    )]
+    pub id: Arc<str>,
 
-    /// Name of the task
-    pub name: String,
+    /// Name of the task — `Arc<str>` for zero-copy (task names reused)
+    #[serde(
+        serialize_with = "serialize_arc_str",
+        deserialize_with = "deserialize_arc_str"
+    )]
+    pub name: Arc<str>,
 
     /// Description of the task
     pub description: String,
@@ -147,8 +172,8 @@ pub struct Task {
 impl Default for Task {
     fn default() -> Self {
         Self {
-            id: Uuid::new_v4().to_string(),
-            name: String::new(),
+            id: Arc::from(Uuid::new_v4().to_string()),
+            name: Arc::from(""),
             description: String::new(),
             status_code: TaskStatus::Pending,
             priority_code: TaskPriority::Medium,
@@ -178,7 +203,7 @@ impl Task {
     /// Create a new task with the given name and description.
     pub fn new(name: &str, description: &str) -> Self {
         let mut task = Self::default();
-        task.name = name.to_string();
+        task.name = Arc::from(name);
         task.description = description.to_string();
         task
     }
@@ -429,6 +454,42 @@ impl From<AgentType> for i32 {
             AgentType::DataProcessor => 5,
             AgentType::FileHandler => 6,
             AgentType::Task => 7,
+        }
+    }
+}
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn task_round_trip_serde(
+            name in "[a-zA-Z0-9_-]{1,100}",
+            desc in ".*",
+        ) {
+            let task = Task::new(&name, &desc);
+            let json = serde_json::to_string(&task).unwrap();
+            let deserialized: Task = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(deserialized.name.as_ref(), name);
+            prop_assert_eq!(deserialized.description, desc);
+        }
+
+        #[test]
+        fn task_status_round_trip(status in 0i32..6) {
+            let task_status: TaskStatus = status.into();
+            let json = serde_json::to_string(&task_status).unwrap();
+            let deserialized: TaskStatus = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(task_status, deserialized);
+        }
+
+        #[test]
+        fn task_priority_round_trip(priority in 0i32..5) {
+            let p = TaskPriority::from(priority);
+            let json = serde_json::to_string(&p).unwrap();
+            let deserialized: TaskPriority = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(p, deserialized);
         }
     }
 }

@@ -94,7 +94,7 @@ where
 /// and registration within the ecoPrimals ecosystem.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemServiceRegistration {
-    /// Unique service identifier: "primal-squirrel-{instance}" (Arc<str> for O(1) clone)
+    /// Unique service identifier: "primal-squirrel-{instance}" (`Arc<str>` for O(1) clone)
     #[serde(
         serialize_with = "ecosystem_serialize_arc_str",
         deserialize_with = "ecosystem_deserialize_arc_str"
@@ -180,11 +180,15 @@ pub enum EcosystemPrimalType {
 }
 
 impl EcosystemPrimalType {
-    /// Convert to string representation
+    /// Convert to string representation (display/logging only).
     ///
-    /// **DEPRECATED**: Use capability-based discovery instead.
+    /// **Display names only** - NOT for routing or discovery. Use `capability()` for
+    /// capability-based discovery. These mappings are for logs, serialization, and UI.
     #[must_use]
-    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry instead")]
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use capability() for discovery, as_str() for display only"
+    )]
     pub fn as_str(&self) -> &'static str {
         match self {
             EcosystemPrimalType::ToadStool => "toadstool",
@@ -267,6 +271,7 @@ impl EcosystemPrimalType {
     }
 }
 
+// Backward compatibility: kept for deserialization of legacy data
 #[allow(deprecated)]
 impl std::str::FromStr for EcosystemPrimalType {
     type Err = String;
@@ -673,6 +678,7 @@ impl EcosystemManager {
                                     .map(|(k, v)| (k.as_str(), v.as_str()))
                                     .collect();
 
+                                // Backward compatibility: DiscoveredService.primal_type for legacy format
                                 #[allow(deprecated)]
                                 services.push(
                                     crate::ecosystem::registry::types::DiscoveredService::new(

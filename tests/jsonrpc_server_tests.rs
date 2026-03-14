@@ -63,6 +63,7 @@ async fn send_jsonrpc_request(
 mod unit_tests {
     use super::*;
     use squirrel::rpc::jsonrpc_server::{JsonRpcRequest, JsonRpcResponse, JsonRpcError, error_codes};
+    use std::sync::Arc;
 
     #[test]
     fn test_jsonrpc_request_valid() {
@@ -71,8 +72,8 @@ mod unit_tests {
         assert!(request.is_ok());
         
         let req = request.unwrap();
-        assert_eq!(req.jsonrpc, "2.0");
-        assert_eq!(req.method, "health");
+        assert_eq!(req.jsonrpc.as_ref(), "2.0");
+        assert_eq!(req.method.as_ref(), "health");
         assert_eq!(req.id, Some(json!(1)));
     }
 
@@ -83,14 +84,14 @@ mod unit_tests {
         assert!(request.is_ok());
         
         let req = request.unwrap();
-        assert_eq!(req.method, "query_ai");
+        assert_eq!(req.method.as_ref(), "query_ai");
         assert!(req.params.is_some());
     }
 
     #[test]
     fn test_jsonrpc_response_success() {
         let response = JsonRpcResponse {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: Arc::from("2.0"),
             result: Some(json!({"status": "healthy"})),
             error: None,
             id: json!(1),
@@ -104,7 +105,7 @@ mod unit_tests {
     #[test]
     fn test_jsonrpc_response_error() {
         let response = JsonRpcResponse {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: Arc::from("2.0"),
             result: None,
             error: Some(JsonRpcError {
                 code: error_codes::METHOD_NOT_FOUND,

@@ -496,7 +496,7 @@ mod tests {
     #[test]
     fn test_integration_preferences_creation() {
         let prefs = IntegrationPreferences {
-            preferred_protocols: vec!["grpc".to_string(), "http".to_string()],
+            preferred_protocols: vec!["tarpc".to_string(), "http".to_string()],
             retry_policy: "exponential_backoff".to_string(),
             timeout_seconds: 45,
             load_balancing_weight: 7,

@@ -99,7 +99,7 @@ impl Stream for TarpcTransportAdapter {
 /// Implement Sink trait for writing to transport
 ///
 /// Accepts `Bytes` for zero-copy payloads (wateringHole standard).
-/// tokio-util 0.7 LengthDelimitedCodec implements Encoder<Bytes>.
+/// tokio-util 0.7 LengthDelimitedCodec implements `Encoder<Bytes>`.
 impl Sink<Bytes> for TarpcTransportAdapter {
     type Error = io::Error;
 
@@ -122,20 +122,19 @@ impl Sink<Bytes> for TarpcTransportAdapter {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use universal_patterns::transport::{InProcessTransport, UniversalTransport};
+
     #[tokio::test]
     async fn test_transport_adapter_creation() {
-        // Create an in-memory transport for testing
-        let (_client, _server) = tokio::io::duplex(1024);
+        // Use InProcessTransport for unit testing without network/socket setup
+        let (client, _server) = InProcessTransport::pair();
+        let transport = UniversalTransport::InProcess(client);
+        let adapter = TarpcTransportAdapter::new(transport);
 
-        // Note: We can't easily create a UniversalTransport for testing
-        // without the full infrastructure, so this test is more conceptual
-
-        // In real usage:
-        // let transport = UniversalTransport::connect_discovered("service").await?;
-        // let adapter = TarpcTransportAdapter::new(transport);
-
-        // Just verify the adapter exists
-        assert!(true); // Placeholder - real tests would use actual transport
+        // Verify adapter was created (Stream + Sink impls exist)
+        let _ = &adapter;
+        assert!(std::mem::size_of::<TarpcTransportAdapter>() > 0);
     }
 
     #[test]

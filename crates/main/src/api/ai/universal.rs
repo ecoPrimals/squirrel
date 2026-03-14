@@ -165,11 +165,11 @@ pub struct UniversalAiResponse {
     /// Generated text
     pub text: String,
 
-    /// Provider that generated this response
-    pub provider_id: String,
+    /// Provider that generated this response (`Arc<str>` for O(1) clone in routing)
+    pub provider_id: Arc<str>,
 
-    /// Model that generated this response
-    pub model: String,
+    /// Model that generated this response (`Arc<str>` for O(1) clone in routing)
+    pub model: Arc<str>,
 
     /// Token usage statistics
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -355,8 +355,8 @@ mod tests {
     fn test_universal_response_creation() {
         let response = UniversalAiResponse {
             text: "Hello!".to_string(),
-            provider_id: "test-provider".to_string(),
-            model: "test-model".to_string(),
+            provider_id: Arc::from("test-provider"),
+            model: Arc::from("test-model"),
             usage: Some(TokenUsage {
                 prompt_tokens: 10,
                 completion_tokens: 5,
@@ -369,7 +369,7 @@ mod tests {
         };
 
         assert_eq!(response.text, "Hello!");
-        assert_eq!(response.provider_id, "test-provider");
+        assert_eq!(response.provider_id.as_ref(), "test-provider");
         assert!(response.usage.is_some());
     }
 

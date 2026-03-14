@@ -48,7 +48,8 @@ pub struct SongbirdClient {
     timeout: Duration,
 }
 
-#[allow(deprecated)] // Implementing deprecated struct for backward compatibility
+// Backward compatibility: kept for deserialization of legacy data / existing consumers
+#[allow(deprecated)]
 impl SongbirdClient {
     /// Create a new Songbird client
     pub fn new(
@@ -161,7 +162,8 @@ impl SongbirdClient {
 }
 
 #[async_trait]
-#[allow(deprecated)] // Implementation of deprecated trait for backward compatibility
+// Backward compatibility: kept for deserialization of legacy data / existing consumers
+#[allow(deprecated)]
 impl ServiceMeshClient for SongbirdClient {
     async fn register_service(
         &self,
@@ -463,7 +465,8 @@ pub struct ServiceMeshClientFactory;
 
 impl ServiceMeshClientFactory {
     /// Create a new service mesh client
-    #[allow(deprecated)] // Factory uses deprecated SongbirdClient for backward compatibility
+    // Backward compatibility: kept for deserialization of legacy data / existing consumers
+    #[allow(deprecated)]
     pub fn create_client(
         base_url: String,
         auth_token: Option<String>,
@@ -591,22 +594,57 @@ impl ServiceDiscovery {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "http-api"))]
 mod tests {
-    // Tests use production client through traits - no mocks needed
-    //
-    // NOTE: MockServiceMeshClient test removed per principle:
-    // "Mocks isolated to testing only, production uses real implementations"
-    //
-    // The production SongbirdClient is fully implemented above.
-    // Integration tests should use real SongbirdClient with a test server,
-    // not mock implementations.
-    //
-    // NOTE: Integration test plan for tests/ directory:
-    // 1. Starts a test Songbird server
-    // 2. Uses real SongbirdClient to test all methods
-    // 3. Verifies actual network communication
-    //
-    // This follows idiomatic Rust testing: unit tests for logic,
-    // integration tests for I/O and external systems.
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_songbird_client_new() {
+        let result = SongbirdClient::new(
+            "http://localhost:9999".to_string(),
+            None,
+            RetryConfig::default(),
+        );
+        assert!(result.is_ok());
+        let client = result.unwrap();
+        let _with_timeout = client.with_timeout(Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_songbird_client_with_auth() {
+        let result = SongbirdClient::new(
+            "http://localhost:9999".to_string(),
+            Some("test-token".to_string()),
+            RetryConfig::default(),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_service_mesh_client_factory_create_client() {
+        let result = ServiceMeshClientFactory::create_client(
+            "http://localhost:9999".to_string(),
+            None,
+            RetryConfig::default(),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[cfg(feature = "testing")]
+    #[test]
+    fn test_health_monitor_new() {
+        let mock = MockServiceMeshClient::new();
+        let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock);
+        let _monitor =
+            HealthMonitor::new(client, "test-service".to_string(), Duration::from_secs(30));
+    }
+
+    #[cfg(feature = "testing")]
+    #[test]
+    fn test_service_discovery_new() {
+        let mock = MockServiceMeshClient::new();
+        let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock);
+        let _discovery = ServiceDiscovery::new(client);
+    }
 }

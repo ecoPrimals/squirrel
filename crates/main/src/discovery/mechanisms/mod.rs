@@ -19,6 +19,7 @@ pub mod registry_trait;
 pub use dnssd::DnssdDiscovery;
 pub use env_vars::{discover_all_from_env, discover_from_env};
 pub use mdns::MdnsDiscovery;
+// Backward compatibility: RegistryType/RegistryDiscovery for legacy consumers
 #[allow(deprecated)]
 pub use registry::{RegistryDiscovery, RegistryType};
 pub use registry_trait::{auto_detect_registry, ServiceRegistryProvider};

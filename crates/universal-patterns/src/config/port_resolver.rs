@@ -203,7 +203,7 @@ impl PortResolver {
             "websocket" | "ws" => network::get_service_port("websocket"),
             "metrics" => network::get_service_port("metrics"),
             "admin" => network::get_service_port("admin"),
-            "grpc" => 9090, // gRPC fallback (no constant in network.rs)
+            "tarpc" => 9090, // tarpc binary protocol (same port as former grpc)
             _ => return Err(PortResolutionError::UnknownService(service.to_string())),
         };
         Ok(port)
@@ -222,13 +222,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_port_from_constants() {
+        std::env::remove_var("HTTP_PORT");
+        std::env::remove_var("WEBSOCKET_PORT");
+        std::env::remove_var("METRICS_PORT");
         let resolver = PortResolver::new();
 
-        // HTTP uses get_service_port("http") which returns 8081
         assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
-        // WebSocket uses get_service_port("websocket") which returns 8080
         assert_eq!(resolver.resolve_port("websocket").await.unwrap(), 8080);
-        // Metrics uses get_service_port("metrics") which returns 9090
         assert_eq!(resolver.resolve_port("metrics").await.unwrap(), 9090);
     }
 
@@ -244,12 +244,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_endpoint() {
-        // Clear any env var that might interfere from concurrent tests
         std::env::remove_var("HTTP_ENDPOINT");
+        std::env::remove_var("HTTP_PORT");
+        std::env::remove_var("BIND_ADDRESS");
         let resolver = PortResolver::new();
         let endpoint = resolver.resolve_endpoint("http").await.unwrap();
 
-        // HTTP uses get_service_port("http") which returns 8081
         assert_eq!(endpoint, "http://localhost:8081");
     }
 
@@ -342,17 +342,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_fallback_chain() {
-        // No env var, no discovery → should use constants (HTTP is 8081)
+        std::env::remove_var("HTTP_PORT");
+
         let resolver = PortResolver::new();
         assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
 
-        // With env var → should use env var
         std::env::set_var("HTTP_PORT", "7070");
         let resolver2 = PortResolver::new();
         assert_eq!(resolver2.resolve_port("http").await.unwrap(), 7070);
         std::env::remove_var("HTTP_PORT");
 
-        // After cleanup, back to constant (HTTP is 8081)
         let resolver3 = PortResolver::new();
         assert_eq!(resolver3.resolve_port("http").await.unwrap(), 8081);
     }

@@ -127,7 +127,7 @@ mod network_error_tests {
             capabilities: vec!["consensus".to_string(), "storage".to_string()],
             endpoints: vec![
                 "http://localhost:8080".to_string(),
-                "grpc://localhost:9090".to_string(),
+                "tarpc://localhost:9090".to_string(),
             ],
             metadata,
         };

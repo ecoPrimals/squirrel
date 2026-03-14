@@ -6,6 +6,7 @@
 //! Uses chrono::DateTime<Utc> directly for timestamps.
 
 use chrono::Utc;
+use std::sync::Arc;
 
 use crate::task::json_rpc_types::JsonTask;
 use crate::task::types::{AgentType, Task, TaskPriority, TaskStatus};
@@ -14,8 +15,8 @@ use crate::task::types::{AgentType, Task, TaskPriority, TaskStatus};
 impl From<Task> for JsonTask {
     fn from(task: Task) -> Self {
         JsonTask {
-            id: task.id,
-            name: task.name,
+            id: task.id.as_ref().to_string(),
+            name: task.name.as_ref().to_string(),
             description: task.description,
             status: task.status_code as i32,
             priority: task.priority_code as i32,
@@ -68,8 +69,8 @@ impl From<JsonTask> for Task {
         };
 
         Task {
-            id: json.id,
-            name: json.name,
+            id: Arc::from(json.id),
+            name: Arc::from(json.name),
             description: json.description,
             status_code: TaskStatus::from(json.status),
             priority_code: TaskPriority::from(json.priority),
