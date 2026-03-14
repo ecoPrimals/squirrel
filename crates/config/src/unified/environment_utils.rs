@@ -42,6 +42,7 @@ use std::str::FromStr;
 ///     println!("Running in production mode");
 /// }
 /// ```
+#[must_use]
 pub fn get_environment() -> Environment {
     Environment::from_env()
 }
@@ -83,7 +84,7 @@ where
     let value = env::var(key).unwrap_or_else(|_| default.to_string());
     value
         .parse::<T>()
-        .map_err(|e| format!("Failed to parse {}: {}", key, e))
+        .map_err(|e| format!("Failed to parse {key}: {e}"))
 }
 
 /// Get an optional environment variable
@@ -105,6 +106,7 @@ where
 ///     println!("API key not set");
 /// }
 /// ```
+#[must_use]
 pub fn get_env_var_optional(key: &str) -> Option<String> {
     env::var(key).ok()
 }
@@ -130,7 +132,7 @@ pub fn get_env_var_optional(key: &str) -> Option<String> {
 /// # Ok::<(), String>(())
 /// ```
 pub fn get_env_var_required(key: &str) -> Result<String, String> {
-    env::var(key).map_err(|_| format!("Required environment variable not set: {}", key))
+    env::var(key).map_err(|_| format!("Required environment variable not set: {key}"))
 }
 
 /// Get a boolean environment variable
@@ -152,6 +154,7 @@ pub fn get_env_var_required(key: &str) -> Result<String, String> {
 /// let tls_enabled = get_env_bool("SQUIRREL_TLS_ENABLED", false);
 /// let metrics_enabled = get_env_bool("SQUIRREL_METRICS_ENABLED", true);
 /// ```
+#[must_use]
 pub fn get_env_bool(key: &str, default: bool) -> bool {
     env::var(key)
         .map(|v| {
@@ -212,6 +215,7 @@ pub fn get_env_aware_default<T>(dev: T, test: T, staging: T, prod: T) -> T {
 ///     println!("Production mode - enabling security");
 /// }
 /// ```
+#[must_use]
 pub fn is_environment(env_type: Environment) -> bool {
     get_environment() == env_type
 }
@@ -231,6 +235,7 @@ pub fn is_environment(env_type: Environment) -> bool {
 ///     println!("{} = {}", key, value);
 /// }
 /// ```
+#[must_use]
 pub fn get_squirrel_env_vars() -> Vec<(String, String)> {
     env::vars()
         .filter(|(key, _)| key.starts_with("SQUIRREL_") || key.starts_with("MCP_"))
@@ -246,6 +251,10 @@ pub fn get_squirrel_env_vars() -> Vec<(String, String)> {
 /// # Returns
 ///
 /// Returns `Ok(())` if all variables are set, or `Err` with a list of missing variables.
+///
+/// # Errors
+///
+/// Returns `Err` with a list of missing variable names if any required variables are not set.
 ///
 /// # Example
 ///
@@ -263,7 +272,7 @@ pub fn validate_required_env_vars(required_vars: &[&str]) -> Result<(), Vec<Stri
     let missing: Vec<String> = required_vars
         .iter()
         .filter(|var| env::var(var).is_err())
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
         .collect();
 
     if missing.is_empty() {
@@ -287,6 +296,10 @@ pub fn validate_required_env_vars(required_vars: &[&str]) -> Result<(), Vec<Stri
 /// validate_environment_requirements()?;
 /// # Ok::<(), String>(())
 /// ```
+///
+/// # Errors
+///
+/// Returns `Err` if environment-specific required variables are not set or invalid.
 pub fn validate_environment_requirements() -> Result<(), String> {
     let env = get_environment();
 

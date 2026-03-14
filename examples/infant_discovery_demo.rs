@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Infant Discovery Demo - TRUE PRIMAL Pattern
 //!
 //! Demonstrates deploying with ZERO knowledge and discovering capabilities at runtime.

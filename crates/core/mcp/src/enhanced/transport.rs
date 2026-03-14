@@ -19,15 +19,11 @@ use futures_util::{SinkExt, StreamExt as FuturesStreamExt};
 use tracing::{info, error, warn, debug, instrument};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use tarpc::{
-    client, server,
-    context::Context as TarpcContext,
-    transport::tcp,
-};
+use tarpc::server;
 
 use crate::error::{Result, types::MCPError};
 use crate::protocol::types::MCPMessage;
-use super::{TransportConfig, MCPEvent, EventBroadcaster};
+use super::{MCPEvent, EventBroadcaster};
 
 /// Unified Transport - Manages all communication channels
 #[derive(Debug)]
@@ -62,6 +58,25 @@ pub enum TransportType {
     TCP,
     HTTP,
     UDP,
+}
+
+/// Transport configuration for UnifiedTransport
+#[derive(Debug, Clone)]
+pub struct TransportConfig {
+    /// Supported transport types
+    pub supported_transports: Vec<TransportType>,
+}
+
+impl Default for TransportConfig {
+    fn default() -> Self {
+        Self {
+            supported_transports: vec![
+                TransportType::WebSocket,
+                TransportType::Tarpc,
+                TransportType::TCP,
+            ],
+        }
+    }
 }
 
 /// Transport Service trait
@@ -707,19 +722,59 @@ impl TransportService for TarpcService {
 }
 
 impl TarpcService {
+    /// Handle incoming tarpc connection with bincode serialization.
+    ///
+    /// Sets up length-delimited framing, bincode codec, and runs the MCP tarpc server.
+    /// Implements proper error handling (no unwrap/panic).
     async fn handle_tarpc_connection(
-        _stream: TcpStream,
+        stream: TcpStream,
         connection_id: String,
         connection_manager: Arc<ConnectionManager>,
     ) -> Result<()> {
-        // tarpc connection handling would be implemented here
         info!("Handling tarpc connection: {}", connection_id);
-        
+
         // Update connection state
-        connection_manager.update_connection_state(&connection_id, ConnectionState::Connected).await?;
-        
-        // Handle RPC calls...
-        
+        if let Err(e) = connection_manager
+            .update_connection_state(&connection_id, ConnectionState::Connected)
+            .await
+        {
+            error!("Failed to update connection state: {}", e);
+            return Err(e.into());
+        }
+
+        // Set up tarpc transport: TcpStream -> length-delimited -> bincode
+        let transport = tokio_util::codec::Framed::new(
+            stream,
+            tokio_util::codec::LengthDelimitedCodec::builder()
+                .length_field_length(4)
+                .max_frame_length(16 * 1024 * 1024)
+                .new_codec(),
+        );
+
+        // Wrap with tokio-serde bincode for tarpc
+        let transport = tokio_serde::Framed::new(transport, tokio_serde::formats::Bincode::default());
+
+        // Create tarpc server channel
+        let server = server::BaseChannel::with_defaults(transport);
+
+        // Run the MCP tarpc service
+        let service = McpTarpcServer::new(connection_manager.clone());
+        let driver = server.execute(service.serve());
+
+        // Run until connection closes
+        if let Err(e) = futures_util::StreamExt::for_each(driver, |fut| async move {
+            tokio::spawn(fut);
+        })
+        .await
+        {
+            warn!("tarpc connection {} closed: {}", connection_id, e);
+        }
+
+        // Mark connection as disconnected
+        let _ = connection_manager
+            .update_connection_state(&connection_id, ConnectionState::Disconnected)
+            .await;
+
         Ok(())
     }
 }

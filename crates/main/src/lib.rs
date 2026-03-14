@@ -10,14 +10,63 @@
 //! This primal follows the universal adapter patterns defined by Songbird and
 //! implements the `EcosystemServiceRegistration` standard for seamless integration.
 
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(async_fn_in_trait)]
-#![allow(clippy::unused_self)]
-#![allow(clippy::unnecessary_wraps)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    async_fn_in_trait,
+    clippy::unused_self,
+    clippy::unnecessary_wraps,
+    clippy::needless_pass_by_ref_mut,
+    clippy::unnested_or_patterns,
+    clippy::similar_names,
+    clippy::doc_markdown,
+    clippy::redundant_pub_crate,
+    clippy::significant_drop_tightening,
+    clippy::map_unwrap_or,
+    clippy::match_same_arms,
+    clippy::redundant_closure_for_method_calls,
+    clippy::implicit_clone,
+    clippy::unnecessary_debug_formatting,
+    clippy::uninlined_format_args,
+    clippy::cast_possible_truncation,
+    clippy::wildcard_imports,
+    clippy::missing_const_for_fn,
+    clippy::cast_precision_loss,
+    clippy::derive_partial_eq_without_eq,
+    clippy::equatable_if_let,
+    clippy::iter_on_single_items,
+    clippy::option_if_let_else,
+    clippy::if_not_else,
+    clippy::items_after_statements,
+    clippy::trivially_copy_pass_by_ref,
+    clippy::struct_field_names,
+    clippy::cast_possible_wrap,
+    clippy::redundant_clone,
+    clippy::struct_excessive_bools,
+    clippy::too_many_lines,
+    clippy::needless_pass_by_value,
+    clippy::implicit_hasher,
+    clippy::use_self,
+    clippy::single_match_else,
+    clippy::cast_lossless,
+    clippy::suboptimal_flops,
+    clippy::unused_async,
+    clippy::used_underscore_binding,
+    clippy::must_use_candidate,
+    clippy::return_self_not_must_use,
+    clippy::manual_let_else,
+    clippy::manual_midpoint,
+    clippy::needless_continue,
+    clippy::ref_option,
+    clippy::or_fun_call,
+    clippy::cast_sign_loss,
+    clippy::case_sensitive_file_extension_comparisons,
+    clippy::format_push_string,
+    clippy::collection_is_never_read
+)]
 
 // Core modules
 pub mod api;
@@ -220,37 +269,6 @@ impl SquirrelSystem {
         self.ecosystem_manager
             .start_coordination_by_capabilities(required_capabilities, context)
             .await
-    }
-
-    /// Start ecosystem coordination (DEPRECATED - Use start_coordination_by_capabilities)
-    ///
-    /// # Deprecation
-    /// This method uses hardcoded primal types. Use `start_coordination_by_capabilities()` instead.
-    ///
-    /// # Migration
-    /// ```ignore
-    /// // OLD:
-    /// let session = squirrel.start_coordination(
-    ///     vec![EcosystemPrimalType::Songbird]
-    /// ).await?;
-    ///
-    /// // NEW:
-    /// let session = squirrel.start_coordination_by_capabilities(
-    ///     vec!["service_mesh"]
-    /// ).await?;
-    /// ```
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use start_coordination_by_capabilities() for TRUE PRIMAL compliance"
-    )]
-    pub async fn start_coordination(
-        &self,
-        _participants: Vec<EcosystemPrimalType>,
-    ) -> Result<String, crate::error::PrimalError> {
-        Err(crate::error::PrimalError::Configuration(
-            "start_coordination is deprecated. Use start_coordination_by_capabilities()"
-                .to_string(),
-        ))
     }
 
     /// Get comprehensive system status

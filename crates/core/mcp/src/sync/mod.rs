@@ -16,10 +16,28 @@
 // NestGate handles data sync: Proto sync types moved to NestGate
 // ToadStool handles compute sync: Task coordination moved to ToadStool
 
-/// Placeholder for sync functionality - use ToadStool/NestGate integration
+/// Placeholder for sync functionality - use ToadStool/NestGate integration.
+///
+/// **Pending integration**: Use [`StateSyncManager`] for production sync, or integrate
+/// with ToadStool/NestGate ecosystem projects. This type is only available when
+/// the `sync-placeholders` feature is enabled (for backward compatibility).
+#[cfg(feature = "sync-placeholders")]
+#[deprecated(
+    since = "0.1.0",
+    note = "Use StateSyncManager for sync. Integrate with ToadStool/NestGate for full sync."
+)]
 pub struct SyncManager;
 
-/// Placeholder for context changes - use NestGate integration
+/// Placeholder for context changes - use NestGate integration.
+///
+/// **Pending integration**: Use [`StateChange`] from the `state` module for production,
+/// or integrate with NestGate for distributed state. This type is only available when
+/// the `sync-placeholders` feature is enabled (for backward compatibility).
+#[cfg(feature = "sync-placeholders")]
+#[deprecated(
+    since = "0.1.0",
+    note = "Use StateChange from sync::state for context changes. Integrate with NestGate for full sync."
+)]
 pub struct ContextChange;
 
 use crate::context_manager::Context;
@@ -30,14 +48,10 @@ use crate::sync::state::{StateChange, StateSyncManager};
 // Import StateOperation but give it an alias to avoid confusion with the re-export
 use crate::sync::state::StateOperation as InternalStateOperation;
 use crate::MCPError;
-// use the generated types directly from generated module
-// use crate::generated::mcp_sync::sync_service_client::SyncServiceClient;
-// use crate::generated::mcp_sync::{ContextChange as ProtoContextChange, SyncRequest};
-// use crate::generated::mcp_sync::context_change::OperationType as ProtoOperationType;
+use crate::sync::json_rpc_types::{ProtoContextChange, ProtoOperationType, SyncRequest, SyncResponse};
 use chrono::{DateTime, Utc, TimeZone}; // Import TimeZone trait
-// use prost::Message; // Commented out
 use serde::{Deserialize, Serialize};
-use squirrel_interfaces::error::{Result, SquirrelError};
+use crate::error::{Result, MCPError};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -46,16 +60,16 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 use tokio::time::timeout;
 use tracing::{info, warn, error}; // Add warn and error macros
-use tonic::transport::Channel;
 
-/// Convert an `MCPError` to a `SquirrelError`
+/// Convert an `MCPError` to crate `Result`
 fn to_core_error<T>(result: std::result::Result<T, MCPError>) -> Result<T> {
-    match result {
-        Ok(value) => Ok(value),
-        Err(err) => Err(SquirrelError::generic(format!("MCP error: {err}"))),
-    }
+    result.map_err(Into::into)
 }
 
+/// Conversion between StateChange and ProtoContextChange, plus JSON-RPC transport
+mod conversion;
+/// JSON-RPC types for sync (replaces protobuf)
+pub mod json_rpc_types;
 /// State synchronization for MCP
 pub mod state;
 /// Server implementation for MCP synchronization
@@ -68,7 +82,7 @@ mod tests;
 /// Configuration for MCP state synchronization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncConfig {
-    /// URL of the central synchronization server (e.g., "http://[::1]:50051")
+    /// Socket path for the central sync server (e.g., "/tmp/mcp-sync.sock")
     pub central_server_url: String,
     /// Interval in seconds between synchronization attempts
     pub sync_interval: u64,
@@ -83,8 +97,8 @@ pub struct SyncConfig {
 impl Default for SyncConfig {
     fn default() -> Self {
         Self {
-            // Provide a sensible default, maybe localhost for testing
-            central_server_url: "http://[::1]:50051".to_string(), 
+            // Default Unix socket path for sync server
+            central_server_url: "/tmp/mcp-sync.sock".to_string(),
             sync_interval: 60,
             max_retries: 3,
             timeout_ms: 5000,
@@ -219,7 +233,7 @@ impl MCPSync {
 
         // Create components
         let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
-        let monitor = Arc::new(MCPMonitor::new().await.map_err(|e| SquirrelError::mcp(e.to_string()))?);
+        let monitor = Arc::new(MCPMonitor::new().await.map_err(|e| MCPError::General(e.to_string()))?);
         let state_manager = Arc::new(StateSyncManager::new());
 
         let instance = Self {
@@ -567,104 +581,82 @@ impl MCPSync {
         let timeout_duration = Duration::from_millis(config.timeout_ms);
         let client_id = Uuid::new_v4().to_string(); // Generate a new client ID if needed
         
-        // Create the connection to the server
-        let connection_result = connect_to_server(&config.central_server_url, timeout_duration).await;
-        
-        match connection_result {
-            Ok(mut client) => {
-                // Build the request with our changes
-                let request = SyncRequest {
-                    client_id: client_id.clone(),
-                    last_known_version: server_version,
-                    local_changes: changes.iter()
-                        .map(|change| self.convert_to_proto_change(change))
-                        .collect(),
-                };
-                
-                // Send the request to the server
-                match timeout(timeout_duration, client.sync(request)).await {
-                    Ok(result) => match result {
-                        Ok(response) => {
-                            // Update client state
-        {
-            let mut state = self.state.write().await;
-            state.is_syncing = false;
-            state.last_sync = Some(Utc::now());
-            state.sync_count += 1;
-                                state.last_version = Some(response.get_ref().current_server_version);
-                                state.client_id = Some(client_id);
-                            }
-                            
-                            // Process remote changes
-                            if !response.get_ref().success {
-                                let error_msg = if !response.get_ref().error_message.is_empty() {
-                                    response.get_ref().error_message.clone()
-                                } else {
-                                    "Unknown server error".to_string()
-                                };
-                                
-                                return Err(SquirrelError::mcp(format!("Sync failed: {error_msg}")));
-                            }
-                            
-                            // Apply remote changes locally
-                            if !response.get_ref().remote_changes.is_empty() {
-                                self.apply_remote_changes(response.get_ref().remote_changes.clone()).await?;
-                            }
-                            
-                            // Record success in monitoring
-                            let duration_ms = u64::try_from(start_time.elapsed().as_millis()).unwrap_or(u64::MAX);
-                            self.monitor.record_sync_success(
-                                changes_count,
-                                response.get_ref().remote_changes.len(),
-                                duration_ms
-                            ).await;
-                            
-                            // Return success result
-        Ok(SyncResult {
-            success: true,
-            duration_ms,
-                                changes_processed: response.get_ref().remote_changes.len(),
-                                current_server_version: response.get_ref().current_server_version,
-                            })
-                        }
-                        Err(e) => {
-                            // Handle tonic error
-                            let mut state = self.state.write().await;
-                            state.is_syncing = false;
-                            state.last_error = Some(Utc::now());
-                            state.error_count += 1;
-                            
-                            // Record failure in monitoring
-                            self.monitor.record_sync_failure(e.to_string()).await;
-                            
-                            Err(SquirrelError::mcp(format!("Sync request failed: {e}")))
-                        }
-                    },
-                    Err(_) => {
-                        // Handle timeout
-                        let mut state = self.state.write().await;
-                        state.is_syncing = false;
-                        state.last_error = Some(Utc::now());
-                        state.error_count += 1;
-                        
-                        // Record failure in monitoring
-                        self.monitor.record_sync_failure("Request timed out".to_string()).await;
-                        
-                        Err(SquirrelError::mcp("Sync request timed out".to_string()))
-                    }
+        // Build the sync request
+        let request = SyncRequest {
+            client_id: client_id.clone(),
+            last_known_version: server_version,
+            local_changes: changes
+                .iter()
+                .map(|change| self.convert_to_proto_change(change))
+                .collect(),
+        };
+
+        // Call sync server via JSON-RPC over Unix socket
+        let sync_result = timeout(
+            timeout_duration,
+            conversion::sync_json_rpc_call(&config.central_server_url, &request),
+        )
+        .await;
+
+        match sync_result {
+            Ok(Ok(response)) => {
+                {
+                    let mut state = self.state.write().await;
+                    state.is_syncing = false;
+                    state.last_sync = Some(Utc::now());
+                    state.sync_count += 1;
+                    state.last_version = Some(response.current_server_version);
+                    state.client_id = Some(client_id);
                 }
+
+                if !response.success {
+                    let error_msg = if !response.error_message.is_empty() {
+                        response.error_message.clone()
+                    } else {
+                        "Unknown server error".to_string()
+                    };
+                    return Err(MCPError::Sync(error_msg));
+                }
+
+                if !response.remote_changes.is_empty() {
+                    self.apply_remote_changes(response.remote_changes.clone())
+                        .await?;
+                }
+
+                let duration_ms =
+                    u64::try_from(start_time.elapsed().as_millis()).unwrap_or(u64::MAX);
+                self.monitor
+                    .record_sync_success(
+                        changes_count,
+                        response.remote_changes.len(),
+                        duration_ms,
+                    )
+                    .await;
+
+                Ok(SyncResult {
+                    success: true,
+                    duration_ms,
+                    changes_processed: response.remote_changes.len(),
+                    current_server_version: response.current_server_version,
+                })
             }
-            Err(e) => {
-                // Handle connection error
+            Ok(Err(e)) => {
                 let mut state = self.state.write().await;
                 state.is_syncing = false;
                 state.last_error = Some(Utc::now());
                 state.error_count += 1;
-                
-                // Record failure in monitoring
-                self.monitor.record_sync_failure(format!("Connection failed: {e}")).await;
-                
-                Err(SquirrelError::mcp(format!("Failed to connect to sync server: {e}")))
+                self.monitor.record_sync_failure(e.to_string()).await;
+                Err(MCPError::Sync(format!("Sync request failed: {e}")))
+            }
+            Err(_) => {
+                let mut state = self.state.write().await;
+                state.is_syncing = false;
+                state.last_error = Some(Utc::now());
+                state.error_count += 1;
+                self.monitor
+                    .record_sync_failure("Request timed out".to_string())
+                    .await;
+                Err(MCPError::Timeout("Sync request timed out".to_string()))
             }
         }
     }
@@ -701,22 +693,22 @@ impl MCPSync {
     async fn process_create_change(&self, context_id: String, context_data: Vec<u8>) -> Result<()> {
         // Deserialize context
         let context: Context = serde_json::from_slice(&context_data)
-            .map_err(|e| SquirrelError::mcp(format!("Failed to deserialize context: {e}")))?;
+            .map_err(|e| MCPError::General(format!("Failed to deserialize context: {e}")))?;
 
         // Apply change to state manager
         self.state_manager.apply_change(StateChange {
             id: Uuid::new_v4(),
             context_id: Uuid::parse_str(&context_id)
-                .map_err(|e| SquirrelError::mcp(format!("Invalid context ID: {e}")))?,
+                .map_err(|e| MCPError::General(format!("Invalid context ID: {e}")))?,
             timestamp: Utc::now(),
             operation: InternalStateOperation::Create,
             data: serde_json::to_value(&context)
-                .map_err(|e| SquirrelError::mcp(format!("Failed to serialize context: {e}")))?,
+                .map_err(|e| MCPError::General(format!("Failed to serialize context: {e}")))?,
             version: 0, // Will be set by state manager
             name: Some(context.name.clone()),
             metadata: context.metadata.clone(),
             parent_id: context.parent_id,
-        }).await.map_err(|e| SquirrelError::mcp(format!("Failed to apply state change: {}", e)))?;
+        }).await.map_err(|e| MCPError::General(format!("Failed to apply state change: {}", e)))?;
 
         info!("Applied create change for context: {}", context_id);
         Ok(())
@@ -726,22 +718,22 @@ impl MCPSync {
     async fn process_update_change(&self, context_id: String, context_data: Vec<u8>) -> Result<()> {
         // Deserialize context
         let context: Context = serde_json::from_slice(&context_data)
-            .map_err(|e| SquirrelError::mcp(format!("Failed to deserialize context: {e}")))?;
+            .map_err(|e| MCPError::General(format!("Failed to deserialize context: {e}")))?;
 
         // Apply change
         self.state_manager.apply_change(StateChange {
             id: Uuid::new_v4(),
             context_id: Uuid::parse_str(&context_id)
-                .map_err(|e| SquirrelError::mcp(format!("Invalid context ID: {e}")))?,
+                .map_err(|e| MCPError::General(format!("Invalid context ID: {e}")))?,
             timestamp: Utc::now(),
             operation: InternalStateOperation::Update,
             data: serde_json::to_value(&context)
-                .map_err(|e| SquirrelError::mcp(format!("Failed to serialize context: {e}")))?,
+                .map_err(|e| MCPError::General(format!("Failed to serialize context: {e}")))?,
             version: 0, // Will be set by state manager
             name: Some(context.name.clone()),
             metadata: context.metadata.clone(),
             parent_id: context.parent_id,
-        }).await.map_err(|e| SquirrelError::mcp(format!("Failed to apply state change: {}", e)))?;
+        }).await.map_err(|e| MCPError::General(format!("Failed to apply state change: {}", e)))?;
 
         info!("Applied update change for context: {}", context_id);
         Ok(())
@@ -753,7 +745,7 @@ impl MCPSync {
         self.state_manager.apply_change(StateChange {
             id: Uuid::new_v4(),
             context_id: Uuid::parse_str(&context_id)
-                .map_err(|e| SquirrelError::mcp(format!("Invalid context ID: {e}")))?,
+                .map_err(|e| MCPError::General(format!("Invalid context ID: {e}")))?,
             timestamp: Utc::now(),
             operation: InternalStateOperation::Delete,
             data: serde_json::Value::Null, // No data needed for deletion
@@ -761,7 +753,7 @@ impl MCPSync {
             name: None,
             metadata: None,
             parent_id: None,
-        }).await.map_err(|e| SquirrelError::mcp(format!("Failed to apply state change: {}", e)))?;
+        }).await.map_err(|e| MCPError::General(format!("Failed to apply state change: {}", e)))?;
 
         info!("Applied delete change for context: {}", context_id);
         Ok(())
@@ -769,7 +761,7 @@ impl MCPSync {
     
     /// Convert a state change to a protobuf change
     fn convert_to_proto_change(&self, change: &StateChange) -> ProtoContextChange {
-        match state_change_to_proto(change) {
+        match conversion::state_change_to_proto(change) {
             Ok(proto) => proto,
             Err(e) => {
                 error!("Failed to convert state change to proto: {}", e);
@@ -804,7 +796,7 @@ impl MCPSync {
 
         // Record the context change to the state manager
         self.state_manager.record_change(context, op_clone).await
-            .map_err(|e| SquirrelError::mcp(format!("Failed to record state change: {}", e)))?;
+            .map_err(|e| MCPError::General(format!("Failed to record state change: {}", e)))?;
 
         // Log the change in the monitor
         self.monitor.record_message(&format!("context_change_{}_{}", operation.as_str(), context.id)).await;
@@ -827,146 +819,6 @@ impl MCPSync {
         // Wrap the receiver in Ok before passing to to_core_error
         to_core_error(Ok(self.state_manager.subscribe_changes()))
     }
-}
-
-// --- Conversion functions for Protocol Buffers --- 
-/// Converts a Rust StateChange object to a Protocol Buffer ContextChange object
-///
-/// This function handles serialization of the Rust `StateChange` object to the Protocol Buffer format
-/// used for network transmission. It converts the operation type, serializes JSON data and metadata
-/// to binary, and handles timestamp conversion.
-///
-/// # Arguments
-/// * `change` - The StateChange to convert
-///
-/// # Returns
-/// * `Ok(ProtoContextChange)` if conversion was successful
-/// * `Err(MCPError::Serialization)` if JSON serialization fails
-fn state_change_to_proto(change: &StateChange) -> std::result::Result<ProtoContextChange, MCPError> {
-    // Map the operation type
-    let operation_type = match change.operation {
-        InternalStateOperation::Create => ProtoOperationType::Create as i32,
-        InternalStateOperation::Update => ProtoOperationType::Update as i32,
-        InternalStateOperation::Delete => ProtoOperationType::Delete as i32,
-        InternalStateOperation::Sync => ProtoOperationType::Unspecified as i32,
-    };
-    
-    // Convert data to bytes
-    let data_bytes = serde_json::to_vec(&change.data)
-        .map_err(|e| MCPError::InvalidArgument(format!("Failed to serialize data: {}", e)))?;
-    
-    // Convert metadata to bytes if available
-    let metadata_bytes = match &change.metadata {
-        Some(metadata) => serde_json::to_vec(metadata)
-            .map_err(|e| MCPError::InvalidArgument(format!("Failed to serialize metadata: {}", e)))?,
-        None => Vec::new(),
-    };
-    
-    // Build the proto change
-    Ok(ProtoContextChange {
-        operation_type,
-        context_id: change.context_id.to_string(),
-        name: change.name.clone().unwrap_or_default(),
-        parent_id: change.parent_id.map_or_else(String::new, |id| id.to_string()),
-        created_at_unix_secs: change.timestamp.timestamp(), 
-        updated_at_unix_secs: change.timestamp.timestamp(), 
-        data: data_bytes,
-        metadata: metadata_bytes,
-    })
-}
-
-/// Converts a Protocol Buffer ContextChange object to a Rust StateChange object
-///
-/// This function handles deserialization of the Protocol Buffer format to the Rust `StateChange`
-/// object used internally. It parses the operation type, deserializes JSON data and metadata.
-///
-/// # Arguments
-/// * `proto` - The ProtoContextChange to convert
-///
-/// # Returns
-/// * `Ok(StateChange)` if conversion was successful
-/// * `Err(MCPError::Deserialization)` if parsing of any values fails
-fn proto_to_state_change(proto: ProtoContextChange) -> std::result::Result<StateChange, MCPError> {
-    // Parse the context ID
-    let context_id = Uuid::parse_str(&proto.context_id)
-        .map_err(|e| MCPError::InvalidArgument(format!("Invalid context ID: {}", e)))?;
-    
-    // Parse the parent ID if present
-    let parent_id = if !proto.parent_id.is_empty() {
-        Some(Uuid::parse_str(&proto.parent_id)
-            .map_err(|e| MCPError::InvalidArgument(format!("Invalid parent ID: {}", e)))?)
-    } else {
-        None
-    };
-    
-    // Parse the operation type
-    let operation = match proto.operation_type {
-        x if x == ProtoOperationType::Create as i32 => InternalStateOperation::Create,
-        x if x == ProtoOperationType::Update as i32 => InternalStateOperation::Update,
-        x if x == ProtoOperationType::Delete as i32 => InternalStateOperation::Delete,
-        _ => InternalStateOperation::Sync,
-    };
-    
-    // Parse the data
-    let data = if !proto.data.is_empty() {
-        serde_json::from_slice(&proto.data)
-            .map_err(|e| MCPError::InvalidArgument(format!("Invalid data format: {}", e)))?
-    } else {
-        serde_json::Value::Null
-    };
-    
-    // Parse the metadata if present
-    let metadata = if !proto.metadata.is_empty() {
-        Some(serde_json::from_slice(&proto.metadata)
-            .map_err(|e| MCPError::InvalidArgument(format!("Invalid metadata format: {}", e)))?)
-    } else {
-        None
-    };
-    
-    // Use the timestamps from the proto
-    let timestamp = if proto.created_at_unix_secs > 0 {
-        match Utc.timestamp_opt(proto.created_at_unix_secs, 0) {
-            chrono::LocalResult::Single(ts) => ts,
-            _ => Utc::now()
-        }
-    } else {
-        Utc::now()
-    };
-    
-    // Build the state change
-    Ok(StateChange {
-        id: Uuid::new_v4(),
-        context_id,
-        operation,
-        data,
-        timestamp,
-        version: 0, // Version will be assigned by the state manager
-        name: if proto.name.is_empty() { None } else { Some(proto.name) },
-        metadata,
-        parent_id,
-    })
-}
-
-/// Connects to the gRPC sync server
-///
-/// # Arguments
-/// * `server_url` - URL of the sync server (e.g., "[::1]:50051")
-/// * `timeout_duration` - Maximum time to wait for connection
-///
-/// # Returns
-/// A Result containing a gRPC SyncServiceClient, or an error
-async fn connect_to_server(server_url: &str, timeout_duration: Duration) -> Result<SyncServiceClient<Channel>> {
-    // Create channel options with timeout
-    let channel = Channel::from_shared(server_url.to_string())
-        .map_err(|e| SquirrelError::mcp(format!("Invalid server URL: {}", e)))?
-        .timeout(timeout_duration)
-        .connect()
-        .await
-        .map_err(|e| SquirrelError::mcp(format!("Failed to connect to server: {}", e)))?;
-    
-    // Create client
-    let client = SyncServiceClient::new(channel);
-    Ok(client)
 }
 
 // Re-export StateOperation for use within the crate

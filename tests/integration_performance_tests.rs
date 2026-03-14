@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive Performance Integration Tests
 //!
 //! This test suite validates the performance optimization systems working together

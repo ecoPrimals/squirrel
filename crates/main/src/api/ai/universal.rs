@@ -389,4 +389,74 @@ mod tests {
         assert_eq!(metadata.provider_type, ProviderType::Local);
         assert_eq!(metadata.models.len(), 2);
     }
+
+    #[test]
+    fn test_universal_request_default() {
+        let req = UniversalAiRequest::default();
+        assert_eq!(req.max_tokens, Some(1024));
+        assert_eq!(req.temperature, Some(0.7));
+        assert!(!req.stream);
+    }
+
+    #[test]
+    fn test_universal_request_from_messages() {
+        let messages = vec![ChatMessage {
+            role: MessageRole::User,
+            content: "Hi".to_string(),
+            name: None,
+        }];
+        let req = UniversalAiRequest::from_messages(messages);
+        assert!(req.messages.is_some());
+        assert_eq!(req.messages.as_ref().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_message_role_serialization() {
+        let roles = vec![
+            MessageRole::System,
+            MessageRole::User,
+            MessageRole::Assistant,
+        ];
+        for role in roles {
+            let json = serde_json::to_string(&role).unwrap();
+            let _: MessageRole = serde_json::from_str(&json).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_provider_type_serialization() {
+        let types = vec![
+            ProviderType::Cloud,
+            ProviderType::Local,
+            ProviderType::Custom,
+        ];
+        for t in types {
+            let json = serde_json::to_string(&t).unwrap();
+            let _: ProviderType = serde_json::from_str(&json).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_cost_tier_serialization() {
+        let tiers = vec![
+            CostTier::Free,
+            CostTier::Low,
+            CostTier::Medium,
+            CostTier::High,
+        ];
+        for t in tiers {
+            let json = serde_json::to_string(&t).unwrap();
+            let _: CostTier = serde_json::from_str(&json).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_token_usage_creation() {
+        let usage = TokenUsage {
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+        };
+        assert_eq!(usage.total_tokens, 15);
+    }
 }

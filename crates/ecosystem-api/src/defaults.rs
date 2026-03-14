@@ -12,68 +12,77 @@ use std::env;
 pub struct DefaultEndpoints;
 
 impl DefaultEndpoints {
-    /// Get Songbird endpoint from environment or default (now using `service_mesh_endpoint`)
+    /// Get service mesh endpoint from environment or default (capability-based)
     ///
     /// Multi-tier resolution:
-    /// 1. SERVICE_MESH_ENDPOINT (full endpoint)
-    /// 2. SONGBIRD_ENDPOINT (songbird-specific)
-    /// 3. SONGBIRD_PORT (port override)
-    /// 4. Default: http://localhost:8500
+    /// 1. `SERVICE_MESH_ENDPOINT` (full endpoint)
+    /// 2. `SONGBIRD_ENDPOINT` (legacy env var)
+    /// 3. `SERVICE_MESH_PORT` or `SONGBIRD_PORT` (port override)
+    /// 4. Default: <http://localhost:8500>
     #[must_use]
-    pub fn songbird_endpoint() -> String {
+    pub fn service_mesh_endpoint() -> String {
         env::var("SERVICE_MESH_ENDPOINT")
             .or_else(|_| env::var("SONGBIRD_ENDPOINT"))
             .unwrap_or_else(|_| {
-                let port = env::var("SONGBIRD_PORT")
+                let port = env::var("SERVICE_MESH_PORT")
+                    .or_else(|_| env::var("SONGBIRD_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8500); // Default Songbird service mesh port
-                format!("http://localhost:{}", port)
+                    .unwrap_or(8500);
+                format!("http://localhost:{port}")
             })
     }
 
-    /// Get `ToadStool` endpoint from environment or default
+    /// Get compute service endpoint from environment or default (capability-based)
     ///
     /// Multi-tier resolution:
-    /// 1. TOADSTOOL_ENDPOINT (full endpoint)
-    /// 2. TOADSTOOL_PORT (port override)
-    /// 3. Default: http://localhost:8081
+    /// 1. `COMPUTE_SERVICE_ENDPOINT` (full endpoint)
+    /// 2. `TOADSTOOL_ENDPOINT` (legacy)
+    /// 3. `COMPUTE_SERVICE_PORT` or `TOADSTOOL_PORT` (port override)
+    /// 4. Default: <http://localhost:8081>
     #[must_use]
-    pub fn toadstool_endpoint() -> String {
-        env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
-            let port = env::var("TOADSTOOL_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8081); // Default ToadStool compute port (alt)
-            format!("http://localhost:{}", port)
-        })
+    pub fn compute_endpoint() -> String {
+        env::var("COMPUTE_SERVICE_ENDPOINT")
+            .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = env::var("COMPUTE_SERVICE_PORT")
+                    .or_else(|_| env::var("TOADSTOOL_PORT"))
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8081);
+                format!("http://localhost:{port}")
+            })
     }
 
-    /// Get `NestGate` endpoint from environment or default
+    /// Get storage service endpoint from environment or default (capability-based)
     ///
     /// Multi-tier resolution:
-    /// 1. NESTGATE_ENDPOINT (full endpoint)
-    /// 2. NESTGATE_PORT (port override)
-    /// 3. Default: http://localhost:8082
+    /// 1. `STORAGE_SERVICE_ENDPOINT` (full endpoint)
+    /// 2. `NESTGATE_ENDPOINT` (legacy)
+    /// 3. `STORAGE_SERVICE_PORT` or `NESTGATE_PORT` (port override)
+    /// 4. Default: <http://localhost:8082>
     #[must_use]
-    pub fn nestgate_endpoint() -> String {
-        env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| {
-            let port = env::var("NESTGATE_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8082); // Default NestGate UniBin port
-            format!("http://localhost:{}", port)
-        })
+    pub fn storage_endpoint() -> String {
+        env::var("STORAGE_SERVICE_ENDPOINT")
+            .or_else(|_| env::var("NESTGATE_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = env::var("STORAGE_SERVICE_PORT")
+                    .or_else(|_| env::var("NESTGATE_PORT"))
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or(8082);
+                format!("http://localhost:{port}")
+            })
     }
 
     /// Get security service endpoint from environment (capability-based discovery)
     /// Note: This is a fallback - services should use capability discovery
     ///
     /// Multi-tier resolution:
-    /// 1. SECURITY_SERVICE_ENDPOINT (full endpoint)
-    /// 2. SECURITY_AUTH_SERVICE_ENDPOINT (alt full endpoint)
-    /// 3. SECURITY_AUTHENTICATION_PORT (port override)
-    /// 4. Default: http://localhost:8443
+    /// 1. `SECURITY_SERVICE_ENDPOINT` (full endpoint)
+    /// 2. `SECURITY_AUTH_SERVICE_ENDPOINT` (alt full endpoint)
+    /// 3. `SECURITY_AUTHENTICATION_PORT` (port override)
+    /// 4. Default: <http://localhost:8443>
     #[must_use]
     pub fn security_service_endpoint() -> String {
         env::var("SECURITY_SERVICE_ENDPOINT")
@@ -83,7 +92,7 @@ impl DefaultEndpoints {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(8443); // Default security auth port
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             })
     }
 
@@ -97,14 +106,14 @@ impl DefaultEndpoints {
     #[must_use]
     pub fn discovery_endpoint() -> String {
         env::var("DISCOVERY_ENDPOINT")
-            .unwrap_or_else(|_| format!("{}/api/v1/discovery", Self::songbird_endpoint()))
+            .unwrap_or_else(|_| format!("{}/api/v1/discovery", Self::service_mesh_endpoint()))
     }
 
     /// Get registration endpoint from environment or default
     #[must_use]
     pub fn registration_endpoint() -> String {
         env::var("REGISTRATION_ENDPOINT")
-            .unwrap_or_else(|_| format!("{}/api/v1/register", Self::songbird_endpoint()))
+            .unwrap_or_else(|_| format!("{}/api/v1/register", Self::service_mesh_endpoint()))
     }
 
     /// Get health endpoint from environment or default
@@ -146,9 +155,9 @@ impl DefaultEndpoints {
         format!("{}/ai", base_url.trim_end_matches('/'))
     }
 
-    /// Get service mesh endpoint
+    /// Get service mesh path for a base URL
     #[must_use]
-    pub fn service_mesh_endpoint(base_url: &str) -> String {
+    pub fn service_mesh_path(base_url: &str) -> String {
         format!("{}/mesh", base_url.trim_end_matches('/'))
     }
 }
@@ -232,9 +241,9 @@ mod tests {
     }
 
     #[test]
-    fn test_service_mesh_endpoint() {
+    fn test_service_mesh_path() {
         assert_eq!(
-            DefaultEndpoints::service_mesh_endpoint("http://localhost:8080"),
+            DefaultEndpoints::service_mesh_path("http://localhost:8080"),
             "http://localhost:8080/mesh"
         );
     }
@@ -247,10 +256,15 @@ mod tests {
         for var in &[
             "DEV_BIND_ADDRESS",
             "SERVICE_MESH_ENDPOINT",
+            "SERVICE_MESH_PORT",
             "SONGBIRD_ENDPOINT",
             "SONGBIRD_PORT",
+            "COMPUTE_SERVICE_ENDPOINT",
+            "COMPUTE_SERVICE_PORT",
             "TOADSTOOL_ENDPOINT",
             "TOADSTOOL_PORT",
+            "STORAGE_SERVICE_ENDPOINT",
+            "STORAGE_SERVICE_PORT",
             "NESTGATE_ENDPOINT",
             "NESTGATE_PORT",
             "SECURITY_SERVICE_ENDPOINT",
@@ -276,32 +290,35 @@ mod tests {
         assert_eq!(DefaultEndpoints::dev_bind_address(), "0.0.0.0");
         env::remove_var("DEV_BIND_ADDRESS");
 
-        // --- songbird_endpoint ---
+        // --- service_mesh_endpoint ---
         assert_eq!(
-            DefaultEndpoints::songbird_endpoint(),
+            DefaultEndpoints::service_mesh_endpoint(),
             "http://localhost:8500"
         );
 
         env::set_var("SERVICE_MESH_ENDPOINT", "http://mesh:9000");
-        assert_eq!(DefaultEndpoints::songbird_endpoint(), "http://mesh:9000");
+        assert_eq!(
+            DefaultEndpoints::service_mesh_endpoint(),
+            "http://mesh:9000"
+        );
         env::remove_var("SERVICE_MESH_ENDPOINT");
 
-        env::set_var("SONGBIRD_PORT", "9999");
+        env::set_var("SERVICE_MESH_PORT", "9999");
         assert_eq!(
-            DefaultEndpoints::songbird_endpoint(),
+            DefaultEndpoints::service_mesh_endpoint(),
             "http://localhost:9999"
         );
-        env::remove_var("SONGBIRD_PORT");
+        env::remove_var("SERVICE_MESH_PORT");
 
-        // --- toadstool_endpoint ---
+        // --- compute_endpoint ---
         assert_eq!(
-            DefaultEndpoints::toadstool_endpoint(),
+            DefaultEndpoints::compute_endpoint(),
             "http://localhost:8081"
         );
 
-        // --- nestgate_endpoint ---
+        // --- storage_endpoint ---
         assert_eq!(
-            DefaultEndpoints::nestgate_endpoint(),
+            DefaultEndpoints::storage_endpoint(),
             "http://localhost:8082"
         );
 

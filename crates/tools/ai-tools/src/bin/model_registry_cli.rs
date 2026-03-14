@@ -1,6 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
+#![allow(
+    clippy::too_many_lines,
+    clippy::ignored_unit_patterns,
+    clippy::single_match_else,
+    clippy::must_use_candidate,
+    clippy::missing_const_for_fn,
+    clippy::return_self_not_must_use,
+    clippy::missing_errors_doc,
+    clippy::doc_markdown,
+    clippy::uninlined_format_args,
+    clippy::manual_string_new,
+    clippy::redundant_closure_for_method_calls,
+    clippy::unreadable_literal
+)]
+
 //! Model registry management CLI tool.
 
 use std::collections::HashMap;

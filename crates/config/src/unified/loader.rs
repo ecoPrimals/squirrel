@@ -41,7 +41,8 @@ pub struct ConfigLoader {
 }
 
 impl ConfigLoader {
-    /// Create a new ConfigLoader with secure defaults
+    /// Create a new `ConfigLoader` with secure defaults
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: SquirrelUnifiedConfig::default(),
@@ -58,6 +59,10 @@ impl ConfigLoader {
     /// 2. Configuration file (if exists)
     /// 3. Platform-specific defaults
     /// 4. Secure fallback defaults
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError` if configuration loading or validation fails.
     ///
     /// # Example
     ///
@@ -94,6 +99,10 @@ impl ConfigLoader {
     /// - Linux: ~/.local/share/squirrel
     /// - macOS: ~/Library/Application Support/squirrel
     /// - Windows: %APPDATA%/squirrel
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError` if platform detection fails.
     pub fn with_platform_detection(mut self) -> Result<Self, ConfigError> {
         // Use dirs crate for universal, platform-appropriate data directory
         let data_dir = dirs::data_dir()
@@ -103,7 +112,7 @@ impl ConfigLoader {
             })
             .join("squirrel");
 
-        self.config.system.data_dir = data_dir.clone();
+        self.config.system.data_dir.clone_from(&data_dir);
         self.config.system.plugin_dir = data_dir.join("plugins");
 
         // Detect platform for logging (runtime detection)
@@ -118,7 +127,7 @@ impl ConfigLoader {
         };
 
         self.sources_loaded
-            .push(format!("platform_defaults_{}", platform_name));
+            .push(format!("platform_defaults_{platform_name}"));
 
         tracing::debug!(
             "Applied platform defaults: platform={}, data_dir={:?}, plugin_dir={:?}",
@@ -149,6 +158,10 @@ impl ConfigLoader {
     ///     .build()?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError` if the file exists but cannot be read or parsed.
     pub fn with_file_if_exists<P: AsRef<Path>>(mut self, path: P) -> Result<Self, ConfigError> {
         let path = path.as_ref();
 
@@ -225,6 +238,10 @@ impl ConfigLoader {
     ///     .build()?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError` if environment variable parsing fails.
     pub fn with_env_prefix(mut self, prefix: &str) -> Result<Self, ConfigError> {
         // Environment variables are already loaded via default() functions
         // in each config struct. This method is here for explicitness and
@@ -233,7 +250,7 @@ impl ConfigLoader {
         // Reload timeouts from environment to ensure latest values
         self.config.timeouts = TimeoutConfig::from_env();
 
-        self.sources_loaded.push(format!("env:{}", prefix));
+        self.sources_loaded.push(format!("env:{prefix}"));
         Ok(self)
     }
 
@@ -289,6 +306,10 @@ impl ConfigLoader {
     /// Validate the configuration
     ///
     /// Performs comprehensive validation across all configuration domains.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError` if validation fails.
     pub fn validate(self) -> Result<Self, ConfigError> {
         if let Err(errors) = self.config.validate() {
             return Err(ConfigError::ValidationFailed { errors });
@@ -297,11 +318,19 @@ impl ConfigLoader {
     }
 
     /// Build the final configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError` if validation failed in a previous step.
     pub fn build(self) -> Result<SquirrelUnifiedConfig, ConfigError> {
         Ok(self.config)
     }
 
     /// Build the final configuration with source tracking
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError` if validation failed in a previous step.
     pub fn build_with_sources(self) -> Result<LoadedConfig, ConfigError> {
         Ok(LoadedConfig {
             config: self.config,
@@ -327,6 +356,7 @@ pub struct LoadedConfig {
 
 impl LoadedConfig {
     /// Get the configuration
+    #[must_use]
     pub fn config(&self) -> &SquirrelUnifiedConfig {
         &self.config
     }

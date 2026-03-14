@@ -86,41 +86,18 @@ pub const DEFAULT_RETRY_DELAY: Duration = Duration::from_secs(5);
 pub const DEFAULT_DATABASE_TIMEOUT: Duration = Duration::from_secs(30);
 
 // ============================================================================
-// Legacy Compatibility (milliseconds as u64)
-// ============================================================================
-
-/// Legacy: Connection timeout in milliseconds
-#[deprecated(note = "Use DEFAULT_CONNECTION_TIMEOUT (Duration) instead")]
-pub const DEFAULT_CONNECTION_TIMEOUT_MS: u64 = 30_000;
-
-/// Legacy: Request timeout in milliseconds
-#[deprecated(note = "Use DEFAULT_REQUEST_TIMEOUT (Duration) instead")]
-pub const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 60_000;
-
-/// Legacy: Operation timeout in milliseconds
-#[deprecated(note = "Use DEFAULT_OPERATION_TIMEOUT (Duration) instead")]
-pub const DEFAULT_OPERATION_TIMEOUT_MS: u64 = 10_000;
-
-/// Legacy: Heartbeat interval in milliseconds
-#[deprecated(note = "Use DEFAULT_HEARTBEAT_INTERVAL (Duration) instead")]
-pub const DEFAULT_HEARTBEAT_INTERVAL_MS: u64 = 30_000;
-
-/// Legacy: Initial delay in milliseconds
-#[deprecated(note = "Use DEFAULT_INITIAL_DELAY (Duration) instead")]
-pub const DEFAULT_INITIAL_DELAY_MS: u64 = 1_000;
-
-/// Legacy: Retry delay in milliseconds
-#[deprecated(note = "Use DEFAULT_RETRY_DELAY (Duration) instead")]
-pub const DEFAULT_RETRY_DELAY_MS: u64 = 5_000;
-
-// ============================================================================
 // Helper Functions
 // ============================================================================
 
 /// Convert Duration to milliseconds as u64
 ///
 /// Useful for APIs that require milliseconds.
+///
+/// # Panics
+///
+/// Truncation occurs if duration exceeds `u64::MAX` milliseconds (~584 million years).
 #[must_use]
+#[allow(clippy::cast_possible_truncation)]
 pub const fn duration_to_millis(duration: Duration) -> u64 {
     duration.as_millis() as u64
 }
@@ -134,9 +111,13 @@ pub const fn duration_to_secs(duration: Duration) -> u64 {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
-    use super::*;
+    use super::{
+        duration_to_millis, duration_to_secs, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_DATABASE_TIMEOUT,
+        DEFAULT_HEALTH_CHECK_INTERVAL, DEFAULT_HEARTBEAT_INTERVAL, DEFAULT_INITIAL_DELAY,
+        DEFAULT_MONITORING_INTERVAL, DEFAULT_OPERATION_TIMEOUT, DEFAULT_PING_INTERVAL,
+        DEFAULT_PONG_TIMEOUT, DEFAULT_REQUEST_TIMEOUT, DEFAULT_RETRY_DELAY,
+    };
 
     #[test]
     fn test_timeout_values() {
@@ -167,16 +148,6 @@ mod tests {
     #[test]
     fn test_database_timeout() {
         assert_eq!(DEFAULT_DATABASE_TIMEOUT.as_secs(), 30);
-    }
-
-    #[test]
-    fn test_legacy_ms_values() {
-        assert_eq!(DEFAULT_CONNECTION_TIMEOUT_MS, 30_000);
-        assert_eq!(DEFAULT_REQUEST_TIMEOUT_MS, 60_000);
-        assert_eq!(DEFAULT_OPERATION_TIMEOUT_MS, 10_000);
-        assert_eq!(DEFAULT_HEARTBEAT_INTERVAL_MS, 30_000);
-        assert_eq!(DEFAULT_INITIAL_DELAY_MS, 1_000);
-        assert_eq!(DEFAULT_RETRY_DELAY_MS, 5_000);
     }
 
     #[test]

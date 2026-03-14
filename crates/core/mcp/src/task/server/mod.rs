@@ -24,24 +24,26 @@
 //! Use `get_command_registry()` to access the global production registry instance.
 
 // Import all refactored modules
+pub mod commands;
+pub mod handlers;
+pub mod mock;
+pub mod service;
 pub mod types;
 pub mod watchers;
-pub mod service;
-pub mod handlers;
-pub mod commands;
-pub mod mock;
 
 // Re-export public types and components for backward compatibility
+pub use commands::{
+    get_command_registry, json_params_to_string_vec, LocalCommandRegistry,
+    ProductionCommandRegistry,
+};
+pub use service::TaskServiceImpl;
 pub use types::{SimpleCommand, TaskUpdateSender};
 pub use watchers::TaskWatcherManager;
-pub use service::TaskServiceImpl;
-pub use commands::{json_params_to_string_vec, LocalCommandRegistry, ProductionCommandRegistry, get_command_registry};
 
 // Mock implementations for testing only - use ProductionCommandRegistry in production
 #[cfg(test)]
 pub use mock::{MockCommand, MockCommandRegistry};
 
 // Re-export commonly used items from the crate
-// ToadStool handles task execution: TaskServiceServer moved to ToadStool compute platform
 pub use crate::task::manager::TaskManager;
-pub use crate::task::types::{Task, TaskStatus, TaskPriority, AgentType}; 
+pub use crate::task::types::{AgentType, Task, TaskPriority, TaskStatus};

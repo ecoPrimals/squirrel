@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Comprehensive integration tests for capability-based service discovery
 //! 
 //! These tests validate that the capability-based architecture works correctly

@@ -4,7 +4,7 @@
 //! Plugin system for Squirrel
 //!
 //! This module provides a comprehensive plugin system with support for:
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! - Plugin loading and management
 //! - Security validation and sandboxing
 //! - Dependency resolution

@@ -296,9 +296,8 @@ impl SquirrelRpc for TarpcRpcServer {
                 let mut peers = Vec::new();
                 for providers in capabilities_map.values() {
                     for provider in providers {
-                        let id = provider.id.clone();
-                        if seen.insert(id.clone()) {
-                            peers.push(format!("{}@{}", id, provider.socket.display()));
+                        if seen.insert(provider.id.clone()) {
+                            peers.push(format!("{}@{}", provider.id, provider.socket.display()));
                         }
                     }
                 }
@@ -325,7 +324,7 @@ impl SquirrelRpc for TarpcRpcServer {
 
         // Delegate to ToolExecutor
         let executor = crate::tool::ToolExecutor::new();
-        let args_str = serde_json::to_string(&args).unwrap_or_default();
+        let args_str = serde_json::to_string(&args).unwrap_or_else(|_| "{}".to_string());
 
         match executor.execute_tool(&tool, &args_str).await {
             Ok(result) => {

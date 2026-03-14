@@ -128,7 +128,7 @@ impl UniversalAdapter {
             provider_health: HealthStatus::Healthy,
             ecosystem_health: 0.95, // Ecosystem health as f64
             service_registration: Some(EcosystemServiceRegistration {
-                service_id: "squirrel-adapter".to_string(),
+                service_id: Arc::from("squirrel-adapter"),
                 name: "Squirrel Universal Adapter".to_string(),
                 description: "Universal adapter for AI coordination".to_string(),
                 primal_type: crate::EcosystemPrimalType::Squirrel,
@@ -179,7 +179,7 @@ impl UniversalAdapter {
         }
 
         let _registration = EcosystemServiceRegistration {
-            service_id: "squirrel-universal-adapter".to_string(),
+            service_id: Arc::from("squirrel-universal-adapter"),
             name: "Squirrel Universal Adapter".to_string(),
             description: "Universal adapter for AI coordination and ecosystem integration"
                 .to_string(),
@@ -313,7 +313,7 @@ mod tests {
         assert!(status.service_registration.is_some());
 
         let reg = status.service_registration.unwrap();
-        assert_eq!(reg.service_id, "squirrel-adapter");
+        assert_eq!(reg.service_id.as_ref(), "squirrel-adapter");
         assert!(reg.endpoints.primary.contains("localhost:8080"));
     }
 

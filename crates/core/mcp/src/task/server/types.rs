@@ -6,8 +6,8 @@
 //! This module contains trait definitions, type aliases, and core types
 //! used throughout the task server implementation.
 
-use tokio::sync::mpsc;
 use clap;
+use tokio::sync::mpsc;
 
 // use crate::generated::mcp_task::WatchTaskResponse;
 
@@ -21,21 +21,21 @@ pub type TaskUpdateSender = mpsc::Sender<String>;
 pub trait SimpleCommand: Send + Sync + std::fmt::Debug {
     /// Get the command name
     fn name(&self) -> &str;
-    
+
     /// Get the command description
     fn description(&self) -> &str;
-    
+
     /// Execute the command with given arguments
     fn execute(&self, args: &[String]) -> Result<String, String>;
-    
+
     /// Get help text for the command
     fn help(&self) -> String {
         format!("{}: {}", self.name(), self.description())
     }
-    
+
     /// Get the command parser
     fn parser(&self) -> clap::Command;
-    
+
     /// Clone the command into a boxed trait object
     fn clone_box(&self) -> Box<dyn SimpleCommand>;
-} 
+}

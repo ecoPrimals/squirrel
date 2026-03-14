@@ -270,11 +270,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_execute_system_info() {
+        let executor = ToolExecutor::new();
+        let result = executor.execute_tool("system.info", "").await.unwrap();
+        assert!(result.success);
+        assert!(result.output.contains("version"));
+        assert!(result.output.contains("primal"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_discovery_peers() {
+        let executor = ToolExecutor::new();
+        let result = executor.execute_tool("discovery.peers", "").await.unwrap();
+        assert!(result.output.contains("peers"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_discovery_capabilities() {
+        let executor = ToolExecutor::new();
+        let result = executor
+            .execute_tool("discovery.capabilities", "")
+            .await
+            .unwrap();
+        assert!(result.output.contains("capabilities"));
+    }
+
+    #[tokio::test]
     async fn test_execute_unknown_tool() {
         let executor = ToolExecutor::new();
         let result = executor.execute_tool("nonexistent.tool", "").await.unwrap();
         assert!(!result.success);
         assert!(result.error.is_some());
+        assert!(result.error.unwrap().contains("not found"));
     }
 
     #[test]
@@ -282,5 +309,37 @@ mod tests {
         let executor = ToolExecutor::new();
         let tools = executor.list_tools();
         assert!(tools.len() >= 4);
+    }
+
+    #[test]
+    fn test_tool_execution_result_serde() {
+        let result = ToolExecutionResult {
+            tool_name: "test".to_string(),
+            success: true,
+            output: "ok".to_string(),
+            error: None,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let _: ToolExecutionResult = serde_json::from_str(&json).unwrap();
+    }
+
+    #[test]
+    fn test_tool_executor_default() {
+        let executor = ToolExecutor::default();
+        assert!(executor.available_tools.len() >= 4);
+    }
+
+    #[tokio::test]
+    async fn test_execute_registered_external_tool() {
+        let mut executor = ToolExecutor::new();
+        executor.register_tool(ToolRegistration {
+            name: "external.foo".to_string(),
+            description: "External".to_string(),
+            domain: "external".to_string(),
+            builtin: false,
+        });
+        let result = executor.execute_tool("external.foo", "args").await.unwrap();
+        assert!(result.success);
+        assert!(result.output.contains("external dispatch"));
     }
 }

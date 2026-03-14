@@ -837,7 +837,7 @@ impl Default for SquirrelUnifiedConfig {
                 compression_level: default_compression_level(),
             },
             ai: AiProvidersConfig {
-                default_endpoint: "".to_string(),
+                default_endpoint: String::new(),
                 providers: HashMap::new(),
                 enable_local: true,
                 enable_cloud: true,

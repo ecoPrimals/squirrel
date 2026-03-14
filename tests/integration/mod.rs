@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Integration Test Framework
 //!
 //! This module provides a comprehensive framework for testing real primal-to-primal

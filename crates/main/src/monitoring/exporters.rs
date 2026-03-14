@@ -523,4 +523,42 @@ mod tests {
         assert!(deserialized.auth.is_some());
         assert_eq!(deserialized.headers.get("X-Custom").unwrap(), "value");
     }
+
+    #[test]
+    #[serial_test::serial(metrics_exporter_env)]
+    fn test_exporter_config_default_env_override() {
+        std::env::remove_var("METRICS_EXPORTER_ENDPOINT");
+        std::env::remove_var("METRICS_EXPORTER_PORT");
+
+        std::env::set_var("METRICS_EXPORTER_ENDPOINT", "http://custom:9999/metrics");
+        let config = ExporterConfig::default();
+        assert_eq!(config.endpoint, "http://custom:9999/metrics");
+        std::env::remove_var("METRICS_EXPORTER_ENDPOINT");
+
+        std::env::set_var("METRICS_EXPORTER_PORT", "1234");
+        let config = ExporterConfig::default();
+        assert_eq!(config.endpoint, "http://localhost:1234/metrics");
+        std::env::remove_var("METRICS_EXPORTER_PORT");
+    }
+
+    #[test]
+    fn test_auth_config_api_key() {
+        let auth = AuthConfig {
+            auth_type: AuthType::ApiKey,
+            username: None,
+            password: None,
+            token: Some("api-key-123".to_string()),
+        };
+        let json = serde_json::to_string(&auth).unwrap();
+        let deserialized: AuthConfig = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized.auth_type, AuthType::ApiKey));
+    }
+
+    #[test]
+    fn test_json_exporter_config() {
+        let config = create_test_config("json_exporter");
+        let exporter = JsonExporter::new(config);
+        let cfg = exporter.config();
+        assert_eq!(cfg.name, "json_exporter");
+    }
 }

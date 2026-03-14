@@ -10,6 +10,8 @@ pub mod providers;
 pub mod types;
 
 #[cfg(test)]
+mod client_tests;
+#[cfg(test)]
 mod providers_tests;
 #[cfg(test)]
 mod types_tests;

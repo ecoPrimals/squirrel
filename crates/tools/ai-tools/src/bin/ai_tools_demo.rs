@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_lossless,
+    clippy::cast_precision_loss,
+    clippy::missing_const_for_fn,
+    clippy::or_fun_call,
+    clippy::items_after_statements,
+    clippy::doc_markdown
+)]
+
 //! AI Tools Multi-Model Dispatch Demo
 //!
 //! This demo showcases the multi-model dispatch system that can seamlessly

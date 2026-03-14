@@ -80,7 +80,7 @@ async fn demo_mcp_adapter() -> CommandResult<()> {
     adapter.register_command(Arc::new(admin_cmd)).await?;
 
     // Add users
-    adapter.add_user("user", "password", false).await;
+    adapter.add_user("user", "password", false);
 
     // Test command visibility
     println!("Command visibility demonstration:");

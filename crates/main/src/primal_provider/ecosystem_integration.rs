@@ -4,6 +4,8 @@
 
 //! Ecosystem Integration and Service Mesh
 
+use std::sync::Arc;
+
 use super::core::SquirrelPrimalProvider;
 use crate::ecosystem::EcosystemServiceRegistration;
 use crate::ecosystem::{HealthCheckConfig, SecurityConfig};
@@ -33,7 +35,11 @@ impl EcosystemIntegration {
 
         let _endpoints = provider.endpoints();
         EcosystemServiceRegistration {
-            service_id: format!("{}-{}", provider.primal_type(), provider.instance_id),
+            service_id: Arc::from(format!(
+                "{}-{}",
+                provider.primal_type(),
+                provider.instance_id
+            )),
             primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel,
             name: "Squirrel AI Primal".to_string(),
             version: "1.0.0".to_string(),

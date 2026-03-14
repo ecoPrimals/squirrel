@@ -4,7 +4,7 @@
 //! Adapter Pattern Examples
 //!
 //! This crate demonstrates the Adapter Pattern in Rust with a command-based architecture.
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! It focuses on three main adapter implementations:
 //!
 //! 1. Registry Adapter - Basic adapter for command registry operations
@@ -74,6 +74,7 @@ pub struct TestCommand {
 
 impl TestCommand {
     /// Create a new test command
+    #[must_use]
     pub fn new(name: &str, description: &str, result: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -97,7 +98,7 @@ impl Command for TestCommand {
         if args.is_empty() {
             Ok(self.result.clone())
         } else {
-            Ok(format!("{} with args: {:?}", self.result, args))
+            Ok(format!("{} with args: {args:?}", self.result))
         }
     }
 }
@@ -118,6 +119,7 @@ impl Default for CommandRegistry {
 
 impl CommandRegistry {
     /// Create a new command registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
@@ -125,6 +127,10 @@ impl CommandRegistry {
     }
 
     /// Register a command in the registry
+    ///
+    /// # Errors
+    ///
+    /// Never returns an error; kept for API consistency.
     pub fn register(&mut self, command: Arc<dyn Command>) -> CommandResult<()> {
         let name = command.name().to_string();
         self.commands.insert(name, command);
@@ -132,6 +138,10 @@ impl CommandRegistry {
     }
 
     /// Execute a command by name
+    ///
+    /// # Errors
+    ///
+    /// Returns `CommandError::NotFound` if the command is not registered.
     pub async fn execute(&self, name: &str, args: Vec<String>) -> CommandResult<String> {
         match self.commands.get(name) {
             Some(cmd) => cmd.execute(args).await,
@@ -140,14 +150,19 @@ impl CommandRegistry {
     }
 
     /// Get help text for a command
+    ///
+    /// # Errors
+    ///
+    /// Returns `CommandError::NotFound` if the command is not registered.
     pub fn get_help(&self, name: &str) -> CommandResult<String> {
-        match self.commands.get(name) {
-            Some(cmd) => Ok(format!("{}: {}", cmd.name(), cmd.description())),
-            None => Err(CommandError::NotFound(name.to_string())),
-        }
+        self.commands.get(name).map_or_else(
+            || Err(CommandError::NotFound(name.to_string())),
+            |cmd| Ok(format!("{}: {}", cmd.name(), cmd.description())),
+        )
     }
 
     /// List all available commands
+    #[must_use]
     pub fn list_commands(&self) -> Vec<String> {
         self.commands.keys().cloned().collect()
     }
@@ -184,6 +199,7 @@ impl Default for RegistryAdapter {
 
 impl RegistryAdapter {
     /// Create a new registry adapter
+    #[must_use]
     pub fn new() -> Self {
         Self {
             registry: Arc::new(Mutex::new(CommandRegistry::new())),
@@ -191,11 +207,15 @@ impl RegistryAdapter {
     }
 
     /// Register a command in the registry
+    ///
+    /// # Errors
+    ///
+    /// Returns `CommandError::Internal` if the mutex is poisoned.
     pub fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
         let mut registry = self
             .registry
             .lock()
-            .map_err(|e| CommandError::Internal(format!("Lock error: {}", e)))?;
+            .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
         registry.register(command)
     }
 }
@@ -208,7 +228,7 @@ impl CommandAdapter for RegistryAdapter {
             let registry = self
                 .registry
                 .lock()
-                .map_err(|e| CommandError::Internal(format!("Lock error: {}", e)))?;
+                .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
             registry
                 .list_commands()
                 .into_iter()
@@ -226,7 +246,7 @@ impl CommandAdapter for RegistryAdapter {
         let registry = self
             .registry
             .lock()
-            .map_err(|e| CommandError::Internal(format!("Lock error: {}", e)))?;
+            .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
         registry.get_help(command)
     }
 
@@ -234,7 +254,7 @@ impl CommandAdapter for RegistryAdapter {
         let registry = self
             .registry
             .lock()
-            .map_err(|e| CommandError::Internal(format!("Lock error: {}", e)))?;
+            .map_err(|e| CommandError::Internal(format!("Lock error: {e}")))?;
         Ok(registry.list_commands())
     }
 }
@@ -307,6 +327,7 @@ impl Default for McpAdapter {
 
 impl McpAdapter {
     /// Create a new MCP adapter
+    #[must_use]
     pub fn new() -> Self {
         let mut adapter = Self {
             adapter: RegistryAdapter::new(),
@@ -329,6 +350,10 @@ impl McpAdapter {
     }
 
     /// Register a command
+    ///
+    /// # Errors
+    ///
+    /// Returns `CommandError::Internal` if the mutex is poisoned.
     pub fn register_command(&mut self, command: Arc<dyn Command>) -> CommandResult<()> {
         // For admin commands, automatically restrict to admin role
         let name = command.name();
@@ -345,6 +370,10 @@ impl McpAdapter {
     }
 
     /// Generate an authentication token
+    ///
+    /// # Errors
+    ///
+    /// Returns `CommandError::AuthenticationFailed` if credentials are invalid.
     pub fn generate_token(&mut self, username: &str, password: &str) -> CommandResult<String> {
         // Verify credentials
         if let Some((stored_password, _)) = self.users.get(username) {
@@ -378,7 +407,7 @@ impl McpAdapter {
         self.command_log.push(CommandLogEntry {
             command: command.to_string(),
             args: args.to_vec(),
-            user: user.map(|u| u.to_string()),
+            user: user.map(std::string::ToString::to_string),
             timestamp: SystemTime::now(),
             success,
             message,
@@ -386,25 +415,27 @@ impl McpAdapter {
     }
 
     /// Get command logs
+    #[must_use]
     pub fn get_logs(&self) -> &[CommandLogEntry] {
         &self.command_log
     }
 
     /// Execute a command with authentication
+    ///
+    /// # Errors
+    ///
+    /// Returns `CommandError::AuthenticationFailed` or `CommandError::AuthorizationFailed` on auth failure.
     pub async fn execute_with_auth(
         &mut self,
         command: &str,
         args: Vec<String>,
         auth: Auth,
     ) -> CommandResult<String> {
-        println!(
-            "McpAdapter::execute_with_auth called for {} with {:?}",
-            command, auth
-        );
+        println!("McpAdapter::execute_with_auth called for {command} with {auth:?}");
 
         // List commands to debug
         let commands = self.adapter.list_commands().await?;
-        println!("Available commands in adapter: {:?}", commands);
+        println!("Available commands in adapter: {commands:?}");
 
         // Authenticate and get username
         let username_string = match &auth {
@@ -457,16 +488,14 @@ impl McpAdapter {
 
                             if !has_role {
                                 return Err(CommandError::AuthorizationFailed(format!(
-                                    "User '{}' is not authorized to execute command '{}'",
-                                    username, command
+                                    "User '{username}' is not authorized to execute command '{command}'"
                                 )));
                             }
                         }
                     }
                     None => {
                         return Err(CommandError::AuthenticationFailed(format!(
-                            "Authentication required for command '{}'",
-                            command
+                            "Authentication required for command '{command}'"
                         )));
                     }
                 }
@@ -490,12 +519,16 @@ impl McpAdapter {
     }
 
     /// Get available commands for a user
+    ///
+    /// # Errors
+    ///
+    /// Returns `CommandError::AuthenticationFailed` if credentials are invalid.
     pub async fn get_available_commands(&self, auth: Auth) -> CommandResult<Vec<String>> {
-        println!("McpAdapter::get_available_commands called with {:?}", auth);
+        println!("McpAdapter::get_available_commands called with {auth:?}");
 
         // Get all commands
         let all_commands = self.adapter.list_commands().await?;
-        println!("All commands from registry: {:?}", all_commands);
+        println!("All commands from registry: {all_commands:?}");
 
         // Filter commands based on permissions
         match auth {
@@ -517,11 +550,11 @@ impl McpAdapter {
                     let filtered = all_commands
                         .into_iter()
                         .filter(|cmd| {
-                            if let Some(required_roles) = self.command_permissions.get(cmd) {
-                                roles.iter().any(|role| required_roles.contains(role))
-                            } else {
-                                true // No permissions required
-                            }
+                            self.command_permissions
+                                .get(cmd)
+                                .is_none_or(|required_roles| {
+                                    roles.iter().any(|role| required_roles.contains(role))
+                                })
                         })
                         .collect();
 
@@ -546,11 +579,11 @@ impl McpAdapter {
                         let filtered = all_commands
                             .into_iter()
                             .filter(|cmd| {
-                                if let Some(required_roles) = self.command_permissions.get(cmd) {
-                                    roles.iter().any(|role| required_roles.contains(role))
-                                } else {
-                                    true // No permissions required
-                                }
+                                self.command_permissions
+                                    .get(cmd)
+                                    .is_none_or(|required_roles| {
+                                        roles.iter().any(|role| required_roles.contains(role))
+                                    })
                             })
                             .collect();
 
@@ -597,12 +630,12 @@ impl CommandAdapter for McpAdapter {
     async fn execute_command(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
         // Clone self to avoid borrow checker issues with async fn & mut self
         let mut cloned = self.clone();
-        println!("McpAdapter::execute_command called for {}", command);
+        println!("McpAdapter::execute_command called for {command}");
         cloned.execute_with_auth(command, args, Auth::None).await
     }
 
     async fn get_help(&self, command: &str) -> CommandResult<String> {
-        println!("McpAdapter::get_help called for {}", command);
+        println!("McpAdapter::get_help called for {command}");
         self.adapter.get_help(command).await
     }
 
@@ -651,6 +684,7 @@ impl Default for PluginAdapter {
 
 impl PluginAdapter {
     /// Create a new plugin adapter
+    #[must_use]
     pub fn new() -> Self {
         Self {
             adapter: RegistryAdapter::new(),
@@ -663,26 +697,37 @@ impl PluginAdapter {
     }
 
     /// Get plugin ID
+    #[must_use]
     pub fn plugin_id(&self) -> &str {
         &self.metadata.id
     }
 
     /// Get plugin version
+    #[must_use]
     pub fn version(&self) -> &str {
         &self.metadata.version
     }
 
     /// Get plugin description
+    #[must_use]
     pub fn description(&self) -> &str {
         &self.metadata.description
     }
 
     /// Register a command
+    ///
+    /// # Errors
+    ///
+    /// Returns `CommandError::Internal` if the mutex is poisoned.
     pub fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
         self.adapter.register_command(command)
     }
 
     /// Get available commands
+    ///
+    /// # Errors
+    ///
+    /// Never returns an error; kept for API consistency.
     pub async fn get_commands(&self) -> CommandResult<Vec<String>> {
         self.adapter.list_commands().await
     }

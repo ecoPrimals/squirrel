@@ -7,15 +7,36 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::registry::EcosystemRegistryConfig;
 use super::types::{HealthCheckConfig, ResourceSpec, SecurityConfig};
 
+/// Serde helpers for Arc<str> (avoids O(n) String clones when sharing IDs)
+fn serialize_arc_str<S>(arc_str: &Arc<str>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(arc_str)
+}
+
+fn deserialize_arc_str<'de, D>(deserializer: D) -> Result<Arc<str>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(Arc::from(s))
+}
+
 /// Ecosystem configuration for Squirrel primal
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemConfig {
-    /// Service identifier
-    pub service_id: String,
+    /// Service identifier (Arc<str> for O(1) clone when sharing across registrations)
+    #[serde(
+        serialize_with = "serialize_arc_str",
+        deserialize_with = "deserialize_arc_str"
+    )]
+    pub service_id: Arc<str>,
 
     /// Service name
     pub service_name: String,
@@ -55,7 +76,7 @@ impl Default for EcosystemConfig {
         use uuid::Uuid;
 
         Self {
-            service_id: format!("primal-squirrel-{}", Uuid::new_v4()),
+            service_id: Arc::from(format!("primal-squirrel-{}", Uuid::new_v4())),
             service_name: "Squirrel AI Primal".to_string(),
             service_host: std::env::var("SQUIRREL_HOST")
                 .unwrap_or_else(|_| "localhost".to_string()),
@@ -87,7 +108,7 @@ impl EcosystemConfig {
         use uuid::Uuid;
 
         Self {
-            service_id: format!("primal-squirrel-{}", Uuid::new_v4()),
+            service_id: Arc::from(format!("primal-squirrel-{}", Uuid::new_v4())),
             service_name,
             service_host,
             service_port,

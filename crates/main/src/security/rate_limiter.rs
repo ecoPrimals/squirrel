@@ -214,7 +214,7 @@ pub struct RateLimitResult {
 }
 
 /// Endpoint classification for different rate limits
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EndpointType {
     /// General API endpoints
     Api,
@@ -311,7 +311,7 @@ impl ProductionRateLimiter {
         &self,
         client_ip: IpAddr,
         endpoint_type: EndpointType,
-        user_agent: Option<String>,
+        user_agent: Option<&str>,
     ) -> RateLimitResult {
         let correlation_id = CorrelationId::new();
 
@@ -333,7 +333,8 @@ impl ProductionRateLimiter {
         }
 
         // Update client info
-        self.update_client_info(client_ip, user_agent.clone()).await;
+        self.update_client_info(client_ip, user_agent.map(String::from))
+            .await;
 
         // Check if client is banned
         if let Some(ban_result) = self.check_client_ban(client_ip).await {
@@ -359,7 +360,7 @@ impl ProductionRateLimiter {
 
         // Check rate limit
         let allowed = self
-            .check_rate_limit(client_ip, endpoint_type.clone(), adjusted_limit)
+            .check_rate_limit(client_ip, endpoint_type, adjusted_limit)
             .await;
 
         // Update global metrics
@@ -868,7 +869,7 @@ mod tests {
         let limiter = ProductionRateLimiter::new(config);
 
         let ip: IpAddr = "192.168.1.100".parse().unwrap();
-        let user_agent = Some("TestClient/1.0".to_string());
+        let user_agent = Some("TestClient/1.0");
 
         let result = limiter
             .check_request(ip, EndpointType::Api, user_agent)

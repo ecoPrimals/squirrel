@@ -56,6 +56,9 @@ pub use service_mesh::{CircuitBreakerStatus, LoadBalancingStatus, ServiceMeshSta
 pub use traits::{UniversalPrimalProvider, UniversalResult, UniversalSecurityProvider};
 pub use types::{PrimalCapability, PrimalInfo, PrimalType, SquirrelCapability};
 
+/// Re-export deployment configuration from universal-constants
+pub use universal_constants::deployment;
+
 /// Universal system version
 pub const VERSION: &str = "1.0.0";
 

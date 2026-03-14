@@ -5,7 +5,7 @@
 //! # Squirrel Interfaces
 //!
 //! This crate contains shared interfaces that are used by multiple Squirrel components.
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! The primary purpose is to break circular dependencies between crates.
 
 pub mod context;

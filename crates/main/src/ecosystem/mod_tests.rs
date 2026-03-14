@@ -174,7 +174,7 @@ fn test_ecosystem_manager_status_with_health() {
         status: "initialized".to_string(),
         initialized_at: Some(Utc::now()),
         last_registration: Some(Utc::now()),
-        active_registrations: vec!["service-1".to_string()],
+        active_registrations: vec![Arc::from("service-1")],
         health_status: HealthStatus {
             health_score: 1.0,
             component_statuses,

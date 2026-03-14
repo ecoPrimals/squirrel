@@ -309,11 +309,7 @@ async fn test_user_agent_tracking() {
 
     // First request with user agent
     limiter
-        .check_request(
-            test_ip,
-            EndpointType::Api,
-            Some("Mozilla/5.0 Test".to_string()),
-        )
+        .check_request(test_ip, EndpointType::Api, Some("Mozilla/5.0 Test"))
         .await;
 
     // Second request without user agent

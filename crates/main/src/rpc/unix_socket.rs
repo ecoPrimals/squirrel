@@ -296,119 +296,114 @@ mod tests {
     use super::*;
     use serial_test::serial;
 
-    fn clear_env_vars() {
-        std::env::remove_var("SQUIRREL_SOCKET");
-        std::env::remove_var("BIOMEOS_SOCKET_PATH");
-        std::env::remove_var("PRIMAL_SOCKET");
-        std::env::remove_var("SQUIRREL_FAMILY_ID");
-        std::env::remove_var("SQUIRREL_NODE_ID");
-    }
+    /// Socket-related env vars - used for save/restore and temp_env isolation.
+    /// temp_env provides cross-test isolation via internal mutex; serial_test
+    /// prevents races with tests that modify env directly (e.g. config tests).
+    const SOCKET_ENV_VARS: &[&str] = &[
+        "SQUIRREL_SOCKET",
+        "BIOMEOS_SOCKET_PATH",
+        "PRIMAL_SOCKET",
+        "SQUIRREL_FAMILY_ID",
+        "SQUIRREL_NODE_ID",
+    ];
 
     #[test]
-    #[serial(socket_env)] // Global env var serialization group
+    #[serial(socket_env)]
     fn test_socket_path_tier1_squirrel_socket() {
-        clear_env_vars();
-        std::env::set_var("SQUIRREL_SOCKET", "/custom/path/socket.sock");
-
-        let path = get_socket_path("test-node");
-        assert_eq!(path, "/custom/path/socket.sock");
-
-        clear_env_vars();
+        temp_env::with_var("SQUIRREL_SOCKET", Some("/custom/path/socket.sock"), || {
+            let path = get_socket_path("test-node");
+            assert_eq!(path, "/custom/path/socket.sock");
+        });
     }
 
     #[test]
-    #[serial(socket_env)] // Global env var serialization group
+    #[serial(socket_env)]
     fn test_socket_path_tier2_biomeos_socket_path() {
-        clear_env_vars();
-        std::env::set_var("BIOMEOS_SOCKET_PATH", "/tmp/squirrel-nat0.sock");
-
-        let path = get_socket_path("test-node");
-        assert_eq!(path, "/tmp/squirrel-nat0.sock");
-
-        clear_env_vars();
+        temp_env::with_var(
+            "BIOMEOS_SOCKET_PATH",
+            Some("/tmp/squirrel-nat0.sock"),
+            || {
+                let path = get_socket_path("test-node");
+                assert_eq!(path, "/tmp/squirrel-nat0.sock");
+            },
+        );
     }
 
     #[test]
-    #[serial(socket_env)] // Global env var serialization group
+    #[serial(socket_env)]
     fn test_squirrel_socket_overrides_biomeos_socket_path() {
-        clear_env_vars();
-        std::env::set_var("SQUIRREL_SOCKET", "/custom/squirrel.sock");
-        std::env::set_var("BIOMEOS_SOCKET_PATH", "/tmp/squirrel-nat0.sock");
-
-        let path = get_socket_path("test-node");
-        // Tier 1 (SQUIRREL_SOCKET) should override Tier 2 (BIOMEOS_SOCKET_PATH)
-        assert_eq!(path, "/custom/squirrel.sock");
-
-        clear_env_vars();
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_SOCKET", Some("/custom/squirrel.sock")),
+                ("BIOMEOS_SOCKET_PATH", Some("/tmp/squirrel-nat0.sock")),
+            ],
+            || {
+                let path = get_socket_path("test-node");
+                assert_eq!(path, "/custom/squirrel.sock");
+            },
+        );
     }
 
     #[test]
-    #[serial(socket_env)] // Global env var serialization group
+    #[serial(socket_env)]
     fn test_socket_path_tier3_primal_socket() {
-        clear_env_vars();
-        std::env::set_var("PRIMAL_SOCKET", "/custom/primal");
-        std::env::set_var("SQUIRREL_FAMILY_ID", "nat0");
-
-        let path = get_socket_path("test-node");
-        // Tier 3 should append family suffix
-        assert_eq!(path, "/custom/primal-nat0");
-
-        clear_env_vars();
+        temp_env::with_vars(
+            [
+                ("PRIMAL_SOCKET", Some("/custom/primal")),
+                ("SQUIRREL_FAMILY_ID", Some("nat0")),
+            ],
+            || {
+                let path = get_socket_path("test-node");
+                assert_eq!(path, "/custom/primal-nat0");
+            },
+        );
     }
 
     #[test]
-    #[serial(socket_env)] // Global env var serialization group
+    #[serial(socket_env)]
     fn test_socket_path_tier4_and_tier5_fallback() {
-        clear_env_vars();
-        std::env::set_var("SQUIRREL_FAMILY_ID", "test0");
-
-        let path = get_socket_path("test-node");
-        // Should use Tier 4 (XDG with biomeos) or Tier 5 (/tmp) fallback
-        assert!(path.contains("/biomeos/squirrel.sock") || path.contains("/tmp/squirrel-test0"));
-
-        clear_env_vars();
+        temp_env::with_var("SQUIRREL_FAMILY_ID", Some("test0"), || {
+            let path = get_socket_path("test-node");
+            assert!(
+                path.contains("/biomeos/squirrel.sock") || path.contains("/tmp/squirrel-test0")
+            );
+        });
     }
 
     #[test]
-    #[serial(socket_env)] // Global env var serialization group
+    #[serial(socket_env)]
     fn test_get_family_id_default() {
-        clear_env_vars();
-
-        let family_id = get_family_id();
-        assert_eq!(family_id, "default");
+        temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
+            let family_id = get_family_id();
+            assert_eq!(family_id, "default");
+        });
     }
 
     #[test]
-    #[serial(socket_env)] // Global env var serialization group
+    #[serial(socket_env)]
     fn test_get_family_id_from_env() {
-        clear_env_vars();
-        std::env::set_var("SQUIRREL_FAMILY_ID", "nat0");
-
-        let family_id = get_family_id();
-        assert_eq!(family_id, "nat0");
-
-        clear_env_vars();
+        temp_env::with_var("SQUIRREL_FAMILY_ID", Some("nat0"), || {
+            let family_id = get_family_id();
+            assert_eq!(family_id, "nat0");
+        });
     }
 
     #[test]
-    #[serial(socket_env)] // Global env var serialization group
+    #[serial(socket_env)]
     fn test_get_node_id_default() {
-        clear_env_vars();
-
-        let node_id = get_node_id();
-        assert!(!node_id.is_empty());
+        temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
+            let node_id = get_node_id();
+            assert!(!node_id.is_empty());
+        });
     }
 
     #[test]
-    #[serial(socket_env)] // Global env var serialization group
+    #[serial(socket_env)]
     fn test_get_node_id_from_env() {
-        clear_env_vars();
-        std::env::set_var("SQUIRREL_NODE_ID", "custom-node");
-
-        let node_id = get_node_id();
-        assert_eq!(node_id, "custom-node");
-
-        clear_env_vars();
+        temp_env::with_var("SQUIRREL_NODE_ID", Some("custom-node"), || {
+            let node_id = get_node_id();
+            assert_eq!(node_id, "custom-node");
+        });
     }
 
     #[test]
@@ -426,27 +421,29 @@ mod tests {
     }
 
     #[test]
+    #[serial(socket_env)]
     fn test_verify_socket_config() {
-        clear_env_vars();
+        temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
+            let result = verify_socket_config();
+            assert!(result.is_ok());
 
-        let result = verify_socket_config();
-        assert!(result.is_ok());
-
-        let message = result.unwrap();
-        assert!(message.contains("Socket:"));
-        assert!(message.contains("Family:"));
-        assert!(message.contains("Node:"));
+            let message = result.unwrap();
+            assert!(message.contains("Socket:"));
+            assert!(message.contains("Family:"));
+            assert!(message.contains("Node:"));
+        });
     }
 
     #[test]
+    #[serial(socket_env)]
     fn test_xdg_socket_path_format() {
-        clear_env_vars();
-
-        if let Some(xdg_path) = get_xdg_socket_path() {
-            assert!(xdg_path.starts_with("/run/user/"));
-            assert!(xdg_path.contains("/biomeos/"));
-            assert!(xdg_path.ends_with("/squirrel.sock"));
-        }
+        temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
+            if let Some(xdg_path) = get_xdg_socket_path() {
+                assert!(xdg_path.starts_with("/run/user/"));
+                assert!(xdg_path.contains("/biomeos/"));
+                assert!(xdg_path.ends_with("/squirrel.sock"));
+            }
+        });
     }
 
     #[test]
@@ -473,10 +470,9 @@ mod tests {
     #[test]
     #[serial(socket_env)]
     fn test_socket_path_uses_biomeos_directory() {
-        clear_env_vars();
-
-        let path = get_socket_path("test-node");
-        // Should contain biomeos directory if XDG exists, or /tmp if not
-        assert!(path.contains("/biomeos/squirrel.sock") || path.starts_with("/tmp/"));
+        temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
+            let path = get_socket_path("test-node");
+            assert!(path.contains("/biomeos/squirrel.sock") || path.starts_with("/tmp/"));
+        });
     }
 }

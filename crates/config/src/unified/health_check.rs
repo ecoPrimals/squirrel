@@ -107,7 +107,8 @@ impl Default for HealthCheckConfig {
 
 impl HealthCheckConfig {
     /// Create a simple health check config (for observability)
-    pub fn simple(
+    #[must_use]
+    pub const fn simple(
         enabled: bool,
         interval: Duration,
         timeout: Duration,
@@ -126,7 +127,8 @@ impl HealthCheckConfig {
     }
 
     /// Create config with auto-recovery enabled (for resilience)
-    pub fn with_auto_recovery(
+    #[must_use]
+    pub const fn with_auto_recovery(
         enabled: bool,
         interval: Duration,
         timeout: Duration,
@@ -146,7 +148,8 @@ impl HealthCheckConfig {
     }
 
     /// Create config with grace period (for monitoring)
-    pub fn with_grace_period(
+    #[must_use]
+    pub const fn with_grace_period(
         enabled: bool,
         interval: Duration,
         timeout: Duration,
@@ -165,11 +168,12 @@ impl HealthCheckConfig {
         }
     }
 
-    /// Get success threshold (alias for recovery_threshold)
+    /// Get success threshold (alias for `recovery_threshold`)
     ///
-    /// Some subsystems use "success_threshold" terminology - this provides
+    /// Some subsystems use `success_threshold` terminology - this provides
     /// compatible access to the same value.
-    pub fn success_threshold(&self) -> u32 {
+    #[must_use]
+    pub const fn success_threshold(&self) -> u32 {
         self.recovery_threshold
     }
 }

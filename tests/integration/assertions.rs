@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Custom Assertions for Integration Tests
 //!
 //! Provides domain-specific assertions for testing primal interactions.

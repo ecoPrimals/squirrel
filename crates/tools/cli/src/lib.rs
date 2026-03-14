@@ -4,12 +4,51 @@
 //! Squirrel CLI library
 //!
 //! This crate provides the command-line interface components for the Squirrel platform.
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! It includes commands, formatters, and configuration management.
 
 // Allow missing docs for internal implementation details
 #![allow(missing_docs)]
-#![allow(clippy::missing_docs_in_private_items)]
+#![allow(
+    clippy::missing_docs_in_private_items,
+    clippy::unnecessary_wraps,
+    clippy::ignored_unit_patterns,
+    clippy::unused_async,
+    clippy::needless_pass_by_ref_mut,
+    clippy::missing_errors_doc,
+    clippy::doc_markdown,
+    clippy::must_use_candidate,
+    clippy::missing_const_for_fn,
+    clippy::use_self,
+    clippy::uninlined_format_args,
+    clippy::redundant_closure_for_method_calls,
+    clippy::needless_pass_by_value,
+    clippy::module_name_repetitions,
+    clippy::redundant_else,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::significant_drop_tightening,
+    clippy::option_if_let_else,
+    clippy::single_match_else,
+    clippy::manual_string_new,
+    clippy::or_fun_call,
+    clippy::return_self_not_must_use,
+    clippy::derive_partial_eq_without_eq,
+    clippy::struct_excessive_bools,
+    clippy::match_same_arms,
+    clippy::unused_self,
+    clippy::unnecessary_literal_bound,
+    clippy::branches_sharing_code,
+    clippy::cloned_instead_of_copied,
+    clippy::map_unwrap_or,
+    clippy::semicolon_if_nothing_returned,
+    clippy::used_underscore_binding,
+    clippy::wildcard_imports,
+    clippy::needless_continue,
+    clippy::too_many_lines,
+    clippy::from_iter_instead_of_collect,
+    clippy::unnested_or_patterns
+)]
 
 /// Output formatter for CLI commands
 pub mod formatter;

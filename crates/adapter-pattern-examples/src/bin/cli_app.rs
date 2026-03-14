@@ -84,7 +84,8 @@ impl Command for HelpCommand {
 
             for cmd in commands {
                 if let Ok(cmd_help) = self.adapter.get_help(&cmd).await {
-                    help_text.push_str(&format!("  {}\n", cmd_help));
+                    use std::fmt::Write;
+                    let _ = writeln!(help_text, "  {cmd_help}");
                 }
             }
 
@@ -94,13 +95,14 @@ impl Command for HelpCommand {
         } else {
             // Get help for a specific command
             let command = &args[0];
-            match self.adapter.get_help(command).await {
-                Ok(help) => Ok(help),
-                Err(_) => Err(CommandError::NotFound(format!(
-                    "Command '{}' not found",
-                    command
-                ))),
-            }
+            self.adapter.get_help(command).await.map_or_else(
+                |_| {
+                    Err(CommandError::NotFound(format!(
+                        "Command '{command}' not found"
+                    )))
+                },
+                Ok,
+            )
         }
     }
 }
@@ -181,11 +183,10 @@ impl Command for GreetCommand {
         let name = &args[1];
 
         match style.as_str() {
-            "formal" => Ok(format!("Good day to you, {}.", name)),
-            "casual" => Ok(format!("Hey {}! What's up?", name)),
+            "formal" => Ok(format!("Good day to you, {name}.")),
+            "casual" => Ok(format!("Hey {name}! What's up?")),
             _ => Err(CommandError::ExecutionFailed(format!(
-                "Unknown greeting style: {}. Use 'formal' or 'casual'.",
-                style
+                "Unknown greeting style: {style}. Use 'formal' or 'casual'."
             ))),
         }
     }
@@ -241,7 +242,7 @@ impl CliApp {
         }
     }
 
-    async fn initialize(&mut self) -> CommandResult<()> {
+    fn initialize(&mut self) -> CommandResult<()> {
         // Register basic commands
         let version_cmd = VersionCommand::new(&self.version);
         let echo_cmd = EchoCommand::new();
@@ -297,10 +298,7 @@ impl CliApp {
         args: Vec<String>,
         auth: Auth,
     ) -> CommandResult<String> {
-        println!(
-            "Debug - execute_with_auth called with command: {} and auth",
-            command
-        );
+        println!("Debug - execute_with_auth called with command: {command} and auth");
 
         // Special case for secure command - check authentication
         if command == "secure" {
@@ -311,11 +309,10 @@ impl CliApp {
                     if (username == "admin" || username == "user") && password == "password" {
                         // User is authenticated, execute the command
                         return self.registry_adapter.execute_command(command, args).await;
-                    } else {
-                        return Err(CommandError::AuthenticationFailed(
-                            "Invalid username or password".to_string(),
-                        ));
                     }
+                    return Err(CommandError::AuthenticationFailed(
+                        "Invalid username or password".to_string(),
+                    ));
                 }
                 _ => {
                     return Err(CommandError::AuthenticationFailed(
@@ -347,19 +344,19 @@ impl CliApp {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get command line arguments
     let args: Vec<String> = env::args().collect();
-    println!("Raw arguments: {:?}", args);
+    println!("Raw arguments: {args:?}");
 
     // Create and initialize the application
     let mut app = CliApp::new("1.0.0");
-    app.initialize().await?;
+    app.initialize()?;
 
     // Print all available commands
     let all_commands = app.available_commands(Auth::None).await?;
-    println!("Public commands: {:?}", all_commands);
+    println!("Public commands: {all_commands:?}");
     let user_commands = app
         .available_commands(Auth::User("user".to_string(), "password".to_string()))
         .await?;
-    println!("User commands: {:?}", user_commands);
+    println!("User commands: {user_commands:?}");
 
     if args.len() <= 1 {
         // No command specified, show help
@@ -377,7 +374,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Special case for login
     if command == "login" {
-        println!("Login command detected with args: {:?}", command_args);
+        println!("Login command detected with args: {command_args:?}");
 
         if command_args.len() < 2 {
             println!("Usage: {} login <username> <password>", args[0]);
@@ -390,13 +387,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // List available commands with this authentication
         let available = app.available_commands(auth.clone()).await?;
-        println!("Logged in as: {}", username);
-        println!("Available commands: {:?}", available);
+        println!("Logged in as: {username}");
+        println!("Available commands: {available:?}");
 
         // If further command args are present, execute that command
         if command_args.len() > 2 {
             let subcommand = &command_args[2];
-            println!("Executing subcommand: {} with auth", subcommand);
+            println!("Executing subcommand: {subcommand} with auth");
 
             let subcommand_args = if command_args.len() > 3 {
                 command_args[3..].to_vec()
@@ -408,8 +405,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .execute_with_auth(subcommand, subcommand_args, auth)
                 .await
             {
-                Ok(result) => println!("{}", result),
-                Err(e) => println!("Error: {}", e),
+                Ok(result) => println!("{result}"),
+                Err(e) => println!("Error: {e}"),
             }
         }
 
@@ -417,13 +414,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Execute the command without authentication
-    println!(
-        "Executing command: {} with args: {:?}",
-        command, command_args
-    );
+    println!("Executing command: {command} with args: {command_args:?}");
     match app.execute(command, command_args).await {
-        Ok(result) => println!("{}", result),
-        Err(e) => println!("Error: {}", e),
+        Ok(result) => println!("{result}"),
+        Err(e) => println!("Error: {e}"),
     }
 
     Ok(())

@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Execute commands
     let result = registry_adapter.execute_command("hello", vec![]).await?;
-    println!("Hello command result: {}", result);
+    println!("Hello command result: {result}");
 
     let result = registry_adapter
         .execute_command(
@@ -40,10 +40,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ],
         )
         .await?;
-    println!("Echo command result: {}", result);
+    println!("Echo command result: {result}");
 
     let commands = registry_adapter.list_commands().await?;
-    println!("Available commands: {:?}\n", commands);
+    println!("Available commands: {commands:?}\n");
 
     // === MCP Adapter Demo ===
     println!("--- MCP Adapter Demo ---");
@@ -64,37 +64,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Try anonymous access (should fail for secure command)
     let result = mcp_adapter.execute_command("secure", vec![]).await;
-    println!("Anonymous access to secure command: {:?}", result);
+    println!("Anonymous access to secure command: {result:?}");
 
     // Try with user credentials
     let user_auth = Auth::User("user".to_string(), "userpass".to_string());
     let result = mcp_adapter
         .execute_with_auth("secure", vec![], user_auth.clone())
         .await?;
-    println!("User access to secure command: {}", result);
+    println!("User access to secure command: {result}");
 
     // Try user access to admin command (should fail)
     let result = mcp_adapter
         .execute_with_auth("admin-cmd", vec![], user_auth)
         .await;
-    println!("User access to admin command: {:?}", result);
+    println!("User access to admin command: {result:?}");
 
     // Try with admin credentials
     let admin_auth = Auth::User("admin".to_string(), "password".to_string());
     let result = mcp_adapter
         .execute_with_auth("admin-cmd", vec![], admin_auth.clone())
         .await?;
-    println!("Admin access to admin command: {}", result);
+    println!("Admin access to admin command: {result}");
 
     // Get available commands for different users
     let commands = mcp_adapter.get_available_commands(Auth::None).await?;
-    println!(
-        "Commands available to unauthenticated users: {:?}",
-        commands
-    );
+    println!("Commands available to unauthenticated users: {commands:?}");
 
     let commands = mcp_adapter.get_available_commands(admin_auth).await?;
-    println!("Commands available to admin: {:?}\n", commands);
+    println!("Commands available to admin: {commands:?}\n");
 
     // === Plugin Adapter Demo ===
     println!("--- Plugin Adapter Demo ---");
@@ -113,11 +110,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = plugin_adapter
         .execute_command("plugin-cmd", vec!["arg1".to_string(), "arg2".to_string()])
         .await?;
-    println!("Plugin command result: {}", result);
+    println!("Plugin command result: {result}");
 
     // Get help
     let help = plugin_adapter.get_help("plugin-cmd").await?;
-    println!("Plugin command help: {}", help);
+    println!("Plugin command help: {help}");
 
     Ok(())
 }

@@ -15,14 +15,41 @@ use std::time::Duration;
 use crate::ecosystem::EcosystemPrimalType;
 
 /// String interning for common service registry values
+/// Uses capability constants for discovery; legacy primal names for backward compatibility
 static REGISTRY_STRINGS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::new(|| {
     let mut map = HashMap::new();
-    // Common service IDs and types
-    map.insert("squirrel", Arc::from("squirrel"));
+    use universal_constants::capabilities;
+    // Capability-based (preferred for discovery)
+    map.insert(
+        capabilities::SELF_PRIMAL_NAME,
+        Arc::from(capabilities::SELF_PRIMAL_NAME),
+    );
+    map.insert(
+        capabilities::SERVICE_MESH_CAPABILITY,
+        Arc::from(capabilities::SERVICE_MESH_CAPABILITY),
+    );
+    map.insert(
+        capabilities::COMPUTE_CAPABILITY,
+        Arc::from(capabilities::COMPUTE_CAPABILITY),
+    );
+    map.insert(
+        capabilities::SECURITY_CAPABILITY,
+        Arc::from(capabilities::SECURITY_CAPABILITY),
+    );
+    map.insert(
+        capabilities::STORAGE_CAPABILITY,
+        Arc::from(capabilities::STORAGE_CAPABILITY),
+    );
+    map.insert(
+        capabilities::ECOSYSTEM_CAPABILITY,
+        Arc::from(capabilities::ECOSYSTEM_CAPABILITY),
+    );
+    // Legacy primal names (backward compat)
     map.insert("songbird", Arc::from("songbird"));
     map.insert("toadstool", Arc::from("toadstool"));
     map.insert("beardog", Arc::from("beardog"));
-    map.insert("ecosystem", Arc::from("ecosystem"));
+    map.insert("nestgate", Arc::from("nestgate"));
+    map.insert("biomeos", Arc::from("biomeos"));
 
     // Common capabilities
     map.insert("ai_coordination", Arc::from("ai_coordination"));
@@ -53,22 +80,35 @@ static REGISTRY_STRINGS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::n
 });
 
 /// Get ```Arc<str>``` for registry string with zero allocation for common values
+///
+/// For capability names (storage, compute, etc.), returns the string as-is.
+/// For primal names, returns the primal identifier.
 #[must_use]
 pub fn intern_registry_string(s: &str) -> Arc<str> {
-    // Common registry strings for zero-allocation lookups
+    use universal_constants::capabilities;
+    // Literal capability names first - must preserve for DiscoveredService.capabilities
     match s {
+        "storage" => Arc::from("storage"),
+        "compute" => Arc::from("compute"),
+        "security" => Arc::from("security"),
+        "discovery" => Arc::from("discovery"),
+        "ai_coordination" => Arc::from("ai_coordination"),
         "squirrel" => Arc::from("squirrel"),
         "songbird" => Arc::from("songbird"),
         "toadstool" => Arc::from("toadstool"),
         "beardog" => Arc::from("beardog"),
+        "nestgate" => Arc::from("nestgate"),
+        "biomeos" => Arc::from("biomeos"),
+        n if n == capabilities::SELF_PRIMAL_NAME => Arc::from("squirrel"),
+        n if n == capabilities::SERVICE_MESH_CAPABILITY => Arc::from("songbird"),
+        n if n == capabilities::COMPUTE_CAPABILITY => Arc::from("toadstool"),
+        n if n == capabilities::SECURITY_CAPABILITY => Arc::from("beardog"),
+        n if n == capabilities::STORAGE_CAPABILITY => Arc::from("storage"),
+        n if n == capabilities::ECOSYSTEM_CAPABILITY => Arc::from("biomeos"),
         "active" => Arc::from("active"),
         "inactive" => Arc::from("inactive"),
         "error" => Arc::from("error"),
-        "discovery" => Arc::from("discovery"),
-        "ai_coordination" => Arc::from("ai_coordination"),
-        "storage" => Arc::from("storage"),
-        "compute" => Arc::from("compute"),
-        "security" => Arc::from("security"),
+        "network" => Arc::from("network"),
         _ => Arc::from(s), // Allocate for uncommon strings
     }
 }
@@ -457,4 +497,126 @@ pub enum ServiceStatus {
     Unhealthy,
     Offline,
     Recovering,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_discovered_service_new() {
+        let service = DiscoveredService::new(
+            "svc-123",
+            EcosystemPrimalType::Squirrel,
+            "unix:///tmp/svc.sock",
+            "unix:///tmp/svc.sock",
+            "1.0",
+            vec!["storage", "compute"],
+            HashMap::new(),
+        );
+
+        assert_eq!(service.service_id.as_ref(), "svc-123");
+        assert!(service.has_capability("storage"));
+        assert!(service.has_capability("compute"));
+        assert!(!service.has_capability("unknown"));
+    }
+
+    #[test]
+    fn test_discovered_service_get_metadata() {
+        let mut metadata = HashMap::new();
+        metadata.insert("version", "1.0");
+        metadata.insert("region", "us-west");
+
+        let service = DiscoveredService::new(
+            "test-svc",
+            EcosystemPrimalType::Songbird,
+            "http://localhost:8080",
+            "http://localhost:8080/health",
+            "1.0",
+            vec!["service_mesh"],
+            metadata,
+        );
+
+        assert!(service.get_metadata("version").is_some());
+        assert!(service.get_metadata("region").is_some());
+        assert!(service.get_metadata("missing").is_none());
+    }
+
+    #[test]
+    fn test_primal_api_request_new() {
+        let request = PrimalApiRequest::new(
+            "req-123",
+            EcosystemPrimalType::Squirrel,
+            EcosystemPrimalType::Songbird,
+            "discover",
+            serde_json::json!({"capability": "storage"}),
+            HashMap::new(),
+            Duration::from_secs(30),
+        );
+
+        assert_eq!(request.request_id.as_ref(), "req-123");
+        assert_eq!(request.operation.as_ref(), "discover");
+    }
+
+    #[test]
+    fn test_primal_api_request_get_header() {
+        let mut headers = HashMap::new();
+        headers.insert("x-correlation-id", "corr-123");
+
+        let request = PrimalApiRequest::new(
+            "req-1",
+            EcosystemPrimalType::Squirrel,
+            EcosystemPrimalType::BearDog,
+            "auth",
+            serde_json::json!({}),
+            headers,
+            Duration::from_secs(5),
+        );
+
+        assert!(request.get_header("x-correlation-id").is_some());
+        assert!(request.get_header("missing").is_none());
+    }
+
+    #[test]
+    fn test_primal_api_response_new() {
+        let request_id = Arc::from("req-123");
+        let response = PrimalApiResponse::new(
+            request_id,
+            true,
+            Some(serde_json::json!({"result": "ok"})),
+            None,
+            HashMap::new(),
+            Duration::from_millis(50),
+        );
+
+        assert!(response.success);
+        assert!(response.data.is_some());
+        assert!(response.error.is_none());
+    }
+
+    #[test]
+    fn test_intern_registry_string() {
+        let s = intern_registry_string("storage");
+        assert_eq!(s.as_ref(), "storage");
+
+        let s2 = intern_registry_string("squirrel");
+        assert_eq!(s2.as_ref(), "squirrel");
+    }
+
+    #[test]
+    fn test_service_health_status_variants() {
+        let _ = ServiceHealthStatus::Unknown;
+        let _ = ServiceHealthStatus::Healthy;
+        let _ = ServiceHealthStatus::Degraded;
+        let _ = ServiceHealthStatus::Unhealthy;
+        let _ = ServiceHealthStatus::Offline;
+    }
+
+    #[test]
+    fn test_service_status_variants() {
+        let _ = ServiceStatus::Unknown;
+        let _ = ServiceStatus::Healthy;
+        let _ = ServiceStatus::Degraded;
+    }
 }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Unified Plugin System Demo
 //!
 //! This demo showcases the zero-copy unified plugin system that combines

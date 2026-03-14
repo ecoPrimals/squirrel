@@ -413,7 +413,7 @@ impl ServiceMeshClient for MockServiceMeshClient {
     async fn get_mesh_status(&self) -> UniversalResult<ServiceMeshStatus> {
         Ok(ServiceMeshStatus {
             connected: true,
-            songbird_endpoint: Some("mock://localhost:8080".to_string()), // Mock endpoint - OK to hardcode
+            service_mesh_endpoint: Some("mock://localhost:8080".to_string()),
             registration_time: Some(chrono::Utc::now()),
             last_heartbeat: Some(chrono::Utc::now()),
             metadata: HashMap::new(),

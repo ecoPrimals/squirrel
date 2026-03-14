@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Configuration Validation Unit Tests
 //!
 //! Comprehensive tests for configuration loading, validation, and error handling.

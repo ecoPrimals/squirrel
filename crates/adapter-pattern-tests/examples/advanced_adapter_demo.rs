@@ -61,9 +61,9 @@ fn setup_enhanced_mcp_adapter() -> CommandResult<McpAdapter> {
 
             // Add users with different roles
             // Admin user is already added by default
-            adapter.add_user("power", "power123", false).await;
-            adapter.add_user("regular", "regular123", false).await;
-            adapter.add_user("guest", "guest123", false).await;
+            adapter.add_user("power", "power123", false);
+            adapter.add_user("regular", "regular123", false);
+            adapter.add_user("guest", "guest123", false);
 
             // Add command permissions
             adapter.add_command_with_permissions(
@@ -76,7 +76,7 @@ fn setup_enhanced_mcp_adapter() -> CommandResult<McpAdapter> {
             );
 
             // Update user roles - we can't directly access the field, so we'll set up the user with the right role
-            adapter.add_user("power", "power123", false).await;
+            adapter.add_user("power", "power123", false);
             // Add the user again with PowerUser role by registering a special command and adding permissions
             adapter.add_command_with_permissions("power-user-cmd", vec![UserRole::PowerUser]);
             adapter
@@ -249,7 +249,7 @@ async fn demo_audit_logging(adapter: &mut McpAdapter) -> CommandResult<()> {
         .unwrap_err();
 
     println!("\nAudit log entries:");
-    let logs = adapter.get_command_logs().await;
+    let logs = adapter.get_command_logs();
     for (i, entry) in logs.iter().enumerate() {
         println!("{}. Command log entry {}", i + 1, i + 1);
         // Since we can't access the private fields directly, we'll just print the Debug representation

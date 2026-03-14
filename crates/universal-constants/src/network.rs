@@ -6,7 +6,7 @@
 //! **Philosophy**: Zero hardcoded knowledge. All network configuration discovered at runtime.
 //!
 //! Following the infant primal pattern:
-//! 1. Try environment variables first (SERVICE_MESH discovery)
+//! 1. Try environment variables first (`SERVICE_MESH` discovery)
 //! 2. Fall back to OS-provided ports (dynamic allocation)
 //! 3. Only use defaults as last resort (with warnings)
 //!
@@ -52,7 +52,8 @@
 #[must_use]
 pub fn get_service_port(service: &str) -> u16 {
     // 1. Try environment variable
-    if let Ok(port_str) = std::env::var(format!("{}_PORT", service.to_uppercase())) {
+    let svc_upper = service.to_uppercase();
+    if let Ok(port_str) = std::env::var(format!("{svc_upper}_PORT")) {
         if let Ok(port) = port_str.parse::<u16>() {
             tracing::debug!("Using port from environment: {}={}", service, port);
             return port;
@@ -244,7 +245,13 @@ pub fn http_url(host: &str, port: u16, path: &str) -> String {
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {
-    use super::*;
+    use super::{
+        get_bind_address, get_port_from_env, get_service_port, http_url, ADMIN_ENDPOINT,
+        DEFAULT_ADMIN_PORT, DEFAULT_BIND_ADDRESS, DEFAULT_DISCOVERY_PORT, DEFAULT_HTTP_PORT,
+        DEFAULT_LOCALHOST, DEFAULT_METRICS_PORT, DEFAULT_WEBSOCKET_PORT, DISCOVERY_ENDPOINT,
+        HEALTH_ENDPOINT, LOCALHOST_HTTP_TEMPLATE, LOCALHOST_IPV4, LOCALHOST_WS_TEMPLATE,
+        METRICS_ENDPOINT, REGISTRATION_ENDPOINT, WS_ENDPOINT,
+    };
 
     #[test]
     fn test_addresses() {

@@ -251,11 +251,10 @@ impl ActionExecutor {
                 if let Value::Object(obj) = current {
                     obj.insert(part.to_string(), value);
                     return Ok(());
-                } else {
-                    return Err(RuleError::InvalidPath(format!(
-                        "Cannot set value at path '{path}', parent is not an object"
-                    )));
                 }
+                return Err(RuleError::InvalidPath(format!(
+                    "Cannot set value at path '{path}', parent is not an object"
+                )));
             }
 
             // Handle array indices

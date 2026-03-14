@@ -224,3 +224,8 @@ checkpoints/
 *.cover
 *.nyc_output
 coverage.json
+
+# Explicit runtime files (also covered by *.log, *.pid)
+squirrel-mcp.log
+squirrel-mcp.pid
+lcov.info

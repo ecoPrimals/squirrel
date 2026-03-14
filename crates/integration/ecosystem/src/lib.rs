@@ -5,7 +5,7 @@
 //! Squirrel Ecosystem Integration
 //!
 //! This crate provides integration points with the broader ecosystem:
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! - Songbird service orchestration
 //! - Toadstool compute integration
 //! - Cross-platform service discovery
@@ -33,12 +33,17 @@ pub struct EcosystemIntegration {
 
 impl EcosystemIntegration {
     /// Create a new ecosystem integration instance
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {}
     }
 
     /// Register Squirrel MCP services with the ecosystem
-    pub async fn register_mcp_services(&self) -> Result<(), Box<dyn std::error::Error>> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if service registration fails.
+    pub fn register_mcp_services(&self) -> Result<(), Box<dyn std::error::Error>> {
         // FUTURE: [Ecosystem-Integration] Implement service mesh registration via capability discovery
         // Tracking: Planned for v0.2.0 - ecosystem integration work
         // Use capability registry to discover service mesh, then register via Unix socket
@@ -100,10 +105,10 @@ mod tests {
         let _integration = EcosystemIntegration::default();
     }
 
-    #[tokio::test]
-    async fn test_register_mcp_services() {
+    #[test]
+    fn test_register_mcp_services() {
         let integration = EcosystemIntegration::new();
-        let result = integration.register_mcp_services().await;
+        let result = integration.register_mcp_services();
         assert!(result.is_ok());
     }
 }

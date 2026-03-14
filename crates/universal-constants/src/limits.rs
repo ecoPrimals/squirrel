@@ -96,7 +96,12 @@ pub const fn mb_to_bytes(mb: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        bytes_to_kb, bytes_to_mb, kb_to_bytes, mb_to_bytes, DEFAULT_BUFFER_SIZE,
+        DEFAULT_CHANNEL_BUFFER_SIZE, DEFAULT_CHUNK_SIZE, DEFAULT_MAX_CONNECTIONS,
+        DEFAULT_MAX_CONTEXT_LENGTH, DEFAULT_MAX_MESSAGE_SIZE, DEFAULT_MAX_RETRIES,
+        DEFAULT_MAX_SERVICES,
+    };
 
     #[test]
     fn test_connection_limits() {

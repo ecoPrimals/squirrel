@@ -5,8 +5,8 @@
 //!
 //! This module provides mock implementations for testing the task server functionality.
 
-use std::collections::HashMap;
 use clap;
+use std::collections::HashMap;
 
 use super::types::SimpleCommand;
 
@@ -51,7 +51,10 @@ impl SimpleCommand for MockCommand {
     }
 
     fn execute(&self, args: &[String]) -> Result<String, String> {
-        Ok(format!("Mock command '{}' executed with args: {:?}", self.name, args))
+        Ok(format!(
+            "Mock command '{}' executed with args: {:?}",
+            self.name, args
+        ))
     }
 
     fn parser(&self) -> clap::Command {
@@ -61,7 +64,7 @@ impl SimpleCommand for MockCommand {
                 clap::Arg::new("args")
                     .help("Arguments for the command")
                     .num_args(0..)
-                    .value_name("ARGS")
+                    .value_name("ARGS"),
             )
     }
 
@@ -122,4 +125,4 @@ impl Default for MockCommandRegistry {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

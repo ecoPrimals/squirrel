@@ -4,7 +4,7 @@
 //! Rule System for Squirrel
 //!
 //! This crate provides a rule system for the Squirrel Context Management System,
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! allowing for the definition, parsing, evaluation, and application of rules to context data.
 //!
 //! # Overview
@@ -25,8 +25,14 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::needless_raw_string_hashes)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::significant_drop_tightening,
+    clippy::option_if_let_else,
+    clippy::use_self,
+    clippy::missing_const_for_fn
+)]
 
 pub mod actions;
 pub mod directory;

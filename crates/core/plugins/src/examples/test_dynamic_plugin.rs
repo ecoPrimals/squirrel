@@ -12,7 +12,7 @@
 // 🛡️ SAFETY GUARANTEE: This module contains ZERO unsafe code blocks.
 // All plugin operations use safe Rust patterns with Arc reference counting.
 
-#![deny(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed in plugin system
+#![forbid(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed in plugin system
 
 use std::sync::Arc;
 use async_trait::async_trait;

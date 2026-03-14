@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Real Primal-to-Primal Integration Tests
 //!
 //! These tests verify actual communication between primal services without mocks.

@@ -5,10 +5,51 @@
 //!
 //! This module provides context management functionality for the application.
 
-#![deny(unsafe_code)]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::missing_docs_in_private_items)]
+#![forbid(unsafe_code)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::missing_docs_in_private_items,
+    clippy::unused_async,
+    clippy::significant_drop_tightening,
+    clippy::use_self,
+    clippy::must_use_candidate,
+    clippy::missing_const_for_fn,
+    clippy::struct_excessive_bools,
+    clippy::derive_partial_eq_without_eq,
+    clippy::format_push_string,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::option_if_let_else,
+    clippy::suboptimal_flops,
+    clippy::cast_possible_truncation,
+    clippy::doc_markdown,
+    clippy::branches_sharing_code,
+    clippy::redundant_clone,
+    clippy::return_self_not_must_use,
+    clippy::ignored_unit_patterns,
+    clippy::cast_lossless,
+    clippy::manual_let_else,
+    clippy::single_char_pattern,
+    clippy::uninlined_format_args,
+    clippy::or_fun_call,
+    clippy::redundant_closure_for_method_calls,
+    clippy::unnecessary_wraps,
+    clippy::unused_self,
+    clippy::manual_string_new,
+    clippy::needless_pass_by_value,
+    clippy::map_unwrap_or,
+    clippy::if_not_else,
+    clippy::imprecise_flops,
+    clippy::used_underscore_binding,
+    clippy::single_match_else,
+    clippy::implicit_clone,
+    clippy::match_same_arms,
+    clippy::manual_midpoint,
+    clippy::too_many_lines,
+    clippy::default_trait_access,
+    clippy::significant_drop_in_scrutinee
+)]
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

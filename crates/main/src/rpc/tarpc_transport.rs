@@ -21,7 +21,6 @@
 
 // Note: This module is feature-gated via #[cfg(feature = "tarpc-rpc")] in mod.rs
 
-use anyhow::Result;
 use bytes::{Bytes, BytesMut};
 use futures::{Sink, Stream};
 use std::io;
@@ -86,6 +85,9 @@ impl TarpcTransportAdapter {
 }
 
 /// Implement Stream trait for reading from transport
+///
+/// Yields `BytesMut` as required by tarpc/tokio-serde transport layer.
+/// LengthDelimitedCodec yields BytesMut; tarpc expects this for bincode deserialization.
 impl Stream for TarpcTransportAdapter {
     type Item = io::Result<BytesMut>;
 
@@ -95,6 +97,9 @@ impl Stream for TarpcTransportAdapter {
 }
 
 /// Implement Sink trait for writing to transport
+///
+/// Accepts `Bytes` for zero-copy payloads (wateringHole standard).
+/// tokio-util 0.7 LengthDelimitedCodec implements Encoder<Bytes>.
 impl Sink<Bytes> for TarpcTransportAdapter {
     type Error = io::Error;
 

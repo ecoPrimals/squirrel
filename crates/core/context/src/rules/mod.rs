@@ -19,6 +19,8 @@ mod actions;
 mod directory;
 mod error;
 mod evaluator;
+#[cfg(test)]
+mod evaluator_tests;
 mod models;
 mod parser;
 mod plugin;

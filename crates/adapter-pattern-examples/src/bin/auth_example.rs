@@ -51,30 +51,20 @@ impl Command for AdminCommand {
         let value = args.get(1);
 
         match setting.as_str() {
-            "debug" => {
-                if let Some(value) = value {
-                    Ok(format!("Debug mode set to: {}", value))
-                } else {
-                    Ok("Debug mode is currently: false".to_string())
-                }
-            }
-            "verbose" => {
-                if let Some(value) = value {
-                    Ok(format!("Verbose logging set to: {}", value))
-                } else {
-                    Ok("Verbose logging is currently: false".to_string())
-                }
-            }
-            "timeout" => {
-                if let Some(value) = value {
-                    Ok(format!("Timeout set to: {} seconds", value))
-                } else {
-                    Ok("Timeout is currently: 30 seconds".to_string())
-                }
-            }
+            "debug" => value.map_or_else(
+                || Ok("Debug mode is currently: false".to_string()),
+                |v| Ok(format!("Debug mode set to: {v}")),
+            ),
+            "verbose" => value.map_or_else(
+                || Ok("Verbose logging is currently: false".to_string()),
+                |v| Ok(format!("Verbose logging set to: {v}")),
+            ),
+            "timeout" => value.map_or_else(
+                || Ok("Timeout is currently: 30 seconds".to_string()),
+                |v| Ok(format!("Timeout set to: {v} seconds")),
+            ),
             _ => Err(CommandError::ExecutionFailed(format!(
-                "Unknown setting: {}",
-                setting
+                "Unknown setting: {setting}"
             ))),
         }
     }
@@ -128,8 +118,7 @@ impl Command for UserProfileCommand {
             }
             "delete" => Ok("Profile deleted. This cannot be undone.".to_string()),
             _ => Err(CommandError::ExecutionFailed(format!(
-                "Unknown profile action: {}",
-                action
+                "Unknown profile action: {action}"
             ))),
         }
     }
@@ -173,8 +162,7 @@ impl Command for PublicInfoCommand {
             "about" => Ok("This is a demo of the Adapter Pattern for command systems.".to_string()),
             "version" => Ok("Version 1.0.0".to_string()),
             _ => Err(CommandError::ExecutionFailed(format!(
-                "Unknown info topic: {}",
-                topic
+                "Unknown info topic: {topic}"
             ))),
         }
     }
@@ -182,7 +170,7 @@ impl Command for PublicInfoCommand {
 
 // Simple helper for getting user input
 fn prompt(message: &str) -> String {
-    print!("{}", message);
+    print!("{message}");
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
@@ -224,13 +212,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("- 'info' and 'test' are public commands\n");
 
     loop {
-        println!("\nLogged in as: {}", user_type);
+        println!("\nLogged in as: {user_type}");
 
         // Show available commands
         let available_commands = mcp_adapter
             .get_available_commands(current_auth.clone())
             .await?;
-        println!("Available commands: {:?}", available_commands);
+        println!("Available commands: {available_commands:?}");
 
         let input = prompt("\nEnter command (or 'login', 'logout', 'quit'): ");
 
@@ -242,7 +230,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 current_auth = Auth::User(username.clone(), password);
                 user_type = username;
 
-                println!("Logged in as {}", user_type);
+                println!("Logged in as {user_type}");
             }
             "logout" => {
                 current_auth = Auth::None;
@@ -254,7 +242,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 break;
             }
             _ => {
-                let parts: Vec<String> = input.split_whitespace().map(|s| s.to_string()).collect();
+                let parts: Vec<String> = input
+                    .split_whitespace()
+                    .map(std::string::ToString::to_string)
+                    .collect();
 
                 if parts.is_empty() {
                     continue;
@@ -271,8 +262,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .execute_with_auth(&command, args, current_auth.clone())
                     .await
                 {
-                    Ok(result) => println!("Result: {}", result),
-                    Err(e) => println!("Error: {}", e),
+                    Ok(result) => println!("Result: {result}"),
+                    Err(e) => println!("Error: {e}"),
                 }
             }
         }

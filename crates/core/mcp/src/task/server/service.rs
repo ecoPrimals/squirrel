@@ -5,8 +5,7 @@
 //!
 //! This module contains the main TaskServiceImpl struct and its initialization methods.
 
-use crate::task::TaskManager;
-use crate::generated::mcp_task::task_service_server::TaskServiceServer;
+use crate::task::manager::TaskManager;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -43,10 +42,10 @@ impl TaskServiceImpl {
         }
     }
 
-    /// Create a new TaskServiceServer with the provided TaskManager.
-    pub fn create_server(task_manager: Arc<Mutex<TaskManager>>) -> TaskServiceServer<Self> {
-        let service = Self::new(task_manager, TaskServerConfig::default());
-        TaskServiceServer::new(service)
+    /// Create a new TaskServiceImpl with the provided TaskManager.
+    /// Use handle_json_rpc_request to process JSON-RPC requests.
+    pub fn create_server(task_manager: Arc<Mutex<TaskManager>>) -> Self {
+        Self::new(task_manager, TaskServerConfig::default())
     }
 }
 
@@ -57,4 +56,4 @@ impl Clone for TaskServiceImpl {
             config: self.config.clone(),
         }
     }
-} 
+}

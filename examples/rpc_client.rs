@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Example JSON-RPC client for testing Squirrel's Unix socket RPC server
 //!
 //! This demonstrates how biomeOS can interact with Squirrel via JSON-RPC 2.0

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal System Integration Demo
 //!
 //! This example demonstrates how the universal system replaces hardcoded

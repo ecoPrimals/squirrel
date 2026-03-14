@@ -28,7 +28,7 @@ impl CalculatorCommand {
         }
     }
 
-    fn calculate(&self, operation: &str, x: f64, y: f64) -> CommandResult<f64> {
+    fn calculate(operation: &str, x: f64, y: f64) -> CommandResult<f64> {
         match operation {
             "add" => Ok(x + y),
             "sub" => Ok(x - y),
@@ -43,8 +43,7 @@ impl CalculatorCommand {
                 }
             }
             _ => Err(CommandError::ExecutionFailed(format!(
-                "Unknown operation: {}",
-                operation
+                "Unknown operation: {operation}"
             ))),
         }
     }
@@ -72,17 +71,17 @@ impl Command for CalculatorCommand {
         // Parse arguments
         let x = args[1]
             .parse::<f64>()
-            .map_err(|e| CommandError::ExecutionFailed(format!("Invalid number: {}", e)))?;
+            .map_err(|e| CommandError::ExecutionFailed(format!("Invalid number: {e}")))?;
 
         let y = args[2]
             .parse::<f64>()
-            .map_err(|e| CommandError::ExecutionFailed(format!("Invalid number: {}", e)))?;
+            .map_err(|e| CommandError::ExecutionFailed(format!("Invalid number: {e}")))?;
 
         // Calculate result
-        let result = self.calculate(operation, x, y)?;
+        let result = Self::calculate(operation, x, y)?;
 
         // Format result
-        Ok(format!("{} {} {} = {}", x, operation, y, result))
+        Ok(format!("{x} {operation} {y} = {result}"))
     }
 }
 
@@ -102,14 +101,15 @@ impl WeatherCommand {
     }
 
     // This would use a real API in a production application
-    fn get_weather(&self, city: &str) -> CommandResult<String> {
+    #[allow(clippy::unnecessary_wraps)]
+    fn get_weather(city: &str) -> CommandResult<String> {
         // Simulate API response
         match city.to_lowercase().as_str() {
             "london" => Ok("London: 15°C, Cloudy".to_string()),
             "new york" => Ok("New York: 22°C, Sunny".to_string()),
             "tokyo" => Ok("Tokyo: 26°C, Rainy".to_string()),
             "sydney" => Ok("Sydney: 19°C, Partly cloudy".to_string()),
-            _ => Ok(format!("{}: 20°C, Weather data not available", city)),
+            _ => Ok(format!("{city}: 20°C, Weather data not available")),
         }
     }
 }
@@ -132,7 +132,7 @@ impl Command for WeatherCommand {
         }
 
         let city = &args[0];
-        self.get_weather(city)
+        Self::get_weather(city)
     }
 }
 
@@ -149,14 +149,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // List available commands
     let commands = adapter.list_commands().await?;
-    println!("Available commands: {:?}", commands);
+    println!("Available commands: {commands:?}");
 
     // Get help for commands
     let calc_help = adapter.get_help("calc").await?;
-    println!("\nHelp: {}", calc_help);
+    println!("\nHelp: {calc_help}");
 
     let weather_help = adapter.get_help("weather").await?;
-    println!("Help: {}", weather_help);
+    println!("Help: {weather_help}");
 
     // Execute calculator command
     println!("\n--- Calculator Command ---");
@@ -168,7 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             vec!["add".to_string(), "5".to_string(), "3".to_string()],
         )
         .await?;
-    println!("Addition result: {}", add_result);
+    println!("Addition result: {add_result}");
 
     // Multiply operation
     let mul_result = adapter
@@ -177,7 +177,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             vec!["mul".to_string(), "4".to_string(), "7".to_string()],
         )
         .await?;
-    println!("Multiplication result: {}", mul_result);
+    println!("Multiplication result: {mul_result}");
 
     // Division operation
     let div_result = adapter
@@ -186,7 +186,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             vec!["div".to_string(), "10".to_string(), "2".to_string()],
         )
         .await?;
-    println!("Division result: {}", div_result);
+    println!("Division result: {div_result}");
 
     // Division by zero (should fail)
     let div_zero = adapter
@@ -195,7 +195,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             vec!["div".to_string(), "10".to_string(), "0".to_string()],
         )
         .await;
-    println!("Division by zero: {:?}", div_zero);
+    println!("Division by zero: {div_zero:?}");
 
     // Execute weather command
     println!("\n--- Weather Command ---");
@@ -203,12 +203,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let london_weather = adapter
         .execute_command("weather", vec!["London".to_string()])
         .await?;
-    println!("{}", london_weather);
+    println!("{london_weather}");
 
     let tokyo_weather = adapter
         .execute_command("weather", vec!["Tokyo".to_string()])
         .await?;
-    println!("{}", tokyo_weather);
+    println!("{tokyo_weather}");
 
     Ok(())
 }

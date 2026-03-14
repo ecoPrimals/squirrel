@@ -1,10 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::missing_const_for_fn,
+    clippy::doc_markdown,
+    clippy::uninlined_format_args,
+    clippy::redundant_closure_for_method_calls,
+    clippy::assigning_clones,
+    clippy::struct_excessive_bools,
+    clippy::manual_string_new,
+    clippy::needless_pass_by_value
+)]
+
 //! Configuration system for Squirrel MCP
 //!
 //! This crate provides a unified configuration system supporting:
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! - Environment variable overrides
 //! - TOML/JSON/YAML file configuration
 //! - Comprehensive defaults and validation

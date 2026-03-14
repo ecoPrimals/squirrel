@@ -171,17 +171,18 @@ impl DiscoveryOps {
         primal_type: EcosystemPrimalType,
         endpoint: String,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Create discovered service with Arc<str> optimization
+        // Create discovered service with Arc<str> optimization (move endpoint, no clone)
+        let health_endpoint = Arc::from(format!("{endpoint}/health"));
         let service = Arc::new(DiscoveredService {
             service_id: intern_registry_string(&format!("{primal_type:?}").to_lowercase()),
             primal_type,
-            endpoint: Arc::from(endpoint.clone()),
+            endpoint: Arc::from(endpoint),
             capabilities: vec![
                 intern_registry_string("discovery"),
                 intern_registry_string("health_check"),
             ],
             health_status: ServiceHealthStatus::Healthy,
-            health_endpoint: Arc::from(format!("{endpoint}/health")),
+            health_endpoint,
             discovered_at: chrono::Utc::now(),
             api_version: Arc::from("v1"),
             last_health_check: Some(chrono::Utc::now()),

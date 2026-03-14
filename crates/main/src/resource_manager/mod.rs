@@ -46,3 +46,83 @@ mod types;
 // Re-export public types
 pub use core::ResourceManager;
 pub use types::{CleanupMetrics, ResourceManagerConfig, ResourceUsageStats};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resource_manager_config_default() {
+        let config = ResourceManagerConfig::default();
+        assert_eq!(
+            config.connection_cleanup_interval,
+            std::time::Duration::from_secs(300)
+        );
+        assert_eq!(
+            config.memory_cleanup_interval,
+            std::time::Duration::from_secs(600)
+        );
+        assert!(config.enable_auto_cleanup);
+        assert_eq!(config.max_memory_threshold, 500 * 1024 * 1024);
+    }
+
+    #[test]
+    fn test_resource_usage_stats_default() {
+        let stats = ResourceUsageStats::default();
+        assert_eq!(stats.memory_bytes, 0);
+        assert_eq!(stats.active_connections, 0);
+        assert_eq!(stats.background_tasks, 0);
+        assert!(stats.last_cleanup.is_none());
+    }
+
+    #[test]
+    fn test_cleanup_metrics_default() {
+        let metrics = CleanupMetrics::default();
+        assert_eq!(metrics.total_runs, 0);
+        assert_eq!(metrics.successful_runs, 0);
+        assert_eq!(metrics.failed_runs, 0);
+        assert!(metrics.last_run.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_resource_manager_new() {
+        let config = ResourceManagerConfig::default();
+        let manager = ResourceManager::new(config);
+        let stats = manager.get_usage_stats().await;
+        assert_eq!(stats.memory_bytes, 0);
+    }
+
+    #[tokio::test]
+    async fn test_resource_manager_register_connection_pool() {
+        let config = ResourceManagerConfig::default();
+        let manager = ResourceManager::new(config);
+        manager
+            .register_connection_pool("test_pool".to_string(), ())
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_resource_manager_start_background_tasks_disabled() {
+        let mut config = ResourceManagerConfig::default();
+        config.enable_auto_cleanup = false;
+        let manager = ResourceManager::new(config);
+        let result = manager.start_background_tasks().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_resource_manager_cleanup_now() {
+        let config = ResourceManagerConfig::default();
+        let manager = ResourceManager::new(config);
+        let result = manager.cleanup_now().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_resource_manager_get_cleanup_metrics() {
+        let config = ResourceManagerConfig::default();
+        let manager = ResourceManager::new(config);
+        let metrics = manager.get_cleanup_metrics().await;
+        assert!(metrics.is_empty());
+    }
+}

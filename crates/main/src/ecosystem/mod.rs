@@ -73,14 +73,33 @@ pub use registry::*;
 
 // discovery_client and registry_manager removed - HTTP-based, replaced by capability discovery
 
+fn ecosystem_serialize_arc_str<S>(arc_str: &Arc<str>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(arc_str)
+}
+
+fn ecosystem_deserialize_arc_str<'de, D>(deserializer: D) -> Result<Arc<str>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(Arc::from(s))
+}
+
 /// Ecosystem service registration for Squirrel AI primal
 ///
 /// This struct follows the standardized format for service discovery
 /// and registration within the ecoPrimals ecosystem.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemServiceRegistration {
-    /// Unique service identifier: "primal-squirrel-{instance}"
-    pub service_id: String,
+    /// Unique service identifier: "primal-squirrel-{instance}" (Arc<str> for O(1) clone)
+    #[serde(
+        serialize_with = "ecosystem_serialize_arc_str",
+        deserialize_with = "ecosystem_deserialize_arc_str"
+    )]
+    pub service_id: Arc<str>,
 
     /// Primal type from standardized enum
     pub primal_type: EcosystemPrimalType,
@@ -229,6 +248,23 @@ impl EcosystemPrimalType {
     pub fn service_name(&self) -> &'static str {
         self.as_str()
     }
+
+    /// Get capability for discovery (use this instead of primal name when discovering OTHER primals)
+    ///
+    /// Returns the capability constant for capability-based discovery.
+    /// Use `universal_constants::capabilities::SELF_PRIMAL_NAME` when referring to self.
+    #[must_use]
+    pub fn capability(&self) -> &'static str {
+        use universal_constants::capabilities;
+        match self {
+            EcosystemPrimalType::ToadStool => capabilities::COMPUTE_CAPABILITY,
+            EcosystemPrimalType::Songbird => capabilities::SERVICE_MESH_CAPABILITY,
+            EcosystemPrimalType::BearDog => capabilities::SECURITY_CAPABILITY,
+            EcosystemPrimalType::NestGate => capabilities::STORAGE_CAPABILITY,
+            EcosystemPrimalType::Squirrel => capabilities::SELF_PRIMAL_NAME,
+            EcosystemPrimalType::BiomeOS => capabilities::ECOSYSTEM_CAPABILITY,
+        }
+    }
 }
 
 #[allow(deprecated)]
@@ -363,7 +399,7 @@ impl EcosystemManager {
         status.last_registration = Some(Utc::now());
         status
             .active_registrations
-            .push(self.config.service_id.clone());
+            .push(Arc::clone(&self.config.service_id));
 
         tracing::info!("Squirrel service registered successfully");
         Ok(())
@@ -377,7 +413,7 @@ impl EcosystemManager {
         let endpoints = provider.endpoints();
 
         Ok(EcosystemServiceRegistration {
-            service_id: self.config.service_id.clone(),
+            service_id: Arc::clone(&self.config.service_id),
             primal_type: EcosystemPrimalType::Squirrel,
             biome_id: self.config.biome_id.clone(),
             name: provider.name().to_string(),
@@ -482,7 +518,7 @@ impl EcosystemManager {
                 service_id: Arc::from(m.service.service_id.as_str()),
                 primal_type: EcosystemPrimalType::Squirrel, // ✅ Capability mapping via CapabilityRegistry
                 endpoint: Arc::from(m.service.endpoint.as_str()),
-                health_endpoint: Arc::from(format!("{}/health", m.service.endpoint).as_str()),
+                health_endpoint: Arc::from(format!("{}/health", m.service.endpoint)),
                 api_version: Arc::from("1.0"),
                 capabilities: vec![Arc::from(capability)],
                 metadata: std::collections::HashMap::new(),
@@ -598,47 +634,6 @@ impl EcosystemManager {
         Ok(session_id)
     }
 
-    /// Start coordination between multiple primals (DEPRECATED)
-    ///
-    /// # Deprecation
-    /// This method uses hardcoded primal types, violating the TRUE PRIMAL principle.
-    /// Use `start_coordination_by_capabilities()` instead.
-    ///
-    /// # Migration
-    /// ```ignore
-    /// // OLD:
-    /// let session = manager.start_coordination(
-    ///     vec![
-    ///         EcosystemPrimalType::Songbird,
-    ///         EcosystemPrimalType::BearDog,
-    ///     ],
-    ///     context
-    /// ).await?;
-    ///
-    /// // NEW:
-    /// let session = manager.start_coordination_by_capabilities(
-    ///     vec!["service_mesh", "security.auth"],
-    ///     context
-    /// ).await?;
-    /// ```
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use start_coordination_by_capabilities() for TRUE PRIMAL compliance"
-    )]
-    pub async fn start_coordination(
-        &self,
-        _participants: Vec<EcosystemPrimalType>,
-        _context: HashMap<String, String>,
-    ) -> Result<String, PrimalError> {
-        tracing::warn!(
-            "⚠️ start_coordination is deprecated - use start_coordination_by_capabilities()"
-        );
-        Err(PrimalError::Configuration(
-            "start_coordination is deprecated. Use start_coordination_by_capabilities()"
-                .to_string(),
-        ))
-    }
-
     /// Complete coordination session
     pub async fn complete_coordination(
         &self,
@@ -664,12 +659,12 @@ impl EcosystemManager {
             match crate::capabilities::discovery::discover_all_capabilities().await {
                 Ok(capabilities_map) => {
                     let mut services = Vec::new();
-                    let mut seen = std::collections::HashSet::new();
+                    let mut seen = std::collections::HashSet::<std::path::PathBuf>::new();
 
                     for providers in capabilities_map.values() {
                         for provider in providers {
-                            let socket_str = provider.socket.display().to_string();
-                            if seen.insert(socket_str.clone()) {
+                            if seen.insert(provider.socket.clone()) {
+                                let socket_str = provider.socket.display().to_string();
                                 let caps: Vec<&str> =
                                     provider.capabilities.iter().map(|s| s.as_str()).collect();
                                 let metadata = provider
@@ -794,7 +789,7 @@ impl EcosystemManager {
         status.last_registration = Some(Utc::now());
         status
             .active_registrations
-            .push(self.config.service_id.clone());
+            .push(Arc::clone(&self.config.service_id));
 
         tracing::info!("Successfully prepared registration");
         Ok(())
@@ -811,7 +806,7 @@ impl EcosystemManager {
         let mut status = self.status.write().await;
         status
             .active_registrations
-            .retain(|id| id != &self.config.service_id);
+            .retain(|id: &Arc<str>| id.as_ref() != self.config.service_id.as_ref());
 
         tracing::info!("Successfully deregistered");
         Ok(())

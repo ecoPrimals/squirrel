@@ -317,7 +317,10 @@ impl EnhancedDemoRouter {
 
         if let Some(preferred_group) = task.metadata.get("preferred_group") {
             if self.agent_groups.contains_key(preferred_group) {
-                let group = self.agent_groups.get(preferred_group).expect("contains_key checked above");
+                let group = self
+                    .agent_groups
+                    .get(preferred_group)
+                    .expect("contains_key checked above");
                 if !group.agents.is_empty() {
                     return Ok(format!("group:{preferred_group}"));
                 }
@@ -376,7 +379,9 @@ impl EnhancedDemoRouter {
 
     fn matches_rule_condition(&self, condition: &str, task: &DemoTask) -> bool {
         if condition.starts_with("task_type=") {
-            let task_type = condition.strip_prefix("task_type=").expect("starts_with checked above");
+            let task_type = condition
+                .strip_prefix("task_type=")
+                .expect("starts_with checked above");
             return task
                 .metadata
                 .get("task_type")
@@ -384,7 +389,9 @@ impl EnhancedDemoRouter {
         }
 
         if condition.starts_with("capability=") {
-            let capability = condition.strip_prefix("capability=").expect("starts_with checked above");
+            let capability = condition
+                .strip_prefix("capability=")
+                .expect("starts_with checked above");
             return task.required_capabilities.contains(&capability.to_string());
         }
 
@@ -393,17 +400,23 @@ impl EnhancedDemoRouter {
 
     fn apply_rule_action(&self, action: &str) -> String {
         if action.starts_with("use_group=") {
-            let group_name = action.strip_prefix("use_group=").expect("starts_with checked above");
+            let group_name = action
+                .strip_prefix("use_group=")
+                .expect("starts_with checked above");
             return format!("group:{group_name}");
         }
 
         if action.starts_with("use_primal=") {
-            let primal_name = action.strip_prefix("use_primal=").expect("starts_with checked above");
+            let primal_name = action
+                .strip_prefix("use_primal=")
+                .expect("starts_with checked above");
             return format!("primal:{primal_name}");
         }
 
         if action.starts_with("use_agent=") {
-            let agent_name = action.strip_prefix("use_agent=").expect("starts_with checked above");
+            let agent_name = action
+                .strip_prefix("use_agent=")
+                .expect("starts_with checked above");
             return format!("agent:{agent_name}");
         }
 
@@ -465,7 +478,9 @@ impl EnhancedDemoRouter {
     fn calculate_load_factor(&self, destination: &str) -> f64 {
         // Simple load factor calculation
         let usage = if destination.starts_with("agent:") {
-            let agent_name = destination.strip_prefix("agent:").expect("starts_with checked above");
+            let agent_name = destination
+                .strip_prefix("agent:")
+                .expect("starts_with checked above");
             self.request_count.get(agent_name).unwrap_or(&0)
         } else {
             &0

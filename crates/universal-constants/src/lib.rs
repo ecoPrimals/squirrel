@@ -4,7 +4,7 @@
 //! Universal Constants for Squirrel MCP System
 //!
 //! This crate provides a **single source of truth** for all constants used throughout
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! the Squirrel Universal AI Primal system. It consolidates previously scattered constants
 //! from multiple locations into one well-organized, type-safe, and maintainable location.
 //!
@@ -60,6 +60,8 @@
 
 // Module declarations
 pub mod builders;
+pub mod capabilities;
+pub mod deployment;
 pub mod env_vars;
 pub mod limits;
 pub mod network;

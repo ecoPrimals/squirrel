@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Universal AI Provider Demo
 //!
 //! This demo shows how the universal AI provider works with pure capability-based

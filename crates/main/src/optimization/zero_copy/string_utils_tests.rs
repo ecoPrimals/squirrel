@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::string_utils::*;
+    use crate::optimization::zero_copy::string_utils::{CowString, StaticStrings, StringConcat};
     use std::sync::Arc;
 
     #[test]
@@ -244,5 +244,94 @@ mod tests {
         assert!(strings.contains("openai"));
         assert!(strings.contains("running"));
         assert!(!strings.is_empty());
+    }
+
+    #[test]
+    fn test_static_strings_clear() {
+        let mut strings = StaticStrings::new();
+        assert!(!strings.is_empty());
+        strings.clear();
+        assert!(strings.is_empty());
+        assert!(strings.len() == 0);
+        assert!(strings.get("openai").is_none());
+    }
+
+    // --- StringConcat tests ---
+
+    #[test]
+    fn test_string_concat_basic() {
+        let parts = vec!["Hello", " ", "world", "!"];
+        let result = StringConcat::concat(&parts);
+        assert_eq!(result, "Hello world!");
+    }
+
+    #[test]
+    fn test_string_concat_empty() {
+        let parts: Vec<&str> = vec![];
+        let result = StringConcat::concat(&parts);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_string_concat_single() {
+        let parts = vec!["single"];
+        let result = StringConcat::concat(&parts);
+        assert_eq!(result, "single");
+    }
+
+    #[test]
+    fn test_string_concat_with_separator() {
+        let parts = vec!["apple", "banana", "cherry"];
+        let result = StringConcat::concat_with_separator(&parts, ", ");
+        assert_eq!(result, "apple, banana, cherry");
+    }
+
+    #[test]
+    fn test_string_concat_with_separator_empty() {
+        let parts: Vec<&str> = vec![];
+        let result = StringConcat::concat_with_separator(&parts, ", ");
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_string_concat_with_separator_single() {
+        let parts = vec!["only"];
+        let result = StringConcat::concat_with_separator(&parts, " | ");
+        assert_eq!(result, "only");
+    }
+
+    // --- CowString tests ---
+
+    #[test]
+    fn test_cow_string_from_string() {
+        use std::borrow::Cow;
+        let s = "hello".to_string();
+        let cow = CowString::from_string(s);
+        assert!(matches!(cow, Cow::Owned(_)));
+        assert_eq!(&*cow, "hello");
+    }
+
+    #[test]
+    fn test_cow_string_from_str() {
+        use std::borrow::Cow;
+        let cow = CowString::from_str("borrowed");
+        assert!(matches!(cow, Cow::Borrowed(_)));
+        assert_eq!(&*cow, "borrowed");
+    }
+
+    #[test]
+    fn test_cow_into_owned_if_needed_borrowed() {
+        use std::borrow::Cow;
+        let cow: Cow<'_, str> = Cow::Borrowed("test");
+        let owned = CowString::into_owned_if_needed(cow);
+        assert_eq!(owned, "test");
+    }
+
+    #[test]
+    fn test_cow_into_owned_if_needed_owned() {
+        use std::borrow::Cow;
+        let cow: Cow<'_, str> = Cow::Owned("owned".to_string());
+        let owned = CowString::into_owned_if_needed(cow);
+        assert_eq!(owned, "owned");
     }
 }

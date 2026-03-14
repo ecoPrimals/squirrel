@@ -95,7 +95,7 @@ pub enum SquirrelError {
     #[error("{context}: {source}")]
     WithContext {
         /// The source error
-        source: Box<SquirrelError>,
+        source: Box<Self>,
         /// Additional context for the error
         context: String,
     },
@@ -104,83 +104,84 @@ pub enum SquirrelError {
 impl SquirrelError {
     /// Create a new generic error
     pub fn generic<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Generic(msg.into())
+        Self::Generic(msg.into())
     }
 
     /// Create a new MCP error
     pub fn mcp<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::MCP(msg.into())
+        Self::MCP(msg.into())
     }
 
     /// Create a new context error
     pub fn context<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Context(msg.into())
+        Self::Context(msg.into())
     }
 
     /// Create a new plugin error
     pub fn plugin<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Plugin(msg.into())
+        Self::Plugin(msg.into())
     }
 
     /// Create a new serialization error
     pub fn serialization<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Serialization(msg.into())
+        Self::Serialization(msg.into())
     }
 
     /// Create a new network error
     pub fn network<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Network(msg.into())
+        Self::Network(msg.into())
     }
 
     /// Create a new authentication error
     pub fn authentication<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Authentication(msg.into())
+        Self::Authentication(msg.into())
     }
 
     /// Create a new authorization error
     pub fn authorization<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Authorization(msg.into())
+        Self::Authorization(msg.into())
     }
 
     /// Create a new validation error
     pub fn validation<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Validation(msg.into())
+        Self::Validation(msg.into())
     }
 
     /// Create a new configuration error
     pub fn configuration<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Configuration(msg.into())
+        Self::Configuration(msg.into())
     }
 
     /// Create a new external service error
     pub fn external_service<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::ExternalService(msg.into())
+        Self::ExternalService(msg.into())
     }
 
     /// Create a new timeout error
     pub fn timeout<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Timeout(msg.into())
+        Self::Timeout(msg.into())
     }
 
     /// Create a new persistence error
     #[must_use]
-    pub fn persistence(err: PersistenceError) -> Self {
-        SquirrelError::Persistence(err)
+    pub const fn persistence(err: PersistenceError) -> Self {
+        Self::Persistence(err)
     }
 
     /// Create a new persistence storage error
     pub fn persistence_storage<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Persistence(PersistenceError::Storage(msg.into()))
+        Self::Persistence(PersistenceError::Storage(msg.into()))
     }
 
     /// Create a new session error
     pub fn session<S: Into<String>>(msg: S) -> Self {
-        SquirrelError::Session(msg.into())
+        Self::Session(msg.into())
     }
 
     /// Add context to an error
+    #[must_use]
     pub fn with_context<S: Into<String>>(self, context: S) -> Self {
-        SquirrelError::WithContext {
+        Self::WithContext {
             source: Box::new(self),
             context: context.into(),
         }
@@ -190,10 +191,8 @@ impl SquirrelError {
     #[must_use]
     pub fn is_recoverable(&self) -> bool {
         match self {
-            SquirrelError::Network(_)
-            | SquirrelError::Timeout(_)
-            | SquirrelError::ExternalService(_) => true,
-            SquirrelError::WithContext { source, .. } => source.is_recoverable(),
+            Self::Network(_) | Self::Timeout(_) | Self::ExternalService(_) => true,
+            Self::WithContext { source, .. } => source.is_recoverable(),
             _ => false,
         }
     }
@@ -201,25 +200,25 @@ impl SquirrelError {
 
 impl From<anyhow::Error> for SquirrelError {
     fn from(err: anyhow::Error) -> Self {
-        SquirrelError::Generic(err.to_string())
+        Self::Generic(err.to_string())
     }
 }
 
 impl From<serde_json::Error> for SquirrelError {
     fn from(err: serde_json::Error) -> Self {
-        SquirrelError::Serialization(err.to_string())
+        Self::Serialization(err.to_string())
     }
 }
 
 impl From<&str> for SquirrelError {
     fn from(s: &str) -> Self {
-        SquirrelError::Generic(s.to_string())
+        Self::Generic(s.to_string())
     }
 }
 
 impl From<String> for SquirrelError {
     fn from(s: String) -> Self {
-        SquirrelError::Generic(s)
+        Self::Generic(s)
     }
 }
 

@@ -1,6 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
+#![allow(
+    clippy::unused_async,
+    clippy::uninlined_format_args,
+    clippy::option_if_let_else,
+    clippy::redundant_closure_for_method_calls,
+    clippy::needless_pass_by_value,
+    clippy::single_match_else,
+    clippy::too_many_lines,
+    clippy::match_like_matches_macro,
+    clippy::manual_let_else,
+    clippy::doc_markdown,
+    clippy::use_self,
+    clippy::match_same_arms,
+    clippy::cast_possible_truncation,
+    clippy::items_after_statements
+)]
+
 //! Squirrel AI Coordinator Main Entry Point
 //!
 //! UniBin Architecture v1.0.0 compliant entry point.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Test Fixtures for Integration Tests
 //!
 //! Provides reusable test data and configuration for integration tests.

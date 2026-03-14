@@ -368,10 +368,12 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(socket_env)]
     fn test_env_overrides_all() {
         // Combined into a single test to prevent env var races between parallel tests.
         // apply_env_overrides reads ALL env vars at once, so parallel tests that set
         // different env vars (e.g. SQUIRREL_PORT="not-a-number") can break each other.
+        // Uses same serial group as rpc::unix_socket tests (SQUIRREL_SOCKET overlap).
         clear_squirrel_env_vars();
 
         // --- Server overrides ---
@@ -445,5 +447,153 @@ mod tests {
         clear_squirrel_env_vars();
         let config = ConfigLoader::load(None).unwrap();
         assert_eq!(config.server.port, 9010);
+    }
+
+    #[test]
+    #[serial_test::serial(socket_env)]
+    fn test_load_from_toml_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("squirrel.toml");
+        std::fs::write(
+            &config_path,
+            r#"
+[server]
+port = 8080
+bind = "127.0.0.1"
+max_connections = 50
+
+[ai]
+enabled = false
+max_retries = 5
+
+[logging]
+level = "debug"
+json = true
+
+[discovery]
+announce_capabilities = false
+"#,
+        )
+        .unwrap();
+
+        let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
+        assert_eq!(config.server.port, 8080);
+        assert_eq!(config.server.bind, "127.0.0.1");
+        assert_eq!(config.server.max_connections, 50);
+        assert!(!config.ai.enabled);
+        assert_eq!(config.ai.max_retries, 5);
+        assert_eq!(config.logging.level, "debug");
+        assert!(config.logging.json);
+        assert!(!config.discovery.announce_capabilities);
+    }
+
+    #[test]
+    fn test_load_from_yaml_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("squirrel.yaml");
+        std::fs::write(
+            &config_path,
+            r#"
+server:
+  port: 7070
+  bind: "0.0.0.0"
+ai:
+  enabled: true
+  max_retries: 3
+logging:
+  level: "warn"
+  json: false
+discovery:
+  announce_capabilities: true
+"#,
+        )
+        .unwrap();
+
+        let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
+        assert_eq!(config.server.port, 7070);
+        assert!(config.ai.enabled);
+        assert_eq!(config.ai.max_retries, 3);
+        assert_eq!(config.logging.level, "warn");
+    }
+
+    #[test]
+    #[serial_test::serial(socket_env)]
+    fn test_load_from_json_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("squirrel.json");
+        std::fs::write(
+            &config_path,
+            r#"{"server":{"port":6060,"bind":"0.0.0.0"},"ai":{"enabled":true},"logging":{"level":"info"},"discovery":{"announce_capabilities":true}}"#,
+        )
+        .unwrap();
+
+        let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
+        assert_eq!(config.server.port, 6060);
+    }
+
+    #[test]
+    #[serial_test::serial(socket_env)]
+    fn test_load_from_nonexistent_file() {
+        let result = ConfigLoader::load(Some(std::path::Path::new("/nonexistent/squirrel.toml")));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial_test::serial(socket_env)]
+    fn test_load_from_unsupported_format() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("squirrel.txt");
+        std::fs::write(&config_path, "invalid format").unwrap();
+
+        let result = ConfigLoader::load(Some(config_path.as_path()));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported config file format"));
+    }
+
+    #[test]
+    #[serial_test::serial(socket_env)]
+    fn test_load_from_invalid_toml() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("squirrel.toml");
+        std::fs::write(&config_path, "invalid toml [[[[").unwrap();
+
+        let result = ConfigLoader::load(Some(config_path.as_path()));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial_test::serial(socket_env)]
+    fn test_load_from_invalid_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("squirrel.json");
+        std::fs::write(&config_path, "{ invalid json }").unwrap();
+
+        let result = ConfigLoader::load(Some(config_path.as_path()));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial_test::serial(socket_env)]
+    fn test_env_override_invalid_squirrel_ai_enabled() {
+        clear_squirrel_env_vars();
+        std::env::set_var("SQUIRREL_AI_ENABLED", "not-a-bool");
+        let mut config = SquirrelConfig::default();
+        let result = ConfigLoader::apply_env_overrides(&mut config);
+        clear_squirrel_env_vars();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial_test::serial(socket_env)]
+    fn test_env_override_invalid_squirrel_log_json() {
+        clear_squirrel_env_vars();
+        std::env::set_var("SQUIRREL_LOG_JSON", "invalid");
+        let mut config = SquirrelConfig::default();
+        let result = ConfigLoader::apply_env_overrides(&mut config);
+        clear_squirrel_env_vars();
+        assert!(result.is_err());
     }
 }

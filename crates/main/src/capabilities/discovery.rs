@@ -24,6 +24,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
@@ -537,11 +538,11 @@ async fn is_unix_socket(path: &Path) -> bool {
 
 /// Discover all available capabilities in the environment
 ///
-/// Returns a map of capability name → providers
-pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<CapabilityProvider>>> {
+/// Returns a map of capability name → providers (Arc for zero-copy sharing)
+pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<Arc<CapabilityProvider>>>> {
     info!("🔍 Discovering all available capabilities...");
 
-    let mut all_capabilities: HashMap<String, Vec<CapabilityProvider>> = HashMap::new();
+    let mut all_capabilities: HashMap<String, Vec<Arc<CapabilityProvider>>> = HashMap::new();
 
     // Scan all socket directories
     for socket_dir in get_socket_directories() {
@@ -551,12 +552,12 @@ pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<Capabilit
 
                 if is_unix_socket(&path).await {
                     if let Ok(provider) = probe_socket(&path).await {
-                        // Add this provider to all its capabilities
+                        let provider = Arc::new(provider);
                         for capability in &provider.capabilities {
                             all_capabilities
                                 .entry(capability.clone())
                                 .or_default()
-                                .push(provider.clone());
+                                .push(Arc::clone(&provider));
                         }
                     }
                 }
@@ -570,247 +571,6 @@ pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<Capabilit
     );
 
     Ok(all_capabilities)
-}
-
-// ============================================================================
-// STANDARD PRIMAL DISCOVERY HELPERS
-// ============================================================================
-//
-// These convenience functions discover specific primals in the NUCLEUS stack.
-// They follow TRUE PRIMAL principles:
-// - Check environment variables first (explicit configuration)
-// - Then check standard biomeOS paths (NUCLEUS-compliant discovery)
-// - No hardcoded assumptions about what capabilities each primal provides
-//
-// Used for:
-// - Tower Atomic: BearDog + Songbird
-// - Node Atomic: Tower + Toadstool
-// - Nest Atomic: Tower + NestGate
-// - Full NUCLEUS: All primals
-
-/// Discover network/service mesh capability provider
-///
-/// **DEPRECATED**: Use `discover_capability("network")` instead for TRUE PRIMAL compliance.
-/// This function is maintained for backward compatibility only.
-///
-/// ## Discovery Order
-/// 1. `NETWORK_PROVIDER_SOCKET` or `SONGBIRD_SOCKET` environment variable
-/// 2. `/run/user/<uid>/biomeos/network.sock` or `/run/user/<uid>/biomeos/songbird.sock` (standard path)
-/// 3. Socket scan fallback (slow)
-///
-/// ## Example
-/// ```no_run
-/// # use squirrel::capabilities::discovery::discover_capability;
-/// # async fn example() -> anyhow::Result<()> {
-/// // TRUE PRIMAL: Discover by capability, not primal name
-/// let network_provider = discover_capability("network").await?;
-/// println!("Found network provider at: {:?}", network_provider.socket);
-/// # Ok(())
-/// # }
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use discover_capability(\"network\") instead for capability-based discovery"
-)]
-pub async fn discover_songbird() -> Result<CapabilityProvider, DiscoveryError> {
-    discover_standard_primal("songbird", &["network", "discovery", "tls"]).await
-}
-
-/// Discover security capability provider
-///
-/// **DEPRECATED**: Use `discover_capability("security")` instead for TRUE PRIMAL compliance.
-/// This function is maintained for backward compatibility only.
-///
-/// ## Discovery Order
-/// 1. `SECURITY_PROVIDER_SOCKET` or `BEARDOG_SOCKET` environment variable
-/// 2. `/run/user/<uid>/biomeos/security.sock` or `/run/user/<uid>/biomeos/beardog.sock` (standard path)
-/// 3. Socket scan fallback (slow)
-///
-/// ## Example
-/// ```no_run
-/// # use squirrel::capabilities::discovery::discover_capability;
-/// # async fn example() -> anyhow::Result<()> {
-/// // TRUE PRIMAL: Discover by capability, not primal name
-/// let security_provider = discover_capability("security").await?;
-/// println!("Found security provider at: {:?}", security_provider.socket);
-/// # Ok(())
-/// # }
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use discover_capability(\"security\") instead for capability-based discovery"
-)]
-pub async fn discover_beardog() -> Result<CapabilityProvider, DiscoveryError> {
-    discover_standard_primal("beardog", &["security", "crypto", "jwt"]).await
-}
-
-/// Discover compute capability provider
-///
-/// **DEPRECATED**: Use `discover_capability("compute")` instead for TRUE PRIMAL compliance.
-/// This function is maintained for backward compatibility only.
-///
-/// ## Discovery Order
-/// 1. `COMPUTE_PROVIDER_SOCKET` or `TOADSTOOL_SOCKET` environment variable
-/// 2. `/run/user/<uid>/biomeos/compute.sock` or `/run/user/<uid>/biomeos/toadstool.sock` (standard path)
-/// 3. Socket scan fallback (slow)
-///
-/// ## Example
-/// ```no_run
-/// # use squirrel::capabilities::discovery::discover_capability;
-/// # async fn example() -> anyhow::Result<()> {
-/// // TRUE PRIMAL: Discover by capability, not primal name
-/// let compute_provider = discover_capability("compute").await?;
-/// println!("Found compute provider at: {:?}", compute_provider.socket);
-/// # Ok(())
-/// # }
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use discover_capability(\"compute\") instead for capability-based discovery"
-)]
-pub async fn discover_toadstool() -> Result<CapabilityProvider, DiscoveryError> {
-    discover_standard_primal("toadstool", &["compute", "gpu"]).await
-}
-
-/// Discover storage capability provider
-///
-/// **DEPRECATED**: Use `discover_capability("storage")` instead for TRUE PRIMAL compliance.
-/// This function is maintained for backward compatibility only.
-///
-/// ## Discovery Order
-/// 1. `STORAGE_PROVIDER_SOCKET` or `NESTGATE_SOCKET` environment variable
-/// 2. `/run/user/<uid>/biomeos/storage.sock` or `/run/user/<uid>/biomeos/nestgate.sock` (standard path)
-/// 3. Socket scan fallback (slow)
-///
-/// ## Example
-/// ```no_run
-/// # use squirrel::capabilities::discovery::discover_capability;
-/// # async fn example() -> anyhow::Result<()> {
-/// // TRUE PRIMAL: Discover by capability, not primal name
-/// let storage_provider = discover_capability("storage").await?;
-/// println!("Found storage provider at: {:?}", storage_provider.socket);
-/// # Ok(())
-/// # }
-/// ```
-#[deprecated(
-    since = "0.1.0",
-    note = "Use discover_capability(\"storage\") instead for capability-based discovery"
-)]
-pub async fn discover_nestgate() -> Result<CapabilityProvider, DiscoveryError> {
-    discover_standard_primal("nestgate", &["storage", "persistence"]).await
-}
-
-/// Generic discovery for standard biomeOS primals
-///
-/// This function implements the standardized discovery pattern used by all primals
-/// in the NUCLEUS stack. It's TRUE PRIMAL - checks environment first, then standard
-/// paths, then falls back to socket scanning.
-///
-/// ## Discovery Order
-/// 1. `{PRIMAL}_SOCKET` env var (e.g., `SONGBIRD_SOCKET`)
-/// 2. `/run/user/<uid>/biomeos/{primal}.sock` (standard path)
-/// 3. Socket scan of all directories (fallback)
-///
-/// ## Arguments
-/// - `primal_name`: Name of the primal (e.g., "songbird", "beardog")
-/// - `expected_capabilities`: Capabilities we expect this primal to provide
-///
-/// ## Returns
-/// - `Ok(CapabilityProvider)` if primal found and reachable
-/// - `Err(DiscoveryError)` if primal not found or unreachable
-async fn discover_standard_primal(
-    primal_name: &str,
-    expected_capabilities: &[&str],
-) -> Result<CapabilityProvider, DiscoveryError> {
-    debug!("🔍 Discovering {} primal...", primal_name);
-
-    // Priority 1: Check environment variable (explicit configuration)
-    let env_var = format!("{}_SOCKET", primal_name.to_uppercase());
-    if let Ok(socket_path) = std::env::var(&env_var) {
-        let path = PathBuf::from(&socket_path);
-        if path.exists() {
-            info!(
-                "✅ Found {} via env var {} = {}",
-                primal_name, env_var, socket_path
-            );
-
-            // Try to probe the socket to verify it's reachable
-            // If probe fails, we still trust the env var (operator knows best)
-            match probe_socket(&path).await {
-                Ok(provider) => return Ok(provider),
-                Err(e) => {
-                    debug!(
-                        "Probe failed for {} socket, trusting env var anyway: {}",
-                        primal_name, e
-                    );
-                    return Ok(CapabilityProvider {
-                        id: primal_name.to_string(),
-                        capabilities: expected_capabilities
-                            .iter()
-                            .map(|s| s.to_string())
-                            .collect(),
-                        socket: path,
-                        metadata: HashMap::new(),
-                        discovered_via: format!("env:{}", env_var),
-                    });
-                }
-            }
-        }
-    }
-
-    // Priority 2: Check standard biomeOS path (NUCLEUS-compliant!)
-    let uid = nix::unistd::getuid();
-    let standard_path = PathBuf::from(format!("/run/user/{}/biomeos/{}.sock", uid, primal_name));
-
-    if standard_path.exists() {
-        info!(
-            "✅ Found {} at standard path: {}",
-            primal_name,
-            standard_path.display()
-        );
-
-        // Try to probe the socket
-        match probe_socket(&standard_path).await {
-            Ok(provider) => return Ok(provider),
-            Err(e) => {
-                debug!("Probe failed for {} at standard path: {}", primal_name, e);
-                // Return it anyway - socket exists, might just not respond to probe
-                return Ok(CapabilityProvider {
-                    id: primal_name.to_string(),
-                    capabilities: expected_capabilities
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect(),
-                    socket: standard_path,
-                    metadata: HashMap::new(),
-                    discovered_via: "standard_path".to_string(),
-                });
-            }
-        }
-    }
-
-    // Priority 3: Fallback to socket scan (slow, but comprehensive)
-    debug!(
-        "Standard path not found, falling back to socket scan for {}",
-        primal_name
-    );
-
-    // Try to discover by capability
-    for capability in expected_capabilities {
-        if let Ok(provider) = discover_capability(capability).await {
-            info!(
-                "✅ Found {} via capability scan: {}",
-                primal_name, capability
-            );
-            return Ok(provider);
-        }
-    }
-
-    warn!("❌ Could not discover {} primal", primal_name);
-    Err(DiscoveryError::CapabilityNotFound(format!(
-        "Primal '{}' not found via env var, standard path, or socket scan",
-        primal_name
-    )))
 }
 
 #[cfg(test)]

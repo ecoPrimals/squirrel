@@ -3,9 +3,41 @@
 
 //! Squirrel Commands Service
 #![allow(dead_code)] // Command service awaiting full wiring
+#![allow(
+    clippy::redundant_else,
+    clippy::uninlined_format_args,
+    clippy::unused_async,
+    clippy::needless_pass_by_ref_mut,
+    clippy::missing_const_for_fn,
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::use_self,
+    clippy::doc_markdown,
+    clippy::significant_drop_tightening,
+    clippy::implicit_clone,
+    clippy::option_if_let_else,
+    clippy::cloned_instead_of_copied,
+    clippy::cast_precision_loss,
+    clippy::if_not_else,
+    clippy::return_self_not_must_use,
+    clippy::too_many_lines,
+    clippy::suboptimal_flops,
+    clippy::cast_possible_truncation,
+    clippy::single_match_else,
+    clippy::ignored_unit_patterns,
+    clippy::missing_fields_in_debug,
+    clippy::cast_possible_wrap,
+    clippy::needless_pass_by_value,
+    clippy::cast_sign_loss,
+    clippy::match_same_arms,
+    clippy::map_unwrap_or,
+    clippy::format_push_string,
+    clippy::unnecessary_literal_bound,
+    clippy::unused_self
+)]
 //!
 //! Core command processing functionality for the Squirrel MCP ecosystem.
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! This service handles basic command execution and validation.
 
 use std::sync::Arc;

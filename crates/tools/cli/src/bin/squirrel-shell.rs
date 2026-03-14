@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
+#![allow(
+    clippy::needless_continue,
+    clippy::if_not_else,
+    clippy::uninlined_format_args,
+    clippy::redundant_closure_for_method_calls
+)]
+
 //! Main executable for the Squirrel CLI.
 
 use squirrel_cli::commands::registry::CommandRegistry;

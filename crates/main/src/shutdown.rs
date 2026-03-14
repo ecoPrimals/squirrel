@@ -894,4 +894,23 @@ mod tests {
         let debug_str = format!("{:?}", signal);
         assert!(debug_str.contains("Graceful"));
     }
+
+    #[tokio::test]
+    async fn test_coordinate_shutdown_graceful() {
+        let manager = Arc::new(ShutdownManager::new());
+        let handler = Arc::new(MockHandler::new("test"));
+        manager
+            .register_handler("test".to_string(), handler.clone())
+            .await;
+
+        let manager_clone = Arc::clone(&manager);
+        let coord_handle = tokio::spawn(async move { manager_clone.coordinate_shutdown().await });
+
+        // Send graceful signal
+        manager.request_shutdown().await.unwrap();
+
+        let result = coord_handle.await.unwrap();
+        assert!(result.is_ok());
+        assert!(manager.is_shutdown_complete().await);
+    }
 }

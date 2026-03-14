@@ -55,7 +55,6 @@ impl ResourceManager {
 
     /// Register a connection pool for management
     // register_connection_pool removed - Unix sockets don't need connection pooling
-    #[allow(dead_code)]
     pub async fn register_connection_pool(&self, _name: String, _pool: ()) {
         // No-op: connection pooling not needed for Unix sockets
     }

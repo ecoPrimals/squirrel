@@ -8,8 +8,8 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 /// Represents the status of a task.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -76,70 +76,70 @@ pub enum AgentType {
 pub struct Task {
     /// Unique identifier for the task
     pub id: String,
-    
+
     /// Name of the task
     pub name: String,
-    
+
     /// Description of the task
     pub description: String,
-    
+
     /// Current status of the task
     pub status_code: TaskStatus,
-    
+
     /// Priority of the task
     pub priority_code: TaskPriority,
-    
+
     /// Type of agent that can handle this task
     pub agent_type: AgentType,
-    
+
     /// Progress of the task (0.0 to 100.0)
     pub progress: f32,
-    
+
     /// ID of the agent assigned to this task
     pub agent_id: Option<String>,
-    
+
     /// ID of the context that this task belongs to
     pub context_id: Option<String>,
-    
+
     /// ID of the parent task, if this is a subtask
     pub parent_id: Option<String>,
-    
+
     /// IDs of tasks that must be completed before this one can start
     pub prerequisites: Vec<String>,
-    
+
     /// When the task was created
     pub created_at: DateTime<Utc>,
-    
+
     /// When the task was last updated
     pub updated_at: DateTime<Utc>,
-    
+
     /// When the task was completed
     pub completed_at: Option<DateTime<Utc>>,
-    
+
     /// Input data for the task
     pub input_data: Option<HashMap<String, String>>,
-    
+
     /// Output data from the task
     pub output_data: Option<HashMap<String, String>>,
-    
+
     /// Metadata about the task (additional information)
     pub metadata: Option<HashMap<String, String>>,
-    
+
     /// Error message if the task failed
     pub error_message: Option<String>,
-    
+
     /// Status message from the agent
     pub status_message: Option<String>,
-    
+
     /// When the task must be completed by
     pub deadline: Option<DateTime<Utc>>,
-    
+
     /// Whether the task should be watchable
     pub watchable: bool,
-    
+
     /// Number of times this task has been retried
     pub retry_count: i32,
-    
+
     /// Maximum number of retries allowed
     pub max_retries: i32,
 }
@@ -182,92 +182,92 @@ impl Task {
         task.description = description.to_string();
         task
     }
-    
+
     /// Set the priority of the task.
     pub fn with_priority(mut self, priority: TaskPriority) -> Self {
         self.priority_code = priority;
         self
     }
-    
+
     /// Set the agent type that can handle this task.
     pub fn with_agent_type(mut self, agent_type: AgentType) -> Self {
         self.agent_type = agent_type;
         self
     }
-    
+
     /// Set the task's context.
     pub fn with_context(mut self, context_id: &str) -> Self {
         self.context_id = Some(context_id.to_string());
         self
     }
-    
+
     /// Add input data to the task.
     pub fn with_input_data(mut self, input_data: HashMap<String, String>) -> Self {
         self.input_data = Some(input_data);
         self
     }
-    
+
     /// Add metadata to the task.
     pub fn with_metadata(mut self, metadata: HashMap<String, String>) -> Self {
         self.metadata = Some(metadata);
         self
     }
-    
+
     /// Add a prerequisite task that must be completed before this one can start.
     pub fn with_prerequisite(mut self, prerequisite_id: &str) -> Self {
         self.prerequisites.push(prerequisite_id.to_string());
         self
     }
-    
+
     /// Set the deadline for the task.
     pub fn with_deadline(mut self, deadline: DateTime<Utc>) -> Self {
         self.deadline = Some(deadline);
         self
     }
-    
+
     /// Make the task watchable for live updates.
     pub fn watchable(mut self) -> Self {
         self.watchable = true;
         self
     }
-    
+
     /// Check if the task is pending.
     pub fn is_pending(&self) -> bool {
         self.status_code == TaskStatus::Pending
     }
-    
+
     /// Check if the task is running.
     pub fn is_running(&self) -> bool {
         self.status_code == TaskStatus::Running
     }
-    
+
     /// Check if the task is completed.
     pub fn is_completed(&self) -> bool {
         self.status_code == TaskStatus::Completed
     }
-    
+
     /// Check if the task has failed.
     pub fn is_failed(&self) -> bool {
         self.status_code == TaskStatus::Failed
     }
-    
+
     /// Check if the task has been cancelled.
     pub fn is_cancelled(&self) -> bool {
         self.status_code == TaskStatus::Cancelled
     }
-    
+
     /// Check if the task is finished (completed, failed, or cancelled).
     pub fn is_finished(&self) -> bool {
         self.is_completed() || self.is_failed() || self.is_cancelled()
     }
-    
+
     /// Mark the task as running and assign it to an agent.
     pub fn mark_running(&mut self, agent_id: &str) {
         self.status_code = TaskStatus::Running;
         self.agent_id = Some(agent_id.to_string());
         self.updated_at = Utc::now();
     }
-    
+
     /// Mark the task as completed with optional output data.
     pub fn mark_completed(&mut self, output_data: Option<HashMap<String, String>>) {
         self.status_code = TaskStatus::Completed;
@@ -278,21 +278,21 @@ impl Task {
             self.output_data = Some(data);
         }
     }
-    
+
     /// Mark the task as failed with an error message.
     pub fn mark_failed(&mut self, error_message: &str) {
         self.status_code = TaskStatus::Failed;
         self.error_message = Some(error_message.to_string());
         self.updated_at = Utc::now();
     }
-    
+
     /// Mark the task as cancelled with a reason.
     pub fn mark_cancelled(&mut self, reason: &str) {
         self.status_code = TaskStatus::Cancelled;
         self.status_message = Some(reason.to_string());
         self.updated_at = Utc::now();
     }
-    
+
     /// Update the progress of the task.
     pub fn update_progress(&mut self, progress: f32, message: Option<String>) {
         self.progress = progress.max(0.0).min(100.0);
@@ -301,7 +301,7 @@ impl Task {
         }
         self.updated_at = Utc::now();
     }
-    
+
     /// Check if the task is overdue.
     pub fn is_overdue(&self) -> bool {
         if let Some(deadline) = self.deadline {
@@ -310,28 +310,28 @@ impl Task {
             false
         }
     }
-    
+
     /// Check if the task can be retried.
     pub fn can_retry(&self) -> bool {
         self.is_failed() && self.retry_count < self.max_retries
     }
-    
+
     /// Retry the task.
     pub fn retry(&mut self) -> bool {
         if !self.can_retry() {
             return false;
         }
-        
+
         self.status_code = TaskStatus::Pending;
         self.retry_count += 1;
         self.progress = 0.0;
         self.error_message = None;
         self.agent_id = None;
         self.updated_at = Utc::now();
-        
+
         true
     }
-    
+
     /// Set maximum retries for the task.
     pub fn set_max_retries(&mut self, max_retries: i32) {
         self.max_retries = max_retries;
@@ -345,8 +345,6 @@ impl Task {
  * including status codes, priority levels, and agent types.
  */
 
-use crate::generated::mcp_task::{TaskStatus as GenTaskStatus, TaskPriority as GenTaskPriority, AgentType as GenAgentType};
-
 impl From<i32> for TaskStatus {
     fn from(code: i32) -> Self {
         match code {
@@ -358,35 +356,6 @@ impl From<i32> for TaskStatus {
             5 => TaskStatus::Cancelled,
             99 => TaskStatus::All,
             _ => TaskStatus::Waiting,
-        }
-    }
-}
-
-impl From<GenTaskStatus> for TaskStatus {
-    fn from(status: GenTaskStatus) -> Self {
-        match status {
-            GenTaskStatus::Unspecified => TaskStatus::Waiting,
-            GenTaskStatus::Created => TaskStatus::Pending,
-            GenTaskStatus::Assigned => TaskStatus::Running,
-            GenTaskStatus::Running => TaskStatus::Running,
-            GenTaskStatus::Completed => TaskStatus::Completed,
-            GenTaskStatus::Failed => TaskStatus::Failed,
-            GenTaskStatus::Cancelled => TaskStatus::Cancelled,
-            GenTaskStatus::Pending => TaskStatus::Pending,
-        }
-    }
-}
-
-impl From<TaskStatus> for GenTaskStatus {
-    fn from(status: TaskStatus) -> Self {
-        match status {
-            TaskStatus::Waiting => GenTaskStatus::Unspecified,
-            TaskStatus::Pending => GenTaskStatus::Created,
-            TaskStatus::Running => GenTaskStatus::Running,
-            TaskStatus::Completed => GenTaskStatus::Completed,
-            TaskStatus::Failed => GenTaskStatus::Failed,
-            TaskStatus::Cancelled => GenTaskStatus::Cancelled,
-            TaskStatus::All => GenTaskStatus::Unspecified,
         }
     }
 }
@@ -415,31 +384,6 @@ impl From<i32> for TaskPriority {
             3 => TaskPriority::Critical,
             4 => TaskPriority::Normal,
             _ => TaskPriority::Unspecified,
-        }
-    }
-}
-
-impl From<GenTaskPriority> for TaskPriority {
-    fn from(code: GenTaskPriority) -> Self {
-        match code {
-            GenTaskPriority::Unspecified => TaskPriority::Unspecified,
-            GenTaskPriority::Low => TaskPriority::Low,
-            GenTaskPriority::Medium => TaskPriority::Medium,
-            GenTaskPriority::High => TaskPriority::High,
-            GenTaskPriority::Critical => TaskPriority::Critical,
-        }
-    }
-}
-
-impl From<TaskPriority> for GenTaskPriority {
-    fn from(priority: TaskPriority) -> Self {
-        match priority {
-            TaskPriority::Low => GenTaskPriority::Low,
-            TaskPriority::Medium => GenTaskPriority::Medium,
-            TaskPriority::Normal => GenTaskPriority::Medium,
-            TaskPriority::High => GenTaskPriority::High,
-            TaskPriority::Critical => GenTaskPriority::Critical,
-            TaskPriority::Unspecified => GenTaskPriority::Unspecified,
         }
     }
 }
@@ -474,34 +418,6 @@ impl From<i32> for AgentType {
     }
 }
 
-impl From<GenAgentType> for AgentType {
-    fn from(code: GenAgentType) -> Self {
-        match code {
-            GenAgentType::Unspecified => AgentType::Unspecified,
-            GenAgentType::LocalPython => AgentType::AI,
-            GenAgentType::RemoteApi => AgentType::DataProcessor,
-            GenAgentType::Ui => AgentType::FileHandler,
-            GenAgentType::System => AgentType::System,
-            GenAgentType::Custom => AgentType::General,
-        }
-    }
-}
-
-impl From<AgentType> for GenAgentType {
-    fn from(agent_type: AgentType) -> Self {
-        match agent_type {
-            AgentType::Unspecified => GenAgentType::Unspecified,
-            AgentType::Human => GenAgentType::LocalPython,
-            AgentType::AI => GenAgentType::LocalPython,
-            AgentType::System => GenAgentType::System,
-            AgentType::General => GenAgentType::Custom,
-            AgentType::DataProcessor => GenAgentType::RemoteApi,
-            AgentType::FileHandler => GenAgentType::Ui,
-            AgentType::Task => GenAgentType::Unspecified,
-        }
-    }
-}
-
 impl From<AgentType> for i32 {
     fn from(agent_type: AgentType) -> Self {
         match agent_type {
@@ -515,4 +431,4 @@ impl From<AgentType> for i32 {
             AgentType::Task => 7,
         }
     }
-} 
+}

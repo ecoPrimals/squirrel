@@ -2,7 +2,7 @@
 
 **Universal AI Coordination Primal** for the ecoPrimals ecosystem.
 
-**License**: AGPL-3.0-only | **Build**: GREEN | **Tests**: 1,957 passing | **Rust**: 1.80+
+**License**: AGPL-3.0-only | **Build**: GREEN | **Tests**: 3,969 passing | **Rust**: 1.80+
 
 ---
 
@@ -43,8 +43,8 @@ cargo build --release
 # Run all workspace tests
 cargo test --workspace
 
-# Check code quality
-cargo clippy --workspace
+# Check code quality (pedantic + nursery)
+cargo clippy --workspace -- -D warnings -W clippy::pedantic -W clippy::nursery
 ```
 
 ### Run
@@ -134,8 +134,9 @@ All AI provider interactions are capability-based, not vendor-specific:
 
 ### Multi-Protocol RPC
 
-- JSON-RPC 2.0 over Unix sockets (default)
-- tarpc with automatic protocol negotiation
+- **JSON-RPC 2.0** over Unix sockets (default)
+- **tarpc** with automatic protocol negotiation
+- gRPC/tonic fully removed — 100% JSON-RPC + tarpc
 - Universal transport: automatic fallback (Unix sockets -> Named pipes -> TCP)
 
 ---
@@ -143,7 +144,7 @@ All AI provider interactions are capability-based, not vendor-specific:
 ## Testing
 
 ```bash
-# Run full workspace tests (1,957 tests, ~25 seconds)
+# Run full workspace tests (3,969 tests, single-threaded)
 cargo test --workspace
 
 # Run main crate tests only
@@ -155,7 +156,7 @@ cargo llvm-cov --workspace --html
 
 ### Test Coverage
 
-- **1,957 tests** across 85 test suites, 0 failures
+- **3,969 tests** passing, 0 failed, 9 ignored
 - Unit, integration, E2E, and chaos testing
 - Network resilience, resource exhaustion, and concurrency chaos tests (13/15)
 
@@ -186,7 +187,7 @@ See `squirrel.toml.example` for file-based configuration.
 
 ### Code Standards
 
-- Zero unsafe code in production (`#![deny(unsafe_code)]`)
+- Zero unsafe code in production (`#![forbid(unsafe_code)]`)
 - All files under 1,000 lines (smart refactoring)
 - Capability-based discovery (not hardcoded primal types)
 - `std::sync::LazyLock` / `OnceLock` for statics (no `lazy_static` / `once_cell`)

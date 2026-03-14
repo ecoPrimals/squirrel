@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
+#![allow(
+    clippy::too_many_lines,
+    clippy::uninlined_format_args,
+    clippy::redundant_closure_for_method_calls,
+    clippy::single_char_pattern,
+    clippy::match_like_matches_macro,
+    clippy::single_match_else,
+    clippy::equatable_if_let
+)]
+
 //! Squirrel CLI — command-line interface for the Squirrel AI primal.
 
 use log::{debug, info, warn, LevelFilter};

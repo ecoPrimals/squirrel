@@ -33,10 +33,16 @@
 //! // See the trait definition for complete requirements
 //! ```
 
-#![deny(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed
+#![forbid(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]
+#![allow(
+    clippy::use_self,
+    clippy::missing_const_for_fn,
+    clippy::missing_errors_doc,
+    clippy::struct_excessive_bools
+)]
 
 #[cfg(feature = "http-api")]
 pub mod client;

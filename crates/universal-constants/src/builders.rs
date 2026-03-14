@@ -60,25 +60,29 @@ pub fn localhost_ws(port: u16) -> String {
 /// Build health check URL
 #[must_use]
 pub fn health_url(base_url: &str) -> String {
-    format!("{}{}", base_url, network::HEALTH_ENDPOINT)
+    let endpoint = network::HEALTH_ENDPOINT;
+    format!("{base_url}{endpoint}")
 }
 
 /// Build metrics URL
 #[must_use]
 pub fn metrics_url(base_url: &str) -> String {
-    format!("{}{}", base_url, network::METRICS_ENDPOINT)
+    let endpoint = network::METRICS_ENDPOINT;
+    format!("{base_url}{endpoint}")
 }
 
 /// Build admin URL
 #[must_use]
 pub fn admin_url(base_url: &str) -> String {
-    format!("{}{}", base_url, network::ADMIN_ENDPOINT)
+    let endpoint = network::ADMIN_ENDPOINT;
+    format!("{base_url}{endpoint}")
 }
 
 /// Build WebSocket endpoint URL
 #[must_use]
 pub fn ws_url(base_url: &str) -> String {
-    format!("{}{}", base_url, network::WS_ENDPOINT)
+    let endpoint = network::WS_ENDPOINT;
+    format!("{base_url}{endpoint}")
 }
 
 /// Build default localhost URLs (HTTP, health, metrics, admin, WS)
@@ -224,7 +228,15 @@ pub fn get_request_timeout() -> Duration {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        admin_url, build_http_url, build_ws_url, default_localhost_urls, get_buffer_size,
+        get_connection_timeout, get_database_timeout, get_heartbeat_interval, get_initial_delay,
+        get_max_connections, get_request_timeout, get_service_mesh_max_services, health_url,
+        localhost_http, localhost_ws, metrics_url, parse_bool, parse_limit, parse_port,
+        parse_timeout_duration, parse_u32, ws_url,
+    };
+    use crate::{limits, timeouts};
+    use std::time::Duration;
 
     #[test]
     fn test_url_builders() {

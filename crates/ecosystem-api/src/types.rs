@@ -210,7 +210,7 @@ pub enum PrimalType {
 }
 
 impl PrimalType {
-    /// Get string representation
+    /// Get string representation (for serialization/backward compatibility)
     #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -221,6 +221,22 @@ impl PrimalType {
             PrimalType::Squirrel => "squirrel",
             PrimalType::BiomeOS => "biomeos",
             PrimalType::Any => "any", // Capability-based discovery
+        }
+    }
+
+    /// Get capability for discovery (use when discovering OTHER primals by capability)
+    ///
+    /// Returns the capability constant for capability-based discovery.
+    #[must_use]
+    pub fn capability(&self) -> &'static str {
+        match self {
+            PrimalType::ToadStool => "compute",
+            PrimalType::Songbird => "service-mesh",
+            PrimalType::BearDog => "security",
+            PrimalType::NestGate => "storage",
+            PrimalType::Squirrel => "squirrel", // Self-identity
+            PrimalType::BiomeOS => "ecosystem",
+            PrimalType::Any => "any",
         }
     }
 }

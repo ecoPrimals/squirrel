@@ -4,7 +4,8 @@
 //! Context adapter for Squirrel
 //!
 //! This crate provides adapters for interfacing with the context subsystem,
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
+#![allow(clippy::missing_const_for_fn, clippy::significant_drop_tightening)]
 //! including context management, persistence, and synchronization.
 //!
 //! ## Plugin Support

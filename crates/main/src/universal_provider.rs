@@ -751,3 +751,7 @@ impl EcosystemIntegration for UniversalSquirrelProvider {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "universal_provider_tests.rs"]
+mod tests;

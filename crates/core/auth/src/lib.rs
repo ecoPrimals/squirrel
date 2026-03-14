@@ -5,7 +5,7 @@
 //! Squirrel Authentication & Security System
 //!
 //! Modern authentication system leveraging capability-based discovery and ecosystem integration.
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! This completely replaces the severely outdated legacy auth code with a clean, modern architecture.
 //!
 //! ## TRUE ecoBin Architecture (v1.3.0) via Capability Discovery

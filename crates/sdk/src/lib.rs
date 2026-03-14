@@ -4,7 +4,7 @@
 //! # Squirrel Plugin SDK
 //!
 //! The Squirrel Plugin SDK provides a comprehensive set of tools and APIs for developing
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! plugins that integrate with the Squirrel MCP (Model Context Protocol) platform.
 //!
 //! ## Features
@@ -25,8 +25,41 @@
 // Allow deprecated items during SDK migration to universal-error crate
 #![allow(deprecated)]
 #![allow(async_fn_in_trait)]
-#![allow(clippy::unused_self)]
-#![allow(clippy::unnecessary_wraps)]
+#![allow(
+    clippy::unused_self,
+    clippy::unnecessary_wraps,
+    clippy::unused_async,
+    clippy::needless_pass_by_ref_mut,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::missing_const_for_fn,
+    clippy::doc_markdown,
+    clippy::uninlined_format_args,
+    clippy::use_self,
+    clippy::redundant_closure_for_method_calls,
+    clippy::needless_pass_by_value,
+    clippy::module_name_repetitions,
+    clippy::unnested_or_patterns,
+    clippy::redundant_else,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::future_not_send,
+    clippy::wildcard_imports,
+    clippy::elidable_lifetime_names,
+    clippy::struct_excessive_bools,
+    clippy::match_same_arms,
+    clippy::return_self_not_must_use,
+    clippy::option_if_let_else,
+    clippy::cast_precision_loss,
+    clippy::manual_string_new,
+    clippy::significant_drop_tightening,
+    clippy::derive_partial_eq_without_eq,
+    clippy::or_fun_call,
+    clippy::if_not_else,
+    clippy::needless_continue,
+    clippy::map_unwrap_or
+)]
 //!
 //! #[wasm_bindgen]
 //! pub struct MyPlugin {

@@ -581,4 +581,94 @@ mod tests {
         let overall_health = MonitoringSystem::calculate_overall_health(&health_summary);
         assert_eq!(overall_health, HealthState::Critical);
     }
+
+    #[tokio::test]
+    async fn test_monitoring_system_stop() {
+        let config = MonitoringConfig::default();
+        let monitoring_system = MonitoringSystem::new(config);
+        let result = monitoring_system.stop().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_export_prometheus_metrics_no_exporter() {
+        let config = MonitoringConfig::default();
+        let monitoring_system = MonitoringSystem::new(config);
+        let result = monitoring_system.export_prometheus_metrics().await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Prometheus exporter not configured"));
+    }
+
+    #[tokio::test]
+    async fn test_record_metric() {
+        let config = MonitoringConfig::default();
+        let monitoring_system = MonitoringSystem::new(config);
+        // record_metric requires the metric to be registered first
+        let custom_metric = CustomMetricDefinition {
+            name: "test_metric".to_string(),
+            metric_type: MetricType::Gauge,
+            description: "Test metric".to_string(),
+            labels: vec![],
+            unit: "count".to_string(),
+            source: "test".to_string(),
+        };
+        let _ = monitoring_system
+            .register_custom_metric(custom_metric)
+            .await;
+        let result = monitoring_system
+            .record_metric("test_metric", 42.0, HashMap::new())
+            .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_component_metrics() {
+        let config = MonitoringConfig::default();
+        let monitoring_system = MonitoringSystem::new(config);
+        let result = monitoring_system.get_component_metrics("nonexistent").await;
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        assert!(metrics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_health_summary() {
+        let config = MonitoringConfig::default();
+        let monitoring_system = MonitoringSystem::new(config);
+        let result = monitoring_system.get_health_summary().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_performance_summary() {
+        let config = MonitoringConfig::default();
+        let monitoring_system = MonitoringSystem::new(config);
+        let result = monitoring_system.get_performance_summary().await;
+        assert!(result.is_ok());
+        let summary = result.unwrap();
+        // Performance tracker may collect real system metrics
+        assert!(summary.cpu_usage >= 0.0 && summary.cpu_usage <= 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_get_active_alerts() {
+        let config = MonitoringConfig::default();
+        let monitoring_system = MonitoringSystem::new(config);
+        let result = monitoring_system.get_active_alerts().await;
+        assert!(result.is_ok());
+        let alerts = result.unwrap();
+        assert!(alerts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_monitoring_system_start() {
+        let config = MonitoringConfig::default();
+        let monitoring_system = MonitoringSystem::new(config);
+        let result = monitoring_system.start().await;
+        assert!(result.is_ok());
+        let _ = monitoring_system.stop().await;
+    }
 }

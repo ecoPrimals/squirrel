@@ -224,13 +224,10 @@ impl JsonRpcServer {
     /// via socket scanning. TRUE PRIMAL: uses capability namespaces,
     /// not primal names. Consumers learn WHAT we do, not WHO we are.
     pub(crate) async fn handle_discover_capabilities(&self) -> Result<Value, JsonRpcError> {
-        use crate::optimization::zero_copy::intern;
-
         debug!("🔍 discover_capabilities request");
 
-        // Use interned strings for zero-copy efficiency — these are called frequently
-        // during peer discovery and socket scanning
-        let mut capabilities: Vec<String> = [
+        // Use &str directly — avoid .to_string() allocations for hot discovery path
+        let mut capabilities: Vec<&str> = vec![
             "ai.query",
             "ai.complete",
             "ai.chat",
@@ -242,16 +239,12 @@ impl JsonRpcServer {
             "discovery.peers",
             "capability.announce",
             "capability.discover",
-        ]
-        .iter()
-        .map(|name| intern::get_or_intern(name).to_string())
-        .collect();
+        ];
 
         if let Some(router) = &self.ai_router {
-            let provider_count = router.provider_count().await;
-            if provider_count > 0 {
-                capabilities.push(intern::get_or_intern("ai.inference").to_string());
-                capabilities.push(intern::get_or_intern("ai.text_generation").to_string());
+            if router.provider_count().await > 0 {
+                capabilities.push("ai.inference");
+                capabilities.push("ai.text_generation");
             }
         }
 
@@ -354,11 +347,10 @@ impl JsonRpcServer {
 
                 for providers in capabilities_map.values() {
                     for provider in providers {
-                        let socket_str = provider.socket.display().to_string();
-                        if seen_sockets.insert(socket_str.clone()) {
+                        if seen_sockets.insert(provider.socket.clone()) {
                             peer_list.push(serde_json::json!({
                                 "id": provider.id,
-                                "socket": socket_str,
+                                "socket": provider.socket.display().to_string(),
                                 "capabilities": provider.capabilities,
                                 "discovered_via": provider.discovered_via,
                             }));
@@ -417,7 +409,11 @@ impl JsonRpcServer {
         info!("🔧 Executing tool: {tool_name}");
 
         let executor = crate::tool::ToolExecutor::new();
-        let args_str = serde_json::to_string(&args).unwrap_or_default();
+        let args_str = serde_json::to_string(&args).map_err(|e| JsonRpcError {
+            code: error_codes::INVALID_PARAMS,
+            message: format!("Invalid tool args: {e}"),
+            data: None,
+        })?;
 
         match executor.execute_tool(tool_name, &args_str).await {
             Ok(result) => {
@@ -436,5 +432,176 @@ impl JsonRpcServer {
                 data: Some(serde_json::json!({ "tool": tool_name })),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn make_server() -> JsonRpcServer {
+        JsonRpcServer::new("/tmp/test.sock".to_string())
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    struct TestParams {
+        name: String,
+        count: u32,
+    }
+
+    #[tokio::test]
+    async fn test_parse_params_valid() {
+        let server = make_server();
+        let params = Some(json!({"name": "test", "count": 42}));
+        let result: TestParams = server.parse_params(params).unwrap();
+        assert_eq!(result.name, "test");
+        assert_eq!(result.count, 42);
+    }
+
+    #[tokio::test]
+    async fn test_parse_params_missing() {
+        let server = make_server();
+        let result: Result<TestParams, _> = server.parse_params(None);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+        assert!(err.message.contains("Missing parameters"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_params_invalid_type() {
+        let server = make_server();
+        let params = Some(json!({"name": "test", "count": "not-a-number"}));
+        let result: Result<TestParams, _> = server.parse_params(params);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_parse_params_wrong_structure() {
+        let server = make_server();
+        let params = Some(json!({"wrong": "structure"}));
+        let result: Result<TestParams, _> = server.parse_params(params);
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_method_not_found() {
+        let server = make_server();
+        let err = server.method_not_found("nonexistent.method");
+        assert_eq!(err.code, error_codes::METHOD_NOT_FOUND);
+        assert!(err.message.contains("nonexistent.method"));
+    }
+
+    #[tokio::test]
+    async fn test_error_response() {
+        let server = make_server();
+        let response = server.error_response(json!(1), -32000, "Custom error");
+        assert_eq!(response.jsonrpc, "2.0");
+        assert!(response.result.is_none());
+        assert!(response.error.is_some());
+        let err = response.error.unwrap();
+        assert_eq!(err.code, -32000);
+        assert_eq!(err.message, "Custom error");
+        assert_eq!(response.id, json!(1));
+    }
+
+    #[tokio::test]
+    async fn test_handle_health() {
+        let server = make_server();
+        let result = server.handle_health().await.unwrap();
+        assert!(result.get("status").and_then(|v| v.as_str()) == Some("healthy"));
+        assert!(result.get("version").is_some());
+        assert!(result.get("uptime_seconds").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_metrics() {
+        let server = make_server();
+        let result = server.handle_metrics().await.unwrap();
+        assert!(result.get("requests_handled").is_some());
+        assert!(result.get("errors").is_some());
+        assert!(result.get("uptime_seconds").is_some());
+        assert!(result.get("success_rate").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_ping() {
+        let server = make_server();
+        let result = server.handle_ping().await.unwrap();
+        assert_eq!(result.get("pong").and_then(|v| v.as_bool()), Some(true));
+        assert!(result.get("timestamp").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_discover_capabilities() {
+        let server = make_server();
+        let result = server.handle_discover_capabilities().await.unwrap();
+        assert_eq!(
+            result.get("primal").and_then(|v| v.as_str()),
+            Some("squirrel")
+        );
+        let caps = result
+            .get("capabilities")
+            .and_then(|v| v.as_array())
+            .unwrap();
+        assert!(caps.iter().any(|c| c.as_str() == Some("ai.query")));
+        assert!(caps.iter().any(|c| c.as_str() == Some("system.health")));
+    }
+
+    #[tokio::test]
+    async fn test_handle_announce_capabilities_valid() {
+        let server = make_server();
+        let params = Some(json!({"capabilities": ["ai.inference", "tool.execute"]}));
+        let result = server.handle_announce_capabilities(params).await.unwrap();
+        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert!(result
+            .get("message")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .contains("2"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_announce_capabilities_missing_params() {
+        let server = make_server();
+        let result = server.handle_announce_capabilities(None).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_handle_list_providers_no_router() {
+        let server = make_server();
+        let result = server.handle_list_providers(None).await.unwrap();
+        assert_eq!(result.get("total").and_then(|v| v.as_u64()), Some(0));
+        assert!(result
+            .get("providers")
+            .and_then(|v| v.as_array())
+            .unwrap()
+            .is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_handle_query_ai_no_params() {
+        let server = make_server();
+        let result = server.handle_query_ai(None).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_handle_query_ai_no_router() {
+        let server = make_server();
+        let params = Some(json!({"prompt": "Hello"}));
+        let result = server.handle_query_ai(params).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("AI router not configured"));
     }
 }

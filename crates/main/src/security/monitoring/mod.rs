@@ -222,6 +222,12 @@ impl SecurityMonitoringSystem {
         alerts.values().cloned().collect()
     }
 
+    /// Test helper: get event buffer length (for verifying record_event)
+    #[cfg(test)]
+    pub(crate) async fn test_get_buffer_len(&self) -> usize {
+        self.event_buffer.lock().await.len()
+    }
+
     // Private methods
 
     /// Start event processing task
@@ -619,6 +625,7 @@ impl ShutdownHandler for SecurityMonitoringSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[tokio::test]
     async fn test_security_monitoring_system_new() {
@@ -650,9 +657,8 @@ mod tests {
 
         system.record_event(event).await;
 
-        // Event should be in buffer
-        let buffer = system.event_buffer.lock().await;
-        assert_eq!(buffer.len(), 1);
+        let buffer_len = system.test_get_buffer_len().await;
+        assert_eq!(buffer_len, 1);
     }
 
     #[tokio::test]
@@ -662,5 +668,119 @@ mod tests {
 
         let alerts = system.get_active_alerts().await;
         assert_eq!(alerts.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_monitoring_with_disabled_real_time() {
+        let mut config = SecurityMonitoringConfig::default();
+        config.enable_real_time_monitoring = false;
+        let system = SecurityMonitoringSystem::new(config);
+
+        let correlation_id = CorrelationId::new();
+        let event = SecurityEvent::new(
+            SecurityEventType::RateLimitViolation {
+                client_ip: "10.0.0.1".to_string(),
+                endpoint: "/api".to_string(),
+                violation_count: 5,
+            },
+            "10.0.0.1".to_string(),
+            EventSeverity::Warning,
+            "rate_limiter".to_string(),
+            correlation_id,
+        );
+
+        system.record_event(event).await;
+        let buffer_len = system.test_get_buffer_len().await;
+        assert_eq!(buffer_len, 1);
+    }
+
+    #[tokio::test]
+    async fn test_monitoring_event_with_nil_id() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+
+        let mut event = SecurityEvent::new(
+            SecurityEventType::SuspiciousActivity {
+                client_ip: "192.168.1.1".to_string(),
+                activity_type: "scan".to_string(),
+                details: HashMap::new(),
+            },
+            "192.168.1.1".to_string(),
+            EventSeverity::High,
+            "detector".to_string(),
+            CorrelationId::new(),
+        );
+        event.event_id = Uuid::nil();
+
+        system.record_event(event).await;
+        let buffer_len = system.test_get_buffer_len().await;
+        assert_eq!(buffer_len, 1);
+    }
+
+    #[tokio::test]
+    async fn test_monitoring_buffer_flush_on_size() {
+        let mut config = SecurityMonitoringConfig::default();
+        config.enable_real_time_monitoring = false;
+        config.event_buffer_size = 3;
+        let system = SecurityMonitoringSystem::new(config);
+
+        for i in 0..5 {
+            let event = SecurityEvent::new(
+                SecurityEventType::Authentication {
+                    success: true,
+                    user_id: Some(format!("user{i}")),
+                    method: "password".to_string(),
+                },
+                "192.168.1.1".to_string(),
+                EventSeverity::Info,
+                "auth".to_string(),
+                CorrelationId::new(),
+            );
+            system.record_event(event).await;
+        }
+
+        let buffer_len = system.test_get_buffer_len().await;
+        assert!(buffer_len <= 3);
+    }
+
+    #[tokio::test]
+    async fn test_monitoring_alert_thresholds_config() {
+        let config = SecurityMonitoringConfig::default();
+        assert_eq!(config.alert_thresholds.failed_auth_per_hour, 10);
+        assert!(config.alert_thresholds.max_failed_requests_ratio > 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_monitoring_shutdown_phases() {
+        let mut config = SecurityMonitoringConfig::default();
+        config.enable_real_time_monitoring = false;
+        let system = SecurityMonitoringSystem::new(config);
+
+        assert!(system.shutdown(ShutdownPhase::StopAccepting).await.is_ok());
+        assert!(system.shutdown(ShutdownPhase::DrainRequests).await.is_ok());
+        assert!(system
+            .shutdown(ShutdownPhase::CloseConnections)
+            .await
+            .is_ok());
+        assert!(system
+            .shutdown(ShutdownPhase::CleanupResources)
+            .await
+            .is_ok());
+        assert!(system.shutdown(ShutdownPhase::ShutdownTasks).await.is_ok());
+        assert!(system.shutdown(ShutdownPhase::FinalCleanup).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_monitoring_component_name() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+        assert_eq!(system.component_name(), "security_monitoring");
+    }
+
+    #[tokio::test]
+    async fn test_monitoring_estimated_shutdown_time() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+        assert_eq!(system.estimated_shutdown_time(), Duration::from_secs(10));
     }
 }

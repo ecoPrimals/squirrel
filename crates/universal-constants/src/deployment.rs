@@ -30,17 +30,16 @@
 //! let endpoint = format!("http://{}:{}", hosts::default(), port);
 //! ```
 
-use std::env;
-
 /// Port configuration with environment variable support
 pub mod ports {
-    use super::*;
+    use std::env;
 
     /// MCP server port
     ///
-    /// **Environment**: `MCP_SERVER_PORT`  
-    /// **Default**: `8443`  
+    /// **Environment**: `MCP_SERVER_PORT`\
+    /// **Default**: `8443`\
     /// **Usage**: Primary MCP protocol server
+    #[must_use]
     pub fn mcp_server() -> u16 {
         env::var("MCP_SERVER_PORT")
             .ok()
@@ -50,10 +49,11 @@ pub mod ports {
 
     /// Service mesh orchestration port
     ///
-    /// **Environment**: `SERVICE_MESH_PORT`  
-    /// **Default**: `8444`  
+    /// **Environment**: `SERVICE_MESH_PORT`\
+    /// **Default**: `8444`\
     /// **Usage**: Service mesh coordination (capability-based discovery)
     /// **Note**: Discovers actual service mesh at runtime, no hardcoded primal names
+    #[must_use]
     pub fn service_mesh() -> u16 {
         env::var("SERVICE_MESH_PORT")
             .ok()
@@ -63,10 +63,11 @@ pub mod ports {
 
     /// Security service port
     ///
-    /// **Environment**: `SECURITY_SERVICE_PORT`  
-    /// **Default**: `8443`  
+    /// **Environment**: `SECURITY_SERVICE_PORT`\
+    /// **Default**: `8443`\
     /// **Usage**: Security and authentication service (capability-based discovery)
     /// **Note**: Discovers actual security provider at runtime
+    #[must_use]
     pub fn security_service() -> u16 {
         env::var("SECURITY_SERVICE_PORT")
             .ok()
@@ -76,10 +77,11 @@ pub mod ports {
 
     /// Storage service port
     ///
-    /// **Environment**: `STORAGE_SERVICE_PORT`  
-    /// **Default**: `8445`  
+    /// **Environment**: `STORAGE_SERVICE_PORT`\
+    /// **Default**: `8445`\
     /// **Usage**: Storage and data management (capability-based discovery)
     /// **Note**: Discovers actual storage provider at runtime
+    #[must_use]
     pub fn storage_service() -> u16 {
         env::var("STORAGE_SERVICE_PORT")
             .ok()
@@ -89,10 +91,11 @@ pub mod ports {
 
     /// Compute service port
     ///
-    /// **Environment**: `COMPUTE_SERVICE_PORT`  
-    /// **Default**: `8446`  
+    /// **Environment**: `COMPUTE_SERVICE_PORT`\
+    /// **Default**: `8446`\
     /// **Usage**: Compute and execution service (capability-based discovery)
     /// **Note**: Discovers actual compute provider at runtime
+    #[must_use]
     pub fn compute_service() -> u16 {
         env::var("COMPUTE_SERVICE_PORT")
             .ok()
@@ -100,40 +103,12 @@ pub mod ports {
             .unwrap_or(8446)
     }
 
-    // ========================================================================
-    // DEPRECATED ALIASES (Backward Compatibility)
-    // ========================================================================
-    // These will be removed in future versions. Use capability-based names above.
-
-    /// DEPRECATED: Use `security_service()` instead
-    #[deprecated(note = "Use security_service() - capability-based discovery")]
-    pub fn beardog() -> u16 {
-        security_service()
-    }
-
-    /// DEPRECATED: Use `service_mesh()` instead
-    #[deprecated(note = "Use service_mesh() - capability-based discovery")]
-    pub fn songbird() -> u16 {
-        service_mesh()
-    }
-
-    /// DEPRECATED: Use `storage_service()` instead
-    #[deprecated(note = "Use storage_service() - capability-based discovery")]
-    pub fn nestgate() -> u16 {
-        storage_service()
-    }
-
-    /// DEPRECATED: Use `compute_service()` instead
-    #[deprecated(note = "Use compute_service() - capability-based discovery")]
-    pub fn toadstool() -> u16 {
-        compute_service()
-    }
-
     /// API gateway port
     ///
-    /// **Environment**: `API_GATEWAY_PORT`  
-    /// **Default**: `8080`  
+    /// **Environment**: `API_GATEWAY_PORT`\
+    /// **Default**: `8080`\
     /// **Usage**: Public-facing API gateway
+    #[must_use]
     pub fn api_gateway() -> u16 {
         env::var("API_GATEWAY_PORT")
             .ok()
@@ -143,9 +118,10 @@ pub mod ports {
 
     /// WebSocket server port
     ///
-    /// **Environment**: `WEBSOCKET_PORT`  
-    /// **Default**: `8448`  
+    /// **Environment**: `WEBSOCKET_PORT`\
+    /// **Default**: `8448`\
     /// **Usage**: WebSocket transport layer
+    #[must_use]
     pub fn websocket() -> u16 {
         env::var("WEBSOCKET_PORT")
             .ok()
@@ -155,9 +131,10 @@ pub mod ports {
 
     /// Metrics/monitoring port
     ///
-    /// **Environment**: `METRICS_PORT`  
-    /// **Default**: `9090`  
+    /// **Environment**: `METRICS_PORT`\
+    /// **Default**: `9090`\
     /// **Usage**: Prometheus metrics endpoint
+    #[must_use]
     pub fn metrics() -> u16 {
         env::var("METRICS_PORT")
             .ok()
@@ -167,9 +144,10 @@ pub mod ports {
 
     /// Health check port
     ///
-    /// **Environment**: `HEALTH_PORT`  
-    /// **Default**: `9091`  
+    /// **Environment**: `HEALTH_PORT`\
+    /// **Default**: `9091`\
     /// **Usage**: Health check endpoint
+    #[must_use]
     pub fn health() -> u16 {
         env::var("HEALTH_PORT")
             .ok()
@@ -179,102 +157,97 @@ pub mod ports {
 
     /// CLI MCP server port
     ///
-    /// **Environment**: `CLI_MCP_PORT`  
-    /// **Default**: `9000`  
+    /// **Environment**: `CLI_MCP_PORT`\
+    /// **Default**: `9000`\
     /// **Usage**: CLI MCP server
+    #[must_use]
     pub fn cli_mcp() -> u16 {
         env::var("CLI_MCP_PORT")
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(9000)
     }
+
+    /// `PostgreSQL` database port
+    ///
+    /// **Environment**: `POSTGRES_PORT` or `DATABASE_PORT`\
+    /// **Default**: `5432`\
+    /// **Usage**: `PostgreSQL` database connections
+    #[must_use]
+    pub fn postgres() -> u16 {
+        env::var("POSTGRES_PORT")
+            .or_else(|_| env::var("DATABASE_PORT"))
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(5432)
+    }
 }
 
 /// Service name configuration with environment variable support
 pub mod services {
-    use super::*;
+    use std::env;
 
     /// Security service name (capability: security)
     ///
-    /// **Environment**: `SECURITY_SERVICE_NAME`  
-    /// **Default**: `"security"`  
+    /// **Environment**: `SECURITY_SERVICE_NAME`\
+    /// **Default**: `"security"`\
     /// **Usage**: Capability-based service discovery for security
+    #[must_use]
     pub fn security() -> String {
         env::var("SECURITY_SERVICE_NAME").unwrap_or_else(|_| "security".to_string())
     }
 
     /// Orchestration service name (capability: orchestration)
     ///
-    /// **Environment**: `ORCHESTRATION_SERVICE_NAME`  
-    /// **Default**: `"service-mesh"`  
+    /// **Environment**: `ORCHESTRATION_SERVICE_NAME`\
+    /// **Default**: `"service-mesh"`\
     /// **Usage**: Capability-based service discovery for orchestration
+    #[must_use]
     pub fn orchestration() -> String {
         env::var("ORCHESTRATION_SERVICE_NAME").unwrap_or_else(|_| "service-mesh".to_string())
     }
 
     /// Storage service name (capability: storage)
     ///
-    /// **Environment**: `STORAGE_SERVICE_NAME`  
-    /// **Default**: `"storage"`  
+    /// **Environment**: `STORAGE_SERVICE_NAME`\
+    /// **Default**: `"storage"`\
     /// **Usage**: Capability-based service discovery for storage
+    #[must_use]
     pub fn storage() -> String {
         env::var("STORAGE_SERVICE_NAME").unwrap_or_else(|_| "storage".to_string())
     }
 
     /// Compute service name (capability: compute)
     ///
-    /// **Environment**: `COMPUTE_SERVICE_NAME`  
-    /// **Default**: `"compute"`  
+    /// **Environment**: `COMPUTE_SERVICE_NAME`\
+    /// **Default**: `"compute"`\
     /// **Usage**: Capability-based service discovery for compute
+    #[must_use]
     pub fn compute() -> String {
         env::var("COMPUTE_SERVICE_NAME").unwrap_or_else(|_| "compute".to_string())
     }
 
     /// AI service name (capability: ai)
     ///
-    /// **Environment**: `AI_SERVICE_NAME`  
-    /// **Default**: `"ai"`  
+    /// **Environment**: `AI_SERVICE_NAME`\
+    /// **Default**: `"ai"`\
     /// **Usage**: Capability-based service discovery for AI
+    #[must_use]
     pub fn ai() -> String {
         env::var("AI_SERVICE_NAME").unwrap_or_else(|_| "ai".to_string())
-    }
-
-    // Deprecated primal name functions for backward compatibility
-    #[deprecated(note = "Use security() which now returns capability name, not primal name")]
-    pub fn beardog() -> String {
-        "beardog".to_string()
-    }
-
-    #[deprecated(note = "Use orchestration() which now returns capability name, not primal name")]
-    pub fn songbird() -> String {
-        "songbird".to_string()
-    }
-
-    #[deprecated(note = "Use storage() which now returns capability name, not primal name")]
-    pub fn nestgate() -> String {
-        "nestgate".to_string()
-    }
-
-    #[deprecated(note = "Use compute() which now returns capability name, not primal name")]
-    pub fn toadstool() -> String {
-        "toadstool".to_string()
-    }
-
-    #[deprecated(note = "Use ai() which now returns capability name, not primal name")]
-    pub fn squirrel() -> String {
-        "squirrel".to_string()
     }
 }
 
 /// Host configuration with environment variable support
 pub mod hosts {
-    use super::*;
+    use std::env;
 
     /// Default host for development
     ///
-    /// **Environment**: `SQUIRREL_HOST`  
-    /// **Default**: `"localhost"`  
+    /// **Environment**: `SQUIRREL_HOST`\
+    /// **Default**: `"localhost"`\
     /// **Usage**: Default hostname for local development
+    #[must_use]
     pub fn default() -> String {
         env::var("SQUIRREL_HOST").unwrap_or_else(|_| "localhost".to_string())
     }
@@ -282,6 +255,7 @@ pub mod hosts {
     /// Localhost address (127.0.0.1)
     ///
     /// **Usage**: Explicit localhost IP for development
+    #[must_use]
     pub fn localhost() -> String {
         "127.0.0.1".to_string()
     }
@@ -289,227 +263,180 @@ pub mod hosts {
     /// All interfaces address (0.0.0.0)
     ///
     /// **Usage**: Bind to all network interfaces (production)
+    #[must_use]
     pub fn all_interfaces() -> String {
         "0.0.0.0".to_string()
     }
 
     /// MCP server host
     ///
-    /// **Environment**: `MCP_SERVER_HOST`  
-    /// **Default**: Same as `default()`  
+    /// **Environment**: `MCP_SERVER_HOST`\
+    /// **Default**: Same as `default()`\
     /// **Usage**: MCP server hostname
+    #[must_use]
     pub fn mcp_server() -> String {
         env::var("MCP_SERVER_HOST").unwrap_or_else(|_| default())
     }
 
     /// Service mesh/orchestration service host
     ///
-    /// **Environment**: `SERVICE_MESH_HOST`  
-    /// **Default**: Same as `default()`  
+    /// **Environment**: `SERVICE_MESH_HOST`\
+    /// **Default**: Same as `default()`\
     /// **Usage**: Service mesh/orchestration hostname (capability-based)
+    #[must_use]
     pub fn service_mesh() -> String {
         env::var("SERVICE_MESH_HOST").unwrap_or_else(|_| default())
     }
 
     /// Security service host
     ///
-    /// **Environment**: `SECURITY_SERVICE_HOST`  
-    /// **Default**: Same as `default()`  
+    /// **Environment**: `SECURITY_SERVICE_HOST`\
+    /// **Default**: Same as `default()`\
     /// **Usage**: Security service hostname (capability-based)
+    #[must_use]
     pub fn security_service() -> String {
         env::var("SECURITY_SERVICE_HOST").unwrap_or_else(|_| default())
     }
 
     /// Storage service host
     ///
-    /// **Environment**: `STORAGE_SERVICE_HOST`  
-    /// **Default**: Same as `default()`  
+    /// **Environment**: `STORAGE_SERVICE_HOST`\
+    /// **Default**: Same as `default()`\
     /// **Usage**: Storage service hostname (capability-based)
+    #[must_use]
     pub fn storage_service() -> String {
         env::var("STORAGE_SERVICE_HOST").unwrap_or_else(|_| default())
     }
 
     /// Compute service host
     ///
-    /// **Environment**: `COMPUTE_SERVICE_HOST`  
-    /// **Default**: Same as `default()`  
+    /// **Environment**: `COMPUTE_SERVICE_HOST`\
+    /// **Default**: Same as `default()`\
     /// **Usage**: Compute service hostname (capability-based)
+    #[must_use]
     pub fn compute_service() -> String {
         env::var("COMPUTE_SERVICE_HOST").unwrap_or_else(|_| default())
-    }
-
-    // Deprecated aliases for backward compatibility
-    #[deprecated(note = "Use service_mesh() - capability-based discovery")]
-    pub fn songbird() -> String {
-        env::var("SONGBIRD_HOST").unwrap_or_else(|_| default())
-    }
-
-    #[deprecated(note = "Use security_service() - capability-based discovery")]
-    pub fn beardog() -> String {
-        env::var("BEARDOG_HOST").unwrap_or_else(|_| default())
-    }
-
-    #[deprecated(note = "Use storage_service() - capability-based discovery")]
-    pub fn nestgate() -> String {
-        env::var("NESTGATE_HOST").unwrap_or_else(|_| default())
-    }
-
-    #[deprecated(note = "Use compute_service() - capability-based discovery")]
-    pub fn toadstool() -> String {
-        env::var("TOADSTOOL_HOST").unwrap_or_else(|_| default())
     }
 }
 
 /// Endpoint builders combining hosts, ports, and services
 pub mod endpoints {
-    use super::*;
+    use std::env;
+
+    use super::{hosts, ports, services};
 
     /// Build MCP server endpoint
     ///
-    /// **Format**: `http://{host}:{port}`  
+    /// **Format**: `http://{host}:{port}`\
     /// **Example**: `http://localhost:8443`
+    #[must_use]
     pub fn mcp_server() -> String {
-        format!("http://{}:{}", hosts::mcp_server(), ports::mcp_server())
+        let host = hosts::mcp_server();
+        let port = ports::mcp_server();
+        format!("http://{host}:{port}")
     }
 
     /// Build service mesh endpoint
     ///
-    /// **Format**: `http://{host}:{port}/{service}`  
+    /// **Format**: `http://{host}:{port}/{service}`\
     /// **Example**: `http://localhost:8444/service-mesh`
+    #[must_use]
     pub fn service_mesh() -> String {
-        format!(
-            "http://{}:{}/{}",
-            hosts::service_mesh(),
-            ports::service_mesh(),
-            services::orchestration()
-        )
+        let host = hosts::service_mesh();
+        let port = ports::service_mesh();
+        let svc = services::orchestration();
+        format!("http://{host}:{port}/{svc}")
     }
 
     /// Build security service endpoint
     ///
-    /// **Format**: `http://{host}:{port}/{service}`  
+    /// **Format**: `http://{host}:{port}/{service}`\
     /// **Example**: `http://localhost:8445/security`
+    #[must_use]
     pub fn security_service() -> String {
-        format!(
-            "http://{}:{}/{}",
-            hosts::security_service(),
-            ports::security_service(),
-            services::security()
-        )
+        let host = hosts::security_service();
+        let port = ports::security_service();
+        let svc = services::security();
+        format!("http://{host}:{port}/{svc}")
     }
 
     /// Build storage service endpoint
     ///
-    /// **Format**: `http://{host}:{port}/{service}`  
+    /// **Format**: `http://{host}:{port}/{service}`\
     /// **Example**: `http://localhost:8446/storage`
+    #[must_use]
     pub fn storage_service() -> String {
-        format!(
-            "http://{}:{}/{}",
-            hosts::storage_service(),
-            ports::storage_service(),
-            services::storage()
-        )
+        let host = hosts::storage_service();
+        let port = ports::storage_service();
+        let svc = services::storage();
+        format!("http://{host}:{port}/{svc}")
     }
 
     /// Build compute service endpoint
     ///
-    /// **Format**: `http://{host}:{port}/{service}`  
+    /// **Format**: `http://{host}:{port}/{service}`\
     /// **Example**: `http://localhost:8447/compute`
+    #[must_use]
     pub fn compute_service() -> String {
-        format!(
-            "http://{}:{}/{}",
-            hosts::compute_service(),
-            ports::compute_service(),
-            services::compute()
-        )
+        let host = hosts::compute_service();
+        let port = ports::compute_service();
+        let svc = services::compute();
+        format!("http://{host}:{port}/{svc}")
     }
 
-    // Deprecated aliases for backward compatibility
-    #[deprecated(note = "Use service_mesh() - capability-based discovery")]
-    #[allow(deprecated)]
-    pub fn songbird() -> String {
-        format!(
-            "http://{}:{}/{}",
-            hosts::songbird(),
-            ports::songbird(),
-            services::orchestration()
-        )
-    }
-
-    #[deprecated(note = "Use security_service() - capability-based discovery")]
-    #[allow(deprecated)]
-    pub fn beardog() -> String {
-        format!(
-            "http://{}:{}/{}",
-            hosts::beardog(),
-            ports::beardog(),
-            services::security()
-        )
-    }
-
-    #[deprecated(note = "Use storage_service() - capability-based discovery")]
-    #[allow(deprecated)]
-    pub fn nestgate() -> String {
-        format!(
-            "http://{}:{}/{}",
-            hosts::nestgate(),
-            ports::nestgate(),
-            services::storage()
-        )
-    }
-
-    #[deprecated(note = "Use compute_service() - capability-based discovery")]
-    #[allow(deprecated)]
-    pub fn toadstool() -> String {
-        format!(
-            "http://{}:{}/{}",
-            hosts::toadstool(),
-            ports::toadstool(),
-            services::compute()
-        )
-    }
-
-    /// Get BiomeOS UI endpoint (default: http://localhost:3000)
+    /// Get `BiomeOS` UI endpoint (default: <http://localhost:3000>)
     ///
-    /// **Environment**: `BIOMEOS_UI_ENDPOINT`  
-    /// **Default**: `http://localhost:3000`  
+    /// **Environment**: `BIOMEOS_UI_ENDPOINT`\
+    /// **Default**: <http://localhost:3000>\
     /// **Example**: Frontend web UI endpoint
+    #[must_use]
     pub fn biomeos_ui() -> String {
-        env::var("BIOMEOS_UI_ENDPOINT")
-            .unwrap_or_else(|_| format!("http://{}:3000", hosts::default()))
+        let host = hosts::default();
+        env::var("BIOMEOS_UI_ENDPOINT").unwrap_or_else(|_| format!("http://{host}:3000"))
     }
 
-    /// Get Ollama endpoint (default: http://localhost:11434)
+    /// Get Ollama endpoint (default: <http://localhost:11434>)
     ///
-    /// **Environment**: `OLLAMA_ENDPOINT`  
-    /// **Default**: `http://localhost:11434`  
+    /// **Environment**: `OLLAMA_ENDPOINT`\
+    /// **Default**: <http://localhost:11434>\
     /// **Example**: Local Ollama AI model server
+    #[must_use]
     pub fn ollama() -> String {
-        env::var("OLLAMA_ENDPOINT").unwrap_or_else(|_| format!("http://{}:11434", hosts::default()))
+        let host = hosts::default();
+        env::var("OLLAMA_ENDPOINT").unwrap_or_else(|_| format!("http://{host}:11434"))
     }
 
     /// Build WebSocket endpoint
     ///
-    /// **Format**: `ws://{host}:{port}`  
+    /// **Format**: `ws://{host}:{port}`\
     /// **Example**: `ws://localhost:8448`
+    #[must_use]
     pub fn websocket() -> String {
-        format!("ws://{}:{}", hosts::default(), ports::websocket())
+        let host = hosts::default();
+        let port = ports::websocket();
+        format!("ws://{host}:{port}")
     }
 
     /// Build metrics endpoint
     ///
-    /// **Format**: `http://{host}:{port}/metrics`  
+    /// **Format**: `http://{host}:{port}/metrics`\
     /// **Example**: `http://localhost:9090/metrics`
+    #[must_use]
     pub fn metrics() -> String {
-        format!("http://{}:{}/metrics", hosts::default(), ports::metrics())
+        let host = hosts::default();
+        let port = ports::metrics();
+        format!("http://{host}:{port}/metrics")
     }
 
     /// Build health check endpoint
     ///
-    /// **Format**: `http://{host}:{port}/health`  
+    /// **Format**: `http://{host}:{port}/health`\
     /// **Example**: `http://localhost:9091/health`
+    #[must_use]
     pub fn health() -> String {
-        format!("http://{}:{}/health", hosts::default(), ports::health())
+        let host = hosts::default();
+        let port = ports::health();
+        format!("http://{host}:{port}/health")
     }
 }
 
@@ -518,11 +445,13 @@ pub mod validation {
     use std::net::{IpAddr, ToSocketAddrs};
 
     /// Validate that a port is in valid range (1-65535)
-    pub fn is_valid_port(port: u16) -> bool {
+    #[must_use]
+    pub const fn is_valid_port(port: u16) -> bool {
         port > 0
     }
 
     /// Validate that a hostname is resolvable
+    #[must_use]
     pub fn is_resolvable_host(host: &str) -> bool {
         // Check if it's a valid IP address
         if host.parse::<IpAddr>().is_ok() {
@@ -530,10 +459,11 @@ pub mod validation {
         }
 
         // Try to resolve as hostname
-        format!("{}:80", host).to_socket_addrs().is_ok()
+        format!("{host}:80").to_socket_addrs().is_ok()
     }
 
     /// Validate a complete endpoint URL (basic validation)
+    #[must_use]
     pub fn is_valid_endpoint(endpoint: &str) -> bool {
         // Basic validation: check for protocol and structure
         endpoint.starts_with("http://")
@@ -545,7 +475,7 @@ pub mod validation {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{endpoints, hosts, ports, services, validation};
 
     #[test]
     fn test_default_ports() {
@@ -575,18 +505,11 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_endpoint_builders() {
         assert!(endpoints::mcp_server().starts_with("http://"));
         assert!(endpoints::websocket().starts_with("ws://"));
-        // Updated to test new capability-based endpoint
         assert!(endpoints::security_service().contains("security"));
-        // Deprecated endpoint still works but uses deprecated hosts/ports
-        let beardog_endpoint = endpoints::beardog();
-        assert!(beardog_endpoint.starts_with("http://"));
-        // The deprecated beardog() endpoint is now composed of deprecated functions
-        // that still use the old names, so it will contain "security" from services::security()
-        // which now returns "security" instead of "beardog"
+        assert!(endpoints::service_mesh().contains("service-mesh"));
     }
 
     #[test]

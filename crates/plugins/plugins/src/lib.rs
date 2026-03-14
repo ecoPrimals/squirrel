@@ -5,7 +5,7 @@
 //!
 //! This crate provides plugin functionality and example plugin implementations.
 
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 /// Plugin system version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

@@ -4,7 +4,16 @@
 //! Universal Error System for Squirrel
 //!
 //! This crate provides a unified error handling system that extends the excellent
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
+#![allow(
+    clippy::doc_markdown,
+    clippy::use_self,
+    clippy::unnested_or_patterns,
+    clippy::match_same_arms,
+    clippy::must_use_candidate,
+    clippy::missing_const_for_fn,
+    clippy::uninlined_format_args
+)]
 //! MCP error architecture to the entire Squirrel codebase. It re-exports the
 //! world-class MCP error system (validated Phase 3E) and adds domain error modules
 //! for SDK, Tools, and Integration components following the same patterns.
@@ -308,13 +317,13 @@ impl UniversalError {
 // Implement conversion from common standard library errors
 impl From<std::io::Error> for UniversalError {
     fn from(err: std::io::Error) -> Self {
-        Self::general(format!("IO error: {}", err))
+        Self::general(format!("IO error: {err}"))
     }
 }
 
 impl From<serde_json::Error> for UniversalError {
     fn from(err: serde_json::Error) -> Self {
-        Self::general(format!("JSON error: {}", err))
+        Self::general(format!("JSON error: {err}"))
     }
 }
 

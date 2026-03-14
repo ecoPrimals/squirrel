@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! Integration Test Framework Helpers
 //!
 //! Provides utilities for setting up and running integration tests.

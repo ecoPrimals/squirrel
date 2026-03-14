@@ -8,7 +8,7 @@
 //! Machine Context Protocol (MCP) Implementation
 //!
 //! This crate provides a complete implementation of the Machine Context Protocol,
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 //! including message types, transport layers, and utility functions.
 
 pub mod constants;
@@ -18,6 +18,9 @@ pub mod security;
 pub mod transport;
 pub mod types;
 pub mod utils; // Add the security module
+
+// Task management (JSON-RPC over Unix socket)
+pub mod task;
 
 // Re-export commonly used types
 pub use error::{MCPError, Result};

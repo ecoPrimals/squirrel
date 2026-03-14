@@ -30,36 +30,40 @@ pub enum Environment {
 }
 
 impl Environment {
-    /// Get environment from MCP_ENV variable
+    /// Get environment from `MCP_ENV` variable
+    #[must_use]
     pub fn from_env() -> Self {
         match env::var("MCP_ENV")
             .unwrap_or_else(|_| "development".to_string())
             .as_str()
         {
-            "production" => Environment::Production,
-            "staging" => Environment::Staging,
-            "testing" => Environment::Testing,
-            _ => Environment::Development,
+            "production" => Self::Production,
+            "staging" => Self::Staging,
+            "testing" => Self::Testing,
+            _ => Self::Development,
         }
     }
 
     /// Check if running in development mode
-    pub fn is_development(&self) -> bool {
-        matches!(self, Environment::Development)
+    #[must_use]
+    pub const fn is_development(&self) -> bool {
+        matches!(self, Self::Development)
     }
 
     /// Check if running in production mode
-    pub fn is_production(&self) -> bool {
-        matches!(self, Environment::Production)
+    #[must_use]
+    pub const fn is_production(&self) -> bool {
+        matches!(self, Self::Production)
     }
 
     /// Get configuration file suffix
-    pub fn config_suffix(&self) -> &str {
+    #[must_use]
+    pub const fn config_suffix(&self) -> &str {
         match self {
-            Environment::Development => "dev",
-            Environment::Testing => "test",
-            Environment::Staging => "staging",
-            Environment::Production => "prod",
+            Self::Development => "dev",
+            Self::Testing => "test",
+            Self::Staging => "staging",
+            Self::Production => "prod",
         }
     }
 }
@@ -69,10 +73,10 @@ impl FromStr for Environment {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "development" | "dev" => Ok(Environment::Development),
-            "testing" | "test" => Ok(Environment::Testing),
-            "staging" => Ok(Environment::Staging),
-            "production" | "prod" => Ok(Environment::Production),
+            "development" | "dev" => Ok(Self::Development),
+            "testing" | "test" => Ok(Self::Testing),
+            "staging" => Ok(Self::Staging),
+            "production" | "prod" => Ok(Self::Production),
             _ => Err(EnvironmentError::InvalidValue {
                 variable: "MCP_ENV".to_string(),
                 value: s.to_string(),
@@ -93,6 +97,9 @@ pub struct NetworkConfig {
 
 impl NetworkConfig {
     /// Load network configuration from environment variables
+    ///
+    /// # Errors
+    /// Returns `EnvironmentError` if required environment variables have invalid values.
     pub fn from_env() -> Result<Self, EnvironmentError> {
         // Network configuration with environment-aware defaults
         let host = env::var("MCP_HOST").unwrap_or_else(|_| {
@@ -118,7 +125,7 @@ impl NetworkConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(3000); // Default Web UI port
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             }
         });
 
@@ -129,7 +136,7 @@ impl NetworkConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(3000); // Default Web UI port
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             })
             .split(',')
             .map(|s| s.trim().to_string())
@@ -151,7 +158,7 @@ impl NetworkConfig {
                 error: e.to_string(),
             })?;
 
-        Ok(NetworkConfig {
+        Ok(Self {
             host,
             port,
             cors_origins,
@@ -164,16 +171,19 @@ impl NetworkConfig {
 /// Database configuration with environment variable support
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
-    /// Database connection string (env: DATABASE_URL)
+    /// Database connection string (env: `DATABASE_URL`)
     pub connection_string: String,
-    /// Maximum number of connections (env: DATABASE_MAX_CONNECTIONS)
+    /// Maximum number of connections (env: `DATABASE_MAX_CONNECTIONS`)
     pub max_connections: u32,
-    /// Connection timeout in seconds (env: DATABASE_TIMEOUT)
+    /// Connection timeout in seconds (env: `DATABASE_TIMEOUT`)
     pub timeout_seconds: u64,
 }
 
 impl DatabaseConfig {
     /// Load database configuration from environment variables
+    ///
+    /// # Errors
+    /// Returns `EnvironmentError` if required environment variables have invalid values.
     pub fn from_env() -> Result<Self, EnvironmentError> {
         let env = Environment::from_env();
         Ok(env.get_database_config())
@@ -182,18 +192,12 @@ impl DatabaseConfig {
 
 impl Environment {
     /// Get database configuration with environment overrides
+    #[must_use]
     pub fn get_database_config(&self) -> DatabaseConfig {
-        let database_url = match std::env::var("DATABASE_URL") {
-            Ok(url) => {
-                // Validate URL format for security
-                if *self == Environment::Production && url.contains("password") {
-                    eprintln!("⚠️  WARNING: Production DATABASE_URL appears to contain hardcoded password");
-                }
-                url
-            }
-            Err(_) => {
+        let database_url = std::env::var("DATABASE_URL").map_or_else(
+            |_| {
                 match self {
-                    Environment::Production => {
+                    Self::Production => {
                         eprintln!("🚨 FATAL SECURITY ERROR: DATABASE_URL environment variable is required in production");
                         eprintln!(
                             "   Production deployment blocked to prevent security vulnerability"
@@ -201,26 +205,25 @@ impl Environment {
                         eprintln!("   Please set DATABASE_URL environment variable with secure credentials");
                         std::process::exit(1);
                     }
-                    Environment::Staging => {
+                    Self::Staging => {
                         eprintln!("⚠️  WARNING: DATABASE_URL not set in staging, using fallback");
-                        // Use environment variable or fail
-                        match std::env::var("DATABASE_URL_STAGING") {
-                            Ok(url) => url,
-                            Err(_) => {
-                                eprintln!("🚨 ERROR: Neither DATABASE_URL nor DATABASE_URL_STAGING is set");
-                                std::process::exit(1);
-                            }
-                        }
+                        std::env::var("DATABASE_URL_STAGING").unwrap_or_else(|_| {
+                            eprintln!("🚨 ERROR: Neither DATABASE_URL nor DATABASE_URL_STAGING is set");
+                            std::process::exit(1);
+                        })
                     }
-                    Environment::Testing => "sqlite::memory:".to_string(),
-                    Environment::Development => {
-                        // Allow fallback for development
-                        std::env::var("DATABASE_URL_DEV")
-                            .unwrap_or_else(|_| "sqlite::memory:".to_string())
-                    }
+                    Self::Testing => "sqlite::memory:".to_string(),
+                    Self::Development => std::env::var("DATABASE_URL_DEV")
+                        .unwrap_or_else(|_| "sqlite::memory:".to_string()),
                 }
-            }
-        };
+            },
+            |url| {
+                if *self == Self::Production && url.contains("password") {
+                    eprintln!("⚠️  WARNING: Production DATABASE_URL appears to contain hardcoded password");
+                }
+                url
+            },
+        );
 
         let max_connections = env::var("DATABASE_MAX_CONNECTIONS")
             .unwrap_or_else(|_| "10".to_string())
@@ -255,6 +258,9 @@ pub struct AIProviderConfig {
 
 impl AIProviderConfig {
     /// Load AI provider configuration from environment variables
+    ///
+    /// # Errors
+    /// Returns `EnvironmentError` if required environment variables have invalid values.
     pub fn from_env() -> Result<Self, EnvironmentError> {
         let openai_api_key = env::var("OPENAI_API_KEY").ok();
         let openai_endpoint =
@@ -280,7 +286,7 @@ impl AIProviderConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(11434); // Default OpenAI-compatible server port
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             });
 
         let default_model =
@@ -294,7 +300,7 @@ impl AIProviderConfig {
                 error: e.to_string(),
             })?;
 
-        Ok(AIProviderConfig {
+        Ok(Self {
             openai_api_key,
             openai_endpoint,
             anthropic_api_key,
@@ -312,11 +318,11 @@ impl AIProviderConfig {
 /// primal sovereignty. Use capability-based discovery instead.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemConfig {
-    /// NestGate networking endpoint (DEPRECATED: use capability discovery)
+    /// `NestGate` networking endpoint (DEPRECATED: use capability discovery)
     pub nestgate_endpoint: String,
-    /// BearDog security endpoint (DEPRECATED: use capability discovery)
+    /// `BearDog` security endpoint (DEPRECATED: use capability discovery)
     pub beardog_endpoint: String,
-    /// ToadStool compute endpoint (DEPRECATED: use capability discovery)
+    /// `ToadStool` compute endpoint (DEPRECATED: use capability discovery)
     pub toadstool_endpoint: String,
     /// Service mesh endpoint (generic, not primal-specific)
     pub service_mesh_endpoint: String,
@@ -331,7 +337,7 @@ impl Default for EcosystemConfig {
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or(8444); // Default NestGate port
-            format!("http://localhost:{}", port)
+            format!("http://localhost:{port}")
         });
 
         let beardog_endpoint = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
@@ -339,7 +345,7 @@ impl Default for EcosystemConfig {
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or(8443); // Default BearDog security port
-            format!("http://localhost:{}", port)
+            format!("http://localhost:{port}")
         });
 
         let toadstool_endpoint = std::env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
@@ -347,7 +353,7 @@ impl Default for EcosystemConfig {
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or(8445); // Default ToadStool port
-            format!("http://localhost:{}", port)
+            format!("http://localhost:{port}")
         });
 
         let service_mesh_endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
@@ -357,7 +363,7 @@ impl Default for EcosystemConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(8446); // Default BiomeOS service mesh port
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             });
 
         Self {
@@ -372,6 +378,9 @@ impl Default for EcosystemConfig {
 
 impl EcosystemConfig {
     /// Load ecosystem configuration from environment variables
+    ///
+    /// # Errors
+    /// Returns `EnvironmentError` if required environment variables have invalid values.
     pub fn from_env() -> Result<Self, EnvironmentError> {
         // Primal endpoints with service discovery
         // Multi-tier NestGate endpoint resolution
@@ -383,7 +392,7 @@ impl EcosystemConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(8444); // Default NestGate port
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             }
         });
 
@@ -396,7 +405,7 @@ impl EcosystemConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(8443); // Default BearDog security port
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             }
         });
 
@@ -409,7 +418,7 @@ impl EcosystemConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(8445); // Default ToadStool port
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             }
         });
 
@@ -424,16 +433,22 @@ impl EcosystemConfig {
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or(8446); // Default BiomeOS service mesh port
-                    format!("http://localhost:{}", port)
+                    format!("http://localhost:{port}")
                 }
             });
 
         let service_timeout_ms = env::var("ECOSYSTEM_SERVICE_TIMEOUT_MS")
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or_else(|| timeouts::DEFAULT_OPERATION_TIMEOUT.as_millis() as u64);
+            .unwrap_or_else(|| {
+                // 10_000 ms fits in u64; allow for const conversion
+                #[allow(clippy::cast_possible_truncation)]
+                {
+                    timeouts::DEFAULT_OPERATION_TIMEOUT.as_millis() as u64
+                }
+            });
 
-        Ok(EcosystemConfig {
+        Ok(Self {
             nestgate_endpoint,
             beardog_endpoint,
             toadstool_endpoint,
@@ -455,6 +470,9 @@ pub struct EnvironmentConfig {
 
 impl EnvironmentConfig {
     /// Load complete configuration from environment variables
+    ///
+    /// # Errors
+    /// Returns `EnvironmentError` if any required environment variables have invalid values.
     pub fn from_env() -> Result<Self, EnvironmentError> {
         let environment = Environment::from_env();
         let network = NetworkConfig::from_env()?;
@@ -462,7 +480,7 @@ impl EnvironmentConfig {
         let ai_providers = AIProviderConfig::from_env()?;
         let ecosystem = EcosystemConfig::from_env()?;
 
-        Ok(EnvironmentConfig {
+        Ok(Self {
             environment,
             network,
             database,
@@ -472,6 +490,9 @@ impl EnvironmentConfig {
     }
 
     /// Load configuration with validation
+    ///
+    /// # Errors
+    /// Returns `EnvironmentError` if configuration loading or validation fails.
     pub fn load_and_validate() -> Result<Self, EnvironmentError> {
         let config = Self::from_env()?;
         config.validate()?;
@@ -479,6 +500,9 @@ impl EnvironmentConfig {
     }
 
     /// Validate configuration values
+    ///
+    /// # Errors
+    /// Returns `EnvironmentError` if any configuration value is invalid.
     pub fn validate(&self) -> Result<(), EnvironmentError> {
         // Validate port range
         if self.network.port == 0 {

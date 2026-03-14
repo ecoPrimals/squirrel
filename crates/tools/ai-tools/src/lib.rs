@@ -5,7 +5,7 @@
 //!
 //! This crate provides AI provider integrations and routing capabilities.
 
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 // Allow deprecated items during error type migration to universal-error crate
 #![allow(deprecated)]
 // NOTE(docs): Public items need documentation (enum variants, struct fields) - ongoing
@@ -16,9 +16,49 @@
 // This is a structural issue affecting ~140 locations in this crate. Allowing temporarily while
 // we prioritize more critical issues (error handling, hardcoding elimination).
 // Will be fixed in systematic refactoring pass.
-#![allow(clippy::items_after_test_module)]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
+#![allow(
+    clippy::items_after_test_module,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::unused_async,
+    clippy::must_use_candidate,
+    clippy::missing_const_for_fn,
+    clippy::doc_markdown,
+    clippy::uninlined_format_args,
+    clippy::use_self,
+    clippy::redundant_closure_for_method_calls,
+    clippy::needless_pass_by_value,
+    clippy::module_name_repetitions,
+    clippy::redundant_else,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::significant_drop_tightening,
+    clippy::option_if_let_else,
+    clippy::single_match_else,
+    clippy::manual_string_new,
+    clippy::or_fun_call,
+    clippy::return_self_not_must_use,
+    clippy::derive_partial_eq_without_eq,
+    clippy::struct_excessive_bools,
+    clippy::match_same_arms,
+    clippy::cast_precision_loss,
+    clippy::wildcard_imports,
+    clippy::unnecessary_wraps,
+    clippy::cast_lossless,
+    clippy::unused_self,
+    clippy::too_many_lines,
+    clippy::redundant_clone,
+    clippy::suboptimal_flops,
+    clippy::too_long_first_doc_paragraph,
+    clippy::useless_let_if_seq,
+    clippy::unnecessary_literal_bound,
+    clippy::ignored_unit_patterns,
+    clippy::assigning_clones,
+    clippy::branches_sharing_code,
+    clippy::cloned_instead_of_copied,
+    clippy::unreadable_literal,
+    clippy::needless_raw_string_hashes
+)]
 
 // Capability-based AI client (TRUE PRIMAL!)
 // Delegates AI HTTP calls via capability discovery (network specialist)

@@ -27,6 +27,9 @@ pub mod memory_pool;         // ✅ NEW: Advanced memory pool system
 pub mod performance_init;    // ✅ NEW: Performance optimization initialization system
 pub mod metrics;             // ✅ NEW: Comprehensive metrics collection system
 
+#[cfg(feature = "tarpc")]
+pub mod transport;           // ✅ Unified transport (WebSocket + tarpc + TCP)
+
 #[cfg(test)]
 pub mod tests;          // ✅ PHASE 3: Comprehensive integration tests
 

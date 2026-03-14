@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = ["DataScienceBioLab"]
 edition = "2021"
 description = "A simple utility plugin for testing the CLI integration"
-license = "MIT"
+license = "AGPL-3.0-only"
 
 [lib]
 crate-type = ["dylib", "cdylib"]

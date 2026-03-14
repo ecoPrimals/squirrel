@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 DataScienceBioLab
+
 //! # Comprehensive MCP Protocol Unit Tests
 //!
 //! Provides extensive unit test coverage for the MCP protocol implementation,

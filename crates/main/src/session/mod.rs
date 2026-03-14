@@ -236,6 +236,16 @@ impl SessionManagerImpl {
             .map(|entry| entry.value().clone()))
     }
 
+    pub async fn get_session_metadata(
+        &self,
+        session_id: &str,
+    ) -> Result<SessionMetadata, PrimalError> {
+        self.sessions
+            .get(session_id)
+            .map(|entry| entry.value().metadata.clone())
+            .ok_or_else(|| PrimalError::NotFoundError(format!("Session not found: {session_id}")))
+    }
+
     pub async fn update_session(
         &self,
         session_id: &str,
@@ -324,11 +334,11 @@ pub trait SessionManager: Send + Sync {
 #[async_trait]
 impl SessionManager for SessionManagerImpl {
     async fn create_session(&self, client_info: Option<String>) -> Result<String, PrimalError> {
-        self.create_session(client_info).await
+        SessionManagerImpl::create_session(self, client_info).await
     }
 
     async fn get_session_metadata(&self, session_id: &str) -> Result<SessionMetadata, PrimalError> {
-        self.get_session_metadata(session_id).await
+        SessionManagerImpl::get_session_metadata(self, session_id).await
     }
 
     async fn update_session_data(
@@ -336,11 +346,11 @@ impl SessionManager for SessionManagerImpl {
         session_id: &str,
         data: HashMap<String, serde_json::Value>,
     ) -> Result<(), PrimalError> {
-        self.update_session_data(session_id, data).await
+        SessionManagerImpl::update_session(self, session_id, data).await
     }
 
     async fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError> {
-        self.terminate_session(session_id).await
+        SessionManagerImpl::terminate_session(self, session_id).await
     }
 }
 
@@ -726,5 +736,41 @@ mod tests {
         let result = manager.terminate_session("nonexistent_session_id").await;
         // Should not error, just do nothing
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_session_metadata() {
+        let config = SessionConfig::default();
+        let manager = SessionManagerImpl::new(config);
+
+        let session_id = manager
+            .create_session(Some("metadata_test".to_string()))
+            .await
+            .unwrap();
+
+        let metadata = manager.get_session_metadata(&session_id).await.unwrap();
+        assert_eq!(metadata.session_id, session_id);
+        assert_eq!(metadata.client_info, Some("metadata_test".to_string()));
+        assert!(metadata.capabilities.contains(&"mcp".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_get_session_metadata_nonexistent() {
+        let config = SessionConfig::default();
+        let manager = SessionManagerImpl::new(config);
+
+        let result = manager.get_session_metadata("nonexistent").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_session_manager_trait_object() {
+        use super::SessionManager;
+        let manager: std::sync::Arc<dyn SessionManager> =
+            std::sync::Arc::new(SessionManagerImpl::new(SessionConfig::default()));
+
+        let session_id = manager.create_session(None).await.unwrap();
+        let metadata = manager.get_session_metadata(&session_id).await.unwrap();
+        assert_eq!(metadata.session_id, session_id);
     }
 }

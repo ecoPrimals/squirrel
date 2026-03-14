@@ -32,7 +32,7 @@ pub enum HealthStatus {
     Ok,
     /// System has warnings but is functional
     Warning,
-    /// System has errors (constructed via deserialization)
+    /// System has errors (constructed via deserialization or test fixtures)
     #[allow(dead_code)]
     Error,
 }
@@ -681,5 +681,102 @@ mod tests {
         assert!(!checks.1.message.is_empty());
         assert!(!checks.2.message.is_empty());
         assert!(!checks.3.message.is_empty());
+    }
+
+    #[test]
+    fn test_generate_recommendations_empty_checks() {
+        let checks = vec![];
+        let recs = super::generate_recommendations(&checks);
+        assert_eq!(recs.len(), 1);
+        assert!(recs[0].contains("operational"));
+    }
+
+    #[test]
+    fn test_generate_recommendations_ai_provider_warning() {
+        let checks = vec![HealthCheck {
+            name: "AI Providers",
+            status: HealthStatus::Warning,
+            message: "No AI providers configured".to_string(),
+            duration_ms: 10,
+            details: None,
+        }];
+        let recs = super::generate_recommendations(&checks);
+        assert!(recs.iter().any(|r| r.contains("AI_PROVIDER_SOCKETS")));
+    }
+
+    #[test]
+    fn test_generate_recommendations_songbird_warning() {
+        let checks = vec![HealthCheck {
+            name: "Songbird",
+            status: HealthStatus::Warning,
+            message: "Not running".to_string(),
+            duration_ms: 10,
+            details: None,
+        }];
+        let recs = super::generate_recommendations(&checks);
+        assert!(recs.iter().any(|r| r.contains("Songbird")));
+    }
+
+    #[test]
+    fn test_generate_recommendations_beardog_warning() {
+        let checks = vec![HealthCheck {
+            name: "BearDog",
+            status: HealthStatus::Warning,
+            message: "Not running".to_string(),
+            duration_ms: 10,
+            details: None,
+        }];
+        let recs = super::generate_recommendations(&checks);
+        assert!(recs.iter().any(|r| r.contains("BearDog")));
+    }
+
+    #[tokio::test]
+    async fn test_run_doctor_text_format() {
+        let result = run_doctor(false, OutputFormat::Text, None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_doctor_json_format() {
+        let result = run_doctor(false, OutputFormat::Json, None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_doctor_subsystem_filter_config() {
+        let result = run_doctor(false, OutputFormat::Text, Some(Subsystem::Config)).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_doctor_subsystem_filter_ai() {
+        let result = run_doctor(false, OutputFormat::Text, Some(Subsystem::Ai)).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_doctor_comprehensive() {
+        let result = run_doctor(true, OutputFormat::Text, None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_check_discovered_services() {
+        let check = super::check_discovered_services().await;
+        assert_eq!(check.name, "Ecosystem Services");
+        assert!(matches!(
+            check.status,
+            HealthStatus::Ok | HealthStatus::Warning
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_check_ai_providers_comprehensive() {
+        let check = super::check_ai_providers(true).await;
+        assert_eq!(check.name, "AI Providers");
+        assert!(matches!(
+            check.status,
+            HealthStatus::Ok | HealthStatus::Warning
+        ));
     }
 }

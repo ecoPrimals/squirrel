@@ -115,4 +115,25 @@ mod tests {
         assert!(!tools.is_empty());
         assert!(tools.iter().any(|t| t.name == "system.health"));
     }
+
+    #[tokio::test]
+    async fn test_tool_manager_default() {
+        let manager = ToolManager::default();
+        assert!(manager.tool_count().await >= 4);
+    }
+
+    #[tokio::test]
+    async fn test_tool_manager_execute_unknown() {
+        let manager = ToolManager::new();
+        let result = manager.execute_tool("unknown.tool", "").await.unwrap();
+        assert!(!result.success);
+        assert!(result.error.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_tool_manager_has_tool() {
+        let manager = ToolManager::new();
+        assert!(manager.has_tool("system.health").await);
+        assert!(!manager.has_tool("nonexistent").await);
+    }
 }

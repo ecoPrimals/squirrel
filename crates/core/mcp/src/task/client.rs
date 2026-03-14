@@ -3,34 +3,21 @@
 
 //! Client implementation for task management with the Task Service API.
 //!
-//! This module provides a client wrapper for the TaskService gRPC service,
-//! allowing applications to interact with the task management system.
+//! Uses JSON-RPC over Unix socket instead of gRPC.
 
-use std::sync::Arc;
-use std::time::Duration;
-use anyhow::{Result, anyhow, Context};
-use tonic::{Request, Status, transport::Channel};
-use futures::StreamExt;
-use tokio::sync::Mutex;
-use std::collections::HashMap;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::UnixStream;
 
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
-use tracing::{error, info, warn, instrument, debug};
+use anyhow::{anyhow, Context, Result};
+use chrono::Utc;
 
-// ToadStool handles task execution: Proto task types moved to ToadStool compute platform
-// ToadStool handles task execution: TaskServiceClient moved to ToadStool compute platform
-use crate::task::Task;
-use crate::error::{MCPError, Result};
-use crate::task::types::{Task, TaskStatus, TaskPriority, AgentType};
-use crate::task::manager::TaskManager;
+use crate::task::json_rpc_types::*;
+use crate::task::types::{AgentType, Task, TaskPriority, TaskStatus};
 
 /// Client configuration for connecting to the task service
 #[derive(Clone, Debug)]
 pub struct TaskClientConfig {
-    /// Server address in the format "http://hostname:port"
+    /// Unix socket path for the task server (e.g., "/tmp/mcp-task.sock")
     pub server_address: String,
     /// Maximum number of retries for failed requests
     pub max_retries: u32,
@@ -44,13 +31,9 @@ pub struct TaskClientConfig {
     pub max_backoff_ms: u64,
 }
 
-/// Client wrapper for the TaskService gRPC service
-/// 
-/// This struct provides a high-level API for interacting with the MCP task service.
+/// Client wrapper for the TaskService JSON-RPC API
 #[derive(Clone)]
 pub struct MCPTaskClient {
-    /// Task service client
-    client: Arc<Mutex<TaskServiceClient<Channel>>>,
     /// Client configuration
     config: TaskClientConfig,
 }
@@ -58,17 +41,9 @@ pub struct MCPTaskClient {
 impl MCPTaskClient {
     /// Default task client configuration
     pub fn default_config() -> TaskClientConfig {
-        // Multi-tier gRPC task server resolution
-        let server_address = std::env::var("TASK_SERVER_ENDPOINT")
-            .or_else(|_| std::env::var("GRPC_ENDPOINT"))
-            .unwrap_or_else(|_| {
-                let port = std::env::var("TASK_SERVER_PORT")
-                    .or_else(|_| std::env::var("GRPC_PORT"))
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(50051);  // Default gRPC task server port
-                format!("http://localhost:{}", port)
-            });
+        let server_address = std::env::var("TASK_SERVER_SOCKET")
+            .or_else(|_| std::env::var("TASK_SERVER_ENDPOINT"))
+            .unwrap_or_else(|_| "/tmp/mcp-task.sock".to_string());
 
         TaskClientConfig {
             server_address,
@@ -79,49 +54,23 @@ impl MCPTaskClient {
             max_backoff_ms: 2000,
         }
     }
-    
+
     /// Create a new task client with default configuration
     pub fn new() -> Self {
         Self::with_config(Self::default_config())
     }
-    
+
     /// Create a new task client with the given configuration
     pub fn with_config(config: TaskClientConfig) -> Self {
-        // Create default channel - will be initialized properly in connect()
-        let channel = tonic::transport::Channel::from_shared("http://[::1]:50051")
-            .expect("Invalid URI")
-            .connect_lazy();
-            
-        let client = Arc::new(Mutex::new(TaskServiceClient::new(channel)));
-        
-        MCPTaskClient {
-            client,
-            config,
-        }
+        MCPTaskClient { config }
     }
-    
-    /// Connect to the task service and initialize the client
+
+    /// Connect to the task service (no-op for Unix socket - connection is per-request)
     pub async fn connect(&self) -> Result<()> {
-        let config = &self.config;
-        
-        // Create a new connection
-        let connect_timeout = Duration::from_millis(config.connect_timeout_ms);
-        let endpoint = tonic::transport::Endpoint::new(config.server_address.clone())?
-            .connect_timeout(connect_timeout);
-        
-        let channel = endpoint.connect().await?;
-        let client = TaskServiceClient::new(channel);
-        
-        // Store the client
-        {
-            let mut guard = self.client.lock().await;
-            *guard = client;
-        }
-        
         Ok(())
     }
 
-    /// Get the server address from the configuration
+    /// Get the server address (socket path) from the configuration
     pub fn server_address(&self) -> String {
         self.config.server_address.clone()
     }
@@ -151,13 +100,59 @@ impl MCPTaskClient {
         self.config.max_backoff_ms
     }
 
+    /// Execute a JSON-RPC call
+    async fn json_rpc_call(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let socket_path = self.config.server_address.clone();
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": method,
+            "params": params
+        });
+
+        let request_bytes = serde_json::to_vec(&request).context("Failed to serialize request")?;
+
+        let stream = UnixStream::connect(&socket_path).await.context(format!(
+            "Failed to connect to task server at {}",
+            socket_path
+        ))?;
+
+        let (mut reader, mut writer) = stream.into_split();
+        writer.write_all(&request_bytes).await?;
+        writer.flush().await?;
+        drop(writer);
+
+        let mut buf = Vec::new();
+        reader.read_to_end(&mut buf).await?;
+
+        let response: serde_json::Value =
+            serde_json::from_slice(&buf).context("Invalid JSON-RPC response")?;
+
+        if let Some(err) = response.get("error") {
+            let msg = err
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("Unknown error");
+            return Err(anyhow!("JSON-RPC error: {}", msg));
+        }
+
+        response
+            .get("result")
+            .cloned()
+            .ok_or_else(|| anyhow!("Missing result in JSON-RPC response"))
+    }
+
     /// Create a new task
     pub async fn create_task(
-        &self, 
-        name: &str, 
-        description: &str, 
-        priority: TaskPriority, 
-        input_data: Option<serde_json::Value>, 
+        &self,
+        name: &str,
+        description: &str,
+        priority: TaskPriority,
+        input_data: Option<serde_json::Value>,
         metadata: Option<serde_json::Value>,
         context_id: Option<&str>,
         prerequisites: Vec<String>,
@@ -174,33 +169,23 @@ impl MCPTaskClient {
             agent_type: 0,
         };
 
-        // Convert input data to bytes if provided
         if let Some(data) = input_data {
-            request.input_data = serde_json::to_vec(&data)
-                .context("Failed to serialize input data")?;
+            request.input_data =
+                serde_json::to_vec(&data).context("Failed to serialize input data")?;
         }
-
-        // Convert metadata to bytes if provided
         if let Some(meta) = metadata {
-            request.metadata = serde_json::to_vec(&meta)
-                .context("Failed to serialize metadata")?;
+            request.metadata = serde_json::to_vec(&meta).context("Failed to serialize metadata")?;
         }
 
-        let request_clone = request.clone();
-        
-        let response = self.execute_with_retry(move |mut client| {
-            let req = request_clone.clone();
-            async move {
-                client.create_task(Request::new(req)).await
-            }
-        }).await?;
+        let params = serde_json::to_value(&request).context("Failed to serialize request")?;
+        let result = self.json_rpc_call("create_task", params).await?;
+        let response: CreateTaskResponse = serde_json::from_value(result)?;
 
-        let inner = response.into_inner();
-        if !inner.success {
-            return Err(anyhow!("Failed to create task: {}", inner.error_message));
+        if !response.success {
+            return Err(anyhow!("Failed to create task: {}", response.error_message));
         }
 
-        Ok(inner.task_id)
+        Ok(response.task_id)
     }
 
     /// Get a task by ID
@@ -208,50 +193,46 @@ impl MCPTaskClient {
         let request = GetTaskRequest {
             task_id: task_id.to_string(),
         };
-        
-        let request_clone = request.clone();
-        
-        let response = self.execute_with_retry(move |mut client| {
-            let req = request_clone.clone();
-            async move {
-                client.get_task(Request::new(req)).await
-            }
-        }).await?;
+        let params = serde_json::to_value(&request)?;
+        let result = self.json_rpc_call("get_task", params).await?;
+        let response: GetTaskResponse = serde_json::from_value(result)?;
 
-        let inner = response.into_inner();
-        if !inner.success {
-            return Err(anyhow!("Failed to get task: {}", inner.error_message));
+        if !response.success {
+            return Err(anyhow!("Failed to get task: {}", response.error_message));
         }
 
-        let task: Task = inner.task.ok_or_else(|| anyhow!("No task in response"))?.into();
-        Ok(task)
+        let json_task = response
+            .task
+            .ok_or_else(|| anyhow!("No task in response"))?;
+
+        Ok(json_task_to_task(json_task))
     }
 
     /// Update a task
     pub async fn update_task(&self, task: &Task) -> Result<()> {
-        // ToadStool handles task execution: Proto task conversion moved to ToadStool
-        
         let request = UpdateTaskRequest {
-            task_id: proto_task.id.clone(),
-            name: proto_task.name.clone(),
-            description: proto_task.description.clone(),
-            priority: proto_task.priority,
-            input_data: proto_task.input_data.clone(),
-            metadata: proto_task.metadata.clone(),
+            task_id: task.id.clone(),
+            name: task.name.clone(),
+            description: task.description.clone(),
+            priority: task.priority_code as i32,
+            input_data: task
+                .input_data
+                .as_ref()
+                .map(|m| serde_json::to_vec(m).unwrap_or_default())
+                .unwrap_or_default(),
+            metadata: task
+                .metadata
+                .as_ref()
+                .map(|m| serde_json::to_vec(m).unwrap_or_default())
+                .unwrap_or_default(),
         };
-        
-        let request_clone = request.clone();
-        
-        let response = self.execute_with_retry(move |mut client| {
-            let req = request_clone.clone();
-            async move {
-                client.update_task(Request::new(req)).await
-            }
-        }).await?;
 
-        let inner = response.into_inner();
-        if !inner.success {
-            return Err(anyhow!("Failed to update task: {}", inner.error_message));
+        let params = serde_json::to_value(&request)?;
+        let result = self.json_rpc_call("update_task", params).await?;
+        let response: UpdateTaskResponse = serde_json::from_value(result)?;
+
+        if !response.success {
+            return Err(anyhow!("Failed to update task: {}", response.error_message));
         }
 
         Ok(())
@@ -261,67 +242,52 @@ impl MCPTaskClient {
     pub async fn list_tasks(
         &self,
         status: Option<TaskStatus>,
-        priority: Option<TaskPriority>,
+        _priority: Option<TaskPriority>,
         agent_id: Option<&str>,
         agent_type: Option<AgentType>,
         context_id: Option<&str>,
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> Result<Vec<Task>> {
-        // Clamp u32 values to i32::MAX to avoid truncation
-        let limit_value = limit.unwrap_or(100);
-        let offset_value = offset.unwrap_or(0);
         let request = ListTasksRequest {
             status: status.map(|s| s as i32).unwrap_or(-1),
             agent_id: agent_id.unwrap_or("").to_string(),
             agent_type: agent_type.map(|a| a as i32).unwrap_or(-1),
             context_id: context_id.unwrap_or("").to_string(),
-            limit: limit_value.min(i32::MAX as u32) as i32,
-            offset: offset_value.min(i32::MAX as u32) as i32,
+            limit: limit.unwrap_or(100).min(i32::MAX as u32) as i32,
+            offset: offset.unwrap_or(0).min(i32::MAX as u32) as i32,
         };
-        
-        let request_clone = request.clone();
-        
-        let response = self.execute_with_retry(move |mut client| {
-            let req = request_clone.clone();
-            async move {
-                client.list_tasks(Request::new(req)).await
-            }
-        }).await?;
 
-        let inner = response.into_inner();
-        if !inner.success {
-            return Err(anyhow!("Failed to list tasks: {}", inner.error_message));
+        let params = serde_json::to_value(&request)?;
+        let result = self.json_rpc_call("list_tasks", params).await?;
+        let response: ListTasksResponse = serde_json::from_value(result)?;
+
+        if !response.success {
+            return Err(anyhow!("Failed to list tasks: {}", response.error_message));
         }
 
-        let tasks = inner.tasks
-            .into_iter()
-            .map(|t| t.into())
-            .collect();
-
-        Ok(tasks)
+        Ok(response.tasks.into_iter().map(json_task_to_task).collect())
     }
 
     /// Assign a task to an agent
-    pub async fn assign_task(&self, task_id: &str, agent_id: &str, agent_type: AgentType) -> Result<()> {
+    pub async fn assign_task(
+        &self,
+        task_id: &str,
+        agent_id: &str,
+        agent_type: AgentType,
+    ) -> Result<()> {
         let request = AssignTaskRequest {
             task_id: task_id.to_string(),
             agent_id: agent_id.to_string(),
             agent_type: agent_type as i32,
         };
-        
-        let request_clone = request.clone();
-        
-        let response = self.execute_with_retry(move |mut client| {
-            let req = request_clone.clone();
-            async move {
-                client.assign_task(Request::new(req)).await
-            }
-        }).await?;
 
-        let inner = response.into_inner();
-        if !inner.success {
-            return Err(anyhow!("Failed to assign task: {}", inner.error_message));
+        let params = serde_json::to_value(&request)?;
+        let result = self.json_rpc_call("assign_task", params).await?;
+        let response: AssignTaskResponse = serde_json::from_value(result)?;
+
+        if !response.success {
+            return Err(anyhow!("Failed to assign task: {}", response.error_message));
         }
 
         Ok(())
@@ -329,10 +295,10 @@ impl MCPTaskClient {
 
     /// Report progress for a task
     pub async fn report_progress(
-        &self, 
-        task_id: &str, 
-        progress_percent: i32, 
-        message: Option<&str>
+        &self,
+        task_id: &str,
+        progress_percent: i32,
+        message: Option<&str>,
     ) -> Result<()> {
         let request = ReportProgressRequest {
             task_id: task_id.to_string(),
@@ -340,19 +306,16 @@ impl MCPTaskClient {
             progress_message: message.unwrap_or("").to_string(),
             interim_results: Vec::new(),
         };
-        
-        let request_clone = request.clone();
-        
-        let response = self.execute_with_retry(move |mut client| {
-            let req = request_clone.clone();
-            async move {
-                client.report_progress(Request::new(req)).await
-            }
-        }).await?;
 
-        let inner = response.into_inner();
-        if !inner.success {
-            return Err(anyhow!("Failed to report progress: {}", inner.error_message));
+        let params = serde_json::to_value(&request)?;
+        let result = self.json_rpc_call("report_progress", params).await?;
+        let response: ReportProgressResponse = serde_json::from_value(result)?;
+
+        if !response.success {
+            return Err(anyhow!(
+                "Failed to report progress: {}",
+                response.error_message
+            ));
         }
 
         Ok(())
@@ -371,30 +334,23 @@ impl MCPTaskClient {
             metadata: Vec::new(),
         };
 
-        // Convert output data to bytes if provided
         if let Some(data) = output_data {
-            request.output_data = serde_json::to_vec(&data)
-                .context("Failed to serialize output data")?;
+            request.output_data =
+                serde_json::to_vec(&data).context("Failed to serialize output data")?;
         }
-
-        // Convert metadata to bytes if provided
         if let Some(meta) = metadata {
-            request.metadata = serde_json::to_vec(&meta)
-                .context("Failed to serialize metadata")?;
+            request.metadata = serde_json::to_vec(&meta).context("Failed to serialize metadata")?;
         }
-        
-        let request_clone = request.clone();
-        
-        let response = self.execute_with_retry(move |mut client| {
-            let req = request_clone.clone();
-            async move {
-                client.complete_task(Request::new(req)).await
-            }
-        }).await?;
 
-        let inner = response.into_inner();
-        if !inner.success {
-            return Err(anyhow!("Failed to complete task: {}", inner.error_message));
+        let params = serde_json::to_value(&request)?;
+        let result = self.json_rpc_call("complete_task", params).await?;
+        let response: CompleteTaskResponse = serde_json::from_value(result)?;
+
+        if !response.success {
+            return Err(anyhow!(
+                "Failed to complete task: {}",
+                response.error_message
+            ));
         }
 
         Ok(())
@@ -406,143 +362,86 @@ impl MCPTaskClient {
             task_id: task_id.to_string(),
             reason: reason.to_string(),
         };
-        
-        let request_clone = request.clone();
-        
-        let response = self.execute_with_retry(move |mut client| {
-            let req = request_clone.clone();
-            async move {
-                client.cancel_task(Request::new(req)).await
-            }
-        }).await?;
 
-        let inner = response.into_inner();
-        if !inner.success {
-            return Err(anyhow!("Failed to cancel task: {}", inner.error_message));
+        let params = serde_json::to_value(&request)?;
+        let result = self.json_rpc_call("cancel_task", params).await?;
+        let response: CancelTaskResponse = serde_json::from_value(result)?;
+
+        if !response.success {
+            return Err(anyhow!("Failed to cancel task: {}", response.error_message));
         }
 
         Ok(())
     }
-
-    /// Watch a task for changes.
-    /// 
-    /// This method returns a streaming response that will emit task updates as they happen.
-    /// The stream remains open until explicitly closed or the server terminates it.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `task_id` - The unique identifier of the task to watch
-    /// * `include_initial_state` - Whether to include the initial task state in the response
-    /// * `timeout_seconds` - Optional timeout in seconds (0 = no timeout)
-    /// * `watchable` - Whether to only include watchable tasks in the response
-    /// * `filter_updates` - Whether to filter duplicate updates (only emit when task state changes)
-    /// 
-    /// # Returns
-    /// 
-    /// A `Result` containing a stream of task updates or an error
-    // pub async fn watch_task(
-    //     &self, 
-    //     task_id: &str, 
-    //     include_initial_state: bool, 
-    //     timeout_seconds: i32,
-    //     watchable: bool,
-    //     filter_updates: bool
-    // ) -> Result<impl Stream<Item = Result<Task, Status>>> {
-    //     // Connect to the task service - handle conversion from anyhow::Error to tonic::Status
-    //     let mut client = {
-    //         // Ensure we're connected
-    //         if let Err(e) = self.connect().await {
-    //             return Err(anyhow!("Failed to connect to task service: {}", e));
-    //         }
-            
-    //         let guard = self.client.lock().await;
-    //         guard.clone()
-    //     };
-        
-    //     let request = tonic::Request::new(crate::generated::mcp_task::WatchTaskRequest {
-    //         task_id: task_id.to_string(),
-    //         include_initial_state,
-    //         timeout_seconds,
-    //         only_watchable: watchable,
-    //         filter_updates,
-    //     });
-        
-    //     let response = match client.watch_task(request).await {
-    //         Ok(response) => response,
-    //         Err(status) => {
-    //             return Err(anyhow!("Failed to watch task: {}", status));
-    //         }
-    //     };
-        
-    //     let stream = response.into_inner();
-        
-    //     // Transform the stream to convert protobuf tasks to our Task type
-    //     Ok(stream.map(|result| {
-    //         match result {
-    //             Ok(proto_response) => {
-    //                 if !proto_response.success {
-    //                     Err(Status::internal(proto_response.error_message))
-    //                 } else if let Some(proto_task) = proto_response.task {
-    //                     Ok(Task::from(proto_task))
-    //                 } else {
-    //                     Err(Status::internal("No task in watch response"))
-    //                 }
-    //             },
-    //             Err(status) => Err(status),
-    //         }
-    //     }))
-    // }
-
-    /// Execute a client operation with retry logic
-    async fn execute_with_retry<F, Fut, R>(&self, operation: F) -> Result<R>
-    where
-        F: for<'a> Fn(TaskServiceClient<Channel>) -> Fut,
-        Fut: std::future::Future<Output = std::result::Result<R, Status>>,
-    {
-        let mut backoff = self.config.initial_backoff_ms;
-        let mut attempts = 0;
-
-        loop {
-            attempts += 1;
-            let client = {
-                let guard = self.client.lock().await;
-                guard.clone()
-            };
-
-            match operation(client).await {
-                Ok(response) => return Ok(response),
-                Err(status) => {
-                    if attempts >= self.config.max_retries || !is_retryable_error(&status) {
-                        return Err(anyhow!("Task service error: {}", status));
-                    }
-
-                    // Exponential backoff
-                    tokio::time::sleep(Duration::from_millis(backoff)).await;
-                    backoff = std::cmp::min(backoff * 2, self.config.max_backoff_ms);
-                }
-            }
-        }
-    }
 }
 
-/// Helper function to determine if an error is retryable
-fn is_retryable_error(status: &Status) -> bool {
-    match status.code() {
-        tonic::Code::Unavailable | 
-        tonic::Code::DeadlineExceeded |
-        tonic::Code::ResourceExhausted |
-        tonic::Code::Internal => true,
-        _ => false
+/// Convert JsonTask to Task
+fn json_task_to_task(json: JsonTask) -> Task {
+    let input_data = if json.input_data.is_empty() {
+        None
+    } else {
+        serde_json::from_slice(&json.input_data).ok()
+    };
+    let output_data = if json.output_data.is_empty() {
+        None
+    } else {
+        serde_json::from_slice(&json.output_data).ok()
+    };
+    let metadata = if json.metadata.is_empty() {
+        None
+    } else {
+        serde_json::from_slice(&json.metadata).ok()
+    };
+
+    Task {
+        id: json.id,
+        name: json.name,
+        description: json.description,
+        status_code: TaskStatus::from(json.status),
+        priority_code: TaskPriority::from(json.priority),
+        agent_type: AgentType::from(json.agent_type),
+        progress: json.progress_percent as f32,
+        agent_id: if json.agent_id.is_empty() {
+            None
+        } else {
+            Some(json.agent_id)
+        },
+        context_id: if json.context_id.is_empty() {
+            None
+        } else {
+            Some(json.context_id)
+        },
+        parent_id: None,
+        prerequisites: json.prerequisite_task_ids,
+        created_at: json.created_at.unwrap_or_else(Utc::now),
+        updated_at: json.updated_at.unwrap_or_else(Utc::now),
+        completed_at: json.completed_at,
+        input_data,
+        output_data,
+        metadata,
+        error_message: if json.error_message.is_empty() {
+            None
+        } else {
+            Some(json.error_message)
+        },
+        status_message: if json.progress_message.is_empty() {
+            None
+        } else {
+            Some(json.progress_message)
+        },
+        deadline: None,
+        watchable: false,
+        retry_count: 0,
+        max_retries: 3,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_create_task() {
-        // This is just a stub for now
-        // Real tests will need a mock server or integration tests
+        // Stub for testing - requires running task server
     }
-} 
+}

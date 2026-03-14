@@ -32,7 +32,7 @@
 //! let resolver = EndpointResolver::new();
 //!
 //! // Resolve endpoint for a capability/primal
-//! let endpoint = resolver.resolve("songbird").await?;
+//! let endpoint = resolver.resolve(universal_constants::capabilities::SERVICE_MESH_CAPABILITY).await?;
 //!
 //! // Use the endpoint
 //! match endpoint {
@@ -169,7 +169,7 @@ impl EndpointResolver {
     /// Resolve an endpoint for a primal or service
     ///
     /// ## Arguments
-    /// - `name`: Primal or service name (e.g., "songbird", "beardog", "toadstool")
+    /// - `name`: Capability or service name (e.g., "service-mesh", "security", "compute")
     ///
     /// ## Returns
     /// - `Ok(Endpoint)` if endpoint found
@@ -311,14 +311,28 @@ impl EndpointResolver {
     }
 
     /// Generate fallback endpoint (with warnings)
+    ///
+    /// Uses capability-based discovery constants. Primal names are accepted
+    /// for backward compatibility but map to capability ports.
     fn fallback_endpoint(&self, name: &str) -> Endpoint {
-        // Use sensible defaults based on primal/service type
+        use universal_constants::capabilities;
+        use universal_constants::deployment::ports;
+
+        // Capability-based: use capability constants for discovery
         let port = match name.to_lowercase().as_str() {
-            "songbird" => 8443,  // Standard HTTPS port (Songbird handles TLS)
-            "beardog" => 8444,   // Security service
-            "toadstool" => 8445, // Compute service
-            "nestgate" => 8446,  // Storage service
-            "squirrel" => 8080,  // AI orchestration (us!)
+            // Capability constants
+            n if n == capabilities::SERVICE_MESH_CAPABILITY || n == "network" => {
+                ports::service_mesh()
+            }
+            n if n == capabilities::SECURITY_CAPABILITY => ports::security_service(),
+            n if n == capabilities::COMPUTE_CAPABILITY => ports::compute_service(),
+            n if n == capabilities::STORAGE_CAPABILITY => ports::storage_service(),
+            n if n == capabilities::SELF_PRIMAL_NAME => 8080, // AI orchestration (us!)
+            // Legacy primal names (backward compat)
+            "songbird" => ports::service_mesh(),
+            "beardog" => ports::security_service(),
+            "toadstool" => ports::compute_service(),
+            "nestgate" => ports::storage_service(),
             "websocket" | "ws" => 8080,
             "http" => 8081,
             "admin" => 8082,
@@ -489,21 +503,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fallback_for_standard_primals() {
+    async fn test_fallback_for_capability_based_services() {
+        use universal_constants::capabilities;
+
         // Use PreferNetwork strategy (will use network first, then fallback if needed)
         let resolver = EndpointResolver::with_strategy(ResolutionStrategy::PreferNetwork)
             .warn_on_fallback(false);
 
-        // Standard primals should have sensible fallbacks (HTTP URLs when no sockets exist)
-        // Note: These might find actual Unix sockets if running on a dev system with primals active
-        let songbird = resolver.resolve("songbird").await.unwrap();
-        // Just verify we got an endpoint (could be Unix socket or HTTP)
-        assert!(!songbird.as_str().is_empty());
+        // Capability-based discovery: use capability constants
+        let service_mesh = resolver
+            .resolve(capabilities::SERVICE_MESH_CAPABILITY)
+            .await
+            .unwrap();
+        assert!(!service_mesh.as_str().is_empty());
 
-        let beardog = resolver.resolve("beardog").await.unwrap();
-        assert!(!beardog.as_str().is_empty());
+        let security = resolver
+            .resolve(capabilities::SECURITY_CAPABILITY)
+            .await
+            .unwrap();
+        assert!(!security.as_str().is_empty());
 
-        let squirrel = resolver.resolve("squirrel").await.unwrap();
-        assert!(!squirrel.as_str().is_empty());
+        let self_primal = resolver
+            .resolve(capabilities::SELF_PRIMAL_NAME)
+            .await
+            .unwrap();
+        assert!(!self_primal.as_str().is_empty());
     }
 }

@@ -10,7 +10,7 @@ use std::sync::Arc;
 /// Helper to create test ecosystem config
 fn create_test_config() -> EcosystemConfig {
     EcosystemConfig {
-        service_id: "test-squirrel-001".to_string(),
+        service_id: Arc::from("test-squirrel-001"),
         service_name: "Test Squirrel".to_string(),
         service_host: "localhost".to_string(),
         service_port: std::env::var("TEST_ECOSYSTEM_MANAGER_PORT")
@@ -63,7 +63,7 @@ async fn test_ecosystem_manager_creation() {
 
     let manager = EcosystemManager::new(config.clone(), metrics);
 
-    assert_eq!(manager.config.service_id, "test-squirrel-001");
+    assert_eq!(manager.config.service_id.as_ref(), "test-squirrel-001");
     assert_eq!(manager.config.service_name, "Test Squirrel");
 }
 
@@ -140,7 +140,7 @@ async fn test_component_health_creation() {
 async fn test_multiple_ecosystem_managers() {
     let config1 = create_test_config();
     let config2 = EcosystemConfig {
-        service_id: "test-squirrel-002".to_string(),
+        service_id: Arc::from("test-squirrel-002"),
         ..create_test_config()
     };
 
@@ -148,8 +148,8 @@ async fn test_multiple_ecosystem_managers() {
     let manager1 = EcosystemManager::new(config1, metrics.clone());
     let manager2 = EcosystemManager::new(config2, metrics);
 
-    assert_eq!(manager1.config.service_id, "test-squirrel-001");
-    assert_eq!(manager2.config.service_id, "test-squirrel-002");
+    assert_eq!(manager1.config.service_id.as_ref(), "test-squirrel-001");
+    assert_eq!(manager2.config.service_id.as_ref(), "test-squirrel-002");
 }
 
 #[tokio::test]

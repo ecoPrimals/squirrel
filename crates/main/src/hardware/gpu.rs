@@ -716,4 +716,71 @@ mod tests {
         assert!(estimate_performance("RTX 3090", &arch).is_some());
         assert!(estimate_performance("RX 7900", &Some("RDNA3".to_string())).is_some());
     }
+
+    #[test]
+    fn test_architecture_from_compute_capability() {
+        assert_eq!(
+            architecture_from_compute_capability("8.6"),
+            Some("Ampere".to_string())
+        );
+        assert_eq!(
+            architecture_from_compute_capability("9.0"),
+            Some("Hopper".to_string())
+        );
+        assert_eq!(
+            architecture_from_compute_capability("7.5"),
+            Some("Volta/Turing".to_string())
+        );
+        assert_eq!(
+            architecture_from_compute_capability("6.1"),
+            Some("Pascal".to_string())
+        );
+        assert_eq!(
+            architecture_from_compute_capability("3.7"),
+            Some("Kepler".to_string())
+        );
+    }
+
+    #[test]
+    fn test_estimate_power() {
+        assert_eq!(estimate_power("RTX 4090"), Some(450));
+        assert_eq!(estimate_power("RTX 3090"), Some(350));
+        assert_eq!(estimate_power("A100"), Some(400));
+        assert_eq!(estimate_power("RX 7900"), Some(355));
+        assert_eq!(estimate_power("unknown"), None);
+    }
+
+    #[test]
+    fn test_gpu_info_serde() {
+        let gpu = GpuInfo {
+            model: "RTX 3090".to_string(),
+            vram_total_gb: 24,
+            vram_available_gb: 20,
+            index: 0,
+            vendor: "NVIDIA".to_string(),
+            compute_capability: Some("8.6".to_string()),
+            architecture: Some("Ampere".to_string()),
+            memory_bandwidth_gb_s: Some(936),
+            estimated_tokens_per_sec: Some(80.0),
+            power_draw_watts: Some(350),
+            efficiency_tokens_per_watt: Some(0.23),
+        };
+        let json = serde_json::to_string(&gpu).unwrap();
+        let deserialized: GpuInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.model, "RTX 3090");
+        assert_eq!(deserialized.vram_total_gb, 24);
+    }
+
+    #[test]
+    fn test_local_gpu_capabilities_serde() {
+        let caps = LocalGpuCapabilities {
+            gpus: vec![],
+            total_vram_gb: 0,
+            ai_acceleration: false,
+        };
+        let json = serde_json::to_string(&caps).unwrap();
+        let deserialized: LocalGpuCapabilities = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.gpus.is_empty());
+        assert!(!deserialized.ai_acceleration);
+    }
 }

@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
+#![allow(
+    clippy::map_unwrap_or,
+    clippy::redundant_closure,
+    clippy::redundant_closure_for_method_calls
+)]
+
 //! AI Rate Limiting Demo command-line tool
 //!
 //! This binary demonstrates how the rate limiting functionality of the AI tools works.

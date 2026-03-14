@@ -6,7 +6,7 @@
 //!
 //! This module re-exports types from squirrel_context for backward compatibility.
 
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 // Core modules for Squirrel MCP ecosystem coordination
 pub mod api;
 pub mod config;

@@ -192,3 +192,48 @@ pub struct PlatformConfig {
     /// Maximum file descriptors (platform-specific limit)
     pub max_file_descriptors: u32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_current_platform() {
+        let platform = CrossPlatform::detect_current_platform();
+        let config = CrossPlatform::get_platform_config(&platform);
+        assert!(config.max_file_descriptors > 0);
+        assert_eq!(config.path_separator, std::path::MAIN_SEPARATOR);
+        assert_eq!(config.executable_extension, std::env::consts::EXE_EXTENSION);
+    }
+
+    #[test]
+    fn test_platform_compatibility_same() {
+        let p = CrossPlatform::detect_current_platform();
+        assert!(CrossPlatform::are_compatible(&p, &p));
+    }
+
+    #[test]
+    fn test_get_data_dir() {
+        let path = CrossPlatform::get_data_dir("test_app");
+        assert!(path.to_string_lossy().contains("test_app"));
+    }
+
+    #[test]
+    fn test_get_config_dir() {
+        let path = CrossPlatform::get_config_dir("test_app");
+        assert!(path.to_string_lossy().contains("test_app"));
+    }
+
+    #[test]
+    fn test_get_runtime_dir() {
+        let path = CrossPlatform::get_runtime_dir("squirrel");
+        assert!(path.to_string_lossy().contains("squirrel"));
+    }
+
+    #[test]
+    fn test_platform_config_debug() {
+        let platform = CrossPlatform::detect_current_platform();
+        let config = CrossPlatform::get_platform_config(&platform);
+        let _ = format!("{:?}", config);
+    }
+}

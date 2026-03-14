@@ -105,7 +105,6 @@ pub struct JsonRpcError {
 }
 
 /// JSON-RPC error codes (standard)
-#[allow(dead_code)]
 pub mod error_codes {
     pub const PARSE_ERROR: i32 = -32700;
     pub const INVALID_REQUEST: i32 = -32600;
@@ -450,7 +449,7 @@ impl JsonRpcServer {
         let start_time = Instant::now();
 
         // Parse JSON-RPC request
-        let request: JsonRpcRequest = match serde_json::from_str(request_str.trim()) {
+        let mut request: JsonRpcRequest = match serde_json::from_str(request_str.trim()) {
             Ok(req) => req,
             Err(e) => {
                 return JsonRpcResponse {
@@ -475,7 +474,7 @@ impl JsonRpcServer {
             );
         }
 
-        let request_id = request.id.clone().unwrap_or(Value::Null);
+        let request_id = request.id.take().unwrap_or(Value::Null);
 
         // Dispatch to method handler with tracing span
 

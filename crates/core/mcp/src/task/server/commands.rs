@@ -6,15 +6,15 @@
 //! This module provides command execution capabilities for the task service,
 //! allowing tasks to execute commands and retrieve command information.
 
+use crate::error::MCPError;
+use serde_json;
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde_json;
-use tonic::Status;
-use tracing::{debug, info, warn, error};
 use tokio::sync::RwLock;
+use tracing::{debug, error, info};
 
-use super::types::SimpleCommand;
 use super::service::TaskServiceImpl;
+use super::types::SimpleCommand;
 use crate::error::production::{ProductionError, SafeOperation};
 
 /// Production command registry
@@ -58,16 +58,20 @@ impl ProductionCommandRegistry {
     }
 
     /// Register a command
-    pub async fn register_command(&self, command: Box<dyn SimpleCommand>) -> Result<(), ProductionError> {
+    pub async fn register_command(
+        &self,
+        command: Box<dyn SimpleCommand>,
+    ) -> Result<(), ProductionError> {
         let command_name = command.name().to_string();
-        
+
         let commands_result = SafeOperation::execute(|| {
-            self.commands.try_write()
-                .map_err(|e| ProductionError::concurrency(
+            self.commands.try_write().map_err(|e| {
+                ProductionError::concurrency(
                     format!("Failed to acquire command registry write lock: {}", e),
                     "command_registration",
                     true,
-                ))
+                )
+            })
         });
 
         match commands_result.result() {
@@ -86,12 +90,13 @@ impl ProductionCommandRegistry {
     /// List all available commands
     pub async fn list_commands(&self) -> Result<Vec<String>, ProductionError> {
         let commands_result = SafeOperation::execute(|| {
-            self.commands.try_read()
-                .map_err(|e| ProductionError::concurrency(
+            self.commands.try_read().map_err(|e| {
+                ProductionError::concurrency(
                     format!("Failed to acquire command registry read lock: {}", e),
                     "command_listing",
                     true,
-                ))
+                )
+            })
         });
 
         match commands_result.result() {
@@ -108,57 +113,70 @@ impl ProductionCommandRegistry {
     }
 
     /// Execute a command
-    pub async fn execute_command(&self, command_name: &str, args: Vec<String>) -> Result<String, ProductionError> {
+    pub async fn execute_command(
+        &self,
+        command_name: &str,
+        args: Vec<String>,
+    ) -> Result<String, ProductionError> {
         let start_time = std::time::Instant::now();
-        
+
         // Get the command
         let command = {
             let commands_result = SafeOperation::execute(|| {
-                self.commands.try_read()
-                    .map_err(|e| ProductionError::concurrency(
+                self.commands.try_read().map_err(|e| {
+                    ProductionError::concurrency(
                         format!("Failed to acquire command registry read lock: {}", e),
                         "command_execution",
                         true,
-                    ))
+                    )
+                })
             });
 
             match commands_result.result() {
-                Ok(commands) => {
-                    commands.get(command_name).map(|cmd| cmd.clone_box())
-                }
+                Ok(commands) => commands.get(command_name).map(|cmd| cmd.clone_box()),
                 Err(e) => {
-                    error!("Failed to access command registry for '{}': {}", command_name, e);
+                    error!(
+                        "Failed to access command registry for '{}': {}",
+                        command_name, e
+                    );
                     return Err(e);
                 }
             }
         };
 
+        let available = self.list_commands().await.unwrap_or_default().join(", ");
         let command = command.ok_or_else(|| {
             ProductionError::not_found(
                 format!("Command '{}' not found", command_name),
                 "command_execution",
-                Some(format!("Available commands: {}", self.list_commands().await.unwrap_or_default().join(", ")))
+                Some(format!("Available commands: {}", available)),
             )
         })?;
 
         // Execute the command
         let result = SafeOperation::execute(|| {
-            command.execute(&args)
-                .map_err(|e| ProductionError::execution(
+            command.execute(&args).map_err(|e| {
+                ProductionError::execution(
                     format!("Command '{}' execution failed: {}", command_name, e),
                     "command_execution",
                     true,
-                ))
+                )
+            })
         });
 
         let execution_time = start_time.elapsed();
-        
-        // Update statistics
-        self.update_command_stats(command_name, execution_time, result.is_ok()).await;
+        let cmd_result = result.result();
 
-        match result.result() {
+        // Update statistics
+        self.update_command_stats(command_name, execution_time, cmd_result.is_ok())
+            .await;
+
+        match cmd_result {
             Ok(output) => {
-                info!("Command '{}' executed successfully in {:?}", command_name, execution_time);
+                info!(
+                    "Command '{}' executed successfully in {:?}",
+                    command_name, execution_time
+                );
                 Ok(output)
             }
             Err(e) => {
@@ -171,12 +189,13 @@ impl ProductionCommandRegistry {
     /// Get help for a command
     pub async fn get_command_help(&self, command_name: &str) -> Result<String, ProductionError> {
         let commands_result = SafeOperation::execute(|| {
-            self.commands.try_read()
-                .map_err(|e| ProductionError::concurrency(
+            self.commands.try_read().map_err(|e| {
+                ProductionError::concurrency(
                     format!("Failed to acquire command registry read lock: {}", e),
                     "command_help",
                     true,
-                ))
+                )
+            })
         });
 
         match commands_result.result() {
@@ -187,7 +206,10 @@ impl ProductionCommandRegistry {
                     Err(ProductionError::not_found(
                         format!("Command '{}' not found", command_name),
                         "command_help",
-                        Some(format!("Available commands: {}", commands.keys().cloned().collect::<Vec<_>>().join(", ")))
+                        Some(format!(
+                            "Available commands: {}",
+                            commands.keys().cloned().collect::<Vec<_>>().join(", ")
+                        )),
                     ))
                 }
             }
@@ -199,28 +221,37 @@ impl ProductionCommandRegistry {
     }
 
     /// Update command execution statistics
-    async fn update_command_stats(&self, command_name: &str, execution_time: std::time::Duration, success: bool) {
+    async fn update_command_stats(
+        &self,
+        command_name: &str,
+        execution_time: std::time::Duration,
+        success: bool,
+    ) {
         let stats_result = SafeOperation::execute(|| {
-            self.execution_stats.try_write()
-                .map_err(|e| ProductionError::concurrency(
+            self.execution_stats.try_write().map_err(|e| {
+                ProductionError::concurrency(
                     format!("Failed to acquire stats write lock: {}", e),
                     "stats_update",
                     false, // Not retryable - stats are not critical
-                ))
+                )
+            })
         });
 
         if let Ok(mut stats) = stats_result.result() {
             let command_stats = stats.entry(command_name.to_string()).or_default();
-            
+
             command_stats.total_executions += 1;
             if success {
                 command_stats.successful_executions += 1;
             } else {
                 command_stats.failed_executions += 1;
             }
-            
+
             let duration_ms = execution_time.as_millis() as f64;
-            command_stats.average_duration_ms = (command_stats.average_duration_ms * (command_stats.total_executions - 1) as f64 + duration_ms) / command_stats.total_executions as f64;
+            command_stats.average_duration_ms = (command_stats.average_duration_ms
+                * (command_stats.total_executions - 1) as f64
+                + duration_ms)
+                / command_stats.total_executions as f64;
             command_stats.last_execution = Some(chrono::Utc::now());
         }
     }
@@ -228,12 +259,13 @@ impl ProductionCommandRegistry {
     /// Get command statistics
     pub async fn get_command_stats(&self, command_name: &str) -> Option<CommandStats> {
         let stats_result = SafeOperation::execute(|| {
-            self.execution_stats.try_read()
-                .map_err(|e| ProductionError::concurrency(
+            self.execution_stats.try_read().map_err(|e| {
+                ProductionError::concurrency(
                     format!("Failed to acquire stats read lock: {}", e),
                     "stats_read",
                     false,
-                ))
+                )
+            })
         });
 
         if let Ok(stats) = stats_result.result() {
@@ -251,16 +283,16 @@ impl Default for ProductionCommandRegistry {
 }
 
 // Global command registry instance
-static COMMAND_REGISTRY: std::sync::OnceLock<ProductionCommandRegistry> = std::sync::OnceLock::new();
+static COMMAND_REGISTRY: std::sync::OnceLock<ProductionCommandRegistry> =
+    std::sync::OnceLock::new();
 
 /// Get the global command registry instance
 pub fn get_command_registry() -> &'static ProductionCommandRegistry {
     COMMAND_REGISTRY.get_or_init(|| {
         let registry = ProductionCommandRegistry::new();
         // Register built-in commands
-        let _ = tokio::runtime::Handle::current().block_on(async {
-            registry.register_command(Box::new(HelpCommand)).await
-        });
+        let _ = tokio::runtime::Handle::current()
+            .block_on(async { registry.register_command(Box::new(HelpCommand)).await });
         registry
     })
 }
@@ -285,9 +317,9 @@ impl SimpleCommand for HelpCommand {
         } else {
             // Show help for specific command
             let command_name = &args[0];
-            match tokio::runtime::Handle::current().block_on(async {
-                get_command_registry().get_command_help(command_name).await
-            }) {
+            match tokio::runtime::Handle::current()
+                .block_on(async { get_command_registry().get_command_help(command_name).await })
+            {
                 Ok(help) => Ok(help),
                 Err(e) => Err(format!("Failed to get help for '{}': {}", command_name, e)),
             }
@@ -301,7 +333,7 @@ impl SimpleCommand for HelpCommand {
                 clap::Arg::new("command")
                     .help("Command to show help for")
                     .value_name("COMMAND")
-                    .required(false)
+                    .required(false),
             )
     }
 
@@ -332,11 +364,15 @@ impl TaskServiceImpl {
         args: HashMap<String, String>,
     ) -> Result<String, String> {
         // Convert HashMap to Vec<String> for execution
-        let args_vec: Vec<String> = args.into_iter()
+        let args_vec: Vec<String> = args
+            .into_iter()
             .map(|(k, v)| format!("{}={}", k, v))
             .collect();
-        
-        match get_command_registry().execute_command(command_name, args_vec).await {
+
+        match get_command_registry()
+            .execute_command(command_name, args_vec)
+            .await
+        {
             Ok(output) => {
                 info!("Command '{}' executed successfully", command_name);
                 Ok(output)
@@ -363,17 +399,21 @@ impl TaskServiceImpl {
     }
 
     // Helper method to validate task IDs
-    pub fn validate_task_id(task_id: &str) -> Result<(), Status> {
+    pub fn validate_task_id(task_id: &str) -> Result<(), MCPError> {
         if task_id.is_empty() {
-            return Err(Status::invalid_argument("Task ID cannot be empty"));
+            return Err(MCPError::InvalidArgument(
+                "Task ID cannot be empty".to_string(),
+            ));
         }
         Ok(())
     }
-    
+
     // Helper method to validate agent IDs
-    pub fn validate_agent_id(agent_id: &str) -> Result<(), Status> {
+    pub fn validate_agent_id(agent_id: &str) -> Result<(), MCPError> {
         if agent_id.is_empty() {
-            return Err(Status::invalid_argument("Agent ID cannot be empty"));
+            return Err(MCPError::InvalidArgument(
+                "Agent ID cannot be empty".to_string(),
+            ));
         }
         Ok(())
     }
@@ -427,15 +467,3 @@ impl Default for LocalCommandRegistry {
         Self::new()
     }
 }
-
-// Helper function to convert bytes to HashMap
-fn bytes_to_hashmap(data: &[u8]) -> Result<HashMap<String, serde_json::Value>, String> {
-    if data.is_empty() {
-        return Ok(HashMap::new());
-    }
-    
-    match serde_json::from_slice(data) {
-        Ok(map) => Ok(map),
-        Err(e) => Err(format!("Failed to parse JSON: {}", e)),
-    }
-} 

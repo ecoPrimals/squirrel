@@ -231,7 +231,11 @@ impl AgentRegistry {
         info!(
             "Registered agent '{}' with {} capabilities",
             agent_id,
-            agents.get(&agent_id).expect("agent just inserted").capabilities.len()
+            agents
+                .get(&agent_id)
+                .expect("agent just inserted")
+                .capabilities
+                .len()
         );
         Ok(())
     }

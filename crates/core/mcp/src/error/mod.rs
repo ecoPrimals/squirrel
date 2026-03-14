@@ -35,6 +35,7 @@ pub mod handler;
 pub mod integration;
 pub mod plugin;
 pub mod port;
+pub mod production;
 pub mod protocol_err;
 pub mod rbac;
 pub mod registry;

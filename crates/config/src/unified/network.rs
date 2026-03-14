@@ -135,7 +135,7 @@ fn default_grpc_port() -> Port {
 }
 
 fn default_max_connections() -> u32 {
-    limits::DEFAULT_MAX_CONNECTIONS as u32
+    u32::try_from(limits::DEFAULT_MAX_CONNECTIONS).unwrap_or(u32::MAX)
 }
 
 impl Default for NetworkConfig {
@@ -404,7 +404,7 @@ mod tests {
         assert_eq!(config.http_port().get(), network::DEFAULT_HTTP_PORT);
         assert_eq!(config.websocket_port().get(), network::DEFAULT_WEBSOCKET_PORT);
         assert_eq!(config.grpc_port().get(), network::DEFAULT_GRPC_PORT);
-        assert_eq!(config.max_connections(), limits::DEFAULT_MAX_CONNECTIONS as u32);
+        assert_eq!(config.max_connections(), u32::try_from(limits::DEFAULT_MAX_CONNECTIONS).unwrap_or(u32::MAX));
         assert!(!config.is_tls_enabled());
     }
 

@@ -197,7 +197,7 @@ pub struct SecurityCheckResult {
 }
 
 /// Risk level assessment for security events
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum RiskLevel {
     Low,
     Medium,
@@ -225,7 +225,7 @@ pub struct SecurityResponse {
 }
 
 /// Types of automated security responses
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ResponseType {
     /// Log the incident
     Log,
@@ -323,8 +323,8 @@ impl SecurityOrchestrator {
             .rate_limiter
             .check_request(
                 request.client_ip,
-                request.endpoint_type.clone(),
-                request.user_agent.clone(),
+                request.endpoint_type,
+                request.user_agent.as_deref(),
             )
             .await;
 
@@ -415,7 +415,7 @@ impl SecurityOrchestrator {
 
         // 4. Update violation counters
         if !allowed {
-            self.update_violation_counter(request.client_ip, overall_risk.clone())
+            self.update_violation_counter(request.client_ip, overall_risk)
                 .await;
         }
 
@@ -511,7 +511,7 @@ impl SecurityOrchestrator {
             };
 
             Some(SecurityResponse {
-                response_type: response_type.clone(),
+                response_type,
                 target: client_ip.to_string(),
                 duration: if response_type == ResponseType::TemporaryBlock {
                     Some(self.config.response_thresholds.temp_block_duration)
@@ -704,5 +704,290 @@ impl ShutdownHandler for SecurityOrchestrator {
 
     fn estimated_shutdown_time(&self) -> Duration {
         Duration::from_secs(15)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::observability::CorrelationId;
+    use std::net::IpAddr;
+
+    fn create_test_config() -> SecurityOrchestrationConfig {
+        let mut config = SecurityOrchestrationConfig::default();
+        // Disable real-time monitoring to avoid background tasks in tests
+        config.security_monitoring.enable_real_time_monitoring = false;
+        config
+    }
+
+    #[tokio::test]
+    async fn test_orchestrator_creation() {
+        let config = create_test_config();
+        let orchestrator = SecurityOrchestrator::new(config).await;
+        assert!(orchestrator.is_ok());
+        let orchestrator = orchestrator.unwrap();
+        let stats = orchestrator.get_security_statistics().await;
+        assert_eq!(stats.total_tracked_ips, 0);
+        assert_eq!(stats.active_security_responses, 0);
+    }
+
+    #[tokio::test]
+    async fn test_security_check_allowed_request() {
+        let config = create_test_config();
+        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+
+        let request = SecurityCheckRequest {
+            client_ip: "127.0.0.1".parse().unwrap(),
+            user_agent: Some("test-agent".to_string()),
+            endpoint: "/api/test".to_string(),
+            endpoint_type: EndpointType::Api,
+            input_data: None,
+            user_id: None,
+            session_id: None,
+            policy_name: None,
+            correlation_id: CorrelationId::new(),
+            metadata: HashMap::new(),
+        };
+
+        let result = orchestrator.check_security(request).await;
+        assert!(result.allowed);
+        assert!(result.denial_reason.is_none());
+        assert_eq!(result.risk_level, RiskLevel::Low);
+        assert!(result.security_events.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_security_check_with_valid_input() {
+        let config = create_test_config();
+        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+
+        let request = SecurityCheckRequest {
+            client_ip: "127.0.0.1".parse().unwrap(),
+            user_agent: None,
+            endpoint: "/api/test".to_string(),
+            endpoint_type: EndpointType::Api,
+            input_data: Some(vec![(
+                "username".to_string(),
+                "valid_user".to_string(),
+                InputType::Text,
+            )]),
+            user_id: None,
+            session_id: None,
+            policy_name: None,
+            correlation_id: CorrelationId::new(),
+            metadata: HashMap::new(),
+        };
+
+        let result = orchestrator.check_security(request).await;
+        assert!(result.allowed);
+        assert_eq!(result.validation_results.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_security_check_with_invalid_input() {
+        let config = create_test_config();
+        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+
+        let request = SecurityCheckRequest {
+            client_ip: "127.0.0.1".parse().unwrap(),
+            user_agent: None,
+            endpoint: "/api/test".to_string(),
+            endpoint_type: EndpointType::Api,
+            input_data: Some(vec![(
+                "query".to_string(),
+                "'; DROP TABLE users;--".to_string(),
+                InputType::Text,
+            )]),
+            user_id: None,
+            session_id: None,
+            policy_name: None,
+            correlation_id: CorrelationId::new(),
+            metadata: HashMap::new(),
+        };
+
+        let result = orchestrator.check_security(request).await;
+        assert!(!result.allowed);
+        assert!(result.denial_reason.is_some());
+        assert!(!result.security_events.is_empty());
+        assert!(result.risk_level >= RiskLevel::Low);
+    }
+
+    #[tokio::test]
+    async fn test_violation_counter_updates() {
+        let mut config = create_test_config();
+        config.security_monitoring.enable_real_time_monitoring = false;
+        config.response_thresholds.temp_block_threshold = 3;
+        config.response_thresholds.admin_alert_threshold = 2;
+        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+
+        let client_ip: IpAddr = "192.168.1.100".parse().unwrap();
+
+        for _ in 0..3 {
+            let request = SecurityCheckRequest {
+                client_ip,
+                user_agent: None,
+                endpoint: "/api/test".to_string(),
+                endpoint_type: EndpointType::Api,
+                input_data: Some(vec![(
+                    "field".to_string(),
+                    "'; DROP TABLE--".to_string(),
+                    InputType::Text,
+                )]),
+                user_id: None,
+                session_id: None,
+                policy_name: None,
+                correlation_id: CorrelationId::new(),
+                metadata: HashMap::new(),
+            };
+            orchestrator.check_security(request).await;
+        }
+
+        let stats = orchestrator.get_security_statistics().await;
+        assert!(stats.total_tracked_ips >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_automated_response_escalation() {
+        let mut config = create_test_config();
+        config.security_monitoring.enable_real_time_monitoring = false;
+        config.response_thresholds.temp_block_threshold = 2;
+        config.response_thresholds.admin_alert_threshold = 2;
+        config.enable_automated_response = true;
+        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+
+        let client_ip: IpAddr = "192.168.1.101".parse().unwrap();
+
+        for _ in 0..3 {
+            let request = SecurityCheckRequest {
+                client_ip,
+                user_agent: None,
+                endpoint: "/api/test".to_string(),
+                endpoint_type: EndpointType::Api,
+                input_data: Some(vec![(
+                    "field".to_string(),
+                    "invalid<script>".to_string(),
+                    InputType::Text,
+                )]),
+                user_id: None,
+                session_id: None,
+                policy_name: None,
+                correlation_id: CorrelationId::new(),
+                metadata: HashMap::new(),
+            };
+            orchestrator.check_security(request).await;
+        }
+
+        let stats = orchestrator.get_security_statistics().await;
+        assert!(stats.total_tracked_ips >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_empty_input_data() {
+        let config = create_test_config();
+        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+
+        let request = SecurityCheckRequest {
+            client_ip: "127.0.0.1".parse().unwrap(),
+            user_agent: None,
+            endpoint: "/api/test".to_string(),
+            endpoint_type: EndpointType::Api,
+            input_data: Some(vec![]),
+            user_id: None,
+            session_id: None,
+            policy_name: None,
+            correlation_id: CorrelationId::new(),
+            metadata: HashMap::new(),
+        };
+
+        let result = orchestrator.check_security(request).await;
+        assert!(result.allowed);
+        assert!(result.validation_results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_risk_level_ordering() {
+        assert!(RiskLevel::Low < RiskLevel::Medium);
+        assert!(RiskLevel::Medium < RiskLevel::High);
+        assert!(RiskLevel::High < RiskLevel::Critical);
+        assert_eq!(RiskLevel::Low.max(RiskLevel::Critical), RiskLevel::Critical);
+    }
+
+    #[tokio::test]
+    async fn test_response_thresholds_default() {
+        let thresholds = ResponseThresholds::default();
+        assert_eq!(thresholds.temp_block_threshold, 10);
+        assert_eq!(thresholds.permanent_block_threshold, 50);
+        assert_eq!(thresholds.admin_alert_threshold, 5);
+    }
+
+    #[tokio::test]
+    async fn test_security_policy_default() {
+        let policy = SecurityPolicy::default();
+        assert_eq!(policy.name, "default");
+        assert!(!policy.require_authentication);
+        assert_eq!(policy.min_authorization_level, "none");
+    }
+
+    #[tokio::test]
+    async fn test_orchestrator_shutdown_component_name() {
+        let config = create_test_config();
+        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        assert_eq!(orchestrator.component_name(), "security_orchestrator");
+    }
+
+    #[tokio::test]
+    async fn test_orchestrator_shutdown_phases() {
+        let config = create_test_config();
+        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+
+        assert!(orchestrator
+            .shutdown(ShutdownPhase::StopAccepting)
+            .await
+            .is_ok());
+        assert!(orchestrator
+            .shutdown(ShutdownPhase::DrainRequests)
+            .await
+            .is_ok());
+        assert!(orchestrator
+            .shutdown(ShutdownPhase::CloseConnections)
+            .await
+            .is_ok());
+        assert!(orchestrator
+            .shutdown(ShutdownPhase::CleanupResources)
+            .await
+            .is_ok());
+        assert!(orchestrator
+            .shutdown(ShutdownPhase::ShutdownTasks)
+            .await
+            .is_ok());
+        assert!(orchestrator
+            .shutdown(ShutdownPhase::FinalCleanup)
+            .await
+            .is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_security_check_with_metadata() {
+        let config = create_test_config();
+        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+
+        let mut metadata = HashMap::new();
+        metadata.insert("source".to_string(), "test".to_string());
+
+        let request = SecurityCheckRequest {
+            client_ip: "127.0.0.1".parse().unwrap(),
+            user_agent: Some("test-agent".to_string()),
+            endpoint: "/api/test".to_string(),
+            endpoint_type: EndpointType::Authentication,
+            input_data: None,
+            user_id: Some("user123".to_string()),
+            session_id: Some("session456".to_string()),
+            policy_name: Some("default".to_string()),
+            correlation_id: CorrelationId::new(),
+            metadata,
+        };
+
+        let result = orchestrator.check_security(request).await;
+        assert!(result.allowed);
     }
 }

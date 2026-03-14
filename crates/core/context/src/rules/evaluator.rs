@@ -95,9 +95,8 @@ impl RuleEvaluator {
                 if let Some(value) = self.get_value_at_path(path, context) {
                     if let Some(value_str) = value.as_str() {
                         return self.match_pattern(value_str, pattern);
-                    } else {
-                        return self.match_pattern(&value.to_string(), pattern);
                     }
+                    return self.match_pattern(&value.to_string(), pattern);
                 }
 
                 Ok(false)

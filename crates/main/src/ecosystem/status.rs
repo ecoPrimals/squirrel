@@ -9,8 +9,26 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::registry::types::DiscoveredService;
+
+fn serialize_arc_str_vec<S>(vec: &[Arc<str>], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let strings: Vec<&str> = vec.iter().map(std::convert::AsRef::as_ref).collect();
+    strings.serialize(serializer)
+}
+
+fn deserialize_arc_str_vec<'de, D>(deserializer: D) -> Result<Vec<Arc<str>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let strings = Vec::<String>::deserialize(deserializer)?;
+    Ok(strings.into_iter().map(Arc::from).collect())
+}
+
 use crate::universal::LoadBalancingStatus;
 
 /// Overall ecosystem manager status (integration layer)
@@ -63,8 +81,12 @@ pub struct EcosystemManagerStatus {
     pub initialized_at: Option<DateTime<Utc>>,
     /// Last successful registration
     pub last_registration: Option<DateTime<Utc>>,
-    /// Active service registrations
-    pub active_registrations: Vec<String>,
+    /// Active service registrations (Arc<str> for O(1) clone)
+    #[serde(
+        serialize_with = "serialize_arc_str_vec",
+        deserialize_with = "deserialize_arc_str_vec"
+    )]
+    pub active_registrations: Vec<Arc<str>>,
     /// Health status
     pub health_status: HealthStatus,
     /// Error count
@@ -247,7 +269,7 @@ mod tests {
             status: "running".to_string(),
             initialized_at: Some(Utc::now()),
             last_registration: None,
-            active_registrations: vec!["service-1".to_string()],
+            active_registrations: vec![Arc::from("service-1")],
             health_status: HealthStatus {
                 health_score: 1.0,
                 component_statuses: HashMap::new(),
