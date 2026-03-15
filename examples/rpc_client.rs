@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Example JSON-RPC client for testing Squirrel's Unix socket RPC server

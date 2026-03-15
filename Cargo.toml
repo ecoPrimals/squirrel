@@ -30,8 +30,10 @@ members = [
     # Configuration
     "crates/config",
     
-    # Universal patterns
+    # Universal
     "crates/universal-patterns",
+    "crates/universal-constants",
+    "crates/universal-error",
     
     # Ecosystem API
     "crates/ecosystem-api",
@@ -44,7 +46,7 @@ members = [
 [workspace.package]
 authors = ["DataScienceBioLab"]
 edition = "2021"
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 version = "0.1.0"
 
 [workspace.dependencies]

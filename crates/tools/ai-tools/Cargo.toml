@@ -3,7 +3,7 @@ name = "squirrel-ai-tools"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 description = "AI tools for Squirrel platform"
 
 [lints]

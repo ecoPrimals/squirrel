@@ -3,10 +3,6 @@
 
 Architectural specifications and design documents for the Squirrel AI Coordination Primal.
 
-**Last Updated**: March 15, 2026
-
----
-
 ## Directory Structure
 
 ```
@@ -14,7 +10,7 @@ specs/
 ├── current/        # Deployment guide and production status
 ├── active/         # Active specifications (MCP protocol, universal patterns)
 ├── development/    # Development standards (testing, security, codebase)
-└── archive/        # Historical specs (fossil record)
+└── archive/        # Historical specs
 ```
 
 ## Architecture Summary
@@ -23,7 +19,6 @@ specs/
 - **Transport**: Automatic fallback — Unix sockets -> Named pipes -> TCP
 - **AI**: Vendor-agnostic, capability-based provider routing
 - **Pattern**: TRUE PRIMAL (self-knowledge only, runtime discovery)
-- **Removed**: gRPC/tonic (fully removed), HTTP stack (feature-gated OFF by default)
 
 ## Key Specs
 

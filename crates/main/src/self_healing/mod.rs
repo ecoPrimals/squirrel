@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // ORC-Notice: Self-healing mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 

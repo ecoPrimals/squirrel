@@ -3,7 +3,7 @@ name = "squirrel-mcp"
 version = "0.1.0"
 edition = "2021"
 authors = ["DataScienceBioLab"]
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 
 [lints.clippy]
 async_fn_in_trait = "allow"

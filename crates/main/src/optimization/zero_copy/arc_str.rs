@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Zero-copy ``Arc<str>`` utilities for high-performance string handling

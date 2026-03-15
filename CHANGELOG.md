@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **FORMATTING**: CLEAN
 
 #### License & Headers
-- **LICENSE**: AGPL-3.0-only on ALL 17 previously-missing Cargo.toml files
+- **LICENSE**: AGPL-3.0-or-later on ALL 17 previously-missing Cargo.toml files
 - **SPDX**: All source files have SPDX headers
 
 #### Protocol & Architecture

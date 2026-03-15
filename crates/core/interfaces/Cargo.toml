@@ -3,7 +3,7 @@ name = "squirrel-interfaces"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 description = "Core interfaces and traits for the Squirrel AI system"
 
 [lints]

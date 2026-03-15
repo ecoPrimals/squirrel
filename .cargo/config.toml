@@ -1,0 +1,52 @@
+# biomeOS Cross-Compilation Configuration
+# TRUE ecoBin v2.0 → genomeBin Evolution
+# Created: January 30, 2026
+
+[build]
+# Default to x86_64 musl for maximum portability
+target = "x86_64-unknown-linux-musl"
+
+# ARM64 Linux (musl for static linking)
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-gnu-gcc"
+rustflags = [
+    "-C", "target-feature=+crt-static",
+    "-C", "link-arg=-static",
+    "-C", "link-arg=-lc"
+]
+
+# ARM64 Android (for Pixel 8a / GrapheneOS)
+[target.aarch64-linux-android]
+linker = "aarch64-linux-android-ld"
+rustflags = [
+    "-C", "target-feature=+crt-static",
+    "-C", "link-arg=-static"
+]
+
+# x86_64 Linux (musl for static linking - current standard)
+[target.x86_64-unknown-linux-musl]
+rustflags = [
+    "-C", "target-feature=+crt-static",
+    "-C", "link-arg=-static"
+]
+
+# ARM64 macOS (Apple Silicon)
+[target.aarch64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-Wl,-dead_strip"
+]
+
+# RISC-V (future expansion)
+[target.riscv64gc-unknown-linux-gnu]
+linker = "riscv64-linux-gnu-gcc"
+
+[profile.release]
+opt-level = "z"        # Optimize for size
+lto = true             # Link-time optimization
+codegen-units = 1      # Single codegen unit for maximum optimization
+strip = true           # Strip symbols
+panic = "abort"        # Smaller binary size
+
+[profile.release-fast]
+inherits = "release"
+opt-level = 3          # Optimize for speed instead of size

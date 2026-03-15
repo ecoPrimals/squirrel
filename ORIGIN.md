@@ -100,6 +100,6 @@ workloads that Squirrel coordinates.
 
 ## License
 
-AGPL-3.0-only. See [LICENSE-AGPL3](LICENSE-AGPL3).
+AGPL-3.0-or-later. See [LICENSE-AGPL3](LICENSE-AGPL3).
 
 Copyright (C) 2026 DataScienceBioLab

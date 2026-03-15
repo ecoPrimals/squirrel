@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Comprehensive metrics for capability-based service discovery and selection
