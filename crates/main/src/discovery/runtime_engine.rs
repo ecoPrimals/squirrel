@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 
@@ -90,21 +90,21 @@ impl RuntimeDiscoveryEngine {
         // Stage 2: Try mDNS (local network)
         debug!("Stage 2: Trying mDNS for '{}'", capability);
         let mdns = crate::discovery::mechanisms::MdnsDiscovery::default();
-        if let Ok(services) = mdns.discover_by_capability(capability).await {
-            if let Some(service) = services.into_iter().next() {
-                info!("✅ Found via mDNS: {}", service.endpoint);
-                return Ok(service);
-            }
+        if let Ok(services) = mdns.discover_by_capability(capability).await
+            && let Some(service) = services.into_iter().next()
+        {
+            info!("✅ Found via mDNS: {}", service.endpoint);
+            return Ok(service);
         }
 
         // Stage 3: Try DNS-SD (network-wide)
         debug!("Stage 3: Trying DNS-SD for '{}'", capability);
         let dnssd = crate::discovery::mechanisms::DnssdDiscovery::default();
-        if let Ok(services) = dnssd.discover_by_capability(capability).await {
-            if let Some(service) = services.into_iter().next() {
-                info!("✅ Found via DNS-SD: {}", service.endpoint);
-                return Ok(service);
-            }
+        if let Ok(services) = dnssd.discover_by_capability(capability).await
+            && let Some(service) = services.into_iter().next()
+        {
+            info!("✅ Found via DNS-SD: {}", service.endpoint);
+            return Ok(service);
         }
 
         // Stage 4: Try service registry (if configured)
@@ -123,11 +123,11 @@ impl RuntimeDiscoveryEngine {
 
             let registry =
                 crate::discovery::mechanisms::RegistryDiscovery::new(reg_type, registry_endpoint);
-            if let Ok(services) = registry.discover_by_capability(capability).await {
-                if let Some(service) = services.into_iter().next() {
-                    info!("✅ Found via service registry: {}", service.endpoint);
-                    return Ok(service);
-                }
+            if let Ok(services) = registry.discover_by_capability(capability).await
+                && let Some(service) = services.into_iter().next()
+            {
+                info!("✅ Found via service registry: {}", service.endpoint);
+                return Ok(service);
             }
         }
 
@@ -158,7 +158,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_discover_from_env() {
-        std::env::set_var("COMPUTE_ENDPOINT", "http://localhost:8500");
+        unsafe { std::env::set_var("COMPUTE_ENDPOINT", "http://localhost:8500") };
 
         let engine = RuntimeDiscoveryEngine::new();
         let service = engine.discover_capability("compute").await.unwrap();
@@ -166,7 +166,7 @@ mod tests {
         assert_eq!(service.endpoint, "http://localhost:8500");
         assert!(service.has_capability("compute"));
 
-        std::env::remove_var("COMPUTE_ENDPOINT");
+        unsafe { std::env::remove_var("COMPUTE_ENDPOINT") };
     }
 
     #[tokio::test]
@@ -179,7 +179,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cache() {
-        std::env::set_var("CACHE_TEST_ENDPOINT", "http://original:8080");
+        unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://original:8080") };
 
         let engine = RuntimeDiscoveryEngine::new();
 
@@ -187,7 +187,7 @@ mod tests {
         let service1 = engine.discover_capability("cache_test").await.unwrap();
 
         // Change environment
-        std::env::set_var("CACHE_TEST_ENDPOINT", "http://changed:8080");
+        unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://changed:8080") };
 
         // Should return cached value
         let service2 = engine.discover_capability("cache_test").await.unwrap();
@@ -200,6 +200,6 @@ mod tests {
         let service3 = engine.discover_capability("cache_test").await.unwrap();
         assert_eq!(service3.endpoint, "http://changed:8080");
 
-        std::env::remove_var("CACHE_TEST_ENDPOINT");
+        unsafe { std::env::remove_var("CACHE_TEST_ENDPOINT") };
     }
 }

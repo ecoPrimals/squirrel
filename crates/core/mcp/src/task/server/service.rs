@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core Task Service Implementation
@@ -12,8 +12,11 @@ use tokio::sync::Mutex;
 /// Task server configuration
 #[derive(Debug, Clone)]
 pub struct TaskServerConfig {
+    /// Maximum number of tasks that can run concurrently
     pub max_concurrent_tasks: usize,
+    /// Timeout for task execution in seconds
     pub task_timeout_seconds: u64,
+    /// Whether to collect and expose metrics
     pub enable_metrics: bool,
 }
 
@@ -35,6 +38,7 @@ pub struct TaskServiceImpl {
 }
 
 impl TaskServiceImpl {
+    /// Creates a new task service with the given task manager and configuration.
     pub fn new(task_manager: Arc<Mutex<TaskManager>>, config: TaskServerConfig) -> Self {
         Self {
             task_manager,

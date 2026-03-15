@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 #![allow(dead_code)] // Universal adapter fields used by ecosystem at runtime
@@ -49,7 +49,9 @@ pub struct AdapterStatus {
 /// Configuration for the universal adapter
 #[derive(Debug, Clone)]
 pub struct UniversalAdapterConfig {
+    /// Host address for the service.
     pub service_host: String,
+    /// Port number for the service.
     pub service_port: u16,
 }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core traits for ecosystem integration
@@ -85,7 +85,7 @@ pub trait UniversalPrimalProvider: Send + Sync {
 
     /// Update capabilities dynamically
     async fn update_capabilities(&self, capabilities: Vec<PrimalCapability>)
-        -> UniversalResult<()>;
+    -> UniversalResult<()>;
 
     /// Report health status
     async fn report_health(&self, health: PrimalHealth) -> UniversalResult<()>;
@@ -169,7 +169,7 @@ pub trait AIProvider: Send + Sync {
 
     /// Stream inference
     async fn stream_inference(&self, request: InferenceRequest)
-        -> Result<InferenceStream, AIError>;
+    -> Result<InferenceStream, AIError>;
 
     /// Get provider name
     fn provider_name(&self) -> &str;

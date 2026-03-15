@@ -1,16 +1,18 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for the rule system
+#[cfg(test)]
 use serde_json::json;
 use tokio;
 // No need to import error at the top since we'll use the Result type directly
 
+#[cfg(test)]
 use crate::rules::{Rule, RuleAction, RuleCondition, RuleMetadata};
 // Add imports where needed in each specific test
 
-// Helper function to create a test rule
-#[allow(dead_code)]
+// Helper function to create a test rule (only used by #[test] functions)
+#[cfg(test)]
 fn create_test_rule(id: &str) -> Rule {
     Rule {
         id: id.to_string(),
@@ -235,9 +237,9 @@ async fn test_rule_evaluator() -> crate::rules::error::Result<()> {
 
 #[tokio::test]
 async fn test_action_executor() -> crate::rules::error::Result<()> {
+    use crate::rules::DummyPluginManager;
     use crate::rules::actions::ActionExecutor;
     use crate::rules::plugin::RulePluginManager;
-    use crate::rules::DummyPluginManager;
     use std::sync::Arc;
 
     let plugin_manager = Arc::new(RulePluginManager::new(Arc::new(
@@ -468,9 +470,9 @@ async fn test_rule_conditions() -> crate::rules::error::Result<()> {
 
 #[tokio::test]
 async fn test_rule_actions() -> crate::rules::error::Result<()> {
+    use crate::rules::DummyPluginManager;
     use crate::rules::actions::ActionExecutor;
     use crate::rules::plugin::RulePluginManager;
-    use crate::rules::DummyPluginManager;
     use std::sync::Arc;
 
     let mut context = json!({

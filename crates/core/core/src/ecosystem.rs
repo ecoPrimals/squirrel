@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use chrono::{DateTime, Utc};
@@ -10,8 +10,8 @@ use tokio::sync::Notify;
 
 use crate::{
     EcosystemConfig, EcosystemMode, Error, HealthStatus, MonitoringEvent, MonitoringService,
-    PerformanceMetrics, PrimalCoordinator, PrimalEndpoint, PrimalType, Result, Task, TaskResult,
-    SQUIRREL_MCP_VERSION,
+    PerformanceMetrics, PrimalCoordinator, PrimalEndpoint, PrimalType, Result,
+    SQUIRREL_MCP_VERSION, Task, TaskResult,
 };
 
 /// Main ecosystem coordination service for Squirrel MCP
@@ -33,7 +33,6 @@ pub struct EcosystemService {
 
 #[derive(Debug)]
 struct EcosystemState {
-    #[allow(dead_code)]
     service_id: String,
     node_id: String,
     status: RwLock<ServiceStatus>,
@@ -590,7 +589,6 @@ impl EcosystemService {
     }
 
     /// Parse primal type from string
-    #[allow(dead_code)]
     fn parse_primal_type(&self, type_str: &str) -> Result<PrimalType> {
         match type_str.to_lowercase().as_str() {
             "squirrel" => Ok(PrimalType::Squirrel),
@@ -648,7 +646,6 @@ impl EcosystemService {
 }
 
 // Supporting data structures
-#[allow(dead_code)]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct ServiceRegistration {
     service_id: String,
@@ -659,7 +656,6 @@ struct ServiceRegistration {
     metadata: HashMap<String, String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct ServiceInfo {
     service_id: String,
@@ -669,7 +665,6 @@ struct ServiceInfo {
     metadata: HashMap<String, String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct PrimalInfo {
     capabilities: Vec<String>,

@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Compute Client Implementation
 
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -342,7 +342,7 @@ impl UniversalComputeClient {
                     "Consider using GPU acceleration for this workload".to_string(),
                 ],
                 cost_optimizations: vec![
-                    "Use spot instances for non-critical workloads".to_string()
+                    "Use spot instances for non-critical workloads".to_string(),
                 ],
                 alternative_providers: vec![],
                 workload_analysis: WorkloadAnalysis {

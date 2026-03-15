@@ -1,13 +1,13 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin registry traits and implementations
 //!
 //! This module provides the core registry functionality for plugin management.
 
+use crate::Plugin;
 use crate::errors::Result;
 use crate::types::PluginStatus;
-use crate::Plugin;
 use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;

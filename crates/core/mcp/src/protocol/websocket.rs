@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! WebSocket Transport Implementation for MCP Protocol
@@ -10,11 +10,11 @@ use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures_util::stream::StreamExt;
 use futures_util::SinkExt;
+use futures_util::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{accept_async, connect_async};
 use tracing::{error, info, instrument, warn};

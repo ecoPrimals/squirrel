@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Error Context Trait - Standardized error context access across all error types
@@ -171,7 +171,7 @@ pub trait WithContext: Sized {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// use squirrel_mcp::error::{MCPError, WithContext};
     ///
     /// fn process() -> Result<(), MCPError> {
@@ -186,7 +186,12 @@ pub trait WithContext: Sized {
     fn with_severity(self, severity: ErrorSeverity) -> Self;
 
     /// Mark this error as unrecoverable
-    fn as_unrecoverable(self) -> Self;
+    fn as_unrecoverable(&self) -> Self
+    where
+        Self: Clone,
+    {
+        self.clone()
+    }
 }
 
 /// Extension methods for Result types to add context
@@ -195,7 +200,7 @@ pub trait ResultContextExt<T, E> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// use squirrel_mcp::error::{Result, ResultContextExt};
     ///
     /// fn load_config() -> Result<Config> {

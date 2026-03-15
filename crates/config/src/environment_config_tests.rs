@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive tests for environment configuration
@@ -14,30 +14,30 @@ mod tests {
     fn test_environment_from_env_all_variants() {
         // Test production variants
         for prod_env in &["production", "prod", "PRODUCTION", "PROD"] {
-            env::set_var("SQUIRREL_ENV", prod_env);
+            unsafe { env::set_var("SQUIRREL_ENV", prod_env) };
             assert_eq!(Environment::from_env(), Environment::Production);
         }
 
         // Test staging variants
         for staging_env in &["staging", "stage", "STAGING", "STAGE"] {
-            env::set_var("SQUIRREL_ENV", staging_env);
+            unsafe { env::set_var("SQUIRREL_ENV", staging_env) };
             assert_eq!(Environment::from_env(), Environment::Staging);
         }
 
         // Test testing variants
         for test_env in &["testing", "test", "TESTING", "TEST"] {
-            env::set_var("SQUIRREL_ENV", test_env);
+            unsafe { env::set_var("SQUIRREL_ENV", test_env) };
             assert_eq!(Environment::from_env(), Environment::Testing);
         }
 
         // Test development (default)
         for dev_env in &["development", "dev", "DEVELOPMENT", "DEV", "", "invalid"] {
-            env::set_var("SQUIRREL_ENV", dev_env);
+            unsafe { env::set_var("SQUIRREL_ENV", dev_env) };
             assert_eq!(Environment::from_env(), Environment::Development);
         }
 
         // Test missing env var
-        env::remove_var("SQUIRREL_ENV");
+        unsafe { env::remove_var("SQUIRREL_ENV") };
         assert_eq!(Environment::from_env(), Environment::Development);
     }
 

@@ -1,13 +1,12 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Squirrel Integration
 //!
 //! This crate provides integration adapters for Squirrel components.
 
-#![forbid(unsafe_code)]
-// Allow missing docs for internal implementation details
-#![allow(missing_docs)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 #![allow(
     clippy::missing_docs_in_private_items,
     clippy::missing_errors_doc,
@@ -30,10 +29,10 @@
 pub mod mcp_ai_tools;
 pub mod web_integration;
 
-pub use mcp_ai_tools::create_mcp_ai_tools_adapter;
-pub use mcp_ai_tools::create_mcp_ai_tools_adapter_with_config;
 pub use mcp_ai_tools::McpAiToolsAdapter;
 pub use mcp_ai_tools::McpAiToolsConfig;
+pub use mcp_ai_tools::create_mcp_ai_tools_adapter;
+pub use mcp_ai_tools::create_mcp_ai_tools_adapter_with_config;
 
 // Re-export web integration components that actually exist
 pub use web_integration::{

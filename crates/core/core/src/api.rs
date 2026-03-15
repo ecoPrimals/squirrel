@@ -1,19 +1,19 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use axum::{
     extract::{Json, Path, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson},
-    routing::{get, post, Router},
+    routing::{Router, get, post},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
-    ecosystem::EcosystemService, federation::FederationService, routing::McpRoutingService,
     AgentSpec, ContextRequirements, Error, McpRouter, McpTask, PrimalCoordinator, Result,
-    ScaleRequirements, Task,
+    ScaleRequirements, Task, ecosystem::EcosystemService, federation::FederationService,
+    routing::McpRoutingService,
 };
 
 /// API Server for the MCP Routing Service
@@ -114,7 +114,7 @@ async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
                 ecosystem_status: "Error".to_string(),
                 version: crate::SQUIRREL_MCP_VERSION.to_string(),
             })
-            .into_response()
+            .into_response();
         }
     };
 
@@ -139,7 +139,7 @@ async fn get_status(State(state): State<AppState>) -> impl IntoResponse {
                 ecosystem_health: "Error".to_string(),
                 version: crate::SQUIRREL_MCP_VERSION.to_string(),
             })
-            .into_response()
+            .into_response();
         }
     };
 
@@ -456,7 +456,6 @@ struct AgentsResponse {
     average_response_time: f64,
 }
 
-#[allow(dead_code)] // Reserved for agent registration system
 #[derive(Debug, Serialize, Deserialize)]
 struct AgentInfo {
     id: String,
@@ -539,7 +538,6 @@ struct ShutdownResponse {
 // Request types
 
 #[derive(Debug, Serialize, Deserialize)]
-#[allow(dead_code)] // API type for future MCP task routing
 struct McpTaskRequest {
     task_id: Option<String>,
     agent_id: String,

@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for performance monitoring types
 
 #[cfg(test)]
 mod tests {
-    use crate::monitoring::performance::*;
     use crate::monitoring::PerformanceSummary;
+    use crate::monitoring::performance::*;
     use chrono::Utc;
     use std::collections::HashMap;
     use std::time::Duration;

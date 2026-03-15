@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Agnostic Compute Provider Trait - Infant Primal Pattern
@@ -44,21 +44,27 @@ pub type ComputeResult<T> = Result<T, ComputeProviderError>;
 /// Compute provider errors
 #[derive(Debug, thiserror::Error)]
 pub enum ComputeProviderError {
+    /// Provider is not available for the requested operation.
     #[error("Provider not available: {0}")]
     NotAvailable(String),
 
+    /// Insufficient resources to fulfill the request.
     #[error("Insufficient resources: {0}")]
     InsufficientResources(String),
 
+    /// Workload execution failed.
     #[error("Workload execution failed: {0}")]
     ExecutionFailed(String),
 
+    /// Generic provider error.
     #[error("Provider error: {0}")]
     ProviderError(String),
 
+    /// Operation timed out waiting for workload completion.
     #[error("Timeout waiting for workload")]
     Timeout,
 
+    /// The requested workload was not found.
     #[error("Workload not found: {0}")]
     NotFound(String),
 }

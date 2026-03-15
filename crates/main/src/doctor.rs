@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Health diagnostics for Squirrel
@@ -243,12 +243,11 @@ fn check_discovered_services() -> HealthCheck {
 
     if let Ok(entries) = std::fs::read_dir(&runtime_dir) {
         for entry in entries.flatten() {
-            if let Ok(path) = entry.path().canonicalize() {
-                if path.extension().and_then(|s| s.to_str()) == Some("sock") {
-                    if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                        discovered.push(name.to_string());
-                    }
-                }
+            if let Ok(path) = entry.path().canonicalize()
+                && path.extension().and_then(|s| s.to_str()) == Some("sock")
+                && let Some(name) = path.file_stem().and_then(|s| s.to_str())
+            {
+                discovered.push(name.to_string());
             }
         }
     }

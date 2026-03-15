@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context Management System Learning System
@@ -51,7 +51,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{broadcast, Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock, broadcast};
 use tracing::{debug, info, warn};
 
 use crate::error::Result;
@@ -311,7 +311,7 @@ pub struct LearningSystem {
     event_broadcaster: Arc<broadcast::Sender<LearningEvent>>,
 
     /// Event processor background task handle (used for cleanup on drop)
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Reserved for planned feature: cleanup on drop
     event_processor_handle: Arc<tokio::task::JoinHandle<()>>,
 
     /// System statistics

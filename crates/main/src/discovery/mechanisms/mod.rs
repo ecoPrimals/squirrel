@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -26,4 +26,4 @@ pub use mdns::MdnsDiscovery;
     reason = "backward compat: RegistryDiscovery/RegistryType for legacy consumers"
 )]
 pub use registry::{RegistryDiscovery, RegistryType};
-pub use registry_trait::{auto_detect_registry, ServiceRegistryProvider};
+pub use registry_trait::{ServiceRegistryProvider, auto_detect_registry};

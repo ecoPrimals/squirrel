@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! AI Inference and Provider Selection
@@ -14,9 +14,13 @@ use super::core::SquirrelPrimalProvider;
 /// AI Inference Request structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AIInferenceRequest {
+    /// Type of AI task (e.g., "chat", "completion", "embedding").
     pub task_type: String,
+    /// Input messages for the model.
     pub messages: Vec<serde_json::Value>,
+    /// Optional model identifier for provider selection.
     pub model: Option<String>,
+    /// Additional inference parameters (temperature, max_tokens, etc.).
     pub parameters: HashMap<String, serde_json::Value>,
 }
 
@@ -40,10 +44,10 @@ impl AIProviderSelection {
         // If a specific model is requested, pass it through -- the AI router
         // will match it against discovered providers' model lists.
         // No vendor name mapping: the router resolves model → provider at runtime.
-        if let Some(model) = &request.model {
-            if !model.is_empty() {
-                return Ok("auto".to_string());
-            }
+        if let Some(model) = &request.model
+            && !model.is_empty()
+        {
+            return Ok("auto".to_string());
         }
 
         // Task-type hints for capability preference (not vendor coupling!)
@@ -143,14 +147,12 @@ impl SquirrelPrimalProvider {
     /// Extract user message from messages array for processing
     fn extract_user_message(&self, messages: &[serde_json::Value]) -> String {
         for message in messages {
-            if let Some(role) = message.get("role") {
-                if role == "user" {
-                    if let Some(content) = message.get("content") {
-                        if let Some(text) = content.as_str() {
-                            return text.to_string();
-                        }
-                    }
-                }
+            if let Some(role) = message.get("role")
+                && role == "user"
+                && let Some(content) = message.get("content")
+                && let Some(text) = content.as_str()
+            {
+                return text.to_string();
             }
         }
         "No user message found".to_string()

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Sovereign Data Management for Federation
@@ -149,8 +149,8 @@ pub trait AccessControlManager: Send + Sync {
 
 /// Default encryption key manager
 pub struct DefaultEncryptionKeyManager {
-    /// Key storage
-    #[allow(dead_code)] // Key storage for future encryption operations
+    /// Key storage (reserved for future key persistence)
+    #[allow(dead_code)]
     keys: Arc<RwLock<HashMap<String, Vec<u8>>>>,
 }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin marketplace functionality
@@ -102,7 +102,6 @@ pub trait RepositoryProvider: Send + Sync {
 }
 
 /// HTTP-based repository provider
-#[allow(dead_code)]
 pub struct HttpRepositoryProvider {
     /// Base URL of the repository
     base_url: String,
@@ -113,7 +112,6 @@ pub struct HttpRepositoryProvider {
 }
 
 /// Repository manager for handling multiple plugin repositories
-#[allow(dead_code)]
 pub struct RepositoryManager {
     /// API version this manager supports
     api_version: String,

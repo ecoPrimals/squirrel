@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use squirrel_ai_tools::{
+    Result,
     common::{AIClient, ChatMessage, ChatRequest, MessageRole},
     dispatch::DispatcherBuilder,
-    Result,
 };
 
 // Fix MockAIClient import

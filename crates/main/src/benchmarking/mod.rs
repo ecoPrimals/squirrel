@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive Benchmarking Framework for ecoPrimals Ecosystem
@@ -29,16 +29,27 @@ use crate::error::PrimalError;
 /// Benchmark result for a single operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BenchmarkResult {
+    /// Unique identifier for this benchmark run
     pub benchmark_id: String,
+    /// Name of the operation benchmarked
     pub operation_name: String,
+    /// Total duration in milliseconds
     pub duration_ms: f64,
+    /// Operations per second achieved
     pub ops_per_second: f64,
+    /// Number of operations completed
     pub operations_count: u64,
+    /// Concurrency level used
     pub concurrency_level: u32,
+    /// Memory usage in MB during benchmark
     pub memory_usage_mb: f64,
+    /// CPU usage percentage during benchmark
     pub cpu_usage_percent: f64,
+    /// Fraction of operations that succeeded (0.0 to 1.0)
     pub success_rate: f64,
+    /// When the benchmark was run
     pub timestamp: DateTime<Utc>,
+    /// Additional metadata
     pub metadata: HashMap<String, String>,
     /// Where this benchmark baseline came from (script, commit, environment).
     pub provenance: universal_patterns::provenance::Provenance,
@@ -47,14 +58,23 @@ pub struct BenchmarkResult {
 /// Benchmark configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BenchmarkConfig {
+    /// Benchmark name
     pub name: String,
+    /// Duration of the benchmark phase
     pub duration: Duration,
+    /// Concurrency levels to test
     pub concurrency_levels: Vec<u32>,
+    /// Maximum operations to run
     pub operation_count: u64,
+    /// Warm-up phase duration
     pub warm_up_duration: Duration,
+    /// Cool-down phase duration
     pub cool_down_duration: Duration,
+    /// Whether to monitor memory usage
     pub memory_monitoring: bool,
+    /// Whether to monitor CPU usage
     pub cpu_monitoring: bool,
+    /// Whether to collect detailed metrics
     pub collect_detailed_metrics: bool,
 }
 
@@ -103,23 +123,36 @@ pub struct BenchmarkSuite {
 /// System metrics collected during benchmarks
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMetrics {
+    /// Memory usage in MB
     pub memory_usage_mb: f64,
+    /// CPU usage percentage
     pub cpu_usage_percent: f64,
+    /// Network I/O bytes
     pub network_io_bytes: u64,
+    /// Disk I/O bytes
     pub disk_io_bytes: u64,
+    /// Thread count
     pub thread_count: u32,
+    /// Handle count
     pub handle_count: u32,
+    /// When metrics were collected
     pub timestamp: DateTime<Utc>,
 }
 
 /// Individual benchmark runner
 #[derive(Debug, Clone)]
 pub struct BenchmarkRunner {
+    /// Benchmark configuration
     pub config: BenchmarkConfig,
+    /// When the benchmark started
     pub start_time: Option<Instant>,
+    /// When the benchmark ended
     pub end_time: Option<Instant>,
+    /// Number of operations completed
     pub operations_completed: u64,
+    /// Number of operations that failed
     pub operations_failed: u64,
+    /// Total duration of the benchmark
     pub total_duration: Duration,
 }
 
@@ -875,11 +908,17 @@ impl Default for SystemMetrics {
 /// Comprehensive benchmark suite report
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BenchmarkSuiteReport {
+    /// Suite identifier
     pub suite_id: String,
+    /// Total duration of the suite
     pub total_duration: Duration,
+    /// Number of benchmarks run
     pub total_benchmarks: usize,
+    /// Individual benchmark results
     pub results: Vec<BenchmarkResult>,
+    /// System metrics at report time
     pub system_metrics: SystemMetrics,
+    /// When the report was generated
     pub timestamp: DateTime<Utc>,
 }
 
@@ -914,12 +953,19 @@ impl BenchmarkSuiteReport {
 /// Summary statistics for benchmark suite
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BenchmarkSummary {
+    /// Total number of benchmarks run
     pub total_benchmarks: usize,
+    /// Total operations across all benchmarks
     pub total_operations: u64,
+    /// Total duration of the suite
     pub total_duration: Duration,
+    /// Average operations per second
     pub average_ops_per_second: f64,
+    /// Average success rate (0.0 to 1.0)
     pub average_success_rate: f64,
+    /// Peak memory usage in MB
     pub peak_memory_usage_mb: f64,
+    /// Peak CPU usage percentage
     pub peak_cpu_usage_percent: f64,
 }
 

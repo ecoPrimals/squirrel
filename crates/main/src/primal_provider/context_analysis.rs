@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context Analysis and Classification
@@ -8,7 +8,7 @@ use serde_json::json;
 use super::core::SquirrelPrimalProvider;
 use crate::error::PrimalError;
 
-/// Context Analysis functionality
+/// Context analysis functionality for sentiment, intent, topic, and entity extraction.
 pub struct ContextAnalysis;
 
 impl ContextAnalysis {
@@ -112,13 +112,13 @@ impl ContextAnalysis {
         }
     }
 
-    /// Extract entities from text
+    /// Extracts named entities (emails, numbers, etc.) from text.
     #[must_use]
     pub fn extract_entities(text: &str) -> Vec<Entity> {
         extract_entities(text)
     }
 
-    /// Detect topic from text
+    /// Detects the primary topic of the text using keyword matching.
     #[must_use]
     pub fn detect_topic(text: &str) -> TopicResult {
         let text_lower = text.to_lowercase();
@@ -192,40 +192,58 @@ fn extract_keywords(text: &str) -> Vec<String> {
         .collect()
 }
 
-// Data structures for analysis results
+/// Result of sentiment analysis.
 #[derive(Debug, Clone)]
 pub struct SentimentResult {
+    /// Detected sentiment: "positive", "negative", or "neutral"
     pub sentiment: String,
+    /// Confidence score from 0.0 to 1.0
     pub confidence: f64,
+    /// Count/score of positive indicators
     pub positive_score: f64,
+    /// Count/score of negative indicators
     pub negative_score: f64,
 }
 
+/// Result of intent classification.
 #[derive(Debug, Clone)]
 pub struct IntentResult {
+    /// Classified intent (e.g., "help_request", "creation", "search")
     pub intent: String,
+    /// Confidence score from 0.0 to 1.0
     pub confidence: f64,
+    /// Extracted entities from the text
     pub entities: Vec<Entity>,
 }
 
+/// A named entity extracted from text.
 #[derive(Debug, Clone)]
 pub struct Entity {
+    /// Entity type (e.g., "email", "number")
     pub entity_type: String,
+    /// The extracted value
     pub value: String,
+    /// Start index in the original text
     pub start: usize,
+    /// End index in the original text
     pub end: usize,
+    /// Confidence in the extraction
     pub confidence: f64,
 }
 
+/// Result of topic detection.
 #[derive(Debug, Clone)]
 pub struct TopicResult {
+    /// Detected topic (e.g., "programming", "data_analysis")
     pub topic: String,
+    /// Confidence score
     pub confidence: f64,
+    /// Key keywords found in the text
     pub keywords: Vec<String>,
 }
 
 impl SquirrelPrimalProvider {
-    /// Handle context analysis request
+    /// Handles a context analysis request (sentiment, intent, topic, or full analysis).
     pub async fn handle_context_analysis_request(
         &self,
         request: serde_json::Value,

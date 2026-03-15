@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Production Rate Limiting & `DoS` Protection
@@ -174,6 +174,7 @@ struct ClientInfo {
     ban_expires_at: Option<Instant>,
 }
 
+/// Token bucket state for a client's request counting.
 #[derive(Debug)]
 pub struct ClientRequestCounter {
     /// Current number of tokens
@@ -206,10 +207,15 @@ impl Default for ClientRequestCounter {
 /// Rate limiting result
 #[derive(Debug, Clone)]
 pub struct RateLimitResult {
+    /// Whether the request was allowed
     pub allowed: bool,
+    /// Human-readable reason if blocked
     pub reason: Option<String>,
+    /// Suggested retry delay if rate limited
     pub retry_after: Option<Duration>,
+    /// Remaining tokens in the bucket (if applicable)
     pub remaining_tokens: Option<u32>,
+    /// Whether the client is temporarily banned
     pub client_banned: bool,
 }
 
@@ -445,23 +451,20 @@ impl ProductionRateLimiter {
     async fn check_client_ban(&self, client_ip: IpAddr) -> Option<RateLimitResult> {
         let clients = self.client_info.read().await;
 
-        if let Some(client_info) = clients.get(&client_ip) {
-            if client_info.is_banned {
-                if let Some(ban_expires_at) = client_info.ban_expires_at {
-                    if Instant::now() < ban_expires_at {
-                        // Still banned
-                        let retry_after = ban_expires_at.duration_since(Instant::now());
-                        return Some(RateLimitResult {
-                            allowed: false,
-                            reason: Some("Client temporarily banned due to violations".to_string()),
-                            retry_after: Some(retry_after),
-                            remaining_tokens: None,
-                            client_banned: true,
-                        });
-                    }
-                    // Ban expired - will be cleaned up in next check
-                }
-            }
+        if let Some(client_info) = clients.get(&client_ip)
+            && client_info.is_banned
+            && let Some(ban_expires_at) = client_info.ban_expires_at
+            && Instant::now() < ban_expires_at
+        {
+            // Still banned
+            let retry_after = ban_expires_at.duration_since(Instant::now());
+            return Some(RateLimitResult {
+                allowed: false,
+                reason: Some("Client temporarily banned due to violations".to_string()),
+                retry_after: Some(retry_after),
+                remaining_tokens: None,
+                client_banned: true,
+            });
         }
 
         None
@@ -634,13 +637,12 @@ impl ProductionRateLimiter {
             let mut clients = self.client_info.write().await;
             clients.retain(|_, client_info| {
                 // Remove expired bans
-                if client_info.is_banned {
-                    if let Some(ban_expires_at) = client_info.ban_expires_at {
-                        if now >= ban_expires_at {
-                            client_info.is_banned = false;
-                            client_info.ban_expires_at = None;
-                        }
-                    }
+                if client_info.is_banned
+                    && let Some(ban_expires_at) = client_info.ban_expires_at
+                    && now >= ban_expires_at
+                {
+                    client_info.is_banned = false;
+                    client_info.ban_expires_at = None;
                 }
 
                 // Remove old violations (keep only last 24 hours)
@@ -673,16 +675,27 @@ impl ProductionRateLimiter {
 /// Rate limiting statistics
 #[derive(Debug, Clone, Serialize)]
 pub struct RateLimitStatistics {
+    /// Total requests processed
     pub total_requests: u64,
+    /// Requests blocked due to rate limiting
     pub blocked_requests: u64,
+    /// Number of clients currently banned
     pub banned_clients: u64,
+    /// Count of suspicious activities detected
     pub suspicious_activities: u64,
+    /// Number of active (tracked) clients
     pub active_clients: usize,
+    /// Average requests per second
     pub requests_per_second: f64,
+    /// Fraction of requests blocked (0.0 to 1.0)
     pub block_rate: f64,
+    /// Time since rate limiter started
     pub uptime: Duration,
+    /// Current adaptive rate multiplier
     pub adaptive_rate_multiplier: f64,
+    /// System CPU usage (0.0 to 1.0)
     pub system_cpu_usage: f64,
+    /// System memory usage (0.0 to 1.0)
     pub system_memory_usage: f64,
 }
 

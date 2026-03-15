@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Observability Framework Demo
@@ -6,7 +6,7 @@
 //! This example demonstrates the comprehensive observability capabilities
 //! including structured logging, correlation IDs, and performance metrics.
 
-use squirrel::observability::{utils, CorrelationId, OperationContext};
+use squirrel::observability::{CorrelationId, OperationContext, utils};
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::info;

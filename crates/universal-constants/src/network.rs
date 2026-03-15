@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Network Configuration - Infant Primal Pattern
@@ -53,11 +53,11 @@
 pub fn get_service_port(service: &str) -> u16 {
     // 1. Try environment variable
     let svc_upper = service.to_uppercase();
-    if let Ok(port_str) = std::env::var(format!("{svc_upper}_PORT")) {
-        if let Ok(port) = port_str.parse::<u16>() {
-            tracing::debug!("Using port from environment: {}={}", service, port);
-            return port;
-        }
+    if let Ok(port_str) = std::env::var(format!("{svc_upper}_PORT"))
+        && let Ok(port) = port_str.parse::<u16>()
+    {
+        tracing::debug!("Using port from environment: {}={}", service, port);
+        return port;
     }
 
     // 2. Service mesh discovery (future implementation)
@@ -305,10 +305,10 @@ pub fn http_url(host: &str, port: u16, path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        get_bind_address, get_port_from_env, get_service_port, http_url, ADMIN_ENDPOINT,
-        DEFAULT_LOCALHOST, DISCOVERY_ENDPOINT, HEALTH_ENDPOINT, LOCALHOST_HTTP_TEMPLATE,
-        LOCALHOST_IPV4, LOCALHOST_WS_TEMPLATE, METRICS_ENDPOINT, REGISTRATION_ENDPOINT,
-        WS_ENDPOINT,
+        ADMIN_ENDPOINT, DEFAULT_LOCALHOST, DISCOVERY_ENDPOINT, HEALTH_ENDPOINT,
+        LOCALHOST_HTTP_TEMPLATE, LOCALHOST_IPV4, LOCALHOST_WS_TEMPLATE, METRICS_ENDPOINT,
+        REGISTRATION_ENDPOINT, WS_ENDPOINT, get_bind_address, get_port_from_env, get_service_port,
+        http_url,
     };
 
     #[test]
@@ -398,24 +398,24 @@ mod tests {
 
     #[test]
     fn test_get_socket_dir_fallback() {
-        std::env::remove_var("XDG_RUNTIME_DIR");
+        unsafe { std::env::remove_var("XDG_RUNTIME_DIR") };
         let dir = super::get_socket_dir();
         assert_eq!(dir, std::path::PathBuf::from("/tmp/biomeos"));
     }
 
     #[test]
     fn test_get_socket_path_fallback() {
-        std::env::remove_var("XDG_RUNTIME_DIR");
-        std::env::remove_var("SQUIRREL_SOCKET");
+        unsafe { std::env::remove_var("XDG_RUNTIME_DIR") };
+        unsafe { std::env::remove_var("SQUIRREL_SOCKET") };
         let path = super::get_socket_path("squirrel");
         assert_eq!(path, std::path::PathBuf::from("/tmp/biomeos/squirrel.sock"));
     }
 
     #[test]
     fn test_get_socket_path_env_override() {
-        std::env::set_var("TESTPRIMAL_SOCKET", "/custom/path.sock");
+        unsafe { std::env::set_var("TESTPRIMAL_SOCKET", "/custom/path.sock") };
         let path = super::get_socket_path("testprimal");
         assert_eq!(path, std::path::PathBuf::from("/custom/path.sock"));
-        std::env::remove_var("TESTPRIMAL_SOCKET");
+        unsafe { std::env::remove_var("TESTPRIMAL_SOCKET") };
     }
 }

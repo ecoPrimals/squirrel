@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Error handling for AI tools
@@ -164,10 +164,10 @@ impl From<universal_error::tools::AIToolsError> for AIError {
     }
 }
 
-// Result type alias
+/// Result type alias for AI tools operations.
 pub type Result<T> = std::result::Result<T, AIError>;
 
-// Error type alias for convenience
+/// Error type alias for convenience.
 pub type Error = AIError;
 
 #[cfg(test)]

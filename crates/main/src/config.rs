@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Squirrel Configuration Module
@@ -318,16 +318,22 @@ mod tests {
     fn test_default_discovery_config() {
         let discovery = DiscoveryConfig::default();
         assert!(discovery.announce_capabilities);
-        assert!(discovery
-            .capabilities
-            .contains(&"ai.text_generation".to_string()));
-        assert!(discovery
-            .capabilities
-            .contains(&"ai.image_generation".to_string()));
+        assert!(
+            discovery
+                .capabilities
+                .contains(&"ai.text_generation".to_string())
+        );
+        assert!(
+            discovery
+                .capabilities
+                .contains(&"ai.image_generation".to_string())
+        );
         assert!(discovery.capabilities.contains(&"ai.routing".to_string()));
-        assert!(discovery
-            .capabilities
-            .contains(&"tool.orchestration".to_string()));
+        assert!(
+            discovery
+                .capabilities
+                .contains(&"tool.orchestration".to_string())
+        );
         assert!(discovery.registry_socket.is_none());
     }
 
@@ -364,7 +370,7 @@ mod tests {
             "SQUIRREL_LOG_JSON",
             "SQUIRREL_REGISTRY_SOCKET",
         ] {
-            std::env::remove_var(var);
+            unsafe { std::env::remove_var(var) };
         }
     }
 
@@ -378,10 +384,10 @@ mod tests {
         clear_squirrel_env_vars();
 
         // --- Server overrides ---
-        std::env::set_var("SQUIRREL_SOCKET", "/tmp/test-squirrel.sock");
-        std::env::set_var("SQUIRREL_BIND", "127.0.0.1");
-        std::env::set_var("SQUIRREL_PORT", "9999");
-        std::env::set_var("SQUIRREL_DAEMON", "true");
+        unsafe { std::env::set_var("SQUIRREL_SOCKET", "/tmp/test-squirrel.sock") };
+        unsafe { std::env::set_var("SQUIRREL_BIND", "127.0.0.1") };
+        unsafe { std::env::set_var("SQUIRREL_PORT", "9999") };
+        unsafe { std::env::set_var("SQUIRREL_DAEMON", "true") };
 
         let mut config = SquirrelConfig::default();
         ConfigLoader::apply_env_overrides(&mut config).unwrap();
@@ -395,8 +401,8 @@ mod tests {
         clear_squirrel_env_vars();
 
         // --- AI overrides ---
-        std::env::set_var("AI_PROVIDER_SOCKETS", "/tmp/ai1.sock,/tmp/ai2.sock");
-        std::env::set_var("SQUIRREL_AI_ENABLED", "false");
+        unsafe { std::env::set_var("AI_PROVIDER_SOCKETS", "/tmp/ai1.sock,/tmp/ai2.sock") };
+        unsafe { std::env::set_var("SQUIRREL_AI_ENABLED", "false") };
 
         let mut config = SquirrelConfig::default();
         ConfigLoader::apply_env_overrides(&mut config).unwrap();
@@ -408,8 +414,8 @@ mod tests {
         clear_squirrel_env_vars();
 
         // --- Logging overrides ---
-        std::env::set_var("SQUIRREL_LOG_LEVEL", "debug");
-        std::env::set_var("SQUIRREL_LOG_JSON", "true");
+        unsafe { std::env::set_var("SQUIRREL_LOG_LEVEL", "debug") };
+        unsafe { std::env::set_var("SQUIRREL_LOG_JSON", "true") };
 
         let mut config = SquirrelConfig::default();
         ConfigLoader::apply_env_overrides(&mut config).unwrap();
@@ -418,7 +424,7 @@ mod tests {
         clear_squirrel_env_vars();
 
         // --- Discovery overrides ---
-        std::env::set_var("SQUIRREL_REGISTRY_SOCKET", "/tmp/registry.sock");
+        unsafe { std::env::set_var("SQUIRREL_REGISTRY_SOCKET", "/tmp/registry.sock") };
 
         let mut config = SquirrelConfig::default();
         ConfigLoader::apply_env_overrides(&mut config).unwrap();
@@ -429,14 +435,14 @@ mod tests {
         clear_squirrel_env_vars();
 
         // --- Invalid port ---
-        std::env::set_var("SQUIRREL_PORT", "not-a-number");
+        unsafe { std::env::set_var("SQUIRREL_PORT", "not-a-number") };
         let mut config = SquirrelConfig::default();
         let result = ConfigLoader::apply_env_overrides(&mut config);
         clear_squirrel_env_vars();
         assert!(result.is_err());
 
         // --- Invalid daemon ---
-        std::env::set_var("SQUIRREL_DAEMON", "not-a-bool");
+        unsafe { std::env::set_var("SQUIRREL_DAEMON", "not-a-bool") };
         let mut config = SquirrelConfig::default();
         let result = ConfigLoader::apply_env_overrides(&mut config);
         clear_squirrel_env_vars();
@@ -549,10 +555,12 @@ discovery:
 
         let result = ConfigLoader::load(Some(config_path.as_path()));
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Unsupported config file format"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Unsupported config file format")
+        );
     }
 
     #[test]
@@ -581,7 +589,7 @@ discovery:
     #[serial_test::serial(socket_env)]
     fn test_env_override_invalid_squirrel_ai_enabled() {
         clear_squirrel_env_vars();
-        std::env::set_var("SQUIRREL_AI_ENABLED", "not-a-bool");
+        unsafe { std::env::set_var("SQUIRREL_AI_ENABLED", "not-a-bool") };
         let mut config = SquirrelConfig::default();
         let result = ConfigLoader::apply_env_overrides(&mut config);
         clear_squirrel_env_vars();
@@ -592,7 +600,7 @@ discovery:
     #[serial_test::serial(socket_env)]
     fn test_env_override_invalid_squirrel_log_json() {
         clear_squirrel_env_vars();
-        std::env::set_var("SQUIRREL_LOG_JSON", "invalid");
+        unsafe { std::env::set_var("SQUIRREL_LOG_JSON", "invalid") };
         let mut config = SquirrelConfig::default();
         let result = ConfigLoader::apply_env_overrides(&mut config);
         clear_squirrel_env_vars();

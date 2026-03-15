@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Beardog Security Integration Performance Benchmarks
@@ -10,7 +10,7 @@
 //! - Security metadata processing
 //! - Credential handling
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::time::Duration;
 use tokio::runtime::Runtime;
 use uuid::Uuid;

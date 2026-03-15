@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for AI router
@@ -42,8 +42,8 @@ async fn test_router_list_providers() {
 #[tokio::test]
 async fn test_generate_text_no_providers() {
     // Create router without any providers
-    std::env::remove_var("ANTHROPIC_API_KEY");
-    std::env::remove_var("OPENAI_API_KEY");
+    unsafe { std::env::remove_var("ANTHROPIC_API_KEY") };
+    unsafe { std::env::remove_var("OPENAI_API_KEY") };
 
     let router = AiRouter::new_with_discovery(None).await.unwrap();
 
@@ -65,8 +65,8 @@ async fn test_generate_text_no_providers() {
 #[tokio::test]
 async fn test_generate_image_no_providers() {
     // Create router without any providers
-    std::env::remove_var("OPENAI_API_KEY");
-    std::env::remove_var("HUGGINGFACE_API_KEY");
+    unsafe { std::env::remove_var("OPENAI_API_KEY") };
+    unsafe { std::env::remove_var("HUGGINGFACE_API_KEY") };
 
     let router = AiRouter::new_with_discovery(None).await.unwrap();
 

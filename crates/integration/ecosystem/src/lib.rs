@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(clippy::missing_docs_in_private_items)]
@@ -27,7 +27,8 @@
 //! - `ServiceRegistration` and `EcosystemIntegration` types
 //! - `register_mcp_services()`: Register Squirrel MCP with service mesh
 //! - Future: Songbird client, ToadStool client (when those crates exist)
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -35,10 +36,15 @@ use std::collections::HashMap;
 /// Ecosystem service registration information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceRegistration {
+    /// Unique identifier for this service instance
     pub service_id: String,
+    /// Service type (e.g. "mcp", "ai-coordinator")
     pub service_type: String,
+    /// Capabilities this service provides (e.g. "ai.query", "tool.execute")
     pub capabilities: Vec<String>,
+    /// Socket or transport endpoints for this service
     pub endpoints: Vec<String>,
+    /// Arbitrary key-value metadata for service discovery
     pub metadata: HashMap<String, String>,
 }
 

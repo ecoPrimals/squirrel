@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for security providers module
@@ -330,9 +330,11 @@ async fn test_registry_register_service() {
         1,
         "Registry should have 1 service"
     );
-    assert!(registry
-        .list_services()
-        .contains(&"test-service".to_string()));
+    assert!(
+        registry
+            .list_services()
+            .contains(&"test-service".to_string())
+    );
 }
 
 #[tokio::test]
@@ -789,9 +791,11 @@ async fn test_register_security_service_function() {
     let result = register_security_service(&mut registry, service).await;
 
     assert!(result.is_ok(), "Should register service successfully");
-    assert!(registry
-        .list_services()
-        .contains(&"local-security".to_string()));
+    assert!(
+        registry
+            .list_services()
+            .contains(&"local-security".to_string())
+    );
 }
 
 #[tokio::test]

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin dependency resolution system
@@ -15,8 +15,8 @@ use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use crate::plugin::Plugin;
 use crate::PluginError;
+use crate::plugin::Plugin;
 
 /// Enhanced plugin dependency with semantic versioning support
 #[derive(Clone, Debug, Serialize, Deserialize)]

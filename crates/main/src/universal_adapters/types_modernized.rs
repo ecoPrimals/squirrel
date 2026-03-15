@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Modernized Universal Adapter Types with ``Arc<str>`` Optimization
@@ -201,21 +201,28 @@ impl UniversalResponse {
 /// Response status with ``Arc<str>`` optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ResponseStatus {
+    /// Operation completed successfully.
     Success,
+    /// Operation failed with error.
     Error {
+        /// Error code.
         #[serde(
             serialize_with = "serialize_arc_str",
             deserialize_with = "deserialize_arc_str"
         )]
         code: Arc<str>,
+        /// Error message.
         #[serde(
             serialize_with = "serialize_arc_str",
             deserialize_with = "deserialize_arc_str"
         )]
         message: Arc<str>,
     },
+    /// Operation partially completed.
     Partial {
+        /// Number of items completed.
         completed: usize,
+        /// Total number of items.
         total: usize,
     },
 }
@@ -223,6 +230,7 @@ pub enum ResponseStatus {
 /// Service health status with ``Arc<str>`` optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceHealth {
+    /// Whether the service is healthy.
     pub healthy: bool,
     /// Health message as `Arc<str>`
     #[serde(

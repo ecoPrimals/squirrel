@@ -1,19 +1,25 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Default plugin manager implementation
 //!
 //! This module provides the default implementation of the plugin manager.
 
-use crate::dependency_resolver::DependencyResolver;
-use crate::discovery::DefaultPluginDiscovery;
-use crate::metrics::{PluginManagerMetrics, PluginManagerStatus};
-use crate::state::{MemoryStateManager, PluginStateManager};
-use crate::types::PluginStatus;
 use crate::Plugin;
+use crate::dependency_resolver::DependencyResolver;
+use crate::discovery::{DefaultPluginDiscovery, create_placeholder_plugin};
+use crate::errors::{PluginError, Result};
+use crate::metrics::{PluginManagerMetrics, PluginManagerStatus};
+use crate::plugin::PluginMetadata;
+use crate::registry::PluginRegistry;
+use crate::state::{MemoryStateManager, PluginStateManager};
+use crate::traits::PluginManagerTrait;
+use crate::types::PluginStatus;
 use std::collections::HashMap;
 use std::fmt;
+use std::path::Path;
 use std::sync::Arc;
+use tokio::fs;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -25,14 +31,14 @@ pub struct DefaultPluginManager {
     statuses: RwLock<HashMap<Uuid, PluginStatus>>,
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
-    /// Dependency resolver for initialization order
-    #[allow(dead_code)] // Reserved for dependency resolution system
+    /// Dependency resolver for initialization order (reserved for dependency resolution system)
+    #[allow(dead_code)]
     dependency_resolver: Arc<RwLock<DependencyResolver>>,
-    /// State manager for plugin state persistence
-    #[allow(dead_code)] // Reserved for state persistence system
+    /// State manager for plugin state persistence (reserved for state persistence system)
+    #[allow(dead_code)]
     state_manager: Arc<dyn PluginStateManager>,
-    /// Discovery service for plugin loading
-    #[allow(dead_code)] // Reserved for plugin discovery system
+    /// Discovery service for plugin loading (reserved for plugin discovery system)
+    #[allow(dead_code)]
     discovery: Arc<DefaultPluginDiscovery>,
     /// Performance metrics
     metrics: Arc<RwLock<PluginManagerMetrics>>,
@@ -99,9 +105,127 @@ impl Default for DefaultPluginManager {
     }
 }
 
-use crate::errors::Result;
-use crate::registry::PluginRegistry;
-use crate::traits::PluginManagerTrait;
+/// Manifest format for plugin.toml (TOML with [plugin] section)
+#[derive(serde::Deserialize)]
+struct PluginManifestToml {
+    plugin: PluginManifestSection,
+}
+
+#[derive(serde::Deserialize)]
+struct PluginManifestSection {
+    id: Uuid,
+    name: String,
+    version: String,
+    description: String,
+    author: String,
+    #[allow(dead_code)] // Required for serde Deserialize - fields parsed from manifest but not used
+    #[serde(default)]
+    capabilities: Option<toml::Value>,
+    #[allow(dead_code)] // Required for serde Deserialize - fields parsed from manifest but not used
+    #[serde(default)]
+    dependencies: Vec<toml::Value>,
+}
+
+/// Manifest format for plugin.json (flat structure)
+#[derive(serde::Deserialize)]
+struct PluginManifestJson {
+    id: Uuid,
+    name: String,
+    version: String,
+    description: String,
+    author: String,
+    #[allow(dead_code)] // Required for serde Deserialize - fields parsed from manifest but not used
+    #[serde(default)]
+    capabilities: Option<serde_json::Value>,
+    #[allow(dead_code)] // Required for serde Deserialize - fields parsed from manifest but not used
+    #[serde(default)]
+    dependencies: Vec<serde_json::Value>,
+}
+
+/// Load plugins from a directory by scanning subdirectories for plugin.toml or plugin.json.
+async fn load_plugins_from_directory<M: PluginRegistry + PluginManagerTrait>(
+    manager: &M,
+    directory: &str,
+) -> Result<Vec<Uuid>> {
+    let path = Path::new(directory);
+
+    // Nonexistent directory: return Ok with empty vec (graceful handling per tests)
+    if !path.exists() {
+        return Ok(vec![]);
+    }
+
+    // Path is a file, not a directory: return error
+    if path.is_file() {
+        let err = std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Path is not a directory: {directory}"),
+        );
+        return Err(PluginError::IoError(err));
+    }
+
+    let mut plugin_ids = Vec::new();
+    let mut entries = fs::read_dir(path).await.map_err(PluginError::IoError)?;
+
+    while let Some(entry) = entries.next_entry().await.map_err(PluginError::IoError)? {
+        let subdir = entry.path();
+        if !subdir.is_dir() {
+            continue;
+        }
+
+        // Try plugin.toml first, then plugin.json
+        let manifest_path_toml = subdir.join("plugin.toml");
+        let manifest_path_json = subdir.join("plugin.json");
+
+        let metadata = if manifest_path_toml.exists() {
+            let content = match fs::read_to_string(&manifest_path_toml).await {
+                Ok(c) => c,
+                Err(_) => continue, // Skip on read error
+            };
+            let manifest: PluginManifestToml = match toml::from_str(&content) {
+                Ok(m) => m,
+                Err(_) => continue, // Skip invalid manifests (logged as warnings by caller)
+            };
+            PluginMetadata {
+                id: manifest.plugin.id,
+                name: manifest.plugin.name,
+                version: manifest.plugin.version,
+                description: manifest.plugin.description,
+                author: manifest.plugin.author,
+                capabilities: Vec::new(),
+                dependencies: Vec::new(),
+            }
+        } else if manifest_path_json.exists() {
+            let content = match fs::read_to_string(&manifest_path_json).await {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let manifest: PluginManifestJson = match serde_json::from_str(&content) {
+                Ok(m) => m,
+                Err(_) => continue, // Skip invalid manifests
+            };
+            PluginMetadata {
+                id: manifest.id,
+                name: manifest.name,
+                version: manifest.version,
+                description: manifest.description,
+                author: manifest.author,
+                capabilities: Vec::new(),
+                dependencies: Vec::new(),
+            }
+        } else {
+            // No manifest in this subdirectory, skip
+            continue;
+        };
+
+        let plugin = create_placeholder_plugin(metadata);
+        let id = plugin.id();
+        PluginRegistry::register_plugin(manager, plugin).await?;
+        plugin_ids.push(id);
+    }
+
+    Ok(plugin_ids)
+}
+
 use async_trait::async_trait;
 
 #[async_trait]
@@ -203,9 +327,8 @@ impl PluginManagerTrait for DefaultPluginManager {
         PluginRegistry::set_plugin_status(self, id, status).await
     }
 
-    async fn load_plugins(&self, _directory: &str) -> Result<Vec<Uuid>> {
-        // NOTE(phase2): Plugin loading from directory - requires WASM sandbox integration
-        Ok(vec![])
+    async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>> {
+        load_plugins_from_directory(self, directory).await
     }
 
     async fn initialize_all_plugins(&self) -> Result<()> {

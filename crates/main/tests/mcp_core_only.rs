@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP Core Only Tests
@@ -48,15 +48,21 @@ fn test_mcp_result_handling() {
 fn test_error_code_consistency() {
     // Test 4: Error codes are consistent for protocol compliance
     // Note: Using simple string checks since PrimalError doesn't have error_code method
-    assert!(PrimalError::Configuration("".to_string())
-        .to_string()
-        .contains("Configuration"));
-    assert!(PrimalError::OperationFailed("".to_string())
-        .to_string()
-        .contains("Operation failed"));
-    assert!(PrimalError::Internal("".to_string())
-        .to_string()
-        .contains("Internal"));
+    assert!(
+        PrimalError::Configuration("".to_string())
+            .to_string()
+            .contains("Configuration")
+    );
+    assert!(
+        PrimalError::OperationFailed("".to_string())
+            .to_string()
+            .contains("Operation failed")
+    );
+    assert!(
+        PrimalError::Internal("".to_string())
+            .to_string()
+            .contains("Internal")
+    );
 }
 
 #[test]

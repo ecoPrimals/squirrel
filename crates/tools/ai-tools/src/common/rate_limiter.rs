@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Rate limiter for AI service requests
@@ -7,13 +7,13 @@
 //! to respect API rate limits and prevent quota exhaustion.
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock};
 
-use crate::error::Error;
 use crate::Result;
+use crate::error::Error;
 
 /// Error specific to rate limiting operations
 #[derive(Debug, thiserror::Error)]
@@ -141,11 +141,11 @@ impl RateLimiter {
 
         // Remove entries that are older than the window
         while !token_bucket.is_empty() {
-            if let Some(entry) = token_bucket.front() {
-                if now.duration_since(entry.timestamp) > window {
-                    token_bucket.pop_front();
-                    continue;
-                }
+            if let Some(entry) = token_bucket.front()
+                && now.duration_since(entry.timestamp) > window
+            {
+                token_bucket.pop_front();
+                continue;
             }
             break;
         }

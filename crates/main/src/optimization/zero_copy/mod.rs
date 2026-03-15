@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Zero-Copy Optimization Module
@@ -84,8 +84,8 @@ mod message_utils_tests;
 mod string_utils_tests;
 
 // Re-export commonly used types for convenience
-pub use arc_str::intern;
 pub use arc_str::ArcStr;
+pub use arc_str::intern;
 pub use buffer_utils::{BufferPool, SharedBuffer};
 pub use collection_utils::{ZeroCopyMap, ZeroCopySet};
 pub use message_utils::ZeroCopyMessage;

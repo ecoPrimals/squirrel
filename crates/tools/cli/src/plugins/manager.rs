@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use std::collections::HashMap;
@@ -482,7 +482,7 @@ impl PluginManager {
     }
 
     /// Create a test plugin instance for testing
-    #[allow(dead_code)] // Test helper for plugin system validation
+    #[allow(dead_code)]
     fn create_test_plugin(
         &self,
         name: String,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration validation tests
@@ -148,16 +148,16 @@ mod tests {
         
         // Act & Assert - Test various casings
         for env_val in &["PRODUCTION", "production", "Production"] {
-            env::set_var("SQUIRREL_ENV", env_val);
+            unsafe { env::set_var("SQUIRREL_ENV", env_val) };
             let env = Environment::from_env();
             assert_eq!(env, Environment::Production, "Should handle case variations");
         }
         
         // Cleanup
         if let Some(val) = original {
-            env::set_var("SQUIRREL_ENV", val);
+            unsafe { env::set_var("SQUIRREL_ENV", val) };
         } else {
-            env::remove_var("SQUIRREL_ENV");
+            unsafe { env::remove_var("SQUIRREL_ENV") };
         }
     }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Production Input Validation & Sanitization
@@ -220,61 +220,61 @@ impl ProductionInputValidator {
         }
 
         // SQL Injection detection
-        if self.config.enable_sql_injection_detection {
-            if let Some(violation) = detection::detect_sql_injection(
+        if self.config.enable_sql_injection_detection
+            && let Some(violation) = detection::detect_sql_injection(
                 input,
                 &self.sql_injection_patterns,
                 &correlation_id,
-            ) {
-                risk_level = risk_level.max(violation.risk_level.clone());
-                violations.push(violation);
-            }
+            )
+        {
+            risk_level = risk_level.max(violation.risk_level.clone());
+            violations.push(violation);
         }
 
         // XSS detection
-        if self.config.enable_xss_detection {
-            if let Some(violation) =
+        if self.config.enable_xss_detection
+            && let Some(violation) =
                 detection::detect_xss(input, &self.xss_patterns, &correlation_id)
-            {
-                risk_level = risk_level.max(violation.risk_level.clone());
-                violations.push(violation);
-            }
+        {
+            risk_level = risk_level.max(violation.risk_level.clone());
+            violations.push(violation);
         }
 
         // Command injection detection
-        if self.config.enable_command_injection_detection {
-            if let Some(violation) = detection::detect_command_injection(
+        if self.config.enable_command_injection_detection
+            && let Some(violation) = detection::detect_command_injection(
                 input,
                 &self.command_injection_patterns,
                 &correlation_id,
-            ) {
-                risk_level = risk_level.max(violation.risk_level.clone());
-                violations.push(violation);
-            }
+            )
+        {
+            risk_level = risk_level.max(violation.risk_level.clone());
+            violations.push(violation);
         }
 
         // Path traversal detection (only for file paths)
-        if self.config.enable_path_traversal_detection && input_type == InputType::FilePath {
-            if let Some(violation) = detection::detect_path_traversal(
+        if self.config.enable_path_traversal_detection
+            && input_type == InputType::FilePath
+            && let Some(violation) = detection::detect_path_traversal(
                 input,
                 &self.path_traversal_patterns,
                 &correlation_id,
-            ) {
-                risk_level = risk_level.max(violation.risk_level.clone());
-                violations.push(violation);
-            }
+            )
+        {
+            risk_level = risk_level.max(violation.risk_level.clone());
+            violations.push(violation);
         }
 
         // NoSQL injection detection
-        if self.config.enable_nosql_injection_detection {
-            if let Some(violation) = detection::detect_nosql_injection(
+        if self.config.enable_nosql_injection_detection
+            && let Some(violation) = detection::detect_nosql_injection(
                 input,
                 &self.nosql_injection_patterns,
                 &correlation_id,
-            ) {
-                risk_level = risk_level.max(violation.risk_level.clone());
-                violations.push(violation);
-            }
+            )
+        {
+            risk_level = risk_level.max(violation.risk_level.clone());
+            violations.push(violation);
         }
 
         // Suspicious pattern detection
@@ -382,10 +382,12 @@ mod tests {
         let result = validator.validate_input(&long_input, InputType::Text, None);
 
         assert!(!result.is_valid);
-        assert!(result
-            .violations
-            .iter()
-            .any(|v| v.violation_type == ViolationType::ExcessiveLength));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.violation_type == ViolationType::ExcessiveLength)
+        );
     }
 
     #[test]
@@ -394,10 +396,12 @@ mod tests {
         let result = validator.validate_input("ls; rm -rf /", InputType::CommandParam, None);
 
         assert!(!result.is_valid);
-        assert!(result
-            .violations
-            .iter()
-            .any(|v| v.violation_type == ViolationType::CommandInjection));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.violation_type == ViolationType::CommandInjection)
+        );
     }
 
     #[test]
@@ -406,10 +410,12 @@ mod tests {
         let result = validator.validate_input("../../etc/passwd", InputType::FilePath, None);
 
         assert!(!result.is_valid);
-        assert!(result
-            .violations
-            .iter()
-            .any(|v| v.violation_type == ViolationType::PathTraversal));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.violation_type == ViolationType::PathTraversal)
+        );
     }
 
     #[test]

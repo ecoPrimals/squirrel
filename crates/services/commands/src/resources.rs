@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use std::collections::HashMap;
@@ -29,7 +29,6 @@ impl Error for ResourceError {}
 
 /// Represents a limit on a specific resource
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct ResourceLimit {
     /// Maximum allowed value for the resource
     pub max_value: u64,
@@ -41,7 +40,6 @@ pub struct ResourceLimit {
     pub last_reset: SystemTime,
 }
 
-#[allow(dead_code)]
 impl ResourceLimit {
     /// Creates a new resource limit.
     #[must_use]
@@ -88,7 +86,6 @@ impl ResourceLimit {
 }
 
 /// Manager for tracking and limiting resource usage
-#[allow(dead_code)]
 pub struct ResourceManager {
     /// Map of resource types to their limits
     limits: RwLock<HashMap<String, ResourceLimit>>,
@@ -105,7 +102,6 @@ impl Default for ResourceManager {
 impl ResourceManager {
     /// Creates a new resource manager
     #[must_use]
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             limits: RwLock::new(HashMap::new()),
@@ -121,7 +117,6 @@ impl ResourceManager {
     ///
     /// # Errors
     /// Returns an error if unable to acquire write lock
-    #[allow(dead_code)]
     pub fn set_limit(
         &self,
         resource_type: &str,
@@ -147,7 +142,6 @@ impl ResourceManager {
     ///
     /// # Errors
     /// Returns an error if allocation would exceed limits
-    #[allow(dead_code)]
     pub fn allocate(
         &self,
         resource_type: &str,
@@ -200,7 +194,6 @@ impl ResourceManager {
     ///
     /// # Errors
     /// Returns an error if deallocation would result in negative allocation
-    #[allow(dead_code)]
     pub fn deallocate(
         &self,
         resource_type: &str,
@@ -267,7 +260,6 @@ impl ResourceManager {
     ///
     /// # Errors
     /// Returns an error if unable to acquire read lock
-    #[allow(dead_code)]
     pub fn get_allocation(&self, resource_type: &str, owner: &str) -> Result<u64, Box<dyn Error>> {
         let allocations = self.allocations.read().map_err(|_| {
             Box::new(ResourceError {
@@ -292,7 +284,6 @@ impl ResourceManager {
     ///
     /// # Errors
     /// Returns an error if the resource type is not found
-    #[allow(dead_code)]
     pub fn get_limit(&self, resource_type: &str) -> Result<ResourceLimit, Box<dyn Error>> {
         let limits = self.limits.read().map_err(|_| {
             Box::new(ResourceError {

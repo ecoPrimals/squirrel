@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! AI client trait and related functionality
@@ -53,17 +53,17 @@ pub trait AIClient: Send + Sync + std::fmt::Debug + 'static {
         }
 
         // Check model type requirements
-        if let Some(model_type) = &task.required_model_type {
-            if !capabilities.supports_model_type(model_type) {
-                return false;
-            }
+        if let Some(model_type) = &task.required_model_type
+            && !capabilities.supports_model_type(model_type)
+        {
+            return false;
         }
 
         // Check context size requirements
-        if let Some(required_size) = task.min_context_size {
-            if capabilities.max_context_size < required_size {
-                return false;
-            }
+        if let Some(required_size) = task.min_context_size
+            && capabilities.max_context_size < required_size
+        {
+            return false;
         }
 
         // Check streaming support
@@ -120,11 +120,7 @@ pub trait AIClient: Send + Sync + std::fmt::Debug + 'static {
     /// Get health score for this client
     async fn health_score(&self) -> f64 {
         // Simple health check - providers can override with more sophisticated logic
-        if self.is_available().await {
-            1.0
-        } else {
-            0.0
-        }
+        if self.is_available().await { 1.0 } else { 0.0 }
     }
 
     /// Get priority for this client (higher = more preferred)

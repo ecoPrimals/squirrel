@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // Allow deprecated items for backward compatibility
@@ -380,11 +380,11 @@ mod tests {
     #[test]
     fn test_openai_adapter_creation() {
         // Without API key, should fail
-        std::env::remove_var("OPENAI_API_KEY");
+        unsafe { std::env::remove_var("OPENAI_API_KEY") };
         assert!(OpenAiAdapter::new().is_err());
 
         // With API key, should succeed
-        std::env::set_var("OPENAI_API_KEY", "test-key");
+        unsafe { std::env::set_var("OPENAI_API_KEY", "test-key") };
         let adapter = OpenAiAdapter::new().unwrap();
         assert_eq!(adapter.provider_id(), "openai");
         assert_eq!(adapter.provider_name(), "OpenAI (GPT)");
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_adapter_quality_tier() {
-        std::env::set_var("OPENAI_API_KEY", "test-key-qt");
+        unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-qt") };
         let adapter = OpenAiAdapter::new().unwrap();
         assert_eq!(adapter.quality_tier(), QualityTier::Premium);
         assert_eq!(adapter.avg_latency_ms(), 1500);
@@ -438,7 +438,7 @@ mod tests {
 
     #[test]
     fn test_default_model() {
-        std::env::set_var("OPENAI_API_KEY", "test-key-dm");
+        unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-dm") };
         let adapter = OpenAiAdapter::new().unwrap();
         assert_eq!(adapter.default_model, "gpt-4");
     }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tool executor implementation for squirrel
@@ -20,9 +20,13 @@ use std::sync::Arc;
 /// Tool execution result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolExecutionResult {
+    /// Name of the tool that was executed.
     pub tool_name: String,
+    /// Whether execution succeeded.
     pub success: bool,
+    /// Output from the tool execution.
     pub output: String,
+    /// Error message if execution failed.
     pub error: Option<String>,
 }
 
@@ -254,9 +258,11 @@ mod tests {
         assert!(executor.available_tools.contains_key("system.health"));
         assert!(executor.available_tools.contains_key("system.info"));
         assert!(executor.available_tools.contains_key("discovery.peers"));
-        assert!(executor
-            .available_tools
-            .contains_key("discovery.capabilities"));
+        assert!(
+            executor
+                .available_tools
+                .contains_key("discovery.capabilities")
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // Allow deprecated items for backward compatibility
@@ -399,11 +399,11 @@ mod tests {
     #[test]
     fn test_anthropic_adapter_creation() {
         // Without API key, should fail
-        std::env::remove_var("ANTHROPIC_API_KEY");
+        unsafe { std::env::remove_var("ANTHROPIC_API_KEY") };
         assert!(AnthropicAdapter::new().is_err());
 
         // With API key, should succeed
-        std::env::set_var("ANTHROPIC_API_KEY", "test-key");
+        unsafe { std::env::set_var("ANTHROPIC_API_KEY", "test-key") };
         let adapter = AnthropicAdapter::new().unwrap();
         assert_eq!(adapter.provider_id(), "anthropic");
         assert_eq!(adapter.provider_name(), "Anthropic (Claude)");
@@ -451,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_adapter_quality_tier() {
-        std::env::set_var("ANTHROPIC_API_KEY", "test-key-qt");
+        unsafe { std::env::set_var("ANTHROPIC_API_KEY", "test-key-qt") };
         let adapter = AnthropicAdapter::new().unwrap();
         assert_eq!(adapter.quality_tier(), QualityTier::Premium);
         assert_eq!(adapter.avg_latency_ms(), 2000);
@@ -460,18 +460,18 @@ mod tests {
 
     #[test]
     fn test_default_model() {
-        std::env::remove_var("ANTHROPIC_DEFAULT_MODEL");
-        std::env::set_var("ANTHROPIC_API_KEY", "test-key-dm");
+        unsafe { std::env::remove_var("ANTHROPIC_DEFAULT_MODEL") };
+        unsafe { std::env::set_var("ANTHROPIC_API_KEY", "test-key-dm") };
         let adapter = AnthropicAdapter::new().unwrap();
         assert_eq!(adapter.default_model, "claude-3-haiku-20240307");
     }
 
     #[test]
     fn test_custom_default_model() {
-        std::env::set_var("ANTHROPIC_API_KEY", "test-key-cdm");
-        std::env::set_var("ANTHROPIC_DEFAULT_MODEL", "claude-3-opus");
+        unsafe { std::env::set_var("ANTHROPIC_API_KEY", "test-key-cdm") };
+        unsafe { std::env::set_var("ANTHROPIC_DEFAULT_MODEL", "claude-3-opus") };
         let adapter = AnthropicAdapter::new().unwrap();
         assert_eq!(adapter.default_model, "claude-3-opus");
-        std::env::remove_var("ANTHROPIC_DEFAULT_MODEL");
+        unsafe { std::env::remove_var("ANTHROPIC_DEFAULT_MODEL") };
     }
 }

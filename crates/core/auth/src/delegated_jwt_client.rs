@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Delegated JWT Client - Production JWT via Capability Discovery (TRUE PRIMAL!)
@@ -260,17 +260,17 @@ mod tests {
     #[test]
     fn test_delegated_client_from_env() {
         // Set test environment variables (as capability discovery would)
-        std::env::set_var("CRYPTO_CAPABILITY_SOCKET", "/tmp/test-crypto.sock");
-        std::env::set_var("JWT_KEY_ID", "test-key-id");
-        std::env::set_var("JWT_EXPIRY_HOURS", "12");
+        unsafe { std::env::set_var("CRYPTO_CAPABILITY_SOCKET", "/tmp/test-crypto.sock") };
+        unsafe { std::env::set_var("JWT_KEY_ID", "test-key-id") };
+        unsafe { std::env::set_var("JWT_EXPIRY_HOURS", "12") };
 
         let client = DelegatedJwtClient::new_from_env();
         assert!(client.is_ok());
 
         // Cleanup
-        std::env::remove_var("CRYPTO_CAPABILITY_SOCKET");
-        std::env::remove_var("JWT_KEY_ID");
-        std::env::remove_var("JWT_EXPIRY_HOURS");
+        unsafe { std::env::remove_var("CRYPTO_CAPABILITY_SOCKET") };
+        unsafe { std::env::remove_var("JWT_KEY_ID") };
+        unsafe { std::env::remove_var("JWT_EXPIRY_HOURS") };
     }
 
     // Integration tests require crypto capability provider running

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin manager for rule-specific plugins
@@ -9,9 +9,9 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use super::error::{Result, RuleError};
 use super::ContextAdapter;
 use super::ContextPlugin;
+use super::error::{Result, RuleError};
 use squirrel_interfaces::context::ContextTransformation;
 
 /// Rule plugin manager for managing custom conditions and actions

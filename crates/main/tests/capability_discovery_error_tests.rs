@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability Discovery Error Path Tests
@@ -90,10 +90,10 @@ mod capability_discovery_error_tests {
     #[tokio::test]
     async fn test_discovery_without_environment_vars() {
         // Clear environment variables that might interfere
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
-        std::env::remove_var("BEARDOG_URL");
-        std::env::remove_var("SONGBIRD_ENDPOINT");
-        std::env::remove_var("SERVICE_DISCOVERY_DOMAIN");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
+        unsafe { std::env::remove_var("BEARDOG_URL") };
+        unsafe { std::env::remove_var("SONGBIRD_ENDPOINT") };
+        unsafe { std::env::remove_var("SERVICE_DISCOVERY_DOMAIN") };
 
         let discovery = EcosystemServiceDiscovery::new();
 
@@ -186,7 +186,7 @@ mod capability_discovery_error_tests {
 
     #[tokio::test]
     async fn test_discovery_with_malformed_dns_domain() {
-        std::env::set_var("SERVICE_DISCOVERY_DOMAIN", "invalid..domain..test");
+        unsafe { std::env::set_var("SERVICE_DISCOVERY_DOMAIN", "invalid..domain..test") };
 
         let discovery = EcosystemServiceDiscovery::new();
         let result = discovery
@@ -205,6 +205,6 @@ mod capability_discovery_error_tests {
             }
         }
 
-        std::env::remove_var("SERVICE_DISCOVERY_DOMAIN");
+        unsafe { std::env::remove_var("SERVICE_DISCOVERY_DOMAIN") };
     }
 }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP protocol types and data structures
@@ -346,9 +346,11 @@ mod tests {
     fn test_mcp_capabilities_add_method() {
         let capabilities = McpCapabilities::new().add_method("custom_method".to_string());
 
-        assert!(capabilities
-            .supported_methods
-            .contains(&"custom_method".to_string()));
+        assert!(
+            capabilities
+                .supported_methods
+                .contains(&"custom_method".to_string())
+        );
     }
 
     #[test]
@@ -381,12 +383,16 @@ mod tests {
             .add_method("method2".to_string());
 
         assert!(capabilities.supports_mcp);
-        assert!(capabilities
-            .supported_methods
-            .contains(&"method1".to_string()));
-        assert!(capabilities
-            .supported_methods
-            .contains(&"method2".to_string()));
+        assert!(
+            capabilities
+                .supported_methods
+                .contains(&"method1".to_string())
+        );
+        assert!(
+            capabilities
+                .supported_methods
+                .contains(&"method2".to_string())
+        );
     }
 
     #[test]

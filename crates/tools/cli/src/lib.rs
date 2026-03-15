@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Squirrel CLI library
 //!
 //! This crate provides the command-line interface components for the Squirrel platform.
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 //! It includes commands, formatters, and configuration management.
 
 // Allow missing docs for internal implementation details

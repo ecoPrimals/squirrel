@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context types for primal operations
@@ -11,24 +11,38 @@ use serde::{Deserialize, Serialize};
 /// Context for primal operations with user/device awareness
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct PrimalContext {
+    /// User identifier
     pub user_id: String,
+    /// Device identifier
     pub device_id: String,
+    /// Optional session identifier
     pub session_id: Option<String>,
+    /// Optional biome identifier
     pub biome_id: Option<String>,
+    /// Network location for routing
     pub network_location: NetworkLocation,
+    /// Required security level
     pub security_level: SecurityLevel,
+    /// Additional metadata
     pub metadata: std::collections::HashMap<String, String>,
 }
 
 /// Network location information for context-aware routing
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NetworkLocation {
+    /// Geographic or logical region
     pub region: String,
+    /// Data center identifier
     pub data_center: Option<String>,
+    /// Availability zone within the region
     pub availability_zone: Option<String>,
+    /// Client IP address
     pub ip_address: Option<String>,
+    /// Subnet identifier
     pub subnet: Option<String>,
+    /// Network identifier
     pub network_id: Option<String>,
+    /// Geographic coordinates or location string
     pub geo_location: Option<String>,
 }
 
@@ -95,9 +109,13 @@ impl std::fmt::Display for SecurityLevel {
 /// Universal security context for authentication and authorization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UniversalSecurityContext {
+    /// User identifier
     pub user_id: String,
+    /// Optional session identifier
     pub session_id: Option<String>,
+    /// Security level for the context
     pub security_level: SecurityLevel,
+    /// List of granted permissions
     pub permissions: Vec<String>,
 }
 

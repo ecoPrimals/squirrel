@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Concurrent stress chaos tests
 
 use super::helpers::*;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -329,7 +329,9 @@ async fn chaos_12_long_running_under_load() -> ChaosResult<()> {
             "Most short operations should complete"
         );
     }
-    println!("\n🎉 CHAOS TEST PASSED: Long-running operations complete without starving short operations");
+    println!(
+        "\n🎉 CHAOS TEST PASSED: Long-running operations complete without starving short operations"
+    );
     Ok(())
 }
 

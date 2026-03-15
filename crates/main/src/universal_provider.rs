@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Squirrel Provider Implementation
@@ -149,14 +149,28 @@ impl UniversalSquirrelProvider {
 
         // Simulate intelligent processing based on prompt content
         let response_content = if prompt.to_lowercase().contains("code") {
-            format!("// AI-generated code response\n// Model: {}\n// Complexity: {}\nfunction processRequest() {{\n    return 'Generated based on: {}...';\n}}", 
-                    selected_model, request_complexity, &prompt[..prompt.len().min(50)])
+            format!(
+                "// AI-generated code response\n// Model: {}\n// Complexity: {}\nfunction processRequest() {{\n    return 'Generated based on: {}...';\n}}",
+                selected_model,
+                request_complexity,
+                &prompt[..prompt.len().min(50)]
+            )
         } else if prompt.to_lowercase().contains("analyze") {
-            format!("Analysis Results:\n- Model Used: {}\n- Complexity Level: {}\n- Processing Method: {}\n- Key Insights: Based on your request '{}...', here are the analytical findings.", 
-                    selected_model, request_complexity, routing_reason, &prompt[..prompt.len().min(50)])
+            format!(
+                "Analysis Results:\n- Model Used: {}\n- Complexity Level: {}\n- Processing Method: {}\n- Key Insights: Based on your request '{}...', here are the analytical findings.",
+                selected_model,
+                request_complexity,
+                routing_reason,
+                &prompt[..prompt.len().min(50)]
+            )
         } else {
-            format!("Response from {} model:\n\nBased on your prompt '{}...', here is the generated response with temperature {} and max_tokens {}.", 
-                    selected_model, &prompt[..prompt.len().min(50)], temperature, max_tokens)
+            format!(
+                "Response from {} model:\n\nBased on your prompt '{}...', here is the generated response with temperature {} and max_tokens {}.",
+                selected_model,
+                &prompt[..prompt.len().min(50)],
+                temperature,
+                max_tokens
+            )
         };
 
         let processing_time = processing_start.elapsed();
@@ -546,12 +560,12 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
 
     async fn shutdown(&mut self) -> UniversalResult<()> {
         self.shutdown = true;
-        if let Some(registration) = &self.service_registration {
-            if let Some(ref mesh_client) = self.service_mesh_client {
-                let _ = mesh_client
-                    .deregister_service(registration.service_id.as_ref())
-                    .await;
-            }
+        if let Some(registration) = &self.service_registration
+            && let Some(ref mesh_client) = self.service_mesh_client
+        {
+            let _ = mesh_client
+                .deregister_service(registration.service_id.as_ref())
+                .await;
         }
         Ok(())
     }

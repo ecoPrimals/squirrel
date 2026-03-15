@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! WebSocket connection management for MCP client
@@ -11,7 +11,7 @@ use std::time::Duration;
 use tracing::{debug, info};
 
 #[cfg(not(target_arch = "wasm32"))]
-use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 #[cfg(target_arch = "wasm32")]
 use web_sys::WebSocket;
 
@@ -104,8 +104,8 @@ impl ConnectionManager {
 
         #[cfg(target_arch = "wasm32")]
         {
-            use wasm_bindgen::prelude::*;
             use wasm_bindgen::JsCast;
+            use wasm_bindgen::prelude::*;
 
             let ws = WebSocket::new(&config.server_url)?;
 

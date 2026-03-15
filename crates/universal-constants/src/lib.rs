@@ -1,11 +1,12 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Constants for Squirrel MCP System
 //!
 //! This crate provides a **single source of truth** for all constants used throughout
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 //! the Squirrel Universal AI Primal system. It consolidates previously scattered constants
 //! from multiple locations into one well-organized, type-safe, and maintainable location.
 //!
@@ -78,8 +79,9 @@ pub use network::*;
 pub use protocol::*;
 pub use timeouts::*;
 
-// Version information
+/// Crate version from Cargo manifest
 pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Crate name from Cargo manifest
 pub const CRATE_NAME: &str = env!("CARGO_PKG_NAME");
 
 #[cfg(test)]

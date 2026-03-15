@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! JSON-RPC 2.0 Method Handlers
@@ -12,7 +12,7 @@
 //! - **Discovery**: `discovery.peers`
 //! - **Tool**: `tool.execute`
 
-use super::jsonrpc_server::{error_codes, JsonRpcError, JsonRpcServer};
+use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
 use super::types::*;
 use serde_json::Value;
 use std::time::Instant;
@@ -266,14 +266,14 @@ impl JsonRpcServer {
 
         let mut capabilities: Vec<&str> = self.capability_registry.method_names();
 
-        if let Some(router) = &self.ai_router {
-            if router.provider_count().await > 0 {
-                if !capabilities.contains(&"ai.inference") {
-                    capabilities.push("ai.inference");
-                }
-                if !capabilities.contains(&"ai.text_generation") {
-                    capabilities.push("ai.text_generation");
-                }
+        if let Some(router) = &self.ai_router
+            && router.provider_count().await > 0
+        {
+            if !capabilities.contains(&"ai.inference") {
+                capabilities.push("ai.inference");
+            }
+            if !capabilities.contains(&"ai.text_generation") {
+                capabilities.push("ai.text_generation");
             }
         }
 
@@ -430,13 +430,14 @@ impl JsonRpcServer {
 
         let manager = squirrel_context::ContextManager::new();
 
-        let state = manager.get_context_state(&session_id).await.map_err(|e| {
-            JsonRpcError {
+        let state = manager
+            .get_context_state(&session_id)
+            .await
+            .map_err(|e| JsonRpcError {
                 code: error_codes::INTERNAL_ERROR,
                 message: format!("Failed to create context: {e}"),
                 data: None,
-            }
-        })?;
+            })?;
 
         Ok(serde_json::json!({
             "id": state.id,
@@ -468,20 +469,18 @@ impl JsonRpcServer {
                 data: None,
             })?;
 
-        let data = params
-            .get("data")
-            .cloned()
-            .unwrap_or(serde_json::json!({}));
+        let data = params.get("data").cloned().unwrap_or(serde_json::json!({}));
 
         let manager = squirrel_context::ContextManager::new();
 
-        let mut state = manager.get_context_state(id).await.map_err(|e| {
-            JsonRpcError {
+        let mut state = manager
+            .get_context_state(id)
+            .await
+            .map_err(|e| JsonRpcError {
                 code: error_codes::INTERNAL_ERROR,
                 message: format!("Context not found: {e}"),
                 data: None,
-            }
-        })?;
+            })?;
 
         state.data = data;
         state.version += 1;
@@ -527,13 +526,14 @@ impl JsonRpcServer {
 
         let manager = squirrel_context::ContextManager::new();
 
-        let state = manager.get_context_state(id).await.map_err(|e| {
-            JsonRpcError {
+        let state = manager
+            .get_context_state(id)
+            .await
+            .map_err(|e| JsonRpcError {
                 code: error_codes::INTERNAL_ERROR,
                 message: format!("Context not found: {e}"),
                 data: None,
-            }
-        })?;
+            })?;
 
         Ok(serde_json::json!({
             "id": state.id,
@@ -913,12 +913,14 @@ mod tests {
         let params = Some(json!({"capabilities": ["ai.inference", "tool.execute"]}));
         let result = server.handle_announce_capabilities(params).await.unwrap();
         assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
-        assert!(result
-            .get("message")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .contains("2"));
+        assert!(
+            result
+                .get("message")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .contains("2")
+        );
     }
 
     #[tokio::test]
@@ -934,11 +936,13 @@ mod tests {
         let server = make_server();
         let result = server.handle_list_providers(None).await.unwrap();
         assert_eq!(result.get("total").and_then(|v| v.as_u64()), Some(0));
-        assert!(result
-            .get("providers")
-            .and_then(|v| v.as_array())
-            .unwrap()
-            .is_empty());
+        assert!(
+            result
+                .get("providers")
+                .and_then(|v| v.as_array())
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[tokio::test]
@@ -955,9 +959,11 @@ mod tests {
         let params = Some(json!({"prompt": "Hello"}));
         let result = server.handle_query_ai(params).await;
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .message
-            .contains("AI router not configured"));
+        assert!(
+            result
+                .unwrap_err()
+                .message
+                .contains("AI router not configured")
+        );
     }
 }

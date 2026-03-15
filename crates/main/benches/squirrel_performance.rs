@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive performance benchmarks for ecoPrimals Squirrel
@@ -10,7 +10,7 @@
 //! - Transport layer operations
 //! - Enhanced MCP functionality
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use uuid::Uuid;
 
 use squirrel::enhanced::{ClientInfo, EnhancedMCPConfig, EnhancedMCPServer, MCPRequest};

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Metrics collection operations for the ecosystem registry manager
@@ -180,9 +180,14 @@ impl MetricsOps {
 /// Service statistics
 #[derive(Debug, Clone)]
 pub struct ServiceStats {
+    /// Total number of discovered services.
     pub total_services: usize,
+    /// Number of services reporting healthy status.
     pub healthy_services: usize,
+    /// Number of services reporting unhealthy status.
     pub unhealthy_services: usize,
+    /// Number of services with unknown health status.
     pub unknown_services: usize,
+    /// Number of distinct service types.
     pub service_types: usize,
 }

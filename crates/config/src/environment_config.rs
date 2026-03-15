@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Environment-specific configuration loader (DEPRECATED)
@@ -184,18 +184,18 @@ mod tests {
         // Save original environment
         let original = std::env::var("SQUIRREL_ENV").ok();
 
-        std::env::set_var("SQUIRREL_ENV", "production");
+        unsafe { std::env::set_var("SQUIRREL_ENV", "production") };
         assert_eq!(Environment::from_env(), Environment::Production);
 
-        std::env::set_var("SQUIRREL_ENV", "development");
+        unsafe { std::env::set_var("SQUIRREL_ENV", "development") };
         assert_eq!(Environment::from_env(), Environment::Development);
 
-        std::env::remove_var("SQUIRREL_ENV");
+        unsafe { std::env::remove_var("SQUIRREL_ENV") };
         assert_eq!(Environment::from_env(), Environment::Development); // default
 
         // Restore original environment
         if let Some(val) = original {
-            std::env::set_var("SQUIRREL_ENV", val);
+            unsafe { std::env::set_var("SQUIRREL_ENV", val) };
         }
     }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! JSON schemas for PrimalPulse tools
@@ -6,7 +6,7 @@
 //!
 //! Defines input/output schemas for dynamic tool registration
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Schema for primal.analyze action
 pub fn primal_analyze_input_schema() -> Value {

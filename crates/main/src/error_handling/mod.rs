@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // error_handling module
@@ -13,7 +13,7 @@
 /// Production code uses standard Rust error handling with Result<T, E>.
 pub mod core {}
 
-// Version information for error handling features
+/// Version information for error handling features.
 pub const ERROR_HANDLING_VERSION: &str = "1.4.3";
 
 /// Check if enhanced error handling is enabled
@@ -40,8 +40,11 @@ pub fn get_error_handling_info() -> ErrorHandlingInfo {
 /// Error handling system information
 #[derive(Debug, Clone)]
 pub struct ErrorHandlingInfo {
+    /// Version of the error handling system.
     pub version: String,
+    /// Whether enhanced error handling is enabled.
     pub enabled: bool,
+    /// List of enabled error handling features.
     pub features: Vec<String>,
 }
 

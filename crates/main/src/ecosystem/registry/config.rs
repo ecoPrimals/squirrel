@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration types for the ecosystem registry manager
@@ -41,31 +41,47 @@ pub struct EcosystemRegistryConfig {
 /// Health check configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthConfig {
+    /// Interval between health checks
     pub check_interval: Duration,
+    /// Timeout for each health check
     pub timeout: Duration,
+    /// Failures before marking unhealthy
     pub failure_threshold: u32,
+    /// Successes before marking healthy
     pub recovery_threshold: u32,
+    /// Grace period after startup before health checks
     pub grace_period: Duration,
 }
 
 /// Discovery configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveryConfig {
+    /// Whether service discovery is enabled
     pub enabled: bool,
+    /// Interval between discovery scans
     pub discovery_interval: Duration,
+    /// Timeout for service discovery requests
     pub service_timeout: Duration,
+    /// Whether to auto-register with the registry
     pub auto_register: bool,
+    /// Preferred endpoints by service name
     pub preferred_endpoints: HashMap<String, String>,
 }
 
 /// Security configuration for ecosystem communication
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegistrySecurityConfig {
+    /// Whether TLS is enabled
     pub tls_enabled: bool,
+    /// Whether mutual TLS is required
     pub mtls_required: bool,
+    /// Optional authentication token
     pub auth_token: Option<String>,
+    /// Trust domain for certificate validation
     pub trust_domain: String,
+    /// Path to TLS certificate
     pub certificate_path: Option<String>,
+    /// Path to private key
     pub key_path: Option<String>,
 }
 

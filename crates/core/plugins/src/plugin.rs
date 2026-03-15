@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin trait and related types
@@ -113,16 +113,15 @@ impl PluginStatus {
     pub fn new() -> Self {
         Self::Registered
     }
+}
 
-    /// Convert the status to a string
-    #[must_use]
-    #[expect(dead_code, reason = "Utility method for status string conversion")]
-    pub fn to_string(&self) -> String {
+impl std::fmt::Display for PluginStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Registered => "registered".to_string(),
-            Self::Initialized => "initialized".to_string(),
-            Self::Unloaded => "unloaded".to_string(),
-            Self::Failed => "failed".to_string(),
+            Self::Registered => write!(f, "registered"),
+            Self::Initialized => write!(f, "initialized"),
+            Self::Unloaded => write!(f, "unloaded"),
+            Self::Failed => write!(f, "failed"),
         }
     }
 }

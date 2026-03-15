@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Zero-copy ``Arc<str>`` utilities for high-performance string handling
@@ -39,6 +39,7 @@ pub type ArcStr = Arc<str>;
 
 /// Extension trait for creating `ArcStr` from various sources
 pub trait IntoArcStr {
+    /// Converts the value into an `ArcStr`.
     fn into_arc_str(self) -> ArcStr;
 }
 

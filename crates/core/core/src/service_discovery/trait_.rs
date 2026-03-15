@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Service discovery trait and interface
@@ -175,7 +175,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # }
     /// ```
     async fn update_service_health(&self, service_id: &str, health: HealthStatus)
-        -> CoreResult<()>;
+    -> CoreResult<()>;
 
     /// Send heartbeat for service
     ///

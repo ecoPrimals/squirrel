@@ -1,13 +1,13 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(unused_imports)]
+use super::Command;
 use super::lifecycle::{LifecycleHook, LifecycleStage};
 use super::validation::ValidationError;
-use super::Command;
+use crate::CommandResult;
 use crate::history::CommandHistory;
 use crate::validation::CommandValidator;
-use crate::CommandResult;
 use clap::Parser;
 use std::collections::HashMap;
 use std::error::Error;
@@ -33,7 +33,6 @@ impl std::fmt::Display for HookError {
 impl Error for HookError {}
 
 /// A trait for command hooks that can be executed during command lifecycle stages
-#[allow(dead_code)]
 pub trait Hook: Send + Sync {
     /// Returns the name of the hook.
     fn name(&self) -> &'static str;
@@ -57,7 +56,6 @@ pub trait Hook: Send + Sync {
 ///
 /// This struct contains metadata about the command and stage
 /// being processed by a hook.
-#[allow(dead_code)]
 pub struct HookContext {
     /// Name of the command being processed
     command_name: String,
@@ -72,7 +70,6 @@ type HookFunction = Box<dyn Fn() -> Result<(), Box<dyn Error>>>;
 type HookMap = HashMap<String, HookFunction>;
 
 /// A registry for managing command hooks
-#[allow(dead_code)]
 pub struct HookRegistry {
     /// Map of hook names to their implementations
     hooks: HookMap,
@@ -104,7 +101,6 @@ impl HookRegistry {
     ///
     /// # Errors
     /// Returns an error if a hook with the given name already exists
-    #[allow(dead_code)]
     pub fn register<F>(&mut self, name: String, hook: F) -> Result<(), Box<dyn Error>>
     where
         F: Fn() -> Result<(), Box<dyn Error>> + 'static,
@@ -124,7 +120,6 @@ impl HookRegistry {
     ///
     /// # Errors
     /// Returns an error if any hook fails to execute
-    #[allow(dead_code)]
     pub fn execute_hooks(&self) -> Result<(), Box<dyn Error>> {
         for (name, hook) in &self.hooks {
             if let Err(e) = hook() {
@@ -145,7 +140,6 @@ impl HookRegistry {
     ///
     /// # Errors
     /// Returns an error if unable to acquire write lock on context
-    #[allow(dead_code)]
     pub fn set_context_data(&self, key: &str, value: &str) -> Result<(), Box<dyn Error>> {
         let mut context = self.context.write().map_err(|_| {
             Box::new(HookError {
@@ -167,7 +161,6 @@ impl HookRegistry {
     ///
     /// # Errors
     /// Returns an error if unable to acquire read lock on context
-    #[allow(dead_code)]
     pub fn get_context_data(&self, key: &str) -> Result<Option<String>, Box<dyn Error>> {
         let context = self.context.read().map_err(|_| {
             Box::new(HookError {
@@ -179,7 +172,6 @@ impl HookRegistry {
 }
 
 /// Hook that logs command execution events with descriptive messages
-#[allow(dead_code)]
 pub struct LoggingHook {
     /// Name of the hook for identification
     name: String,
@@ -220,7 +212,6 @@ impl Default for LoggingHook {
 }
 
 /// Hook that collects and records command execution metrics
-#[allow(dead_code)]
 pub struct MetricsHook {
     /// Name of the hook for identification
     name: String,
@@ -261,7 +252,6 @@ impl Default for MetricsHook {
 }
 
 /// Hook that measures and records command execution timing
-#[allow(dead_code)]
 pub struct TimingHook {
     /// Start time of the hook execution
     start_time: RwLock<Option<Instant>>,
@@ -485,7 +475,6 @@ impl Default for ResourceValidationHook {
 /// A manager for command hooks
 pub struct HookManager {
     /// Map of hook names to their implementations
-    #[allow(dead_code)]
     hooks: HookMap,
 }
 
@@ -506,7 +495,6 @@ impl HookManager {
     ///
     /// # Errors
     /// Returns an error if a hook with the same name already exists
-    #[allow(dead_code)]
     pub fn add_hook(
         &mut self,
         name: &str,
@@ -525,7 +513,6 @@ impl HookManager {
     ///
     /// # Errors
     /// Returns an error if any hook fails to execute
-    #[allow(dead_code)]
     pub fn execute_hooks(&self) -> Result<(), Box<dyn Error>> {
         for (name, hook) in &self.hooks {
             hook().map_err(|e| {
@@ -546,28 +533,22 @@ impl Default for HookManager {
 
 /// Validation hook for commands
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct ValidationHook {
     /// The validator component that performs the actual validation
-    #[allow(dead_code)]
     validator: Arc<RwLock<CommandValidator>>,
 }
 
 /// Pre-execution lifecycle hook
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct PreExecutionHook {
     /// The validator component that performs pre-execution validation
-    #[allow(dead_code)]
     validator: Arc<RwLock<CommandValidator>>,
 }
 
 /// Post-execution lifecycle hook
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct PostExecutionHook {
     /// The validator component that performs post-execution validation
-    #[allow(dead_code)]
     validator: Arc<RwLock<CommandValidator>>,
 }
 
@@ -686,14 +667,12 @@ mod tests {
 
     #[derive(Parser)]
     #[command(name = "test")]
-    #[allow(dead_code)]
     struct TestArgs {
         #[arg(short, long)]
         value: String,
     }
 
     #[derive(Debug)]
-    #[allow(dead_code)]
     struct TestCommand;
 
     impl Command for TestCommand {

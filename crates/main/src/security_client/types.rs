@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Security Client Types
@@ -48,36 +48,51 @@ pub struct SecurityCapabilityPreference {
 pub enum SecurityCapabilityType {
     /// Authentication services
     Authentication {
+        /// Supported auth methods
         methods: Vec<String>,
+        /// Whether MFA is supported
         multi_factor: bool,
+        /// Whether biometric auth is supported
         biometric_support: bool,
     },
 
     /// Authorization and access control
     Authorization {
+        /// RBAC support
         rbac_support: bool,
+        /// ABAC support
         abac_support: bool,
+        /// Policy engine identifiers
         policy_engines: Vec<String>,
     },
 
     /// Encryption and cryptography
     Encryption {
+        /// Supported algorithms
         algorithms: Vec<String>,
+        /// Key management support
         key_management: bool,
+        /// HSM support
         hardware_security_modules: bool,
     },
 
     /// Threat detection and response
     ThreatDetection {
+        /// Behavioral analysis support
         behavioral_analysis: bool,
+        /// Anomaly detection support
         anomaly_detection: bool,
+        /// Real-time monitoring support
         real_time_monitoring: bool,
     },
 
     /// Compliance and audit
     Compliance {
+        /// Compliance framework identifiers
         frameworks: Vec<String>,
+        /// Audit logging support
         audit_logging: bool,
+        /// Reporting support
         reporting: bool,
     },
 }
@@ -256,35 +271,51 @@ pub struct UniversalSecurityRequest {
 pub enum SecurityOperation {
     /// Authenticate user
     Authenticate {
+        /// Identity to authenticate
         identity: String,
+        /// Credentials for authentication
         credentials: HashMap<String, String>,
     },
 
     /// Authorize access
     Authorize {
+        /// Subject requesting access
         subject: String,
+        /// Resource being accessed
         resource: String,
+        /// Action being performed
         action: String,
     },
 
     /// Encrypt data
     Encrypt {
+        /// Encryption algorithm
         algorithm: String,
+        /// Optional key ID
         key_id: Option<String>,
     },
 
     /// Decrypt data
-    Decrypt { algorithm: String, key_id: String },
+    Decrypt {
+        /// Decryption algorithm
+        algorithm: String,
+        /// Key ID for decryption
+        key_id: String,
+    },
 
     /// Analyze threat
     AnalyzeThreat {
+        /// Event data to analyze
         event_data: Vec<u8>,
+        /// Analysis context
         context: HashMap<String, String>,
     },
 
     /// Audit log
     AuditLog {
+        /// Event type
         event_type: String,
+        /// Severity level
         severity: String,
     },
 }
@@ -500,10 +531,16 @@ pub enum DecisionOutcome {
     Deny,
 
     /// Allow with conditions
-    AllowWithConditions { conditions: Vec<String> },
+    AllowWithConditions {
+        /// Conditions that must be met
+        conditions: Vec<String>,
+    },
 
     /// Require additional authentication
-    RequireAdditionalAuth { methods: Vec<String> },
+    RequireAdditionalAuth {
+        /// Required auth methods
+        methods: Vec<String>,
+    },
 
     /// Monitor and allow
     MonitorAndAllow,

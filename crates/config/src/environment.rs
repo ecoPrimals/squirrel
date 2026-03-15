@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use serde::{Deserialize, Serialize};
@@ -11,22 +11,39 @@ use universal_constants::timeouts;
 /// Environment configuration errors
 #[derive(Debug, Error)]
 pub enum EnvironmentError {
+    /// A required environment variable was not set.
     #[error("Missing required environment variable: {0}")]
     MissingVariable(String),
 
+    /// An environment variable had an invalid or unexpected value.
     #[error("Invalid environment variable value: {variable} = {value}")]
-    InvalidValue { variable: String, value: String },
+    InvalidValue {
+        /// Name of the environment variable.
+        variable: String,
+        /// The invalid value that was read.
+        value: String,
+    },
 
+    /// Failed to parse an environment variable into the expected type.
     #[error("Parse error for variable {variable}: {error}")]
-    ParseError { variable: String, error: String },
+    ParseError {
+        /// Name of the environment variable.
+        variable: String,
+        /// Parse error message.
+        error: String,
+    },
 }
 
 /// Application environment types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Environment {
+    /// Local development with relaxed validation and defaults.
     Development,
+    /// Automated testing with in-memory backends where applicable.
     Testing,
+    /// Pre-production staging with production-like validation.
     Staging,
+    /// Production deployment with strict validation and required secrets.
     Production,
 }
 
@@ -89,10 +106,15 @@ impl FromStr for Environment {
 /// Network configuration from environment variables
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkConfig {
+    /// Bind address for the MCP server (e.g. `127.0.0.1` or `0.0.0.0`).
     pub host: String,
+    /// Port to listen on.
     pub port: u16,
+    /// Allowed CORS origins for cross-origin requests.
     pub cors_origins: Vec<String>,
+    /// Request timeout in milliseconds.
     pub request_timeout_ms: u64,
+    /// Maximum concurrent connections.
     pub max_connections: u32,
 }
 
@@ -249,13 +271,19 @@ impl Environment {
 /// AI Provider configuration from environment variables
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AIProviderConfig {
+    /// Optional OpenAI API key (env: `OPENAI_API_KEY`).
     pub openai_api_key: Option<String>,
+    /// OpenAI API base URL (env: `OPENAI_ENDPOINT`).
     pub openai_endpoint: String,
+    /// Optional Anthropic API key (env: `ANTHROPIC_API_KEY`).
     pub anthropic_api_key: Option<String>,
+    /// Anthropic API base URL (env: `ANTHROPIC_ENDPOINT`).
     pub anthropic_endpoint: String,
     /// Local AI server endpoint (agnostic: works with Ollama, llama.cpp, vLLM, etc.)
     pub local_server_endpoint: String,
+    /// Default model name for AI requests (env: `MCP_DEFAULT_MODEL`).
     pub default_model: String,
+    /// AI request timeout in milliseconds (env: `AI_REQUEST_TIMEOUT_MS`).
     pub request_timeout_ms: u64,
 }
 
@@ -330,6 +358,7 @@ pub struct EcosystemConfig {
     pub toadstool_endpoint: String,
     /// Ecosystem registry / service mesh endpoint (env: SERVICE_MESH_ENDPOINT, BIOMEOS_ENDPOINT)
     pub service_mesh_endpoint: String,
+    /// Timeout in milliseconds for ecosystem service calls.
     pub service_timeout_ms: u64,
 }
 
@@ -467,10 +496,15 @@ impl EcosystemConfig {
 /// Complete environment-based configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnvironmentConfig {
+    /// Current deployment environment (development, testing, staging, production).
     pub environment: Environment,
+    /// Network bind and CORS settings.
     pub network: NetworkConfig,
+    /// Database connection and pool settings.
     pub database: DatabaseConfig,
+    /// AI provider endpoints and API keys.
     pub ai_providers: AIProviderConfig,
+    /// Ecosystem service endpoints (NestGate, BearDog, ToadStool, service mesh).
     pub ecosystem: EcosystemConfig,
 }
 
@@ -603,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_environment_from_env_default() {
-        env::remove_var("MCP_ENV");
+        unsafe { env::remove_var("MCP_ENV") };
         let env_type = Environment::from_env();
         assert!(matches!(
             env_type,
@@ -613,10 +647,10 @@ mod tests {
 
     #[test]
     fn test_environment_from_env_production() {
-        env::set_var("MCP_ENV", "production");
+        unsafe { env::set_var("MCP_ENV", "production") };
         let env_type = Environment::from_env();
         assert_eq!(env_type, Environment::Production);
-        env::remove_var("MCP_ENV");
+        unsafe { env::remove_var("MCP_ENV") };
     }
 
     #[test]

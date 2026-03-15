@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Interactive Visualization
@@ -15,7 +15,7 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub struct InteractiveVisualization {
     /// Configuration
-    #[allow(dead_code)] // Reserved for visualization configuration
+    #[allow(dead_code)] // Reserved for planned feature
     config: Arc<VisualizationSystemConfig>,
 }
 

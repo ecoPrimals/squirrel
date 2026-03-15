@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Types for task management.
@@ -202,10 +202,11 @@ impl Default for Task {
 impl Task {
     /// Create a new task with the given name and description.
     pub fn new(name: &str, description: &str) -> Self {
-        let mut task = Self::default();
-        task.name = Arc::from(name);
-        task.description = description.to_string();
-        task
+        Self {
+            name: Arc::from(name),
+            description: description.to_string(),
+            ..Self::default()
+        }
     }
 
     /// Set the priority of the task.
@@ -320,7 +321,7 @@ impl Task {
 
     /// Update the progress of the task.
     pub fn update_progress(&mut self, progress: f32, message: Option<String>) {
-        self.progress = progress.max(0.0).min(100.0);
+        self.progress = progress.clamp(0.0, 100.0);
         if let Some(msg) = message {
             self.status_message = Some(msg);
         }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Performance Tracking Module
@@ -99,9 +99,13 @@ pub struct ResourceUtilization {
 /// Performance trend direction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TrendDirection {
+    /// Performance is improving.
     Improving,
+    /// Performance is stable.
     Stable,
+    /// Performance is degrading.
     Degrading,
+    /// Trend cannot be determined.
     Unknown,
 }
 
@@ -134,7 +138,9 @@ pub struct PerformanceThreshold {
 /// Threshold comparison direction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ThresholdDirection {
+    /// Alert when value is above threshold.
     Above,
+    /// Alert when value is below threshold.
     Below,
 }
 

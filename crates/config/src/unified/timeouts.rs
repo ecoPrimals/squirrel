@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Unified Timeout Configuration
@@ -224,12 +224,11 @@ impl TimeoutConfig {
         let mut custom = HashMap::new();
 
         for (key, value) in std::env::vars() {
-            if let Some(name) = key.strip_prefix("SQUIRREL_CUSTOM_TIMEOUT_") {
-                if let Some(name) = name.strip_suffix("_SECS") {
-                    if let Ok(timeout) = value.parse::<u64>() {
-                        custom.insert(name.to_lowercase(), timeout);
-                    }
-                }
+            if let Some(name) = key.strip_prefix("SQUIRREL_CUSTOM_TIMEOUT_")
+                && let Some(name) = name.strip_suffix("_SECS")
+                && let Ok(timeout) = value.parse::<u64>()
+            {
+                custom.insert(name.to_lowercase(), timeout);
             }
         }
 
@@ -389,19 +388,19 @@ mod tests {
     #[test]
     fn test_environment_variable_loading() {
         // Set environment variable
-        std::env::set_var("SQUIRREL_CONNECTION_TIMEOUT_SECS", "45");
+        unsafe { std::env::set_var("SQUIRREL_CONNECTION_TIMEOUT_SECS", "45") };
 
         let config = TimeoutConfig::from_env();
         assert_eq!(config.connection_timeout(), Duration::from_secs(45));
 
         // Clean up
-        std::env::remove_var("SQUIRREL_CONNECTION_TIMEOUT_SECS");
+        unsafe { std::env::remove_var("SQUIRREL_CONNECTION_TIMEOUT_SECS") };
     }
 
     #[test]
     fn test_custom_timeout_from_env() {
         // Set custom timeout via environment
-        std::env::set_var("SQUIRREL_CUSTOM_TIMEOUT_MY_OPERATION_SECS", "99");
+        unsafe { std::env::set_var("SQUIRREL_CUSTOM_TIMEOUT_MY_OPERATION_SECS", "99") };
 
         let config = TimeoutConfig::from_env();
         assert!(config.is_custom_timeout("my_operation"));
@@ -411,6 +410,6 @@ mod tests {
         );
 
         // Clean up
-        std::env::remove_var("SQUIRREL_CUSTOM_TIMEOUT_MY_OPERATION_SECS");
+        unsafe { std::env::remove_var("SQUIRREL_CUSTOM_TIMEOUT_MY_OPERATION_SECS") };
     }
 }

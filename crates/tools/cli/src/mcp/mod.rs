@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Machine Context Protocol (MCP) implementation
@@ -27,7 +27,7 @@ mod tests {
     use super::*;
     use clap::Command as ClapCommand;
     use serde_json::json;
-    use squirrel_commands::{error::CommandError, Command};
+    use squirrel_commands::{Command, error::CommandError};
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::time::timeout;
@@ -38,7 +38,9 @@ mod tests {
     #[ignore] // Network-dependent test - requires actual network server
     async fn test_subscription_system() {
         // Skip this test as it's network-dependent and can hang
-        println!("Skipping network-dependent test_subscription_system - use test_subscription_system_mock instead");
+        println!(
+            "Skipping network-dependent test_subscription_system - use test_subscription_system_mock instead"
+        );
         return;
     }
 
@@ -46,7 +48,9 @@ mod tests {
     #[ignore] // Network-dependent test - requires actual network server
     async fn test_multiple_subscribers() {
         // Skip this test as it's network-dependent and can hang
-        println!("Skipping network-dependent test_multiple_subscribers - use test_multiple_subscribers_mock instead");
+        println!(
+            "Skipping network-dependent test_multiple_subscribers - use test_multiple_subscribers_mock instead"
+        );
         return;
     }
 

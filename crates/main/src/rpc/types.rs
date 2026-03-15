@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! JSON-RPC Request/Response Types
@@ -190,7 +190,10 @@ pub enum ToolSource {
     /// Built into squirrel
     Builtin,
     /// Announced by a remote primal
-    Remote { primal: String },
+    Remote {
+        /// ID of the remote primal that announced the tool.
+        primal: String,
+    },
 }
 
 /// Request for health check

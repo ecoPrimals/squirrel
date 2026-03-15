@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Learning Integration Layer
@@ -26,21 +26,18 @@ use crate::visualization::VisualizationSystem;
 // Re-export planned feature types (available for downstream consumers)
 #[allow(unused_imports)]
 pub use super::integration_types::{
-    analyze_state_change_patterns, ContextUsagePattern, LearningRequest, LearningRequestType,
-    StateChange, StateChangePatternAnalysis,
+    ContextUsagePattern, LearningRequest, LearningRequestType, StateChange,
+    StateChangePatternAnalysis, analyze_state_change_patterns,
 };
 
 /// Context monitoring results for tracking
 ///
 /// Note: Planned feature for context monitoring - implementation in progress
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
+#[allow(dead_code)] // Reserved for planned feature: context monitoring
 pub struct ContextMonitoringResults {
-    #[allow(dead_code)]
     pub total_contexts: usize,
-    #[allow(dead_code)]
     pub contexts_needing_intervention: usize,
-    #[allow(dead_code)]
     pub monitoring_timestamp: chrono::DateTime<chrono::Utc>,
 }
 
@@ -795,7 +792,7 @@ impl LearningIntegration {
     /// Update integration statistics
     ///
     /// Note: Internal method for future integration statistics - implementation in progress
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Reserved for planned feature: integration statistics
     async fn update_stats(&self, operation_success: bool, operation_time: f64) -> Result<()> {
         let mut stats = self.stats.lock().await;
 
@@ -819,7 +816,7 @@ impl LearningIntegration {
     /// Record integration error
     ///
     /// Note: Internal method for future error tracking - implementation in progress
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Reserved for planned feature: error tracking
     async fn record_error(&self, error_type: &str, message: &str, component: &str) -> Result<()> {
         let error = IntegrationError {
             id: uuid::Uuid::new_v4().to_string(),
@@ -871,17 +868,13 @@ impl LearningIntegration {
 ///
 /// Note: Component references for future integration - some components not yet wired up
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Reserved for planned feature: component wiring
 pub struct IntegrationRefs {
     pub context_manager: Option<Arc<ContextManager>>,
-    #[allow(dead_code)]
     pub rule_manager: Option<Arc<RuleManager>>,
-    #[allow(dead_code)]
     pub learning_engine: Option<Arc<LearningEngine>>,
-    #[allow(dead_code)]
     pub context_learning_manager: Option<Arc<ContextLearningManager>>,
-    #[allow(dead_code)]
     pub reward_system: Option<Arc<RewardSystem>>,
-    #[allow(dead_code)]
     pub policy_network: Option<Arc<PolicyNetwork>>,
     pub learning_metrics: Option<Arc<LearningMetrics>>,
     pub adaptive_rule_system: Option<Arc<AdaptiveRuleSystem>>,

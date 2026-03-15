@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration validation for PrimalConfig
@@ -87,15 +87,13 @@ impl ConfigValidator {
         }
 
         // Validate public address if provided
-        if let Some(public_addr) = &network.public_address {
-            if public_addr.parse::<IpAddr>().is_err() {
-                // Try parsing as hostname
-                if !Self::is_valid_hostname(public_addr) {
-                    return Err(ConfigError::Invalid(format!(
-                        "Invalid public address: {public_addr}"
-                    )));
-                }
-            }
+        if let Some(public_addr) = &network.public_address
+            && public_addr.parse::<IpAddr>().is_err()
+            && !Self::is_valid_hostname(public_addr)
+        {
+            return Err(ConfigError::Invalid(format!(
+                "Invalid public address: {public_addr}"
+            )));
         }
 
         // Validate TLS config if provided
@@ -130,13 +128,13 @@ impl ConfigValidator {
         }
 
         // Check CA file if provided
-        if let Some(ca_file) = &tls.ca_file {
-            if !ca_file.exists() {
-                return Err(ConfigError::Invalid(format!(
-                    "CA certificate file not found: {}",
-                    ca_file.display()
-                )));
-            }
+        if let Some(ca_file) = &tls.ca_file
+            && !ca_file.exists()
+        {
+            return Err(ConfigError::Invalid(format!(
+                "CA certificate file not found: {}",
+                ca_file.display()
+            )));
         }
 
         Ok(())
@@ -190,12 +188,12 @@ impl ConfigValidator {
             ));
         }
 
-        if let Some(rate_limit) = limits.rate_limit {
-            if rate_limit <= 0.0 {
-                return Err(ConfigError::Invalid(
-                    "Rate limit must be greater than 0".to_string(),
-                ));
-            }
+        if let Some(rate_limit) = limits.rate_limit
+            && rate_limit <= 0.0
+        {
+            return Err(ConfigError::Invalid(
+                "Rate limit must be greater than 0".to_string(),
+            ));
         }
 
         Ok(())
@@ -204,12 +202,13 @@ impl ConfigValidator {
     /// Validate security configuration
     fn validate_security_config(security: &SecurityConfig) -> Result<(), ConfigError> {
         // Validate Beardog endpoint if provided
-        if let Some(endpoint) = &security.beardog_endpoint {
-            if endpoint.scheme() != "https" && endpoint.scheme() != "http" {
-                return Err(ConfigError::Invalid(
-                    "Beardog endpoint must use HTTP or HTTPS".to_string(),
-                ));
-            }
+        if let Some(endpoint) = &security.beardog_endpoint
+            && endpoint.scheme() != "https"
+            && endpoint.scheme() != "http"
+        {
+            return Err(ConfigError::Invalid(
+                "Beardog endpoint must use HTTP or HTTPS".to_string(),
+            ));
         }
 
         // Validate auth method
@@ -273,13 +272,13 @@ impl ConfigValidator {
                 // No validation needed for memory storage
             }
             CredentialStorage::File { path } => {
-                if let Some(parent) = path.parent() {
-                    if !parent.exists() {
-                        return Err(ConfigError::Invalid(format!(
-                            "Credential storage directory not found: {}",
-                            parent.display()
-                        )));
-                    }
+                if let Some(parent) = path.parent()
+                    && !parent.exists()
+                {
+                    return Err(ConfigError::Invalid(format!(
+                        "Credential storage directory not found: {}",
+                        parent.display()
+                    )));
                 }
             }
             CredentialStorage::Beardog => {
@@ -300,13 +299,13 @@ impl ConfigValidator {
     fn validate_key_management(key_mgmt: &KeyManagement) -> Result<(), ConfigError> {
         match key_mgmt {
             KeyManagement::File { path } => {
-                if let Some(parent) = path.parent() {
-                    if !parent.exists() {
-                        return Err(ConfigError::Invalid(format!(
-                            "Key storage directory not found: {}",
-                            parent.display()
-                        )));
-                    }
+                if let Some(parent) = path.parent()
+                    && !parent.exists()
+                {
+                    return Err(ConfigError::Invalid(format!(
+                        "Key storage directory not found: {}",
+                        parent.display()
+                    )));
                 }
             }
             KeyManagement::Beardog => {
@@ -328,12 +327,13 @@ impl ConfigValidator {
         orchestration: &OrchestrationConfig,
     ) -> Result<(), ConfigError> {
         // Validate Songbird endpoint if provided
-        if let Some(endpoint) = &orchestration.songbird_endpoint {
-            if endpoint.scheme() != "https" && endpoint.scheme() != "http" {
-                return Err(ConfigError::Invalid(
-                    "Songbird endpoint must use HTTP or HTTPS".to_string(),
-                ));
-            }
+        if let Some(endpoint) = &orchestration.songbird_endpoint
+            && endpoint.scheme() != "https"
+            && endpoint.scheme() != "http"
+        {
+            return Err(ConfigError::Invalid(
+                "Songbird endpoint must use HTTP or HTTPS".to_string(),
+            ));
         }
 
         // Validate health check config
@@ -408,13 +408,13 @@ impl ConfigValidator {
                     }
                 }
                 ServiceDiscoveryMethod::File { path } => {
-                    if let Some(parent) = path.parent() {
-                        if !parent.exists() {
-                            return Err(ConfigError::Invalid(format!(
-                                "Service discovery file directory not found: {}",
-                                parent.display()
-                            )));
-                        }
+                    if let Some(parent) = path.parent()
+                        && !parent.exists()
+                    {
+                        return Err(ConfigError::Invalid(format!(
+                            "Service discovery file directory not found: {}",
+                            parent.display()
+                        )));
                     }
                 }
                 ServiceDiscoveryMethod::Songbird => {
@@ -446,13 +446,13 @@ impl ConfigValidator {
     fn validate_log_output(output: &LogOutput) -> Result<(), ConfigError> {
         match output {
             LogOutput::File { path } => {
-                if let Some(parent) = path.parent() {
-                    if !parent.exists() {
-                        return Err(ConfigError::Invalid(format!(
-                            "Log file directory not found: {}",
-                            parent.display()
-                        )));
-                    }
+                if let Some(parent) = path.parent()
+                    && !parent.exists()
+                {
+                    return Err(ConfigError::Invalid(format!(
+                        "Log file directory not found: {}",
+                        parent.display()
+                    )));
                 }
             }
             _ => {
@@ -478,32 +478,32 @@ impl ConfigValidator {
 
     /// Validate resource limits
     fn validate_resource_limits(resources: &ResourceLimits) -> Result<(), ConfigError> {
-        if let Some(max_memory) = resources.max_memory_mb {
-            if max_memory == 0 {
-                return Err(ConfigError::Invalid("Max memory cannot be 0".to_string()));
-            }
+        if let Some(max_memory) = resources.max_memory_mb
+            && max_memory == 0
+        {
+            return Err(ConfigError::Invalid("Max memory cannot be 0".to_string()));
         }
 
-        if let Some(max_cpu) = resources.max_cpu_percent {
-            if max_cpu <= 0.0 || max_cpu > 100.0 {
-                return Err(ConfigError::Invalid(
-                    "Max CPU percent must be between 0 and 100".to_string(),
-                ));
-            }
+        if let Some(max_cpu) = resources.max_cpu_percent
+            && (max_cpu <= 0.0 || max_cpu > 100.0)
+        {
+            return Err(ConfigError::Invalid(
+                "Max CPU percent must be between 0 and 100".to_string(),
+            ));
         }
 
-        if let Some(max_disk) = resources.max_disk_mb {
-            if max_disk == 0 {
-                return Err(ConfigError::Invalid("Max disk cannot be 0".to_string()));
-            }
+        if let Some(max_disk) = resources.max_disk_mb
+            && max_disk == 0
+        {
+            return Err(ConfigError::Invalid("Max disk cannot be 0".to_string()));
         }
 
-        if let Some(max_fds) = resources.max_file_descriptors {
-            if max_fds == 0 {
-                return Err(ConfigError::Invalid(
-                    "Max file descriptors cannot be 0".to_string(),
-                ));
-            }
+        if let Some(max_fds) = resources.max_file_descriptors
+            && max_fds == 0
+        {
+            return Err(ConfigError::Invalid(
+                "Max file descriptors cannot be 0".to_string(),
+            ));
         }
 
         Ok(())

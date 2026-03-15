@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Command suggestions system for Squirrel
@@ -284,10 +284,10 @@ impl CommandSuggestions {
             let command = entry.command.clone();
 
             // Skip if doesn't match partial command filter
-            if let Some(ref partial) = command_filter {
-                if !command.to_lowercase().starts_with(partial) {
-                    continue;
-                }
+            if let Some(ref partial) = command_filter
+                && !command.to_lowercase().starts_with(partial)
+            {
+                continue;
             }
 
             // Update frequency count
@@ -372,14 +372,13 @@ impl CommandSuggestions {
             let mut context_score = 0.0;
 
             // Factor 1: Command sequence patterns
-            if let Some(ref prev_cmd) = context.previous_command {
-                if let Some(next_commands) = sequences.get(prev_cmd) {
-                    if let Some(count) = next_commands.get(&command) {
-                        // Normalize by total count for the previous command
-                        let total = next_commands.values().sum::<usize>() as f64;
-                        context_score += (*count as f64 / total) * 0.5;
-                    }
-                }
+            if let Some(ref prev_cmd) = context.previous_command
+                && let Some(next_commands) = sequences.get(prev_cmd)
+                && let Some(count) = next_commands.get(&command)
+            {
+                // Normalize by total count for the previous command
+                let total = next_commands.values().sum::<usize>() as f64;
+                context_score += (*count as f64 / total) * 0.5;
             }
 
             // Factor 2: Time of day patterns

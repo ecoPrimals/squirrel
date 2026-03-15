@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
@@ -22,35 +22,46 @@ use crate::plugin::{Plugin, PluginMetadata, WebEndpoint};
 // Note: async_trait still needed for Plugin trait (used as dyn Plugin),
 // but PluginV2 and WebPluginExtV2 use native async (no trait objects)
 
+/// Callback for logging
+pub type LogCallback = Box<dyn Fn(&str, &str) -> Result<()> + Send + Sync>;
+/// Callback for getting plugin by ID
+pub type GetPluginCallback = Box<dyn Fn(Uuid) -> Result<Arc<dyn Plugin>> + Send + Sync>;
+/// Callback for getting plugin by name
+pub type GetPluginByNameCallback = Box<dyn Fn(&str) -> Result<Arc<dyn Plugin>> + Send + Sync>;
+/// Callback for listing plugins
+pub type ListPluginsCallback = Box<dyn Fn() -> Result<Vec<Arc<dyn Plugin>>> + Send + Sync>;
+/// Callback for getting config
+pub type GetConfigCallback = Box<dyn Fn(&str) -> Result<Value> + Send + Sync>;
+/// Callback for setting config
+pub type SetConfigCallback = Box<dyn Fn(&str, Value) -> Result<()> + Send + Sync>;
+/// Callback for persisting state
+pub type PersistStateCallback = Box<dyn Fn(Uuid, &str, Value) -> Result<()> + Send + Sync>;
+/// Callback for loading state
+pub type LoadStateCallback = Box<dyn Fn(Uuid, &str) -> Result<Value> + Send + Sync>;
+/// Callback for permission check
+pub type CheckPermissionCallback = Box<dyn Fn(&str, Uuid) -> Result<bool> + Send + Sync>;
+
 /// Callbacks for PluginV2
 #[derive(Default)]
 pub struct PluginCallbacks {
     /// Log a message
-    pub log: Option<Box<dyn Fn(&str, &str) -> Result<()> + Send + Sync>>,
-
+    pub log: Option<LogCallback>,
     /// Access the plugin registry
-    pub get_plugin: Option<Box<dyn Fn(Uuid) -> Result<Arc<dyn Plugin>> + Send + Sync>>,
-
+    pub get_plugin: Option<GetPluginCallback>,
     /// Get plugin by name
-    pub get_plugin_by_name: Option<Box<dyn Fn(&str) -> Result<Arc<dyn Plugin>> + Send + Sync>>,
-
+    pub get_plugin_by_name: Option<GetPluginByNameCallback>,
     /// List all plugins
-    pub list_plugins: Option<Box<dyn Fn() -> Result<Vec<Arc<dyn Plugin>>> + Send + Sync>>,
-
+    pub list_plugins: Option<ListPluginsCallback>,
     /// Get configuration value
-    pub get_config: Option<Box<dyn Fn(&str) -> Result<Value> + Send + Sync>>,
-
+    pub get_config: Option<GetConfigCallback>,
     /// Set configuration value
-    pub set_config: Option<Box<dyn Fn(&str, Value) -> Result<()> + Send + Sync>>,
-
+    pub set_config: Option<SetConfigCallback>,
     /// Persist plugin state
-    pub persist_state: Option<Box<dyn Fn(Uuid, &str, Value) -> Result<()> + Send + Sync>>,
-
+    pub persist_state: Option<PersistStateCallback>,
     /// Load plugin state
-    pub load_state: Option<Box<dyn Fn(Uuid, &str) -> Result<Value> + Send + Sync>>,
-
+    pub load_state: Option<LoadStateCallback>,
     /// Security check
-    pub check_permission: Option<Box<dyn Fn(&str, Uuid) -> Result<bool> + Send + Sync>>,
+    pub check_permission: Option<CheckPermissionCallback>,
 }
 
 /// V2 version of the Plugin trait with improved thread safety
@@ -92,15 +103,15 @@ pub trait WebPluginExtV2: PluginV2 {
 }
 
 /// Helper struct to adapt PluginV2 to Plugin for backward compatibility
-#[allow(dead_code)]
+#[allow(dead_code)] // Used by adapt_plugin_v2, exercised in tests
 #[derive(Debug)]
 pub struct PluginWrapper<T: PluginV2> {
     inner: T,
 }
 
+#[allow(dead_code)] // Used by adapt_plugin_v2, exercised in tests
 impl<T: PluginV2> PluginWrapper<T> {
     /// Create a new PluginWrapper with the given PluginV2 implementation
-    #[allow(dead_code)]
     pub fn new(inner: T) -> Self {
         Self { inner }
     }
@@ -130,7 +141,7 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
 }
 
 /// Helper function to adapt a PluginV2 to Plugin (used in tests)
-#[allow(dead_code)]
+#[allow(dead_code)] // Used in tests; public API for PluginV2 adoption
 pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
     Arc::new(PluginWrapper::new(plugin))
 }

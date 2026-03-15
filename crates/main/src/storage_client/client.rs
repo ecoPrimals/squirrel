@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Storage Client Implementation
 #![allow(dead_code)] // Storage client infrastructure awaiting activation
 
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -288,7 +288,7 @@ impl UniversalStorageClient {
                 alternative_providers: vec![],
                 access_predictions: vec![],
                 cost_recommendations: vec![
-                    "Use cold storage for infrequently accessed data".to_string()
+                    "Use cold storage for infrequently accessed data".to_string(),
                 ],
             },
             error: response.error_message,

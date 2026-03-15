@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration management for ecosystem integration
@@ -146,20 +146,28 @@ mod tests {
     #[test]
     fn test_load_universal_config_with_env() {
         let prefix = "UCFG_FULL_TEST";
-        env::set_var(format!("{}_SERVICE_NAME", prefix), "test-svc");
-        env::set_var(format!("{}_SERVICE_DESCRIPTION", prefix), "A test service");
-        env::set_var(
-            format!("{}_SONGBIRD_DISCOVERY_ENDPOINT", prefix),
-            "http://disc:8001",
-        );
-        env::set_var(
-            format!("{}_SONGBIRD_REGISTRATION_ENDPOINT", prefix),
-            "http://reg:8001",
-        );
-        env::set_var(
-            format!("{}_SONGBIRD_HEALTH_ENDPOINT", prefix),
-            "http://health:8001",
-        );
+        unsafe { env::set_var(format!("{}_SERVICE_NAME", prefix), "test-svc") };
+        unsafe { env::set_var(format!("{}_SERVICE_DESCRIPTION", prefix), "A test service") };
+        unsafe {
+            env::set_var(
+                format!("{}_SONGBIRD_DISCOVERY_ENDPOINT", prefix),
+                "http://disc:8001",
+            )
+        };
+
+        unsafe {
+            env::set_var(
+                format!("{}_SONGBIRD_REGISTRATION_ENDPOINT", prefix),
+                "http://reg:8001",
+            )
+        };
+
+        unsafe {
+            env::set_var(
+                format!("{}_SONGBIRD_HEALTH_ENDPOINT", prefix),
+                "http://health:8001",
+            )
+        };
 
         let loader = ConfigLoader::new(prefix);
         let config = loader.load_universal_config();
@@ -175,7 +183,7 @@ mod tests {
             "SONGBIRD_REGISTRATION_ENDPOINT",
             "SONGBIRD_HEALTH_ENDPOINT",
         ] {
-            env::remove_var(format!("{}_{}", prefix, suffix));
+            unsafe { env::remove_var(format!("{}_{}", prefix, suffix)) };
         }
     }
 }

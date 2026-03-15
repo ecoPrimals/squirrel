@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Error types for the MCP system
@@ -23,27 +23,48 @@
 //! ```
 
 // Core error modules
+/// Alert-related errors.
 pub mod alert;
+/// Client connection and request errors.
 pub mod client;
+/// Configuration errors.
 pub mod config;
+/// Connection and transport errors.
 pub mod connection;
+/// Context-related errors.
 pub mod context;
+/// Context error types.
 pub mod context_err;
-pub mod context_trait; // NEW: Standardized error context trait
+/// Standardized error context trait.
+pub mod context_trait;
+/// Error usage examples.
 pub mod examples;
+/// Handler and request processing errors.
 pub mod handler;
+/// Integration errors.
 pub mod integration;
+/// Plugin errors.
 pub mod plugin;
+/// Port and binding errors.
 pub mod port;
+/// Production environment errors.
 pub mod production;
+/// Protocol-level errors.
 pub mod protocol_err;
+/// RBAC and authorization errors.
 pub mod rbac;
+/// Registry errors.
 pub mod registry;
+/// Session errors.
 pub mod session;
+/// Task execution errors.
 pub mod task;
+/// Tool invocation errors.
 pub mod tool;
+/// Transport layer errors.
 pub mod transport;
-pub mod types; // NEW: Error context trait usage examples
+/// Error types and context trait usage.
+pub mod types;
 
 // Re-export the main error types for convenient access
 pub use crate::error::alert::AlertError;

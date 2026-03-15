@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Message handling for WebSocket transport.
@@ -8,7 +8,7 @@ use crate::error::{MCPError, Result};
 use crate::protocol::types::MCPMessage;
 use crate::transport::websocket::types::SocketCommand;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tracing::{debug, error, warn};
 

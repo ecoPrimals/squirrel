@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 #![allow(dead_code)] // Registry types awaiting full ecosystem wiring
@@ -134,7 +134,9 @@ pub struct RegistryState {
     pub registered_services: HashMap<Arc<str>, Arc<crate::ecosystem::EcosystemServiceRegistration>>,
     /// Service discovery cache with `Arc<str>` keys and `Arc<DiscoveredService>` values
     pub service_discovery_cache: HashMap<Arc<str>, Arc<DiscoveredService>>,
+    /// Timestamp of last discovery sync
     pub last_discovery_sync: Option<DateTime<Utc>>,
+    /// Number of registration attempts made
     pub registration_attempts: u32,
 }
 
@@ -147,6 +149,7 @@ pub struct DiscoveredService {
         deserialize_with = "deserialize_arc_str"
     )]
     pub service_id: Arc<str>,
+    /// Type of primal providing this service
     pub primal_type: EcosystemPrimalType,
     /// Endpoint as `Arc<str>` for efficient sharing
     #[serde(
@@ -178,8 +181,11 @@ pub struct DiscoveredService {
         deserialize_with = "deserialize_arc_str_map"
     )]
     pub metadata: HashMap<Arc<str>, Arc<str>>,
+    /// When the service was first discovered.
     pub discovered_at: DateTime<Utc>,
+    /// Timestamp of the last health check, if performed.
     pub last_health_check: Option<DateTime<Utc>>,
+    /// Current health status of the service.
     pub health_status: ServiceHealthStatus,
 }
 
@@ -309,10 +315,15 @@ where
 /// Service health status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ServiceHealthStatus {
+    /// Health status not yet determined
     Unknown,
+    /// Service is operating normally
     Healthy,
+    /// Service is degraded but functional
     Degraded,
+    /// Service is unhealthy
     Unhealthy,
+    /// Service is offline
     Offline,
 }
 
@@ -325,7 +336,9 @@ pub struct PrimalApiRequest {
         deserialize_with = "deserialize_arc_str"
     )]
     pub request_id: Arc<str>,
+    /// Source primal type
     pub from_primal: EcosystemPrimalType,
+    /// Target primal type
     pub to_primal: EcosystemPrimalType,
     /// Operation name as `Arc<str>` with string interning
     #[serde(
@@ -333,6 +346,7 @@ pub struct PrimalApiRequest {
         deserialize_with = "deserialize_arc_str"
     )]
     pub operation: Arc<str>,
+    /// Request payload
     pub payload: serde_json::Value,
     /// Headers with `Arc<str>` keys and values for zero-copy
     #[serde(
@@ -340,6 +354,7 @@ pub struct PrimalApiRequest {
         deserialize_with = "deserialize_arc_str_map"
     )]
     pub headers: HashMap<Arc<str>, Arc<str>>,
+    /// Request timeout
     pub timeout: Duration,
 }
 
@@ -388,7 +403,9 @@ pub struct PrimalApiResponse {
         deserialize_with = "deserialize_arc_str"
     )]
     pub request_id: Arc<str>,
+    /// Whether the request succeeded
     pub success: bool,
+    /// Response data when successful
     pub data: Option<serde_json::Value>,
     /// Error message as `Arc<str>` for efficient sharing
     #[serde(
@@ -402,6 +419,7 @@ pub struct PrimalApiResponse {
         deserialize_with = "deserialize_arc_str_map"
     )]
     pub headers: HashMap<Arc<str>, Arc<str>>,
+    /// Time taken to process the request
     pub processing_time: Duration,
 }
 
@@ -434,34 +452,53 @@ impl PrimalApiResponse {
 pub enum EcosystemRegistryEvent {
     /// Service discovered in the ecosystem
     ServiceDiscovered {
+        /// Discovered service ID
         service_id: Arc<str>,
+        /// Type of primal
         primal_type: crate::EcosystemPrimalType,
+        /// Service endpoint
         endpoint: Arc<str>,
-        capabilities: Vec<Arc<str>>, // Add the missing capabilities field
+        /// Service capabilities
+        capabilities: Vec<Arc<str>>,
     },
 
     /// Service registered with ecosystem
     ServiceRegistered {
+        /// Registered service ID
         service_id: Arc<str>,
+        /// Type of primal
         primal_type: crate::EcosystemPrimalType,
+        /// Service endpoint
         endpoint: Arc<str>,
     },
 
     /// Service error occurred
     ServiceError {
+        /// Service ID where error occurred
         service_id: Arc<str>,
+        /// Error message
         error: Arc<str>,
+        /// When the error occurred
         timestamp: chrono::DateTime<chrono::Utc>,
     },
+    /// Service health status changed
     ServiceHealthChanged {
+        /// Service ID
         service_id: Arc<str>,
+        /// Type of primal
         primal_type: EcosystemPrimalType,
+        /// Previous health status
         old_status: ServiceHealthStatus,
+        /// New health status
         new_status: ServiceHealthStatus,
     },
+    /// Service went offline
     ServiceOffline {
+        /// Service ID
         service_id: Arc<str>,
+        /// Type of primal
         primal_type: EcosystemPrimalType,
+        /// Reason for going offline
         reason: Arc<str>,
     },
 }
@@ -469,47 +506,74 @@ pub enum EcosystemRegistryEvent {
 /// Health check result
 #[derive(Debug, Clone)]
 pub struct HealthCheckResult {
+    /// Health status determined by the check
     pub status: ServiceHealthStatus,
+    /// Time taken to perform the check
     pub processing_time: Duration,
+    /// Error message if check failed
     pub error: Option<String>,
 }
 
 /// Ecosystem status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemStatus {
+    /// Overall health score (0.0 to 1.0)
     pub overall_health: f64,
+    /// Status of each primal
     pub primal_statuses: Vec<PrimalStatus>,
+    /// Number of registered services
     pub registered_services: usize,
+    /// Number of active coordinations
     pub active_coordinations: usize,
+    /// Timestamp of last full sync
     pub last_full_sync: Option<DateTime<Utc>>,
+    /// Size of discovery cache
     pub discovery_cache_size: usize,
 }
 
 /// Primal status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalStatus {
+    /// Type of primal
     pub primal_type: EcosystemPrimalType,
+    /// Current service status
     pub status: ServiceStatus,
+    /// Service endpoint URL
     pub endpoint: String,
+    /// Service version
     pub version: String,
+    /// Capability identifiers
     pub capabilities: Vec<String>,
+    /// Health score (0.0 to 1.0)
     pub health_score: f64,
+    /// Average response time
     pub response_time: Duration,
+    /// When the primal was last seen
     pub last_seen: DateTime<Utc>,
+    /// Number of recent errors
     pub error_count: u32,
+    /// Coordination features supported
     pub coordination_features: Vec<String>,
 }
 
 /// Service status enumeration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ServiceStatus {
+    /// Status not yet determined
     Unknown,
+    /// Currently discovering services
     Discovering,
+    /// Currently registering
     Registering,
+    /// Operating normally
     Healthy,
+    /// Degraded but functional
     Degraded,
+    /// Unhealthy
     Unhealthy,
+    /// Offline
     Offline,
+    /// Recovering from failure
     Recovering,
 }
 

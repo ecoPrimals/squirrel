@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Experience Replay System
@@ -202,8 +202,8 @@ pub struct ExperienceBatch {
 }
 
 /// Experience priority for prioritized replay (reserved for future prioritized experience replay)
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)] // Reserved for planned feature: prioritized experience replay
 pub struct ExperiencePriority {
     /// Experience ID
     pub experience_id: String,
@@ -409,7 +409,7 @@ impl ExperienceReplay {
 
         for _ in 0..batch_size {
             let mut cumulative_prob = 0.0;
-            let random_prob = rng.gen::<f64>() * total_priority;
+            let random_prob = rng.r#gen::<f64>() * total_priority;
 
             for (i, &priority) in priorities.iter().enumerate() {
                 cumulative_prob += priority;

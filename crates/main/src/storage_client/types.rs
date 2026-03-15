@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Storage Client Types
@@ -48,32 +48,43 @@ pub struct StorageCapabilityPreference {
 pub enum StorageCapabilityType {
     /// High-performance object storage
     ObjectStorage {
+        /// Whether compression is supported
         compression: bool,
+        /// Whether encryption at rest is supported
         encryption: bool,
+        /// Whether replication is supported
         replication: bool,
     },
 
     /// File system storage
     FileSystem {
+        /// Whether POSIX compliance is required
         posix_compliance: bool,
+        /// Whether atomic operations are supported
         atomic_operations: bool,
     },
 
     /// Database storage
     Database {
+        /// Whether ACID compliance is required
         acid_compliance: bool,
+        /// Supported query capabilities
         query_capabilities: Vec<String>,
     },
 
     /// Cache storage
     Cache {
+        /// Whether TTL (time-to-live) is supported
         ttl_support: bool,
+        /// Supported eviction policies
         eviction_policies: Vec<String>,
     },
 
     /// Archive/cold storage
     Archive {
+        /// Expected retrieval time
         retrieval_time: std::time::Duration,
+        /// Whether cost optimization is enabled
         cost_optimization: bool,
     },
 }
@@ -158,16 +169,25 @@ pub enum StorageOperation {
     Delete,
 
     /// Copy data
-    Copy { destination: String },
+    Copy {
+        /// Destination path or key
+        destination: String,
+    },
 
     /// Move data
-    Move { destination: String },
+    Move {
+        /// Destination path or key
+        destination: String,
+    },
 
     /// Create snapshot
     Snapshot,
 
     /// Restore from snapshot
-    Restore { snapshot_id: String },
+    Restore {
+        /// Snapshot identifier to restore from
+        snapshot_id: String,
+    },
 }
 
 /// AI context for intelligent request routing

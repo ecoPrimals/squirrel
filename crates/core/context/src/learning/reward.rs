@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Reward System
@@ -16,8 +16,8 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 use super::{
-    engine::{RLAction, RLState},
     LearningSystemConfig,
+    engine::{RLAction, RLState},
 };
 use crate::error::Result;
 
@@ -25,7 +25,7 @@ use crate::error::Result;
 #[derive(Debug)]
 pub struct RewardSystem {
     /// System configuration
-    #[allow(dead_code)] // Reserved for reward system configuration
+    #[allow(dead_code)] // Reserved for planned feature
     config: Arc<LearningSystemConfig>,
 
     /// Reward calculators

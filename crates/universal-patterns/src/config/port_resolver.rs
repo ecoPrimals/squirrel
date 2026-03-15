@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // ! Port Resolution - Zero Hardcoding
@@ -131,10 +131,10 @@ impl PortResolver {
         }
 
         // 2. Service discovery (if ecosystem available)
-        if let Some(ecosystem) = &self.ecosystem {
-            if let Some(discovered) = ecosystem.discover_service(service).await {
-                return Ok(discovered.port);
-            }
+        if let Some(ecosystem) = &self.ecosystem
+            && let Some(discovered) = ecosystem.discover_service(service).await
+        {
+            return Ok(discovered.port);
         }
 
         // 3. Universal constants (last resort)
@@ -222,9 +222,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_port_from_constants() {
-        std::env::remove_var("HTTP_PORT");
-        std::env::remove_var("WEBSOCKET_PORT");
-        std::env::remove_var("METRICS_PORT");
+        unsafe { std::env::remove_var("HTTP_PORT") };
+        unsafe { std::env::remove_var("WEBSOCKET_PORT") };
+        unsafe { std::env::remove_var("METRICS_PORT") };
         let resolver = PortResolver::new();
 
         assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
@@ -234,19 +234,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_port_from_env() {
-        std::env::set_var("TEST_PORT", "7777");
+        unsafe { std::env::set_var("TEST_PORT", "7777") };
 
         let resolver = PortResolver::new();
         assert_eq!(resolver.resolve_port("test").await.unwrap(), 7777);
 
-        std::env::remove_var("TEST_PORT");
+        unsafe { std::env::remove_var("TEST_PORT") };
     }
 
     #[tokio::test]
     async fn test_resolve_endpoint() {
-        std::env::remove_var("HTTP_ENDPOINT");
-        std::env::remove_var("HTTP_PORT");
-        std::env::remove_var("BIND_ADDRESS");
+        unsafe { std::env::remove_var("HTTP_ENDPOINT") };
+        unsafe { std::env::remove_var("HTTP_PORT") };
+        unsafe { std::env::remove_var("BIND_ADDRESS") };
         let resolver = PortResolver::new();
         let endpoint = resolver.resolve_endpoint("http").await.unwrap();
 
@@ -256,7 +256,7 @@ mod tests {
     #[tokio::test]
     async fn test_resolve_endpoint_with_scheme() {
         // Clear any env var that might interfere from concurrent tests
-        std::env::remove_var("SECURITY_ENDPOINT");
+        unsafe { std::env::remove_var("SECURITY_ENDPOINT") };
         let resolver = PortResolver::new();
         let endpoint = resolver
             .resolve_endpoint_with_scheme("security", "https")
@@ -269,14 +269,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_endpoint_from_env() {
-        std::env::set_var("API_ENDPOINT", "https://api.example.com");
+        unsafe { std::env::set_var("API_ENDPOINT", "https://api.example.com") };
 
         let resolver = PortResolver::new();
         let endpoint = resolver.resolve_endpoint("api").await.unwrap();
 
         assert_eq!(endpoint, "https://api.example.com");
 
-        std::env::remove_var("API_ENDPOINT");
+        unsafe { std::env::remove_var("API_ENDPOINT") };
     }
 
     #[tokio::test]
@@ -295,7 +295,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_port_env() {
-        std::env::set_var("BADPORT_PORT", "not_a_number");
+        unsafe { std::env::set_var("BADPORT_PORT", "not_a_number") };
 
         let resolver = PortResolver::new();
         let result = resolver.resolve_port("badport").await;
@@ -306,7 +306,7 @@ mod tests {
             _ => panic!("Expected InvalidPort error"),
         }
 
-        std::env::remove_var("BADPORT_PORT");
+        unsafe { std::env::remove_var("BADPORT_PORT") };
     }
 
     // Mock service discovery for testing
@@ -342,15 +342,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_fallback_chain() {
-        std::env::remove_var("HTTP_PORT");
+        unsafe { std::env::remove_var("HTTP_PORT") };
 
         let resolver = PortResolver::new();
         assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
 
-        std::env::set_var("HTTP_PORT", "7070");
+        unsafe { std::env::set_var("HTTP_PORT", "7070") };
         let resolver2 = PortResolver::new();
         assert_eq!(resolver2.resolve_port("http").await.unwrap(), 7070);
-        std::env::remove_var("HTTP_PORT");
+        unsafe { std::env::remove_var("HTTP_PORT") };
 
         let resolver3 = PortResolver::new();
         assert_eq!(resolver3.resolve_port("http").await.unwrap(), 8081);

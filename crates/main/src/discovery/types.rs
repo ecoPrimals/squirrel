@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Discovery types and common structures
@@ -14,24 +14,42 @@ pub type DiscoveryResult<T> = Result<T, DiscoveryError>;
 /// Errors that can occur during capability discovery
 #[derive(Debug, thiserror::Error)]
 pub enum DiscoveryError {
+    /// The requested capability was not found
     #[error("Capability not found: {capability}")]
-    CapabilityNotFound { capability: String },
+    CapabilityNotFound {
+        /// The capability that was not found
+        capability: String,
+    },
 
+    /// Discovery operation timed out
     #[error("Discovery timeout after {timeout:?}")]
-    Timeout { timeout: Duration },
+    Timeout {
+        /// The timeout duration that was exceeded
+        timeout: Duration,
+    },
 
+    /// A discovery mechanism failed
     #[error("Discovery mechanism failed: {mechanism}: {reason}")]
-    MechanismFailed { mechanism: String, reason: String },
+    MechanismFailed {
+        /// The mechanism that failed (e.g., "mdns", "registry")
+        mechanism: String,
+        /// Human-readable failure reason
+        reason: String,
+    },
 
+    /// No discovery mechanisms were configured or available
     #[error("No discovery mechanisms available")]
     NoMechanismsAvailable,
 
+    /// Network I/O error during discovery
     #[error("Network error: {0}")]
     NetworkError(#[from] std::io::Error),
 
+    /// Failed to parse discovery response or configuration
     #[error("Parse error: {0}")]
     ParseError(String),
 
+    /// The requested feature is not supported
     #[error("Feature not supported: {0}")]
     NotSupported(String),
 }

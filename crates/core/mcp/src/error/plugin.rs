@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Errors related to plugin management and execution.
@@ -15,15 +15,30 @@ pub enum PluginError {
 
     /// Plugin loading failed
     #[error("Plugin loading failed for {plugin_id}: {reason}")]
-    LoadingFailed { plugin_id: Uuid, reason: String },
+    LoadingFailed {
+        /// UUID of the plugin that failed to load
+        plugin_id: Uuid,
+        /// Reason for the loading failure
+        reason: String,
+    },
 
     /// Plugin initialization failed
     #[error("Plugin initialization failed for {plugin_id}: {reason}")]
-    InitializationFailed { plugin_id: Uuid, reason: String },
+    InitializationFailed {
+        /// UUID of the plugin that failed to initialize
+        plugin_id: Uuid,
+        /// Reason for the initialization failure
+        reason: String,
+    },
 
     /// Plugin execution failed
     #[error("Plugin execution failed for {plugin_id}: {reason}")]
-    ExecutionFailed { plugin_id: Uuid, reason: String },
+    ExecutionFailed {
+        /// UUID of the plugin that failed during execution
+        plugin_id: Uuid,
+        /// Reason for the execution failure
+        reason: String,
+    },
 
     /// Plugin with the given ID was not found
     #[error("Plugin not found: {0}")]
@@ -39,15 +54,30 @@ pub enum PluginError {
 
     /// Plugin configuration is invalid
     #[error("Invalid plugin configuration for {plugin_id}: {reason}")]
-    InvalidConfiguration { plugin_id: Uuid, reason: String },
+    InvalidConfiguration {
+        /// UUID of the plugin with invalid configuration
+        plugin_id: Uuid,
+        /// Reason the configuration is invalid
+        reason: String,
+    },
 
     /// Error during plugin lifecycle management
     #[error("Plugin lifecycle error for {plugin_id}: {reason}")]
-    LifecycleError { plugin_id: Uuid, reason: String },
+    LifecycleError {
+        /// UUID of the plugin with lifecycle error
+        plugin_id: Uuid,
+        /// Reason for the lifecycle failure
+        reason: String,
+    },
 
     /// Dependency resolution failed for a plugin
     #[error("Plugin dependency resolution failed for {plugin_id}: {reason}")]
-    DependencyError { plugin_id: Uuid, reason: String },
+    DependencyError {
+        /// UUID of the plugin with dependency issues
+        plugin_id: Uuid,
+        /// Reason for the dependency resolution failure
+        reason: String,
+    },
 
     /// Generic internal plugin error
     #[error("Internal plugin error: {0}")]

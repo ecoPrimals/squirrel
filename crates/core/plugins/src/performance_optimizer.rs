@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin Performance Optimizer
@@ -12,7 +12,7 @@
 //! - Zero-copy plugin data structures
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::{atomic::AtomicU64, Arc};
+use std::sync::{Arc, atomic::AtomicU64};
 use std::time::{Duration, Instant, SystemTime};
 
 use tokio::sync::{Mutex, RwLock};
@@ -192,7 +192,6 @@ pub struct PluginPerformanceOptimizer {
     memory_optimizer: Arc<MemoryOptimizer>,
 
     /// Performance metrics for tracking optimizer effectiveness
-    #[allow(dead_code)] // Reserved for metrics collection system
     metrics: Arc<RwLock<OptimizerMetrics>>,
 
     /// Configuration
@@ -209,14 +208,12 @@ pub struct HotPathCache {
     capability_queries: Arc<RwLock<HashMap<String, CachedCapabilityQuery>>>,
 
     /// Cached execution results
-    #[allow(dead_code)] // Reserved for execution result caching
     execution_results: Arc<RwLock<HashMap<String, CachedExecutionResult>>>,
 
     /// Cache statistics
     stats: Arc<RwLock<CacheStatistics>>,
 
     /// Configuration for cache behavior
-    #[allow(dead_code)] // Reserved for cache configuration system
     config: HotPathCacheConfig,
 }
 
@@ -265,7 +262,6 @@ impl Clone for CachedCapabilityQuery {
 }
 
 /// Cached execution result
-#[allow(dead_code)] // Reserved for execution result caching system
 #[derive(Debug)]
 pub struct CachedExecutionResult {
     /// Cached result data
@@ -294,23 +290,19 @@ pub struct CacheStatistics {
 #[derive(Debug)]
 pub struct BatchProcessor {
     /// Pending plugin loads
-    #[allow(dead_code)] // Reserved for batch processing system
     pending_loads: Arc<Mutex<VecDeque<BatchOperation>>>,
 
     /// Batch processing task handle
-    #[allow(dead_code)] // Reserved for batch processing system
     task_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 
     /// Batch statistics
     stats: Arc<RwLock<BatchStatistics>>,
 
     /// Configuration for batch processing
-    #[allow(dead_code)] // Reserved for batch configuration system
     config: BatchProcessingConfig,
 }
 
 /// Batch operation types
-#[allow(dead_code)] // Reserved for batch processing system
 #[derive(Debug)]
 pub enum BatchOperation {
     /// Load a plugin in batch
@@ -347,14 +339,12 @@ pub struct BatchStatistics {
 #[derive(Debug)]
 pub struct PredictiveLoader {
     /// Usage pattern analysis
-    #[allow(dead_code)] // Reserved for usage pattern analysis system
     usage_patterns: Arc<RwLock<HashMap<String, UsagePattern>>>,
 
     /// Prediction model
     prediction_model: Arc<RwLock<PredictionModel>>,
 
     /// Predictive load queue
-    #[allow(dead_code)] // Reserved for predictive loading system
     prediction_queue: Arc<Mutex<VecDeque<PredictiveLoad>>>,
 
     /// Configuration
@@ -362,7 +352,6 @@ pub struct PredictiveLoader {
 }
 
 /// Usage pattern for a plugin or operation
-#[allow(dead_code)] // Reserved for usage pattern analysis system
 #[derive(Debug, Clone)]
 pub struct UsagePattern {
     /// Access times for pattern analysis
@@ -385,7 +374,6 @@ pub struct PredictionModel {
 }
 
 /// Predictive load operation
-#[allow(dead_code)] // Reserved for predictive loading system
 #[derive(Debug, Clone)]
 pub struct PredictiveLoad {
     /// Plugin to predictively load
@@ -399,7 +387,6 @@ pub struct PredictiveLoad {
 }
 
 /// Reason for predictive loading
-#[allow(dead_code)] // Infrastructure for plugin predictive loading system
 #[derive(Debug, Clone)]
 pub enum PredictionReason {
     TemporalPattern,
@@ -409,7 +396,6 @@ pub enum PredictionReason {
 }
 
 /// Memory optimizer for plugin operations
-#[allow(dead_code)] // Infrastructure for plugin memory optimization system
 #[derive(Debug)]
 pub struct MemoryOptimizer {
     /// Memory usage tracking
@@ -426,7 +412,6 @@ pub struct MemoryOptimizer {
 }
 
 /// Plugin memory usage information
-#[allow(dead_code)] // Data structure for memory tracking system
 #[derive(Debug, Clone)]
 pub struct PluginMemoryInfo {
     pub allocated_bytes: u64,
@@ -436,7 +421,6 @@ pub struct PluginMemoryInfo {
 }
 
 /// Zero-copy pool trait
-#[allow(dead_code)] // Infrastructure for zero-copy object pooling system
 pub trait ZeroCopyPool: Send + Sync + std::fmt::Debug {
     fn get_object(&self) -> Box<dyn std::any::Any + Send>;
     fn return_object(&self, object: Box<dyn std::any::Any + Send>);
@@ -445,7 +429,6 @@ pub trait ZeroCopyPool: Send + Sync + std::fmt::Debug {
 }
 
 /// Lazy loading information
-#[allow(dead_code)] // Data structure for lazy loading system
 #[derive(Debug, Clone)]
 pub struct LazyLoadInfo {
     pub plugin_id: Uuid,
@@ -457,11 +440,17 @@ pub struct LazyLoadInfo {
 /// Overall optimizer metrics
 #[derive(Debug, Default, Clone)]
 pub struct OptimizerMetrics {
+    /// Cache hit rate (0.0 to 1.0).
     pub cache_efficiency: f64,
+    /// Batch processing efficiency (0.0 to 1.0).
     pub batch_efficiency: f64,
+    /// Accuracy of predictive loading (0.0 to 1.0).
     pub prediction_accuracy: f64,
+    /// Memory saved through optimization in bytes.
     pub memory_saved_bytes: u64,
+    /// Number of operations optimized.
     pub operations_optimized: u64,
+    /// Total time saved by optimizations in milliseconds.
     pub total_time_saved_ms: u64,
 }
 
@@ -615,19 +604,19 @@ impl PluginPerformanceOptimizer {
         let predictions = self.predictive_loader.generate_predictions().await;
 
         for prediction in predictions {
-            if prediction.confidence >= self.config.predictive_loading.confidence_threshold {
-                if let Some(entry) = registry.get_plugin(prediction.plugin_id).await {
-                    debug!(
-                        "Predictively loading plugin {} with confidence {:.2}",
-                        entry.name(),
-                        prediction.confidence
-                    );
+            if prediction.confidence >= self.config.predictive_loading.confidence_threshold
+                && let Some(entry) = registry.get_plugin(prediction.plugin_id).await
+            {
+                debug!(
+                    "Predictively loading plugin {} with confidence {:.2}",
+                    entry.name(),
+                    prediction.confidence
+                );
 
-                    // Trigger predictive load
-                    tokio::spawn(async move {
-                        let _ = entry; // Simulate keeping plugin warm
-                    });
-                }
+                // Trigger predictive load
+                tokio::spawn(async move {
+                    let _ = entry; // Simulate keeping plugin warm
+                });
             }
         }
     }

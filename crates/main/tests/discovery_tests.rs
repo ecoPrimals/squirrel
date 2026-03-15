@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Integration tests for the discovery system
@@ -16,8 +16,8 @@ use std::time::SystemTime;
 #[serial] // Serialize env var tests to prevent pollution
 async fn test_discovery_from_environment_variable() {
     // Set up test environment - env vars use uppercase with underscores
-    std::env::set_var("AI_INFERENCE_ENDPOINT", "http://localhost:8001");
-    std::env::set_var("STORAGE_ENDPOINT", "http://localhost:8002");
+    unsafe { std::env::set_var("AI_INFERENCE_ENDPOINT", "http://localhost:8001") };
+    unsafe { std::env::set_var("STORAGE_ENDPOINT", "http://localhost:8002") };
 
     let engine = RuntimeDiscoveryEngine::new();
 
@@ -42,15 +42,15 @@ async fn test_discovery_from_environment_variable() {
     assert_eq!(storage_service.discovery_method, "environment_variable");
 
     // Cleanup
-    std::env::remove_var("AI_INFERENCE_ENDPOINT");
-    std::env::remove_var("STORAGE_ENDPOINT");
+    unsafe { std::env::remove_var("AI_INFERENCE_ENDPOINT") };
+    unsafe { std::env::remove_var("STORAGE_ENDPOINT") };
 }
 
 #[tokio::test]
 #[serial] // Serialize env var tests to prevent pollution
 async fn test_discovery_capability_not_found() {
     // Ensure no environment variable exists
-    std::env::remove_var("NONEXISTENT_CAPABILITY_ENDPOINT");
+    unsafe { std::env::remove_var("NONEXISTENT_CAPABILITY_ENDPOINT") };
 
     let engine = RuntimeDiscoveryEngine::new();
 
@@ -58,10 +58,12 @@ async fn test_discovery_capability_not_found() {
     let result = engine.discover_capability("nonexistent.capability").await;
 
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("Capability not found"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("Capability not found")
+    );
 }
 
 #[tokio::test]
@@ -87,7 +89,7 @@ async fn test_primal_self_knowledge_discovery() {
 #[serial] // Serialize env var tests to prevent pollution
 async fn test_capability_resolver_with_dots_in_name() {
     // Test that capability names with dots (like "ai.inference") work correctly
-    std::env::set_var("AI_INFERENCE_ENDPOINT", "http://localhost:9000");
+    unsafe { std::env::set_var("AI_INFERENCE_ENDPOINT", "http://localhost:9000") };
 
     let resolver = CapabilityResolver::new();
     let request = squirrel::discovery::CapabilityRequest::new("ai.inference");
@@ -98,7 +100,7 @@ async fn test_capability_resolver_with_dots_in_name() {
     let service = result.unwrap();
     assert_eq!(service.endpoint, "http://localhost:9000");
 
-    std::env::remove_var("AI_INFERENCE_ENDPOINT");
+    unsafe { std::env::remove_var("AI_INFERENCE_ENDPOINT") };
 }
 
 #[tokio::test]
@@ -161,7 +163,7 @@ async fn test_discovered_service_capability_matching() {
 #[tokio::test]
 #[serial] // Serialize env var tests to prevent pollution
 async fn test_runtime_discovery_engine_caching() {
-    std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:7777");
+    unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:7777") };
 
     let engine = RuntimeDiscoveryEngine::new();
 
@@ -180,7 +182,7 @@ async fn test_runtime_discovery_engine_caching() {
     assert_eq!(service1.endpoint, service2.endpoint);
     assert_eq!(service1.name, service2.name);
 
-    std::env::remove_var("CACHE_TEST_ENDPOINT");
+    unsafe { std::env::remove_var("CACHE_TEST_ENDPOINT") };
 }
 
 #[tokio::test]
@@ -198,7 +200,7 @@ async fn test_discovery_with_complex_endpoint() {
     ];
 
     for (env_value, expected_endpoint) in test_cases {
-        std::env::set_var("COMPLEX_ENDPOINT", env_value);
+        unsafe { std::env::set_var("COMPLEX_ENDPOINT", env_value) };
 
         let engine = RuntimeDiscoveryEngine::new();
         let result = engine.discover_capability("complex").await;
@@ -207,7 +209,7 @@ async fn test_discovery_with_complex_endpoint() {
         let service = result.unwrap();
         assert_eq!(service.endpoint, expected_endpoint);
 
-        std::env::remove_var("COMPLEX_ENDPOINT");
+        unsafe { std::env::remove_var("COMPLEX_ENDPOINT") };
     }
 }
 

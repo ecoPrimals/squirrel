@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Rule evaluator for evaluating rules against context data
@@ -51,8 +51,8 @@ pub struct EvaluationStatistics {
     average_duration: chrono::Duration,
     /// Number of successful evaluations
     successful_evaluations: u64,
-    /// Number of failed evaluations
-    #[allow(dead_code)] // Metric for future evaluation error reporting
+    /// Number of failed evaluations (reserved for future error-tracking)
+    #[allow(dead_code)]
     failed_evaluations: u64,
 }
 

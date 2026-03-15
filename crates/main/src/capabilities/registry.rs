@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -17,27 +17,39 @@ use tracing::{info, warn};
 /// Parsed capability registry (from capability_registry.toml)
 #[derive(Debug, Clone)]
 pub struct CapabilityRegistry {
+    /// Primal metadata from the `[primal]` section
     pub primal: PrimalInfo,
+    /// List of capability definitions
     pub capabilities: Vec<CapabilityDef>,
 }
 
-/// Primal metadata from the [primal] section
+/// Primal metadata from the `[primal]` section
 #[derive(Debug, Clone)]
 pub struct PrimalInfo {
+    /// Primal name
     pub name: String,
+    /// Version string
     pub version: String,
+    /// Domain (e.g., "ai", "storage")
     pub domain: String,
+    /// License identifier
     pub license: String,
+    /// Transport (e.g., "unix_socket", "http")
     pub transport: String,
+    /// Protocol (e.g., "jsonrpc_2.0")
     pub protocol: String,
 }
 
 /// A single capability definition with optional JSON Schema
 #[derive(Debug, Clone)]
 pub struct CapabilityDef {
+    /// Method name (e.g., "ai.query", "capability.discover")
     pub method: String,
+    /// Domain for grouping (e.g., "ai.inference")
     pub domain: String,
+    /// Human-readable description
     pub description: String,
+    /// Optional JSON Schema for input validation
     pub input_schema: Option<serde_json::Value>,
 }
 
@@ -116,7 +128,7 @@ impl CapabilityRegistry {
                 method: c.method,
                 domain: c.domain,
                 description: c.description,
-                input_schema: c.input_schema.and_then(|v| toml_to_json(v)),
+                input_schema: c.input_schema.and_then(toml_to_json),
             })
             .collect();
 
@@ -135,7 +147,10 @@ impl CapabilityRegistry {
 
     /// Return just the method names (for capability.discover response)
     pub fn method_names(&self) -> Vec<&str> {
-        self.capabilities.iter().map(|c| c.method.as_str()).collect()
+        self.capabilities
+            .iter()
+            .map(|c| c.method.as_str())
+            .collect()
     }
 
     /// Find a capability by method name
@@ -178,7 +193,7 @@ impl CapabilityRegistry {
                 name: "squirrel".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 domain: "ai".to_string(),
-                license: "AGPL-3.0-or-later".to_string(),
+                license: "AGPL-3.0-only".to_string(),
                 transport: "unix_socket".to_string(),
                 protocol: "jsonrpc_2.0".to_string(),
             },
@@ -280,7 +295,10 @@ mod tests {
     fn test_toml_to_json_conversion() {
         let toml_val = toml::Value::Table({
             let mut t = toml::map::Map::new();
-            t.insert("type".to_string(), toml::Value::String("object".to_string()));
+            t.insert(
+                "type".to_string(),
+                toml::Value::String("object".to_string()),
+            );
             t.insert(
                 "required".to_string(),
                 toml::Value::Array(vec![toml::Value::String("prompt".to_string())]),

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Compute Client Types and Structures
@@ -50,41 +50,57 @@ pub struct ComputeCapabilityPreference {
 pub enum ComputeCapabilityType {
     /// CPU-intensive computations
     CpuIntensive {
+        /// CPU cores required
         cores: u32,
+        /// Memory in GB
         memory_gb: u32,
+        /// CPU architecture
         architecture: String,
     },
 
     /// GPU-accelerated computing
     GpuAccelerated {
+        /// GPU memory in GB
         gpu_memory_gb: u32,
+        /// CUDA support
         cuda_support: bool,
+        /// Supported frameworks
         frameworks: Vec<String>,
     },
 
     /// Container runtime
     ContainerRuntime {
+        /// Supported orchestrators
         orchestrators: Vec<String>,
+        /// Isolation level
         isolation_level: String,
     },
 
     /// Serverless execution
     ServerlessExecution {
+        /// Supported languages
         languages: Vec<String>,
+        /// Cold start time in ms
         cold_start_ms: u64,
     },
 
     /// AI/ML specific compute
     MachineLearning {
+        /// Supported ML frameworks
         frameworks: Vec<String>,
+        /// Training support
         training_support: bool,
+        /// Inference support
         inference_support: bool,
     },
 
     /// High-performance computing
     HighPerformanceComputing {
+        /// Interconnect type
         interconnect: String,
+        /// Parallel processing support
         parallel_processing: bool,
+        /// Distributed compute support
         distributed_compute: bool,
     },
 }
@@ -206,31 +222,49 @@ pub struct UniversalComputeRequest {
 pub enum ComputeOperation {
     /// Execute code
     Execute {
+        /// Programming language
         language: String,
+        /// Entry point
         entrypoint: String,
     },
 
     /// Train ML model
     TrainModel {
+        /// ML framework
         framework: String,
+        /// Model type
         model_type: String,
     },
 
     /// Run inference
-    RunInference { model_id: String, batch_size: u32 },
+    RunInference {
+        /// Model identifier
+        model_id: String,
+        /// Batch size
+        batch_size: u32,
+    },
 
     /// Batch processing
-    BatchProcess { job_type: String, parallelism: u32 },
+    BatchProcess {
+        /// Job type
+        job_type: String,
+        /// Parallelism level
+        parallelism: u32,
+    },
 
     /// Stream processing
     StreamProcess {
+        /// Stream source
         stream_source: String,
+        /// Processing window
         processing_window: Duration,
     },
 
     /// Custom workload
     CustomWorkload {
+        /// Workload type
         workload_type: String,
+        /// Workload configuration
         configuration: HashMap<String, serde_json::Value>,
     },
 }
@@ -319,7 +353,9 @@ pub enum CostPerformancePreference {
 
     /// Custom weights
     Custom {
+        /// Weight for cost (0.0 - 1.0)
         cost_weight: f64,
+        /// Weight for performance (0.0 - 1.0)
         performance_weight: f64,
     },
 }

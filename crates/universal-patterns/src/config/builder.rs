@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration builder for creating PrimalConfig instances
@@ -192,10 +192,10 @@ impl ConfigBuilder {
 
     /// Set Beardog endpoint (optional)
     pub fn beardog_endpoint_optional(mut self, endpoint: Option<String>) -> Self {
-        if let Some(endpoint_str) = endpoint {
-            if let Ok(url) = Url::parse(&endpoint_str) {
-                self.config.security.beardog_endpoint = Some(url);
-            }
+        if let Some(endpoint_str) = endpoint
+            && let Ok(url) = Url::parse(&endpoint_str)
+        {
+            self.config.security.beardog_endpoint = Some(url);
         }
         self
     }
@@ -473,10 +473,12 @@ mod tests {
     #[test]
     fn test_builder_production() {
         // Set required environment variable for encryption tests
-        std::env::set_var(
-            "PRIMAL_ENCRYPTION_KEY",
-            "test_key_for_testing_12345678901234567890",
-        );
+        unsafe {
+            std::env::set_var(
+                "PRIMAL_ENCRYPTION_KEY",
+                "test_key_for_testing_12345678901234567890",
+            )
+        };
 
         let config = ConfigBuilder::production()
             .name("test-primal")
@@ -493,7 +495,7 @@ mod tests {
         assert_eq!(config.environment.features.get("debug_mode"), Some(&false));
 
         // Clean up environment variable
-        std::env::remove_var("PRIMAL_ENCRYPTION_KEY");
+        unsafe { std::env::remove_var("PRIMAL_ENCRYPTION_KEY") };
     }
 
     #[test]

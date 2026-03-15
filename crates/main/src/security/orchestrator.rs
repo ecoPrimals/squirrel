@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Security Orchestration System
@@ -199,9 +199,13 @@ pub struct SecurityCheckResult {
 /// Risk level assessment for security events
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum RiskLevel {
+    /// Low risk - informational
     Low,
+    /// Medium risk - attention recommended
     Medium,
+    /// High risk - immediate action needed
     High,
+    /// Critical risk - urgent response required
     Critical,
 }
 
@@ -420,13 +424,13 @@ impl SecurityOrchestrator {
         }
 
         // 5. Execute automated responses if enabled
-        if self.config.enable_automated_response && !allowed {
-            if let Some(response) = self
+        if self.config.enable_automated_response
+            && !allowed
+            && let Some(response) = self
                 .determine_automated_response(request.client_ip, &overall_risk)
                 .await
-            {
-                self.execute_automated_response(response).await;
-            }
+        {
+            self.execute_automated_response(response).await;
         }
 
         let result = SecurityCheckResult {
@@ -619,10 +623,15 @@ impl SecurityOrchestrator {
 /// Comprehensive security statistics
 #[derive(Debug, Clone, Serialize)]
 pub struct SecurityStatistics {
+    /// Security monitoring statistics.
     pub monitoring_stats: super::monitoring::SecurityMonitoringStats,
+    /// Rate limiting statistics.
     pub rate_limit_stats: super::rate_limiter::RateLimitStatistics,
+    /// Total number of tracked IP addresses.
     pub total_tracked_ips: usize,
+    /// Number of active security responses in progress.
     pub active_security_responses: usize,
+    /// Number of IPs flagged as high risk.
     pub high_risk_ips: usize,
 }
 
@@ -940,30 +949,42 @@ mod tests {
         let config = create_test_config();
         let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
 
-        assert!(orchestrator
-            .shutdown(ShutdownPhase::StopAccepting)
-            .await
-            .is_ok());
-        assert!(orchestrator
-            .shutdown(ShutdownPhase::DrainRequests)
-            .await
-            .is_ok());
-        assert!(orchestrator
-            .shutdown(ShutdownPhase::CloseConnections)
-            .await
-            .is_ok());
-        assert!(orchestrator
-            .shutdown(ShutdownPhase::CleanupResources)
-            .await
-            .is_ok());
-        assert!(orchestrator
-            .shutdown(ShutdownPhase::ShutdownTasks)
-            .await
-            .is_ok());
-        assert!(orchestrator
-            .shutdown(ShutdownPhase::FinalCleanup)
-            .await
-            .is_ok());
+        assert!(
+            orchestrator
+                .shutdown(ShutdownPhase::StopAccepting)
+                .await
+                .is_ok()
+        );
+        assert!(
+            orchestrator
+                .shutdown(ShutdownPhase::DrainRequests)
+                .await
+                .is_ok()
+        );
+        assert!(
+            orchestrator
+                .shutdown(ShutdownPhase::CloseConnections)
+                .await
+                .is_ok()
+        );
+        assert!(
+            orchestrator
+                .shutdown(ShutdownPhase::CleanupResources)
+                .await
+                .is_ok()
+        );
+        assert!(
+            orchestrator
+                .shutdown(ShutdownPhase::ShutdownTasks)
+                .await
+                .is_ok()
+        );
+        assert!(
+            orchestrator
+                .shutdown(ShutdownPhase::FinalCleanup)
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]

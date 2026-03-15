@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Base error types and utilities.
@@ -8,16 +8,21 @@ use serde::{Deserialize, Serialize};
 /// Security level placeholder for core MCP functionality
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum SecurityLevel {
+    /// Low security level
     Low,
+    /// Medium security level (default)
     #[default]
     Medium,
+    /// High security level
     High,
+    /// Critical security level
     Critical,
 }
 
 /// Wire format error placeholder for core MCP functionality
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WireFormatError {
+    /// Human-readable error message describing the wire format failure
     pub message: String,
 }
 

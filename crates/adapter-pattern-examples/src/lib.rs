@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Adapter Pattern Examples
 //!
 //! This crate demonstrates the Adapter Pattern in Rust with a command-based architecture.
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 //! It focuses on three main adapter implementations:
 //!
 //! 1. Registry Adapter - Basic adapter for command registry operations
@@ -463,7 +464,7 @@ impl McpAdapter {
                     None => {
                         return Err(CommandError::AuthenticationFailed(
                             "Invalid token".to_string(),
-                        ))
+                        ));
                     }
                 }
             }

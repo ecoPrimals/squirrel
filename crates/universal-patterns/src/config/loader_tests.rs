@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for configuration loader
@@ -137,7 +137,7 @@ name = "Test Primal"
         // Clear any PRIMAL_ environment variables
         for (key, _) in env::vars() {
             if key.starts_with("PRIMAL_") {
-                env::remove_var(&key);
+                unsafe { env::remove_var(&key) };
             }
         }
 
@@ -232,36 +232,36 @@ name = "Test Primal"
     #[test]
     fn test_from_env_partial_config() {
         // Set some but not all environment variables
-        env::set_var("PRIMAL__ID", "test-id");
-        env::set_var("PRIMAL__NAME", "test-name");
+        unsafe { env::set_var("PRIMAL__ID", "test-id") };
+        unsafe { env::set_var("PRIMAL__NAME", "test-name") };
 
         let result = ConfigLoader::from_env();
         // Should handle partial configuration
         let _ = result;
 
         // Cleanup
-        env::remove_var("PRIMAL__ID");
-        env::remove_var("PRIMAL__NAME");
+        unsafe { env::remove_var("PRIMAL__ID") };
+        unsafe { env::remove_var("PRIMAL__NAME") };
     }
 
     #[test]
     fn test_from_env_invalid_values() {
         // Set environment variables with invalid values
-        env::set_var("PRIMAL__PORT", "not_a_number");
+        unsafe { env::set_var("PRIMAL__PORT", "not_a_number") };
 
         let result = ConfigLoader::from_env();
         // Should fail or use defaults for invalid values
         let _ = result;
 
         // Cleanup
-        env::remove_var("PRIMAL__PORT");
+        unsafe { env::remove_var("PRIMAL__PORT") };
     }
 
     #[test]
     fn test_load_precedence_env_over_file() {
         // This tests the precedence order documented in load()
         // Environment variables should override file configuration
-        env::set_var("PRIMAL__ID", "env-override");
+        unsafe { env::set_var("PRIMAL__ID", "env-override") };
 
         let result = ConfigLoader::load();
         if let Ok(config) = result {
@@ -271,7 +271,7 @@ name = "Test Primal"
         }
 
         // Cleanup
-        env::remove_var("PRIMAL__ID");
+        unsafe { env::remove_var("PRIMAL__ID") };
     }
 
     #[test]

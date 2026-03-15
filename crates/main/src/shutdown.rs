@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Graceful Shutdown Manager
@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, Notify, RwLock};
+use tokio::sync::{Notify, RwLock, mpsc};
 use tracing::{debug, error, info, warn};
 
 use crate::error::PrimalError;
@@ -33,6 +33,7 @@ pub enum ShutdownPhase {
 }
 
 impl ShutdownPhase {
+    /// Returns a human-readable description of the shutdown phase.
     #[must_use]
     pub fn description(&self) -> &'static str {
         match self {

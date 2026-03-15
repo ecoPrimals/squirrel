@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Primal Patterns for Squirrel AI Primal
@@ -40,15 +40,15 @@ pub mod types;
 
 // Re-export commonly used types
 pub use context::{
-    create_default_context, create_default_security_context, NetworkLocation, PrimalContext,
-    SecurityLevel, UniversalSecurityContext,
+    NetworkLocation, PrimalContext, SecurityLevel, UniversalSecurityContext,
+    create_default_context, create_default_security_context,
 };
 pub use endpoints::{DynamicPortInfo, PortStatus, PortType, PrimalEndpoints};
 pub use health::{HealthStatus, PrimalDependency, PrimalHealth};
 pub use helpers::validate_capability_compatibility;
 pub use messages::{
-    create_ecosystem_request, create_error_response, create_success_response, EcosystemRequest,
-    EcosystemResponse, PrimalRequest, PrimalResponse, ResponseStatus,
+    EcosystemRequest, EcosystemResponse, PrimalRequest, PrimalResponse, ResponseStatus,
+    create_ecosystem_request, create_error_response, create_success_response,
 };
 pub use security::UniversalSecuritySession;
 pub use service::{ServiceCapability, ServiceEndpoint, UniversalServiceRegistration};
@@ -64,8 +64,13 @@ pub const VERSION: &str = "1.0.0";
 
 /// Initialize the universal system
 pub fn init() -> Result<(), Box<dyn std::error::Error>> {
+    // Configure tracing via subscriber if RUST_LOG is unset, avoiding
+    // `std::env::set_var` which is unsafe in edition 2024.
     if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "info");
+        tracing_subscriber::fmt()
+            .with_env_filter("info")
+            .try_init()
+            .ok();
     }
     tracing::info!("Universal Primal System v{} initialized", VERSION);
     Ok(())

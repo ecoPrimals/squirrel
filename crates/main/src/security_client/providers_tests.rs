@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for security provider management
@@ -28,10 +28,12 @@ fn test_security_provider_from_discovered_primal() {
     assert_eq!(provider.metadata.version, "unknown");
     assert!(provider.metadata.standards.contains(&"oauth2".to_string()));
     assert!(provider.metadata.standards.contains(&"openid".to_string()));
-    assert!(provider
-        .metadata
-        .certifications
-        .contains(&"soc2".to_string()));
+    assert!(
+        provider
+            .metadata
+            .certifications
+            .contains(&"soc2".to_string())
+    );
     assert_eq!(provider.metadata.regions, vec!["local"]);
     assert_eq!(provider.health.health_score, 1.0);
     assert_eq!(provider.health.response_time_ms, 50.0);

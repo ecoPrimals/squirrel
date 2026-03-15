@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! AI Resilience Testing for Squirrel Coordinator
@@ -43,24 +43,37 @@ pub struct ActiveResilienceTest {
 pub enum AIResilienceTestType {
     /// Test AI service unavailability
     AIServiceUnavailable {
+        /// Service name to simulate
         service_name: String,
+        /// Failure rate (0.0 to 1.0)
         failure_rate: f64,
     },
     /// Test slow AI responses
-    SlowAIResponse { service_name: String, delay_ms: u64 },
+    SlowAIResponse {
+        /// Service name
+        service_name: String,
+        /// Delay in milliseconds
+        delay_ms: u64,
+    },
     /// Test AI coordination failures
     CoordinationFailure {
+        /// Affected primal identifiers
         affected_primals: Vec<String>,
+        /// Type of failure
         failure_type: String,
     },
     /// Test circuit breaker behavior
     CircuitBreakerTest {
+        /// Service name
         service_name: String,
+        /// Failure threshold for circuit open
         failure_threshold: u32,
     },
     /// Test retry patterns
     RetryPatternTest {
+        /// Service name
         service_name: String,
+        /// Maximum retries
         max_retries: u32,
     },
 }
@@ -68,22 +81,37 @@ pub enum AIResilienceTestType {
 /// Test execution status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TestStatus {
+    /// Test is currently running
     Running,
+    /// Test completed successfully
     Completed,
-    Failed { reason: String },
+    /// Test failed
+    Failed {
+        /// Failure reason
+        reason: String,
+    },
+    /// Test was cancelled
     Cancelled,
 }
 
 /// Resilience test result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResilienceTestResult {
+    /// Test identifier
     pub test_id: String,
+    /// Type of test executed
     pub test_type: AIResilienceTestType,
+    /// Duration in milliseconds
     pub duration_ms: u64,
+    /// Final test status
     pub status: TestStatus,
+    /// Number of AI operations tested
     pub ai_operations_tested: u32,
+    /// Number of failures detected
     pub failures_detected: u32,
+    /// Recovery time in ms if applicable
     pub recovery_time_ms: Option<u64>,
+    /// Lessons learned from the test
     pub lessons_learned: Vec<String>,
 }
 
@@ -298,12 +326,19 @@ impl AIResilienceCoordinator {
 /// AI Resilience Status Summary
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AIResilienceStatus {
+    /// Whether the overall system is healthy.
     pub overall_healthy: bool,
+    /// Security coordination status.
     pub security_coordination: String,
+    /// Orchestration coordination status.
     pub orchestration_coordination: String,
+    /// Storage coordination status.
     pub storage_coordination: String,
+    /// Compute coordination status.
     pub compute_coordination: String,
+    /// Number of active chaos tests running.
     pub active_tests_count: usize,
+    /// Timestamp of the last health check.
     pub last_check: chrono::DateTime<chrono::Utc>,
 }
 

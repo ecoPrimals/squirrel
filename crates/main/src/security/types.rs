@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security Types
@@ -159,8 +159,13 @@ pub enum SecurityResponseStatus {
     PolicyViolation,
     /// Threat detected
     ThreatDetected,
-    /// Error
-    Error { code: String, message: String },
+    /// Error with code and message
+    Error {
+        /// Error code identifier.
+        code: String,
+        /// Human-readable error message.
+        message: String,
+    },
 }
 
 impl Default for SecurityContext {

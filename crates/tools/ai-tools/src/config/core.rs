@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core configuration for AI tools
@@ -477,18 +477,18 @@ mod tests {
     #[test]
     fn test_ai_tools_config_from_env_defaults() {
         // Ensure env vars don't interfere - clean state
-        std::env::remove_var("SQUIRREL_AI_CONFIG");
-        std::env::remove_var("SQUIRREL_DEFAULT_AI_PROVIDER");
-        std::env::remove_var("SQUIRREL_AI_REQUEST_TIMEOUT");
-        std::env::remove_var("SQUIRREL_AI_MAX_RETRIES");
-        std::env::remove_var("SQUIRREL_AI_ENABLE_LOGGING");
-        std::env::remove_var("OPENAI_API_KEY");
-        std::env::remove_var("ANTHROPIC_API_KEY");
-        std::env::remove_var("GEMINI_API_KEY");
-        std::env::remove_var("LOCAL_AI_HOST");
-        std::env::remove_var("LOCAL_AI_URL");
-        std::env::remove_var("OLLAMA_HOST");
-        std::env::remove_var("OLLAMA_URL");
+        unsafe { std::env::remove_var("SQUIRREL_AI_CONFIG") };
+        unsafe { std::env::remove_var("SQUIRREL_DEFAULT_AI_PROVIDER") };
+        unsafe { std::env::remove_var("SQUIRREL_AI_REQUEST_TIMEOUT") };
+        unsafe { std::env::remove_var("SQUIRREL_AI_MAX_RETRIES") };
+        unsafe { std::env::remove_var("SQUIRREL_AI_ENABLE_LOGGING") };
+        unsafe { std::env::remove_var("OPENAI_API_KEY") };
+        unsafe { std::env::remove_var("ANTHROPIC_API_KEY") };
+        unsafe { std::env::remove_var("GEMINI_API_KEY") };
+        unsafe { std::env::remove_var("LOCAL_AI_HOST") };
+        unsafe { std::env::remove_var("LOCAL_AI_URL") };
+        unsafe { std::env::remove_var("OLLAMA_HOST") };
+        unsafe { std::env::remove_var("OLLAMA_URL") };
 
         let config = AIToolsConfig::from_env().unwrap();
         assert_eq!(config.default_provider, "openai");

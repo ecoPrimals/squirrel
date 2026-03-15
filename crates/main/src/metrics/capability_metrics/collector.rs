@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Metrics collection implementation
@@ -241,13 +241,11 @@ impl CapabilityMetrics {
             .or_insert(0) += 1;
 
         // Update fallback usage
-        if used_fallback {
-            if let Some(fallback) = fallback_type {
-                *metrics
-                    .fallback_usage
-                    .entry(fallback.to_string())
-                    .or_insert(0) += 1;
-            }
+        if used_fallback && let Some(fallback) = fallback_type {
+            *metrics
+                .fallback_usage
+                .entry(fallback.to_string())
+                .or_insert(0) += 1;
         }
 
         // Update success rate

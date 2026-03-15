@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(
@@ -14,8 +14,8 @@
 use std::time::Instant;
 
 use squirrel_ai_tools::{
-    common::{create_provider_client, ChatRequest},
     Result,
+    common::{ChatRequest, create_provider_client},
 };
 
 #[tokio::main]
@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
         _ => {
             return Err(squirrel_ai_tools::Error::UnsupportedProvider(format!(
                 "Unsupported provider: {provider}"
-            )))
+            )));
         }
     };
 
@@ -104,7 +104,9 @@ async fn main() -> Result<()> {
 
     let total_duration = start.elapsed();
     println!("All requests completed in {total_duration:.2?}");
-    println!("\nNote: Requests beyond the rate limit should have waited or failed (depends on configuration).");
+    println!(
+        "\nNote: Requests beyond the rate limit should have waited or failed (depends on configuration)."
+    );
 
     Ok(())
 }

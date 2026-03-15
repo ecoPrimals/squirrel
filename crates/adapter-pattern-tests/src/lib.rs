@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Adapter Pattern Implementation and Tests
@@ -10,7 +10,8 @@
 //! 2. MCP Adapter - Adapter with authentication and authorization
 //! 3. Plugin Adapter - Adapter for plugin system integration
 
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 mod auth;
@@ -23,7 +24,7 @@ mod tests;
 
 pub use auth::McpAdapter;
 pub use commands::{CommandAdapter, CommandRegistry, RegistryAdapter};
-pub use integration::{test_polymorphic_adapter, MockAdapter, PluginAdapter};
+pub use integration::{MockAdapter, PluginAdapter, test_polymorphic_adapter};
 pub use types::{
     Auth, AuthUser, Command, CommandError, CommandLogEntry, CommandResult, TestCommand, UserRole,
 };

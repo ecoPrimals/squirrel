@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Directory structure management for rules
@@ -88,10 +88,10 @@ impl RuleDirectoryManager {
 
                 if path.is_dir() {
                     dirs.push(path);
-                } else if let Some(ext) = path.extension() {
-                    if ext == "mdc" {
-                        result.push(path);
-                    }
+                } else if let Some(ext) = path.extension()
+                    && ext == "mdc"
+                {
+                    result.push(path);
                 }
             }
         }

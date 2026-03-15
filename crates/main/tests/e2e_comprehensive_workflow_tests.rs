@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive End-to-End Workflow Tests
@@ -90,7 +90,7 @@ mod tests {
         assert!(primal_err.to_string().contains("IO error"));
 
         // 7. Test timeout error handling
-        use tokio::time::{timeout, Duration};
+        use tokio::time::{Duration, timeout};
         let timeout_result = timeout(
             Duration::from_millis(1),
             std::future::pending::<Result<(), PrimalError>>(),
@@ -212,7 +212,7 @@ mod tests {
         use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
         use squirrel::monitoring::metrics::MetricsCollector;
         use std::sync::Arc;
-        use tokio::time::{timeout, Duration};
+        use tokio::time::{Duration, timeout};
 
         let config = EcosystemConfig::default();
         let metrics = Arc::new(MetricsCollector::new());

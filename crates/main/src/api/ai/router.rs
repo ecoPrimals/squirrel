@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -28,7 +28,7 @@ use super::adapters::{AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
     reason = "deprecated-adapters feature defined in Cargo.toml"
 )]
 use super::adapters::{AnthropicAdapter, OpenAiAdapter};
-use super::http_provider_config::{get_enabled_http_providers, HttpAiProviderConfig};
+use super::http_provider_config::{HttpAiProviderConfig, get_enabled_http_providers};
 
 use super::constraint_router::select_provider_with_constraints;
 use super::selector::{ProviderInfo, ProviderSelector};

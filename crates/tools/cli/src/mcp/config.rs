@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration module for MCP server and client
@@ -100,10 +100,10 @@ impl MCPServerConfig {
         }
 
         // Port configuration
-        if let Ok(port) = std::env::var("MCP_PORT") {
-            if let Ok(port_num) = port.parse::<u16>() {
-                config.port = port_num;
-            }
+        if let Ok(port) = std::env::var("MCP_PORT")
+            && let Ok(port_num) = port.parse::<u16>()
+        {
+            config.port = port_num;
         }
 
         // Environment
@@ -118,24 +118,24 @@ impl MCPServerConfig {
         }
 
         // Max connections
-        if let Ok(max_conn) = std::env::var("MCP_MAX_CONNECTIONS") {
-            if let Ok(max_connections) = max_conn.parse::<usize>() {
-                config.max_connections = max_connections;
-            }
+        if let Ok(max_conn) = std::env::var("MCP_MAX_CONNECTIONS")
+            && let Ok(max_connections) = max_conn.parse::<usize>()
+        {
+            config.max_connections = max_connections;
         }
 
         // Connection timeout
-        if let Ok(timeout) = std::env::var("MCP_CONNECTION_TIMEOUT_SECS") {
-            if let Ok(secs) = timeout.parse::<u64>() {
-                config.connection_timeout = Duration::from_secs(secs);
-            }
+        if let Ok(timeout) = std::env::var("MCP_CONNECTION_TIMEOUT_SECS")
+            && let Ok(secs) = timeout.parse::<u64>()
+        {
+            config.connection_timeout = Duration::from_secs(secs);
         }
 
         // Heartbeat interval
-        if let Ok(interval) = std::env::var("MCP_HEARTBEAT_INTERVAL_SECS") {
-            if let Ok(secs) = interval.parse::<u64>() {
-                config.heartbeat_interval = Duration::from_secs(secs);
-            }
+        if let Ok(interval) = std::env::var("MCP_HEARTBEAT_INTERVAL_SECS")
+            && let Ok(secs) = interval.parse::<u64>()
+        {
+            config.heartbeat_interval = Duration::from_secs(secs);
         }
 
         // Debug logging
@@ -204,34 +204,34 @@ impl MCPClientConfig {
         }
 
         // Port configuration
-        if let Ok(port) = std::env::var("MCP_CLIENT_PORT") {
-            if let Ok(port_num) = port.parse::<u16>() {
-                config.port = port_num;
-            }
-        } else if let Ok(port) = std::env::var("MCP_PORT") {
-            if let Ok(port_num) = port.parse::<u16>() {
-                config.port = port_num;
-            }
+        if let Ok(port) = std::env::var("MCP_CLIENT_PORT")
+            && let Ok(port_num) = port.parse::<u16>()
+        {
+            config.port = port_num;
+        } else if let Ok(port) = std::env::var("MCP_PORT")
+            && let Ok(port_num) = port.parse::<u16>()
+        {
+            config.port = port_num;
         }
 
         // Timeouts
-        if let Ok(timeout) = std::env::var("MCP_CLIENT_CONNECT_TIMEOUT_SECS") {
-            if let Ok(secs) = timeout.parse::<u64>() {
-                config.connect_timeout = Duration::from_secs(secs);
-            }
+        if let Ok(timeout) = std::env::var("MCP_CLIENT_CONNECT_TIMEOUT_SECS")
+            && let Ok(secs) = timeout.parse::<u64>()
+        {
+            config.connect_timeout = Duration::from_secs(secs);
         }
 
-        if let Ok(timeout) = std::env::var("MCP_CLIENT_REQUEST_TIMEOUT_SECS") {
-            if let Ok(secs) = timeout.parse::<u64>() {
-                config.request_timeout = Duration::from_secs(secs);
-            }
+        if let Ok(timeout) = std::env::var("MCP_CLIENT_REQUEST_TIMEOUT_SECS")
+            && let Ok(secs) = timeout.parse::<u64>()
+        {
+            config.request_timeout = Duration::from_secs(secs);
         }
 
         // Retries
-        if let Ok(retries) = std::env::var("MCP_CLIENT_MAX_RETRIES") {
-            if let Ok(max_retries) = retries.parse::<u32>() {
-                config.max_retries = max_retries;
-            }
+        if let Ok(retries) = std::env::var("MCP_CLIENT_MAX_RETRIES")
+            && let Ok(max_retries) = retries.parse::<u32>()
+        {
+            config.max_retries = max_retries;
         }
 
         config

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -129,10 +129,10 @@ pub fn spawn_heartbeat(
 
 /// Clean up the socket file. Safe to call even if the file doesn't exist.
 pub fn cleanup_socket(socket_path: &str) {
-    if let Err(e) = std::fs::remove_file(socket_path) {
-        if e.kind() != std::io::ErrorKind::NotFound {
-            warn!("Failed to remove socket {socket_path}: {e}");
-        }
+    if let Err(e) = std::fs::remove_file(socket_path)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        warn!("Failed to remove socket {socket_path}: {e}");
     }
 }
 
@@ -148,7 +148,7 @@ pub fn install_signal_handlers(
     let handle = tokio::spawn(async move {
         #[cfg(unix)]
         {
-            use tokio::signal::unix::{signal, SignalKind};
+            use tokio::signal::unix::{SignalKind, signal};
             let mut sigterm = signal(SignalKind::terminate()).expect("SIGTERM handler");
             let mut sigint = signal(SignalKind::interrupt()).expect("SIGINT handler");
 
@@ -164,9 +164,7 @@ pub fn install_signal_handlers(
 
         #[cfg(not(unix))]
         {
-            tokio::signal::ctrl_c()
-                .await
-                .expect("Ctrl-C handler");
+            tokio::signal::ctrl_c().await.expect("Ctrl-C handler");
             info!("Ctrl+C received — cleaning up");
         }
 
@@ -197,7 +195,11 @@ async fn send_jsonrpc(
 
     let mut buf = BufReader::new(reader);
     let mut resp_line = String::new();
-    tokio::time::timeout(std::time::Duration::from_secs(2), buf.read_line(&mut resp_line)).await??;
+    tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        buf.read_line(&mut resp_line),
+    )
+    .await??;
 
     let response: serde_json::Value = serde_json::from_str(resp_line.trim())?;
     Ok(response)
@@ -210,9 +212,9 @@ mod tests {
     #[test]
     fn test_find_biomeos_socket_env_override() {
         // With a non-existent path, returns None
-        std::env::set_var("BIOMEOS_SOCKET", "/tmp/nonexistent_biomeos_test.sock");
+        unsafe { std::env::set_var("BIOMEOS_SOCKET", "/tmp/nonexistent_biomeos_test.sock") };
         assert!(find_biomeos_socket().is_none());
-        std::env::remove_var("BIOMEOS_SOCKET");
+        unsafe { std::env::remove_var("BIOMEOS_SOCKET") };
     }
 
     #[test]

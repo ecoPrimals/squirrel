@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability-Based HTTP Client (TRUE PRIMAL!)
@@ -18,7 +18,7 @@ use serde_json::Value as JsonValue;
 use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 use tracing::{debug, info, warn};
 
 /// HTTP client configuration (capability-based!)
@@ -61,17 +61,24 @@ impl Default for HttpClientConfig {
 /// HTTP request (to be sent to capability provider)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpRequest {
-    pub method: String, // "GET", "POST", etc.
-    pub url: String,    // Full URL
+    /// HTTP method (e.g., "GET", "POST").
+    pub method: String,
+    /// Full request URL.
+    pub url: String,
+    /// Request headers as key-value pairs.
     pub headers: Vec<(String, String)>,
+    /// Optional request body.
     pub body: Option<String>,
 }
 
 /// HTTP response (from capability provider)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpResponse {
+    /// HTTP status code (e.g., 200, 404).
     pub status: u16,
+    /// Response headers as key-value pairs.
     pub headers: Vec<(String, String)>,
+    /// Response body content.
     pub body: String,
 }
 

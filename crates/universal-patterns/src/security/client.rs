@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal security client
@@ -166,12 +166,13 @@ impl UniversalSecurityClient {
         }
 
         // Fall back to local provider if available and enabled
-        if self.config.fallback.enable_local_fallback {
-            if let Some(fallback) = &self.fallback {
-                if (fallback.health_check().await).is_ok() {
-                    tracing::warn!("Falling back to local security provider");
-                    return fallback.clone();
-                }
+        #[allow(clippy::collapsible_if)]
+        if self.config.fallback.enable_local_fallback
+            && let Some(fallback) = &self.fallback
+        {
+            if fallback.health_check().await.is_ok() {
+                tracing::warn!("Falling back to local security provider");
+                return fallback.clone();
             }
         }
 

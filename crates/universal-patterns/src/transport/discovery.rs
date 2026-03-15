@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Socket and endpoint discovery logic
@@ -71,18 +71,16 @@ pub fn discover_tcp_endpoint(service_name: &str) -> IoResult<IpcEndpoint> {
     let discovery_files = get_tcp_discovery_file_candidates(service_name);
 
     for file_path in discovery_files {
-        if let Ok(contents) = std::fs::read_to_string(&file_path) {
-            // Parse format: tcp:127.0.0.1:PORT
-            if let Some(addr_str) = contents.trim().strip_prefix("tcp:") {
-                if let Ok(addr) = addr_str.parse::<std::net::SocketAddr>() {
-                    tracing::info!(
-                        "📁 Discovered TCP endpoint: {} (from {})",
-                        addr,
-                        file_path.display()
-                    );
-                    return Ok(IpcEndpoint::TcpLocal(addr));
-                }
-            }
+        if let Ok(contents) = std::fs::read_to_string(&file_path)
+            && let Some(addr_str) = contents.trim().strip_prefix("tcp:")
+            && let Ok(addr) = addr_str.parse::<std::net::SocketAddr>()
+        {
+            tracing::info!(
+                "📁 Discovered TCP endpoint: {} (from {})",
+                addr,
+                file_path.display()
+            );
+            return Ok(IpcEndpoint::TcpLocal(addr));
         }
     }
 
@@ -260,7 +258,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn test_get_socket_paths_uses_biomeos_convention() {
-        std::env::remove_var("XDG_RUNTIME_DIR");
+        unsafe { std::env::remove_var("XDG_RUNTIME_DIR") };
         let paths = get_socket_paths("myservice");
         let has_biomeos = paths
             .iter()

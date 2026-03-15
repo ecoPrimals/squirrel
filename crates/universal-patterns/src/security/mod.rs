@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security integration module for universal patterns
@@ -86,8 +86,8 @@ pub use zero_copy::{
 
 // Public re-exports - Security hardening for production
 pub use hardening::{
-    initialize_production_security, AuthRateLimitError, Environment, RiskLevel, SecurityHardening,
-    SecurityHardeningConfig, SecurityIncident, SecurityMetrics,
+    AuthRateLimitError, Environment, RiskLevel, SecurityHardening, SecurityHardeningConfig,
+    SecurityIncident, SecurityMetrics, initialize_production_security,
 };
 
 // Public re-exports - API types

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Constraint-based provider selection
@@ -96,16 +96,16 @@ fn meets_required_constraints(
                 }
             }
             RoutingConstraint::MaxCost(max_cost) => {
-                if let Some(cost) = provider.cost_per_unit() {
-                    if cost > *max_cost {
-                        debug!(
-                            "❌ Provider {} rejected: cost ${:.4} > max ${:.4}",
-                            provider.provider_id(),
-                            cost,
-                            max_cost
-                        );
-                        return false;
-                    }
+                if let Some(cost) = provider.cost_per_unit()
+                    && cost > *max_cost
+                {
+                    debug!(
+                        "❌ Provider {} rejected: cost ${:.4} > max ${:.4}",
+                        provider.provider_id(),
+                        cost,
+                        max_cost
+                    );
+                    return false;
                 }
             }
             RoutingConstraint::MaxLatency(max_latency) => {

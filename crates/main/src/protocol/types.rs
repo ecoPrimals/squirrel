@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Protocol types for squirrel MCP implementation
@@ -13,77 +13,104 @@ pub type SessionId = String;
 /// MCP message types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageType {
+    /// Request message
     Request,
+    /// Response message
     Response,
+    /// Notification message
     Notification,
 }
 
 /// MCP request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Request {
+    /// Request identifier
     pub id: String,
+    /// Method name
     pub method: String,
+    /// Optional parameters
     pub params: Option<serde_json::Value>,
 }
 
 /// MCP response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
+    /// Request ID for correlation
     pub id: String,
+    /// Result when successful
     pub result: Option<serde_json::Value>,
+    /// Error when failed
     pub error: Option<ResponseError>,
 }
 
 /// Response error
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResponseError {
+    /// Error code
     pub code: i32,
+    /// Error message
     pub message: String,
+    /// Optional error data
     pub data: Option<serde_json::Value>,
 }
 
 /// Tool definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tool {
+    /// Tool name
     pub name: String,
+    /// Tool description
     pub description: String,
+    /// JSON schema for tool inputs
     pub input_schema: serde_json::Value,
 }
 
 /// Resource definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Resource {
+    /// Resource URI
     pub uri: String,
+    /// Resource name
     pub name: String,
+    /// Optional description
     pub description: Option<String>,
+    /// Optional MIME type
     pub mime_type: Option<String>,
 }
 
 /// Protocol capabilities
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Capabilities {
+    /// Experimental capability extensions
     pub experimental: HashMap<String, serde_json::Value>,
+    /// Sampling capabilities
     pub sampling: Option<SamplingCapabilities>,
+    /// Logging capabilities
     pub logging: Option<LoggingCapabilities>,
 }
 
 /// Sampling capabilities
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SamplingCapabilities {
+    /// Whether sampling is supported
     pub supported: bool,
 }
 
 /// Logging capabilities
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoggingCapabilities {
+    /// Whether logging is supported
     pub supported: bool,
 }
 
 /// Protocol metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProtocolMetadata {
+    /// Protocol version
     pub version: String,
+    /// When metadata was created
     pub created_at: DateTime<Utc>,
+    /// When metadata was last updated
     pub updated_at: DateTime<Utc>,
 }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Type definitions for Universal Primal Ecosystem
@@ -35,9 +35,13 @@ pub struct DiscoveredService {
 /// Service health status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ServiceHealth {
+    /// Service is healthy and operational.
     Healthy,
+    /// Service is degraded but partially functional.
     Degraded,
+    /// Service is unhealthy or failing.
     Unhealthy,
+    /// Health status is unknown.
     Unknown,
 }
 

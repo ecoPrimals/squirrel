@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Unified Configuration Types
@@ -917,10 +917,10 @@ impl SquirrelUnifiedConfig {
             }
 
             // Validate JWT secret length if provided
-            if let Some(ref secret) = self.security.jwt_secret {
-                if let Err(e) = Validator::validate_jwt_secret(secret) {
-                    errors.push(format!("JWT secret: {}", e));
-                }
+            if let Some(ref secret) = self.security.jwt_secret
+                && let Err(e) = Validator::validate_jwt_secret(secret)
+            {
+                errors.push(format!("JWT secret: {}", e));
             }
         }
 

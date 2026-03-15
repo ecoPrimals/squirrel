@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Message Frame Transport
@@ -25,6 +25,7 @@ pub const FRAME_HEADER_SIZE: usize = 4;
 /// Frame represents a message frame with header and payload
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Frame {
+    /// Raw frame payload bytes
     #[serde(with = "serde_bytes")]
     pub payload: Vec<u8>,
 }
@@ -95,13 +96,14 @@ impl Frame {
     }
 }
 
-/// Async frame reader
+/// Async frame reader for reading length-prefixed frames from a stream
 pub struct AsyncFrameReader<R> {
     reader: R,
     _phantom: PhantomData<R>,
 }
 
 impl<R: AsyncRead + Unpin> AsyncFrameReader<R> {
+    /// Creates a new async frame reader wrapping the given reader
     pub fn new(reader: R) -> Self {
         Self {
             reader,
@@ -109,6 +111,7 @@ impl<R: AsyncRead + Unpin> AsyncFrameReader<R> {
         }
     }
 
+    /// Reads a single frame from the underlying stream
     pub async fn read_frame(&mut self) -> Result<Frame> {
         use tokio::io::AsyncReadExt;
 
@@ -138,13 +141,14 @@ impl<R: AsyncRead + Unpin> AsyncFrameReader<R> {
     }
 }
 
-/// Async frame writer
+/// Async frame writer for writing length-prefixed frames to a stream
 pub struct AsyncFrameWriter<W> {
     writer: W,
     _phantom: PhantomData<W>,
 }
 
 impl<W: AsyncWrite + Unpin> AsyncFrameWriter<W> {
+    /// Creates a new async frame writer wrapping the given writer
     pub fn new(writer: W) -> Self {
         Self {
             writer,
@@ -152,6 +156,7 @@ impl<W: AsyncWrite + Unpin> AsyncFrameWriter<W> {
         }
     }
 
+    /// Writes a frame to the underlying stream
     pub async fn write_frame(&mut self, frame: &Frame) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 
@@ -172,6 +177,7 @@ impl<W: AsyncWrite + Unpin> AsyncFrameWriter<W> {
         Ok(())
     }
 
+    /// Flushes any buffered data to the underlying stream
     pub async fn flush(&mut self) -> Result<()> {
         use tokio::io::AsyncWriteExt;
         self.writer.flush().await.map_err(|e| {
@@ -183,9 +189,12 @@ impl<W: AsyncWrite + Unpin> AsyncFrameWriter<W> {
 
 /// Frame codec for encoding/decoding frames
 pub trait FrameCodec: Send + Sync + std::fmt::Debug {
+    /// Error type for encode/decode operations
     type Error;
 
+    /// Encodes a frame into bytes
     fn encode(&self, frame: &Frame) -> std::result::Result<Bytes, Self::Error>;
+    /// Decodes bytes into a frame
     fn decode(&self, data: &[u8]) -> std::result::Result<Frame, Self::Error>;
 }
 
@@ -205,11 +214,11 @@ impl FrameCodec for DefaultFrameCodec {
     }
 }
 
-/// Frame transport
+/// Bidirectional frame transport over async read/write streams
 pub struct FrameTransport<R, W, C = DefaultFrameCodec> {
     reader: AsyncFrameReader<R>,
     writer: AsyncFrameWriter<W>,
-    #[allow(dead_code)] // Codec field reserved for future frame encoding customization
+    #[allow(dead_code)] // Reserved for future frame encoding customization
     codec: C,
 }
 
@@ -219,6 +228,7 @@ where
     W: AsyncWrite + Unpin,
     C: FrameCodec,
 {
+    /// Creates a new frame transport with the given reader, writer, and codec
     pub fn new(reader: R, writer: W, codec: C) -> Self {
         Self {
             reader: AsyncFrameReader::new(reader),
@@ -227,14 +237,17 @@ where
         }
     }
 
+    /// Reads a frame from the transport
     pub async fn read_frame(&mut self) -> Result<Frame> {
         self.reader.read_frame().await
     }
 
+    /// Writes a frame to the transport
     pub async fn write_frame(&mut self, frame: &Frame) -> Result<()> {
         self.writer.write_frame(frame).await
     }
 
+    /// Flushes any buffered data
     pub async fn flush(&mut self) -> Result<()> {
         self.writer.flush().await
     }
@@ -242,11 +255,11 @@ where
 
 /// Framed stream wrapper for MCP frame encoding/decoding
 pub struct FramedStream<T, C = DefaultFrameCodec> {
-    /// Underlying stream
-    #[allow(dead_code)] // Reserved for frame-based streaming system
+    /// Underlying stream (reserved for frame-based streaming system)
+    #[allow(dead_code)]
     stream: T,
-    /// Frame codec
-    #[allow(dead_code)] // Reserved for frame-based streaming system
+    /// Frame codec (reserved for frame-based streaming system)
+    #[allow(dead_code)]
     codec: C,
 }
 
@@ -255,6 +268,7 @@ where
     T: AsyncRead + AsyncWrite + Unpin,
     C: FrameCodec,
 {
+    /// Creates a new framed stream with the given stream and codec
     pub fn new(stream: T, codec: C) -> Self {
         Self { stream, codec }
     }
@@ -263,8 +277,7 @@ where
 /// Message codec for MCP messages
 #[derive(Clone)]
 pub struct MessageCodec {
-    /// Frame codec for encoding/decoding frames
-    /// Note: Currently using default codec, field kept for future extensibility
+    /// Frame codec for encoding/decoding frames (reserved for future extensibility)
     #[allow(dead_code)]
     frame_codec: Arc<dyn FrameCodec<Error = MCPError> + Send + Sync>,
 }
@@ -278,14 +291,14 @@ impl std::fmt::Debug for MessageCodec {
 }
 
 impl MessageCodec {
-    /// Create a new message codec
+    /// Creates a new message codec with default frame codec
     pub fn new() -> Self {
         Self {
             frame_codec: Arc::new(DefaultFrameCodec),
         }
     }
 
-    /// Create a message codec with a custom frame codec
+    /// Creates a message codec with a custom frame codec
     pub fn with_frame_codec(
         frame_codec: Arc<dyn FrameCodec<Error = MCPError> + Send + Sync>,
     ) -> Self {

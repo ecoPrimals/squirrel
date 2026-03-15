@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Autonomous IPC Client — Squirrel-owned JSON-RPC 2.0 over Unix sockets
@@ -35,7 +35,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 // ---------------------------------------------------------------------------
 // Errors

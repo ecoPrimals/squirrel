@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP Context Adapter
@@ -33,7 +33,7 @@ pub enum MCPContextAdapterError {
 #[derive(Debug, Clone)]
 pub struct ContextManagerAdapter {
     /// The wrapped context adapter implementation
-    #[allow(dead_code)]
+    
     inner: Option<Arc<ContextAdapter>>,
 }
 

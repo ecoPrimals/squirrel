@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Web plugin module
@@ -65,9 +65,11 @@ pub use registry::WebPluginRegistry;
 pub use request::{WebRequest, WebResponse};
 pub use routing::Route;
 
-// Type aliases for compatibility
+/// Alias for plugin route definitions (compatibility).
 pub type WebPluginRoute = Route;
+/// Alias for plugin UI components (compatibility).
 pub type WebPluginComponent = WebComponent;
+/// Alias for plugin HTTP endpoints (compatibility).
 pub type WebPluginEndpoint = WebEndpoint;
 
 // Re-export WebPluginExt as an alias for WebPlugin
@@ -262,8 +264,8 @@ impl PluginManagementFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::registry::PluginRegistry;
     use crate::DefaultPluginManager;
+    use crate::registry::PluginRegistry;
     use std::sync::Arc;
 
     #[tokio::test]
@@ -278,12 +280,16 @@ mod tests {
 
         // Check that key endpoints are present
         assert!(endpoints.iter().any(|ep| ep.path == "/api/plugins"));
-        assert!(endpoints
-            .iter()
-            .any(|ep| ep.path == "/api/dashboard/overview"));
-        assert!(endpoints
-            .iter()
-            .any(|ep| ep.path == "/api/marketplace/search"));
+        assert!(
+            endpoints
+                .iter()
+                .any(|ep| ep.path == "/api/dashboard/overview")
+        );
+        assert!(
+            endpoints
+                .iter()
+                .any(|ep| ep.path == "/api/marketplace/search")
+        );
     }
 
     #[tokio::test]
@@ -297,18 +303,24 @@ mod tests {
         let endpoints = interface.get_management_endpoints();
 
         // Should have API endpoints
-        assert!(endpoints
-            .iter()
-            .any(|ep| ep.path.starts_with("/api/plugins")));
+        assert!(
+            endpoints
+                .iter()
+                .any(|ep| ep.path.starts_with("/api/plugins"))
+        );
 
         // Should have dashboard endpoints
-        assert!(endpoints
-            .iter()
-            .any(|ep| ep.path.starts_with("/api/dashboard/")));
+        assert!(
+            endpoints
+                .iter()
+                .any(|ep| ep.path.starts_with("/api/dashboard/"))
+        );
 
         // Should have marketplace endpoints
-        assert!(endpoints
-            .iter()
-            .any(|ep| ep.path.starts_with("/api/marketplace/")));
+        assert!(
+            endpoints
+                .iter()
+                .any(|ep| ep.path.starts_with("/api/marketplace/"))
+        );
     }
 }

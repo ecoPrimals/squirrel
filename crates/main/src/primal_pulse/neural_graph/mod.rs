@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Neural Graph Optimizer
@@ -108,13 +108,20 @@ pub struct Inefficiency {
     pub affected_components: Vec<String>,
 }
 
+/// Type of detected inefficiency in a coordination graph
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InefficiencyType {
+    /// Operations that could run in parallel are sequential
     UnnecessarySequential,
+    /// High-latency node limiting throughput
     Bottleneck,
+    /// Excessive communication between nodes
     ChattyCommunication,
+    /// Circular dependency that may cause deadlocks
     CircularDependency,
+    /// Redundant execution path
     RedundantPath,
+    /// Node with many dependents but no redundancy
     SinglePointOfFailure,
 }
 
@@ -142,11 +149,17 @@ pub struct GraphAnalysis {
 /// Type of optimization recommendation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OptimizationType {
+    /// Run independent operations in parallel
     Parallelization,
+    /// Add caching to reduce redundant work
     Caching,
+    /// Distribute load across multiple instances
     LoadBalancing,
+    /// Skip unnecessary operations when possible
     ShortCircuiting,
+    /// Use alternative execution path
     AlternativePath,
+    /// Refactor graph pattern for better performance
     PatternRefactoring,
 }
 
@@ -256,8 +269,8 @@ impl CoordinationGraph {
         // Kahn's algorithm with longest-path tracking
         let mut queue: std::collections::VecDeque<&str> = in_degree
             .iter()
-            .filter(|(_, &deg)| deg == 0)
-            .map(|(&name, _)| name)
+            .filter(|(_, deg)| **deg == 0)
+            .map(|(name, _)| *name)
             .collect();
 
         let mut dist: HashMap<&str, usize> = node_names.iter().map(|&n| (n, 0)).collect();
@@ -350,8 +363,8 @@ impl CoordinationGraph {
 
         let mut queue: std::collections::VecDeque<&str> = in_degree
             .iter()
-            .filter(|(_, &deg)| deg == 0)
-            .map(|(&name, _)| name)
+            .filter(|(_, deg)| **deg == 0)
+            .map(|(name, _)| *name)
             .collect();
 
         while let Some(node) = queue.pop_front() {
@@ -404,7 +417,7 @@ impl CoordinationGraph {
     }
 }
 
-/// Graph analyzer
+/// Analyzes coordination graphs for bottlenecks, patterns, and inefficiencies.
 pub struct GraphAnalyzer;
 
 impl GraphAnalyzer {
@@ -656,7 +669,7 @@ impl GraphAnalyzer {
     }
 }
 
-/// Graph optimizer
+/// Generates optimization recommendations for coordination graphs.
 pub struct GraphOptimizer;
 
 impl GraphOptimizer {

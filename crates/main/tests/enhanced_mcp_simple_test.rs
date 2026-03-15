@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Enhanced MCP Simple Test
@@ -75,14 +75,18 @@ async fn test_service_registration_structure() -> Result<()> {
     assert!(!registration.capabilities.context_capabilities.is_empty());
 
     // Validate specific AI capabilities
-    assert!(registration
-        .capabilities
-        .ai_capabilities
-        .contains(&"ecosystem_intelligence".to_string()));
-    assert!(registration
-        .capabilities
-        .ai_capabilities
-        .contains(&"predictive_analytics".to_string()));
+    assert!(
+        registration
+            .capabilities
+            .ai_capabilities
+            .contains(&"ecosystem_intelligence".to_string())
+    );
+    assert!(
+        registration
+            .capabilities
+            .ai_capabilities
+            .contains(&"predictive_analytics".to_string())
+    );
 
     Ok(())
 }

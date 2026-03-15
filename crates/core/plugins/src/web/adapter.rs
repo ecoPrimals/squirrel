@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Web plugin adapter module
@@ -10,7 +10,7 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -352,7 +352,7 @@ where
     }
 }
 
-// Legacy web component definition
+/// Legacy web component format for backward compatibility.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LegacyWebComponent {
     /// Component ID

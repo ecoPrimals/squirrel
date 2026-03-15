@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Squirrel Commands Service
@@ -37,7 +37,8 @@
 )]
 //!
 //! Core command processing functionality for the Squirrel MCP ecosystem.
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 //! This service handles basic command execution and validation.
 
 use std::sync::Arc;
@@ -54,14 +55,18 @@ pub mod builtin;
 pub mod error;
 pub mod factory;
 pub mod history;
+/// Command hooks that run during lifecycle stages (pre/post execution, validation, etc.).
 pub mod hooks;
 pub mod journal;
+/// Lifecycle stages and hooks for command processing.
 pub mod lifecycle;
 pub mod observability;
 pub mod registry;
+/// Resource limits and management for command execution.
 pub mod resources;
 pub mod suggestions;
 pub mod transaction;
+/// Validation rules and context for commands before execution.
 pub mod validation;
 
 // Re-export key functions and types for easier access
@@ -70,7 +75,7 @@ pub use builtin::{
 };
 pub use error::CommandError;
 pub use factory::{
-    create_command_registry, create_command_registry_with_plugin, DefaultCommandRegistryFactory,
+    DefaultCommandRegistryFactory, create_command_registry, create_command_registry_with_plugin,
 };
 pub use registry::{Command, CommandRegistry, CommandResult};
 
@@ -109,8 +114,11 @@ impl CommandsService {
 /// Basic command metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandMetadata {
+    /// Command identifier.
     pub name: String,
+    /// Human-readable description of what the command does.
     pub description: String,
+    /// Semantic version of the command.
     pub version: String,
 }
 

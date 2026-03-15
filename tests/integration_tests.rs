@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Integration tests for Squirrel with mock AI providers
@@ -340,8 +340,8 @@ discovery:
 
     #[test]
     fn test_config_env_override() {
-        std::env::set_var("SQUIRREL_PORT", "5050");
-        std::env::set_var("SQUIRREL_LOG_LEVEL", "trace");
+        unsafe { std::env::set_var("SQUIRREL_PORT", "5050") };
+        unsafe { std::env::set_var("SQUIRREL_LOG_LEVEL", "trace") };
 
         let mut config = SquirrelConfig::default();
         squirrel::config::ConfigLoader::apply_env_overrides(&mut config).unwrap();
@@ -349,8 +349,8 @@ discovery:
         assert_eq!(config.server.port, 5050);
         assert_eq!(config.logging.level, "trace");
 
-        std::env::remove_var("SQUIRREL_PORT");
-        std::env::remove_var("SQUIRREL_LOG_LEVEL");
+        unsafe { std::env::remove_var("SQUIRREL_PORT") };
+        unsafe { std::env::remove_var("SQUIRREL_LOG_LEVEL") };
     }
 }
 

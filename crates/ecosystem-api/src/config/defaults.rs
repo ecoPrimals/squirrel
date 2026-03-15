@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration defaults for common scenarios
@@ -8,7 +8,7 @@ use crate::traits::{
 };
 use crate::types::{SecurityConfig, SecurityLevel};
 use std::collections::HashMap;
-use universal_constants::network::{get_service_port, BIND_ALL_INTERFACES};
+use universal_constants::network::{BIND_ALL_INTERFACES, get_service_port};
 
 /// Configuration defaults for common scenarios
 pub struct ConfigDefaults;

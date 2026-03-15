@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: Visualization mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for visualization manager
 
+use super::VisualizationSystemConfig;
 use super::manager::*;
 use super::types::*;
-use super::VisualizationSystemConfig;
 use chrono::Utc;
 use serde_json::json;
 use std::collections::HashMap;

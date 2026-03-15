@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Adapters Demonstration
@@ -16,12 +16,12 @@
 use std::sync::Arc;
 
 use squirrel::universal_adapters::{
-    compute_adapter::{register_toadstool_service, UniversalComputeAdapter},
-    orchestration_adapter::{register_songbird_service, UniversalOrchestrationAdapter},
-    registry::InMemoryServiceRegistry,
-    security_adapter::{register_beardog_service, UniversalSecurityAdapter},
-    storage_adapter::{register_nestgate_service, UniversalStorageAdapter},
     ServiceCapability, UniversalServiceRegistry,
+    compute_adapter::{UniversalComputeAdapter, register_toadstool_service},
+    orchestration_adapter::{UniversalOrchestrationAdapter, register_songbird_service},
+    registry::InMemoryServiceRegistry,
+    security_adapter::{UniversalSecurityAdapter, register_beardog_service},
+    storage_adapter::{UniversalStorageAdapter, register_nestgate_service},
 };
 
 /// AI Coordination System using Universal Adapters

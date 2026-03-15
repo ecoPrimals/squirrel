@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
@@ -68,8 +68,8 @@ pub struct PluginManager {
     statuses: RwLock<HashMap<Uuid, PluginStatus>>,
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
-    /// Dependency resolver for proper plugin initialization order
-    #[allow(dead_code)] // Reserved for dependency resolution system
+    /// Dependency resolver for proper plugin initialization order (reserved for dependency resolution system)
+    #[allow(dead_code)]
     dependency_resolver: RwLock<DependencyResolver>,
 }
 

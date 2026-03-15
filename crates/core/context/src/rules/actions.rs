@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Rule action executor for executing rule actions
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 use std::sync::Arc;
 use tracing::{debug, error, info, trace, warn};
 

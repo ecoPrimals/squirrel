@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! High-level MCP protocol operations
@@ -170,7 +170,7 @@ impl OperationHandler {
                         _ => {
                             return Err(PluginError::McpError {
                                 message: format!("Unknown operation: {}", operation),
-                            })
+                            });
                         }
                     };
 
@@ -193,7 +193,7 @@ impl OperationHandler {
                         _ => {
                             return Err(PluginError::McpError {
                                 message: format!("Unknown text operation: {}", operation),
-                            })
+                            });
                         }
                     };
 

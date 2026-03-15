@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 pub mod zero_copy;
@@ -22,6 +22,8 @@ pub mod prelude {
 }
 
 // Version information for optimization features
+
+/// Version string for the optimization system.
 pub const OPTIMIZATION_VERSION: &str = "1.0.0";
 
 /// Check if optimizations are enabled
@@ -86,9 +88,10 @@ mod tests {
         assert!(info.features.contains(&"efficient_collections".to_string()));
         assert!(info.features.contains(&"buffer_pooling".to_string()));
         assert!(info.features.contains(&"message_optimization".to_string()));
-        assert!(info
-            .features
-            .contains(&"performance_monitoring".to_string()));
+        assert!(
+            info.features
+                .contains(&"performance_monitoring".to_string())
+        );
         assert_eq!(info.features.len(), 5);
     }
 

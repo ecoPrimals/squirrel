@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Hardware Detection and Management
@@ -10,4 +10,4 @@
 pub mod gpu;
 
 #[cfg(feature = "gpu-detection")]
-pub use gpu::{detect_local_gpus, GpuInfo, LocalGpuCapabilities};
+pub use gpu::{GpuInfo, LocalGpuCapabilities, detect_local_gpus};

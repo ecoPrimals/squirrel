@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration Validation and Default Management
@@ -570,7 +570,7 @@ mod tests {
     
     #[test]
     fn test_environment_from_string() {
-        std::env::set_var("MCP_ENVIRONMENT", "production");
+        unsafe { std::env::set_var("MCP_ENVIRONMENT", "production") };
         let validator = ConfigValidator::from_env().unwrap();
         assert_eq!(validator.environment, Environment::Production);
     }

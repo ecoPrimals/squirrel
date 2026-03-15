@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context tracking functionality
@@ -28,7 +28,7 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::time::{Duration, Instant};
 use uuid::Uuid;
 
-use crate::{manager::ContextManager, ContextError, ContextState, Result};
+use crate::{ContextError, ContextState, Result, manager::ContextManager};
 
 /// Configuration for context tracker
 #[derive(Debug, Clone)]
@@ -137,14 +137,14 @@ impl ContextTracker {
             } // Lock is dropped here
 
             // Trigger automatic recovery point if enabled
-            if self.config.auto_recovery {
-                if let Some(manager) = &self.manager {
-                    // Get state for recovery point
-                    let state = self.get_state().await?;
+            if self.config.auto_recovery
+                && let Some(manager) = &self.manager
+            {
+                // Get state for recovery point
+                let state = self.get_state().await?;
 
-                    // Create recovery point
-                    manager.create_recovery_point(&state).await?;
-                }
+                // Create recovery point
+                manager.create_recovery_point(&state).await?;
             }
 
             Ok(())

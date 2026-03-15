@@ -1,8 +1,7 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 /// Error types for the squirrel-core crate
-
 /// Core error types
 #[derive(Debug)]
 pub enum CoreError {

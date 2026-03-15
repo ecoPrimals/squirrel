@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use crate::error::MCPError;
@@ -489,7 +489,7 @@ impl ErrorHandler {
     /// # Arguments
     ///
     /// * `_context` - The error context containing information about the error
-    #[allow(dead_code)] // Reserved for future error recovery system
+    #[allow(dead_code)] // Reserved for future error recovery system - stub for recovery logic
     const fn recover_connection(_context: &LocalErrorContext) {
         // Implementation would go here
     }
@@ -499,7 +499,7 @@ impl ErrorHandler {
     /// # Arguments
     ///
     /// * `_context` - The error context containing information about the error
-    #[allow(dead_code)] // Reserved for future error recovery system
+    #[allow(dead_code)] // Reserved for future error recovery system - stub for recovery logic
     const fn recover_state(_context: &LocalErrorContext) {
         // Implementation would go here
     }
@@ -509,7 +509,7 @@ impl ErrorHandler {
     /// # Arguments
     ///
     /// * `_context` - The error context containing information about the error
-    #[allow(dead_code)] // Reserved for future error recovery system
+    #[allow(dead_code)] // Reserved for future error recovery system - stub for recovery logic
     const fn recover_protocol(_context: &LocalErrorContext) {
         // Implementation would go here
     }

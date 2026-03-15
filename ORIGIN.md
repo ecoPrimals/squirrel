@@ -99,6 +99,6 @@ workloads that Squirrel coordinates.
 
 ## License
 
-[scyBorg](LICENSE) — AGPL-3.0-or-later + ORC + CC-BY-SA 4.0.
+[scyBorg](LICENSE) — AGPL-3.0-only + ORC + CC-BY-SA 4.0.
 
 Copyright (C) 2026 ecoPrimals Contributors

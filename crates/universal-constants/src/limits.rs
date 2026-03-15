@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Size, Count, and Capacity Limit Constants
@@ -97,10 +97,10 @@ pub const fn mb_to_bytes(mb: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        bytes_to_kb, bytes_to_mb, kb_to_bytes, mb_to_bytes, DEFAULT_BUFFER_SIZE,
-        DEFAULT_CHANNEL_BUFFER_SIZE, DEFAULT_CHUNK_SIZE, DEFAULT_MAX_CONNECTIONS,
-        DEFAULT_MAX_CONTEXT_LENGTH, DEFAULT_MAX_MESSAGE_SIZE, DEFAULT_MAX_RETRIES,
-        DEFAULT_MAX_SERVICES,
+        DEFAULT_BUFFER_SIZE, DEFAULT_CHANNEL_BUFFER_SIZE, DEFAULT_CHUNK_SIZE,
+        DEFAULT_MAX_CONNECTIONS, DEFAULT_MAX_CONTEXT_LENGTH, DEFAULT_MAX_MESSAGE_SIZE,
+        DEFAULT_MAX_RETRIES, DEFAULT_MAX_SERVICES, bytes_to_kb, bytes_to_mb, kb_to_bytes,
+        mb_to_bytes,
     };
 
     #[test]

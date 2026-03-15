@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: Plugin discovery mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -23,20 +23,17 @@
 use std::path::Path;
 use std::sync::Arc;
 
-#[cfg(any(test, feature = "testing"))]
 use std::any::Any;
-#[cfg(any(test, feature = "testing"))]
-use uuid::Uuid;
 
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::fs;
-
-use crate::plugin::Plugin;
 #[cfg(any(test, feature = "testing"))]
-use crate::plugin::PluginMetadata;
+use uuid::Uuid;
+
 use crate::PluginError;
+use crate::plugin::{Plugin, PluginMetadata};
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
@@ -73,7 +70,6 @@ impl PluginManifest {
     /// Convert to plugin metadata (used by tests and testing feature)
     #[must_use]
     #[cfg(any(test, feature = "testing"))]
-    #[allow(dead_code)]
     #[expect(
         deprecated,
         reason = "backward compat: PluginMetadata during migration"
@@ -174,9 +170,9 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
     }
 }
 
-/// Create a placeholder plugin (test/testing only)
-#[cfg(any(test, feature = "testing"))]
-#[allow(dead_code)]
+/// Create a placeholder plugin from metadata.
+/// Used when loading plugin manifests from disk (plugin.toml / plugin.json)
+/// since dynamic plugin loading is not yet implemented.
 #[expect(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
@@ -185,9 +181,7 @@ pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
     Arc::new(PlaceholderPlugin { metadata })
 }
 
-/// A placeholder plugin implementation (test/testing only)
-#[cfg(any(test, feature = "testing"))]
-#[allow(dead_code)]
+/// A placeholder plugin implementation
 #[expect(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
@@ -197,7 +191,6 @@ struct PlaceholderPlugin {
     metadata: PluginMetadata,
 }
 
-#[cfg(any(test, feature = "testing"))]
 #[async_trait]
 #[expect(
     deprecated,

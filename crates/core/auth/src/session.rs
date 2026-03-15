@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Session management for Squirrel authentication system
@@ -69,12 +69,13 @@ impl SessionManager {
     /// Update session last accessed time
     pub async fn touch_session(&self, session_id: &Uuid) -> AuthResult<bool> {
         let mut sessions = self.sessions.write().await;
-        if let Some(session) = sessions.get_mut(session_id) {
-            if !session.is_expired() && session.is_active {
-                session.touch();
-                debug!("Updated last accessed time for session {}", session_id);
-                return Ok(true);
-            }
+        if let Some(session) = sessions.get_mut(session_id)
+            && !session.is_expired()
+            && session.is_active
+        {
+            session.touch();
+            debug!("Updated last accessed time for session {}", session_id);
+            return Ok(true);
         }
         Ok(false)
     }
@@ -193,16 +194,17 @@ impl SessionManager {
         additional_duration: Duration,
     ) -> AuthResult<bool> {
         let mut sessions = self.sessions.write().await;
-        if let Some(session) = sessions.get_mut(session_id) {
-            if session.is_active && !session.is_expired() {
-                session.expires_at = session.expires_at + additional_duration;
-                debug!(
-                    "Extended session {} by {} minutes",
-                    session_id,
-                    additional_duration.num_minutes()
-                );
-                return Ok(true);
-            }
+        if let Some(session) = sessions.get_mut(session_id)
+            && session.is_active
+            && !session.is_expired()
+        {
+            session.expires_at += additional_duration;
+            debug!(
+                "Extended session {} by {} minutes",
+                session_id,
+                additional_duration.num_minutes()
+            );
+            return Ok(true);
         }
         Ok(false)
     }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Command execution handlers for the task service.
@@ -29,10 +29,15 @@ pub struct ProductionCommandRegistry {
 /// Command execution statistics
 #[derive(Debug, Clone)]
 pub struct CommandStats {
+    /// Total number of command executions
     pub total_executions: u64,
+    /// Number of successful executions
     pub successful_executions: u64,
+    /// Number of failed executions
     pub failed_executions: u64,
+    /// Average execution duration in milliseconds
     pub average_duration_ms: f64,
+    /// Timestamp of last execution
     pub last_execution: Option<chrono::DateTime<chrono::Utc>>,
 }
 
@@ -398,7 +403,7 @@ impl TaskServiceImpl {
         }
     }
 
-    // Helper method to validate task IDs
+    /// Validates that a task ID is non-empty. Returns error if invalid.
     pub fn validate_task_id(task_id: &str) -> Result<(), MCPError> {
         if task_id.is_empty() {
             return Err(MCPError::InvalidArgument(
@@ -408,7 +413,7 @@ impl TaskServiceImpl {
         Ok(())
     }
 
-    // Helper method to validate agent IDs
+    /// Validates that an agent ID is non-empty. Returns error if invalid.
     pub fn validate_agent_id(agent_id: &str) -> Result<(), MCPError> {
         if agent_id.is_empty() {
             return Err(MCPError::InvalidArgument(

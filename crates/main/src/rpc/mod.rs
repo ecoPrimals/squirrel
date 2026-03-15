@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -58,7 +58,7 @@ mod tarpc_integration_tests;
 pub use jsonrpc_server::JsonRpcServer;
 pub use protocol::{IpcProtocol, ProtocolNegotiation};
 pub use protocol_negotiation::{
-    negotiate_client, negotiate_server, select_protocol, ProtocolRequest, ProtocolResponse,
+    ProtocolRequest, ProtocolResponse, negotiate_client, negotiate_server, select_protocol,
 };
 pub use types::{
     AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckRequest,

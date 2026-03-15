@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration validation utilities
@@ -107,40 +107,40 @@ impl ConfigValidator {
     }
 
     fn validate_resource_config(config: &ResourceConfig) -> Result<(), ConfigError> {
-        if let Some(cpu_cores) = config.cpu_cores {
-            if cpu_cores <= 0.0 {
-                return Err(ConfigError::ValidationFailed(
-                    "CPU cores must be greater than 0".to_string(),
-                ));
-            }
+        if let Some(cpu_cores) = config.cpu_cores
+            && cpu_cores <= 0.0
+        {
+            return Err(ConfigError::ValidationFailed(
+                "CPU cores must be greater than 0".to_string(),
+            ));
         }
-        if let Some(memory_mb) = config.memory_mb {
-            if memory_mb == 0 {
-                return Err(ConfigError::ValidationFailed(
-                    "Memory must be greater than 0".to_string(),
-                ));
-            }
+        if let Some(memory_mb) = config.memory_mb
+            && memory_mb == 0
+        {
+            return Err(ConfigError::ValidationFailed(
+                "Memory must be greater than 0".to_string(),
+            ));
         }
-        if let Some(disk_mb) = config.disk_mb {
-            if disk_mb == 0 {
-                return Err(ConfigError::ValidationFailed(
-                    "Disk space must be greater than 0".to_string(),
-                ));
-            }
+        if let Some(disk_mb) = config.disk_mb
+            && disk_mb == 0
+        {
+            return Err(ConfigError::ValidationFailed(
+                "Disk space must be greater than 0".to_string(),
+            ));
         }
-        if let Some(network_bandwidth_mbps) = config.network_bandwidth_mbps {
-            if network_bandwidth_mbps == 0 {
-                return Err(ConfigError::ValidationFailed(
-                    "Network bandwidth must be greater than 0".to_string(),
-                ));
-            }
+        if let Some(network_bandwidth_mbps) = config.network_bandwidth_mbps
+            && network_bandwidth_mbps == 0
+        {
+            return Err(ConfigError::ValidationFailed(
+                "Network bandwidth must be greater than 0".to_string(),
+            ));
         }
-        if let Some(gpu_count) = config.gpu_count {
-            if gpu_count == 0 {
-                return Err(ConfigError::ValidationFailed(
-                    "GPU count must be greater than 0".to_string(),
-                ));
-            }
+        if let Some(gpu_count) = config.gpu_count
+            && gpu_count == 0
+        {
+            return Err(ConfigError::ValidationFailed(
+                "GPU count must be greater than 0".to_string(),
+            ));
         }
         Ok(())
     }

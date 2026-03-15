@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Comprehensive Monitoring and Metrics Collection System
@@ -97,9 +97,13 @@ pub struct CustomMetricDefinition {
 /// Metric type enumeration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MetricType {
+    /// Monotonically increasing counter
     Counter,
+    /// Value that can go up or down
     Gauge,
+    /// Distribution of values
     Histogram,
+    /// Quantile-based summary
     Summary,
 }
 
@@ -127,21 +131,32 @@ pub struct AlertRule {
 /// Comparison operators for alert rules
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ComparisonOperator {
+    /// Value must be greater than threshold
     GreaterThan,
+    /// Value must be greater than or equal to threshold
     GreaterThanOrEqual,
+    /// Value must be less than threshold
     LessThan,
+    /// Value must be less than or equal to threshold
     LessThanOrEqual,
+    /// Value must equal threshold
     Equal,
+    /// Value must not equal threshold
     NotEqual,
 }
 
 /// Alert severity levels
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AlertSeverity {
+    /// Critical - immediate action required
     Critical,
+    /// High - urgent attention needed
     High,
+    /// Medium - should be addressed soon
     Medium,
+    /// Low - informational
     Low,
+    /// Info - for awareness only
     Info,
 }
 
@@ -165,9 +180,13 @@ pub struct SystemStatus {
 /// System health state
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum HealthState {
+    /// All systems operational
     Healthy,
+    /// Degraded but functional
     Warning,
+    /// Critical failure
     Critical,
+    /// Health status unknown
     Unknown,
 }
 
@@ -596,10 +615,12 @@ mod tests {
         let monitoring_system = MonitoringSystem::new(config);
         let result = monitoring_system.export_prometheus_metrics().await;
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Prometheus exporter not configured"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Prometheus exporter not configured")
+        );
     }
 
     #[tokio::test]

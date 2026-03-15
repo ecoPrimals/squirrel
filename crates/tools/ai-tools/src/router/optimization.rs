@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Provider selection and optimization algorithms for AI routing.
@@ -7,11 +7,11 @@
 //! for a given task, including scoring algorithms and routing optimizations.
 
 use super::types::{RequestContext, RoutingStrategy};
+use crate::Result;
 use crate::common::AIClient;
 use crate::error::Error;
-use crate::Result;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::debug;
 
 /// Provider selection engine that implements various routing strategies
@@ -100,11 +100,11 @@ impl ProviderSelector {
             .unwrap_or(u64::MAX);
 
         for (id, provider) in providers.iter().skip(1) {
-            if let Some(latency) = provider.capabilities().performance_metrics.avg_latency_ms {
-                if latency < best_latency {
-                    best_provider = (id.clone(), provider.clone());
-                    best_latency = latency;
-                }
+            if let Some(latency) = provider.capabilities().performance_metrics.avg_latency_ms
+                && latency < best_latency
+            {
+                best_provider = (id.clone(), provider.clone());
+                best_latency = latency;
             }
         }
 
@@ -220,31 +220,31 @@ impl ProviderScorer {
         }
 
         // Bonus for having a large context window if required
-        if let Some(required_size) = context.task.min_context_size {
-            if capabilities.max_context_size >= required_size {
-                // Higher bonus for models with just enough context (to avoid over-provisioning)
-                let size_ratio = (capabilities.max_context_size as f32) / (required_size as f32);
-                if size_ratio <= 1.5 {
-                    score += 15;
-                } else if size_ratio <= 2.0 {
-                    score += 10;
-                } else {
-                    score += 5;
-                }
+        if let Some(required_size) = context.task.min_context_size
+            && capabilities.max_context_size >= required_size
+        {
+            // Higher bonus for models with just enough context (to avoid over-provisioning)
+            let size_ratio = (capabilities.max_context_size as f32) / (required_size as f32);
+            if size_ratio <= 1.5 {
+                score += 15;
+            } else if size_ratio <= 2.0 {
+                score += 10;
+            } else {
+                score += 5;
             }
         }
 
         // Handle cost preferences if specified in routing hint
-        if let Some(hint) = &context.routing_hint {
-            if let Some(ref max_cost_tier) = hint.max_cost_tier {
-                // Penalize providers that exceed the cost tier limit
-                if preferences.cost_tier > *max_cost_tier {
-                    score = score.saturating_sub(50);
-                } else {
-                    // Bonus for being well under budget
-                    if preferences.cost_tier < *max_cost_tier {
-                        score += 10;
-                    }
+        if let Some(hint) = &context.routing_hint
+            && let Some(ref max_cost_tier) = hint.max_cost_tier
+        {
+            // Penalize providers that exceed the cost tier limit
+            if preferences.cost_tier > *max_cost_tier {
+                score = score.saturating_sub(50);
+            } else {
+                // Bonus for being well under budget
+                if preferences.cost_tier < *max_cost_tier {
+                    score += 10;
                 }
             }
         }
@@ -258,19 +258,19 @@ impl ProviderScorer {
 
         // Apply routing hint preferences if present
         if let Some(hint) = &context.routing_hint {
-            if let Some(preferred_model) = &hint.preferred_model {
-                if provider.default_model() == preferred_model {
-                    score += 25;
-                }
+            if let Some(preferred_model) = &hint.preferred_model
+                && provider.default_model() == preferred_model
+            {
+                score += 25;
             }
 
-            if let Some(max_latency) = hint.max_latency_ms {
-                if let Some(latency) = capabilities.performance_metrics.avg_latency_ms {
-                    if latency <= max_latency {
-                        score += 15;
-                    } else {
-                        score = score.saturating_sub(30);
-                    }
+            if let Some(max_latency) = hint.max_latency_ms
+                && let Some(latency) = capabilities.performance_metrics.avg_latency_ms
+            {
+                if latency <= max_latency {
+                    score += 15;
+                } else {
+                    score = score.saturating_sub(30);
                 }
             }
         }
@@ -400,13 +400,13 @@ impl OptimizationUtils {
         providers: Vec<(String, Arc<dyn AIClient>)>,
         context: &RequestContext,
     ) -> Vec<(String, Arc<dyn AIClient>)> {
-        if let Some(hint) = &context.routing_hint {
-            if let Some(preferred_provider) = &hint.preferred_provider {
-                return providers
-                    .into_iter()
-                    .filter(|(id, _)| id == preferred_provider)
-                    .collect();
-            }
+        if let Some(hint) = &context.routing_hint
+            && let Some(preferred_provider) = &hint.preferred_provider
+        {
+            return providers
+                .into_iter()
+                .filter(|(id, _)| id == preferred_provider)
+                .collect();
         }
         providers
     }
@@ -492,10 +492,12 @@ mod tests {
 
         let result = selector.select_provider(vec![], &context, RoutingStrategy::BestFit);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("No suitable providers"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("No suitable providers")
+        );
     }
 
     #[test]

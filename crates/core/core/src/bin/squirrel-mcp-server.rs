@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use std::sync::Arc;
@@ -7,9 +7,9 @@ use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use squirrel_core::{
-    api::ApiServer, federation::FederationConfig, routing::RoutingConfig, EcosystemConfig,
-    EcosystemService, FederationService, McpRoutingService, MonitoringConfig, MonitoringService,
-    Result, SongbirdConfig,
+    EcosystemConfig, EcosystemService, FederationService, McpRoutingService, MonitoringConfig,
+    MonitoringService, Result, SongbirdConfig, api::ApiServer, federation::FederationConfig,
+    routing::RoutingConfig,
 };
 
 /// Universal Swarm MCP Agent System

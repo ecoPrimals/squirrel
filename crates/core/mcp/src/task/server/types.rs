@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Type Definitions for Task Server
@@ -13,9 +13,6 @@ use tokio::sync::mpsc;
 
 /// Alternative type for task updates that doesn't depend on protobuf
 pub type TaskUpdateSender = mpsc::Sender<String>;
-
-/// Stream type for watch task responses
-// pub type WatchTaskStream = Pin<Box<dyn Stream<Item = std::result::Result<WatchTaskResponse, Status>> + Send + 'static>>;
 
 /// Simplified Command trait for command execution
 pub trait SimpleCommand: Send + Sync + std::fmt::Debug {

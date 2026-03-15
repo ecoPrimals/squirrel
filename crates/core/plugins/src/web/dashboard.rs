@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin Management Dashboard
@@ -726,9 +726,11 @@ mod tests {
 
         let endpoints = dashboard.get_endpoints();
         assert!(!endpoints.is_empty());
-        assert!(endpoints
-            .iter()
-            .any(|ep| ep.path == "/api/dashboard/overview"));
+        assert!(
+            endpoints
+                .iter()
+                .any(|ep| ep.path == "/api/dashboard/overview")
+        );
     }
 
     #[tokio::test]

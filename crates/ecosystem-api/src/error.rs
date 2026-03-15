@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Error types for ecosystem integration
@@ -657,9 +657,11 @@ mod tests {
         let config_err = ConfigError::MissingEnvVar("TEST".to_string());
         let universal: UniversalError = config_err.into();
         assert!(matches!(universal, UniversalError::Configuration(_)));
-        assert!(universal
-            .to_string()
-            .contains("Missing environment variable"));
+        assert!(
+            universal
+                .to_string()
+                .contains("Missing environment variable")
+        );
     }
 
     #[test]

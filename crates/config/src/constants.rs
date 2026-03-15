@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration constants - re-exports from `universal-constants`
@@ -252,24 +252,24 @@ mod tests {
 
     #[test]
     fn test_parse_timeout_duration_from_env() {
-        std::env::set_var("SQUIRREL_TEST_PARSE_TIMEOUT_DUR", "99");
+        unsafe { std::env::set_var("SQUIRREL_TEST_PARSE_TIMEOUT_DUR", "99") };
         let result = env_helpers::parse_timeout_duration(
             "SQUIRREL_TEST_PARSE_TIMEOUT_DUR",
             std::time::Duration::from_secs(1),
         );
         assert_eq!(result, std::time::Duration::from_secs(99));
-        std::env::remove_var("SQUIRREL_TEST_PARSE_TIMEOUT_DUR");
+        unsafe { std::env::remove_var("SQUIRREL_TEST_PARSE_TIMEOUT_DUR") };
     }
 
     #[test]
     fn test_parse_timeout_duration_invalid_env() {
-        std::env::set_var("SQUIRREL_TEST_PARSE_TIMEOUT_INVALID", "not_a_number");
+        unsafe { std::env::set_var("SQUIRREL_TEST_PARSE_TIMEOUT_INVALID", "not_a_number") };
         let result = env_helpers::parse_timeout_duration(
             "SQUIRREL_TEST_PARSE_TIMEOUT_INVALID",
             std::time::Duration::from_secs(5),
         );
         assert_eq!(result, std::time::Duration::from_secs(5));
-        std::env::remove_var("SQUIRREL_TEST_PARSE_TIMEOUT_INVALID");
+        unsafe { std::env::remove_var("SQUIRREL_TEST_PARSE_TIMEOUT_INVALID") };
     }
 
     #[test]
@@ -280,18 +280,18 @@ mod tests {
 
     #[test]
     fn test_parse_limit_from_env() {
-        std::env::set_var("SQUIRREL_TEST_PARSE_LIMIT", "2048");
+        unsafe { std::env::set_var("SQUIRREL_TEST_PARSE_LIMIT", "2048") };
         let result = env_helpers::parse_limit("SQUIRREL_TEST_PARSE_LIMIT", 100);
         assert_eq!(result, 2048);
-        std::env::remove_var("SQUIRREL_TEST_PARSE_LIMIT");
+        unsafe { std::env::remove_var("SQUIRREL_TEST_PARSE_LIMIT") };
     }
 
     #[test]
     fn test_parse_limit_invalid_env() {
-        std::env::set_var("SQUIRREL_TEST_PARSE_LIMIT_BAD", "abc");
+        unsafe { std::env::set_var("SQUIRREL_TEST_PARSE_LIMIT_BAD", "abc") };
         let result = env_helpers::parse_limit("SQUIRREL_TEST_PARSE_LIMIT_BAD", 64);
         assert_eq!(result, 64);
-        std::env::remove_var("SQUIRREL_TEST_PARSE_LIMIT_BAD");
+        unsafe { std::env::remove_var("SQUIRREL_TEST_PARSE_LIMIT_BAD") };
     }
 
     #[test]
@@ -302,64 +302,64 @@ mod tests {
 
     #[test]
     fn test_parse_u32_from_env() {
-        std::env::set_var("SQUIRREL_TEST_PARSE_U32", "256");
+        unsafe { std::env::set_var("SQUIRREL_TEST_PARSE_U32", "256") };
         let result = env_helpers::parse_u32("SQUIRREL_TEST_PARSE_U32", 10);
         assert_eq!(result, 256);
-        std::env::remove_var("SQUIRREL_TEST_PARSE_U32");
+        unsafe { std::env::remove_var("SQUIRREL_TEST_PARSE_U32") };
     }
 
     #[test]
     fn test_get_database_timeout_default() {
-        std::env::remove_var(env_vars::DATABASE_TIMEOUT);
+        unsafe { std::env::remove_var(env_vars::DATABASE_TIMEOUT) };
         let result = env_helpers::get_database_timeout();
         assert_eq!(result, timeouts::DEFAULT_DATABASE_TIMEOUT);
     }
 
     #[test]
     fn test_get_database_timeout_ms_default() {
-        std::env::remove_var(env_vars::DATABASE_TIMEOUT);
+        unsafe { std::env::remove_var(env_vars::DATABASE_TIMEOUT) };
         let result = env_helpers::get_database_timeout_ms();
         assert_eq!(result, 30_000);
     }
 
     #[test]
     fn test_get_heartbeat_interval_default() {
-        std::env::remove_var(env_vars::HEARTBEAT_INTERVAL);
+        unsafe { std::env::remove_var(env_vars::HEARTBEAT_INTERVAL) };
         let result = env_helpers::get_heartbeat_interval();
         assert_eq!(result, timeouts::DEFAULT_HEARTBEAT_INTERVAL);
     }
 
     #[test]
     fn test_get_heartbeat_interval_ms_default() {
-        std::env::remove_var(env_vars::HEARTBEAT_INTERVAL);
+        unsafe { std::env::remove_var(env_vars::HEARTBEAT_INTERVAL) };
         let result = env_helpers::get_heartbeat_interval_ms();
         assert_eq!(result, 30_000);
     }
 
     #[test]
     fn test_get_initial_delay_default() {
-        std::env::remove_var(env_vars::INITIAL_DELAY);
+        unsafe { std::env::remove_var(env_vars::INITIAL_DELAY) };
         let result = env_helpers::get_initial_delay();
         assert_eq!(result, timeouts::DEFAULT_INITIAL_DELAY);
     }
 
     #[test]
     fn test_get_initial_delay_ms_default() {
-        std::env::remove_var(env_vars::INITIAL_DELAY);
+        unsafe { std::env::remove_var(env_vars::INITIAL_DELAY) };
         let result = env_helpers::get_initial_delay_ms();
         assert_eq!(result, 1_000);
     }
 
     #[test]
     fn test_get_service_mesh_max_services_default() {
-        std::env::remove_var(env_vars::SERVICE_MESH_MAX_SERVICES);
+        unsafe { std::env::remove_var(env_vars::SERVICE_MESH_MAX_SERVICES) };
         let result = env_helpers::get_service_mesh_max_services();
         assert_eq!(result, limits::DEFAULT_MAX_SERVICES);
     }
 
     #[test]
     fn test_get_max_connections_default() {
-        std::env::remove_var(env_vars::MAX_CONNECTIONS);
+        unsafe { std::env::remove_var(env_vars::MAX_CONNECTIONS) };
         let result = env_helpers::get_max_connections();
         assert_eq!(
             result,
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_get_buffer_size_default() {
-        std::env::remove_var(env_vars::BUFFER_SIZE);
+        unsafe { std::env::remove_var(env_vars::BUFFER_SIZE) };
         let result = env_helpers::get_buffer_size();
         assert_eq!(result, limits::DEFAULT_BUFFER_SIZE);
     }

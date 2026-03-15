@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Modern Concurrent Test Helpers
@@ -70,10 +70,10 @@
 //! ```
 
 use std::future::Future;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
-use tokio::sync::{oneshot, Barrier, Notify, Semaphore};
+use tokio::sync::{Barrier, Notify, Semaphore, oneshot};
 
 // ============================================================================
 // Event Channels

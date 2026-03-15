@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for Universal Storage Client
@@ -155,9 +155,11 @@ mod tests {
             .expect("optimize");
         assert!(request.get("chunking").is_some());
         let optimizations = result["optimizations_applied"].as_array().expect("array");
-        assert!(optimizations
-            .iter()
-            .any(|v| v.as_str() == Some("chunking_enabled")));
+        assert!(
+            optimizations
+                .iter()
+                .any(|v| v.as_str() == Some("chunking_enabled"))
+        );
     }
 
     #[test]

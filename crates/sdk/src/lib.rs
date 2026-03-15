@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Squirrel Plugin SDK
 //!
 //! The Squirrel Plugin SDK provides a comprehensive set of tools and APIs for developing
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
 //! plugins that integrate with the Squirrel MCP (Model Context Protocol) platform.
 //!
 //! ## Features
@@ -126,7 +126,7 @@ pub mod prelude {
 
     // External crates
     pub use serde::{Deserialize, Serialize};
-    pub use serde_json::{json, Value as JsonValue};
+    pub use serde_json::{Value as JsonValue, json};
 
     /// The version of the Squirrel SDK
     pub const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -135,7 +135,7 @@ pub mod prelude {
 
     // Common types
     pub use js_sys::{Array, Date, Error as JsError, Function, Object, Promise};
-    pub use web_sys::{console, window, Document};
+    pub use web_sys::{Document, console, window};
 }
 
 // Re-export all modules for direct access

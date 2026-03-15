@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Built-in commands for the Squirrel system
@@ -155,8 +155,10 @@ impl HelpCommand {
                         let new_count = self.command_help.len();
 
                         let duration = start.elapsed();
-                        info!("HelpCommand: Updated command information from {} to {} commands in {:?}", 
-                             old_count, new_count, duration);
+                        info!(
+                            "HelpCommand: Updated command information from {} to {} commands in {:?}",
+                            old_count, new_count, duration
+                        );
                     }
                     Err(e) => {
                         error!("HelpCommand: Failed to list commands during update: {}", e);

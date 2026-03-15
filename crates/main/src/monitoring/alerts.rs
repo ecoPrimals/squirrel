@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Alerts Module
@@ -42,18 +42,26 @@ pub struct Alert {
 /// Alert severity levels
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AlertSeverity {
+    /// Critical severity requiring immediate attention.
     Critical,
+    /// High severity.
     High,
+    /// Medium severity.
     Medium,
+    /// Low severity.
     Low,
+    /// Informational only.
     Info,
 }
 
 /// Alert status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AlertStatus {
+    /// Alert is active and unaddressed.
     Active,
+    /// Alert has been resolved.
     Resolved,
+    /// Alert has been acknowledged but may still need attention.
     Acknowledged,
 }
 

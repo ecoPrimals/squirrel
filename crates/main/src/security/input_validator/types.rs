@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core input validation types
@@ -244,9 +244,13 @@ pub enum ViolationType {
 /// Ordered from least to most severe for comparison and sorting.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum RiskLevel {
+    /// Low risk violation.
     Low,
+    /// Medium risk violation.
     Medium,
+    /// High risk violation.
     High,
+    /// Critical risk violation.
     Critical,
 }
 

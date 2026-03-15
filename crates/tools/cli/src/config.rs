@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration management for the Squirrel CLI
@@ -384,15 +384,15 @@ impl ConfigManager {
         }
 
         // 3. Try user config directory
-        if found_path.is_none() {
-            if let Some(proj_dirs) = directories::ProjectDirs::from("", "", "squirrel") {
-                let user_config_path = proj_dirs.config_dir().join("squirrel.toml");
-                debug!("Trying user config directory: {:?}", user_config_path);
-                if user_config_path.exists() {
-                    config = CliConfig::load_from_file(&user_config_path)?;
-                    found_path = Some(user_config_path);
-                    debug!("Loaded configuration from user config directory");
-                }
+        if found_path.is_none()
+            && let Some(proj_dirs) = directories::ProjectDirs::from("", "", "squirrel")
+        {
+            let user_config_path = proj_dirs.config_dir().join("squirrel.toml");
+            debug!("Trying user config directory: {:?}", user_config_path);
+            if user_config_path.exists() {
+                config = CliConfig::load_from_file(&user_config_path)?;
+                found_path = Some(user_config_path);
+                debug!("Loaded configuration from user config directory");
             }
         }
 

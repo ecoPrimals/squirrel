@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core Squirrel Primal Provider Implementation
@@ -420,12 +420,23 @@ impl SquirrelPrimalProvider {
 
         // Simplified implementation using basic template matching
         match template_name {
-            "coordination" => Some("You are an AI coordinator. Analyze the request and coordinate across services."),
-            "discovery" => Some("You are a service discovery AI. Find and recommend the best services for the task."),
-            "integration" => Some("You are an integration AI. Facilitate seamless communication between services."), 
-            "analysis" => Some("You are an analysis AI. Provide insights and recommendations based on data."),
+            "coordination" => Some(
+                "You are an AI coordinator. Analyze the request and coordinate across services.",
+            ),
+            "discovery" => Some(
+                "You are a service discovery AI. Find and recommend the best services for the task.",
+            ),
+            "integration" => Some(
+                "You are an integration AI. Facilitate seamless communication between services.",
+            ),
+            "analysis" => {
+                Some("You are an analysis AI. Provide insights and recommendations based on data.")
+            }
             _ => {
-                debug!("AI prompt template '{}' not found in static strings", template_name);
+                debug!(
+                    "AI prompt template '{}' not found in static strings",
+                    template_name
+                );
                 None
             }
         }

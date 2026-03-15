@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive Ecosystem Benchmarks
@@ -6,8 +6,8 @@
 //! This benchmark suite provides comprehensive performance testing for the entire
 //! ecoPrimals ecosystem, including all components and their interactions.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use squirrel::benchmarking::{initialize_benchmarking, BenchmarkConfig};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use squirrel::benchmarking::{BenchmarkConfig, initialize_benchmarking};
 use std::time::Duration;
 use tokio::runtime::Runtime;
 

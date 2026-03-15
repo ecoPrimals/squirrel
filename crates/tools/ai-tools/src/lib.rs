@@ -1,17 +1,14 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! AI Tools for Squirrel MCP
 //!
 //! This crate provides AI provider integrations and routing capabilities.
 
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 // Allow deprecated items during error type migration to universal-error crate
 #![allow(deprecated)]
-// NOTE(docs): Public items need documentation (enum variants, struct fields) - ongoing
-// Currently 324 items need docs. This is tracked as part of Week 8 completion.
-// Priority: Document high-traffic APIs first, then complete rest incrementally.
-#![allow(missing_docs)]
 // NOTE: items_after_test_module warnings - move implementations before test modules when refactoring
 // This is a structural issue affecting ~140 locations in this crate. Allowing temporarily while
 // we prioritize more critical issues (error handling, hardcoding elimination).
@@ -81,8 +78,8 @@ pub mod router;
 
 // Re-export commonly used types
 pub use common::{
-    create_provider_client, AIClient, ChatMessage, ChatRequest, ChatResponse, MessageRole,
-    ModelParameters, RateLimiterConfig,
+    AIClient, ChatMessage, ChatRequest, ChatResponse, MessageRole, ModelParameters,
+    RateLimiterConfig, create_provider_client,
 };
 pub use config::{AIToolsConfig, ProviderConfig};
 pub use error::{Error, Result};
@@ -90,8 +87,8 @@ pub use error::{Error, Result};
 /// Multi-model dispatch system for seamless AI model integration
 pub mod dispatch {
     use super::*;
-    use crate::common::capability::AITask;
     use crate::common::ChatResponseStream;
+    use crate::common::capability::AITask;
     use crate::router::RoutingStrategy;
     use crate::router::{AIRouter, RequestContext, RouterConfig, RoutingHint};
     use std::collections::HashMap;

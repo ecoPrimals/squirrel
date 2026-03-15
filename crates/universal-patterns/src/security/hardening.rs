@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Production Security Hardening Module
@@ -321,18 +321,18 @@ impl SecurityHardening {
         // Check if account is locked
         {
             let locked_accounts = self.locked_accounts.read().await;
-            if let Some(lockout) = locked_accounts.get(username) {
-                if SystemTime::now() < lockout.locked_until {
-                    let remaining = lockout
-                        .locked_until
-                        .duration_since(SystemTime::now())
-                        .unwrap_or(Duration::ZERO);
+            if let Some(lockout) = locked_accounts.get(username)
+                && SystemTime::now() < lockout.locked_until
+            {
+                let remaining = lockout
+                    .locked_until
+                    .duration_since(SystemTime::now())
+                    .unwrap_or(Duration::ZERO);
 
-                    return Err(AuthRateLimitError::AccountLocked {
-                        remaining_time: remaining,
-                        reason: lockout.lockout_reason.clone(),
-                    });
-                }
+                return Err(AuthRateLimitError::AccountLocked {
+                    remaining_time: remaining,
+                    reason: lockout.lockout_reason.clone(),
+                });
             }
         }
 
@@ -575,8 +575,10 @@ impl SecurityIncidentHandler {
                 thread,
                 timestamp,
             } => {
-                error!("🚨 Security Incident - Application Panic: {} (thread: {}, location: {:?}, time: {})", 
-                       message, thread, location, timestamp);
+                error!(
+                    "🚨 Security Incident - Application Panic: {} (thread: {}, location: {:?}, time: {})",
+                    message, thread, location, timestamp
+                );
             }
             SecurityIncident::RateLimitExceeded {
                 ip_address,
@@ -596,8 +598,10 @@ impl SecurityIncidentHandler {
                 timestamp,
                 ..
             } => {
-                warn!("🚨 Security Incident - Account Locked: {} from IP {} after {} failed attempts (time: {})", 
-                      username, ip_address, failed_attempts, timestamp);
+                warn!(
+                    "🚨 Security Incident - Account Locked: {} from IP {} after {} failed attempts (time: {})",
+                    username, ip_address, failed_attempts, timestamp
+                );
             }
             SecurityIncident::SuspiciousActivity {
                 activity_type,
@@ -632,10 +636,10 @@ impl SecurityIncidentHandler {
         }
 
         // Send to webhook if configured
-        if let Some(webhook_url) = &self.config.security_webhook_url {
-            if let Err(e) = self.send_to_webhook(webhook_url, &incident).await {
-                warn!("Failed to send security incident to webhook: {}", e);
-            }
+        if let Some(webhook_url) = &self.config.security_webhook_url
+            && let Err(e) = self.send_to_webhook(webhook_url, &incident).await
+        {
+            warn!("Failed to send security incident to webhook: {}", e);
         }
 
         // Store incident for analysis (in production, this would go to a proper SIEM)
@@ -712,10 +716,12 @@ mod tests {
 
         // Should allow first few attempts
         for i in 0..3 {
-            assert!(hardening
-                .check_auth_rate_limit("192.168.1.1", &format!("user{}", i), None)
-                .await
-                .is_ok());
+            assert!(
+                hardening
+                    .check_auth_rate_limit("192.168.1.1", &format!("user{}", i), None)
+                    .await
+                    .is_ok()
+            );
             hardening
                 .record_auth_attempt("192.168.1.1", &format!("user{}", i), false, None)
                 .await;

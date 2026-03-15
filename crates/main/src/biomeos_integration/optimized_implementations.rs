@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 
@@ -26,20 +26,31 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// Session context for optimized BiomeOS integration.
 #[derive(Debug, Clone)]
 pub struct SessionContext {
+    /// Unique session identifier
     pub session_id: String,
+    /// User identifier
     pub user_id: String,
+    /// When the session was created
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Last activity timestamp
     pub last_activity: chrono::DateTime<chrono::Utc>,
+    /// Session metadata
     pub metadata: HashMap<String, String>,
+    /// Arbitrary context data
     pub context_data: HashMap<String, serde_json::Value>,
 }
 
+/// Cached context data for zero-copy reuse.
 #[derive(Debug, Clone)]
 pub struct ContextData {
+    /// Data identifier
     pub id: String,
+    /// The context data payload
     pub data: serde_json::Value,
+    /// When the data was cached
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
@@ -58,6 +69,7 @@ impl Default for OptimizedServiceRegistration {
 }
 
 impl OptimizedServiceRegistration {
+    /// Creates a new optimized service registration.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -179,6 +191,7 @@ impl Default for OptimizedMessageProcessor {
 }
 
 impl OptimizedMessageProcessor {
+    /// Creates a new optimized message processor.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -266,6 +279,7 @@ impl Default for OptimizedContextState {
 }
 
 impl OptimizedContextState {
+    /// Creates a new optimized context state manager.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -351,6 +365,7 @@ impl OptimizedContextState {
     }
 }
 
+/// Registers a service with the ecosystem using the given parameters.
 #[must_use]
 pub fn register_with_ecosystem(
     service_id: &str,
@@ -411,6 +426,7 @@ pub fn register_with_ecosystem(
     }
 }
 
+/// Processes an intelligence request asynchronously.
 pub async fn process_intelligence_request(
     request_id: &str,
     intelligence_type: &str,

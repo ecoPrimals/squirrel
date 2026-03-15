@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Shared test utilities and mock infrastructure for chaos tests
@@ -86,7 +86,7 @@ impl ChaosMetrics {
 pub fn should_fail(failure_rate: f64) -> bool {
     use rand::Rng;
     let mut rng = rand::thread_rng();
-    rng.gen::<f64>() < failure_rate
+    rng.r#gen::<f64>() < failure_rate
 }
 
 /// Simulate network delay

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Idiomatic constraint system for AI routing
@@ -372,10 +372,10 @@ pub fn from_request(req: &serde_json::Value) -> ConstraintSet {
         builder = builder.min_quality(tier);
     }
 
-    if let Some(speed) = req.get("speed_preference").and_then(|v| v.as_str()) {
-        if speed == "fast" || speed == "optimize" {
-            builder = builder.optimize_speed();
-        }
+    if let Some(speed) = req.get("speed_preference").and_then(|v| v.as_str())
+        && (speed == "fast" || speed == "optimize")
+    {
+        builder = builder.optimize_speed();
     }
 
     // New constraint system
@@ -591,9 +591,11 @@ mod tests {
         let req = serde_json::json!({"speed_preference": "fast"});
         let constraints = from_request(&req);
         let preferred = constraints.preferred();
-        assert!(preferred
-            .iter()
-            .any(|c| matches!(c, RoutingConstraint::OptimizeSpeed)));
+        assert!(
+            preferred
+                .iter()
+                .any(|c| matches!(c, RoutingConstraint::OptimizeSpeed))
+        );
     }
 
     #[test]
@@ -635,9 +637,11 @@ mod tests {
             .with_custom("region".to_string(), serde_json::json!("us-east"))
             .build();
         let preferred = constraints.preferred();
-        assert!(preferred
-            .iter()
-            .any(|c| matches!(c, RoutingConstraint::Custom { .. })));
+        assert!(
+            preferred
+                .iter()
+                .any(|c| matches!(c, RoutingConstraint::Custom { .. }))
+        );
     }
 
     #[test]

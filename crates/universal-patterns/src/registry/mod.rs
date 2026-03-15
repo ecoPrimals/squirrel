@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Primal Registry for auto-discovery and management
@@ -249,10 +249,10 @@ impl UniversalPrimalRegistry {
             let mut matching_primals = Vec::new();
 
             for instance_id in primal_ids {
-                if let Some(primal) = registered_primals.get(instance_id) {
-                    if primal.can_serve_context(context) {
-                        matching_primals.push(primal.clone());
-                    }
+                if let Some(primal) = registered_primals.get(instance_id)
+                    && primal.can_serve_context(context)
+                {
+                    matching_primals.push(primal.clone());
                 }
             }
 
@@ -275,10 +275,10 @@ impl UniversalPrimalRegistry {
             let mut matching_primals = Vec::new();
 
             for instance_id in primal_ids {
-                if let Some(primal) = registered_primals.get(instance_id) {
-                    if primal.can_serve_context(context) {
-                        matching_primals.push(primal.clone());
-                    }
+                if let Some(primal) = registered_primals.get(instance_id)
+                    && primal.can_serve_context(context)
+                {
+                    matching_primals.push(primal.clone());
                 }
             }
 

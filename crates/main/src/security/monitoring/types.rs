@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core security monitoring types
@@ -22,51 +22,73 @@ use crate::observability::CorrelationId;
 pub enum SecurityEventType {
     /// Authentication event
     Authentication {
+        /// Whether auth succeeded
         success: bool,
+        /// User ID if known
         user_id: Option<String>,
+        /// Auth method used
         method: String,
     },
 
     /// Authorization event
     Authorization {
+        /// Whether access was granted
         granted: bool,
+        /// User ID
         user_id: String,
+        /// Resource accessed
         resource: String,
+        /// Action performed
         action: String,
     },
 
     /// Rate limiting event
     RateLimitViolation {
+        /// Client IP address
         client_ip: String,
+        /// Endpoint that was rate limited
         endpoint: String,
+        /// Number of violations
         violation_count: u32,
     },
 
     /// Input validation violation
     InputValidationViolation {
+        /// Client IP address
         client_ip: String,
+        /// Type of validation violation
         violation_type: String,
+        /// Risk level
         risk_level: String,
     },
 
     /// Suspicious activity detected
     SuspiciousActivity {
+        /// Client IP address
         client_ip: String,
+        /// Type of suspicious activity
         activity_type: String,
+        /// Additional details
         details: HashMap<String, String>,
     },
 
     /// Security policy violation
     PolicyViolation {
+        /// Policy identifier
         policy_id: String,
+        /// User ID if known
         user_id: Option<String>,
+        /// Violation details
         details: String,
     },
 
     /// System access event
     SystemAccess {
+        /// User ID
         user_id: String,
+        /// Type of access
         access_type: String,
+        /// Resource accessed
         resource: String,
     },
 }
@@ -110,9 +132,13 @@ pub struct SecurityEvent {
 /// Ordered from least to most severe for comparison.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EventSeverity {
+    /// Informational severity
     Info,
+    /// Warning severity
     Warning,
+    /// High severity
     High,
+    /// Critical severity
     Critical,
 }
 

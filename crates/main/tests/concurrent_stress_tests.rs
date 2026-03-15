@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Concurrent Stress Tests
@@ -12,8 +12,8 @@
 //! - Deterministic behavior without sleeps
 //! - Production-ready concurrent patterns
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use tokio::sync::{Barrier, Notify, RwLock, Semaphore};
 

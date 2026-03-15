@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin trait and core functionality for the Squirrel Plugin SDK
@@ -664,12 +664,12 @@ impl PluginManager {
     pub fn unregister_plugin(&self, id: &str) -> PluginResult<()> {
         let mut plugins = safe_lock(&self.plugins, "plugins")?;
 
-        if let Some(mut plugin) = plugins.remove(id) {
-            if let Err(e) = plugin.stop() {
-                return Err(PluginError::InternalError {
-                    message: format!("Failed to stop plugin: {e:?}"),
-                });
-            }
+        if let Some(mut plugin) = plugins.remove(id)
+            && let Err(e) = plugin.stop()
+        {
+            return Err(PluginError::InternalError {
+                message: format!("Failed to stop plugin: {e:?}"),
+            });
         }
 
         Ok(())

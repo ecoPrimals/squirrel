@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 
@@ -19,10 +19,15 @@ use tracing::{debug, info, warn};
 /// Discovery mechanism priority and metadata
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiscoveryMethod {
+    /// Discover via environment variables.
     EnvironmentVariable,
+    /// Discover via the service registry.
     ServiceRegistry,
+    /// Discover via mDNS on the local network.
     MDns,
+    /// Discover via DNS-SD (DNS Service Discovery).
     DnsSd,
+    /// Discover via P2P multicast.
     P2PMulticast,
 }
 
@@ -83,30 +88,30 @@ impl CapabilityResolver {
         // 2. Try service registry (if configured)
         if let Some(registry) = &self.registry {
             debug!("Trying service registry discovery...");
-            if let Ok(services) = registry.discover_by_capability(&request.capability).await {
-                if let Some(service) = services.into_iter().next() {
-                    info!("✅ Found via service registry (priority 60)");
-                    return Ok(service);
-                }
+            if let Ok(services) = registry.discover_by_capability(&request.capability).await
+                && let Some(service) = services.into_iter().next()
+            {
+                info!("✅ Found via service registry (priority 60)");
+                return Ok(service);
             }
         }
 
         // 3. Try mDNS for local network
         debug!("Trying mDNS discovery...");
-        if let Ok(services) = self.mdns.discover_by_capability(&request.capability).await {
-            if let Some(service) = services.into_iter().next() {
-                info!("✅ Found via mDNS (priority 80)");
-                return Ok(service);
-            }
+        if let Ok(services) = self.mdns.discover_by_capability(&request.capability).await
+            && let Some(service) = services.into_iter().next()
+        {
+            info!("✅ Found via mDNS (priority 80)");
+            return Ok(service);
         }
 
         // 4. Try DNS-SD for network-wide discovery
         debug!("Trying DNS-SD discovery...");
-        if let Ok(services) = self.dnssd.discover_by_capability(&request.capability).await {
-            if let Some(service) = services.into_iter().next() {
-                info!("✅ Found via DNS-SD (priority 70)");
-                return Ok(service);
-            }
+        if let Ok(services) = self.dnssd.discover_by_capability(&request.capability).await
+            && let Some(service) = services.into_iter().next()
+        {
+            info!("✅ Found via DNS-SD (priority 70)");
+            return Ok(service);
         }
 
         // 5. P2P multicast (future implementation)

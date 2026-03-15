@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! In-memory service discovery implementation
@@ -17,11 +17,11 @@ use tracing::{debug, info, warn};
 
 use super::ServiceDiscovery;
 // Removed: use squirrel_mcp_config::get_service_endpoints;
+use crate::CoreResult;
 use crate::error::CoreError;
 use crate::service_discovery::types::{
     HealthStatus, ServiceDefinition, ServiceQuery, ServiceStats, ServiceType,
 };
-use crate::CoreResult;
 
 // Define ServiceInstance locally if not available elsewhere
 #[derive(Debug, Clone)]

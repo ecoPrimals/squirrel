@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Mock client implementation for testing
@@ -310,11 +310,7 @@ impl AIClient for MockAIClient {
 
     async fn health_score(&self) -> f64 {
         self.simulate_latency().await;
-        if self.available {
-            1.0
-        } else {
-            0.0
-        }
+        if self.available { 1.0 } else { 0.0 }
     }
 }
 

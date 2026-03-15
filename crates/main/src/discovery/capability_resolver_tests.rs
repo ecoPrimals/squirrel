@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for capability resolver
@@ -76,7 +76,7 @@ async fn test_discover_from_env_found() {
         .and_then(|p| p.parse::<u16>().ok())
         .unwrap_or(8000);
     let test_endpoint = format!("http://localhost:{}", test_port);
-    env::set_var("AI_COMPLETE_ENDPOINT", &test_endpoint);
+    unsafe { env::set_var("AI_COMPLETE_ENDPOINT", &test_endpoint) };
 
     let request = CapabilityRequest {
         capability: "ai.complete".to_string(),
@@ -89,7 +89,7 @@ async fn test_discover_from_env_found() {
     let result = resolver.discover_provider(request).await;
 
     // Clean up
-    env::remove_var("AI_COMPLETE_ENDPOINT");
+    unsafe { env::remove_var("AI_COMPLETE_ENDPOINT") };
 
     // Verify discovery succeeded
     assert!(result.is_ok());
@@ -104,7 +104,7 @@ async fn test_discover_from_env_not_found() {
     let resolver = CapabilityResolver::new();
 
     // Ensure env var is not set
-    env::remove_var("NONEXISTENT_CAPABILITY_ENDPOINT");
+    unsafe { env::remove_var("NONEXISTENT_CAPABILITY_ENDPOINT") };
 
     let request = CapabilityRequest {
         capability: "nonexistent.capability".to_string(),
@@ -125,7 +125,7 @@ async fn test_discover_provider_with_dots_in_capability() {
     let resolver = CapabilityResolver::new();
 
     // Set environment variable with dots converted to underscores
-    env::set_var("HTTP_REQUEST_ENDPOINT", "unix:///tmp/songbird.sock");
+    unsafe { env::set_var("HTTP_REQUEST_ENDPOINT", "unix:///tmp/songbird.sock") };
 
     let request = CapabilityRequest {
         capability: "http.request".to_string(),
@@ -138,7 +138,7 @@ async fn test_discover_provider_with_dots_in_capability() {
     let result = resolver.discover_provider(request).await;
 
     // Clean up
-    env::remove_var("HTTP_REQUEST_ENDPOINT");
+    unsafe { env::remove_var("HTTP_REQUEST_ENDPOINT") };
 
     assert!(result.is_ok());
     let service = result.unwrap();
@@ -151,7 +151,7 @@ async fn test_discover_provider_priority() {
     let resolver = CapabilityResolver::new();
 
     // Set environment variable (should have highest priority)
-    env::set_var("TEST_CAPABILITY_ENDPOINT", "http://env-provider:8000");
+    unsafe { env::set_var("TEST_CAPABILITY_ENDPOINT", "http://env-provider:8000") };
 
     let request = CapabilityRequest {
         capability: "test.capability".to_string(),
@@ -164,7 +164,7 @@ async fn test_discover_provider_priority() {
     let result = resolver.discover_provider(request).await;
 
     // Clean up
-    env::remove_var("TEST_CAPABILITY_ENDPOINT");
+    unsafe { env::remove_var("TEST_CAPABILITY_ENDPOINT") };
 
     // Environment variable should be discovered first (priority 100)
     assert!(result.is_ok());
@@ -177,7 +177,7 @@ async fn test_discover_provider_priority() {
 async fn test_capability_request_with_preference() {
     let resolver = CapabilityResolver::new();
 
-    env::set_var("PREFERRED_SERVICE_ENDPOINT", "http://localhost:9000");
+    unsafe { env::set_var("PREFERRED_SERVICE_ENDPOINT", "http://localhost:9000") };
 
     let request = CapabilityRequest {
         capability: "preferred.service".to_string(),
@@ -189,7 +189,7 @@ async fn test_capability_request_with_preference() {
 
     let result = resolver.discover_provider(request).await;
 
-    env::remove_var("PREFERRED_SERVICE_ENDPOINT");
+    unsafe { env::remove_var("PREFERRED_SERVICE_ENDPOINT") };
 
     assert!(result.is_ok());
 }
@@ -198,7 +198,7 @@ async fn test_capability_request_with_preference() {
 async fn test_capability_request_with_features() {
     let resolver = CapabilityResolver::new();
 
-    env::set_var("FEATURED_SERVICE_ENDPOINT", "http://localhost:10000");
+    unsafe { env::set_var("FEATURED_SERVICE_ENDPOINT", "http://localhost:10000") };
 
     let request = CapabilityRequest {
         capability: "featured.service".to_string(),
@@ -210,7 +210,7 @@ async fn test_capability_request_with_features() {
 
     let result = resolver.discover_provider(request).await;
 
-    env::remove_var("FEATURED_SERVICE_ENDPOINT");
+    unsafe { env::remove_var("FEATURED_SERVICE_ENDPOINT") };
 
     assert!(result.is_ok());
 }
@@ -237,7 +237,7 @@ async fn test_resolver_clone() {
     let resolver1 = CapabilityResolver::new();
     let resolver2 = resolver1.clone();
 
-    env::set_var("CLONE_TEST_ENDPOINT", "http://localhost:11000");
+    unsafe { env::set_var("CLONE_TEST_ENDPOINT", "http://localhost:11000") };
 
     let request = CapabilityRequest {
         capability: "clone.test".to_string(),
@@ -251,7 +251,7 @@ async fn test_resolver_clone() {
     let result1 = resolver1.discover_provider(request.clone()).await;
     let result2 = resolver2.discover_provider(request).await;
 
-    env::remove_var("CLONE_TEST_ENDPOINT");
+    unsafe { env::remove_var("CLONE_TEST_ENDPOINT") };
 
     assert!(result1.is_ok());
     assert!(result2.is_ok());
@@ -261,7 +261,7 @@ async fn test_resolver_clone() {
 async fn test_discover_service_metadata() {
     let resolver = CapabilityResolver::new();
 
-    env::set_var("METADATA_TEST_ENDPOINT", "http://localhost:12000");
+    unsafe { env::set_var("METADATA_TEST_ENDPOINT", "http://localhost:12000") };
 
     let request = CapabilityRequest {
         capability: "metadata.test".to_string(),
@@ -273,7 +273,7 @@ async fn test_discover_service_metadata() {
 
     let result = resolver.discover_provider(request).await;
 
-    env::remove_var("METADATA_TEST_ENDPOINT");
+    unsafe { env::remove_var("METADATA_TEST_ENDPOINT") };
 
     assert!(result.is_ok());
     let service = result.unwrap();
@@ -287,7 +287,7 @@ async fn test_uppercase_capability_env_conversion() {
     let resolver = CapabilityResolver::new();
 
     // Test that lowercase capability is converted to uppercase env var
-    env::set_var("LOWERCASE_TEST_ENDPOINT", "http://localhost:13000");
+    unsafe { env::set_var("LOWERCASE_TEST_ENDPOINT", "http://localhost:13000") };
 
     let request = CapabilityRequest {
         capability: "lowercase.test".to_string(),
@@ -299,7 +299,7 @@ async fn test_uppercase_capability_env_conversion() {
 
     let result = resolver.discover_provider(request).await;
 
-    env::remove_var("LOWERCASE_TEST_ENDPOINT");
+    unsafe { env::remove_var("LOWERCASE_TEST_ENDPOINT") };
 
     assert!(result.is_ok());
 }
@@ -309,7 +309,7 @@ async fn test_multiple_dots_in_capability() {
     let resolver = CapabilityResolver::new();
 
     // Test capability with multiple dots: "ai.neural.inference"
-    env::set_var("AI_NEURAL_INFERENCE_ENDPOINT", "http://localhost:14000");
+    unsafe { env::set_var("AI_NEURAL_INFERENCE_ENDPOINT", "http://localhost:14000") };
 
     let request = CapabilityRequest {
         capability: "ai.neural.inference".to_string(),
@@ -321,11 +321,13 @@ async fn test_multiple_dots_in_capability() {
 
     let result = resolver.discover_provider(request).await;
 
-    env::remove_var("AI_NEURAL_INFERENCE_ENDPOINT");
+    unsafe { env::remove_var("AI_NEURAL_INFERENCE_ENDPOINT") };
 
     assert!(result.is_ok());
     let service = result.unwrap();
-    assert!(service
-        .capabilities
-        .contains(&"ai.neural.inference".to_string()));
+    assert!(
+        service
+            .capabilities
+            .contains(&"ai.neural.inference".to_string())
+    );
 }

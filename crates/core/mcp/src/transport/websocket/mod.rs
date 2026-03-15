@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! WebSocket transport implementation for MCP.
@@ -19,17 +19,15 @@ mod tests;
 
 use crate::error::{MCPError, Result, TransportError};
 use crate::protocol::types::MCPMessage;
-use crate::transport::types::TransportMetadata;
 use crate::transport::Transport;
+use crate::transport::types::TransportMetadata;
 use async_trait::async_trait;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::net::TcpStream;
-use tokio::sync::{mpsc, Mutex};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+use tokio::sync::{Mutex, mpsc};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
@@ -146,8 +144,8 @@ impl WebSocketTransport {
         state_guard.is_connected()
     }
 
-    /// Placeholder for internal message sending logic
-    #[allow(dead_code)] // Reserved for WebSocket message sending system
+    /// Placeholder for internal message sending logic (reserved for WebSocket message sending system)
+    #[allow(dead_code)]
     async fn send_internal(
         &self,
         ws_message: tokio_tungstenite::tungstenite::protocol::Message,
@@ -174,7 +172,9 @@ impl WebSocketTransport {
                     }
                 }
                 tokio_tungstenite::tungstenite::protocol::Message::Binary(_bytes) => {
-                    error!("WebSocket: send_internal cannot directly send raw binary via MCPMessage command.");
+                    error!(
+                        "WebSocket: send_internal cannot directly send raw binary via MCPMessage command."
+                    );
                     return Err(MCPError::Transport(TransportError::ProtocolError(
                         "Raw binary send via send_internal needs rework".to_string(),
                     )));
@@ -297,8 +297,8 @@ impl WebSocketTransport {
         }
     }
 
-    /// Get the remote address of the WebSocket connection
-    #[allow(dead_code)] // Reserved for connection address tracking
+    /// Get the remote address of the WebSocket connection (reserved for connection address tracking)
+    #[allow(dead_code)]
     pub async fn remote_addr(&self) -> std::result::Result<Option<SocketAddr>, MCPError> {
         // Access the peer_addr field instead of trying to access a stream field
         let peer_addr = self.peer_addr.lock().await;
@@ -529,22 +529,4 @@ impl Transport for WebSocketTransport {
             )))
         }
     }
-}
-
-/// Handle incoming WebSocket connection
-#[allow(dead_code)] // Reserved for WebSocket connection handling system
-pub async fn handle_connection(_peer: SocketAddr, _stream: TcpStream) -> Result<()> {
-    Ok(())
-}
-
-/// Process WebSocket socket messages
-#[allow(dead_code)] // Reserved for WebSocket message processing system
-pub async fn process_socket(
-    _socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
-    _msg_tx: mpsc::Sender<MCPMessage>,
-    mut _socket_rx: mpsc::Receiver<SocketCommand>,
-    _control_tx: mpsc::Sender<ControlMessage>,
-    _state: Arc<Mutex<WebSocketState>>,
-    _peer: SocketAddr,
-) {
 }

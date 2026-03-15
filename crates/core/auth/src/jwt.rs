@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! JWT Token Management (Feature-Gated for Dev Mode)
@@ -13,7 +13,7 @@
 
 use crate::{AuthContext, AuthError};
 use chrono::{DateTime, Utc};
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -101,8 +101,9 @@ impl JwtTokenManager {
     pub fn create_token(&self, claims: &JwtClaims) -> Result<String, AuthError> {
         let header = Header::new(Algorithm::HS256);
 
-        encode(&header, claims, &self.encoding_key)
-            .map_err(|e| AuthError::Internal { message: e.to_string() })
+        encode(&header, claims, &self.encoding_key).map_err(|e| AuthError::Internal {
+            message: e.to_string(),
+        })
     }
 
     pub fn verify_token(&self, token: &str) -> Result<JwtClaims, AuthError> {
@@ -110,7 +111,9 @@ impl JwtTokenManager {
             |e| match e.kind() {
                 jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
                 jsonwebtoken::errors::ErrorKind::InvalidToken => AuthError::InvalidToken,
-                _ => AuthError::Internal { message: e.to_string() },
+                _ => AuthError::Internal {
+                    message: e.to_string(),
+                },
             },
         )?;
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context interfaces for plugin system integration
@@ -95,7 +95,7 @@ pub trait ContextAdapterPlugin: Plugin + Send + Sync + Debug {
 
     /// Convert data from source format to target format
     async fn convert(&self, data: Value)
-        -> Result<Value, Box<dyn std::error::Error + Send + Sync>>;
+    -> Result<Value, Box<dyn std::error::Error + Send + Sync>>;
 }
 
 /// Context manager trait

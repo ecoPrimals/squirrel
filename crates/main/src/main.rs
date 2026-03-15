@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
 
 //! Squirrel AI Coordinator Main Entry Point
 //!
@@ -14,14 +14,14 @@ mod doctor;
 
 use anyhow::Result;
 use clap::Parser;
-use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
-use squirrel::shutdown::ShutdownManager;
 #[cfg(feature = "monitoring")]
 use squirrel::MetricsCollector;
+use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
+use squirrel::shutdown::ShutdownManager;
 use std::process;
 use std::sync::Arc;
 
-use cli::{exit_codes, Cli, Commands};
+use cli::{Cli, Commands, exit_codes};
 
 #[tokio::main]
 async fn main() {
@@ -266,7 +266,7 @@ async fn run_server(
     // biomeOS lifecycle registration (healthSpring pattern)
     if let Some(biomeos_socket) = squirrel::capabilities::lifecycle::find_biomeos_socket() {
         let caps = server.capability_registry.method_names();
-        let cap_refs: Vec<&str> = caps.iter().copied().collect();
+        let cap_refs: Vec<&str> = caps.as_slice().to_vec();
         if squirrel::capabilities::lifecycle::register_with_biomeos(
             &biomeos_socket,
             &socket_path,

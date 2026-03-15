@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Neural API HTTP Client Wrapper for Squirrel
@@ -26,17 +26,24 @@ pub use universal_patterns::ipc_client::{
 /// HTTP request wrapper (compatible with existing code)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpRequest {
+    /// HTTP method (e.g., "GET", "POST").
     pub method: String,
+    /// Full request URL.
     pub url: String,
+    /// Request headers as key-value pairs.
     pub headers: Vec<(String, String)>,
+    /// Optional request body.
     pub body: Option<String>,
 }
 
 /// HTTP response wrapper (compatible with existing code)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpResponse {
+    /// HTTP status code (e.g., 200, 404).
     pub status: u16,
+    /// Response headers as key-value pairs.
     pub headers: Vec<(String, String)>,
+    /// Response body content.
     pub body: String,
 }
 

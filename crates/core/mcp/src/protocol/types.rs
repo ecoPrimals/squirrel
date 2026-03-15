@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Protocol-related types for MCP
@@ -149,17 +149,19 @@ impl Default for ProtocolVersion {
 /// Represents the header part of an MCP message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Header {
+    /// Unique identifier for the message
     pub id: MessageId,
+    /// Type of the message
     pub message_type: MessageType,
+    /// Timestamp when the message was created
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Protocol version used by the message
     pub version: ProtocolVersion,
+    /// Security-related metadata
     pub security: SecurityMetadata,
-    // Add other fields often found in headers if needed
-    // pub priority: crate::message::MessagePriority, // Example
-    // pub correlation_id: Option<MessageId>, // Example
-    // pub sequence_number: Option<u64>, // Example
-    pub metadata: Option<serde_json::Value>, // Generic metadata
+    /// Optional generic metadata
+    pub metadata: Option<serde_json::Value>,
 }
 
 /// Core message structure for MCP communications.
@@ -234,6 +236,7 @@ impl MCPMessage {
         }
     }
 
+    /// Extracts the command name from the message payload.
     pub fn command(&self) -> String {
         if let Some(cmd) = self.payload.get("command") {
             cmd.as_str().unwrap_or("unknown").to_string()
@@ -302,23 +305,28 @@ impl From<MCPMessage> for Message {
 /// Represents a response to a command message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandResponse {
+    /// ID of the request this response corresponds to
     pub request_id: MessageId,
-    pub status: String, // e.g., "Success", "Failure"
+    /// Response status (e.g., "Success", "Failure")
+    pub status: String,
+    /// Optional response details
     pub details: Option<serde_json::Value>,
 }
 
 /// Trait for components that handle specific MCP messages.
 #[async_trait::async_trait]
 pub trait MessageHandler: Send + Sync {
+    /// Handles an incoming MCP message and optionally returns a response.
     async fn handle_message(&self, message: &MCPMessage) -> Result<Option<MCPMessage>>;
 }
 
 // Need imports for trait
 use crate::error::Result;
 
-// Placeholder type aliases for results specific to protocol operations
-pub type ValidationResult = Result<()>; // Placeholder for validation result
-pub type RoutingResult = Result<()>; // Placeholder for routing result
+/// Result type for protocol validation operations
+pub type ValidationResult = Result<()>;
+/// Result type for protocol routing operations
+pub type RoutingResult = Result<()>;
 
 #[cfg(test)]
 mod tests {
@@ -371,10 +379,12 @@ mod tests {
 
 // Other protocol-related types will go here.
 
-// Add a minimal SecurityMetadata placeholder for core MCP functionality
+/// Security metadata for MCP messages.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityMetadata {
+    /// Security metadata schema version
     pub version: String,
+    /// Timestamp when the metadata was created
     pub timestamp: SystemTime,
 }
 

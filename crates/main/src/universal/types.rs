@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core type definitions for the universal primal system
@@ -13,11 +13,17 @@ use std::hash::{Hash, Hasher};
 /// Information about a primal's identity and capabilities
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalInfo {
+    /// Unique identifier for the primal
     pub primal_id: String,
+    /// Instance identifier for this running instance
     pub instance_id: String,
+    /// The type of primal (AI, Storage, Compute, etc.)
     pub primal_type: PrimalType,
+    /// Capabilities this primal provides
     pub capabilities: Vec<PrimalCapability>,
+    /// Service endpoint URLs
     pub endpoints: Vec<String>,
+    /// Arbitrary metadata key-value pairs
     pub metadata: HashMap<String, String>,
     /// Convenience alias for `primal_id` (for compatibility)
     #[serde(skip)]
@@ -29,11 +35,17 @@ pub struct PrimalInfo {
 /// Types of primals in the ecosystem
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PrimalType {
+    /// AI/ML inference and model serving primal
     AI,
+    /// Storage and data management primal
     Storage,
+    /// Compute and execution primal
     Compute,
+    /// Network and connectivity primal
     Network,
+    /// Security and authentication primal
     Security,
+    /// Coordination and orchestration primal
     Coordination,
 }
 
@@ -53,73 +65,123 @@ impl std::fmt::Display for PrimalType {
 /// Capabilities that primals can provide
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PrimalCapability {
+    /// Model inference with specified model identifiers
     ModelInference {
+        /// List of supported model identifiers
         models: Vec<String>,
     },
+    /// Context management with maximum context length
     ContextManagement {
+        /// Maximum context length in tokens
         max_context_length: usize,
     },
+    /// Memory management capability
     MemoryManagement {
+        /// Whether memory is persistent across sessions
         persistent: bool,
     },
+    /// Tool execution capability
     ToolExecution {
+        /// List of tool identifiers that can be executed
         tools: Vec<String>,
     },
+    /// Data storage capability
     DataStorage {
+        /// Type of storage (e.g., object, block)
         storage_type: String,
+        /// Maximum storage size in bytes
         max_size_bytes: u64,
     },
+    /// Authentication capability
     Authentication {
+        /// Supported authentication methods
         methods: Vec<String>,
     },
+    /// Service discovery capability
     ServiceDiscovery,
+    /// Load balancing capability
     LoadBalancing,
+    /// Circuit breaking capability
     CircuitBreaking,
+    /// Rate limiting capability
     RateLimiting {
+        /// Maximum requests per second allowed
         max_requests_per_second: u32,
     },
+    /// Monitoring capability
     Monitoring {
+        /// List of metric names exposed
         metrics: Vec<String>,
     },
+    /// Logging capability
     Logging {
+        /// Supported log levels
         levels: Vec<String>,
     },
+    /// Container runtime capability
     ContainerRuntime {
+        /// Supported container types
         container_types: Vec<String>,
+        /// Supported orchestrators
         orchestrators: Vec<String>,
     },
+    /// Serverless execution capability
     ServerlessExecution {
+        /// Supported programming languages
         languages: Vec<String>,
     },
+    /// GPU acceleration capability
     GpuAcceleration {
+        /// Supported GPU types
         gpu_types: Vec<String>,
+        /// Whether CUDA is supported
         cuda_support: bool,
     },
+    /// Object storage capability
     ObjectStorage {
+        /// Supported storage types
         storage_types: Vec<String>,
+        /// Supported backend identifiers
         backends: Vec<String>,
     },
+    /// File system capability
     FileSystem {
+        /// Supported file system types
         fs_types: Vec<String>,
     },
+    /// Encryption capability
     Encryption {
+        /// Supported encryption algorithms
         algorithms: Vec<String>,
     },
+    /// Key management capability
     KeyManagement {
+        /// Supported key types
         key_types: Vec<String>,
+        /// Whether HSM support is available
         hsm_support: bool,
     },
+    /// Natural language processing capability
     NaturalLanguage {
+        /// Supported languages
         languages: Vec<String>,
     },
+    /// Agent framework capability
     AgentFramework {
+        /// Supported agent frameworks
         frameworks: Vec<String>,
+        /// Whether MCP protocol is supported
         mcp_support: bool,
     },
+    /// Custom capability with arbitrary metadata
     Custom {
+        /// Custom capability name
         name: String,
+        /// Human-readable description
         description: String,
+        /// Arbitrary metadata
         metadata: HashMap<String, String>,
+        /// Additional attributes
         attributes: HashMap<String, String>,
     },
 }
@@ -235,15 +297,25 @@ impl Hash for PrimalCapability {
 /// Squirrel-specific capabilities
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SquirrelCapability {
+    /// AI coordination across primals
     AICoordination,
+    /// MCP (Machine Context Protocol) support
     MCPProtocol,
+    /// Context-aware routing and behavior
     ContextAwareness,
+    /// Multi-tenant isolation support
     MultiTenancy,
+    /// Service mesh integration
     ServiceMeshIntegration,
+    /// Dynamic request routing
     DynamicRouting,
+    /// Health monitoring and reporting
     HealthMonitoring,
+    /// Graceful shutdown handling
     GracefulShutdown,
+    /// Load balancing across backends
     LoadBalancing,
+    /// Circuit breaker for fault tolerance
     CircuitBreaking,
 }
 

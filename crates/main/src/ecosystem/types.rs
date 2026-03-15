@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 
@@ -96,25 +96,35 @@ pub struct EcosystemServiceRegistration {
 /// Service capabilities with proper Default implementation
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ServiceCapabilities {
+    /// Core capabilities
     pub core: Vec<String>,
+    /// Extended capabilities
     pub extended: Vec<String>,
+    /// Integration capabilities
     pub integrations: Vec<String>,
 }
 
 /// Service endpoints with proper Default implementation
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ServiceEndpoints {
+    /// Primary endpoint URL
     pub primary: String,
+    /// Secondary endpoint URLs
     pub secondary: Vec<String>,
+    /// Optional health check endpoint
     pub health: Option<String>,
 }
 
 /// Health check configuration with Default implementation
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HealthCheckConfig {
+    /// Whether health checks are enabled
     pub enabled: bool,
+    /// Interval between checks in seconds
     pub interval_secs: u64,
+    /// Timeout per check in seconds
     pub timeout_secs: u64,
+    /// Failures before marking unhealthy
     pub failure_threshold: u32,
 }
 

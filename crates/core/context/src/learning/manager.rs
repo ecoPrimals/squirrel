@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context Learning Manager
@@ -21,8 +21,8 @@ use crate::error::Result;
 use crate::manager::ContextManager;
 // Removed unused import: crate::ContextTracker
 use super::{
-    engine::{RLAction, RLExperience, RLState},
     LearningEngine, LearningState, LearningSystemConfig,
+    engine::{RLAction, RLExperience, RLState},
 };
 use crate::rules::RuleManager;
 use squirrel_interfaces::context::ContextManager as ContextManagerTrait;
@@ -236,7 +236,7 @@ pub struct ContextLearningManager {
     context_manager: Arc<ContextManager>,
 
     /// Rule manager (planned future integration)
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Reserved for planned feature
     rule_manager: Option<Arc<RuleManager>>,
 
     /// Active episodes
@@ -638,11 +638,11 @@ impl ContextLearningManager {
                     .push(observation);
 
                 // Maintain observation history (keep last 100 for AI learning)
-                if let Some(context_observations) = obs.get_mut(context_id) {
-                    if context_observations.len() > 100 {
-                        context_observations.drain(0..50); // Keep recent 50
-                        debug!("🧹 Cleaned observation history for context {}", context_id);
-                    }
+                if let Some(context_observations) = obs.get_mut(context_id)
+                    && context_observations.len() > 100
+                {
+                    context_observations.drain(0..50); // Keep recent 50
+                    debug!("🧹 Cleaned observation history for context {}", context_id);
                 }
             }
 

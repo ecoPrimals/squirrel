@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Provider selection logic
@@ -85,18 +85,18 @@ impl ProviderSelector {
         }
 
         // Check for preferred provider override
-        if let Some(reqs) = requirements {
-            if let Some(ref preferred) = reqs.preferred_provider {
-                if let Some(provider) = available.iter().find(|p| &p.provider_id == preferred) {
-                    info!("✅ Using preferred provider: {}", preferred);
-                    return Ok((*provider).clone());
-                } else if !self.enable_fallback {
-                    return Err(SelectionError::PreferredProviderNotAvailable(
-                        preferred.clone(),
-                    ));
-                }
-                // Fall through to scoring if fallback enabled
+        if let Some(reqs) = requirements
+            && let Some(ref preferred) = reqs.preferred_provider
+        {
+            if let Some(provider) = available.iter().find(|p| &p.provider_id == preferred) {
+                info!("✅ Using preferred provider: {}", preferred);
+                return Ok((*provider).clone());
+            } else if !self.enable_fallback {
+                return Err(SelectionError::PreferredProviderNotAvailable(
+                    preferred.clone(),
+                ));
             }
+            // Fall through to scoring if fallback enabled
         }
 
         // Score all available providers

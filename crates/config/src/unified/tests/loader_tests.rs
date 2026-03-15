@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Config Loader Tests
@@ -117,7 +117,7 @@ level = "info"
     #[test]
     fn test_load_from_env_vars() {
         // Set test environment variables
-        env::set_var("SQUIRREL_TEST_VAR", "test_value");
+        unsafe { env::set_var("SQUIRREL_TEST_VAR", "test_value") };
 
         // Test environment loading with prefix
         let result = ConfigLoader::new()
@@ -126,7 +126,7 @@ level = "info"
         assert!(result.is_ok(), "Should load from environment variables");
 
         // Cleanup
-        env::remove_var("SQUIRREL_TEST_VAR");
+        unsafe { env::remove_var("SQUIRREL_TEST_VAR") };
     }
 
     #[test]
@@ -137,7 +137,7 @@ level = "info"
             "config.toml"
         );
 
-        env::set_var("SQUIRREL_NETWORK_PORT", "9999");
+        unsafe { env::set_var("SQUIRREL_NETWORK_PORT", "9999") };
 
         // Load config with both file and env
         let result = ConfigLoader::new()
@@ -146,7 +146,7 @@ level = "info"
 
         assert!(result.is_ok(), "Should load with env override");
         
-        env::remove_var("SQUIRREL_NETWORK_PORT");
+        unsafe { env::remove_var("SQUIRREL_NETWORK_PORT") };
     }
 
     #[test]
@@ -173,7 +173,7 @@ level = "info"
             "config.toml"
         );
         
-        env::set_var("SQUIRREL_NETWORK_BIND_ADDRESS", "0.0.0.0");
+        unsafe { env::set_var("SQUIRREL_NETWORK_BIND_ADDRESS", "0.0.0.0") };
         
         let result = ConfigLoader::new()
             .with_file_if_exists(&config_path)
@@ -181,7 +181,7 @@ level = "info"
         
         assert!(result.is_ok(), "Should merge file and env config");
         
-        env::remove_var("SQUIRREL_NETWORK_BIND_ADDRESS");
+        unsafe { env::remove_var("SQUIRREL_NETWORK_BIND_ADDRESS") };
     }
 
     #[test]
@@ -278,12 +278,12 @@ level = "info"
     #[test]
     fn test_config_environment_detection() {
         // Test automatic environment detection
-        env::set_var("ENVIRONMENT", "production");
+        unsafe { env::set_var("ENVIRONMENT", "production") };
         
         let loader = ConfigLoader::new();
         assert!(loader.build().is_ok(), "Should detect environment");
         
-        env::remove_var("ENVIRONMENT");
+        unsafe { env::remove_var("ENVIRONMENT") };
     }
 
     // ========== Edge Cases ==========

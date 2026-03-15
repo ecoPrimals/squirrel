@@ -1,9 +1,9 @@
 [package]
 name = "squirrel-ecosystem-integration"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Squirrel ecosystem integration with Songbird and Toadstool"
-license = "AGPL-3.0-or-later"
+license = "AGPL-3.0-only"
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }

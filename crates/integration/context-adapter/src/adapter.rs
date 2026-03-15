@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context System Adapter for MCP
@@ -283,10 +283,10 @@ impl ContextAdapter {
         };
 
         if !plugins_enabled {
-            return Err(anyhow::anyhow!(ContextAdapterError::OperationFailed(
-                "Plugins are disabled".to_string()
-            )
-            .to_string(),));
+            return Err(anyhow::anyhow!(
+                ContextAdapterError::OperationFailed("Plugins are disabled".to_string())
+                    .to_string(),
+            ));
         }
 
         // Check if we have a local transformation
@@ -298,11 +298,13 @@ impl ContextAdapter {
         if let Some(transformation) = transformation {
             // Apply the transformation
             transformation.transform(data).await.map_err(|e| {
-                anyhow::anyhow!(ContextAdapterError::TransformationFailed(
-                    transformation_id.to_string(),
-                    e.to_string(),
+                anyhow::anyhow!(
+                    ContextAdapterError::TransformationFailed(
+                        transformation_id.to_string(),
+                        e.to_string(),
+                    )
+                    .to_string(),
                 )
-                .to_string(),)
             })
         } else if let Some(plugin_manager) = &self.plugin_manager {
             // If not found locally, try using the plugin manager directly
@@ -310,11 +312,13 @@ impl ContextAdapter {
                 .transform(transformation_id, data)
                 .await
                 .map_err(|e| {
-                    anyhow::anyhow!(ContextAdapterError::TransformationFailed(
-                        transformation_id.to_string(),
-                        e.to_string(),
+                    anyhow::anyhow!(
+                        ContextAdapterError::TransformationFailed(
+                            transformation_id.to_string(),
+                            e.to_string(),
+                        )
+                        .to_string(),
                     )
-                    .to_string(),)
                 })
         } else {
             Err(anyhow::anyhow!(
@@ -337,10 +341,10 @@ impl ContextAdapter {
         };
 
         if !plugins_enabled {
-            return Err(anyhow::anyhow!(ContextAdapterError::OperationFailed(
-                "Plugins are disabled".to_string()
-            )
-            .to_string(),));
+            return Err(anyhow::anyhow!(
+                ContextAdapterError::OperationFailed("Plugins are disabled".to_string())
+                    .to_string(),
+            ));
         }
 
         // Check if we have a local adapter
@@ -352,11 +356,10 @@ impl ContextAdapter {
         if let Some(adapter) = adapter {
             // Apply the conversion
             adapter.convert(data).await.map_err(|e| {
-                anyhow::anyhow!(ContextAdapterError::ConversionFailed(
-                    adapter_id.to_string(),
-                    e.to_string()
+                anyhow::anyhow!(
+                    ContextAdapterError::ConversionFailed(adapter_id.to_string(), e.to_string())
+                        .to_string(),
                 )
-                .to_string(),)
             })
         } else if let Some(plugin_manager) = &self.plugin_manager {
             // If not found locally, try getting from the plugin manager
@@ -371,17 +374,15 @@ impl ContextAdapter {
 
             // Apply the conversion
             adapter.convert(data).await.map_err(|e| {
-                anyhow::anyhow!(ContextAdapterError::ConversionFailed(
-                    adapter_id.to_string(),
-                    e.to_string()
+                anyhow::anyhow!(
+                    ContextAdapterError::ConversionFailed(adapter_id.to_string(), e.to_string())
+                        .to_string(),
                 )
-                .to_string(),)
             })
         } else {
-            Err(anyhow::anyhow!(ContextAdapterError::AdapterNotFound(
-                adapter_id.to_string()
-            )
-            .to_string(),))
+            Err(anyhow::anyhow!(
+                ContextAdapterError::AdapterNotFound(adapter_id.to_string()).to_string(),
+            ))
         }
     }
 
@@ -398,10 +399,10 @@ impl ContextAdapter {
         };
 
         if !plugins_enabled {
-            return Err(anyhow::anyhow!(ContextAdapterError::OperationFailed(
-                "Plugins are disabled".to_string()
-            )
-            .to_string(),));
+            return Err(anyhow::anyhow!(
+                ContextAdapterError::OperationFailed("Plugins are disabled".to_string())
+                    .to_string(),
+            ));
         }
 
         if let Some(_plugin_manager) = &self.plugin_manager {
@@ -428,10 +429,10 @@ impl ContextAdapter {
             }
             Ok(true)
         } else {
-            Err(anyhow::anyhow!(ContextAdapterError::ValidationFailed(
-                "Invalid schema or data format".to_string()
-            )
-            .to_string(),))
+            Err(anyhow::anyhow!(
+                ContextAdapterError::ValidationFailed("Invalid schema or data format".to_string())
+                    .to_string(),
+            ))
         }
     }
 
@@ -491,10 +492,12 @@ impl ContextAdapter {
         {
             let contexts = self.contexts.read().await;
             if contexts.len() >= max_contexts {
-                return Err(anyhow::anyhow!(ContextAdapterError::OperationFailed(
-                    "Maximum number of contexts reached".to_string(),
-                )
-                .to_string(),));
+                return Err(anyhow::anyhow!(
+                    ContextAdapterError::OperationFailed(
+                        "Maximum number of contexts reached".to_string(),
+                    )
+                    .to_string(),
+                ));
             }
         } // Read lock is dropped here
 
@@ -539,10 +542,9 @@ impl ContextAdapter {
             context.updated_at = Utc::now();
             Ok(())
         } else {
-            Err(anyhow::anyhow!(ContextAdapterError::OperationFailed(
-                "Context not found".to_string()
-            )
-            .to_string(),))
+            Err(anyhow::anyhow!(
+                ContextAdapterError::OperationFailed("Context not found".to_string()).to_string(),
+            ))
         }
     }
 
@@ -556,10 +558,9 @@ impl ContextAdapter {
         if contexts.remove(id).is_some() {
             Ok(())
         } else {
-            Err(anyhow::anyhow!(ContextAdapterError::OperationFailed(
-                "Context not found".to_string()
-            )
-            .to_string(),))
+            Err(anyhow::anyhow!(
+                ContextAdapterError::OperationFailed("Context not found".to_string()).to_string(),
+            ))
         }
     }
 

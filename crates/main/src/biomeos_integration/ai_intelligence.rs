@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # AI Capabilities for biomeOS Integration
@@ -18,205 +18,305 @@ use crate::error::PrimalError;
 /// AI Intelligence for ecosystem intelligence
 #[derive(Debug, Clone)]
 pub struct AiIntelligence {
+    /// Core intelligence engine for analysis.
     pub intelligence_engine: IntelligenceEngine,
+    /// Engine for resource and performance optimization.
     pub optimization_engine: OptimizationEngine,
+    /// Engine for forecasting and anomaly detection.
     pub prediction_engine: PredictionEngine,
+    /// Engine for self-healing and autonomous operations.
     pub automation_engine: AutomationEngine,
+    /// Intelligence for coordinating with other biomes.
     pub federation_intelligence: FederationIntelligence,
+    /// Count of active predictions.
     pub active_predictions: u32,
+    /// Count of active automation tasks.
     pub automation_tasks: u32,
+    /// Timestamp of last optimization run.
     pub last_optimization: Option<DateTime<Utc>>,
 }
 
 /// Core intelligence engine for ecosystem analysis
 #[derive(Debug, Clone)]
 pub struct IntelligenceEngine {
+    /// Model identifiers used for analysis.
     pub analysis_models: Vec<String>,
+    /// Learning rate for model updates.
     pub learning_rate: f64,
+    /// Minimum confidence for predictions.
     pub confidence_threshold: f64,
+    /// Accumulated ecosystem knowledge.
     pub ecosystem_knowledge: EcosystemKnowledge,
 }
 
 /// Optimization engine for resource and performance optimization
 #[derive(Debug, Clone)]
 pub struct OptimizationEngine {
+    /// Strategy identifiers for optimization.
     pub optimization_strategies: Vec<String>,
+    /// Target resource utilization levels.
     pub resource_targets: ResourceTargets,
+    /// Target performance metrics.
     pub performance_targets: PerformanceTargets,
+    /// History of optimization events.
     pub optimization_history: Vec<OptimizationEvent>,
 }
 
 /// Prediction engine for forecasting and anomaly detection
 #[derive(Debug, Clone)]
 pub struct PredictionEngine {
+    /// Model identifiers for predictions.
     pub prediction_models: Vec<String>,
+    /// Currently active predictions by ID.
     pub active_predictions: HashMap<String, Prediction>,
+    /// Current prediction accuracy score.
     pub prediction_accuracy: f64,
+    /// Anomaly detection configuration.
     pub anomaly_detection: AnomalyDetection,
 }
 
 /// Automation engine for self-healing and autonomous operations
 #[derive(Debug, Clone, Default)]
 pub struct AutomationEngine {
+    /// Rules that trigger automation.
     pub automation_rules: Vec<AutomationRule>,
+    /// Currently running automation tasks.
     pub active_automations: HashMap<String, AutomationTask>,
+    /// History of automation events.
     pub automation_history: Vec<AutomationEvent>,
 }
 
 /// Federation intelligence for coordinating with other biomes
 #[derive(Debug, Clone, Default)]
 pub struct FederationIntelligence {
+    /// IDs of connected biomes.
     pub connected_biomes: Vec<String>,
+    /// Intelligence sharing configuration.
     pub intelligence_sharing: IntelligenceSharing,
+    /// Protocols for cross-biome coordination.
     pub coordination_protocols: Vec<CoordinationProtocol>,
 }
 
 /// Ecosystem knowledge base
 #[derive(Debug, Clone, Default)]
 pub struct EcosystemKnowledge {
+    /// Learned patterns by ID.
     pub patterns: HashMap<String, KnowledgePattern>,
+    /// Generated ecosystem insights.
     pub insights: Vec<EcosystemInsight>,
+    /// Accumulated learnings.
     pub learnings: Vec<EcosystemLearning>,
 }
 
 /// Resource optimization targets
 #[derive(Debug, Clone, Default)]
 pub struct ResourceTargets {
+    /// Target CPU utilization (0.0–1.0).
     pub cpu_target: f64,
+    /// Target memory utilization (0.0–1.0).
     pub memory_target: f64,
+    /// Target network utilization (0.0–1.0).
     pub network_target: f64,
+    /// Target storage utilization (0.0–1.0).
     pub storage_target: f64,
 }
 
 /// Performance optimization targets
 #[derive(Debug, Clone, Default)]
 pub struct PerformanceTargets {
+    /// Target response time.
     pub response_time_target: Duration,
+    /// Target throughput (requests per second).
     pub throughput_target: f64,
+    /// Target error rate (0.0–1.0).
     pub error_rate_target: f64,
+    /// Target availability (0.0–1.0).
     pub availability_target: f64,
 }
 
 /// Optimization event
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimizationEvent {
+    /// When the optimization occurred.
     pub timestamp: DateTime<Utc>,
+    /// Type of optimization applied.
     pub optimization_type: String,
+    /// Target component or metric.
     pub target: String,
+    /// Value before optimization.
     pub before_value: f64,
+    /// Value after optimization.
     pub after_value: f64,
+    /// Improvement achieved.
     pub improvement: f64,
 }
 
 /// Anomaly detection configuration
 #[derive(Debug, Clone, Default)]
 pub struct AnomalyDetection {
+    /// Model identifiers for detection.
     pub detection_models: Vec<String>,
+    /// Threshold values by metric.
     pub threshold_settings: HashMap<String, f64>,
+    /// Rules for generating alerts.
     pub alert_rules: Vec<AlertRule>,
 }
 
 /// Automation rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationRule {
+    /// Unique rule identifier.
     pub rule_id: String,
+    /// Human-readable rule name.
     pub name: String,
+    /// Condition expression that triggers the rule.
     pub condition: String,
+    /// Action to execute when triggered.
     pub action: String,
+    /// Whether the rule is active.
     pub enabled: bool,
+    /// Priority for rule ordering (higher = first).
     pub priority: u32,
 }
 
 /// Automation task
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationTask {
+    /// Unique task identifier.
     pub task_id: String,
+    /// ID of the rule that triggered this task.
     pub rule_id: String,
+    /// Current task status.
     pub status: String,
+    /// When the task started.
     pub started_at: DateTime<Utc>,
+    /// When the task completed, if finished.
     pub completed_at: Option<DateTime<Utc>>,
+    /// Result or error message.
     pub result: Option<String>,
 }
 
 /// Automation event
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationEvent {
+    /// When the event occurred.
     pub timestamp: DateTime<Utc>,
+    /// Type of automation event.
     pub event_type: String,
+    /// ID of the rule that ran.
     pub rule_id: String,
+    /// Action that was executed.
     pub action: String,
+    /// Result of the action.
     pub result: String,
+    /// How long the action took.
     pub duration: Duration,
 }
 
 /// Intelligence sharing configuration
 #[derive(Debug, Clone, Default)]
 pub struct IntelligenceSharing {
+    /// Whether sharing is enabled.
     pub sharing_enabled: bool,
+    /// Sharing level (e.g., "full", "summary").
     pub sharing_level: String,
+    /// Insight IDs shared with other biomes.
     pub shared_insights: Vec<String>,
+    /// Insight IDs received from other biomes.
     pub received_insights: Vec<String>,
 }
 
 /// Coordination protocol
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoordinationProtocol {
+    /// Unique protocol identifier.
     pub protocol_id: String,
+    /// Protocol name.
     pub name: String,
+    /// Protocol version.
     pub version: String,
+    /// Whether the protocol is active.
     pub enabled: bool,
+    /// Protocol-specific configuration.
     pub configuration: HashMap<String, String>,
 }
 
 /// Knowledge pattern
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KnowledgePattern {
+    /// Unique pattern identifier.
     pub pattern_id: String,
+    /// Pattern name.
     pub name: String,
+    /// Pattern description.
     pub description: String,
+    /// Confidence in this pattern (0.0–1.0).
     pub confidence: f64,
+    /// Number of times the pattern was used.
     pub usage_count: u32,
+    /// When the pattern was last used.
     pub last_used: DateTime<Utc>,
 }
 
 /// Ecosystem insight
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemInsight {
+    /// Unique insight identifier.
     pub insight_id: String,
+    /// Insight title.
     pub title: String,
+    /// Detailed description.
     pub description: String,
+    /// Importance score (0.0–1.0).
     pub importance: f64,
+    /// Whether the insight suggests an action.
     pub actionable: bool,
+    /// When the insight was generated.
     pub generated_at: DateTime<Utc>,
 }
 
 /// Ecosystem learning
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemLearning {
+    /// Unique learning identifier.
     pub learning_id: String,
+    /// Topic of the learning.
     pub topic: String,
+    /// Knowledge content.
     pub knowledge: String,
+    /// Confidence in this learning (0.0–1.0).
     pub confidence: f64,
+    /// When the learning was recorded.
     pub learned_at: DateTime<Utc>,
 }
 
 /// Alert rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlertRule {
+    /// Unique rule identifier.
     pub rule_id: String,
+    /// Rule name.
     pub name: String,
+    /// Condition that triggers the alert.
     pub condition: String,
+    /// Alert severity (e.g., "critical", "warning").
     pub severity: String,
+    /// Whether the rule is active.
     pub enabled: bool,
 }
 
 /// Resource utilization data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceUtilization {
+    /// CPU utilization percentage.
     pub cpu_percent: f64,
+    /// Memory utilization percentage.
     pub memory_percent: f64,
+    /// Network utilization percentage.
     pub network_percent: f64,
+    /// Storage utilization percentage.
     pub storage_percent: f64,
+    /// When the metrics were captured.
     pub timestamp: DateTime<Utc>,
 }
 
@@ -424,31 +524,47 @@ impl AiIntelligence {
 /// Ecosystem analysis result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemAnalysis {
+    /// When the analysis was performed.
     pub timestamp: DateTime<Utc>,
+    /// Overall ecosystem health score (0.0–100.0).
     pub health_score: f64,
+    /// Current resource utilization.
     pub resource_usage: ResourceUtilization,
+    /// Number of active services.
     pub active_services: u32,
+    /// Active alert messages.
     pub alerts: Vec<String>,
+    /// Recommended actions.
     pub recommendations: Vec<String>,
 }
 
 /// Ecosystem report
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemReport {
+    /// When the report was generated.
     pub timestamp: DateTime<Utc>,
+    /// Overall ecosystem health (0.0–100.0).
     pub ecosystem_health: f64,
+    /// Total number of services.
     pub total_services: u32,
+    /// Number of active alerts.
     pub active_alerts: u32,
+    /// Recommended actions.
     pub recommendations: Vec<String>,
+    /// Summary of resource usage.
     pub resource_summary: ResourceSummary,
 }
 
 /// Resource summary
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceSummary {
+    /// CPU utilization (0.0–1.0).
     pub cpu_usage: f64,
+    /// Memory utilization (0.0–1.0).
     pub memory_usage: f64,
+    /// Storage utilization (0.0–1.0).
     pub storage_usage: f64,
+    /// Network utilization (0.0–1.0).
     pub network_usage: f64,
 }
 

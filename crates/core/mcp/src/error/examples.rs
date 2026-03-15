@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Error Context Trait Examples
@@ -77,7 +77,8 @@ pub fn log_error_with_context(error: &dyn ErrorContextTrait) {
 pub mod context_propagation {
     use super::*;
 
-    #[derive(Debug)]
+    /// Example database error type for demonstrating error context propagation.
+    #[derive(Debug, Clone)]
     pub struct DatabaseError {
         message: String,
         severity: ErrorSeverity,
@@ -108,13 +109,9 @@ pub mod context_propagation {
             self.severity = severity;
             self
         }
-
-        fn as_unrecoverable(self) -> Self {
-            // Mark error as unrecoverable
-            self
-        }
     }
 
+    /// Attempts to save data to the database. Returns error for demonstration.
     pub fn save_to_database(data: &str) -> Result<(), DatabaseError> {
         // Simulate database error
         Err(DatabaseError {
@@ -123,6 +120,7 @@ pub mod context_propagation {
         })
     }
 
+    /// Processes a request by saving to database, propagating context on error.
     pub fn process_request(data: &str) -> Result<(), DatabaseError> {
         // Add context as error propagates
         let result = save_to_database(data);
@@ -158,23 +156,24 @@ pub fn handle_error_by_severity(error: &dyn ErrorContextTrait) {
 /// Example: Collecting error statistics
 ///
 /// This shows how to use error context for monitoring and analytics.
+#[derive(Default)]
 pub struct ErrorStats {
+    /// Total number of errors recorded
     pub total_errors: usize,
+    /// Count of errors grouped by severity level
     pub errors_by_severity: HashMap<String, usize>,
+    /// Count of errors grouped by component
     pub errors_by_component: HashMap<String, usize>,
+    /// Number of errors that were recoverable
     pub recoverable_count: usize,
 }
 
 impl ErrorStats {
+    /// Create new empty error stats
     pub fn new() -> Self {
-        Self {
-            total_errors: 0,
-            errors_by_severity: HashMap::new(),
-            errors_by_component: HashMap::new(),
-            recoverable_count: 0,
-        }
+        Self::default()
     }
-
+    /// Record an error for analytics
     pub fn record_error(&mut self, error: &dyn ErrorContextTrait) {
         self.total_errors += 1;
 
@@ -196,6 +195,7 @@ impl ErrorStats {
         }
     }
 
+    /// Returns the percentage of errors that were critical severity.
     pub fn get_critical_rate(&self) -> f64 {
         if self.total_errors == 0 {
             return 0.0;

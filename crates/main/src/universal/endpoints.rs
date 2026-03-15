@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 
@@ -13,16 +13,27 @@ use serde::{Deserialize, Serialize};
 /// Primal endpoint configuration
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrimalEndpoints {
+    /// HTTP endpoint URL
     pub http: Option<String>,
+    /// gRPC endpoint URL
     pub grpc: Option<String>,
+    /// WebSocket endpoint URL
     pub websocket: Option<String>,
+    /// Primary endpoint URL
     pub primary: Option<String>,
+    /// Health check endpoint URL
     pub health: Option<String>,
+    /// Metrics endpoint URL
     pub metrics: Option<String>,
+    /// MCP protocol endpoint URL
     pub mcp: Option<String>,
+    /// AI coordination endpoint URL
     pub ai_coordination: Option<String>,
+    /// Admin endpoint URL
     pub admin: Option<String>,
+    /// Service mesh endpoint URL
     pub service_mesh: Option<String>,
+    /// Custom endpoint name-URL pairs
     pub custom: Vec<(String, String)>,
 }
 
@@ -73,27 +84,44 @@ impl Default for PrimalEndpoints {
 /// Dynamic port information for runtime port allocation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DynamicPortInfo {
+    /// Base port number
     pub port: u16,
+    /// Port that was assigned
     pub assigned_port: u16,
+    /// Current port in use
     pub current_port: u16,
+    /// Optional port range (min, max)
     pub port_range: Option<(u16, u16)>,
+    /// Type of port
     pub port_type: PortType,
+    /// Current port status
     pub status: PortStatus,
+    /// When the port was allocated
     pub allocated_at: DateTime<Utc>,
+    /// When the port was assigned
     pub assigned_at: DateTime<Utc>,
+    /// Optional lease duration
     pub lease_duration: Option<chrono::Duration>,
+    /// When the lease expires
     pub expires_at: Option<DateTime<Utc>>,
+    /// Additional metadata
     pub metadata: std::collections::HashMap<String, String>,
 }
 
 /// Type of network port
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PortType {
+    /// HTTP port (uppercase variant)
     HTTP,
+    /// HTTP port
     Http,
+    /// gRPC port (uppercase variant)
     GRPC,
+    /// gRPC port
     Grpc,
+    /// WebSocket port
     WebSocket,
+    /// Custom port type
     Custom(String),
 }
 
@@ -126,11 +154,11 @@ mod tests {
     #[test]
     #[serial]
     fn test_primal_endpoints_default() {
-        std::env::remove_var("SQUIRREL_HTTP_PORT");
-        std::env::remove_var("SQUIRREL_GRPC_PORT");
-        std::env::remove_var("SQUIRREL_WS_PORT");
-        std::env::remove_var("SQUIRREL_HOST");
-        std::env::remove_var("ENVIRONMENT");
+        unsafe { std::env::remove_var("SQUIRREL_HTTP_PORT") };
+        unsafe { std::env::remove_var("SQUIRREL_GRPC_PORT") };
+        unsafe { std::env::remove_var("SQUIRREL_WS_PORT") };
+        unsafe { std::env::remove_var("SQUIRREL_HOST") };
+        unsafe { std::env::remove_var("ENVIRONMENT") };
 
         let endpoints = PrimalEndpoints::default();
         assert!(endpoints.http.is_some());
@@ -152,16 +180,16 @@ mod tests {
     #[test]
     #[serial]
     fn test_primal_endpoints_env_override() {
-        std::env::set_var("SQUIRREL_HTTP_PORT", "8080");
-        std::env::set_var("SQUIRREL_HOST", "0.0.0.0");
-        std::env::remove_var("ENVIRONMENT");
+        unsafe { std::env::set_var("SQUIRREL_HTTP_PORT", "8080") };
+        unsafe { std::env::set_var("SQUIRREL_HOST", "0.0.0.0") };
+        unsafe { std::env::remove_var("ENVIRONMENT") };
 
         let endpoints = PrimalEndpoints::default();
         let http = endpoints.http.unwrap();
         assert!(http.contains("0.0.0.0:8080"), "got: {http}");
 
-        std::env::remove_var("SQUIRREL_HTTP_PORT");
-        std::env::remove_var("SQUIRREL_HOST");
+        unsafe { std::env::remove_var("SQUIRREL_HTTP_PORT") };
+        unsafe { std::env::remove_var("SQUIRREL_HOST") };
     }
 
     #[test]

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 
@@ -281,10 +281,10 @@ mod tests {
     #[test]
     #[serial]
     fn test_coordinator_new() {
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
-        std::env::remove_var("SECURITY_SOCKET");
-        std::env::remove_var("SECURITY_PORT");
-        std::env::remove_var("SECURITY_AUTHENTICATION_PORT");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
+        unsafe { std::env::remove_var("SECURITY_SOCKET") };
+        unsafe { std::env::remove_var("SECURITY_PORT") };
+        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
 
         let coord = BeardogSecurityCoordinator::new();
         assert!(coord.is_healthy());
@@ -300,8 +300,8 @@ mod tests {
     #[tokio::test]
     #[serial]
     async fn test_discover_security_endpoint_default() {
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
-        std::env::remove_var("SECURITY_AUTHENTICATION_PORT");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
+        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
         let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
             .await
             .expect("discover");
@@ -311,23 +311,23 @@ mod tests {
     #[tokio::test]
     #[serial]
     async fn test_discover_security_endpoint_env() {
-        std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://secure.test");
+        unsafe { std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://secure.test") };
         let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
             .await
             .expect("discover");
         assert_eq!(endpoint, "https://secure.test");
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
     }
 
     #[tokio::test]
     #[serial]
     async fn test_with_capability_discovery() {
-        std::env::set_var("SECURITY_SERVICE_ENDPOINT", "http://test:9999");
+        unsafe { std::env::set_var("SECURITY_SERVICE_ENDPOINT", "http://test:9999") };
         let coord = BeardogSecurityCoordinator::with_capability_discovery()
             .await
             .expect("create");
         assert!(coord.is_healthy());
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
     }
 
     #[test]
@@ -404,9 +404,9 @@ mod tests {
     #[test]
     #[serial]
     fn test_coordinator_new_with_env_endpoint() {
-        std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://prod.security");
+        unsafe { std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://prod.security") };
         let coord = BeardogSecurityCoordinator::new();
         assert!(coord.is_healthy());
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
     }
 }

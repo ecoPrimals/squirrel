@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use chrono::{DateTime, Utc};
@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::{
-    monitoring::MonitoringService, Error, FederationLoadBalancer, FederationResult,
-    FederationStatus, FederationTopology, InstanceStatus, LoadBalanceResult, LoadMetrics, NodeSpec,
-    Result, SquirrelConfig, SquirrelInstance, SwarmManager,
+    Error, FederationLoadBalancer, FederationResult, FederationStatus, FederationTopology,
+    InstanceStatus, LoadBalanceResult, LoadMetrics, NodeSpec, Result, SquirrelConfig,
+    SquirrelInstance, SwarmManager, monitoring::MonitoringService,
 };
 // Removed: use squirrel_mcp_config::get_service_endpoints;
 
@@ -20,11 +20,8 @@ pub struct FederationService {
     config: FederationConfig,
     state: Arc<FederationState>,
     instances: Arc<DashMap<String, SquirrelInstance>>,
-    #[allow(dead_code)]
     federation_topology: Arc<RwLock<FederationTopology>>,
-    #[allow(dead_code)]
     load_balancer: Arc<FederationLoadBalancer>,
-    #[allow(dead_code)]
     monitoring: Arc<MonitoringService>,
     // NOTE: HTTP removed - Use Songbird via Unix sockets for federation HTTP calls
     shutdown_notify: Arc<tokio::sync::Notify>,
@@ -239,7 +236,6 @@ impl FederationService {
     }
 
     /// Find the leader node in the federation
-    #[allow(dead_code)]
     async fn find_leader_node(&self) -> Result<SquirrelInstance> {
         // Simple leader election: use the node with the lowest ID
         // In practice, this would be more sophisticated
@@ -414,10 +410,10 @@ impl FederationService {
 
         // Simulate load metrics with some randomness
         let base_cpu = 0.3 + (self.instances.len() as f64 * 0.1);
-        let _cpu_usage = base_cpu + rng.gen::<f64>() * 0.2;
+        let _cpu_usage = base_cpu + rng.r#gen::<f64>() * 0.2;
 
         let base_memory = 0.2 + (self.instances.len() as f64 * 0.15);
-        let _memory_usage = base_memory + rng.gen::<f64>() * 0.1;
+        let _memory_usage = base_memory + rng.r#gen::<f64>() * 0.1;
 
         let _queue_length = rng.gen_range(0..50);
         let _active_tasks = rng.gen_range(10..200);
@@ -615,7 +611,6 @@ impl FederationService {
     }
 
     /// Get current node endpoint
-    #[allow(dead_code)]
     fn get_node_endpoint(&self) -> String {
         format!(
             "http://{}:{}",
@@ -627,7 +622,6 @@ impl FederationService {
     }
 
     /// Get current node capabilities
-    #[allow(dead_code)]
     fn get_node_capabilities(&self) -> Vec<String> {
         vec![
             "mcp".to_string(),
@@ -812,7 +806,6 @@ impl FederationService {
 }
 
 // Supporting types
-#[allow(dead_code)]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct NodeInfo {
     node_id: String,
@@ -824,7 +817,6 @@ struct NodeInfo {
     metadata: HashMap<String, String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct JoinRequest {
     node_id: String,

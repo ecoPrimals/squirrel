@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Task manager for managing tasks and their lifecycle.
@@ -112,10 +112,10 @@ impl TaskManager {
             let mut context_tasks = self.context_tasks.write().await;
 
             // Remove from old context
-            if let Some(old_context_id) = &existing_task.context_id {
-                if let Some(tasks_set) = context_tasks.get_mut(old_context_id) {
-                    tasks_set.remove(merged_task.id.as_ref());
-                }
+            if let Some(old_context_id) = &existing_task.context_id
+                && let Some(tasks_set) = context_tasks.get_mut(old_context_id)
+            {
+                tasks_set.remove(merged_task.id.as_ref());
             }
 
             // Add to new context
@@ -132,10 +132,10 @@ impl TaskManager {
             let mut agent_tasks = self.agent_tasks.write().await;
 
             // Remove from old agent
-            if let Some(old_agent_id) = &existing_task.agent_id {
-                if let Some(tasks_set) = agent_tasks.get_mut(old_agent_id) {
-                    tasks_set.remove(merged_task.id.as_ref());
-                }
+            if let Some(old_agent_id) = &existing_task.agent_id
+                && let Some(tasks_set) = agent_tasks.get_mut(old_agent_id)
+            {
+                tasks_set.remove(merged_task.id.as_ref());
             }
 
             // Add to new agent
@@ -270,7 +270,7 @@ impl TaskManager {
                     task_id
                 ))
             })
-            .map(|task| task.clone())
+            .cloned()
     }
 
     /// Mark a task as failed.
@@ -340,10 +340,7 @@ impl TaskManager {
         let context_tasks = self.context_tasks.read().await;
         let tasks = self.tasks.read().await;
 
-        let task_ids = context_tasks
-            .get(context_id)
-            .map(|set| set.clone())
-            .unwrap_or_default();
+        let task_ids = context_tasks.get(context_id).cloned().unwrap_or_default();
 
         let result: Vec<Task> = task_ids
             .iter()

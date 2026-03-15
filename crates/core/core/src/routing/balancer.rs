@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Load balancer for MCP task routing
@@ -244,8 +244,10 @@ impl LoadBalancer {
         let final_score =
             (capacity_score * 0.4) + (response_time_score * 0.3) + (performance_score * 0.3);
 
-        debug!("Agent {} adaptive score: capacity={:.2}, response_time={:.2}, performance={:.2}, final={:.2}",
-               agent.id, capacity_score, response_time_score, performance_score, final_score);
+        debug!(
+            "Agent {} adaptive score: capacity={:.2}, response_time={:.2}, performance={:.2}, final={:.2}",
+            agent.id, capacity_score, response_time_score, performance_score, final_score
+        );
 
         final_score
     }

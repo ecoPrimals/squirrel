@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-use crate::{error::ContextError, ContextSnapshot, ContextState};
+use crate::{ContextSnapshot, ContextState, error::ContextError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
@@ -709,10 +709,10 @@ impl SyncManager {
         let mut partitioned_peers = Vec::new();
 
         for (peer_id, last_heartbeat) in &self.peer_heartbeats {
-            if let Ok(elapsed) = now.duration_since(*last_heartbeat) {
-                if elapsed > timeout {
-                    partitioned_peers.push(peer_id.clone());
-                }
+            if let Ok(elapsed) = now.duration_since(*last_heartbeat)
+                && elapsed > timeout
+            {
+                partitioned_peers.push(peer_id.clone());
             }
         }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Web plugin registry module
@@ -117,17 +117,16 @@ impl WebPluginRegistry {
         let mut web_plugins: Vec<Arc<dyn WebPlugin>> = Vec::new();
 
         for plugin in plugins {
-            if let Some(_) = self.try_get_web_plugin(&plugin) {
-                if let Some(_ex_plugin) = plugin
+            if self.try_get_web_plugin(&plugin).is_some()
+                && let Some(_ex_plugin) = plugin
                     .as_any()
                     .downcast_ref::<Box<dyn crate::web::WebPlugin>>()
-                {
-                    // Create a new arc with the same instance
-                    let example_plugin = Arc::new(crate::web::ExampleWebPlugin::new());
-                    web_plugins.push(example_plugin as Arc<dyn WebPlugin>);
-                }
-                // Add other specific types here as needed
+            {
+                // Create a new arc with the same instance
+                let example_plugin = Arc::new(crate::web::ExampleWebPlugin::new());
+                web_plugins.push(example_plugin as Arc<dyn WebPlugin>);
             }
+            // Add other specific types here as needed
         }
 
         web_plugins
@@ -231,15 +230,14 @@ impl WebPluginRegistry {
                     continue;
                 }
 
-                if let Some(route) = routes.get(&endpoint.path) {
-                    if route.matches(path) {
-                        if let Some(params) = route.extract_params(path) {
-                            // Lookup the plugin and create appropriate instance
-                            for plugin in self.get_web_plugins().await {
-                                if plugin.metadata().id == *plugin_id {
-                                    return Ok((plugin, Some(params)));
-                                }
-                            }
+                if let Some(route) = routes.get(&endpoint.path)
+                    && route.matches(path)
+                    && let Some(params) = route.extract_params(path)
+                {
+                    // Lookup the plugin and create appropriate instance
+                    for plugin in self.get_web_plugins().await {
+                        if plugin.metadata().id == *plugin_id {
+                            return Ok((plugin, Some(params)));
                         }
                     }
                 }

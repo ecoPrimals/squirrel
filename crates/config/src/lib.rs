@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -19,7 +19,8 @@
 //! Configuration system for Squirrel MCP
 //!
 //! This crate provides a unified configuration system supporting:
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 //! - Environment variable overrides
 //! - TOML/JSON/YAML file configuration
 //! - Comprehensive defaults and validation
@@ -42,6 +43,8 @@
 //! ```
 
 pub mod constants;
+
+/// Environment-based configuration: variables, environment types, and env-driven config structs.
 pub mod environment;
 
 // Unified configuration system - the single source of truth
@@ -81,9 +84,11 @@ pub use unified::{
 };
 
 // Compatibility aliases for gradual migration (deprecated names → new types)
+/// Legacy alias for `ConfigLoader`; use `ConfigLoader` directly.
 #[deprecated(since = "0.2.0", note = "Use `ConfigLoader` instead")]
 pub type DefaultConfigManager = ConfigLoader;
 
+/// Legacy alias for `SquirrelUnifiedConfig`; use `SquirrelUnifiedConfig` directly.
 #[deprecated(since = "0.2.0", note = "Use `SquirrelUnifiedConfig` instead")]
 pub type Config = SquirrelUnifiedConfig;
 

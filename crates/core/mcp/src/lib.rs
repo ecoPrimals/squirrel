@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -9,7 +9,8 @@
 //! Machine Context Protocol (MCP) Implementation
 //!
 //! This crate provides a complete implementation of the Machine Context Protocol,
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 //! including message types, transport layers, and utility functions.
 
 pub mod constants;
@@ -59,7 +60,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// # Examples
 ///
 /// ```
-/// use squirrel_core_mcp::init;
+/// use squirrel_mcp::init;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     init()?;

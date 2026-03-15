@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 // Backward compatibility: discover_services/DiscoveredService use EcosystemPrimalType for legacy format
 #![allow(deprecated)]
 
 //! Service discovery operations for the ecosystem registry
 
-use super::types::{intern_registry_string, DiscoveredService, ServiceHealthStatus};
+use super::types::{DiscoveredService, ServiceHealthStatus, intern_registry_string};
 use crate::EcosystemPrimalType;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -97,11 +97,11 @@ impl DiscoveryOps {
         }
 
         // 3. Try configuration file
-        if let Ok(config_path) = std::env::var("SQUIRREL_CONFIG") {
-            if let Ok(endpoint) = Self::read_endpoint_from_config(&config_path, primal_type) {
-                tracing::debug!("Using config file {} for {:?}", config_path, primal_type);
-                return endpoint;
-            }
+        if let Ok(config_path) = std::env::var("SQUIRREL_CONFIG")
+            && let Ok(endpoint) = Self::read_endpoint_from_config(&config_path, primal_type)
+        {
+            tracing::debug!("Using config file {} for {:?}", config_path, primal_type);
+            return endpoint;
         }
 
         // 4. Fall back to development defaults (dev environment only)
@@ -518,15 +518,15 @@ mod tests {
     #[serial_test::serial]
     fn test_build_service_endpoint_uses_env_var() {
         // Set environment variable
-        std::env::set_var("SQUIRREL_ENDPOINT", "http://custom.squirrel");
+        unsafe { std::env::set_var("SQUIRREL_ENDPOINT", "http://custom.squirrel") };
         // Clean potential interfering vars
-        std::env::remove_var("SERVICE_DISCOVERY_URL");
+        unsafe { std::env::remove_var("SERVICE_DISCOVERY_URL") };
 
         let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Squirrel);
         assert_eq!(endpoint, "http://custom.squirrel");
 
         // Clean up
-        std::env::remove_var("SQUIRREL_ENDPOINT");
+        unsafe { std::env::remove_var("SQUIRREL_ENDPOINT") };
     }
 
     #[test]
@@ -534,14 +534,14 @@ mod tests {
     #[serial_test::serial]
     fn test_build_service_endpoint_uses_service_discovery() {
         // Set SERVICE_DISCOVERY_URL
-        std::env::set_var("SERVICE_DISCOVERY_URL", "http://discovery.local");
-        std::env::remove_var("SONGBIRD_ENDPOINT"); // Ensure specific endpoint not set
+        unsafe { std::env::set_var("SERVICE_DISCOVERY_URL", "http://discovery.local") };
+        unsafe { std::env::remove_var("SONGBIRD_ENDPOINT") }; // Ensure specific endpoint not set
 
         let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Songbird);
         assert!(endpoint.contains("discovery.local"));
 
         // Clean up
-        std::env::remove_var("SERVICE_DISCOVERY_URL");
+        unsafe { std::env::remove_var("SERVICE_DISCOVERY_URL") };
     }
 
     #[test]
@@ -549,9 +549,9 @@ mod tests {
     #[serial_test::serial]
     fn test_build_service_endpoint_falls_back_to_default() {
         // Ensure no environment variables are set
-        std::env::remove_var("BEARDOG_ENDPOINT");
-        std::env::remove_var("SERVICE_DISCOVERY_URL");
-        std::env::remove_var("SQUIRREL_CONFIG");
+        unsafe { std::env::remove_var("BEARDOG_ENDPOINT") };
+        unsafe { std::env::remove_var("SERVICE_DISCOVERY_URL") };
+        unsafe { std::env::remove_var("SQUIRREL_CONFIG") };
 
         let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::BearDog);
         // In debug mode, should return a localhost endpoint

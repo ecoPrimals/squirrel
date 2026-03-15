@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -10,7 +10,8 @@
 //! This primal follows the universal adapter patterns defined by the ecosystem registry
 //! and implements the `EcosystemServiceRegistration` standard for seamless integration.
 
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![allow(
@@ -31,21 +32,24 @@
 pub mod api;
 pub mod biomeos_integration;
 pub mod capabilities; // NEW - Capability traits (Phase 2)
-                      // capability and capability_registry removed - HTTP-based legacy discovery
+// capability and capability_registry removed - HTTP-based legacy discovery
 pub mod chaos;
 pub mod compute_client;
 pub mod config;
 pub mod discovery; // NEW - Capability-based discovery (Phase 2)
 pub mod ecosystem;
 pub mod error;
+/// Error handling utilities and safe operation wrappers.
 pub mod error_handling;
 pub mod hardware;
 pub mod metrics; // Capability-based metrics and observability
 pub mod monitoring;
 pub mod observability;
+/// Zero-copy and performance optimization utilities.
 pub mod optimization;
 pub mod primal_provider;
 pub mod primal_pulse; // PrimalPulse - AI-powered ecosystem intelligence
+/// Protocol definitions for inter-primal communication.
 pub mod protocol;
 pub mod resource_manager;
 pub mod security;
@@ -80,13 +84,13 @@ pub use compute_client::{
     UniversalComputeClient, UniversalComputeRequest, UniversalComputeResponse,
 };
 pub use ecosystem::{
-    initialize_ecosystem_integration,
     ComponentHealth,
     EcosystemPrimalType,
     EcosystemRegistryEvent,
     // EcosystemRegistryManager removed - HTTP-based registry
     EcosystemServiceRegistration,
     EcosystemStatus,
+    initialize_ecosystem_integration,
 };
 // error_handling::prelude removed - safe_operations deleted
 pub use monitoring::performance::PerformanceTracker;
@@ -117,7 +121,11 @@ pub use ecosystem_api::{
 };
 
 // Convenient type aliases for common patterns
+
+/// Result type for ecosystem operations using `EcosystemError`.
 pub type UniversalResult<T> = Result<T, EcosystemError>;
+
+/// Result type for primal operations using `PrimalError`.
 pub type PrimalResult<T> = Result<T, PrimalError>;
 
 // Core error types (selective re-exports)
@@ -148,7 +156,11 @@ pub use self_healing::SelfHealingManager;
 pub use shutdown::ShutdownManager;
 
 // Version information
+
+/// Package version string from Cargo.toml.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Package name string from Cargo.toml.
 pub const NAME: &str = env!("CARGO_PKG_NAME");
 
 /// Initialize the Squirrel MCP system with comprehensive ecosystem integration
@@ -188,9 +200,13 @@ pub async fn initialize_squirrel_system(
 
 /// Comprehensive Squirrel system with all integrated components
 pub struct SquirrelSystem {
+    /// Manages ecosystem registration and coordination.
     pub ecosystem_manager: EcosystemManager,
+    /// Tracks system health and performance metrics.
     pub monitoring_system: monitoring::MonitoringSystem,
+    /// Handles automatic recovery from component failures.
     pub self_healing_system: SelfHealingManager,
+    /// Coordinates graceful shutdown across components.
     pub shutdown_manager: ShutdownManager,
     #[cfg(feature = "monitoring")]
     pub metrics_collector: std::sync::Arc<MetricsCollector>,
@@ -286,10 +302,15 @@ impl SquirrelSystem {
 /// Comprehensive system status
 #[derive(Debug, Clone)]
 pub struct SquirrelSystemStatus {
+    /// Current ecosystem integration state.
     pub ecosystem_status: ecosystem::EcosystemIntegrationStatus,
+    /// Monitoring system health and metrics.
     pub monitoring_status: monitoring::SystemStatus,
+    /// Per-component health from the self-healing system.
     pub self_healing_status: std::collections::HashMap<String, self_healing::ComponentHealth>,
+    /// Whether a shutdown has been requested.
     pub shutdown_requested: bool,
+    /// Aggregated health score (0–100).
     pub overall_health: f64,
 }
 

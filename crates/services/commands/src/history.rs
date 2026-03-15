@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Command history system for Squirrel
@@ -127,14 +127,14 @@ impl CommandHistory {
             debug!("History file does not exist, creating: {:?}", history_file);
 
             // Create parent directories if they don't exist
-            if let Some(parent) = history_file.parent() {
-                if !parent.exists() {
-                    std::fs::create_dir_all(parent).map_err(|err| {
-                        CommandError::ResourceError(format!(
-                            "Failed to create history directory: {err}"
-                        ))
-                    })?;
-                }
+            if let Some(parent) = history_file.parent()
+                && !parent.exists()
+            {
+                std::fs::create_dir_all(parent).map_err(|err| {
+                    CommandError::ResourceError(format!(
+                        "Failed to create history directory: {err}"
+                    ))
+                })?;
             }
 
             // Create an empty file
@@ -528,7 +528,6 @@ impl CommandHistory {
 
     /// Cleans up old entries if the history size exceeds the maximum limit
     /// This is used internally when adding new entries to maintain size limits
-    #[allow(dead_code)]
     fn cleanup_if_needed(&mut self) -> Result<(), Box<dyn Error>> {
         self.cleanup()?;
         Ok(())

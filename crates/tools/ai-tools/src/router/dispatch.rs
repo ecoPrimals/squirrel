@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Main AI router implementation and request dispatching logic.
@@ -11,10 +11,10 @@ use super::types::{
     CapabilityRegistry, MCPInterface, RemoteAIRequest, RequestContext, RouterConfig, RouterStats,
     TryFlattenStreamExt,
 };
+use crate::Result;
 use crate::common::capability::{AITask, SecurityRequirements, TaskType};
 use crate::common::{AIClient, ChatRequest, ChatResponse, ChatResponseStream};
 use crate::error::Error;
-use crate::Result;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::debug;
@@ -97,13 +97,13 @@ impl AIRouter {
             }
 
             // Try default provider if specified
-            if let Some(default_provider) = &self.config.default_provider {
-                if let Some(provider) = self.registry.get_provider(default_provider) {
-                    debug!("Using default provider: {}", default_provider);
-                    let result = provider.chat(request).await;
-                    self.update_stats(default_provider, start_time, result.is_ok());
-                    return result;
-                }
+            if let Some(default_provider) = &self.config.default_provider
+                && let Some(provider) = self.registry.get_provider(default_provider)
+            {
+                debug!("Using default provider: {}", default_provider);
+                let result = provider.chat(request).await;
+                self.update_stats(default_provider, start_time, result.is_ok());
+                return result;
             }
 
             return Err(Error::Configuration(format!(
@@ -157,13 +157,13 @@ impl AIRouter {
             }
 
             // Try default provider if specified
-            if let Some(default_provider) = &self.config.default_provider {
-                if let Some(provider) = self.registry.get_provider(default_provider) {
-                    debug!("Using default provider: {}", default_provider);
-                    let result = provider.chat_stream(request).await;
-                    self.update_stats(default_provider, start_time, result.is_ok());
-                    return result;
-                }
+            if let Some(default_provider) = &self.config.default_provider
+                && let Some(provider) = self.registry.get_provider(default_provider)
+            {
+                debug!("Using default provider: {}", default_provider);
+                let result = provider.chat_stream(request).await;
+                self.update_stats(default_provider, start_time, result.is_ok());
+                return result;
             }
 
             return Err(Error::Configuration(format!(

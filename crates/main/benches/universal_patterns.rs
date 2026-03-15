@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Patterns Framework Performance Benchmarks
@@ -10,7 +10,7 @@
 //! - Trait implementations and type conversions
 //! - Memory usage and resource management
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::time::Duration;
 use tokio::runtime::Runtime;
 use uuid::Uuid;

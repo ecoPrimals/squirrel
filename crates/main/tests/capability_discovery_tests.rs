@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for capability discovery - env var, error paths, DiscoveryError
 
-use squirrel::capabilities::discovery::{discover_capability, CapabilityProvider, DiscoveryError};
+use squirrel::capabilities::discovery::{CapabilityProvider, DiscoveryError, discover_capability};
 use std::sync::Mutex;
 use tempfile::tempdir;
 
@@ -18,11 +18,11 @@ async fn test_discover_capability_via_env_var() {
     std::fs::write(&socket_path, "").unwrap(); // Create file (socket path)
 
     let env_var = "TEST_CAPABILITY_PROVIDER_SOCKET";
-    std::env::set_var(env_var, socket_path.to_str().unwrap());
+    unsafe { std::env::set_var(env_var, socket_path.to_str().unwrap()) };
 
     let result = discover_capability("test.capability").await;
 
-    std::env::remove_var(env_var);
+    unsafe { std::env::remove_var(env_var) };
 
     assert!(result.is_ok());
     let provider = result.unwrap();
@@ -35,11 +35,11 @@ async fn test_discover_capability_via_env_var() {
 #[tokio::test]
 async fn test_discover_capability_env_var_nonexistent_path() {
     let _guard = CAPABILITY_TEST_LOCK.lock().unwrap();
-    std::env::set_var("FAKE_CAP_PROVIDER_SOCKET", "/nonexistent/path/socket.sock");
+    unsafe { std::env::set_var("FAKE_CAP_PROVIDER_SOCKET", "/nonexistent/path/socket.sock") };
 
     let result = discover_capability("fake.cap").await;
 
-    std::env::remove_var("FAKE_CAP_PROVIDER_SOCKET");
+    unsafe { std::env::remove_var("FAKE_CAP_PROVIDER_SOCKET") };
 
     // Should not find via env (path doesn't exist), falls through to registry/scan
     // which also fail, so we get CapabilityNotFound
@@ -56,7 +56,7 @@ async fn test_discover_capability_env_var_nonexistent_path() {
 async fn test_discover_capability_not_found() {
     let _guard = CAPABILITY_TEST_LOCK.lock().unwrap();
     // Ensure no env var is set for this capability
-    std::env::remove_var("OBSCURE_CAPABILITY_XYZ_PROVIDER_SOCKET");
+    unsafe { std::env::remove_var("OBSCURE_CAPABILITY_XYZ_PROVIDER_SOCKET") };
 
     let result = discover_capability("obscure.capability.xyz").await;
 

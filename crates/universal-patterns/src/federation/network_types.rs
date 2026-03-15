@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Federation Network Types
@@ -200,10 +200,7 @@ pub struct NetworkStats {
 #[derive(Debug, Clone)]
 pub(super) struct QueuedMessage {
     pub message: NetworkMessage,
-    #[allow(dead_code)]
     pub sender: Uuid,
-    #[allow(dead_code)]
     pub timestamp: DateTime<Utc>,
-    #[allow(dead_code)]
     pub retry_count: u32,
 }

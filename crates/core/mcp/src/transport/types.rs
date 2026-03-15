@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // transport/types.rs
@@ -50,27 +50,39 @@ pub enum ConnectionState {
 /// Represents events that can occur on a transport.
 #[derive(Debug, Clone)]
 pub enum TransportEvent {
+    /// Connection was established
     Connected(TransportMetadata),
-    Disconnected(Option<String>), // Optional reason
-    MessageReceived(Vec<u8>),     // Raw bytes received
+    /// Connection was closed, optionally with a reason
+    Disconnected(Option<String>),
+    /// Raw message bytes were received
+    MessageReceived(Vec<u8>),
+    /// An error occurred
     Error(String),
 }
 
 /// Represents the type of transport.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TransportType {
+    /// TCP socket transport
     Tcp,
+    /// WebSocket transport
     WebSocket,
+    /// Standard I/O transport
     Stdio,
+    /// In-memory transport for testing
     Memory,
+    /// Unknown or unspecified transport type
     Unknown,
 }
 
 /// Transport configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransportConfig {
+    /// Encryption format to use
     pub encryption: EncryptionFormat,
+    /// Connection timeout in milliseconds
     pub timeout_ms: u64,
+    /// Maximum allowed message size in bytes
     pub max_message_size: usize,
 }
 
@@ -87,17 +99,24 @@ impl Default for TransportConfig {
 /// Transport message wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransportMessage {
+    /// Unique message identifier
     pub id: String,
+    /// Raw message payload
     pub payload: Vec<u8>,
+    /// Message metadata
     pub metadata: TransportMessageMetadata,
 }
 
 /// Transport message metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransportMessageMetadata {
+    /// MIME content type of the message
     pub content_type: String,
+    /// Character encoding, if applicable
     pub encoding: Option<String>,
+    /// Compression format, if applicable
     pub compression: Option<String>,
+    /// Additional headers
     pub headers: HashMap<String, String>,
 }
 

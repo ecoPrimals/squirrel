@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -19,8 +19,11 @@ use crate::protocol::types::SessionId;
 /// Session configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionConfig {
+    /// Session idle timeout before expiration
     pub timeout: std::time::Duration,
+    /// Maximum number of concurrent sessions allowed
     pub max_connections: u32,
+    /// Whether to enable session activity logging
     pub enable_logging: bool,
 }
 
@@ -74,10 +77,15 @@ impl Default for SessionConfig {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionMetadata {
+    /// Unique identifier for the session
     pub session_id: SessionId,
+    /// UTC timestamp when session was created
     pub created_at: DateTime<Utc>,
+    /// UTC timestamp of last session activity
     pub last_activity: DateTime<Utc>,
+    /// Optional information about the client
     pub client_info: Option<String>,
+    /// List of capabilities supported by the session
     pub capabilities: Vec<String>,
 }
 
@@ -176,8 +184,11 @@ pub enum SessionState {
 /// ```
 #[derive(Debug, Clone)]
 pub struct Session {
+    /// Session metadata including ID, timestamps, and capabilities
     pub metadata: SessionMetadata,
+    /// Current lifecycle state of the session
     pub state: SessionState,
+    /// Key-value storage for session-specific data
     pub data: HashMap<String, serde_json::Value>,
 }
 
@@ -206,6 +217,7 @@ impl SessionManagerImpl {
         }
     }
 
+    /// Creates a new session with optional client information.
     pub async fn create_session(
         &self,
         client_info: Option<String>,
@@ -230,6 +242,7 @@ impl SessionManagerImpl {
         Ok(session_id)
     }
 
+    /// Retrieves a session by ID if it exists.
     pub async fn get_session(&self, session_id: &str) -> Result<Option<Arc<Session>>, PrimalError> {
         Ok(self
             .sessions
@@ -237,6 +250,7 @@ impl SessionManagerImpl {
             .map(|entry| entry.value().clone()))
     }
 
+    /// Retrieves metadata for a session without loading full session data.
     pub async fn get_session_metadata(
         &self,
         session_id: &str,
@@ -247,6 +261,7 @@ impl SessionManagerImpl {
             .ok_or_else(|| PrimalError::NotFoundError(format!("Session not found: {session_id}")))
     }
 
+    /// Updates session data, merging with existing data and refreshing last activity.
     pub async fn update_session(
         &self,
         session_id: &str,
@@ -273,6 +288,7 @@ impl SessionManagerImpl {
         Ok(())
     }
 
+    /// Terminates a session, transitioning it to the Terminated state.
     pub async fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError> {
         if let Some(mut session_entry) = self.sessions.get_mut(session_id) {
             // Create a new terminated session
@@ -289,6 +305,7 @@ impl SessionManagerImpl {
         Ok(())
     }
 
+    /// Removes expired sessions and returns the count of removed sessions.
     pub async fn cleanup_expired_sessions(&self) -> Result<u32, PrimalError> {
         let now = Utc::now();
         let timeout = chrono::Duration::from_std(self.config.timeout)
@@ -308,6 +325,7 @@ impl SessionManagerImpl {
         Ok(removed_count)
     }
 
+    /// Returns the number of sessions currently in the manager.
     pub async fn get_active_session_count(&self) -> u32 {
         self.sessions.len() as u32
     }
@@ -319,16 +337,20 @@ impl SessionManagerImpl {
 /// in `primal_provider/core.rs`. Native async traits are not compatible with trait objects.
 #[async_trait]
 pub trait SessionManager: Send + Sync {
+    /// Creates a new session and returns its ID.
     async fn create_session(&self, client_info: Option<String>) -> Result<String, PrimalError>;
 
+    /// Retrieves metadata for a session by ID.
     async fn get_session_metadata(&self, session_id: &str) -> Result<SessionMetadata, PrimalError>;
 
+    /// Updates session data, merging with existing data.
     async fn update_session_data(
         &self,
         session_id: &str,
         data: HashMap<String, serde_json::Value>,
     ) -> Result<(), PrimalError>;
 
+    /// Terminates a session by ID.
     async fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError>;
 }
 
@@ -624,10 +646,12 @@ mod tests {
         assert_eq!(session.metadata.session_id, session_id);
         assert_eq!(session.metadata.client_info, client_info);
         assert!(session.metadata.capabilities.contains(&"mcp".to_string()));
-        assert!(session
-            .metadata
-            .capabilities
-            .contains(&"ai_intelligence".to_string()));
+        assert!(
+            session
+                .metadata
+                .capabilities
+                .contains(&"ai_intelligence".to_string())
+        );
         assert!(matches!(session.state, SessionState::Active));
 
         // Verify timestamps

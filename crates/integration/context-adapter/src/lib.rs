@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context adapter for Squirrel
 //!
 //! This crate provides adapters for interfacing with the context subsystem,
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
 #![allow(clippy::missing_const_for_fn, clippy::significant_drop_tightening)]
 //! including context management, persistence, and synchronization.
 //!

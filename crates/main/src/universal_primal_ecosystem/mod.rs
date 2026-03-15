@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 
@@ -26,7 +26,7 @@ pub use types::*;
 // Re-export DiscoveredPrimal for backward compatibility
 pub use universal_patterns::registry::DiscoveredPrimal;
 
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -99,14 +99,14 @@ impl UniversalPrimalEcosystem {
             metadata: HashMap::new(),
         };
 
-        if let Ok(matches) = self.find_services_by_capability(&capability_request).await {
-            if let Some(best_match) = matches.first() {
-                self.service_mesh_endpoint = Some(best_match.service.endpoint.clone());
-                info!(
-                    "Discovered service mesh at: {}",
-                    best_match.service.endpoint
-                );
-            }
+        if let Ok(matches) = self.find_services_by_capability(&capability_request).await
+            && let Some(best_match) = matches.first()
+        {
+            self.service_mesh_endpoint = Some(best_match.service.endpoint.clone());
+            info!(
+                "Discovered service mesh at: {}",
+                best_match.service.endpoint
+            );
         }
 
         Ok(())

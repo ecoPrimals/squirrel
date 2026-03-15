@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Rule repository for managing rules
@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 use super::directory::RuleDirectoryManager;
 use super::error::{Result, RuleError};
 use super::models::Rule;
-use super::parser::{rule_to_mdc, RuleParser};
+use super::parser::{RuleParser, rule_to_mdc};
 
 /// Rule repository for managing rules
 #[derive(Debug)]
@@ -298,10 +298,10 @@ impl RuleRepository {
         }
 
         // Prefix wildcard: *suffix
-        if pattern.starts_with("*") {
-            if let Some(suffix) = pattern.strip_prefix("*") {
-                return input.ends_with(suffix);
-            }
+        if pattern.starts_with("*")
+            && let Some(suffix) = pattern.strip_prefix("*")
+        {
+            return input.ends_with(suffix);
         }
 
         // Default: exact match

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use crate::commands::registry::CommandRegistry;
@@ -72,8 +72,8 @@ impl ExamplePlugin {
         }
     }
 
-    /// Handle state transition
-    #[allow(dead_code)] // State machine infrastructure for plugin lifecycle
+    /// Handle state transition (reserved for future state-machine validation)
+    #[allow(dead_code)]
     fn transition_to(&mut self, new_state: PluginState) -> Result<(), PluginError> {
         if !PluginState::is_valid_transition(self.state, new_state) {
             return Err(PluginError::ValidationError(format!(

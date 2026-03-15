@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal AI Adapter - Capability-Based Discovery
@@ -285,11 +285,7 @@ impl AiProviderAdapter for UniversalAiAdapter {
     fn avg_latency_ms(&self) -> u64 {
         // Local primals are fast, estimate 100ms
         // External would be slower, estimate 2000ms
-        if self.is_local() {
-            100
-        } else {
-            2000
-        }
+        if self.is_local() { 100 } else { 2000 }
     }
 
     fn quality_tier(&self) -> QualityTier {

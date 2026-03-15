@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Metrics collector implementation
@@ -481,7 +481,6 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
-    #[allow(dead_code)]
     async fn get_cpu_usage(&self) -> Result<f64, PrimalError> {
         let mut sys = self.sys_info.write().await;
         sys.refresh_cpu();
@@ -491,7 +490,6 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
-    #[allow(dead_code)]
     async fn get_memory_usage(&self) -> Result<u64, PrimalError> {
         let mut sys = self.sys_info.write().await;
         sys.refresh_memory();
@@ -501,7 +499,6 @@ impl MetricsCollector {
     }
 
     #[cfg(feature = "system-metrics")]
-    #[allow(dead_code)]
     async fn get_memory_percentage(&self) -> Result<f64, PrimalError> {
         let mut sys = self.sys_info.write().await;
         sys.refresh_memory();

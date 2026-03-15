@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Performance monitoring and metrics for zero-copy optimizations
@@ -97,10 +97,15 @@ impl Default for ZeroCopyMetrics {
 /// Snapshot of zero-copy metrics at a point in time
 #[derive(Debug, Clone)]
 pub struct MetricsSnapshot {
+    /// Number of allocations avoided through zero-copy.
     pub allocations_saved: usize,
+    /// Total bytes saved by avoiding allocations.
     pub bytes_saved: u64,
+    /// Number of clone operations avoided.
     pub clone_operations_avoided: usize,
+    /// Number of string interning cache hits.
     pub string_interning_hits: usize,
+    /// Total operations tracked.
     pub total_operations: usize,
 }
 

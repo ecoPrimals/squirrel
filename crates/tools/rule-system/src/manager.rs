@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Rule manager for high-level rule operations
@@ -241,14 +241,14 @@ impl RuleManager {
             }
 
             // Check for indirect circular dependencies
-            if let Some(dep_dependencies) = self.dependency_cache.read().await.get(dep_id) {
-                if dep_dependencies.contains(&rule_id.to_string()) {
-                    return Err(RuleSystemError::ManagerError(
-                        RuleManagerError::DependencyError(format!(
-                            "Circular dependency detected: {rule_id} -> {dep_id} -> {rule_id}"
-                        )),
-                    ));
-                }
+            if let Some(dep_dependencies) = self.dependency_cache.read().await.get(dep_id)
+                && dep_dependencies.contains(&rule_id.to_string())
+            {
+                return Err(RuleSystemError::ManagerError(
+                    RuleManagerError::DependencyError(format!(
+                        "Circular dependency detected: {rule_id} -> {dep_id} -> {rule_id}"
+                    )),
+                ));
             }
         }
 

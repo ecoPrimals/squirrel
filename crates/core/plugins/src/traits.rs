@@ -1,14 +1,14 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin manager trait definitions
 //!
 //! This module defines the core traits that plugin managers must implement.
 
+use crate::Plugin;
 use crate::errors::Result;
 use crate::registry::PluginRegistry;
 use crate::types::PluginStatus;
-use crate::Plugin;
 use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;

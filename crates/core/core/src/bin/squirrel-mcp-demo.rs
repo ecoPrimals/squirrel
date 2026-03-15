@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use serde_json::json;
 use std::collections::HashMap;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 /// Enhanced Squirrel MCP Demo with Manual Selection and Primal Routing
 /// This demonstrates the new configuration-based routing capabilities
@@ -306,21 +306,21 @@ impl EnhancedDemoRouter {
         task: &DemoTask,
     ) -> Result<String, Box<dyn std::error::Error>> {
         // 1. Check for manual override in task metadata
-        if let Some(preferred_agent) = task.metadata.get("preferred_agent") {
-            if self.agents.contains_key(preferred_agent) {
-                return Ok(format!("agent:{preferred_agent}"));
-            }
+        if let Some(preferred_agent) = task.metadata.get("preferred_agent")
+            && self.agents.contains_key(preferred_agent)
+        {
+            return Ok(format!("agent:{preferred_agent}"));
         }
 
-        if let Some(preferred_group) = task.metadata.get("preferred_group") {
-            if self.agent_groups.contains_key(preferred_group) {
-                let group = self
-                    .agent_groups
-                    .get(preferred_group)
-                    .unwrap_or_else(|| unreachable!("contains_key checked above"));
-                if !group.agents.is_empty() {
-                    return Ok(format!("group:{preferred_group}"));
-                }
+        if let Some(preferred_group) = task.metadata.get("preferred_group")
+            && self.agent_groups.contains_key(preferred_group)
+        {
+            let group = self
+                .agent_groups
+                .get(preferred_group)
+                .unwrap_or_else(|| unreachable!("contains_key checked above"));
+            if !group.agents.is_empty() {
+                return Ok(format!("group:{preferred_group}"));
             }
         }
 
@@ -329,10 +329,9 @@ impl EnhancedDemoRouter {
             .metadata
             .get("target_primal")
             .or_else(|| task.metadata.get("target_capability"))
+            && self.primal_endpoints.contains_key(target)
         {
-            if self.primal_endpoints.contains_key(target) {
-                return Ok(format!("primal:{target}"));
-            }
+            return Ok(format!("primal:{target}"));
         }
 
         // 2. Check manual routing rules

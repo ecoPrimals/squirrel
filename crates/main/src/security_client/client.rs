@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Security Client Implementation
 
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -333,7 +333,7 @@ impl UniversalSecurityClient {
                     countermeasures: vec!["Enable multi-factor authentication".to_string()],
                 },
                 security_recommendations: vec![
-                    "Consider implementing additional security layers".to_string()
+                    "Consider implementing additional security layers".to_string(),
                 ],
                 risk_mitigation: vec!["Enable continuous monitoring".to_string()],
                 behavioral_insights: vec!["User behavior appears normal".to_string()],

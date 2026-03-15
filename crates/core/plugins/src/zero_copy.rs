@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Zero-Copy Plugin Types
@@ -58,6 +58,29 @@ pub struct ZeroCopyPluginMetadata {
     pub custom_metadata: Arc<HashMap<String, String>>,
 }
 
+/// Parameters for creating metadata from existing Arc data (zero-copy)
+#[derive(Debug)]
+pub struct FromArcParams {
+    /// Plugin ID
+    pub id: Uuid,
+    /// Plugin name
+    pub name: Arc<str>,
+    /// Plugin version
+    pub version: Arc<str>,
+    /// Plugin description
+    pub description: Arc<str>,
+    /// Plugin author
+    pub author: Arc<str>,
+    /// Plugin dependencies
+    pub dependencies: Arc<Vec<String>>,
+    /// Plugin capabilities
+    pub capabilities: Arc<Vec<String>>,
+    /// Plugin tags
+    pub tags: Arc<Vec<String>>,
+    /// Custom metadata
+    pub custom_metadata: Arc<HashMap<String, String>>,
+}
+
 impl ZeroCopyPluginMetadata {
     /// Create new plugin metadata with owned data
     pub fn new(
@@ -88,34 +111,24 @@ impl ZeroCopyPluginMetadata {
     }
 
     /// Create from existing Arc data (zero-copy)
-    pub fn from_arc(
-        id: Uuid,
-        name: Arc<str>,
-        version: Arc<str>,
-        description: Arc<str>,
-        author: Arc<str>,
-        dependencies: Arc<Vec<String>>,
-        capabilities: Arc<Vec<String>>,
-        tags: Arc<Vec<String>>,
-        custom_metadata: Arc<HashMap<String, String>>,
-    ) -> Self {
+    pub fn from_arc(params: FromArcParams) -> Self {
         Self {
-            id,
-            name,
-            version,
-            description,
-            author,
+            id: params.id,
+            name: params.name,
+            version: params.version,
+            description: params.description,
+            author: params.author,
             plugin_type: PluginType::Builtin,
             entry_point: None,
-            dependencies,
-            capabilities,
+            dependencies: params.dependencies,
+            capabilities: params.capabilities,
             permissions: Vec::new(),
             resources: PluginResources::default(),
-            tags,
+            tags: params.tags,
             config_schema: None,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
-            custom_metadata,
+            custom_metadata: params.custom_metadata,
         }
     }
 
@@ -202,6 +215,7 @@ pub struct ZeroCopyPluginConfig {
     pub security_settings: Arc<SecuritySettings>,
 }
 
+/// Resource limits for plugin execution (memory, CPU, disk, etc.).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceLimits {
     /// Maximum memory usage in MB
@@ -216,6 +230,7 @@ pub struct ResourceLimits {
     pub max_open_files: Option<u32>,
 }
 
+/// Security constraints for plugin sandboxing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecuritySettings {
     /// Whether plugin runs in sandbox
@@ -285,6 +300,7 @@ pub struct ZeroCopyPluginState {
     pub metrics: Arc<PluginMetrics>,
 }
 
+/// Record of a plugin status change.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateTransition {
     /// Previous status
@@ -297,6 +313,7 @@ pub struct StateTransition {
     pub reason: Option<String>,
 }
 
+/// Performance metrics for a plugin instance.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PluginMetrics {
     /// Total number of executions
@@ -530,12 +547,18 @@ pub struct ZeroCopyPluginRegistry {
     stats: Arc<tokio::sync::RwLock<RegistryStats>>,
 }
 
+/// Statistics for the plugin registry.
 #[derive(Debug, Default, Clone)]
 pub struct RegistryStats {
+    /// Total number of registered plugins.
     pub total_plugins: u64,
+    /// Number of plugins currently active.
     pub active_plugins: u64,
+    /// Number of plugins that failed.
     pub failed_plugins: u64,
+    /// Cache hits when looking up plugins.
     pub registry_hits: u64,
+    /// Cache misses when looking up plugins.
     pub registry_misses: u64,
 }
 

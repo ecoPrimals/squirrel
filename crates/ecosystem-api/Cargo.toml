@@ -3,7 +3,7 @@ name = "ecosystem-api"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-license = "AGPL-3.0-or-later"
+license = "AGPL-3.0-only"
 description = "Shared API types and traits for ecoPrimals ecosystem integration"
 
 [lints]

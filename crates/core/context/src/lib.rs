@@ -1,11 +1,12 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context Management Module
 //!
 //! This module provides context management functionality for the application.
 
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,

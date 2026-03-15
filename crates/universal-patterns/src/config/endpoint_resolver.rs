@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability-Based Endpoint Resolution
@@ -248,14 +248,12 @@ impl EndpointResolver {
             .and_then(|s| s.parse::<u32>().ok())
             .unwrap_or_else(|| {
                 // Fallback: try to get UID from XDG_RUNTIME_DIR path
-                if let Ok(xdg_runtime) = std::env::var("XDG_RUNTIME_DIR") {
-                    if let Some(uid_str) = xdg_runtime.strip_prefix("/run/user/") {
-                        if let Some(uid_part) = uid_str.split('/').next() {
-                            if let Ok(uid) = uid_part.parse::<u32>() {
-                                return uid;
-                            }
-                        }
-                    }
+                if let Ok(xdg_runtime) = std::env::var("XDG_RUNTIME_DIR")
+                    && let Some(uid_str) = xdg_runtime.strip_prefix("/run/user/")
+                    && let Some(uid_part) = uid_str.split('/').next()
+                    && let Ok(uid) = uid_part.parse::<u32>()
+                {
+                    return uid;
                 }
                 // Last resort: assume UID 1000 (common for first user)
                 warn!("Could not determine UID, assuming 1000");
@@ -293,12 +291,12 @@ impl EndpointResolver {
     fn try_network(&self, name: &str) -> Option<Endpoint> {
         // Check for explicit port environment variable
         let port_env = format!("{}_PORT", name.to_uppercase());
-        if let Ok(port_str) = std::env::var(&port_env) {
-            if let Ok(port) = port_str.parse::<u16>() {
-                let url = format!("http://localhost:{}", port);
-                debug!("Found network endpoint via {}: {}", port_env, url);
-                return Some(Endpoint::Http(url));
-            }
+        if let Ok(port_str) = std::env::var(&port_env)
+            && let Ok(port) = port_str.parse::<u16>()
+        {
+            let url = format!("http://localhost:{}", port);
+            debug!("Found network endpoint via {}: {}", port_env, url);
+            return Some(Endpoint::Http(url));
         }
 
         // NOTE(phase2): Query service mesh for endpoint - requires mesh integration
@@ -456,7 +454,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_explicit_endpoint_env_var() {
-        std::env::set_var("TEST_PRIMAL_ENDPOINT", "http://localhost:9999");
+        unsafe { std::env::set_var("TEST_PRIMAL_ENDPOINT", "http://localhost:9999") };
 
         let resolver = EndpointResolver::new();
         let endpoint = resolver.resolve("test_primal").await.unwrap();
@@ -466,20 +464,20 @@ mod tests {
             Endpoint::Http("http://localhost:9999".to_string())
         );
 
-        std::env::remove_var("TEST_PRIMAL_ENDPOINT");
+        unsafe { std::env::remove_var("TEST_PRIMAL_ENDPOINT") };
     }
 
     #[tokio::test]
     async fn test_cache() {
         let resolver = EndpointResolver::new();
 
-        std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:7777");
+        unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:7777") };
 
         // First resolution - should cache
         let endpoint1 = resolver.resolve("cache_test").await.unwrap();
 
         // Change environment (cache should return old value)
-        std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:8888");
+        unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:8888") };
         let endpoint2 = resolver.resolve("cache_test").await.unwrap();
 
         assert_eq!(endpoint1, endpoint2);
@@ -494,7 +492,7 @@ mod tests {
             Endpoint::Http("http://localhost:8888".to_string())
         );
 
-        std::env::remove_var("CACHE_TEST_ENDPOINT");
+        unsafe { std::env::remove_var("CACHE_TEST_ENDPOINT") };
     }
 
     #[tokio::test]

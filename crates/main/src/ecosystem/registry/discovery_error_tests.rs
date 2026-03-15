@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive error path tests for service discovery
@@ -8,9 +8,9 @@
 
 #[cfg(test)]
 mod error_path_tests {
+    use crate::EcosystemPrimalType;
     use crate::ecosystem::registry::discovery::DiscoveryOps;
     use crate::ecosystem::registry::types::DiscoveredService;
-    use crate::EcosystemPrimalType;
     use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::RwLock;

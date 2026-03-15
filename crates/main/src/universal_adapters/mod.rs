@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Primal Adapters for Squirrel AI Coordinator
@@ -63,11 +63,17 @@ pub struct UniversalServiceRegistration {
 /// Service metadata with open categorization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceMetadata {
+    /// Service display name
     pub name: String,
+    /// Service category for discovery
     pub category: ServiceCategory,
+    /// Semantic version string
     pub version: String,
+    /// Human-readable description
     pub description: String,
+    /// Maintainer identifier
     pub maintainer: String,
+    /// Supported protocol names
     pub protocols: Vec<String>,
 }
 
@@ -75,18 +81,35 @@ pub struct ServiceMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ServiceCategory {
     /// Computational services (`ToadStool`, custom compute)
-    Compute { specialties: Vec<String> },
+    Compute {
+        /// Compute specialty identifiers
+        specialties: Vec<String>,
+    },
     /// Storage services (`NestGate`, custom storage)
-    Storage { types: Vec<String> },
+    Storage {
+        /// Storage type identifiers
+        types: Vec<String>,
+    },
     /// Security services (`BearDog`, custom security)
-    Security { domains: Vec<String> },
+    Security {
+        /// Security domain identifiers
+        domains: Vec<String>,
+    },
     /// Orchestration services (Songbird, custom orchestration)
-    Orchestration { scopes: Vec<String> },
+    Orchestration {
+        /// Orchestration scope identifiers
+        scopes: Vec<String>,
+    },
     /// AI/ML services (AI primals, custom models)
-    Intelligence { modalities: Vec<String> },
+    Intelligence {
+        /// Modality identifiers (e.g., text, vision)
+        modalities: Vec<String>,
+    },
     /// Community-defined custom categories
     Custom {
+        /// Custom category name
         category: String,
+        /// Subcategory identifiers
         subcategories: Vec<String>,
     },
 }
@@ -96,38 +119,56 @@ pub enum ServiceCategory {
 pub enum ServiceCapability {
     /// Security capabilities (BearDog-style)
     Security {
+        /// Security function identifiers
         functions: Vec<String>,
+        /// Compliance standards supported
         compliance: Vec<String>,
+        /// Trust level identifiers
         trust_levels: Vec<String>,
     },
     /// Orchestration capabilities (Songbird-style)
     Coordination {
+        /// Coordination pattern names
         patterns: Vec<String>,
+        /// Consistency model
         consistency: String,
+        /// Fault tolerance strategy
         fault_tolerance: String,
     },
     /// Data management capabilities (NestGate-style)
     DataManagement {
+        /// Supported operations
         operations: Vec<String>,
+        /// Consistency model
         consistency: String,
+        /// Durability guarantee
         durability: String,
     },
     /// Computation capabilities (ToadStool-style)
     Computation {
+        /// Computation type identifiers
         types: Vec<String>,
+        /// Resource requirements
         resources: HashMap<String, serde_json::Value>,
+        /// Execution constraints
         constraints: Vec<String>,
     },
     /// AI capabilities (Squirrel and others)
     ArtificialIntelligence {
+        /// Supported model identifiers
         models: Vec<String>,
+        /// Supported task types
         tasks: Vec<String>,
+        /// Interface types (e.g., MCP, REST)
         interfaces: Vec<String>,
     },
     /// Community extensible capabilities
     Custom {
+        /// Capability domain
         domain: String,
+        /// Capability name
         capability: String,
+        /// Capability parameters
         parameters: HashMap<String, serde_json::Value>,
     },
 }
@@ -135,29 +176,43 @@ pub enum ServiceCapability {
 /// Service endpoint information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceEndpoint {
+    /// Endpoint name or identifier
     pub name: String,
+    /// Full URL for the endpoint
     pub url: String,
+    /// Protocol (e.g., http, grpc)
     pub protocol: String,
+    /// Optional port number
     pub port: Option<u16>,
+    /// Optional path suffix
     pub path: Option<String>,
 }
 
 /// Resource specifications
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceSpec {
+    /// CPU cores available
     pub cpu_cores: Option<u32>,
+    /// Memory in gigabytes
     pub memory_gb: Option<u32>,
+    /// Storage in gigabytes
     pub storage_gb: Option<u64>,
+    /// Network bandwidth in bytes per second
     pub network_bandwidth: Option<u64>,
+    /// Custom resource specifications
     pub custom_resources: HashMap<String, serde_json::Value>,
 }
 
 /// Integration preferences
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntegrationPreferences {
+    /// Preferred protocol names in order
     pub preferred_protocols: Vec<String>,
+    /// Retry policy identifier
     pub retry_policy: String,
+    /// Request timeout in seconds
     pub timeout_seconds: u32,
+    /// Weight for load balancing (higher = more traffic)
     pub load_balancing_weight: u8,
 }
 
@@ -182,38 +237,66 @@ pub trait UniversalServiceProvider: Send + Sync {
 /// Universal request format
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UniversalRequest {
+    /// Unique request identifier
     pub request_id: String,
+    /// Operation name to invoke
     pub operation: String,
+    /// Operation parameters
     pub parameters: HashMap<String, serde_json::Value>,
+    /// Request context for propagation
     pub context: HashMap<String, serde_json::Value>,
+    /// Requester identifier
     pub requester: String,
+    /// Request timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 /// Universal response format
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UniversalResponse {
+    /// Request ID for correlation
     pub request_id: String,
+    /// Response status
     pub status: ResponseStatus,
+    /// Response payload data
     pub data: serde_json::Value,
+    /// Response metadata
     pub metadata: HashMap<String, serde_json::Value>,
+    /// Processing time in milliseconds
     pub processing_time_ms: u64,
+    /// Response timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 /// Response status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ResponseStatus {
+    /// Request completed successfully
     Success,
-    Error { code: String, message: String },
-    Partial { completed: usize, total: usize },
+    /// Request failed with error
+    Error {
+        /// Error code
+        code: String,
+        /// Error message
+        message: String,
+    },
+    /// Partial completion (e.g., streaming)
+    Partial {
+        /// Number of items completed
+        completed: usize,
+        /// Total items expected
+        total: usize,
+    },
 }
 
 /// Service health status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceHealth {
+    /// Whether the service is healthy
     pub healthy: bool,
+    /// Optional status message
     pub message: Option<String>,
+    /// Health metrics
     pub metrics: HashMap<String, serde_json::Value>,
 }
 

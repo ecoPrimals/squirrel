@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Configuration Validation Unit Tests
@@ -77,7 +77,7 @@ fn test_validate_url_invalid() {
 
 #[test]
 fn test_env_override_port() {
-    env::set_var("SQUIRREL_HTTP_PORT", "9090");
+    unsafe { env::set_var("SQUIRREL_HTTP_PORT", "9090") };
     
     let port = env::var("SQUIRREL_HTTP_PORT")
         .ok()
@@ -86,12 +86,12 @@ fn test_env_override_port() {
     
     assert_eq!(port, 9090);
     
-    env::remove_var("SQUIRREL_HTTP_PORT");
+    unsafe { env::remove_var("SQUIRREL_HTTP_PORT") };
 }
 
 #[test]
 fn test_env_fallback_default() {
-    env::remove_var("SQUIRREL_HTTP_PORT");
+    unsafe { env::remove_var("SQUIRREL_HTTP_PORT") };
     
     let port = env::var("SQUIRREL_HTTP_PORT")
         .ok()
@@ -103,14 +103,14 @@ fn test_env_fallback_default() {
 
 #[test]
 fn test_env_log_level() {
-    env::set_var("SQUIRREL_LOG_LEVEL", "debug");
+    unsafe { env::set_var("SQUIRREL_LOG_LEVEL", "debug") };
     
     let log_level = env::var("SQUIRREL_LOG_LEVEL")
         .unwrap_or_else(|_| "info".to_string());
     
     assert_eq!(log_level, "debug");
     
-    env::remove_var("SQUIRREL_LOG_LEVEL");
+    unsafe { env::remove_var("SQUIRREL_LOG_LEVEL") };
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -119,7 +119,7 @@ fn test_env_log_level() {
 
 #[test]
 fn test_config_precedence_env_over_default() {
-    env::set_var("SQUIRREL_HTTP_PORT", "7070");
+    unsafe { env::set_var("SQUIRREL_HTTP_PORT", "7070") };
     
     // In a real scenario, config loader would use env var over default
     let from_env = env::var("SQUIRREL_HTTP_PORT")
@@ -130,7 +130,7 @@ fn test_config_precedence_env_over_default() {
     
     assert_eq!(final_port, 7070);
     
-    env::remove_var("SQUIRREL_HTTP_PORT");
+    unsafe { env::remove_var("SQUIRREL_HTTP_PORT") };
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn test_config_multiple_environments() {
     let dev_log_level = "debug";
     let prod_log_level = "warn";
     
-    env::set_var("SQUIRREL_ENV", "development");
+    unsafe { env::set_var("SQUIRREL_ENV", "development") };
     let env_type = env::var("SQUIRREL_ENV").unwrap_or_else(|_| "production".to_string());
     
     let log_level = if env_type == "development" {
@@ -150,7 +150,7 @@ fn test_config_multiple_environments() {
     
     assert_eq!(log_level, "debug");
     
-    env::remove_var("SQUIRREL_ENV");
+    unsafe { env::remove_var("SQUIRREL_ENV") };
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -243,7 +243,7 @@ async fn test_config_concurrent_access() {
 async fn test_env_concurrent_reads() {
     use tokio::task;
     
-    env::set_var("TEST_CONCURRENT", "value");
+    unsafe { env::set_var("TEST_CONCURRENT", "value") };
     
     let mut handles = vec![];
     
@@ -265,6 +265,6 @@ async fn test_env_concurrent_reads() {
         assert_eq!(result, "value");
     }
     
-    env::remove_var("TEST_CONCURRENT");
+    unsafe { env::remove_var("TEST_CONCURRENT") };
 }
 

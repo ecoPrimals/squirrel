@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Model parameters for AI chat interfaces
@@ -33,9 +33,13 @@ pub struct ModelParameters {
 /// Tool choice options
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ToolChoice {
+    /// Let the model decide whether to use tools.
     Auto,
+    /// Do not use any tools.
     None,
+    /// Force the model to use a tool.
     Required,
+    /// Use a specific tool by name.
     Specific(String),
 }
 

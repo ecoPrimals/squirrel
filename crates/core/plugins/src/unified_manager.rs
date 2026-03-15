@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Unified Plugin Manager
@@ -73,7 +73,7 @@ pub struct PluginSecurityManager;
 ///
 /// Minimal struct for compilation. Reserved for plugin testing infrastructure.
 /// Full plugin behavior will be implemented when the unified system is built.
-#[allow(dead_code)] // Reserved for plugin testing infrastructure
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct PlaceholderPlugin;
 
@@ -81,7 +81,7 @@ impl PlaceholderPlugin {
     /// Create a new placeholder plugin.
     ///
     /// Stub constructor; returns an empty placeholder. Reserved for plugin testing.
-    #[allow(dead_code)] // Reserved for plugin testing infrastructure
+    #[allow(dead_code)]
     pub fn new(_name: String) -> Self {
         Self
     }

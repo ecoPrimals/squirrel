@@ -1,11 +1,12 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(clippy::missing_docs_in_private_items)]
 //! Squirrel Authentication & Security System
 //!
 //! Modern authentication system leveraging capability-based discovery and ecosystem integration.
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 //! This completely replaces the severely outdated legacy auth code with a clean, modern architecture.
 //!
 //! ## TRUE ecoBin Architecture (v1.3.0) via Capability Discovery
@@ -71,7 +72,7 @@ pub mod security_provider_client;
 #[cfg(feature = "delegated-jwt")]
 pub mod ecosystem_jwt;
 
-// DEPRECATED: Backward compatibility aliases (use security_provider_client/ecosystem_jwt)
+/// Deprecated alias for security provider client (use `security_provider_client` instead).
 #[deprecated(
     since = "0.1.0",
     note = "Use security_provider_client instead. Auth discovers security provider via capability, not by name."
@@ -81,6 +82,7 @@ pub mod beardog_client {
     pub use super::security_provider_client::*;
 }
 
+/// Deprecated alias for ecosystem JWT (use `ecosystem_jwt` instead).
 #[deprecated(
     since = "0.1.0",
     note = "Use ecosystem_jwt instead. JWT uses capability-discovered crypto provider."

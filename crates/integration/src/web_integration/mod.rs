@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Web Integration Framework
@@ -190,8 +190,10 @@ impl Default for McpBridgeConfig {
     }
 }
 
+/// Registry of registered services for discovery and health monitoring.
 #[derive(Debug, Clone)]
 pub struct ServiceRegistry {
+    /// Map of service ID to service info.
     pub services: Arc<RwLock<HashMap<String, ServiceInfo>>>,
 }
 
@@ -202,6 +204,7 @@ impl Default for ServiceRegistry {
 }
 
 impl ServiceRegistry {
+    /// Creates a new empty service registry.
     pub fn new() -> Self {
         Self {
             services: Arc::new(RwLock::new(HashMap::new())),
@@ -209,12 +212,18 @@ impl ServiceRegistry {
     }
 }
 
+/// Information about a registered service.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceInfo {
+    /// Unique service identifier.
     pub id: String,
+    /// Human-readable service name.
     pub name: String,
+    /// Service version.
     pub version: String,
+    /// Current health status.
     pub health_status: String,
+    /// Service endpoint URL.
     pub endpoint: String,
 }
 
@@ -311,14 +320,19 @@ pub type WebIntegrationResult<T> = Result<T, WebIntegrationError>;
 /// Error types for web integration
 #[derive(Debug, thiserror::Error)]
 pub enum WebIntegrationError {
+    /// Configuration validation or loading failed.
     #[error("Configuration error: {0}")]
     Config(String),
+    /// A web integration service failed.
     #[error("Service error: {0}")]
     Service(String),
+    /// Network or connectivity failure.
     #[error("Network error: {0}")]
     Network(String),
+    /// Authentication or authorization failed.
     #[error("Authentication error: {0}")]
     Auth(String),
+    /// Unexpected internal error.
     #[error("Internal error: {0}")]
     Internal(String),
 }

@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Conversion functions between Task and JSON-RPC types.
 //!
-//! Uses chrono::DateTime<Utc> directly for timestamps.
+//! Uses `chrono::DateTime<Utc>` directly for timestamps.
 
 use chrono::Utc;
 use std::sync::Arc;

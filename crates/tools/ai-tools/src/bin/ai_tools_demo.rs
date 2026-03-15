@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(
@@ -18,11 +18,12 @@
 
 use clap::{Parser, Subcommand};
 use squirrel_ai_tools::{
+    Result,
     common::capability::{AITask, SecurityLevel, SecurityRequirements, TaskType},
     common::{ChatMessage, ChatRequest, MessageRole, ModelParameters},
     dispatch::{DispatcherBuilder, MultiModelDispatcher},
     router::RoutingStrategy,
-    workflows, Result,
+    workflows,
 };
 use std::collections::HashMap;
 use tracing::{info, warn};
@@ -263,11 +264,12 @@ async fn test_multi_model_workflow(
             create_text_generation_task(false),
             Some("llama3-8b".to_string()),
         ),
-
         // Complex analysis (prefer powerful API model)
         (
             create_chat_request(
-                format!("Provide a detailed analysis of the implications and potential solutions for: {base_prompt}"),
+                format!(
+                    "Provide a detailed analysis of the implications and potential solutions for: {base_prompt}"
+                ),
                 None,
             ),
             AITask {
@@ -278,7 +280,6 @@ async fn test_multi_model_workflow(
             },
             Some("gpt-4".to_string()),
         ),
-
         // Sensitive data processing (prefer local model)
         (
             create_chat_request(
@@ -374,7 +375,9 @@ async fn test_local_models(dispatcher: &MultiModelDispatcher) -> Result<()> {
             warn!("Local model test failed: {}", e);
             println!("\n=== Local Model Test ===");
             println!("Local models may not be available. Error: {e}");
-            println!("To use local models, ensure a local AI server is running (Ollama, llama.cpp, vLLM, etc.).");
+            println!(
+                "To use local models, ensure a local AI server is running (Ollama, llama.cpp, vLLM, etc.)."
+            );
             println!("========================\n");
         }
     }

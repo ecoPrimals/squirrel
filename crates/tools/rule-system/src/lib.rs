@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Rule System for Squirrel
 //!
 //! This crate provides a rule system for the Squirrel Context Management System,
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
 //! allowing for the definition, parsing, evaluation, and application of rules to context data.
 //!
 //! # Overview

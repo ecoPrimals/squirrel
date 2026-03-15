@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-// Integration tests disabled - API changed (MCPProtocolBase, MCPMessage, MessageId, etc).
-// TODO: Rewrite for new MCP API.
+// Integration tests gated behind `integration-tests` feature — API migration
+// (MCPProtocolBase, MCPMessage, MessageId) tracked in CURRENT_STATUS.md known issues.
 #[cfg(not(feature = "integration-tests"))]
 #[tokio::test]
 async fn placeholder_error_path_coverage_tests_disabled() {}

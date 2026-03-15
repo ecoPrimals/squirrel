@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal AI Provider Demo
@@ -191,10 +191,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Example of how a hypothetical new community primal would integrate
 pub fn example_community_primal_integration() {
     // A new "Dolphin" primal emerges from the community with specialized math capabilities
-    std::env::set_var("CAPABILITY_MATHEMATICAL_ANALYSIS_1_ENDPOINT", "http://localhost:9000");
-    std::env::set_var("CAPABILITY_MATHEMATICAL_ANALYSIS_1_FORMAT", "openai");
-    std::env::set_var("CAPABILITY_MATHEMATICAL_ANALYSIS_1_AUTH", "none");
-    std::env::set_var("CAPABILITY_MATHEMATICAL_ANALYSIS_1_COST", "0.0");
+    unsafe { std::env::set_var("CAPABILITY_MATHEMATICAL_ANALYSIS_1_ENDPOINT", "http://localhost:9000") };
+    unsafe { std::env::set_var("CAPABILITY_MATHEMATICAL_ANALYSIS_1_FORMAT", "openai") };
+    unsafe { std::env::set_var("CAPABILITY_MATHEMATICAL_ANALYSIS_1_AUTH", "none") };
+    unsafe { std::env::set_var("CAPABILITY_MATHEMATICAL_ANALYSIS_1_COST", "0.0") };
     
     // Squirrel's universal provider will discover this automatically!
     // No code changes needed in Squirrel itself.
@@ -204,10 +204,10 @@ pub fn example_community_primal_integration() {
 /// Example of how Toadstool compute capabilities would be discovered
 pub fn example_toadstool_integration() {
     // Toadstool announces its compute capabilities for hosting AI models
-    std::env::set_var("CAPABILITY_MODEL_HOSTING_1_ENDPOINT", "http://localhost:8080");
-    std::env::set_var("CAPABILITY_MODEL_HOSTING_1_FORMAT", "custom");
-    std::env::set_var("CAPABILITY_MODEL_HOSTING_1_AUTH", "none");
-    std::env::set_var("CAPABILITY_MODEL_HOSTING_1_COST", "0.0");
+    unsafe { std::env::set_var("CAPABILITY_MODEL_HOSTING_1_ENDPOINT", "http://localhost:8080") };
+    unsafe { std::env::set_var("CAPABILITY_MODEL_HOSTING_1_FORMAT", "custom") };
+    unsafe { std::env::set_var("CAPABILITY_MODEL_HOSTING_1_AUTH", "none") };
+    unsafe { std::env::set_var("CAPABILITY_MODEL_HOSTING_1_COST", "0.0") };
     
     // The universal provider can deploy models to Toadstool automatically
     info!("🍄 Toadstool compute integration works through capabilities!");
@@ -216,22 +216,22 @@ pub fn example_toadstool_integration() {
 /// Example of how any AI provider integrates without hardcoding
 pub fn example_arbitrary_ai_provider() {
     // Someone runs a local llama.cpp instance
-    std::env::set_var("CAPABILITY_LOCAL_INFERENCE_1_ENDPOINT", "http://localhost:8080");
-    std::env::set_var("CAPABILITY_LOCAL_INFERENCE_1_FORMAT", "openai");  
-    std::env::set_var("CAPABILITY_LOCAL_INFERENCE_1_AUTH", "none");
-    std::env::set_var("CAPABILITY_LOCAL_INFERENCE_1_COST", "0.0");
+    unsafe { std::env::set_var("CAPABILITY_LOCAL_INFERENCE_1_ENDPOINT", "http://localhost:8080") };
+    unsafe { std::env::set_var("CAPABILITY_LOCAL_INFERENCE_1_FORMAT", "openai") };  
+    unsafe { std::env::set_var("CAPABILITY_LOCAL_INFERENCE_1_AUTH", "none") };
+    unsafe { std::env::set_var("CAPABILITY_LOCAL_INFERENCE_1_COST", "0.0") };
     
     // Someone runs a HuggingFace model via PyO3
-    std::env::set_var("CAPABILITY_HUGGINGFACE_INFERENCE_1_ENDPOINT", "http://localhost:8081");
-    std::env::set_var("CAPABILITY_HUGGINGFACE_INFERENCE_1_FORMAT", "openai");
-    std::env::set_var("CAPABILITY_HUGGINGFACE_INFERENCE_1_AUTH", "none"); 
-    std::env::set_var("CAPABILITY_HUGGINGFACE_INFERENCE_1_COST", "0.0");
+    unsafe { std::env::set_var("CAPABILITY_HUGGINGFACE_INFERENCE_1_ENDPOINT", "http://localhost:8081") };
+    unsafe { std::env::set_var("CAPABILITY_HUGGINGFACE_INFERENCE_1_FORMAT", "openai") };
+    unsafe { std::env::set_var("CAPABILITY_HUGGINGFACE_INFERENCE_1_AUTH", "none") }; 
+    unsafe { std::env::set_var("CAPABILITY_HUGGINGFACE_INFERENCE_1_COST", "0.0") };
     
     // Someone uses OpenRouter for cloud models
-    std::env::set_var("CAPABILITY_CLOUD_INFERENCE_1_ENDPOINT", "https://openrouter.ai/api/v1");
-    std::env::set_var("CAPABILITY_CLOUD_INFERENCE_1_FORMAT", "openai");
-    std::env::set_var("CAPABILITY_CLOUD_INFERENCE_1_AUTH", "bearer");
-    std::env::set_var("CAPABILITY_CLOUD_INFERENCE_1_COST", "0.002");
+    unsafe { std::env::set_var("CAPABILITY_CLOUD_INFERENCE_1_ENDPOINT", "https://openrouter.ai/api/v1") };
+    unsafe { std::env::set_var("CAPABILITY_CLOUD_INFERENCE_1_FORMAT", "openai") };
+    unsafe { std::env::set_var("CAPABILITY_CLOUD_INFERENCE_1_AUTH", "bearer") };
+    unsafe { std::env::set_var("CAPABILITY_CLOUD_INFERENCE_1_COST", "0.002") };
     
     info!("🔄 All AI providers integrate through capability announcements!");
 } 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal transport client implementation
@@ -83,11 +83,11 @@ impl UniversalTransport {
     /// (platform constraint) from real permission errors.
     fn is_security_constraint() -> bool {
         // Check SELinux enforcement (Android, Fedora, RHEL)
-        if let Ok(enforce) = std::fs::read_to_string("/sys/fs/selinux/enforce") {
-            if enforce.trim() == "1" {
-                tracing::debug!("SELinux is enforcing (platform constraint detected)");
-                return true;
-            }
+        if let Ok(enforce) = std::fs::read_to_string("/sys/fs/selinux/enforce")
+            && enforce.trim() == "1"
+        {
+            tracing::debug!("SELinux is enforcing (platform constraint detected)");
+            return true;
         }
 
         // Check AppArmor (Ubuntu, Debian)

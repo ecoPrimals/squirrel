@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Additional configuration tests for comprehensive coverage
@@ -59,8 +59,8 @@ async fn test_config_serialization_roundtrip() {
 
 #[tokio::test]
 async fn test_config_from_environment() {
-    std::env::set_var("SQUIRREL_HOST", "192.168.1.1");
-    std::env::set_var("SQUIRREL_PORT", "9090");
+    unsafe { std::env::set_var("SQUIRREL_HOST", "192.168.1.1") };
+    unsafe { std::env::set_var("SQUIRREL_PORT", "9090") };
     
     let config = SquirrelConfig::from_env().unwrap();
     
@@ -68,8 +68,8 @@ async fn test_config_from_environment() {
     assert_eq!(config.server.port, 9090);
     
     // Cleanup
-    std::env::remove_var("SQUIRREL_HOST");
-    std::env::remove_var("SQUIRREL_PORT");
+    unsafe { std::env::remove_var("SQUIRREL_HOST") };
+    unsafe { std::env::remove_var("SQUIRREL_PORT") };
 }
 
 #[tokio::test]

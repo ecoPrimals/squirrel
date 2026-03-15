@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for configuration module
@@ -35,10 +35,10 @@ mod tests {
     #[test]
     fn test_environment_config_loading() {
         // Set test environment
-        env::set_var("TEST_CONFIG_VAR", "test_value");
+        unsafe { env::set_var("TEST_CONFIG_VAR", "test_value") };
         
         // Clean up
-        env::remove_var("TEST_CONFIG_VAR");
+        unsafe { env::remove_var("TEST_CONFIG_VAR") };
     }
 
     #[test]
@@ -96,13 +96,13 @@ mod tests {
         let mut config = Config::default();
         
         // Set environment variable
-        env::set_var("OVERRIDE_TEST", "override_value");
+        unsafe { env::set_var("OVERRIDE_TEST", "override_value") };
         
         // Apply environment overrides
         let result = config.apply_env_overrides();
         
         // Clean up
-        env::remove_var("OVERRIDE_TEST");
+        unsafe { env::remove_var("OVERRIDE_TEST") };
         
         assert!(result.is_ok() || result.is_err());
     }

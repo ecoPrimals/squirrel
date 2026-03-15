@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Federation Network Module
@@ -426,8 +426,7 @@ impl FederationNetwork {
             while *running.read().await {
                 let messages = {
                     let mut q = queue.write().await;
-                    let messages = q.drain(..).collect::<Vec<_>>();
-                    messages
+                    q.drain(..).collect::<Vec<_>>()
                 };
 
                 for queued_msg in messages {

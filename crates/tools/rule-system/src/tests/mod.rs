@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for the rule system
@@ -9,7 +9,7 @@ use tempfile::tempdir;
 
 use crate::directory::{RuleDirectoryConfig, RuleDirectoryManager};
 use crate::models::{Rule, RuleAction, RuleCondition};
-use crate::parser::{parse_rule_content, RuleParser};
+use crate::parser::{RuleParser, parse_rule_content};
 use crate::utils;
 
 mod models_tests {

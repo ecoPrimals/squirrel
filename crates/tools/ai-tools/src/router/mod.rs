@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! AI Router Implementation
@@ -86,9 +86,9 @@ pub mod types;
 
 // Re-export key types and traits from types module
 pub use types::{
-    task_matches_capabilities, CapabilityRegistry, MCPInterface, NodeId, RemoteAIRequest,
-    RemoteAIResponse, RemoteAIResponseStream, RequestContext, RouterConfig, RouterStats,
-    RoutingHint, RoutingStrategy, TryFlattenStreamExt,
+    CapabilityRegistry, MCPInterface, NodeId, RemoteAIRequest, RemoteAIResponse,
+    RemoteAIResponseStream, RequestContext, RouterConfig, RouterStats, RoutingHint,
+    RoutingStrategy, TryFlattenStreamExt, task_matches_capabilities,
 };
 
 // Re-export main router from dispatch module

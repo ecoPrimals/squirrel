@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration loader for loading PrimalConfig from various sources
@@ -32,7 +32,7 @@ impl ConfigLoader {
                 return Err(ConfigError::Invalid(format!(
                     "Unsupported file format: {}",
                     path.display()
-                )))
+                )));
             }
         };
 
@@ -214,7 +214,7 @@ impl ConfigLoader {
                 return Err(ConfigError::Invalid(format!(
                     "Unsupported file format: {}",
                     path.display()
-                )))
+                )));
             }
         };
 
@@ -335,9 +335,9 @@ mod tests {
         // This approach is more practical for testing specific environment variable loading
 
         // Set specific environment variables to test
-        env::set_var("TEST_SQUIRREL_NAME", "env-test-primal");
-        env::set_var("TEST_SQUIRREL_VERSION", "2.0.0");
-        env::set_var("TEST_SQUIRREL_PORT", "9000");
+        unsafe { env::set_var("TEST_SQUIRREL_NAME", "env-test-primal") };
+        unsafe { env::set_var("TEST_SQUIRREL_VERSION", "2.0.0") };
+        unsafe { env::set_var("TEST_SQUIRREL_PORT", "9000") };
 
         // Create a basic config that can be modified with environment values
         let config = ConfigBuilder::new()
@@ -352,9 +352,9 @@ mod tests {
         assert_eq!(config.network.port, 8080);
 
         // Cleanup
-        env::remove_var("TEST_SQUIRREL_NAME");
-        env::remove_var("TEST_SQUIRREL_VERSION");
-        env::remove_var("TEST_SQUIRREL_PORT");
+        unsafe { env::remove_var("TEST_SQUIRREL_NAME") };
+        unsafe { env::remove_var("TEST_SQUIRREL_VERSION") };
+        unsafe { env::remove_var("TEST_SQUIRREL_PORT") };
     }
 
     #[test]

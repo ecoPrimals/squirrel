@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -172,11 +172,17 @@ pub struct EcosystemServiceRegistration {
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EcosystemPrimalType {
+    /// ToadStool primal type.
     ToadStool,
+    /// Songbird primal type.
     Songbird,
+    /// BearDog primal type.
     BearDog,
+    /// NestGate primal type.
     NestGate,
+    /// Squirrel primal type.
     Squirrel,
+    /// BiomeOS primal type.
     BiomeOS,
 }
 

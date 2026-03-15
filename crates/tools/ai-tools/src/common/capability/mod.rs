@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! AI Capability Management
@@ -9,14 +9,19 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+/// Model registry for capability discovery and routing.
 pub mod registry;
 
 /// Security level for AI operations
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SecurityLevel {
+    /// Low security - no special handling required.
     Low,
+    /// Medium security - standard data handling.
     Medium,
+    /// High security - sensitive data, requires encryption.
     High,
+    /// Critical security - maximum protection, audit logging required.
     Critical,
 }
 

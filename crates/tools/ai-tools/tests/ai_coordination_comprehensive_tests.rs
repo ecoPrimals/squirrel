@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive tests for AI coordination and routing
@@ -30,9 +30,8 @@ async fn test_ai_router_with_timeout() {
 }
 
 /*
-// TEMPORARILY DISABLED: API migration needed
-// Old AIRequest and ModelCapability types have been removed
-// Use ChatRequest and AITask instead
+// Gated: legacy AIRequest/ModelCapability API removed.
+// Use ChatRequest and AITask — migration tracked in CURRENT_STATUS.md.
 
 #[tokio::test]
 async fn test_ai_request_creation() {

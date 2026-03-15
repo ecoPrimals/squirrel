@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use serde::{Deserialize, Serialize};
@@ -10,104 +10,148 @@ pub enum ProductionError {
     /// Configuration validation or loading failed
     #[error("Configuration error: {message}")]
     Configuration {
+        /// Human-readable error message
         message: String,
+        /// Configuration field that failed validation, if applicable
         field: Option<String>,
+        /// Expected value or format, if applicable
         expected: Option<String>,
+        /// Actual value received, if applicable
         actual: Option<String>,
     },
 
     /// Network-related errors
     #[error("Network error: {message}")]
     Network {
+        /// Human-readable error message
         message: String,
+        /// Endpoint that failed, if applicable
         endpoint: Option<String>,
+        /// HTTP status code if applicable
         status_code: Option<u16>,
+        /// Suggested retry delay in seconds
         retry_after: Option<u64>,
     },
 
     /// Protocol-level errors
     #[error("Protocol error: {message}")]
     Protocol {
+        /// Human-readable error message
         message: String,
+        /// Protocol version received, if applicable
         protocol_version: Option<String>,
+        /// Expected protocol version, if applicable
         expected_version: Option<String>,
+        /// Whether retry may succeed
         retry_possible: bool,
     },
 
     /// Service unavailable or degraded
     #[error("Service unavailable: {service} - {message}")]
     ServiceUnavailable {
+        /// Name of the unavailable service
         service: String,
+        /// Human-readable error message
         message: String,
+        /// Suggested retry delay in seconds
         retry_after: Option<u64>,
+        /// Whether a fallback service is available
         fallback_available: bool,
     },
 
     /// Database operation errors
     #[error("Database error: {message}")]
     Database {
+        /// Human-readable error message
         message: String,
+        /// Query that failed, if applicable
         query: Option<String>,
+        /// Whether database connection is still available
         connection_available: bool,
+        /// Whether retry may succeed
         retry_possible: bool,
     },
 
     /// Authentication/Authorization errors
     #[error("Authentication error: {message}")]
     Authentication {
+        /// Human-readable error message
         message: String,
+        /// Whether retry with new credentials is allowed
         retry_allowed: bool,
+        /// Permissions required for the operation
         required_permissions: Vec<String>,
     },
 
     /// Resource exhaustion or limits reached
     #[error("Resource exhausted: {resource} - {message}")]
     ResourceExhausted {
+        /// Name of the exhausted resource
         resource: String,
+        /// Human-readable error message
         message: String,
+        /// Current usage level, if known
         current_usage: Option<u64>,
+        /// Resource limit, if known
         limit: Option<u64>,
+        /// Suggested retry delay in seconds
         retry_after: Option<u64>,
     },
 
     /// Lock acquisition or concurrency errors
     #[error("Concurrency error: {message}")]
     Concurrency {
+        /// Human-readable error message
         message: String,
+        /// Resource that could not be acquired
         resource: String,
+        /// Whether retry may succeed
         retry_possible: bool,
     },
 
     /// Serialization/Deserialization errors
     #[error("Serialization error: {message}")]
     Serialization {
+        /// Human-readable error message
         message: String,
+        /// Data type that failed serialization
         data_type: String,
+        /// Whether recovery is possible
         recovery_possible: bool,
     },
 
     /// Timeout errors
     #[error("Timeout error: {message}")]
     Timeout {
+        /// Human-readable error message
         message: String,
+        /// Operation that timed out
         operation: String,
+        /// Timeout duration in milliseconds
         timeout_ms: u64,
+        /// Whether retry may succeed
         retry_possible: bool,
     },
 
     /// Resource not found
     #[error("Not found: {message}")]
     NotFound {
+        /// Human-readable error message
         message: String,
+        /// Resource that was not found
         resource: String,
+        /// Suggestion for alternative resource, if applicable
         suggestion: Option<String>,
     },
 
     /// Command execution failed
     #[error("Execution failed: {message}")]
     Execution {
+        /// Human-readable error message
         message: String,
+        /// Resource or command that failed
         resource: String,
+        /// Whether retry may succeed
         retry_possible: bool,
     },
 }
@@ -449,6 +493,7 @@ impl<T> SafeOperation<T> {
 
 /// Trait for converting standard errors to production errors
 pub trait IntoProductionError {
+    /// Converts the error into a production-safe `ProductionError`.
     fn into_production_error(self) -> ProductionError;
 }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Policy Network
@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info, warn};
 
-use super::{engine::RLState, PolicyNetworkConfig};
+use super::{PolicyNetworkConfig, engine::RLState};
 use crate::error::Result;
 
 /// Policy network for action selection

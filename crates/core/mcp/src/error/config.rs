@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Errors related to configuration management.
@@ -18,7 +18,12 @@ pub enum ConfigError {
 
     /// Invalid configuration value
     #[error("Invalid configuration value for key '{key}': {message}")]
-    InvalidValue { key: String, message: String },
+    InvalidValue {
+        /// Configuration key that had the invalid value
+        key: String,
+        /// Human-readable error message describing the validation failure
+        message: String,
+    },
 
     /// Missing required configuration key
     #[error("Missing required configuration key: {0}")]

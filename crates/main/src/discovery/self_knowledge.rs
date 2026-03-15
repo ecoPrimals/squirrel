@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 #![allow(deprecated)]
 
@@ -191,29 +191,29 @@ impl PrimalSelfKnowledge {
         // Stage 2: Try mDNS (local network discovery)
         debug!("Stage 2: Trying mDNS discovery for '{}'", capability);
         let mdns = crate::discovery::mechanisms::MdnsDiscovery::default();
-        if let Ok(services) = mdns.discover_by_capability(capability).await {
-            if let Some(service) = services.into_iter().next() {
-                info!("✅ Found '{}' via mDNS: {}", capability, service.endpoint);
-                self.discovered
-                    .write()
-                    .await
-                    .insert(capability.to_string(), service.clone());
-                return Ok(service);
-            }
+        if let Ok(services) = mdns.discover_by_capability(capability).await
+            && let Some(service) = services.into_iter().next()
+        {
+            info!("✅ Found '{}' via mDNS: {}", capability, service.endpoint);
+            self.discovered
+                .write()
+                .await
+                .insert(capability.to_string(), service.clone());
+            return Ok(service);
         }
 
         // Stage 3: Try DNS-SD (network-wide discovery)
         debug!("Stage 3: Trying DNS-SD discovery for '{}'", capability);
         let dnssd = crate::discovery::mechanisms::DnssdDiscovery::default();
-        if let Ok(services) = dnssd.discover_by_capability(capability).await {
-            if let Some(service) = services.into_iter().next() {
-                info!("✅ Found '{}' via DNS-SD: {}", capability, service.endpoint);
-                self.discovered
-                    .write()
-                    .await
-                    .insert(capability.to_string(), service.clone());
-                return Ok(service);
-            }
+        if let Ok(services) = dnssd.discover_by_capability(capability).await
+            && let Some(service) = services.into_iter().next()
+        {
+            info!("✅ Found '{}' via DNS-SD: {}", capability, service.endpoint);
+            self.discovered
+                .write()
+                .await
+                .insert(capability.to_string(), service.clone());
+            return Ok(service);
         }
 
         // Stage 4: Try service registry (if configured)
@@ -235,18 +235,18 @@ impl PrimalSelfKnowledge {
 
             let registry =
                 crate::discovery::mechanisms::RegistryDiscovery::new(reg_type, registry_endpoint);
-            if let Ok(services) = registry.discover_by_capability(capability).await {
-                if let Some(service) = services.into_iter().next() {
-                    info!(
-                        "✅ Found '{}' via service registry: {}",
-                        capability, service.endpoint
-                    );
-                    self.discovered
-                        .write()
-                        .await
-                        .insert(capability.to_string(), service.clone());
-                    return Ok(service);
-                }
+            if let Ok(services) = registry.discover_by_capability(capability).await
+                && let Some(service) = services.into_iter().next()
+            {
+                info!(
+                    "✅ Found '{}' via service registry: {}",
+                    capability, service.endpoint
+                );
+                self.discovered
+                    .write()
+                    .await
+                    .insert(capability.to_string(), service.clone());
+                return Ok(service);
             }
         }
 
@@ -397,7 +397,7 @@ mod tests {
     #[tokio::test]
     async fn test_discover_primal_from_env() {
         // Set up environment
-        env::set_var("AI_ENDPOINT", "http://discovered.example.com:9200");
+        unsafe { env::set_var("AI_ENDPOINT", "http://discovered.example.com:9200") };
 
         let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
 
@@ -409,7 +409,7 @@ mod tests {
         assert_eq!(service.priority, 100); // ENV vars have max priority
 
         // Clean up
-        env::remove_var("AI_ENDPOINT");
+        unsafe { env::remove_var("AI_ENDPOINT") };
     }
 
     #[tokio::test]
@@ -428,7 +428,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_discovery_cache() {
-        env::set_var("STORAGE_ENDPOINT", "http://cache-test.example.com:8500");
+        unsafe { env::set_var("STORAGE_ENDPOINT", "http://cache-test.example.com:8500") };
 
         let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
 
@@ -436,7 +436,7 @@ mod tests {
         let service1 = self_knowledge.discover_primal("storage").await.unwrap();
 
         // Change the environment (simulating external change)
-        env::set_var("STORAGE_ENDPOINT", "http://changed.example.com:8500");
+        unsafe { env::set_var("STORAGE_ENDPOINT", "http://changed.example.com:8500") };
 
         // Second discovery should return cached value
         let service2 = self_knowledge.discover_primal("storage").await.unwrap();
@@ -448,6 +448,6 @@ mod tests {
         assert_eq!(service3.endpoint, "http://changed.example.com:8500"); // Updated!
 
         // Clean up
-        env::remove_var("STORAGE_ENDPOINT");
+        unsafe { env::remove_var("STORAGE_ENDPOINT") };
     }
 }

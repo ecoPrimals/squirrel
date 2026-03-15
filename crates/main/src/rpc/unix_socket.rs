@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Unix Socket Utilities
@@ -47,19 +47,19 @@ use tracing::{debug, info, warn};
 ///
 /// ```ignore
 /// // Tier 1: Primal-specific override
-/// std::env::set_var("SQUIRREL_SOCKET", "/custom/squirrel.sock");
+/// unsafe { std::env::set_var("SQUIRREL_SOCKET", "/custom/squirrel.sock") };
 /// let path = get_socket_path("node1");
 /// assert_eq!(path, "/custom/squirrel.sock");
 ///
 /// // Tier 2: Neural API orchestration
-/// std::env::remove_var("SQUIRREL_SOCKET");
-/// std::env::set_var("BIOMEOS_SOCKET_PATH", "/tmp/squirrel-nat0.sock");
+/// unsafe { std::env::remove_var("SQUIRREL_SOCKET") };
+/// unsafe { std::env::set_var("BIOMEOS_SOCKET_PATH", "/tmp/squirrel-nat0.sock") };
 /// let path = get_socket_path("node1");
 /// assert_eq!(path, "/tmp/squirrel-nat0.sock");
 ///
 /// // Tier 3: XDG runtime directory
-/// std::env::remove_var("BIOMEOS_SOCKET_PATH");
-/// std::env::set_var("SQUIRREL_FAMILY_ID", "nat0");
+/// unsafe { std::env::remove_var("BIOMEOS_SOCKET_PATH") };
+/// unsafe { std::env::set_var("SQUIRREL_FAMILY_ID", "nat0") };
 /// let path = get_socket_path("node1");
 /// // Returns: /run/user/<uid>/squirrel-nat0.sock
 /// ```
@@ -225,11 +225,11 @@ pub fn prepare_socket_path(socket_path: &str) -> std::io::Result<PathBuf> {
     let path = Path::new(socket_path);
 
     // Ensure parent directory exists
-    if let Some(parent) = path.parent() {
-        if !parent.exists() {
-            info!("Creating socket directory: {}", parent.display());
-            std::fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = path.parent()
+        && !parent.exists()
+    {
+        info!("Creating socket directory: {}", parent.display());
+        std::fs::create_dir_all(parent)?;
     }
 
     // Remove old socket if exists (prevents "address already in use")

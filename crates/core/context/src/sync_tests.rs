@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: Sync mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #[cfg(test)]
 mod sync_tests {
-    use crate::sync::*;
     use crate::ContextState;
+    use crate::sync::*;
     use std::time::{Duration, SystemTime};
 
     #[test]

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Integration tests for centralized configuration management
@@ -45,9 +45,9 @@ mod config_integration_tests {
     #[test]
     fn test_environment_variable_overrides() {
         // Set environment variables
-        env::set_var("SQUIRREL_HOST", "0.0.0.0");
-        env::set_var("SQUIRREL_PORT", "9090");
-        env::set_var("SQUIRREL_CORS_ORIGINS", "http://example.com,https://app.example.com");
+        unsafe { env::set_var("SQUIRREL_HOST", "0.0.0.0") };
+        unsafe { env::set_var("SQUIRREL_PORT", "9090") };
+        unsafe { env::set_var("SQUIRREL_CORS_ORIGINS", "http://example.com,https://app.example.com") };
 
         let mut config = Config::default();
         
@@ -70,9 +70,9 @@ mod config_integration_tests {
         assert_eq!(config.network.cors_origins, vec!["http://example.com", "https://app.example.com"]);
 
         // Clean up
-        env::remove_var("SQUIRREL_HOST");
-        env::remove_var("SQUIRREL_PORT");
-        env::remove_var("SQUIRREL_CORS_ORIGINS");
+        unsafe { env::remove_var("SQUIRREL_HOST") };
+        unsafe { env::remove_var("SQUIRREL_PORT") };
+        unsafe { env::remove_var("SQUIRREL_CORS_ORIGINS") };
     }
 
     #[test]

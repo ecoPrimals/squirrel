@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0 + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 3,749+ passing | **Rust**: 1.81+
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 3,749+ passing | **Edition**: 2024 | **Rust**: 1.85+
 
 ---
 
@@ -46,17 +46,22 @@ cargo build --release
 ./target/release/squirrel client --method system.ping --params '{}'
 
 # Test
-cargo test -p squirrel --lib
+cargo test --workspace
 
-# Lint
+# Lint (zero warnings required)
 cargo clippy --workspace -- -D warnings
+
+# Coverage
+cargo llvm-cov --workspace
 ```
 
 ### Socket Path
 
 ```
-/run/user/<uid>/biomeos/squirrel.sock
+$XDG_RUNTIME_DIR/biomeos/squirrel-${FAMILY_ID}.sock
 ```
+
+Fallback: `/run/user/<uid>/biomeos/squirrel.sock` or `/tmp/squirrel.sock`.
 
 ---
 
@@ -67,9 +72,10 @@ TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
-Transport: Unix sockets -> Named pipes -> TCP (automatic fallback)
-HTTP:      Feature-gated OFF by default (axum/tower behind http-api)
+Transport: Unix sockets → Named pipes → TCP (automatic fallback)
+HTTP:      Feature-gated OFF by default (optional dev/test only)
 Lifecycle: biomeOS lifecycle.register + 30s heartbeat (when orchestrator detected)
+Edition:   Rust 2024
 ```
 
 ### Capability-Based Discovery
@@ -119,13 +125,15 @@ squirrel/
 
 ## Code Standards
 
-- `#![forbid(unsafe_code)]` on all crates
+- `#![forbid(unsafe_code)]` on all crates (production code)
+- `#![warn(missing_docs)]` on all library crates
+- `cargo clippy -- -D warnings` with pedantic: zero errors
+- `cargo fmt` and `cargo doc`: zero warnings
 - Pure Rust: zero C dependencies in default build
 - All source files under 1,000 lines
-- SPDX license headers on every file
+- SPDX `AGPL-3.0-only` license headers on every file
+- Edition 2024 across all 22 workspace crates
 - `tracing` for logging (no `log` crate)
-- `serde_yml` for YAML (no deprecated `serde_yaml`)
-- `std::sync::LazyLock` / `OnceLock` for statics
 - Capability-based discovery (no hardcoded primal names)
 
 ---
@@ -136,7 +144,7 @@ squirrel/
 
 | Layer | License | Covers |
 |-------|---------|--------|
-| Software | AGPL-3.0-or-later | All code, binaries, tools, infrastructure |
+| Software | AGPL-3.0-only | All code, binaries, tools, infrastructure |
 | Mechanics | ORC | Primal interaction protocols, spring deployment niches, ecosystem topology, constrained evolution methodology |
 | Creative | CC-BY-SA 4.0 | Documentation, papers, diagrams, specifications |
 | Reserved | ORC Reserved Material | ecoPrimals branding, primal names, logos |

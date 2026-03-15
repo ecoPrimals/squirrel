@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Visualization Manager
@@ -14,11 +14,11 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
+use super::VisualizationSystemConfig;
 use super::renderers::{HtmlRenderer, JsonRenderer, MarkdownRenderer, TerminalRenderer};
 use super::types::{
     VisualizationConfig, VisualizationRequest, VisualizationResponse, VisualizationType,
 };
-use super::VisualizationSystemConfig;
 use crate::error::Result;
 
 /// Visualization manager for coordinating visualization operations
@@ -78,8 +78,8 @@ pub struct ActiveVisualization {
 }
 
 /// Cached visualization
-#[allow(dead_code)] // Data structure for visualization caching system
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Reserved for planned feature: visualization caching
 pub struct CachedVisualization {
     /// Visualization ID
     pub id: String,
@@ -363,7 +363,7 @@ impl VisualizationManager {
             _ => {
                 return Err(crate::error::ContextError::InvalidFormat(format!(
                     "Unsupported format: {format}"
-                )))
+                )));
             }
         };
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Dashboard Integration
@@ -746,7 +746,7 @@ pub fn create_default_dashboard_integration() -> ObservabilityResult<Arc<Dashboa
 pub struct DashboardCoreConsumer {
     // This would be replaced with the actual api-server client
     // when integrated with the real dashboard
-    #[allow(dead_code)]
+    
     config: TraceConfig,
 }
 

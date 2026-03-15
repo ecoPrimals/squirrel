@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Message types for inter-primal communication
@@ -17,14 +17,23 @@ use super::context::{PrimalContext, UniversalSecurityContext};
 /// Request sent between primals
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalRequest {
+    /// Unique request identifier
     pub request_id: Uuid,
+    /// Source primal identifier
     pub source_primal: String,
+    /// Target capability to invoke
     pub target_capability: String,
+    /// Operation name
     pub operation: String,
+    /// Request payload
     pub payload: Value,
+    /// Request context
     pub context: PrimalContext,
+    /// When the request was created
     pub timestamp: DateTime<Utc>,
+    /// Optional timeout in milliseconds
     pub timeout_ms: Option<u64>,
+    /// Additional metadata
     pub metadata: HashMap<String, String>,
 }
 
@@ -80,51 +89,82 @@ impl PrimalRequest {
 /// Response from a primal
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalResponse {
+    /// Request ID for correlation
     pub request_id: Uuid,
+    /// Unique response identifier
     pub response_id: Uuid,
+    /// Response status
     pub status: ResponseStatus,
+    /// Whether the operation succeeded
     pub success: bool,
+    /// Response data when successful
     pub data: Option<Value>,
+    /// Response payload
     pub payload: Value,
+    /// When the response was created
     pub timestamp: DateTime<Utc>,
+    /// Processing time in milliseconds
     pub processing_time_ms: Option<u64>,
+    /// Human-readable duration
     pub duration: Option<String>,
+    /// Error code or identifier
     pub error: Option<String>,
+    /// Error message when failed
     pub error_message: Option<String>,
+    /// Additional metadata
     pub metadata: HashMap<String, String>,
 }
 
 /// Response status enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResponseStatus {
+    /// Request completed successfully
     Success,
+    /// Request failed with error
     Error,
+    /// Request timed out
     Timeout,
+    /// Resource not found
     NotFound,
 }
 
 /// Ecosystem-level request for cross-service communication
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemRequest {
+    /// Unique request identifier
     pub request_id: Uuid,
+    /// Source service identifier
     pub source_service: String,
+    /// Target service identifier
     pub target_service: String,
+    /// Operation name
     pub operation: String,
+    /// Request payload
     pub payload: Value,
+    /// Security context for the request
     pub security_context: UniversalSecurityContext,
+    /// When the request was created
     pub timestamp: DateTime<Utc>,
 }
 
 /// Ecosystem-level response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemResponse {
+    /// Request ID for correlation
     pub request_id: Uuid,
+    /// Unique response identifier
     pub response_id: Uuid,
+    /// Response status
     pub status: ResponseStatus,
+    /// Whether the operation succeeded
     pub success: bool,
+    /// Response payload
     pub payload: Value,
+    /// Error message when failed
     pub error_message: Option<String>,
+    /// When the response was created
     pub timestamp: DateTime<Utc>,
+    /// Additional metadata
     pub metadata: HashMap<String, String>,
 }
 

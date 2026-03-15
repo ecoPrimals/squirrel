@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Integration tests for AI routing functionality
 
-use squirrel_ai_tools::common::capability::{AITask, SecurityRequirements, TaskType};
 use squirrel_ai_tools::common::AICapabilities;
+use squirrel_ai_tools::common::capability::{AITask, SecurityRequirements, TaskType};
 use squirrel_ai_tools::router::{
     AIRouter, ProviderSelector, RequestContext, RouterConfig, RoutingStrategy,
 };

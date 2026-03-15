@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Client implementation for task management with the Task Service API.
@@ -8,11 +8,47 @@
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
 
 use crate::task::json_rpc_types::*;
 use crate::task::types::{AgentType, Task, TaskPriority, TaskStatus};
+
+/// Parameters for creating a new task
+#[derive(Debug)]
+pub struct CreateTaskParams {
+    /// Task name
+    pub name: String,
+    /// Task description
+    pub description: String,
+    /// Task priority
+    pub priority: TaskPriority,
+    /// Optional input data
+    pub input_data: Option<serde_json::Value>,
+    /// Optional metadata
+    pub metadata: Option<serde_json::Value>,
+    /// Optional context ID
+    pub context_id: Option<String>,
+    /// Prerequisite task IDs
+    pub prerequisites: Vec<String>,
+}
+
+/// Parameters for listing tasks with optional filters
+#[derive(Debug, Default)]
+pub struct ListTasksParams {
+    /// Filter by status
+    pub status: Option<TaskStatus>,
+    /// Filter by agent ID
+    pub agent_id: Option<String>,
+    /// Filter by agent type
+    pub agent_type: Option<AgentType>,
+    /// Filter by context ID
+    pub context_id: Option<String>,
+    /// Maximum number of tasks to return
+    pub limit: Option<u32>,
+    /// Number of tasks to skip
+    pub offset: Option<u32>,
+}
 
 /// Client configuration for connecting to the task service
 #[derive(Clone, Debug)]
@@ -68,7 +104,15 @@ impl MCPTaskClient {
     pub fn with_config(config: TaskClientConfig) -> Self {
         MCPTaskClient { config }
     }
+}
 
+impl Default for MCPTaskClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MCPTaskClient {
     /// Connect to the task service (no-op for Unix socket - connection is per-request)
     pub async fn connect(&self) -> Result<()> {
         Ok(())
@@ -151,38 +195,30 @@ impl MCPTaskClient {
     }
 
     /// Create a new task
-    pub async fn create_task(
-        &self,
-        name: &str,
-        description: &str,
-        priority: TaskPriority,
-        input_data: Option<serde_json::Value>,
-        metadata: Option<serde_json::Value>,
-        context_id: Option<&str>,
-        prerequisites: Vec<String>,
-    ) -> Result<String> {
+    pub async fn create_task(&self, params: CreateTaskParams) -> Result<String> {
         let mut request = CreateTaskRequest {
-            name: name.to_string(),
-            description: description.to_string(),
-            priority: priority as i32,
+            name: params.name,
+            description: params.description,
+            priority: params.priority as i32,
             input_data: Vec::new(),
             metadata: Vec::new(),
-            prerequisite_task_ids: prerequisites,
-            context_id: context_id.unwrap_or("").to_string(),
-            agent_id: "".to_string(),
+            prerequisite_task_ids: params.prerequisites,
+            context_id: params.context_id.unwrap_or_default(),
+            agent_id: String::new(),
             agent_type: 0,
         };
 
-        if let Some(data) = input_data {
+        if let Some(data) = params.input_data {
             request.input_data =
                 serde_json::to_vec(&data).context("Failed to serialize input data")?;
         }
-        if let Some(meta) = metadata {
+        if let Some(meta) = params.metadata {
             request.metadata = serde_json::to_vec(&meta).context("Failed to serialize metadata")?;
         }
 
-        let params = serde_json::to_value(&request).context("Failed to serialize request")?;
-        let result = self.json_rpc_call("create_task", params).await?;
+        let request_value =
+            serde_json::to_value(&request).context("Failed to serialize request")?;
+        let result = self.json_rpc_call("create_task", request_value).await?;
         let response: CreateTaskResponse = serde_json::from_value(result)?;
 
         if !response.success {
@@ -243,23 +279,14 @@ impl MCPTaskClient {
     }
 
     /// List tasks with optional filtering
-    pub async fn list_tasks(
-        &self,
-        status: Option<TaskStatus>,
-        _priority: Option<TaskPriority>,
-        agent_id: Option<&str>,
-        agent_type: Option<AgentType>,
-        context_id: Option<&str>,
-        limit: Option<u32>,
-        offset: Option<u32>,
-    ) -> Result<Vec<Task>> {
+    pub async fn list_tasks(&self, params: ListTasksParams) -> Result<Vec<Task>> {
         let request = ListTasksRequest {
-            status: status.map(|s| s as i32).unwrap_or(-1),
-            agent_id: agent_id.unwrap_or("").to_string(),
-            agent_type: agent_type.map(|a| a as i32).unwrap_or(-1),
-            context_id: context_id.unwrap_or("").to_string(),
-            limit: limit.unwrap_or(100).min(i32::MAX as u32) as i32,
-            offset: offset.unwrap_or(0).min(i32::MAX as u32) as i32,
+            status: params.status.map(|s| s as i32).unwrap_or(-1),
+            agent_id: params.agent_id.unwrap_or_default(),
+            agent_type: params.agent_type.map(|a| a as i32).unwrap_or(-1),
+            context_id: params.context_id.unwrap_or_default(),
+            limit: params.limit.unwrap_or(100).min(i32::MAX as u32) as i32,
+            offset: params.offset.unwrap_or(0).min(i32::MAX as u32) as i32,
         };
 
         let params = serde_json::to_value(&request)?;

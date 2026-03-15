@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin Marketplace Integration
@@ -14,14 +14,14 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::web::{HttpMethod, HttpStatus, WebEndpoint, WebRequest, WebResponse};
 use crate::DefaultPluginManager;
+use crate::web::{HttpMethod, HttpStatus, WebEndpoint, WebRequest, WebResponse};
 
 /// Plugin marketplace client for interacting with remote plugin repositories
 #[derive(Clone)]
 pub struct PluginMarketplaceClient {
-    /// Plugin manager instance
-    #[allow(dead_code)] // Reserved for marketplace plugin management
+    /// Plugin manager instance (reserved for marketplace plugin management)
+    #[allow(dead_code)]
     manager: Arc<DefaultPluginManager>,
     /// Configured repositories
     repositories: Arc<RwLock<Vec<PluginRepository>>>,
@@ -379,14 +379,14 @@ impl PluginMarketplaceClient {
         let cache_key = self.generate_cache_key(&criteria);
         {
             let cache = self.cache.read().await;
-            if let Some((results, cached_at)) = cache.search_results.get(&cache_key) {
-                if (chrono::Utc::now() - *cached_at).num_seconds() < cache.ttl_seconds as i64 {
-                    return Ok(WebResponse {
-                        status: HttpStatus::Ok,
-                        headers: HashMap::new(),
-                        body: Some(serde_json::to_value(results)?),
-                    });
-                }
+            if let Some((results, cached_at)) = cache.search_results.get(&cache_key)
+                && (chrono::Utc::now() - *cached_at).num_seconds() < cache.ttl_seconds as i64
+            {
+                return Ok(WebResponse {
+                    status: HttpStatus::Ok,
+                    headers: HashMap::new(),
+                    body: Some(serde_json::to_value(results)?),
+                });
             }
         }
 
@@ -721,9 +721,11 @@ mod tests {
 
         let endpoints = client.get_endpoints();
         assert!(!endpoints.is_empty());
-        assert!(endpoints
-            .iter()
-            .any(|ep| ep.path == "/api/marketplace/search"));
+        assert!(
+            endpoints
+                .iter()
+                .any(|ep| ep.path == "/api/marketplace/search")
+        );
     }
 
     #[tokio::test]

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP Utility Functions
@@ -267,7 +267,7 @@ impl TimeUtils {
             _ => {
                 return Err(MCPError::InvalidArgument(format!(
                     "Invalid duration unit: {unit}"
-                )))
+                )));
             }
         };
 
@@ -410,7 +410,7 @@ impl EncodingUtils {
 
     /// Hex decode string (pure Rust, no external crate)
     pub fn hex_decode(input: &str) -> Result<Vec<u8>> {
-        if input.len() % 2 != 0 {
+        if !input.len().is_multiple_of(2) {
             return Err(MCPError::InvalidArgument("Odd-length hex string".into()));
         }
         input

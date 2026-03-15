@@ -1,10 +1,10 @@
 [package]
 name = "squirrel-sdk"
 version = "1.0.0"
-edition = "2021"
+edition = "2024"
 authors = ["Squirrel Team <team@squirrel.dev>"]
 description = "SDK for developing Squirrel MCP plugins"
-license = "AGPL-3.0-or-later"
+license = "AGPL-3.0-only"
 repository = "https://github.com/squirrel-org/squirrel"
 documentation = "https://docs.squirrel.dev/sdk"
 keywords = ["mcp", "plugin", "wasm", "webassembly"]

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Health monitoring system
@@ -12,8 +12,8 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info};
 
-use super::types::{ComponentHealth, HealthSnapshot, MonitoringHealthCheckConfig};
 use super::HealthState;
+use super::types::{ComponentHealth, HealthSnapshot, MonitoringHealthCheckConfig};
 use crate::error::PrimalError;
 
 /// Health monitoring system

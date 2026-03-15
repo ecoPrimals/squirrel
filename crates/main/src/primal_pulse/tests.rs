@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive tests for PrimalPulse tools
@@ -180,9 +180,11 @@ mod tests {
         });
 
         let analysis = GraphAnalyzer::analyze(&graph);
-        assert!(analysis
-            .detected_patterns
-            .contains(&super::super::neural_graph::GraphPattern::Pipeline));
+        assert!(
+            analysis
+                .detected_patterns
+                .contains(&super::super::neural_graph::GraphPattern::Pipeline)
+        );
     }
 
     #[test]
@@ -277,9 +279,11 @@ mod tests {
 
         // Optimize
         let recommendations = GraphOptimizer::optimize(&graph, &analysis);
-        assert!(recommendations
-            .iter()
-            .all(|r| r.confidence > 0.0 && r.confidence <= 1.0));
+        assert!(
+            recommendations
+                .iter()
+                .all(|r| r.confidence > 0.0 && r.confidence <= 1.0)
+        );
     }
 
     // ============================================================================

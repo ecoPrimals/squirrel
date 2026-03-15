@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Squirrel biomeOS Integration
@@ -58,94 +58,145 @@ pub use mcp_integration::*;
 /// biomeOS Ecosystem Service Registration for Squirrel AI
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemServiceRegistration {
+    /// Unique identifier for this service instance.
     pub service_id: String,
+    /// Type of primal (e.g., "squirrel").
     pub primal_type: String,
+    /// Identifier of the biome this service belongs to.
     pub biome_id: String,
+    /// Service version string.
     pub version: String,
+    /// API version for compatibility.
     pub api_version: String,
+    /// When the service was registered.
     pub registration_time: DateTime<Utc>,
+    /// API endpoints for the service.
     pub endpoints: EcosystemEndpoints,
+    /// Capabilities this service provides.
     pub capabilities: EcosystemCapabilities,
+    /// Security configuration for the service.
     pub security: EcosystemSecurity,
+    /// Resource requirements for deployment.
     pub resource_requirements: ResourceRequirements,
+    /// Health check configuration.
     pub health_check: HealthCheckConfig,
+    /// Arbitrary metadata key-value pairs.
     pub metadata: HashMap<String, String>,
 }
 
 /// Ecosystem endpoints for squirrel AI services
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemEndpoints {
-    pub ai_api: String,            // Primary AI intelligence API
-    pub mcp_api: String,           // MCP protocol endpoint
-    pub context_api: String,       // Context state management API
-    pub health: String,            // Health check endpoint
-    pub metrics: String,           // Metrics endpoint
-    pub websocket: Option<String>, // Real-time AI updates
+    /// Primary AI intelligence API endpoint.
+    pub ai_api: String,
+    /// MCP protocol endpoint.
+    pub mcp_api: String,
+    /// Context state management API endpoint.
+    pub context_api: String,
+    /// Health check endpoint.
+    pub health: String,
+    /// Metrics endpoint.
+    pub metrics: String,
+    /// Optional WebSocket endpoint for real-time AI updates.
+    pub websocket: Option<String>,
 }
 
 /// Ecosystem capabilities provided by squirrel
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemCapabilities {
-    pub ai_capabilities: Vec<String>,          // Core AI services
-    pub mcp_capabilities: Vec<String>,         // MCP protocol capabilities
-    pub context_capabilities: Vec<String>,     // Context management capabilities
-    pub integration_capabilities: Vec<String>, // Integration with other primals
+    /// Core AI service capabilities.
+    pub ai_capabilities: Vec<String>,
+    /// MCP protocol capabilities.
+    pub mcp_capabilities: Vec<String>,
+    /// Context management capabilities.
+    pub context_capabilities: Vec<String>,
+    /// Integration capabilities with other primals.
+    pub integration_capabilities: Vec<String>,
 }
 
 /// Security configuration for ecosystem integration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemSecurity {
+    /// Authentication method (e.g., "bearer", "mtls").
     pub authentication_method: String,
+    /// Whether TLS is enabled.
     pub tls_enabled: bool,
+    /// Whether mutual TLS is required.
     pub mtls_required: bool,
+    /// Trust domain for certificate validation.
     pub trust_domain: String,
 }
 
 /// Resource requirements for squirrel AI services
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceRequirements {
+    /// CPU requirement (e.g., "500m", "1").
     pub cpu: String,
+    /// Memory requirement (e.g., "512Mi").
     pub memory: String,
+    /// Storage requirement.
     pub storage: String,
+    /// Network requirement.
     pub network: String,
+    /// Optional GPU requirement.
     pub gpu: Option<String>,
 }
 
 /// Health check configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthCheckConfig {
+    /// Interval between health checks.
     pub interval: Duration,
+    /// Timeout for each health check.
     pub timeout: Duration,
+    /// Number of retries before marking unhealthy.
     pub retries: u32,
+    /// Grace period before health checks start after startup.
     pub grace_period: Duration,
 }
 
 /// Main biomeOS integration for squirrel AI
 pub struct SquirrelBiomeOSIntegration {
+    /// Unique identifier for this service instance.
     pub service_id: String,
+    /// Identifier of the biome this service belongs to.
     pub biome_id: String,
+    /// AI intelligence engine for predictions and optimization.
     pub ai_intelligence: AiIntelligence,
+    /// MCP protocol integration layer.
     pub mcp_integration: McpIntegration,
+    /// Context state management.
     pub context_state: ContextState,
-    // ecosystem_client removed - HTTP-based client deprecated
-    // capability_registry removed - use primal provider for discovery
+    /// Manages agent deployment and lifecycle.
     pub agent_deployment: AgentDeploymentManager,
+    /// Parses biome manifests.
     pub manifest_parser: BiomeManifestParser,
+    /// Current health status of the integration.
     pub health_status: HealthStatus,
 }
 
 /// Health status of the squirrel AI service
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthStatus {
+    /// Overall status (e.g., "healthy", "degraded").
     pub status: String,
+    /// When the status was last updated.
     pub timestamp: DateTime<Utc>,
+    /// AI engine status.
     pub ai_engine_status: String,
+    /// MCP server status.
     pub mcp_server_status: String,
+    /// Context manager status.
     pub context_manager_status: String,
+    /// Agent deployment status.
     pub agent_deployment_status: String,
+    /// Number of active sessions.
     pub active_sessions: u32,
+    /// Total AI requests processed.
     pub ai_requests_processed: u64,
+    /// Number of context states being managed.
     pub context_states_managed: u32,
+    /// Number of deployed agents.
     pub deployed_agents: u32,
 }
 
@@ -589,83 +640,135 @@ impl SquirrelBiomeOSIntegration {
 /// Request types for squirrel AI services
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntelligenceRequest {
+    /// Unique request identifier.
     pub request_id: String,
+    /// Type of intelligence request.
     pub request_type: String,
+    /// Optional target component.
     pub target_component: Option<String>,
+    /// Request parameters.
     pub parameters: HashMap<String, serde_json::Value>,
+    /// Optional context for the request.
     pub context: Option<HashMap<String, String>>,
 }
 
 /// Response from `BiomeOS` intelligence services
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntelligenceResponse {
+    /// Request identifier matching the request.
     pub request_id: String,
+    /// Type of intelligence result.
     pub intelligence_type: String,
+    /// The intelligence result payload.
     pub result: serde_json::Value,
+    /// Confidence score (0.0–1.0).
     pub confidence: f64,
+    /// Processing time in milliseconds.
     pub processing_time_ms: u64,
+    /// Additional metadata.
     pub metadata: std::collections::HashMap<String, String>,
 }
 
+/// MCP coordination request for multi-primal workflows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpCoordinationRequest {
+    /// Unique coordination session identifier.
     pub coordination_id: String,
+    /// Type of coordination (e.g., "workflow", "consensus").
     pub coordination_type: String,
+    /// Primal/service IDs participating in coordination.
     pub participants: Vec<String>,
+    /// Coordination-specific data payload.
     pub coordination_data: HashMap<String, serde_json::Value>,
 }
 
+/// Response from MCP coordination.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpCoordinationResponse {
+    /// Coordination session identifier.
     pub coordination_id: String,
+    /// Current coordination status.
     pub status: String,
+    /// Planned execution steps.
     pub coordination_plan: Vec<CoordinationStep>,
+    /// Estimated completion timestamp.
     pub estimated_completion: DateTime<Utc>,
 }
 
+/// Request for context state operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextStateRequest {
+    /// Unique request identifier.
     pub request_id: String,
+    /// Session identifier.
     pub session_id: String,
+    /// Type of context operation.
     pub request_type: String,
+    /// Optional context data to store or merge.
     pub context_data: Option<HashMap<String, serde_json::Value>>,
+    /// Optional query for context retrieval.
     pub query: Option<String>,
 }
 
+/// Response from context state operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextStateResponse {
+    /// Request identifier.
     pub request_id: String,
+    /// Session identifier.
     pub session_id: String,
+    /// Retrieved or updated context state.
     pub context_state: HashMap<String, serde_json::Value>,
+    /// AI-generated recommendations.
     pub recommendations: Vec<String>,
+    /// Related context identifiers.
     pub related_contexts: Vec<String>,
 }
 
+/// AI-generated prediction for ecosystem behavior.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Prediction {
+    /// Unique prediction identifier.
     pub prediction_id: String,
+    /// Type of prediction (e.g., "failure", "capacity").
     pub prediction_type: String,
+    /// Confidence score (0.0–1.0).
     pub confidence: f64,
+    /// Timeframe for the prediction.
     pub timeframe: String,
+    /// Human-readable description.
     pub description: String,
+    /// Recommended action to take.
     pub recommended_action: String,
 }
 
+/// AI-generated optimization recommendation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Optimization {
+    /// Unique optimization identifier.
     pub optimization_id: String,
+    /// Type of optimization.
     pub optimization_type: String,
+    /// Component to optimize.
     pub target_component: String,
+    /// Expected improvement (0.0–1.0).
     pub improvement_potential: f64,
+    /// Steps to implement the optimization.
     pub implementation_steps: Vec<String>,
 }
 
+/// A single step in a coordination plan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoordinationStep {
+    /// Unique step identifier.
     pub step_id: String,
+    /// Type of step.
     pub step_type: String,
+    /// Participants in this step.
     pub participants: Vec<String>,
+    /// Estimated duration.
     pub estimated_duration: Duration,
+    /// Step IDs that must complete before this step.
     pub dependencies: Vec<String>,
 }
 
@@ -838,10 +941,12 @@ mod tests {
         let registration = EcosystemServiceRegistration::default();
         assert_eq!(registration.primal_type, PRIMAL_TYPE);
         assert_eq!(registration.api_version, API_VERSION);
-        assert!(registration
-            .capabilities
-            .ai_capabilities
-            .contains(&"ecosystem_intelligence".to_string()));
+        assert!(
+            registration
+                .capabilities
+                .ai_capabilities
+                .contains(&"ecosystem_intelligence".to_string())
+        );
     }
 
     #[tokio::test]

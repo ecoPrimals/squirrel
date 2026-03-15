@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Ecosystem JWT Implementation Using Capability-Based Crypto (Pure Rust!)
@@ -21,7 +21,7 @@
 use crate::capability_crypto::{CapabilityCryptoConfig, CapabilityCryptoProvider};
 use crate::{AuthContext, AuthError};
 use anyhow::{Context, Result};
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD as BASE64_URL, Engine};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD as BASE64_URL};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info};

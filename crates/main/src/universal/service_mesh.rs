@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Service mesh integration types
@@ -12,38 +12,61 @@ use serde::{Deserialize, Serialize};
 /// Load balancing status and configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoadBalancingStatus {
+    /// Whether load balancing is enabled
     pub enabled: bool,
+    /// Whether the load balancer is healthy
     pub healthy: bool,
+    /// Number of active connections
     pub active_connections: u32,
+    /// Load balancing algorithm (e.g., "round_robin", "least_connections")
     pub algorithm: String,
+    /// Health score from 0.0 to 1.0
     pub health_score: f64,
+    /// Timestamp of last health check
     pub last_check: DateTime<Utc>,
 }
 
 /// Circuit breaker status for fault tolerance
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CircuitBreakerStatus {
+    /// Whether the circuit is open (rejecting requests)
     pub open: bool,
+    /// Number of consecutive failures
     pub failures: u32,
+    /// Timestamp of last failure
     pub last_failure: Option<DateTime<Utc>>,
+    /// When the next retry is scheduled
     pub next_retry: Option<DateTime<Utc>>,
 }
 
 /// Service mesh integration status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceMeshStatus {
+    /// Whether the service is registered with the mesh
     pub registered: bool,
+    /// Whether the service is connected to the mesh
     pub connected: bool,
+    /// Service mesh endpoint URL if configured
     pub service_mesh_endpoint: Option<String>,
+    /// When the service was registered
     pub registration_time: Option<DateTime<Utc>>,
+    /// Timestamp of last heartbeat sent
     pub last_heartbeat: Option<DateTime<Utc>>,
+    /// Version of the mesh protocol
     pub mesh_version: String,
+    /// Unique instance identifier
     pub instance_id: String,
+    /// Whether load balancing is enabled
     pub load_balancing_enabled: bool,
+    /// Current circuit breaker state
     pub circuit_breaker_status: CircuitBreakerStatus,
+    /// Timestamp of last registration attempt
     pub last_registration: Option<DateTime<Utc>>,
+    /// Overall mesh health status
     pub mesh_health: String,
+    /// Number of active connections
     pub active_connections: u32,
+    /// Load balancing status and configuration
     pub load_balancing: LoadBalancingStatus,
 }
 

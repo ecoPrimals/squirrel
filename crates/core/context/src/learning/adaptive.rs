@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Adaptive Rule System
@@ -23,7 +23,7 @@ use crate::rules::Rule;
 #[derive(Debug)]
 pub struct AdaptiveRuleSystem {
     /// System configuration (reserved for future use)
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Reserved for planned feature
     config: Arc<LearningSystemConfig>,
 
     /// Adaptive rules

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration loader for ecosystem integration
@@ -162,7 +162,7 @@ impl ConfigLoader {
                 return Err(ConfigError::InvalidValue {
                     key: "SECURITY_LEVEL".to_string(),
                     value: level.to_string(),
-                })
+                });
             }
         };
         let crypto_lock_enabled = self

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Integration-related error types for the MCP system
@@ -18,7 +18,12 @@ pub enum IntegrationError {
 
     /// Integration protocol mismatch
     #[error("Integration protocol mismatch: expected {expected}, got {actual}")]
-    ProtocolMismatch { expected: String, actual: String },
+    ProtocolMismatch {
+        /// Expected protocol version or format
+        expected: String,
+        /// Actual protocol version or format received
+        actual: String,
+    },
 
     /// External service unavailable
     #[error("External service unavailable: {0}")]

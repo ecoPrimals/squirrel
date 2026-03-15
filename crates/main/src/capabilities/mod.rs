@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability-based service discovery and interaction
@@ -34,7 +34,7 @@ pub mod registry;
 
 // Re-exports for convenience
 pub use discovery::{
-    discover_all_capabilities, discover_capability, CapabilityProvider, DiscoveryError,
+    CapabilityProvider, DiscoveryError, discover_all_capabilities, discover_capability,
 };
 pub use lifecycle::{find_biomeos_socket, register_with_biomeos};
 pub use registry::CapabilityRegistry;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security Provider Client for Crypto Operations (Pure Rust!)
@@ -19,13 +19,13 @@
 //! **Pure Rust**: 100% (no ring, no C deps!)
 
 use anyhow::{Context, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::path::Path;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 use tracing::{debug, info, warn};
 
 /// Security provider client configuration
@@ -293,8 +293,10 @@ struct JsonRpcRequest {
 #[derive(Debug, Deserialize)]
 struct JsonRpcResponse {
     #[allow(dead_code)]
+    // Required for serde Deserialize - fields parsed but only result/error used
     jsonrpc: String,
     #[allow(dead_code)]
+    // Required for serde Deserialize - fields parsed but only result/error used
     id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<JsonValue>,
@@ -307,7 +309,7 @@ struct JsonRpcResponse {
 struct JsonRpcError {
     code: i32,
     message: String,
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Required for serde Deserialize - optional field parsed but not used
     #[serde(skip_serializing_if = "Option::is_none")]
     data: Option<JsonValue>,
 }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Environment variable-based discovery
@@ -80,7 +80,7 @@ mod tests {
 
     #[test]
     fn test_discover_from_env() {
-        env::set_var("TEST_CAPABILITY_ENDPOINT", "http://test.example.com:8080");
+        unsafe { env::set_var("TEST_CAPABILITY_ENDPOINT", "http://test.example.com:8080") };
 
         let service = discover_from_env("test_capability");
         assert!(service.is_some());
@@ -89,7 +89,7 @@ mod tests {
         assert_eq!(service.endpoint, "http://test.example.com:8080");
         assert_eq!(service.priority, 100);
 
-        env::remove_var("TEST_CAPABILITY_ENDPOINT");
+        unsafe { env::remove_var("TEST_CAPABILITY_ENDPOINT") };
     }
 
     #[test]
@@ -100,8 +100,8 @@ mod tests {
 
     #[test]
     fn test_discover_all() {
-        env::set_var("AI_ENDPOINT", "http://ai.example.com:9200");
-        env::set_var("STORAGE_ENDPOINT", "http://storage.example.com:8500");
+        unsafe { env::set_var("AI_ENDPOINT", "http://ai.example.com:9200") };
+        unsafe { env::set_var("STORAGE_ENDPOINT", "http://storage.example.com:8500") };
 
         let services = discover_all_from_env();
 
@@ -109,7 +109,7 @@ mod tests {
         assert!(services.iter().any(|s| s.has_capability("ai")));
         assert!(services.iter().any(|s| s.has_capability("storage")));
 
-        env::remove_var("AI_ENDPOINT");
-        env::remove_var("STORAGE_ENDPOINT");
+        unsafe { env::remove_var("AI_ENDPOINT") };
+        unsafe { env::remove_var("STORAGE_ENDPOINT") };
     }
 }

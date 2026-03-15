@@ -1,10 +1,10 @@
 [package]
 name = "universal-constants"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Squirrel Team"]
 description = "Universal constants for the Squirrel MCP system - single source of truth"
-license = "AGPL-3.0-or-later"
+license = "AGPL-3.0-only"
 
 [dependencies]
 tracing = "0.1"

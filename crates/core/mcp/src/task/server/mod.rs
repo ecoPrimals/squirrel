@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Task Server Implementation
@@ -33,8 +33,8 @@ pub mod watchers;
 
 // Re-export public types and components for backward compatibility
 pub use commands::{
-    get_command_registry, json_params_to_string_vec, LocalCommandRegistry,
-    ProductionCommandRegistry,
+    LocalCommandRegistry, ProductionCommandRegistry, get_command_registry,
+    json_params_to_string_vec,
 };
 pub use service::TaskServiceImpl;
 pub use types::{SimpleCommand, TaskUpdateSender};

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use crate::Command;
@@ -7,7 +7,6 @@ use std::sync::RwLock;
 
 /// Represents the different stages in a command's lifecycle
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
-#[allow(dead_code)]
 pub enum LifecycleStage {
     /// Before command registration.
     Registration,
@@ -48,11 +47,9 @@ pub enum LifecycleStage {
 /// Lifecycle hooks allow hooking into different stages of command processing.
 pub trait LifecycleHook: Send + Sync + std::fmt::Debug {
     /// Returns the name of the lifecycle hook.
-    #[allow(dead_code)]
     fn name(&self) -> &'static str;
 
     /// Returns the lifecycle stages this hook is interested in.
-    #[allow(dead_code)]
     fn stages(&self) -> Vec<LifecycleStage>;
 
     /// Called when a command is processed at different lifecycle stages.
@@ -65,10 +62,9 @@ pub trait LifecycleHook: Send + Sync + std::fmt::Debug {
     /// # Errors
     /// Returns an error if the hook fails
     fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command)
-        -> Result<(), Box<dyn Error>>;
+    -> Result<(), Box<dyn Error>>;
 
     /// Clone the hook into a new Box.
-    #[allow(dead_code)]
     fn clone_box(&self) -> Box<dyn LifecycleHook>;
 }
 
@@ -149,7 +145,6 @@ impl CommandLifecycle {
 
     /// Returns the number of hooks registered
     #[must_use]
-    #[allow(dead_code)]
     pub fn hooks(&self) -> usize {
         self.hooks.read().map(|h| h.len()).unwrap_or(0)
     }

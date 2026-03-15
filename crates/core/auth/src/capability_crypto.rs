@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability-Based Crypto Provider - TRUE PRIMAL Architecture
@@ -131,14 +131,13 @@ impl CapabilityCryptoProvider {
                 // Check if response contains our capability
                 if let Some(capabilities) =
                     response.get("result").and_then(|r| r.get("capabilities"))
+                    && let Some(caps_array) = capabilities.as_array()
                 {
-                    if let Some(caps_array) = capabilities.as_array() {
-                        return Ok(caps_array.iter().any(|c| {
-                            c.as_str()
-                                .map(|s| s == capability || s.starts_with(capability))
-                                .unwrap_or(false)
-                        }));
-                    }
+                    return Ok(caps_array.iter().any(|c| {
+                        c.as_str()
+                            .map(|s| s == capability || s.starts_with(capability))
+                            .unwrap_or(false)
+                    }));
                 }
                 Ok(false)
             }
@@ -324,7 +323,7 @@ impl Default for CapabilityCryptoProvider {
     }
 }
 
-// Configuration for backward compatibility
+/// Configuration for capability-based crypto provider (backward compatibility).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityCryptoConfig {
     /// Socket path (optional, will auto-discover if not provided)
@@ -366,13 +365,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_discovery_from_env() {
-        std::env::set_var("CRYPTO_SIGNING_ENDPOINT", "/tmp/test-crypto.sock");
+        unsafe { std::env::set_var("CRYPTO_SIGNING_ENDPOINT", "/tmp/test-crypto.sock") };
 
         let _provider = CapabilityCryptoProvider::new();
         // Discovery will work even if socket doesn't exist (we cache the env var)
         // Actual connection happens on first use
 
-        std::env::remove_var("CRYPTO_SIGNING_ENDPOINT");
+        unsafe { std::env::remove_var("CRYPTO_SIGNING_ENDPOINT") };
     }
 
     #[test]

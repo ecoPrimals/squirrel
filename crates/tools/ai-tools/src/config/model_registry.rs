@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Model registry for AI model capabilities
@@ -513,9 +513,11 @@ mod tests {
     fn test_model_registry_get_nonexistent() {
         let registry = ModelRegistry::default();
         assert!(registry.get_model_capabilities("openai", "gpt-4").is_none());
-        assert!(registry
-            .get_model_capabilities("nonexistent", "model")
-            .is_none());
+        assert!(
+            registry
+                .get_model_capabilities("nonexistent", "model")
+                .is_none()
+        );
     }
 
     #[test]
@@ -628,9 +630,11 @@ mod tests {
 
         let json = serde_json::to_string(&registry).unwrap();
         let deserialized: ModelRegistry = serde_json::from_str(&json).unwrap();
-        assert!(deserialized
-            .get_model_capabilities("openai", "gpt-4")
-            .is_some());
+        assert!(
+            deserialized
+                .get_model_capabilities("openai", "gpt-4")
+                .is_some()
+        );
     }
 
     #[test]

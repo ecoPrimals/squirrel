@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Parser for MDC/YAML rule format
@@ -224,7 +224,7 @@ impl RuleParser {
                     Err(e) => {
                         return Err(RuleError::ParseError(format!(
                             "Failed to parse condition: {e}"
-                        )))
+                        )));
                     }
                 }
             } else if in_json {
@@ -259,7 +259,7 @@ impl RuleParser {
                     Err(e) => {
                         return Err(RuleError::ParseError(format!(
                             "Failed to parse action: {e}"
-                        )))
+                        )));
                     }
                 }
             } else if in_json {
@@ -469,12 +469,12 @@ pub struct FrontmatterParser;
 impl FrontmatterParser {
     /// Extract frontmatter from content
     pub fn extract_frontmatter(content: &str) -> Result<(Option<String>, String)> {
-        if content.starts_with("---\n") || content.starts_with("---\r\n") {
-            if let Some(end_index) = content[4..].find("---") {
-                let frontmatter = &content[4..end_index + 4];
-                let remaining = &content[(end_index + 4 + 4)..];
-                return Ok((Some(frontmatter.to_string()), remaining.to_string()));
-            }
+        if (content.starts_with("---\n") || content.starts_with("---\r\n"))
+            && let Some(end_index) = content[4..].find("---")
+        {
+            let frontmatter = &content[4..end_index + 4];
+            let remaining = &content[(end_index + 4 + 4)..];
+            return Ok((Some(frontmatter.to_string()), remaining.to_string()));
         }
 
         Ok((None, content.to_string()))

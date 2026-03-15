@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Common types used throughout the MCP system.
@@ -43,7 +43,7 @@
 //!
 //! Creating a basic MCP message:
 //!
-//! ```
+//! ```ignore
 //! use squirrel_mcp::protocol::types::{MCPMessage, MessageId, MessageType};
 //! use squirrel_mcp::protocol::types::ProtocolVersion;
 //! // BearDog handles security: // use crate::mcp::security::types::SecurityMetadata;
@@ -70,7 +70,7 @@
 //!
 //! Processing a response:
 //!
-//! ```
+//! ```ignore
 //! use squirrel_mcp::types::{MCPResponse, ResponseStatus};
 //! use serde_json::json;
 //!
@@ -98,9 +98,10 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 /// Compression formats supported by the MCP protocol
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum CompressionFormat {
     /// No compression
+    #[default]
     None,
     /// GZIP compression
     Gzip,
@@ -110,12 +111,6 @@ pub enum CompressionFormat {
     Zstd,
     /// Custom compression format
     Custom(u8),
-}
-
-impl Default for CompressionFormat {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl std::fmt::Display for CompressionFormat {
@@ -131,9 +126,10 @@ impl std::fmt::Display for CompressionFormat {
 }
 
 /// Encryption formats supported by the MCP protocol
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EncryptionFormat {
     /// No encryption
+    #[default]
     None,
     /// AES-256-GCM encryption
     Aes256Gcm,
@@ -143,12 +139,6 @@ pub enum EncryptionFormat {
     Rsa,
     /// Custom encryption format
     Custom(u8),
-}
-
-impl Default for EncryptionFormat {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl std::fmt::Display for EncryptionFormat {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Modern authentication types for Squirrel MCP system
@@ -202,9 +202,10 @@ impl AuthContext {
 }
 
 /// Authentication provider type - supports universal capability discovery
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum AuthProvider {
     /// Standalone squirrel authentication (failsafe fallback)
+    #[default]
     Standalone,
     /// Any primal with security capabilities discovered through universal adapter
     SecurityCapability {
@@ -217,12 +218,6 @@ pub enum AuthProvider {
     },
     /// Test/development provider
     Development,
-}
-
-impl Default for AuthProvider {
-    fn default() -> Self {
-        Self::Standalone
-    }
 }
 
 /// Information about discovered security capabilities from any primal
@@ -294,19 +289,30 @@ impl Session {
 /// since it's needed by both BearDog JWT client and local JWT validation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwtClaims {
-    pub sub: String,        // Subject (user ID)
-    pub username: String,   // Username
-    pub roles: Vec<String>, // User roles
-    pub session_id: String, // Session ID
-    pub iat: i64,           // Issued at
-    pub exp: i64,           // Expiration time
-    pub nbf: i64,           // Not before
-    pub iss: String,        // Issuer
-    pub aud: String,        // Audience
-    pub jti: String,        // JWT ID
+    /// Subject claim: the user ID.
+    pub sub: String,
+    /// Username of the authenticated user.
+    pub username: String,
+    /// Roles assigned to the user.
+    pub roles: Vec<String>,
+    /// Session identifier for this token.
+    pub session_id: String,
+    /// Issued-at timestamp (Unix seconds).
+    pub iat: i64,
+    /// Expiration timestamp (Unix seconds).
+    pub exp: i64,
+    /// Not-before timestamp (Unix seconds).
+    pub nbf: i64,
+    /// Issuer of the token.
+    pub iss: String,
+    /// Intended audience for the token.
+    pub aud: String,
+    /// Unique JWT ID for this token.
+    pub jti: String,
 }
 
 impl JwtClaims {
+    /// Creates new JWT claims from user data and expiration.
     pub fn new(
         user_id: Uuid,
         username: String,
@@ -330,6 +336,7 @@ impl JwtClaims {
         }
     }
 
+    /// Converts JWT claims into an [`AuthContext`] for authorization checks.
     pub fn to_auth_context(&self) -> Result<AuthContext, crate::AuthError> {
         let user_id = Uuid::parse_str(&self.sub).map_err(|_| crate::AuthError::InvalidToken)?;
 

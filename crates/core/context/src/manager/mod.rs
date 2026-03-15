@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context manager module
@@ -26,8 +26,8 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::plugins::ContextPluginManager;
 use crate::ContextError;
+use crate::plugins::ContextPluginManager;
 use squirrel_interfaces::context::ContextManager as InterfaceContextManager;
 use squirrel_interfaces::context::{ContextPlugin, ContextTransformation};
 

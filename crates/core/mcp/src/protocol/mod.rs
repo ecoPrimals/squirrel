@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP Protocol Implementation
@@ -18,33 +18,29 @@ pub use types::*;
 pub use websocket::*;
 
 use crate::error::Result;
-use std::future::Future;
 
 /// Core MCP protocol trait
 pub trait MCPProtocol: Send + Sync {
+    /// Handles an incoming MCP message and returns the response.
     fn handle_message(
         &self,
         message: MCPMessage,
-    ) -> impl Future<Output = Result<MCPMessage>> + Send;
-    fn get_version(&self) -> impl Future<Output = ProtocolVersion> + Send;
+    ) -> impl std::future::Future<Output = Result<MCPMessage>> + Send;
+    /// Returns the protocol version supported by this implementation.
+    fn get_version(&self) -> impl std::future::Future<Output = ProtocolVersion> + Send;
 }
 
 /// Simple MCP protocol implementation
 pub struct SimpleMCPProtocol;
 
 impl MCPProtocol for SimpleMCPProtocol {
-    fn handle_message(
-        &self,
-        message: MCPMessage,
-    ) -> impl Future<Output = Result<MCPMessage>> + Send {
-        async move {
-            // Echo back the message with response type
-            Ok(MCPMessage::new(MessageType::Response, message.payload))
-        }
+    async fn handle_message(&self, message: MCPMessage) -> Result<MCPMessage> {
+        // Echo back the message with response type
+        Ok(MCPMessage::new(MessageType::Response, message.payload))
     }
 
-    fn get_version(&self) -> impl Future<Output = ProtocolVersion> + Send {
-        async move { ProtocolVersion::default() }
+    async fn get_version(&self) -> ProtocolVersion {
+        ProtocolVersion::default()
     }
 }
 

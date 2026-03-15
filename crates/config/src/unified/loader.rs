@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration Loader with Hierarchical Precedence
@@ -381,17 +381,37 @@ impl LoadedConfig {
 /// Configuration loading errors
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
+    /// Config file could not be read from disk.
     #[error("Failed to read config file {path}: {error}")]
-    FileRead { path: PathBuf, error: String },
+    FileRead {
+        /// Path to the config file that failed to read.
+        path: PathBuf,
+        /// I/O or permission error message.
+        error: String,
+    },
 
+    /// Config file content failed to parse (invalid TOML/JSON/YAML).
     #[error("Failed to parse {format} config: {error}")]
-    ParseError { format: String, error: String },
+    ParseError {
+        /// Detected format (e.g. "TOML", "JSON").
+        format: String,
+        /// Parse error message.
+        error: String,
+    },
 
+    /// Config format is not supported by the loader.
     #[error("Unsupported config format: {format}")]
-    UnsupportedFormat { format: String },
+    UnsupportedFormat {
+        /// The unsupported format identifier.
+        format: String,
+    },
 
+    /// Config loaded but failed validation.
     #[error("Configuration validation failed:\n{}", .errors.join("\n"))]
-    ValidationFailed { errors: Vec<String> },
+    ValidationFailed {
+        /// List of validation error messages.
+        errors: Vec<String>,
+    },
 }
 
 #[cfg(test)]
@@ -489,18 +509,22 @@ mod tests {
         assert!(result.is_ok());
         let loader = result.unwrap();
         let config = loader.build().unwrap();
-        assert!(!config
-            .system
-            .data_dir
-            .as_os_str()
-            .to_string_lossy()
-            .is_empty());
-        assert!(!config
-            .system
-            .plugin_dir
-            .as_os_str()
-            .to_string_lossy()
-            .is_empty());
+        assert!(
+            !config
+                .system
+                .data_dir
+                .as_os_str()
+                .to_string_lossy()
+                .is_empty()
+        );
+        assert!(
+            !config
+                .system
+                .plugin_dir
+                .as_os_str()
+                .to_string_lossy()
+                .is_empty()
+        );
     }
 
     #[test]

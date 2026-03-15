@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive tests for AI Router dispatch logic
@@ -8,8 +8,8 @@
 
 use squirrel_ai_tools::common::capability::{AITask, TaskType};
 use squirrel_ai_tools::common::{ChatMessage, ChatRequest, MessageRole};
-use squirrel_ai_tools::router::types::{RequestContext, RouterConfig, RoutingStrategy};
 use squirrel_ai_tools::router::AIRouter;
+use squirrel_ai_tools::router::types::{RequestContext, RouterConfig, RoutingStrategy};
 use std::time::Instant;
 use uuid::Uuid;
 

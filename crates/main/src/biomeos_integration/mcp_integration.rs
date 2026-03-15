@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # MCP Integration for biomeOS
@@ -17,160 +17,240 @@ use crate::error::PrimalError;
 /// MCP integration for ecosystem coordination
 #[derive(Debug, Clone)]
 pub struct McpIntegration {
+    /// The map of active coordination sessions keyed by session ID
     pub coordination_sessions: HashMap<String, CoordinationSession>,
+    /// The list of MCP protocols currently active
     pub active_protocols: Vec<String>,
+    /// The message routing configuration and state
     pub message_routing: MessageRouting,
+    /// The tool orchestration capabilities
     pub tool_orchestration: ToolOrchestration,
+    /// The resource coordination for distributed operations
     pub resource_coordination: ResourceCoordination,
+    /// Whether the integration has been initialized
     pub initialized: bool,
 }
 
 /// Active coordination session
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoordinationSession {
+    /// Unique identifier for the session
     pub session_id: String,
+    /// List of participant identifiers in the session
     pub participants: Vec<String>,
+    /// The type of coordination being performed
     pub coordination_type: String,
+    /// Current status of the session
     pub status: String,
+    /// When the session was started
     pub started_at: DateTime<Utc>,
+    /// Timestamp of last activity in the session
     pub last_activity: DateTime<Utc>,
+    /// Arbitrary coordination data shared between participants
     pub coordination_data: HashMap<String, serde_json::Value>,
 }
 
 /// Message routing for MCP protocol
 #[derive(Debug, Clone)]
 pub struct MessageRouting {
+    /// The map of active routes keyed by route ID
     pub active_routes: HashMap<String, RouteConfig>,
+    /// Queue of messages awaiting routing
     pub message_queue: Vec<PendingMessage>,
+    /// Available routing strategy names
     pub routing_strategies: Vec<String>,
 }
 
 /// Tool orchestration capabilities
 #[derive(Debug, Clone)]
 pub struct ToolOrchestration {
+    /// The map of available tools keyed by tool ID
     pub available_tools: HashMap<String, ToolDefinition>,
+    /// The map of active orchestrations keyed by orchestration ID
     pub active_orchestrations: HashMap<String, ActiveOrchestration>,
+    /// Supported orchestration pattern names
     pub orchestration_patterns: Vec<String>,
 }
 
 /// Resource coordination for distributed operations
 #[derive(Debug, Clone)]
 pub struct ResourceCoordination {
+    /// The map of resource allocations keyed by allocation ID
     pub resource_allocations: HashMap<String, ResourceAllocation>,
+    /// The list of coordination policies to apply
     pub coordination_policies: Vec<CoordinationPolicy>,
+    /// The load balancing configuration
     pub load_balancing: LoadBalancingConfig,
 }
 
 /// Route configuration for messages
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouteConfig {
+    /// Unique identifier for the route
     pub route_id: String,
+    /// Pattern matching message sources
     pub source_pattern: String,
+    /// Pattern matching message destinations
     pub destination_pattern: String,
+    /// The routing strategy to use for this route
     pub routing_strategy: String,
+    /// Route priority for ordering (higher = more preferred)
     pub priority: u32,
 }
 
 /// Pending message in the routing queue
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingMessage {
+    /// Unique identifier for the message
     pub message_id: String,
+    /// Source identifier for the message
     pub source: String,
+    /// Destination identifier for the message
     pub destination: String,
+    /// The type of message for routing decisions
     pub message_type: String,
+    /// The message payload content
     pub payload: serde_json::Value,
+    /// Message priority for queue ordering (higher = processed first)
     pub priority: u32,
+    /// When the message was queued
     pub created_at: DateTime<Utc>,
 }
 
 /// Tool definition for orchestration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
+    /// Unique identifier for the tool
     pub tool_id: String,
+    /// Human-readable name of the tool
     pub tool_name: String,
+    /// The category or type of the tool
     pub tool_type: String,
+    /// List of capability identifiers the tool provides
     pub capabilities: Vec<String>,
+    /// Resource requirements for running the tool
     pub resource_requirements: ToolResourceRequirements,
+    /// Coordination patterns the tool supports
     pub coordination_patterns: Vec<String>,
 }
 
 /// Active tool orchestration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActiveOrchestration {
+    /// Unique identifier for the orchestration
     pub orchestration_id: String,
+    /// List of tool IDs participating in the orchestration
     pub tools_involved: Vec<String>,
+    /// The ordered steps of the orchestration plan
     pub orchestration_plan: Vec<OrchestrationStep>,
+    /// Current status of the orchestration
     pub status: String,
+    /// When the orchestration was started
     pub started_at: DateTime<Utc>,
+    /// Estimated completion timestamp
     pub estimated_completion: DateTime<Utc>,
 }
 
 /// Resource allocation for coordination
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceAllocation {
+    /// Unique identifier for the allocation
     pub allocation_id: String,
+    /// The type of resource being allocated
     pub resource_type: String,
+    /// The amount of resource allocated
     pub allocated_amount: f64,
+    /// Identifier of the entity the resource is allocated to
     pub allocated_to: String,
+    /// When the allocation was made
     pub allocation_time: DateTime<Utc>,
+    /// When the allocation expires
     pub expires_at: DateTime<Utc>,
 }
 
 /// Coordination policy
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoordinationPolicy {
+    /// Unique identifier for the policy
     pub policy_id: String,
+    /// The type of coordination policy
     pub policy_type: String,
+    /// The rules that make up this policy
     pub rules: Vec<PolicyRule>,
+    /// Policy priority for conflict resolution (higher = takes precedence)
     pub priority: u32,
+    /// Whether the policy is currently active
     pub enabled: bool,
 }
 
 /// Load balancing configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoadBalancingConfig {
+    /// The load balancing strategy name
     pub strategy: String,
+    /// Weight mapping for weighted distribution (target -> weight)
     pub weights: HashMap<String, f64>,
+    /// Interval between health checks
     pub health_check_interval: std::time::Duration,
+    /// Rules for failover when targets become unhealthy
     pub failover_rules: Vec<FailoverRule>,
 }
 
 /// Tool resource requirements
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResourceRequirements {
+    /// CPU units required
     pub cpu: f64,
+    /// Memory in bytes required
     pub memory: f64,
+    /// Network bandwidth units required
     pub network: f64,
+    /// Optional storage in bytes required
     pub storage: Option<f64>,
+    /// Optional GPU units required
     pub gpu: Option<f64>,
 }
 
 /// Orchestration step definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrchestrationStep {
+    /// Unique identifier for the step
     pub step_id: String,
+    /// The tool ID to invoke for this step
     pub tool_id: String,
+    /// The operation to perform
     pub operation: String,
+    /// Input parameters for the operation
     pub inputs: HashMap<String, serde_json::Value>,
+    /// Step IDs that must complete before this step
     pub dependencies: Vec<String>,
+    /// Maximum time allowed for the step
     pub timeout: std::time::Duration,
 }
 
 /// Policy rule for coordination
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyRule {
+    /// Unique identifier for the rule
     pub rule_id: String,
+    /// Condition expression that triggers the rule
     pub condition: String,
+    /// Action to take when the condition is met
     pub action: String,
+    /// Parameters for the action
     pub parameters: HashMap<String, String>,
 }
 
 /// Failover rule for load balancing
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailoverRule {
+    /// Unique identifier for the failover rule
     pub rule_id: String,
+    /// Condition that triggers failover
     pub trigger_condition: String,
+    /// Target to fail over to when triggered
     pub failover_target: String,
+    /// Strategy for recovery after failover
     pub recovery_strategy: String,
 }
 
@@ -562,9 +642,11 @@ mod tests {
     async fn test_mcp_integration_creation() {
         let integration = McpIntegration::new();
         assert!(!integration.active_protocols.is_empty());
-        assert!(integration
-            .active_protocols
-            .contains(&"mcp_2.0".to_string()));
+        assert!(
+            integration
+                .active_protocols
+                .contains(&"mcp_2.0".to_string())
+        );
     }
 
     #[tokio::test]

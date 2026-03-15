@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use super::{Command, CommandError, Result};
@@ -21,7 +21,6 @@ pub trait ValidationRule: Send + Sync + std::fmt::Debug {
     fn name(&self) -> &'static str;
 
     /// Returns a description of what the rule validates.
-    #[allow(dead_code)]
     fn description(&self) -> &'static str;
 
     /// Validates a command against this rule.
@@ -32,11 +31,9 @@ pub trait ValidationRule: Send + Sync + std::fmt::Debug {
     ///
     /// # Errors
     /// Returns an error if validation fails with a description of the failure
-    #[allow(dead_code)]
     fn validate(&self, command: &dyn Command, context: &ValidationContext) -> Result<()>;
 
     /// Clone the rule into a new Box.
-    #[allow(dead_code)]
     fn clone_box(&self) -> Box<dyn ValidationRule>;
 }
 
@@ -77,11 +74,9 @@ pub struct ValidationContext {
     data: RwLock<HashMap<String, String>>,
     /// Rules for validation (currently unused)
     #[serde(skip)]
-    #[allow(dead_code)]
     rules: HashMap<String, Box<dyn ValidationRule>>,
 }
 
-#[allow(dead_code)]
 impl ValidationContext {
     /// Creates a new validation context
     #[must_use]
@@ -144,13 +139,10 @@ impl Default for ValidationContext {
 #[derive(Debug)]
 pub struct CommandValidator {
     /// Map of pattern names to regex patterns used for validation
-    #[allow(dead_code)]
     patterns: HashMap<String, Regex>,
     /// Context for validation operations containing metadata about the command being validated
-    #[allow(dead_code)]
     context: ValidationContext,
     /// List of validation rules
-    #[allow(dead_code)]
     rules: RwLock<Vec<Box<dyn ValidationRule>>>,
 }
 
@@ -169,7 +161,6 @@ impl CommandValidator {
     ///
     /// # Errors
     /// Returns an error if the write lock cannot be acquired.
-    #[allow(dead_code)]
     pub fn add_rule(&self, rule: Box<dyn ValidationRule>) -> Result<()> {
         let mut rules = self.rules.write().map_err(|e| {
             CommandError::ValidationError(format!("Failed to acquire write lock: {e}"))
@@ -235,7 +226,6 @@ impl CommandValidator {
     }
 
     /// Returns the number of rules in the validator
-    #[allow(dead_code)]
     pub fn rules(&self) -> usize {
         self.rules.read().map(|rules| rules.len()).unwrap_or(0)
     }
@@ -256,7 +246,6 @@ pub struct RequiredArgumentsRule {
     required_args: Vec<String>,
 }
 
-#[allow(dead_code)]
 impl RequiredArgumentsRule {
     /// Creates a new `RequiredArgumentsRule` with the specified required arguments
     ///
@@ -303,7 +292,6 @@ pub struct ArgumentPatternRule {
     patterns: HashMap<String, String>,
 }
 
-#[allow(dead_code)]
 impl ArgumentPatternRule {
     /// Creates a new `ArgumentPatternRule` with the specified patterns
     ///
@@ -368,7 +356,6 @@ pub struct EnvironmentRule {
     required_vars: Vec<String>,
 }
 
-#[allow(dead_code)]
 impl EnvironmentRule {
     /// Creates a new `EnvironmentRule` with the specified required variables
     ///
@@ -427,7 +414,6 @@ impl NameLengthRule {
     /// # Returns
     /// A new `NameLengthRule` instance
     #[must_use]
-    #[allow(dead_code)]
     pub fn new(min_length: usize, max_length: usize) -> Self {
         Self {
             min_length,
@@ -485,7 +471,6 @@ pub struct DescriptionRule {
     min_length: usize,
 }
 
-#[allow(dead_code)]
 impl DescriptionRule {
     /// Creates a new `DescriptionRule` with the specified minimum length
     ///
@@ -534,7 +519,6 @@ pub struct InputSanitizationRule {
     max_length: usize,
 }
 
-#[allow(dead_code)]
 impl InputSanitizationRule {
     /// Creates a new `InputSanitizationRule` with the specified patterns and length limit
     ///
@@ -573,12 +557,12 @@ impl ValidationRule for InputSanitizationRule {
 
         // Check patterns
         for (key, pattern) in &self.patterns {
-            if let Some(value) = context.arguments.get(key) {
-                if !pattern.is_match(value) {
-                    return Err(CommandError::ValidationError(format!(
-                        "Argument '{key}' value '{value}' does not match required pattern"
-                    )));
-                }
+            if let Some(value) = context.arguments.get(key)
+                && !pattern.is_match(value)
+            {
+                return Err(CommandError::ValidationError(format!(
+                    "Argument '{key}' value '{value}' does not match required pattern"
+                )));
             }
         }
         Ok(())
@@ -606,7 +590,6 @@ pub struct ResourceValidationRule {
     max_threads: usize,
 }
 
-#[allow(dead_code)]
 impl ResourceValidationRule {
     /// Creates a new `ResourceValidationRule` with the specified resource limits
     ///

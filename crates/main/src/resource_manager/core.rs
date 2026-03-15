@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! `ResourceManager` core implementation
@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
-use tracing::{debug, info, warn, Instrument};
+use tracing::{Instrument, debug, info, warn};
 
 use crate::error::PrimalError;
 use crate::observability::{CorrelationId, OperationContext};
@@ -365,12 +365,11 @@ impl ResourceManager {
         {
             if let Ok(status) = tokio::fs::read_to_string("/proc/self/status").await {
                 for line in status.lines() {
-                    if line.starts_with("VmRSS:") {
-                        if let Some(kb_str) = line.split_whitespace().nth(1) {
-                            if let Ok(kb) = kb_str.parse::<u64>() {
-                                return kb * 1024; // Convert KB to bytes
-                            }
-                        }
+                    if line.starts_with("VmRSS:")
+                        && let Some(kb_str) = line.split_whitespace().nth(1)
+                        && let Ok(kb) = kb_str.parse::<u64>()
+                    {
+                        return kb * 1024; // Convert KB to bytes
                     }
                 }
             }

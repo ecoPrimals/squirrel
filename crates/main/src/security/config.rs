@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security Configuration
@@ -39,14 +39,27 @@ pub struct SecurityProviderConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub enum AuthMethod {
     /// JWT token authentication
-    JWT { token: String },
+    JWT {
+        /// The JWT bearer token.
+        token: String,
+    },
     /// API key authentication
-    ApiKey { key: String },
+    ApiKey {
+        /// The API key.
+        key: String,
+    },
     /// Mutual TLS authentication
-    MTLS { cert_path: String, key_path: String },
+    MTLS {
+        /// Path to the client certificate.
+        cert_path: String,
+        /// Path to the client private key.
+        key_path: String,
+    },
     /// `OAuth2` authentication
     OAuth2 {
+        /// OAuth2 client ID.
         client_id: String,
+        /// OAuth2 client secret.
         client_secret: String,
     },
     /// Unix socket authentication (secure by default, no credentials needed)
@@ -231,19 +244,23 @@ mod tests {
     #[test]
     #[serial]
     fn test_security_provider_config_default() {
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
-        std::env::remove_var("SECURITY_AUTHENTICATION_PORT");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
+        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
         let config = SecurityProviderConfig::default();
         assert_eq!(config.provider_type, "security.authentication");
         assert!(matches!(config.auth_method, AuthMethod::UnixSocket));
         assert_eq!(config.timeout, Duration::from_secs(30));
         assert_eq!(config.security_level, SecurityLevel::Standard);
-        assert!(config
-            .capabilities
-            .contains(&SecurityCapability::Authentication));
-        assert!(config
-            .capabilities
-            .contains(&SecurityCapability::AccessControl));
+        assert!(
+            config
+                .capabilities
+                .contains(&SecurityCapability::Authentication)
+        );
+        assert!(
+            config
+                .capabilities
+                .contains(&SecurityCapability::AccessControl)
+        );
     }
 
     #[test]
@@ -296,8 +313,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_security_service_config_default() {
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
-        std::env::remove_var("SECURITY_AUTHENTICATION_PORT");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
+        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
         let config = SecurityServiceConfig::default();
         assert_eq!(config.security_service_endpoint, "http://localhost:8443");
         assert!(config.enabled);
@@ -307,23 +324,23 @@ mod tests {
     #[test]
     #[serial]
     fn test_security_service_config_env_override() {
-        std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://secure.example.com");
+        unsafe { std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://secure.example.com") };
         let config = SecurityServiceConfig::default();
         assert_eq!(
             config.security_service_endpoint,
             "https://secure.example.com"
         );
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
     }
 
     #[test]
     #[serial]
     fn test_security_service_config_port_override() {
-        std::env::remove_var("SECURITY_SERVICE_ENDPOINT");
-        std::env::set_var("SECURITY_AUTHENTICATION_PORT", "9999");
+        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
+        unsafe { std::env::set_var("SECURITY_AUTHENTICATION_PORT", "9999") };
         let config = SecurityServiceConfig::default();
         assert_eq!(config.security_service_endpoint, "http://localhost:9999");
-        std::env::remove_var("SECURITY_AUTHENTICATION_PORT");
+        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
     }
 
     #[test]

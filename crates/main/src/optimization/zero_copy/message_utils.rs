@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Zero-copy message utilities
@@ -10,8 +10,11 @@ use std::sync::Arc;
 /// Message structure that uses `Arc<str>` for zero-copy sharing
 #[derive(Debug, Clone)]
 pub struct ZeroCopyMessage {
+    /// Type identifier for the message.
     pub message_type: Arc<str>,
+    /// Message content.
     pub content: Arc<str>,
+    /// Optional metadata key-value pairs.
     pub metadata: HashMap<Arc<str>, Arc<str>>,
 }
 

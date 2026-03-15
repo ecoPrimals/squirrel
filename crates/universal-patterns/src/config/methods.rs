@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration implementation methods
@@ -218,28 +218,28 @@ impl UniversalPrimalConfig {
             config.auto_discovery_enabled = discovery.parse().unwrap_or(true);
         }
 
-        if let Ok(max_per_type) = std::env::var("PRIMAL_MAX_INSTANCES_PER_TYPE") {
-            if let Ok(num) = max_per_type.parse::<usize>() {
-                config.multi_instance.max_instances_per_type = num;
-            }
+        if let Ok(max_per_type) = std::env::var("PRIMAL_MAX_INSTANCES_PER_TYPE")
+            && let Ok(num) = max_per_type.parse::<usize>()
+        {
+            config.multi_instance.max_instances_per_type = num;
         }
 
-        if let Ok(max_per_user) = std::env::var("PRIMAL_MAX_INSTANCES_PER_USER") {
-            if let Ok(num) = max_per_user.parse::<usize>() {
-                config.multi_instance.max_instances_per_user = num;
-            }
+        if let Ok(max_per_user) = std::env::var("PRIMAL_MAX_INSTANCES_PER_USER")
+            && let Ok(num) = max_per_user.parse::<usize>()
+        {
+            config.multi_instance.max_instances_per_user = num;
         }
 
-        if let Ok(port_start) = std::env::var("PRIMAL_PORT_RANGE_START") {
-            if let Ok(start) = port_start.parse::<u16>() {
-                config.port_management.port_range.start = start;
-            }
+        if let Ok(port_start) = std::env::var("PRIMAL_PORT_RANGE_START")
+            && let Ok(start) = port_start.parse::<u16>()
+        {
+            config.port_management.port_range.start = start;
         }
 
-        if let Ok(port_end) = std::env::var("PRIMAL_PORT_RANGE_END") {
-            if let Ok(end) = port_end.parse::<u16>() {
-                config.port_management.port_range.end = end;
-            }
+        if let Ok(port_end) = std::env::var("PRIMAL_PORT_RANGE_END")
+            && let Ok(end) = port_end.parse::<u16>()
+        {
+            config.port_management.port_range.end = end;
         }
 
         config

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Resource manager type definitions
@@ -67,10 +67,16 @@ pub struct ResourceUsageStats {
 /// Cleanup operation metrics
 #[derive(Debug, Clone, Default)]
 pub struct CleanupMetrics {
+    /// Total number of cleanup runs.
     pub total_runs: u64,
+    /// Number of successful cleanup runs.
     pub successful_runs: u64,
+    /// Number of failed cleanup runs.
     pub failed_runs: u64,
+    /// Average duration of cleanup runs in milliseconds.
     pub avg_duration_ms: f64,
+    /// Total resources cleaned across all runs.
     pub resources_cleaned: u64,
+    /// Timestamp of the last cleanup run.
     pub last_run: Option<Instant>,
 }

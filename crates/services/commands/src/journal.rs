@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Command Journaling System
@@ -61,7 +61,7 @@ impl Clone for JournalError {
         match self {
             Self::IoError(e) => Self::IoError(io::Error::new(e.kind(), e.to_string())),
             Self::SerializationError(_) => Self::SerializationError(
-                serde_json::from_str::<serde_json::Value>("{}").unwrap_err(),
+                serde_json::from_str::<serde_json::Value>("{").unwrap_err(),
             ),
             Self::EntryNotFound(s) => Self::EntryNotFound(s.clone()),
             Self::CorruptedData(s) => Self::CorruptedData(s.clone()),

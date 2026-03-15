@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Universal Adapter V2 - Infant Primal Pattern
@@ -220,11 +220,11 @@ impl UniversalAdapterV2 {
         info!("🔍 Discovering capability: {}", capability);
 
         // Check connection pool first
-        if self.config.enable_pooling {
-            if let Some(active_conn) = self.get_pooled_connection(capability).await {
-                debug!("✅ Using pooled connection for '{}'", capability);
-                return Ok(UniversalClient::from_connection(active_conn));
-            }
+        if self.config.enable_pooling
+            && let Some(active_conn) = self.get_pooled_connection(capability).await
+        {
+            debug!("✅ Using pooled connection for '{}'", capability);
+            return Ok(UniversalClient::from_connection(active_conn));
         }
 
         // Discover service provider for this capability
@@ -465,7 +465,7 @@ mod tests {
     #[tokio::test]
     async fn test_connect_capability_from_env() {
         // Set up test environment
-        std::env::set_var("COMPUTE_ENDPOINT", "http://localhost:8500");
+        unsafe { std::env::set_var("COMPUTE_ENDPOINT", "http://localhost:8500") };
 
         let adapter = UniversalAdapterV2::awaken().await.unwrap();
         let client = adapter.connect_capability("compute").await;
@@ -478,12 +478,12 @@ mod tests {
         }
 
         // Cleanup
-        std::env::remove_var("COMPUTE_ENDPOINT");
+        unsafe { std::env::remove_var("COMPUTE_ENDPOINT") };
     }
 
     #[tokio::test]
     async fn test_connection_pooling() {
-        std::env::set_var("STORAGE_ENDPOINT", "http://localhost:8080");
+        unsafe { std::env::set_var("STORAGE_ENDPOINT", "http://localhost:8080") };
 
         let adapter = UniversalAdapterV2::awaken().await.unwrap();
 
@@ -497,6 +497,6 @@ mod tests {
         let connections = adapter.connections.read().await;
         assert!(connections.contains_key("storage"));
 
-        std::env::remove_var("STORAGE_ENDPOINT");
+        unsafe { std::env::remove_var("STORAGE_ENDPOINT") };
     }
 }

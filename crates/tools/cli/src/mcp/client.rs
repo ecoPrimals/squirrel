@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP client implementation
@@ -188,7 +188,9 @@ impl MCPClient {
                                             }
                                         }
                                         Err(_) => {
-                                            error!("Subscriptions mutex poisoned, skipping notification");
+                                            error!(
+                                                "Subscriptions mutex poisoned, skipping notification"
+                                            );
                                             continue;
                                         }
                                     };
@@ -197,17 +199,16 @@ impl MCPClient {
                                     for handler_id in handlers {
                                         match notification_handlers.lock() {
                                             Ok(handlers) => {
-                                                if let Some(handler) = handlers.get(&handler_id) {
-                                                    if let Err(e) = handler(&topic, &message) {
-                                                        error!(
-                                                            "Error in notification handler: {}",
-                                                            e
-                                                        );
-                                                    }
+                                                if let Some(handler) = handlers.get(&handler_id)
+                                                    && let Err(e) = handler(&topic, &message)
+                                                {
+                                                    error!("Error in notification handler: {}", e);
                                                 }
                                             }
                                             Err(_) => {
-                                                error!("Notification handlers mutex poisoned, skipping handler");
+                                                error!(
+                                                    "Notification handlers mutex poisoned, skipping handler"
+                                                );
                                                 continue;
                                             }
                                         }
@@ -269,10 +270,10 @@ impl MCPClient {
         {
             match self.listener_thread.lock() {
                 Ok(mut listener_thread) => {
-                    if let Some(thread) = listener_thread.take() {
-                        if let Err(e) = thread.join() {
-                            error!("Error joining notification listener thread: {:?}", e);
-                        }
+                    if let Some(thread) = listener_thread.take()
+                        && let Err(e) = thread.join()
+                    {
+                        error!("Error joining notification listener thread: {:?}", e);
                     }
                 }
                 Err(_) => {
@@ -771,10 +772,10 @@ impl MCPClient {
             let response = MCPMessage::from_json(&response_json)?;
 
             // Check if error response
-            if response.message_type == MCPMessageType::Error {
-                if let Some(error) = &response.error {
-                    return Err(MCPError::CommandError(error.clone()));
-                }
+            if response.message_type == MCPMessageType::Error
+                && let Some(error) = &response.error
+            {
+                return Err(MCPError::CommandError(error.clone()));
             }
 
             Ok(response)
@@ -819,10 +820,10 @@ impl MCPClient {
 impl Drop for MCPClient {
     fn drop(&mut self) {
         // Ensure disconnected when dropped
-        if self.is_connected() {
-            if let Err(e) = self.disconnect() {
-                warn!("Error disconnecting from MCP server: {}", e);
-            }
+        if self.is_connected()
+            && let Err(e) = self.disconnect()
+        {
+            warn!("Error disconnecting from MCP server: {}", e);
         }
     }
 }

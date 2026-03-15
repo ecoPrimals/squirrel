@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive tests for rule evaluator
@@ -7,7 +7,7 @@
 mod tests {
     use crate::evaluator::RuleEvaluator;
     use crate::models::{Rule, RuleCondition};
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     /// Helper to create test context data
     fn test_context() -> Value {

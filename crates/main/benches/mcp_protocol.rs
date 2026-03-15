@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP Protocol Performance Benchmarks
@@ -9,7 +9,7 @@
 //! - Session management
 //! - Connection handling
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde_json;
 use std::time::Duration;
 use tokio::runtime::Runtime;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Unified Configuration Validation
@@ -34,20 +34,44 @@ pub type ValidationResult<T> = Result<T, ValidationError>;
 /// Configuration validation errors
 #[derive(Debug, thiserror::Error)]
 pub enum ValidationError {
+    /// A field has an invalid value.
     #[error("Invalid {field}: {reason}")]
-    Invalid { field: String, reason: String },
+    Invalid {
+        /// Name of the invalid field.
+        field: String,
+        /// Explanation of why the value is invalid.
+        reason: String,
+    },
 
+    /// A required field is missing.
     #[error("Missing required field: {field}")]
-    Missing { field: String },
+    Missing {
+        /// Name of the missing field.
+        field: String,
+    },
 
+    /// A field violates a constraint (e.g. port > 0).
     #[error("Value {field} must be {constraint}")]
-    Constraint { field: String, constraint: String },
+    Constraint {
+        /// Name of the constrained field.
+        field: String,
+        /// Description of the constraint.
+        constraint: String,
+    },
 
+    /// Conflicting configuration values.
     #[error("Conflict: {description}")]
-    Conflict { description: String },
+    Conflict {
+        /// Description of the conflict.
+        description: String,
+    },
 
+    /// A referenced file or directory does not exist.
     #[error("File not found: {path}")]
-    FileNotFound { path: String },
+    FileNotFound {
+        /// Path that was not found.
+        path: String,
+    },
 }
 
 /// Unified configuration validator
@@ -284,12 +308,12 @@ impl Validator {
     /// # Errors
     /// - Parent directory does not exist
     pub fn validate_parent_dir_exists(path: &Path, field: &str) -> ValidationResult<()> {
-        if let Some(parent) = path.parent() {
-            if !parent.exists() {
-                return Err(ValidationError::FileNotFound {
-                    path: format!("{} parent directory: {}", field, parent.display()),
-                });
-            }
+        if let Some(parent) = path.parent()
+            && !parent.exists()
+        {
+            return Err(ValidationError::FileNotFound {
+                path: format!("{} parent directory: {}", field, parent.display()),
+            });
         }
         Ok(())
     }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin types
@@ -8,24 +8,19 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::plugin::Plugin;
 use crate::Result;
+use crate::plugin::Plugin;
 
-/// Plugin type identifiers
-/// Core plugin type for system extensions
-#[allow(dead_code)] // Reserved for plugin type filtering
+/// Plugin type identifiers (reserved for plugin type filtering)
+#[allow(dead_code)]
 pub const PLUGIN_TYPE_CORE: &str = "core";
-/// Web plugin type for interface extensions
-#[allow(dead_code)] // Reserved for plugin type filtering
+#[allow(dead_code)]
 pub const PLUGIN_TYPE_WEB: &str = "web";
-/// MCP (Machine Context Protocol) plugin type for protocol extensions
-#[allow(dead_code)] // Reserved for plugin type filtering
+#[allow(dead_code)]
 pub const PLUGIN_TYPE_MCP: &str = "mcp";
-/// Tool plugin type for utility extensions
-#[allow(dead_code)] // Reserved for plugin type filtering
+#[allow(dead_code)]
 pub const PLUGIN_TYPE_TOOL: &str = "tool";
-/// CLI plugin type for command-line interface extensions
-#[allow(dead_code)] // Reserved for plugin type filtering
+#[allow(dead_code)]
 pub const PLUGIN_TYPE_CLI: &str = "cli";
 
 /// Plugin type enumeration
@@ -41,8 +36,8 @@ pub enum PluginType {
     Script,
 }
 
-/// Plugin state enumeration
-#[allow(dead_code)] // Reserved for plugin state management system
+/// Plugin state enumeration (reserved for plugin state management system)
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginState {
     /// Plugin is loaded and ready
@@ -57,8 +52,8 @@ pub enum PluginState {
     Unloaded,
 }
 
-/// Plugin data format enumeration
-#[allow(dead_code)] // Reserved for plugin data serialization system
+/// Plugin data format enumeration (reserved for plugin data serialization system)
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginDataFormat {
     /// JSON format
@@ -142,8 +137,8 @@ pub enum PluginStatus {
 // PluginMetadata removed - use squirrel_interfaces::plugins::PluginMetadata instead
 // This was duplicate/unused code. The canonical version is in squirrel-interfaces crate.
 
-/// Core plugin trait for core system extensions
-#[allow(dead_code)] // Reserved for plugin specialization system
+/// Core plugin trait for core system extensions (reserved for plugin specialization system)
+#[allow(dead_code)]
 pub trait CorePlugin: Plugin {
     /// Get the core plugin name
     fn get_core_name(&self) -> &str;
@@ -196,8 +191,8 @@ pub trait McpPlugin: Plugin {
     async fn mcp_shutdown(&self) -> Result<()>;
 }
 
-/// Tool plugin trait for tool implementations
-#[allow(dead_code)] // Reserved for plugin specialization system
+/// Tool plugin trait for tool implementations (reserved for plugin specialization system)
+#[allow(dead_code)]
 pub trait ToolPlugin: Plugin {
     /// Get the tool plugin name
     fn get_tool_name(&self) -> &str;

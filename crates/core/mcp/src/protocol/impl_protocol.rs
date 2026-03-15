@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use serde::{Deserialize, Serialize};
@@ -527,7 +527,7 @@ impl MCPProtocol for MCPProtocolImpl {
 }
 
 /// Create a protocol adapter with the provided protocol
-#[allow(dead_code)]
+
 pub(super) fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolBase, crate::error::Error> {
     let mut protocol = protocol;
     protocol.initialize()?;
@@ -535,7 +535,7 @@ pub(super) fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPPr
 }
 
 /// Create a protocol adapter with the provided protocol and config
-#[allow(dead_code)]
+
 pub(super) fn create_protocol_adapter_with_config(
     protocol: MCPProtocolImpl,
     config: ProtocolConfig,

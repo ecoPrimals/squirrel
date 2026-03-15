@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Error System for Squirrel
 //!
 //! This crate provides a unified error handling system that extends the excellent
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 #![allow(
     clippy::doc_markdown,
     clippy::use_self,

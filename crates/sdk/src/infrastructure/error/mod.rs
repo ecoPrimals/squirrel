@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive error handling system for the Squirrel Plugin SDK
@@ -79,10 +79,10 @@ pub use self::context::{EnhancedError, EnhancedResult, ErrorContext, PluginError
 pub use self::core::{PluginError, PluginResult};
 pub use self::severity::{ErrorCategory, ErrorSeverity, PluginErrorClassification};
 pub use self::validation::{
-    validate_array, validate_array_length, validate_boolean, validate_email, validate_enum_value,
-    validate_integer_range, validate_non_empty_string, validate_numeric_range, validate_object,
-    validate_optional_string, validate_required_fields, validate_required_number,
-    validate_required_string, validate_string_length, validate_url, ValidationError,
+    ValidationError, validate_array, validate_array_length, validate_boolean, validate_email,
+    validate_enum_value, validate_integer_range, validate_non_empty_string, validate_numeric_range,
+    validate_object, validate_optional_string, validate_required_fields, validate_required_number,
+    validate_required_string, validate_string_length, validate_url,
 };
 
 // Re-export commonly used items for convenience

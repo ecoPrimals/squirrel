@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Context Visualization System
@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{Mutex, broadcast};
 
 use crate::error::Result;
 
@@ -91,7 +91,7 @@ impl Default for VisualizationSystemConfig {
 #[derive(Debug)]
 pub struct VisualizationSystem {
     /// Configuration
-    #[allow(dead_code)] // Config stored for future system reconfiguration
+    #[allow(dead_code)] // Reserved for planned feature
     config: Arc<VisualizationSystemConfig>,
 
     /// Visualization manager

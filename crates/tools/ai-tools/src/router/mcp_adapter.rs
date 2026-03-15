@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP Adapter for AI Router
@@ -11,12 +11,12 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 
 use super::{MCPInterface, NodeId, RemoteAIRequest, RemoteAIResponse, RemoteAIResponseStream};
+use crate::Result;
 use crate::common::capability::AICapabilities;
 use crate::common::{
     ChatChoice, ChatChoiceChunk, ChatMessage, ChatResponse, ChatResponseChunk, ChatResponseStream,
     MessageRole, UsageInfo,
 };
-use crate::Result;
 
 /// Configuration for the MCP adapter
 #[derive(Debug, Clone)]
@@ -52,11 +52,9 @@ pub struct MCPAdapter {
     config: MCPAdapterConfig,
 
     /// Mock responses for testing
-    #[allow(dead_code)]
     mock_responses: std::sync::RwLock<HashMap<String, ChatResponse>>,
 
     /// Mock capabilities for testing
-    #[allow(dead_code)]
     mock_capabilities: std::sync::RwLock<HashMap<NodeId, HashMap<String, AICapabilities>>>,
 }
 
@@ -282,11 +280,9 @@ impl MCPInterface for MCPAdapter {
 // These would be replaced with actual MCP protocol types
 // NOTE(phase2): MCP adapter implementation - pending full MCP protocol integration
 #[derive(Debug)]
-#[allow(dead_code)] // Planned functionality
 struct McpClient;
 
 #[derive(Debug)]
-#[allow(dead_code)] // Planned functionality
 struct McpRequest {
     id: String,
     method: String,
@@ -294,14 +290,12 @@ struct McpRequest {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)] // Planned functionality
 struct McpResponse {
     id: String,
     result: serde_json::Value,
 }
 
 #[derive(Debug)]
-#[allow(dead_code)] // Planned functionality
 struct McpChunk {
     id: String,
     data: serde_json::Value,
@@ -310,8 +304,8 @@ struct McpChunk {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::capability::{ModelType, TaskType};
     use crate::common::ChatRequest;
+    use crate::common::capability::{ModelType, TaskType};
 
     #[tokio::test]
     async fn test_mock_response() {

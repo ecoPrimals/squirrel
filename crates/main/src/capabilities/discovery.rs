@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -59,18 +59,23 @@ pub struct CapabilityProvider {
 /// Discovery error types
 #[derive(Debug, thiserror::Error)]
 pub enum DiscoveryError {
+    /// The requested capability was not found.
     #[error("Capability not found: {0}")]
     CapabilityNotFound(String),
 
+    /// Socket probe operation failed.
     #[error("Socket probe failed: {0}")]
     ProbeFailed(String),
 
+    /// I/O error during discovery.
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// JSON parsing error when reading capability metadata.
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
 
+    /// No socket directory was accessible for discovery.
     #[error("No socket directory accessible")]
     NoSocketDirectory,
 }
@@ -180,15 +185,15 @@ async fn try_socket_scan(capability: &str) -> Result<Option<CapabilityProvider>,
 
                         // Probe each socket to see what it provides
                         // Errors are logged but don't stop the scan
-                        if let Ok(provider) = probe_socket(&path).await {
-                            if provider.capabilities.contains(&capability.to_string()) {
-                                return Ok::<Option<CapabilityProvider>, DiscoveryError>(Some(
-                                    CapabilityProvider {
-                                        discovered_via: format!("scan:{}", socket_dir.display()),
-                                        ..provider
-                                    },
-                                ));
-                            }
+                        if let Ok(provider) = probe_socket(&path).await
+                            && provider.capabilities.contains(&capability.to_string())
+                        {
+                            return Ok::<Option<CapabilityProvider>, DiscoveryError>(Some(
+                                CapabilityProvider {
+                                    discovered_via: format!("scan:{}", socket_dir.display()),
+                                    ..provider
+                                },
+                            ));
                         }
                     }
                 }
@@ -419,12 +424,12 @@ async fn query_registry(
         Ok(Err(e)) => {
             return Err(DiscoveryError::ProbeFailed(format!(
                 "Registry read error: {e}"
-            )))
+            )));
         }
         Err(_) => {
             return Err(DiscoveryError::ProbeFailed(
                 "Registry query timeout (>2s)".to_string(),
-            ))
+            ));
         }
     }
 
@@ -550,15 +555,15 @@ pub async fn discover_all_capabilities() -> Result<HashMap<String, Vec<Arc<Capab
             while let Ok(Some(entry)) = entries.next_entry().await {
                 let path = entry.path();
 
-                if is_unix_socket(&path).await {
-                    if let Ok(provider) = probe_socket(&path).await {
-                        let provider = Arc::new(provider);
-                        for capability in &provider.capabilities {
-                            all_capabilities
-                                .entry(capability.clone())
-                                .or_default()
-                                .push(Arc::clone(&provider));
-                        }
+                if is_unix_socket(&path).await
+                    && let Ok(provider) = probe_socket(&path).await
+                {
+                    let provider = Arc::new(provider);
+                    for capability in &provider.capabilities {
+                        all_capabilities
+                            .entry(capability.clone())
+                            .or_default()
+                            .push(Arc::clone(&provider));
                     }
                 }
             }

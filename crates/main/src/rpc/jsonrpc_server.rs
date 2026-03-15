@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -136,10 +136,15 @@ pub struct JsonRpcError {
 
 /// JSON-RPC error codes (standard)
 pub mod error_codes {
+    /// Invalid JSON was received by the server.
     pub const PARSE_ERROR: i32 = -32700;
+    /// The JSON sent is not a valid Request object.
     pub const INVALID_REQUEST: i32 = -32600;
+    /// The method does not exist or is not available.
     pub const METHOD_NOT_FOUND: i32 = -32601;
+    /// Invalid method parameter(s).
     pub const INVALID_PARAMS: i32 = -32602;
+    /// Internal JSON-RPC error.
     pub const INTERNAL_ERROR: i32 = -32603;
 }
 
@@ -166,6 +171,7 @@ impl Default for ServerMetrics {
 }
 
 impl ServerMetrics {
+    /// Creates a new server metrics instance with default values.
     pub fn new() -> Self {
         Self {
             requests_handled: 0,
@@ -175,10 +181,12 @@ impl ServerMetrics {
         }
     }
 
+    /// Returns the server uptime in seconds.
     pub fn uptime_seconds(&self) -> u64 {
         self.start_time.elapsed().as_secs()
     }
 
+    /// Returns the average response time in milliseconds, if any requests were handled.
     pub fn avg_response_time_ms(&self) -> Option<f64> {
         if self.requests_handled > 0 {
             Some(self.total_response_time_ms as f64 / self.requests_handled as f64)
@@ -414,7 +422,7 @@ impl JsonRpcServer {
         first_line: &str,
     ) -> Result<()> {
         use super::protocol::IpcProtocol;
-        use super::protocol_negotiation::{select_protocol, ProtocolRequest, ProtocolResponse};
+        use super::protocol_negotiation::{ProtocolRequest, ProtocolResponse, select_protocol};
         use super::tarpc_server::TarpcRpcServer;
 
         info!("🔄 Protocol negotiation requested");

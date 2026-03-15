@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Request handling for web plugins
@@ -7,7 +7,7 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 
 use crate::web::http::{HttpMethod, HttpStatus};
@@ -61,10 +61,10 @@ impl WebRequest {
     /// Extract route parameters from the path based on a route pattern
     pub fn with_route_params(mut self, route_pattern: &str) -> Self {
         let route = Route::new(route_pattern);
-        if route.matches(&self.path) {
-            if let Some(params) = route.extract_params(&self.path) {
-                self.route_params = params;
-            }
+        if route.matches(&self.path)
+            && let Some(params) = route.extract_params(&self.path)
+        {
+            self.route_params = params;
         }
         self
     }

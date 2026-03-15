@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! CLI plugin integration
@@ -14,9 +14,13 @@ use crate::{Plugin, Result};
 /// CLI command type for plugin integration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CliCommand {
+    /// Command name (e.g. "install", "list").
     pub name: String,
+    /// Human-readable description of what the command does.
     pub description: String,
+    /// Usage string showing expected arguments.
     pub usage: String,
+    /// Named parameters the command accepts.
     pub parameters: HashMap<String, String>,
 }
 

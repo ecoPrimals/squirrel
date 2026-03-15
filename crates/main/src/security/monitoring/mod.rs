@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Production Security Monitoring & Threat Detection
@@ -49,7 +49,7 @@ use types::BehavioralPattern;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock, mpsc};
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -178,15 +178,15 @@ impl SecurityMonitoringSystem {
         }
 
         // Send to real-time processing if enabled
-        if self.config.enable_real_time_monitoring {
-            if let Err(e) = self.event_sender.send(event.clone()) {
-                error!(
-                    event_id = %event.event_id,
-                    error = %e,
-                    operation = "event_recording_failed",
-                    "Failed to send security event for processing"
-                );
-            }
+        if self.config.enable_real_time_monitoring
+            && let Err(e) = self.event_sender.send(event.clone())
+        {
+            error!(
+                event_id = %event.event_id,
+                error = %e,
+                operation = "event_recording_failed",
+                "Failed to send security event for processing"
+            );
         }
 
         // Add to buffer for batch processing
@@ -758,14 +758,18 @@ mod tests {
 
         assert!(system.shutdown(ShutdownPhase::StopAccepting).await.is_ok());
         assert!(system.shutdown(ShutdownPhase::DrainRequests).await.is_ok());
-        assert!(system
-            .shutdown(ShutdownPhase::CloseConnections)
-            .await
-            .is_ok());
-        assert!(system
-            .shutdown(ShutdownPhase::CleanupResources)
-            .await
-            .is_ok());
+        assert!(
+            system
+                .shutdown(ShutdownPhase::CloseConnections)
+                .await
+                .is_ok()
+        );
+        assert!(
+            system
+                .shutdown(ShutdownPhase::CleanupResources)
+                .await
+                .is_ok()
+        );
         assert!(system.shutdown(ShutdownPhase::ShutdownTasks).await.is_ok());
         assert!(system.shutdown(ShutdownPhase::FinalCleanup).await.is_ok());
     }

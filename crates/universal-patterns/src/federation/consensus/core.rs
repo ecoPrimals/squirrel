@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core Consensus Manager Implementation
@@ -11,7 +11,7 @@ use super::messaging::process_messages;
 use super::types::{ConsensusConfig, ConsensusManagerState, ConsensusMessage};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 use uuid::Uuid;
 
 /// Default consensus manager implementation

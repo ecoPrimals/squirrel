@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Regex pattern compilation for attack detection
@@ -260,9 +260,11 @@ mod tests {
     #[test]
     fn test_sanitization_patterns_compile() {
         let patterns = SanitizationPatterns::compile().unwrap();
-        assert!(patterns
-            .script_regex
-            .is_match("<script>alert('xss')</script>"));
+        assert!(
+            patterns
+                .script_regex
+                .is_match("<script>alert('xss')</script>")
+        );
         assert!(patterns.dangerous_attrs.is_match(" onclick='bad()'"));
         assert!(patterns.tag_regex.is_match("<div>content</div>"));
     }

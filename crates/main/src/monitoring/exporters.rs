@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: Metrics export mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -9,7 +9,7 @@
 use async_trait::async_trait; // KEEP: MetricsExporter used as trait object (dyn MetricsExporter)
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use universal_constants::network::{get_service_port, http_url, DEFAULT_LOCALHOST};
+use universal_constants::network::{DEFAULT_LOCALHOST, get_service_port, http_url};
 
 use super::metrics::AllMetrics;
 use crate::error::PrimalError;
@@ -59,9 +59,13 @@ pub struct AuthConfig {
 /// Authentication type
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AuthType {
+    /// No authentication.
     None,
+    /// Basic HTTP authentication.
     Basic,
+    /// Bearer token authentication.
     Bearer,
+    /// API key authentication.
     ApiKey,
 }
 
@@ -274,8 +278,8 @@ impl Default for ExporterConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::monitoring::metrics::{MetricValue, SystemMetrics};
     use crate::monitoring::MetricType;
+    use crate::monitoring::metrics::{MetricValue, SystemMetrics};
     use chrono::Utc;
 
     fn create_test_config(name: &str) -> ExporterConfig {
@@ -566,18 +570,18 @@ mod tests {
     #[test]
     #[serial_test::serial(metrics_exporter_env)]
     fn test_exporter_config_default_env_override() {
-        std::env::remove_var("METRICS_EXPORTER_ENDPOINT");
-        std::env::remove_var("METRICS_EXPORTER_PORT");
+        unsafe { std::env::remove_var("METRICS_EXPORTER_ENDPOINT") };
+        unsafe { std::env::remove_var("METRICS_EXPORTER_PORT") };
 
-        std::env::set_var("METRICS_EXPORTER_ENDPOINT", "http://custom:9999/metrics");
+        unsafe { std::env::set_var("METRICS_EXPORTER_ENDPOINT", "http://custom:9999/metrics") };
         let config = ExporterConfig::default();
         assert_eq!(config.endpoint, "http://custom:9999/metrics");
-        std::env::remove_var("METRICS_EXPORTER_ENDPOINT");
+        unsafe { std::env::remove_var("METRICS_EXPORTER_ENDPOINT") };
 
-        std::env::set_var("METRICS_EXPORTER_PORT", "1234");
+        unsafe { std::env::set_var("METRICS_EXPORTER_PORT", "1234") };
         let config = ExporterConfig::default();
         assert_eq!(config.endpoint, "http://localhost:1234/metrics");
-        std::env::remove_var("METRICS_EXPORTER_PORT");
+        unsafe { std::env::remove_var("METRICS_EXPORTER_PORT") };
     }
 
     #[test]

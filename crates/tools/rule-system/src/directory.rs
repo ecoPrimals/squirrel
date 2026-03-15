@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Rule directory structure and utilities
@@ -304,12 +304,11 @@ impl RuleDirectoryManager {
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
 
-            if path.is_dir() {
-                if let Some(category) = path.file_name() {
-                    if let Some(category_str) = category.to_str() {
-                        categories.push(category_str.to_string());
-                    }
-                }
+            if path.is_dir()
+                && let Some(category) = path.file_name()
+                && let Some(category_str) = category.to_str()
+            {
+                categories.push(category_str.to_string());
             }
         }
 

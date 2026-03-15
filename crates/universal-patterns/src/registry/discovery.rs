@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! TRUE PRIMAL Discovery Implementation
@@ -223,13 +223,11 @@ impl PrimalDiscovery {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::FileTypeExt;
-                if let Ok(metadata) = entry.metadata().await {
-                    if metadata.file_type().is_socket() {
-                        // Check if matches our patterns
-                        if self.matches_pattern(&path) {
-                            sockets.push(path);
-                        }
-                    }
+                if let Ok(metadata) = entry.metadata().await
+                    && metadata.file_type().is_socket()
+                    && self.matches_pattern(&path)
+                {
+                    sockets.push(path);
                 }
             }
 

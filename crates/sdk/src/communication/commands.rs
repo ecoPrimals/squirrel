@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Command handling functionality for plugins
@@ -266,22 +266,20 @@ impl CommandRegistry {
         params: &serde_json::Value,
     ) -> PluginResult<()> {
         // Basic validation - in a real implementation, you'd use a JSON schema validator
-        if let Some(schema_obj) = command.parameters.as_object() {
-            if let Some(_properties) = schema_obj.get("properties").and_then(|p| p.as_object()) {
-                if let Some(required) = schema_obj.get("required").and_then(|r| r.as_array()) {
-                    for req_field in required {
-                        if let Some(field_name) = req_field.as_str() {
-                            if !params
-                                .as_object()
-                                .unwrap_or(&serde_json::Map::new())
-                                .contains_key(field_name)
-                            {
-                                return Err(PluginError::MissingParameter {
-                                    parameter: field_name.to_string(),
-                                });
-                            }
-                        }
-                    }
+        if let Some(schema_obj) = command.parameters.as_object()
+            && let Some(_properties) = schema_obj.get("properties").and_then(|p| p.as_object())
+            && let Some(required) = schema_obj.get("required").and_then(|r| r.as_array())
+        {
+            for req_field in required {
+                if let Some(field_name) = req_field.as_str()
+                    && !params
+                        .as_object()
+                        .unwrap_or(&serde_json::Map::new())
+                        .contains_key(field_name)
+                {
+                    return Err(PluginError::MissingParameter {
+                        parameter: field_name.to_string(),
+                    });
                 }
             }
         }

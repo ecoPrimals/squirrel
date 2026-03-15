@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // ORC-Notice: Self-healing mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -242,20 +242,20 @@ impl SelfHealingManager {
 
     /// Attempt automatic recovery for failed component
     fn attempt_auto_recovery(&mut self, component_id: &str) {
-        if let Some(health) = self.component_health.get(component_id) {
-            if health.failure_count >= self.config.max_failures {
-                warn!(
-                    "🔧 Attempting auto-recovery for component '{}' (failure count: {})",
-                    component_id, health.failure_count
-                );
+        if let Some(health) = self.component_health.get(component_id)
+            && health.failure_count >= self.config.max_failures
+        {
+            warn!(
+                "🔧 Attempting auto-recovery for component '{}' (failure count: {})",
+                component_id, health.failure_count
+            );
 
-                // Simulate recovery attempt
-                // In real implementation, this would restart services, clear caches, etc.
-                info!(
-                    "🔄 Auto-recovery initiated for component '{}'",
-                    component_id
-                );
-            }
+            // Simulate recovery attempt
+            // In real implementation, this would restart services, clear caches, etc.
+            info!(
+                "🔄 Auto-recovery initiated for component '{}'",
+                component_id
+            );
         }
     }
 
@@ -301,15 +301,21 @@ impl SelfHealingManager {
 /// System health summary
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemHealthSummary {
+    /// Whether the overall system is healthy.
     pub overall_healthy: bool,
+    /// Total number of monitored components.
     pub total_components: usize,
+    /// Number of healthy components.
     pub healthy_count: usize,
+    /// Number of degraded components.
     pub degraded_count: usize,
+    /// Number of failed components.
     pub failed_count: usize,
+    /// Timestamp of the last health update.
     pub last_update: chrono::DateTime<chrono::Utc>,
 }
 
-/// Initialize AI health manager with default configuration
+/// Initializes the AI health manager with default configuration and registers core components.
 pub async fn initialize_self_healing() -> Result<SelfHealingManager, PrimalError> {
     let config = SelfHealingConfig::default();
     let mut manager = SelfHealingManager::new(config);
@@ -672,9 +678,11 @@ mod tests {
         assert_eq!(manager.component_health.len(), 5);
         assert!(manager.get_component_health("ai_coordinator").is_some());
         assert!(manager.get_component_health("security_adapter").is_some());
-        assert!(manager
-            .get_component_health("orchestration_adapter")
-            .is_some());
+        assert!(
+            manager
+                .get_component_health("orchestration_adapter")
+                .is_some()
+        );
         assert!(manager.get_component_health("storage_adapter").is_some());
         assert!(manager.get_component_health("compute_adapter").is_some());
     }

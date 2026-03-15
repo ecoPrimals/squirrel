@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 /// Command validation module.
@@ -493,14 +493,12 @@ mod tests {
 
     #[derive(Parser)]
     #[command(name = "test")]
-    #[allow(dead_code)]
     struct TestArgs {
         #[arg(short, long)]
         value: String,
     }
 
     #[derive(Clone)]
-    #[allow(dead_code)]
     struct TestCommand;
 
     impl Command for TestCommand {

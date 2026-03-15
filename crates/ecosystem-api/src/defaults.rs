@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Default configuration values for ecosystem API
@@ -7,7 +7,7 @@
 
 use std::env;
 
-use universal_constants::network::{get_service_port, DEFAULT_SECURITY_PORT};
+use universal_constants::network::{DEFAULT_SECURITY_PORT, get_service_port};
 
 /// Default ecosystem service endpoints with environment override support
 pub struct DefaultEndpoints;
@@ -275,7 +275,7 @@ mod tests {
             "DISCOVERY_ENDPOINT",
             "REGISTRATION_ENDPOINT",
         ] {
-            env::remove_var(var);
+            unsafe { env::remove_var(var) };
         }
     }
 
@@ -288,9 +288,9 @@ mod tests {
         // --- dev_bind_address ---
         assert_eq!(DefaultEndpoints::dev_bind_address(), "127.0.0.1");
 
-        env::set_var("DEV_BIND_ADDRESS", "0.0.0.0");
+        unsafe { env::set_var("DEV_BIND_ADDRESS", "0.0.0.0") };
         assert_eq!(DefaultEndpoints::dev_bind_address(), "0.0.0.0");
-        env::remove_var("DEV_BIND_ADDRESS");
+        unsafe { env::remove_var("DEV_BIND_ADDRESS") };
 
         // --- service_mesh_endpoint ---
         assert_eq!(
@@ -298,19 +298,19 @@ mod tests {
             "http://localhost:8500"
         );
 
-        env::set_var("SERVICE_MESH_ENDPOINT", "http://mesh:9000");
+        unsafe { env::set_var("SERVICE_MESH_ENDPOINT", "http://mesh:9000") };
         assert_eq!(
             DefaultEndpoints::service_mesh_endpoint(),
             "http://mesh:9000"
         );
-        env::remove_var("SERVICE_MESH_ENDPOINT");
+        unsafe { env::remove_var("SERVICE_MESH_ENDPOINT") };
 
-        env::set_var("SERVICE_MESH_PORT", "9999");
+        unsafe { env::set_var("SERVICE_MESH_PORT", "9999") };
         assert_eq!(
             DefaultEndpoints::service_mesh_endpoint(),
             "http://localhost:9999"
         );
-        env::remove_var("SERVICE_MESH_PORT");
+        unsafe { env::remove_var("SERVICE_MESH_PORT") };
 
         // --- compute_endpoint ---
         assert_eq!(

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration management for the universal patterns framework
@@ -506,7 +506,7 @@ mod tests {
 
         // Port validation
         assert!(validate_port(0).is_ok()); // Random port
-                                           // Note: Can't reliably test specific ports as they may be in use
+        // Note: Can't reliably test specific ports as they may be in use
         assert!(validate_port(80).is_err()); // Privileged port
         assert!(validate_port(1023).is_err()); // Privileged port
 

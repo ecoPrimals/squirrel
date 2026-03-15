@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Common test utilities for chaos engineering tests
@@ -76,7 +76,7 @@ impl MockService {
         if self.error_rate > 0.0 {
             use rand::Rng;
             let mut rng = rand::thread_rng();
-            if rng.gen::<f64>() < self.error_rate {
+            if rng.r#gen::<f64>() < self.error_rate {
                 return Err(format!("simulated error for request {}", request_id).into());
             }
         }

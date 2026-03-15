@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability-Based AI Client (TRUE PRIMAL!)
@@ -19,7 +19,7 @@ use serde_json::Value as JsonValue;
 use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 use tracing::{debug, info, warn};
 
 /// AI client configuration (capability-based!)
@@ -368,7 +368,9 @@ impl AiClient {
 /// Chat message for chat completion
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
+    /// Message role (e.g., "system", "user", "assistant")
     pub role: String,
+    /// Message content text
     pub content: String,
 }
 
@@ -401,19 +403,27 @@ impl ChatMessage {
 /// Optional parameters for chat completion
 #[derive(Debug, Clone, Default)]
 pub struct ChatOptions {
+    /// Sampling temperature (0.0–2.0). Higher values increase randomness.
     pub temperature: Option<f32>,
+    /// Maximum number of tokens to generate.
     pub max_tokens: Option<u32>,
+    /// Whether to stream the response incrementally.
     pub stream: Option<bool>,
+    /// Nucleus sampling parameter (alternative to temperature).
     pub top_p: Option<f32>,
 }
 
 /// Chat completion response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatResponse {
+    /// Generated text content from the model.
     pub content: String,
+    /// Model identifier that produced the response.
     pub model: String,
+    /// Reason generation stopped (e.g., "stop", "length").
     #[serde(skip_serializing_if = "Option::is_none")]
     pub finish_reason: Option<String>,
+    /// Token usage statistics if available.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<Usage>,
 }
@@ -421,8 +431,11 @@ pub struct ChatResponse {
 /// Token usage information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Usage {
+    /// Number of tokens in the input prompt.
     pub prompt_tokens: u32,
+    /// Number of tokens in the generated completion.
     pub completion_tokens: u32,
+    /// Total tokens (prompt + completion).
     pub total_tokens: u32,
 }
 
@@ -439,8 +452,10 @@ struct JsonRpcRequest {
 #[derive(Debug, Deserialize)]
 struct JsonRpcResponse {
     #[allow(dead_code)]
+    // Required for serde Deserialize - fields parsed but only result/error used
     jsonrpc: String,
     #[allow(dead_code)]
+    // Required for serde Deserialize - fields parsed but only result/error used
     id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<JsonValue>,
@@ -453,7 +468,7 @@ struct JsonRpcResponse {
 struct JsonRpcError {
     code: i32,
     message: String,
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Required for serde Deserialize - optional field parsed but not used
     #[serde(skip_serializing_if = "Option::is_none")]
     data: Option<JsonValue>,
 }
@@ -472,12 +487,12 @@ mod tests {
 
     #[test]
     fn test_ai_client_from_env() {
-        std::env::set_var("AI_CAPABILITY_SOCKET", "/tmp/test-ai.sock");
+        unsafe { std::env::set_var("AI_CAPABILITY_SOCKET", "/tmp/test-ai.sock") };
 
         let client = AiClient::from_env();
         assert!(client.is_ok());
 
-        std::env::remove_var("AI_CAPABILITY_SOCKET");
+        unsafe { std::env::remove_var("AI_CAPABILITY_SOCKET") };
     }
 
     #[test]

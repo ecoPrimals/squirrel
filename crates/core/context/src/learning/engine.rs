@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Learning Engine
@@ -214,8 +214,8 @@ pub struct LearningEngine {
 }
 
 /// Neural network placeholder (reserved for future ML integration)
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Reserved for planned feature: ML integration
 pub struct NeuralNetwork {
     /// Network architecture
     pub layers: Vec<usize>,

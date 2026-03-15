@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core types and configurations for the AI router system.
@@ -6,10 +6,10 @@
 //! This module defines all the fundamental types used throughout the router
 //! infrastructure, including configurations, routing strategies, and request contexts.
 
+use crate::Result;
 use crate::common::capability::{AICapabilities, AITask};
 use crate::common::{AIClient, ChatRequest, ChatResponse, ChatResponseStream};
 use crate::error::Error;
-use crate::Result;
 use async_trait::async_trait;
 use futures::Stream;
 use std::collections::HashMap;
@@ -393,10 +393,15 @@ pub struct RemoteAIResponseStream {
 /// Router statistics
 #[derive(Debug, Clone)]
 pub struct RouterStats {
+    /// Total number of requests processed.
     pub total_requests: u64,
+    /// Number of successfully completed requests.
     pub successful_requests: u64,
+    /// Number of failed requests.
     pub failed_requests: u64,
+    /// Average request latency in milliseconds.
     pub average_latency_ms: f64,
+    /// Request count per provider.
     pub provider_usage: HashMap<String, u64>,
 }
 
@@ -420,17 +425,17 @@ pub fn task_matches_capabilities(task: &AITask, capabilities: &AICapabilities) -
     }
 
     // Check model type requirements
-    if let Some(ref model_type) = task.required_model_type {
-        if !capabilities.supports_model_type(model_type) {
-            return false;
-        }
+    if let Some(ref model_type) = task.required_model_type
+        && !capabilities.supports_model_type(model_type)
+    {
+        return false;
     }
 
     // Check context size requirements
-    if let Some(required_size) = task.min_context_size {
-        if capabilities.max_context_size < required_size {
-            return false;
-        }
+    if let Some(required_size) = task.min_context_size
+        && capabilities.max_context_size < required_size
+    {
+        return false;
     }
 
     // Check streaming support
@@ -454,6 +459,7 @@ pub fn task_matches_capabilities(task: &AITask, capabilities: &AICapabilities) -
 /// Helper trait for stream flattening
 #[async_trait]
 pub trait TryFlattenStreamExt {
+    /// Flattens a stream of results into a single result stream.
     async fn try_flatten_stream(self) -> Result<ChatResponseStream>;
 }
 

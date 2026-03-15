@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use std::sync::Arc;
@@ -7,8 +7,8 @@ use serde_json::json;
 use tokio::test;
 
 use crate::{
-    create_context_adapter, create_context_adapter_with_config, ContextAdapter,
-    ContextAdapterConfig, ContextAdapterFactory,
+    ContextAdapter, ContextAdapterConfig, ContextAdapterFactory, create_context_adapter,
+    create_context_adapter_with_config,
 };
 
 /// Test data structure used for context adapter testing
@@ -334,7 +334,7 @@ async fn test_configuration_update() {
 
 #[test]
 async fn test_cleanup_expired_contexts() {
-    use tokio::time::{sleep, Duration};
+    use tokio::time::{Duration, sleep};
 
     // Create adapter with short TTL for testing
     let config = ContextAdapterConfig {
@@ -405,7 +405,7 @@ mod tests {
     use squirrel_interfaces::plugins::PluginMetadata;
 
     use crate::adapter::{
-        create_context_adapter_with_plugins, ContextAdapter, ContextAdapterConfig,
+        ContextAdapter, ContextAdapterConfig, create_context_adapter_with_plugins,
     };
     use squirrel_context::plugins::ContextPluginManager;
     use squirrel_interfaces::context::{

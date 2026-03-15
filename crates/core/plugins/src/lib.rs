@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin system for Squirrel
 //!
 //! This module provides a comprehensive plugin system with support for:
-#![forbid(unsafe_code)]
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![warn(missing_docs)]
 //! - Plugin loading and management
 //! - Security validation and sandboxing
 //! - Dependency resolution
@@ -46,9 +47,9 @@ pub use errors::{PluginError, Result};
 pub use manager::PluginManager;
 pub use metrics::{PluginManagerMetrics, PluginManagerStatus};
 pub use performance_optimizer::{
-    get_global_optimizer, init_global_optimizer, optimized_ops, BatchProcessingConfig,
-    HotPathCacheConfig, MemoryOptimizationConfig, OptimizerMetrics, PerformanceOptimizerConfig,
-    PluginPerformanceOptimizer, PredictiveLoadingConfig,
+    BatchProcessingConfig, HotPathCacheConfig, MemoryOptimizationConfig, OptimizerMetrics,
+    PerformanceOptimizerConfig, PluginPerformanceOptimizer, PredictiveLoadingConfig,
+    get_global_optimizer, init_global_optimizer, optimized_ops,
 };
 pub use plugin::Plugin;
 // Re-export canonical PluginMetadata from interfaces

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Web Visualization Server
@@ -14,11 +14,11 @@ use tokio::sync::broadcast;
 #[derive(Debug)]
 pub struct WebVisualizationServer {
     /// Configuration
-    #[allow(dead_code)] // Reserved for web server configuration
+    #[allow(dead_code)] // Reserved for planned feature
     config: Arc<VisualizationSystemConfig>,
 
     /// Event broadcaster
-    #[allow(dead_code)] // Reserved for event broadcasting system
+    #[allow(dead_code)] // Reserved for planned feature
     event_broadcaster: broadcast::Sender<VisualizationEvent>,
 }
 

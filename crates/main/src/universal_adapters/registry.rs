@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Service Registry
@@ -57,23 +57,36 @@ pub trait UniversalServiceRegistry: Send + Sync {
 /// Service information for discovery results
 #[derive(Debug, Clone)]
 pub struct ServiceInfo {
+    /// Unique service identifier
     pub service_id: String,
+    /// Human-readable service name
     pub name: String,
+    /// Service category for filtering
     pub category: String,
+    /// Capabilities this service provides
     pub capabilities: Vec<ServiceCapability>,
+    /// Service endpoint URLs
     pub endpoints: Vec<String>,
+    /// Current health status
     pub health: ServiceHealth,
+    /// Priority score (higher is preferred)
     pub priority: u8,
+    /// Additional metadata
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
 /// Service requirements for finding optimal services
 #[derive(Debug, Clone)]
 pub struct ServiceRequirements {
+    /// Capabilities that must be present
     pub required_capabilities: Vec<ServiceCapability>,
+    /// Capabilities that improve selection
     pub optional_capabilities: Vec<ServiceCapability>,
+    /// Performance criteria (e.g., latency, throughput)
     pub performance_requirements: HashMap<String, serde_json::Value>,
+    /// Geographic region preference
     pub geographic_preferences: Option<String>,
+    /// Priority level (0-255)
     pub priority_level: u8,
 }
 
@@ -96,6 +109,7 @@ impl Default for InMemoryServiceRegistry {
 }
 
 impl InMemoryServiceRegistry {
+    /// Creates a new in-memory service registry.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -431,6 +445,7 @@ pub struct ServiceMatcher {
 }
 
 impl ServiceMatcher {
+    /// Creates a new service matcher with the given registry.
     pub fn new(registry: Arc<dyn UniversalServiceRegistry>) -> Self {
         Self { registry }
     }
