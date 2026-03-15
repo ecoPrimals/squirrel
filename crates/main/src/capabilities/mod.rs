@@ -29,8 +29,12 @@
 //! ```
 
 pub mod discovery;
+pub mod lifecycle;
+pub mod registry;
 
 // Re-exports for convenience
 pub use discovery::{
     discover_all_capabilities, discover_capability, CapabilityProvider, DiscoveryError,
 };
+pub use lifecycle::{find_biomeos_socket, register_with_biomeos};
+pub use registry::CapabilityRegistry;

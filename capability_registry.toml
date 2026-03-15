@@ -1,0 +1,215 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# ORC-Notice: AI coordination mechanics licensed under ORC
+# Copyright (C) 2026 ecoPrimals Contributors
+#
+# Squirrel Capability Registry — Source of truth for capability.discover and tool.list
+#
+# This file is loaded at startup and used to respond to:
+#   - capability.discover (returns all capability method names)
+#   - tool.list (returns tool definitions with schemas)
+#
+# Pattern adopted from wetSpring's capability_registry.toml
+
+[primal]
+name = "squirrel"
+version = "0.1.0"
+domain = "ai"
+license = "AGPL-3.0-or-later"
+transport = "unix_socket"
+protocol = "jsonrpc_2.0"
+
+# --- AI domain ---
+
+[capabilities.ai_query]
+method = "ai.query"
+domain = "ai.inference"
+description = "Route prompt to best available AI model"
+[capabilities.ai_query.input_schema]
+type = "object"
+required = ["prompt"]
+[capabilities.ai_query.input_schema.properties.prompt]
+type = "string"
+description = "The prompt to send to the AI"
+[capabilities.ai_query.input_schema.properties.model]
+type = "string"
+description = "Model to use (optional, provider-specific)"
+[capabilities.ai_query.input_schema.properties.max_tokens]
+type = "integer"
+description = "Maximum tokens in response"
+[capabilities.ai_query.input_schema.properties.temperature]
+type = "number"
+description = "Sampling temperature (0.0-2.0)"
+
+[capabilities.ai_list_providers]
+method = "ai.list_providers"
+domain = "ai.discovery"
+description = "List available AI providers and their status"
+[capabilities.ai_list_providers.input_schema]
+type = "object"
+
+[capabilities.ai_complete]
+method = "ai.complete"
+domain = "ai.inference"
+description = "Text completion (alias for ai.query)"
+[capabilities.ai_complete.input_schema]
+type = "object"
+required = ["prompt"]
+[capabilities.ai_complete.input_schema.properties.prompt]
+type = "string"
+
+[capabilities.ai_chat]
+method = "ai.chat"
+domain = "ai.inference"
+description = "Chat completion with message history"
+[capabilities.ai_chat.input_schema]
+type = "object"
+required = ["prompt"]
+[capabilities.ai_chat.input_schema.properties.prompt]
+type = "string"
+
+# --- Capability domain ---
+
+[capabilities.capability_announce]
+method = "capability.announce"
+domain = "capability.routing"
+description = "Accept capability and tool announcements from remote primals"
+[capabilities.capability_announce.input_schema]
+type = "object"
+required = ["capabilities"]
+[capabilities.capability_announce.input_schema.properties.capabilities]
+type = "array"
+description = "Capability namespaces to announce"
+[capabilities.capability_announce.input_schema.properties.primal]
+type = "string"
+description = "Announcing primal's name"
+[capabilities.capability_announce.input_schema.properties.socket_path]
+type = "string"
+description = "Unix socket for forwarding"
+[capabilities.capability_announce.input_schema.properties.tools]
+type = "array"
+description = "Tool names the primal provides"
+
+[capabilities.capability_discover]
+method = "capability.discover"
+domain = "capability.discovery"
+description = "Report own capabilities for socket scanning"
+[capabilities.capability_discover.input_schema]
+type = "object"
+
+# --- System domain ---
+
+[capabilities.system_health]
+method = "system.health"
+domain = "system.monitoring"
+description = "Health check with uptime and provider count"
+[capabilities.system_health.input_schema]
+type = "object"
+
+[capabilities.system_status]
+method = "system.status"
+domain = "system.monitoring"
+description = "System status (UniBin alias for system.health)"
+[capabilities.system_status.input_schema]
+type = "object"
+
+[capabilities.system_metrics]
+method = "system.metrics"
+domain = "system.monitoring"
+description = "Server metrics (requests, errors, latency)"
+[capabilities.system_metrics.input_schema]
+type = "object"
+
+[capabilities.system_ping]
+method = "system.ping"
+domain = "system.monitoring"
+description = "Connectivity test (returns pong)"
+[capabilities.system_ping.input_schema]
+type = "object"
+
+# --- Discovery domain ---
+
+[capabilities.discovery_peers]
+method = "discovery.peers"
+domain = "discovery.network"
+description = "Scan socket directories for running primals"
+[capabilities.discovery_peers.input_schema]
+type = "object"
+
+# --- Tool domain ---
+
+[capabilities.tool_execute]
+method = "tool.execute"
+domain = "tool.orchestration"
+description = "Execute MCP tools (local + remote announced)"
+[capabilities.tool_execute.input_schema]
+type = "object"
+required = ["tool"]
+[capabilities.tool_execute.input_schema.properties.tool]
+type = "string"
+description = "Tool name to execute"
+[capabilities.tool_execute.input_schema.properties.args]
+type = "object"
+description = "Tool arguments"
+
+[capabilities.tool_list]
+method = "tool.list"
+domain = "tool.discovery"
+description = "List available tools (local built-ins + remote announced)"
+[capabilities.tool_list.input_schema]
+type = "object"
+
+# --- Context domain (Phase 4) ---
+
+[capabilities.context_create]
+method = "context.create"
+domain = "context.management"
+description = "Create a new context session"
+[capabilities.context_create.input_schema]
+type = "object"
+[capabilities.context_create.input_schema.properties.session_id]
+type = "string"
+description = "Optional session ID (auto-generated if omitted)"
+[capabilities.context_create.input_schema.properties.metadata]
+type = "object"
+description = "Initial metadata for the context"
+
+[capabilities.context_update]
+method = "context.update"
+domain = "context.management"
+description = "Update an existing context with new data"
+[capabilities.context_update.input_schema]
+type = "object"
+required = ["id"]
+[capabilities.context_update.input_schema.properties.id]
+type = "string"
+description = "Context ID to update"
+[capabilities.context_update.input_schema.properties.data]
+type = "object"
+description = "Data to merge into context state"
+
+[capabilities.context_summarize]
+method = "context.summarize"
+domain = "context.management"
+description = "Summarize a context session"
+[capabilities.context_summarize.input_schema]
+type = "object"
+required = ["id"]
+[capabilities.context_summarize.input_schema.properties.id]
+type = "string"
+description = "Context ID to summarize"
+
+# --- Lifecycle domain (Phase 2 - biomeOS) ---
+
+[capabilities.lifecycle_register]
+method = "lifecycle.register"
+domain = "lifecycle.biomeos"
+description = "Register with biomeOS orchestrator"
+[capabilities.lifecycle_register.input_schema]
+type = "object"
+
+[capabilities.lifecycle_status]
+method = "lifecycle.status"
+domain = "lifecycle.biomeos"
+description = "Heartbeat status report to biomeOS"
+[capabilities.lifecycle_status.input_schema]
+type = "object"

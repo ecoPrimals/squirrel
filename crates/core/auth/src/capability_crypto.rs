@@ -81,12 +81,15 @@ impl CapabilityCryptoProvider {
             return Ok(endpoint_arc);
         }
 
-        // Strategy 2: Well-known socket paths (development fallback)
-        // These are NOT hardcoded dependencies - just standard socket locations
-        let well_known_paths = [
-            "/tmp/primal-crypto.sock",       // Standard location
-            "/tmp/beardog.sock",             // Legacy name (provider-agnostic)
-            "/var/run/crypto-provider.sock", // Production location
+        // Strategy 2: biomeOS socket scan + well-known paths
+        // Prioritize the standard biomeOS socket directory, then fall back to legacy paths.
+        let uid = nix::unistd::getuid();
+        let well_known_paths: Vec<String> = vec![
+            format!("/run/user/{uid}/biomeos/beardog.sock"),
+            format!("/run/user/{uid}/biomeos/primal-crypto.sock"),
+            "/tmp/primal-crypto.sock".to_string(),
+            "/tmp/beardog.sock".to_string(),
+            "/var/run/crypto-provider.sock".to_string(),
         ];
 
         for path in &well_known_paths {
@@ -95,7 +98,7 @@ impl CapabilityCryptoProvider {
                 // Socket exists, verify it provides crypto.signing
                 if let Ok(true) = self.verify_capability(path, "crypto.signing").await {
                     info!("✅ Discovered crypto.signing at: {}", path);
-                    let endpoint_arc: Arc<str> = Arc::from(*path);
+                    let endpoint_arc: Arc<str> = Arc::from(path.as_str());
                     self.endpoint = Some(Arc::clone(&endpoint_arc));
                     return Ok(endpoint_arc);
                 }

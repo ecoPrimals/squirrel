@@ -9,9 +9,11 @@ Architectural specifications and design documents for the Squirrel AI Coordinati
 specs/
 ├── active/         # Active specifications (MCP protocol, universal patterns, ecosystem)
 ├── current/        # Current status and deployment guide
-├── development/    # Development standards (testing, security, codebase structure)
-└── archive/        # Historical specs (fossil record of pre-alpha development)
+└── development/    # Development standards (testing, security, codebase structure)
 ```
+
+Pre-alpha specs (gRPC, RBAC, resilience) are preserved as fossil record in
+`ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/`.
 
 ## Architecture
 
@@ -31,8 +33,3 @@ specs/
 | Deployment | `current/DEPLOYMENT_GUIDE.md` |
 | Testing | `development/TESTING.md` |
 | Security | `development/SECURITY.md` |
-
-## Archive
-
-Pre-alpha planning documents (gRPC migration, RBAC restructuring, resilience
-implementation, refactoring plans) are preserved in `archive/` as fossil record.

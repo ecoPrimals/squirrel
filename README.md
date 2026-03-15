@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0 + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 3,749 passing | **Rust**: 1.81+
+**License**: [scyBorg](LICENSE) (AGPL-3.0 + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 3,749+ passing | **Rust**: 1.81+
 
 ---
 
@@ -19,8 +19,10 @@ See [ORIGIN.md](ORIGIN.md) for the full story of how Squirrel was built using co
 
 - AI task routing and provider selection (cost, quality, latency)
 - MCP protocol coordination
-- Context window management and memory optimization
+- Context window management (`context.create` / `context.update` / `context.summarize`)
 - Session management and configuration
+- Capability registry ([`capability_registry.toml`](capability_registry.toml))
+- Deploy graph ([`squirrel_deploy.toml`](squirrel_deploy.toml))
 
 ### Delegates
 
@@ -37,8 +39,11 @@ See [ORIGIN.md](ORIGIN.md) for the full story of how Squirrel was built using co
 # Build
 cargo build --release
 
-# Run
-./target/release/squirrel standalone
+# Run (server mode — listens on Unix socket)
+./target/release/squirrel server
+
+# Client (send a JSON-RPC call)
+./target/release/squirrel client --method system.ping --params '{}'
 
 # Test
 cargo test -p squirrel --lib
@@ -64,6 +69,7 @@ IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
 Transport: Unix sockets -> Named pipes -> TCP (automatic fallback)
 HTTP:      Feature-gated OFF by default (axum/tower behind http-api)
+Lifecycle: biomeOS lifecycle.register + 30s heartbeat (when orchestrator detected)
 ```
 
 ### Capability-Based Discovery

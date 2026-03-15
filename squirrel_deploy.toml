@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# ORC-Notice: Ecosystem deployment topology licensed under ORC
+# Copyright (C) 2026 ecoPrimals Contributors
+#
+# Squirrel Deploy Graph — BYOB (Build Your Own Biome) deployment descriptor
+#
+# Defines Squirrel's germination order and dependency topology for biomeOS.
+# Pattern adopted from airSpring's airspring_deploy.toml.
+
+[deploy]
+primal = "squirrel"
+version = "0.1.0"
+binary = "squirrel"
+socket = "squirrel.sock"
+subcommand = "server"
+
+# Germination order: primals Squirrel depends on at runtime (capability-based).
+# biomeOS starts these BEFORE Squirrel, in the order listed.
+# Squirrel does NOT import these — it discovers them via socket scan.
+
+[[deploy.requires]]
+primal = "beardog"
+capability = "crypto.sign"
+socket = "beardog.sock"
+required = false  # Squirrel can start without crypto (standalone mode)
+
+[[deploy.requires]]
+primal = "songbird"
+capability = "network.orchestration"
+socket = "songbird.sock"
+required = false  # Squirrel can start without network orchestration
+
+# Optional dependencies — started if available in the biome
+
+[[deploy.optional]]
+primal = "toadstool"
+capability = "compute.ai.inference"
+socket = "toadstool.sock"
+description = "Local AI inference (Ollama, GPU dispatch)"
+
+[[deploy.optional]]
+primal = "nestgate"
+capability = "storage.put"
+socket = "nestgate.sock"
+description = "Model cache and context persistence"
+
+# Health check for biomeOS orchestrator
+[deploy.health]
+method = "system.health"
+interval_secs = 30
+timeout_secs = 5

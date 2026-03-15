@@ -258,18 +258,44 @@ async fn run_server(
         }
     });
 
-    // Setup graceful shutdown on Ctrl+C
+    // Install signal handlers (SIGTERM + SIGINT) for socket cleanup
+    let (shutdown_tx, signal_task) =
+        squirrel::capabilities::lifecycle::install_signal_handlers(socket_path.clone());
+    let shutdown_rx = shutdown_tx.subscribe();
+
+    // biomeOS lifecycle registration (healthSpring pattern)
+    if let Some(biomeos_socket) = squirrel::capabilities::lifecycle::find_biomeos_socket() {
+        let caps = server.capability_registry.method_names();
+        let cap_refs: Vec<&str> = caps.iter().copied().collect();
+        if squirrel::capabilities::lifecycle::register_with_biomeos(
+            &biomeos_socket,
+            &socket_path,
+            &cap_refs,
+        )
+        .await
+        {
+            println!("✅ Registered with biomeOS");
+
+            // Start heartbeat (30s interval)
+            let _heartbeat = squirrel::capabilities::lifecycle::spawn_heartbeat(
+                biomeos_socket,
+                socket_path.clone(),
+                std::time::Duration::from_secs(30),
+                shutdown_rx,
+            );
+            println!("✅ Heartbeat started (30s interval)");
+        }
+    } else {
+        println!("   ℹ️  No biomeOS socket found — standalone mode");
+    }
+
     println!("   Press Ctrl+C to stop");
     println!();
 
     tokio::select! {
-        _ = tokio::signal::ctrl_c() => {
+        _ = signal_task => {
             println!("\n👋 Shutting down gracefully...");
 
-            // Cleanup socket file
-            unix_socket::cleanup_socket(&socket_path);
-
-            // Request shutdown
             if let Err(e) = shutdown_manager.request_shutdown().await {
                 eprintln!("⚠️ Shutdown error: {e}");
             }

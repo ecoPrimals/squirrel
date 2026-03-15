@@ -206,9 +206,33 @@ pub struct JsonRpcServer {
     /// Key: tool name → socket path for forwarding.
     pub(crate) announced_tools:
         Arc<RwLock<std::collections::HashMap<String, super::types::AnnouncedPrimal>>>,
+
+    /// Capability registry loaded from capability_registry.toml (source of truth)
+    pub capability_registry: Arc<crate::capabilities::registry::CapabilityRegistry>,
 }
 
 impl JsonRpcServer {
+    /// Load the capability registry from the workspace root or use compiled defaults
+    fn load_registry() -> Arc<crate::capabilities::registry::CapabilityRegistry> {
+        let candidates = [
+            std::path::PathBuf::from("capability_registry.toml"),
+            std::path::PathBuf::from(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../capability_registry.toml"
+            )),
+        ];
+        for path in &candidates {
+            if path.exists() {
+                return Arc::new(crate::capabilities::registry::CapabilityRegistry::load(
+                    path,
+                ));
+            }
+        }
+        Arc::new(crate::capabilities::registry::CapabilityRegistry::load(
+            &candidates[0],
+        ))
+    }
+
     /// Create a new JSON-RPC server with Universal Transport
     pub fn new(socket_path: String) -> Self {
         Self {
@@ -217,6 +241,7 @@ impl JsonRpcServer {
             metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: None,
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            capability_registry: Self::load_registry(),
         }
     }
 
@@ -228,6 +253,7 @@ impl JsonRpcServer {
             metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: Some(ai_router),
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            capability_registry: Self::load_registry(),
         }
     }
 
@@ -542,6 +568,11 @@ impl JsonRpcServer {
             // Tool domain — semantic names (preferred)
             "tool.execute" => self.handle_execute_tool(request.params).await,
             "tool.list" => self.handle_list_tools().await,
+
+            // Context domain — semantic names (preferred)
+            "context.create" => self.handle_context_create(request.params).await,
+            "context.update" => self.handle_context_update(request.params).await,
+            "context.summarize" => self.handle_context_summarize(request.params).await,
 
             // Legacy aliases (deprecated — Phase 2 of wateringHole semantic naming standard)
             "query_ai" => {

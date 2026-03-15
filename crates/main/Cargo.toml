@@ -72,6 +72,9 @@ zeroize.workspace = true
 squirrel-sdk = { path = "../sdk" }
 squirrel-integration = { path = "../integration" }
 
+# Context management
+squirrel-context = { path = "../core/context" }
+
 # MCP and AI dependencies
 # Using our own MCP implementation instead of external mcp crate
 squirrel-mcp = { path = "../core/mcp" }

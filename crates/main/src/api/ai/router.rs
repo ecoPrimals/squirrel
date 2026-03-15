@@ -168,6 +168,43 @@ impl AiRouter {
                     }
                 }
 
+                // 3. biomeOS socket scan: probe ToadStool for local AI inference
+                // ToadStool provides compute.ai.*, ollama.*, gpu.* capabilities
+                if local_providers.is_empty() {
+                    info!("🔍 Scanning biomeOS sockets for AI providers (ToadStool)...");
+                    let uid = nix::unistd::getuid();
+                    let toadstool_candidates = [
+                        format!("/run/user/{uid}/biomeos/toadstool.sock"),
+                        "/tmp/toadstool.sock".to_string(),
+                    ];
+
+                    for socket_path in &toadstool_candidates {
+                        let path = PathBuf::from(socket_path);
+                        if !path.exists() {
+                            continue;
+                        }
+                        debug!("Probing potential AI provider: {}", socket_path);
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(2),
+                            Self::create_universal_adapter_from_path(socket_path),
+                        )
+                        .await
+                        {
+                            Ok(Ok(adapter)) => {
+                                info!("✅ Discovered ToadStool AI provider at {}", socket_path);
+                                local_providers.push(Arc::new(adapter));
+                                break;
+                            }
+                            Ok(Err(e)) => {
+                                debug!("Socket {} not an AI provider: {}", socket_path, e);
+                            }
+                            Err(_) => {
+                                debug!("Timeout probing {} (>2s)", socket_path);
+                            }
+                        }
+                    }
+                }
+
                 Ok::<Vec<Arc<dyn AiProviderAdapter>>, PrimalError>(local_providers)
             }
         ).await;

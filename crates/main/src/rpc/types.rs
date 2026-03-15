@@ -168,7 +168,7 @@ pub struct ToolListResponse {
     pub total: usize,
 }
 
-/// A single tool in the tool.list response
+/// A single tool in the tool.list response (McpToolDef pattern from neuralSpring)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolListEntry {
     /// Tool name
@@ -179,6 +179,9 @@ pub struct ToolListEntry {
     pub domain: String,
     /// Whether the tool is built-in or announced by a remote primal
     pub source: ToolSource,
+    /// JSON Schema for input parameters (neuralSpring McpToolDef pattern)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_schema: Option<serde_json::Value>,
 }
 
 /// Where a tool comes from

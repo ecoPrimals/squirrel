@@ -213,7 +213,13 @@ impl JsonRpcServer {
         let mut tools_registered = 0usize;
 
         if let (Some(primal), Some(socket_path)) = (&request.primal, &request.socket_path) {
-            let tools = request.tools.clone().unwrap_or_default();
+            // neuralSpring pattern: use `capabilities` as tool routing fallback
+            // when `tools` is empty. This allows primals that only send capabilities
+            // (not explicit tool names) to still be routed correctly.
+            let tools = match request.tools.clone() {
+                Some(t) if !t.is_empty() => t,
+                _ => request.capabilities.clone(),
+            };
             tools_registered = tools.len();
 
             let announced = super::types::AnnouncedPrimal {
@@ -253,41 +259,34 @@ impl JsonRpcServer {
     /// Returns Squirrel's capabilities so other primals can discover us
     /// via socket scanning. TRUE PRIMAL: uses capability namespaces,
     /// not primal names. Consumers learn WHAT we do, not WHO we are.
+    ///
+    /// Source of truth: `capability_registry.toml` loaded at startup.
     pub(crate) async fn handle_discover_capabilities(&self) -> Result<Value, JsonRpcError> {
         debug!("🔍 discover_capabilities request");
 
-        // Use &str directly — avoid .to_string() allocations for hot discovery path
-        let mut capabilities: Vec<&str> = vec![
-            "ai.query",
-            "ai.complete",
-            "ai.chat",
-            "ai.list_providers",
-            "tool.execute",
-            "system.health",
-            "system.metrics",
-            "system.ping",
-            "discovery.peers",
-            "capability.announce",
-            "capability.discover",
-        ];
+        let mut capabilities: Vec<&str> = self.capability_registry.method_names();
 
         if let Some(router) = &self.ai_router {
             if router.provider_count().await > 0 {
-                capabilities.push("ai.inference");
-                capabilities.push("ai.text_generation");
+                if !capabilities.contains(&"ai.inference") {
+                    capabilities.push("ai.inference");
+                }
+                if !capabilities.contains(&"ai.text_generation") {
+                    capabilities.push("ai.text_generation");
+                }
             }
         }
 
-        capabilities.dedup();
-
+        let reg = &self.capability_registry.primal;
         let response = serde_json::json!({
-            "primal": "squirrel",
+            "primal": reg.name,
             "capabilities": capabilities,
-            "version": env!("CARGO_PKG_VERSION"),
+            "version": reg.version,
             "metadata": {
-                "transport": "unix_socket",
-                "protocol": "jsonrpc_2.0",
+                "transport": reg.transport,
+                "protocol": reg.protocol,
                 "service_name": self.service_name,
+                "domain": reg.domain,
             }
         });
 
@@ -403,6 +402,147 @@ impl JsonRpcServer {
         });
 
         Ok(response)
+    }
+
+    // -----------------------------------------------------------------------
+    // Context domain
+    // -----------------------------------------------------------------------
+
+    /// Handle `context.create` — create a new context session
+    pub(crate) async fn handle_context_create(
+        &self,
+        params: Option<Value>,
+    ) -> Result<Value, JsonRpcError> {
+        info!("context.create request");
+
+        let session_id = params
+            .as_ref()
+            .and_then(|p| p.get("session_id"))
+            .and_then(|v| v.as_str())
+            .map(ToString::to_string)
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+        let metadata = params
+            .as_ref()
+            .and_then(|p| p.get("metadata"))
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
+
+        let manager = squirrel_context::ContextManager::new();
+
+        let state = manager.get_context_state(&session_id).await.map_err(|e| {
+            JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Failed to create context: {e}"),
+                data: None,
+            }
+        })?;
+
+        Ok(serde_json::json!({
+            "id": state.id,
+            "version": state.version,
+            "created_at": chrono::Utc::now().to_rfc3339(),
+            "metadata": metadata,
+        }))
+    }
+
+    /// Handle `context.update` — update an existing context with new data
+    pub(crate) async fn handle_context_update(
+        &self,
+        params: Option<Value>,
+    ) -> Result<Value, JsonRpcError> {
+        info!("context.update request");
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: error_codes::INVALID_PARAMS,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+
+        let id = params
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: error_codes::INVALID_PARAMS,
+                message: "Missing 'id' parameter".to_string(),
+                data: None,
+            })?;
+
+        let data = params
+            .get("data")
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
+
+        let manager = squirrel_context::ContextManager::new();
+
+        let mut state = manager.get_context_state(id).await.map_err(|e| {
+            JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Context not found: {e}"),
+                data: None,
+            }
+        })?;
+
+        state.data = data;
+        state.version += 1;
+        state.last_modified = std::time::SystemTime::now();
+
+        manager
+            .update_context_state(id, state.clone())
+            .await
+            .map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Failed to update context: {e}"),
+                data: None,
+            })?;
+
+        Ok(serde_json::json!({
+            "id": state.id,
+            "version": state.version,
+            "updated_at": chrono::Utc::now().to_rfc3339(),
+        }))
+    }
+
+    /// Handle `context.summarize` — summarize a context session
+    pub(crate) async fn handle_context_summarize(
+        &self,
+        params: Option<Value>,
+    ) -> Result<Value, JsonRpcError> {
+        info!("context.summarize request");
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: error_codes::INVALID_PARAMS,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+
+        let id = params
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: error_codes::INVALID_PARAMS,
+                message: "Missing 'id' parameter".to_string(),
+                data: None,
+            })?;
+
+        let manager = squirrel_context::ContextManager::new();
+
+        let state = manager.get_context_state(id).await.map_err(|e| {
+            JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Context not found: {e}"),
+                data: None,
+            }
+        })?;
+
+        Ok(serde_json::json!({
+            "id": state.id,
+            "version": state.version,
+            "summary": format!("Context {} (v{}) with {} metadata keys",
+                state.id, state.version, state.metadata.len()),
+            "data": state.data,
+            "synchronized": state.synchronized,
+        }))
     }
 
     // -----------------------------------------------------------------------
@@ -575,6 +715,9 @@ impl JsonRpcServer {
     ///
     /// Returns all available tools: local built-ins + tools announced by
     /// remote primals via `capability.announce`.
+    ///
+    /// Tool definitions enriched with JSON Schema from capability_registry.toml
+    /// (McpToolDef pattern from neuralSpring).
     pub(crate) async fn handle_list_tools(&self) -> Result<Value, JsonRpcError> {
         debug!("tool.list request");
 
@@ -582,18 +725,40 @@ impl JsonRpcServer {
         let mut entries: Vec<super::types::ToolListEntry> = executor
             .list_tools()
             .iter()
-            .map(|t| super::types::ToolListEntry {
-                name: t.name.to_string(),
-                description: t.description.clone(),
-                domain: t.domain.to_string(),
-                source: super::types::ToolSource::Builtin,
+            .map(|t| {
+                let schema = self
+                    .capability_registry
+                    .find(&t.name)
+                    .and_then(|c| c.input_schema.clone());
+                super::types::ToolListEntry {
+                    name: t.name.to_string(),
+                    description: t.description.clone(),
+                    domain: t.domain.to_string(),
+                    source: super::types::ToolSource::Builtin,
+                    input_schema: schema,
+                }
             })
             .collect();
 
+        // Add registry-only capabilities as tools (for methods not in ToolExecutor)
+        let mut seen: std::collections::HashSet<String> =
+            entries.iter().map(|e| e.name.clone()).collect();
+
+        for cap in &self.capability_registry.capabilities {
+            if seen.insert(cap.method.clone()) {
+                entries.push(super::types::ToolListEntry {
+                    name: cap.method.clone(),
+                    description: cap.description.clone(),
+                    domain: cap.domain.clone(),
+                    source: super::types::ToolSource::Builtin,
+                    input_schema: cap.input_schema.clone(),
+                });
+            }
+        }
+
         // Add remote announced tools
-        let registry = self.announced_tools.read().await;
-        let mut seen = std::collections::HashSet::new();
-        for (tool_name, announced) in registry.iter() {
+        let announced = self.announced_tools.read().await;
+        for (tool_name, announced_primal) in announced.iter() {
             if seen.insert(tool_name.clone()) {
                 let domain = tool_name
                     .split('.')
@@ -602,11 +767,12 @@ impl JsonRpcServer {
                     .to_string();
                 entries.push(super::types::ToolListEntry {
                     name: tool_name.clone(),
-                    description: format!("Remote tool from {}", announced.primal),
+                    description: format!("Remote tool from {}", announced_primal.primal),
                     domain,
                     source: super::types::ToolSource::Remote {
-                        primal: announced.primal.clone(),
+                        primal: announced_primal.primal.clone(),
                     },
+                    input_schema: None,
                 });
             }
         }

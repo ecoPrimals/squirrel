@@ -11,9 +11,12 @@ use tokio::net::UnixStream;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Get node ID from environment or use default
-    let node_id = std::env::var("SQUIRREL_NODE_ID").unwrap_or_else(|_| "squirrel".to_string());
-    let socket_path = format!("/tmp/squirrel-{}.sock", node_id);
+    let socket_path = std::env::var("SQUIRREL_SOCKET")
+        .or_else(|_| {
+            std::env::var("XDG_RUNTIME_DIR")
+                .map(|dir| format!("{}/biomeos/squirrel.sock", dir))
+        })
+        .unwrap_or_else(|_| "/tmp/squirrel.sock".to_string());
 
     println!("🐿️  Squirrel JSON-RPC Client Example");
     println!("   Connecting to: {}", socket_path);
@@ -24,11 +27,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
 
-    // Example 1: Health check
-    println!("📋 Example 1: Health Check");
+    // Example 1: System ping
+    println!("📋 Example 1: System Ping");
     let health_request = json!({
         "jsonrpc": "2.0",
-        "method": "health_check",
+        "method": "system.ping",
         "params": {},
         "id": 1
     });
@@ -36,11 +39,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     send_request(&mut writer, &mut reader, health_request).await?;
     println!();
 
-    // Example 2: List providers
+    // Example 2: List AI providers
     println!("📋 Example 2: List AI Providers");
     let list_providers_request = json!({
         "jsonrpc": "2.0",
-        "method": "list_providers",
+        "method": "ai.list_providers",
         "params": {
             "capability": null,
             "include_offline": true
@@ -55,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("📋 Example 3: Query AI");
     let query_ai_request = json!({
         "jsonrpc": "2.0",
-        "method": "query_ai",
+        "method": "ai.query",
         "params": {
             "prompt": "Explain Rust's ownership system in one sentence",
             "provider": "auto",
@@ -71,16 +74,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     send_request(&mut writer, &mut reader, query_ai_request).await?;
     println!();
 
-    // Example 4: Announce capabilities
-    println!("📋 Example 4: Announce Capabilities");
+    // Example 4: Discover capabilities
+    println!("📋 Example 4: Discover Capabilities");
     let announce_request = json!({
         "jsonrpc": "2.0",
-        "method": "announce_capabilities",
-        "params": {
-            "capabilities": ["ai.inference", "ai.multi-provider", "mcp.protocol"],
-            "sub_federations": null,
-            "genetic_families": null
-        },
+        "method": "capability.discover",
+        "params": {},
         "id": 4
     });
 
