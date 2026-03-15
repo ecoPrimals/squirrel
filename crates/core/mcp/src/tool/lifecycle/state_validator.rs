@@ -460,15 +460,15 @@ impl StateTransitionValidator {
             // Simplified rollback with proper error conversion
             match manager.get_tool(tool_id).await {
                 Ok(Some(_)) => {
-                    log::warn!("Rolling back tool state for {}: {:?} -> {:?}", tool_id, from, rollback_state);
+                    warn!("Rolling back tool state for {}: {:?} -> {:?}", tool_id, from, rollback_state);
                     Ok(())
                 }
                 Ok(None) => {
-                    log::warn!("Tool {} not found for rollback", tool_id);
+                    warn!("Tool {} not found for rollback", tool_id);
                     Ok(())
                 }
                 Err(e) => {
-                    log::error!("Error during rollback for {}: {:?}", tool_id, e);
+                    error!("Error during rollback for {}: {:?}", tool_id, e);
                     // Convert MCPError to ToolError
                     Err(ToolError::ExecutionFailed { 
                         tool_id: tool_id.to_string(), 
@@ -479,7 +479,7 @@ impl StateTransitionValidator {
         } else {
             // If no tool manager is provided, just record the attempt but consider it successful
             // This is a placeholder for when the validator is used standalone
-            log::warn!("Rolling back tool state for {}: {:?} -> {:?}", tool_id, from, rollback_state);
+            warn!("Rolling back tool state for {}: {:?} -> {:?}", tool_id, from, rollback_state);
             Ok(())
         };
         

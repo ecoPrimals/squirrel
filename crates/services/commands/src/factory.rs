@@ -243,9 +243,7 @@ mod tests {
     #[test]
     fn test_create_command_registry() -> Result<(), Box<dyn Error>> {
         // Initialize logging for tests
-        let _ = simple_logger::SimpleLogger::new()
-            .with_level(log::LevelFilter::Debug)
-            .init();
+        let _ = tracing_subscriber::fmt::try_init();
 
         info!("Test: Starting test_create_command_registry");
         let registry = create_command_registry()?;
@@ -358,9 +356,7 @@ mod tests {
     #[test]
     fn test_default_factory() -> Result<(), Box<dyn Error>> {
         // Initialize logging for tests
-        let _ = simple_logger::SimpleLogger::new()
-            .with_level(log::LevelFilter::Debug)
-            .init();
+        let _ = tracing_subscriber::fmt::try_init();
 
         info!("Test: Starting test_default_factory");
         let factory = DefaultCommandRegistryFactory;
@@ -447,9 +443,7 @@ mod tests {
     #[test]
     fn test_factory_with_custom_commands() -> Result<(), Box<dyn Error>> {
         // Initialize logging for tests
-        let _ = simple_logger::SimpleLogger::new()
-            .with_level(log::LevelFilter::Debug)
-            .init();
+        let _ = tracing_subscriber::fmt::try_init();
 
         info!("Test: Starting test_factory_with_custom_commands");
 

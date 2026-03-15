@@ -3,6 +3,8 @@
 **Date**: January 16, 2025  
 **Status**: 🚀 **PRODUCTION READY**
 
+> **Note**: Squirrel uses Unix sockets + JSON-RPC 2.0 exclusively. HTTP endpoints such as `/health` and `/metrics` are no longer used; all communication is via Unix domain sockets and JSON-RPC.
+
 ---
 
 ## ✅ **Pre-Deployment Verification**

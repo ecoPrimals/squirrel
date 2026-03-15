@@ -6,7 +6,8 @@
 //! This module provides environment-driven defaults to eliminate hardcoded values.
 
 use std::env;
-// Removed: use squirrel_mcp_config::get_service_endpoints;
+
+use universal_constants::network::get_service_port;
 
 /// Default AI service endpoints with environment override support
 pub struct DefaultEndpoints;
@@ -61,9 +62,9 @@ impl DefaultEndpoints {
     /// Get service discovery port from environment or default
     pub fn service_discovery_port() -> u16 {
         env::var("SERVICE_DISCOVERY_PORT")
-            .unwrap_or_else(|_| "8080".to_string())
-            .parse()
-            .unwrap_or(8080)
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or_else(|| get_service_port("discovery"))
     }
 
     /// Get CLI MCP host from environment or default
@@ -77,15 +78,15 @@ impl DefaultEndpoints {
     ///
     /// Multi-tier resolution:
     /// 1. MCP_SERVER_URL (full URL override)
-    /// 2. MCP_SERVER_PORT (port with ws:// prefix)
-    /// 3. Default: ws://127.0.0.1:8080
+    /// 2. MCP_SERVER_PORT (port override)
+    /// 3. Default: ws://127.0.0.1 with port from `get_service_port("websocket")`
     pub fn websocket_server_url() -> String {
         env::var("MCP_SERVER_URL").unwrap_or_else(|_| {
             let port = env::var("MCP_SERVER_PORT")
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8080);
-            format!("ws://127.0.0.1:{}", port)
+                .unwrap_or_else(|| get_service_port("websocket"));
+            format!("ws://127.0.0.1:{port}")
         })
     }
 
@@ -109,11 +110,14 @@ impl DefaultEndpoints {
             })
     }
 
-    /// Get Songbird endpoint from environment or default
+    /// Get ecosystem registry (service mesh) endpoint from environment or default
+    ///
+    /// Env vars are runtime config - SONGBIRD_ENDPOINT is backward-compatible.
+    /// Code treats this as ecosystem role endpoint, not hardcoded primal identity.
     ///
     /// Multi-tier resolution:
-    /// 1. SERVICE_MESH_ENDPOINT (full endpoint)
-    /// 2. SONGBIRD_ENDPOINT (songbird-specific endpoint)
+    /// 1. SERVICE_MESH_ENDPOINT (capability-based)
+    /// 2. SONGBIRD_ENDPOINT (legacy env var, runtime config)
     /// 3. SONGBIRD_PORT (port override)
     /// 4. Default: http://localhost:8500
     pub fn songbird_endpoint() -> String {
@@ -196,9 +200,9 @@ Security Services (Capability-Based Discovery):
 - SECURITY_ENCRYPTION_PORT: Encryption service port (default: 8444)
 - SECURITY_COMPLIANCE_PORT: Compliance service port (default: 8445)
 
-ecoPrimals Services:
-- SERVICE_MESH_ENDPOINT: Songbird service mesh endpoint (primary)
-- SONGBIRD_ENDPOINT: Songbird orchestration service (default: http://localhost:8500)
+ecoPrimals Services (ecosystem role endpoints, not primal identity):
+- SERVICE_MESH_ENDPOINT: Ecosystem registry / service mesh (primary)
+- SONGBIRD_ENDPOINT: Ecosystem registry (legacy, default: http://localhost:8500)
 - SONGBIRD_PORT: Songbird port override (default: 8500)
 - TOADSTOOL_ENDPOINT: ToadStool compute service (default: http://localhost:9001)
 - TOADSTOOL_PORT: ToadStool port override (default: 9001)

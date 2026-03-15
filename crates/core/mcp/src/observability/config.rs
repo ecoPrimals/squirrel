@@ -6,7 +6,7 @@
 //! This module provides configuration structures and defaults
 //! for the observability system.
 
-use log::Level;
+use tracing::Level;
 // Removed: use squirrel_mcp_config::get_service_endpoints;
 
 /// Configuration for the observability framework

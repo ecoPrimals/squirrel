@@ -192,8 +192,7 @@ async fn create_registry_from_type(
             ))
         }
         unknown => Err(DiscoveryError::NotSupported(format!(
-            "Unknown registry type: {}",
-            unknown
+            "Unknown registry type: {unknown}"
         ))),
     }
 }

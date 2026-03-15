@@ -71,7 +71,7 @@ impl RuntimeDiscoveryEngine {
             );
 
             let service = DiscoveredService {
-                name: format!("{}-provider", capability),
+                name: format!("{capability}-provider"),
                 endpoint,
                 capabilities: vec![capability.into()], // ZERO-COPY: Avoid allocating capability string
                 metadata: HashMap::new(),

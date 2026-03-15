@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Capability Discovery - TRUE PRIMAL Infant Pattern
@@ -144,11 +145,11 @@ async fn try_explicit_env(capability: &str) -> Result<Option<CapabilityProvider>
             // Trust the env var - operator knows what they're doing
             // Skip probe since not all primals support discover_capabilities
             return Ok(Some(CapabilityProvider {
-                id: format!("{}-provider", capability),
+                id: format!("{capability}-provider"),
                 capabilities: vec![capability.to_string()],
                 socket: path,
                 metadata: std::collections::HashMap::new(),
-                discovered_via: format!("env:{}", env_var),
+                discovered_via: format!("env:{env_var}"),
             }));
         }
     }
@@ -222,7 +223,7 @@ async fn try_registry_query(
         let uid = nix::unistd::getuid();
         let paths = [
             "/tmp/neural-api.sock".to_string(),
-            format!("/run/user/{}/biomeos/neural-api.sock", uid),
+            format!("/run/user/{uid}/biomeos/neural-api.sock"),
         ];
         paths.into_iter().find(|p| Path::new(p).exists())
     });
@@ -364,7 +365,7 @@ pub async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Disc
                 ))
             }
         }
-        Ok(Err(e)) => Err(DiscoveryError::ProbeFailed(format!("Read error: {}", e))),
+        Ok(Err(e)) => Err(DiscoveryError::ProbeFailed(format!("Read error: {e}"))),
         Err(_) => Err(DiscoveryError::ProbeFailed("Timeout (>2s)".to_string())),
     }
 }
@@ -417,8 +418,7 @@ async fn query_registry(
         Ok(Ok(_)) => { /* Continue with response parsing */ }
         Ok(Err(e)) => {
             return Err(DiscoveryError::ProbeFailed(format!(
-                "Registry read error: {}",
-                e
+                "Registry read error: {e}"
             )))
         }
         Err(_) => {
@@ -494,14 +494,14 @@ fn get_socket_directories() -> Vec<PathBuf> {
     // Priority 2: Standard biomeOS socket directory (NUCLEUS-compliant!)
     // This is where BearDog, Songbird, NestGate, Toadstool sockets live
     let uid = nix::unistd::getuid();
-    let biomeos_dir = PathBuf::from(format!("/run/user/{}/biomeos", uid));
+    let biomeos_dir = PathBuf::from(format!("/run/user/{uid}/biomeos"));
     if biomeos_dir.exists() {
         dirs.push(biomeos_dir);
     }
 
     // Priority 3: XDG Runtime Directory with biomeos subdirectory
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
-        let xdg_biomeos = PathBuf::from(format!("{}/biomeos", runtime_dir));
+        let xdg_biomeos = PathBuf::from(format!("{runtime_dir}/biomeos"));
         if xdg_biomeos.exists() {
             dirs.push(xdg_biomeos);
         }

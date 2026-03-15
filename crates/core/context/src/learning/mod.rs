@@ -41,6 +41,11 @@ mod metrics;
 mod policy;
 mod reward;
 
+#[cfg(test)]
+mod test_helpers;
+#[cfg(test)]
+mod tests;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Ecosystem Integration Module
@@ -514,7 +515,7 @@ impl EcosystemManager {
             .universal_ecosystem
             .find_by_capability(capability)
             .await
-            .map_err(|e| PrimalError::Configuration(format!("Discovery failed: {}", e)))?;
+            .map_err(|e| PrimalError::Configuration(format!("Discovery failed: {e}")))?;
 
         // Convert to DiscoveredService format
         let services: Vec<DiscoveredService> = matches
@@ -624,8 +625,7 @@ impl EcosystemManager {
             let services = self.find_services_by_capability(capability).await?;
             if services.is_empty() {
                 return Err(PrimalError::Configuration(format!(
-                    "No service found providing capability: {}",
-                    capability
+                    "No service found providing capability: {capability}"
                 )));
             }
             tracing::debug!(
@@ -687,8 +687,8 @@ impl EcosystemManager {
                                     crate::ecosystem::registry::types::DiscoveredService::new(
                                         &provider.id,
                                         EcosystemPrimalType::BiomeOS, // Generic type for discovered primals
-                                        &format!("unix://{}", socket_str),
-                                        &format!("unix://{}", socket_str),
+                                        &format!("unix://{socket_str}"),
+                                        &format!("unix://{socket_str}"),
                                         "1.0",
                                         caps,
                                         metadata,

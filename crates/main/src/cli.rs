@@ -3,8 +3,19 @@
 
 //! CLI structure for Squirrel UniBin architecture
 //!
-//! Modern, idiomatic Rust CLI using clap derive API.
-//! Implements UniBin Architecture v1.0.0 ecosystem standard.
+//! UniBin exit codes: 0=success, 1=error, 2=config, 3=network, 130=interrupted
+
+/// UniBin standard exit codes
+pub mod exit_codes {
+    pub const SUCCESS: i32 = 0;
+    pub const ERROR: i32 = 1;
+    pub const CONFIG_ERROR: i32 = 2;
+    pub const NETWORK_ERROR: i32 = 3;
+    pub const INTERRUPTED: i32 = 130;
+}
+
+// Modern, idiomatic Rust CLI using clap derive API.
+// Implements UniBin Architecture v1.0.0 ecosystem standard.
 
 use clap::{Parser, Subcommand};
 use std::fmt;
@@ -62,6 +73,28 @@ pub enum Commands {
         /// Enable verbose logging
         #[arg(short, long)]
         verbose: bool,
+    },
+
+    /// Send JSON-RPC request to a running Squirrel server
+    ///
+    /// Connects to the Unix socket and sends a JSON-RPC request.
+    /// Use for scripting and automation.
+    Client {
+        /// Path to the Unix socket (optional, auto-detected if not specified)
+        #[arg(short, long)]
+        socket: Option<String>,
+
+        /// JSON-RPC method to call
+        #[arg(short, long)]
+        method: String,
+
+        /// JSON parameters (optional, defaults to {})
+        #[arg(short, long, default_value = "{}")]
+        params: String,
+
+        /// Timeout in milliseconds (optional, default 5000)
+        #[arg(short, long, default_value = "5000")]
+        timeout: u64,
     },
 
     /// Run health diagnostics
@@ -191,6 +224,62 @@ mod tests {
     fn test_version_command() {
         let cli = Cli::try_parse_from(["squirrel", "version"]).unwrap();
         assert!(matches!(cli.command, Commands::Version { .. }));
+    }
+
+    #[test]
+    fn test_client_command() {
+        let cli = Cli::try_parse_from([
+            "squirrel",
+            "client",
+            "--method",
+            "system.status",
+            "--params",
+            "{}",
+        ])
+        .unwrap();
+        if let Commands::Client {
+            socket,
+            method,
+            params,
+            timeout,
+        } = cli.command
+        {
+            assert!(socket.is_none());
+            assert_eq!(method, "system.status");
+            assert_eq!(params, "{}");
+            assert_eq!(timeout, 5000);
+        } else {
+            panic!("Expected Client command");
+        }
+    }
+
+    #[test]
+    fn test_client_command_with_socket() {
+        let cli = Cli::try_parse_from([
+            "squirrel",
+            "client",
+            "--socket",
+            "/tmp/squirrel.sock",
+            "--method",
+            "system.health",
+            "--timeout",
+            "10000",
+        ])
+        .unwrap();
+        if let Commands::Client {
+            socket,
+            method,
+            params,
+            timeout,
+        } = cli.command
+        {
+            assert_eq!(socket, Some("/tmp/squirrel.sock".to_string()));
+            assert_eq!(method, "system.health");
+            assert_eq!(params, "{}"); // default
+            assert_eq!(timeout, 10000);
+        } else {
+            panic!("Expected Client command");
+        }
     }
 
     // ========================================================================

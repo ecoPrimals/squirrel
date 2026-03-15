@@ -791,37 +791,49 @@ impl BenchmarkSuite {
 
     /// Measure process memory (RSS) and CPU usage.
     ///
-    /// On Linux: reads /proc/self/statm for RSS (resident set size), with sysinfo fallback.
-    /// On other platforms: uses sysinfo crate.
+    /// On Linux: reads /proc/self/statm for RSS (resident set size).
+    /// With `system-metrics` feature: falls back to sysinfo crate.
     fn measure_process_resources() -> (f64, f64) {
-        let pid = sysinfo::Pid::from(std::process::id() as usize);
-        let mut sys = sysinfo::System::new_all();
-        sys.refresh_all();
-        sys.refresh_process(pid);
+        #[cfg(feature = "system-metrics")]
+        {
+            let pid = sysinfo::Pid::from(std::process::id() as usize);
+            let mut sys = sysinfo::System::new_all();
+            sys.refresh_all();
+            sys.refresh_process(pid);
 
-        let mem_mb = {
-            #[cfg(target_os = "linux")]
-            {
-                Self::read_proc_statm_rss_mb().unwrap_or_else(|_| {
+            let mem_mb = {
+                #[cfg(target_os = "linux")]
+                {
+                    Self::read_proc_statm_rss_mb().unwrap_or_else(|_| {
+                        sys.process(pid)
+                            .map(|p| (p.memory() as f64) / (1024.0 * 1024.0))
+                            .unwrap_or(0.0)
+                    })
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
                     sys.process(pid)
                         .map(|p| (p.memory() as f64) / (1024.0 * 1024.0))
                         .unwrap_or(0.0)
-                })
-            }
+                }
+            };
+
+            let cpu = sys
+                .process(pid)
+                .map(|p| p.cpu_usage() as f64)
+                .unwrap_or(0.0);
+
+            (mem_mb, cpu)
+        }
+
+        #[cfg(not(feature = "system-metrics"))]
+        {
+            #[cfg(target_os = "linux")]
+            let mem_mb = Self::read_proc_statm_rss_mb().unwrap_or(0.0);
             #[cfg(not(target_os = "linux"))]
-            {
-                sys.process(pid)
-                    .map(|p| (p.memory() as f64) / (1024.0 * 1024.0))
-                    .unwrap_or(0.0)
-            }
-        };
-
-        let cpu = sys
-            .process(pid)
-            .map(|p| p.cpu_usage() as f64)
-            .unwrap_or(0.0);
-
-        (mem_mb, cpu)
+            let mem_mb = 0.0;
+            (mem_mb, 0.0)
+        }
     }
 
     #[cfg(target_os = "linux")]

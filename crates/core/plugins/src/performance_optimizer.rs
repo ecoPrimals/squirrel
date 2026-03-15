@@ -16,7 +16,7 @@ use std::sync::{atomic::AtomicU64, Arc};
 use std::time::{Duration, Instant, SystemTime};
 
 use tokio::sync::{Mutex, RwLock};
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, warn};
 use uuid::Uuid;
 
 use crate::errors::{PluginError, Result};
@@ -587,19 +587,13 @@ impl PluginPerformanceOptimizer {
             // No benefit from batching single operations
             let results = Vec::new();
             for entry in plugin_entries {
-                // NOTE: Plugin loading is intentionally simplified for performance benchmarking
-                // This implementation is sufficient for testing plugin system performance characteristics
-                // Full dynamic loading will be implemented when the unified plugin system is redesigned
+                // STUB: Plugin loading is intentionally simplified for performance benchmarking.
+                // Full dynamic loading will be implemented when the unified plugin system is redesigned.
                 // Tracked in: specs/active/plugins/unified-plugin-system.md
-                // Status: Non-blocking for current performance testing needs
-
-                // Future implementation:
-                // let plugin_result = Ok(Arc::new(crate::unified_manager::PlaceholderPlugin::new(
-                //     entry.metadata.clone(),
-                // )) as Arc<dyn ZeroCopyPlugin>);
-                // results.push(plugin_result);
-
-                // Temporary stub to allow compilation
+                warn!(
+                    plugin_name = %entry.name(),
+                    "batch_load_plugins: stub path — no real plugin loaded; unified plugin system not yet implemented"
+                );
                 let _entry = entry; // Suppress unused warning
             }
             return results;
@@ -787,20 +781,13 @@ impl BatchProcessor {
     ) -> Vec<Result<Arc<dyn ZeroCopyPlugin>>> {
         let results = Vec::new();
 
-        // Simulate batch loading with better efficiency
+        // STUB: Simulate batch loading. Full dynamic loading deferred to unified plugin system.
+        // Tracked in: specs/active/plugins/unified-plugin-system.md
         for entry in plugin_entries {
-            // NOTE: Plugin loading is intentionally simplified for performance benchmarking
-            // This implementation is sufficient for testing plugin system performance characteristics
-            // Full dynamic loading will be implemented when the unified plugin system is redesigned
-            // Tracked in: specs/active/plugins/unified-plugin-system.md
-
-            // Future implementation:
-            // let plugin_result = Ok(Arc::new(crate::unified_manager::PlaceholderPlugin::new(
-            //     entry.metadata.clone(),
-            // )) as Arc<dyn ZeroCopyPlugin>);
-            // results.push(plugin_result);
-
-            // Temporary stub to allow compilation
+            warn!(
+                plugin_name = %entry.name(),
+                "BatchProcessor::batch_load_plugins: stub path — no real plugin loaded; unified plugin system not yet implemented"
+            );
             let _entry = entry; // Suppress unused warning
         }
 

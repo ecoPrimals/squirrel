@@ -470,7 +470,9 @@ impl ConfigDefaults {
                     Environment::Production => 500,
                 },
                 cache_size: 1000,
-                worker_threads: num_cpus::get(),
+                worker_threads: std::thread::available_parallelism()
+                    .map(usize::from)
+                    .unwrap_or(4),
             },
             providers: ProviderDefaults {
                 openai_base_url: "https://api.openai.com/v1".to_string(),

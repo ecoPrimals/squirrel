@@ -131,7 +131,7 @@ impl CapabilityResolver {
                 capability, env_key, endpoint
             );
             return Ok(DiscoveredService {
-                name: format!("{}-provider", capability),
+                name: format!("{capability}-provider"),
                 endpoint,
                 capabilities: vec![capability.to_string()],
                 metadata: std::collections::HashMap::new(),

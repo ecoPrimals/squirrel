@@ -5,11 +5,7 @@ edition = "2021"
 authors = ["DataScienceBioLab"]
 license = "AGPL-3.0-only"
 
-# Make this crate standalone to avoid workspace conflicts
-[workspace]
-
 [lints.clippy]
-# Modern async Rust uses async fn in traits (stable since Rust 1.75)
 async_fn_in_trait = "allow"
 
 [dependencies]
@@ -19,7 +15,6 @@ tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 tokio-util = { version = "0.7", features = ["full"] }
 futures-util = "0.3"
 async-trait = "0.1"
-pin-project = "1.0"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -34,21 +29,19 @@ bincode = { version = "1.3", optional = true }
 tokio-tungstenite = { version = "0.20", optional = true }
 tungstenite = { version = "0.20", optional = true }
 
-# CRITICAL FIX: Add missing config dependency
+# Internal crates
 squirrel-mcp-config = { path = "../../config" }
 universal-constants = { path = "../../universal-constants" }
 
-# WebSocket support
+# WebSocket support (optional, behind websocket feature)
 axum = { version = "0.6", features = ["ws", "headers"], optional = true }
 axum-extra = { version = "0.8", optional = true }
 
-# Streaming and channels
-flume = { version = "0.10", optional = true }
-crossbeam-channel = "0.5"
+# Concurrency
 dashmap = "5.0"
 
 # Observability
-tracing = "0.1"
+tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 metrics = { version = "0.21", optional = true }
@@ -56,69 +49,47 @@ metrics-exporter-prometheus = { version = "0.12", optional = true }
 
 # Time and dates
 chrono = { version = "0.4", features = ["serde"] }
-time = { version = "0.3", features = ["serde"] }
 
 # Error handling
 thiserror = "1.0"
 anyhow = "1.0"
-eyre = "0.6"
 
 # Configuration
-config = "0.13"
-toml = "0.7"
+toml = "0.8"
 
-# Storage and persistence
+# Storage and persistence (optional)
 sled = { version = "0.34", optional = true }
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"], optional = true }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"], optional = true }
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], optional = true }
 
-# Compression
+# Compression (optional)
 zstd = { version = "0.12", optional = true }
 flate2 = { version = "1.0", optional = true }
 lz4 = { version = "1.24", optional = true }
 
-# Cryptography (OPTIONAL - for TLS features)
-# SECURITY FIX: Updated from 0.16.20 to fix RUSTSEC-2025-0009 (AES overflow panic)
-# EVOLVED: ring → RustCrypto (Jan 16, 2026 - Pure Rust evolution)
-# Old: ring = "0.17.12"  (C assembly code)
-# New: RustCrypto (100% pure Rust!)
-sha1 = "0.10"
-hmac = "0.12"
+# Cryptography (optional, for TLS)
 rustls = { version = "0.21", optional = true }
 rustls-pemfile = { version = "1.0", optional = true }
 
-# AI providers (OPTIONAL - for direct HTTP to AI vendors)
-# Production delegates to Songbird via Unix sockets!
+# AI providers (optional)
 openai-api-rs = { version = "0.1", optional = true }
 anthropic-sdk = { version = "0.1", optional = true }
 reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 
-# Plugin system
+# Plugin system (optional)
 libloading = { version = "0.8", optional = true }
 wasmtime = { version = "12.0", optional = true }
 wasmtime-wasi = { version = "12.0", optional = true }
 
 # Utilities
-# once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
 parking_lot = "0.12"
-rayon = "1.0"
-num_cpus = "1.0"
 rand = "0.8"
 futures = "0.3"
-log = "0.4"
 bytes = "1.0"
-
-# CLI (for task command parsing)
 clap = "4.0"
-
-# Utils dependencies
 regex = "1.7"
-url = "2.0"
 base64 = "0.21"
-hex = "0.4"
-urlencoding = "2.1"
 
-# Development dependencies
 [dev-dependencies]
 tokio-test = "0.4"
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -127,24 +98,19 @@ mockall = "0.11"
 proptest = "1.0"
 insta = "1.34"
 
-# Note: Local dependencies temporarily removed due to circular dependency issues
-# squirrel-interfaces = { path = "../interfaces" }
-
-
-
 [features]
-# Production default: websocket, streaming (Pure Rust!)
-default = ["streaming", "websocket"]
+# Production default: streaming only (Zero-HTTP, Pure Rust)
+default = ["streaming"]
 
-# Direct HTTP to AI vendors (DEV/TESTING - brings reqwest → ring!)
+# Direct HTTP to AI vendors (DEV/TESTING)
 direct-http = ["dep:reqwest"]
 
-# TLS support (brings rustls → ring!)
+# TLS support
 tls = ["dep:rustls", "dep:rustls-pemfile"]
 
 enhanced = [
     "websocket",
-    "tarpc", 
+    "tarpc",
     "streaming",
     "ai-providers",
     "plugins",
@@ -164,12 +130,10 @@ full = [
 ]
 websocket = ["dep:tokio-tungstenite", "dep:tungstenite", "dep:axum", "dep:axum-extra"]
 tarpc = ["dep:tarpc", "dep:tokio-serde", "dep:bincode"]
-streaming = ["dep:tokio-stream", "dep:flume"]
-# AI providers require direct-http feature
+streaming = ["dep:tokio-stream"]
 ai-providers = ["direct-http", "dep:openai-api-rs", "dep:anthropic-sdk"]
 plugins = ["dep:libloading", "dep:wasmtime", "dep:wasmtime-wasi"]
 persistence = ["dep:sled", "dep:sqlx", "dep:redis"]
 metrics = ["dep:metrics", "dep:metrics-exporter-prometheus"]
 compression = ["dep:zstd", "dep:flate2", "dep:lz4"]
-# Placeholder types for backward compatibility - use StateSyncManager/StateChange instead
 sync-placeholders = []

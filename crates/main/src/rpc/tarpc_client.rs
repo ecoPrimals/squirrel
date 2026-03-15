@@ -30,6 +30,7 @@
 use super::tarpc_service::*;
 use super::tarpc_transport::TarpcTransportAdapter;
 use anyhow::{Context, Result};
+use std::sync::Arc;
 use std::time::Duration;
 use tarpc::{client, context};
 use universal_patterns::transport::UniversalTransport;
@@ -189,7 +190,7 @@ impl SquirrelClient {
     ) -> Result<QueryAiResult> {
         let params = QueryAiParams {
             prompt: prompt.into(),
-            model,
+            model: model.map(|s| Arc::from(s.as_str())),
             max_tokens,
             temperature,
         };
@@ -210,13 +211,16 @@ impl SquirrelClient {
     /// * `metadata` - Additional metadata
     pub async fn announce_capabilities(
         &self,
-        service: impl Into<String>,
-        capabilities: Vec<String>,
+        service: impl AsRef<str>,
+        capabilities: impl IntoIterator<Item = impl AsRef<str>>,
         metadata: std::collections::HashMap<String, String>,
     ) -> Result<AnnounceCapabilitiesResult> {
         let params = AnnounceCapabilitiesParams {
-            service: service.into(),
-            capabilities,
+            service: Arc::from(service.as_ref()),
+            capabilities: capabilities
+                .into_iter()
+                .map(|c| Arc::from(c.as_ref()))
+                .collect(),
             metadata,
         };
 
@@ -252,12 +256,12 @@ impl SquirrelClient {
     /// Tool execution result
     pub async fn execute_tool(
         &self,
-        tool: impl Into<String>,
+        tool: impl AsRef<str>,
         args: std::collections::HashMap<String, String>,
     ) -> Result<String> {
         let ctx = self.create_context();
         self.client
-            .execute_tool(ctx, tool.into(), args)
+            .execute_tool(ctx, Arc::from(tool.as_ref()), args)
             .await
             .context("Execute tool RPC failed")
     }

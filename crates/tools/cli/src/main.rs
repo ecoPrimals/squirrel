@@ -1,32 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: CLI interaction mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
-#![allow(
-    clippy::too_many_lines,
-    clippy::uninlined_format_args,
-    clippy::redundant_closure_for_method_calls,
-    clippy::single_char_pattern,
-    clippy::match_like_matches_macro,
-    clippy::single_match_else,
-    clippy::equatable_if_let
-)]
+#![forbid(unsafe_code)]
 
 //! Squirrel CLI — command-line interface for the Squirrel AI primal.
 
-use log::{debug, info, warn, LevelFilter};
 use serde_json::json;
 use squirrel_cli::commands::registry::CommandRegistry;
 use squirrel_cli::commands::{executor::ExecutionContext, register_commands};
 use std::env;
 use std::process;
 use std::sync::Arc;
+use tracing::{debug, info, warn};
 
 /// Squirrel CLI application entry point
 #[tokio::main]
 async fn main() {
-    // Set up logger
-    env_logger::Builder::new()
-        .filter_level(LevelFilter::Debug)
+    // Set up logger (tracing with env filter)
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug")),
+        )
         .init();
 
     info!("Starting Squirrel CLI");
@@ -36,7 +32,7 @@ async fn main() {
 
     // Register built-in commands
     if let Err(error) = register_commands() {
-        warn!("Failed to register built-in commands: {}", error);
+        warn!("Failed to register built-in commands: {error}");
         info!("Continuing without built-in commands...");
     } else {
         debug!("Built-in commands registered successfully");
@@ -54,7 +50,7 @@ async fn main() {
             info!("Plugin system initialized successfully");
         }
         Err(e) => {
-            warn!("Failed to initialize plugin system: {}", e);
+            warn!("Failed to initialize plugin system: {e}");
             info!("Continuing without plugins...");
         }
     }
@@ -73,10 +69,10 @@ async fn main() {
     for plugin_name in &plugin_names {
         match plugin_manager_guard.load_plugin(plugin_name).await {
             Ok(()) => {
-                info!("Successfully loaded plugin: {}", plugin_name);
+                info!("Successfully loaded plugin: {plugin_name}");
             }
             Err(e) => {
-                warn!("Failed to load plugin '{}': {}", plugin_name, e);
+                warn!("Failed to load plugin '{plugin_name}': {e}");
             }
         }
     }
@@ -87,7 +83,7 @@ async fn main() {
             info!("All plugins started successfully");
         }
         Err(e) => {
-            warn!("Failed to start some plugins: {}", e);
+            warn!("Failed to start some plugins: {e}");
         }
     }
 
@@ -97,7 +93,7 @@ async fn main() {
             info!("Plugin commands registered successfully");
         }
         Err(e) => {
-            warn!("Failed to register plugin commands: {}", e);
+            warn!("Failed to register plugin commands: {e}");
         }
     }
 
@@ -154,9 +150,9 @@ async fn main() {
                             "connected_clients": 2
                         });
                         match serde_json::to_string_pretty(&status_json) {
-                            Ok(json_string) => println!("{}", json_string),
+                            Ok(json_string) => println!("{json_string}"),
                             Err(e) => {
-                                eprintln!("Error serializing status to JSON: {}", e);
+                                eprintln!("Error serializing status to JSON: {e}");
                                 process::exit(1);
                             }
                         }
@@ -202,9 +198,9 @@ async fn main() {
                                 "default_format": "table"
                             });
                             match serde_json::to_string_pretty(&config_json) {
-                                Ok(json_string) => println!("{}", json_string),
+                                Ok(json_string) => println!("{json_string}"),
                                 Err(e) => {
-                                    eprintln!("Error serializing config to JSON: {}", e);
+                                    eprintln!("Error serializing config to JSON: {e}");
                                     process::exit(1);
                                 }
                             }
@@ -281,7 +277,7 @@ async fn main() {
                 }
                 cmd => {
                     // Invalid command
-                    eprintln!("Error: Command '{}' not found", cmd);
+                    eprintln!("Error: Command '{cmd}' not found");
                     eprintln!("Run 'squirrel help' for a list of available commands");
                     process::exit(1);
                 }

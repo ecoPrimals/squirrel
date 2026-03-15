@@ -10,7 +10,6 @@
 //! This module provides the core plugin manager implementation.
 
 use crate::dependency_resolver::DependencyResolver;
-use crate::discovery::create_placeholder_plugin;
 use crate::errors::{PluginError, Result};
 use crate::plugin;
 use crate::registry::PluginRegistry;
@@ -19,11 +18,45 @@ use crate::types::PluginStatus;
 use crate::{Plugin, PluginConfig};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use log::{debug, error, info};
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
+
+/// Minimal no-op plugin for built-in system placeholder (not from discovery)
+#[derive(Debug)]
+struct SystemPlaceholderPlugin {
+    metadata: plugin::PluginMetadata,
+}
+
+#[async_trait]
+impl Plugin for SystemPlaceholderPlugin {
+    fn metadata(&self) -> &plugin::PluginMetadata {
+        &self.metadata
+    }
+
+    async fn initialize(&self) -> anyhow::Result<()> {
+        warn!(
+            plugin_name = %self.metadata.name,
+            "SystemPlaceholderPlugin: no real plugin loaded; initialize is a no-op"
+        );
+        Ok(())
+    }
+
+    async fn shutdown(&self) -> anyhow::Result<()> {
+        warn!(
+            plugin_name = %self.metadata.name,
+            "SystemPlaceholderPlugin: no real plugin loaded; shutdown is a no-op"
+        );
+        Ok(())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
 
 /// Plugin manager for handling plugin lifecycle and dependencies
 pub struct PluginManager {
@@ -67,7 +100,9 @@ impl PluginManager {
             "System placeholder plugin",
             "Squirrel System",
         );
-        let placeholder = create_placeholder_plugin(placeholder_metadata);
+        let placeholder = Arc::new(SystemPlaceholderPlugin {
+            metadata: placeholder_metadata,
+        });
         self.register_plugin(placeholder).await?;
         Ok(())
     }

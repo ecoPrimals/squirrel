@@ -318,22 +318,17 @@ impl EndpointResolver {
         use universal_constants::capabilities;
         use universal_constants::deployment::ports;
 
-        // Capability-based: use capability constants for discovery
+        // Capability-based: use capability constants for discovery.
+        // TRUE PRIMAL: No hardcoded primal names in production routing.
         let port = match name.to_lowercase().as_str() {
-            // Capability constants
             n if n == capabilities::SERVICE_MESH_CAPABILITY || n == "network" => {
                 ports::service_mesh()
             }
             n if n == capabilities::SECURITY_CAPABILITY => ports::security_service(),
             n if n == capabilities::COMPUTE_CAPABILITY => ports::compute_service(),
             n if n == capabilities::STORAGE_CAPABILITY => ports::storage_service(),
-            n if n == capabilities::SELF_PRIMAL_NAME => 8080, // AI orchestration (us!)
-            // Legacy primal names (backward compat)
-            "songbird" => ports::service_mesh(),
-            "beardog" => ports::security_service(),
-            "toadstool" => ports::compute_service(),
-            "nestgate" => ports::storage_service(),
-            "websocket" | "ws" => 8080,
+            n if n == capabilities::SELF_PRIMAL_NAME => ports::api_gateway(), // AI orchestration (us!)
+            "websocket" | "ws" => ports::websocket(),
             "http" => 8081,
             "admin" => 8082,
             "metrics" => 9090,

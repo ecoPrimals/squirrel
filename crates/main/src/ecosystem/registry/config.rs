@@ -81,7 +81,7 @@ impl Default for EcosystemRegistryConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("service_mesh"));
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             });
 
         Self {

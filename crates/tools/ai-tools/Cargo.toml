@@ -31,8 +31,7 @@ reqwest = { version = "0.11", default-features = false, features = ["json", "str
 url = "2.5"
 
 # Logging and tracing
-tracing = "0.1"
-log = "0.4"
+tracing = { version = "0.1", features = ["log"] }
 
 # AI service clients (OPTIONAL - for dev/testing only!)
 # Production delegates to Songbird via Unix sockets!

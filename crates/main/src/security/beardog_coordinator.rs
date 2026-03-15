@@ -81,7 +81,7 @@ impl BeardogSecurityCoordinator {
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or(universal_constants::network::DEFAULT_SECURITY_PORT);
-        Ok(format!("http://localhost:{}", port))
+        Ok(format!("http://localhost:{port}"))
     }
 
     /// Create new coordinator with capability-based discovery
@@ -115,17 +115,17 @@ impl BeardogSecurityCoordinator {
                 "Using security Unix socket from SECURITY_SOCKET: {}",
                 socket
             );
-            format!("unix://{}", socket)
+            format!("unix://{socket}")
         } else {
             // Check standard biomeOS socket path (capability-based, not primal-specific)
             let uid = nix::unistd::getuid();
-            let standard_socket = format!("/run/user/{}/biomeos/security.sock", uid);
+            let standard_socket = format!("/run/user/{uid}/biomeos/security.sock");
             if std::path::Path::new(&standard_socket).exists() {
                 info!(
                     "Found security service at standard socket: {}",
                     standard_socket
                 );
-                format!("unix://{}", standard_socket)
+                format!("unix://{standard_socket}")
             } else {
                 // Fallback to HTTP with port discovery
                 let port = std::env::var("SECURITY_PORT")
@@ -134,7 +134,7 @@ impl BeardogSecurityCoordinator {
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("security"));
 
-                let fallback = format!("http://localhost:{}", port);
+                let fallback = format!("http://localhost:{port}");
                 warn!(
                     "Using fallback security endpoint: {} (set SECURITY_SOCKET or SECURITY_SERVICE_ENDPOINT for production)",
                     fallback

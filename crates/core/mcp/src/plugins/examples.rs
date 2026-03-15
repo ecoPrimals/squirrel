@@ -9,6 +9,7 @@
 use std::sync::Arc;
 use anyhow::Result;
 use serde_json::json;
+use tracing::info;
 use uuid::Uuid;
 use async_trait::async_trait;
 
@@ -45,7 +46,7 @@ pub async fn setup_basic_plugin_environment() -> Result<()> {
     };
     
     // Simplified tool registration (just log for now)
-    log::info!("Registering example tool: {}", tool_name);
+    info!("Registering example tool: {}", tool_name);
     
     // In a real implementation, this would register the tool
     // For now, we'll just return success

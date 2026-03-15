@@ -208,7 +208,7 @@ impl ConfigLoader {
         let config = match path.extension().and_then(|e| e.to_str()) {
             Some("toml") => toml::from_str(&contents)
                 .with_context(|| format!("Failed to parse TOML config: {}", path.display()))?,
-            Some("yaml") | Some("yml") => serde_yaml::from_str(&contents)
+            Some("yaml") | Some("yml") => serde_yml::from_str(&contents)
                 .with_context(|| format!("Failed to parse YAML config: {}", path.display()))?,
             Some("json") => serde_json::from_str(&contents)
                 .with_context(|| format!("Failed to parse JSON config: {}", path.display()))?,
@@ -489,6 +489,7 @@ announce_capabilities = false
     }
 
     #[test]
+    #[serial_test::serial(socket_env)]
     fn test_load_from_yaml_file() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("squirrel.yaml");

@@ -15,7 +15,7 @@ tokio-util = { version = "0.7.17", features = ["codec"] }
 bytes = "1.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
+serde_yml = "0.0.12"
 toml = "0.8"
 dirs = "5.0"
 uuid = { version = "1.0", features = ["v4"] }
@@ -34,7 +34,7 @@ base64 = "0.21"
 rand = "0.8"
 futures = "0.3"
 # lazy_static removed - evolved to std::sync::LazyLock (stable Rust 1.80+)
-sysinfo = "0.30"
+sysinfo = { version = "0.30", optional = true }
 
 # Text processing and validation (CRITICAL FIX: Missing regex dependency)
 regex = "1.10"
@@ -108,12 +108,14 @@ ecosystem = []                         # Ecosystem integration (core!)
 tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]  # High-performance binary RPC (core!)
 
 # Optional features
+system-metrics = ["dep:sysinfo"]
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics (optional)
 benchmarking = ["criterion", "pprof", "iai"]     # Benchmarking tools
 enhanced_error_handling = []                     # Enhanced error handling
 optimizations = []                               # Performance optimizations
 deprecated-adapters = []                          # Enable deprecated AI adapters (Anthropic, OpenAI) for backward compatibility
 nvml = []                                         # NVIDIA NVML GPU detection (requires nvml-wrapper)
+gpu-detection = []                                # GPU detection via NVML/ROCm/nvidia-smi (ToadStool compute primal)
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -5,10 +5,14 @@
 //!
 //! This module provides sensible default configurations for various environments
 //! and use cases, making it easy to get started with the universal patterns framework.
+//!
+//! TRUE PRIMAL: Endpoints use capability-based discovery via `universal_constants::deployment`.
+//! Set env vars (SERVICE_MESH_HOST, SECURITY_SERVICE_HOST, etc.) for staging/production.
 
 use chrono::Utc;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use universal_constants::deployment::endpoints;
 use uuid::Uuid;
 
 use super::*;
@@ -277,8 +281,7 @@ impl ConfigPresets {
         config.security.audit_logging = true;
         config.orchestration.enabled = true;
         config.orchestration.mode = OrchestrationMode::Managed;
-        config.orchestration.songbird_endpoint =
-            Some("https://songbird.staging.local:8082".parse().unwrap());
+        config.orchestration.songbird_endpoint = Some(endpoints::service_mesh().parse().unwrap());
         config
     }
 
@@ -298,14 +301,13 @@ impl ConfigPresets {
         config.security.auth_method = AuthMethod::Beardog {
             service_id: "primal-production".to_string(),
         };
-        config.security.beardog_endpoint = Some("https://beardog.local:8081".parse().unwrap());
+        config.security.beardog_endpoint = Some(endpoints::security_service().parse().unwrap());
         config.security.audit_logging = true;
         config.security.encryption.enable_inter_primal = true;
         config.security.encryption.enable_at_rest = true;
         config.orchestration.enabled = true;
         config.orchestration.mode = OrchestrationMode::Managed;
-        config.orchestration.songbird_endpoint =
-            Some("https://songbird.local:8082".parse().unwrap());
+        config.orchestration.songbird_endpoint = Some(endpoints::service_mesh().parse().unwrap());
         config.network.tls = Some(TlsConfig {
             cert_file: PathBuf::from("/etc/ssl/certs/primal.crt"),
             key_file: PathBuf::from("/etc/ssl/private/primal.key"),
@@ -374,7 +376,7 @@ impl ConfigPresets {
         config.logging.outputs = vec![LogOutput::Stdout];
         config.logging.format = LogFormat::Json;
         config.orchestration.enabled = true;
-        config.orchestration.songbird_endpoint = Some("http://songbird:8082".parse().unwrap());
+        config.orchestration.songbird_endpoint = Some(endpoints::service_mesh().parse().unwrap());
         config.orchestration.service_discovery.enabled = true;
         config.orchestration.service_discovery.method = ServiceDiscoveryMethod::Dns {
             domain: "cluster.local".to_string(),

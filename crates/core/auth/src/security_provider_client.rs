@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
-// ! BearDog Client for Crypto Operations (Pure Rust!)
+//! Security Provider Client for Crypto Operations (Pure Rust!)
 //!
 //! This module provides a Unix socket client for delegating cryptographic
-//! operations to BearDog, the dedicated crypto primal in the ecosystem.
+//! operations to the security provider primal discovered via capability.
 //!
 //! **Architecture**: TRUE PRIMAL principle - delegate crypto to the specialist!
 //! - Squirrel = AI/MCP specialist
-//! - BearDog = Crypto specialist  
+//! - Security provider primal = Crypto specialist (discovered at runtime)
 //! - Communication = Unix sockets (Zero-HTTP!)
+//!
+//! **Capability-Based Discovery**: Auth discovers the security provider via
+//! capability (e.g., "crypto.signing"), not by hardcoded primal name.
 //!
 //! **API**: JSON-RPC 2.0 over Unix sockets
 //! **Crypto**: Ed25519 (EdDSA) for JWT signing/verification
@@ -25,10 +28,10 @@ use tokio::net::UnixStream;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info, warn};
 
-/// BearDog client configuration
+/// Security provider client configuration
 #[derive(Debug, Clone)]
 pub struct BearDogClientConfig {
-    /// Path to BearDog's crypto Unix socket
+    /// Path to security provider's crypto Unix socket
     pub socket_path: String,
 
     /// Timeout for socket operations (default: 5 seconds)
@@ -52,22 +55,22 @@ impl Default for BearDogClientConfig {
     }
 }
 
-/// BearDog client for delegating crypto operations
+/// Security provider client for delegating crypto operations
 ///
 /// # Examples
 ///
 /// ```no_run
-/// use squirrel_mcp_auth::beardog_client::{BearDogClient, BearDogClientConfig};
+/// use squirrel_mcp_auth::security_provider_client::{BearDogClient, BearDogClientConfig};
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
 ///     let config = BearDogClientConfig::default();
 ///     let client = BearDogClient::new(config)?;
-///     
+///
 ///     let data = b"Hello, ecoPrimals!";
 ///     let signature = client.ed25519_sign(data, "my-key-id").await?;
 ///     let is_valid = client.ed25519_verify(data, &signature, "my-key-id").await?;
-///     
+///
 ///     assert!(is_valid);
 ///     Ok(())
 /// }
@@ -78,17 +81,20 @@ pub struct BearDogClient {
 }
 
 impl BearDogClient {
-    /// Create a new BearDog client
+    /// Create a new security provider client
     pub fn new(config: BearDogClientConfig) -> Result<Self> {
         // Validate socket path exists (in production)
         if !Path::new(&config.socket_path).exists() {
             warn!(
-                "BearDog socket not found at: {} (may not be running yet)",
+                "Security provider socket not found at: {} (may not be running yet)",
                 config.socket_path
             );
         }
 
-        info!("BearDog client configured: {}", config.socket_path);
+        info!(
+            "Security provider client configured: {}",
+            config.socket_path
+        );
 
         Ok(Self {
             config,
@@ -96,11 +102,11 @@ impl BearDogClient {
         })
     }
 
-    /// Sign data using Ed25519 (via BearDog)
+    /// Sign data using Ed25519 (via security provider)
     ///
     /// # Arguments
     /// * `data` - Data to sign
-    /// * `key_id` - BearDog key ID to use for signing
+    /// * `key_id` - Key ID to use for signing
     ///
     /// # Returns
     /// Raw Ed25519 signature (64 bytes)
@@ -125,23 +131,23 @@ impl BearDogClient {
 
         let signature_b64 = response["result"]["signature"]
             .as_str()
-            .context("Missing 'signature' in BearDog response")?;
+            .context("Missing 'signature' in security provider response")?;
 
         let signature = BASE64
             .decode(signature_b64)
-            .context("Failed to decode signature from BearDog")?;
+            .context("Failed to decode signature from security provider")?;
 
         debug!("Ed25519 sign successful: signature_len={}", signature.len());
 
         Ok(signature)
     }
 
-    /// Verify Ed25519 signature (via BearDog)
+    /// Verify Ed25519 signature (via security provider)
     ///
     /// # Arguments
     /// * `data` - Original data that was signed
     /// * `signature` - Ed25519 signature to verify (64 bytes)
-    /// * `key_id` - BearDog key ID to use for verification
+    /// * `key_id` - Key ID to use for verification
     ///
     /// # Returns
     /// `true` if signature is valid, `false` otherwise
@@ -173,14 +179,14 @@ impl BearDogClient {
 
         let valid = response["result"]["valid"]
             .as_bool()
-            .context("Missing 'valid' field in BearDog response")?;
+            .context("Missing 'valid' field in security provider response")?;
 
         debug!("Ed25519 verify result: valid={}", valid);
 
         Ok(valid)
     }
 
-    /// Send JSON-RPC request to BearDog with retry logic
+    /// Send JSON-RPC request to security provider with retry logic
     async fn send_request(&self, request: JsonRpcRequest) -> Result<JsonValue> {
         let mut last_error = None;
 
@@ -189,7 +195,7 @@ impl BearDogClient {
                 Ok(response) => return Ok(response),
                 Err(e) => {
                     warn!(
-                        "BearDog request failed (attempt {}/{}): {}",
+                        "Security provider request failed (attempt {}/{}): {}",
                         attempt, self.config.max_retries, e
                     );
                     last_error = Some(e);
@@ -203,13 +209,13 @@ impl BearDogClient {
 
         Err(last_error.unwrap_or_else(|| {
             anyhow::anyhow!(
-                "BearDog request failed after {} retries",
+                "Security provider request failed after {} retries",
                 self.config.max_retries
             )
         }))
     }
 
-    /// Send a single JSON-RPC request to BearDog
+    /// Send a single JSON-RPC request to security provider
     async fn send_request_once(&self, request: &JsonRpcRequest) -> Result<JsonValue> {
         // Connect to Unix socket with timeout
         let stream = timeout(
@@ -217,8 +223,8 @@ impl BearDogClient {
             UnixStream::connect(&self.config.socket_path),
         )
         .await
-        .context("Timeout connecting to BearDog socket")?
-        .context("Failed to connect to BearDog socket")?;
+        .context("Timeout connecting to security provider socket")?
+        .context("Failed to connect to security provider socket")?;
 
         let (read_half, mut write_half) = stream.into_split();
 
@@ -234,8 +240,8 @@ impl BearDogClient {
             Ok::<(), std::io::Error>(())
         })
         .await
-        .context("Timeout sending request to BearDog")?
-        .context("Failed to send request to BearDog")?;
+        .context("Timeout sending request to security provider")?
+        .context("Failed to send request to security provider")?;
 
         // Read response (newline-delimited JSON)
         let mut reader = BufReader::new(read_half);
@@ -246,17 +252,17 @@ impl BearDogClient {
             reader.read_line(&mut response_line),
         )
         .await
-        .context("Timeout reading response from BearDog")?
-        .context("Failed to read response from BearDog")?;
+        .context("Timeout reading response from security provider")?
+        .context("Failed to read response from security provider")?;
 
         // Parse response
         let response: JsonRpcResponse = serde_json::from_str(&response_line)
-            .context("Failed to parse JSON-RPC response from BearDog")?;
+            .context("Failed to parse JSON-RPC response from security provider")?;
 
         // Check for JSON-RPC error
         if let Some(error) = response.error {
             return Err(anyhow::anyhow!(
-                "BearDog error: {} (code: {})",
+                "Security provider error: {} (code: {})",
                 error.message,
                 error.code
             ));
@@ -264,7 +270,7 @@ impl BearDogClient {
 
         response
             .result
-            .context("BearDog response missing 'result' field")
+            .context("Security provider response missing 'result' field")
     }
 
     /// Get next request ID (monotonically increasing)
@@ -348,5 +354,5 @@ mod tests {
         assert_eq!(id3, 3);
     }
 
-    // Integration tests (require BearDog running) are in integration tests
+    // Integration tests (require security provider running) are in integration tests
 }

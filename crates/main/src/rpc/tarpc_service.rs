@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
+// ORC-Notice: RPC service types licensed under ORC
 
 //! tarpc RPC Service Definition
 //!
@@ -16,22 +17,26 @@
 //! ```text
 //! Universal Transport → tarpc Protocol → Service Impl → AI Router → Response
 //! ```
+//!
+//! ## wateringHole IPC Types (UNIVERSAL_IPC_STANDARD_V3)
+//!
+//! - `Arc<str>` for identifiers (provider, model, capability names)
+//! - `String` for user content (prompts, responses, descriptions)
 
 // Note: This module is feature-gated via #[cfg(feature = "tarpc-rpc")] in mod.rs
-// SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 DataScienceBioLab
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Query AI request parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryAiParams {
-    /// The prompt to send to the AI
+    /// The prompt to send to the AI (user content)
     pub prompt: String,
 
-    /// Optional model to use
-    pub model: Option<String>,
+    /// Optional model to use (identifier)
+    pub model: Option<Arc<str>>,
 
     /// Optional max tokens
     pub max_tokens: Option<usize>,
@@ -43,14 +48,14 @@ pub struct QueryAiParams {
 /// Query AI response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryAiResult {
-    /// AI response text
+    /// AI response text (user content)
     pub response: String,
 
-    /// Provider used
-    pub provider: String,
+    /// Provider used (identifier)
+    pub provider: Arc<str>,
 
-    /// Model used
-    pub model: String,
+    /// Model used (identifier)
+    pub model: Arc<str>,
 
     /// Tokens used (if available)
     pub tokens_used: Option<usize>,
@@ -65,17 +70,17 @@ pub struct QueryAiResult {
 /// Provider information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderInfo {
-    /// Provider ID
-    pub id: String,
+    /// Provider ID (identifier)
+    pub id: Arc<str>,
 
-    /// Provider name
-    pub name: String,
+    /// Provider name (identifier)
+    pub name: Arc<str>,
 
-    /// Available models
-    pub models: Vec<String>,
+    /// Available models (identifiers)
+    pub models: Vec<Arc<str>>,
 
-    /// Capabilities
-    pub capabilities: Vec<String>,
+    /// Capabilities (identifiers)
+    pub capabilities: Vec<Arc<str>>,
 
     /// Online status
     pub online: bool,
@@ -83,8 +88,8 @@ pub struct ProviderInfo {
     /// Average latency (ms)
     pub avg_latency_ms: Option<f64>,
 
-    /// Cost tier
-    pub cost_tier: String,
+    /// Cost tier (identifier)
+    pub cost_tier: Arc<str>,
 }
 
 /// List providers response
@@ -100,11 +105,11 @@ pub struct ListProvidersResult {
 /// Capability announcement
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnnounceCapabilitiesParams {
-    /// Service name
-    pub service: String,
+    /// Service name (identifier)
+    pub service: Arc<str>,
 
-    /// Capabilities
-    pub capabilities: Vec<String>,
+    /// Capabilities (identifiers)
+    pub capabilities: Vec<Arc<str>>,
 
     /// Metadata
     pub metadata: HashMap<String, String>,
@@ -239,13 +244,13 @@ pub trait SquirrelRpc {
     ///
     /// # Arguments
     ///
-    /// * `tool` - Tool name
+    /// * `tool` - Tool name (identifier)
     /// * `args` - Tool arguments
     ///
     /// # Returns
     ///
     /// Tool execution result
-    async fn execute_tool(tool: String, args: HashMap<String, String>) -> String;
+    async fn execute_tool(tool: Arc<str>, args: HashMap<String, String>) -> String;
 }
 
 #[cfg(test)]
@@ -256,7 +261,7 @@ mod tests {
     fn test_query_ai_params_serialization() {
         let params = QueryAiParams {
             prompt: "Hello".to_string(),
-            model: Some("gpt-4".to_string()),
+            model: Some(Arc::from("gpt-4")),
             max_tokens: Some(100),
             temperature: Some(0.7),
         };
@@ -271,13 +276,13 @@ mod tests {
     #[test]
     fn test_provider_info_serialization() {
         let info = ProviderInfo {
-            id: "test".to_string(),
-            name: "Test Provider".to_string(),
-            models: vec!["model1".to_string()],
-            capabilities: vec!["text".to_string()],
+            id: Arc::from("test"),
+            name: Arc::from("Test Provider"),
+            models: vec![Arc::from("model1")],
+            capabilities: vec![Arc::from("text")],
             online: true,
             avg_latency_ms: Some(100.0),
-            cost_tier: "free".to_string(),
+            cost_tier: Arc::from("free"),
         };
 
         let serialized = serde_json::to_string(&info).unwrap();

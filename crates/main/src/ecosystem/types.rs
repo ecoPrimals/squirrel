@@ -204,15 +204,19 @@ mod tests {
 
     #[test]
     fn test_service_endpoints_serde() {
+        // Zero-HTTP: use Unix socket paths; endpoints discovered at runtime
         let endpoints = ServiceEndpoints {
-            primary: "http://localhost:8080".to_string(),
-            secondary: vec!["http://localhost:8081".to_string()],
-            health: Some("http://localhost:8080/health".to_string()),
+            primary: "unix:///run/user/1000/biomeos/squirrel.sock".to_string(),
+            secondary: vec!["unix:///run/user/1000/biomeos/songbird.sock".to_string()],
+            health: None, // health via JSON-RPC; discovered at runtime
         };
         let json = serde_json::to_string(&endpoints).unwrap();
         let deserialized: ServiceEndpoints = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.primary, "http://localhost:8080");
-        assert!(deserialized.health.is_some());
+        assert_eq!(
+            deserialized.primary,
+            "unix:///run/user/1000/biomeos/squirrel.sock"
+        );
+        assert!(deserialized.health.is_none());
     }
 
     // --- HealthCheckConfig ---

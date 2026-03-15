@@ -6,13 +6,15 @@
 //! Core protocol types and handlers for Machine Context Protocol.
 
 pub mod types;
+#[cfg(feature = "websocket")]
 pub mod websocket;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "websocket"))]
 mod websocket_tests;
 
 // Re-export commonly used types
 pub use types::*;
+#[cfg(feature = "websocket")]
 pub use websocket::*;
 
 use crate::error::Result;

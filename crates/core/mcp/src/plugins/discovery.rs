@@ -8,8 +8,7 @@
 
 use std::sync::Arc;
 use async_trait::async_trait;
-use tracing::info;
-use log;
+use tracing::{error, info, warn};
 
 use crate::tool::{ToolManager, ToolContext, ToolExecutionResult, ToolExecutor, ExecutionStatus, ToolError};
 // Use local interfaces instead of squirrel-plugins
@@ -99,7 +98,7 @@ impl PluginDiscoveryManager {
     /// Register a discovered plugin
     pub async fn register_plugin(&self, _plugin_id: &str) -> Result<(), MCPError> {
         // Simplified registration - just log for now
-        log::info!("Registering plugin: {}", _plugin_id);
+        info!("Registering plugin: {}", _plugin_id);
         Ok(())
     }
 
@@ -108,13 +107,13 @@ impl PluginDiscoveryManager {
         // Simplified unregister (just log for now)
         match self.tool_manager.get_tool(plugin_id).await {
             Ok(Some(_)) => {
-                log::info!("Unregistering plugin: {}", plugin_id);
+                info!("Unregistering plugin: {}", plugin_id);
             }
             Ok(None) => {
-                log::warn!("Plugin not found for unregistration: {}", plugin_id);
+                warn!("Plugin not found for unregistration: {}", plugin_id);
             }
             Err(e) => {
-                log::error!("Error unregistering plugin {}: {:?}", plugin_id, e);
+                error!("Error unregistering plugin {}: {:?}", plugin_id, e);
             }
         }
         Ok(())

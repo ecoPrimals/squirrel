@@ -143,18 +143,31 @@ impl ToolExecutor {
             }),
 
             "system.info" => {
-                let mut sys = sysinfo::System::new();
-                sys.refresh_memory();
+                let memory_info = {
+                    #[cfg(feature = "system-metrics")]
+                    {
+                        let mut sys = sysinfo::System::new();
+                        sys.refresh_memory();
+                        serde_json::json!({
+                            "version": env!("CARGO_PKG_VERSION"),
+                            "primal": "squirrel",
+                            "memory_total_mb": sys.total_memory() / 1024 / 1024,
+                            "memory_used_mb": sys.used_memory() / 1024 / 1024,
+                        })
+                    }
+                    #[cfg(not(feature = "system-metrics"))]
+                    {
+                        serde_json::json!({
+                            "version": env!("CARGO_PKG_VERSION"),
+                            "primal": "squirrel",
+                            "note": "system-metrics feature not enabled",
+                        })
+                    }
+                };
                 Ok(ToolExecutionResult {
                     tool_name: tool_name.to_string(),
                     success: true,
-                    output: serde_json::json!({
-                        "version": env!("CARGO_PKG_VERSION"),
-                        "primal": "squirrel",
-                        "memory_total_mb": sys.total_memory() / 1024 / 1024,
-                        "memory_used_mb": sys.used_memory() / 1024 / 1024,
-                    })
-                    .to_string(),
+                    output: memory_info.to_string(),
                     error: None,
                 })
             }
@@ -182,7 +195,7 @@ impl ToolExecutor {
                         tool_name: tool_name.to_string(),
                         success: false,
                         output: String::new(),
-                        error: Some(format!("Discovery failed: {}", e)),
+                        error: Some(format!("Discovery failed: {e}")),
                     }),
                 }
             }
@@ -206,7 +219,7 @@ impl ToolExecutor {
                         tool_name: tool_name.to_string(),
                         success: false,
                         output: String::new(),
-                        error: Some(format!("Capability scan failed: {}", e)),
+                        error: Some(format!("Capability scan failed: {e}")),
                     }),
                 }
             }
@@ -217,7 +230,7 @@ impl ToolExecutor {
                 Ok(ToolExecutionResult {
                     tool_name: tool_name.to_string(),
                     success: true,
-                    output: format!("Tool '{}' executed (external dispatch)", tool_name),
+                    output: format!("Tool '{tool_name}' executed (external dispatch)"),
                     error: None,
                 })
             }

@@ -152,7 +152,7 @@ impl UniversalAiAdapter {
         write_half
             .write_all(request_str.as_bytes())
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Write error: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Write error: {e}")))?;
 
         // Read response
         let mut reader = BufReader::new(read_half);
@@ -160,7 +160,7 @@ impl UniversalAiAdapter {
         reader
             .read_line(&mut response_line)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Read error: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Read error: {e}")))?;
 
         // Parse JSON-RPC response
         let rpc_response: serde_json::Value = serde_json::from_str(&response_line)?;
@@ -168,8 +168,7 @@ impl UniversalAiAdapter {
         // Check for error
         if let Some(error) = rpc_response.get("error") {
             return Err(PrimalError::NetworkError(format!(
-                "Provider error: {}",
-                error
+                "Provider error: {error}"
             )));
         }
 

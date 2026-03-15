@@ -171,7 +171,7 @@ pub const DEFAULT_DISCOVERY_PORT: u16 = 8500;
 /// Fallback security/MCP port (use `deployment::ports::security_service()` or `deployment::ports::mcp_server()` for env-aware)
 pub const DEFAULT_SECURITY_PORT: u16 = 8443;
 
-/// Fallback gRPC port (standard gRPC default)
+/// Legacy gRPC port constant — gRPC fully removed, kept only for config deserialization compat
 pub const DEFAULT_GRPC_PORT: u16 = 50051;
 
 /// Bind to all network interfaces (0.0.0.0)
@@ -207,11 +207,10 @@ pub const BIOMEOS_SOCKET_FALLBACK_DIR: &str = "/tmp/biomeos";
 /// otherwise falls back to `/tmp/biomeos`.
 #[must_use]
 pub fn get_socket_dir() -> std::path::PathBuf {
-    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        std::path::PathBuf::from(xdg).join(BIOMEOS_SOCKET_SUBDIR)
-    } else {
-        std::path::PathBuf::from(BIOMEOS_SOCKET_FALLBACK_DIR)
-    }
+    std::env::var("XDG_RUNTIME_DIR").map_or_else(
+        |_| std::path::PathBuf::from(BIOMEOS_SOCKET_FALLBACK_DIR),
+        |xdg| std::path::PathBuf::from(xdg).join(BIOMEOS_SOCKET_SUBDIR),
+    )
 }
 
 /// Get the full socket path for a named primal service.

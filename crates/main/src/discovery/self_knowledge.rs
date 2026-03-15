@@ -169,7 +169,7 @@ impl PrimalSelfKnowledge {
             );
 
             let service = DiscoveredService {
-                name: format!("{}-provider", capability),
+                name: format!("{capability}-provider"),
                 endpoint,
                 capabilities: vec![capability.to_string()],
                 metadata: HashMap::new(),
@@ -314,7 +314,7 @@ impl PrimalSelfKnowledge {
 
         // 2. Announce via DNS-SD (network-wide)
         let dnssd = crate::discovery::mechanisms::DnssdDiscovery::default();
-        let hostname = format!("{}.local", service_name);
+        let hostname = format!("{service_name}.local");
         if let Err(e) = dnssd
             .register_service(
                 &service_name,

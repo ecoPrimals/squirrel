@@ -7,15 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### March 15, 2026 - Dependency Cleanup & Primal Responsibility Strip
+
+- Reduced unique dependencies from 314 to 272 (-13%)
+- Eliminated HTTP stack from default build (axum/tower/hyper feature-gated OFF)
+- Feature-gated Songbird code behind `mesh`, ToadStool code behind `gpu-detection`
+- Replaced deprecated `serde_yaml` with `serde_yml` (13 source files)
+- Migrated all `log::` to `tracing::` (14 files)
+- Deleted 10 orphaned/stale files
+- Archived 420+ stale docs, scripts, and showcase files
+- Removed `mcp-config.env` from git tracking (contained API keys)
+- Cleaned stale root docs, shell scripts, Docker files
+- Incremental build time: ~8s (was ~45s)
+
 ### March 14, 2026 - Deep Debt Evolution & Public Release Preparation
 
 #### Build & Test Metrics
-- **TESTS**: 4,127 passing / 0 failed (single-threaded)
+- **TESTS**: 1,622 passing / 0 failed (main crate)
 - **BUILD**: GREEN (0 errors)
-- **CLIPPY**: CLEAN (-D warnings, 0 warnings)
+- **CLIPPY**: CLEAN
 - **FORMATTING**: CLEAN
-- **RUSTDOC**: CLEAN (0 HTML tag warnings)
-- **COVERAGE**: 66% line, 68% region (target: 90%, via cargo llvm-cov)
 
 #### License & Headers
 - **LICENSE**: AGPL-3.0-only on ALL 17 previously-missing Cargo.toml files

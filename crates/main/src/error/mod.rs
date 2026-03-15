@@ -118,7 +118,7 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for PrimalError {
 // Add support for DiscoveryError conversion
 impl From<crate::capabilities::discovery::DiscoveryError> for PrimalError {
     fn from(err: crate::capabilities::discovery::DiscoveryError) -> Self {
-        PrimalError::NetworkError(format!("Discovery error: {}", err))
+        PrimalError::NetworkError(format!("Discovery error: {err}"))
     }
 }
 

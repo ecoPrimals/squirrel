@@ -229,3 +229,4 @@ coverage.json
 squirrel-mcp.log
 squirrel-mcp.pid
 lcov.info
+mcp-config.env

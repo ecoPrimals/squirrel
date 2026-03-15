@@ -132,13 +132,13 @@ impl SquirrelPrimalProvider {
         // Helper to construct endpoint with multi-tier resolution
         let build_endpoint = |url_var: &str, path: &str| -> String {
             std::env::var(url_var)
-                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}{}", e, path)))
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}{path}")))
                 .unwrap_or_else(|_| {
                     let port = std::env::var("BIOMEOS_PORT")
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or(5000); // Default BiomeOS port
-                    format!("http://localhost:{}{}", port, path)
+                    format!("http://localhost:{port}{path}")
                 })
         };
 

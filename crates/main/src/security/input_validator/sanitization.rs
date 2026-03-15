@@ -49,21 +49,21 @@ impl SanitizationPatterns {
     pub fn compile() -> Result<Self, String> {
         Ok(Self {
             script_regex: Regex::new(r"(?i)<script\b[^>]*>(.*?)</script>")
-                .map_err(|e| format!("Failed to compile script regex: {}", e))?,
+                .map_err(|e| format!("Failed to compile script regex: {e}"))?,
             dangerous_attrs: Regex::new(
                 r#"(?i)\s*(on\w+|href\s*=\s*['"]?javascript:|src\s*=\s*['"]?javascript:)"#,
             )
-            .map_err(|e| format!("Failed to compile dangerous attrs regex: {}", e))?,
+            .map_err(|e| format!("Failed to compile dangerous attrs regex: {e}"))?,
             tag_regex: Regex::new(r"<(/?)(\w+)([^>]*)>")
-                .map_err(|e| format!("Failed to compile tag regex: {}", e))?,
+                .map_err(|e| format!("Failed to compile tag regex: {e}"))?,
             path_dangerous_chars: Regex::new(r#"[<>:"|?*\x00-\x1f]"#)
-                .map_err(|e| format!("Failed to compile path chars regex: {}", e))?,
+                .map_err(|e| format!("Failed to compile path chars regex: {e}"))?,
             url_dangerous_schemes: Regex::new(r"(?i)^(javascript|data|vbscript):")
-                .map_err(|e| format!("Failed to compile URL schemes regex: {}", e))?,
+                .map_err(|e| format!("Failed to compile URL schemes regex: {e}"))?,
             email_dangerous_chars: Regex::new(r#"[<>(){}\[\]\\,;:\s@"\x00-\x1f]"#)
-                .map_err(|e| format!("Failed to compile email chars regex: {}", e))?,
+                .map_err(|e| format!("Failed to compile email chars regex: {e}"))?,
             control_chars: Regex::new(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
-                .map_err(|e| format!("Failed to compile control chars regex: {}", e))?,
+                .map_err(|e| format!("Failed to compile control chars regex: {e}"))?,
         })
     }
 }

@@ -6,6 +6,7 @@
 use crate::error::types::MCPError;
 use crate::tool::ToolError;
 use std::collections::HashMap;
+use tracing::{debug, error, info, warn};
 use std::sync::{Arc, Mutex};
 use std::fmt;
 
@@ -52,7 +53,7 @@ impl ToolRecovery {
         // Check if tool exists
         if let Some(_tool) = tool_manager.get_tool(tool_id).await? {
             // Tool exists, recovery successful
-            log::info!("Tool {} recovered successfully", tool_id);
+            info!("Tool {} recovered successfully", tool_id);
             Ok(())
         } else {
             Err(MCPError::Generic(format!("Tool {} not found", tool_id)))
@@ -66,7 +67,7 @@ impl ToolRecovery {
     ) -> Result<(), MCPError> {
         // Check if tool exists and clean up resources
         if let Some(_tool) = tool_manager.get_tool(tool_id).await? {
-            log::info!("Cleaned up resources for tool: {}", tool_id);
+            info!("Cleaned up resources for tool: {}", tool_id);
             Ok(())
         } else {
             Err(MCPError::Generic(format!("Tool {} not found", tool_id)))
@@ -101,17 +102,17 @@ impl ToolRecovery {
         
         match strategies.get(resource_type).copied().unwrap_or(self.default_strategy) {
             RecoveryStrategy::Reset => {
-                log::info!("Resetting tool: {}", resource_id);
+                info!("Resetting tool: {}", resource_id);
                 // Tool reset logic would go here
                 Ok(())
             }
             RecoveryStrategy::Terminate => {
-                log::warn!("Terminating tool: {}", resource_id);
+                warn!("Terminating tool: {}", resource_id);
                 // Tool termination logic would go here
                 Ok(())
             }
             RecoveryStrategy::Continue => {
-                log::info!("Continuing with tool: {}", resource_id);
+                info!("Continuing with tool: {}", resource_id);
                 // Continue with tool execution
                 Ok(())
             }
@@ -147,21 +148,21 @@ impl RecoveryHook {
 
     /// Attempt recovery for a tool
     pub async fn attempt_recovery(&self, tool_id: &str) -> Result<(), ToolError> {
-        log::info!("Attempting recovery for tool: {}", tool_id);
+        info!("Attempting recovery for tool: {}", tool_id);
         
         match self.strategy {
             RecoveryStrategy::Reset => {
-                log::info!("Resetting tool: {}", tool_id);
+                info!("Resetting tool: {}", tool_id);
                 // Tool reset logic would go here
                 Ok(())
             }
             RecoveryStrategy::Terminate => {
-                log::warn!("Terminating tool: {}", tool_id);
+                warn!("Terminating tool: {}", tool_id);
                 // Tool termination logic would go here
                 Ok(())
             }
             RecoveryStrategy::Continue => {
-                log::info!("Continuing with tool: {}", tool_id);
+                info!("Continuing with tool: {}", tool_id);
                 // Continue with tool execution
                 Ok(())
             }

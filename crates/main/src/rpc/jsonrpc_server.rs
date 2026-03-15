@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 //! JSON-RPC 2.0 Server with Universal Transport (Isomorphic IPC)
@@ -493,7 +494,7 @@ impl JsonRpcServer {
                     result: None,
                     error: Some(JsonRpcError {
                         code: error_codes::PARSE_ERROR,
-                        message: format!("Parse error: {}", e),
+                        message: format!("Parse error: {e}"),
                         data: None,
                     }),
                     id: Value::Null,
@@ -531,6 +532,7 @@ impl JsonRpcServer {
 
             // System domain — semantic names (preferred)
             "system.health" => self.handle_health().await,
+            "system.status" => self.handle_health().await, // UniBin alias
             "system.metrics" => self.handle_metrics().await,
             "system.ping" => self.handle_ping().await,
 

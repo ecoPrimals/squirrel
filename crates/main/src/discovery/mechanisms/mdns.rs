@@ -168,7 +168,7 @@ impl MdnsDiscovery {
             .map(|s| s.split(',').map(|c| c.trim().to_string()).collect())
             .unwrap_or_default();
 
-        let endpoint = format!("http://{}:{}", address, port);
+        let endpoint = format!("http://{address}:{port}");
 
         DiscoveredService {
             name,

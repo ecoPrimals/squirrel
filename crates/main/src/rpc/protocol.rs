@@ -123,7 +123,7 @@ impl ProtocolNegotiation {
             protocol,
             requested,
             success: true,
-            message: format!("Protocol negotiated: {}", protocol),
+            message: format!("Protocol negotiated: {protocol}"),
         }
     }
 
@@ -133,7 +133,7 @@ impl ProtocolNegotiation {
             protocol: IpcProtocol::default(),
             requested,
             success: false,
-            message: format!("Protocol negotiation failed ({}), using default", reason),
+            message: format!("Protocol negotiation failed ({reason}), using default"),
         }
     }
 }

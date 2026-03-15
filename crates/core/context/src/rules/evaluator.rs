@@ -2,10 +2,10 @@
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Rule evaluator for evaluating rules against context
-use log::warn;
 use parking_lot;
 use regex::Regex;
 use std::sync::Arc;
+use tracing::warn;
 
 use serde_json::Value;
 

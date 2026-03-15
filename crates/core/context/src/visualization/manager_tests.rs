@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: Visualization mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Tests for visualization manager
@@ -224,10 +225,10 @@ async fn test_visualization_manager_multiple_renderings() {
         .await
         .expect("Should create visualization");
 
-    // Render multiple times
-    for _ in 0..3 {
+    // Render multiple formats (each format is a cache miss on first render)
+    for format in ["json", "html", "terminal"] {
         manager
-            .render_visualization(&response.visualization_id, "json")
+            .render_visualization(&response.visualization_id, format)
             .await
             .expect("Should render");
     }
@@ -352,6 +353,88 @@ async fn test_multiple_format_renders() {
 
         assert!(!rendered.is_empty());
     }
+}
+
+#[tokio::test]
+async fn test_visualization_manager_render_invalid_format() {
+    let config = VisualizationSystemConfig::default();
+    let manager = VisualizationManager::new(Arc::new(config))
+        .await
+        .expect("Should create manager");
+
+    let request = create_test_request();
+    let response = manager
+        .create_visualization(request)
+        .await
+        .expect("Should create visualization");
+
+    let result = manager
+        .render_visualization(&response.visualization_id, "invalid_format")
+        .await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_visualization_manager_render_nonexistent() {
+    let config = VisualizationSystemConfig::default();
+    let manager = VisualizationManager::new(Arc::new(config))
+        .await
+        .expect("Should create manager");
+
+    let result = manager
+        .render_visualization("nonexistent-viz-id", "json")
+        .await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_visualization_manager_update_nonexistent() {
+    let config = VisualizationSystemConfig::default();
+    let manager = VisualizationManager::new(Arc::new(config))
+        .await
+        .expect("Should create manager");
+
+    let result = manager
+        .update_visualization("nonexistent-viz-id", json!({"x": 1}))
+        .await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_visualization_manager_start_stop() {
+    let config = VisualizationSystemConfig::default();
+    let manager = VisualizationManager::new(Arc::new(config))
+        .await
+        .expect("Should create manager");
+
+    manager.start().await.expect("Should start");
+    manager.stop().await.expect("Should stop");
+}
+
+#[test]
+fn test_visualization_manager_stats_new() {
+    let stats = VisualizationManagerStats::new();
+    assert_eq!(stats.total_created, 0);
+    assert_eq!(stats.total_updated, 0);
+    assert_eq!(stats.total_deleted, 0);
+    assert_eq!(stats.total_renderings, 0);
+    assert_eq!(stats.cache_hits, 0);
+    assert_eq!(stats.cache_misses, 0);
+    assert_eq!(stats.average_render_time_ms, 0.0);
+}
+
+#[test]
+fn test_visualization_manager_stats_cache_hit_rate() {
+    let mut stats = VisualizationManagerStats::new();
+    assert_eq!(stats.cache_hit_rate(), 0.0);
+
+    stats.cache_hits = 3;
+    stats.cache_misses = 7;
+    assert!((stats.cache_hit_rate() - 0.3).abs() < 0.001);
+
+    stats.cache_hits = 5;
+    stats.cache_misses = 5;
+    assert!((stats.cache_hit_rate() - 0.5).abs() < 0.001);
 }
 
 #[tokio::test]

@@ -8,8 +8,7 @@
 
 use anyhow::{Context, Result};
 use serde::Serialize;
-use std::time::Instant;
-use tokio::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::cli::{OutputFormat, Subsystem};
 
@@ -71,24 +70,24 @@ pub async fn run_doctor(
     let mut checks = Vec::new();
 
     if should_check(subsystem, Subsystem::Config) {
-        checks.push(check_binary().await);
-        checks.push(check_configuration().await);
+        checks.push(check_binary());
+        checks.push(check_configuration());
     }
 
     if should_check(subsystem, Subsystem::Ai) {
-        checks.push(check_ai_providers(comprehensive).await);
+        checks.push(check_ai_providers(comprehensive));
     }
 
     if should_check(subsystem, Subsystem::Ecosystem) && comprehensive {
-        checks.push(check_discovered_services().await);
+        checks.push(check_discovered_services());
     }
 
     if should_check(subsystem, Subsystem::Socket) {
-        checks.push(check_unix_socket().await);
+        checks.push(check_unix_socket());
     }
 
     if should_check(subsystem, Subsystem::Rpc) {
-        checks.push(check_rpc_server().await);
+        checks.push(check_rpc_server());
     }
 
     // Determine overall status
@@ -137,7 +136,7 @@ fn should_check(filter: Option<Subsystem>, target: Subsystem) -> bool {
 }
 
 /// Check binary and version
-async fn check_binary() -> HealthCheck {
+fn check_binary() -> HealthCheck {
     let start = Instant::now();
     HealthCheck {
         name: "Binary",
@@ -152,10 +151,9 @@ async fn check_binary() -> HealthCheck {
 }
 
 /// Check configuration
-async fn check_configuration() -> HealthCheck {
+fn check_configuration() -> HealthCheck {
     let start = Instant::now();
 
-    // Check environment variables
     let squirrel_port = std::env::var("SQUIRREL_PORT").ok();
     let squirrel_socket = std::env::var("SQUIRREL_SOCKET").ok();
     let ai_provider_sockets = std::env::var("AI_PROVIDER_SOCKETS").ok();
@@ -186,10 +184,9 @@ async fn check_configuration() -> HealthCheck {
 }
 
 /// Check AI providers
-async fn check_ai_providers(comprehensive: bool) -> HealthCheck {
+fn check_ai_providers(comprehensive: bool) -> HealthCheck {
     let start = Instant::now();
 
-    // Check for AI provider configuration
     let openai_key = std::env::var("OPENAI_API_KEY").ok();
     let huggingface_key = std::env::var("HUGGINGFACE_API_KEY").ok();
     let local_ai_url = std::env::var("LOCAL_AI_ENDPOINT")
@@ -200,7 +197,7 @@ async fn check_ai_providers(comprehensive: bool) -> HealthCheck {
     let provider_count = [
         openai_key.is_some(),
         huggingface_key.is_some(),
-        local_ai_url.is_some() || comprehensive, // Local AI server might be on default port
+        local_ai_url.is_some() || comprehensive,
         ai_provider_sockets.is_some(),
     ]
     .iter()
@@ -215,7 +212,7 @@ async fn check_ai_providers(comprehensive: bool) -> HealthCheck {
     } else {
         (
             HealthStatus::Ok,
-            format!("{} AI provider(s) configured", provider_count),
+            format!("{provider_count} AI provider(s) configured"),
         )
     };
 
@@ -235,17 +232,15 @@ async fn check_ai_providers(comprehensive: bool) -> HealthCheck {
 }
 
 /// Check discovered services via capability registry
-async fn check_discovered_services() -> HealthCheck {
+fn check_discovered_services() -> HealthCheck {
     let start = Instant::now();
 
-    // Check for available services via Unix sockets
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-        .or_else(|_| std::env::var("UID").map(|uid| format!("/run/user/{}", uid)))
+        .or_else(|_| std::env::var("UID").map(|uid| format!("/run/user/{uid}")))
         .unwrap_or_else(|_| "/tmp".to_string());
 
     let mut discovered = Vec::new();
 
-    // Scan for Unix sockets in runtime directory
     if let Ok(entries) = std::fs::read_dir(&runtime_dir) {
         for entry in entries.flatten() {
             if let Ok(path) = entry.path().canonicalize() {
@@ -258,16 +253,11 @@ async fn check_discovered_services() -> HealthCheck {
         }
     }
 
-    let status = if discovered.is_empty() {
-        HealthStatus::Warning
+    let count = discovered.len();
+    let (status, message) = if discovered.is_empty() {
+        (HealthStatus::Warning, "No services discovered".to_string())
     } else {
-        HealthStatus::Ok
-    };
-
-    let message = if discovered.is_empty() {
-        "No services discovered".to_string()
-    } else {
-        format!("Discovered {} service(s)", discovered.len())
+        (HealthStatus::Ok, format!("Discovered {count} service(s)"))
     };
 
     HealthCheck {
@@ -284,7 +274,7 @@ async fn check_discovered_services() -> HealthCheck {
 }
 
 /// Check Unix socket health
-async fn check_unix_socket() -> HealthCheck {
+fn check_unix_socket() -> HealthCheck {
     let start = Instant::now();
 
     let socket_path = universal_constants::network::get_socket_path("squirrel")
@@ -303,8 +293,8 @@ async fn check_unix_socket() -> HealthCheck {
     }
 }
 
-/// Check HTTP server health
-async fn check_rpc_server() -> HealthCheck {
+/// Check RPC server configuration
+fn check_rpc_server() -> HealthCheck {
     let start = Instant::now();
 
     let socket_path = universal_constants::network::get_socket_path("squirrel")
@@ -314,11 +304,11 @@ async fn check_rpc_server() -> HealthCheck {
     HealthCheck {
         name: "RPC Server",
         status: HealthStatus::Ok,
-        message: format!("Will bind to socket {}", socket_path),
+        message: format!("Will bind to socket {socket_path}"),
         duration_ms: start.elapsed().as_millis() as u64,
         details: Some(serde_json::json!({
             "socket_path": socket_path,
-            "protocol": "tarpc (binary RPC)",
+            "protocol": "JSON-RPC 2.0 + tarpc",
             "note": "Server not running in doctor mode",
         })),
     }
@@ -338,23 +328,20 @@ fn generate_recommendations(checks: &[HealthCheck]) -> Vec<String> {
         );
     }
 
-    // Check for Songbird warnings
+    // Check for ecosystem service warnings (capability-based discovery)
+    // Doctor discovers primals at runtime from registry/sockets, not hardcoded names
     if checks
         .iter()
-        .any(|c| c.name == "Songbird" && c.status == HealthStatus::Warning)
+        .any(|c| c.name == "Ecosystem Services" && c.status == HealthStatus::Warning)
     {
         recommendations.push(
-            "Start Songbird for full ecosystem coordination (optional for development)".to_string(),
+            "Start ecosystem registry (service mesh) for coordination (optional for development)"
+                .to_string(),
         );
-    }
-
-    // Check for BearDog warnings
-    if checks
-        .iter()
-        .any(|c| c.name == "BearDog" && c.status == HealthStatus::Warning)
-    {
-        recommendations
-            .push("Start BearDog for security features (optional for development)".to_string());
+        recommendations.push(
+            "Start security provider for auth/crypto features (optional for development)"
+                .to_string(),
+        );
     }
 
     if recommendations.is_empty() {
@@ -373,7 +360,7 @@ fn print_text_report(report: &HealthReport, duration: Duration) {
             HealthStatus::Warning => "⚠️ ",
             HealthStatus::Error => "❌",
         };
-        println!("{} {}: {}", icon, check.name, check.message);
+        println!("{icon} {}: {}", check.name, check.message);
     }
 
     println!();
@@ -381,7 +368,7 @@ fn print_text_report(report: &HealthReport, duration: Duration) {
     // Print recommendations
     println!("RECOMMENDATIONS:");
     for rec in &report.recommendations {
-        println!("  • {}", rec);
+        println!("  • {rec}");
     }
 
     println!();
@@ -393,8 +380,7 @@ fn print_text_report(report: &HealthReport, duration: Duration) {
         HealthStatus::Error => "❌",
     };
     println!(
-        "{} Overall Status: {:?} (completed in {:.2}s)",
-        status_icon,
+        "{status_icon} Overall Status: {:?} (completed in {:.2}s)",
         report.overall_status,
         duration.as_secs_f64()
     );
@@ -404,7 +390,7 @@ fn print_text_report(report: &HealthReport, duration: Duration) {
 fn print_json_report(report: &HealthReport) -> Result<()> {
     let json = serde_json::to_string_pretty(report)
         .context("Failed to serialize health report to JSON")?;
-    println!("{}", json);
+    println!("{json}");
     Ok(())
 }
 
@@ -412,16 +398,16 @@ fn print_json_report(report: &HealthReport) -> Result<()> {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_check_binary() {
-        let check = check_binary().await;
+    #[test]
+    fn test_check_binary() {
+        let check = check_binary();
         assert_eq!(check.status, HealthStatus::Ok);
         assert!(check.message.contains("squirrel"));
     }
 
-    #[tokio::test]
-    async fn test_check_configuration() {
-        let check = check_configuration().await;
+    #[test]
+    fn test_check_configuration() {
+        let check = check_configuration();
         assert!(matches!(
             check.status,
             HealthStatus::Ok | HealthStatus::Warning
@@ -481,32 +467,32 @@ mod tests {
     // E2E TESTS - Full Check Flows
     // ========================================================================
 
-    #[tokio::test]
-    async fn test_binary_check_always_succeeds() {
-        let check = check_binary().await;
+    #[test]
+    fn test_binary_check_always_succeeds() {
+        let check = check_binary();
         assert_eq!(check.status, HealthStatus::Ok);
         assert!(check.message.contains(env!("CARGO_PKG_VERSION")));
     }
 
-    #[tokio::test]
-    async fn test_configuration_check_structure() {
-        let check = check_configuration().await;
+    #[test]
+    fn test_configuration_check_structure() {
+        let check = check_configuration();
         assert_eq!(check.name, "Configuration");
         assert!(!check.message.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_unix_socket_check_returns_valid_status() {
-        let check = check_unix_socket().await;
+    #[test]
+    fn test_unix_socket_check_returns_valid_status() {
+        let check = check_unix_socket();
         assert!(matches!(
             check.status,
             HealthStatus::Ok | HealthStatus::Warning | HealthStatus::Error
         ));
     }
 
-    #[tokio::test]
-    async fn test_rpc_server_check_structure() {
-        let check = check_rpc_server().await;
+    #[test]
+    fn test_rpc_server_check_structure() {
+        let check = check_rpc_server();
         assert_eq!(check.name, "RPC Server");
     }
 
@@ -514,10 +500,9 @@ mod tests {
     // CHAOS TESTS - Edge Cases
     // ========================================================================
 
-    #[tokio::test]
-    async fn test_all_checks_run_without_panic() {
-        // Run all checks to ensure they don't panic
-        let checks = tokio::join!(
+    #[test]
+    fn test_all_checks_run_without_panic() {
+        let checks = (
             check_binary(),
             check_configuration(),
             check_unix_socket(),
@@ -530,12 +515,12 @@ mod tests {
         assert!(!checks.3.name.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_checks_complete_in_reasonable_time() {
+    #[test]
+    fn test_checks_complete_in_reasonable_time() {
         use std::time::Instant;
         let start = Instant::now();
 
-        let _ = tokio::join!(
+        let _ = (
             check_binary(),
             check_configuration(),
             check_unix_socket(),
@@ -545,8 +530,7 @@ mod tests {
         let elapsed = start.elapsed();
         assert!(
             elapsed.as_secs() < 10,
-            "All checks should complete in < 10s, took: {:?}",
-            elapsed
+            "All checks should complete in < 10s, took: {elapsed:?}",
         );
     }
 
@@ -575,17 +559,16 @@ mod tests {
     // FAULT TESTS - Error Scenarios
     // ========================================================================
 
-    #[tokio::test]
-    async fn test_all_checks_have_valid_durations() {
-        let checks = tokio::join!(
+    #[test]
+    fn test_all_checks_have_valid_durations() {
+        let checks = (
             check_binary(),
             check_configuration(),
             check_unix_socket(),
             check_rpc_server(),
         );
 
-        // All checks should have a duration measurement
-        assert!(checks.0.duration_ms < 10000); // < 10s
+        assert!(checks.0.duration_ms < 10000);
         assert!(checks.1.duration_ms < 10000);
         assert!(checks.2.duration_ms < 10000);
         assert!(checks.3.duration_ms < 10000);
@@ -628,17 +611,15 @@ mod tests {
     // INTEGRATION TESTS
     // ========================================================================
 
-    #[tokio::test]
-    async fn test_concurrent_check_execution() {
-        // Verify that all checks can run concurrently without issues
-        let results = tokio::join!(
+    #[test]
+    fn test_concurrent_check_execution() {
+        let results = (
             check_binary(),
             check_binary(),
             check_configuration(),
             check_configuration(),
         );
 
-        // All checks should succeed
         assert!(!results.0.message.is_empty());
         assert!(!results.1.message.is_empty());
         assert!(!results.2.message.is_empty());
@@ -666,16 +647,15 @@ mod tests {
         assert!(json.contains("Test"));
     }
 
-    #[tokio::test]
-    async fn test_checks_produce_valid_messages() {
-        let checks = tokio::join!(
+    #[test]
+    fn test_checks_produce_valid_messages() {
+        let checks = (
             check_binary(),
             check_configuration(),
             check_unix_socket(),
             check_rpc_server(),
         );
 
-        // All checks should have non-empty messages
         assert!(!checks.0.message.is_empty());
         assert!(!checks.1.message.is_empty());
         assert!(!checks.2.message.is_empty());
@@ -704,29 +684,27 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_recommendations_songbird_warning() {
+    fn test_generate_recommendations_ecosystem_services_warning() {
         let checks = vec![HealthCheck {
-            name: "Songbird",
+            name: "Ecosystem Services",
             status: HealthStatus::Warning,
-            message: "Not running".to_string(),
+            message: "No services discovered".to_string(),
             duration_ms: 10,
             details: None,
         }];
         let recs = super::generate_recommendations(&checks);
-        assert!(recs.iter().any(|r| r.contains("Songbird")));
-    }
-
-    #[test]
-    fn test_generate_recommendations_beardog_warning() {
-        let checks = vec![HealthCheck {
-            name: "BearDog",
-            status: HealthStatus::Warning,
-            message: "Not running".to_string(),
-            duration_ms: 10,
-            details: None,
-        }];
-        let recs = super::generate_recommendations(&checks);
-        assert!(recs.iter().any(|r| r.contains("BearDog")));
+        assert!(
+            recs.iter()
+                .any(|r| r.contains("ecosystem registry") || r.contains("service mesh")),
+            "Expected capability-based ecosystem recommendation, got: {:?}",
+            recs
+        );
+        assert!(
+            recs.iter()
+                .any(|r| r.contains("security provider") || r.contains("auth")),
+            "Expected capability-based security recommendation, got: {:?}",
+            recs
+        );
     }
 
     #[tokio::test]
@@ -759,9 +737,9 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
-    async fn test_check_discovered_services() {
-        let check = super::check_discovered_services().await;
+    #[test]
+    fn test_check_discovered_services() {
+        let check = super::check_discovered_services();
         assert_eq!(check.name, "Ecosystem Services");
         assert!(matches!(
             check.status,
@@ -769,9 +747,9 @@ mod tests {
         ));
     }
 
-    #[tokio::test]
-    async fn test_check_ai_providers_comprehensive() {
-        let check = super::check_ai_providers(true).await;
+    #[test]
+    fn test_check_ai_providers_comprehensive() {
+        let check = super::check_ai_providers(true);
         assert_eq!(check.name, "AI Providers");
         assert!(matches!(
             check.status,

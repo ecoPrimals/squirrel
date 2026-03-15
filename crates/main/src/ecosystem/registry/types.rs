@@ -101,7 +101,8 @@ pub fn intern_registry_string(s: &str) -> Arc<str> {
         "ai_coordination" => Arc::from("ai_coordination"),
         // Squirrel can know its own name (self-knowledge)
         "squirrel" => Arc::from("squirrel"),
-        // Legacy primal names: display/fallback only when deserializing external data
+        // Legacy primal names: display/fallback only when deserializing external data.
+        // NOT for discovery routing—use capability constants for that.
         "songbird" => Arc::from("songbird"),
         "toadstool" => Arc::from("toadstool"),
         "beardog" => Arc::from("beardog"),

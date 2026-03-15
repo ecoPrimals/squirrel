@@ -339,15 +339,15 @@ impl EnhancedRecoveryHook {
             AdvancedRecoveryAction::Reset => {
                 match tool_manager.get_tool(tool_id).await {
                     Ok(Some(_)) => {
-                        log::info!("Tool {} reset successfully", tool_id);
+                        info!("Tool {} reset successfully", tool_id);
                         Ok(true)
                     }
                     Ok(None) => {
-                        log::warn!("Tool {} not found for reset", tool_id);
+                        warn!("Tool {} not found for reset", tool_id);
                         Ok(false)
                     }
                     Err(e) => {
-                        log::error!("Error resetting tool {}: {:?}", tool_id, e);
+                        error!("Error resetting tool {}: {:?}", tool_id, e);
                         Ok(false)
                     }
                 }
@@ -357,15 +357,15 @@ impl EnhancedRecoveryHook {
                 // Simplified restart: just check if tool exists
                 match tool_manager.get_tool(tool_id).await {
                     Ok(Some(_)) => {
-                        log::info!("Tool {} restart completed", tool_id);
+                        info!("Tool {} restart completed", tool_id);
                         Ok(true)
                     }
                     Ok(None) => {
-                        log::warn!("Tool {} not found for restart", tool_id);
+                        warn!("Tool {} not found for restart", tool_id);
                         Ok(false)
                     }
                     Err(e) => {
-                        log::error!("Error restarting tool {}: {:?}", tool_id, e);
+                        error!("Error restarting tool {}: {:?}", tool_id, e);
                         Ok(false)
                     }
                 }
@@ -397,15 +397,15 @@ impl EnhancedRecoveryHook {
                 // Simplified terminate using available methods
                 match tool_manager.get_tool(tool_id).await {
                     Ok(Some(_)) => {
-                        log::info!("Tool {} marked for termination", tool_id);
+                        info!("Tool {} marked for termination", tool_id);
                         Ok(true)
                     }
                     Ok(None) => {
-                        log::warn!("Tool {} not found for termination", tool_id);
+                        warn!("Tool {} not found for termination", tool_id);
                         Ok(false)
                     }
                     Err(e) => {
-                        log::error!("Error checking tool {} for termination: {:?}", tool_id, e);
+                        error!("Error checking tool {} for termination: {:?}", tool_id, e);
                         Ok(false)
                     }
                 }
@@ -623,7 +623,7 @@ impl<T: ToolManager> ToolManagerRecoveryExt for T {
 
     async fn enhanced_recover_tool(&self, tool_id: &str) -> Result<bool, ToolError> {
         // Default implementation - try basic recovery
-        log::info!("Attempting enhanced recovery for tool: {}", tool_id);
+        info!("Attempting enhanced recovery for tool: {}", tool_id);
         Ok(true)
     }
 
@@ -649,7 +649,7 @@ impl<T: ToolManager> ToolManagerRecoveryExt for T {
 
     async fn unregister_tool(&self, _tool_id: &str) -> Result<(), ToolError> {
         // Default implementation
-        log::info!("Unregistering tool: {}", _tool_id);
+        info!("Unregistering tool: {}", _tool_id);
         Ok(())
     }
 

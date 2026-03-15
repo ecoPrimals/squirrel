@@ -176,7 +176,7 @@ impl ProductionInputValidator {
     /// } else {
     ///     // Reject or log violations
     ///     for violation in result.violations {
-    ///         log::error!("Violation: {:?}", violation);
+    ///         tracing::error!("Violation: {:?}", violation);
     ///     }
     /// }
     /// ```

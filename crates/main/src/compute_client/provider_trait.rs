@@ -274,8 +274,7 @@ async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<dyn 
             "Local provider not yet implemented".to_string(),
         )),
         unknown => Err(ComputeProviderError::NotAvailable(format!(
-            "Unknown provider type: {}",
-            unknown
+            "Unknown provider type: {unknown}"
         ))),
     }
 }

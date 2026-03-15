@@ -512,7 +512,7 @@ impl BiomeManifestParser {
     pub async fn parse_content(&self, content: &str) -> Result<BiomeManifest, PrimalError> {
         debug!("Parsing biome.yaml manifest content");
 
-        let mut manifest: BiomeManifest = serde_yaml::from_str(content)
+        let mut manifest: BiomeManifest = serde_yml::from_str(content)
             .map_err(|e| PrimalError::ConfigError(format!("Failed to parse YAML: {e}")))?;
 
         if self.config.strict_validation {
@@ -559,7 +559,7 @@ impl BiomeManifestParser {
 
     pub fn validate_yaml_schema(&self, content: &str) -> Result<(), PrimalError> {
         // Basic YAML syntax validation
-        let _: serde_yaml::Value = serde_yaml::from_str(content)
+        let _: serde_yml::Value = serde_yml::from_str(content)
             .map_err(|e| PrimalError::ConfigError(format!("Invalid YAML syntax: {e}")))?;
 
         Ok(())

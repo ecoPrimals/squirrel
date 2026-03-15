@@ -2,10 +2,10 @@
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Rule action executor for executing rule actions
-use log::{debug, error, info, trace, warn};
 use serde_json::json;
 use serde_json::Value;
 use std::sync::Arc;
+use tracing::{debug, error, info, trace, warn};
 
 use super::error::{Result, RuleError};
 use super::models::{Rule, RuleAction};

@@ -79,8 +79,11 @@ async fn test_metrics_collection() {
     assert!(result.is_ok());
 
     let system_metrics = collector.system_metrics.read().await;
-    assert!(system_metrics.cpu_usage > 0.0);
-    assert!(system_metrics.memory_usage > 0);
+    #[cfg(feature = "system-metrics")]
+    {
+        assert!(system_metrics.cpu_usage > 0.0);
+        assert!(system_metrics.memory_usage > 0);
+    }
 
     assert!(collector.component_metrics.contains_key("ai_intelligence"));
     assert!(collector.component_metrics.contains_key("mcp_integration"));
@@ -293,6 +296,7 @@ async fn test_get_all_metrics() {
     let all_metrics = collector.get_all_metrics().await.unwrap();
     assert!(!all_metrics.metrics.is_empty());
     assert!(!all_metrics.component_metrics.is_empty());
+    #[cfg(feature = "system-metrics")]
     assert!(all_metrics.system_metrics.cpu_usage > 0.0);
 }
 
@@ -310,6 +314,7 @@ async fn test_snapshot_creation_and_history() {
 
     // Verify snapshot structure
     let snapshot = &history[0];
+    #[cfg(feature = "system-metrics")]
     assert!(snapshot.system_metrics.cpu_usage > 0.0);
     assert!(snapshot.timestamp < Utc::now());
 }

@@ -15,6 +15,17 @@ use uuid::Uuid;
 
 use crate::error::{MCPError, Result};
 
+const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+
+fn hex_val(c: u8) -> Option<u8> {
+    match c {
+        b'0'..=b'9' => Some(c - b'0'),
+        b'a'..=b'f' => Some(c - b'a' + 10),
+        b'A'..=b'F' => Some(c - b'A' + 10),
+        _ => None,
+    }
+}
+
 /// Generate a unique message ID
 pub fn generate_message_id() -> String {
     Uuid::new_v4().to_string()
@@ -280,9 +291,13 @@ impl ValidationUtils {
         }
     }
 
-    /// Validate URL format
+    /// Validate URL format (basic check without external `url` crate)
     pub fn is_valid_url(url: &str) -> bool {
-        url::Url::parse(url).is_ok()
+        url.starts_with("http://")
+            || url.starts_with("https://")
+            || url.starts_with("unix://")
+            || url.starts_with("ws://")
+            || url.starts_with("wss://")
     }
 
     /// Validate port number
@@ -337,26 +352,76 @@ impl EncodingUtils {
             .map_err(|e| MCPError::InvalidArgument(format!("UTF-8 decode error: {e}")))
     }
 
-    /// URL encode string
+    /// URL encode string (pure Rust, no external crate)
     pub fn url_encode(input: &str) -> String {
-        urlencoding::encode(input).to_string()
+        let mut encoded = String::with_capacity(input.len() * 3);
+        for byte in input.bytes() {
+            match byte {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                    encoded.push(byte as char);
+                }
+                _ => {
+                    encoded.push('%');
+                    encoded.push(char::from(HEX_CHARS[(byte >> 4) as usize]));
+                    encoded.push(char::from(HEX_CHARS[(byte & 0x0f) as usize]));
+                }
+            }
+        }
+        encoded
     }
 
-    /// URL decode string
+    /// URL decode string (pure Rust, no external crate)
     pub fn url_decode(input: &str) -> Result<String> {
-        urlencoding::decode(input)
-            .map_err(|e| MCPError::InvalidArgument(format!("URL decode error: {e}")))
-            .map(|s| s.to_string())
+        let mut bytes = Vec::with_capacity(input.len());
+        let mut chars = input.bytes();
+        while let Some(b) = chars.next() {
+            if b == b'%' {
+                let hi = chars.next().ok_or_else(|| {
+                    MCPError::InvalidArgument("Incomplete percent-encoding".into())
+                })?;
+                let lo = chars.next().ok_or_else(|| {
+                    MCPError::InvalidArgument("Incomplete percent-encoding".into())
+                })?;
+                let val = hex_val(hi)
+                    .and_then(|h| hex_val(lo).map(|l| (h << 4) | l))
+                    .ok_or_else(|| {
+                        MCPError::InvalidArgument("Invalid hex in percent-encoding".into())
+                    })?;
+                bytes.push(val);
+            } else if b == b'+' {
+                bytes.push(b' ');
+            } else {
+                bytes.push(b);
+            }
+        }
+        String::from_utf8(bytes)
+            .map_err(|e| MCPError::InvalidArgument(format!("URL decode UTF-8 error: {e}")))
     }
 
-    /// Hex encode bytes
+    /// Hex encode bytes (pure Rust, no external crate)
     pub fn hex_encode(input: &[u8]) -> String {
-        hex::encode(input)
+        let mut s = String::with_capacity(input.len() * 2);
+        for &b in input {
+            s.push(char::from(HEX_CHARS[(b >> 4) as usize]));
+            s.push(char::from(HEX_CHARS[(b & 0x0f) as usize]));
+        }
+        s
     }
 
-    /// Hex decode string
+    /// Hex decode string (pure Rust, no external crate)
     pub fn hex_decode(input: &str) -> Result<Vec<u8>> {
-        hex::decode(input).map_err(|e| MCPError::InvalidArgument(format!("Hex decode error: {e}")))
+        if input.len() % 2 != 0 {
+            return Err(MCPError::InvalidArgument("Odd-length hex string".into()));
+        }
+        input
+            .as_bytes()
+            .chunks(2)
+            .map(|pair| {
+                hex_val(pair[0])
+                    .and_then(|h| hex_val(pair[1]).map(|l| (h << 4) | l))
+                    .ok_or_else(|| MCPError::InvalidArgument("Invalid hex character".into()))
+            })
+            .collect()
     }
 }
 

@@ -5,10 +5,10 @@
 #![allow(dead_code)] // HTTP capability client awaiting activation
 //!
 //! **Philosophy**: Deploy like an infant - knows nothing, discovers everything!
-//! - Squirrel doesn't know "Songbird" exists
+//! - Squirrel doesn't know which primal provides http.client
 //! - Squirrel asks: "Who provides http.client capability?"
 //! - Runtime answers: "Service at /var/run/network/http.sock"
-//! - Could be Songbird, could be ANY network primal!
+//! - Could be ecosystem registry, could be ANY network primal!
 //!
 //! **NO HARDCODED PRIMAL NAMES!**
 
@@ -108,8 +108,8 @@ struct JsonRpcError {
 ///
 /// **NO hardcoded primal names!**
 /// - Discovers "http.client" capability at runtime
-/// - Connects to whichever primal provides it
-/// - Currently: Might be Songbird, might be any network primal
+/// - Connects to whichever primal provides it (ecosystem registry or network primal)
+/// - Uses `get_socket_path("http")` or env vars for discovery
 /// - Future: Could be multiple providers with failover
 ///
 /// # Examples
@@ -147,7 +147,7 @@ impl HttpClient {
     /// Create a new HTTP client from capability discovery
     ///
     /// **IMPORTANT**: Socket path should come from capability discovery!
-    /// Do NOT hardcode primal names like "songbird.sock"!
+    /// Use `get_socket_path(service)` or env vars (HTTP_CAPABILITY_SOCKET, etc.)
     pub fn new(config: HttpClientConfig) -> Result<Self> {
         info!(
             socket_path = %config.socket_path.display(),

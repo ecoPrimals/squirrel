@@ -7,6 +7,7 @@ use chrono; // Needed for MCPMessage
 use serde::{Deserialize, Serialize};
 use serde_json; // Needed for MCPMessage
 use std::time::SystemTime;
+#[cfg(feature = "websocket")]
 use tokio_tungstenite::tungstenite::Message;
 use uuid; // Needed for MessageId
 
@@ -257,7 +258,7 @@ impl Default for MCPMessage {
     }
 }
 
-// Implementation of TryFrom for WebSocket Message to MCPMessage conversion
+#[cfg(feature = "websocket")]
 impl TryFrom<Message> for MCPMessage {
     type Error = crate::error::MCPError;
 
@@ -289,7 +290,7 @@ impl TryFrom<Message> for MCPMessage {
     }
 }
 
-// Implementation of From for MCPMessage to WebSocket Message conversion (infallible)
+#[cfg(feature = "websocket")]
 impl From<MCPMessage> for Message {
     fn from(mcp_message: MCPMessage) -> Self {
         let json_str = serde_json::to_string(&mcp_message)

@@ -30,7 +30,7 @@ pub fn discover_from_env(capability: &str) -> Option<DiscoveredService> {
         debug!("✓ Found {} = {}", env_var, endpoint);
 
         Some(DiscoveredService {
-            name: format!("{}-provider", capability),
+            name: format!("{capability}-provider"),
             endpoint,
             capabilities: vec![capability.to_string()],
             metadata: HashMap::new(),
@@ -57,7 +57,7 @@ pub fn discover_all_from_env() -> Vec<DiscoveredService> {
                 let capability = capability.to_lowercase();
 
                 services.push(DiscoveredService {
-                    name: format!("{}-provider", capability),
+                    name: format!("{capability}-provider"),
                     endpoint: value,
                     capabilities: vec![capability.clone()],
                     metadata: HashMap::new(),

@@ -6,6 +6,8 @@
 //! Provides hardware detection for this instance only.
 //! Maintains primal self-knowledge - no knowledge of other instances.
 
+#[cfg(feature = "gpu-detection")]
 pub mod gpu;
 
+#[cfg(feature = "gpu-detection")]
 pub use gpu::{detect_local_gpus, GpuInfo, LocalGpuCapabilities};

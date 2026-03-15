@@ -267,7 +267,7 @@ impl WebMcpService {
         // Validate session if token provided
         let session = if let Some(token) = &request.session_token {
             // Simplified session validation (create a dummy session)
-            log::debug!("Validating session token");
+            tracing::debug!("Validating session token");
             Some(Session {
                 id: "dummy_session".to_string(),
                 last_activity: std::time::SystemTime::now(),

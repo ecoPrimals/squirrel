@@ -1,6 +1,7 @@
+<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: March 14, 2026
+**Last Updated**: March 15, 2026
 **License**: AGPL-3.0-only
 
 ---
@@ -10,17 +11,16 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN (0 errors) |
-| Tests | 4,127 passing / 0 failed |
-| Test Duration | Single-threaded (full workspace) |
-| Clippy | CLEAN (-D warnings, 0 warnings) |
+| Tests | 1,622 passing / 0 failed (main crate) |
+| Clippy | CLEAN |
 | Formatting | CLEAN |
-| Doc Warnings | CLEAN (0 rustdoc warnings) |
-| Test Coverage | 66% line, 68% region (workspace, via cargo llvm-cov; target: 90%) |
-| Unsafe Code | 0 (all crates use `#![forbid(unsafe_code)]`) |
-| Pure Rust | 100% (zero C deps, sqlx uses rustls) |
+| Unsafe Code | 0 (`#![forbid(unsafe_code)]` all crates) |
+| Pure Rust | 100% (zero C deps in default features) |
 | SPDX Headers | All source files |
-| File Sizes | All .rs files under 1,000 lines |
 | License | AGPL-3.0-only on all crates |
+| Unique Deps (non-dev) | 272 |
+| HTTP Crates Compiled | 0 (feature-gated) |
+| Deprecated Crates | 0 |
 
 ---
 
@@ -32,45 +32,52 @@
 | Capability-based discovery | Complete |
 | Vendor-agnostic AI providers | Complete |
 | Isomorphic IPC | Complete |
-| Universal transport | Complete |
 | Multi-protocol RPC (JSON-RPC 2.0 + tarpc) | Complete |
 | gRPC/tonic | Fully removed |
-| Zero unsafe code | Enforced (`#![forbid(unsafe_code)]` all crates) |
+| HTTP stack (axum/tower/hyper) | Feature-gated OFF by default |
+| Zero unsafe code | Enforced (`#![forbid(unsafe_code)]`) |
+| sysinfo (C dependency) | Feature-gated behind `system-metrics` |
+| serde_yaml (deprecated) | Replaced with `serde_yml` |
+| log crate | Replaced with `tracing` (log bridge enabled) |
 
 ---
 
-## Recent Evolution (March 14, 2026)
+## Feature Gates
 
-### Comprehensive Audit & Deep Debt Resolution
+Code that belongs to other primals or optional subsystems is feature-gated OFF by default:
 
-- **Spring absorption**: SLO/tolerance registry, provenance tracking, XDG socket conventions, `#[expect]` migration, MCP handler evolution
-- **Tests**: 4,127 passing / 0 failed
-- **Clippy**: CLEAN (-D warnings, 0 warnings)
-- **Coverage**: 66% line, 68% region (target: 90%, via cargo llvm-cov)
-- **File sizes**: All .rs files under 1,000 lines
-- **License**: AGPL-3.0-only on all crates
-- **gRPC/tonic**: Fully removed — JSON-RPC 2.0 + tarpc only
-- **Capability-based discovery**: Complete (TRUE PRIMAL)
-- **Unsafe code**: `#![forbid(unsafe_code)]` on all crates
-- **SPDX headers**: All source files
-- **Dependencies**: 100% Pure Rust (sqlx uses rustls, zero C deps)
+| Feature | What it gates | Primal owner |
+|---------|---------------|--------------|
+| `mesh` | Federation, routing, load balancing, service discovery, swarm | Songbird |
+| `http-api` | Axum/Tower/Hyper HTTP stack | Legacy |
+| `gpu-detection` | NVML/ROCm/nvidia-smi GPU detection | ToadStool |
+| `system-metrics` | sysinfo crate (C dependency) | — |
+| `local-jwt` | Local JWT signing (jsonwebtoken/ring) | BearDog |
+| `websocket` | WebSocket transport (tokio-tungstenite) | — |
 
 ---
 
-## Test Suite
+## Recent Evolution (March 15, 2026)
 
-```
-4,127 passed
-0 failed
-```
+### Dependency Cleanup & Build Streamlining
 
-### Coverage Areas
+- Removed 42 unique dependencies (314 → 272)
+- Eliminated entire HTTP stack from default build (axum, tower, hyper = 0 crates)
+- Replaced deprecated `serde_yaml` with `serde_yml` across 13 source files
+- Migrated all `log::` macros to `tracing::` across 14 files
+- Feature-gated `sysinfo` behind `system-metrics`
+- Removed unused deps: `sled`, `argon2`, `rayon`, `crossbeam-channel`, `eyre`, `num_cpus`, `simple_logger`, etc.
+- Replaced external `url`/`hex`/`urlencoding` with pure Rust implementations
+- Clean build time reduced ~50% (from ~5 min to ~2.5 min)
 
-- Unit tests across all crates
-- Integration tests
-- Chaos tests: network resilience, resource exhaustion, concurrency
-- Config validation tests
-- Environment variable tests (with named serial groups)
+### Primal Responsibility Cleanup
+
+- Feature-gated Songbird code (federation/routing/swarm/ecosystem/service_discovery) behind `mesh`
+- Feature-gated ToadStool code (GPU detection) behind `gpu-detection`
+- Confirmed BearDog code (local JWT) already gated behind `local-jwt`
+- Deleted 8 orphaned files never compiled
+- Deleted empty MCP security module
+- Removed deprecated CLI binary
 
 ---
 
@@ -80,56 +87,25 @@
 |-------|---------|
 | `squirrel` (main) | Main library + binary |
 | `squirrel-mcp` | MCP protocol + enhanced AI coordinator |
-| `squirrel-auth` | Authentication + JWT |
+| `squirrel-mcp-auth` | Authentication delegation (BearDog client) |
 | `squirrel-context` | Context management + learning |
-| `squirrel-core` | Service discovery + federation |
+| `squirrel-core` | Core types (mesh modules feature-gated) |
 | `squirrel-interfaces` | Core trait definitions |
 | `squirrel-plugins` | Plugin system |
-| `squirrel-config` | Unified configuration |
+| `squirrel-mcp-config` | Unified configuration |
 | `squirrel-ai-tools` | AI tools + provider routing |
 | `squirrel-cli` | CLI tools |
+| `squirrel-commands` | Command services |
+| `squirrel-sdk` | SDK for integration |
 | `universal-constants` | Shared constants |
 | `universal-error` | Unified error types |
 | `universal-patterns` | Transport + traits |
+| `ecosystem-api` | Ecosystem API types |
 
 ---
 
-## Production Features
-
-- Unix socket JSON-RPC 2.0 server (gRPC/tonic fully removed)
-- tarpc binary protocol with automatic negotiation
-- Capability-based AI provider routing
-- Vendor-agnostic local AI server support
-- Graceful shutdown (Ctrl+C)
-- Tracing spans for observability
-- Environment variable configuration with multi-tier resolution
-- Input validation, rate limiting, threat monitoring
-
----
-
-## Deployment
-
-### Binary
-
-```bash
-cargo build --release
-# Output: target/release/squirrel (~4.5 MB, statically linked)
-```
-
-### Socket Path
+## Socket Path
 
 ```bash
 /run/user/<uid>/biomeos/squirrel.sock
-```
-
-### Environment
-
-Key environment variables (all optional, sensible defaults):
-
-```bash
-LOCAL_AI_ENDPOINT=http://localhost:11434
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-MCP_DEFAULT_MODEL=gpt-3.5-turbo
-SQUIRREL_SOCKET=/custom/path.sock
 ```

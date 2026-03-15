@@ -1,24 +1,41 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: Plugin discovery mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Plugin discovery
 //!
-//! This module provides functionality for discovering and loading plugins.
+//! This module provides the plugin discovery and loading architecture:
+//!
+//! - **PluginManifest**: Deserializable manifest format (manifest.json) describing plugin metadata,
+//!   entry point, capabilities, and dependencies.
+//! - **PluginLoader**: Async trait for loading a plugin from a manifest and path. Implementations
+//!   may perform dynamic loading (e.g. via `libloading`) or other strategies.
+//! - **PluginDiscovery**: Async trait for discovering plugins in a directory (e.g. scanning for
+//!   manifest.json files).
+//! - **FilePluginDiscovery**: Discovers plugins by scanning directories for manifest.json and
+//!   delegates loading to a `PluginLoader`.
+//! - **DefaultPluginLoader** / **DefaultPluginDiscovery**: Default implementations. Dynamic
+//!   plugin loading is not yet implemented; their load methods return errors.
 
 // Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
 #![allow(deprecated)]
 
-use std::any::Any;
 use std::path::Path;
 use std::sync::Arc;
+
+#[cfg(any(test, feature = "testing"))]
+use std::any::Any;
+#[cfg(any(test, feature = "testing"))]
+use uuid::Uuid;
 
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::fs;
-use uuid::Uuid;
 
-use crate::plugin::{Plugin, PluginMetadata};
+use crate::plugin::Plugin;
+#[cfg(any(test, feature = "testing"))]
+use crate::plugin::PluginMetadata;
 use crate::PluginError;
 
 /// Plugin manifest format
@@ -53,8 +70,9 @@ pub struct PluginManifest {
 }
 
 impl PluginManifest {
-    /// Convert to plugin metadata
+    /// Convert to plugin metadata (used by tests and testing feature)
     #[must_use]
+    #[cfg(any(test, feature = "testing"))]
     #[expect(
         deprecated,
         reason = "backward compat: PluginMetadata during migration"
@@ -155,7 +173,8 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
     }
 }
 
-/// Create a placeholder plugin
+/// Create a placeholder plugin (test/testing only)
+#[cfg(any(test, feature = "testing"))]
 #[expect(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
@@ -164,7 +183,8 @@ pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
     Arc::new(PlaceholderPlugin { metadata })
 }
 
-/// A placeholder plugin implementation
+/// A placeholder plugin implementation (test/testing only)
+#[cfg(any(test, feature = "testing"))]
 #[expect(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
@@ -174,6 +194,7 @@ struct PlaceholderPlugin {
     metadata: PluginMetadata,
 }
 
+#[cfg(any(test, feature = "testing"))]
 #[async_trait]
 #[expect(
     deprecated,
@@ -241,18 +262,11 @@ impl DefaultPluginDiscovery {
     }
 
     /// Load a plugin from a path
-    #[expect(
-        deprecated,
-        reason = "backward compat: PluginMetadata during migration"
-    )]
-    pub async fn load_plugin(&self, _path: &Path) -> Result<Arc<dyn Plugin>> {
-        // In a real implementation, this would load the plugin from the path
-        // For now, just return a placeholder plugin
-        let _metadata =
-            PluginMetadata::new("Plugin at path", "0.1.0", "A placeholder plugin", "System");
-
-        // Just return the placeholder plugin
-        Ok(create_placeholder_plugin(_metadata))
+    pub async fn load_plugin(&self, path: &Path) -> Result<Arc<dyn Plugin>> {
+        anyhow::bail!(
+            "Dynamic plugin loading not yet implemented at path: {}",
+            path.display()
+        )
     }
 }
 
@@ -268,9 +282,9 @@ impl PluginLoader for DefaultPluginLoader {
         manifest: &PluginManifest,
         _path: &Path,
     ) -> Result<Arc<dyn Plugin>> {
-        // In a real implementation, this would load the plugin from the manifest and path
-        // For now, just return a placeholder plugin with metadata from the manifest
-        let metadata = manifest.to_metadata();
-        Ok(create_placeholder_plugin(metadata))
+        anyhow::bail!(
+            "Dynamic plugin loading not yet implemented for manifest: {}",
+            manifest.name
+        )
     }
 }

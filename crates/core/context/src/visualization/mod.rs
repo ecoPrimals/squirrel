@@ -9,6 +9,8 @@
 mod controllers;
 mod interactive;
 mod manager;
+#[cfg(test)]
+mod manager_tests;
 mod metrics;
 mod renderers;
 mod types;

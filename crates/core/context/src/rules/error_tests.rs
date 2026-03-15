@@ -43,8 +43,8 @@ fn test_serde_json_error_conversion() {
 }
 
 #[test]
-fn test_serde_yaml_error_conversion() {
-    let yaml_err = serde_yaml::from_str::<serde_yaml::Value>("invalid: [").unwrap_err();
+fn test_serde_yml_error_conversion() {
+    let yaml_err = serde_yml::from_str::<serde_yml::Value>("invalid: [").unwrap_err();
     let rule_err = RuleError::from(yaml_err);
     assert!(matches!(rule_err, RuleError::SerializationError(_)));
 }

@@ -43,8 +43,8 @@
 use std::sync::Arc;
 
 use anyhow::Result as AnyhowResult;
-use log::debug;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 // Core imports (keeping only what remains in Squirrel)
 use squirrel_context::ContextManager;

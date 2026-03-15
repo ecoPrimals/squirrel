@@ -202,7 +202,7 @@ impl ConfigLoader {
             }
             "yaml" | "yml" => {
                 let file_config: SquirrelUnifiedConfig =
-                    serde_yaml::from_str(&contents).map_err(|e| ConfigError::ParseError {
+                    serde_yml::from_str(&contents).map_err(|e| ConfigError::ParseError {
                         format: "yaml".to_string(),
                         error: e.to_string(),
                     })?;
@@ -552,7 +552,7 @@ mod tests {
     fn test_valid_yaml_file_loading() {
         // Use round-trip: default config -> YAML -> load
         let default_config = SquirrelUnifiedConfig::default();
-        let yaml_content = serde_yaml::to_string(&default_config).unwrap();
+        let yaml_content = serde_yml::to_string(&default_config).unwrap();
 
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("config.yaml");

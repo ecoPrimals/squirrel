@@ -62,16 +62,16 @@ impl Default for SecurityProviderConfig {
         let endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {
             // Fallback to standard socket path if available
             let uid = nix::unistd::getuid();
-            let standard_socket = format!("/run/user/{}/biomeos/security.sock", uid);
+            let standard_socket = format!("/run/user/{uid}/biomeos/security.sock");
             if std::path::Path::new(&standard_socket).exists() {
-                format!("unix://{}", standard_socket)
+                format!("unix://{standard_socket}")
             } else {
                 // Last resort: use localhost with standard port
                 let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(8443);
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             }
         });
 
@@ -195,7 +195,7 @@ impl Default for SecurityServiceConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(8443); // Default security auth port
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             });
 
         Self {

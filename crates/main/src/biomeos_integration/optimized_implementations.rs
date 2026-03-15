@@ -101,7 +101,7 @@ impl OptimizedServiceRegistration {
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or(8080);
-        let base_url = format!("http://localhost:{}", test_port);
+        let base_url = format!("http://localhost:{test_port}");
         let endpoints = crate::ecosystem::ServiceEndpoints {
             primary: base_url.to_string(),
             secondary: vec![

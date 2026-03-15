@@ -48,8 +48,9 @@ impl DiscoveryOps {
     /// ## Discovery Priority (Highest to Lowest)
     ///
     /// 1. **Environment Variables** (Production)
-    ///    - `{PRIMAL}_ENDPOINT` - Direct endpoint specification
-    ///    - Example: `SONGBIRD_ENDPOINT=https://songbird.prod.example.com`
+    ///    - `{PRIMAL}_ENDPOINT` - Direct endpoint specification (runtime config)
+    ///    - `SONGBIRD_ENDPOINT` - Ecosystem registry endpoint (service mesh)
+    ///    - `BEARDOG_ENDPOINT` - Security provider endpoint (auth/crypto)
     ///
     /// 2. **Service Discovery Systems** (Production)
     ///    - `SERVICE_DISCOVERY_URL` - Registry endpoint (Consul, etcd, etc.)
@@ -141,8 +142,9 @@ impl DiscoveryOps {
     ///
     /// ⚠️ WARNING: These are development defaults only!
     /// In production, you MUST set environment variables:
-    /// - `SQUIRREL_ENDPOINT`, `SONGBIRD_ENDPOINT`, etc., OR
-    /// - `SERVICE_DISCOVERY_URL` for dynamic discovery
+    /// - `SQUIRREL_ENDPOINT`, `SONGBIRD_ENDPOINT` (ecosystem registry), etc., OR
+    /// - `BEARDOG_ENDPOINT` (security provider) for auth/crypto, OR
+    /// - `SERVICE_DISCOVERY_URL` for dynamic capability-based discovery
     ///
     /// This function uses universal-constants for all port assignments to ensure
     /// consistency across the ecosystem. It does NOT use hardcoded primal names,

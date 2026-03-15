@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Discovery mechanism implementations

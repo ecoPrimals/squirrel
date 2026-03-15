@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 #![allow(clippy::missing_docs_in_private_items)]
@@ -14,10 +15,9 @@
 pub mod constants;
 pub mod error;
 pub mod protocol;
-pub mod security;
 pub mod transport;
 pub mod types;
-pub mod utils; // Add the security module
+pub mod utils;
 
 // Task management (JSON-RPC over Unix socket)
 pub mod task;
@@ -25,10 +25,11 @@ pub mod task;
 // Re-export commonly used types
 pub use error::{MCPError, Result};
 pub use protocol::types::*;
-// Re-export specific websocket types to avoid conflicts
+#[cfg(feature = "websocket")]
 pub use protocol::websocket::{ServerEvent, WebSocketClient, WebSocketConfig, WebSocketServer};
 // Re-export specific transport types to avoid conflicts
 pub use transport::types::{TransportConfig, TransportEvent, TransportMetadata, TransportType};
+#[cfg(feature = "websocket")]
 pub use transport::websocket::WebSocketTransport;
 pub use transport::{SimpleTransport, Transport};
 pub use types::*;

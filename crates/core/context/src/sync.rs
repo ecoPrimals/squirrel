@@ -821,3 +821,6 @@ pub struct SyncStatistics {
     /// Number of state change subscribers
     pub subscribers: usize,
 }
+
+#[cfg(test)]
+mod tests;

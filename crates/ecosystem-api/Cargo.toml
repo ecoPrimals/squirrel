@@ -27,7 +27,6 @@ url.workspace = true
 
 # Logging and tracing
 tracing.workspace = true
-log.workspace = true
 
 # Futures for stream types
 futures = "0.3"

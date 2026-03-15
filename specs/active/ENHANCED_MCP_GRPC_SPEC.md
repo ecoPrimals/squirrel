@@ -3,6 +3,10 @@ description: ENFORCE enhanced Machine Context Protocol with universal gRPC strea
 globs: ["squirrel/crates/**/*.rs", "squirrel/src/**/*.rs"]
 ---
 
+> **⚠️ DEPRECATED**: This spec describes gRPC integration which has been removed from Squirrel.
+> Squirrel uses JSON-RPC 2.0 + tarpc. See `specs/current/` for current architecture.
+> Retained as archive/fossil record only.
+
 # Enhanced MCP & gRPC Specification
 
 ## Context

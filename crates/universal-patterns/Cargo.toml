@@ -31,11 +31,10 @@ url = { version = "2.5", features = ["serde"] }
 
 # Logging and tracing
 tracing.workspace = true
-log.workspace = true
 
 # Configuration management
 config = "0.14"
-serde_yaml = "0.9"
+serde_yml = "0.0.12"
 dirs = "5.0"
 
 # Ecosystem dependencies

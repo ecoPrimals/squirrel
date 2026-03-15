@@ -1,8 +1,9 @@
+<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel AI Primal
 
 **Universal AI Coordination Primal** for the ecoPrimals ecosystem.
 
-**License**: AGPL-3.0-only | **Build**: GREEN | **Tests**: 4,127 passing | **Coverage**: 66% line | **Rust**: 1.81+
+**License**: AGPL-3.0-only | **Build**: GREEN | **Tests**: 1,622 passing | **Deps**: 272 (zero HTTP) | **Rust**: 1.81+
 
 ---
 
@@ -146,7 +147,7 @@ All AI provider interactions are capability-based, not vendor-specific:
 ## Testing
 
 ```bash
-# Run full workspace tests (4,127 tests, single-threaded)
+# Run workspace tests
 cargo test --workspace
 
 # Run main crate tests only
@@ -158,9 +159,9 @@ cargo llvm-cov --workspace --html
 
 ### Test Coverage
 
-- **4,127 tests** passing across the workspace (incl. property-based via proptest)
+- **1,622 tests** passing in the main crate (0 failures)
 - Unit, integration, E2E, chaos, fault injection, and property-based testing
-- **66% line coverage** (target: 90%, tracked via `cargo llvm-cov`)
+- Additional tests in `squirrel-mcp`, `squirrel-context`, `squirrel-commands`, etc.
 
 ---
 

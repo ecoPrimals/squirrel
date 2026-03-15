@@ -36,6 +36,8 @@ pub mod health_check;
 pub mod loader;
 pub mod timeouts;
 pub mod types;
+#[cfg(test)]
+mod types_tests;
 pub mod validation;
 
 pub use environment_utils::*;

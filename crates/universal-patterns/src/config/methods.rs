@@ -40,7 +40,7 @@ impl PrimalConfig {
 
     /// Save configuration to a file
     pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), ConfigError> {
-        let content = serde_yaml::to_string(self)?;
+        let content = serde_yml::to_string(self)?;
         std::fs::write(path, content)?;
         Ok(())
     }

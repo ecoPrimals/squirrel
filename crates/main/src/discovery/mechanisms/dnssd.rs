@@ -208,7 +208,7 @@ impl DnssdDiscovery {
             .map(|s| s.split(',').map(|c| c.trim().to_string()).collect())
             .unwrap_or_default();
 
-        let endpoint = format!("http://{}:{}", hostname, port);
+        let endpoint = format!("http://{hostname}:{port}");
 
         DiscoveredService {
             name: instance,

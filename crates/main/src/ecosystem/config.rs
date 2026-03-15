@@ -90,7 +90,7 @@ impl Default for EcosystemConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| get_service_port("service_mesh"));
-                format!("http://localhost:{}", port)
+                format!("http://localhost:{port}")
             }),
             biome_id: std::env::var("BIOME_ID").ok(),
             registry_config: EcosystemRegistryConfig::default(),

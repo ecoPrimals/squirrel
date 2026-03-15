@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 DataScienceBioLab
 
-//! JWT Implementation Using Capability-Based Crypto (Pure Rust!)
+//! Ecosystem JWT Implementation Using Capability-Based Crypto (Pure Rust!)
 //!
 //! This module provides JWT token creation and verification by delegating
 //! cryptographic operations to a capability-discovered crypto provider.
@@ -118,7 +118,7 @@ impl JwtClaims {
     }
 }
 
-/// Capability-based JWT service configuration
+/// Ecosystem JWT service configuration (capability-based)
 #[derive(Debug, Clone)]
 pub struct BearDogJwtConfig {
     /// Crypto provider configuration (capability-based)
@@ -141,12 +141,12 @@ impl Default for BearDogJwtConfig {
     }
 }
 
-/// JWT token manager using capability-based crypto (Pure Rust!)
+/// Ecosystem JWT token manager using capability-based crypto (Pure Rust!)
 ///
 /// # Examples
 ///
 /// ```no_run
-/// use squirrel_mcp_auth::beardog_jwt::{BearDogJwtService, BearDogJwtConfig, JwtClaims};
+/// use squirrel_mcp_auth::ecosystem_jwt::{BearDogJwtService, BearDogJwtConfig, JwtClaims};
 /// use chrono::{Utc, Duration};
 /// use uuid::Uuid;
 ///
@@ -154,7 +154,7 @@ impl Default for BearDogJwtConfig {
 /// async fn main() -> anyhow::Result<()> {
 ///     let config = BearDogJwtConfig::default();
 ///     let jwt_service = BearDogJwtService::new(config)?;
-///     
+///
 ///     let claims = JwtClaims::new(
 ///         Uuid::new_v4(),
 ///         "alice".to_string(),
@@ -162,10 +162,10 @@ impl Default for BearDogJwtConfig {
 ///         Uuid::new_v4(),
 ///         Utc::now() + Duration::hours(24),
 ///     );
-///     
+///
 ///     let token = jwt_service.create_token(&claims).await?;
 ///     let verified_claims = jwt_service.verify_token(&token).await?;
-///     
+///
 ///     assert_eq!(claims.username, verified_claims.username);
 ///     Ok(())
 /// }
@@ -179,7 +179,7 @@ impl BearDogJwtService {
     /// Create new capability-based JWT service
     pub fn new(config: BearDogJwtConfig) -> Result<Self> {
         info!(
-            "Initializing capability-based JWT service: key_id={}, endpoint={:?}",
+            "Initializing ecosystem JWT service: key_id={}, endpoint={:?}",
             config.key_id, config.crypto_config.endpoint
         );
 
@@ -191,7 +191,7 @@ impl BearDogJwtService {
         })
     }
 
-    /// Create JWT token (delegates signing to BearDog)
+    /// Create JWT token (delegates signing to security provider primal)
     ///
     /// # Arguments
     /// * `claims` - JWT claims to encode
@@ -203,7 +203,7 @@ impl BearDogJwtService {
     /// 1. Encode header (EdDSA)
     /// 2. Encode claims (base64url)
     /// 3. Create signing input: `<header>.<claims>`
-    /// 4. Sign via BearDog Ed25519
+    /// 4. Sign via security provider Ed25519
     /// 5. Encode signature (base64url)
     /// 6. Return complete JWT
     pub async fn create_token(&self, claims: &JwtClaims) -> Result<String, AuthError> {
@@ -256,7 +256,7 @@ impl BearDogJwtService {
         Ok(token)
     }
 
-    /// Verify JWT token (delegates verification to BearDog)
+    /// Verify JWT token (delegates verification to security provider primal)
     ///
     /// # Arguments
     /// * `token` - JWT token string to verify
@@ -267,7 +267,7 @@ impl BearDogJwtService {
     /// # Process
     /// 1. Parse token (split on '.')
     /// 2. Decode signature
-    /// 3. Verify via BearDog Ed25519
+    /// 3. Verify via security provider Ed25519
     /// 4. Decode and parse claims
     /// 5. Validate expiration
     /// 6. Return claims
@@ -429,10 +429,7 @@ mod tests {
         let config = BearDogJwtConfig::default();
         assert_eq!(config.key_id, "squirrel-jwt-signing-key");
         assert_eq!(config.expiry_hours, 24);
-        assert_eq!(
-            config.beardog_config.socket_path,
-            "/var/run/beardog/crypto.sock"
-        );
+        assert_eq!(config.crypto_config.discovery_timeout_ms, Some(500));
     }
 
     #[test]
@@ -456,5 +453,5 @@ mod tests {
         assert!(matches!(result, Err(AuthError::InvalidToken)));
     }
 
-    // Integration tests (with BearDog) are in tests/integration/
+    // Integration tests (with security provider) are in tests/integration/
 }

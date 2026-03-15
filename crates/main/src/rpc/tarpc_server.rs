@@ -130,7 +130,7 @@ impl SquirrelRpc for TarpcRpcServer {
                 system: None,
                 max_tokens: params.max_tokens.map(|v| v as u32).unwrap_or(1024),
                 temperature: params.temperature.unwrap_or(0.7) as f32,
-                model: params.model,
+                model: params.model.as_deref().map(String::from),
                 constraints: vec![],
                 params: std::collections::HashMap::new(),
             };
@@ -145,8 +145,8 @@ impl SquirrelRpc for TarpcRpcServer {
 
                     QueryAiResult {
                         response: ai_response.text,
-                        provider: ai_response.provider_id.to_string(),
-                        model: ai_response.model.to_string(),
+                        provider: Arc::from(ai_response.provider_id.as_str()),
+                        model: Arc::from(ai_response.model.as_str()),
                         tokens_used: ai_response.usage.map(|u| u.total_tokens as usize),
                         latency_ms,
                         success: true,
@@ -158,9 +158,9 @@ impl SquirrelRpc for TarpcRpcServer {
                     metrics.errors += 1;
 
                     QueryAiResult {
-                        response: format!("Error: {}", e),
-                        provider: "error".to_string(),
-                        model: "none".to_string(),
+                        response: format!("Error: {e}"),
+                        provider: Arc::from("error"),
+                        model: Arc::from("none"),
                         tokens_used: None,
                         latency_ms: start.elapsed().as_millis() as u64,
                         success: false,
@@ -171,8 +171,8 @@ impl SquirrelRpc for TarpcRpcServer {
             metrics.errors += 1;
             QueryAiResult {
                 response: "AI router not configured".to_string(),
-                provider: "none".to_string(),
-                model: "none".to_string(),
+                provider: Arc::from("none"),
+                model: Arc::from("none"),
                 tokens_used: None,
                 latency_ms: start.elapsed().as_millis() as u64,
                 success: false,
@@ -194,17 +194,24 @@ impl SquirrelRpc for TarpcRpcServer {
                 .into_iter()
                 .map(|p| {
                     let cost_tier = match p.cost_per_unit {
-                        Some(cost) if cost > 0.01 => "high",
-                        Some(cost) if cost > 0.0 => "medium",
-                        _ => "free",
-                    }
-                    .to_string();
+                        Some(cost) if cost > 0.01 => Arc::from("high"),
+                        Some(cost) if cost > 0.0 => Arc::from("medium"),
+                        _ => Arc::from("free"),
+                    };
 
                     ProviderInfo {
-                        id: p.provider_id.clone(),
-                        name: p.provider_name,
-                        models: p.capabilities.clone(),
-                        capabilities: p.capabilities,
+                        id: Arc::from(p.provider_id.as_str()),
+                        name: Arc::from(p.provider_name.as_str()),
+                        models: p
+                            .capabilities
+                            .iter()
+                            .map(|s| Arc::from(s.as_str()))
+                            .collect(),
+                        capabilities: p
+                            .capabilities
+                            .iter()
+                            .map(|s| Arc::from(s.as_str()))
+                            .collect(),
                         online: p.is_available,
                         avg_latency_ms: Some(p.avg_latency_ms as f64),
                         cost_tier,
@@ -313,7 +320,7 @@ impl SquirrelRpc for TarpcRpcServer {
     async fn execute_tool(
         self,
         _ctx: context::Context,
-        tool: String,
+        tool: Arc<str>,
         args: std::collections::HashMap<String, String>,
     ) -> String {
         info!("🔧 tarpc::execute_tool: {}", tool);
@@ -326,7 +333,7 @@ impl SquirrelRpc for TarpcRpcServer {
         let executor = crate::tool::ToolExecutor::new();
         let args_str = serde_json::to_string(&args).unwrap_or_else(|_| "{}".to_string());
 
-        match executor.execute_tool(&tool, &args_str).await {
+        match executor.execute_tool(tool.as_ref(), &args_str).await {
             Ok(result) => {
                 if result.success {
                     result.output
@@ -338,7 +345,7 @@ impl SquirrelRpc for TarpcRpcServer {
                     )
                 }
             }
-            Err(e) => format!("Tool '{}' execution error: {}", tool, e),
+            Err(e) => format!("Tool '{tool}' execution error: {e}"),
         }
     }
 }

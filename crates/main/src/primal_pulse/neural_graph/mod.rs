@@ -686,18 +686,14 @@ impl GraphOptimizer {
         for bottleneck in &analysis.bottlenecks {
             recommendations.push(Optimization {
                 optimization_type: OptimizationType::LoadBalancing,
-                description: format!(
-                    "Distribute load from {} across multiple instances",
-                    bottleneck
-                ),
+                description: format!("Distribute load from {bottleneck} across multiple instances"),
                 expected_improvement: PerformanceImprovement {
                     latency_reduction_ms: 1000,
                     cost_reduction_usd: 0.0,
                     reliability_improvement: 0.1,
                 },
                 implementation: format!(
-                    "Use capability discovery to find multiple {} providers",
-                    bottleneck
+                    "Use capability discovery to find multiple {bottleneck} providers"
                 ),
                 confidence: 0.65,
                 difficulty: 4,

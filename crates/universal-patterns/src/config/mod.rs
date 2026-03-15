@@ -110,7 +110,7 @@ pub enum ConfigError {
     Serialization(#[from] serde_json::Error),
     /// YAML serialization/deserialization error
     #[error("YAML error: {0}")]
-    Yaml(#[from] serde_yaml::Error),
+    Yaml(#[from] serde_yml::Error),
     /// URL parsing error
     #[error("URL parse error: {0}")]
     UrlParse(#[from] url::ParseError),
@@ -193,14 +193,21 @@ impl ConfigFactory {
         config
     }
 
-    /// Infer primal type from name
+    /// Infer primal type from name using capability constants.
+    ///
+    /// TRUE PRIMAL: Discovery is capability-based. Use capability names (security,
+    /// service-mesh, storage, compute) or self-knowledge (squirrel). Legacy primal
+    /// names map to Custom for backward compat when deserializing.
     fn infer_primal_type(name: &str) -> PrimalType {
+        use universal_constants::capabilities;
         match name.to_lowercase().as_str() {
-            "squirrel" => PrimalType::Coordinator,
-            "beardog" => PrimalType::Security,
-            "songbird" => PrimalType::Orchestration,
-            "toadstool" => PrimalType::Storage,
-            "nestgate" => PrimalType::Compute,
+            n if n == capabilities::SELF_PRIMAL_NAME => PrimalType::Coordinator,
+            n if n == capabilities::SECURITY_CAPABILITY => PrimalType::Security,
+            n if n == capabilities::SERVICE_MESH_CAPABILITY || n == "network" => {
+                PrimalType::Orchestration
+            }
+            n if n == capabilities::STORAGE_CAPABILITY => PrimalType::Storage,
+            n if n == capabilities::COMPUTE_CAPABILITY => PrimalType::Compute,
             _ => PrimalType::Custom(name.to_string()),
         }
     }
@@ -264,13 +271,14 @@ impl ConfigUtils {
         }
 
         if config.orchestration.enabled && config.orchestration.songbird_endpoint.is_none() {
-            errors.push("Orchestration enabled but no Songbird endpoint configured".to_string());
+            errors
+                .push("Orchestration enabled but no service-mesh endpoint configured".to_string());
         }
 
         if config.security.auth_method != AuthMethod::None
             && config.security.beardog_endpoint.is_none()
         {
-            errors.push("Authentication configured but no Beardog endpoint specified".to_string());
+            errors.push("Authentication configured but no security endpoint specified".to_string());
         }
 
         if errors.is_empty() {
@@ -287,7 +295,7 @@ impl ConfigUtils {
 
     /// Convert configuration to YAML
     pub fn to_yaml(config: &PrimalConfig) -> ConfigResult<String> {
-        Ok(serde_yaml::to_string(config)?)
+        Ok(serde_yml::to_string(config)?)
     }
 
     /// Load configuration from JSON string
@@ -297,7 +305,7 @@ impl ConfigUtils {
 
     /// Load configuration from YAML string
     pub fn from_yaml(yaml: &str) -> ConfigResult<PrimalConfig> {
-        Ok(serde_yaml::from_str(yaml)?)
+        Ok(serde_yml::from_str(yaml)?)
     }
 
     /// Generate a configuration template
@@ -408,12 +416,13 @@ mod tests {
 
     #[test]
     fn test_primal_type_inference() {
+        use universal_constants::capabilities;
         assert_eq!(
-            ConfigFactory::infer_primal_type("squirrel"),
+            ConfigFactory::infer_primal_type(capabilities::SELF_PRIMAL_NAME),
             PrimalType::Coordinator
         );
         assert_eq!(
-            ConfigFactory::infer_primal_type("beardog"),
+            ConfigFactory::infer_primal_type(capabilities::SECURITY_CAPABILITY),
             PrimalType::Security
         );
         assert_eq!(

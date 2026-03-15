@@ -17,9 +17,9 @@
 //!
 //! ## Capability Discovery Pattern
 //!
-//! Instead of hardcoding "BearDog", we discover capabilities:
+//! Instead of hardcoding a specific primal, we discover capabilities:
 //! - Squirrel asks: "Who provides jwt.validate capability?"
-//! - Currently: BearDog (Security & Crypto Primal) provides it
+//! - Currently: Security provider primal provides it
 //! - Future: Any primal with JWT capability can provide it
 //!
 //! ## Features
@@ -64,18 +64,31 @@ pub mod capability_crypto;
 #[cfg(feature = "delegated-jwt")]
 pub mod capability_jwt;
 
-// DEPRECATED: BearDog-specific modules (use capability_ instead!)
+// Capability-based modules (security provider = discovered at runtime)
+#[cfg(feature = "delegated-jwt")]
+pub mod security_provider_client;
+
+#[cfg(feature = "delegated-jwt")]
+pub mod ecosystem_jwt;
+
+// DEPRECATED: Backward compatibility aliases (use security_provider_client/ecosystem_jwt)
 #[deprecated(
-    note = "Use capability_crypto instead. BearDog is DEV knowledge - TRUE PRIMAL uses capability discovery!"
+    since = "0.1.0",
+    note = "Use security_provider_client instead. Auth discovers security provider via capability, not by name."
 )]
 #[cfg(feature = "delegated-jwt")]
-pub mod beardog_client;
+pub mod beardog_client {
+    pub use super::security_provider_client::*;
+}
 
 #[deprecated(
-    note = "Use capability_jwt instead. BearDog is DEV knowledge - TRUE PRIMAL uses capability discovery!"
+    since = "0.1.0",
+    note = "Use ecosystem_jwt instead. JWT uses capability-discovered crypto provider."
 )]
 #[cfg(feature = "delegated-jwt")]
-pub mod beardog_jwt;
+pub mod beardog_jwt {
+    pub use super::ecosystem_jwt::*;
+}
 
 #[cfg(feature = "local-jwt")]
 pub mod jwt;
@@ -96,20 +109,11 @@ pub use capability_jwt::{
     CapabilityJwtConfig, CapabilityJwtService, JwtClaims as CapabilityJwtClaims,
 };
 
-// DEPRECATED: BearDog-specific exports (use capability_ instead!)
-// Backward compatibility: kept for deserialization of legacy data / existing consumers
-#[expect(
-    deprecated,
-    reason = "backward compat: BearDogClient until capability_ migration"
-)]
+// Primary exports from capability-based modules
 #[cfg(feature = "delegated-jwt")]
-pub use beardog_client::{BearDogClient, BearDogClientConfig};
-#[expect(
-    deprecated,
-    reason = "backward compat: BearDogJwt until capability_ migration"
-)]
+pub use ecosystem_jwt::{BearDogJwtConfig, BearDogJwtService, JwtClaims as BearDogJwtClaims};
 #[cfg(feature = "delegated-jwt")]
-pub use beardog_jwt::{BearDogJwtConfig, BearDogJwtService, JwtClaims as BearDogJwtClaims};
+pub use security_provider_client::{BearDogClient, BearDogClientConfig};
 
 // Dev/Testing: Local JWT (brings ring)
 #[cfg(feature = "local-jwt")]

@@ -117,7 +117,7 @@ impl NetworkConfig {
             .unwrap_or(8080);
 
         // Web UI configuration with environment awareness
-        // Production: Resolved at runtime via Songbird/socket-registry capability discovery.
+        // Production: Resolved at runtime via ecosystem registry capability discovery.
         // Use WEB_UI_URL env var to override; otherwise discovered via ecosystem UI capability.
         let _web_ui_url = env::var("WEB_UI_URL").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
@@ -317,17 +317,18 @@ impl AIProviderConfig {
 
 /// Ecosystem service configuration from environment variables
 ///
-/// ⚠️ DEPRECATED: This struct uses hardcoded primal endpoint names which violates
-/// primal sovereignty. Use capability-based discovery instead.
+/// Env var names (NESTGATE_ENDPOINT, etc.) are runtime config - acceptable per wateringHole.
+/// Code treats these as **ecosystem role endpoints**, not hardcoded primal identity.
+/// Production should use capability-based discovery; env vars override for explicit config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemConfig {
-    /// `NestGate` networking endpoint (DEPRECATED: use capability discovery)
+    /// Storage capability endpoint (env: NESTGATE_ENDPOINT - ecosystem role, not primal identity)
     pub nestgate_endpoint: String,
-    /// `BearDog` security endpoint (DEPRECATED: use capability discovery)
+    /// Security provider endpoint (env: BEARDOG_ENDPOINT - ecosystem role, not primal identity)
     pub beardog_endpoint: String,
-    /// `ToadStool` compute endpoint (DEPRECATED: use capability discovery)
+    /// Compute capability endpoint (env: TOADSTOOL_ENDPOINT - ecosystem role, not primal identity)
     pub toadstool_endpoint: String,
-    /// Service mesh endpoint (generic, not primal-specific)
+    /// Ecosystem registry / service mesh endpoint (env: SERVICE_MESH_ENDPOINT, BIOMEOS_ENDPOINT)
     pub service_mesh_endpoint: String,
     pub service_timeout_ms: u64,
 }
@@ -387,8 +388,8 @@ impl EcosystemConfig {
     pub fn from_env() -> Result<Self, EnvironmentError> {
         // Capability-based endpoint resolution (TRUE PRIMAL pattern).
         // Production defaults use discovered://{capability} - actual endpoints are resolved
-        // at runtime via Songbird/socket-registry capability discovery.
-        // Env vars (NESTGATE_ENDPOINT, etc.) override for explicit configuration.
+        // at runtime via ecosystem registry capability discovery.
+        // Env vars (NESTGATE_ENDPOINT, etc.) are ecosystem role endpoints - override for explicit config.
         let nestgate_endpoint = env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
                 format!("discovered://{}", capabilities::STORAGE_CAPABILITY)

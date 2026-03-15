@@ -1,71 +1,30 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
-#![allow(deprecated)]
 
 //! Squirrel Universal AI Primal
 //!
 //! A universal AI coordination primal that implements the standardized ecosystem
 //! patterns for dynamic primal evolution and integration with the ecoPrimals ecosystem.
 //!
-//! This primal follows the universal adapter patterns defined by Songbird and
-//! implements the `EcosystemServiceRegistration` standard for seamless integration.
+//! This primal follows the universal adapter patterns defined by the ecosystem registry
+//! and implements the `EcosystemServiceRegistration` standard for seamless integration.
 
 #![forbid(unsafe_code)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![allow(
+    // Documentation WIP
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
+    // Modern Rust pattern, not yet stabilized warning
     async_fn_in_trait,
-    clippy::unused_self,
-    clippy::unnecessary_wraps,
-    clippy::needless_pass_by_ref_mut,
-    clippy::unnested_or_patterns,
-    clippy::similar_names,
+    // False positives on technical terms
     clippy::doc_markdown,
-    clippy::redundant_pub_crate,
-    clippy::significant_drop_tightening,
-    clippy::map_unwrap_or,
-    clippy::match_same_arms,
-    clippy::redundant_closure_for_method_calls,
-    clippy::implicit_clone,
-    clippy::unnecessary_debug_formatting,
-    clippy::uninlined_format_args,
-    clippy::cast_possible_truncation,
-    clippy::wildcard_imports,
-    clippy::missing_const_for_fn,
-    clippy::cast_precision_loss,
-    clippy::derive_partial_eq_without_eq,
-    clippy::equatable_if_let,
-    clippy::iter_on_single_items,
-    clippy::option_if_let_else,
-    clippy::if_not_else,
-    clippy::items_after_statements,
-    clippy::trivially_copy_pass_by_ref,
+    // Migration in progress
+    deprecated,
+    // Domain naming conventions
     clippy::struct_field_names,
-    clippy::cast_possible_wrap,
-    clippy::redundant_clone,
-    clippy::struct_excessive_bools,
-    clippy::too_many_lines,
-    clippy::needless_pass_by_value,
-    clippy::implicit_hasher,
-    clippy::use_self,
-    clippy::single_match_else,
-    clippy::cast_lossless,
-    clippy::suboptimal_flops,
-    clippy::unused_async,
-    clippy::used_underscore_binding,
-    clippy::must_use_candidate,
-    clippy::return_self_not_must_use,
-    clippy::manual_let_else,
-    clippy::manual_midpoint,
-    clippy::needless_continue,
-    clippy::ref_option,
-    clippy::or_fun_call,
-    clippy::cast_sign_loss,
-    clippy::case_sensitive_file_extension_comparisons,
-    clippy::format_push_string,
-    clippy::collection_is_never_read
 )]
 
 // Core modules

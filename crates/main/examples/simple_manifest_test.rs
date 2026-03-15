@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Convert to YAML
     println!("\n📄 Converting to YAML...");
-    let yaml_content = serde_yaml::to_string(&template)?;
+    let yaml_content = serde_yml::to_string(&template)?;
     println!("✅ YAML content generated ({} bytes)", yaml_content.len());
 
     // 3. Parse the YAML back
@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut invalid_manifest = parsed.clone();
     invalid_manifest.metadata.name = "".to_string();
 
-    let invalid_yaml = serde_yaml::to_string(&invalid_manifest)?;
+    let invalid_yaml = serde_yml::to_string(&invalid_manifest)?;
     match parser.parse_content(&invalid_yaml).await {
         Ok(_) => println!("   ❌ Validation should have failed"),
         Err(e) => println!("   ✅ Validation correctly failed: {}", e),

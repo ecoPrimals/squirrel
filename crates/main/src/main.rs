@@ -1,22 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
-#![allow(
-    clippy::unused_async,
-    clippy::uninlined_format_args,
-    clippy::option_if_let_else,
-    clippy::redundant_closure_for_method_calls,
-    clippy::needless_pass_by_value,
-    clippy::single_match_else,
-    clippy::too_many_lines,
-    clippy::match_like_matches_macro,
-    clippy::manual_let_else,
-    clippy::doc_markdown,
-    clippy::use_self,
-    clippy::match_same_arms,
-    clippy::cast_possible_truncation,
-    clippy::items_after_statements
-)]
+#![forbid(unsafe_code)]
 
 //! Squirrel AI Coordinator Main Entry Point
 //!
@@ -32,12 +18,19 @@ use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
 use squirrel::shutdown::ShutdownManager;
 #[cfg(feature = "monitoring")]
 use squirrel::MetricsCollector;
+use std::process;
 use std::sync::Arc;
 
-use cli::{Cli, Commands};
+use cli::{exit_codes, Cli, Commands};
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
+    let code = run().await;
+    process::exit(code);
+}
+
+/// Returns exit code (UniBin: 0=success, 1=error, 2=config, 3=network, 130=interrupted)
+async fn run() -> i32 {
     // Parse CLI arguments using clap
     let cli = Cli::parse();
 
@@ -50,21 +43,89 @@ async fn main() -> Result<()> {
             bind,
             verbose,
         } => {
-            run_server(port, daemon, socket, bind, verbose).await?;
+            if let Err(e) = run_server(port, daemon, socket, bind, verbose).await {
+                eprintln!("Error: {e:?}");
+                return exit_codes::ERROR;
+            }
         }
+        Commands::Client {
+            socket,
+            method,
+            params,
+            timeout,
+        } => return run_client(socket, method, params, timeout).await,
         Commands::Doctor {
             comprehensive,
             format,
             subsystem,
         } => {
-            doctor::run_doctor(comprehensive, format, subsystem).await?;
+            if let Err(e) = doctor::run_doctor(comprehensive, format, subsystem).await {
+                eprintln!("Error: {e:?}");
+                return exit_codes::ERROR;
+            }
         }
         Commands::Version { verbose } => {
             print_version(verbose);
         }
     }
 
-    Ok(())
+    exit_codes::SUCCESS
+}
+
+/// Run client mode: connect to socket, send JSON-RPC, print response
+async fn run_client(
+    socket: Option<String>,
+    method: String,
+    params: String,
+    timeout_ms: u64,
+) -> i32 {
+    use squirrel::rpc::unix_socket;
+    use universal_patterns::IpcClient;
+
+    let socket_path = socket.unwrap_or_else(|| {
+        let node_id = unix_socket::get_node_id();
+        unix_socket::get_socket_path(&node_id)
+    });
+
+    let params_value: serde_json::Value = match serde_json::from_str(&params) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Invalid --params JSON: {e}");
+            return exit_codes::CONFIG_ERROR;
+        }
+    };
+
+    let timeout = std::time::Duration::from_millis(timeout_ms);
+    let client = IpcClient::new(&socket_path)
+        .with_request_timeout(timeout)
+        .with_connection_timeout(timeout);
+
+    let call_fut = client.call(&method, &params_value);
+    tokio::select! {
+        result = call_fut => match result {
+            Ok(result) => {
+                println!("{}", serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()));
+                exit_codes::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("Error: {e:?}");
+                if let Some(ipc_err) = e.downcast_ref::<universal_patterns::IpcClientError>() {
+                    match ipc_err {
+                        universal_patterns::IpcClientError::Connection(_)
+                        | universal_patterns::IpcClientError::NotFound(_)
+                        | universal_patterns::IpcClientError::Timeout(_) => exit_codes::NETWORK_ERROR,
+                        _ => exit_codes::ERROR,
+                    }
+                } else {
+                    exit_codes::ERROR
+                }
+            }
+        },
+        _ = tokio::signal::ctrl_c() => {
+            eprintln!("\nInterrupted");
+            exit_codes::INTERRUPTED
+        }
+    }
 }
 
 /// Run server mode
@@ -98,7 +159,7 @@ async fn run_server(
     // FUTURE: [Feature] Add JSON logging support with tracing-subscriber json feature
     // Tracking: Planned for v0.2.0 - enhanced logging features
     tracing_subscriber::fmt()
-        .with_env_filter(format!("squirrel={},debug", log_level))
+        .with_env_filter(format!("squirrel={log_level},debug"))
         .with_target(false)
         .with_thread_ids(true)
         .with_line_number(true)
@@ -141,25 +202,22 @@ async fn run_server(
     use squirrel::rpc::unix_socket;
 
     let socket_path = if let Some(path) = socket.clone() {
-        // CLI argument has highest priority
-        println!("📌 Socket path from CLI argument: {}", path);
+        println!("📌 Socket path from CLI argument: {path}");
         path
     } else if let Some(ref path) = config.server.socket {
-        // Config file/env override
-        println!("📌 Socket path from config: {}", path);
+        println!("📌 Socket path from config: {path}");
         path.clone()
     } else {
-        // Fallback to auto-detection
         let node_id = unix_socket::get_node_id();
         let path = unix_socket::get_socket_path(&node_id);
-        println!("📌 Socket path from auto-detection: {}", path);
+        println!("📌 Socket path from auto-detection: {path}");
         path
     };
 
     println!("🔌 Starting JSON-RPC server...");
-    println!("   Socket: {}", socket_path);
-    println!("   Bind: {} (unused in Unix socket mode)", bind);
-    println!("   Port: {} (unused in Unix socket mode)", port);
+    println!("   Socket: {socket_path}");
+    println!("   Bind: {bind} (unused in Unix socket mode)");
+    println!("   Port: {port} (unused in Unix socket mode)");
     if daemon {
         println!("   Daemon mode: enabled (FUTURE: implement background detach)");
     }
@@ -172,7 +230,7 @@ async fn run_server(
         Ok(router) => {
             let provider_count = router.provider_count().await;
             if provider_count > 0 {
-                println!("   ✅ {} AI provider(s) discovered", provider_count);
+                println!("   ✅ {provider_count} AI provider(s) discovered");
             } else {
                 println!("   ⚠️  No AI providers found (query_ai will return 'not configured')");
                 println!("   💡 Set AI_PROVIDER_SOCKETS env var for capability discovery");
@@ -180,25 +238,23 @@ async fn run_server(
             Some(Arc::new(router))
         }
         Err(e) => {
-            println!("   ⚠️  AI router initialization failed: {}", e);
+            println!("   ⚠️  AI router initialization failed: {e}");
             println!("   💡 Server will start without AI capabilities");
             None
         }
     };
 
-    // Create JSON-RPC server with or without AI router
     use squirrel::rpc::JsonRpcServer;
-    let server = if let Some(router) = ai_router {
-        Arc::new(JsonRpcServer::with_ai_router(socket_path.clone(), router))
-    } else {
-        Arc::new(JsonRpcServer::new(socket_path.clone()))
-    };
+    let server = ai_router.map_or_else(
+        || Arc::new(JsonRpcServer::new(socket_path.clone())),
+        |router| Arc::new(JsonRpcServer::with_ai_router(socket_path.clone(), router)),
+    );
     let server_clone = Arc::clone(&server);
 
     // Start server in background task
     let server_task = tokio::spawn(async move {
         if let Err(e) = server_clone.start().await {
-            eprintln!("❌ Server error: {}", e);
+            eprintln!("❌ Server error: {e}");
         }
     });
 
@@ -215,7 +271,7 @@ async fn run_server(
 
             // Request shutdown
             if let Err(e) = shutdown_manager.request_shutdown().await {
-                eprintln!("⚠️ Shutdown error: {}", e);
+                eprintln!("⚠️ Shutdown error: {e}");
             }
 
             println!("✅ Shutdown complete");

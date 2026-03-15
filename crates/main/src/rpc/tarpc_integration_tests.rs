@@ -12,6 +12,7 @@
 use super::tarpc_server::TarpcRpcServer;
 use super::tarpc_service::*;
 use anyhow::Result;
+use std::sync::Arc;
 
 /// Test tarpc server creation with various configurations
 #[test]
@@ -34,7 +35,7 @@ fn test_tarpc_service_types_serialization() -> Result<()> {
     // Test QueryAiParams
     let params = QueryAiParams {
         prompt: "Hello".to_string(),
-        model: Some("gpt-4".to_string()),
+        model: Some(Arc::from("gpt-4")),
         max_tokens: Some(100),
         temperature: Some(0.7),
     };
@@ -44,13 +45,13 @@ fn test_tarpc_service_types_serialization() -> Result<()> {
 
     // Test ProviderInfo
     let info = ProviderInfo {
-        id: "test".to_string(),
-        name: "Test Provider".to_string(),
-        models: vec!["model1".to_string()],
-        capabilities: vec!["text".to_string()],
+        id: Arc::from("test"),
+        name: Arc::from("Test Provider"),
+        models: vec![Arc::from("model1")],
+        capabilities: vec![Arc::from("text")],
         online: true,
         avg_latency_ms: Some(100.0),
-        cost_tier: "free".to_string(),
+        cost_tier: Arc::from("free"),
     };
     let json = serde_json::to_string(&info)?;
     let deserialized: ProviderInfo = serde_json::from_str(&json)?;
@@ -143,8 +144,8 @@ async fn test_tarpc_methods_logic() {
     // Test announce_capabilities
     let ctx = context::current();
     let params = AnnounceCapabilitiesParams {
-        service: "test".to_string(),
-        capabilities: vec!["test-cap".to_string()],
+        service: std::sync::Arc::from("test"),
+        capabilities: vec![std::sync::Arc::from("test-cap")],
         metadata: std::collections::HashMap::new(),
     };
     let result = server.clone().announce_capabilities(ctx, params).await;

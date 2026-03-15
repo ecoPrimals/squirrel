@@ -6,9 +6,6 @@ authors = ["DataScienceBioLab"]
 license = "AGPL-3.0-only"
 description = "Core squirrel functionality"
 
-# Make this crate standalone to avoid workspace conflicts
-[workspace]
-
 [lints.clippy]
 # Modern async Rust uses async fn in traits (stable since Rust 1.75)
 async_fn_in_trait = "allow"
@@ -30,10 +27,10 @@ futures = "0.3"
 reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 url = "2.5"
 
-# Web framework (CRITICAL FIX: Missing axum dependency)
-axum = { version = "0.7", features = ["ws", "json", "tokio"] }
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+# Web framework (OPTIONAL - legacy HTTP API, production uses Unix sockets)
+axum = { version = "0.7", features = ["ws", "json", "tokio"], optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["cors", "trace"], optional = true }
 
 # Concurrency and synchronization (CRITICAL FIX: Missing dependencies)
 dashmap = "5.5"
@@ -43,8 +40,7 @@ parking_lot = "0.12"
 rand = "0.8"
 
 # Logging and tracing
-tracing = "0.1"
-log = "0.4"
+tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Ecosystem dependencies
@@ -54,9 +50,17 @@ squirrel-interfaces = { path = "../interfaces" }
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
 
+[[bin]]
+name = "squirrel-mcp-server"
+path = "src/bin/squirrel-mcp-server.rs"
+required-features = ["http-api"]
+
 [features]
-# Production default: Pure Rust!
 default = []
-# HTTP client utilities (brings reqwest → ring)
+# Songbird service mesh functionality (coordination, federation, swarm, etc.)
+mesh = []
+# Legacy HTTP API server (brings axum, tower, hyper stack; requires mesh for routing/federation)
+http-api = ["dep:axum", "dep:tower", "dep:tower-http", "mesh"]
+# HTTP client utilities (brings reqwest)
 http-client = ["dep:reqwest"]
 

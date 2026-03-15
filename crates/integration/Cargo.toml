@@ -23,7 +23,6 @@ squirrel-core = { path = "../core/core" }
 squirrel-mcp = { path = "../core/mcp" }
 squirrel-ai-tools.workspace = true
 # Logging
-log.workspace = true
 tracing.workspace = true
 # UUID
 uuid.workspace = true

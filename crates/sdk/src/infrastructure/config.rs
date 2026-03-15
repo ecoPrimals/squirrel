@@ -10,6 +10,7 @@ use crate::error::{PluginError, PluginResult};
 use crate::plugin::Permission;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use universal_constants::network::{get_bind_address, get_service_port};
 // Sandbox security handled by BearDog framework
 
 /// Comprehensive SDK configuration structure
@@ -87,14 +88,15 @@ impl McpClientConfig {
     /// Multi-tier server URL resolution:
     /// 1. MCP_SERVER_URL (full WebSocket URL)
     /// 2. MCP_SERVER_PORT (port override)
-    /// 3. Default: ws://127.0.0.1:8080
+    /// 3. Default: ws://{bind_address}:{get_service_port("websocket")}
     pub fn from_env() -> Self {
         let server_url = std::env::var("MCP_SERVER_URL").unwrap_or_else(|_| {
             let port = std::env::var("MCP_SERVER_PORT")
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8080); // Default MCP WebSocket port
-            format!("ws://127.0.0.1:{}", port)
+                .unwrap_or_else(|| get_service_port("websocket"));
+            let host = get_bind_address();
+            format!("ws://{host}:{port}")
         });
 
         Self {

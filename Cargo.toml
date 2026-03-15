@@ -1,11 +1,5 @@
 [workspace]
 resolver = "2"
-exclude = [
-    "crates/core/mcp",      # Standalone crate with its own workspace
-    "crates/core/core",     # Standalone crate with its own workspace  
-    "crates/core/plugins",  # Standalone crate with its own workspace
-    "crates/core/auth",     # Standalone crate with its own workspace
-]
 members = [
     # Main application
     "crates/main",
@@ -13,6 +7,10 @@ members = [
     # Core components
     "crates/core/interfaces",
     "crates/core/context",
+    "crates/core/mcp",
+    "crates/core/core",
+    "crates/core/plugins",
+    "crates/core/auth",
     
     # Integration components (vendor-agnostic patterns)
     "crates/integration/context-adapter",
@@ -58,8 +56,7 @@ anyhow = "1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 futures = "0.3"
-tracing = "0.1"
-log = "0.4"
+tracing = { version = "0.1", features = ["log"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 # reqwest REMOVED from workspace - each crate declares it optionally for TRUE ecoBin!
@@ -72,7 +69,7 @@ async-recursion = "1.0"
 bytes = "1.5"
 lazy_static = "1.4"
 regex = "1.10"
-serde_yaml = "0.9"
+serde_yml = "0.0.12"
 parking_lot = "0.12"
 dashmap = "5.4"
 once_cell = "1.19"
@@ -86,7 +83,6 @@ uuid-serde = "1.0"
 nix = { version = "0.27", features = ["user"] }
 
 # Storage and additional dependencies
-sled = "0.34"
 tracing-subscriber = "0.3"
 glob = "0.3"
 

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 //! Protocol Negotiation
@@ -62,7 +63,7 @@ impl ProtocolRequest {
 
         let protocols_str = line
             .strip_prefix("PROTOCOLS: ")
-            .ok_or_else(|| anyhow::anyhow!("Invalid protocol request: {}", line))?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid protocol request: {line}"))?;
 
         let mut supported = Vec::new();
 
@@ -106,10 +107,10 @@ impl ProtocolResponse {
 
         let proto_name = line
             .strip_prefix("PROTOCOL: ")
-            .ok_or_else(|| anyhow::anyhow!("Invalid protocol response: {}", line))?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid protocol response: {line}"))?;
 
         let selected = IpcProtocol::from_str(proto_name)
-            .ok_or_else(|| anyhow::anyhow!("Unknown protocol: {}", proto_name))?;
+            .ok_or_else(|| anyhow::anyhow!("Unknown protocol: {proto_name}"))?;
 
         Ok(Self { selected })
     }

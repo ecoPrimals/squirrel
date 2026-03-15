@@ -26,7 +26,7 @@ toml = "0.7"
 yaml-rust = "0.4"
 regex.workspace = true
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite"], optional = true }
-serde_yaml.workspace = true
+serde_yml.workspace = true
 uuid.workspace = true
 # Internal crate dependencies
 squirrel-context.workspace = true

@@ -6,9 +6,6 @@ authors = ["DataScienceBioLab"]
 license = "AGPL-3.0-only"
 description = "Plugin system for squirrel"
 
-# Make this crate standalone to avoid workspace conflicts
-[workspace]
-
 [lints.clippy]
 # Modern async Rust uses async fn in traits (stable since Rust 1.75)
 async_fn_in_trait = "allow"
@@ -29,8 +26,7 @@ chrono = { version = "0.4", features = ["serde"] }
 url = "2.5"
 
 # Logging and tracing
-tracing = "0.1"
-log = "0.4"
+tracing = { version = "0.1", features = ["log"] }
 
 # Version management and synchronization (CRITICAL FIX: Missing dependencies)
 semver = "1.0"
@@ -51,6 +47,7 @@ test-case = "3.0"
 [features]
 default = ["core"]
 core = []
+testing = []
 web = []
 mcp-interfaces = []
 mcp = ["mcp-interfaces"]

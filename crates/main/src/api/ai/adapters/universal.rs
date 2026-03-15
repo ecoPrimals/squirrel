@@ -164,9 +164,8 @@ impl UniversalAiAdapter {
             id: Uuid::new_v4().to_string(),
         };
 
-        let request_json = serde_json::to_vec(&request).map_err(|e| {
-            PrimalError::ParsingError(format!("Failed to serialize request: {}", e))
-        })?;
+        let request_json = serde_json::to_vec(&request)
+            .map_err(|e| PrimalError::ParsingError(format!("Failed to serialize request: {e}")))?;
 
         debug!(
             "Sending RPC request to {}: method={}, size={} bytes",
@@ -195,15 +194,15 @@ impl UniversalAiAdapter {
         stream
             .write_all(&request_json)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to send request: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to send request: {e}")))?;
         stream
             .write_all(b"\n")
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to send newline: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to send newline: {e}")))?;
         stream
             .flush()
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to flush: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to flush: {e}")))?;
 
         // Read response
         let mut response_buf = Vec::new();
@@ -215,7 +214,7 @@ impl UniversalAiAdapter {
                     self.metadata.name
                 ))
             })?
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to read response: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to read response: {e}")))?;
 
         debug!(
             "Received response from {}: {} bytes in {}ms",

@@ -7,6 +7,7 @@
 //! for consistent error handling across the codebase.
 
 use std::collections::HashMap;
+use tracing::{debug, error, warn};
 
 use super::context_trait::{ErrorContextTrait, WithContext};
 use super::types::{ErrorContext, ErrorSeverity};
@@ -139,17 +140,17 @@ pub mod context_propagation {
 pub fn handle_error_by_severity(error: &dyn ErrorContextTrait) {
     match error.severity() {
         ErrorSeverity::Low => {
-            log::debug!("Low severity error: {:?}", error.to_log_entry());
+            debug!("Low severity error: {:?}", error.to_log_entry());
         }
         ErrorSeverity::Medium => {
-            log::warn!("Medium severity error: {:?}", error.to_log_entry());
+            warn!("Medium severity error: {:?}", error.to_log_entry());
         }
         ErrorSeverity::High => {
-            log::error!("High severity error: {:?}", error.to_log_entry());
+            error!("High severity error: {:?}", error.to_log_entry());
             // Trigger monitoring alert
         }
         ErrorSeverity::Critical => {
-            log::error!("CRITICAL error: {:?}", error.to_log_entry());
+            error!("CRITICAL error: {:?}", error.to_log_entry());
             // Trigger immediate alert and possibly initiate recovery
         }
     }

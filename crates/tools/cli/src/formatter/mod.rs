@@ -169,12 +169,12 @@ impl YamlFormatter {
 
     /// Format data into a string
     pub fn format<T: Serialize>(&self, data: T) -> Result<String, Box<dyn Error>> {
-        Ok(serde_yaml::to_string(&data)?)
+        Ok(serde_yml::to_string(&data)?)
     }
 
     /// Format an error into a string
     pub fn format_error(&self, error: &dyn Error) -> String {
-        serde_yaml::to_string(&serde_json::json!({
+        serde_yml::to_string(&serde_json::json!({
             "error": {
                 "message": error.to_string(),
                 "source": error.source().map(|e| e.to_string()),
@@ -188,19 +188,19 @@ impl YamlFormatter {
         let mut table_data = Vec::new();
 
         for row in rows {
-            let mut row_data = serde_yaml::Mapping::new();
+            let mut row_data = serde_yml::Mapping::new();
             for (i, header) in headers.iter().enumerate() {
                 if let Some(value) = row.get(i) {
                     row_data.insert(
-                        serde_yaml::Value::String(header.to_string()),
-                        serde_yaml::Value::String(value.clone()),
+                        serde_yml::Value::String(header.to_string()),
+                        serde_yml::Value::String(value.clone()),
                     );
                 }
             }
-            table_data.push(serde_yaml::Value::Mapping(row_data));
+            table_data.push(serde_yml::Value::Mapping(row_data));
         }
 
-        serde_yaml::to_string(&table_data).unwrap_or_default()
+        serde_yml::to_string(&table_data).unwrap_or_default()
     }
 }
 

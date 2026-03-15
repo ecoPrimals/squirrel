@@ -123,6 +123,9 @@ squirrel-mcp-config = { path = "../config", optional = true }
 # Universal error system
 universal-error = { path = "../universal-error" }
 
+# Network discovery (ports, bind address)
+universal-constants = { path = "../universal-constants" }
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 

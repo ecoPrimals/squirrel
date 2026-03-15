@@ -13,13 +13,12 @@
 use squirrel_cli::commands::registry::CommandRegistry;
 use std::io::{self, Write};
 
-// Add log crate for consistent logging
-use log::info;
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logger
-    env_logger::init();
+    // Initialize tracing subscriber
+    tracing_subscriber::fmt::init();
 
     // Initialize command registry with built-in commands
     let registry = CommandRegistry::new();

@@ -3,7 +3,7 @@
 
 //! Client implementation for task management with the Task Service API.
 //!
-//! Uses JSON-RPC over Unix socket instead of gRPC.
+//! Uses JSON-RPC over Unix socket.
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;

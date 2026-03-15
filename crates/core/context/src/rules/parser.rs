@@ -482,7 +482,7 @@ impl FrontmatterParser {
 
     /// Parse YAML frontmatter to a Value
     pub fn parse_yaml_frontmatter(frontmatter: &str) -> Result<Value> {
-        serde_yaml::from_str(frontmatter)
+        serde_yml::from_str(frontmatter)
             .map_err(|e| RuleError::ParseError(format!("Failed to parse YAML frontmatter: {e}")))
     }
 }

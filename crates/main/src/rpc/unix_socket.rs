@@ -88,7 +88,7 @@ pub fn get_socket_path(node_id: &str) -> String {
 
     // Tier 3: Generic PRIMAL_SOCKET with family suffix (like BearDog A++ pattern)
     if let Ok(generic_socket) = std::env::var("PRIMAL_SOCKET") {
-        let suffixed_path = format!("{}-{}", generic_socket, family_id);
+        let suffixed_path = format!("{generic_socket}-{family_id}");
         debug!(
             "Socket Path: {} (from PRIMAL_SOCKET env var ⭐ Tier 3 - generic primal)",
             suffixed_path
@@ -106,7 +106,7 @@ pub fn get_socket_path(node_id: &str) -> String {
     }
 
     // Tier 5: Temp directory fallback (dev/testing only - NOT for production!)
-    let fallback_path = format!("/tmp/squirrel-{}-{}.sock", family_id, node_id);
+    let fallback_path = format!("/tmp/squirrel-{family_id}-{node_id}.sock");
     debug!(
         "Socket Path: {} (from /tmp ⭐ Tier 5 - dev/testing ONLY)",
         fallback_path
@@ -123,7 +123,7 @@ pub fn get_socket_path(node_id: &str) -> String {
 fn get_xdg_socket_path() -> Option<String> {
     // Get current user ID
     let uid = nix::unistd::getuid();
-    let xdg_runtime_dir = format!("/run/user/{}", uid);
+    let xdg_runtime_dir = format!("/run/user/{uid}");
 
     // Check if XDG runtime directory exists
     if Path::new(&xdg_runtime_dir).exists() {
@@ -134,7 +134,7 @@ fn get_xdg_socket_path() -> Option<String> {
         }
 
         // Standard biomeOS socket path (no family suffix for simplicity)
-        let socket_path = format!("{}/biomeos/squirrel.sock", xdg_runtime_dir);
+        let socket_path = format!("{xdg_runtime_dir}/biomeos/squirrel.sock");
         Some(socket_path)
     } else {
         debug!("XDG runtime directory does not exist: {}", xdg_runtime_dir);
@@ -161,7 +161,7 @@ fn get_xdg_socket_path() -> Option<String> {
 /// - Cannot set permissions
 pub fn ensure_biomeos_directory() -> std::io::Result<PathBuf> {
     let uid = nix::unistd::getuid();
-    let biomeos_dir = format!("/run/user/{}/biomeos", uid);
+    let biomeos_dir = format!("/run/user/{uid}/biomeos");
     let path = PathBuf::from(&biomeos_dir);
 
     // Create directory if it doesn't exist
@@ -267,26 +267,23 @@ pub fn verify_socket_config() -> Result<String, String> {
     if socket_path.starts_with("/run/user/") {
         Ok(format!(
             "✅ XDG-compliant socket configuration\n\
-             Socket: {}\n\
-             Family: {}\n\
-             Node: {}",
-            socket_path, family_id, node_id
+             Socket: {socket_path}\n\
+             Family: {family_id}\n\
+             Node: {node_id}"
         ))
     } else if socket_path.starts_with("/tmp/") {
         Ok(format!(
             "⚠️ Using /tmp socket (consider setting SQUIRREL_SOCKET or SQUIRREL_FAMILY_ID)\n\
-             Socket: {}\n\
-             Family: {}\n\
-             Node: {}",
-            socket_path, family_id, node_id
+             Socket: {socket_path}\n\
+             Family: {family_id}\n\
+             Node: {node_id}"
         ))
     } else {
         Ok(format!(
             "✅ Custom socket configuration\n\
-             Socket: {}\n\
-             Family: {}\n\
-             Node: {}",
-            socket_path, family_id, node_id
+             Socket: {socket_path}\n\
+             Family: {family_id}\n\
+             Node: {node_id}"
         ))
     }
 }

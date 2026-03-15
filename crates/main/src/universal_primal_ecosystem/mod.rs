@@ -465,8 +465,7 @@ impl UniversalPrimalEcosystem {
         // Connect to Unix socket
         let mut stream = UnixStream::connect(socket_path).await.map_err(|e| {
             PrimalError::NetworkError(format!(
-                "Failed to connect to Unix socket {}: {}",
-                socket_path, e
+                "Failed to connect to Unix socket {socket_path}: {e}"
             ))
         })?;
 
@@ -479,31 +478,31 @@ impl UniversalPrimalEcosystem {
         });
 
         let request_bytes = serde_json::to_vec(&json_rpc_request).map_err(|e| {
-            PrimalError::SerializationError(format!("Failed to serialize request: {}", e))
+            PrimalError::SerializationError(format!("Failed to serialize request: {e}"))
         })?;
 
         // Send request
         stream
             .write_all(&request_bytes)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to write to socket: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to write to socket: {e}")))?;
 
         stream
             .write_all(b"\n")
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to write delimiter: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to write delimiter: {e}")))?;
 
         // Read response
         let mut response_bytes = Vec::new();
         stream
             .read_to_end(&mut response_bytes)
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to read from socket: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to read from socket: {e}")))?;
 
         // Deserialize JSON-RPC response
         let json_rpc_response: serde_json::Value = serde_json::from_slice(&response_bytes)
             .map_err(|e| {
-                PrimalError::SerializationError(format!("Failed to deserialize response: {}", e))
+                PrimalError::SerializationError(format!("Failed to deserialize response: {e}"))
             })?;
 
         // Extract result or error

@@ -8,31 +8,45 @@
 
 #![forbid(unsafe_code)]
 // Core modules for Squirrel MCP ecosystem coordination
+#[cfg(feature = "http-api")]
 pub mod api;
 pub mod config;
+#[cfg(feature = "mesh")]
 pub mod coordination;
 pub mod discovery;
+#[cfg(feature = "mesh")]
 pub mod ecosystem;
 pub mod error;
+#[cfg(feature = "mesh")]
 pub mod federation;
 pub mod manifest;
 pub mod monitoring;
+#[cfg(feature = "mesh")]
 pub mod routing;
+#[cfg(feature = "mesh")]
 pub mod service_discovery;
+#[cfg(feature = "mesh")]
 pub mod swarm;
 
 // Re-export core types
+#[cfg(feature = "http-api")]
 pub use api::*;
 pub use config::*;
+#[cfg(feature = "mesh")]
 pub use coordination::*;
 pub use discovery::*;
+#[cfg(feature = "mesh")]
 pub use ecosystem::*;
 pub use error::*;
+#[cfg(feature = "mesh")]
 pub use federation::*;
 pub use manifest::*;
 pub use monitoring::*;
+#[cfg(feature = "mesh")]
 pub use routing::*;
+#[cfg(feature = "mesh")]
 pub use service_discovery::*;
+#[cfg(feature = "mesh")]
 pub use swarm::*;
 
 // Core result types
@@ -103,6 +117,7 @@ pub trait PrimalCoordinator {
     async fn health_check(&self) -> Result<HealthStatus>;
 }
 
+#[cfg(feature = "mesh")]
 #[async_trait::async_trait]
 pub trait McpRouter {
     async fn route_task(&self, task: McpTask) -> Result<TaskResponse>;
@@ -110,6 +125,7 @@ pub trait McpRouter {
     async fn scale_capacity(&self, requirements: ScaleRequirements) -> Result<ScaleResult>;
 }
 
+#[cfg(feature = "mesh")]
 #[async_trait::async_trait]
 pub trait SwarmManager {
     async fn spawn_squirrel(&self, config: SquirrelConfig) -> Result<SquirrelInstance>;
@@ -254,6 +270,7 @@ pub struct AgentSpec {
     pub metadata: std::collections::HashMap<String, String>,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CoordinationResult {
     pub registered_agents: u32,
@@ -262,6 +279,7 @@ pub struct CoordinationResult {
     pub status: String,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ScaleResult {
     pub scaling_triggered: bool,
@@ -272,6 +290,7 @@ pub struct ScaleResult {
     pub new_capacity: u32,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LoadMetrics {
     pub cpu_usage: f64,
@@ -283,6 +302,7 @@ pub struct LoadMetrics {
     pub error_rate: f64,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LoadBalanceResult {
     pub distribution: std::collections::HashMap<String, u32>,
@@ -304,6 +324,7 @@ pub const SQUIRREL_MCP_VERSION: &str = "2.2.0";
 pub const PRIMAL_TYPE: &str = "squirrel";
 
 // Service Mesh Load Balancer Integration Config
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ServiceMeshLoadBalancerConfig {
     pub endpoint: String,
@@ -313,9 +334,11 @@ pub struct ServiceMeshLoadBalancerConfig {
 }
 
 // Deprecated alias for backward compatibility
+#[cfg(feature = "mesh")]
 #[deprecated(since = "0.1.0", note = "Use ServiceMeshLoadBalancerConfig instead")]
 pub type SongbirdLoadBalancerConfig = ServiceMeshLoadBalancerConfig;
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LoadBalancingStrategy {
     RoundRobin,
@@ -330,6 +353,7 @@ pub enum LoadBalancingStrategy {
 }
 
 // Enhanced MCP Load Balancer with Songbird coordination
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct McpLoadBalancerConfig {
     pub local_strategy: LoadBalancingStrategy,
@@ -339,6 +363,7 @@ pub struct McpLoadBalancerConfig {
 }
 
 // Load balancer statistics compatible with Songbird
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LoadBalancerStats {
     pub total_requests: u64,
@@ -352,6 +377,7 @@ pub struct LoadBalancerStats {
     pub federation_stats: Option<FederationStats>,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ServiceStats {
     pub requests: u64,
@@ -361,6 +387,7 @@ pub struct ServiceStats {
     pub active_connections: u64,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct McpRoutingStats {
     pub agents_registered: u32,
@@ -370,6 +397,7 @@ pub struct McpRoutingStats {
     pub context_operations: u64,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FederationStats {
     pub nodes_active: u32,
@@ -377,6 +405,7 @@ pub struct FederationStats {
     pub load_distribution: std::collections::HashMap<String, f64>,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RoutingStats {
     pub node_id: String,
@@ -390,6 +419,7 @@ pub struct RoutingStats {
 }
 
 // Service Mesh Load Balancer Integration Trait (Capability-Based)
+#[cfg(feature = "mesh")]
 #[async_trait::async_trait]
 pub trait ServiceMeshLoadBalancerIntegration {
     /// Register Squirrel MCP with service mesh load balancer
@@ -412,12 +442,14 @@ pub trait ServiceMeshLoadBalancerIntegration {
 }
 
 // Deprecated alias for backward compatibility
+#[cfg(feature = "mesh")]
 #[deprecated(
     since = "0.1.0",
     note = "Use ServiceMeshLoadBalancerIntegration instead"
 )]
 pub trait SongbirdLoadBalancerIntegration: ServiceMeshLoadBalancerIntegration {}
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EcosystemLoadDistribution {
     pub recommended_distribution: std::collections::HashMap<String, f64>,
@@ -426,6 +458,7 @@ pub struct EcosystemLoadDistribution {
     pub cross_primal_routing_suggestions: Vec<CrossPrimalRoute>,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ScaleEvent {
     pub event_type: ScaleEventType,
@@ -434,6 +467,7 @@ pub struct ScaleEvent {
     pub resource_requirements: ScaleRequirements,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ScaleEventType {
     ScaleUp,
@@ -442,6 +476,7 @@ pub enum ScaleEventType {
     Emergency,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ScaleRecommendation {
     pub action: ScaleAction,
@@ -450,6 +485,7 @@ pub struct ScaleRecommendation {
     pub coordination_required: bool,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ScaleAction {
     SpawnInstances(u32),
@@ -459,6 +495,7 @@ pub enum ScaleAction {
     RequestPrimalAssistance(PrimalType),
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CrossPrimalRoute {
     pub source_primal: PrimalType,
@@ -468,6 +505,7 @@ pub struct CrossPrimalRoute {
 }
 
 // Enhanced MCP Router with Service Mesh Integration
+#[cfg(feature = "mesh")]
 #[async_trait::async_trait]
 pub trait EnhancedMcpRouter: McpRouter + ServiceMeshLoadBalancerIntegration {
     /// Route task with service mesh coordination
@@ -484,6 +522,7 @@ pub trait EnhancedMcpRouter: McpRouter + ServiceMeshLoadBalancerIntegration {
     ) -> Result<TaskResponse>;
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ScaleRequirements {
     pub target_capacity: u32,
@@ -492,6 +531,7 @@ pub struct ScaleRequirements {
     pub triggers: Vec<ScaleTrigger>,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ScaleTrigger {
     CpuThreshold(f64),
@@ -501,6 +541,7 @@ pub enum ScaleTrigger {
     Custom(String),
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct NodeSpec {
     pub id: String,
@@ -511,6 +552,7 @@ pub struct NodeSpec {
     pub capacity: u32,
 }
 
+#[cfg(feature = "mesh")]
 impl Default for FederationConfig {
     fn default() -> Self {
         Self {
@@ -530,6 +572,7 @@ impl Default for FederationConfig {
 }
 
 // Additional types for federation support
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SquirrelInstance {
     pub id: String,
@@ -545,6 +588,7 @@ pub struct SquirrelInstance {
     pub metadata: std::collections::HashMap<String, String>,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SquirrelConfig {
     pub node_id: String,
@@ -558,6 +602,7 @@ pub struct SquirrelConfig {
     pub metadata: std::collections::HashMap<String, String>,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FederationResult {
     pub federation_id: String,
@@ -566,6 +611,7 @@ pub struct FederationResult {
     pub status: FederationStatus,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FederationTopology {
     Star,
@@ -574,6 +620,7 @@ pub enum FederationTopology {
     Tree,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FederationStatus {
     Forming,
@@ -583,6 +630,7 @@ pub enum FederationStatus {
     Error,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum InstanceStatus {
     Starting,
@@ -593,6 +641,7 @@ pub enum InstanceStatus {
     Unknown,
 }
 
+#[cfg(feature = "mesh")]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FederationConfig {
     pub node_id: String,
@@ -609,6 +658,7 @@ pub struct FederationConfig {
 }
 
 // Missing types referenced in federation.rs
+#[cfg(feature = "mesh")]
 #[derive(Debug)]
 pub struct FederationLoadBalancer {
     #[expect(dead_code, reason = "Load metrics for federation load balancing")]
@@ -617,6 +667,7 @@ pub struct FederationLoadBalancer {
     balancing_strategy: LoadBalancingStrategy,
 }
 
+#[cfg(feature = "mesh")]
 impl FederationLoadBalancer {
     pub fn new(load_metrics: std::sync::Arc<LoadMetrics>) -> Self {
         Self {

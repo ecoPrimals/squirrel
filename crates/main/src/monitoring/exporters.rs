@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: Metrics export mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 //! # Exporters Module
@@ -8,6 +9,7 @@
 use async_trait::async_trait; // KEEP: MetricsExporter used as trait object (dyn MetricsExporter)
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use universal_constants::network::{get_service_port, http_url, DEFAULT_LOCALHOST};
 
 use super::metrics::AllMetrics;
 use crate::error::PrimalError;
@@ -248,15 +250,15 @@ impl Default for ExporterConfig {
     fn default() -> Self {
         // Multi-tier metrics endpoint resolution
         // 1. METRICS_EXPORTER_ENDPOINT (full endpoint)
-        // 2. METRICS_EXPORTER_PORT (port override)
-        // 3. Default: use universal_constants deployment::endpoints::metrics()
+        // 2. METRICS_EXPORTER_PORT or METRICS_PORT (port override)
+        // 3. Default: use get_service_port("metrics") for discovery
         let endpoint = std::env::var("METRICS_EXPORTER_ENDPOINT").unwrap_or_else(|_| {
             let port = std::env::var("METRICS_EXPORTER_PORT")
                 .or_else(|_| std::env::var("METRICS_PORT"))
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or_else(universal_constants::deployment::ports::metrics);
-            format!("http://localhost:{}/metrics", port)
+                .unwrap_or_else(|| get_service_port("metrics"));
+            http_url(DEFAULT_LOCALHOST, port, "/metrics")
         });
 
         Self {

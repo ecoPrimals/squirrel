@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use serde::{Serialize, Deserialize};
+use tracing::{error, warn};
 use chrono::{DateTime, Utc};
 use std::sync::LazyLock;
 
@@ -198,7 +199,7 @@ impl MetricsTimer {
                     values.push(millis);
                 },
                 Err(e) => {
-                    log::error!("Failed to record timer '{}': RwLock poisoned: {}", self.name, e);
+                    tracing::error!("Failed to record timer '{}': RwLock poisoned: {}", self.name, e);
                 }
             }
         }
@@ -277,7 +278,7 @@ impl MetricsCollector {
                 counters_guard.insert(arc_name, AtomicU64::new(1));
             },
             Err(e) => {
-                log::error!("Failed to increment counter '{}': RwLock poisoned: {}", name, e);
+                tracing::error!("Failed to increment counter '{}': RwLock poisoned: {}", name, e);
             }
         }
     }
@@ -298,7 +299,7 @@ impl MetricsCollector {
                 gauges.insert(arc_name, value);
             },
             Err(e) => {
-                log::error!("Failed to set gauge '{}': RwLock poisoned: {}", name, e);
+                tracing::error!("Failed to set gauge '{}': RwLock poisoned: {}", name, e);
             }
         }
     }
@@ -331,7 +332,7 @@ impl MetricsCollector {
                 values_mut.push(millis);
             },
             Err(e) => {
-                log::error!("Failed to record histogram '{}': RwLock poisoned: {}", name, e);
+                tracing::error!("Failed to record histogram '{}': RwLock poisoned: {}", name, e);
             }
         }
     }
@@ -364,7 +365,7 @@ impl MetricsCollector {
                 ));
             }
         } else {
-            log::error!("Failed to read counters: RwLock poisoned");
+            tracing::error!("Failed to read counters: RwLock poisoned");
         }
         
         // Add gauges
@@ -373,7 +374,7 @@ impl MetricsCollector {
                 metrics.push(Metric::new_gauge(name.clone(), *value));
             }
         } else {
-            log::error!("Failed to read gauges: RwLock poisoned");
+            tracing::error!("Failed to read gauges: RwLock poisoned");
         }
         
         // Add histograms
@@ -382,7 +383,7 @@ impl MetricsCollector {
                 metrics.push(Metric::new_histogram(name.clone(), values.clone()));
             }
         } else {
-            log::error!("Failed to read histograms: RwLock poisoned");
+            tracing::error!("Failed to read histograms: RwLock poisoned");
         }
         
         // Add timers
@@ -391,7 +392,7 @@ impl MetricsCollector {
                 metrics.push(Metric::new_timer(name.clone(), values.clone()));
             }
         } else {
-            log::error!("Failed to read timers: RwLock poisoned");
+            tracing::error!("Failed to read timers: RwLock poisoned");
         }
         
         metrics
@@ -439,7 +440,7 @@ impl MetricsCollector {
                 counters_guard.insert(arc_name, AtomicU64::new(value));
             },
             Err(e) => {
-                log::error!("Failed to increment counter '{}' by {}: RwLock poisoned: {}", name, value, e);
+                tracing::error!("Failed to increment counter '{}' by {}: RwLock poisoned: {}", name, value, e);
             }
         }
     }
@@ -469,7 +470,7 @@ impl MetricsCollector {
         match self.gauges.read() {
             Ok(gauges) => gauges.get(name).copied(),
             Err(e) => {
-                log::error!("Failed to read gauge '{}': RwLock poisoned: {}", name, e);
+                tracing::error!("Failed to read gauge '{}': RwLock poisoned: {}", name, e);
                 None
             }
         }
@@ -489,7 +490,7 @@ impl MetricsCollector {
         match self.histograms.read() {
             Ok(histograms) => histograms.get(name).cloned(),
             Err(e) => {
-                log::error!("Failed to read histogram '{}': RwLock poisoned: {}", name, e);
+                tracing::error!("Failed to read histogram '{}': RwLock poisoned: {}", name, e);
                 None
             }
         }
@@ -509,7 +510,7 @@ impl MetricsCollector {
         match self.timers.read() {
             Ok(timers) => timers.get(name).map(|v| v.to_vec()), // More explicit about the copy
             Err(e) => {
-                log::error!("Failed to read timer '{}': RwLock poisoned: {}", name, e);
+                tracing::error!("Failed to read timer '{}': RwLock poisoned: {}", name, e);
                 None
             }
         }
@@ -521,7 +522,7 @@ impl MetricsCollector {
             Ok(guard) if guard.contains_key(name) => Some(guard),
             Ok(_) => None,
             Err(e) => {
-                log::error!("Failed to read timer '{}': RwLock poisoned: {}", name, e);
+                tracing::error!("Failed to read timer '{}': RwLock poisoned: {}", name, e);
                 None
             }
         }
@@ -532,7 +533,7 @@ impl MetricsCollector {
 /// Consider using Arc<MetricsCollector> instead for shared metrics collection.
 impl Clone for MetricsCollector {
     fn clone(&self) -> Self {
-        log::warn!("MetricsCollector::clone() called - Consider using Arc<MetricsCollector> for better performance");
+        tracing::warn!("MetricsCollector::clone() called - Consider using Arc<MetricsCollector> for better performance");
         
         // Create a new collector with shared references where possible
         let new_collector = Self::new();

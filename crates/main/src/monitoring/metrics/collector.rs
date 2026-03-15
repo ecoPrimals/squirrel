@@ -10,6 +10,7 @@ use chrono::Utc;
 use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
+#[cfg(feature = "system-metrics")]
 use sysinfo::System;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
@@ -51,6 +52,7 @@ pub struct MetricsCollector {
     /// Maximum history size
     pub(crate) max_history_size: usize,
     /// System information collector for real metrics
+    #[cfg(feature = "system-metrics")]
     pub(crate) sys_info: Arc<RwLock<System>>,
     /// Last time external capability discovery was performed
     last_discovery: Arc<RwLock<std::time::Instant>>,
@@ -74,8 +76,8 @@ impl MetricsCollector {
             system_metrics: Arc::new(RwLock::new(SystemMetrics::default())),
             history: Arc::new(RwLock::new(Vec::new())),
             max_history_size: 1000,
+            #[cfg(feature = "system-metrics")]
             sys_info: Arc::new(RwLock::new(System::new())),
-            // Start with epoch so first call always discovers
             last_discovery: Arc::new(RwLock::new(std::time::Instant::now())),
             discovery_interval: std::time::Duration::from_secs(60),
         }
@@ -271,13 +273,10 @@ impl MetricsCollector {
     }
 
     /// Collect system-wide metrics
-    ///
-    /// Performs a single sysinfo refresh and reads all values at once
-    /// to avoid redundant system calls.
     async fn collect_system_metrics(&self) -> Result<(), PrimalError> {
         let mut system_metrics = self.system_metrics.write().await;
 
-        // Single refresh for all sysinfo-based metrics
+        #[cfg(feature = "system-metrics")]
         {
             let mut sys = self.sys_info.write().await;
             sys.refresh_cpu();
@@ -293,7 +292,6 @@ impl MetricsCollector {
             };
         }
 
-        // Remaining metrics (not from sysinfo, fast)
         system_metrics.disk_usage = self.get_disk_usage().await?;
         system_metrics.network_bytes_sent = self.get_network_bytes_sent().await?;
         system_metrics.network_bytes_received = self.get_network_bytes_received().await?;
@@ -347,7 +345,7 @@ impl MetricsCollector {
                     );
                     let metrics = self.collect_component_specific_metrics(domain).await?;
                     self.component_metrics
-                        .insert(format!("capability.{}", domain), metrics);
+                        .insert(format!("capability.{domain}"), metrics);
                 } else {
                     debug!("No provider found for capability: {}", domain);
                 }
@@ -482,42 +480,36 @@ impl MetricsCollector {
         Ok(())
     }
 
-    /// System metric collection helpers
-    ///
-    /// ✅ **REAL METRICS**: Uses sysinfo crate for actual system stats.
+    #[cfg(feature = "system-metrics")]
+    #[allow(dead_code)]
     async fn get_cpu_usage(&self) -> Result<f64, PrimalError> {
         let mut sys = self.sys_info.write().await;
-
-        // Refresh CPU information
         sys.refresh_cpu();
-
-        // Get global CPU usage
         let cpu_usage = sys.global_cpu_info().cpu_usage();
-
         debug!("Current CPU usage: {:.2}%", cpu_usage);
         Ok(f64::from(cpu_usage))
     }
 
+    #[cfg(feature = "system-metrics")]
+    #[allow(dead_code)]
     async fn get_memory_usage(&self) -> Result<u64, PrimalError> {
         let mut sys = self.sys_info.write().await;
         sys.refresh_memory();
-
         let used_memory = sys.used_memory();
         debug!("Current memory usage: {} bytes", used_memory);
         Ok(used_memory)
     }
 
+    #[cfg(feature = "system-metrics")]
+    #[allow(dead_code)]
     async fn get_memory_percentage(&self) -> Result<f64, PrimalError> {
         let mut sys = self.sys_info.write().await;
         sys.refresh_memory();
-
         let total_memory = sys.total_memory();
         let used_memory = sys.used_memory();
-
         if total_memory == 0 {
             return Ok(0.0);
         }
-
         let percentage = (used_memory as f64 / total_memory as f64) * 100.0;
         debug!("Current memory percentage: {:.2}%", percentage);
         Ok(percentage)

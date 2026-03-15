@@ -87,6 +87,21 @@ pub struct ContextState {
     pub last_modified: SystemTime,
 }
 
+#[cfg(test)]
+impl Default for ContextState {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            version: 0,
+            timestamp: 0,
+            data: Value::Null,
+            metadata: std::collections::HashMap::new(),
+            synchronized: false,
+            last_modified: SystemTime::UNIX_EPOCH,
+        }
+    }
+}
+
 pub mod error;
 pub mod learning;
 pub mod manager;
@@ -94,6 +109,8 @@ pub mod plugins;
 pub mod rules;
 /// Context synchronization and distribution
 pub mod sync;
+#[cfg(test)]
+mod sync_tests;
 pub mod tracker;
 pub mod visualization;
 pub use error::{ContextError, Result};

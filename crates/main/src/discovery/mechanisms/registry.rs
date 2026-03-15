@@ -305,10 +305,10 @@ impl RegistryDiscovery {
         tags: Vec<String>,
         metadata: HashMap<String, String>,
     ) -> DiscoveredService {
-        let endpoint = format!("http://{}:{}", address, port);
+        let endpoint = format!("http://{address}:{port}");
 
         DiscoveredService {
-            name: format!("{}-{}", service_name, service_id),
+            name: format!("{service_name}-{service_id}"),
             endpoint,
             capabilities: tags,
             metadata,

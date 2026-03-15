@@ -428,34 +428,42 @@ impl MetricsCollector {
         }
     }
     
-    /// Collect memory usage metrics safely
+    /// Collect memory usage from /proc/meminfo (Pure Rust)
     fn collect_memory_usage(&self) -> Option<u64> {
-        use sysinfo::{System, SystemExt};
-        
-        let mut sys = System::new();
-        sys.refresh_memory();
-        
-        let used_memory = sys.used_memory();
-        if used_memory > 0 {
-            Some(used_memory)
-        } else {
-            None
+        #[cfg(target_os = "linux")]
+        {
+            let meminfo = std::fs::read_to_string("/proc/meminfo").ok()?;
+            let mut total = 0u64;
+            let mut available = 0u64;
+            for line in meminfo.lines() {
+                if let Some(val) = line.strip_prefix("MemTotal:") {
+                    total = val.trim().split_whitespace().next()?.parse().ok()?;
+                } else if let Some(val) = line.strip_prefix("MemAvailable:") {
+                    available = val.trim().split_whitespace().next()?.parse().ok()?;
+                }
+            }
+            let used_kb = total.saturating_sub(available);
+            Some(used_kb * 1024)
         }
+        #[cfg(not(target_os = "linux"))]
+        { None }
     }
-    
-    /// Collect CPU usage metrics safely
+
+    /// Collect CPU usage from /proc/stat (Pure Rust)
     fn collect_cpu_usage(&self) -> Option<f64> {
-        use sysinfo::{System, SystemExt, CpuExt};
-        
-        let mut sys = System::new();
-        sys.refresh_cpu();
-        
-        let cpu_usage = sys.global_cpu_info().cpu_usage();
-        if cpu_usage >= 0.0 && cpu_usage <= 100.0 {
-            Some(cpu_usage.into())
-        } else {
-            None
+        #[cfg(target_os = "linux")]
+        {
+            let stat = std::fs::read_to_string("/proc/stat").ok()?;
+            let line = stat.lines().next()?;
+            let vals: Vec<u64> = line.split_whitespace().skip(1)
+                .filter_map(|v| v.parse().ok()).collect();
+            if vals.len() < 4 { return None; }
+            let idle = vals[3];
+            let total: u64 = vals.iter().sum();
+            if total > 0 { Some(((total - idle) as f64 / total as f64) * 100.0) } else { None }
         }
+        #[cfg(not(target_os = "linux"))]
+        { None }
     }
 }
 

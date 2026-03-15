@@ -170,7 +170,7 @@ impl UniversalAdapterV2 {
 
         // Discover self-identity (NO hardcoding!)
         let self_knowledge = PrimalSelfKnowledge::discover_self()
-            .map_err(|e| DiscoveryError::ParseError(format!("Self-discovery failed: {}", e)))?;
+            .map_err(|e| DiscoveryError::ParseError(format!("Self-discovery failed: {e}")))?;
 
         info!(
             "✅ Self-knowledge acquired: {}",
@@ -427,9 +427,8 @@ impl UniversalClient {
         );
 
         // Serialize request to JSON for protocol-agnostic transport
-        let params = serde_json::to_value(&request).map_err(|e| {
-            PrimalError::InvalidInput(format!("Failed to serialize request: {}", e))
-        })?;
+        let params = serde_json::to_value(&request)
+            .map_err(|e| PrimalError::InvalidInput(format!("Failed to serialize request: {e}")))?;
 
         // Protocol capabilities REMOVED - use Unix sockets directly
         // Modern implementation: JSON-RPC over Unix sockets

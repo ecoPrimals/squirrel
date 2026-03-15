@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+// ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 DataScienceBioLab
 
 //! AI request router with intelligent provider selection and fallback
@@ -304,7 +305,7 @@ impl AiRouter {
         // Create basic metadata from socket path
         let metadata = ProviderMetadata {
             primal_id: file_name.to_string(),
-            name: format!("Universal AI ({})", file_name),
+            name: format!("Universal AI ({file_name})"),
             is_local: Some(true), // Unix socket implies local
             quality: Some("standard".to_string()),
             cost: Some(0.0), // Local providers are free
@@ -321,8 +322,7 @@ impl AiRouter {
         // Verify adapter is available
         if !adapter.is_available().await {
             return Err(PrimalError::OperationFailed(format!(
-                "Provider at {} is not available",
-                socket_path
+                "Provider at {socket_path} is not available"
             )));
         }
 
