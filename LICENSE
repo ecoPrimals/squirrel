@@ -1,1 +1,120 @@
-LICENSE-AGPL3
+Squirrel — AI Coordination Primal
+Copyright (C) 2026 ecoPrimals Contributors
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+========================================================================
+scyBorg Triple-Copyleft Licensing Framework
+========================================================================
+
+This software is part of the ecoPrimals ecosystem and is licensed under
+the scyBorg triple-copyleft framework. scyBorg is the licensing standard
+applied to every primal, every spring, every experiment, every tool, and
+every derivative work in the ecosystem.
+
+  scyBorg = AGPL-3.0 (code) + ORC (mechanics) + CC-BY-SA 4.0 (creative)
+
+------------------------------------------------------------------------
+Layer 1: Software — AGPL-3.0-or-later
+------------------------------------------------------------------------
+
+All source code, binaries, shaders, build scripts, configuration, tests,
+experiments, and tools are licensed under the GNU Affero General Public
+License, version 3 or any later version, as published by the Free Software
+Foundation.
+
+This means:
+  - Any derivative must also be AGPL-3.0-or-later
+  - Network use triggers the distribution obligation (AGPL Section 13)
+  - SaaS wrappers around ecoPrimals code must release their source
+
+See LICENSE-AGPL3 for the full license text.
+See https://www.gnu.org/licenses/agpl-3.0.html
+
+------------------------------------------------------------------------
+Layer 2: System Mechanics — ORC (Open RPG Creative License)
+------------------------------------------------------------------------
+
+The ORC License protects the mechanical designs of the ecoPrimals
+ecosystem — the systems, rules, and interaction patterns that define
+how primals and springs operate. These are Licensed Material under ORC:
+
+  - Primal interaction protocols (capability discovery, IPC patterns,
+    delegation chains, TRUE PRIMAL self-knowledge architecture)
+  - Spring deployment niches (niche YAML, deploy graphs, capability
+    domain registration, Spring-as-Niche deployment standard)
+  - Ecosystem topology (primal composition trios, federation patterns,
+    service mesh mechanics, provenance chain structures)
+  - Constrained evolution methodology (mutation/selection/fitness
+    framework applied to AI-assisted code generation)
+  - Game mechanics produced by ludoSpring and other springs (rules,
+    stat blocks, progression systems, encounter math)
+
+ORC is irrevocable and perpetual. Derivatives must license their own
+mechanical innovations back to the community under the same terms.
+No entity can revoke or amend the ORC License.
+
+Registered with the U.S. Library of Congress (TX 9-307-067).
+
+ORC Notice:
+  This product is licensed under the ORC License held in the Library of
+  Congress at TX 9-307-067 and available online at various locations
+  including www.azoralaw.com/orclicense and www.gencon.com/orclicense.
+  All warranties are disclaimed as set forth therein.
+
+Attribution:
+  ecoPrimals ecosystem design, (C) 2026 ecoPrimals Contributors.
+  If you use our Licensed Material in your own published work, please
+  credit us as: ecoPrimals, (C) 2026 ecoPrimals Contributors.
+
+Reserved Material:
+  ecoPrimals, Squirrel, biomeOS, BearDog, Songbird, NestGate, ToadStool,
+  BarraCuda, coralReef, petalTongue, rhizoCrypt, sweetGrass, LoamSpine,
+  skunkBat, sourDough, scyBorg, and all primal/spring names, logos, and
+  trade dress are Reserved Material under the ORC License.
+
+Expressly Designated Licensed Material:
+  The primal interaction protocols, spring deployment standards, ecosystem
+  topology patterns, and constrained evolution methodology described in
+  the wateringHole/ specifications are hereby expressly designated as
+  Licensed Material under the ORC License.
+
+See https://azoralaw.com/orclicense/
+
+------------------------------------------------------------------------
+Layer 3: Creative Content — CC-BY-SA 4.0
+------------------------------------------------------------------------
+
+All non-code creative output — documentation, papers, visualizations,
+diagrams, architectural descriptions, whitePaper content, and narrative
+designs — is licensed under Creative Commons Attribution-ShareAlike 4.0
+International.
+
+Attribution is required. Share-alike propagates to derivatives.
+
+See https://creativecommons.org/licenses/by-sa/4.0/
+
+------------------------------------------------------------------------
+Structural Defense
+------------------------------------------------------------------------
+
+scyBorg is governed by three independent nonprofits:
+  - Free Software Foundation (AGPL-3.0)
+  - Open RPG Creative Foundation (ORC)
+  - Creative Commons (CC-BY-SA 4.0)
+
+No single entity can revoke any of these licenses.
+This is structural, not contractual.
+
+------------------------------------------------------------------------
+Provenance Trio (Enforcement Layer)
+------------------------------------------------------------------------
+
+The provenance trio provides machine-verifiable evidence for scyBorg:
+  - sweetGrass: who created what (BY in CC-BY-SA)
+  - rhizoCrypt: derivation chains (SA in CC-BY-SA)
+  - loamSpine: immutable license certificates
+
+Evidence, not enforcement. Copyright law is the enforcement mechanism.
+
+========================================================================
