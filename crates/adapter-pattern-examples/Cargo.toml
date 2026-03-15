@@ -2,7 +2,7 @@
 name = "adapter-pattern-examples"
 version = "0.1.0"
 edition = "2021"
-authors = ["DataScienceBioLab"]
+authors = ["ecoPrimals Contributors"]
 description = "Examples of the Adapter Pattern in Rust with a command-based architecture"
 readme = "README.md"
 license = "AGPL-3.0-or-later"

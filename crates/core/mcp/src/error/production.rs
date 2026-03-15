@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -503,7 +503,8 @@ mod tests {
         let result = SafeOperation::new(Ok(42));
         assert_eq!(result.unwrap_or_default(), 42);
 
-        let error_result = SafeOperation::new(Err(ProductionError::configuration("test")));
+        let error_result: SafeOperation<i32> =
+            SafeOperation::new(Err(ProductionError::configuration("test")));
         assert_eq!(error_result.unwrap_or_default(), 0);
     }
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 // ORC-Notice: RPC service types licensed under ORC
 
 //! tarpc RPC Service Definition

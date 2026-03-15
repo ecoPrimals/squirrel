@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin Management REST API
 //!
@@ -820,13 +820,11 @@ impl PluginWebSocketHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manager::DefaultPluginManager;
-    use crate::state::MemoryStateManager;
+    use crate::DefaultPluginManager;
 
     #[tokio::test]
     async fn test_plugin_management_api_creation() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
+        let manager = Arc::new(DefaultPluginManager::new());
         let api = PluginManagementAPI::new(manager);
 
         let endpoints = api.get_endpoints();
@@ -836,8 +834,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_plugin_id_extraction() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
+        let manager = Arc::new(DefaultPluginManager::new());
         let api = PluginManagementAPI::new(manager);
 
         let plugin_id = Uuid::new_v4();

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Example web plugin implementation
 //!
@@ -61,7 +61,7 @@ impl ExampleWebPlugin {
             name: "example-web-plugin".to_string(),
             version: "1.0.0".to_string(),
             description: "Example web plugin for demonstration".to_string(),
-            author: "DataScienceBioLab".to_string(),
+            author: "ecoPrimals Contributors".to_string(),
             capabilities: vec!["web".to_string()],
             dependencies: vec![],
         };

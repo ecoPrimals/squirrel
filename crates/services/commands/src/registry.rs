@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Command registry for managing and executing commands
 #![allow(clippy::type_complexity)] // Complex handler types are inherent to the command pattern

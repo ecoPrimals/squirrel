@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 // Dynamic Plugin Example
 //
@@ -66,7 +66,7 @@ impl Plugin for DynamicExamplePlugin {
                 name: "dynamic-example-plugin".to_string(),
                 version: "1.0.0".to_string(),
                 description: "A dynamic example plugin for structure demonstration".to_string(),
-                author: "DataScienceBioLab".to_string(),
+                author: "ecoPrimals Contributors".to_string(),
             }
         });
         
@@ -194,7 +194,7 @@ pub fn create_dynamic_example_plugin() -> Box<dyn Plugin> {
         version: "1.0.0".to_string(),
         api_version: "1.0.0".to_string(),
         description: "An example dynamically loaded plugin".to_string(),
-        author: "DataScienceBioLab".to_string(),
+        author: "ecoPrimals Contributors".to_string(),
         commands: vec![
             CommandInfo {
                 name: "hello".to_string(),
@@ -233,7 +233,7 @@ pub fn create_dynamic_example_plugin() -> Box<dyn Plugin> {
 ///         version: "1.0.0".to_string(),
 ///         api_version: "1.0.0".to_string(),
 ///         description: "An example dynamically loaded plugin".to_string(),
-///         author: "DataScienceBioLab".to_string(),
+///         author: "ecoPrimals Contributors".to_string(),
 ///         dependencies: Vec::new(),
 ///     };
 ///     Box::into_raw(Box::new(metadata))

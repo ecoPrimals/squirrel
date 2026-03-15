@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Constraint-based provider selection
 #![allow(dead_code)] // Public API surface awaiting consumer activation

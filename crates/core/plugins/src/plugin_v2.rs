@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 // NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
 // The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
@@ -92,6 +92,7 @@ pub trait WebPluginExtV2: PluginV2 {
 }
 
 /// Helper struct to adapt PluginV2 to Plugin for backward compatibility
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct PluginWrapper<T: PluginV2> {
     inner: T,
@@ -99,6 +100,7 @@ pub struct PluginWrapper<T: PluginV2> {
 
 impl<T: PluginV2> PluginWrapper<T> {
     /// Create a new PluginWrapper with the given PluginV2 implementation
+    #[allow(dead_code)]
     pub fn new(inner: T) -> Self {
         Self { inner }
     }
@@ -127,8 +129,8 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
     }
 }
 
-/// Helper function to adapt a PluginV2 to Plugin
-#[expect(dead_code, reason = "Reserved for plugin V2 compatibility layer")]
+/// Helper function to adapt a PluginV2 to Plugin (used in tests)
+#[allow(dead_code)]
 pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
     Arc::new(PluginWrapper::new(plugin))
 }
@@ -174,21 +176,20 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl PluginV2 for ExamplePluginV2 {
         #[allow(deprecated)] // Tests deprecated path for backward compatibility
         fn metadata(&self) -> &PluginMetadata {
             &self.metadata
         }
 
-        async fn initialize(&self) -> Result<()> {
+        fn initialize(&self) -> impl std::future::Future<Output = Result<()>> + Send {
             self.log("info", "ExamplePluginV2 initialized");
-            Ok(())
+            async move { Ok(()) }
         }
 
-        async fn shutdown(&self) -> Result<()> {
+        fn shutdown(&self) -> impl std::future::Future<Output = Result<()>> + Send {
             self.log("info", "ExamplePluginV2 shutdown");
-            Ok(())
+            async move { Ok(()) }
         }
 
         fn as_any(&self) -> &dyn Any {

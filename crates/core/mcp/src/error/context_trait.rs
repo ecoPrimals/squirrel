@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Error Context Trait - Standardized error context access across all error types
 //!
@@ -240,6 +240,10 @@ mod tests {
             self.severity
         }
 
+        fn is_recoverable(&self) -> bool {
+            false
+        }
+
         fn operation(&self) -> Option<&str> {
             Some("test_operation")
         }
@@ -260,6 +264,7 @@ mod tests {
         assert_eq!(error.operation(), Some("test_operation"));
         assert_eq!(error.component(), Some("test_component"));
         assert!(error.should_alert());
+        // High severity + non-recoverable = requires immediate attention
         assert!(error.requires_immediate_attention());
     }
 

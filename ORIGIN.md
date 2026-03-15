@@ -37,9 +37,8 @@ The framework is grounded in three biological lines of evidence:
   too low for selection to dominate drift, Muller's ratchet degrades quality.
   This defines when constrained evolution fails.
 
-The formal treatment is in
-[`gen3/thesis/03_theoretical_framework.md`](../../../whitePaper/gen3/thesis/03_theoretical_framework.md)
-in the ecoPrimals white paper.
+The formal treatment is in `gen3/thesis/03_theoretical_framework.md`
+in the ecoPrimals white paper (see the [ecoPrimals](https://github.com/syntheticChemistry) repository).
 
 ---
 
@@ -74,7 +73,7 @@ The methodology:
 4. **Physics as fitness function** — for the science primals (hotSpring,
    wetSpring, etc.), validation suites reproduce published results. For
    infrastructure primals like Squirrel, the fitness function is the test suite
-   (1,622+ tests), chaos/fault injection, and ecosystem integration.
+   (3,749+ tests), chaos/fault injection, and ecosystem integration.
 
 The Cursor receipt is the evidence for the methodology: the commit history and
 agent invocation log show the evolutionary trajectory.
@@ -84,7 +83,7 @@ agent invocation log show the evolutionary trajectory.
 ## The ecoPrimals Ecosystem
 
 Squirrel is one of 14 primals. The full catalog is in the
-[white paper](../../../whitePaper/gen3/PRIMAL_CATALOG.md). Key relationships:
+ecoPrimals white paper (`PRIMAL_CATALOG.md`). Key relationships:
 
 - **biomeOS** routes all AI requests through Squirrel
 - **Songbird** provides HTTP transport for cloud AI providers
@@ -100,6 +99,6 @@ workloads that Squirrel coordinates.
 
 ## License
 
-AGPL-3.0-or-later. See [LICENSE-AGPL3](LICENSE-AGPL3).
+[scyBorg](LICENSE) — AGPL-3.0-or-later + ORC + CC-BY-SA 4.0.
 
-Copyright (C) 2026 DataScienceBioLab
+Copyright (C) 2026 ecoPrimals Contributors

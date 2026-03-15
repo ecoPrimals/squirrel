@@ -44,7 +44,7 @@ members = [
 ]
 
 [workspace.package]
-authors = ["DataScienceBioLab"]
+authors = ["ecoPrimals Contributors"]
 edition = "2021"
 license = "AGPL-3.0-or-later"
 version = "0.1.0"

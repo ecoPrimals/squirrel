@@ -5638,6 +5638,7 @@ dependencies = [
  "serde_json",
  "squirrel-interfaces",
  "squirrel-mcp-config",
+ "tempfile",
  "test-case",
  "thiserror 1.0.69",
  "tokio",

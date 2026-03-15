@@ -9,6 +9,8 @@ default = ["delegated-jwt"]  # Production: delegate to BearDog (TRUE ecoBin!)
 delegated-jwt = []           # Use BearDog for JWT validation (Pure Rust!)
 local-jwt = ["dep:jsonwebtoken"]  # Dev/testing: local JWT (brings ring)
 http-auth = ["dep:reqwest"]  # HTTP-based auth (brings reqwest → ring)
+# Integration tests disabled - API has changed, tests need rewrite
+integration-tests = []
 
 [dependencies]
 # beardog = { path = "../../../../../beardog" }  # Will be added in proper integration

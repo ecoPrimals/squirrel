@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 use serde_json::json;
 use std::collections::HashMap;
@@ -70,20 +70,20 @@ struct EnhancedDemoRouter {
 
 #[derive(Debug, Clone)]
 struct AgentConfig {
-    endpoint: String,
+    _endpoint: String,
     capabilities: Vec<String>,
     health_status: bool,
-    response_time: Duration,
-    group: Option<String>,
+    _response_time: Duration,
+    _group: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 struct AgentGroup {
-    name: String,
+    _name: String,
     agents: Vec<String>,
-    priority: u32,
-    selection_strategy: String,
-    failover_groups: Vec<String>,
+    _priority: u32,
+    _selection_strategy: String,
+    _failover_groups: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -91,14 +91,14 @@ struct ManualRoutingRule {
     rule_id: String,
     condition: String,
     action: String,
-    priority: u32,
+    _priority: u32,
     enabled: bool,
 }
 
 #[derive(Debug, Clone)]
 enum SelectionMode {
     Automatic,
-    Manual,
+    _Manual,
     Hybrid,
 }
 
@@ -119,11 +119,11 @@ impl EnhancedDemoRouter {
         self.agent_groups.insert(
             "ai-processing".to_string(),
             AgentGroup {
-                name: "ai-processing".to_string(),
+                _name: "ai-processing".to_string(),
                 agents: vec!["openai-gpt4".to_string(), "claude-sonnet".to_string()],
-                priority: 1,
-                selection_strategy: "capability-based".to_string(),
-                failover_groups: vec!["local-agents".to_string()],
+                _priority: 1,
+                _selection_strategy: "capability-based".to_string(),
+                _failover_groups: vec!["local-agents".to_string()],
             },
         );
 
@@ -131,11 +131,11 @@ impl EnhancedDemoRouter {
         self.agent_groups.insert(
             "local-agents".to_string(),
             AgentGroup {
-                name: "local-agents".to_string(),
+                _name: "local-agents".to_string(),
                 agents: vec!["local-ollama".to_string()],
-                priority: 2,
-                selection_strategy: "round-robin".to_string(),
-                failover_groups: vec![],
+                _priority: 2,
+                _selection_strategy: "round-robin".to_string(),
+                _failover_groups: vec![],
             },
         );
 
@@ -143,11 +143,11 @@ impl EnhancedDemoRouter {
         self.agent_groups.insert(
             "high-performance".to_string(),
             AgentGroup {
-                name: "high-performance".to_string(),
+                _name: "high-performance".to_string(),
                 agents: vec!["openai-gpt4".to_string()],
-                priority: 0,
-                selection_strategy: "least-connections".to_string(),
-                failover_groups: vec!["ai-processing".to_string()],
+                _priority: 0,
+                _selection_strategy: "least-connections".to_string(),
+                _failover_groups: vec!["ai-processing".to_string()],
             },
         );
 
@@ -161,7 +161,7 @@ impl EnhancedDemoRouter {
             rule_id: "bio-to-high-perf".to_string(),
             condition: "task_type=bioinformatics".to_string(),
             action: "use_group=high-performance".to_string(),
-            priority: 100,
+            _priority: 100,
             enabled: true,
         });
 
@@ -170,7 +170,7 @@ impl EnhancedDemoRouter {
             rule_id: "security-to-capability".to_string(),
             condition: "capability=security".to_string(),
             action: "use_capability=security".to_string(),
-            priority: 90,
+            _priority: 90,
             enabled: true,
         });
 
@@ -179,7 +179,7 @@ impl EnhancedDemoRouter {
             rule_id: "storage-to-capability".to_string(),
             condition: "capability=storage".to_string(),
             action: "use_capability=storage".to_string(),
-            priority: 90,
+            _priority: 90,
             enabled: true,
         });
 
@@ -188,7 +188,7 @@ impl EnhancedDemoRouter {
             rule_id: "compute-to-capability".to_string(),
             condition: "capability=compute".to_string(),
             action: "use_capability=compute".to_string(),
-            priority: 90,
+            _priority: 90,
             enabled: true,
         });
 
@@ -204,7 +204,7 @@ impl EnhancedDemoRouter {
         self.agents.insert(
             "openai-gpt4".to_string(),
             AgentConfig {
-                endpoint: "https://api.openai.com/v1/chat/completions".to_string(),
+                _endpoint: "https://api.openai.com/v1/chat/completions".to_string(),
                 capabilities: vec![
                     "reasoning".to_string(),
                     "code".to_string(),
@@ -212,8 +212,8 @@ impl EnhancedDemoRouter {
                     "bioinformatics".to_string(),
                 ],
                 health_status: true,
-                response_time: Duration::from_millis(800),
-                group: Some("ai-processing".to_string()),
+                _response_time: Duration::from_millis(800),
+                _group: Some("ai-processing".to_string()),
             },
         );
 
@@ -221,15 +221,15 @@ impl EnhancedDemoRouter {
         self.agents.insert(
             "claude-sonnet".to_string(),
             AgentConfig {
-                endpoint: "https://api.anthropic.com/v1/messages".to_string(),
+                _endpoint: "https://api.anthropic.com/v1/messages".to_string(),
                 capabilities: vec![
                     "reasoning".to_string(),
                     "writing".to_string(),
                     "analysis".to_string(),
                 ],
                 health_status: true,
-                response_time: Duration::from_millis(600),
-                group: Some("ai-processing".to_string()),
+                _response_time: Duration::from_millis(600),
+                _group: Some("ai-processing".to_string()),
             },
         );
 
@@ -237,15 +237,15 @@ impl EnhancedDemoRouter {
         self.agents.insert(
             "local-ollama".to_string(),
             AgentConfig {
-                endpoint: "http://localhost:11434/api/generate".to_string(),
+                _endpoint: "http://localhost:11434/api/generate".to_string(),
                 capabilities: vec![
                     "chat".to_string(),
                     "local".to_string(),
                     "private".to_string(),
                 ],
                 health_status: true,
-                response_time: Duration::from_millis(2000),
-                group: Some("local-agents".to_string()),
+                _response_time: Duration::from_millis(2000),
+                _group: Some("local-agents".to_string()),
             },
         );
 
@@ -295,8 +295,8 @@ impl EnhancedDemoRouter {
 
         Ok(TaskResponse {
             destination: selected_destination,
-            response,
-            execution_time: Duration::from_millis(rand::random::<u64>() % 500 + 100),
+            _response: response,
+            _execution_time: Duration::from_millis(rand::random::<u64>() % 500 + 100),
             routing_method: self.get_routing_method(task),
         })
     }
@@ -504,7 +504,7 @@ struct DemoTask {
     id: String,
     prompt: String,
     required_capabilities: Vec<String>,
-    priority: TaskPriority,
+    _priority: TaskPriority,
     metadata: HashMap<String, String>,
 }
 
@@ -512,14 +512,14 @@ struct DemoTask {
 enum TaskPriority {
     High,
     Normal,
-    Low,
+    _Low,
 }
 
 #[derive(Debug)]
 struct TaskResponse {
     destination: String,
-    response: serde_json::Value,
-    execution_time: Duration,
+    _response: serde_json::Value,
+    _execution_time: Duration,
     routing_method: String,
 }
 
@@ -532,7 +532,7 @@ async fn demo_manual_selection(
         id: "task-manual-1".to_string(),
         prompt: "Analyze protein structure".to_string(),
         required_capabilities: vec!["analysis".to_string()],
-        priority: TaskPriority::High,
+        _priority: TaskPriority::High,
         metadata: HashMap::new(),
     };
 
@@ -578,7 +578,7 @@ async fn demo_agent_groups(
             id: "task-group-1".to_string(),
             prompt: "High-priority bioinformatics analysis".to_string(),
             required_capabilities: vec!["bioinformatics".to_string()],
-            priority: TaskPriority::High,
+            _priority: TaskPriority::High,
             metadata: {
                 let mut map = HashMap::new();
                 map.insert("task_type".to_string(), "bioinformatics".to_string());
@@ -589,7 +589,7 @@ async fn demo_agent_groups(
             id: "task-group-2".to_string(),
             prompt: "General text processing".to_string(),
             required_capabilities: vec!["chat".to_string()],
-            priority: TaskPriority::Normal,
+            _priority: TaskPriority::Normal,
             metadata: HashMap::new(),
         },
     ];
@@ -615,21 +615,21 @@ async fn demo_primal_routing(
             id: "task-primal-1".to_string(),
             prompt: "Store patient data securely".to_string(),
             required_capabilities: vec!["storage".to_string()],
-            priority: TaskPriority::High,
+            _priority: TaskPriority::High,
             metadata: HashMap::new(),
         },
         DemoTask {
             id: "task-primal-2".to_string(),
             prompt: "Run complex bioinformatics calculation".to_string(),
             required_capabilities: vec!["compute".to_string()],
-            priority: TaskPriority::High,
+            _priority: TaskPriority::High,
             metadata: HashMap::new(),
         },
         DemoTask {
             id: "task-primal-3".to_string(),
             prompt: "Encrypt sensitive research data".to_string(),
             required_capabilities: vec!["security".to_string()],
-            priority: TaskPriority::High,
+            _priority: TaskPriority::High,
             metadata: HashMap::new(),
         },
     ];
@@ -655,7 +655,7 @@ async fn demo_config_rules(
     for rule in &router.manual_rules {
         println!(
             "  • {} (priority: {}): {} -> {}",
-            rule.rule_id, rule.priority, rule.condition, rule.action
+            rule.rule_id, rule._priority, rule.condition, rule.action
         );
     }
 
@@ -664,7 +664,7 @@ async fn demo_config_rules(
         id: "task-rule-1".to_string(),
         prompt: "Bioinformatics protein folding analysis".to_string(),
         required_capabilities: vec!["bioinformatics".to_string()],
-        priority: TaskPriority::High,
+        _priority: TaskPriority::High,
         metadata: {
             let mut map = HashMap::new();
             map.insert("task_type".to_string(), "bioinformatics".to_string());
@@ -690,7 +690,7 @@ async fn demo_selection_modes(
         id: "task-mode-1".to_string(),
         prompt: "General analysis task".to_string(),
         required_capabilities: vec!["analysis".to_string()],
-        priority: TaskPriority::Normal,
+        _priority: TaskPriority::Normal,
         metadata: HashMap::new(),
     };
 

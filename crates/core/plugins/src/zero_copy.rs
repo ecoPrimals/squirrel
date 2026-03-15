@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Zero-Copy Plugin Types
 //!
@@ -816,44 +816,38 @@ mod tests {
 
     #[tokio::test]
     async fn test_plugin_registration_and_retrieval() {
-        use crate::error_handling::safe_operations::SafeOps;
-
         let registry = Arc::new(ZeroCopyPluginRegistry::new());
-        let metadata = create_test_plugin_metadata();
-        let entry = Arc::new(TestPlugin::new(metadata.clone()));
+        let metadata = PluginMetadataBuilder::new()
+            .name("test-plugin".to_string())
+            .version("1.0.0".to_string())
+            .description("Test plugin".to_string())
+            .author("Test".to_string())
+            .capability("text-processing".to_string())
+            .build();
+        let entry = ZeroCopyPluginEntry::new(
+            metadata.clone(),
+            ZeroCopyPluginConfig::new(metadata.id),
+            None,
+        );
 
-        // Test plugin registration with safe error handling
         registry
             .register_plugin(entry)
             .await
-            .map_err(|e| format!("Plugin registration should succeed in test: {}", e))
             .expect("Plugin registration should succeed in test environment");
 
-        // Test plugin retrieval by ID with safe error handling
         let retrieved = registry
             .get_plugin(metadata.id)
             .await
-            .map_err(|e| format!("Plugin retrieval by ID should succeed: {}", e))
             .expect("Plugin retrieval by ID should succeed after successful registration");
 
-        assert_eq!(
-            retrieved.metadata().id,
-            metadata.id,
-            "Retrieved plugin should have correct ID"
-        );
+        assert_eq!(retrieved.metadata.id, metadata.id);
 
-        // Test plugin retrieval by name with safe error handling
         let retrieved_by_name = registry
             .get_plugin_by_name("test-plugin")
             .await
-            .map_err(|e| format!("Plugin retrieval by name should succeed: {}", e))
             .expect("Plugin retrieval by name should succeed after successful registration");
 
-        assert_eq!(
-            retrieved_by_name.metadata().name,
-            "test-plugin",
-            "Retrieved plugin should have correct name"
-        );
+        assert_eq!(retrieved_by_name.metadata.name.as_ref(), "test-plugin");
     }
 
     #[test]

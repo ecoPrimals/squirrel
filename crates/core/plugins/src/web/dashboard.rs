@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin Management Dashboard
 //!
@@ -716,14 +716,12 @@ impl PluginDashboard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manager::DefaultPluginManager;
-    use crate::state::MemoryStateManager;
+    use crate::DefaultPluginManager;
     use std::sync::Arc;
 
     #[tokio::test]
     async fn test_plugin_dashboard_creation() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
+        let manager = Arc::new(DefaultPluginManager::new());
         let dashboard = PluginDashboard::new(manager);
 
         let endpoints = dashboard.get_endpoints();
@@ -735,8 +733,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dashboard_overview() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
+        let manager = Arc::new(DefaultPluginManager::new());
         let dashboard = PluginDashboard::new(manager);
 
         let response = dashboard.get_dashboard_overview().await.unwrap();
@@ -750,8 +747,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_plugin_statistics() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
+        let manager = Arc::new(DefaultPluginManager::new());
         let dashboard = PluginDashboard::new(manager);
 
         let stats = dashboard.collect_plugin_statistics().await;

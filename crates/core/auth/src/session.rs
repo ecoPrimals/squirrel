@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Session management for Squirrel authentication system
 //!
@@ -233,6 +233,7 @@ pub struct SessionStats {
 mod tests {
     use super::*;
     use crate::types::AuthProvider;
+    use chrono::Utc;
 
     #[tokio::test]
     async fn test_session_creation_and_retrieval() {
@@ -300,14 +301,16 @@ mod tests {
         // Create valid session
         let valid_session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
 
+        // create_session runs internal cleanup opportunistically, so the
+        // expired session is already purged when the valid session is inserted.
         manager.create_session(expired_session).await.unwrap();
         manager.create_session(valid_session).await.unwrap();
 
-        // Clean up expired sessions
+        // Explicit cleanup finds nothing left to remove
         let removed = manager.cleanup_expired_sessions().await.unwrap();
-        assert_eq!(removed, 1);
+        assert_eq!(removed, 0);
 
-        // Verify stats
+        // Only the valid session remains
         let stats = manager.get_session_stats().await.unwrap();
         assert_eq!(stats.active_sessions, 1);
         assert_eq!(stats.total_sessions, 1);

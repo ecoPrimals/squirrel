@@ -7,13 +7,13 @@ Architectural specifications and design documents for the Squirrel AI Coordinati
 
 ```
 specs/
-├── current/        # Deployment guide and production status
-├── active/         # Active specifications (MCP protocol, universal patterns)
-├── development/    # Development standards (testing, security, codebase)
-└── archive/        # Historical specs
+├── active/         # Active specifications (MCP protocol, universal patterns, ecosystem)
+├── current/        # Current status and deployment guide
+├── development/    # Development standards (testing, security, codebase structure)
+└── archive/        # Historical specs (fossil record of pre-alpha development)
 ```
 
-## Architecture Summary
+## Architecture
 
 - **IPC**: JSON-RPC 2.0 over Unix sockets (default), tarpc binary protocol (optional)
 - **Transport**: Automatic fallback — Unix sockets -> Named pipes -> TCP
@@ -24,8 +24,15 @@ specs/
 
 | Spec | Location |
 |------|----------|
-| MCP Protocol | `active/mcp-protocol/` |
+| MCP Protocol | `active/mcp-protocol/MCP_SPECIFICATION.md` |
 | Universal Patterns | `active/UNIVERSAL_PATTERNS_SPECIFICATION.md` |
+| Ecosystem Integration | `active/UNIVERSAL_SQUIRREL_ECOSYSTEM_SPEC.md` |
+| Socket Registry | `SOCKET_REGISTRY_SPEC.md` |
 | Deployment | `current/DEPLOYMENT_GUIDE.md` |
 | Testing | `development/TESTING.md` |
 | Security | `development/SECURITY.md` |
+
+## Archive
+
+Pre-alpha planning documents (gRPC migration, RBAC restructuring, resilience
+implementation, refactoring plans) are preserved in `archive/` as fossil record.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Experience Replay System
 //!
@@ -313,28 +313,31 @@ impl ExperienceReplay {
 
     /// Add an experience to the replay buffer
     pub async fn add_experience(&self, experience: RLExperience) -> Result<()> {
-        let mut buffer = self.buffer.write().await;
-        buffer.add(experience.clone());
+        let id = experience.id.clone();
+        {
+            let mut buffer = self.buffer.write().await;
+            buffer.add(experience);
+        }
 
-        // Update statistics
         self.update_stats().await?;
 
-        debug!("Added experience to replay buffer: {}", experience.id);
+        debug!("Added experience to replay buffer: {}", id);
         Ok(())
     }
 
     /// Add multiple experiences
     pub async fn add_experiences(&self, experiences: Vec<RLExperience>) -> Result<()> {
-        let mut buffer = self.buffer.write().await;
+        let count = {
+            let mut buffer = self.buffer.write().await;
+            for experience in experiences {
+                buffer.add(experience);
+            }
+            buffer.size()
+        };
 
-        for experience in experiences {
-            buffer.add(experience.clone());
-        }
-
-        // Update statistics
         self.update_stats().await?;
 
-        debug!("Added {} experiences to replay buffer", buffer.size());
+        debug!("Added experiences to replay buffer (size: {})", count);
         Ok(())
     }
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 // Ecosystem Discovery Error Path Tests
 // Expanding coverage: Edge cases, network failures, malformed responses

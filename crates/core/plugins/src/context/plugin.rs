@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 use std::sync::Arc;
 use anyhow::Result;
@@ -25,7 +25,7 @@ impl ContextPluginImpl {
             name,
             env!("CARGO_PKG_VERSION"),
             description,
-            "DataScienceBioLab",
+            "ecoPrimals Contributors",
         )
         .with_capability("context.transform")
         .with_capability("context.validate");

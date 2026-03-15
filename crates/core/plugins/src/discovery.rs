@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // ORC-Notice: Plugin discovery mechanics licensed under ORC
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin discovery
 //!
@@ -73,6 +73,7 @@ impl PluginManifest {
     /// Convert to plugin metadata (used by tests and testing feature)
     #[must_use]
     #[cfg(any(test, feature = "testing"))]
+    #[allow(dead_code)]
     #[expect(
         deprecated,
         reason = "backward compat: PluginMetadata during migration"
@@ -175,6 +176,7 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
 
 /// Create a placeholder plugin (test/testing only)
 #[cfg(any(test, feature = "testing"))]
+#[allow(dead_code)]
 #[expect(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
@@ -185,6 +187,7 @@ pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
 
 /// A placeholder plugin implementation (test/testing only)
 #[cfg(any(test, feature = "testing"))]
+#[allow(dead_code)]
 #[expect(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
@@ -270,7 +273,8 @@ impl DefaultPluginDiscovery {
     }
 }
 
-/// Default plugin loader implementation
+/// Default plugin loader implementation (kept for trait impl / future use)
+#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub struct DefaultPluginLoader;
 

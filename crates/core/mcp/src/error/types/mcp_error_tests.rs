@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Comprehensive tests for MCPError type
 //!
@@ -66,7 +66,7 @@ mod tests {
         let mcp_err: MCPError = client_err.into();
 
         assert!(matches!(mcp_err, MCPError::Client(_)));
-        assert!(mcp_err.to_string().contains("Client error"));
+        assert!(mcp_err.to_string().contains("disconnected"));
     }
 
     #[test]
@@ -97,7 +97,7 @@ mod tests {
         let mcp_err: MCPError = alert_err.into();
 
         assert!(matches!(mcp_err, MCPError::Alert(_)));
-        assert!(mcp_err.to_string().contains("Alert error"));
+        assert!(mcp_err.to_string().contains("channel closed"));
     }
 
     // Old incompatible tests removed - use new comprehensive tests below
@@ -429,13 +429,11 @@ mod tests {
         assert_eq!(error.category_str(), "OPERATION_FAILED");
     }
 
-    // Test from_message method
     #[test]
     fn test_from_message() {
         let error = MCPError::from_message("test error");
         assert!(matches!(error, MCPError::Generic(_)));
-        // Generic errors display as category string
-        assert_eq!(error.to_string(), "GENERIC");
+        assert_eq!(error.to_string(), "test error");
     }
 
     // Test error_code method (backwards compatibility)
@@ -506,53 +504,51 @@ mod tests {
         assert!(matches!(error.severity(), ErrorSeverity::Low));
     }
 
-    // Test Display implementation
     #[test]
     fn test_display_transport() {
         let transport_err = TransportError::ConnectionClosed("test".to_string());
         let error = MCPError::Transport(transport_err);
-        assert!(error.to_string().contains("Transport error"));
+        assert!(error.to_string().contains("test"));
     }
 
     #[test]
     fn test_display_protocol() {
         let protocol_err = ProtocolError::InvalidVersion("test".to_string());
         let error = MCPError::Protocol(protocol_err);
-        assert!(error.to_string().contains("Protocol error"));
+        assert!(error.to_string().contains("test"));
     }
 
     #[test]
     fn test_display_connection() {
         let conn_err = ConnectionError::ConnectionFailed("test".to_string());
         let error = MCPError::Connection(conn_err);
-        assert!(error.to_string().contains("Connection error"));
+        assert!(error.to_string().contains("test"));
     }
 
     #[test]
     fn test_display_session() {
         let session_err = SessionError::NotFound("test".to_string());
         let error = MCPError::Session(session_err);
-        assert!(error.to_string().contains("Session error"));
+        assert!(error.to_string().contains("test"));
     }
 
     #[test]
     fn test_display_client() {
         let client_err = ClientError::NotConnected("test".to_string());
         let error = MCPError::Client(client_err);
-        assert!(error.to_string().contains("Client error"));
+        assert!(error.to_string().contains("test"));
     }
 
     #[test]
     fn test_display_alert() {
         let alert_err = AlertError::NotificationFailed("test".to_string());
         let error = MCPError::Alert(alert_err);
-        assert!(error.to_string().contains("Alert error"));
+        assert!(error.to_string().contains("test"));
     }
 
     #[test]
-    fn test_display_fallback() {
-        let error = MCPError::General("test".to_string());
-        let display = error.to_string();
-        assert_eq!(display, "GENERAL");
+    fn test_display_general() {
+        let error = MCPError::General("test message".to_string());
+        assert_eq!(error.to_string(), "test message");
     }
 }

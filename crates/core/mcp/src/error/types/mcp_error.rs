@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Main error type for MCP operations.
 
@@ -104,135 +104,179 @@ pub enum MCPError {
     Alert(#[from] AlertError),
 
     /// Resource exhausted error
+    #[error("Resource exhausted: {0}")]
     ResourceExhausted(String),
 
     /// Invalid argument error
+    #[error("Invalid argument: {0}")]
     InvalidArgument(String),
 
     /// Not found error
+    #[error("Not found: {0}")]
     NotFound(String),
 
     /// Internal server error
+    #[error("Internal: {0}")]
     Internal(String),
 
     /// Authentication error
+    #[error("Authentication: {0}")]
     Authentication(String),
 
     /// Authorization error
+    #[error("Authorization: {0}")]
     Authorization(String),
 
     /// Rate limit exceeded
+    #[error("Rate limit: {0}")]
     RateLimit(String),
 
     /// Timeout error
+    #[error("Timeout: {0}")]
     Timeout(String),
 
     /// Configuration error
+    #[error("Configuration: {0}")]
     Configuration(String),
 
     /// Validation error
+    #[error("Validation: {0}")]
     Validation(String),
 
     /// Invalid state error
+    #[error("Invalid state: {0}")]
     InvalidState(String),
 
     /// Invalid operation error
+    #[error("Invalid operation: {0}")]
     InvalidOperation(String),
 
     /// Network error
+    #[error("Network: {0}")]
     Network(String),
 
     /// IO error
+    #[error("IO: {0}")]
     Io(String),
 
     /// JSON parsing error
+    #[error("JSON: {0}")]
     Json(String),
 
     /// General error
+    #[error("{0}")]
     General(String),
 
     /// Generic error (alias for General)
+    #[error("{0}")]
     Generic(String),
 
     /// Message router error
+    #[error("Message router: {0}")]
     MessageRouter(String),
 
     /// Serialization error
+    #[error("Serialization: {0}")]
     Serialization(String),
 
     /// Deserialization error
+    #[error("Deserialization: {0}")]
     Deserialization(String),
 
     /// Invalid message error
+    #[error("Invalid message: {0}")]
     InvalidMessage(String),
 
     /// State error
+    #[error("State: {0}")]
     State(String),
 
     /// Unsupported operation error
+    #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
 
     /// Circuit breaker error
+    #[error("Circuit breaker: {0}")]
     CircuitBreaker(String),
 
     /// Security error
+    #[error("Security: {0}")]
     Security(String),
 
     /// Resource error
+    #[error("Resource: {0}")]
     Resource(String),
 
     /// Lifecycle error
+    #[error("Lifecycle: {0}")]
     Lifecycle(String),
 
     /// Wire format error
+    #[error("Wire format: {0}")]
     WireFormat(String),
 
     /// Not initialized error
+    #[error("Not initialized: {0}")]
     NotInitialized(String),
 
     /// Already in progress error
+    #[error("Already in progress: {0}")]
     AlreadyInProgress(String),
 
     /// Monitoring error
+    #[error("Monitoring: {0}")]
     Monitoring(String),
 
     /// Not connected error
+    #[error("Not connected: {0}")]
     NotConnected(String),
 
     /// Remote error
+    #[error("Remote: {0}")]
     Remote(String),
 
     /// Unexpected error
+    #[error("Unexpected: {0}")]
     Unexpected(String),
 
     /// Version mismatch error
+    #[error("Version mismatch: {0}")]
     VersionMismatch(String),
 
     /// Unsupported error
+    #[error("Unsupported: {0}")]
     Unsupported(String),
 
     /// Not implemented error
+    #[error("Not implemented: {0}")]
     NotImplemented(String),
 
     /// Not authorized error
+    #[error("Not authorized: {0}")]
     NotAuthorized(String),
 
     /// Internal error
+    #[error("Internal error: {0}")]
     InternalError(String),
 
     /// Sync error
+    #[error("Sync: {0}")]
     Sync(String),
 
     /// Already exists error
+    #[error("Already exists: {0}")]
     AlreadyExists(String),
 
     /// Invalid request error
+    #[error("Invalid request: {0}")]
     InvalidRequest(String),
 
     /// Database error
+    #[error("Database: {0}")]
     Database(String),
 
     /// Operation failed error
+    #[error("Operation failed: {0}")]
     OperationFailed(String),
 }
 
@@ -439,18 +483,3 @@ impl MCPError {
     }
 }
 
-// Add the Display trait implementation for MCPError
-impl std::fmt::Display for MCPError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Transport(e) => write!(f, "Transport error: {e}"),
-            Self::Protocol(e) => write!(f, "Protocol error: {e}"),
-            Self::Connection(e) => write!(f, "Connection error: {e}"),
-            Self::Session(e) => write!(f, "Session error: {e}"),
-            Self::Context(e) => write!(f, "Context error: {e}"),
-            Self::Client(e) => write!(f, "Client error: {e}"),
-            Self::Alert(e) => write!(f, "Alert error: {e}"),
-            _ => write!(f, "{}", self.category_str()),
-        }
-    }
-}

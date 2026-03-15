@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Error Context Trait Examples
 //!
@@ -47,8 +47,7 @@ impl ErrorContextTrait for ServiceError {
     }
 
     fn is_recoverable(&self) -> bool {
-        // Default implementation - could be based on severity or error type
-        self.context.severity != ErrorSeverity::Critical
+        self.context.is_recoverable
     }
 
     fn get_context(&self) -> Option<&ErrorContext> {

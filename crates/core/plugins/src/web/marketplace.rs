@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin Marketplace Integration
 //!
@@ -711,14 +711,12 @@ impl PluginMarketplaceClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manager::DefaultPluginManager;
-    use crate::state::MemoryStateManager;
+    use crate::DefaultPluginManager;
     use std::sync::Arc;
 
     #[tokio::test]
     async fn test_marketplace_client_creation() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
+        let manager = Arc::new(DefaultPluginManager::new());
         let client = PluginMarketplaceClient::new(manager);
 
         let endpoints = client.get_endpoints();
@@ -730,8 +728,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_repository_management() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
+        let manager = Arc::new(DefaultPluginManager::new());
         let client = PluginMarketplaceClient::new(manager);
 
         let repo = PluginRepository {
@@ -750,8 +747,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_plugin_search() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
+        let manager = Arc::new(DefaultPluginManager::new());
         let client = PluginMarketplaceClient::new(manager);
 
         let criteria = MarketplaceSearchCriteria {

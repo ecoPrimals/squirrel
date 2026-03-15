@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Error conversion and mapping tests
 //!
@@ -116,7 +116,7 @@ mod tests {
     fn test_error_context_addition() {
         // Arrange
         let base_error = MCPError::Protocol(ProtocolError::InvalidVersion("0.0".to_string()));
-        let context = ErrorContext::new("test_operation", "test_component")
+        let _context = ErrorContext::new("test_operation", "test_component")
             .with_message_type(MessageType::Command)
             .with_severity(ErrorSeverity::High);
 
@@ -150,15 +150,16 @@ mod tests {
 
     #[test]
     fn test_error_chain_preservation() {
-        // Arrange
+        // Arrange — io::Error is not Clone, so From converts to string representation
         let io_err = io::Error::new(io::ErrorKind::PermissionDenied, "Access denied");
         let mcp_err = MCPError::from(io_err);
 
-        // Act
-        let source = std::error::Error::source(&mcp_err);
-
-        // Assert - Should preserve error chain
-        assert!(source.is_some() || format!("{:?}", mcp_err).contains("PermissionDenied"));
+        // Assert — message text is preserved even though source chain is lost
+        let display = format!("{}", mcp_err);
+        assert!(
+            display.contains("Access denied"),
+            "IO error message should be preserved: {display}"
+        );
     }
 
     #[test]

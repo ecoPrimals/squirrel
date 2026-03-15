@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Production Rate Limiting & `DoS` Protection
 #![allow(dead_code)] // Rate limiting infrastructure awaiting activation

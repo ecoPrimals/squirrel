@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 // Example Dynamic Plugin for Testing
 //
@@ -63,7 +63,7 @@ impl TestDynamicPlugin {
             version: "1.0.0".to_string(),
             api_version: "1.0.0".to_string(),
             description: "A test dynamic plugin for cross-platform testing".to_string(),
-            author: "DataScienceBioLab".to_string(),
+            author: "ecoPrimals Contributors".to_string(),
             commands: vec![
                 CommandInfo {
                     name: "test".to_string(),
@@ -125,7 +125,7 @@ impl McpPlugin for TestDynamicPlugin {
                 name: "test-dynamic-plugin".to_string(),
                 version: "1.0.0".to_string(),
                 description: "A test dynamic plugin for MCP".to_string(),
-                author: "DataScienceBioLab".to_string(),
+                author: "ecoPrimals Contributors".to_string(),
             }
         });
         
@@ -240,7 +240,7 @@ pub fn create_plugin_metadata() -> PluginMetadata {
         version: "1.0.0".to_string(),
         api_version: "1.0.0".to_string(),
         description: "A test dynamic plugin for cross-platform testing".to_string(),
-        author: "DataScienceBioLab".to_string(),
+        author: "ecoPrimals Contributors".to_string(),
         dependencies: Vec::new(),
     }
 }

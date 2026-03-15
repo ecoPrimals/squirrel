@@ -130,4 +130,5 @@ universal-constants = { path = "../universal-constants" }
 wasm-bindgen-test = "0.3"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+# rlib for all targets; cdylib dropped on musl/native (use wasm-pack for wasm cdylib builds)
+crate-type = ["rlib"]

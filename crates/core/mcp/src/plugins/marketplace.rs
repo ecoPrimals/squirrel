@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 use crate::plugins::interfaces::{Plugin, PluginMetadata, PluginCapability, PluginSource};
 use crate::error::{Result, PluginError};

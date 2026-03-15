@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core Squirrel Primal Provider Implementation
 #![allow(dead_code)] // Provider fields used by ecosystem integration at runtime

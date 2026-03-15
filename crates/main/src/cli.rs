@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! CLI structure for Squirrel UniBin architecture
 //!
@@ -27,7 +27,7 @@ use std::fmt;
 /// capability-based discovery.
 #[derive(Parser, Debug)]
 #[command(name = "squirrel")]
-#[command(author = "DataScienceBioLab")]
+#[command(author = "ecoPrimals Contributors")]
 #[command(version)]
 #[command(about = "🐿️ Squirrel - Universal AI Orchestration Primal", long_about = None)]
 #[command(propagate_version = true)]

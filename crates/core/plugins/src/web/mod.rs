@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Web plugin module
 //!
@@ -262,16 +262,14 @@ impl PluginManagementFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manager::DefaultPluginManager;
-    use crate::registry::DefaultPluginRegistry;
-    use crate::state::MemoryStateManager;
+    use crate::registry::PluginRegistry;
+    use crate::DefaultPluginManager;
     use std::sync::Arc;
 
     #[tokio::test]
     async fn test_plugin_management_interface_creation() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
-        let registry = Arc::new(DefaultPluginRegistry::new());
+        let manager = Arc::new(DefaultPluginManager::new());
+        let registry = manager.clone() as Arc<dyn PluginRegistry>;
 
         let interface = PluginManagementFactory::create_interface(manager, registry);
 
@@ -290,9 +288,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_interface_components() {
-        let state_manager = Arc::new(MemoryStateManager::new());
-        let manager = Arc::new(DefaultPluginManager::new(state_manager));
-        let registry = Arc::new(DefaultPluginRegistry::new());
+        let manager = Arc::new(DefaultPluginManager::new());
+        let registry = manager.clone() as Arc<dyn PluginRegistry>;
 
         let interface = PluginManagementFactory::create_interface(manager, registry);
 

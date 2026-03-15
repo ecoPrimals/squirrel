@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability-Based Crypto Provider - TRUE PRIMAL Architecture
 //!
@@ -365,7 +365,7 @@ mod tests {
     async fn test_discovery_from_env() {
         std::env::set_var("CRYPTO_SIGNING_ENDPOINT", "/tmp/test-crypto.sock");
 
-        let mut provider = CapabilityCryptoProvider::new();
+        let _provider = CapabilityCryptoProvider::new();
         // Discovery will work even if socket doesn't exist (we cache the env var)
         // Actual connection happens on first use
 

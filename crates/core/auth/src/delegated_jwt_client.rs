@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Delegated JWT Client - Production JWT via Capability Discovery (TRUE PRIMAL!)
 //!
@@ -41,7 +41,7 @@ pub struct DelegatedJwtClient {
     #[cfg(feature = "delegated-jwt")]
     capability_service: CapabilityJwtService,
 
-    #[cfg(feature = "local-jwt")]
+    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
     _local_service: crate::jwt::JwtTokenManager,
 }
 
@@ -185,10 +185,10 @@ impl DelegatedJwtClient {
             .extract_token_from_header(authorization_header)
     }
 
-    // Local JWT methods (dev/testing only)
+    // Local JWT methods (dev/testing only, disabled when delegated-jwt is active)
 
     /// Create new delegated JWT client (local mode)
-    #[cfg(feature = "local-jwt")]
+    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
     pub fn new_local(secret: &[u8]) -> AuthResult<Self> {
         info!("⚠️ Using local JWT (dev mode, brings ring dependency)");
 
@@ -199,7 +199,7 @@ impl DelegatedJwtClient {
         })
     }
 
-    #[cfg(feature = "local-jwt")]
+    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
     pub async fn create_token(
         &self,
         user_id: Uuid,
@@ -215,14 +215,26 @@ impl DelegatedJwtClient {
         self._local_service.create_token(&claims)
     }
 
-    #[cfg(feature = "local-jwt")]
+    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
     pub async fn verify_token(&self, token: &str) -> AuthResult<JwtClaims> {
         debug!("Verifying JWT token via local service (dev mode)");
 
-        self._local_service.verify_token(token)
+        let local_claims = self._local_service.verify_token(token)?;
+        Ok(JwtClaims {
+            sub: local_claims.sub,
+            username: local_claims.username,
+            roles: local_claims.roles,
+            session_id: local_claims.session_id,
+            iat: local_claims.iat,
+            exp: local_claims.exp,
+            nbf: local_claims.nbf,
+            iss: local_claims.iss,
+            aud: local_claims.aud,
+            jti: local_claims.jti,
+        })
     }
 
-    #[cfg(feature = "local-jwt")]
+    #[cfg(all(feature = "local-jwt", not(feature = "delegated-jwt")))]
     pub fn extract_token_from_header<'a>(
         &self,
         authorization_header: &'a str,

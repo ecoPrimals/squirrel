@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin Directory Loading Tests
 //!
@@ -7,8 +7,7 @@
 
 #[cfg(test)]
 mod plugin_loading_tests {
-    use squirrel_plugins::DefaultPluginManager;
-    use squirrel_plugins::PluginRegistry;
+    use squirrel_plugins::{DefaultPluginManager, PluginManagerTrait};
     use std::fs;
     use std::path::PathBuf;
     use tempfile::TempDir;
@@ -255,7 +254,7 @@ storage = false
 
         // Verify plugin is actually registered
         let plugin_id = plugin_ids[0];
-        let status = manager.get_plugin_status(plugin_id).await;
+        let status = PluginManagerTrait::get_plugin_status(&manager, plugin_id).await;
         assert!(status.is_ok());
     }
 

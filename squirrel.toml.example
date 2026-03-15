@@ -1,6 +1,5 @@
 # Squirrel Configuration File (TOML)
-# 
-# This file demonstrates all available configuration options.
+#
 # Copy to 'squirrel.toml' and customize as needed.
 #
 # Configuration precedence (highest to lowest):
@@ -10,15 +9,9 @@
 # 4. Built-in defaults
 
 [server]
-# Unix socket path (overrides default discovery)
-# Default: Auto-discovered from SQUIRREL_SOCKET env or /tmp/squirrel-{node_id}.sock
-#socket = "/tmp/squirrel-custom.sock"
-
-# Bind address (for future HTTP server)
-bind = "0.0.0.0"
-
-# Port (for future HTTP server) 
-port = 9010
+# Unix socket path (overrides default XDG discovery)
+# Default: /run/user/<uid>/biomeos/squirrel.sock
+#socket = "/run/user/1000/biomeos/squirrel.sock"
 
 # Run as daemon (detach from terminal)
 daemon = false
@@ -33,16 +26,16 @@ request_timeout_secs = 30
 # Enable AI router
 enabled = true
 
-# AI provider socket paths (comma-separated)
-# Example: provider_sockets = "/tmp/provider1.sock,/tmp/provider2.sock"
-# Default: Discovered from AI_PROVIDER_SOCKETS env var
-#provider_sockets = "/tmp/ai-provider-1.sock,/tmp/ai-provider-2.sock"
-
 # Enable retry with fallback providers
 enable_retry = true
 
 # Maximum retry attempts
 max_retries = 2
+
+# Vendor-agnostic provider configuration:
+# - LOCAL_AI_ENDPOINT env var for local models (Ollama, llama.cpp, vLLM)
+# - OPENAI_API_KEY, ANTHROPIC_API_KEY, etc. for cloud providers
+# - MODEL_HUB_CACHE_DIR for HuggingFace/ModelScope
 
 [logging]
 # Log level: trace, debug, info, warn, error
@@ -58,15 +51,11 @@ json = false
 # Announce capabilities to registry on startup
 announce_capabilities = true
 
-# Capabilities to announce
+# Capabilities to announce (JSON-RPC method namespaces)
 capabilities = [
-    "ai.text_generation",
-    "ai.image_generation",
-    "ai.routing",
-    "tool.orchestration"
+    "ai.query",
+    "ai.complete",
+    "context.create",
+    "tool.execute",
+    "tool.list",
 ]
-
-# Registry socket path for capability announcement
-# Default: Discovered from SQUIRREL_REGISTRY_SOCKET env var
-#registry_socket = "/tmp/registry.sock"
-

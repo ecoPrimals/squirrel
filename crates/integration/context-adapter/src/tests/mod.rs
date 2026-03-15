@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 use std::sync::Arc;
 
@@ -471,7 +471,7 @@ mod tests {
                         "mock-context-plugin",
                         "1.0.0",
                         "Mock context plugin for testing",
-                        "DataScienceBioLab",
+                        "ecoPrimals Contributors",
                     )
                     .with_capability("context")
                 });

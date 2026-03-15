@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! JWT Token Management (Feature-Gated for Dev Mode)
 //!
@@ -60,18 +60,19 @@ impl JwtClaims {
 
         let session_id = Uuid::parse_str(&self.session_id).map_err(|_| AuthError::InvalidToken)?;
 
-        let issued_at = DateTime::from_timestamp(self.iat, 0).ok_or(AuthError::InvalidToken)?;
+        let created_at = DateTime::from_timestamp(self.iat, 0).ok_or(AuthError::InvalidToken)?;
 
         let expires_at = DateTime::from_timestamp(self.exp, 0).ok_or(AuthError::InvalidToken)?;
 
         Ok(AuthContext {
             user_id,
             username: self.username.clone(),
-            permissions: vec![], // Permissions are fetched separately
+            permissions: vec![],
             session_id,
             expires_at,
-            issued_at,
+            created_at,
             roles: self.roles.clone(),
+            auth_provider: crate::types::AuthProvider::Standalone,
         })
     }
 }
@@ -100,7 +101,8 @@ impl JwtTokenManager {
     pub fn create_token(&self, claims: &JwtClaims) -> Result<String, AuthError> {
         let header = Header::new(Algorithm::HS256);
 
-        encode(&header, claims, &self.encoding_key).map_err(|e| AuthError::Internal(e.into()))
+        encode(&header, claims, &self.encoding_key)
+            .map_err(|e| AuthError::Internal { message: e.to_string() })
     }
 
     pub fn verify_token(&self, token: &str) -> Result<JwtClaims, AuthError> {
@@ -108,7 +110,7 @@ impl JwtTokenManager {
             |e| match e.kind() {
                 jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
                 jsonwebtoken::errors::ErrorKind::InvalidToken => AuthError::InvalidToken,
-                _ => AuthError::Internal(e.into()),
+                _ => AuthError::Internal { message: e.to_string() },
             },
         )?;
 

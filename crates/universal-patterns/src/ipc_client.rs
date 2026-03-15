@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Autonomous IPC Client — Squirrel-owned JSON-RPC 2.0 over Unix sockets
 #![allow(dead_code)] // IPC types used for JSON-RPC serialization/deserialization

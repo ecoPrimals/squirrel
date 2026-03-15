@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin dependency resolution system
 //!
@@ -620,8 +620,8 @@ impl Default for DependencyResolver {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plugin::PluginMetadata;
     use async_trait::async_trait;
-    use squirrel_interfaces::plugins::PluginMetadata;
     use std::any::Any;
 
     struct MockPlugin {

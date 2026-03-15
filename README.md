@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0 + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 1,622 passing | **Rust**: 1.81+
+**License**: [scyBorg](LICENSE) (AGPL-3.0 + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 3,749 passing | **Rust**: 1.81+
 
 ---
 

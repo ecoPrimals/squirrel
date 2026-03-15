@@ -1,74 +1,33 @@
 # Squirrel Production Configuration
-# Version: v1.1.0+
-# Updated: January 16, 2026
-# Purpose: Production mode configuration (Unix sockets ONLY - Zero HTTP to AI providers!)
+# Updated: March 15, 2026 (v0.1.0-alpha)
+#
+# TRUE PRIMAL: All external communication via capability discovery.
+# No direct HTTP to AI providers — Songbird proxies all external traffic.
+# No hardcoded primal names or URLs.
 
 [ai_router]
-# v1.1.0+: Capability-based AI discovery (Unix sockets only!)
-# Production mode uses UniversalAiAdapter ONLY - no direct HTTP to AI providers
-discovery_method = "songbird"
+discovery_method = "capability"
 enable_retry = true
 max_retries = 2
 
-# AI provider Unix sockets (discovered via Songbird or environment variable)
-# Set via AI_PROVIDER_SOCKETS environment variable:
-# Example: AI_PROVIDER_SOCKETS="/run/user/1000/songbird-ai-openai.sock,/run/user/1000/songbird-ai-huggingface.sock"
-
-# NO API KEYS IN PRODUCTION!
-# All external AI credentials are managed by Songbird (single gateway)
-# This is the "concentrated gap" architecture - Songbird handles ALL external HTTP/HTTPS
-
-[network]
-# Default network configuration
-default_host = "0.0.0.0"
-default_port = 8080
-health_check_port = 8081
-metrics_port = 9090
-
-[service_discovery]
-# Service discovery endpoints (Unix sockets preferred!)
-# For biomeOS/NUCLEUS integration, use Unix sockets instead of HTTP
-registry_url = "http://localhost:8500"
-consul_address = "127.0.0.1:8500"
-etcd_endpoints = ["http://localhost:2379"]
-
-[database]
-# Database configuration
-host = "localhost"
-port = 5432
-database = "squirrel"
-max_connections = 100
-
-[mcp]
-# MCP Protocol configuration
-server_host = "127.0.0.1"
-server_port = 3000
-websocket_port = 3001
+[server]
 max_connections = 1000
-
-[observability]
-# Monitoring and telemetry
-jaeger_endpoint = "http://localhost:14268"
-prometheus_port = 9090
-grafana_port = 3000
-
-[security]
-# Security settings  
-beardog_url = "http://localhost:8443"
-auth_timeout_secs = 300
-session_timeout_secs = 3600
-
-[limits]
-# Resource limits
-max_request_size_bytes = 10485760  # 10MB
-max_response_size_bytes = 52428800  # 50MB
 request_timeout_secs = 30
 connection_timeout_secs = 5
 
+[logging]
+level = "info"
+json = true
+
+[discovery]
+announce_capabilities = true
+
+[limits]
+max_request_size_bytes = 10485760   # 10MB
+max_response_size_bytes = 52428800  # 50MB
+
 [features]
-# Feature flags
 enable_chaos_testing = false
 enable_experimental_features = false
 enable_telemetry = true
 enable_metrics = true
-

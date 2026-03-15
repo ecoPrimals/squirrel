@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 // Backward compatibility: discover_services/DiscoveredService use EcosystemPrimalType for legacy format
 #![allow(deprecated)]
 

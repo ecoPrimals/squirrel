@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Client implementation for task management with the Task Service API.
 //!
@@ -442,8 +442,6 @@ fn json_task_to_task(json: JsonTask) -> Task {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[tokio::test]
     async fn test_create_task() {
         // Stub for testing - requires running task server

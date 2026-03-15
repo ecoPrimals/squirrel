@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
 //! Idiomatic constraint system for AI routing
 #![allow(dead_code)] // Public API surface awaiting consumer activation

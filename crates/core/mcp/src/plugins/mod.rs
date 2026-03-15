@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 DataScienceBioLab
+// Copyright (C) 2026 ecoPrimals Contributors
 
-// Copyright DataScienceBioLab 2024
+// Copyright ecoPrimals Contributors 2024
 // For MCP Plugin System Infrastructure
 //
 // This module implements plugin system integration for MCP
