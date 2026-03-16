@@ -38,7 +38,7 @@ The framework is grounded in three biological lines of evidence:
   This defines when constrained evolution fails.
 
 The formal treatment is in `gen3/thesis/03_theoretical_framework.md`
-in the ecoPrimals white paper (see the [ecoPrimals](https://github.com/ecoPrimals) repository).
+in the ecoPrimals white paper (see the [ecoPrimals](https://github.com/ecoPrimal/ecoPrimals) repository).
 
 ---
 
