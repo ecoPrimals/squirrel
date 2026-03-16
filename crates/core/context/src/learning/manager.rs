@@ -236,7 +236,7 @@ pub struct ContextLearningManager {
     context_manager: Arc<ContextManager>,
 
     /// Rule manager (planned future integration)
-    #[allow(dead_code)] // Reserved for planned feature
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     rule_manager: Option<Arc<RuleManager>>,
 
     /// Active episodes

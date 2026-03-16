@@ -347,3 +347,111 @@ impl PluginManagerTrait for DefaultPluginManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::discovery::create_placeholder_plugin;
+    use crate::traits::PluginManagerTrait;
+
+    fn make_test_plugin(name: &str) -> Arc<dyn Plugin> {
+        create_placeholder_plugin(PluginMetadata::new(name, "1.0.0", "Test plugin", "Test"))
+    }
+
+    #[tokio::test]
+    async fn test_default_plugin_manager_new() {
+        let manager = DefaultPluginManager::new();
+        let plugins = manager.list_plugins().await.unwrap();
+        assert!(plugins.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_status_empty() {
+        let manager = DefaultPluginManager::new();
+        let status = manager.get_status().await;
+        assert_eq!(status.total_plugins, 0);
+        assert_eq!(status.active_plugins, 0);
+        assert_eq!(status.failed_plugins, 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_metrics() {
+        let manager = DefaultPluginManager::new();
+        let metrics = manager.get_metrics().await;
+        assert_eq!(metrics.load_time_ms, 0);
+        assert_eq!(metrics.memory_usage_kb, 0);
+    }
+
+    #[tokio::test]
+    async fn test_registry_register_get_list() {
+        let manager = DefaultPluginManager::new();
+        let plugin = make_test_plugin("reg-test");
+        let id = plugin.id();
+        manager.register_plugin(plugin).await.unwrap();
+        let found = PluginManagerTrait::get_plugin(&manager, id).await.unwrap();
+        assert_eq!(found.metadata().name, "reg-test");
+        let plugins = manager.list_plugins().await.unwrap();
+        assert_eq!(plugins.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_registry_get_by_name() {
+        let manager = DefaultPluginManager::new();
+        let plugin = make_test_plugin("named");
+        manager.register_plugin(plugin).await.unwrap();
+        let found = PluginRegistry::get_plugin_by_name(&manager, "named").await.unwrap();
+        assert_eq!(found.metadata().name, "named");
+    }
+
+    #[tokio::test]
+    async fn test_registry_unregister() {
+        let manager = DefaultPluginManager::new();
+        let plugin = make_test_plugin("unreg");
+        let id = plugin.id();
+        manager.register_plugin(plugin).await.unwrap();
+        manager.unregister_plugin(id).await.unwrap();
+        let plugins = manager.list_plugins().await.unwrap();
+        assert!(plugins.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_initialize_shutdown_single_plugin() {
+        let manager = DefaultPluginManager::new();
+        let plugin = make_test_plugin("init-shutdown");
+        let id = plugin.id();
+        manager.register_plugin(plugin).await.unwrap();
+        manager.initialize_plugin(id).await.unwrap();
+        let status = PluginManagerTrait::get_plugin_status(&manager, id).await.unwrap();
+        assert_eq!(status, PluginStatus::Running);
+        manager.shutdown_plugin(id).await.unwrap();
+        let status = PluginManagerTrait::get_plugin_status(&manager, id).await.unwrap();
+        assert_eq!(status, PluginStatus::Inactive);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_shutdown_all_plugins() {
+        let manager = DefaultPluginManager::new();
+        let p1 = make_test_plugin("all-1");
+        let p2 = make_test_plugin("all-2");
+        manager.register_plugin(p1).await.unwrap();
+        manager.register_plugin(p2).await.unwrap();
+        manager.initialize_all_plugins().await.unwrap();
+        let status = manager.get_status().await;
+        assert_eq!(status.active_plugins, 2);
+        manager.shutdown_all_plugins().await.unwrap();
+        let status = manager.get_status().await;
+        assert_eq!(status.active_plugins, 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_plugin_unknown_returns_error() {
+        let manager = DefaultPluginManager::new();
+        let unknown_id = Uuid::new_v4();
+        let result = PluginManagerTrait::get_plugin(&manager, unknown_id).await;
+        match result {
+            Ok(_) => panic!("expected error for unknown plugin"),
+            Err(PluginError::NotFound(id)) => assert_eq!(id, unknown_id),
+            Err(e) => panic!("expected NotFound, got {:?}", e),
+        }
+    }
+}

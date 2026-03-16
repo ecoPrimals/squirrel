@@ -2,24 +2,24 @@
 # Squirrel Current Status
 
 **Last Updated**: March 16, 2026
-**Version**: 0.1.0-alpha.4
+**Version**: 0.1.0-alpha.6
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
 
 | Metric | Value |
 |--------|-------|
-| Build | GREEN (0 errors, 0 warnings) |
-| Tests | 4,552 passing / 0 failed across 22 crates |
+| Build | GREEN (0 errors, 2 pre-existing doc warnings) |
+| Tests | 4,667 passing / 0 failed across 21 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN (pedantic + nursery + deny unwrap/expect) |
-| Docs | All 22 crates `#![warn(missing_docs)]` — zero doc warnings |
+| Docs | All 21 crates `#![warn(missing_docs)]` |
 | Formatting | `cargo fmt --all -- --check` passes |
-| Unsafe Code | 0 — `#![forbid(unsafe_code)]` unconditional on all 22 crates |
-| Pure Rust | 100% default features (zero C deps; reqwest/ring only behind optional dev features) |
+| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` unconditional; tests migrated to `temp_env` |
+| Pure Rust | 100% default features (zero C deps; reqwest 0.12/rustls 0.23 behind optional features) |
 | Coverage | 66% line coverage via `cargo-llvm-cov` (target: 90%) |
-| Crates | 22 workspace members |
-| Files >1000 lines | 0 |
+| Crates | 21 workspace members |
+| Files >1000 lines | 0 (jsonrpc_handlers.rs refactored to 3 domain files) |
 | Property tests | 10 (proptest round-trip for all JSON-RPC types + niche) |
 
 ## JSON-RPC Methods
@@ -29,16 +29,18 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 | Domain | Methods |
 |--------|---------|
 | AI | `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat` |
-| Capability | `capability.announce`, `capability.discover` |
+| Capability | `capability.announce`, `capability.discover`, **`capability.list`** |
 | Context | `context.create`, `context.update`, `context.summarize` |
 | System | `system.health`, `system.status`, `system.metrics`, `system.ping` |
 | Discovery | `discovery.peers` |
 | Tool | `tool.execute`, `tool.list` |
 | Lifecycle | `lifecycle.register`, `lifecycle.status` |
 
+**JSON-RPC batch support**: Full Section 6 compliance — array of requests → array of responses.
+
 ## tarpc Service
 
-All 18 JSON-RPC methods mirrored as tarpc service methods with typed request/response
+All JSON-RPC methods mirrored as tarpc service methods with typed request/response
 structs. `TarpcRpcServer` delegates to `JsonRpcServer` for shared handler logic.
 Protocol negotiation selects tarpc or JSON-RPC per-connection.
 
@@ -48,14 +50,29 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 | Constant | What |
 |----------|------|
-| `CAPABILITIES` | 20 exposed methods (ai, capability, system, discovery, tool, context, lifecycle) |
+| `CAPABILITIES` | 21 exposed methods (ai, capability, system, discovery, tool, context, lifecycle) |
 | `CONSUMED_CAPABILITIES` | 14 external capabilities from BearDog, Songbird, ToadStool, NestGate |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
 | `DEPENDENCIES` | 4 primals (beardog, songbird required; toadstool, nestgate optional) |
 | `SEMANTIC_MAPPINGS` | Short name → fully qualified capability mapping |
 | `operation_dependencies()` | DAG inputs per operation for parallelization |
 
-`capability.discover` response now includes `cost_estimates`, `operation_dependencies`, and `consumed_capabilities`.
+`capability.discover` response includes `cost_estimates`, `operation_dependencies`, and `consumed_capabilities`.
+
+`capability.list` returns per-method cost/dependency detail for PathwayLearner scheduling.
+
+## Primal Names (`primal_names.rs`)
+
+Centralized constants for socket discovery hints (groundSpring V106 pattern).
+All socket path construction uses `primal_names::*` constants instead of raw strings.
+Runtime discovery uses capabilities, not names — names are only for socket file
+naming conventions and logging.
+
+## Context Management
+
+Context handlers use real in-memory `DashMap` storage (not stubs). Each context session
+has a unique ID, version tracking, and metadata. NestGate persistence will be wired when
+NestGate's `storage.put` / `storage.get` capabilities are discovered at runtime.
 
 ## Service Registration
 
@@ -89,12 +106,13 @@ requiring AI capabilities.
 |-----------|--------|
 | Capability Registry | `capability_registry.toml` loaded at startup |
 | Niche Self-Knowledge | `niche.rs` with capabilities, costs, deps, consumed capabilities |
+| Primal Names | `primal_names.rs` with centralized socket discovery hints |
 | Deploy Graph | `squirrel_deploy.toml` (BYOB pattern) |
 | Orchestration Types | `DeploymentGraphDef`, `GraphNode`, `TickConfig` (ludoSpring wire-compatible) |
 | biomeOS Lifecycle | `lifecycle.register` + 30s heartbeat (when orchestrator detected) |
 | Songbird Discovery | `discovery.register` + 30s heartbeat (when Songbird detected) |
 | BearDog Crypto | Discovery via biomeOS socket scan |
-| ToadStool AI | Auto-discovered via biomeOS socket scan for local inference |
+| ToadStool AI | Auto-discovered via capability-based biomeOS socket scan |
 | Signal Handling | SIGTERM + SIGINT → socket cleanup + graceful shutdown |
 
 ## Socket Configuration
@@ -123,8 +141,6 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Known Issues
 
-1. Coverage at 66% — needs targeted test expansion for cli, auth, mcp crates (<40%)
-2. Context methods (`context.create`/`update`/`summarize`) use stub storage — persistence via NestGate planned
-3. `test_load_from_json_file` flaky under full workspace runs (env var pollution) — needs `#[serial]`
-4. reqwest 0.11 → 0.12 migration incomplete (1 of 10 crates upgraded)
-5. `model_splitting/` stub module — waiting on ToadStool integration
+1. `test_load_from_json_file` flaky under full workspace runs (env var pollution) — needs `#[serial]`
+2. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
+3. `model_splitting/` stub module — waiting on ToadStool integration

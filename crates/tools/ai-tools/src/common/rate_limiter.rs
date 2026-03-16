@@ -394,37 +394,30 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // NOTE: Requires async runtime refactor - block_on called within async context
     async fn test_rate_limiter_with_retry() {
-        let limiter = RateLimiter::new(
+        let limiter = Arc::new(RateLimiter::new(
             RateLimiterConfig {
                 max_requests_per_minute: 5,
                 retry_on_rate_limit: true,
                 max_retries: 3,
-                retry_delay_ms: 10, // Very short for testing
+                retry_delay_ms: 10,
             },
             "test-retry",
-        );
+        ));
 
-        // Fill up the bucket
         for _ in 0..5 {
             assert!(limiter.acquire().await.is_ok());
         }
 
-        // Set up a task that will remove an entry after a short time
-        tokio::spawn({
-            let limiter = limiter.clone();
-            async move {
-                tokio::time::sleep(Duration::from_millis(50)).await;
-                let mut bucket = limiter.token_bucket.lock().await;
-                bucket.pop_front(); // Remove oldest entry
-            }
+        let limiter_spawn = Arc::clone(&limiter);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            let mut bucket = limiter_spawn.token_bucket.lock().await;
+            bucket.pop_front();
         });
 
-        // This should succeed after retry
         assert!(limiter.acquire().await.is_ok());
 
-        // Check metrics
         let metrics = limiter.metrics().await;
         assert!(metrics.retry_count > 0);
     }

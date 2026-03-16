@@ -285,3 +285,98 @@ impl PluginLoader for DefaultPluginLoader {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_plugin_manifest_deserialization() {
+        let json = r#"{
+            "name": "test-plugin",
+            "version": "1.0.0",
+            "description": "A test plugin",
+            "author": "Test Author",
+            "entry_point": "libplugin.so",
+            "plugin_type": "native",
+            "dependencies": ["dep1"],
+            "capabilities": ["cap1", "cap2"]
+        }"#;
+        let manifest: PluginManifest = serde_json::from_str(json).unwrap();
+        assert_eq!(manifest.name, "test-plugin");
+        assert_eq!(manifest.version, "1.0.0");
+        assert_eq!(manifest.description, "A test plugin");
+        assert_eq!(manifest.author, "Test Author");
+        assert_eq!(manifest.entry_point, "libplugin.so");
+        assert_eq!(manifest.plugin_type, "native");
+        assert_eq!(manifest.dependencies, vec!["dep1"]);
+        assert_eq!(manifest.capabilities, vec!["cap1", "cap2"]);
+    }
+
+    #[test]
+    fn test_plugin_manifest_minimal() {
+        let json = r#"{
+            "name": "minimal",
+            "version": "0.1.0",
+            "description": "",
+            "author": "",
+            "entry_point": "",
+            "plugin_type": ""
+        }"#;
+        let manifest: PluginManifest = serde_json::from_str(json).unwrap();
+        assert_eq!(manifest.name, "minimal");
+        assert!(manifest.dependencies.is_empty());
+        assert!(manifest.capabilities.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_create_placeholder_plugin() {
+        let metadata = PluginMetadata::new("placeholder-test", "1.0", "desc", "author");
+        let plugin = create_placeholder_plugin(metadata);
+        assert_eq!(plugin.metadata().name, "placeholder-test");
+        assert_eq!(plugin.metadata().version, "1.0");
+        plugin.initialize().await.unwrap();
+        plugin.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_default_discovery_empty_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let discovery = DefaultPluginDiscovery::new();
+        let plugins = discovery
+            .discover_plugins(temp_dir.path())
+            .await
+            .unwrap();
+        assert!(plugins.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_default_discovery_nonexistent_dir() {
+        let discovery = DefaultPluginDiscovery::new();
+        let result = discovery.discover_plugins(Path::new("/nonexistent/path/12345")).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_default_plugin_loader_returns_error() {
+        let loader = DefaultPluginLoader;
+        let manifest = PluginManifest {
+            name: "test".to_string(),
+            version: "1.0".to_string(),
+            description: "".to_string(),
+            author: "".to_string(),
+            entry_point: "".to_string(),
+            plugin_type: "".to_string(),
+            dependencies: vec![],
+            capabilities: vec![],
+        };
+        let result = loader
+            .load_plugin(&manifest, Path::new("/tmp"))
+            .await;
+        match result {
+            Ok(_) => panic!("expected load_plugin to fail"),
+            Err(e) => assert!(e.to_string().contains("Dynamic plugin loading not yet implemented")),
+        }
+    }
+}

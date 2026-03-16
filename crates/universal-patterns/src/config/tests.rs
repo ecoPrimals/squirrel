@@ -8,7 +8,6 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use std::env;
 
     #[test]
     fn test_config_creation() {
@@ -35,10 +34,9 @@ mod tests {
     #[test]
     fn test_environment_config_loading() {
         // Set test environment
-        unsafe { env::set_var("TEST_CONFIG_VAR", "test_value") };
-        
-        // Clean up
-        unsafe { env::remove_var("TEST_CONFIG_VAR") };
+        temp_env::with_var("TEST_CONFIG_VAR", Some("test_value"), || {
+            // Var is set for duration of closure
+        });
     }
 
     #[test]
@@ -94,17 +92,12 @@ mod tests {
     #[test]
     fn test_config_environment_override() {
         let mut config = Config::default();
-        
-        // Set environment variable
-        unsafe { env::set_var("OVERRIDE_TEST", "override_value") };
-        
-        // Apply environment overrides
-        let result = config.apply_env_overrides();
-        
-        // Clean up
-        unsafe { env::remove_var("OVERRIDE_TEST") };
-        
-        assert!(result.is_ok() || result.is_err());
+
+        temp_env::with_var("OVERRIDE_TEST", Some("override_value"), || {
+            // Apply environment overrides
+            let result = config.apply_env_overrides();
+            assert!(result.is_ok() || result.is_err());
+        });
     }
 
     #[test]

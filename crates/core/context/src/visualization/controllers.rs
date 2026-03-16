@@ -14,7 +14,7 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct ContextController {
     /// Configuration
-    #[allow(dead_code)] // Reserved for planned feature
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     config: Arc<VisualizationSystemConfig>,
 }
 

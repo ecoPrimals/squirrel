@@ -79,7 +79,7 @@ pub struct ActiveVisualization {
 
 /// Cached visualization
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Reserved for planned feature: visualization caching
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct CachedVisualization {
     /// Visualization ID
     pub id: String,

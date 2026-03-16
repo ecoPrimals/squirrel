@@ -13,15 +13,15 @@ use crate::plugin::Plugin;
 use universal_constants::limits;
 
 /// Plugin type identifiers (reserved for plugin type filtering)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub const PLUGIN_TYPE_CORE: &str = "core";
-#[allow(dead_code)]
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub const PLUGIN_TYPE_WEB: &str = "web";
-#[allow(dead_code)]
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub const PLUGIN_TYPE_MCP: &str = "mcp";
-#[allow(dead_code)]
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub const PLUGIN_TYPE_TOOL: &str = "tool";
-#[allow(dead_code)]
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub const PLUGIN_TYPE_CLI: &str = "cli";
 
 /// Plugin type enumeration
@@ -38,7 +38,7 @@ pub enum PluginType {
 }
 
 /// Plugin state enumeration (reserved for plugin state management system)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "planned feature not yet wired")]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginState {
     /// Plugin is loaded and ready
@@ -54,7 +54,7 @@ pub enum PluginState {
 }
 
 /// Plugin data format enumeration (reserved for plugin data serialization system)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "planned feature not yet wired")]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginDataFormat {
     /// JSON format
@@ -139,7 +139,7 @@ pub enum PluginStatus {
 // This was duplicate/unused code. The canonical version is in squirrel-interfaces crate.
 
 /// Core plugin trait for core system extensions (reserved for plugin specialization system)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub trait CorePlugin: Plugin {
     /// Get the core plugin name
     fn get_core_name(&self) -> &str;
@@ -193,7 +193,7 @@ pub trait McpPlugin: Plugin {
 }
 
 /// Tool plugin trait for tool implementations (reserved for plugin specialization system)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub trait ToolPlugin: Plugin {
     /// Get the tool plugin name
     fn get_tool_name(&self) -> &str;
@@ -222,4 +222,87 @@ pub trait CliPlugin: Plugin {
 
     /// Shutdown the CLI plugin
     async fn cli_shutdown(&self) -> Result<()>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use universal_constants::limits;
+
+    fn serde_roundtrip<T: Serialize + for<'de> Deserialize<'de> + PartialEq + std::fmt::Debug>(
+        value: &T,
+    ) {
+        let json = serde_json::to_string(value).unwrap();
+        let decoded: T = serde_json::from_str(&json).unwrap();
+        assert_eq!(value, &decoded);
+    }
+
+    #[test]
+    fn test_plugin_type_serde() {
+        serde_roundtrip(&PluginType::Builtin);
+        serde_roundtrip(&PluginType::Native);
+        serde_roundtrip(&PluginType::WebAssembly);
+        serde_roundtrip(&PluginType::Script);
+    }
+
+    #[test]
+    fn test_plugin_status_serde() {
+        serde_roundtrip(&PluginStatus::Inactive);
+        serde_roundtrip(&PluginStatus::Registered);
+        serde_roundtrip(&PluginStatus::Loaded);
+        serde_roundtrip(&PluginStatus::Initialized);
+        serde_roundtrip(&PluginStatus::Running);
+        serde_roundtrip(&PluginStatus::Stopped);
+        serde_roundtrip(&PluginStatus::Failed);
+        serde_roundtrip(&PluginStatus::Stopping);
+        serde_roundtrip(&PluginStatus::Unloaded);
+    }
+
+    #[test]
+    fn test_resource_limits_default() {
+        let limits = ResourceLimits::default();
+        assert_eq!(limits.max_memory_bytes, Some(limits::DEFAULT_PLUGIN_MAX_MEMORY_BYTES));
+        assert_eq!(limits.max_cpu_percent, Some(limits::DEFAULT_PLUGIN_MAX_CPU_PERCENT));
+        assert_eq!(
+            limits.max_execution_time_secs,
+            Some(limits::DEFAULT_PLUGIN_MAX_EXECUTION_TIME_SECS)
+        );
+    }
+
+    #[test]
+    fn test_plugin_config_default() {
+        let config = PluginConfig::default();
+        assert!(config.settings.is_empty());
+        assert!(config.environment.is_empty());
+        assert_eq!(
+            config.limits.max_memory_bytes,
+            Some(limits::DEFAULT_PLUGIN_MAX_MEMORY_BYTES)
+        );
+    }
+
+    #[test]
+    fn test_plugin_resources_default() {
+        let resources = PluginResources::default();
+        assert_eq!(resources.memory_usage, 0);
+        assert!((resources.cpu_usage - 0.0).abs() < f64::EPSILON);
+        assert_eq!(resources.file_handles, 0);
+        assert_eq!(resources.network_connections, 0);
+    }
+
+    #[test]
+    fn test_plugin_state_serde() {
+        serde_roundtrip(&PluginState::Loaded);
+        serde_roundtrip(&PluginState::Loading);
+        serde_roundtrip(&PluginState::Failed);
+        serde_roundtrip(&PluginState::Unloading);
+        serde_roundtrip(&PluginState::Unloaded);
+    }
+
+    #[test]
+    fn test_plugin_data_format_serde() {
+        serde_roundtrip(&PluginDataFormat::Json);
+        serde_roundtrip(&PluginDataFormat::Binary);
+        serde_roundtrip(&PluginDataFormat::Text);
+        serde_roundtrip(&PluginDataFormat::Custom("custom".to_string()));
+    }
 }

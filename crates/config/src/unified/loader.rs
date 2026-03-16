@@ -603,4 +603,141 @@ mod tests {
         };
         assert!(err.to_string().contains("Permission denied"));
     }
+
+    fn write_valid_config(path: &std::path::Path, overrides: &[(&str, &str)]) {
+        let mut config = SquirrelUnifiedConfig::default();
+        config.security.enabled = false;
+        for (key, value) in overrides {
+            match *key {
+                "system.instance_id" => config.system.instance_id = value.to_string(),
+                "system.environment" => config.system.environment = value.to_string(),
+                "system.log_level" => config.system.log_level = value.to_string(),
+                "network.http_port" => config.network.http_port = value.parse().unwrap(),
+                "network.websocket_port" => config.network.websocket_port = value.parse().unwrap(),
+                _ => {}
+            }
+        }
+        let toml = toml::to_string(&config).unwrap();
+        fs::write(path, toml).unwrap();
+    }
+
+    #[test]
+    fn test_merge_config_non_overlapping_fields() {
+        let temp_dir = TempDir::new().unwrap();
+        let file1 = temp_dir.path().join("a.toml");
+        write_valid_config(&file1, &[("system.instance_id", "instance-from-a"), ("system.environment", "staging")]);
+        let file2 = temp_dir.path().join("b.toml");
+        write_valid_config(
+            &file2,
+            &[
+                ("system.instance_id", ""),
+                ("system.environment", ""),
+                ("system.log_level", ""),
+                ("network.http_port", "9090"),
+                ("network.websocket_port", "9091"),
+            ],
+        );
+
+        let mut loader = ConfigLoader::new();
+        loader.config.security.enabled = false;
+        let loader = loader
+            .with_file_if_exists(&file1)
+            .unwrap()
+            .with_file_if_exists(&file2)
+            .unwrap();
+        let config = loader.build().unwrap();
+
+        assert_eq!(config.system.instance_id, "instance-from-a");
+        assert_eq!(config.system.environment, "staging");
+        assert_eq!(config.network.http_port, 9090);
+        assert_eq!(config.network.websocket_port, 9091);
+    }
+
+    #[test]
+    fn test_merge_config_precedence_later_wins() {
+        let temp_dir = TempDir::new().unwrap();
+        let file1 = temp_dir.path().join("first.toml");
+        write_valid_config(&file1, &[("system.instance_id", "first-instance"), ("system.environment", "development"), ("network.http_port", "8080")]);
+        let file2 = temp_dir.path().join("second.toml");
+        write_valid_config(&file2, &[("system.instance_id", "second-instance"), ("system.environment", "production"), ("network.http_port", "9999")]);
+
+        let mut loader = ConfigLoader::new();
+        loader.config.security.enabled = false;
+        let loader = loader
+            .with_file_if_exists(&file1)
+            .unwrap()
+            .with_file_if_exists(&file2)
+            .unwrap();
+        let config = loader.build().unwrap();
+
+        assert_eq!(config.system.instance_id, "second-instance");
+        assert_eq!(config.system.environment, "production");
+        assert_eq!(config.network.http_port, 9999);
+    }
+
+    #[test]
+    fn test_merge_config_partial_overrides() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("partial.toml");
+        write_valid_config(&config_path, &[("network.http_port", "3000")]);
+
+        let mut loader = ConfigLoader::new();
+        loader.config.security.enabled = false;
+        let loader = loader.with_file_if_exists(&config_path).unwrap();
+        let config = loader.build().unwrap();
+
+        assert_eq!(config.network.http_port, 3000);
+        assert!(!config.system.instance_id.is_empty());
+        assert!(config.network.websocket_port > 0);
+    }
+
+    #[test]
+    fn test_merge_config_with_default() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("override.toml");
+        write_valid_config(&config_path, &[("system.log_level", "debug")]);
+
+        let mut loader = ConfigLoader::new();
+        loader.config.security.enabled = false;
+        let loader = loader.with_file_if_exists(&config_path).unwrap();
+        let config = loader.build().unwrap();
+
+        assert_eq!(config.system.log_level, "debug");
+        assert!(!config.security.enabled);
+    }
+
+    #[test]
+    fn test_config_loader_load_integration() {
+        let temp_dir = TempDir::new().unwrap();
+        write_valid_config(
+            temp_dir.path().join("squirrel.toml").as_path(),
+            &[
+                ("system.instance_id", "load-test-instance"),
+                ("system.environment", "staging"),
+                ("network.http_port", "7777"),
+            ],
+        );
+
+        let original_cwd = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
+        let result = temp_env::with_vars(
+            [
+                ("SQUIRREL_HTTP_PORT", Some("8888")),
+                ("JWT_SECRET", Some("test-jwt-secret-at-least-32-characters-long")),
+            ],
+            ConfigLoader::load,
+        );
+
+        std::env::set_current_dir(&original_cwd).unwrap();
+
+        let loaded = result.expect("load should succeed");
+        assert!(loaded.has_source("file:"));
+        assert!(loaded.has_source("secure_defaults"));
+
+        let config = loaded.config();
+        assert_eq!(config.system.instance_id, "load-test-instance");
+        assert_eq!(config.system.environment, "staging");
+        assert_eq!(config.network.http_port, 7777);
+    }
 }

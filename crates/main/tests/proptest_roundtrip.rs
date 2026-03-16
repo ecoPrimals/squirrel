@@ -24,8 +24,8 @@ where
 
 use squirrel::rpc::types::{
     AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckRequest,
-    HealthCheckResponse, ListProvidersRequest, ListProvidersResponse, ProviderInfo,
-    QueryAiRequest, QueryAiResponse, ToolListEntry, ToolListResponse, ToolSource,
+    HealthCheckResponse, ListProvidersRequest, ListProvidersResponse, ProviderInfo, QueryAiRequest,
+    QueryAiResponse, ToolListEntry, ToolListResponse, ToolSource,
 };
 
 prop_compose! {
@@ -258,13 +258,15 @@ proptest! {
 #[test]
 fn niche_json_roundtrip() {
     let cost_json = squirrel::niche::cost_estimates_json();
-    let serialized = serde_json::to_string(&cost_json).expect("test: niche cost JSON must serialize");
+    let serialized =
+        serde_json::to_string(&cost_json).expect("test: niche cost JSON must serialize");
     let decoded: serde_json::Value =
         serde_json::from_str(&serialized).expect("test: niche cost JSON must deserialize");
     assert_eq!(cost_json, decoded);
 
     let deps_json = squirrel::niche::operation_dependencies();
-    let serialized = serde_json::to_string(&deps_json).expect("test: niche deps JSON must serialize");
+    let serialized =
+        serde_json::to_string(&deps_json).expect("test: niche deps JSON must serialize");
     let decoded: serde_json::Value =
         serde_json::from_str(&serialized).expect("test: niche deps JSON must deserialize");
     assert_eq!(deps_json, decoded);

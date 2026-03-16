@@ -1,7 +1,7 @@
 ---
 description: Guide for AI teams developing for Squirrel
 version: 1.0.0
-last_updated: 2024-09-25
+last_updated: 2026-03-16
 owner: Core Team
 ---
 
@@ -15,31 +15,19 @@ This guide provides essential information for AI teams working on the Squirrel p
 
 ### Prerequisites
 
-- Rust 1.70 or newer
-- Python 3.10 or newer
-- Node.js 18 or newer
-- Docker (for containerized development)
-- VS Code with Rust Analyzer (recommended)
+- Rust 1.85 or newer
 
 ### Development Environment Setup
 
-1. Clone the repository:
+1. Clone the ecoPrimals repository and navigate to the Squirrel workspace:
    ```bash
-   git clone https://github.com/squirrel-labs/squirrel.git
+   git clone <ecoPrimals-repo-url>
    cd squirrel
    ```
 
-2. Install dependencies:
+2. Build the workspace:
    ```bash
-   # Install Rust dependencies
    cargo build
-   
-   # Install Python dependencies
-   pip install -r crates/integration/mcp-pyo3-bindings/requirements.txt
-   
-   # Install Node.js dependencies (for UI development)
-   cd crates/main/src
-   npm install
    ```
 
 3. Set up environment variables:
@@ -366,4 +354,4 @@ For questions about AI development in Squirrel:
 
 ---
 
-*This document is maintained by the AI Tools Team. Last revision: September 25, 2024.* 
+*This document is maintained by the AI Tools Team. Last revision: March 16, 2026.* 

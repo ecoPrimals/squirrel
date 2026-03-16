@@ -203,7 +203,7 @@ pub struct ExperienceBatch {
 
 /// Experience priority for prioritized replay (reserved for future prioritized experience replay)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)] // Reserved for planned feature: prioritized experience replay
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct ExperiencePriority {
     /// Experience ID
     pub experience_id: String,

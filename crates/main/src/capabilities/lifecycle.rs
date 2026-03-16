@@ -17,6 +17,9 @@ use tokio::net::UnixStream;
 use tokio::sync::watch;
 use tracing::{debug, info, warn};
 
+use crate::niche;
+use crate::primal_names;
+
 /// Discover the biomeOS orchestrator socket.
 ///
 /// Checks standard locations without hardcoding a primal name.
@@ -30,11 +33,18 @@ pub fn find_biomeos_socket() -> Option<PathBuf> {
     }
 
     let uid = nix::unistd::getuid();
+    let dir = primal_names::BIOMEOS_SOCKET_DIR;
     let candidates = [
-        format!("/run/user/{uid}/biomeos/biomeos.sock"),
-        format!("/run/user/{uid}/biomeos/neural-api.sock"),
-        "/tmp/biomeos.sock".to_string(),
-        "/tmp/neural-api.sock".to_string(),
+        format!(
+            "/run/user/{uid}/{dir}/{}",
+            primal_names::BIOMEOS_SOCKET_NAME
+        ),
+        format!(
+            "/run/user/{uid}/{dir}/{}",
+            primal_names::NEURAL_API_SOCKET_NAME
+        ),
+        format!("/tmp/{}", primal_names::BIOMEOS_SOCKET_NAME),
+        format!("/tmp/{}", primal_names::NEURAL_API_SOCKET_NAME),
     ];
 
     candidates
@@ -55,11 +65,11 @@ pub async fn register_with_biomeos(
         "jsonrpc": "2.0",
         "method": "lifecycle.register",
         "params": {
-            "primal": "squirrel",
-            "version": env!("CARGO_PKG_VERSION"),
+            "primal": niche::PRIMAL_ID,
+            "version": niche::PRIMAL_VERSION,
             "socket": own_socket,
             "capabilities": capabilities,
-            "domain": "ai",
+            "domain": niche::DOMAIN,
         },
         "id": 1
     });
@@ -106,7 +116,7 @@ pub fn spawn_heartbeat(
                         "jsonrpc": "2.0",
                         "method": "lifecycle.status",
                         "params": {
-                            "primal": "squirrel",
+                            "primal": niche::PRIMAL_ID,
                             "socket": own_socket,
                             "status": "healthy",
                         },

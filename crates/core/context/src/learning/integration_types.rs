@@ -10,7 +10,7 @@
 ///
 /// Note: Planned feature for queuing optimization tasks - implementation in progress
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Reserved for planned feature: optimization queue
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub enum LearningRequestType {
     ContextOptimization,
     PatternAnalysis,
@@ -21,7 +21,7 @@ pub enum LearningRequestType {
 ///
 /// Note: Planned feature for queuing optimization tasks - implementation in progress
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Reserved for planned feature: optimization queue
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct LearningRequest {
     pub context_id: String,
     pub request_type: LearningRequestType,
@@ -33,7 +33,6 @@ pub struct LearningRequest {
 ///
 /// Note: Planned feature for pattern analysis - implementation in progress
 #[derive(Debug, Clone, Default)]
-#[allow(dead_code)] // Reserved for planned feature: pattern analysis
 pub struct ContextUsagePattern {
     pub frequency: f64,
     pub efficiency: f64,
@@ -42,12 +41,12 @@ pub struct ContextUsagePattern {
 }
 
 impl ContextUsagePattern {
-    #[allow(dead_code)] // Reserved for planned feature: pattern analysis
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     pub fn requires_learning_intervention(&self) -> bool {
         self.efficiency < 0.7 || self.error_rate > 0.1 || self.complexity_score > 0.8
     }
 
-    #[allow(dead_code)] // Reserved for planned feature: pattern analysis
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     pub fn get_priority(&self) -> u8 {
         if self.error_rate > 0.2 {
             1
@@ -62,7 +61,7 @@ impl ContextUsagePattern {
         } // Low priority
     }
 
-    #[allow(dead_code)] // Reserved for planned feature: pattern analysis
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     pub fn to_metadata(&self) -> std::collections::HashMap<String, serde_json::Value> {
         let mut metadata = std::collections::HashMap::new();
         metadata.insert("frequency".to_string(), serde_json::json!(self.frequency));
@@ -80,7 +79,7 @@ impl ContextUsagePattern {
 ///
 /// Note: Planned feature for pattern analysis - implementation in progress
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Reserved for planned feature: pattern analysis
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct StateChangePatternAnalysis {
     pub suggests_optimization: bool,
     pub optimization_type: String,
@@ -91,7 +90,7 @@ pub struct StateChangePatternAnalysis {
 ///
 /// Note: Planned feature for pattern tracking - implementation in progress
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Reserved for planned feature: pattern analysis
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct StateChange {
     pub change_type: String,
     pub timestamp: chrono::DateTime<chrono::Utc>,
@@ -101,7 +100,7 @@ pub struct StateChange {
 /// Analyze state change patterns to identify optimization opportunities
 ///
 /// Note: Planned feature for pattern analysis - implementation in progress
-#[allow(dead_code)] // Reserved for planned feature: pattern analysis
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub fn analyze_state_change_patterns(state_changes: &[StateChange]) -> StateChangePatternAnalysis {
     // Analyze patterns in state changes
     let has_rapid_changes = state_changes.len() > 5; // More than 5 changes suggests high activity

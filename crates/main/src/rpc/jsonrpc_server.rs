@@ -375,14 +375,13 @@ impl JsonRpcServer {
         mut reader: BufReader<UniversalTransport>,
         first_line: String,
     ) -> Result<()> {
-        // Process the first line we already read
-        let response = self.handle_request(&first_line).await;
-        let mut response_json = serde_json::to_string(&response)?;
-        response_json.push('\n');
-        reader.get_mut().write_all(response_json.as_bytes()).await?;
-        reader.get_mut().flush().await?;
+        if let Some(response_json) = self.handle_request_or_batch(&first_line).await {
+            let mut out = response_json;
+            out.push('\n');
+            reader.get_mut().write_all(out.as_bytes()).await?;
+            reader.get_mut().flush().await?;
+        }
 
-        // Continue with normal JSON-RPC loop
         self.handle_jsonrpc_loop(reader).await
     }
 
@@ -443,7 +442,7 @@ impl JsonRpcServer {
         }
     }
 
-    /// Standard JSON-RPC request/response loop
+    /// Standard JSON-RPC request/response loop (supports batch per Section 6).
     async fn handle_jsonrpc_loop(&self, mut reader: BufReader<UniversalTransport>) -> Result<()> {
         let mut line = String::new();
 
@@ -451,19 +450,17 @@ impl JsonRpcServer {
             line.clear();
             match reader.read_line(&mut line).await {
                 Ok(0) => {
-                    // EOF - client disconnected
                     debug!("Client disconnected");
                     break;
                 }
                 Ok(_) => {
-                    let response = self.handle_request(&line).await;
-
-                    // Write response
-                    let mut response_json = serde_json::to_string(&response)?;
-                    response_json.push('\n');
-
-                    reader.get_mut().write_all(response_json.as_bytes()).await?;
-                    reader.get_mut().flush().await?;
+                    if let Some(response_json) = self.handle_request_or_batch(&line).await {
+                        let mut out = response_json;
+                        out.push('\n');
+                        reader.get_mut().write_all(out.as_bytes()).await?;
+                        reader.get_mut().flush().await?;
+                    }
+                    // None means all-notification batch — no response per spec
                 }
                 Err(e) => {
                     warn!("Error reading from connection: {}", e);
@@ -491,19 +488,16 @@ impl JsonRpcServer {
             line.clear();
             match reader.read_line(&mut line).await {
                 Ok(0) => {
-                    // EOF - client disconnected
                     debug!("Client disconnected");
                     break;
                 }
                 Ok(_) => {
-                    let response = self.handle_request(&line).await;
-
-                    // Write response
-                    let mut response_json = serde_json::to_string(&response)?;
-                    response_json.push('\n');
-
-                    reader.get_mut().write_all(response_json.as_bytes()).await?;
-                    reader.get_mut().flush().await?;
+                    if let Some(response_json) = self.handle_request_or_batch(&line).await {
+                        let mut out = response_json;
+                        out.push('\n');
+                        reader.get_mut().write_all(out.as_bytes()).await?;
+                        reader.get_mut().flush().await?;
+                    }
                 }
                 Err(e) => {
                     warn!("Error reading from socket: {}", e);
@@ -515,11 +509,74 @@ impl JsonRpcServer {
         Ok(())
     }
 
-    /// Handle a JSON-RPC request
-    async fn handle_request(&self, request_str: &str) -> JsonRpcResponse {
+    /// Handle a JSON-RPC request or batch (JSON-RPC 2.0 Section 6).
+    ///
+    /// Parses the raw JSON. If it's an array, dispatches each element as a
+    /// separate request and collects responses. Notifications (no `id`) produce
+    /// no response. If the batch is empty, returns a single Invalid Request
+    /// error per spec.
+    pub(crate) async fn handle_request_or_batch(&self, request_str: &str) -> Option<String> {
+        let trimmed = request_str.trim();
+
+        let parsed: Value = match serde_json::from_str(trimmed) {
+            Ok(v) => v,
+            Err(e) => {
+                let resp = JsonRpcResponse {
+                    jsonrpc: Arc::from("2.0"),
+                    result: None,
+                    error: Some(JsonRpcError {
+                        code: error_codes::PARSE_ERROR,
+                        message: format!("Parse error: {e}"),
+                        data: None,
+                    }),
+                    id: Value::Null,
+                };
+                return serde_json::to_string(&resp).ok();
+            }
+        };
+
+        if let Value::Array(items) = parsed {
+            if items.is_empty() {
+                let resp = JsonRpcResponse {
+                    jsonrpc: Arc::from("2.0"),
+                    result: None,
+                    error: Some(JsonRpcError {
+                        code: error_codes::INVALID_REQUEST,
+                        message: "Empty batch".to_string(),
+                        data: None,
+                    }),
+                    id: Value::Null,
+                };
+                return serde_json::to_string(&resp).ok();
+            }
+
+            let mut responses = Vec::with_capacity(items.len());
+            for item in items {
+                let single = serde_json::to_string(&item).unwrap_or_default();
+                let resp = self.handle_single_request(&single).await;
+                // Per spec: notifications (no id) produce no response element
+                let is_notification = item.get("id").is_none();
+                if !is_notification {
+                    responses.push(resp);
+                }
+            }
+
+            if responses.is_empty() {
+                // All were notifications — per spec, no response at all
+                return None;
+            }
+            return serde_json::to_string(&responses).ok();
+        }
+
+        // Single request
+        let resp = self.handle_single_request(trimmed).await;
+        serde_json::to_string(&resp).ok()
+    }
+
+    /// Handle a single JSON-RPC request (non-batch).
+    async fn handle_single_request(&self, request_str: &str) -> JsonRpcResponse {
         let start_time = Instant::now();
 
-        // Parse JSON-RPC request
         let mut request: JsonRpcRequest = match serde_json::from_str(request_str.trim()) {
             Ok(req) => req,
             Err(e) => {
@@ -565,6 +622,7 @@ impl JsonRpcServer {
             // Capability domain — semantic names (preferred)
             "capability.announce" => self.handle_announce_capabilities(request.params).await,
             "capability.discover" => self.handle_discover_capabilities().await,
+            "capability.list" => self.handle_capability_list().await,
 
             // System domain — semantic names (preferred)
             "system.health" => self.handle_health().await,

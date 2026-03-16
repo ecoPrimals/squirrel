@@ -56,6 +56,7 @@ pub const CAPABILITIES: &[&str] = &[
     // Capability routing
     "capability.announce",
     "capability.discover",
+    "capability.list",
     // System monitoring
     "system.health",
     "system.status",
@@ -87,6 +88,7 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("list_providers", "ai.list_providers"),
     ("announce", "capability.announce"),
     ("discover", "capability.discover"),
+    ("list_capabilities", "capability.list"),
     ("health", "system.health"),
     ("status", "system.status"),
     ("metrics", "system.metrics"),
@@ -155,6 +157,7 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("ai.list_providers", 1, false),
     ("capability.announce", 2, false),
     ("capability.discover", 1, false),
+    ("capability.list", 1, false),
     ("system.health", 1, false),
     ("system.status", 1, false),
     ("system.metrics", 5, false),
@@ -182,6 +185,7 @@ pub fn operation_dependencies() -> serde_json::Value {
         "ai.list_providers": [],
         "capability.announce": ["capabilities", "primal"],
         "capability.discover": [],
+        "capability.list": [],
         "system.health": [],
         "system.status": [],
         "system.metrics": [],
@@ -210,6 +214,7 @@ pub fn cost_estimates_json() -> serde_json::Value {
         "ai.list_providers":     { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
         "capability.announce":   { "latency_ms": 2,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "capability.discover":   { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
+        "capability.list":       { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "system.health":         { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
         "system.status":         { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
         "system.metrics":        { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 1024,  "gpu_beneficial": false },
@@ -265,7 +270,10 @@ pub const fn required_dependency_count() -> usize {
 
 /// Feature gates that expand primal capabilities.
 pub const FEATURE_GATES: &[(&str, &str)] = &[
-    ("direct-http", "Direct HTTP AI provider access (dev/testing)"),
+    (
+        "direct-http",
+        "Direct HTTP AI provider access (dev/testing)",
+    ),
     ("marketplace", "Plugin marketplace integration"),
     ("monitoring", "Prometheus-compatible metrics export"),
     ("ecosystem", "Full ecosystem manager with federation"),

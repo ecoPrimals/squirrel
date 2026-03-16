@@ -311,7 +311,7 @@ pub struct LearningSystem {
     event_broadcaster: Arc<broadcast::Sender<LearningEvent>>,
 
     /// Event processor background task handle (used for cleanup on drop)
-    #[allow(dead_code)] // Reserved for planned feature: cleanup on drop
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     event_processor_handle: Arc<tokio::task::JoinHandle<()>>,
 
     /// System statistics

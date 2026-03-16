@@ -450,7 +450,7 @@ async fn chaos_08_cpu_saturation() -> ChaosResult<()> {
 
 /// Test 9: File Descriptor Exhaustion - Intentionally skipped
 #[tokio::test]
-#[ignore]
+#[ignore = "Destructive: exhausts file descriptors"]
 async fn chaos_09_file_descriptor_exhaustion() -> ChaosResult<()> {
     println!("🔥 CHAOS TEST: File Descriptor Exhaustion");
     Ok(())
@@ -458,7 +458,7 @@ async fn chaos_09_file_descriptor_exhaustion() -> ChaosResult<()> {
 
 /// Test 10: Disk Space Exhaustion - Intentionally skipped
 #[tokio::test]
-#[ignore]
+#[ignore = "Destructive: exhausts disk space"]
 async fn chaos_10_disk_space_exhaustion() -> ChaosResult<()> {
     println!("🔥 CHAOS TEST: Disk Space Exhaustion");
     Ok(())

@@ -168,17 +168,20 @@ impl AiRouter {
                     }
                 }
 
-                // 3. biomeOS socket scan: probe ToadStool for local AI inference
-                // ToadStool provides compute.ai.*, ollama.*, gpu.* capabilities
+                // 3. biomeOS socket scan: probe for local AI inference providers
+                // Any primal exposing compute.ai.* capabilities can serve
+                // (capability-based — no primal name hardcoded).
                 if local_providers.is_empty() {
-                    info!("🔍 Scanning biomeOS sockets for AI providers (ToadStool)...");
+                    info!("🔍 Scanning biomeOS sockets for AI compute providers...");
                     let uid = nix::unistd::getuid();
-                    let toadstool_candidates = [
-                        format!("/run/user/{uid}/biomeos/toadstool.sock"),
-                        "/tmp/toadstool.sock".to_string(),
+                    let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
+                    let compute_hint = crate::primal_names::TOADSTOOL;
+                    let compute_candidates = [
+                        format!("/run/user/{uid}/{dir}/{compute_hint}.sock"),
+                        format!("/tmp/{compute_hint}.sock"),
                     ];
 
-                    for socket_path in &toadstool_candidates {
+                    for socket_path in &compute_candidates {
                         let path = PathBuf::from(socket_path);
                         if !path.exists() {
                             continue;
@@ -191,7 +194,7 @@ impl AiRouter {
                         .await
                         {
                             Ok(Ok(adapter)) => {
-                                info!("✅ Discovered ToadStool AI provider at {}", socket_path);
+                                info!("✅ Discovered AI compute provider at {}", socket_path);
                                 local_providers.push(Arc::new(adapter));
                                 break;
                             }

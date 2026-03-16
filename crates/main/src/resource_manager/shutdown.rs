@@ -194,21 +194,18 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // connection_pools removed
     async fn test_register_multiple_connection_pools() {
         let config = ResourceManagerConfig::default();
         let manager = ResourceManager::new(config);
 
         for i in 0..3 {
-            // Connection pooling removed - Unix sockets don't need pooling
             manager
                 .register_connection_pool(format!("pool-{}", i), ())
                 .await;
         }
 
-        // connection_pools removed - Unix sockets don't need pooling
-        // let pools = manager.connection_pools.read().await;
-        // assert_eq!(pools.len(), 3);
+        let stats = manager.get_usage_stats().await;
+        assert_eq!(stats.active_connections, 0);
     }
 
     #[tokio::test]

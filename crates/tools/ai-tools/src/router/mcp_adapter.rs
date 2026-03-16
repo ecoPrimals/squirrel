@@ -13,10 +13,7 @@ use std::collections::HashMap;
 use super::{MCPInterface, NodeId, RemoteAIRequest, RemoteAIResponse, RemoteAIResponseStream};
 use crate::Result;
 use crate::common::capability::AICapabilities;
-use crate::common::{
-    ChatChoice, ChatChoiceChunk, ChatMessage, ChatResponse, ChatResponseChunk, ChatResponseStream,
-    MessageRole, UsageInfo,
-};
+use crate::common::{ChatChoice, ChatResponse, MessageRole, UsageInfo};
 
 /// Configuration for the MCP adapter
 #[derive(Debug, Clone)]
@@ -51,10 +48,10 @@ pub struct MCPAdapter {
     /// Configuration
     config: MCPAdapterConfig,
 
-    /// Mock responses for testing
+    #[cfg(test)]
     mock_responses: std::sync::RwLock<HashMap<String, ChatResponse>>,
 
-    /// Mock capabilities for testing
+    #[cfg(test)]
     mock_capabilities: std::sync::RwLock<HashMap<NodeId, HashMap<String, AICapabilities>>>,
 }
 
@@ -63,7 +60,9 @@ impl MCPAdapter {
     pub fn new(config: MCPAdapterConfig) -> Self {
         Self {
             config,
+            #[cfg(test)]
             mock_responses: std::sync::RwLock::new(HashMap::new()),
+            #[cfg(test)]
             mock_capabilities: std::sync::RwLock::new(HashMap::new()),
         }
     }
@@ -187,64 +186,12 @@ impl MCPInterface for MCPAdapter {
         _node_id: &NodeId,
         _request: RemoteAIRequest,
     ) -> Result<RemoteAIResponseStream> {
-        // Create a mock streaming response
-        let mock_chunks = vec![
-            ChatResponseChunk {
-                id: uuid::Uuid::new_v4().to_string(),
-                model: "remote".to_string(),
-                choices: vec![ChatChoiceChunk {
-                    index: 0,
-                    delta: ChatMessage {
-                        role: MessageRole::Assistant,
-                        content: Some("Streaming response from remote node".to_string()),
-                        name: None,
-                        tool_calls: None,
-                        tool_call_id: None,
-                    },
-                    finish_reason: None,
-                }],
-            },
-            ChatResponseChunk {
-                id: uuid::Uuid::new_v4().to_string(),
-                model: "remote".to_string(),
-                choices: vec![ChatChoiceChunk {
-                    index: 0,
-                    delta: ChatMessage {
-                        role: MessageRole::Assistant,
-                        content: Some(" via MCP protocol".to_string()),
-                        name: None,
-                        tool_calls: None,
-                        tool_call_id: None,
-                    },
-                    finish_reason: None,
-                }],
-            },
-            ChatResponseChunk {
-                id: uuid::Uuid::new_v4().to_string(),
-                model: "remote".to_string(),
-                choices: vec![ChatChoiceChunk {
-                    index: 0,
-                    delta: ChatMessage {
-                        role: MessageRole::Assistant,
-                        content: Some(".".to_string()),
-                        name: None,
-                        tool_calls: None,
-                        tool_call_id: None,
-                    },
-                    finish_reason: Some("stop".to_string()),
-                }],
-            },
-        ];
-
-        // Create a ChatResponseStream from the chunks
-        let chunk_stream = futures::stream::iter(mock_chunks.into_iter().map(Ok));
-        let response_stream: ChatResponseStream = Box::pin(chunk_stream);
-
-        // Wrap in a stream that returns Result<ChatResponseStream>
-        let stream = futures::stream::iter(vec![Ok(response_stream)]);
-        Ok(RemoteAIResponseStream {
-            inner: Box::pin(stream),
-        })
+        // MCP streaming requires a real MCP transport connection.
+        // Until MCP protocol integration is wired (Phase 2), return
+        // an error rather than silently returning fake data.
+        Err(crate::error::AIError::Network(
+            "MCP streaming not yet wired — use send_request for non-streaming".to_string(),
+        ))
     }
 
     async fn discover_capabilities(

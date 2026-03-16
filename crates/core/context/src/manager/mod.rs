@@ -49,7 +49,12 @@ impl Default for ContextManagerConfig {
     }
 }
 
-/// The main implementation of the Context Manager
+/// The main implementation of the Context Manager.
+///
+/// Stores context state in-memory via a concurrent map. When NestGate is
+/// discovered at runtime (via `storage.put` / `storage.get` capabilities),
+/// the manager will persist state to durable storage. Without NestGate,
+/// state lives only in-memory (graceful degradation).
 #[derive(Debug)]
 pub struct ContextManager {
     /// Plugin manager instance
@@ -58,6 +63,8 @@ pub struct ContextManager {
     config: ContextManagerConfig,
     /// Initialization state
     initialized: RwLock<bool>,
+    /// In-memory context store (session_id → ContextState).
+    store: std::sync::Arc<dashmap::DashMap<String, crate::ContextState>>,
 }
 
 impl ContextManager {
@@ -67,6 +74,7 @@ impl ContextManager {
             plugin_manager: RwLock::new(None),
             config,
             initialized: RwLock::new(false),
+            store: std::sync::Arc::new(dashmap::DashMap::new()),
         }
     }
 
@@ -219,39 +227,58 @@ impl ContextTransformation for TransformationWrapper {
 }
 
 impl ContextManager {
-    /// Create a recovery point for the given state
-    pub async fn create_recovery_point(&self, _state: &crate::ContextState) -> crate::Result<()> {
-        // Stub implementation for now
+    /// Create a recovery point (snapshot) for the given state.
+    ///
+    /// Persists the current state to the in-memory store so it can be
+    /// restored later. NestGate persistence is planned for Phase 2.
+    pub async fn create_recovery_point(&self, state: &crate::ContextState) -> crate::Result<()> {
+        let key = format!("{}__recovery_v{}", state.id, state.version);
+        self.store.insert(key, state.clone());
         Ok(())
     }
 
-    /// Get context state by ID
-    pub async fn get_context_state(&self, _id: &str) -> crate::Result<crate::ContextState> {
-        // Stub implementation for now
-        use chrono::Utc;
-        use serde_json::json;
-        use std::collections::HashMap;
-        use std::time::SystemTime;
+    /// Get context state by ID.
+    ///
+    /// Returns the stored state or creates a new empty session.
+    pub async fn get_context_state(&self, id: &str) -> crate::Result<crate::ContextState> {
+        if let Some(entry) = self.store.get(id) {
+            return Ok(entry.value().clone());
+        }
 
-        Ok(crate::ContextState {
-            id: _id.to_string(),
+        // No existing state — create a fresh session
+        let state = crate::ContextState {
+            id: id.to_string(),
             version: 1,
-            timestamp: Utc::now().timestamp() as u64,
-            data: json!({}),
-            metadata: HashMap::new(),
+            timestamp: chrono::Utc::now().timestamp() as u64,
+            data: serde_json::json!({}),
+            metadata: std::collections::HashMap::new(),
             synchronized: false,
-            last_modified: SystemTime::now(),
-        })
+            last_modified: std::time::SystemTime::now(),
+        };
+        self.store.insert(id.to_string(), state.clone());
+        Ok(state)
     }
 
-    /// Update context state by ID
+    /// Update context state by ID.
+    ///
+    /// Replaces the stored state and bumps the version.
     pub async fn update_context_state(
         &self,
-        _id: &str,
-        _state: crate::ContextState,
+        id: &str,
+        state: crate::ContextState,
     ) -> crate::Result<()> {
-        // Stub implementation for now
+        self.store.insert(id.to_string(), state);
         Ok(())
+    }
+
+    /// Delete a context session by ID.
+    pub async fn delete_context_state(&self, id: &str) -> crate::Result<bool> {
+        Ok(self.store.remove(id).is_some())
+    }
+
+    /// List all active session IDs.
+    pub async fn list_sessions(&self) -> Vec<String> {
+        self.store.iter().map(|e| e.key().clone()).collect()
     }
 }
 

@@ -47,10 +47,12 @@ pub mod monitoring;
 /// Niche self-knowledge: identity, capabilities, costs, dependencies.
 pub mod niche;
 pub mod observability;
-/// Orchestration primitives for multi-primal composition (deploy graphs).
-pub mod orchestration;
 /// Zero-copy and performance optimization utilities.
 pub mod optimization;
+/// Orchestration primitives for multi-primal composition (deploy graphs).
+pub mod orchestration;
+/// Centralized primal name hints for socket discovery (TRUE PRIMAL pattern).
+pub mod primal_names;
 pub mod primal_provider;
 pub mod primal_pulse; // PrimalPulse - AI-powered ecosystem intelligence
 /// Protocol definitions for inter-primal communication.

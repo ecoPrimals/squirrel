@@ -161,3 +161,50 @@ pub async fn initialize() -> AuthResult<()> {
     );
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn initialize_returns_ok() {
+        let result = initialize().await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn initialize_with_security_endpoint_env() {
+        let result = temp_env::with_var(
+            "SECURITY_SERVICE_ENDPOINT",
+            Some("http://custom:9000"),
+            || tokio_test::block_on(initialize()),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn initialize_with_security_port_env() {
+        let result = temp_env::with_var(
+            "SECURITY_AUTHENTICATION_PORT",
+            Some("9999"),
+            || tokio_test::block_on(initialize()),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn initialize_with_mcp_endpoint_env() {
+        let result = temp_env::with_var("MCP_ENDPOINT", Some("http://mcp:9998"), || {
+            tokio_test::block_on(initialize())
+        });
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn initialize_with_mcp_port_env() {
+        let result = temp_env::with_var("MCP_PORT", Some("8888"), || {
+            tokio_test::block_on(initialize())
+        });
+        assert!(result.is_ok());
+    }
+}

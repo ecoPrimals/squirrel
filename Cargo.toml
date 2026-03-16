@@ -65,7 +65,7 @@ chrono = { version = "0.4", features = ["serde"] }
 # Old: reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
 # New: Each crate that needs HTTP declares reqwest as optional with feature flags
 #
-# CRYPTO: reqwest 0.11 → rustls 0.21 → ring (C/ASM). ecoPrimals target: Pure Rust.
+# CRYPTO: reqwest 0.12 → rustls 0.23 (pluggable crypto). ecoPrimals target: Pure Rust.
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + rustls-rustcrypto/aws-lc-rs.
 # See docs/CRYPTO_MIGRATION.md.
 url = "2.4"

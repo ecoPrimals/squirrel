@@ -140,9 +140,11 @@ impl DeploymentGraphDef {
     /// Whether this graph references any AI capabilities that Squirrel provides.
     #[must_use]
     pub fn requires_squirrel(&self) -> bool {
-        self.nodes
-            .iter()
-            .any(|n| n.capability.as_deref().is_some_and(|c| c.starts_with("ai.")))
+        self.nodes.iter().any(|n| {
+            n.capability
+                .as_deref()
+                .is_some_and(|c| c.starts_with("ai."))
+        })
     }
 }
 
@@ -261,8 +263,7 @@ mod tests {
     fn json_roundtrip() {
         let graph = sample_graph();
         let json = serde_json::to_string(&graph).expect("test: serialize");
-        let decoded: DeploymentGraphDef =
-            serde_json::from_str(&json).expect("test: deserialize");
+        let decoded: DeploymentGraphDef = serde_json::from_str(&json).expect("test: deserialize");
         assert_eq!(graph, decoded);
     }
 

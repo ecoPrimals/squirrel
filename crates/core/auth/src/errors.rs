@@ -192,3 +192,153 @@ impl From<anyhow::Error> for AuthError {
         Self::internal_error(format!("Internal error: {}", err))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn authentication_failed_construction_and_display() {
+        let err = AuthError::authentication_failed("bad credentials");
+        assert!(matches!(err, AuthError::AuthenticationFailed { .. }));
+        assert_eq!(err.to_string(), "Authentication failed: bad credentials");
+    }
+
+    #[test]
+    fn token_error_construction_and_display() {
+        let err = AuthError::token_error("validate", "expired");
+        assert!(matches!(err, AuthError::Token { .. }));
+        assert_eq!(err.to_string(), "Token error in validate: expired");
+    }
+
+    #[test]
+    fn authorization_error_construction_and_display() {
+        let err = AuthError::authorization_error("forbidden");
+        assert!(matches!(err, AuthError::Authorization { .. }));
+        assert_eq!(err.to_string(), "Authorization error: forbidden");
+    }
+
+    #[test]
+    fn session_error_construction_and_display() {
+        let err = AuthError::session_error("Session expired");
+        assert!(matches!(err, AuthError::Session { .. }));
+        assert_eq!(err.to_string(), "Session error: Session expired");
+    }
+
+    #[test]
+    fn configuration_error_construction_and_display() {
+        let err = AuthError::configuration_error("Missing config");
+        assert!(matches!(err, AuthError::Configuration { .. }));
+        assert_eq!(err.to_string(), "Auth configuration error: Missing config");
+    }
+
+    #[test]
+    fn network_error_construction_and_display() {
+        let err = AuthError::network_error("login", "timeout");
+        assert!(matches!(err, AuthError::Network { .. }));
+        assert_eq!(err.to_string(), "Network error during login: timeout");
+    }
+
+    #[test]
+    fn beardog_error_construction_and_display() {
+        let err = AuthError::beardog_error("Integration failed");
+        assert!(matches!(err, AuthError::BeardogIntegration { .. }));
+        assert_eq!(
+            err.to_string(),
+            "Beardog integration error: Integration failed"
+        );
+    }
+
+    #[test]
+    fn internal_error_construction_and_display() {
+        let err = AuthError::internal_error("Database connection failed");
+        assert!(matches!(err, AuthError::Internal { .. }));
+        assert_eq!(
+            err.to_string(),
+            "Internal auth system error: Database connection failed"
+        );
+    }
+
+    #[test]
+    fn token_expired_display() {
+        let err = AuthError::TokenExpired;
+        assert_eq!(err.to_string(), "Token has expired");
+    }
+
+    #[test]
+    fn invalid_token_display() {
+        let err = AuthError::InvalidToken;
+        assert_eq!(err.to_string(), "Invalid token");
+    }
+
+    #[test]
+    fn invalid_response_display() {
+        let err = AuthError::InvalidResponse;
+        assert_eq!(err.to_string(), "Invalid response from auth service");
+    }
+
+    #[test]
+    fn capability_provider_unavailable_display() {
+        let err = AuthError::CapabilityProviderUnavailable("endpoint down".into());
+        assert_eq!(
+            err.to_string(),
+            "JWT capability provider unavailable: endpoint down"
+        );
+    }
+
+    #[test]
+    fn capability_provider_error_display() {
+        let err = AuthError::CapabilityProviderError("validation failed".into());
+        assert_eq!(
+            err.to_string(),
+            "JWT capability provider error: validation failed"
+        );
+    }
+
+    #[test]
+    fn from_serde_json_error() {
+        let json_err = serde_json::from_str::<serde_json::Value>("{invalid").unwrap_err();
+        let auth_err: AuthError = json_err.into();
+        assert!(matches!(auth_err, AuthError::Internal { .. }));
+        assert!(auth_err.to_string().contains("JSON serialization error"));
+    }
+
+    #[test]
+    fn from_uuid_error() {
+        let uuid_err = uuid::Uuid::parse_str("not-a-uuid").unwrap_err();
+        let auth_err: AuthError = uuid_err.into();
+        assert!(matches!(auth_err, AuthError::Internal { .. }));
+        assert!(auth_err.to_string().contains("UUID error"));
+    }
+
+    #[test]
+    fn from_anyhow_error() {
+        let anyhow_err = anyhow::anyhow!("something went wrong");
+        let auth_err: AuthError = anyhow_err.into();
+        assert!(matches!(auth_err, AuthError::Internal { .. }));
+        assert!(auth_err.to_string().contains("Internal error"));
+    }
+
+    #[cfg(feature = "http-auth")]
+    #[tokio::test]
+    async fn from_reqwest_error() {
+        let reqwest_err = reqwest::get("not-a-valid-url").await.unwrap_err();
+        let auth_err: AuthError = reqwest_err.into();
+        assert!(matches!(auth_err, AuthError::Network { .. }));
+        assert!(auth_err.to_string().contains("http_request"));
+    }
+
+    #[test]
+    fn empty_message_display() {
+        let err = AuthError::authentication_failed("");
+        assert_eq!(err.to_string(), "Authentication failed: ");
+    }
+
+    #[test]
+    fn long_message_display() {
+        let msg = "x".repeat(10000);
+        let err = AuthError::authentication_failed(msg.clone());
+        assert!(err.to_string().ends_with(&msg));
+        assert!(err.to_string().starts_with("Authentication failed: "));
+    }
+}

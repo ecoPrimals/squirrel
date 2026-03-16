@@ -10,7 +10,7 @@
 ## ✅ Pre-Deployment Verification
 
 ### System Requirements
-- **Rust**: 1.70+
+- **Rust**: 1.85+
 - **Operating System**: Linux (primary), macOS, or Windows
 - **Memory**: 4GB RAM minimum, 8GB recommended
 - **CPU**: 2+ cores

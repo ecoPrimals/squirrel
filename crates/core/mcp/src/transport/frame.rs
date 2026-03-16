@@ -226,7 +226,7 @@ impl FrameCodec for DefaultFrameCodec {
 pub struct FrameTransport<R, W, C = DefaultFrameCodec> {
     reader: AsyncFrameReader<R>,
     writer: AsyncFrameWriter<W>,
-    #[allow(dead_code)] // Reserved for future frame encoding customization
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     codec: C,
 }
 
@@ -264,10 +264,10 @@ where
 /// Framed stream wrapper for MCP frame encoding/decoding
 pub struct FramedStream<T, C = DefaultFrameCodec> {
     /// Underlying stream (reserved for frame-based streaming system)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     stream: T,
     /// Frame codec (reserved for frame-based streaming system)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     codec: C,
 }
 
@@ -286,7 +286,7 @@ where
 #[derive(Clone)]
 pub struct MessageCodec {
     /// Frame codec for encoding/decoding frames (reserved for future extensibility)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     frame_codec: Arc<dyn FrameCodec<Error = MCPError> + Send + Sync>,
 }
 

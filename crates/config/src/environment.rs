@@ -583,7 +583,6 @@ impl EnvironmentConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[test]
     fn test_environment_from_string() {

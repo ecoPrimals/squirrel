@@ -215,7 +215,7 @@ pub struct LearningEngine {
 
 /// Neural network placeholder (reserved for future ML integration)
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Reserved for planned feature: ML integration
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct NeuralNetwork {
     /// Network architecture
     pub layers: Vec<usize>,

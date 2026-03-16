@@ -4,30 +4,27 @@
 
 **Current State**: When HTTP features are enabled, `reqwest` with `rustls-tls` pulls in `ring`, which contains C and assembly code. All reqwest usage is optional (dev/testing); production uses Unix sockets.
 
-## Proof of Concept: ecosystem-api
-
-ecosystem-api has been upgraded to reqwest 0.12 as a proof of concept. It compiles successfully with `--features http-api`. Other crates remain on reqwest 0.11 until full migration.
+All crates with optional reqwest have been migrated to reqwest 0.12 (rustls 0.23, pluggable crypto). The ring dependency remains only as the default crypto backend — pluggable via rustls 0.23.
 
 ## Crates with Optional reqwest
 
 | Crate | Feature | Purpose |
 |-------|---------|---------|
-| ecosystem-api | http-api, http-client | **reqwest 0.12** (proof of concept) |
-| squirrel-plugins | marketplace | Plugin marketplace HTTP |
-| squirrel-core | http-client | HTTP client utilities |
-| squirrel-mcp-auth | http-auth | HTTP-based auth |
-| ecosystem-api | http-api, http-client | Service mesh HTTP APIs |
-| squirrel-mcp-config | http-config | HTTP config fetching |
-| universal-patterns | http-patterns | HTTP orchestration patterns |
-| squirrel-ai-tools | direct-http | Direct AI vendor HTTP |
-| squirrel-mcp | direct-http | AI provider HTTP |
-| squirrel-sdk | http | WASM HTTP client |
-| squirrel-cli | http-commands | CLI HTTP commands |
+| ecosystem-api | http-api, http-client | **reqwest 0.12** |
+| squirrel-plugins | marketplace | **reqwest 0.12** — Plugin marketplace HTTP |
+| squirrel-core | http-client | **reqwest 0.12** — HTTP client utilities |
+| squirrel-mcp-auth | http-auth | **reqwest 0.12** — HTTP-based auth |
+| squirrel-mcp-config | http-config | **reqwest 0.12** — HTTP config fetching |
+| universal-patterns | http-patterns | **reqwest 0.12** — HTTP orchestration patterns |
+| squirrel-ai-tools | direct-http | **reqwest 0.12** — Direct AI vendor HTTP |
+| squirrel-mcp | direct-http | **reqwest 0.12** — AI provider HTTP |
+| squirrel-sdk | http | **reqwest 0.12** — WASM HTTP client |
+| squirrel-cli | http-commands | **reqwest 0.12** — CLI HTTP commands |
 
 ## Dependency Chain
 
 ```
-reqwest 0.11 → hyper 0.14 → hyper-rustls 0.24 → rustls 0.21 → ring (C/ASM)
+reqwest 0.12 → hyper 1.0 → hyper-rustls 0.27 → rustls 0.23 → ring (C/ASM, default)
 ```
 
 ## Upgrade Path: reqwest 0.12 + Pluggable Crypto
@@ -82,8 +79,8 @@ rustls::crypto::aws_lc_rs::default_provider()
 
 ## Recommendation
 
-- **Short term**: Keep reqwest 0.11. All HTTP features remain optional; default build is pure Rust.
-- **Medium term**: Upgrade to reqwest 0.12 when ready; use `rustls-tls-manual-roots-no-provider` + aws-lc-rs to replace ring (reduces C surface; not pure Rust).
+- **Short term**: Done — all crates migrated to reqwest 0.12. All HTTP features remain optional; default build is pure Rust.
+- **Medium term**: Use `rustls-tls-manual-roots-no-provider` + aws-lc-rs to replace ring (reduces C surface; not pure Rust).
 - **Long term**: When rustls-rustcrypto reaches stable, switch to 100% Rust crypto for HTTP features.
 
 ## Verification
@@ -91,7 +88,7 @@ rustls::crypto::aws_lc_rs::default_provider()
 Default build (no HTTP features) has zero ring:
 
 ```bash
-cargo build --workspace  # No reqwest, no ring
+cargo build --workspace  # No HTTP features enabled → no reqwest, no ring
 ```
 
 With HTTP features:

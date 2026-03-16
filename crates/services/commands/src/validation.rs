@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Debug;
-#[allow(unused_imports)]
+#[expect(unused_imports, reason = "re-export for planned consumer")]
 use std::sync::Arc;
 use std::sync::RwLock;
 use sysinfo::{System, SystemExt};

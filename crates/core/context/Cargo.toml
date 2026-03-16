@@ -28,6 +28,7 @@ glob = "0.3"
 regex.workspace = true
 async-recursion.workspace = true
 parking_lot.workspace = true
+dashmap.workspace = true
 # Shared squirrel dependencies
 squirrel-interfaces.workspace = true
 universal-constants = { path = "../../universal-constants" }

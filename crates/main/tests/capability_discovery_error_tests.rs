@@ -87,32 +87,34 @@ mod capability_discovery_error_tests {
         assert!(result.is_err(), "Should fail for empty capability");
     }
 
-    #[tokio::test]
-    async fn test_discovery_without_environment_vars() {
-        // Clear environment variables that might interfere
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
-        unsafe { std::env::remove_var("BEARDOG_URL") };
-        unsafe { std::env::remove_var("SONGBIRD_ENDPOINT") };
-        unsafe { std::env::remove_var("SERVICE_DISCOVERY_DOMAIN") };
+    #[test]
+    fn test_discovery_without_environment_vars() {
+        temp_env::with_vars_unset(
+            [
+                "SECURITY_SERVICE_ENDPOINT",
+                "BEARDOG_URL",
+                "SONGBIRD_ENDPOINT",
+                "SERVICE_DISCOVERY_DOMAIN",
+            ],
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let discovery = EcosystemServiceDiscovery::new();
 
-        let discovery = EcosystemServiceDiscovery::new();
+                    let result = discovery
+                        .discover_by_capability(capabilities::SECURITY)
+                        .await;
 
-        // Should gracefully handle missing configuration
-        let result = discovery
-            .discover_by_capability(capabilities::SECURITY)
-            .await;
-
-        // In development mode, might succeed with local fallback
-        // In production mode, should fail with clear error
-        if result.is_err() {
-            match result {
-                Err(PrimalError::ServiceDiscoveryFailed(_)) => {
-                    // Expected in production mode
-                }
-                Err(e) => panic!("Unexpected error type: {:?}", e),
-                _ => {}
-            }
-        }
+                    if result.is_err() {
+                        match result {
+                            Err(PrimalError::ServiceDiscoveryFailed(_)) => {}
+                            Err(e) => panic!("Unexpected error type: {:?}", e),
+                            _ => {}
+                        }
+                    }
+                })
+            },
+        );
     }
 
     #[tokio::test]
@@ -184,27 +186,28 @@ mod capability_discovery_error_tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_discovery_with_malformed_dns_domain() {
-        unsafe { std::env::set_var("SERVICE_DISCOVERY_DOMAIN", "invalid..domain..test") };
+    #[test]
+    fn test_discovery_with_malformed_dns_domain() {
+        temp_env::with_var(
+            "SERVICE_DISCOVERY_DOMAIN",
+            Some("invalid..domain..test"),
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let discovery = EcosystemServiceDiscovery::new();
+                    let result = discovery
+                        .discover_by_capability(capabilities::SECURITY)
+                        .await;
 
-        let discovery = EcosystemServiceDiscovery::new();
-        let result = discovery
-            .discover_by_capability(capabilities::SECURITY)
-            .await;
-
-        // Should handle malformed DNS gracefully
-        // Either succeed with fallback or fail with clear error
-        if result.is_err() {
-            match result {
-                Err(PrimalError::ServiceDiscoveryFailed(_)) => {
-                    // Expected
-                }
-                Err(e) => panic!("Unexpected error type: {:?}", e),
-                _ => {}
-            }
-        }
-
-        unsafe { std::env::remove_var("SERVICE_DISCOVERY_DOMAIN") };
+                    if result.is_err() {
+                        match result {
+                            Err(PrimalError::ServiceDiscoveryFailed(_)) => {}
+                            Err(e) => panic!("Unexpected error type: {:?}", e),
+                            _ => {}
+                        }
+                    }
+                })
+            },
+        );
     }
 }

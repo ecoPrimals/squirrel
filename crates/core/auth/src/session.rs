@@ -317,4 +317,112 @@ mod tests {
         assert_eq!(stats.active_sessions, 1);
         assert_eq!(stats.total_sessions, 1);
     }
+
+    #[tokio::test]
+    async fn test_extend_session() {
+        let manager = SessionManager::new();
+        let user_id = Uuid::new_v4();
+        let session = Session::new(user_id, Duration::minutes(30), AuthProvider::Standalone);
+        let session_id = session.id;
+        let original_expires = session.expires_at;
+
+        manager.create_session(session).await.unwrap();
+
+        let extended = manager
+            .extend_session(&session_id, Duration::hours(1))
+            .await
+            .unwrap();
+        assert!(extended);
+
+        let retrieved = manager.get_session(&session_id).await.unwrap().unwrap();
+        assert!(retrieved.expires_at > original_expires);
+    }
+
+    #[tokio::test]
+    async fn test_extend_session_expired_returns_false() {
+        let manager = SessionManager::new();
+        let user_id = Uuid::new_v4();
+        let mut session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        session.expires_at = Utc::now() - Duration::hours(1);
+        let session_id = session.id;
+
+        manager.create_session(session).await.unwrap();
+
+        let extended = manager
+            .extend_session(&session_id, Duration::hours(1))
+            .await
+            .unwrap();
+        assert!(!extended);
+    }
+
+    #[tokio::test]
+    async fn test_get_user_sessions() {
+        let manager = SessionManager::new();
+        let user_id = Uuid::new_v4();
+        let other_user_id = Uuid::new_v4();
+
+        let s1 = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        let s2 = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        let s3 = Session::new(other_user_id, Duration::hours(1), AuthProvider::Standalone);
+
+        manager.create_session(s1).await.unwrap();
+        manager.create_session(s2).await.unwrap();
+        manager.create_session(s3).await.unwrap();
+
+        let user_sessions = manager.get_user_sessions(&user_id).await.unwrap();
+        assert_eq!(user_sessions.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_invalidate_user_sessions() {
+        let manager = SessionManager::new();
+        let user_id = Uuid::new_v4();
+
+        let s1 = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        let s2 = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        let session_id_1 = s1.id;
+
+        manager.create_session(s1).await.unwrap();
+        manager.create_session(s2).await.unwrap();
+
+        let count = manager.invalidate_user_sessions(&user_id).await.unwrap();
+        assert_eq!(count, 2);
+
+        assert!(manager.get_session(&session_id_1).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_session_stats() {
+        let manager = SessionManager::new();
+        let user_id = Uuid::new_v4();
+
+        let mut expired = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        expired.expires_at = Utc::now() - Duration::hours(1);
+
+        let active = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+
+        manager.create_session(expired).await.unwrap();
+        manager.create_session(active).await.unwrap();
+
+        let stats = manager.get_session_stats().await.unwrap();
+        assert_eq!(stats.total_sessions, 1);
+        assert_eq!(stats.active_sessions, 1);
+        assert_eq!(stats.expired_sessions, 0);
+    }
+
+    #[tokio::test]
+    async fn test_session_stats_provider_counts() {
+        let manager = SessionManager::new();
+        let user_id = Uuid::new_v4();
+
+        let standalone = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        let dev = Session::new(user_id, Duration::hours(1), AuthProvider::Development);
+
+        manager.create_session(standalone).await.unwrap();
+        manager.create_session(dev).await.unwrap();
+
+        let stats = manager.get_session_stats().await.unwrap();
+        assert_eq!(stats.total_sessions, 2);
+        assert_eq!(stats.standalone_sessions, 1);
+    }
 }

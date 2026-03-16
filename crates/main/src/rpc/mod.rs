@@ -32,6 +32,8 @@
 //! - Feature-gated behind `tarpc-rpc` feature flag
 
 // Core modules (Pure Rust!)
+mod handlers_context;
+mod handlers_tool;
 pub mod ipc_client;
 mod jsonrpc_handlers;
 pub mod jsonrpc_server;

@@ -17,8 +17,7 @@ use tokio::sync::watch;
 use tracing::{debug, info, warn};
 
 use crate::niche;
-
-const SONGBIRD_SOCKET_NAME: &str = "songbird-default.sock";
+use crate::primal_names;
 
 /// Discover the Songbird service-mesh socket.
 ///
@@ -32,16 +31,20 @@ pub fn discover_socket() -> Option<PathBuf> {
     }
 
     if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        let p = PathBuf::from(xdg).join("biomeos").join(SONGBIRD_SOCKET_NAME);
+        let p = PathBuf::from(xdg)
+            .join(primal_names::BIOMEOS_SOCKET_DIR)
+            .join(primal_names::SONGBIRD_SOCKET_NAME);
         if p.exists() {
             return Some(p);
         }
     }
 
     let uid = nix::unistd::getuid();
+    let dir = primal_names::BIOMEOS_SOCKET_DIR;
+    let sock = primal_names::SONGBIRD_SOCKET_NAME;
     let candidates = [
-        format!("/run/user/{uid}/biomeos/{SONGBIRD_SOCKET_NAME}"),
-        format!("/tmp/{SONGBIRD_SOCKET_NAME}"),
+        format!("/run/user/{uid}/{dir}/{sock}"),
+        format!("/tmp/{sock}"),
     ];
 
     candidates
@@ -79,10 +82,7 @@ pub async fn register(songbird_socket: &Path, own_socket: &str) -> bool {
                 );
                 false
             } else {
-                info!(
-                    "Registered with Songbird at {}",
-                    songbird_socket.display()
-                );
+                info!("Registered with Songbird at {}", songbird_socket.display());
                 true
             }
         }

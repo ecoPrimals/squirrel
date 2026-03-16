@@ -237,11 +237,10 @@ pub async fn auto_detect_compute_provider() -> ComputeResult<Box<dyn ComputeProv
         return create_compute_from_type(&provider_type).await;
     }
 
-    // 2. Detect Toadstool (ecoPrimals compute primal)
-    // This would use the universal adapter to discover Toadstool
-    if std::env::var("TOADSTOOL_ENDPOINT").is_ok() {
-        debug!("Detected Toadstool compute primal");
-        return create_compute_from_type("toadstool").await;
+    // 2. Detect compute primal via env (capability-based; name is a hint only)
+    if std::env::var("TOADSTOOL_ENDPOINT").is_ok() || std::env::var("COMPUTE_ENDPOINT").is_ok() {
+        debug!("Detected compute primal via environment");
+        return create_compute_from_type(crate::primal_names::TOADSTOOL).await;
     }
 
     // 3. Detect Kubernetes

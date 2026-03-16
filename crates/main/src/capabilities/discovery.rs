@@ -224,11 +224,12 @@ async fn try_registry_query(
     info!("🧠 Checking Neural API for capability: {}", capability);
 
     let neural_api_socket = std::env::var("NEURAL_API_SOCKET").ok().or_else(|| {
-        // Standard Neural API locations
         let uid = nix::unistd::getuid();
+        let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
+        let sock = crate::primal_names::NEURAL_API_SOCKET_NAME;
         let paths = [
-            "/tmp/neural-api.sock".to_string(),
-            format!("/run/user/{uid}/biomeos/neural-api.sock"),
+            format!("/tmp/{sock}"),
+            format!("/run/user/{uid}/{dir}/{sock}"),
         ];
         paths.into_iter().find(|p| Path::new(p).exists())
     });

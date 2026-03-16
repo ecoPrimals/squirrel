@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,552 passing | **Edition**: 2024 | **Rust**: 1.85+ | **Coverage**: 66%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,667 passing | **Edition**: 2024 | **Rust**: 1.85+ | **Coverage**: 66%
 
 ---
 
@@ -116,16 +116,14 @@ squirrel/
 │   ├── universal-constants/  # Shared constants
 │   ├── universal-error/      # Unified error types
 │   └── universal-patterns/   # Transport and traits
-├── tests/                    # Integration, chaos, proptest
-├── specs/                    # Specifications
-└── config/                   # Environment configs
+└── specs/                    # Specifications
 ```
 
 ---
 
 ## Code Standards
 
-- `#![forbid(unsafe_code)]` unconditional on all 22 crates
+- `#![forbid(unsafe_code)]` unconditional on all 21 crates
 - `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code
 - `#![warn(missing_docs)]` on all library crates
 - `cargo clippy` with `pedantic` + `nursery` lints enabled
@@ -133,7 +131,7 @@ squirrel/
 - Pure Rust: zero C dependencies in default build
 - All source files under 1,000 lines
 - SPDX `AGPL-3.0-only` license headers on every file
-- Edition 2024 across all 22 workspace crates
+- Edition 2024 across all 21 workspace crates
 - `tracing` for logging (no `log` crate)
 - Capability-based discovery (no hardcoded primal names)
 - Property-based testing via `proptest` for serialization invariants

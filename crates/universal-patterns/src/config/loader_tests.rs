@@ -10,7 +10,6 @@
 mod config_loader_tests {
     use super::super::loader::ConfigLoader;
     use super::super::ConfigError;
-    use std::env;
     use std::fs;
     use std::io::Write;
     use tempfile::TempDir;
@@ -134,17 +133,17 @@ name = "Test Primal"
 
     #[test]
     fn test_from_env_no_vars() {
-        // Clear any PRIMAL_ environment variables
-        for (key, _) in env::vars() {
-            if key.starts_with("PRIMAL_") {
-                unsafe { env::remove_var(&key) };
-            }
-        }
-
-        // Should use defaults or fail gracefully
-        let result = ConfigLoader::from_env();
-        // Result depends on PrimalConfig's Default implementation
-        let _ = result;
+        // Clear any PRIMAL_ environment variables using temp_env
+        let primal_keys: Vec<String> = std::env::vars()
+            .filter(|(key, _)| key.starts_with("PRIMAL_"))
+            .map(|(key, _)| key)
+            .collect();
+        temp_env::with_vars_unset(primal_keys.iter().map(|s| s.as_str()), || {
+            // Should use defaults or fail gracefully
+            let result = ConfigLoader::from_env();
+            // Result depends on PrimalConfig's Default implementation
+            let _ = result;
+        });
     }
 
     #[test]
@@ -232,46 +231,41 @@ name = "Test Primal"
     #[test]
     fn test_from_env_partial_config() {
         // Set some but not all environment variables
-        unsafe { env::set_var("PRIMAL__ID", "test-id") };
-        unsafe { env::set_var("PRIMAL__NAME", "test-name") };
-
-        let result = ConfigLoader::from_env();
-        // Should handle partial configuration
-        let _ = result;
-
-        // Cleanup
-        unsafe { env::remove_var("PRIMAL__ID") };
-        unsafe { env::remove_var("PRIMAL__NAME") };
+        temp_env::with_vars(
+            [
+                ("PRIMAL__ID", Some("test-id")),
+                ("PRIMAL__NAME", Some("test-name")),
+            ],
+            || {
+                let result = ConfigLoader::from_env();
+                // Should handle partial configuration
+                let _ = result;
+            },
+        );
     }
 
     #[test]
     fn test_from_env_invalid_values() {
         // Set environment variables with invalid values
-        unsafe { env::set_var("PRIMAL__PORT", "not_a_number") };
-
-        let result = ConfigLoader::from_env();
-        // Should fail or use defaults for invalid values
-        let _ = result;
-
-        // Cleanup
-        unsafe { env::remove_var("PRIMAL__PORT") };
+        temp_env::with_var("PRIMAL__PORT", Some("not_a_number"), || {
+            let result = ConfigLoader::from_env();
+            // Should fail or use defaults for invalid values
+            let _ = result;
+        });
     }
 
     #[test]
     fn test_load_precedence_env_over_file() {
         // This tests the precedence order documented in load()
         // Environment variables should override file configuration
-        unsafe { env::set_var("PRIMAL__ID", "env-override") };
-
-        let result = ConfigLoader::load();
-        if let Ok(config) = result {
-            // If successful, env var should take precedence
-            // (actual assertion depends on PrimalConfig structure)
-            let _ = config;
-        }
-
-        // Cleanup
-        unsafe { env::remove_var("PRIMAL__ID") };
+        temp_env::with_var("PRIMAL__ID", Some("env-override"), || {
+            let result = ConfigLoader::load();
+            if let Ok(config) = result {
+                // If successful, env var should take precedence
+                // (actual assertion depends on PrimalConfig structure)
+                let _ = config;
+            }
+        });
     }
 
     #[test]

@@ -24,7 +24,7 @@ use crate::rules::RuleManager;
 use crate::visualization::VisualizationSystem;
 
 // Re-export planned feature types (available for downstream consumers)
-#[allow(unused_imports)]
+#[expect(unused_imports, reason = "re-export for planned consumer")]
 pub use super::integration_types::{
     ContextUsagePattern, LearningRequest, LearningRequestType, StateChange,
     StateChangePatternAnalysis, analyze_state_change_patterns,
@@ -34,7 +34,7 @@ pub use super::integration_types::{
 ///
 /// Note: Planned feature for context monitoring - implementation in progress
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Reserved for planned feature: context monitoring
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct ContextMonitoringResults {
     pub total_contexts: usize,
     pub contexts_needing_intervention: usize,
@@ -792,7 +792,7 @@ impl LearningIntegration {
     /// Update integration statistics
     ///
     /// Note: Internal method for future integration statistics - implementation in progress
-    #[allow(dead_code)] // Reserved for planned feature: integration statistics
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     async fn update_stats(&self, operation_success: bool, operation_time: f64) -> Result<()> {
         let mut stats = self.stats.lock().await;
 
@@ -816,7 +816,7 @@ impl LearningIntegration {
     /// Record integration error
     ///
     /// Note: Internal method for future error tracking - implementation in progress
-    #[allow(dead_code)] // Reserved for planned feature: error tracking
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     async fn record_error(&self, error_type: &str, message: &str, component: &str) -> Result<()> {
         let error = IntegrationError {
             id: uuid::Uuid::new_v4().to_string(),
@@ -868,7 +868,7 @@ impl LearningIntegration {
 ///
 /// Note: Component references for future integration - some components not yet wired up
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Reserved for planned feature: component wiring
+#[expect(dead_code, reason = "planned feature not yet wired")]
 pub struct IntegrationRefs {
     pub context_manager: Option<Arc<ContextManager>>,
     pub rule_manager: Option<Arc<RuleManager>>,

@@ -28,10 +28,10 @@ anyhow = "1.0"
 # HTTP client for AI services (OPTIONAL - for dev/testing only!)
 # Production uses Unix sockets → Songbird (Pure Rust!)
 #
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.11 → rustls 0.21 → ring (C/ASM).
+# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
 # See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 url = "2.5"
 
 # Logging and tracing

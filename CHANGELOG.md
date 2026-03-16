@@ -9,6 +9,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.6] - 2026-03-16
+
+Test coverage expansion, reqwest 0.12 migration, disabled test re-enablement.
+
+### Added
+
+- **Auth crate tests** — 51 new tests for `errors.rs` (19), `types.rs` (21),
+  `session.rs` (6), `lib.rs` (5). Covers all error variants, From impls, serde
+  round-trips, session lifecycle, and env-based initialization.
+- **Plugins crate tests** — 31 new tests for `manager.rs` (9), `types.rs` (7),
+  `discovery.rs` (6), `default_manager.rs` (9). Covers plugin registration,
+  status transitions, manifest deserialization, serde round-trips, and discovery.
+- **Config crate tests** — 10 new tests for `merge_config` (4), `health_check` (5),
+  `ConfigLoader::load()` integration (1). Full pipeline test with temp file + env.
+- **Re-enabled tests** — 16 tests re-enabled: 14 MCP propagation tests (removed
+  `disabled_until_rewrite` feature gate, fixed API mismatches), rate limiter test
+  (fixed nested runtime), resource manager test (updated for current API).
+
+### Changed
+
+- **reqwest 0.11 → 0.12** — All 9 remaining crates migrated. Now using rustls 0.23
+  with pluggable crypto providers. No API changes needed — existing usage compatible.
+- **universal_adapter_tests** — 12 tests fixed from `block_on` inside tokio runtime
+  to `#[test] fn` with explicit `Runtime::new()` inside `temp_env` closures.
+- **Chaos test clarity** — `chaos_09` and `chaos_10` ignore reasons documented.
+
+### Removed
+
+- **Orphaned test files** — 7 dead test files removed from config crate (referenced
+  removed `core` module, deprecated `environment_config`, unwired test modules).
+- **`test_primal_analyze_e2e_mock`** — deleted (HTTP handlers removed, test was no-op).
+
+### Metrics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Tests | 4,600+ | 4,667 passing |
+| Auth tests | 19 | 70 |
+| Plugins tests | 22 | 53 |
+| Config tests | 102 | 112 |
+| reqwest version | 0.11 (9 crates) / 0.12 (1 crate) | 0.12 (all 10 crates) |
+| Re-enabled tests | — | 16 |
+| Orphaned files | 7 | 0 |
+
+## [0.1.0-alpha.5] - 2026-03-16
+
+Deep debt resolution: modern idiomatic Rust, production mock cleanup,
+capability-based discovery, JSON-RPC batch support, handler refactoring.
+
+### Added
+
+- **`primal_names.rs`** — centralized primal name constants for socket discovery
+  (groundSpring V106 / wetSpring V119 pattern). All socket path construction
+  now uses typed constants instead of raw strings.
+- **`capability.list` handler** — per-method cost/dependency info for biomeOS
+  PathwayLearner scheduling (LoamSpine v0.8.8 / sweetGrass v0.7.12 pattern).
+- **JSON-RPC 2.0 batch support** — full Section 6 compliance. Array of requests
+  → array of responses. Notification-only batches return no response per spec.
+- **Context in-memory persistence** — `ContextManager` evolved from stubs to real
+  `DashMap`-backed storage with create/read/update/delete/list operations.
+- **Batch handler tests** — 3 new tests for empty, single, and multi-request batches.
+- **`capability.list` test** — verifies per-method cost/deps structure.
+
+### Changed
+
+- **Handler refactoring** — `jsonrpc_handlers.rs` (1019 lines) split into 3 domain
+  files: `jsonrpc_handlers.rs` (utility + AI + capability + system + discovery +
+  lifecycle), `handlers_context.rs` (context domain), `handlers_tool.rs` (tool domain).
+  Main file now ~550 lines.
+- **Production mock cleanup** — `MCPAdapter` mock fields gated behind `#[cfg(test)]`.
+  `stream_request` evolved from fake-data return to honest error signaling.
+- **`#[allow]` → `#[expect]` migration** — ~44 item-level `#[allow(dead_code)]`
+  migrated to `#[expect(dead_code, reason = "...")]` across 7 crates.
+- **Unsafe test evolution** — `unsafe { env::set_var }` replaced with `temp_env`
+  in 5 test files. Tests restructured to avoid `block_on` inside tokio runtime.
+- **Hardcoded socket paths** — security, lifecycle, songbird, discovery, and AI
+  router now use `primal_names::*` constants for socket directory/name construction.
+- **AI router** — ToadStool scanning evolved from primal-name-specific to
+  capability-based discovery hints.
+
+### Fixed
+
+- `capability_discovery_error_tests` — fixed `block_on` inside tokio runtime
+  by restructuring to sync tests with explicit `Runtime::new()`.
+- Two unfulfilled `#[expect]` warnings resolved.
+
+### Metrics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Tests | 4,552 | 4,600+ (new batch + capability.list + primal_names) |
+| JSON-RPC methods | 20 | 21 (+capability.list) |
+| Files >1000 lines | 0 (maintained) | 0 (handlers split to 3 files) |
+| Production mocks | ~5 | 0 (gated or evolved) |
+| Unsafe in tests | ~30 | 0 (migrated to temp_env) |
+| #[allow] without reason | ~50 | ~6 (remaining are clippy/deprecated) |
+| Hardcoded primal names | ~25 | ~5 (legacy display mappings only) |
+
 ## [0.1.0-alpha.4] - 2026-03-16
 
 Spring absorption: niche self-knowledge, Songbird announcement, proptest,

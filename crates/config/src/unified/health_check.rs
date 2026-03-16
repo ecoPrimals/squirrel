@@ -187,7 +187,11 @@ mod tests {
         let config = HealthCheckConfig::default();
         assert!(config.enabled);
         assert_eq!(config.interval, Duration::from_secs(30));
+        assert_eq!(config.timeout, Duration::from_secs(5));
         assert_eq!(config.failure_threshold, 3);
+        assert_eq!(config.recovery_threshold, 2);
+        assert_eq!(config.auto_recovery, None);
+        assert_eq!(config.grace_period, None);
     }
 
     #[test]
@@ -195,4 +199,83 @@ mod tests {
         let config = HealthCheckConfig::default();
         assert_eq!(config.success_threshold(), config.recovery_threshold);
     }
+
+    #[test]
+    fn test_simple() {
+        let config = HealthCheckConfig::simple(
+            false,
+            Duration::from_secs(60),
+            Duration::from_secs(10),
+            5,
+            3,
+        );
+        assert!(!config.enabled);
+        assert_eq!(config.interval, Duration::from_secs(60));
+        assert_eq!(config.timeout, Duration::from_secs(10));
+        assert_eq!(config.failure_threshold, 5);
+        assert_eq!(config.recovery_threshold, 3);
+        assert_eq!(config.auto_recovery, None);
+        assert_eq!(config.grace_period, None);
+    }
+
+    #[test]
+    fn test_with_auto_recovery() {
+        let config = HealthCheckConfig::with_auto_recovery(
+            true,
+            Duration::from_secs(15),
+            Duration::from_secs(3),
+            2,
+            1,
+            true,
+        );
+        assert!(config.enabled);
+        assert_eq!(config.interval, Duration::from_secs(15));
+        assert_eq!(config.timeout, Duration::from_secs(3));
+        assert_eq!(config.failure_threshold, 2);
+        assert_eq!(config.recovery_threshold, 1);
+        assert_eq!(config.auto_recovery, Some(true));
+        assert_eq!(config.grace_period, None);
+    }
+
+    #[test]
+    fn test_with_grace_period() {
+        let grace = Duration::from_secs(120);
+        let config = HealthCheckConfig::with_grace_period(
+            true,
+            Duration::from_secs(30),
+            Duration::from_secs(5),
+            3,
+            2,
+            grace,
+        );
+        assert!(config.enabled);
+        assert_eq!(config.interval, Duration::from_secs(30));
+        assert_eq!(config.timeout, Duration::from_secs(5));
+        assert_eq!(config.failure_threshold, 3);
+        assert_eq!(config.recovery_threshold, 2);
+        assert_eq!(config.auto_recovery, None);
+        assert_eq!(config.grace_period, Some(grace));
+    }
+
+    #[test]
+    fn test_success_threshold_returns_recovery_threshold() {
+        let config = HealthCheckConfig::simple(
+            true,
+            Duration::from_secs(30),
+            Duration::from_secs(5),
+            3,
+            7,
+        );
+        assert_eq!(config.success_threshold(), 7);
+    }
+
+    #[test]
+    fn test_clone() {
+        let config = HealthCheckConfig::default();
+        let cloned = config.clone();
+        assert_eq!(config.enabled, cloned.enabled);
+        assert_eq!(config.interval, cloned.interval);
+        assert_eq!(config.failure_threshold, cloned.failure_threshold);
+    }
+
 }

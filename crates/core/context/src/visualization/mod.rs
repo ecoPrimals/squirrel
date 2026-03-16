@@ -91,7 +91,7 @@ impl Default for VisualizationSystemConfig {
 #[derive(Debug)]
 pub struct VisualizationSystem {
     /// Configuration
-    #[allow(dead_code)] // Reserved for planned feature
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     config: Arc<VisualizationSystemConfig>,
 
     /// Visualization manager

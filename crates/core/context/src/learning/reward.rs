@@ -25,7 +25,7 @@ use crate::error::Result;
 #[derive(Debug)]
 pub struct RewardSystem {
     /// System configuration
-    #[allow(dead_code)] // Reserved for planned feature
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     config: Arc<LearningSystemConfig>,
 
     /// Reward calculators

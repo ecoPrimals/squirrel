@@ -361,3 +361,223 @@ impl JwtClaims {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn login_request_new() {
+        let req = LoginRequest::new("alice", "secret");
+        assert_eq!(req.username, "alice");
+        assert_eq!(req.password, "secret");
+        assert!(req.additional_factors.is_none());
+    }
+
+    #[test]
+    fn login_request_with_factors() {
+        let factors = serde_json::json!({"totp": "123456"});
+        let req = LoginRequest::new("alice", "secret").with_factors(factors.clone());
+        assert_eq!(req.additional_factors, Some(factors));
+    }
+
+    #[test]
+    fn user_new() {
+        let user = User::new("bob", "bob@example.com");
+        assert_eq!(user.username, "bob");
+        assert_eq!(user.email, "bob@example.com");
+        assert!(user.roles.is_empty());
+        assert!(user.permissions.is_empty());
+        assert!(user.is_active);
+    }
+
+    #[test]
+    fn user_has_role() {
+        let mut user = User::new("bob", "bob@example.com");
+        user.roles = vec!["admin".into(), "editor".into()];
+        assert!(user.has_role("admin"));
+        assert!(user.has_role("editor"));
+        assert!(!user.has_role("viewer"));
+    }
+
+    #[test]
+    fn user_has_permission() {
+        let mut user = User::new("bob", "bob@example.com");
+        user.permissions = vec![
+            Permission::new("mcp", "read"),
+            Permission::with_scope("api", "write", "projects"),
+        ];
+        assert!(user.has_permission(&Permission::new("mcp", "read")));
+        assert!(user.has_permission(&Permission::with_scope("api", "write", "projects")));
+        assert!(!user.has_permission(&Permission::new("admin", "delete")));
+    }
+
+    #[test]
+    fn permission_new() {
+        let p = Permission::new("mcp", "read");
+        assert_eq!(p.resource, "mcp");
+        assert_eq!(p.action, "read");
+        assert!(p.scope.is_none());
+    }
+
+    #[test]
+    fn permission_with_scope() {
+        let p = Permission::with_scope("api", "write", "projects");
+        assert_eq!(p.resource, "api");
+        assert_eq!(p.action, "write");
+        assert_eq!(p.scope.as_deref(), Some("projects"));
+    }
+
+    #[test]
+    fn permission_matches() {
+        let p1 = Permission::new("mcp", "read");
+        let p2 = Permission::new("mcp", "read");
+        let p3 = Permission::with_scope("mcp", "read", "scope");
+        assert!(p1.matches(&p2));
+        assert!(!p1.matches(&p3));
+        assert!(p3.matches(&Permission::with_scope("mcp", "read", "scope")));
+    }
+
+    #[test]
+    fn auth_context_new() {
+        let user = User::new("alice", "alice@example.com");
+        let session_id = Uuid::new_v4();
+        let expires_at = Utc::now() + Duration::hours(1);
+        let ctx = AuthContext::new(&user, session_id, expires_at, AuthProvider::Standalone);
+        assert_eq!(ctx.user_id, user.id);
+        assert_eq!(ctx.username, "alice");
+        assert_eq!(ctx.session_id, session_id);
+        assert!(!ctx.is_expired());
+    }
+
+    #[test]
+    fn auth_context_is_expired() {
+        let user = User::new("alice", "alice@example.com");
+        let session_id = Uuid::new_v4();
+        let expires_at = Utc::now() - Duration::hours(1);
+        let ctx = AuthContext::new(&user, session_id, expires_at, AuthProvider::Standalone);
+        assert!(ctx.is_expired());
+    }
+
+    #[test]
+    fn auth_context_has_role() {
+        let mut user = User::new("alice", "alice@example.com");
+        user.roles = vec!["admin".into()];
+        let ctx = AuthContext::new(
+            &user,
+            Uuid::new_v4(),
+            Utc::now() + Duration::hours(1),
+            AuthProvider::Standalone,
+        );
+        assert!(ctx.has_role("admin"));
+        assert!(!ctx.has_role("viewer"));
+    }
+
+    #[test]
+    fn auth_context_has_permission() {
+        let mut user = User::new("alice", "alice@example.com");
+        user.permissions = vec![Permission::new("mcp", "read")];
+        let ctx = AuthContext::new(
+            &user,
+            Uuid::new_v4(),
+            Utc::now() + Duration::hours(1),
+            AuthProvider::Standalone,
+        );
+        assert!(ctx.has_permission(&Permission::new("mcp", "read")));
+        assert!(!ctx.has_permission(&Permission::new("admin", "delete")));
+    }
+
+    #[test]
+    fn session_new() {
+        let user_id = Uuid::new_v4();
+        let session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        assert_eq!(session.user_id, user_id);
+        assert!(session.is_active);
+        assert!(!session.is_expired());
+    }
+
+    #[test]
+    fn session_is_expired() {
+        let user_id = Uuid::new_v4();
+        let mut session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        session.expires_at = Utc::now() - Duration::hours(1);
+        assert!(session.is_expired());
+    }
+
+    #[test]
+    fn session_touch() {
+        let user_id = Uuid::new_v4();
+        let mut session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        let before = session.last_accessed;
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        session.touch();
+        assert!(session.last_accessed >= before);
+    }
+
+    #[test]
+    fn session_invalidate() {
+        let user_id = Uuid::new_v4();
+        let mut session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        assert!(session.is_active);
+        session.invalidate();
+        assert!(!session.is_active);
+    }
+
+    #[test]
+    fn login_request_serde_roundtrip() {
+        let req = LoginRequest::new("alice", "secret")
+            .with_factors(serde_json::json!({"mfa": true}));
+        let json = serde_json::to_string(&req).unwrap();
+        let restored: LoginRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.username, req.username);
+        assert_eq!(restored.additional_factors, req.additional_factors);
+    }
+
+    #[test]
+    fn auth_provider_serde_roundtrip() {
+        let providers = [
+            AuthProvider::Standalone,
+            AuthProvider::Development,
+            AuthProvider::SecurityCapability {
+                endpoint: "http://localhost:8443".into(),
+                discovery_method: "config".into(),
+                capability_info: SecurityCapabilityInfo {
+                    primal_type: "security".into(),
+                    supports_auth: true,
+                    supports_sessions: true,
+                    api_version: "1.0".into(),
+                },
+            },
+        ];
+        for provider in providers {
+            let json = serde_json::to_string(&provider).unwrap();
+            let restored: AuthProvider = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored, provider);
+        }
+    }
+
+    #[test]
+    fn session_serde_roundtrip() {
+        let user_id = Uuid::new_v4();
+        let session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+        let json = serde_json::to_string(&session).unwrap();
+        let restored: Session = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.id, session.id);
+        assert_eq!(restored.user_id, session.user_id);
+    }
+
+    #[test]
+    fn login_request_empty_strings() {
+        let req = LoginRequest::new("", "");
+        assert_eq!(req.username, "");
+        assert_eq!(req.password, "");
+    }
+
+    #[test]
+    fn auth_context_expired_timestamp_edge() {
+        let user = User::new("alice", "alice@example.com");
+        let expires_at = Utc::now() - Duration::seconds(1);
+        let ctx = AuthContext::new(&user, Uuid::new_v4(), expires_at, AuthProvider::Standalone);
+        assert!(ctx.is_expired());
+    }
+}

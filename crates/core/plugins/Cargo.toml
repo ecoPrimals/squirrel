@@ -22,10 +22,10 @@ chrono = { version = "0.4", features = ["serde"] }
 # Production uses capability_http (delegates to Songbird via Unix sockets)
 # reqwest is optional, only for marketplace feature
 #
-# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.11 → rustls 0.21 → ring (C/ASM).
+# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + rustls::crypto::aws_lc_rs
 # or rustls-rustcrypto (alpha, 100% Rust). See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 url = "2.5"
 
 # Logging and tracing

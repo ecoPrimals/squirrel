@@ -14,11 +14,11 @@ use tokio::sync::broadcast;
 #[derive(Debug)]
 pub struct WebVisualizationServer {
     /// Configuration
-    #[allow(dead_code)] // Reserved for planned feature
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     config: Arc<VisualizationSystemConfig>,
 
     /// Event broadcaster
-    #[allow(dead_code)] // Reserved for planned feature
+    #[expect(dead_code, reason = "planned feature not yet wired")]
     event_broadcaster: broadcast::Sender<VisualizationEvent>,
 }
 

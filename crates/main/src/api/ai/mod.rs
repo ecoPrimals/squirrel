@@ -23,14 +23,14 @@ mod router_tests;
 pub use router::AiRouter;
 
 // Re-export universal AI interface (public API for downstream consumers)
-#[allow(unused_imports)]
+#[expect(unused_imports, reason = "re-export for planned consumer")]
 pub use universal::{
     AiCapability, BoxedAiCapability, ChatMessage, CostTier, MessageRole, ProviderMetadata,
     ProviderType, TokenUsage, UniversalAiRequest, UniversalAiResponse,
 };
 
 // Re-export adapter and discovery (public API for downstream consumers)
-#[allow(unused_imports)]
+#[expect(unused_imports, reason = "re-export for planned consumer")]
 pub use adapter::UniversalAiAdapter;
-#[allow(unused_imports)]
+#[expect(unused_imports, reason = "re-export for planned consumer")]
 pub use discovery::{discover_ai_provider, discover_ai_providers, has_ai_providers};
