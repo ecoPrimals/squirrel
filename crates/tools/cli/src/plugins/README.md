@@ -171,7 +171,7 @@ name = "my-plugin"
 version = "1.0.0"
 description = "My awesome plugin"
 author = "Your Name"
-homepage = "https://github.com/yourusername/my-plugin"
+homepage = "https://github.com/your-org/my-plugin"
 ```
 
 ## Plugin Security

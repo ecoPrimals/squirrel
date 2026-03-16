@@ -2,7 +2,7 @@
 version: 1.0.0
 date: 2024-08-17
 status: draft
-author: DataScienceBioLab
+author: ecoPrimals Contributors
 ---
 
 # MCP Transport Layer and Adapter Analysis
@@ -274,4 +274,4 @@ The proposed changes will make our codebase more maintainable, extensible, and r
 
 ---
 
-*This analysis was produced by DataScienceBioLab.* 
+*This analysis was produced by ecoPrimals Contributors.* 

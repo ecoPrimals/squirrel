@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 16, 2026
-**Version**: 0.1.0-alpha.6
+**Version**: 0.1.0-alpha.7
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build

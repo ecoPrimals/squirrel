@@ -7,7 +7,7 @@ status: active
 # Machine Context Protocol (MCP) Specification
 
 ## Overview
-The Machine Context Protocol (MCP) is a secure, efficient protocol for communication between AI tools and the DataScienceBioLab system. It provides reliable message delivery, security features, context management capabilities, and thread-safe operations.
+The Machine Context Protocol (MCP) is a secure, efficient protocol for communication between AI tools and the ecoPrimals system. It provides reliable message delivery, security features, context management capabilities, and thread-safe operations.
 
 > **Note**: This document provides a high-level overview of the MCP. For detailed specifications, please refer to the following documents in the `protocol/` directory:
 >

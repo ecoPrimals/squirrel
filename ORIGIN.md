@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Origin
 
-**Squirrel** is the AI Coordination Primal of the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem.
+**Squirrel** is the AI Coordination Primal of the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
 ---
 
@@ -38,7 +38,7 @@ The framework is grounded in three biological lines of evidence:
   This defines when constrained evolution fails.
 
 The formal treatment is in `gen3/thesis/03_theoretical_framework.md`
-in the ecoPrimals white paper (see the [ecoPrimals](https://github.com/syntheticChemistry) repository).
+in the ecoPrimals white paper (see the [ecoPrimals](https://github.com/ecoPrimals) repository).
 
 ---
 
@@ -73,7 +73,7 @@ The methodology:
 4. **Physics as fitness function** — for the science primals (hotSpring,
    wetSpring, etc.), validation suites reproduce published results. For
    infrastructure primals like Squirrel, the fitness function is the test suite
-   (3,749+ tests), chaos/fault injection, and ecosystem integration.
+   (4,819 tests), chaos/fault injection, and ecosystem integration.
 
 The Cursor receipt is the evidence for the methodology: the commit history and
 agent invocation log show the evolutionary trajectory.

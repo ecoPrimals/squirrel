@@ -2,7 +2,7 @@
 version: 1.0.0
 date: 2024-08-17
 status: active
-author: DataScienceBioLab
+author: ecoPrimals Contributors
 ---
 
 # MCP Implementation Comparison: Our Approach vs mcp-rust-sdk
@@ -233,4 +233,4 @@ As we progress with the implementation, we'll continue to evaluate aspects of th
 
 ---
 
-*Comparison produced by DataScienceBioLab.* 
+*Comparison produced by ecoPrimals Contributors.* 

@@ -2,7 +2,7 @@
 version: 1.0.0
 date: 2024-08-17
 status: active
-author: DataScienceBioLab
+author: ecoPrimals Contributors
 ---
 
 # Machine Context Protocol (MCP) Specification
@@ -356,4 +356,4 @@ Teams working with the MCP implementation should:
 
 ---
 
-*Specification produced by DataScienceBioLab.* 
+*Specification produced by ecoPrimals Contributors.* 

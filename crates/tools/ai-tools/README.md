@@ -349,7 +349,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/squirrel
+git clone https://github.com/ecoPrimals/squirrel
 cd squirrel/crates/tools/ai-tools
 
 # Install dependencies

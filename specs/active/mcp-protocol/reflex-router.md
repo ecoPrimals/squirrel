@@ -2,7 +2,7 @@
 version: 1.0.0
 status: proposed
 last_updated: 2024-10-01
-author: DataScienceBioLab
+author: ecoPrimals Contributors
 ---
 
 # MCP ReflexRouter Specification

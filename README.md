@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel
 
-**AI Coordination Primal** for the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem.
+**AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
 **License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,819 passing | **Edition**: 2024 | **Rust**: 1.85+ | **Coverage**: 69%
 
@@ -132,7 +132,7 @@ squirrel/
 - `cargo fmt` — zero formatting violations
 - Pure Rust: zero C dependencies in default build (ecoBin compliant)
 - All source files under 1,000 lines
-- SPDX `AGPL-3.0-only` license headers on every file
+- SPDX `AGPL-3.0-only` license on all crates (`[workspace.package]`)
 - Edition 2024 across all 22 workspace crates
 - `tracing` for structured logging (no `println!` in production)
 - Typed errors via `thiserror` (no `Box<dyn Error>` in library code)

@@ -774,4 +774,4 @@ For more information, refer to the following resources:
 
 ---
 
-*Created by DataScienceBioLab* 
+*Created by ecoPrimals Contributors* 
