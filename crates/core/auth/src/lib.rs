@@ -5,7 +5,7 @@
 //! Squirrel Authentication & Security System
 //!
 //! Modern authentication system leveraging capability-based discovery and ecosystem integration.
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 //! This completely replaces the severely outdated legacy auth code with a clean, modern architecture.
 //!
@@ -33,12 +33,11 @@
 //!
 //! ## Usage
 //!
-//! ```rust
-//! use squirrel_mcp_auth::{AuthService, AuthResult, LoginRequest};
+//! ```rust,no_run
+//! use squirrel_mcp_auth::{AuthResult, DelegatedJwtClient};
 //!
 //! # async fn example() -> AuthResult<()> {
-//! let auth_service = AuthService::new().await?;
-//! let result = auth_service.authenticate(LoginRequest::new("user", "pass")).await?;
+//! let jwt_client = DelegatedJwtClient::new("unix:///run/user/1000/biomeos/beardog.sock");
 //! # Ok(())
 //! # }
 //! ```

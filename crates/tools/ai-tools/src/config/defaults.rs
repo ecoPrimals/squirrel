@@ -7,7 +7,7 @@
 
 use std::env;
 
-use universal_constants::network::get_service_port;
+use universal_constants::network::{LOCALHOST_IPV4, get_service_port};
 
 /// Default AI service endpoints with environment override support
 pub struct DefaultEndpoints;
@@ -86,7 +86,7 @@ impl DefaultEndpoints {
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or_else(|| get_service_port("websocket"));
-            format!("ws://127.0.0.1:{port}")
+            format!("ws://{}:{port}", LOCALHOST_IPV4)
         })
     }
 
@@ -187,7 +187,7 @@ AI Services (Vendor-Agnostic):
 
 MCP Protocol:
 - MCP_SERVER_ENDPOINT: MCP server endpoint (default: localhost:50051)
-- MCP_SERVER_URL: WebSocket server URL (default: ws://127.0.0.1:8080)
+- MCP_SERVER_URL: WebSocket server URL (default: ws://127.0.0.1 with port from WEBSOCKET_PORT)
 - CLI_MCP_HOST: CLI MCP host (default: localhost)
 
 Security Services (Capability-Based Discovery):

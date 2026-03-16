@@ -17,21 +17,36 @@ use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, deco
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// JWT claims payload for local (dev-mode) token validation.
+///
+/// Maps standard IETF RFC 7519 registered claims to Squirrel's auth context.
+/// Production mode delegates JWT validation to a capability-discovered provider.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwtClaims {
-    pub sub: String,        // Subject (user ID)
-    pub username: String,   // Username
-    pub roles: Vec<String>, // User roles
-    pub session_id: String, // Session ID
-    pub iat: i64,           // Issued at
-    pub exp: i64,           // Expiration time
-    pub nbf: i64,           // Not before
-    pub iss: String,        // Issuer
-    pub aud: String,        // Audience
-    pub jti: String,        // JWT ID
+    /// Subject — user ID as UUID string
+    pub sub: String,
+    /// Human-readable username
+    pub username: String,
+    /// Authorization roles (e.g. `["admin", "user"]`)
+    pub roles: Vec<String>,
+    /// Session identifier as UUID string
+    pub session_id: String,
+    /// Issued-at timestamp (Unix epoch seconds)
+    pub iat: i64,
+    /// Expiration timestamp (Unix epoch seconds)
+    pub exp: i64,
+    /// Not-before timestamp (Unix epoch seconds)
+    pub nbf: i64,
+    /// Issuer identifier
+    pub iss: String,
+    /// Audience identifier
+    pub aud: String,
+    /// Unique JWT identifier (jti)
+    pub jti: String,
 }
 
 impl JwtClaims {
+    /// Build claims for a new token with the given identity and expiration.
     pub fn new(
         user_id: Uuid,
         username: String,
@@ -55,6 +70,7 @@ impl JwtClaims {
         }
     }
 
+    /// Convert validated claims into an [`AuthContext`] for downstream authorization.
     pub fn to_auth_context(&self) -> Result<AuthContext, AuthError> {
         let user_id = Uuid::parse_str(&self.sub).map_err(|_| AuthError::InvalidToken)?;
 
@@ -77,6 +93,10 @@ impl JwtClaims {
     }
 }
 
+/// HMAC-HS256 token manager for local (dev-mode) JWT creation and verification.
+///
+/// Uses `jsonwebtoken` crate which pulls the `ring` C dependency.
+/// Production deployments should use [`DelegatedJwtClient`](crate::DelegatedJwtClient) instead.
 pub struct JwtTokenManager {
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,
@@ -84,6 +104,7 @@ pub struct JwtTokenManager {
 }
 
 impl JwtTokenManager {
+    /// Create a token manager with the given HMAC secret.
     pub fn new(secret: &[u8]) -> Self {
         let mut validation = Validation::new(Algorithm::HS256);
         validation.set_issuer(&["squirrel-mcp"]);
@@ -98,6 +119,7 @@ impl JwtTokenManager {
         }
     }
 
+    /// Encode claims into a signed JWT string.
     pub fn create_token(&self, claims: &JwtClaims) -> Result<String, AuthError> {
         let header = Header::new(Algorithm::HS256);
 
@@ -106,6 +128,7 @@ impl JwtTokenManager {
         })
     }
 
+    /// Verify a JWT string and return the decoded claims.
     pub fn verify_token(&self, token: &str) -> Result<JwtClaims, AuthError> {
         let token_data = decode::<JwtClaims>(token, &self.decoding_key, &self.validation).map_err(
             |e| match e.kind() {
@@ -120,6 +143,7 @@ impl JwtTokenManager {
         Ok(token_data.claims)
     }
 
+    /// Extract the bearer token from an `Authorization` header value.
     pub fn extract_token_from_header<'a>(
         &self,
         authorization_header: &'a str,

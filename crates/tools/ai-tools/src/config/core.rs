@@ -476,24 +476,26 @@ mod tests {
 
     #[test]
     fn test_ai_tools_config_from_env_defaults() {
-        // Ensure env vars don't interfere - clean state
-        unsafe { std::env::remove_var("SQUIRREL_AI_CONFIG") };
-        unsafe { std::env::remove_var("SQUIRREL_DEFAULT_AI_PROVIDER") };
-        unsafe { std::env::remove_var("SQUIRREL_AI_REQUEST_TIMEOUT") };
-        unsafe { std::env::remove_var("SQUIRREL_AI_MAX_RETRIES") };
-        unsafe { std::env::remove_var("SQUIRREL_AI_ENABLE_LOGGING") };
-        unsafe { std::env::remove_var("OPENAI_API_KEY") };
-        unsafe { std::env::remove_var("ANTHROPIC_API_KEY") };
-        unsafe { std::env::remove_var("GEMINI_API_KEY") };
-        unsafe { std::env::remove_var("LOCAL_AI_HOST") };
-        unsafe { std::env::remove_var("LOCAL_AI_URL") };
-        unsafe { std::env::remove_var("OLLAMA_HOST") };
-        unsafe { std::env::remove_var("OLLAMA_URL") };
-
-        let config = AIToolsConfig::from_env().unwrap();
-        assert_eq!(config.default_provider, "openai");
-        assert_eq!(config.request_timeout, 30);
-        assert_eq!(config.max_retries, 3);
-        assert!(config.enable_logging);
+        const AI_ENV_VARS: &[&str] = &[
+            "SQUIRREL_AI_CONFIG",
+            "SQUIRREL_DEFAULT_AI_PROVIDER",
+            "SQUIRREL_AI_REQUEST_TIMEOUT",
+            "SQUIRREL_AI_MAX_RETRIES",
+            "SQUIRREL_AI_ENABLE_LOGGING",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GEMINI_API_KEY",
+            "LOCAL_AI_HOST",
+            "LOCAL_AI_URL",
+            "OLLAMA_HOST",
+            "OLLAMA_URL",
+        ];
+        temp_env::with_vars_unset(AI_ENV_VARS, || {
+            let config = AIToolsConfig::from_env().unwrap();
+            assert_eq!(config.default_provider, "openai");
+            assert_eq!(config.request_timeout, 30);
+            assert_eq!(config.max_retries, 3);
+            assert!(config.enable_logging);
+        });
     }
 }

@@ -357,107 +357,101 @@ mod tests {
         assert_eq!(deserialized.ai.max_retries, config.ai.max_retries);
     }
 
-    /// Helper to clear all squirrel config env vars to prevent cross-test interference
-    fn clear_squirrel_env_vars() {
-        for var in &[
-            "SQUIRREL_SOCKET",
-            "SQUIRREL_BIND",
-            "SQUIRREL_PORT",
-            "SQUIRREL_DAEMON",
-            "AI_PROVIDER_SOCKETS",
-            "SQUIRREL_AI_ENABLED",
-            "SQUIRREL_LOG_LEVEL",
-            "SQUIRREL_LOG_JSON",
-            "SQUIRREL_REGISTRY_SOCKET",
-        ] {
-            unsafe { std::env::remove_var(var) };
-        }
-    }
+    const SQUIRREL_ENV_VARS: &[&str] = &[
+        "SQUIRREL_SOCKET",
+        "SQUIRREL_BIND",
+        "SQUIRREL_PORT",
+        "SQUIRREL_DAEMON",
+        "AI_PROVIDER_SOCKETS",
+        "SQUIRREL_AI_ENABLED",
+        "SQUIRREL_LOG_LEVEL",
+        "SQUIRREL_LOG_JSON",
+        "SQUIRREL_REGISTRY_SOCKET",
+    ];
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_env_overrides_all() {
-        // Combined into a single test to prevent env var races between parallel tests.
-        // apply_env_overrides reads ALL env vars at once, so parallel tests that set
-        // different env vars (e.g. SQUIRREL_PORT="not-a-number") can break each other.
-        // Uses same serial group as rpc::unix_socket tests (SQUIRREL_SOCKET overlap).
-        clear_squirrel_env_vars();
-
-        // --- Server overrides ---
-        unsafe { std::env::set_var("SQUIRREL_SOCKET", "/tmp/test-squirrel.sock") };
-        unsafe { std::env::set_var("SQUIRREL_BIND", "127.0.0.1") };
-        unsafe { std::env::set_var("SQUIRREL_PORT", "9999") };
-        unsafe { std::env::set_var("SQUIRREL_DAEMON", "true") };
-
-        let mut config = SquirrelConfig::default();
-        ConfigLoader::apply_env_overrides(&mut config).unwrap();
-        assert_eq!(
-            config.server.socket.as_deref(),
-            Some("/tmp/test-squirrel.sock")
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_SOCKET", Some("/tmp/test-squirrel.sock")),
+                ("SQUIRREL_BIND", Some("127.0.0.1")),
+                ("SQUIRREL_PORT", Some("9999")),
+                ("SQUIRREL_DAEMON", Some("true")),
+            ],
+            || {
+                let mut config = SquirrelConfig::default();
+                ConfigLoader::apply_env_overrides(&mut config).unwrap();
+                assert_eq!(
+                    config.server.socket.as_deref(),
+                    Some("/tmp/test-squirrel.sock")
+                );
+                assert_eq!(config.server.bind, "127.0.0.1");
+                assert_eq!(config.server.port, 9999);
+                assert!(config.server.daemon);
+            },
         );
-        assert_eq!(config.server.bind, "127.0.0.1");
-        assert_eq!(config.server.port, 9999);
-        assert!(config.server.daemon);
-        clear_squirrel_env_vars();
 
-        // --- AI overrides ---
-        unsafe { std::env::set_var("AI_PROVIDER_SOCKETS", "/tmp/ai1.sock,/tmp/ai2.sock") };
-        unsafe { std::env::set_var("SQUIRREL_AI_ENABLED", "false") };
-
-        let mut config = SquirrelConfig::default();
-        ConfigLoader::apply_env_overrides(&mut config).unwrap();
-        assert_eq!(
-            config.ai.provider_sockets.as_deref(),
-            Some("/tmp/ai1.sock,/tmp/ai2.sock")
+        temp_env::with_vars(
+            [
+                ("AI_PROVIDER_SOCKETS", Some("/tmp/ai1.sock,/tmp/ai2.sock")),
+                ("SQUIRREL_AI_ENABLED", Some("false")),
+            ],
+            || {
+                let mut config = SquirrelConfig::default();
+                ConfigLoader::apply_env_overrides(&mut config).unwrap();
+                assert_eq!(
+                    config.ai.provider_sockets.as_deref(),
+                    Some("/tmp/ai1.sock,/tmp/ai2.sock")
+                );
+                assert!(!config.ai.enabled);
+            },
         );
-        assert!(!config.ai.enabled);
-        clear_squirrel_env_vars();
 
-        // --- Logging overrides ---
-        unsafe { std::env::set_var("SQUIRREL_LOG_LEVEL", "debug") };
-        unsafe { std::env::set_var("SQUIRREL_LOG_JSON", "true") };
-
-        let mut config = SquirrelConfig::default();
-        ConfigLoader::apply_env_overrides(&mut config).unwrap();
-        assert_eq!(config.logging.level, "debug");
-        assert!(config.logging.json);
-        clear_squirrel_env_vars();
-
-        // --- Discovery overrides ---
-        unsafe { std::env::set_var("SQUIRREL_REGISTRY_SOCKET", "/tmp/registry.sock") };
-
-        let mut config = SquirrelConfig::default();
-        ConfigLoader::apply_env_overrides(&mut config).unwrap();
-        assert_eq!(
-            config.discovery.registry_socket.as_deref(),
-            Some("/tmp/registry.sock")
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_LOG_LEVEL", Some("debug")),
+                ("SQUIRREL_LOG_JSON", Some("true")),
+            ],
+            || {
+                let mut config = SquirrelConfig::default();
+                ConfigLoader::apply_env_overrides(&mut config).unwrap();
+                assert_eq!(config.logging.level, "debug");
+                assert!(config.logging.json);
+            },
         );
-        clear_squirrel_env_vars();
 
-        // --- Invalid port ---
-        unsafe { std::env::set_var("SQUIRREL_PORT", "not-a-number") };
-        let mut config = SquirrelConfig::default();
-        let result = ConfigLoader::apply_env_overrides(&mut config);
-        clear_squirrel_env_vars();
-        assert!(result.is_err());
+        temp_env::with_var(
+            "SQUIRREL_REGISTRY_SOCKET",
+            Some("/tmp/registry.sock"),
+            || {
+                let mut config = SquirrelConfig::default();
+                ConfigLoader::apply_env_overrides(&mut config).unwrap();
+                assert_eq!(
+                    config.discovery.registry_socket.as_deref(),
+                    Some("/tmp/registry.sock")
+                );
+            },
+        );
 
-        // --- Invalid daemon ---
-        unsafe { std::env::set_var("SQUIRREL_DAEMON", "not-a-bool") };
-        let mut config = SquirrelConfig::default();
-        let result = ConfigLoader::apply_env_overrides(&mut config);
-        clear_squirrel_env_vars();
-        assert!(result.is_err());
+        temp_env::with_var("SQUIRREL_PORT", Some("not-a-number"), || {
+            let mut config = SquirrelConfig::default();
+            let result = ConfigLoader::apply_env_overrides(&mut config);
+            assert!(result.is_err());
+        });
 
-        // --- Load defaults when no file ---
-        // This must be in the same sequential test because ConfigLoader::load()
-        // calls apply_env_overrides internally, so parallel env var changes break it.
-        clear_squirrel_env_vars();
-        let config = ConfigLoader::load(None).unwrap();
-        assert_eq!(config.server.port, 9010);
+        temp_env::with_var("SQUIRREL_DAEMON", Some("not-a-bool"), || {
+            let mut config = SquirrelConfig::default();
+            let result = ConfigLoader::apply_env_overrides(&mut config);
+            assert!(result.is_err());
+        });
+
+        temp_env::with_vars_unset(SQUIRREL_ENV_VARS, || {
+            let config = ConfigLoader::load(None).unwrap();
+            assert_eq!(config.server.port, 9010);
+        });
     }
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_load_from_toml_file() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("squirrel.toml");
@@ -495,7 +489,6 @@ announce_capabilities = false
     }
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_load_from_yaml_file() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("squirrel.yaml");
@@ -525,7 +518,6 @@ discovery:
     }
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_load_from_json_file() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("squirrel.json");
@@ -540,14 +532,12 @@ discovery:
     }
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_load_from_nonexistent_file() {
         let result = ConfigLoader::load(Some(std::path::Path::new("/nonexistent/squirrel.toml")));
         assert!(result.is_err());
     }
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_load_from_unsupported_format() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("squirrel.txt");
@@ -564,7 +554,6 @@ discovery:
     }
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_load_from_invalid_toml() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("squirrel.toml");
@@ -575,7 +564,6 @@ discovery:
     }
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_load_from_invalid_json() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("squirrel.json");
@@ -586,24 +574,20 @@ discovery:
     }
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_env_override_invalid_squirrel_ai_enabled() {
-        clear_squirrel_env_vars();
-        unsafe { std::env::set_var("SQUIRREL_AI_ENABLED", "not-a-bool") };
-        let mut config = SquirrelConfig::default();
-        let result = ConfigLoader::apply_env_overrides(&mut config);
-        clear_squirrel_env_vars();
-        assert!(result.is_err());
+        temp_env::with_var("SQUIRREL_AI_ENABLED", Some("not-a-bool"), || {
+            let mut config = SquirrelConfig::default();
+            let result = ConfigLoader::apply_env_overrides(&mut config);
+            assert!(result.is_err());
+        });
     }
 
     #[test]
-    #[serial_test::serial(socket_env)]
     fn test_env_override_invalid_squirrel_log_json() {
-        clear_squirrel_env_vars();
-        unsafe { std::env::set_var("SQUIRREL_LOG_JSON", "invalid") };
-        let mut config = SquirrelConfig::default();
-        let result = ConfigLoader::apply_env_overrides(&mut config);
-        clear_squirrel_env_vars();
-        assert!(result.is_err());
+        temp_env::with_var("SQUIRREL_LOG_JSON", Some("invalid"), || {
+            let mut config = SquirrelConfig::default();
+            let result = ConfigLoader::apply_env_overrides(&mut config);
+            assert!(result.is_err());
+        });
     }
 }

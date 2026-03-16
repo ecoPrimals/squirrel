@@ -39,50 +39,50 @@ async fn test_router_list_providers() {
     assert_eq!(providers.len(), count);
 }
 
-#[tokio::test]
-async fn test_generate_text_no_providers() {
-    // Create router without any providers
-    unsafe { std::env::remove_var("ANTHROPIC_API_KEY") };
-    unsafe { std::env::remove_var("OPENAI_API_KEY") };
+#[test]
+fn test_generate_text_no_providers() {
+    temp_env::with_vars_unset(["ANTHROPIC_API_KEY", "OPENAI_API_KEY"], || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let router = AiRouter::new_with_discovery(None).await.unwrap();
 
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
+            let request = TextGenerationRequest {
+                prompt: "Hello, world!".to_string(),
+                system: None,
+                max_tokens: 100,
+                temperature: 0.7,
+                model: None,
+                constraints: vec![],
+                params: std::collections::HashMap::new(),
+            };
 
-    let request = TextGenerationRequest {
-        prompt: "Hello, world!".to_string(),
-        system: None,
-        max_tokens: 100,
-        temperature: 0.7,
-        model: None,
-        constraints: vec![],
-        params: std::collections::HashMap::new(),
-    };
-
-    // Should fail when no providers available
-    let result = router.generate_text(request, None).await;
-    assert!(result.is_err());
+            let result = router.generate_text(request, None).await;
+            assert!(result.is_err());
+        });
+    });
 }
 
-#[tokio::test]
-async fn test_generate_image_no_providers() {
-    // Create router without any providers
-    unsafe { std::env::remove_var("OPENAI_API_KEY") };
-    unsafe { std::env::remove_var("HUGGINGFACE_API_KEY") };
+#[test]
+fn test_generate_image_no_providers() {
+    temp_env::with_vars_unset(["OPENAI_API_KEY", "HUGGINGFACE_API_KEY"], || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let router = AiRouter::new_with_discovery(None).await.unwrap();
 
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
+            let request = ImageGenerationRequest {
+                prompt: "A beautiful sunset".to_string(),
+                negative_prompt: None,
+                size: "512x512".to_string(),
+                n: 1,
+                quality_preference: None,
+                constraints: vec![],
+                params: std::collections::HashMap::new(),
+            };
 
-    let request = ImageGenerationRequest {
-        prompt: "A beautiful sunset".to_string(),
-        negative_prompt: None,
-        size: "512x512".to_string(),
-        n: 1,
-        quality_preference: None,
-        constraints: vec![],
-        params: std::collections::HashMap::new(),
-    };
-
-    // Should fail when no providers available
-    let result = router.generate_image(request, None).await;
-    assert!(result.is_err());
+            let result = router.generate_image(request, None).await;
+            assert!(result.is_err());
+        });
+    });
 }
 
 #[tokio::test]

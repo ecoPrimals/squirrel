@@ -149,47 +149,51 @@ pub enum PortStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
 
     #[test]
-    #[serial]
     fn test_primal_endpoints_default() {
-        unsafe { std::env::remove_var("SQUIRREL_HTTP_PORT") };
-        unsafe { std::env::remove_var("SQUIRREL_GRPC_PORT") };
-        unsafe { std::env::remove_var("SQUIRREL_WS_PORT") };
-        unsafe { std::env::remove_var("SQUIRREL_HOST") };
-        unsafe { std::env::remove_var("ENVIRONMENT") };
+        temp_env::with_vars_unset(
+            [
+                "SQUIRREL_HTTP_PORT",
+                "SQUIRREL_GRPC_PORT",
+                "SQUIRREL_WS_PORT",
+                "SQUIRREL_HOST",
+                "ENVIRONMENT",
+            ],
+            || {
+                let endpoints = PrimalEndpoints::default();
+                assert!(endpoints.http.is_some());
+                assert!(endpoints.grpc.is_some());
+                assert!(endpoints.websocket.is_some());
+                assert!(endpoints.primary.is_some());
+                assert!(endpoints.health.is_some());
+                assert!(endpoints.metrics.is_some());
+                assert!(endpoints.mcp.is_some());
+                assert!(endpoints.ai_coordination.is_some());
+                assert!(endpoints.admin.is_some());
+                assert!(endpoints.service_mesh.is_some());
+                assert!(endpoints.custom.is_empty());
 
-        let endpoints = PrimalEndpoints::default();
-        assert!(endpoints.http.is_some());
-        assert!(endpoints.grpc.is_some());
-        assert!(endpoints.websocket.is_some());
-        assert!(endpoints.primary.is_some());
-        assert!(endpoints.health.is_some());
-        assert!(endpoints.metrics.is_some());
-        assert!(endpoints.mcp.is_some());
-        assert!(endpoints.ai_coordination.is_some());
-        assert!(endpoints.admin.is_some());
-        assert!(endpoints.service_mesh.is_some());
-        assert!(endpoints.custom.is_empty());
-
-        let http = endpoints.http.unwrap();
-        assert!(http.contains("localhost:9010"), "got: {http}");
+                let http = endpoints.http.unwrap();
+                assert!(http.contains("localhost:9010"), "got: {http}");
+            },
+        );
     }
 
     #[test]
-    #[serial]
     fn test_primal_endpoints_env_override() {
-        unsafe { std::env::set_var("SQUIRREL_HTTP_PORT", "8080") };
-        unsafe { std::env::set_var("SQUIRREL_HOST", "0.0.0.0") };
-        unsafe { std::env::remove_var("ENVIRONMENT") };
-
-        let endpoints = PrimalEndpoints::default();
-        let http = endpoints.http.unwrap();
-        assert!(http.contains("0.0.0.0:8080"), "got: {http}");
-
-        unsafe { std::env::remove_var("SQUIRREL_HTTP_PORT") };
-        unsafe { std::env::remove_var("SQUIRREL_HOST") };
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_HTTP_PORT", Some("8080")),
+                ("SQUIRREL_HOST", Some("0.0.0.0")),
+                ("ENVIRONMENT", None::<&str>),
+            ],
+            || {
+                let endpoints = PrimalEndpoints::default();
+                let http = endpoints.http.unwrap();
+                assert!(http.contains("0.0.0.0:8080"), "got: {http}");
+            },
+        );
     }
 
     #[test]

@@ -160,6 +160,8 @@ impl From<universal_error::tools::AIToolsError> for AIError {
             AIToolsError::UnsupportedProvider(s) => AIError::UnsupportedProvider(s),
             AIToolsError::InvalidRequest(s) => AIError::InvalidRequest(s),
             AIToolsError::Authentication(s) => AIError::Authentication(s),
+            #[allow(unreachable_patterns)]
+            _ => AIError::Provider("unknown variant".to_string()),
         }
     }
 }

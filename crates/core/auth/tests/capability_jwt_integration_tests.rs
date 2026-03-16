@@ -336,25 +336,24 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_capability_discovery_from_env() {
-        // Test that capability discovery reads from environment
         let socket_path = "/tmp/test-env-capability.sock";
 
-        unsafe { std::env::set_var("CRYPTO_CAPABILITY_SOCKET", socket_path) };
-        unsafe { std::env::set_var("JWT_KEY_ID", "env-test-key") };
-        unsafe { std::env::set_var("JWT_EXPIRY_HOURS", "12") };
+        temp_env::with_vars(
+            [
+                ("CRYPTO_CAPABILITY_SOCKET", Some(socket_path)),
+                ("JWT_KEY_ID", Some("env-test-key")),
+                ("JWT_EXPIRY_HOURS", Some("12")),
+            ],
+            || {
+                let config = CapabilityJwtConfig::default();
 
-        let config = CapabilityJwtConfig::default();
-
-        assert_eq!(
-            config.crypto_config.socket_path.to_str().unwrap(),
-            socket_path
+                assert_eq!(
+                    config.crypto_config.socket_path.to_str().unwrap(),
+                    socket_path
+                );
+                assert_eq!(config.key_id, "squirrel-jwt-signing-key");
+                assert_eq!(config.expiry_hours, 24);
+            },
         );
-        assert_eq!(config.key_id, "squirrel-jwt-signing-key"); // Default, not from env
-        assert_eq!(config.expiry_hours, 24); // Default
-
-        // Cleanup
-        unsafe { std::env::remove_var("CRYPTO_CAPABILITY_SOCKET") };
-        unsafe { std::env::remove_var("JWT_KEY_ID") };
-        unsafe { std::env::remove_var("JWT_EXPIRY_HOURS") };
     }
 }

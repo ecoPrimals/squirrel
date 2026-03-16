@@ -515,52 +515,52 @@ mod tests {
     // Tests for build_service_endpoint (indirectly through discover_services)
     #[test]
     #[allow(deprecated)] // Tests deprecated path for backward compatibility
-    #[serial_test::serial]
     fn test_build_service_endpoint_uses_env_var() {
-        // Set environment variable
-        unsafe { std::env::set_var("SQUIRREL_ENDPOINT", "http://custom.squirrel") };
-        // Clean potential interfering vars
-        unsafe { std::env::remove_var("SERVICE_DISCOVERY_URL") };
-
-        let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Squirrel);
-        assert_eq!(endpoint, "http://custom.squirrel");
-
-        // Clean up
-        unsafe { std::env::remove_var("SQUIRREL_ENDPOINT") };
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_ENDPOINT", Some("http://custom.squirrel")),
+                ("SERVICE_DISCOVERY_URL", None::<&str>),
+            ],
+            || {
+                let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Squirrel);
+                assert_eq!(endpoint, "http://custom.squirrel");
+            },
+        );
     }
 
     #[test]
     #[allow(deprecated)] // Tests deprecated path for backward compatibility
-    #[serial_test::serial]
     fn test_build_service_endpoint_uses_service_discovery() {
-        // Set SERVICE_DISCOVERY_URL
-        unsafe { std::env::set_var("SERVICE_DISCOVERY_URL", "http://discovery.local") };
-        unsafe { std::env::remove_var("SONGBIRD_ENDPOINT") }; // Ensure specific endpoint not set
-
-        let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Songbird);
-        assert!(endpoint.contains("discovery.local"));
-
-        // Clean up
-        unsafe { std::env::remove_var("SERVICE_DISCOVERY_URL") };
+        temp_env::with_vars(
+            [
+                ("SERVICE_DISCOVERY_URL", Some("http://discovery.local")),
+                ("SONGBIRD_ENDPOINT", None::<&str>),
+            ],
+            || {
+                let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Songbird);
+                assert!(endpoint.contains("discovery.local"));
+            },
+        );
     }
 
     #[test]
     #[allow(deprecated)] // Tests deprecated path for backward compatibility
-    #[serial_test::serial]
     fn test_build_service_endpoint_falls_back_to_default() {
-        // Ensure no environment variables are set
-        unsafe { std::env::remove_var("BEARDOG_ENDPOINT") };
-        unsafe { std::env::remove_var("SERVICE_DISCOVERY_URL") };
-        unsafe { std::env::remove_var("SQUIRREL_CONFIG") };
-
-        let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::BearDog);
-        // In debug mode, should return a localhost endpoint
-        // In release mode, should return "http://unconfigured.endpoint"
-        if cfg!(debug_assertions) {
-            assert!(endpoint.contains("localhost") || endpoint.contains("127.0.0.1"));
-        } else {
-            assert_eq!(endpoint, "http://unconfigured.endpoint");
-        }
+        temp_env::with_vars_unset(
+            [
+                "BEARDOG_ENDPOINT",
+                "SERVICE_DISCOVERY_URL",
+                "SQUIRREL_CONFIG",
+            ],
+            || {
+                let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::BearDog);
+                if cfg!(debug_assertions) {
+                    assert!(endpoint.contains("localhost") || endpoint.contains("127.0.0.1"));
+                } else {
+                    assert_eq!(endpoint, "http://unconfigured.endpoint");
+                }
+            },
+        );
     }
 
     // Test intern_registry_string basic functionality

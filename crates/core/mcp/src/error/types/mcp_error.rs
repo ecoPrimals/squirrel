@@ -33,6 +33,7 @@ use super::ErrorSeverity;
 /// }
 /// ```
 #[derive(Debug, Clone, thiserror::Error)]
+#[non_exhaustive]
 pub enum MCPError {
     // === Core Layer Errors ===
     /// Error originating from the MCP transport layer

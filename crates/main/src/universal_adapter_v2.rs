@@ -462,41 +462,35 @@ mod tests {
         assert!(!identity.capabilities.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_connect_capability_from_env() {
-        // Set up test environment
-        unsafe { std::env::set_var("COMPUTE_ENDPOINT", "http://localhost:8500") };
+    #[test]
+    fn test_connect_capability_from_env() {
+        temp_env::with_var("COMPUTE_ENDPOINT", Some("http://localhost:8500"), || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.unwrap();
+                let client = adapter.connect_capability("compute").await;
 
-        let adapter = UniversalAdapterV2::awaken().await.unwrap();
-        let client = adapter.connect_capability("compute").await;
-
-        // Should discover from environment
-        assert!(client.is_ok());
-
-        if let Ok(client) = client {
-            assert_eq!(client.endpoint(), "http://localhost:8500");
-        }
-
-        // Cleanup
-        unsafe { std::env::remove_var("COMPUTE_ENDPOINT") };
+                assert!(client.is_ok());
+                if let Ok(client) = client {
+                    assert_eq!(client.endpoint(), "http://localhost:8500");
+                }
+            });
+        });
     }
 
-    #[tokio::test]
-    async fn test_connection_pooling() {
-        unsafe { std::env::set_var("STORAGE_ENDPOINT", "http://localhost:8080") };
+    #[test]
+    fn test_connection_pooling() {
+        temp_env::with_var("STORAGE_ENDPOINT", Some("http://localhost:8080"), || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.unwrap();
 
-        let adapter = UniversalAdapterV2::awaken().await.unwrap();
+                let _client1 = adapter.connect_capability("storage").await.unwrap();
+                let _client2 = adapter.connect_capability("storage").await.unwrap();
 
-        // First connection
-        let _client1 = adapter.connect_capability("storage").await.unwrap();
-
-        // Second connection should use pool
-        let _client2 = adapter.connect_capability("storage").await.unwrap();
-
-        // Verify pool has the connection
-        let connections = adapter.connections.read().await;
-        assert!(connections.contains_key("storage"));
-
-        unsafe { std::env::remove_var("STORAGE_ENDPOINT") };
+                let connections = adapter.connections.read().await;
+                assert!(connections.contains_key("storage"));
+            });
+        });
     }
 }

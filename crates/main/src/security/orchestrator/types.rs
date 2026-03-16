@@ -10,9 +10,11 @@ use std::time::{Duration, SystemTime};
 
 use crate::observability::CorrelationId;
 
-use super::super::input_validator::{InputType, InputValidationConfig};
-use super::super::monitoring::{SecurityEvent, SecurityMonitoringConfig};
-use super::super::rate_limiter::{EndpointType, RateLimitConfig, RateLimitResult};
+use super::super::input_validator::{InputType, InputValidationConfig, ValidationResult};
+use super::super::monitoring::{SecurityEvent, SecurityMonitoringConfig, SecurityMonitoringStats};
+use super::super::rate_limiter::{
+    EndpointType, RateLimitConfig, RateLimitResult, RateLimitStatistics,
+};
 
 /// Security orchestration configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,13 +35,13 @@ pub struct SecurityOrchestrationConfig {
     pub response_thresholds: ResponseThresholds,
 
     /// Security policies
-    pub security_policies: HashMap<String, OrchestratorSecurityPolicy>,
+    pub security_policies: HashMap<String, SecurityPolicy>,
 }
 
 impl Default for SecurityOrchestrationConfig {
     fn default() -> Self {
         let mut security_policies = HashMap::new();
-        security_policies.insert("default".to_string(), OrchestratorSecurityPolicy::default());
+        security_policies.insert("default".to_string(), SecurityPolicy::default());
 
         Self {
             rate_limiting: RateLimitConfig::default(),
@@ -118,6 +120,9 @@ impl Default for OrchestratorSecurityPolicy {
     }
 }
 
+/// Type alias for backward compatibility with existing API.
+pub type SecurityPolicy = OrchestratorSecurityPolicy;
+
 /// Comprehensive security check request
 #[derive(Debug, Clone)]
 pub struct SecurityCheckRequest {
@@ -165,7 +170,7 @@ pub struct SecurityCheckResult {
     pub rate_limit_result: RateLimitResult,
 
     /// Input validation results
-    pub validation_results: Vec<(String, super::super::input_validator::ValidationResult)>,
+    pub validation_results: Vec<(String, ValidationResult)>,
 
     /// Security events generated
     pub security_events: Vec<SecurityEvent>,
@@ -180,9 +185,13 @@ pub struct SecurityCheckResult {
 /// Risk level assessment for security events
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum RiskLevel {
+    /// Low risk - informational
     Low,
+    /// Medium risk - attention recommended
     Medium,
+    /// High risk - immediate action needed
     High,
+    /// Critical risk - urgent response required
     Critical,
 }
 
@@ -227,12 +236,32 @@ pub enum ResponseType {
     Escalate,
 }
 
+/// Comprehensive security statistics
+#[derive(Debug, Clone, Serialize)]
+pub struct SecurityStatistics {
+    /// Security monitoring statistics.
+    pub monitoring_stats: SecurityMonitoringStats,
+    /// Rate limiting statistics.
+    pub rate_limit_stats: RateLimitStatistics,
+    /// Total number of tracked IP addresses.
+    pub total_tracked_ips: usize,
+    /// Number of active security responses in progress.
+    pub active_security_responses: usize,
+    /// Number of IPs flagged as high risk.
+    pub high_risk_ips: usize,
+}
+
 /// Violation counter for IP tracking (internal)
 #[derive(Debug, Clone)]
 pub struct ViolationCounter {
+    /// Total number of violations from this IP
     pub total_violations: u32,
+    /// Recent violations within the tracking window
     pub recent_violations: u32,
+    /// Timestamp of first violation
     pub first_violation: SystemTime,
+    /// Timestamp of most recent violation
     pub last_violation: SystemTime,
+    /// Count per violation type
     pub violation_types: HashMap<String, u32>,
 }

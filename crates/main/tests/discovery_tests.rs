@@ -6,64 +6,61 @@
 //! Tests the full discovery flow including capability resolution,
 //! environment variable discovery, and the infant primal pattern.
 
-use serial_test::serial;
 use squirrel::discovery::{
     CapabilityResolver, DiscoveredService, PrimalSelfKnowledge, RuntimeDiscoveryEngine,
 };
 use std::time::SystemTime;
 
-#[tokio::test]
-#[serial] // Serialize env var tests to prevent pollution
-async fn test_discovery_from_environment_variable() {
-    // Set up test environment - env vars use uppercase with underscores
-    unsafe { std::env::set_var("AI_INFERENCE_ENDPOINT", "http://localhost:8001") };
-    unsafe { std::env::set_var("STORAGE_ENDPOINT", "http://localhost:8002") };
+#[test]
+fn test_discovery_from_environment_variable() {
+    temp_env::with_vars(
+        [
+            ("AI_INFERENCE_ENDPOINT", Some("http://localhost:8001")),
+            ("STORAGE_ENDPOINT", Some("http://localhost:8002")),
+        ],
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let engine = RuntimeDiscoveryEngine::new();
 
-    let engine = RuntimeDiscoveryEngine::new();
+                let ai_service = engine
+                    .discover_capability("ai.inference")
+                    .await
+                    .expect("Should discover AI service from environment");
 
-    // Test AI capability discovery - dots are replaced with underscores for env vars
-    let ai_service = engine
-        .discover_capability("ai.inference")
-        .await
-        .expect("Should discover AI service from environment");
+                assert_eq!(ai_service.endpoint, "http://localhost:8001");
+                assert!(!ai_service.capabilities.is_empty());
+                assert_eq!(ai_service.discovery_method, "environment_variable");
 
-    assert_eq!(ai_service.endpoint, "http://localhost:8001");
-    // The capability list should match what we requested
-    assert!(!ai_service.capabilities.is_empty());
-    assert_eq!(ai_service.discovery_method, "environment_variable");
+                let storage_service = engine
+                    .discover_capability("storage")
+                    .await
+                    .expect("Should discover storage service from environment");
 
-    // Test storage capability discovery
-    let storage_service = engine
-        .discover_capability("storage")
-        .await
-        .expect("Should discover storage service from environment");
-
-    assert_eq!(storage_service.endpoint, "http://localhost:8002");
-    assert_eq!(storage_service.discovery_method, "environment_variable");
-
-    // Cleanup
-    unsafe { std::env::remove_var("AI_INFERENCE_ENDPOINT") };
-    unsafe { std::env::remove_var("STORAGE_ENDPOINT") };
+                assert_eq!(storage_service.endpoint, "http://localhost:8002");
+                assert_eq!(storage_service.discovery_method, "environment_variable");
+            });
+        },
+    );
 }
 
-#[tokio::test]
-#[serial] // Serialize env var tests to prevent pollution
-async fn test_discovery_capability_not_found() {
-    // Ensure no environment variable exists
-    unsafe { std::env::remove_var("NONEXISTENT_CAPABILITY_ENDPOINT") };
+#[test]
+fn test_discovery_capability_not_found() {
+    temp_env::with_var_unset("NONEXISTENT_CAPABILITY_ENDPOINT", || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let engine = RuntimeDiscoveryEngine::new();
+            let result = engine.discover_capability("nonexistent.capability").await;
 
-    let engine = RuntimeDiscoveryEngine::new();
-
-    // Should return error when capability not found
-    let result = engine.discover_capability("nonexistent.capability").await;
-
-    assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("Capability not found")
-    );
+            assert!(result.is_err());
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("Capability not found")
+            );
+        });
+    });
 }
 
 #[tokio::test]
@@ -85,22 +82,25 @@ async fn test_primal_self_knowledge_discovery() {
     }
 }
 
-#[tokio::test]
-#[serial] // Serialize env var tests to prevent pollution
-async fn test_capability_resolver_with_dots_in_name() {
-    // Test that capability names with dots (like "ai.inference") work correctly
-    unsafe { std::env::set_var("AI_INFERENCE_ENDPOINT", "http://localhost:9000") };
+#[test]
+fn test_capability_resolver_with_dots_in_name() {
+    temp_env::with_var(
+        "AI_INFERENCE_ENDPOINT",
+        Some("http://localhost:9000"),
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = CapabilityResolver::new();
+                let request = squirrel::discovery::CapabilityRequest::new("ai.inference");
 
-    let resolver = CapabilityResolver::new();
-    let request = squirrel::discovery::CapabilityRequest::new("ai.inference");
+                let result = resolver.discover_provider(request).await;
 
-    let result = resolver.discover_provider(request).await;
-
-    assert!(result.is_ok());
-    let service = result.unwrap();
-    assert_eq!(service.endpoint, "http://localhost:9000");
-
-    unsafe { std::env::remove_var("AI_INFERENCE_ENDPOINT") };
+                assert!(result.is_ok());
+                let service = result.unwrap();
+                assert_eq!(service.endpoint, "http://localhost:9000");
+            });
+        },
+    );
 }
 
 #[tokio::test]
@@ -160,35 +160,31 @@ async fn test_discovered_service_capability_matching() {
     assert!(!service.has_capability("compute"));
 }
 
-#[tokio::test]
-#[serial] // Serialize env var tests to prevent pollution
-async fn test_runtime_discovery_engine_caching() {
-    unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:7777") };
+#[test]
+fn test_runtime_discovery_engine_caching() {
+    temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://localhost:7777"), || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let engine = RuntimeDiscoveryEngine::new();
 
-    let engine = RuntimeDiscoveryEngine::new();
+            let service1 = engine
+                .discover_capability("cache_test")
+                .await
+                .expect("Should discover service");
 
-    // First discovery (use underscore format for env var matching)
-    let service1 = engine
-        .discover_capability("cache_test")
-        .await
-        .expect("Should discover service");
+            let service2 = engine
+                .discover_capability("cache_test")
+                .await
+                .expect("Should discover cached service");
 
-    // Second discovery should use cache (same endpoint)
-    let service2 = engine
-        .discover_capability("cache_test")
-        .await
-        .expect("Should discover cached service");
-
-    assert_eq!(service1.endpoint, service2.endpoint);
-    assert_eq!(service1.name, service2.name);
-
-    unsafe { std::env::remove_var("CACHE_TEST_ENDPOINT") };
+            assert_eq!(service1.endpoint, service2.endpoint);
+            assert_eq!(service1.name, service2.name);
+        });
+    });
 }
 
-#[tokio::test]
-#[serial] // Serialize env var tests to prevent pollution
-async fn test_discovery_with_complex_endpoint() {
-    // Test various endpoint formats
+#[test]
+fn test_discovery_with_complex_endpoint() {
     let test_cases = vec![
         ("http://localhost:8080", "http://localhost:8080"),
         ("https://api.example.com:443", "https://api.example.com:443"),
@@ -200,16 +196,17 @@ async fn test_discovery_with_complex_endpoint() {
     ];
 
     for (env_value, expected_endpoint) in test_cases {
-        unsafe { std::env::set_var("COMPLEX_ENDPOINT", env_value) };
+        temp_env::with_var("COMPLEX_ENDPOINT", Some(env_value), || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let engine = RuntimeDiscoveryEngine::new();
+                let result = engine.discover_capability("complex").await;
 
-        let engine = RuntimeDiscoveryEngine::new();
-        let result = engine.discover_capability("complex").await;
-
-        assert!(result.is_ok(), "Failed for endpoint: {}", env_value);
-        let service = result.unwrap();
-        assert_eq!(service.endpoint, expected_endpoint);
-
-        unsafe { std::env::remove_var("COMPLEX_ENDPOINT") };
+                assert!(result.is_ok(), "Failed for endpoint: {}", env_value);
+                let service = result.unwrap();
+                assert_eq!(service.endpoint, expected_endpoint);
+            });
+        });
     }
 }
 

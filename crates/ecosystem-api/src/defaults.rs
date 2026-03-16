@@ -251,98 +251,76 @@ mod tests {
     }
 
     // ========== Environment Override Tests ==========
-    // These tests modify environment variables and must run sequentially
-    // to avoid race conditions. Combined into a single test function.
 
-    fn clear_all_endpoint_env_vars() {
-        for var in &[
-            "DEV_BIND_ADDRESS",
-            "SERVICE_MESH_ENDPOINT",
-            "SERVICE_MESH_PORT",
-            "SONGBIRD_ENDPOINT",
-            "SONGBIRD_PORT",
-            "COMPUTE_SERVICE_ENDPOINT",
-            "COMPUTE_SERVICE_PORT",
-            "TOADSTOOL_ENDPOINT",
-            "TOADSTOOL_PORT",
-            "STORAGE_SERVICE_ENDPOINT",
-            "STORAGE_SERVICE_PORT",
-            "NESTGATE_ENDPOINT",
-            "NESTGATE_PORT",
-            "SECURITY_SERVICE_ENDPOINT",
-            "SECURITY_AUTH_SERVICE_ENDPOINT",
-            "SECURITY_AUTHENTICATION_PORT",
-            "DISCOVERY_ENDPOINT",
-            "REGISTRATION_ENDPOINT",
-        ] {
-            unsafe { env::remove_var(var) };
-        }
-    }
+    const ENDPOINT_ENV_VARS: &[&str] = &[
+        "DEV_BIND_ADDRESS",
+        "SERVICE_MESH_ENDPOINT",
+        "SERVICE_MESH_PORT",
+        "SONGBIRD_ENDPOINT",
+        "SONGBIRD_PORT",
+        "COMPUTE_SERVICE_ENDPOINT",
+        "COMPUTE_SERVICE_PORT",
+        "TOADSTOOL_ENDPOINT",
+        "TOADSTOOL_PORT",
+        "STORAGE_SERVICE_ENDPOINT",
+        "STORAGE_SERVICE_PORT",
+        "NESTGATE_ENDPOINT",
+        "NESTGATE_PORT",
+        "SECURITY_SERVICE_ENDPOINT",
+        "SECURITY_AUTH_SERVICE_ENDPOINT",
+        "SECURITY_AUTHENTICATION_PORT",
+        "DISCOVERY_ENDPOINT",
+        "REGISTRATION_ENDPOINT",
+    ];
 
     #[test]
     fn test_endpoint_env_overrides() {
-        // Run all env-dependent tests sequentially in one test function
-        // to prevent parallel env var races.
-        clear_all_endpoint_env_vars();
+        temp_env::with_vars_unset(ENDPOINT_ENV_VARS, || {
+            assert_eq!(DefaultEndpoints::dev_bind_address(), "127.0.0.1");
 
-        // --- dev_bind_address ---
-        assert_eq!(DefaultEndpoints::dev_bind_address(), "127.0.0.1");
+            temp_env::with_var("DEV_BIND_ADDRESS", Some("0.0.0.0"), || {
+                assert_eq!(DefaultEndpoints::dev_bind_address(), "0.0.0.0");
+            });
 
-        unsafe { env::set_var("DEV_BIND_ADDRESS", "0.0.0.0") };
-        assert_eq!(DefaultEndpoints::dev_bind_address(), "0.0.0.0");
-        unsafe { env::remove_var("DEV_BIND_ADDRESS") };
+            assert_eq!(
+                DefaultEndpoints::service_mesh_endpoint(),
+                "http://localhost:8500"
+            );
 
-        // --- service_mesh_endpoint ---
-        assert_eq!(
-            DefaultEndpoints::service_mesh_endpoint(),
-            "http://localhost:8500"
-        );
+            temp_env::with_var("SERVICE_MESH_ENDPOINT", Some("http://mesh:9000"), || {
+                assert_eq!(
+                    DefaultEndpoints::service_mesh_endpoint(),
+                    "http://mesh:9000"
+                );
+            });
 
-        unsafe { env::set_var("SERVICE_MESH_ENDPOINT", "http://mesh:9000") };
-        assert_eq!(
-            DefaultEndpoints::service_mesh_endpoint(),
-            "http://mesh:9000"
-        );
-        unsafe { env::remove_var("SERVICE_MESH_ENDPOINT") };
+            temp_env::with_var("SERVICE_MESH_PORT", Some("9999"), || {
+                assert_eq!(
+                    DefaultEndpoints::service_mesh_endpoint(),
+                    "http://localhost:9999"
+                );
+            });
 
-        unsafe { env::set_var("SERVICE_MESH_PORT", "9999") };
-        assert_eq!(
-            DefaultEndpoints::service_mesh_endpoint(),
-            "http://localhost:9999"
-        );
-        unsafe { env::remove_var("SERVICE_MESH_PORT") };
-
-        // --- compute_endpoint ---
-        assert_eq!(
-            DefaultEndpoints::compute_endpoint(),
-            "http://localhost:8081"
-        );
-
-        // --- storage_endpoint ---
-        assert_eq!(
-            DefaultEndpoints::storage_endpoint(),
-            "http://localhost:8082"
-        );
-
-        // --- security_service_endpoint ---
-        assert_eq!(
-            DefaultEndpoints::security_service_endpoint(),
-            "http://localhost:8443"
-        );
-
-        // --- discovery_endpoint ---
-        assert_eq!(
-            DefaultEndpoints::discovery_endpoint(),
-            "http://localhost:8500/api/v1/discovery"
-        );
-
-        // --- registration_endpoint ---
-        assert_eq!(
-            DefaultEndpoints::registration_endpoint(),
-            "http://localhost:8500/api/v1/register"
-        );
-
-        // Clean up
-        clear_all_endpoint_env_vars();
+            assert_eq!(
+                DefaultEndpoints::compute_endpoint(),
+                "http://localhost:8081"
+            );
+            assert_eq!(
+                DefaultEndpoints::storage_endpoint(),
+                "http://localhost:8082"
+            );
+            assert_eq!(
+                DefaultEndpoints::security_service_endpoint(),
+                "http://localhost:8443"
+            );
+            assert_eq!(
+                DefaultEndpoints::discovery_endpoint(),
+                "http://localhost:8500/api/v1/discovery"
+            );
+            assert_eq!(
+                DefaultEndpoints::registration_endpoint(),
+                "http://localhost:8500/api/v1/register"
+            );
+        });
     }
 }

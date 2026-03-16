@@ -64,6 +64,10 @@ chrono = { version = "0.4", features = ["serde"] }
 # reqwest REMOVED from workspace - each crate declares it optionally for TRUE ecoBin!
 # Old: reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
 # New: Each crate that needs HTTP declares reqwest as optional with feature flags
+#
+# CRYPTO: reqwest 0.11 → rustls 0.21 → ring (C/ASM). ecoPrimals target: Pure Rust.
+# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + rustls-rustcrypto/aws-lc-rs.
+# See docs/CRYPTO_MIGRATION.md.
 url = "2.4"
 
 # Additional common dependencies
@@ -148,3 +152,10 @@ unused_imports = "warn"
 unused_variables = "warn"
 
 [workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+missing_docs_in_private_items = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

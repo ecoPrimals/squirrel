@@ -35,6 +35,10 @@ squirrel-interfaces = { path = "../../core/interfaces" }
 squirrel-mcp-config = { path = "../../config" }
 # HTTP client (OPTIONAL - for HTTP CLI commands)
 # Production uses Unix sockets!
+#
+# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.11 → rustls 0.21 → ring (C/ASM).
+# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
+# See docs/CRYPTO_MIGRATION.md.
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
 
 # Plugin system dependencies  

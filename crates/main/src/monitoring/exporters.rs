@@ -568,20 +568,19 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial(metrics_exporter_env)]
     fn test_exporter_config_default_env_override() {
-        unsafe { std::env::remove_var("METRICS_EXPORTER_ENDPOINT") };
-        unsafe { std::env::remove_var("METRICS_EXPORTER_PORT") };
-
-        unsafe { std::env::set_var("METRICS_EXPORTER_ENDPOINT", "http://custom:9999/metrics") };
-        let config = ExporterConfig::default();
-        assert_eq!(config.endpoint, "http://custom:9999/metrics");
-        unsafe { std::env::remove_var("METRICS_EXPORTER_ENDPOINT") };
-
-        unsafe { std::env::set_var("METRICS_EXPORTER_PORT", "1234") };
-        let config = ExporterConfig::default();
-        assert_eq!(config.endpoint, "http://localhost:1234/metrics");
-        unsafe { std::env::remove_var("METRICS_EXPORTER_PORT") };
+        temp_env::with_var(
+            "METRICS_EXPORTER_ENDPOINT",
+            Some("http://custom:9999/metrics"),
+            || {
+                let config = ExporterConfig::default();
+                assert_eq!(config.endpoint, "http://custom:9999/metrics");
+            },
+        );
+        temp_env::with_var("METRICS_EXPORTER_PORT", Some("1234"), || {
+            let config = ExporterConfig::default();
+            assert_eq!(config.endpoint, "http://localhost:1234/metrics");
+        });
     }
 
     #[test]

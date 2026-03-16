@@ -5,7 +5,7 @@
 //! # Squirrel Interfaces
 //!
 //! This crate contains shared interfaces that are used by multiple Squirrel components.
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 //! The primary purpose is to break circular dependencies between crates.
 

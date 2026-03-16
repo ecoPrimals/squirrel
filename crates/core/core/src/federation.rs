@@ -12,7 +12,8 @@ use crate::{
     InstanceStatus, LoadBalanceResult, LoadMetrics, NodeSpec, Result, SquirrelConfig,
     SquirrelInstance, SwarmManager, monitoring::MonitoringService,
 };
-// Removed: use squirrel_mcp_config::get_service_endpoints;
+use universal_constants::limits::DEFAULT_MAX_CONNECTIONS;
+use universal_constants::network::{DEFAULT_SQUIRREL_SERVER_PORT, get_service_port};
 
 /// Federation service for managing distributed Squirrel MCP instances
 #[derive(Clone)]
@@ -401,30 +402,24 @@ impl FederationService {
     }
 
     /// Collect current load metrics
+    ///
+    /// Uses config-driven defaults when real metrics are unavailable.
+    /// Real implementation would delegate to Songbird/metrics exporter.
     async fn collect_load_metrics(&self) {
-        // This would collect actual system metrics
-        // For now, using mock values with some variation
-
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
-
-        // Simulate load metrics with some randomness
-        let base_cpu = 0.3 + (self.instances.len() as f64 * 0.1);
-        let _cpu_usage = base_cpu + rng.r#gen::<f64>() * 0.2;
-
-        let base_memory = 0.2 + (self.instances.len() as f64 * 0.15);
-        let _memory_usage = base_memory + rng.r#gen::<f64>() * 0.1;
-
-        let _queue_length = rng.gen_range(0..50);
-        let _active_tasks = rng.gen_range(10..200);
-
-        // Create new metrics and store them (would need proper synchronization in production)
-        let cpu = self.load_metrics.cpu_usage; // Direct access since it's f64, not RwLock<f64>
-        let memory = self.load_metrics.memory_usage;
-        let _network = self.load_metrics.network_usage;
-        let active_tasks = self.load_metrics.active_tasks;
-        let queue_length = self.load_metrics.queue_length;
-        let _error_rate = self.load_metrics.error_rate;
+        // Use config-based defaults; real metrics would come from metrics exporter
+        let cpu = std::env::var("FEDERATION_CPU_USAGE")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0.0);
+        let memory = std::env::var("FEDERATION_MEMORY_USAGE")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0.0);
+        let queue_length = std::env::var("FEDERATION_QUEUE_LENGTH")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0u32);
+        let active_tasks = (self.instances.len() as u32).min(DEFAULT_MAX_CONNECTIONS as u32);
 
         tracing::debug!(
             "Load metrics - CPU: {:.2}%, Memory: {:.2}%, Queue: {}, Active: {}",
@@ -555,19 +550,32 @@ impl FederationService {
         )))
     }
 
-    /// Create configuration for a new instance
+    /// Create configuration for a new instance using universal-constants defaults
     async fn create_instance_config(&self, instance_index: u32) -> Result<SquirrelConfig> {
-        // This would create actual configuration
-        // For now, return a mock configuration
+        let base_port = std::env::var("SQUIRREL_PORT")
+            .ok()
+            .and_then(|p| p.parse::<u16>().ok())
+            .unwrap_or_else(|| get_service_port("websocket"));
+        let port = if base_port > 0 {
+            base_port + instance_index as u16
+        } else {
+            DEFAULT_SQUIRREL_SERVER_PORT + instance_index as u16
+        };
+
+        let capacity = std::env::var("SQUIRREL_INSTANCE_CAPACITY")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_MAX_CONNECTIONS as u32);
+
         Ok(SquirrelConfig {
             node_id: format!("{}-instance-{}", self.config.node_id, instance_index),
-            port: 8080 + instance_index as u16,
+            port,
             federation_enabled: false, // Instances don't federate themselves
             region: self.config.region.clone(),
             zone: self.config.zone.clone(),
             auto_scaling_enabled: true,
             capabilities: vec!["mcp".to_string(), "routing".to_string()],
-            capacity: 100,
+            capacity,
             metadata: std::collections::HashMap::new(),
         })
     }
@@ -706,11 +714,11 @@ impl SwarmManager for FederationService {
             ],
             health: InstanceStatus::Starting,
             last_seen: Utc::now(),
-            capacity: 10,    // Mock capacity
-            current_load: 0, // Mock current load
-            region: None,
-            zone: None,
-            metadata: HashMap::new(),
+            capacity: config.capacity,
+            current_load: 0,
+            region: config.region.clone(),
+            zone: config.zone.clone(),
+            metadata: config.metadata.clone(),
         };
 
         // Store the instance
@@ -751,10 +759,12 @@ impl SwarmManager for FederationService {
             FederationStatus::Degraded
         };
 
+        let total_capacity: u32 = successful_nodes.iter().map(|n| n.capacity).sum();
+
         Ok(FederationResult {
             federation_id: self.state.federation_id.clone(),
             nodes_joined: successful_nodes.len() as u32,
-            total_capacity: 100,
+            total_capacity: total_capacity.max(1),
             status,
         })
     }

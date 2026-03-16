@@ -10,7 +10,7 @@
 //! 2. MCP Adapter - Adapter with authentication and authorization
 //! 3. Plugin Adapter - Adapter for plugin system integration
 
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 

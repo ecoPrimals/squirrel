@@ -86,6 +86,15 @@ pub const DEFAULT_RETRY_DELAY: Duration = Duration::from_secs(5);
 pub const DEFAULT_DATABASE_TIMEOUT: Duration = Duration::from_secs(30);
 
 // ============================================================================
+// Context TTL
+// ============================================================================
+
+/// Default context TTL in seconds (1 hour)
+///
+/// Time-to-live for stored contexts before expiration.
+pub const DEFAULT_CONTEXT_TTL_SECS: u64 = 3600;
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -116,10 +125,11 @@ pub const fn duration_to_secs(duration: Duration) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        DEFAULT_CONNECTION_TIMEOUT, DEFAULT_DATABASE_TIMEOUT, DEFAULT_HEALTH_CHECK_INTERVAL,
-        DEFAULT_HEARTBEAT_INTERVAL, DEFAULT_INITIAL_DELAY, DEFAULT_MONITORING_INTERVAL,
-        DEFAULT_OPERATION_TIMEOUT, DEFAULT_PING_INTERVAL, DEFAULT_PONG_TIMEOUT,
-        DEFAULT_REQUEST_TIMEOUT, DEFAULT_RETRY_DELAY, duration_to_millis, duration_to_secs,
+        DEFAULT_CONNECTION_TIMEOUT, DEFAULT_CONTEXT_TTL_SECS, DEFAULT_DATABASE_TIMEOUT,
+        DEFAULT_HEALTH_CHECK_INTERVAL, DEFAULT_HEARTBEAT_INTERVAL, DEFAULT_INITIAL_DELAY,
+        DEFAULT_MONITORING_INTERVAL, DEFAULT_OPERATION_TIMEOUT, DEFAULT_PING_INTERVAL,
+        DEFAULT_PONG_TIMEOUT, DEFAULT_REQUEST_TIMEOUT, DEFAULT_RETRY_DELAY, duration_to_millis,
+        duration_to_secs,
     };
 
     #[test]
@@ -151,6 +161,11 @@ mod tests {
     #[test]
     fn test_database_timeout() {
         assert_eq!(DEFAULT_DATABASE_TIMEOUT.as_secs(), 30);
+    }
+
+    #[test]
+    fn test_context_ttl() {
+        assert_eq!(DEFAULT_CONTEXT_TTL_SECS, 3600);
     }
 
     #[test]

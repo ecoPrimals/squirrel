@@ -487,12 +487,10 @@ mod tests {
 
     #[test]
     fn test_ai_client_from_env() {
-        unsafe { std::env::set_var("AI_CAPABILITY_SOCKET", "/tmp/test-ai.sock") };
-
-        let client = AiClient::from_env();
-        assert!(client.is_ok());
-
-        unsafe { std::env::remove_var("AI_CAPABILITY_SOCKET") };
+        temp_env::with_var("AI_CAPABILITY_SOCKET", Some("/tmp/test-ai.sock"), || {
+            let client = AiClient::from_env();
+            assert!(client.is_ok());
+        });
     }
 
     #[test]

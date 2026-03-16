@@ -40,6 +40,7 @@ use thiserror::Error;
 /// This encompasses all SDK-related errors with automatic conversions
 /// from sub-domain errors via `#[from]` attribute.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum SDKError {
     /// Error originating from infrastructure components
     #[error(transparent)]
@@ -62,6 +63,7 @@ pub enum SDKError {
 ///
 /// Covers logging, validation, utility functions, and other infrastructure concerns.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum InfrastructureError {
     /// Logging system error
     #[error("Logging error: {0}")]
@@ -88,6 +90,7 @@ pub enum InfrastructureError {
 ///
 /// Covers events, commands, and MCP communication.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum CommunicationError {
     /// Event handling error
     #[error("Event error: {0}")]
@@ -114,6 +117,7 @@ pub enum CommunicationError {
 ///
 /// Covers HTTP clients, connections, and client-side operations.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum ClientError {
     /// HTTP client error
     #[error("HTTP client error: {0}")]

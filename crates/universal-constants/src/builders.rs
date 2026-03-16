@@ -257,43 +257,33 @@ mod tests {
 
     #[test]
     fn test_parse_bool_all() {
-        // Sequential to avoid env var conflicts
-        unsafe { std::env::set_var("UC_TEST_BOOL_T", "true") };
-        assert!(parse_bool("UC_TEST_BOOL_T", false));
-        unsafe { std::env::remove_var("UC_TEST_BOOL_T") };
-
-        unsafe { std::env::set_var("UC_TEST_BOOL_F", "false") };
-        assert!(!parse_bool("UC_TEST_BOOL_F", true));
-        unsafe { std::env::remove_var("UC_TEST_BOOL_F") };
-
-        unsafe { std::env::set_var("UC_TEST_BOOL_1", "1") };
-        assert!(parse_bool("UC_TEST_BOOL_1", false));
-        unsafe { std::env::remove_var("UC_TEST_BOOL_1") };
-
-        unsafe { std::env::set_var("UC_TEST_BOOL_0", "0") };
-        assert!(!parse_bool("UC_TEST_BOOL_0", true));
-        unsafe { std::env::remove_var("UC_TEST_BOOL_0") };
-
-        unsafe { std::env::set_var("UC_TEST_BOOL_YES", "yes") };
-        assert!(parse_bool("UC_TEST_BOOL_YES", false));
-        unsafe { std::env::remove_var("UC_TEST_BOOL_YES") };
-
-        unsafe { std::env::set_var("UC_TEST_BOOL_NO", "no") };
-        assert!(!parse_bool("UC_TEST_BOOL_NO", true));
-        unsafe { std::env::remove_var("UC_TEST_BOOL_NO") };
-
-        unsafe { std::env::set_var("UC_TEST_BOOL_ON", "on") };
-        assert!(parse_bool("UC_TEST_BOOL_ON", false));
-        unsafe { std::env::remove_var("UC_TEST_BOOL_ON") };
-
-        unsafe { std::env::set_var("UC_TEST_BOOL_OFF", "off") };
-        assert!(!parse_bool("UC_TEST_BOOL_OFF", true));
-        unsafe { std::env::remove_var("UC_TEST_BOOL_OFF") };
-
-        // Invalid falls back to default
-        unsafe { std::env::set_var("UC_TEST_BOOL_INV", "maybe") };
-        assert!(parse_bool("UC_TEST_BOOL_INV", true));
-        unsafe { std::env::remove_var("UC_TEST_BOOL_INV") };
+        temp_env::with_var("UC_TEST_BOOL_T", Some("true"), || {
+            assert!(parse_bool("UC_TEST_BOOL_T", false));
+        });
+        temp_env::with_var("UC_TEST_BOOL_F", Some("false"), || {
+            assert!(!parse_bool("UC_TEST_BOOL_F", true));
+        });
+        temp_env::with_var("UC_TEST_BOOL_1", Some("1"), || {
+            assert!(parse_bool("UC_TEST_BOOL_1", false));
+        });
+        temp_env::with_var("UC_TEST_BOOL_0", Some("0"), || {
+            assert!(!parse_bool("UC_TEST_BOOL_0", true));
+        });
+        temp_env::with_var("UC_TEST_BOOL_YES", Some("yes"), || {
+            assert!(parse_bool("UC_TEST_BOOL_YES", false));
+        });
+        temp_env::with_var("UC_TEST_BOOL_NO", Some("no"), || {
+            assert!(!parse_bool("UC_TEST_BOOL_NO", true));
+        });
+        temp_env::with_var("UC_TEST_BOOL_ON", Some("on"), || {
+            assert!(parse_bool("UC_TEST_BOOL_ON", false));
+        });
+        temp_env::with_var("UC_TEST_BOOL_OFF", Some("off"), || {
+            assert!(!parse_bool("UC_TEST_BOOL_OFF", true));
+        });
+        temp_env::with_var("UC_TEST_BOOL_INV", Some("maybe"), || {
+            assert!(parse_bool("UC_TEST_BOOL_INV", true));
+        });
 
         assert!(parse_bool("UC_NONEXISTENT_BOOL", true));
         assert!(!parse_bool("UC_NONEXISTENT_BOOL", false));
@@ -301,35 +291,34 @@ mod tests {
 
     #[test]
     fn test_parse_port() {
-        unsafe { std::env::set_var("UC_TEST_PORT", "9090") };
-        assert_eq!(parse_port("UC_TEST_PORT", 8080), 9090);
-        unsafe { std::env::remove_var("UC_TEST_PORT") };
+        temp_env::with_var("UC_TEST_PORT", Some("9090"), || {
+            assert_eq!(parse_port("UC_TEST_PORT", 8080), 9090);
+        });
         assert_eq!(parse_port("UC_NONEXISTENT_PORT", 8080), 8080);
     }
 
     #[test]
     fn test_parse_u32() {
-        unsafe { std::env::set_var("UC_TEST_U32", "42") };
-        assert_eq!(parse_u32("UC_TEST_U32", 10), 42);
-        unsafe { std::env::remove_var("UC_TEST_U32") };
+        temp_env::with_var("UC_TEST_U32", Some("42"), || {
+            assert_eq!(parse_u32("UC_TEST_U32", 10), 42);
+        });
         assert_eq!(parse_u32("UC_NONEXISTENT_U32", 10), 10);
     }
 
     #[test]
     fn test_parse_limit() {
-        unsafe { std::env::set_var("UC_TEST_LIMIT", "500") };
-        assert_eq!(parse_limit("UC_TEST_LIMIT", 100), 500);
-        unsafe { std::env::remove_var("UC_TEST_LIMIT") };
+        temp_env::with_var("UC_TEST_LIMIT", Some("500"), || {
+            assert_eq!(parse_limit("UC_TEST_LIMIT", 100), 500);
+        });
         assert_eq!(parse_limit("UC_NONEXISTENT_LIMIT", 100), 100);
     }
 
     #[test]
     fn test_parse_timeout_duration() {
-        unsafe { std::env::set_var("UC_TEST_TIMEOUT", "45") };
-        let timeout = parse_timeout_duration("UC_TEST_TIMEOUT", Duration::from_secs(30));
-        assert_eq!(timeout, Duration::from_secs(45));
-        unsafe { std::env::remove_var("UC_TEST_TIMEOUT") };
-
+        temp_env::with_var("UC_TEST_TIMEOUT", Some("45"), || {
+            let timeout = parse_timeout_duration("UC_TEST_TIMEOUT", Duration::from_secs(30));
+            assert_eq!(timeout, Duration::from_secs(45));
+        });
         let default = parse_timeout_duration("UC_NONEXISTENT_TIMEOUT", Duration::from_secs(30));
         assert_eq!(default, Duration::from_secs(30));
     }

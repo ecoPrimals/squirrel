@@ -222,8 +222,6 @@ impl Default for SecurityServiceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
-
     #[test]
     fn test_retry_config_default() {
         let config = RetryConfig::default();
@@ -242,24 +240,26 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_security_provider_config_default() {
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
-        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
-        let config = SecurityProviderConfig::default();
-        assert_eq!(config.provider_type, "security.authentication");
-        assert!(matches!(config.auth_method, AuthMethod::UnixSocket));
-        assert_eq!(config.timeout, Duration::from_secs(30));
-        assert_eq!(config.security_level, SecurityLevel::Standard);
-        assert!(
-            config
-                .capabilities
-                .contains(&SecurityCapability::Authentication)
-        );
-        assert!(
-            config
-                .capabilities
-                .contains(&SecurityCapability::AccessControl)
+        temp_env::with_vars_unset(
+            ["SECURITY_SERVICE_ENDPOINT", "SECURITY_AUTHENTICATION_PORT"],
+            || {
+                let config = SecurityProviderConfig::default();
+                assert_eq!(config.provider_type, "security.authentication");
+                assert!(matches!(config.auth_method, AuthMethod::UnixSocket));
+                assert_eq!(config.timeout, Duration::from_secs(30));
+                assert_eq!(config.security_level, SecurityLevel::Standard);
+                assert!(
+                    config
+                        .capabilities
+                        .contains(&SecurityCapability::Authentication)
+                );
+                assert!(
+                    config
+                        .capabilities
+                        .contains(&SecurityCapability::AccessControl)
+                );
+            },
         );
     }
 
@@ -311,36 +311,45 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_security_service_config_default() {
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
-        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
-        let config = SecurityServiceConfig::default();
-        assert_eq!(config.security_service_endpoint, "http://localhost:8443");
-        assert!(config.enabled);
-        assert_eq!(config.timeout_seconds, 30);
-    }
-
-    #[test]
-    #[serial]
-    fn test_security_service_config_env_override() {
-        unsafe { std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://secure.example.com") };
-        let config = SecurityServiceConfig::default();
-        assert_eq!(
-            config.security_service_endpoint,
-            "https://secure.example.com"
+        temp_env::with_vars_unset(
+            ["SECURITY_SERVICE_ENDPOINT", "SECURITY_AUTHENTICATION_PORT"],
+            || {
+                let config = SecurityServiceConfig::default();
+                assert_eq!(config.security_service_endpoint, "http://localhost:8443");
+                assert!(config.enabled);
+                assert_eq!(config.timeout_seconds, 30);
+            },
         );
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
     }
 
     #[test]
-    #[serial]
+    fn test_security_service_config_env_override() {
+        temp_env::with_var(
+            "SECURITY_SERVICE_ENDPOINT",
+            Some("https://secure.example.com"),
+            || {
+                let config = SecurityServiceConfig::default();
+                assert_eq!(
+                    config.security_service_endpoint,
+                    "https://secure.example.com"
+                );
+            },
+        );
+    }
+
+    #[test]
     fn test_security_service_config_port_override() {
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
-        unsafe { std::env::set_var("SECURITY_AUTHENTICATION_PORT", "9999") };
-        let config = SecurityServiceConfig::default();
-        assert_eq!(config.security_service_endpoint, "http://localhost:9999");
-        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
+        temp_env::with_vars(
+            [
+                ("SECURITY_SERVICE_ENDPOINT", None::<&str>),
+                ("SECURITY_AUTHENTICATION_PORT", Some("9999")),
+            ],
+            || {
+                let config = SecurityServiceConfig::default();
+                assert_eq!(config.security_service_endpoint, "http://localhost:9999");
+            },
+        );
     }
 
     #[test]

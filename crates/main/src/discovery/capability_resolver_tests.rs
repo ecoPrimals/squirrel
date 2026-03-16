@@ -66,153 +66,159 @@ fn test_discovery_method_clone() {
     assert_eq!(method, cloned);
 }
 
-#[tokio::test]
-async fn test_discover_from_env_found() {
-    let resolver = CapabilityResolver::new();
-
-    // Set environment variable with flexible test port
-    let test_port = env::var("TEST_AI_PORT")
+#[test]
+fn test_discover_from_env_found() {
+    let test_endpoint = env::var("TEST_AI_PORT")
         .ok()
         .and_then(|p| p.parse::<u16>().ok())
-        .unwrap_or(8000);
-    let test_endpoint = format!("http://localhost:{}", test_port);
-    unsafe { env::set_var("AI_COMPLETE_ENDPOINT", &test_endpoint) };
+        .map(|port| format!("http://localhost:{}", port))
+        .unwrap_or_else(|| "http://localhost:8000".to_string());
 
-    let request = CapabilityRequest {
-        capability: "ai.complete".to_string(),
-        features: vec![],
-        preference: None,
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
+    temp_env::with_var("AI_COMPLETE_ENDPOINT", Some(test_endpoint.as_str()), || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let resolver = CapabilityResolver::new();
+            let request = CapabilityRequest {
+                capability: "ai.complete".to_string(),
+                features: vec![],
+                preference: None,
+                timeout: Duration::from_secs(5),
+                use_cache: true,
+            };
 
-    let result = resolver.discover_provider(request).await;
+            let result = resolver.discover_provider(request).await;
 
-    // Clean up
-    unsafe { env::remove_var("AI_COMPLETE_ENDPOINT") };
-
-    // Verify discovery succeeded
-    assert!(result.is_ok());
-    let service = result.unwrap();
-    assert_eq!(service.endpoint, test_endpoint);
-    assert!(service.capabilities.contains(&"ai.complete".to_string()));
-    assert_eq!(service.priority, 100); // Highest priority for env vars
+            assert!(result.is_ok());
+            let service = result.unwrap();
+            assert_eq!(service.endpoint, test_endpoint);
+            assert!(service.capabilities.contains(&"ai.complete".to_string()));
+            assert_eq!(service.priority, 100);
+        });
+    });
 }
 
-#[tokio::test]
-async fn test_discover_from_env_not_found() {
-    let resolver = CapabilityResolver::new();
+#[test]
+fn test_discover_from_env_not_found() {
+    temp_env::with_var_unset("NONEXISTENT_CAPABILITY_ENDPOINT", || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let resolver = CapabilityResolver::new();
+            let request = CapabilityRequest {
+                capability: "nonexistent.capability".to_string(),
+                features: vec![],
+                preference: None,
+                timeout: Duration::from_secs(5),
+                use_cache: true,
+            };
 
-    // Ensure env var is not set
-    unsafe { env::remove_var("NONEXISTENT_CAPABILITY_ENDPOINT") };
-
-    let request = CapabilityRequest {
-        capability: "nonexistent.capability".to_string(),
-        features: vec![],
-        preference: None,
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
-
-    let result = resolver.discover_provider(request).await;
-
-    // Should fail - no discovery mechanisms will find this
-    assert!(result.is_err());
+            let result = resolver.discover_provider(request).await;
+            assert!(result.is_err());
+        });
+    });
 }
 
-#[tokio::test]
-async fn test_discover_provider_with_dots_in_capability() {
-    let resolver = CapabilityResolver::new();
+#[test]
+fn test_discover_provider_with_dots_in_capability() {
+    temp_env::with_var(
+        "HTTP_REQUEST_ENDPOINT",
+        Some("unix:///tmp/songbird.sock"),
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = CapabilityResolver::new();
+                let request = CapabilityRequest {
+                    capability: "http.request".to_string(),
+                    features: vec![],
+                    preference: None,
+                    timeout: Duration::from_secs(5),
+                    use_cache: true,
+                };
 
-    // Set environment variable with dots converted to underscores
-    unsafe { env::set_var("HTTP_REQUEST_ENDPOINT", "unix:///tmp/songbird.sock") };
+                let result = resolver.discover_provider(request).await;
 
-    let request = CapabilityRequest {
-        capability: "http.request".to_string(),
-        features: vec![],
-        preference: None,
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
-
-    let result = resolver.discover_provider(request).await;
-
-    // Clean up
-    unsafe { env::remove_var("HTTP_REQUEST_ENDPOINT") };
-
-    assert!(result.is_ok());
-    let service = result.unwrap();
-    assert_eq!(service.endpoint, "unix:///tmp/songbird.sock");
-    assert!(service.capabilities.contains(&"http.request".to_string()));
+                assert!(result.is_ok());
+                let service = result.unwrap();
+                assert_eq!(service.endpoint, "unix:///tmp/songbird.sock");
+                assert!(service.capabilities.contains(&"http.request".to_string()));
+            });
+        },
+    );
 }
 
-#[tokio::test]
-async fn test_discover_provider_priority() {
-    let resolver = CapabilityResolver::new();
+#[test]
+fn test_discover_provider_priority() {
+    temp_env::with_var(
+        "TEST_CAPABILITY_ENDPOINT",
+        Some("http://env-provider:8000"),
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = CapabilityResolver::new();
+                let request = CapabilityRequest {
+                    capability: "test.capability".to_string(),
+                    features: vec![],
+                    preference: None,
+                    timeout: Duration::from_secs(5),
+                    use_cache: true,
+                };
 
-    // Set environment variable (should have highest priority)
-    unsafe { env::set_var("TEST_CAPABILITY_ENDPOINT", "http://env-provider:8000") };
+                let result = resolver.discover_provider(request).await;
 
-    let request = CapabilityRequest {
-        capability: "test.capability".to_string(),
-        features: vec![],
-        preference: None,
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
-
-    let result = resolver.discover_provider(request).await;
-
-    // Clean up
-    unsafe { env::remove_var("TEST_CAPABILITY_ENDPOINT") };
-
-    // Environment variable should be discovered first (priority 100)
-    assert!(result.is_ok());
-    let service = result.unwrap();
-    assert_eq!(service.endpoint, "http://env-provider:8000");
-    assert_eq!(service.priority, 100);
+                assert!(result.is_ok());
+                let service = result.unwrap();
+                assert_eq!(service.endpoint, "http://env-provider:8000");
+                assert_eq!(service.priority, 100);
+            });
+        },
+    );
 }
 
-#[tokio::test]
-async fn test_capability_request_with_preference() {
-    let resolver = CapabilityResolver::new();
+#[test]
+fn test_capability_request_with_preference() {
+    temp_env::with_var(
+        "PREFERRED_SERVICE_ENDPOINT",
+        Some("http://localhost:9000"),
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = CapabilityResolver::new();
+                let request = CapabilityRequest {
+                    capability: "preferred.service".to_string(),
+                    features: vec![],
+                    preference: Some("performance".to_string()),
+                    timeout: Duration::from_secs(5),
+                    use_cache: true,
+                };
 
-    unsafe { env::set_var("PREFERRED_SERVICE_ENDPOINT", "http://localhost:9000") };
-
-    let request = CapabilityRequest {
-        capability: "preferred.service".to_string(),
-        features: vec![],
-        preference: Some("performance".to_string()),
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
-
-    let result = resolver.discover_provider(request).await;
-
-    unsafe { env::remove_var("PREFERRED_SERVICE_ENDPOINT") };
-
-    assert!(result.is_ok());
+                let result = resolver.discover_provider(request).await;
+                assert!(result.is_ok());
+            });
+        },
+    );
 }
 
-#[tokio::test]
-async fn test_capability_request_with_features() {
-    let resolver = CapabilityResolver::new();
+#[test]
+fn test_capability_request_with_features() {
+    temp_env::with_var(
+        "FEATURED_SERVICE_ENDPOINT",
+        Some("http://localhost:10000"),
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = CapabilityResolver::new();
+                let request = CapabilityRequest {
+                    capability: "featured.service".to_string(),
+                    features: vec!["feature1".to_string(), "feature2".to_string()],
+                    preference: None,
+                    timeout: Duration::from_secs(5),
+                    use_cache: true,
+                };
 
-    unsafe { env::set_var("FEATURED_SERVICE_ENDPOINT", "http://localhost:10000") };
-
-    let request = CapabilityRequest {
-        capability: "featured.service".to_string(),
-        features: vec!["feature1".to_string(), "feature2".to_string()],
-        preference: None,
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
-
-    let result = resolver.discover_provider(request).await;
-
-    unsafe { env::remove_var("FEATURED_SERVICE_ENDPOINT") };
-
-    assert!(result.is_ok());
+                let result = resolver.discover_provider(request).await;
+                assert!(result.is_ok());
+            });
+        },
+    );
 }
 
 #[tokio::test]
@@ -232,102 +238,115 @@ async fn test_capability_request_with_timeout() {
     assert!(result.is_err());
 }
 
-#[tokio::test]
-async fn test_resolver_clone() {
-    let resolver1 = CapabilityResolver::new();
-    let resolver2 = resolver1.clone();
+#[test]
+fn test_resolver_clone() {
+    temp_env::with_var(
+        "CLONE_TEST_ENDPOINT",
+        Some("http://localhost:11000"),
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver1 = CapabilityResolver::new();
+                let resolver2 = resolver1.clone();
 
-    unsafe { env::set_var("CLONE_TEST_ENDPOINT", "http://localhost:11000") };
+                let request = CapabilityRequest {
+                    capability: "clone.test".to_string(),
+                    features: vec![],
+                    preference: None,
+                    timeout: Duration::from_secs(5),
+                    use_cache: true,
+                };
 
-    let request = CapabilityRequest {
-        capability: "clone.test".to_string(),
-        features: vec![],
-        preference: None,
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
+                let result1 = resolver1.discover_provider(request.clone()).await;
+                let result2 = resolver2.discover_provider(request).await;
 
-    // Both resolvers should work
-    let result1 = resolver1.discover_provider(request.clone()).await;
-    let result2 = resolver2.discover_provider(request).await;
-
-    unsafe { env::remove_var("CLONE_TEST_ENDPOINT") };
-
-    assert!(result1.is_ok());
-    assert!(result2.is_ok());
+                assert!(result1.is_ok());
+                assert!(result2.is_ok());
+            });
+        },
+    );
 }
 
-#[tokio::test]
-async fn test_discover_service_metadata() {
-    let resolver = CapabilityResolver::new();
+#[test]
+fn test_discover_service_metadata() {
+    temp_env::with_var(
+        "METADATA_TEST_ENDPOINT",
+        Some("http://localhost:12000"),
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = CapabilityResolver::new();
+                let request = CapabilityRequest {
+                    capability: "metadata.test".to_string(),
+                    features: vec![],
+                    preference: None,
+                    timeout: Duration::from_secs(5),
+                    use_cache: true,
+                };
 
-    unsafe { env::set_var("METADATA_TEST_ENDPOINT", "http://localhost:12000") };
+                let result = resolver.discover_provider(request).await;
 
-    let request = CapabilityRequest {
-        capability: "metadata.test".to_string(),
-        features: vec![],
-        preference: None,
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
-
-    let result = resolver.discover_provider(request).await;
-
-    unsafe { env::remove_var("METADATA_TEST_ENDPOINT") };
-
-    assert!(result.is_ok());
-    let service = result.unwrap();
-    assert_eq!(service.name, "metadata.test-provider");
-    assert_eq!(service.discovery_method, "environment_variable");
-    assert!(service.healthy.unwrap_or(false));
+                assert!(result.is_ok());
+                let service = result.unwrap();
+                assert_eq!(service.name, "metadata.test-provider");
+                assert_eq!(service.discovery_method, "environment_variable");
+                assert!(service.healthy.unwrap_or(false));
+            });
+        },
+    );
 }
 
-#[tokio::test]
-async fn test_uppercase_capability_env_conversion() {
-    let resolver = CapabilityResolver::new();
+#[test]
+fn test_uppercase_capability_env_conversion() {
+    temp_env::with_var(
+        "LOWERCASE_TEST_ENDPOINT",
+        Some("http://localhost:13000"),
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = CapabilityResolver::new();
+                let request = CapabilityRequest {
+                    capability: "lowercase.test".to_string(),
+                    features: vec![],
+                    preference: None,
+                    timeout: Duration::from_secs(5),
+                    use_cache: true,
+                };
 
-    // Test that lowercase capability is converted to uppercase env var
-    unsafe { env::set_var("LOWERCASE_TEST_ENDPOINT", "http://localhost:13000") };
-
-    let request = CapabilityRequest {
-        capability: "lowercase.test".to_string(),
-        features: vec![],
-        preference: None,
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
-
-    let result = resolver.discover_provider(request).await;
-
-    unsafe { env::remove_var("LOWERCASE_TEST_ENDPOINT") };
-
-    assert!(result.is_ok());
+                let result = resolver.discover_provider(request).await;
+                assert!(result.is_ok());
+            });
+        },
+    );
 }
 
-#[tokio::test]
-async fn test_multiple_dots_in_capability() {
-    let resolver = CapabilityResolver::new();
+#[test]
+fn test_multiple_dots_in_capability() {
+    temp_env::with_var(
+        "AI_NEURAL_INFERENCE_ENDPOINT",
+        Some("http://localhost:14000"),
+        || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = CapabilityResolver::new();
+                let request = CapabilityRequest {
+                    capability: "ai.neural.inference".to_string(),
+                    features: vec![],
+                    preference: None,
+                    timeout: Duration::from_secs(5),
+                    use_cache: true,
+                };
 
-    // Test capability with multiple dots: "ai.neural.inference"
-    unsafe { env::set_var("AI_NEURAL_INFERENCE_ENDPOINT", "http://localhost:14000") };
+                let result = resolver.discover_provider(request).await;
 
-    let request = CapabilityRequest {
-        capability: "ai.neural.inference".to_string(),
-        features: vec![],
-        preference: None,
-        timeout: Duration::from_secs(5),
-        use_cache: true,
-    };
-
-    let result = resolver.discover_provider(request).await;
-
-    unsafe { env::remove_var("AI_NEURAL_INFERENCE_ENDPOINT") };
-
-    assert!(result.is_ok());
-    let service = result.unwrap();
-    assert!(
-        service
-            .capabilities
-            .contains(&"ai.neural.inference".to_string())
+                assert!(result.is_ok());
+                let service = result.unwrap();
+                assert!(
+                    service
+                        .capabilities
+                        .contains(&"ai.neural.inference".to_string())
+                );
+            });
+        },
     );
 }

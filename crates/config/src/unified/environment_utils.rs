@@ -340,103 +340,75 @@ pub fn validate_environment_requirements() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
 
     #[test]
-    #[serial]
     fn test_get_environment() {
-        // Save original value
-        let original = env::var("MCP_ENV").ok();
-
-        unsafe { env::set_var("MCP_ENV", "development") };
-        assert_eq!(get_environment(), Environment::Development);
-
-        unsafe { env::set_var("MCP_ENV", "production") };
-        assert_eq!(get_environment(), Environment::Production);
-
-        // Restore original or remove
-        match original {
-            Some(val) => unsafe { env::set_var("MCP_ENV", val) },
-            None => unsafe { env::remove_var("MCP_ENV") },
-        }
+        temp_env::with_var("MCP_ENV", Some("development"), || {
+            assert_eq!(get_environment(), Environment::Development);
+        });
+        temp_env::with_var("MCP_ENV", Some("production"), || {
+            assert_eq!(get_environment(), Environment::Production);
+        });
     }
 
     #[test]
     fn test_get_env_var() {
-        unsafe { env::set_var("TEST_PORT", "8080") };
-        let port: u16 = get_env_var("TEST_PORT", "3000").unwrap();
-        assert_eq!(port, 8080);
-
+        temp_env::with_var("TEST_PORT", Some("8080"), || {
+            let port: u16 = get_env_var("TEST_PORT", "3000").unwrap();
+            assert_eq!(port, 8080);
+        });
         let port: u16 = get_env_var("NONEXISTENT_PORT", "3000").unwrap();
         assert_eq!(port, 3000);
     }
 
     #[test]
     fn test_get_env_var_optional() {
-        unsafe { env::set_var("TEST_KEY", "value") };
-        assert_eq!(get_env_var_optional("TEST_KEY"), Some("value".to_string()));
+        temp_env::with_var("TEST_KEY", Some("value"), || {
+            assert_eq!(get_env_var_optional("TEST_KEY"), Some("value".to_string()));
+        });
         assert_eq!(get_env_var_optional("NONEXISTENT_KEY"), None);
     }
 
     #[test]
     fn test_get_env_bool() {
-        unsafe { env::set_var("TEST_ENABLED", "true") };
-        assert!(get_env_bool("TEST_ENABLED", false));
-
-        unsafe { env::set_var("TEST_ENABLED", "1") };
-        assert!(get_env_bool("TEST_ENABLED", false));
-
-        unsafe { env::set_var("TEST_ENABLED", "false") };
-        assert!(!get_env_bool("TEST_ENABLED", true));
-
+        temp_env::with_var("TEST_ENABLED", Some("true"), || {
+            assert!(get_env_bool("TEST_ENABLED", false));
+        });
+        temp_env::with_var("TEST_ENABLED", Some("1"), || {
+            assert!(get_env_bool("TEST_ENABLED", false));
+        });
+        temp_env::with_var("TEST_ENABLED", Some("false"), || {
+            assert!(!get_env_bool("TEST_ENABLED", true));
+        });
         assert!(get_env_bool("NONEXISTENT", true));
     }
 
     #[test]
-    #[serial]
     fn test_get_env_aware_default() {
-        // Save original value
-        let original = env::var("MCP_ENV").ok();
-
-        unsafe { env::set_var("MCP_ENV", "development") };
-        assert_eq!(get_env_aware_default(1, 2, 3, 4), 1);
-
-        unsafe { env::set_var("MCP_ENV", "production") };
-        assert_eq!(get_env_aware_default(1, 2, 3, 4), 4);
-
-        // Restore original or remove
-        match original {
-            Some(val) => unsafe { env::set_var("MCP_ENV", val) },
-            None => unsafe { env::remove_var("MCP_ENV") },
-        }
+        temp_env::with_var("MCP_ENV", Some("development"), || {
+            assert_eq!(get_env_aware_default(1, 2, 3, 4), 1);
+        });
+        temp_env::with_var("MCP_ENV", Some("production"), || {
+            assert_eq!(get_env_aware_default(1, 2, 3, 4), 4);
+        });
     }
 
     #[test]
-    #[serial]
     fn test_is_environment() {
-        // Use serial_test or cleanup to avoid race conditions
-        unsafe { env::set_var("MCP_ENV", "production") };
-        assert!(is_environment(Environment::Production));
-        assert!(!is_environment(Environment::Development));
-
-        // Cleanup
-        unsafe { env::remove_var("MCP_ENV") };
+        temp_env::with_var("MCP_ENV", Some("production"), || {
+            assert!(is_environment(Environment::Production));
+            assert!(!is_environment(Environment::Development));
+        });
     }
 
     #[test]
     fn test_validate_required_env_vars() {
-        // Use unique var names to avoid conflicts with other tests
         let var1 = format!("REQUIRED_VAR_1_{}", std::process::id());
         let var2 = format!("REQUIRED_VAR_2_{}", std::process::id());
 
-        unsafe { env::set_var(&var1, "value1") };
-        unsafe { env::set_var(&var2, "value2") };
-
-        assert!(validate_required_env_vars(&[&var1, &var2]).is_ok());
-        assert!(validate_required_env_vars(&[&var1, "NONEXISTENT_VAR_UNIQUE"]).is_err());
-
-        // Cleanup
-        unsafe { env::remove_var(&var1) };
-        unsafe { env::remove_var(&var2) };
+        temp_env::with_vars([(&var1, Some("value1")), (&var2, Some("value2"))], || {
+            assert!(validate_required_env_vars(&[&var1, &var2]).is_ok());
+            assert!(validate_required_env_vars(&[&var1, "NONEXISTENT_VAR_UNIQUE"]).is_err());
+        });
     }
 }

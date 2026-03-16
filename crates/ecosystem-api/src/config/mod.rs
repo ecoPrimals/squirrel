@@ -20,7 +20,6 @@ mod tests {
     use super::*;
     use crate::traits::{RetryConfig, UniversalConfig};
     use crate::types::SecurityLevel;
-    use std::env;
 
     fn create_valid_config() -> UniversalConfig {
         UniversalConfig {
@@ -146,44 +145,34 @@ mod tests {
     #[test]
     fn test_load_universal_config_with_env() {
         let prefix = "UCFG_FULL_TEST";
-        unsafe { env::set_var(format!("{}_SERVICE_NAME", prefix), "test-svc") };
-        unsafe { env::set_var(format!("{}_SERVICE_DESCRIPTION", prefix), "A test service") };
-        unsafe {
-            env::set_var(
-                format!("{}_SONGBIRD_DISCOVERY_ENDPOINT", prefix),
-                "http://disc:8001",
-            )
-        };
-
-        unsafe {
-            env::set_var(
-                format!("{}_SONGBIRD_REGISTRATION_ENDPOINT", prefix),
-                "http://reg:8001",
-            )
-        };
-
-        unsafe {
-            env::set_var(
-                format!("{}_SONGBIRD_HEALTH_ENDPOINT", prefix),
-                "http://health:8001",
-            )
-        };
-
-        let loader = ConfigLoader::new(prefix);
-        let config = loader.load_universal_config();
-        assert!(config.is_ok());
-        let config = config.unwrap();
-        assert_eq!(config.service.name, "test-svc");
-        assert_eq!(config.songbird.discovery_endpoint, "http://disc:8001");
-
-        for suffix in &[
-            "SERVICE_NAME",
-            "SERVICE_DESCRIPTION",
-            "SONGBIRD_DISCOVERY_ENDPOINT",
-            "SONGBIRD_REGISTRATION_ENDPOINT",
-            "SONGBIRD_HEALTH_ENDPOINT",
-        ] {
-            unsafe { env::remove_var(format!("{}_{}", prefix, suffix)) };
-        }
+        temp_env::with_vars(
+            [
+                (format!("{}_SERVICE_NAME", prefix), Some("test-svc")),
+                (
+                    format!("{}_SERVICE_DESCRIPTION", prefix),
+                    Some("A test service"),
+                ),
+                (
+                    format!("{}_SONGBIRD_DISCOVERY_ENDPOINT", prefix),
+                    Some("http://disc:8001"),
+                ),
+                (
+                    format!("{}_SONGBIRD_REGISTRATION_ENDPOINT", prefix),
+                    Some("http://reg:8001"),
+                ),
+                (
+                    format!("{}_SONGBIRD_HEALTH_ENDPOINT", prefix),
+                    Some("http://health:8001"),
+                ),
+            ],
+            || {
+                let loader = ConfigLoader::new(&prefix);
+                let config = loader.load_universal_config();
+                assert!(config.is_ok());
+                let config = config.unwrap();
+                assert_eq!(config.service.name, "test-svc");
+                assert_eq!(config.songbird.discovery_endpoint, "http://disc:8001");
+            },
+        );
     }
 }

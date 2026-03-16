@@ -637,20 +637,21 @@ mod tests {
 
     #[test]
     fn test_environment_from_env_default() {
-        unsafe { env::remove_var("MCP_ENV") };
-        let env_type = Environment::from_env();
-        assert!(matches!(
-            env_type,
-            Environment::Development | Environment::Testing
-        ));
+        temp_env::with_var_unset("MCP_ENV", || {
+            let env_type = Environment::from_env();
+            assert!(matches!(
+                env_type,
+                Environment::Development | Environment::Testing
+            ));
+        });
     }
 
     #[test]
     fn test_environment_from_env_production() {
-        unsafe { env::set_var("MCP_ENV", "production") };
-        let env_type = Environment::from_env();
-        assert_eq!(env_type, Environment::Production);
-        unsafe { env::remove_var("MCP_ENV") };
+        temp_env::with_var("MCP_ENV", Some("production"), || {
+            let env_type = Environment::from_env();
+            assert_eq!(env_type, Environment::Production);
+        });
     }
 
     #[test]

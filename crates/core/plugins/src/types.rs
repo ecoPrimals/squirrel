@@ -10,6 +10,7 @@ use std::collections::HashMap;
 
 use crate::Result;
 use crate::plugin::Plugin;
+use universal_constants::limits;
 
 /// Plugin type identifiers (reserved for plugin type filtering)
 #[allow(dead_code)]
@@ -104,9 +105,9 @@ pub struct ResourceLimits {
 impl Default for ResourceLimits {
     fn default() -> Self {
         Self {
-            max_memory_bytes: Some(100 * 1024 * 1024), // 100MB default
-            max_cpu_percent: Some(50.0),               // 50% CPU default
-            max_execution_time_secs: Some(300),        // 5 minutes default
+            max_memory_bytes: Some(limits::DEFAULT_PLUGIN_MAX_MEMORY_BYTES),
+            max_cpu_percent: Some(limits::DEFAULT_PLUGIN_MAX_CPU_PERCENT),
+            max_execution_time_secs: Some(limits::DEFAULT_PLUGIN_MAX_EXECUTION_TIME_SECS),
         }
     }
 }

@@ -19,7 +19,7 @@
 //! Configuration system for Squirrel MCP
 //!
 //! This crate provides a unified configuration system supporting:
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 //! - Environment variable overrides
 //! - TOML/JSON/YAML file configuration

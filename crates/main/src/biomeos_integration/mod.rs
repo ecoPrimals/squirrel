@@ -798,13 +798,17 @@ impl Default for EcosystemEndpoints {
             ai_api: std::env::var("BIOMEOS_AI_API")
                 .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}/ai")))
                 .unwrap_or_else(|_| {
-                    let port = std::env::var("BIOMEOS_PORT").unwrap_or_else(|_| "5000".to_string());
+                    let port = std::env::var("BIOMEOS_PORT").unwrap_or_else(|_| {
+                        universal_constants::network::DEFAULT_BIOMEOS_PORT.to_string()
+                    });
                     format!("http://localhost:{port}/ai")
                 }),
             mcp_api: std::env::var("BIOMEOS_MCP_API")
                 .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}/mcp")))
                 .unwrap_or_else(|_| {
-                    let port = std::env::var("BIOMEOS_PORT").unwrap_or_else(|_| "5000".to_string());
+                    let port = std::env::var("BIOMEOS_PORT").unwrap_or_else(|_| {
+                        universal_constants::network::DEFAULT_BIOMEOS_PORT.to_string()
+                    });
                     format!("http://localhost:{port}/mcp")
                 }),
             context_api: std::env::var("BIOMEOS_CONTEXT_API")
@@ -819,7 +823,10 @@ impl Default for EcosystemEndpoints {
                         "⚠️ BIOMEOS_CONTEXT_API not configured. \
                          Set BIOMEOS_ENDPOINT or BIOMEOS_CONTEXT_API for production."
                     );
-                    "http://localhost:5000/context".to_string()
+                    format!(
+                        "http://localhost:{}/context",
+                        universal_constants::network::DEFAULT_BIOMEOS_PORT
+                    )
                 }),
             health: std::env::var("BIOMEOS_HEALTH_API")
                 .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}/health")))
@@ -832,7 +839,10 @@ impl Default for EcosystemEndpoints {
                         "⚠️ BIOMEOS_HEALTH_API not configured. \
                          Set BIOMEOS_ENDPOINT or BIOMEOS_HEALTH_API for production."
                     );
-                    "http://localhost:5000/health".to_string()
+                    format!(
+                        "http://localhost:{}/health",
+                        universal_constants::network::DEFAULT_BIOMEOS_PORT
+                    )
                 }),
             metrics: std::env::var("BIOMEOS_METRICS_API")
                 .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}/metrics")))
@@ -845,7 +855,10 @@ impl Default for EcosystemEndpoints {
                         "⚠️ BIOMEOS_METRICS_API not configured. \
                          Set BIOMEOS_ENDPOINT or BIOMEOS_METRICS_API for production."
                     );
-                    "http://localhost:5000/metrics".to_string()
+                    format!(
+                        "http://localhost:{}/metrics",
+                        universal_constants::network::DEFAULT_BIOMEOS_PORT
+                    )
                 }),
             websocket: std::env::var("BIOMEOS_WEBSOCKET_URL")
                 .ok()
@@ -865,7 +878,10 @@ impl Default for EcosystemEndpoints {
                         "⚠️ BIOMEOS_WEBSOCKET_URL not configured. \
                          Set BIOMEOS_WEBSOCKET_URL for production."
                     );
-                    Some("ws://localhost:5000/ws".to_string())
+                    Some(format!(
+                        "ws://localhost:{}/ws",
+                        universal_constants::network::DEFAULT_BIOMEOS_PORT
+                    ))
                 }),
         }
     }

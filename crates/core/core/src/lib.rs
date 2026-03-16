@@ -5,7 +5,7 @@
 //!
 //! This module re-exports types from squirrel_context for backward compatibility.
 
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 // Core modules for Squirrel MCP ecosystem coordination
 #[cfg(feature = "http-api")]
@@ -905,7 +905,7 @@ pub enum InstanceStatus {
 
 /// Configuration for federation.
 #[cfg(feature = "mesh")]
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FederationConfig {
     /// Node identifier.
     pub node_id: String,

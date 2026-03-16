@@ -30,6 +30,7 @@ async-recursion.workspace = true
 parking_lot.workspace = true
 # Shared squirrel dependencies
 squirrel-interfaces.workspace = true
+universal-constants = { path = "../../universal-constants" }
 
 [dev-dependencies]
 tokio-test.workspace = true

@@ -276,58 +276,77 @@ impl BeardogSecurityCoordinator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
 
     #[test]
-    #[serial]
     fn test_coordinator_new() {
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
-        unsafe { std::env::remove_var("SECURITY_SOCKET") };
-        unsafe { std::env::remove_var("SECURITY_PORT") };
-        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
-
-        let coord = BeardogSecurityCoordinator::new();
-        assert!(coord.is_healthy());
+        temp_env::with_vars_unset(
+            [
+                "SECURITY_SERVICE_ENDPOINT",
+                "SECURITY_SOCKET",
+                "SECURITY_PORT",
+                "SECURITY_AUTHENTICATION_PORT",
+            ],
+            || {
+                let coord = BeardogSecurityCoordinator::new();
+                assert!(coord.is_healthy());
+            },
+        );
     }
 
     #[test]
     fn test_coordinator_default() {
         let coord = BeardogSecurityCoordinator::default();
-        // Default has empty endpoint
         assert!(!coord.is_healthy());
     }
 
-    #[tokio::test]
-    #[serial]
-    async fn test_discover_security_endpoint_default() {
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
-        unsafe { std::env::remove_var("SECURITY_AUTHENTICATION_PORT") };
-        let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
-            .await
-            .expect("discover");
-        assert!(endpoint.contains("localhost:8443"), "got: {endpoint}");
+    #[test]
+    fn test_discover_security_endpoint_default() {
+        temp_env::with_vars_unset(
+            ["SECURITY_SERVICE_ENDPOINT", "SECURITY_AUTHENTICATION_PORT"],
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
+                        .await
+                        .expect("discover");
+                    assert!(endpoint.contains("localhost:8443"), "got: {endpoint}");
+                });
+            },
+        );
     }
 
-    #[tokio::test]
-    #[serial]
-    async fn test_discover_security_endpoint_env() {
-        unsafe { std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://secure.test") };
-        let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
-            .await
-            .expect("discover");
-        assert_eq!(endpoint, "https://secure.test");
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
+    #[test]
+    fn test_discover_security_endpoint_env() {
+        temp_env::with_var(
+            "SECURITY_SERVICE_ENDPOINT",
+            Some("https://secure.test"),
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
+                        .await
+                        .expect("discover");
+                    assert_eq!(endpoint, "https://secure.test");
+                });
+            },
+        );
     }
 
-    #[tokio::test]
-    #[serial]
-    async fn test_with_capability_discovery() {
-        unsafe { std::env::set_var("SECURITY_SERVICE_ENDPOINT", "http://test:9999") };
-        let coord = BeardogSecurityCoordinator::with_capability_discovery()
-            .await
-            .expect("create");
-        assert!(coord.is_healthy());
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
+    #[test]
+    fn test_with_capability_discovery() {
+        temp_env::with_var(
+            "SECURITY_SERVICE_ENDPOINT",
+            Some("http://test:9999"),
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let coord = BeardogSecurityCoordinator::with_capability_discovery()
+                        .await
+                        .expect("create");
+                    assert!(coord.is_healthy());
+                });
+            },
+        );
     }
 
     #[test]
@@ -402,11 +421,14 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_coordinator_new_with_env_endpoint() {
-        unsafe { std::env::set_var("SECURITY_SERVICE_ENDPOINT", "https://prod.security") };
-        let coord = BeardogSecurityCoordinator::new();
-        assert!(coord.is_healthy());
-        unsafe { std::env::remove_var("SECURITY_SERVICE_ENDPOINT") };
+        temp_env::with_var(
+            "SECURITY_SERVICE_ENDPOINT",
+            Some("https://prod.security"),
+            || {
+                let coord = BeardogSecurityCoordinator::new();
+                assert!(coord.is_healthy());
+            },
+        );
     }
 }

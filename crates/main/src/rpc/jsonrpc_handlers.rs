@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! JSON-RPC 2.0 Method Handlers
-//!
-//! Individual handler functions for each JSON-RPC method supported by
-//! the Squirrel server. Handlers are grouped by domain:
-//!
-//! - **AI**: `ai.query`, `ai.list_providers`
-//! - **Capability**: `capability.announce`, `capability.discover`
+//! JSON-RPC 2.0 method handlers grouped by domain:
+//! AI, Capability, System, Discovery, Tool, Context, Lifecycle.
 //! - **System**: `system.health`, `system.metrics`, `system.ping`
 //! - **Discovery**: `discovery.peers`
 //! - **Tool**: `tool.execute`
@@ -542,6 +537,39 @@ impl JsonRpcServer {
                 state.id, state.version, state.metadata.len()),
             "data": state.data,
             "synchronized": state.synchronized,
+        }))
+    }
+
+    // -----------------------------------------------------------------------
+    // Lifecycle domain (biomeOS)
+    // -----------------------------------------------------------------------
+
+    /// Handle `lifecycle.register` — register with biomeOS orchestrator
+    ///
+    /// When squirrel acts as a server, this acknowledges registration requests.
+    /// Typically squirrel is the client (sends to biomeOS); this handles the
+    /// case when another service registers squirrel.
+    pub(crate) async fn handle_lifecycle_register(&self) -> Result<Value, JsonRpcError> {
+        debug!("lifecycle.register request");
+
+        Ok(serde_json::json!({
+            "success": true,
+            "message": format!("{} registered", self.service_name),
+            "version": env!("CARGO_PKG_VERSION"),
+        }))
+    }
+
+    /// Handle `lifecycle.status` — heartbeat status report
+    pub(crate) async fn handle_lifecycle_status(&self) -> Result<Value, JsonRpcError> {
+        debug!("lifecycle.status request");
+
+        let metrics = self.metrics.read().await;
+
+        Ok(serde_json::json!({
+            "status": "healthy",
+            "version": env!("CARGO_PKG_VERSION"),
+            "uptime_seconds": metrics.uptime_seconds(),
+            "service": self.service_name,
         }))
     }
 

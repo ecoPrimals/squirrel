@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 3,749+ passing | **Edition**: 2024 | **Rust**: 1.85+
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,465 passing | **Edition**: 2024 | **Rust**: 1.85+ | **Coverage**: 66%
 
 ---
 
@@ -125,9 +125,9 @@ squirrel/
 
 ## Code Standards
 
-- `#![forbid(unsafe_code)]` on all crates (production code)
+- `#![forbid(unsafe_code)]` unconditional on all 22 crates
 - `#![warn(missing_docs)]` on all library crates
-- `cargo clippy -- -D warnings` with pedantic: zero errors
+- `cargo clippy` with `pedantic` + `nursery` lints enabled
 - `cargo fmt` and `cargo doc`: zero warnings
 - Pure Rust: zero C dependencies in default build
 - All source files under 1,000 lines

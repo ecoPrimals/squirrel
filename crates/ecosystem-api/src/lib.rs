@@ -33,7 +33,7 @@
 //! // See the trait definition for complete requirements
 //! ```
 
-#![cfg_attr(not(test), forbid(unsafe_code))] // ✅ ENFORCED: No unsafe code allowed
+#![forbid(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]
@@ -67,6 +67,7 @@ pub const ECOSYSTEM_API_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// This function sets up logging and validates the API configuration.
 /// It should be called once at application startup.
+#[must_use = "initialization errors should be handled"]
 pub fn init() -> Result<(), EcosystemError> {
     tracing::info!("Initializing Ecosystem API v{}", ECOSYSTEM_API_VERSION);
     Ok(())

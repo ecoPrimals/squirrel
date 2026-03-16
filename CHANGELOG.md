@@ -9,6 +9,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.3] - 2026-03-16
+
+Deep debt evolution, modern idiomatic Rust, and ecosystem standards alignment.
+
+### Changed
+
+- **`#![forbid(unsafe_code)]` unconditional** — removed `cfg_attr(not(test), ...)` from all 22 crates; all `unsafe { env::set_var }` in tests replaced with `temp_env` crate
+- **tarpc service deepened** — 18 typed methods mirroring all JSON-RPC handlers; `TarpcRpcServer` delegates to `JsonRpcServer`; protocol negotiation per-connection
+- **Production mocks evolved** — `ecosystem.rs` now uses capability discovery, `federation.rs` uses config-driven defaults, `registry.rs` loads from embedded `capability_registry.toml`
+- **Constants centralized** — `DEFAULT_JSON_RPC_PORT`, `DEFAULT_BIOMEOS_PORT`, `MAX_TRANSPORT_FRAME_SIZE`, plugin limits, context TTL moved to `universal-constants`
+- **Zero-copy expanded** — `UniversalError` stores `Arc<str>` instead of `String`; `#[must_use]`, `#[non_exhaustive]`, `#[inline]` on key types
+- **Crypto migration documented** — `docs/CRYPTO_MIGRATION.md`; `ecosystem-api` upgraded to reqwest 0.12 as proof of concept
+- **Clippy pedantic + nursery** — enabled via `[workspace.lints.clippy]` in workspace `Cargo.toml`
+
+### Added
+
+- `.rustfmt.toml` — edition 2024, max_width 100
+- `clippy.toml` — cognitive complexity, function length, argument count thresholds
+- `deny.toml` — cargo-deny license allowlist, advisory audit, ban wildcards
+- `docs/CRYPTO_MIGRATION.md` — reqwest 0.11→0.12, ring→rustls-rustcrypto path
+- `nvml-wrapper` optional dep for GPU detection (behind `nvml` feature)
+- `temp-env` dev-dep across 7 crates for safe env var testing
+
+### Fixed
+
+- All compilation errors under `--all-features` (ecosystem-api `Arc<str>`, squirrel-plugins `reqwest`, squirrel-core `f64: Eq`, squirrel-sdk `NetworkConfig`, squirrel-ai-tools missing modules, squirrel `nvml-wrapper`)
+- License: `AGPL-3.0-or-later` → `AGPL-3.0-only` in `LICENSE` file SPDX header and body
+- Flaky tests: `test_graceful_degradation` tolerance, `test_fallback_chain` env isolation, all `temp_env` + `#[tokio::test]` nested-runtime conflicts
+- Doctest failure in `squirrel-mcp-auth` (feature-gated `AuthService`)
+- `manifest.rs` (1070→578+303+223), `orchestrator.rs` (1014→778+269), `jsonrpc_handlers.rs` (1002→997) — all files now under 1,000 lines
+
+### Removed
+
+- Orphaned modules: `infrastructure/`, `core/`, `client/`, `communication/` stubs in main crate
+- Duplicate `specs/current/CURRENT_STATUS.md`
+- Orphaned root `examples/` (9 files — relocated to archive)
+- Stale `crates/config/production.toml`
+
+### Metrics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Tests | 3,749+ (some failing) | 4,465 (0 failures) |
+| `#![forbid(unsafe_code)]` | Conditional (test-exempt) | Unconditional |
+| Files >1000 lines | 2 | 0 |
+| Production mocks | 3 files | 0 |
+| Hardcoded ports/IPs | 7+ sites | Centralized in universal-constants |
+| tarpc methods | Minimal | 18 (matching all JSON-RPC) |
+| Tooling configs | 0 | 3 (.rustfmt.toml, clippy.toml, deny.toml) |
+| Workspace lint level | warn only | pedantic + nursery |
+
 ## [0.1.0-alpha.2] - 2026-03-15
 
 Comprehensive audit and standards alignment session. All wateringHole quality

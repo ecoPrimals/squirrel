@@ -4,7 +4,7 @@
 //! Universal Error System for Squirrel
 //!
 //! This crate provides a unified error handling system that extends the excellent
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![allow(
     clippy::doc_markdown,
@@ -240,6 +240,7 @@ pub type Result<T> = std::result::Result<T, UniversalError>;
 /// }
 /// ```
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum UniversalError {
     /// Error originating from the MCP system
     ///
@@ -274,42 +275,52 @@ pub enum UniversalError {
     ///
     /// Use this sparingly - prefer domain-specific errors when possible.
     #[error("General error: {0}")]
-    General(String),
+    General(std::sync::Arc<str>),
 
     /// Internal error (should never happen in production)
     ///
     /// This indicates a logic error or invariant violation.
     #[error("Internal error: {0}")]
-    Internal(String),
+    Internal(std::sync::Arc<str>),
 }
 
 impl UniversalError {
     /// Create a general error from a string
-    pub fn general<S: Into<String>>(msg: S) -> Self {
-        Self::General(msg.into())
+    #[must_use = "errors should be propagated or handled"]
+    pub fn general<S: AsRef<str>>(msg: S) -> Self {
+        Self::General(std::sync::Arc::from(msg.as_ref()))
     }
 
     /// Create an internal error from a string
-    pub fn internal<S: Into<String>>(msg: S) -> Self {
-        Self::Internal(msg.into())
+    #[must_use = "errors should be propagated or handled"]
+    pub fn internal<S: AsRef<str>>(msg: S) -> Self {
+        Self::Internal(std::sync::Arc::from(msg.as_ref()))
     }
 
     /// Check if this error is from the MCP domain
+    #[inline]
+    #[must_use]
     pub fn is_mcp(&self) -> bool {
         matches!(self, Self::MCP(_))
     }
 
     /// Check if this error is from the SDK domain
+    #[inline]
+    #[must_use]
     pub fn is_sdk(&self) -> bool {
         matches!(self, Self::SDK(_))
     }
 
     /// Check if this error is from the Tools domain
+    #[inline]
+    #[must_use]
     pub fn is_tools(&self) -> bool {
         matches!(self, Self::Tools(_))
     }
 
     /// Check if this error is from the Integration domain
+    #[inline]
+    #[must_use]
     pub fn is_integration(&self) -> bool {
         matches!(self, Self::Integration(_))
     }
@@ -330,13 +341,13 @@ impl From<serde_json::Error> for UniversalError {
 
 impl From<&str> for UniversalError {
     fn from(s: &str) -> Self {
-        Self::general(s)
+        Self::general(std::sync::Arc::from(s))
     }
 }
 
 impl From<String> for UniversalError {
     fn from(s: String) -> Self {
-        Self::general(s)
+        Self::General(std::sync::Arc::from(s.into_boxed_str()))
     }
 }
 

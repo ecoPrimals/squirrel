@@ -94,6 +94,9 @@ criterion = { version = "0.5", optional = true }
 pprof = { version = "0.13", optional = true }
 iai = { version = "0.1", optional = true }
 
+# GPU detection (optional — production delegates to ToadStool)
+nvml-wrapper = { version = "0.10", optional = true }
+
 # gRPC REMOVED - NOT ecoPrimals standard!
 # ecoPrimals uses JSON-RPC + tarpc (full Rust ecosystem)
 # tonic REMOVED - gRPC is NOT our protocol
@@ -117,7 +120,7 @@ benchmarking = ["criterion", "pprof", "iai"]     # Benchmarking tools
 enhanced_error_handling = []                     # Enhanced error handling
 optimizations = []                               # Performance optimizations
 deprecated-adapters = []                          # Enable deprecated AI adapters (Anthropic, OpenAI) for backward compatibility
-nvml = []                                         # NVIDIA NVML GPU detection (requires nvml-wrapper)
+nvml = ["dep:nvml-wrapper"]                        # NVIDIA NVML GPU detection
 gpu-detection = []                                # GPU detection via NVML/ROCm/nvidia-smi (ToadStool compute primal)
 
 [dev-dependencies]

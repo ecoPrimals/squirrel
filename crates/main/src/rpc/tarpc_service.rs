@@ -15,7 +15,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! Universal Transport → tarpc Protocol → Service Impl → AI Router → Response
+//! Universal Transport → tarpc Protocol → Service Impl → JsonRpcServer Handlers → Response
 //! ```
 //!
 //! ## wateringHole IPC Types (UNIVERSAL_IPC_STANDARD_V3)
@@ -28,6 +28,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+// =============================================================================
+// AI domain types
+// =============================================================================
 
 /// Query AI request parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -102,17 +106,30 @@ pub struct ListProvidersResult {
     pub providers: Vec<ProviderInfo>,
 }
 
-/// Capability announcement
+// =============================================================================
+// Capability domain types
+// =============================================================================
+
+/// Capability announcement parameters (matches JSON-RPC AnnounceCapabilitiesRequest)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnnounceCapabilitiesParams {
-    /// Service name (identifier)
-    pub service: Arc<str>,
+    /// Capability namespaces to announce
+    pub capabilities: Vec<String>,
 
-    /// Capabilities (identifiers)
-    pub capabilities: Vec<Arc<str>>,
+    /// Announcing primal's name (optional, required for routing)
+    pub primal: Option<String>,
 
-    /// Metadata
-    pub metadata: HashMap<String, String>,
+    /// Unix socket path where the announcing primal listens
+    pub socket_path: Option<String>,
+
+    /// Tool names the primal provides
+    pub tools: Option<Vec<String>>,
+
+    /// Sub-federations (optional)
+    pub sub_federations: Option<Vec<String>>,
+
+    /// Genetic families (optional)
+    pub genetic_families: Option<Vec<String>>,
 }
 
 /// Capability announcement result
@@ -126,7 +143,30 @@ pub struct AnnounceCapabilitiesResult {
 
     /// Timestamp
     pub announced_at: String,
+
+    /// Number of tools registered for routing
+    pub tools_registered: usize,
 }
+
+/// Capability discover response (JSON-serializable)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilityDiscoverResult {
+    /// Primal name
+    pub primal: String,
+
+    /// Capability method names
+    pub capabilities: Vec<String>,
+
+    /// Version
+    pub version: String,
+
+    /// Metadata
+    pub metadata: HashMap<String, String>,
+}
+
+// =============================================================================
+// System domain types
+// =============================================================================
 
 /// Health check response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,6 +190,246 @@ pub struct HealthCheckResult {
     pub avg_response_time_ms: Option<f64>,
 }
 
+/// System metrics response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemMetricsResult {
+    /// Requests handled
+    pub requests_handled: u64,
+
+    /// Errors
+    pub errors: u64,
+
+    /// Uptime (seconds)
+    pub uptime_seconds: u64,
+
+    /// Average response time (ms)
+    pub avg_response_time_ms: Option<f64>,
+
+    /// Success rate (0.0-1.0)
+    pub success_rate: f64,
+}
+
+/// Ping response (structured)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PingResult {
+    /// Pong flag
+    pub pong: bool,
+
+    /// Timestamp
+    pub timestamp: String,
+
+    /// Version
+    pub version: String,
+}
+
+// =============================================================================
+// Discovery domain types
+// =============================================================================
+
+/// Peer info from discovery
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PeerInfo {
+    /// Peer ID
+    pub id: String,
+
+    /// Socket path
+    pub socket: String,
+
+    /// Capabilities
+    pub capabilities: Vec<String>,
+
+    /// Discovery method
+    pub discovered_via: String,
+}
+
+/// Discovery peers response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveryPeersResult {
+    /// List of peers
+    pub peers: Vec<PeerInfo>,
+
+    /// Total count
+    pub total: usize,
+
+    /// Discovery method used
+    pub discovery_method: String,
+}
+
+// =============================================================================
+// Tool domain types
+// =============================================================================
+
+/// Tool source (built-in or remote)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ToolSource {
+    /// Built into squirrel
+    Builtin,
+
+    /// Announced by a remote primal
+    Remote {
+        /// ID of the remote primal that announced the tool
+        primal: String,
+    },
+}
+
+/// Tool list entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolListEntry {
+    /// Tool name
+    pub name: String,
+
+    /// Description
+    pub description: String,
+
+    /// Domain
+    pub domain: String,
+
+    /// Source of the tool
+    pub source: ToolSource,
+
+    /// Optional input schema (JSON)
+    pub input_schema: Option<serde_json::Value>,
+}
+
+/// Tool list response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolListResult {
+    /// Tools
+    pub tools: Vec<ToolListEntry>,
+
+    /// Total count
+    pub total: usize,
+}
+
+/// Tool execute result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolExecuteResult {
+    /// Tool name
+    pub tool: String,
+
+    /// Success flag
+    pub success: bool,
+
+    /// Output
+    pub output: String,
+
+    /// Error (if any)
+    pub error: Option<String>,
+
+    /// Timestamp
+    pub timestamp: String,
+}
+
+// =============================================================================
+// Context domain types
+// =============================================================================
+
+/// Context create params
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextCreateParams {
+    /// Optional session ID (auto-generated if omitted)
+    pub session_id: Option<String>,
+
+    /// Initial metadata
+    pub metadata: Option<serde_json::Value>,
+}
+
+/// Context create result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextCreateResult {
+    /// Context ID
+    pub id: String,
+
+    /// Version
+    pub version: u64,
+
+    /// Created at
+    pub created_at: String,
+
+    /// Metadata
+    pub metadata: serde_json::Value,
+}
+
+/// Context update params
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextUpdateParams {
+    /// Context ID to update
+    pub id: String,
+
+    /// Data to merge
+    pub data: serde_json::Value,
+}
+
+/// Context update result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextUpdateResult {
+    /// Context ID
+    pub id: String,
+
+    /// Version
+    pub version: u64,
+
+    /// Updated at
+    pub updated_at: String,
+}
+
+/// Context summarize params
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextSummarizeParams {
+    /// Context ID
+    pub id: String,
+}
+
+/// Context summarize result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextSummarizeResult {
+    /// Context ID
+    pub id: String,
+
+    /// Version
+    pub version: u64,
+
+    /// Summary
+    pub summary: String,
+
+    /// Data
+    pub data: serde_json::Value,
+
+    /// Synchronized flag
+    pub synchronized: bool,
+}
+
+// =============================================================================
+// Lifecycle domain types
+// =============================================================================
+
+/// Lifecycle register result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LifecycleRegisterResult {
+    /// Success flag
+    pub success: bool,
+
+    /// Message
+    pub message: String,
+}
+
+/// Lifecycle status result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LifecycleStatusResult {
+    /// Status
+    pub status: String,
+
+    /// Version
+    pub version: String,
+
+    /// Uptime (seconds)
+    pub uptime_seconds: u64,
+}
+
+// =============================================================================
+// Service trait
+// =============================================================================
+
 /// Squirrel RPC Service
 ///
 /// This service defines the RPC interface for Squirrel using tarpc.
@@ -160,97 +440,120 @@ pub struct HealthCheckResult {
 ///
 /// These methods follow the semantic naming convention `{domain}_{operation}`:
 ///
-/// | Method | Domain | Semantic Name |
-/// |--------|--------|---------------|
-/// | `query_ai` | ai | `ai.query` (JSON-RPC) |
-/// | `list_providers` | ai | `ai.list_providers` (JSON-RPC) |
-/// | `announce_capabilities` | capability | `capability.announce` (JSON-RPC) |
-/// | `health` | system | `system.health` (JSON-RPC) |
-/// | `ping` | system | `system.ping` (JSON-RPC) |
-/// | `discover_peers` | discovery | `discovery.peers` (JSON-RPC) |
-/// | `execute_tool` | tool | `tool.execute` (JSON-RPC) |
-///
-/// Note: tarpc uses Rust method names directly. For protocol-level semantic
-/// names, use the JSON-RPC interface which supports both legacy and semantic names.
+/// | tarpc Method | Semantic Name (JSON-RPC) |
+/// |--------------|--------------------------|
+/// | `ai_query` | `ai.query` |
+/// | `ai_complete` | `ai.complete` |
+/// | `ai_chat` | `ai.chat` |
+/// | `ai_list_providers` | `ai.list_providers` |
+/// | `system_health` | `system.health` |
+/// | `system_ping` | `system.ping` |
+/// | `system_metrics` | `system.metrics` |
+/// | `system_status` | `system.status` |
+/// | `capability_discover` | `capability.discover` |
+/// | `capability_announce` | `capability.announce` |
+/// | `discovery_peers` | `discovery.peers` |
+/// | `tool_execute` | `tool.execute` |
+/// | `tool_list` | `tool.list` |
+/// | `context_create` | `context.create` |
+/// | `context_update` | `context.update` |
+/// | `context_summarize` | `context.summarize` |
+/// | `lifecycle_register` | `lifecycle.register` |
+/// | `lifecycle_status` | `lifecycle.status` |
 #[tarpc::service]
 pub trait SquirrelRpc {
     /// Query AI with a prompt
     ///
     /// Semantic: `ai.query` (JSON-RPC)
+    async fn ai_query(params: QueryAiParams) -> QueryAiResult;
+
+    /// Text completion (alias for ai.query)
     ///
-    /// # Arguments
+    /// Semantic: `ai.complete` (JSON-RPC)
+    async fn ai_complete(params: QueryAiParams) -> QueryAiResult;
+
+    /// Chat completion with message history (alias for ai.query)
     ///
-    /// * `params` - Query parameters (prompt, model, etc.)
-    ///
-    /// # Returns
-    ///
-    /// AI response with metadata
-    async fn query_ai(params: QueryAiParams) -> QueryAiResult;
+    /// Semantic: `ai.chat` (JSON-RPC)
+    async fn ai_chat(params: QueryAiParams) -> QueryAiResult;
 
     /// List available AI providers
     ///
     /// Semantic: `ai.list_providers` (JSON-RPC)
-    ///
-    /// # Returns
-    ///
-    /// List of providers with status and capabilities
-    async fn list_providers() -> ListProvidersResult;
-
-    /// Announce service capabilities
-    ///
-    /// Semantic: `capability.announce` (JSON-RPC)
-    ///
-    /// # Arguments
-    ///
-    /// * `params` - Service name, capabilities, metadata
-    ///
-    /// # Returns
-    ///
-    /// Acknowledgment with timestamp
-    async fn announce_capabilities(
-        params: AnnounceCapabilitiesParams,
-    ) -> AnnounceCapabilitiesResult;
+    async fn ai_list_providers() -> ListProvidersResult;
 
     /// Health check
     ///
     /// Semantic: `system.health` (JSON-RPC)
-    ///
-    /// # Returns
-    ///
-    /// Server health status and metrics
-    async fn health() -> HealthCheckResult;
+    async fn system_health() -> HealthCheckResult;
 
     /// Ping (connectivity test)
     ///
     /// Semantic: `system.ping` (JSON-RPC)
+    async fn system_ping() -> PingResult;
+
+    /// Server metrics
     ///
-    /// # Returns
+    /// Semantic: `system.metrics` (JSON-RPC)
+    async fn system_metrics() -> SystemMetricsResult;
+
+    /// System status (alias for system.health)
     ///
-    /// Pong response with timestamp
-    async fn ping() -> String;
+    /// Semantic: `system.status` (JSON-RPC)
+    async fn system_status() -> HealthCheckResult;
+
+    /// Report own capabilities for socket scanning
+    ///
+    /// Semantic: `capability.discover` (JSON-RPC)
+    async fn capability_discover() -> CapabilityDiscoverResult;
+
+    /// Announce service capabilities
+    ///
+    /// Semantic: `capability.announce` (JSON-RPC)
+    async fn capability_announce(params: AnnounceCapabilitiesParams) -> AnnounceCapabilitiesResult;
 
     /// Discover peers (other primals)
     ///
     /// Semantic: `discovery.peers` (JSON-RPC)
-    ///
-    /// # Returns
-    ///
-    /// List of discovered primal services
-    async fn discover_peers() -> Vec<String>;
+    async fn discovery_peers() -> DiscoveryPeersResult;
 
     /// Execute a tool
     ///
     /// Semantic: `tool.execute` (JSON-RPC)
+    async fn tool_execute(
+        tool: String,
+        args: HashMap<String, serde_json::Value>,
+    ) -> ToolExecuteResult;
+
+    /// List available tools
     ///
-    /// # Arguments
+    /// Semantic: `tool.list` (JSON-RPC)
+    async fn tool_list() -> ToolListResult;
+
+    /// Create a new context session
     ///
-    /// * `tool` - Tool name (identifier)
-    /// * `args` - Tool arguments
+    /// Semantic: `context.create` (JSON-RPC)
+    async fn context_create(params: ContextCreateParams) -> ContextCreateResult;
+
+    /// Update an existing context
     ///
-    /// # Returns
+    /// Semantic: `context.update` (JSON-RPC)
+    async fn context_update(params: ContextUpdateParams) -> ContextUpdateResult;
+
+    /// Summarize a context session
     ///
-    /// Tool execution result
-    async fn execute_tool(tool: Arc<str>, args: HashMap<String, String>) -> String;
+    /// Semantic: `context.summarize` (JSON-RPC)
+    async fn context_summarize(params: ContextSummarizeParams) -> ContextSummarizeResult;
+
+    /// Register with biomeOS orchestrator
+    ///
+    /// Semantic: `lifecycle.register` (JSON-RPC)
+    async fn lifecycle_register() -> LifecycleRegisterResult;
+
+    /// Heartbeat status report to biomeOS
+    ///
+    /// Semantic: `lifecycle.status` (JSON-RPC)
+    async fn lifecycle_status() -> LifecycleStatusResult;
 }
 
 #[cfg(test)]

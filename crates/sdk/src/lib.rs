@@ -5,7 +5,7 @@
 //! # Squirrel Plugin SDK
 //!
 //! The Squirrel Plugin SDK provides a comprehensive set of tools and APIs for developing
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 //! plugins that integrate with the Squirrel MCP (Model Context Protocol) platform.
 //!
 //! ## Features

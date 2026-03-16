@@ -24,6 +24,10 @@ futures = "0.3"
 
 # HTTP and networking (OPTIONAL - for HTTP utilities)
 # Production uses Unix sockets!
+#
+# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.11 → rustls 0.21 → ring (C/ASM).
+# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
+# See docs/CRYPTO_MIGRATION.md.
 reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 url = "2.5"
 
@@ -46,6 +50,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Ecosystem dependencies
 ecosystem-api = { path = "../../ecosystem-api" }
 squirrel-interfaces = { path = "../interfaces" }
+universal-constants = { path = "../../universal-constants" }
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }

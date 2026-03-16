@@ -67,6 +67,43 @@ pub const DEFAULT_MAX_MESSAGE_SIZE: usize = 16 * 1024 * 1024; // 16MB
 pub const DEFAULT_MAX_CONTEXT_LENGTH: usize = 128_000;
 
 // ============================================================================
+// Context Management Limits
+// ============================================================================
+
+/// Default maximum number of contexts in the context adapter
+///
+/// Maximum contexts stored before eviction.
+pub const DEFAULT_MAX_CONTEXTS: usize = 1000;
+
+// ============================================================================
+// Transport Frame Limits
+// ============================================================================
+
+/// Maximum MCP transport frame size (16MB)
+///
+/// Maximum size for a single frame in the MCP frame-based transport.
+pub const MAX_TRANSPORT_FRAME_SIZE: usize = 16 * 1024 * 1024;
+
+// ============================================================================
+// Plugin Resource Limits
+// ============================================================================
+
+/// Default maximum memory for plugins (100MB)
+///
+/// Maximum memory usage in bytes for plugin sandbox.
+pub const DEFAULT_PLUGIN_MAX_MEMORY_BYTES: u64 = 100 * 1024 * 1024;
+
+/// Default maximum CPU usage for plugins (50%)
+///
+/// Maximum CPU usage percentage for plugin execution.
+pub const DEFAULT_PLUGIN_MAX_CPU_PERCENT: f64 = 50.0;
+
+/// Default maximum execution time for plugins (5 minutes)
+///
+/// Maximum execution time in seconds before plugin is terminated.
+pub const DEFAULT_PLUGIN_MAX_EXECUTION_TIME_SECS: u64 = 300;
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -98,9 +135,11 @@ pub const fn mb_to_bytes(mb: usize) -> usize {
 mod tests {
     use super::{
         DEFAULT_BUFFER_SIZE, DEFAULT_CHANNEL_BUFFER_SIZE, DEFAULT_CHUNK_SIZE,
-        DEFAULT_MAX_CONNECTIONS, DEFAULT_MAX_CONTEXT_LENGTH, DEFAULT_MAX_MESSAGE_SIZE,
-        DEFAULT_MAX_RETRIES, DEFAULT_MAX_SERVICES, bytes_to_kb, bytes_to_mb, kb_to_bytes,
-        mb_to_bytes,
+        DEFAULT_MAX_CONNECTIONS, DEFAULT_MAX_CONTEXT_LENGTH, DEFAULT_MAX_CONTEXTS,
+        DEFAULT_MAX_MESSAGE_SIZE, DEFAULT_MAX_RETRIES, DEFAULT_MAX_SERVICES,
+        DEFAULT_PLUGIN_MAX_CPU_PERCENT, DEFAULT_PLUGIN_MAX_EXECUTION_TIME_SECS,
+        DEFAULT_PLUGIN_MAX_MEMORY_BYTES, MAX_TRANSPORT_FRAME_SIZE, bytes_to_kb, bytes_to_mb,
+        kb_to_bytes, mb_to_bytes,
     };
 
     #[test]
@@ -121,6 +160,15 @@ mod tests {
     fn test_message_sizes() {
         assert_eq!(DEFAULT_MAX_MESSAGE_SIZE, 16 * 1024 * 1024);
         assert_eq!(DEFAULT_MAX_CONTEXT_LENGTH, 128_000);
+    }
+
+    #[test]
+    fn test_context_and_plugin_limits() {
+        assert_eq!(DEFAULT_MAX_CONTEXTS, 1000);
+        assert_eq!(MAX_TRANSPORT_FRAME_SIZE, 16 * 1024 * 1024);
+        assert_eq!(DEFAULT_PLUGIN_MAX_MEMORY_BYTES, 100 * 1024 * 1024);
+        assert!((DEFAULT_PLUGIN_MAX_CPU_PERCENT - 50.0).abs() < f64::EPSILON);
+        assert_eq!(DEFAULT_PLUGIN_MAX_EXECUTION_TIME_SECS, 300);
     }
 
     #[test]

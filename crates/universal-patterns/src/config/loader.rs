@@ -331,30 +331,23 @@ mod tests {
 
     #[test]
     fn test_load_from_env() {
-        // Use ConfigBuilder for testing environment-based loading
-        // This approach is more practical for testing specific environment variable loading
-
-        // Set specific environment variables to test
-        unsafe { env::set_var("TEST_SQUIRREL_NAME", "env-test-primal") };
-        unsafe { env::set_var("TEST_SQUIRREL_VERSION", "2.0.0") };
-        unsafe { env::set_var("TEST_SQUIRREL_PORT", "9000") };
-
-        // Create a basic config that can be modified with environment values
-        let config = ConfigBuilder::new()
-            .name("test-primal")
-            .version("1.0.0")
-            .port(8080)
-            .build_unchecked(); // Use unchecked for testing
-
-        // Verify basic configuration works
-        assert_eq!(config.info.name, "test-primal");
-        assert_eq!(config.info.version, "1.0.0");
-        assert_eq!(config.network.port, 8080);
-
-        // Cleanup
-        unsafe { env::remove_var("TEST_SQUIRREL_NAME") };
-        unsafe { env::remove_var("TEST_SQUIRREL_VERSION") };
-        unsafe { env::remove_var("TEST_SQUIRREL_PORT") };
+        temp_env::with_vars(
+            [
+                ("TEST_SQUIRREL_NAME", Some("env-test-primal")),
+                ("TEST_SQUIRREL_VERSION", Some("2.0.0")),
+                ("TEST_SQUIRREL_PORT", Some("9000")),
+            ],
+            || {
+                let config = ConfigBuilder::new()
+                    .name("test-primal")
+                    .version("1.0.0")
+                    .port(8080)
+                    .build_unchecked();
+                assert_eq!(config.info.name, "test-primal");
+                assert_eq!(config.info.version, "1.0.0");
+                assert_eq!(config.network.port, 8080);
+            },
+        );
     }
 
     #[test]

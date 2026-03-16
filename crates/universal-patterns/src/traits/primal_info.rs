@@ -42,6 +42,7 @@ pub struct PrimalInfo {
 
 /// Primal type categories
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum PrimalType {
     /// AI coordination and MCP protocol management
     Coordinator,

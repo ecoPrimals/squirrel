@@ -4,7 +4,7 @@
 //! Plugin system for Squirrel
 //!
 //! This module provides a comprehensive plugin system with support for:
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 //! - Plugin loading and management
 //! - Security validation and sandboxing

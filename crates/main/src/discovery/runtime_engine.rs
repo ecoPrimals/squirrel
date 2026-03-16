@@ -156,17 +156,18 @@ impl Default for RuntimeDiscoveryEngine {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_discover_from_env() {
-        unsafe { std::env::set_var("COMPUTE_ENDPOINT", "http://localhost:8500") };
+    #[test]
+    fn test_discover_from_env() {
+        temp_env::with_var("COMPUTE_ENDPOINT", Some("http://localhost:8500"), || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let engine = RuntimeDiscoveryEngine::new();
+                let service = engine.discover_capability("compute").await.unwrap();
 
-        let engine = RuntimeDiscoveryEngine::new();
-        let service = engine.discover_capability("compute").await.unwrap();
-
-        assert_eq!(service.endpoint, "http://localhost:8500");
-        assert!(service.has_capability("compute"));
-
-        unsafe { std::env::remove_var("COMPUTE_ENDPOINT") };
+                assert_eq!(service.endpoint, "http://localhost:8500");
+                assert!(service.has_capability("compute"));
+            });
+        });
     }
 
     #[tokio::test]
@@ -177,29 +178,27 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[tokio::test]
-    async fn test_cache() {
-        unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://original:8080") };
+    #[test]
+    fn test_cache() {
+        temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://original:8080"), || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let (engine, service1) = rt.block_on(async {
+                let engine = RuntimeDiscoveryEngine::new();
+                let service1 = engine.discover_capability("cache_test").await.unwrap();
+                (engine, service1)
+            });
 
-        let engine = RuntimeDiscoveryEngine::new();
+            temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://changed:8080"), || {
+                rt.block_on(async {
+                    let service2 = engine.discover_capability("cache_test").await.unwrap();
+                    assert_eq!(service1.endpoint, service2.endpoint);
 
-        // First discovery
-        let service1 = engine.discover_capability("cache_test").await.unwrap();
+                    engine.clear_cache().await;
 
-        // Change environment
-        unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://changed:8080") };
-
-        // Should return cached value
-        let service2 = engine.discover_capability("cache_test").await.unwrap();
-        assert_eq!(service1.endpoint, service2.endpoint); // Cached!
-
-        // Clear cache
-        engine.clear_cache().await;
-
-        // Should discover new value
-        let service3 = engine.discover_capability("cache_test").await.unwrap();
-        assert_eq!(service3.endpoint, "http://changed:8080");
-
-        unsafe { std::env::remove_var("CACHE_TEST_ENDPOINT") };
+                    let service3 = engine.discover_capability("cache_test").await.unwrap();
+                    assert_eq!(service3.endpoint, "http://changed:8080");
+                });
+            });
+        });
     }
 }

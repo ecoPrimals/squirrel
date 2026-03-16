@@ -211,10 +211,13 @@ mod tests {
 
     #[test]
     fn test_find_biomeos_socket_env_override() {
-        // With a non-existent path, returns None
-        unsafe { std::env::set_var("BIOMEOS_SOCKET", "/tmp/nonexistent_biomeos_test.sock") };
-        assert!(find_biomeos_socket().is_none());
-        unsafe { std::env::remove_var("BIOMEOS_SOCKET") };
+        temp_env::with_var(
+            "BIOMEOS_SOCKET",
+            Some("/tmp/nonexistent_biomeos_test.sock"),
+            || {
+                assert!(find_biomeos_socket().is_none());
+            },
+        );
     }
 
     #[test]

@@ -13,6 +13,7 @@ pub type UniversalResult<T> = Result<T, UniversalError>;
 
 /// Universal error type for ecosystem operations
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum UniversalError {
     /// Configuration error
     #[error("Configuration error: {0}")]
@@ -77,6 +78,7 @@ pub enum UniversalError {
 
 /// Ecosystem-specific error types
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum EcosystemError {
     /// Service registration failed
     #[error("Service registration failed: {0}")]

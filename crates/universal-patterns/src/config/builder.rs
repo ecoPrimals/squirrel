@@ -11,6 +11,7 @@ use url::Url;
 
 /// Builder for creating PrimalConfig instances
 #[derive(Debug, Clone)]
+#[must_use = "call `.build()` to construct the configuration"]
 pub struct ConfigBuilder {
     config: PrimalConfig,
 }
@@ -334,6 +335,7 @@ impl ConfigBuilder {
     }
 
     /// Build the configuration
+    #[must_use = "call this to finish building and validate the configuration"]
     pub fn build(self) -> Result<PrimalConfig, ConfigError> {
         // Validate the configuration before building
         self.config.validate()?;
@@ -472,30 +474,25 @@ mod tests {
 
     #[test]
     fn test_builder_production() {
-        // Set required environment variable for encryption tests
-        unsafe {
-            std::env::set_var(
-                "PRIMAL_ENCRYPTION_KEY",
-                "test_key_for_testing_12345678901234567890",
-            )
-        };
+        temp_env::with_var(
+            "PRIMAL_ENCRYPTION_KEY",
+            Some("test_key_for_testing_12345678901234567890"),
+            || {
+                let config = ConfigBuilder::production()
+                    .name("test-primal")
+                    .version("1.0.0")
+                    .build()
+                    .unwrap();
 
-        let config = ConfigBuilder::production()
-            .name("test-primal")
-            .version("1.0.0")
-            .build()
-            .unwrap();
-
-        assert_eq!(config.environment.name, "production");
-        assert_eq!(config.logging.level, LogLevel::Info);
-        assert_eq!(config.logging.format, LogFormat::Json);
-        assert!(config.security.audit_logging);
-        assert!(config.security.encryption.enable_inter_primal);
-        assert!(config.security.encryption.enable_at_rest);
-        assert_eq!(config.environment.features.get("debug_mode"), Some(&false));
-
-        // Clean up environment variable
-        unsafe { std::env::remove_var("PRIMAL_ENCRYPTION_KEY") };
+                assert_eq!(config.environment.name, "production");
+                assert_eq!(config.logging.level, LogLevel::Info);
+                assert_eq!(config.logging.format, LogFormat::Json);
+                assert!(config.security.audit_logging);
+                assert!(config.security.encryption.enable_inter_primal);
+                assert!(config.security.encryption.enable_at_rest);
+                assert_eq!(config.environment.features.get("debug_mode"), Some(&false));
+            },
+        );
     }
 
     #[test]

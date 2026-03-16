@@ -394,22 +394,24 @@ mod tests {
         assert!(!identity.instance_id.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_discover_primal_from_env() {
-        // Set up environment
-        unsafe { env::set_var("AI_ENDPOINT", "http://discovered.example.com:9200") };
+    #[test]
+    fn test_discover_primal_from_env() {
+        temp_env::with_var(
+            "AI_ENDPOINT",
+            Some("http://discovered.example.com:9200"),
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
 
-        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+                    let service = self_knowledge.discover_primal("ai").await.unwrap();
 
-        // Discover AI capability
-        let service = self_knowledge.discover_primal("ai").await.unwrap();
-
-        assert_eq!(service.endpoint, "http://discovered.example.com:9200");
-        assert!(service.has_capability("ai"));
-        assert_eq!(service.priority, 100); // ENV vars have max priority
-
-        // Clean up
-        unsafe { env::remove_var("AI_ENDPOINT") };
+                    assert_eq!(service.endpoint, "http://discovered.example.com:9200");
+                    assert!(service.has_capability("ai"));
+                    assert_eq!(service.priority, 100);
+                });
+            },
+        );
     }
 
     #[tokio::test]
@@ -426,28 +428,34 @@ mod tests {
         ));
     }
 
-    #[tokio::test]
-    async fn test_discovery_cache() {
-        unsafe { env::set_var("STORAGE_ENDPOINT", "http://cache-test.example.com:8500") };
+    #[test]
+    fn test_discovery_cache() {
+        temp_env::with_var(
+            "STORAGE_ENDPOINT",
+            Some("http://cache-test.example.com:8500"),
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                let (self_knowledge, service1) = rt.block_on(async {
+                    let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+                    let service1 = self_knowledge.discover_primal("storage").await.unwrap();
+                    (self_knowledge, service1)
+                });
 
-        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+                temp_env::with_var(
+                    "STORAGE_ENDPOINT",
+                    Some("http://changed.example.com:8500"),
+                    || {
+                        rt.block_on(async {
+                            let service2 = self_knowledge.discover_primal("storage").await.unwrap();
+                            assert_eq!(service1.endpoint, service2.endpoint);
 
-        // First discovery
-        let service1 = self_knowledge.discover_primal("storage").await.unwrap();
-
-        // Change the environment (simulating external change)
-        unsafe { env::set_var("STORAGE_ENDPOINT", "http://changed.example.com:8500") };
-
-        // Second discovery should return cached value
-        let service2 = self_knowledge.discover_primal("storage").await.unwrap();
-        assert_eq!(service1.endpoint, service2.endpoint); // Cached!
-
-        // Clear cache and discover again
-        self_knowledge.clear_cache().await;
-        let service3 = self_knowledge.discover_primal("storage").await.unwrap();
-        assert_eq!(service3.endpoint, "http://changed.example.com:8500"); // Updated!
-
-        // Clean up
-        unsafe { env::remove_var("STORAGE_ENDPOINT") };
+                            self_knowledge.clear_cache().await;
+                            let service3 = self_knowledge.discover_primal("storage").await.unwrap();
+                            assert_eq!(service3.endpoint, "http://changed.example.com:8500");
+                        });
+                    },
+                );
+            },
+        );
     }
 }

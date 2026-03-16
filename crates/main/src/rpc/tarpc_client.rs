@@ -16,11 +16,11 @@
 //! async fn main() -> anyhow::Result<()> {
 //!     // Connect to Squirrel via auto-discovery
 //!     let client = SquirrelClient::connect("squirrel").await?;
-//!     
+//!
 //!     // Make type-safe RPC calls
-//!     let response = client.ping().await?;
-//!     println!("Response: {}", response);
-//!     
+//!     let response = client.system_ping().await?;
+//!     println!("Pong: {} at {}", response.pong, response.timestamp);
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -30,6 +30,7 @@
 use super::tarpc_service::*;
 use super::tarpc_transport::TarpcTransportAdapter;
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tarpc::{client, context};
@@ -67,19 +68,6 @@ impl SquirrelClient {
     /// # Returns
     ///
     /// Connected client ready for RPC calls
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use squirrel::rpc::tarpc_client::SquirrelClient;
-    /// # #[tokio::main]
-    /// # async fn main() -> anyhow::Result<()> {
-    /// let client = SquirrelClient::connect("squirrel").await?;
-    /// let health = client.health().await?;
-    /// println!("Status: {}", health.status);
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn connect(service_name: &str) -> Result<Self> {
         // Connect via Universal Transport auto-discovery
         let transport = UniversalTransport::connect_discovered(service_name)
@@ -90,13 +78,6 @@ impl SquirrelClient {
     }
 
     /// Create a client from an existing Universal Transport
-    ///
-    /// Useful for custom connection scenarios or testing.
-    ///
-    /// # Arguments
-    ///
-    /// * `service_name` - Service name (for reconnection)
-    /// * `transport` - Connected Universal Transport
     pub async fn from_transport(service_name: &str, transport: UniversalTransport) -> Result<Self> {
         // Wrap transport in tarpc adapter
         let adapter = TarpcTransportAdapter::new(transport);
@@ -116,10 +97,6 @@ impl SquirrelClient {
     }
 
     /// Set default timeout for RPC calls
-    ///
-    /// # Arguments
-    ///
-    /// * `timeout` - Default timeout duration
     pub fn set_default_timeout(&mut self, timeout: Duration) {
         self.default_timeout = timeout;
     }
@@ -137,51 +114,34 @@ impl SquirrelClient {
     }
 
     /// Ping the server (connectivity test)
-    ///
-    /// # Returns
-    ///
-    /// Pong response with server info
-    pub async fn ping(&self) -> Result<String> {
+    pub async fn system_ping(&self) -> Result<PingResult> {
         let ctx = self.create_context();
-        self.client.ping(ctx).await.context("Ping RPC failed")
+        self.client
+            .system_ping(ctx)
+            .await
+            .context("Ping RPC failed")
     }
 
     /// Get server health status
-    ///
-    /// # Returns
-    ///
-    /// Health check result with metrics
-    pub async fn health(&self) -> Result<HealthCheckResult> {
+    pub async fn system_health(&self) -> Result<HealthCheckResult> {
         let ctx = self.create_context();
-        self.client.health(ctx).await.context("Health RPC failed")
+        self.client
+            .system_health(ctx)
+            .await
+            .context("Health RPC failed")
     }
 
     /// List available AI providers
-    ///
-    /// # Returns
-    ///
-    /// List of providers with status and capabilities
-    pub async fn list_providers(&self) -> Result<ListProvidersResult> {
+    pub async fn ai_list_providers(&self) -> Result<ListProvidersResult> {
         let ctx = self.create_context();
         self.client
-            .list_providers(ctx)
+            .ai_list_providers(ctx)
             .await
             .context("List providers RPC failed")
     }
 
     /// Query AI with a prompt
-    ///
-    /// # Arguments
-    ///
-    /// * `prompt` - The prompt to send
-    /// * `model` - Optional model name
-    /// * `max_tokens` - Optional max tokens
-    /// * `temperature` - Optional temperature (0.0-1.0)
-    ///
-    /// # Returns
-    ///
-    /// AI response with metadata
-    pub async fn query_ai(
+    pub async fn ai_query(
         &self,
         prompt: impl Into<String>,
         model: Option<String>,
@@ -197,73 +157,82 @@ impl SquirrelClient {
 
         let ctx = self.create_context();
         self.client
-            .query_ai(ctx, params)
+            .ai_query(ctx, params)
             .await
             .context("Query AI RPC failed")
     }
 
     /// Announce service capabilities
-    ///
-    /// # Arguments
-    ///
-    /// * `service` - Service name
-    /// * `capabilities` - List of capabilities
-    /// * `metadata` - Additional metadata
-    pub async fn announce_capabilities(
+    pub async fn capability_announce(
         &self,
-        service: impl AsRef<str>,
-        capabilities: impl IntoIterator<Item = impl AsRef<str>>,
-        metadata: std::collections::HashMap<String, String>,
+        capabilities: Vec<String>,
+        primal: Option<String>,
+        socket_path: Option<String>,
+        tools: Option<Vec<String>>,
     ) -> Result<AnnounceCapabilitiesResult> {
         let params = AnnounceCapabilitiesParams {
-            service: Arc::from(service.as_ref()),
-            capabilities: capabilities
-                .into_iter()
-                .map(|c| Arc::from(c.as_ref()))
-                .collect(),
-            metadata,
+            capabilities,
+            primal,
+            socket_path,
+            tools,
+            sub_federations: None,
+            genetic_families: None,
         };
 
         let ctx = self.create_context();
         self.client
-            .announce_capabilities(ctx, params)
+            .capability_announce(ctx, params)
             .await
             .context("Announce capabilities RPC failed")
     }
 
     /// Discover peer services
-    ///
-    /// # Returns
-    ///
-    /// List of discovered peer service names
-    pub async fn discover_peers(&self) -> Result<Vec<String>> {
+    pub async fn discovery_peers(&self) -> Result<DiscoveryPeersResult> {
         let ctx = self.create_context();
         self.client
-            .discover_peers(ctx)
+            .discovery_peers(ctx)
             .await
             .context("Discover peers RPC failed")
     }
 
     /// Execute a tool
-    ///
-    /// # Arguments
-    ///
-    /// * `tool` - Tool name
-    /// * `args` - Tool arguments
-    ///
-    /// # Returns
-    ///
-    /// Tool execution result
-    pub async fn execute_tool(
+    pub async fn tool_execute(
         &self,
         tool: impl AsRef<str>,
-        args: std::collections::HashMap<String, String>,
-    ) -> Result<String> {
+        args: HashMap<String, serde_json::Value>,
+    ) -> Result<ToolExecuteResult> {
         let ctx = self.create_context();
         self.client
-            .execute_tool(ctx, Arc::from(tool.as_ref()), args)
+            .tool_execute(ctx, tool.as_ref().to_string(), args)
             .await
             .context("Execute tool RPC failed")
+    }
+
+    /// Report own capabilities (capability.discover)
+    pub async fn capability_discover(&self) -> Result<CapabilityDiscoverResult> {
+        let ctx = self.create_context();
+        self.client
+            .capability_discover(ctx)
+            .await
+            .context("Capability discover RPC failed")
+    }
+
+    /// Get server metrics
+    pub async fn system_metrics(&self) -> Result<SystemMetricsResult> {
+        let ctx = self.create_context();
+        self.client
+            .system_metrics(ctx)
+            .await
+            .context("Metrics RPC failed")
+    }
+
+    /// List available tools
+    pub async fn tool_list(&self) -> Result<ToolListResult> {
+        let ctx = self.create_context();
+        self.client
+            .tool_list(ctx)
+            .await
+            .context("Tool list RPC failed")
     }
 }
 
@@ -313,7 +282,4 @@ mod tests {
         let builder = SquirrelClientBuilder::new("test");
         assert_eq!(builder.timeout, Duration::from_secs(30));
     }
-
-    // Note: Full integration tests with actual connections are in
-    // tarpc_integration_tests.rs and require a running server
 }

@@ -27,7 +27,7 @@
 //! - `ServiceRegistration` and `EcosystemIntegration` types
 //! - `register_mcp_services()`: Register Squirrel MCP with service mesh
 //! - Future: Songbird client, ToadStool client (when those crates exist)
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};

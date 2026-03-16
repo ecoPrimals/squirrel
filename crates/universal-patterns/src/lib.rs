@@ -84,7 +84,7 @@
 //! # }
 //! ```
 
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]
@@ -143,6 +143,7 @@ pub use transport::{
 /// # Ok(())
 /// # }
 /// ```
+#[must_use = "the registry should be used or the error handled"]
 pub async fn initialize_primal_system(
     config: Option<UniversalPrimalConfig>,
 ) -> PrimalResult<UniversalPrimalRegistry> {

@@ -133,7 +133,7 @@ async fn detect_nvidia_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalErro
 
         match Nvml::init() {
             Ok(nvml) => {
-                let device_count = nvml.device_count().unwrap_or(0);
+                let device_count: u32 = nvml.device_count().unwrap_or(0);
                 if device_count == 0 {
                     return Ok(None);
                 }
@@ -143,7 +143,7 @@ async fn detect_nvidia_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalErro
 
                 for i in 0..device_count {
                     if let Ok(device) = nvml.device_by_index(i) {
-                        if let Ok(name) = device.name() {
+                        if let Ok(name) = device.name().map(|n| n.to_string()) {
                             if let Ok(memory_info) = device.memory_info() {
                                 let vram_total_gb =
                                     (memory_info.total / (1024 * 1024 * 1024)) as u32;

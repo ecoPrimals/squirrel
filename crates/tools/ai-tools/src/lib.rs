@@ -5,7 +5,7 @@
 //!
 //! This crate provides AI provider integrations and routing capabilities.
 
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 // Allow deprecated items during error type migration to universal-error crate
 #![allow(deprecated)]
@@ -146,24 +146,9 @@ pub mod dispatch {
         pub async fn new(config: DispatcherConfig) -> Result<Self> {
             let router = AIRouter::new(config.router_config.clone());
 
-            // Register cloud providers based on available API keys
-            #[cfg(feature = "openai")]
-            if let Some(api_key) = config.api_keys.get("openai") {
-                let client = crate::openai::OpenAIClient::new(api_key.clone())?;
-                router.register_provider("openai", Arc::new(client))?;
-            }
-
-            #[cfg(feature = "anthropic")]
-            if let Some(api_key) = config.api_keys.get("anthropic") {
-                let client = crate::anthropic::AnthropicClient::new(api_key.clone());
-                router.register_provider("anthropic", Arc::new(client))?;
-            }
-
-            #[cfg(feature = "gemini")]
-            if let Some(api_key) = config.api_keys.get("gemini") {
-                let client = crate::gemini::GeminiClient::new(api_key.clone());
-                router.register_provider("gemini", Arc::new(client))?;
-            }
+            // Direct HTTP provider modules (openai, anthropic, gemini) are not yet implemented.
+            // Production delegates to Songbird via Unix sockets. When direct-http is enabled,
+            // register OpenRouter/HuggingFace/etc. manually or use capability-based routing.
 
             Ok(Self { router, config })
         }
@@ -341,22 +326,33 @@ pub mod dispatch {
 pub mod clients {
 
     /// Create a new OpenAI client
+    ///
+    /// Direct HTTP provider not yet implemented; production uses Songbird via Unix sockets.
     #[cfg(feature = "openai")]
-    pub fn openai(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
-        Ok(Arc::new(crate::openai::OpenAIClient::new(api_key)?))
+    pub fn openai(_api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
+        Err(Error::UnsupportedProvider(
+            "OpenAI direct HTTP client not yet implemented; use capability-based routing".into(),
+        ))
     }
 
     /// Create a new Anthropic client
+    ///
+    /// Direct HTTP provider not yet implemented; production uses Songbird via Unix sockets.
     #[cfg(feature = "anthropic")]
-    pub fn anthropic(api_key: impl Into<String>) -> Arc<dyn AIClient> {
-        Arc::new(crate::anthropic::AnthropicClient::new(api_key))
+    pub fn anthropic(_api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
+        Err(Error::UnsupportedProvider(
+            "Anthropic direct HTTP client not yet implemented; use capability-based routing".into(),
+        ))
     }
 
     /// Create a new Gemini client
+    ///
+    /// Direct HTTP provider not yet implemented; production uses Songbird via Unix sockets.
     #[cfg(feature = "gemini")]
-    pub fn gemini(api_key: impl Into<String>) -> Arc<dyn AIClient> {
-        let client = crate::gemini::GeminiClient::new(api_key);
-        Arc::new(client)
+    pub fn gemini(_api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
+        Err(Error::UnsupportedProvider(
+            "Gemini direct HTTP client not yet implemented; use capability-based routing".into(),
+        ))
     }
 }
 

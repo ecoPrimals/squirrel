@@ -259,18 +259,17 @@ mod tests {
 
     #[test]
     fn test_delegated_client_from_env() {
-        // Set test environment variables (as capability discovery would)
-        unsafe { std::env::set_var("CRYPTO_CAPABILITY_SOCKET", "/tmp/test-crypto.sock") };
-        unsafe { std::env::set_var("JWT_KEY_ID", "test-key-id") };
-        unsafe { std::env::set_var("JWT_EXPIRY_HOURS", "12") };
-
-        let client = DelegatedJwtClient::new_from_env();
-        assert!(client.is_ok());
-
-        // Cleanup
-        unsafe { std::env::remove_var("CRYPTO_CAPABILITY_SOCKET") };
-        unsafe { std::env::remove_var("JWT_KEY_ID") };
-        unsafe { std::env::remove_var("JWT_EXPIRY_HOURS") };
+        temp_env::with_vars(
+            [
+                ("CRYPTO_CAPABILITY_SOCKET", Some("/tmp/test-crypto.sock")),
+                ("JWT_KEY_ID", Some("test-key-id")),
+                ("JWT_EXPIRY_HOURS", Some("12")),
+            ],
+            || {
+                let client = DelegatedJwtClient::new_from_env();
+                assert!(client.is_ok());
+            },
+        );
     }
 
     // Integration tests require crypto capability provider running

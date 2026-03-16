@@ -56,18 +56,21 @@ pub struct JsonUtils;
 
 impl JsonUtils {
     /// Serialize object to JSON string
+    #[must_use = "serialization errors should be handled"]
     pub fn to_string<T: Serialize>(value: &T) -> Result<String> {
         serde_json::to_string(value)
             .map_err(|e| MCPError::Serialization(format!("JSON serialization failed: {e}")))
     }
 
     /// Serialize object to pretty JSON string
+    #[must_use = "serialization errors should be handled"]
     pub fn to_pretty_string<T: Serialize>(value: &T) -> Result<String> {
         serde_json::to_string_pretty(value)
             .map_err(|e| MCPError::Serialization(format!("JSON serialization failed: {e}")))
     }
 
     /// Deserialize JSON string to object
+    #[must_use = "deserialization errors should be handled"]
     pub fn from_string<T: for<'de> Deserialize<'de>>(json: &str) -> Result<T> {
         serde_json::from_str(json)
             .map_err(|e| MCPError::Serialization(format!("JSON deserialization failed: {e}")))

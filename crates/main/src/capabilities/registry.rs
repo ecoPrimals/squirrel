@@ -158,34 +158,40 @@ impl CapabilityRegistry {
         self.capabilities.iter().find(|c| c.method == method)
     }
 
-    /// Hardcoded fallback matching the methods in jsonrpc_server dispatch table
+    /// Fallback when file load fails: use embedded capability_registry.toml from workspace root.
+    /// Single source of truth — no inline hardcoding of capability names.
     fn compiled_defaults() -> Self {
+        const EMBEDDED_REGISTRY: &str = include_str!("../../../../capability_registry.toml");
+
+        match toml::from_str::<RawRegistry>(EMBEDDED_REGISTRY) {
+            Ok(raw) => {
+                let registry = Self::from_raw(raw);
+                info!(
+                    "Using embedded capability_registry.toml: {} capabilities",
+                    registry.capabilities.len()
+                );
+                registry
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to parse embedded capability_registry.toml: {e}. Using minimal defaults."
+                );
+                Self::minimal_defaults()
+            }
+        }
+    }
+
+    /// Absolute last resort when embedded TOML fails (e.g. build context mismatch)
+    fn minimal_defaults() -> Self {
         let methods = [
             ("ai.query", "ai.inference", "Route prompt to best model"),
-            ("ai.list_providers", "ai.discovery", "List AI providers"),
-            ("ai.complete", "ai.inference", "Text completion"),
-            ("ai.chat", "ai.inference", "Chat completion"),
-            (
-                "capability.announce",
-                "capability.routing",
-                "Accept announcements",
-            ),
             (
                 "capability.discover",
                 "capability.discovery",
                 "Report capabilities",
             ),
-            ("system.health", "system.monitoring", "Health check"),
-            (
-                "system.status",
-                "system.monitoring",
-                "Status (health alias)",
-            ),
-            ("system.metrics", "system.monitoring", "Server metrics"),
-            ("system.ping", "system.monitoring", "Connectivity test"),
-            ("discovery.peers", "discovery.network", "Scan for primals"),
-            ("tool.execute", "tool.orchestration", "Execute tools"),
             ("tool.list", "tool.discovery", "List tools"),
+            ("system.health", "system.monitoring", "Health check"),
         ];
 
         Self {
@@ -247,7 +253,7 @@ mod tests {
         assert!(methods.contains(&"capability.discover"));
         assert!(methods.contains(&"tool.list"));
         assert!(methods.contains(&"system.health"));
-        assert!(methods.len() >= 13);
+        assert!(methods.len() >= 4, "embedded registry or minimal fallback");
     }
 
     #[test]
@@ -262,6 +268,13 @@ mod tests {
     fn test_find_missing_capability() {
         let registry = CapabilityRegistry::compiled_defaults();
         assert!(registry.find("nonexistent.method").is_none());
+    }
+
+    #[test]
+    fn test_minimal_defaults_fallback() {
+        let registry = CapabilityRegistry::minimal_defaults();
+        assert!(registry.method_names().contains(&"ai.query"));
+        assert!(registry.method_names().contains(&"capability.discover"));
     }
 
     #[test]

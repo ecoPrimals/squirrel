@@ -35,6 +35,7 @@ use squirrel_context::ContextError as GenericContextError;
 use squirrel_interfaces::context::{
     AdapterMetadata, ContextAdapterPlugin, ContextPlugin, ContextTransformation,
 };
+use universal_constants::{limits, timeouts};
 
 /// Errors specific to context adapter operations
 #[derive(Debug, Error)]
@@ -92,8 +93,8 @@ pub struct ContextAdapterConfig {
 impl Default for ContextAdapterConfig {
     fn default() -> Self {
         Self {
-            max_contexts: 1000,
-            ttl_seconds: 3600,
+            max_contexts: limits::DEFAULT_MAX_CONTEXTS,
+            ttl_seconds: timeouts::DEFAULT_CONTEXT_TTL_SECS,
             enable_auto_cleanup: true,
             enable_plugins: true,
         }

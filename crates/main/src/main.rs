@@ -2,7 +2,7 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 
 //! Squirrel AI Coordinator Main Entry Point
 //!

@@ -5,7 +5,7 @@
 //! Universal Constants for Squirrel MCP System
 //!
 //! This crate provides a **single source of truth** for all constants used throughout
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 //! the Squirrel Universal AI Primal system. It consolidates previously scattered constants
 //! from multiple locations into one well-organized, type-safe, and maintainable location.

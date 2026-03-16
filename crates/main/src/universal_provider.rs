@@ -576,6 +576,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
             SecurityLevel::Internal => true,
             SecurityLevel::Restricted => true,
             SecurityLevel::Confidential => true,
+            _ => true, // future variants: treat as secure by default
         }
     }
 

@@ -41,6 +41,7 @@ use thiserror::Error;
 /// This encompasses all integration-related errors with automatic conversions
 /// from sub-domain errors via `#[from]` attribute.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum IntegrationError {
     /// Error originating from web integrations
     #[error(transparent)]
@@ -67,6 +68,7 @@ pub enum IntegrationError {
 ///
 /// Covers authentication, database, and API operations.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum WebError {
     /// Authentication error
     #[error("Authentication error: {0}")]
@@ -93,6 +95,7 @@ pub enum WebError {
 ///
 /// Covers HTTP clients and external API integrations.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum APIClientError {
     /// HTTP client error
     #[error("HTTP client error: {0}")]
@@ -127,6 +130,7 @@ pub enum APIClientError {
 ///
 /// Covers context adaptation and conversion operations.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum ContextAdapterError {
     /// Adapter error
     #[error("Adapter error: {0}")]
@@ -149,6 +153,7 @@ pub enum ContextAdapterError {
 ///
 /// Covers ecosystem registry and client operations.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum EcosystemError {
     /// Registry error
     #[error("Registry error: {0}")]

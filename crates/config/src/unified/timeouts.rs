@@ -387,29 +387,25 @@ mod tests {
 
     #[test]
     fn test_environment_variable_loading() {
-        // Set environment variable
-        unsafe { std::env::set_var("SQUIRREL_CONNECTION_TIMEOUT_SECS", "45") };
-
-        let config = TimeoutConfig::from_env();
-        assert_eq!(config.connection_timeout(), Duration::from_secs(45));
-
-        // Clean up
-        unsafe { std::env::remove_var("SQUIRREL_CONNECTION_TIMEOUT_SECS") };
+        temp_env::with_var("SQUIRREL_CONNECTION_TIMEOUT_SECS", Some("45"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.connection_timeout(), Duration::from_secs(45));
+        });
     }
 
     #[test]
     fn test_custom_timeout_from_env() {
-        // Set custom timeout via environment
-        unsafe { std::env::set_var("SQUIRREL_CUSTOM_TIMEOUT_MY_OPERATION_SECS", "99") };
-
-        let config = TimeoutConfig::from_env();
-        assert!(config.is_custom_timeout("my_operation"));
-        assert_eq!(
-            config.get_custom_timeout("my_operation"),
-            Duration::from_secs(99)
+        temp_env::with_var(
+            "SQUIRREL_CUSTOM_TIMEOUT_MY_OPERATION_SECS",
+            Some("99"),
+            || {
+                let config = TimeoutConfig::from_env();
+                assert!(config.is_custom_timeout("my_operation"));
+                assert_eq!(
+                    config.get_custom_timeout("my_operation"),
+                    Duration::from_secs(99)
+                );
+            },
         );
-
-        // Clean up
-        unsafe { std::env::remove_var("SQUIRREL_CUSTOM_TIMEOUT_MY_OPERATION_SECS") };
     }
 }

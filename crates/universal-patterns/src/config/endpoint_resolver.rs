@@ -452,47 +452,51 @@ mod tests {
         assert_eq!(resolver.strategy, ResolutionStrategy::NetworkOnly);
     }
 
-    #[tokio::test]
-    async fn test_explicit_endpoint_env_var() {
-        unsafe { std::env::set_var("TEST_PRIMAL_ENDPOINT", "http://localhost:9999") };
+    #[test]
+    fn test_explicit_endpoint_env_var() {
+        temp_env::with_var(
+            "TEST_PRIMAL_ENDPOINT",
+            Some("http://localhost:9999"),
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let resolver = EndpointResolver::new();
+                    let endpoint = resolver.resolve("test_primal").await.unwrap();
 
-        let resolver = EndpointResolver::new();
-        let endpoint = resolver.resolve("test_primal").await.unwrap();
-
-        assert_eq!(
-            endpoint,
-            Endpoint::Http("http://localhost:9999".to_string())
+                    assert_eq!(
+                        endpoint,
+                        Endpoint::Http("http://localhost:9999".to_string())
+                    );
+                });
+            },
         );
-
-        unsafe { std::env::remove_var("TEST_PRIMAL_ENDPOINT") };
     }
 
-    #[tokio::test]
-    async fn test_cache() {
-        let resolver = EndpointResolver::new();
+    #[test]
+    fn test_cache() {
+        temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://localhost:7777"), || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let (resolver, endpoint1) = rt.block_on(async {
+                let resolver = EndpointResolver::new();
+                let endpoint1 = resolver.resolve("cache_test").await.unwrap();
+                (resolver, endpoint1)
+            });
 
-        unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:7777") };
+            temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://localhost:8888"), || {
+                rt.block_on(async {
+                    let endpoint2 = resolver.resolve("cache_test").await.unwrap();
+                    assert_eq!(endpoint1, endpoint2);
 
-        // First resolution - should cache
-        let endpoint1 = resolver.resolve("cache_test").await.unwrap();
+                    resolver.invalidate("cache_test").await;
 
-        // Change environment (cache should return old value)
-        unsafe { std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:8888") };
-        let endpoint2 = resolver.resolve("cache_test").await.unwrap();
-
-        assert_eq!(endpoint1, endpoint2);
-
-        // Invalidate cache
-        resolver.invalidate("cache_test").await;
-
-        // Should now get new value
-        let endpoint3 = resolver.resolve("cache_test").await.unwrap();
-        assert_eq!(
-            endpoint3,
-            Endpoint::Http("http://localhost:8888".to_string())
-        );
-
-        unsafe { std::env::remove_var("CACHE_TEST_ENDPOINT") };
+                    let endpoint3 = resolver.resolve("cache_test").await.unwrap();
+                    assert_eq!(
+                        endpoint3,
+                        Endpoint::Http("http://localhost:8888".to_string())
+                    );
+                });
+            });
+        });
     }
 
     #[tokio::test]

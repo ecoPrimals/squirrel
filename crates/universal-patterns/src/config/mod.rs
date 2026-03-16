@@ -95,6 +95,7 @@ use url::Url;
 
 /// Configuration error types
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum ConfigError {
     /// Invalid configuration value
     #[error("Invalid configuration: {0}")]

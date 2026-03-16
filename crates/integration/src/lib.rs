@@ -5,7 +5,7 @@
 //!
 //! This crate provides integration adapters for Squirrel components.
 
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![allow(
     clippy::missing_docs_in_private_items,

@@ -61,6 +61,7 @@ pub struct EcosystemResponse {
 
 /// Response status enumeration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ResponseStatus {
     /// Request completed successfully
     Success,
@@ -95,6 +96,7 @@ pub struct SecurityContext {
 
 /// Security level enumeration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SecurityLevel {
     /// Publicly accessible
     Public,

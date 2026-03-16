@@ -220,63 +220,67 @@ impl Default for PortResolver {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_resolve_port_from_constants() {
-        unsafe { std::env::remove_var("HTTP_PORT") };
-        unsafe { std::env::remove_var("WEBSOCKET_PORT") };
-        unsafe { std::env::remove_var("METRICS_PORT") };
-        let resolver = PortResolver::new();
-
-        assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
-        assert_eq!(resolver.resolve_port("websocket").await.unwrap(), 8080);
-        assert_eq!(resolver.resolve_port("metrics").await.unwrap(), 9090);
+    #[test]
+    fn test_resolve_port_from_constants() {
+        temp_env::with_vars_unset(["HTTP_PORT", "WEBSOCKET_PORT", "METRICS_PORT"], || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = PortResolver::new();
+                assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
+                assert_eq!(resolver.resolve_port("websocket").await.unwrap(), 8080);
+                assert_eq!(resolver.resolve_port("metrics").await.unwrap(), 9090);
+            });
+        });
     }
 
-    #[tokio::test]
-    async fn test_resolve_port_from_env() {
-        unsafe { std::env::set_var("TEST_PORT", "7777") };
-
-        let resolver = PortResolver::new();
-        assert_eq!(resolver.resolve_port("test").await.unwrap(), 7777);
-
-        unsafe { std::env::remove_var("TEST_PORT") };
+    #[test]
+    fn test_resolve_port_from_env() {
+        temp_env::with_var("TEST_PORT", Some("7777"), || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = PortResolver::new();
+                assert_eq!(resolver.resolve_port("test").await.unwrap(), 7777);
+            });
+        });
     }
 
-    #[tokio::test]
-    async fn test_resolve_endpoint() {
-        unsafe { std::env::remove_var("HTTP_ENDPOINT") };
-        unsafe { std::env::remove_var("HTTP_PORT") };
-        unsafe { std::env::remove_var("BIND_ADDRESS") };
-        let resolver = PortResolver::new();
-        let endpoint = resolver.resolve_endpoint("http").await.unwrap();
-
-        assert_eq!(endpoint, "http://localhost:8081");
+    #[test]
+    fn test_resolve_endpoint() {
+        temp_env::with_vars_unset(["HTTP_ENDPOINT", "HTTP_PORT", "BIND_ADDRESS"], || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = PortResolver::new();
+                let endpoint = resolver.resolve_endpoint("http").await.unwrap();
+                assert_eq!(endpoint, "http://localhost:8081");
+            });
+        });
     }
 
-    #[tokio::test]
-    async fn test_resolve_endpoint_with_scheme() {
-        // Clear any env var that might interfere from concurrent tests
-        unsafe { std::env::remove_var("SECURITY_ENDPOINT") };
-        let resolver = PortResolver::new();
-        let endpoint = resolver
-            .resolve_endpoint_with_scheme("security", "https")
-            .await
-            .unwrap();
-
-        // Security service uses get_service_port("security") which returns 8083
-        assert_eq!(endpoint, "https://localhost:8083");
+    #[test]
+    fn test_resolve_endpoint_with_scheme() {
+        temp_env::with_var_unset("SECURITY_ENDPOINT", || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = PortResolver::new();
+                let endpoint = resolver
+                    .resolve_endpoint_with_scheme("security", "https")
+                    .await
+                    .unwrap();
+                assert_eq!(endpoint, "https://localhost:8083");
+            });
+        });
     }
 
-    #[tokio::test]
-    async fn test_resolve_endpoint_from_env() {
-        unsafe { std::env::set_var("API_ENDPOINT", "https://api.example.com") };
-
-        let resolver = PortResolver::new();
-        let endpoint = resolver.resolve_endpoint("api").await.unwrap();
-
-        assert_eq!(endpoint, "https://api.example.com");
-
-        unsafe { std::env::remove_var("API_ENDPOINT") };
+    #[test]
+    fn test_resolve_endpoint_from_env() {
+        temp_env::with_var("API_ENDPOINT", Some("https://api.example.com"), || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = PortResolver::new();
+                let endpoint = resolver.resolve_endpoint("api").await.unwrap();
+                assert_eq!(endpoint, "https://api.example.com");
+            });
+        });
     }
 
     #[tokio::test]
@@ -293,20 +297,20 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_invalid_port_env() {
-        unsafe { std::env::set_var("BADPORT_PORT", "not_a_number") };
-
-        let resolver = PortResolver::new();
-        let result = resolver.resolve_port("badport").await;
-
-        assert!(result.is_err());
-        match result {
-            Err(PortResolutionError::InvalidPort(_)) => {}
-            _ => panic!("Expected InvalidPort error"),
-        }
-
-        unsafe { std::env::remove_var("BADPORT_PORT") };
+    #[test]
+    fn test_invalid_port_env() {
+        temp_env::with_var("BADPORT_PORT", Some("not_a_number"), || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let resolver = PortResolver::new();
+                let result = resolver.resolve_port("badport").await;
+                assert!(result.is_err());
+                match result {
+                    Err(PortResolutionError::InvalidPort(_)) => {}
+                    _ => panic!("Expected InvalidPort error"),
+                }
+            });
+        });
     }
 
     // Mock service discovery for testing
@@ -340,19 +344,28 @@ mod tests {
         assert_eq!(port, 9999);
     }
 
-    #[tokio::test]
-    async fn test_fallback_chain() {
-        unsafe { std::env::remove_var("HTTP_PORT") };
+    #[test]
+    #[serial_test::serial]
+    fn test_fallback_chain() {
+        temp_env::with_var_unset("HTTP_PORT", || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let default_port = rt.block_on(async {
+                let resolver = PortResolver::new();
+                resolver.resolve_port("http").await.unwrap()
+            });
 
-        let resolver = PortResolver::new();
-        assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
+            // Nested: set HTTP_PORT and verify override, then unset and verify fallback
+            temp_env::with_var("HTTP_PORT", Some("7070"), || {
+                rt.block_on(async {
+                    let resolver2 = PortResolver::new();
+                    assert_eq!(resolver2.resolve_port("http").await.unwrap(), 7070);
+                });
+            });
 
-        unsafe { std::env::set_var("HTTP_PORT", "7070") };
-        let resolver2 = PortResolver::new();
-        assert_eq!(resolver2.resolve_port("http").await.unwrap(), 7070);
-        unsafe { std::env::remove_var("HTTP_PORT") };
-
-        let resolver3 = PortResolver::new();
-        assert_eq!(resolver3.resolve_port("http").await.unwrap(), 8081);
+            let _ = rt.block_on(async {
+                let resolver3 = PortResolver::new();
+                assert_eq!(resolver3.resolve_port("http").await.unwrap(), default_port);
+            });
+        });
     }
 }

@@ -39,6 +39,7 @@ use thiserror::Error;
 /// This encompasses all tools-related errors with automatic conversions
 /// from sub-domain errors via `#[from]` attribute.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum ToolsError {
     /// Error originating from AI tools
     #[error(transparent)]
@@ -61,6 +62,7 @@ pub enum ToolsError {
 ///
 /// Covers AI providers, routers, and local AI operations.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum AIToolsError {
     /// AI provider error (OpenAI, Anthropic, etc.)
     #[error("AI provider error: {0}")]
@@ -119,6 +121,7 @@ pub enum AIToolsError {
 ///
 /// Covers command execution, plugin management, and CLI configuration.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum CLIError {
     /// Command execution error
     #[error("Command error: {0}")]
@@ -149,6 +152,7 @@ pub enum CLIError {
 ///
 /// Covers rule execution, validation, and rule management.
 #[derive(Error, Debug, Clone)]
+#[non_exhaustive]
 pub enum RuleSystemError {
     /// Rule execution error
     #[error("Rule execution error: {0}")]

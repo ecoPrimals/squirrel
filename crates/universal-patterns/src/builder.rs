@@ -10,6 +10,7 @@ use crate::traits::SecurityLevel;
 
 /// Builder for UniversalPrimalConfig
 #[derive(Debug, Default)]
+#[must_use = "call `.build()` to construct the configuration"]
 pub struct UniversalConfigBuilder {
     config: UniversalPrimalConfig,
 }
@@ -78,6 +79,8 @@ impl UniversalConfigBuilder {
     }
 
     /// Build the final configuration
+    #[must_use = "call this to finish building the configuration"]
+    #[inline]
     pub fn build(self) -> UniversalPrimalConfig {
         self.config
     }

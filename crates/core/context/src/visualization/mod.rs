@@ -79,7 +79,7 @@ impl Default for VisualizationSystemConfig {
             enable_markdown: true,
             enable_interactive: true,
             enable_web: true,
-            web_port: 8080,
+            web_port: universal_constants::network::DEFAULT_JSON_RPC_PORT,
             update_interval: Duration::from_secs(1),
             max_history: 1000,
             enable_metrics: true,

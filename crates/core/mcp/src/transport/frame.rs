@@ -16,8 +16,12 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use crate::error::{MCPError, Result};
 use crate::protocol::types::MCPMessage;
 
+use universal_constants::limits;
+
 /// Maximum frame size (16MB)
-pub const MAX_FRAME_SIZE: usize = 16 * 1024 * 1024;
+///
+/// Re-exports [`universal_constants::limits::MAX_TRANSPORT_FRAME_SIZE`] for backward compatibility.
+pub const MAX_FRAME_SIZE: usize = limits::MAX_TRANSPORT_FRAME_SIZE;
 
 /// Frame header size (4 bytes for length)
 pub const FRAME_HEADER_SIZE: usize = 4;
@@ -49,11 +53,14 @@ impl Frame {
     }
 
     /// Get the frame size including header
+    #[inline]
+    #[must_use]
     pub fn size(&self) -> usize {
         FRAME_HEADER_SIZE + self.payload.len()
     }
 
     /// Write frame to a writer
+    #[must_use = "I/O errors should be handled"]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
         // Write length header (big endian)
         let length = self.payload.len() as u32;
@@ -70,6 +77,7 @@ impl Frame {
     }
 
     /// Read frame from a reader
+    #[must_use = "I/O errors should be handled"]
     pub fn read_from<R: Read>(reader: &mut R) -> Result<Self> {
         // Read length header
         let mut length_bytes = [0u8; 4];

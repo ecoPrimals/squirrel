@@ -4,6 +4,7 @@
 //! tarpc RPC Server Implementation
 //!
 //! High-performance binary RPC server using tarpc framework.
+//! Delegates to JsonRpcServer handlers for consistency with JSON-RPC.
 //! Provides the same functionality as JSON-RPC but with:
 //! - Type safety
 //! - Binary serialization
@@ -17,63 +18,25 @@
 use super::tarpc_service::*;
 use anyhow::Result;
 use futures::prelude::*;
+use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
-use tarpc::{
-    context,
-    server::{self, Channel},
-};
-use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tarpc::{context, server, server::Channel};
+use tracing::{info, warn};
 use universal_patterns::transport::UniversalTransport;
-
-use super::jsonrpc_server::ServerMetrics;
 
 /// tarpc RPC Server
 ///
-/// Implements the SquirrelRpc service trait with actual business logic.
+/// Implements the SquirrelRpc service trait by delegating to JsonRpcServer handlers.
 #[derive(Clone)]
 pub struct TarpcRpcServer {
-    /// Service name
-    service_name: String,
-
-    /// Server metrics (shared with JSON-RPC)
-    metrics: Arc<RwLock<ServerMetrics>>,
-
-    /// AI router (optional)
-    ai_router: Option<Arc<crate::api::ai::AiRouter>>,
+    /// JSON-RPC server for delegation
+    jsonrpc: Arc<super::JsonRpcServer>,
 }
 
 impl TarpcRpcServer {
-    /// Create a new tarpc RPC server
-    pub fn new(service_name: String) -> Self {
-        Self {
-            service_name,
-            metrics: Arc::new(RwLock::new(ServerMetrics::new())),
-            ai_router: None,
-        }
-    }
-
-    /// Create server with AI router
-    pub fn with_ai_router(service_name: String, ai_router: Arc<crate::api::ai::AiRouter>) -> Self {
-        Self {
-            service_name,
-            metrics: Arc::new(RwLock::new(ServerMetrics::new())),
-            ai_router: Some(ai_router),
-        }
-    }
-
-    /// Create server with shared metrics
-    pub fn with_metrics(
-        service_name: String,
-        metrics: Arc<RwLock<ServerMetrics>>,
-        ai_router: Option<Arc<crate::api::ai::AiRouter>>,
-    ) -> Self {
-        Self {
-            service_name,
-            metrics,
-            ai_router,
-        }
+    /// Create tarpc server that delegates to the given JSON-RPC server
+    pub fn from_jsonrpc(jsonrpc: Arc<super::JsonRpcServer>) -> Self {
+        Self { jsonrpc }
     }
 
     /// Handle a single tarpc connection
@@ -105,247 +68,581 @@ impl TarpcRpcServer {
         info!("🔌 tarpc: Connection closed");
         Ok(())
     }
+
+    /// Convert JSON-RPC result to tarpc type, or return error result
+    fn json_to_query_result(v: &serde_json::Value) -> QueryAiResult {
+        QueryAiResult {
+            response: v
+                .get("response")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            provider: Arc::from(v.get("provider").and_then(|x| x.as_str()).unwrap_or("none")),
+            model: Arc::from(v.get("model").and_then(|x| x.as_str()).unwrap_or("none")),
+            tokens_used: v
+                .get("tokens_used")
+                .and_then(|x| x.as_u64())
+                .map(|u| u as usize),
+            latency_ms: v.get("latency_ms").and_then(|x| x.as_u64()).unwrap_or(0),
+            success: v.get("success").and_then(|x| x.as_bool()).unwrap_or(false),
+        }
+    }
+
+    fn json_to_list_providers_result(v: &serde_json::Value) -> ListProvidersResult {
+        let providers: Vec<ProviderInfo> = v
+            .get("providers")
+            .and_then(|x| x.as_array())
+            .map_or(&[] as &[serde_json::Value], |a| a.as_slice())
+            .iter()
+            .filter_map(|p| {
+                Some(ProviderInfo {
+                    id: Arc::from(p.get("id")?.as_str()?),
+                    name: Arc::from(p.get("name")?.as_str()?),
+                    models: p
+                        .get("models")?
+                        .as_array()?
+                        .iter()
+                        .filter_map(|m| m.as_str().map(Arc::from))
+                        .collect(),
+                    capabilities: p
+                        .get("capabilities")?
+                        .as_array()?
+                        .iter()
+                        .filter_map(|c| c.as_str().map(Arc::from))
+                        .collect(),
+                    online: p.get("online")?.as_bool()?,
+                    avg_latency_ms: p.get("avg_latency_ms")?.as_f64(),
+                    cost_tier: Arc::from(p.get("cost_tier")?.as_str()?),
+                })
+            })
+            .collect();
+        ListProvidersResult {
+            total: v.get("total").and_then(|x| x.as_u64()).unwrap_or(0) as usize,
+            providers,
+        }
+    }
+
+    fn json_to_announce_result(v: &serde_json::Value) -> AnnounceCapabilitiesResult {
+        AnnounceCapabilitiesResult {
+            success: v.get("success").and_then(|x| x.as_bool()).unwrap_or(false),
+            message: v
+                .get("message")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            announced_at: v
+                .get("announced_at")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            tools_registered: v
+                .get("tools_registered")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0) as usize,
+        }
+    }
+
+    fn json_to_health_result(v: &serde_json::Value) -> HealthCheckResult {
+        HealthCheckResult {
+            status: v
+                .get("status")
+                .and_then(|x| x.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            version: v
+                .get("version")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            uptime_seconds: v
+                .get("uptime_seconds")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0),
+            active_providers: v
+                .get("active_providers")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0) as usize,
+            requests_processed: v
+                .get("requests_processed")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0),
+            avg_response_time_ms: v.get("avg_response_time_ms").and_then(|x| x.as_f64()),
+        }
+    }
+
+    fn json_to_ping_result(v: &serde_json::Value) -> PingResult {
+        PingResult {
+            pong: v.get("pong").and_then(|x| x.as_bool()).unwrap_or(true),
+            timestamp: v
+                .get("timestamp")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            version: v
+                .get("version")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+        }
+    }
+
+    fn json_to_discovery_peers_result(v: &serde_json::Value) -> DiscoveryPeersResult {
+        let peers: Vec<PeerInfo> = v
+            .get("peers")
+            .and_then(|x| x.as_array())
+            .map_or(&[] as &[serde_json::Value], |a| a.as_slice())
+            .iter()
+            .filter_map(|p| {
+                Some(PeerInfo {
+                    id: p.get("id")?.as_str()?.to_string(),
+                    socket: p.get("socket")?.as_str()?.to_string(),
+                    capabilities: p
+                        .get("capabilities")?
+                        .as_array()?
+                        .iter()
+                        .filter_map(|c| c.as_str().map(String::from))
+                        .collect(),
+                    discovered_via: p.get("discovered_via")?.as_str().unwrap_or("").to_string(),
+                })
+            })
+            .collect();
+        DiscoveryPeersResult {
+            total: v.get("total").and_then(|x| x.as_u64()).unwrap_or(0) as usize,
+            peers,
+            discovery_method: v
+                .get("discovery_method")
+                .and_then(|x| x.as_str())
+                .unwrap_or("socket_scan")
+                .to_string(),
+        }
+    }
+
+    fn json_to_tool_execute_result(v: &serde_json::Value) -> ToolExecuteResult {
+        ToolExecuteResult {
+            tool: v
+                .get("tool")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            success: v.get("success").and_then(|x| x.as_bool()).unwrap_or(false),
+            output: v
+                .get("output")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            error: v.get("error").and_then(|x| x.as_str()).map(String::from),
+            timestamp: v
+                .get("timestamp")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+        }
+    }
+
+    fn json_to_tool_list_result(v: &serde_json::Value) -> ToolListResult {
+        let tools: Vec<ToolListEntry> = v
+            .get("tools")
+            .and_then(|x| x.as_array())
+            .map_or(&[] as &[serde_json::Value], |a| a.as_slice())
+            .iter()
+            .filter_map(|t| {
+                let source = match t.get("source") {
+                    Some(s) => {
+                        // Serde serializes Remote as {"Remote": {"primal": "x"}}
+                        let primal = s
+                            .get("Remote")
+                            .and_then(|r| r.get("primal"))
+                            .and_then(|p| p.as_str())
+                            .or_else(|| s.get("primal").and_then(|p| p.as_str()));
+                        match primal {
+                            Some(p) => ToolSource::Remote {
+                                primal: p.to_string(),
+                            },
+                            None => ToolSource::Builtin,
+                        }
+                    }
+                    None => ToolSource::Builtin,
+                };
+                Some(ToolListEntry {
+                    name: t.get("name")?.as_str()?.to_string(),
+                    description: t.get("description")?.as_str()?.to_string(),
+                    domain: t.get("domain")?.as_str()?.to_string(),
+                    source,
+                    input_schema: t.get("input_schema").cloned(),
+                })
+            })
+            .collect();
+        ToolListResult {
+            total: v.get("total").and_then(|x| x.as_u64()).unwrap_or(0) as usize,
+            tools,
+        }
+    }
+
+    fn json_to_capability_discover_result(v: &serde_json::Value) -> CapabilityDiscoverResult {
+        let metadata: HashMap<String, String> = v
+            .get("metadata")
+            .and_then(|x| x.as_object())
+            .map(|m| {
+                m.iter()
+                    .filter_map(|(k, v)| Some((k.clone(), v.to_string())))
+                    .collect()
+            })
+            .unwrap_or_default();
+        CapabilityDiscoverResult {
+            primal: v
+                .get("primal")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            capabilities: v
+                .get("capabilities")
+                .and_then(|x| x.as_array())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|c| c.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            version: v
+                .get("version")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            metadata,
+        }
+    }
+
+    fn json_to_system_metrics_result(v: &serde_json::Value) -> SystemMetricsResult {
+        SystemMetricsResult {
+            requests_handled: v
+                .get("requests_handled")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0),
+            errors: v.get("errors").and_then(|x| x.as_u64()).unwrap_or(0),
+            uptime_seconds: v
+                .get("uptime_seconds")
+                .and_then(|x| x.as_u64())
+                .unwrap_or(0),
+            avg_response_time_ms: v.get("avg_response_time_ms").and_then(|x| x.as_f64()),
+            success_rate: v
+                .get("success_rate")
+                .and_then(|x| x.as_f64())
+                .unwrap_or(1.0),
+        }
+    }
 }
 
-/// Implement the SquirrelRpc service trait
+/// Implement the SquirrelRpc service trait by delegating to JsonRpcServer
 impl SquirrelRpc for TarpcRpcServer {
-    async fn query_ai(self, _ctx: context::Context, params: QueryAiParams) -> QueryAiResult {
-        let start = Instant::now();
-
-        info!(
-            "🤖 tarpc::query_ai - prompt length: {}",
-            params.prompt.len()
-        );
-
-        // Update metrics
-        let mut metrics = self.metrics.write().await;
-        metrics.requests_handled += 1;
-
-        // If AI router available, use it; otherwise return error
-        if let Some(router) = &self.ai_router {
-            use crate::api::ai::types::TextGenerationRequest;
-
-            let ai_request = TextGenerationRequest {
-                prompt: params.prompt,
-                system: None,
-                max_tokens: params.max_tokens.map(|v| v as u32).unwrap_or(1024),
-                temperature: params.temperature.unwrap_or(0.7) as f32,
-                model: params.model.as_deref().map(String::from),
-                constraints: vec![],
-                params: std::collections::HashMap::new(),
-            };
-
-            drop(metrics); // Release lock before async call
-
-            match router.generate_text(ai_request, None).await {
-                Ok(ai_response) => {
-                    let latency_ms = start.elapsed().as_millis() as u64;
-                    let mut metrics = self.metrics.write().await;
-                    metrics.total_response_time_ms += latency_ms;
-
-                    QueryAiResult {
-                        response: ai_response.text,
-                        provider: Arc::from(ai_response.provider_id.as_str()),
-                        model: Arc::from(ai_response.model.as_str()),
-                        tokens_used: ai_response.usage.map(|u| u.total_tokens as usize),
-                        latency_ms,
-                        success: true,
-                    }
-                }
-                Err(e) => {
-                    error!("AI router error: {}", e);
-                    let mut metrics = self.metrics.write().await;
-                    metrics.errors += 1;
-
-                    QueryAiResult {
-                        response: format!("Error: {e}"),
-                        provider: Arc::from("error"),
-                        model: Arc::from("none"),
-                        tokens_used: None,
-                        latency_ms: start.elapsed().as_millis() as u64,
-                        success: false,
-                    }
-                }
-            }
-        } else {
-            metrics.errors += 1;
-            QueryAiResult {
-                response: "AI router not configured".to_string(),
-                provider: Arc::from("none"),
+    async fn ai_query(self, _ctx: context::Context, params: QueryAiParams) -> QueryAiResult {
+        let json_params = serde_json::json!({
+            "prompt": params.prompt,
+            "model": params.model.as_deref(),
+            "max_tokens": params.max_tokens,
+            "temperature": params.temperature,
+        });
+        match self.jsonrpc.handle_query_ai(Some(json_params)).await {
+            Ok(v) => Self::json_to_query_result(&v),
+            Err(_) => QueryAiResult {
+                response: String::new(),
+                provider: Arc::from("error"),
                 model: Arc::from("none"),
                 tokens_used: None,
-                latency_ms: start.elapsed().as_millis() as u64,
+                latency_ms: 0,
                 success: false,
-            }
+            },
         }
     }
 
-    async fn list_providers(self, _ctx: context::Context) -> ListProvidersResult {
-        info!("📋 tarpc::list_providers");
+    async fn ai_complete(self, _ctx: context::Context, params: QueryAiParams) -> QueryAiResult {
+        self.ai_query(_ctx, params).await
+    }
 
-        let mut metrics = self.metrics.write().await;
-        metrics.requests_handled += 1;
-        drop(metrics);
+    async fn ai_chat(self, _ctx: context::Context, params: QueryAiParams) -> QueryAiResult {
+        self.ai_query(_ctx, params).await
+    }
 
-        if let Some(router) = &self.ai_router {
-            let providers: Vec<ProviderInfo> = router
-                .list_providers()
-                .await
-                .into_iter()
-                .map(|p| {
-                    let cost_tier = match p.cost_per_unit {
-                        Some(cost) if cost > 0.01 => Arc::from("high"),
-                        Some(cost) if cost > 0.0 => Arc::from("medium"),
-                        _ => Arc::from("free"),
-                    };
-
-                    ProviderInfo {
-                        id: Arc::from(p.provider_id.as_str()),
-                        name: Arc::from(p.provider_name.as_str()),
-                        models: p
-                            .capabilities
-                            .iter()
-                            .map(|s| Arc::from(s.as_str()))
-                            .collect(),
-                        capabilities: p
-                            .capabilities
-                            .iter()
-                            .map(|s| Arc::from(s.as_str()))
-                            .collect(),
-                        online: p.is_available,
-                        avg_latency_ms: Some(p.avg_latency_ms as f64),
-                        cost_tier,
-                    }
-                })
-                .collect();
-
-            ListProvidersResult {
-                total: providers.len(),
-                providers,
-            }
-        } else {
-            ListProvidersResult {
+    async fn ai_list_providers(self, _ctx: context::Context) -> ListProvidersResult {
+        match self.jsonrpc.handle_list_providers(None).await {
+            Ok(v) => Self::json_to_list_providers_result(&v),
+            Err(_) => ListProvidersResult {
                 total: 0,
                 providers: vec![],
-            }
+            },
         }
     }
 
-    async fn announce_capabilities(
+    async fn system_health(self, _ctx: context::Context) -> HealthCheckResult {
+        match self.jsonrpc.handle_health().await {
+            Ok(v) => Self::json_to_health_result(&v),
+            Err(_) => HealthCheckResult {
+                status: "error".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                uptime_seconds: 0,
+                active_providers: 0,
+                requests_processed: 0,
+                avg_response_time_ms: None,
+            },
+        }
+    }
+
+    async fn system_ping(self, _ctx: context::Context) -> PingResult {
+        match self.jsonrpc.handle_ping().await {
+            Ok(v) => Self::json_to_ping_result(&v),
+            Err(_) => PingResult {
+                pong: true,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            },
+        }
+    }
+
+    async fn system_metrics(self, _ctx: context::Context) -> SystemMetricsResult {
+        match self.jsonrpc.handle_metrics().await {
+            Ok(v) => Self::json_to_system_metrics_result(&v),
+            Err(_) => SystemMetricsResult {
+                requests_handled: 0,
+                errors: 0,
+                uptime_seconds: 0,
+                avg_response_time_ms: None,
+                success_rate: 1.0,
+            },
+        }
+    }
+
+    async fn system_status(self, _ctx: context::Context) -> HealthCheckResult {
+        self.system_health(_ctx).await
+    }
+
+    async fn capability_discover(self, _ctx: context::Context) -> CapabilityDiscoverResult {
+        match self.jsonrpc.handle_discover_capabilities().await {
+            Ok(v) => Self::json_to_capability_discover_result(&v),
+            Err(_) => CapabilityDiscoverResult {
+                primal: "squirrel".to_string(),
+                capabilities: vec![],
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                metadata: HashMap::new(),
+            },
+        }
+    }
+
+    async fn capability_announce(
         self,
         _ctx: context::Context,
         params: AnnounceCapabilitiesParams,
     ) -> AnnounceCapabilitiesResult {
-        info!(
-            "📢 tarpc::announce_capabilities - {} capabilities",
-            params.capabilities.len()
-        );
-
-        let mut metrics = self.metrics.write().await;
-        metrics.requests_handled += 1;
-        drop(metrics);
-
-        AnnounceCapabilitiesResult {
-            success: true,
-            message: format!("Acknowledged {} capabilities", params.capabilities.len()),
-            announced_at: chrono::Utc::now().to_rfc3339(),
-        }
-    }
-
-    async fn health(self, _ctx: context::Context) -> HealthCheckResult {
-        debug!("💚 tarpc::health check");
-
-        let mut metrics = self.metrics.write().await;
-        metrics.requests_handled += 1;
-
-        let result = HealthCheckResult {
-            status: "healthy".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
-            uptime_seconds: metrics.uptime_seconds(),
-            active_providers: if let Some(router) = &self.ai_router {
-                router.provider_count().await
-            } else {
-                0
+        let json_params = serde_json::json!({
+            "capabilities": params.capabilities,
+            "primal": params.primal,
+            "socket_path": params.socket_path,
+            "tools": params.tools,
+            "sub_federations": params.sub_federations,
+            "genetic_families": params.genetic_families,
+        });
+        match self
+            .jsonrpc
+            .handle_announce_capabilities(Some(json_params))
+            .await
+        {
+            Ok(v) => Self::json_to_announce_result(&v),
+            Err(_) => AnnounceCapabilitiesResult {
+                success: false,
+                message: "Announce failed".to_string(),
+                announced_at: chrono::Utc::now().to_rfc3339(),
+                tools_registered: 0,
             },
-            requests_processed: metrics.requests_handled,
-            avg_response_time_ms: metrics.avg_response_time_ms(),
-        };
-
-        drop(metrics);
-        result
+        }
     }
 
-    async fn ping(self, _ctx: context::Context) -> String {
-        debug!("🏓 tarpc::ping");
-
-        let mut metrics = self.metrics.write().await;
-        metrics.requests_handled += 1;
-        drop(metrics);
-
-        format!(
-            "pong from {} ({})",
-            self.service_name,
-            env!("CARGO_PKG_VERSION")
-        )
-    }
-
-    async fn discover_peers(self, _ctx: context::Context) -> Vec<String> {
-        info!("🔍 tarpc::discover_peers");
-
-        let mut metrics = self.metrics.write().await;
-        metrics.requests_handled += 1;
-        drop(metrics);
-
-        // Use actual capability discovery to find peers
-        match crate::capabilities::discovery::discover_all_capabilities().await {
-            Ok(capabilities_map) => {
-                let mut seen = std::collections::HashSet::new();
-                let mut peers = Vec::new();
-                for providers in capabilities_map.values() {
-                    for provider in providers {
-                        if seen.insert(provider.id.clone()) {
-                            peers.push(format!("{}@{}", provider.id, provider.socket.display()));
-                        }
-                    }
-                }
-                peers
-            }
+    async fn discovery_peers(self, _ctx: context::Context) -> DiscoveryPeersResult {
+        match self.jsonrpc.handle_discover_peers(None).await {
+            Ok(v) => Self::json_to_discovery_peers_result(&v),
             Err(e) => {
-                warn!("Peer discovery failed: {}", e);
-                vec![]
+                warn!("discovery_peers failed: {:?}", e);
+                DiscoveryPeersResult {
+                    peers: vec![],
+                    total: 0,
+                    discovery_method: "socket_scan".to_string(),
+                }
             }
         }
     }
 
-    async fn execute_tool(
+    async fn tool_execute(
         self,
         _ctx: context::Context,
-        tool: Arc<str>,
-        args: std::collections::HashMap<String, String>,
-    ) -> String {
-        info!("🔧 tarpc::execute_tool: {}", tool);
+        tool: String,
+        args: HashMap<String, serde_json::Value>,
+    ) -> ToolExecuteResult {
+        let json_params = serde_json::json!({
+            "tool": tool,
+            "args": args,
+        });
+        match self.jsonrpc.handle_execute_tool(Some(json_params)).await {
+            Ok(v) => Self::json_to_tool_execute_result(&v),
+            Err(e) => ToolExecuteResult {
+                tool,
+                success: false,
+                output: String::new(),
+                error: Some(e.message),
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            },
+        }
+    }
 
-        let mut metrics = self.metrics.write().await;
-        metrics.requests_handled += 1;
-        drop(metrics);
+    async fn tool_list(self, _ctx: context::Context) -> ToolListResult {
+        match self.jsonrpc.handle_list_tools().await {
+            Ok(v) => Self::json_to_tool_list_result(&v),
+            Err(_) => ToolListResult {
+                tools: vec![],
+                total: 0,
+            },
+        }
+    }
 
-        // Delegate to ToolExecutor
-        let executor = crate::tool::ToolExecutor::new();
-        let args_str = serde_json::to_string(&args).unwrap_or_else(|_| "{}".to_string());
+    async fn context_create(
+        self,
+        _ctx: context::Context,
+        params: ContextCreateParams,
+    ) -> ContextCreateResult {
+        let json_params = serde_json::json!({
+            "session_id": params.session_id,
+            "metadata": params.metadata.unwrap_or(serde_json::json!({})),
+        });
+        match self.jsonrpc.handle_context_create(Some(json_params)).await {
+            Ok(v) => ContextCreateResult {
+                id: v
+                    .get("id")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                version: v.get("version").and_then(|x| x.as_u64()).unwrap_or(0),
+                created_at: v
+                    .get("created_at")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                metadata: v.get("metadata").cloned().unwrap_or(serde_json::json!({})),
+            },
+            Err(_) => ContextCreateResult {
+                id: String::new(),
+                version: 0,
+                created_at: chrono::Utc::now().to_rfc3339(),
+                metadata: serde_json::json!({}),
+            },
+        }
+    }
 
-        match executor.execute_tool(tool.as_ref(), &args_str).await {
-            Ok(result) => {
-                if result.success {
-                    result.output
-                } else {
-                    format!(
-                        "Tool '{}' failed: {}",
-                        tool,
-                        result.error.unwrap_or_default()
-                    )
-                }
-            }
-            Err(e) => format!("Tool '{tool}' execution error: {e}"),
+    async fn context_update(
+        self,
+        _ctx: context::Context,
+        params: ContextUpdateParams,
+    ) -> ContextUpdateResult {
+        let json_params = serde_json::json!({
+            "id": params.id,
+            "data": params.data,
+        });
+        match self.jsonrpc.handle_context_update(Some(json_params)).await {
+            Ok(v) => ContextUpdateResult {
+                id: v
+                    .get("id")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                version: v.get("version").and_then(|x| x.as_u64()).unwrap_or(0),
+                updated_at: v
+                    .get("updated_at")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            },
+            Err(_) => ContextUpdateResult {
+                id: params.id,
+                version: 0,
+                updated_at: chrono::Utc::now().to_rfc3339(),
+            },
+        }
+    }
+
+    async fn context_summarize(
+        self,
+        _ctx: context::Context,
+        params: ContextSummarizeParams,
+    ) -> ContextSummarizeResult {
+        let json_params = serde_json::json!({ "id": params.id });
+        match self
+            .jsonrpc
+            .handle_context_summarize(Some(json_params))
+            .await
+        {
+            Ok(v) => ContextSummarizeResult {
+                id: v
+                    .get("id")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                version: v.get("version").and_then(|x| x.as_u64()).unwrap_or(0),
+                summary: v
+                    .get("summary")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                data: v.get("data").cloned().unwrap_or(serde_json::json!({})),
+                synchronized: v
+                    .get("synchronized")
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false),
+            },
+            Err(_) => ContextSummarizeResult {
+                id: params.id,
+                version: 0,
+                summary: String::new(),
+                data: serde_json::json!({}),
+                synchronized: false,
+            },
+        }
+    }
+
+    async fn lifecycle_register(self, _ctx: context::Context) -> LifecycleRegisterResult {
+        match self.jsonrpc.handle_lifecycle_register().await {
+            Ok(v) => LifecycleRegisterResult {
+                success: v.get("success").and_then(|x| x.as_bool()).unwrap_or(true),
+                message: v
+                    .get("message")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            },
+            Err(_) => LifecycleRegisterResult {
+                success: false,
+                message: "Registration failed".to_string(),
+            },
+        }
+    }
+
+    async fn lifecycle_status(self, _ctx: context::Context) -> LifecycleStatusResult {
+        match self.jsonrpc.handle_lifecycle_status().await {
+            Ok(v) => LifecycleStatusResult {
+                status: v
+                    .get("status")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("unknown")
+                    .to_string(),
+                version: v
+                    .get("version")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                uptime_seconds: v
+                    .get("uptime_seconds")
+                    .and_then(|x| x.as_u64())
+                    .unwrap_or(0),
+            },
+            Err(_) => LifecycleStatusResult {
+                status: "error".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                uptime_seconds: 0,
+            },
         }
     }
 }
@@ -355,34 +652,31 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_tarpc_server_creation() {
-        let server = TarpcRpcServer::new("squirrel".to_string());
-        assert_eq!(server.service_name, "squirrel");
+    async fn test_tarpc_server_from_jsonrpc() {
+        let jsonrpc = Arc::new(crate::rpc::JsonRpcServer::new("/tmp/test.sock".to_string()));
+        let server = TarpcRpcServer::from_jsonrpc(jsonrpc);
+        let ctx = context::current();
+        let ping = server.system_ping(ctx).await;
+        assert!(ping.pong);
+        assert!(!ping.version.is_empty());
     }
 
     #[tokio::test]
-    async fn test_tarpc_ping() {
-        let server = TarpcRpcServer::new("squirrel".to_string());
+    async fn test_tarpc_system_health() {
+        let jsonrpc = Arc::new(crate::rpc::JsonRpcServer::new("/tmp/test.sock".to_string()));
+        let server = TarpcRpcServer::from_jsonrpc(jsonrpc);
         let ctx = context::current();
-        let response = server.ping(ctx).await;
-        assert!(response.contains("pong"));
-        assert!(response.contains("squirrel"));
-    }
-
-    #[tokio::test]
-    async fn test_tarpc_health() {
-        let server = TarpcRpcServer::new("squirrel".to_string());
-        let ctx = context::current();
-        let health = server.health(ctx).await;
+        let health = server.system_health(ctx).await;
         assert_eq!(health.status, "healthy");
         assert_eq!(health.version, env!("CARGO_PKG_VERSION"));
     }
 
     #[tokio::test]
-    async fn test_tarpc_list_providers_no_router() {
-        let server = TarpcRpcServer::new("squirrel".to_string());
+    async fn test_tarpc_ai_list_providers_no_router() {
+        let jsonrpc = Arc::new(crate::rpc::JsonRpcServer::new("/tmp/test.sock".to_string()));
+        let server = TarpcRpcServer::from_jsonrpc(jsonrpc);
         let ctx = context::current();
-        let result = server.list_providers(ctx).await;
+        let result = server.ai_list_providers(ctx).await;
         assert_eq!(result.total, 0);
         assert!(result.providers.is_empty());
     }

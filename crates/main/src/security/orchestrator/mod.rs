@@ -11,244 +11,30 @@
 //! - Security monitoring and threat detection
 //! - Automated security responses
 
-use serde::{Deserialize, Serialize};
+mod types;
+
+pub use types::{
+    OrchestratorSecurityPolicy, ResponseThresholds, ResponseType, RiskLevel, SecurityCheckRequest,
+    SecurityCheckResult, SecurityOrchestrationConfig, SecurityPolicy, SecurityResponse,
+    SecurityStatistics, ViolationCounter,
+};
+
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::error::PrimalError;
-use crate::observability::CorrelationId;
 use crate::shutdown::{ShutdownHandler, ShutdownPhase};
 
-use super::input_validator::{
-    InputType, InputValidationConfig, ProductionInputValidator, ValidationResult,
-};
+use super::input_validator::ProductionInputValidator;
 use super::monitoring::{
-    EventSeverity, SecurityEvent, SecurityEventType, SecurityMonitoringConfig,
-    SecurityMonitoringSystem,
+    EventSeverity, SecurityEvent, SecurityEventType, SecurityMonitoringSystem,
 };
-use super::rate_limiter::{EndpointType, ProductionRateLimiter, RateLimitConfig, RateLimitResult};
-
-/// Security orchestration configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityOrchestrationConfig {
-    /// Rate limiting configuration
-    pub rate_limiting: RateLimitConfig,
-
-    /// Input validation configuration  
-    pub input_validation: InputValidationConfig,
-
-    /// Security monitoring configuration
-    pub security_monitoring: SecurityMonitoringConfig,
-
-    /// Enable automated threat response
-    pub enable_automated_response: bool,
-
-    /// Response escalation thresholds
-    pub response_thresholds: ResponseThresholds,
-
-    /// Security policies
-    pub security_policies: HashMap<String, SecurityPolicy>,
-}
-
-impl Default for SecurityOrchestrationConfig {
-    fn default() -> Self {
-        let mut security_policies = HashMap::new();
-        security_policies.insert("default".to_string(), SecurityPolicy::default());
-
-        Self {
-            rate_limiting: RateLimitConfig::default(),
-            input_validation: InputValidationConfig::default(),
-            security_monitoring: SecurityMonitoringConfig::default(),
-            enable_automated_response: true,
-            response_thresholds: ResponseThresholds::default(),
-            security_policies,
-        }
-    }
-}
-
-/// Response escalation thresholds
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResponseThresholds {
-    /// Number of violations before temporary IP block
-    pub temp_block_threshold: u32,
-
-    /// Duration of temporary IP block
-    pub temp_block_duration: Duration,
-
-    /// Number of violations before permanent IP block
-    pub permanent_block_threshold: u32,
-
-    /// Number of violations before alerting administrators
-    pub admin_alert_threshold: u32,
-}
-
-impl Default for ResponseThresholds {
-    fn default() -> Self {
-        Self {
-            temp_block_threshold: 10,
-            temp_block_duration: Duration::from_secs(300), // 5 minutes
-            permanent_block_threshold: 50,
-            admin_alert_threshold: 5,
-        }
-    }
-}
-
-/// Security policy definition
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityPolicy {
-    /// Policy name
-    pub name: String,
-
-    /// Require authentication
-    pub require_authentication: bool,
-
-    /// Minimum authorization level required
-    pub min_authorization_level: String,
-
-    /// Custom rate limits for this policy
-    pub custom_rate_limits: Option<RateLimitConfig>,
-
-    /// Custom input validation rules
-    pub custom_validation_rules: Option<InputValidationConfig>,
-
-    /// Allowed IP ranges (CIDR notation)
-    pub allowed_ip_ranges: Vec<String>,
-
-    /// Blocked IP ranges (CIDR notation)
-    pub blocked_ip_ranges: Vec<String>,
-}
-
-impl Default for SecurityPolicy {
-    fn default() -> Self {
-        Self {
-            name: "default".to_string(),
-            require_authentication: false,
-            min_authorization_level: "none".to_string(),
-            custom_rate_limits: None,
-            custom_validation_rules: None,
-            allowed_ip_ranges: vec![],
-            blocked_ip_ranges: vec![],
-        }
-    }
-}
-
-/// Comprehensive security check request
-#[derive(Debug, Clone)]
-pub struct SecurityCheckRequest {
-    /// Client IP address
-    pub client_ip: IpAddr,
-
-    /// User agent string
-    pub user_agent: Option<String>,
-
-    /// Endpoint being accessed
-    pub endpoint: String,
-
-    /// Endpoint type for rate limiting
-    pub endpoint_type: EndpointType,
-
-    /// Input data to validate
-    pub input_data: Option<Vec<(String, String, InputType)>>,
-
-    /// User ID if authenticated
-    pub user_id: Option<String>,
-
-    /// Session ID if available
-    pub session_id: Option<String>,
-
-    /// Security policy to apply
-    pub policy_name: Option<String>,
-
-    /// Correlation ID for tracking
-    pub correlation_id: CorrelationId,
-
-    /// Additional metadata
-    pub metadata: HashMap<String, String>,
-}
-
-/// Security check result
-#[derive(Debug, Clone)]
-pub struct SecurityCheckResult {
-    /// Whether the request should be allowed
-    pub allowed: bool,
-
-    /// Reason for denial (if not allowed)
-    pub denial_reason: Option<String>,
-
-    /// Rate limiting result
-    pub rate_limit_result: RateLimitResult,
-
-    /// Input validation results
-    pub validation_results: Vec<(String, ValidationResult)>,
-
-    /// Security events generated
-    pub security_events: Vec<SecurityEvent>,
-
-    /// Recommended actions
-    pub recommended_actions: Vec<String>,
-
-    /// Overall risk assessment
-    pub risk_level: RiskLevel,
-}
-
-/// Risk level assessment for security events
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum RiskLevel {
-    /// Low risk - informational
-    Low,
-    /// Medium risk - attention recommended
-    Medium,
-    /// High risk - immediate action needed
-    High,
-    /// Critical risk - urgent response required
-    Critical,
-}
-
-/// Automated security response
-#[derive(Debug, Clone)]
-pub struct SecurityResponse {
-    /// Response type
-    pub response_type: ResponseType,
-
-    /// Target of the response (IP, user, etc.)
-    pub target: String,
-
-    /// Duration of the response
-    pub duration: Option<Duration>,
-
-    /// Response details
-    pub details: String,
-
-    /// Timestamp of response
-    pub timestamp: SystemTime,
-}
-
-/// Types of automated security responses
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ResponseType {
-    /// Log the incident
-    Log,
-
-    /// Issue a warning
-    Warning,
-
-    /// Temporarily block IP address
-    TemporaryBlock,
-
-    /// Permanently block IP address
-    PermanentBlock,
-
-    /// Alert administrators
-    AdminAlert,
-
-    /// Escalate to external security system
-    Escalate,
-}
+use super::rate_limiter::ProductionRateLimiter;
 
 /// Production security orchestration system
 pub struct SecurityOrchestrator {
@@ -269,15 +55,6 @@ pub struct SecurityOrchestrator {
 
     /// Violation counters by IP
     violation_counters: Arc<RwLock<HashMap<IpAddr, ViolationCounter>>>,
-}
-
-#[derive(Debug, Clone)]
-struct ViolationCounter {
-    total_violations: u32,
-    recent_violations: u32,
-    first_violation: SystemTime,
-    last_violation: SystemTime,
-    violation_types: HashMap<String, u32>,
 }
 
 impl SecurityOrchestrator {
@@ -345,7 +122,7 @@ impl SecurityOrchestrator {
                     endpoint: request.endpoint.clone(),
                     violation_count: 1,
                 },
-                timestamp: SystemTime::now(),
+                timestamp: std::time::SystemTime::now(),
                 source_ip: request.client_ip.to_string(),
                 user_agent: request.user_agent.clone(),
                 correlation_id: request.correlation_id.clone(),
@@ -391,7 +168,7 @@ impl SecurityOrchestrator {
                             ),
                             risk_level: format!("{:?}", validation_result.risk_level),
                         },
-                        timestamp: SystemTime::now(),
+                        timestamp: std::time::SystemTime::now(),
                         source_ip: request.client_ip.to_string(),
                         user_agent: request.user_agent.clone(),
                         correlation_id: request.correlation_id.clone(),
@@ -467,7 +244,7 @@ impl SecurityOrchestrator {
     /// Update violation counter for IP
     async fn update_violation_counter(&self, client_ip: IpAddr, risk_level: RiskLevel) {
         let mut counters = self.violation_counters.write().await;
-        let now = SystemTime::now();
+        let now = std::time::SystemTime::now();
 
         let counter = counters
             .entry(client_ip)
@@ -526,7 +303,7 @@ impl SecurityOrchestrator {
                     "Automated response for {} violations from {}",
                     counter.total_violations, client_ip
                 ),
-                timestamp: SystemTime::now(),
+                timestamp: std::time::SystemTime::now(),
             })
         } else {
             None
@@ -620,21 +397,6 @@ impl SecurityOrchestrator {
     }
 }
 
-/// Comprehensive security statistics
-#[derive(Debug, Clone, Serialize)]
-pub struct SecurityStatistics {
-    /// Security monitoring statistics.
-    pub monitoring_stats: super::monitoring::SecurityMonitoringStats,
-    /// Rate limiting statistics.
-    pub rate_limit_stats: super::rate_limiter::RateLimitStatistics,
-    /// Total number of tracked IP addresses.
-    pub total_tracked_ips: usize,
-    /// Number of active security responses in progress.
-    pub active_security_responses: usize,
-    /// Number of IPs flagged as high risk.
-    pub high_risk_ips: usize,
-}
-
 #[async_trait::async_trait]
 impl ShutdownHandler for SecurityOrchestrator {
     fn component_name(&self) -> &'static str {
@@ -720,6 +482,8 @@ impl ShutdownHandler for SecurityOrchestrator {
 mod tests {
     use super::*;
     use crate::observability::CorrelationId;
+    use crate::security::input_validator::InputType;
+    use crate::security::rate_limiter::EndpointType;
     use std::net::IpAddr;
 
     fn create_test_config() -> SecurityOrchestrationConfig {

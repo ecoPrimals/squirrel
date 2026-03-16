@@ -10,7 +10,7 @@
 //! This primal follows the universal adapter patterns defined by the ecosystem registry
 //! and implements the `EcosystemServiceRegistration` standard for seamless integration.
 
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]

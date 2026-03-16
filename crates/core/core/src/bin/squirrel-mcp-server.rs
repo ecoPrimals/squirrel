@@ -97,7 +97,8 @@ async fn main() -> Result<()> {
     .await;
 
     // Start API server
-    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
+    let bind_addr = std::env::var("BIND_ADDR")
+        .unwrap_or_else(|_| universal_constants::network::default_api_bind_addr());
     let bind_addr_clone = bind_addr.clone();
     info!("🌐 Starting API server on {}", bind_addr);
 

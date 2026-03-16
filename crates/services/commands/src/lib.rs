@@ -37,7 +37,7 @@
 )]
 //!
 //! Core command processing functionality for the Squirrel MCP ecosystem.
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 //! This service handles basic command execution and validation.
 

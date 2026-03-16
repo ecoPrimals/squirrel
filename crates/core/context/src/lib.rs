@@ -5,7 +5,7 @@
 //!
 //! This module provides context management functionality for the application.
 
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![allow(
     clippy::missing_errors_doc,

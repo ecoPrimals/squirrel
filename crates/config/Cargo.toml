@@ -17,6 +17,10 @@ uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 # HTTP client (OPTIONAL - for config fetching from HTTP endpoints)
 # Production uses Unix sockets or local files (Pure Rust!)
+#
+# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.11 → rustls 0.21 → ring (C/ASM).
+# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
+# See docs/CRYPTO_MIGRATION.md.
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
 tokio = { version = "1.0", features = ["full"] }
 # once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
@@ -36,6 +40,7 @@ http-config = ["dep:reqwest"]
 [dev-dependencies]
 tempfile = "3.8"
 serial_test = "3.0"
+temp-env = "0.3"
 
 [lints.clippy]
 # Stylistic lints with 20+ instances - allow at crate level

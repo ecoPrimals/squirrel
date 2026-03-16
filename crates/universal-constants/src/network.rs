@@ -185,6 +185,24 @@ pub const DEFAULT_SONGBIRD_PORT: u16 = 8001;
 /// Fallback Squirrel main server port
 pub const DEFAULT_SQUIRREL_SERVER_PORT: u16 = 9010;
 
+/// Default port for JSON-RPC / MCP API server (HTTP)
+///
+/// Used when binding the main API server (e.g. squirrel-mcp-server).
+pub const DEFAULT_JSON_RPC_PORT: u16 = 8080;
+
+/// Default port for BiomeOS ecosystem API
+///
+/// Used for BiomeOS AI, MCP, context, health, and metrics endpoints.
+pub const DEFAULT_BIOMEOS_PORT: u16 = 5000;
+
+/// Default bind address for API server (all interfaces + JSON-RPC port)
+///
+/// Format: "0.0.0.0:{port}". Use when starting HTTP API servers.
+#[must_use]
+pub fn default_api_bind_addr() -> String {
+    format!("{}:{}", BIND_ALL_INTERFACES, DEFAULT_JSON_RPC_PORT)
+}
+
 // ============================================================================
 // Unix Socket Path Constants (XDG ecosystem convention)
 // ============================================================================
@@ -350,6 +368,13 @@ mod tests {
     }
 
     #[test]
+    fn test_default_api_bind_addr() {
+        assert_eq!(super::default_api_bind_addr(), "0.0.0.0:8080");
+        assert_eq!(super::DEFAULT_JSON_RPC_PORT, 8080);
+        assert_eq!(super::DEFAULT_BIOMEOS_PORT, 5000);
+    }
+
+    #[test]
     fn test_endpoint_paths() {
         assert_eq!(HEALTH_ENDPOINT, "/health");
         assert_eq!(METRICS_ENDPOINT, "/metrics");
@@ -398,24 +423,25 @@ mod tests {
 
     #[test]
     fn test_get_socket_dir_fallback() {
-        unsafe { std::env::remove_var("XDG_RUNTIME_DIR") };
-        let dir = super::get_socket_dir();
-        assert_eq!(dir, std::path::PathBuf::from("/tmp/biomeos"));
+        temp_env::with_var_unset("XDG_RUNTIME_DIR", || {
+            let dir = super::get_socket_dir();
+            assert_eq!(dir, std::path::PathBuf::from("/tmp/biomeos"));
+        });
     }
 
     #[test]
     fn test_get_socket_path_fallback() {
-        unsafe { std::env::remove_var("XDG_RUNTIME_DIR") };
-        unsafe { std::env::remove_var("SQUIRREL_SOCKET") };
-        let path = super::get_socket_path("squirrel");
-        assert_eq!(path, std::path::PathBuf::from("/tmp/biomeos/squirrel.sock"));
+        temp_env::with_vars_unset(["XDG_RUNTIME_DIR", "SQUIRREL_SOCKET"], || {
+            let path = super::get_socket_path("squirrel");
+            assert_eq!(path, std::path::PathBuf::from("/tmp/biomeos/squirrel.sock"));
+        });
     }
 
     #[test]
     fn test_get_socket_path_env_override() {
-        unsafe { std::env::set_var("TESTPRIMAL_SOCKET", "/custom/path.sock") };
-        let path = super::get_socket_path("testprimal");
-        assert_eq!(path, std::path::PathBuf::from("/custom/path.sock"));
-        unsafe { std::env::remove_var("TESTPRIMAL_SOCKET") };
+        temp_env::with_var("TESTPRIMAL_SOCKET", Some("/custom/path.sock"), || {
+            let path = super::get_socket_path("testprimal");
+            assert_eq!(path, std::path::PathBuf::from("/custom/path.sock"));
+        });
     }
 }

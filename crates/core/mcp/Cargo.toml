@@ -74,6 +74,8 @@ rustls-pemfile = { version = "1.0", optional = true }
 # AI providers (optional)
 openai-api-rs = { version = "0.1", optional = true }
 anthropic-sdk = { version = "0.1", optional = true }
+# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.11 → rustls 0.21 → ring (C/ASM).
+# Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider. See docs/CRYPTO_MIGRATION.md.
 reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 
 # Plugin system (optional)

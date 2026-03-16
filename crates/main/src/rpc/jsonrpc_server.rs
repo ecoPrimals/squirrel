@@ -296,7 +296,8 @@ impl JsonRpcServer {
                     debug!("📥 New connection accepted");
                     let server = Arc::clone(&self);
                     tokio::spawn(async move {
-                        if let Err(e) = server.handle_universal_connection(transport).await {
+                        if let Err(e) = server.clone().handle_universal_connection(transport).await
+                        {
                             error!("Error handling connection: {}", e);
                         }
                     });
@@ -319,7 +320,10 @@ impl JsonRpcServer {
     /// - If client sends "PROTOCOLS: ..." → negotiate and route to selected protocol
     /// - If client sends JSON-RPC request → default to JSON-RPC
     /// - tarpc provides higher performance for bulk operations
-    async fn handle_universal_connection(&self, transport: UniversalTransport) -> Result<()> {
+    async fn handle_universal_connection(
+        self: std::sync::Arc<Self>,
+        transport: UniversalTransport,
+    ) -> Result<()> {
         // Wrap transport in BufReader for line-oriented protocol
         let mut reader = BufReader::new(transport);
         let mut line = String::new();
@@ -365,7 +369,7 @@ impl JsonRpcServer {
         }
     }
 
-    /// Handle JSON-RPC loop after processing first line
+    /// Handle JSON-RPC loop after processing first line (shared with protocol negotiation)
     async fn handle_jsonrpc_with_first_line(
         &self,
         mut reader: BufReader<UniversalTransport>,
@@ -382,42 +386,10 @@ impl JsonRpcServer {
         self.handle_jsonrpc_loop(reader).await
     }
 
-    /// Standard JSON-RPC request/response loop
-    async fn handle_jsonrpc_loop(&self, mut reader: BufReader<UniversalTransport>) -> Result<()> {
-        let mut line = String::new();
-
-        loop {
-            line.clear();
-            match reader.read_line(&mut line).await {
-                Ok(0) => {
-                    // EOF - client disconnected
-                    debug!("Client disconnected");
-                    break;
-                }
-                Ok(_) => {
-                    let response = self.handle_request(&line).await;
-
-                    // Write response
-                    let mut response_json = serde_json::to_string(&response)?;
-                    response_json.push('\n');
-
-                    reader.get_mut().write_all(response_json.as_bytes()).await?;
-                    reader.get_mut().flush().await?;
-                }
-                Err(e) => {
-                    warn!("Error reading from connection: {}", e);
-                    break;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     /// Handle protocol negotiation for multi-protocol support
     #[cfg(feature = "tarpc-rpc")]
     async fn handle_protocol_negotiation(
-        &self,
+        self: std::sync::Arc<Self>,
         mut reader: BufReader<UniversalTransport>,
         first_line: &str,
     ) -> Result<()> {
@@ -458,12 +430,8 @@ impl JsonRpcServer {
                 // Extract the transport from the reader to pass to tarpc
                 let transport = reader.into_inner();
 
-                // Create tarpc server with shared metrics and AI router
-                let tarpc_server = TarpcRpcServer::with_metrics(
-                    self.service_name.clone(),
-                    Arc::clone(&self.metrics),
-                    self.ai_router.clone(),
-                );
+                // Create tarpc server that delegates to this JSON-RPC server
+                let tarpc_server = TarpcRpcServer::from_jsonrpc(self);
 
                 // Handle connection with tarpc
                 tarpc_server.handle_connection(transport).await
@@ -473,6 +441,38 @@ impl JsonRpcServer {
                 self.handle_jsonrpc_loop(reader).await
             }
         }
+    }
+
+    /// Standard JSON-RPC request/response loop
+    async fn handle_jsonrpc_loop(&self, mut reader: BufReader<UniversalTransport>) -> Result<()> {
+        let mut line = String::new();
+
+        loop {
+            line.clear();
+            match reader.read_line(&mut line).await {
+                Ok(0) => {
+                    // EOF - client disconnected
+                    debug!("Client disconnected");
+                    break;
+                }
+                Ok(_) => {
+                    let response = self.handle_request(&line).await;
+
+                    // Write response
+                    let mut response_json = serde_json::to_string(&response)?;
+                    response_json.push('\n');
+
+                    reader.get_mut().write_all(response_json.as_bytes()).await?;
+                    reader.get_mut().flush().await?;
+                }
+                Err(e) => {
+                    warn!("Error reading from connection: {}", e);
+                    break;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Handle a client connection (LEGACY - kept for backward compatibility)
@@ -558,6 +558,8 @@ impl JsonRpcServer {
         let result = match request.method.as_ref() {
             // AI domain — semantic names (preferred)
             "ai.query" => self.handle_query_ai(request.params).await,
+            "ai.complete" => self.handle_query_ai(request.params).await, // alias
+            "ai.chat" => self.handle_query_ai(request.params).await,     // alias
             "ai.list_providers" => self.handle_list_providers(request.params).await,
 
             // Capability domain — semantic names (preferred)
@@ -581,6 +583,10 @@ impl JsonRpcServer {
             "context.create" => self.handle_context_create(request.params).await,
             "context.update" => self.handle_context_update(request.params).await,
             "context.summarize" => self.handle_context_summarize(request.params).await,
+
+            // Lifecycle domain — biomeOS registration
+            "lifecycle.register" => self.handle_lifecycle_register().await,
+            "lifecycle.status" => self.handle_lifecycle_status().await,
 
             // Legacy aliases (deprecated — Phase 2 of wateringHole semantic naming standard)
             "query_ai" => {

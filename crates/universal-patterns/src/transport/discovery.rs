@@ -258,15 +258,16 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn test_get_socket_paths_uses_biomeos_convention() {
-        unsafe { std::env::remove_var("XDG_RUNTIME_DIR") };
-        let paths = get_socket_paths("myservice");
-        let has_biomeos = paths
-            .iter()
-            .any(|p| p.to_string_lossy().contains("biomeos"));
-        assert!(
-            has_biomeos,
-            "Should include biomeos path per ecosystem convention"
-        );
+        temp_env::with_var_unset("XDG_RUNTIME_DIR", || {
+            let paths = get_socket_paths("myservice");
+            let has_biomeos = paths
+                .iter()
+                .any(|p| p.to_string_lossy().contains("biomeos"));
+            assert!(
+                has_biomeos,
+                "Should include biomeos path per ecosystem convention"
+            );
+        });
     }
 
     // --- discover_ipc_endpoint tests ---

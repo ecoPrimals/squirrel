@@ -4,7 +4,7 @@
 //! Squirrel CLI library
 //!
 //! This crate provides the command-line interface components for the Squirrel platform.
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 //! It includes commands, formatters, and configuration management.
 

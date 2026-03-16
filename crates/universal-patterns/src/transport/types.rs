@@ -33,6 +33,7 @@ pub enum IpcEndpoint {
 ///
 /// Used for explicit transport selection or preference specification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TransportType {
     /// Unix domain socket (abstract namespace on Linux)
     UnixAbstract,

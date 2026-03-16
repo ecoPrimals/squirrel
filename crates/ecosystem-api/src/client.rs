@@ -337,7 +337,7 @@ impl ServiceMeshClient for MockServiceMeshClient {
         _endpoint: &str,
         registration: EcosystemServiceRegistration,
     ) -> UniversalResult<String> {
-        let service_id = registration.service_id.clone();
+        let service_id = registration.service_id.to_string();
         let service_info = ServiceInfo {
             id: service_id.clone(),
             name: service_id.clone(),

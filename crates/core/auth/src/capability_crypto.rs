@@ -365,13 +365,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_discovery_from_env() {
-        unsafe { std::env::set_var("CRYPTO_SIGNING_ENDPOINT", "/tmp/test-crypto.sock") };
-
-        let _provider = CapabilityCryptoProvider::new();
-        // Discovery will work even if socket doesn't exist (we cache the env var)
-        // Actual connection happens on first use
-
-        unsafe { std::env::remove_var("CRYPTO_SIGNING_ENDPOINT") };
+        temp_env::with_var(
+            "CRYPTO_SIGNING_ENDPOINT",
+            Some("/tmp/test-crypto.sock"),
+            || {
+                let _provider = CapabilityCryptoProvider::new();
+            },
+        );
     }
 
     #[test]

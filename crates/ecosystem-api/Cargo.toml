@@ -22,7 +22,11 @@ anyhow.workspace = true
 
 # HTTP client for service mesh communication (OPTIONAL - for HTTP APIs)
 # Production uses Unix sockets via capability discovery!
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"], optional = true }
+#
+# CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 uses rustls 0.23 (pluggable crypto).
+# Proof-of-concept: upgraded from 0.11. Still uses ring by default; rustls-tls-manual-roots-no-provider
+# + aws-lc-rs or rustls-rustcrypto for pure-Rust path. See docs/CRYPTO_MIGRATION.md.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 url.workspace = true
 
 # Logging and tracing
@@ -42,4 +46,7 @@ ecosystem-integration = []
 # HTTP APIs (brings reqwest → ring, for dev/testing)
 http-api = ["dep:reqwest"]
 http-client = ["dep:reqwest"]  # Alias for backward compatibility
-testing = [] 
+testing = []
+
+[dev-dependencies]
+temp-env = "0.3" 

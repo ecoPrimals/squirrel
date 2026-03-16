@@ -43,6 +43,7 @@ use tokio::time::{Duration, timeout};
 
 /// IPC client errors — modern idiomatic Rust with `thiserror`
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum IpcClientError {
     /// Failed to connect to ecosystem socket
     #[error("connection failed: {0}")]
@@ -196,6 +197,7 @@ impl IpcClient {
     ///
     /// 1. `$XDG_RUNTIME_DIR/biomeos/{service_id}.sock`
     /// 2. `/tmp/biomeos-$USER/{service_id}.sock`  (fallback)
+    #[must_use = "discovery may fail; the result should be checked"]
     pub fn discover(service_id: &str) -> Result<Self> {
         let socket_path = Self::discover_socket(service_id);
 

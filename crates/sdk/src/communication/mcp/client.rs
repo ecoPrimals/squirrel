@@ -188,7 +188,10 @@ use squirrel_mcp_config::unified::SquirrelUnifiedConfig; // Migrated from deprec
 impl From<&SquirrelUnifiedConfig> for McpClientConfig {
     fn from(config: &SquirrelUnifiedConfig) -> Self {
         let mut mcp_config = McpClientConfig::from_env();
-        mcp_config.server_url = format!("ws://{}:{}", config.network.host, config.network.port);
+        mcp_config.server_url = format!(
+            "ws://{}:{}",
+            config.network.bind_address, config.network.websocket_port
+        );
         mcp_config
     }
 }

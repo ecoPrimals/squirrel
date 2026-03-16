@@ -80,16 +80,18 @@ mod tests {
 
     #[test]
     fn test_discover_from_env() {
-        unsafe { env::set_var("TEST_CAPABILITY_ENDPOINT", "http://test.example.com:8080") };
+        temp_env::with_var(
+            "TEST_CAPABILITY_ENDPOINT",
+            Some("http://test.example.com:8080"),
+            || {
+                let service = discover_from_env("test_capability");
+                assert!(service.is_some());
 
-        let service = discover_from_env("test_capability");
-        assert!(service.is_some());
-
-        let service = service.unwrap();
-        assert_eq!(service.endpoint, "http://test.example.com:8080");
-        assert_eq!(service.priority, 100);
-
-        unsafe { env::remove_var("TEST_CAPABILITY_ENDPOINT") };
+                let service = service.unwrap();
+                assert_eq!(service.endpoint, "http://test.example.com:8080");
+                assert_eq!(service.priority, 100);
+            },
+        );
     }
 
     #[test]
@@ -100,16 +102,17 @@ mod tests {
 
     #[test]
     fn test_discover_all() {
-        unsafe { env::set_var("AI_ENDPOINT", "http://ai.example.com:9200") };
-        unsafe { env::set_var("STORAGE_ENDPOINT", "http://storage.example.com:8500") };
+        temp_env::with_vars(
+            [
+                ("AI_ENDPOINT", Some("http://ai.example.com:9200")),
+                ("STORAGE_ENDPOINT", Some("http://storage.example.com:8500")),
+            ],
+            || {
+                let services = discover_all_from_env();
 
-        let services = discover_all_from_env();
-
-        // Should find at least our test services
-        assert!(services.iter().any(|s| s.has_capability("ai")));
-        assert!(services.iter().any(|s| s.has_capability("storage")));
-
-        unsafe { env::remove_var("AI_ENDPOINT") };
-        unsafe { env::remove_var("STORAGE_ENDPOINT") };
+                assert!(services.iter().any(|s| s.has_capability("ai")));
+                assert!(services.iter().any(|s| s.has_capability("storage")));
+            },
+        );
     }
 }

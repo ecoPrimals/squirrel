@@ -9,7 +9,7 @@
 //! Machine Context Protocol (MCP) Implementation
 //!
 //! This crate provides a complete implementation of the Machine Context Protocol,
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 //! including message types, transport layers, and utility functions.
 
@@ -68,6 +68,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///     Ok(())
 /// }
 /// ```
+#[must_use = "call this to initialize MCP; errors should be handled"]
 pub fn init() -> Result<()> {
     tracing::info!("Initializing MCP Core v{}", VERSION);
     Ok(())

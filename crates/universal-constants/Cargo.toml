@@ -11,4 +11,4 @@ tracing = "0.1"
 # No external dependencies needed - pure constants!
 
 [dev-dependencies]
-# For testing
+temp-env = "0.3"

@@ -4,7 +4,7 @@
 //! Rule System for Squirrel
 //!
 //! This crate provides a rule system for the Squirrel Context Management System,
-#![cfg_attr(not(test), forbid(unsafe_code))]
+#![forbid(unsafe_code)]
 //! allowing for the definition, parsing, evaluation, and application of rules to context data.
 //!
 //! # Overview

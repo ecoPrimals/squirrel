@@ -7,6 +7,7 @@ use thiserror::Error;
 
 /// Primal error types
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum PrimalError {
     /// Configuration error
     #[error("Configuration error: {0}")]
