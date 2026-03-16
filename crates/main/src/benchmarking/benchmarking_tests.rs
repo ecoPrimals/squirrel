@@ -7,7 +7,7 @@ use tokio::test;
 #[test]
 async fn test_benchmark_suite_creation() {
     let suite = BenchmarkSuite::new("test_suite");
-    assert!(suite.suite_id.contains("test_suite"));
+    assert!(suite.suite_id().contains("test_suite"));
 }
 
 #[test]

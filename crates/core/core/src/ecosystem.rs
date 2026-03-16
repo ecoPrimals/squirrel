@@ -32,6 +32,7 @@ pub struct EcosystemService {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct EcosystemState {
     service_id: String,
     node_id: String,
@@ -68,7 +69,7 @@ impl EcosystemService {
             std::env::var("NODE_ID").unwrap_or_else(|_| format!("node-{}", uuid::Uuid::new_v4()));
 
         let state = Arc::new(EcosystemState {
-            service_id: service_id.clone(),
+            service_id,
             node_id,
             status: RwLock::new(ServiceStatus::Starting),
             registration_time: Utc::now(),
@@ -136,7 +137,7 @@ impl EcosystemService {
 
         // Attempt to discover and register with ecosystem
         match self.discover_and_register().await {
-            Ok(_) => {
+            Ok(()) => {
                 tracing::info!("Successfully connected to ecosystem");
                 *self.state.status.write() = ServiceStatus::Coordinating;
             }
@@ -227,8 +228,8 @@ impl EcosystemService {
                             active_connections: Some(self.discovered_primals.len() as u32),
                             custom_metrics: {
                                 let mut custom = HashMap::new();
-                                custom.insert("primals_discovered".to_string(), stats.primals_discovered as f64);
-                                custom.insert("federation_nodes".to_string(), stats.federation_nodes as f64);
+                                custom.insert("primals_discovered".to_string(), f64::from(stats.primals_discovered));
+                                custom.insert("federation_nodes".to_string(), f64::from(stats.federation_nodes));
                                 custom
                             },
                         }
@@ -239,7 +240,7 @@ impl EcosystemService {
                     // Update last health check time
                     *self.state.last_health_check.write() = Utc::now();
                 }
-                _ = self.shutdown_notify.notified() => {
+                () = self.shutdown_notify.notified() => {
                     tracing::info!("Monitoring loop shutting down");
                     break;
                 }
@@ -269,7 +270,7 @@ impl EcosystemService {
                         let _ = self.monitoring.record_error("discovery", &e.to_string(), "ecosystem").await;
                     }
                 }
-                _ = self.shutdown_notify.notified() => {
+                () = self.shutdown_notify.notified() => {
                     tracing::info!("Discovery loop shutting down");
                     break;
                 }
@@ -292,16 +293,16 @@ impl EcosystemService {
     /// Get Squirrel MCP endpoint with multi-tier resolution
     ///
     /// Resolution tiers:
-    /// 1. SQUIRREL_MCP_ENDPOINT (full endpoint)
-    /// 2. SQUIRREL_PORT (port override)
-    /// 3. Default: http://localhost:8080
+    /// 1. `SQUIRREL_MCP_ENDPOINT` (full endpoint)
+    /// 2. `SQUIRREL_PORT` (port override)
+    /// 3. Default: <http://localhost:8080>
     pub fn get_endpoint(&self) -> String {
         std::env::var("SQUIRREL_MCP_ENDPOINT").unwrap_or_else(|_| {
             let port = std::env::var("SQUIRREL_PORT")
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or(8080); // Default Squirrel MCP port
-            format!("http://localhost:{}", port)
+            format!("http://localhost:{port}")
         })
     }
 
@@ -590,12 +591,12 @@ impl EcosystemService {
 
         // For now, return error (discovery will use file-based registry)
         Err(Error::Discovery(format!(
-            "Endpoint probing not yet implemented for {}: {}",
-            primal_name, endpoint
+            "Endpoint probing not yet implemented for {primal_name}: {endpoint}"
         )))
     }
 
     /// Parse primal type from string
+    #[allow(dead_code)]
     fn parse_primal_type(&self, type_str: &str) -> Result<PrimalType> {
         match type_str.to_lowercase().as_str() {
             "squirrel" => Ok(PrimalType::Squirrel),
@@ -611,8 +612,8 @@ impl EcosystemService {
     /// Route task to appropriate primal using capability discovery pattern
     ///
     /// Resolution order:
-    /// 1. Match discovered primals by task.requirements.required_capabilities
-    /// 2. Prefer primals in task.requirements.preferred_primals
+    /// 1. Match discovered primals by `task.requirements.required_capabilities`
+    /// 2. Prefer primals in `task.requirements.preferred_primals`
     /// 3. If no match, return error (caller may fall back to local execution in sovereign mode)
     async fn route_task_to_primal(&self, task: &Task) -> Result<serde_json::Value> {
         let required = &task.requirements.required_capabilities;
@@ -650,8 +651,7 @@ impl EcosystemService {
             candidates
                 .iter()
                 .find(|e| preferred.contains(&e.value().primal_type))
-                .map(|e| e.value().clone())
-                .unwrap_or_else(|| candidates[0].value().clone())
+                .map_or_else(|| candidates[0].value().clone(), |e| e.value().clone())
         };
 
         tracing::info!(
@@ -706,6 +706,7 @@ impl EcosystemService {
 
 // Supporting data structures
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 struct ServiceRegistration {
     service_id: String,
     primal_type: String,
@@ -716,6 +717,7 @@ struct ServiceRegistration {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 struct ServiceInfo {
     service_id: String,
     primal_type: String,
@@ -725,6 +727,7 @@ struct ServiceInfo {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 struct PrimalInfo {
     capabilities: Vec<String>,
     metadata: HashMap<String, String>,

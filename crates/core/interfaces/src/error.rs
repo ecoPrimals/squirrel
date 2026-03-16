@@ -473,14 +473,14 @@ mod tests {
 
     #[test]
     fn test_into_squirrel_error() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "io problem");
+        let io_err = std::io::Error::other("io problem");
         let err = io_err.into_squirrel_error();
         assert_eq!(err.to_string(), "Generic error: io problem");
     }
 
     #[test]
     fn test_into_squirrel_error_with_context() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "io problem");
+        let io_err = std::io::Error::other("io problem");
         let err = io_err.into_squirrel_error_with_context("reading config");
         assert_eq!(err.to_string(), "reading config: Generic error: io problem");
     }

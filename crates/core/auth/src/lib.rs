@@ -2,6 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(clippy::missing_docs_in_private_items)]
+#![allow(clippy::option_if_let_else)]
+#![allow(clippy::unnecessary_map_or)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::unnecessary_wraps)]
 //! Squirrel Authentication & Security System
 //!
 //! Modern authentication system leveraging capability-based discovery and ecosystem integration.
@@ -125,16 +129,16 @@ pub use jwt::JwtTokenManager;
 /// Initialize the authentication system with current configuration
 ///
 /// Multi-tier endpoint resolution:
-/// - Security: SECURITY_SERVICE_ENDPOINT → SECURITY_AUTHENTICATION_PORT → 8443
-/// - MCP: MCP_ENDPOINT → MCP_PORT → 8444
-pub async fn initialize() -> AuthResult<()> {
+/// - Security: `SECURITY_SERVICE_ENDPOINT` → `SECURITY_AUTHENTICATION_PORT` → 8443
+/// - MCP: `MCP_ENDPOINT` → `MCP_PORT` → 8444
+pub fn initialize() -> AuthResult<()> {
     // Multi-tier security endpoint resolution
     let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {
         let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or(8443); // Default security auth port
-        format!("http://localhost:{}", port)
+        format!("http://localhost:{port}")
     });
 
     // Multi-tier MCP endpoint resolution
@@ -143,7 +147,7 @@ pub async fn initialize() -> AuthResult<()> {
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or(8444); // Default MCP HTTP port
-        format!("http://127.0.0.1:{}", port)
+        format!("http://127.0.0.1:{port}")
     });
 
     #[cfg(feature = "delegated-jwt")]
@@ -166,9 +170,9 @@ pub async fn initialize() -> AuthResult<()> {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn initialize_returns_ok() {
-        let result = initialize().await;
+    #[test]
+    fn initialize_returns_ok() {
+        let result = initialize();
         assert!(result.is_ok());
     }
 
@@ -177,34 +181,26 @@ mod tests {
         let result = temp_env::with_var(
             "SECURITY_SERVICE_ENDPOINT",
             Some("http://custom:9000"),
-            || tokio_test::block_on(initialize()),
+            initialize,
         );
         assert!(result.is_ok());
     }
 
     #[test]
     fn initialize_with_security_port_env() {
-        let result = temp_env::with_var(
-            "SECURITY_AUTHENTICATION_PORT",
-            Some("9999"),
-            || tokio_test::block_on(initialize()),
-        );
+        let result = temp_env::with_var("SECURITY_AUTHENTICATION_PORT", Some("9999"), initialize);
         assert!(result.is_ok());
     }
 
     #[test]
     fn initialize_with_mcp_endpoint_env() {
-        let result = temp_env::with_var("MCP_ENDPOINT", Some("http://mcp:9998"), || {
-            tokio_test::block_on(initialize())
-        });
+        let result = temp_env::with_var("MCP_ENDPOINT", Some("http://mcp:9998"), initialize);
         assert!(result.is_ok());
     }
 
     #[test]
     fn initialize_with_mcp_port_env() {
-        let result = temp_env::with_var("MCP_PORT", Some("8888"), || {
-            tokio_test::block_on(initialize())
-        });
+        let result = temp_env::with_var("MCP_PORT", Some("8888"), initialize);
         assert!(result.is_ok());
     }
 }

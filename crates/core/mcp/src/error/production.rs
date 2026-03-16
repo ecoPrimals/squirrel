@@ -177,8 +177,8 @@ impl ProductionError {
         Self::Configuration {
             message: message.into(),
             field: Some(field.into()),
-            expected: expected.map(|e| e.into()),
-            actual: actual.map(|a| a.into()),
+            expected: expected.map(std::convert::Into::into),
+            actual: actual.map(std::convert::Into::into),
         }
     }
 
@@ -320,7 +320,7 @@ impl ProductionError {
         Self::NotFound {
             message: message.into(),
             resource: resource.into(),
-            suggestion: suggestion.map(|s| s.into()),
+            suggestion: suggestion.map(std::convert::Into::into),
         }
     }
 
@@ -338,39 +338,38 @@ impl ProductionError {
     }
 
     /// Check if the error is recoverable
-    pub fn is_recoverable(&self) -> bool {
+    pub const fn is_recoverable(&self) -> bool {
         match self {
-            ProductionError::Configuration { .. } => false,
-            ProductionError::Network { retry_after, .. } => retry_after.is_some(),
-            ProductionError::Protocol { retry_possible, .. } => *retry_possible,
-            ProductionError::ServiceUnavailable { retry_after, .. } => retry_after.is_some(),
-            ProductionError::Database { retry_possible, .. } => *retry_possible,
-            ProductionError::Authentication { retry_allowed, .. } => *retry_allowed,
-            ProductionError::ResourceExhausted { retry_after, .. } => retry_after.is_some(),
-            ProductionError::Concurrency { retry_possible, .. } => *retry_possible,
-            ProductionError::Serialization {
+            Self::Configuration { .. } | Self::NotFound { .. } => false,
+            Self::Network { retry_after, .. }
+            | Self::ServiceUnavailable { retry_after, .. }
+            | Self::ResourceExhausted { retry_after, .. } => retry_after.is_some(),
+            Self::Protocol { retry_possible, .. }
+            | Self::Database { retry_possible, .. }
+            | Self::Concurrency { retry_possible, .. }
+            | Self::Timeout { retry_possible, .. }
+            | Self::Execution { retry_possible, .. } => *retry_possible,
+            Self::Authentication { retry_allowed, .. } => *retry_allowed,
+            Self::Serialization {
                 recovery_possible, ..
             } => *recovery_possible,
-            ProductionError::Timeout { retry_possible, .. } => *retry_possible,
-            ProductionError::NotFound { .. } => false,
-            ProductionError::Execution { retry_possible, .. } => *retry_possible,
         }
     }
 
     /// Get suggested retry delay in milliseconds
-    pub fn retry_delay_ms(&self) -> Option<u64> {
+    pub const fn retry_delay_ms(&self) -> Option<u64> {
         match self {
-            ProductionError::Network { retry_after, .. } => *retry_after,
-            ProductionError::ServiceUnavailable { retry_after, .. } => *retry_after,
-            ProductionError::ResourceExhausted { retry_after, .. } => *retry_after,
-            ProductionError::Concurrency { retry_possible, .. } => {
+            Self::Network { retry_after, .. }
+            | Self::ServiceUnavailable { retry_after, .. }
+            | Self::ResourceExhausted { retry_after, .. } => *retry_after,
+            Self::Concurrency { retry_possible, .. } => {
                 if *retry_possible {
                     Some(100)
                 } else {
                     None
                 }
             }
-            ProductionError::Timeout { retry_possible, .. } => {
+            Self::Timeout { retry_possible, .. } => {
                 if *retry_possible {
                     Some(1000)
                 } else {
@@ -382,12 +381,13 @@ impl ProductionError {
     }
 
     /// Get error severity level
-    pub fn severity(&self) -> ErrorSeverity {
+    pub const fn severity(&self) -> ErrorSeverity {
         match self {
-            ProductionError::Configuration { .. } => ErrorSeverity::Critical,
-            ProductionError::Network { .. } => ErrorSeverity::High,
-            ProductionError::Protocol { .. } => ErrorSeverity::High,
-            ProductionError::ServiceUnavailable {
+            Self::Configuration { .. } => ErrorSeverity::Critical,
+            Self::Network { .. } | Self::Protocol { .. } | Self::Authentication { .. } => {
+                ErrorSeverity::High
+            }
+            Self::ServiceUnavailable {
                 fallback_available, ..
             } => {
                 if *fallback_available {
@@ -396,7 +396,7 @@ impl ProductionError {
                     ErrorSeverity::High
                 }
             }
-            ProductionError::Database {
+            Self::Database {
                 connection_available,
                 ..
             } => {
@@ -406,13 +406,11 @@ impl ProductionError {
                     ErrorSeverity::High
                 }
             }
-            ProductionError::Authentication { .. } => ErrorSeverity::High,
-            ProductionError::ResourceExhausted { .. } => ErrorSeverity::Medium,
-            ProductionError::Concurrency { .. } => ErrorSeverity::Low,
-            ProductionError::Serialization { .. } => ErrorSeverity::Medium,
-            ProductionError::Timeout { .. } => ErrorSeverity::Medium,
-            ProductionError::NotFound { .. } => ErrorSeverity::Low,
-            ProductionError::Execution { .. } => ErrorSeverity::Medium,
+            Self::ResourceExhausted { .. } => ErrorSeverity::Medium,
+            Self::Concurrency { .. } | Self::NotFound { .. } => ErrorSeverity::Low,
+            Self::Serialization { .. } | Self::Timeout { .. } | Self::Execution { .. } => {
+                ErrorSeverity::Medium
+            }
         }
     }
 }
@@ -427,7 +425,7 @@ pub struct SafeOperation<T> {
 
 impl<T> SafeOperation<T> {
     /// Create a new safe operation
-    pub fn new(result: Result<T, ProductionError>) -> Self {
+    pub const fn new(result: Result<T, ProductionError>) -> Self {
         Self { result }
     }
 

@@ -202,7 +202,7 @@ impl BeardogSecurityCoordinator {
 
     /// Check if operation requires elevated security via security service
     #[must_use]
-    pub fn requires_security_coordination(&self, request_type: &SecurityRequestType) -> bool {
+    pub const fn requires_security_coordination(&self, request_type: &SecurityRequestType) -> bool {
         // Simple policy - delegate critical operations to security service
         matches!(
             request_type,
@@ -217,7 +217,7 @@ impl BeardogSecurityCoordinator {
     /// Legacy method name for backward compatibility
     #[deprecated(since = "0.1.0", note = "Use requires_security_coordination instead")]
     #[must_use]
-    pub fn requires_beardog_security(&self, request_type: &SecurityRequestType) -> bool {
+    pub const fn requires_beardog_security(&self, request_type: &SecurityRequestType) -> bool {
         self.requires_security_coordination(request_type)
     }
 
@@ -269,7 +269,7 @@ impl BeardogSecurityCoordinator {
 
     /// Simple health check - much simpler than complex over-engineered system
     #[must_use]
-    pub fn is_healthy(&self) -> bool {
+    pub const fn is_healthy(&self) -> bool {
         !self.security_service_endpoint.is_empty()
     }
 }

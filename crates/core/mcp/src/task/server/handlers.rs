@@ -10,11 +10,16 @@ use std::collections::HashMap;
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::error::MCPError;
-use crate::task::json_rpc_types::*;
+use crate::task::json_rpc_types::{
+    AssignTaskRequest, AssignTaskResponse, CancelTaskRequest, CancelTaskResponse,
+    CompleteTaskRequest, CompleteTaskResponse, CreateTaskRequest, CreateTaskResponse,
+    GetTaskRequest, GetTaskResponse, JsonTask, ListTasksRequest, ListTasksResponse,
+    ReportProgressRequest, ReportProgressResponse, UpdateTaskRequest, UpdateTaskResponse,
+};
 use crate::task::server::service::TaskServiceImpl;
 use crate::task::types::{AgentType, Task, TaskPriority};
 
-/// Convert bytes to HashMap<String, String> if not empty
+/// Convert bytes to `HashMap`<String, String> if not empty
 fn bytes_to_hashmap(data: &[u8]) -> HashMap<String, String> {
     if data.is_empty() {
         return HashMap::new();
@@ -29,7 +34,7 @@ fn bytes_to_hashmap(data: &[u8]) -> HashMap<String, String> {
     }
 }
 
-/// Convert Task to JsonTask for JSON-RPC response
+/// Convert Task to `JsonTask` for JSON-RPC response
 fn task_to_json_task(task: Task) -> JsonTask {
     JsonTask {
         id: task.id.as_ref().to_string(),
@@ -96,8 +101,7 @@ impl TaskServiceImpl {
             "complete_task" => self.handle_complete_task(params).await,
             "cancel_task" => self.handle_cancel_task(params).await,
             _ => Err(MCPError::InvalidArgument(format!(
-                "Unknown method: {}",
-                method
+                "Unknown method: {method}"
             ))),
         }?;
 
@@ -114,7 +118,7 @@ impl TaskServiceImpl {
         params: serde_json::Value,
     ) -> Result<serde_json::Value, MCPError> {
         let req: CreateTaskRequest = serde_json::from_value(params)
-            .map_err(|e| MCPError::InvalidArgument(format!("Invalid create_task params: {}", e)))?;
+            .map_err(|e| MCPError::InvalidArgument(format!("Invalid create_task params: {e}")))?;
 
         debug!("Creating task with name: {}", req.name);
 
@@ -161,7 +165,7 @@ impl TaskServiceImpl {
         params: serde_json::Value,
     ) -> Result<serde_json::Value, MCPError> {
         let req: GetTaskRequest = serde_json::from_value(params)
-            .map_err(|e| MCPError::InvalidArgument(format!("Invalid get_task params: {}", e)))?;
+            .map_err(|e| MCPError::InvalidArgument(format!("Invalid get_task params: {e}")))?;
 
         debug!("Getting task with ID: {}", req.task_id);
 
@@ -194,7 +198,7 @@ impl TaskServiceImpl {
         params: serde_json::Value,
     ) -> Result<serde_json::Value, MCPError> {
         let req: UpdateTaskRequest = serde_json::from_value(params)
-            .map_err(|e| MCPError::InvalidArgument(format!("Invalid update_task params: {}", e)))?;
+            .map_err(|e| MCPError::InvalidArgument(format!("Invalid update_task params: {e}")))?;
 
         debug!("Updating task with ID: {}", req.task_id);
 
@@ -255,7 +259,7 @@ impl TaskServiceImpl {
         params: serde_json::Value,
     ) -> Result<serde_json::Value, MCPError> {
         let req: ListTasksRequest = serde_json::from_value(params)
-            .map_err(|e| MCPError::InvalidArgument(format!("Invalid list_tasks params: {}", e)))?;
+            .map_err(|e| MCPError::InvalidArgument(format!("Invalid list_tasks params: {e}")))?;
 
         debug!("Listing tasks for agent: {}", req.agent_id);
 
@@ -298,7 +302,7 @@ impl TaskServiceImpl {
         params: serde_json::Value,
     ) -> Result<serde_json::Value, MCPError> {
         let req: AssignTaskRequest = serde_json::from_value(params)
-            .map_err(|e| MCPError::InvalidArgument(format!("Invalid assign_task params: {}", e)))?;
+            .map_err(|e| MCPError::InvalidArgument(format!("Invalid assign_task params: {e}")))?;
 
         debug!("Assigning task {} to agent {}", req.task_id, req.agent_id);
 
@@ -332,7 +336,7 @@ impl TaskServiceImpl {
         params: serde_json::Value,
     ) -> Result<serde_json::Value, MCPError> {
         let req: ReportProgressRequest = serde_json::from_value(params).map_err(|e| {
-            MCPError::InvalidArgument(format!("Invalid report_progress params: {}", e))
+            MCPError::InvalidArgument(format!("Invalid report_progress params: {e}"))
         })?;
 
         info!("Reporting progress for task: {}", req.task_id);
@@ -358,7 +362,7 @@ impl TaskServiceImpl {
                 error!("Failed to update progress for task {}: {}", req.task_id, e);
                 Ok(serde_json::to_value(ReportProgressResponse {
                     success: false,
-                    error_message: format!("Failed to update progress: {}", e),
+                    error_message: format!("Failed to update progress: {e}"),
                 })
                 .unwrap())
             }
@@ -370,9 +374,8 @@ impl TaskServiceImpl {
         &self,
         params: serde_json::Value,
     ) -> Result<serde_json::Value, MCPError> {
-        let req: CompleteTaskRequest = serde_json::from_value(params).map_err(|e| {
-            MCPError::InvalidArgument(format!("Invalid complete_task params: {}", e))
-        })?;
+        let req: CompleteTaskRequest = serde_json::from_value(params)
+            .map_err(|e| MCPError::InvalidArgument(format!("Invalid complete_task params: {e}")))?;
 
         debug!("Completing task: {}", req.task_id);
 
@@ -409,7 +412,7 @@ impl TaskServiceImpl {
         params: serde_json::Value,
     ) -> Result<serde_json::Value, MCPError> {
         let req: CancelTaskRequest = serde_json::from_value(params)
-            .map_err(|e| MCPError::InvalidArgument(format!("Invalid cancel_task params: {}", e)))?;
+            .map_err(|e| MCPError::InvalidArgument(format!("Invalid cancel_task params: {e}")))?;
 
         debug!("Cancelling task: {}", req.task_id);
 

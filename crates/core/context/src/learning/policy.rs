@@ -446,7 +446,7 @@ impl PolicyNetwork {
             "architecture": {
                 "input_size": weights.len(),
                 "hidden_layers": biases.len() - 1,
-                "output_size": if !biases.is_empty() { biases.last().unwrap().len() } else { 0 }
+                "output_size": biases.last().map_or(0, |b| b.len())
             },
             "metadata": {
                 "training_iterations": self.get_training_iterations(),

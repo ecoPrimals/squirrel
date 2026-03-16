@@ -362,7 +362,7 @@ mod tests {
                 });
             });
 
-            let _ = rt.block_on(async {
+            rt.block_on(async {
                 let resolver3 = PortResolver::new();
                 assert_eq!(resolver3.resolve_port("http").await.unwrap(), default_port);
             });

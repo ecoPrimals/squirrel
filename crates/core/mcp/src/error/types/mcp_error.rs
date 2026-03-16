@@ -331,9 +331,8 @@ impl MCPError {
                 | ConnectionError::Unreachable
                 | ConnectionError::TooManyConnections
                 | ConnectionError::LimitReached(_),
-            ) => ErrorSeverity::High,
-
-            Self::Protocol(ProtocolError::InvalidVersion(_)) => ErrorSeverity::High,
+            )
+            | Self::Protocol(ProtocolError::InvalidVersion(_)) => ErrorSeverity::High,
             Self::UnsupportedOperation(_) => ErrorSeverity::Medium,
 
             // All other errors are low severity
@@ -346,7 +345,7 @@ impl MCPError {
     /// The error code consists of a category prefix and a numeric code, e.g., "MCP-001".
     /// This can be used for error tracking and reporting.
     #[must_use]
-    pub fn code_str(&self) -> &'static str {
+    pub const fn code_str(&self) -> &'static str {
         match self {
             Self::Transport(_) => "MCP-001",
             Self::Protocol(_) => "MCP-002",
@@ -418,47 +417,47 @@ impl MCPError {
     }
 
     /// Returns a string representation of the general error category.
-    pub fn category_str(&self) -> &'static str {
+    pub const fn category_str(&self) -> &'static str {
         match self {
-            MCPError::Transport(_) => "TRANSPORT",
-            MCPError::Protocol(_) => "PROTOCOL",
-            MCPError::Connection(_) => "CONNECTION",
-            MCPError::Session(_) => "SESSION",
-            MCPError::Context(_) => "CONTEXT",
-            MCPError::Client(_) => "CLIENT",
-            MCPError::MessageRouter(_) => "MESSAGE_ROUTER",
-            MCPError::Serialization(_) => "SERIALIZATION",
-            MCPError::Deserialization(_) => "DESERIALIZATION",
-            MCPError::InvalidMessage(_) => "INVALID_MESSAGE",
-            MCPError::State(_) => "STATE",
-            MCPError::Authorization(_) => "AUTHORIZATION",
-            MCPError::UnsupportedOperation(_) => "UNSUPPORTED_OPERATION",
-            MCPError::CircuitBreaker(_) => "CIRCUIT_BREAKER",
-            MCPError::Io(_) => "IO",
-            MCPError::Json(_) => "JSON",
-            MCPError::Task(_) => "TASK",
-            MCPError::Handler(_) => "HANDLER",
-            MCPError::Plugin(_) => "PLUGIN",
-            MCPError::Security(_) => "SECURITY",
-            MCPError::Resource(_) => "RESOURCE",
-            MCPError::Validation(_) => "VALIDATION",
-            MCPError::Lifecycle(_) => "LIFECYCLE",
-            MCPError::Tool(_) => "TOOL",
-            MCPError::WireFormat(_) => "WIRE_FORMAT",
-            MCPError::NotInitialized(_) => "NOT_INITIALIZED",
-            MCPError::General(_) => "GENERAL",
-            MCPError::AlreadyInProgress(_) => "ALREADY_IN_PROGRESS",
-            MCPError::Monitoring(_) => "MONITORING",
-            MCPError::NotConnected(_) => "NOT_CONNECTED",
-            MCPError::Timeout(_) => "TIMEOUT",
-            MCPError::Remote(_) => "REMOTE",
-            MCPError::Unexpected(_) => "UNEXPECTED",
-            MCPError::VersionMismatch(_) => "VERSION_MISMATCH",
-            MCPError::Unsupported(_) => "UNSUPPORTED",
-            MCPError::NotImplemented(_) => "NOT_IMPLEMENTED",
-            MCPError::NotAuthorized(_) => "NOT_AUTHORIZED",
-            MCPError::InvalidState(_) => "INVALID_STATE",
-            MCPError::InvalidOperation(_) => "INVALID_OPERATION",
+            Self::Transport(_) => "TRANSPORT",
+            Self::Protocol(_) => "PROTOCOL",
+            Self::Connection(_) => "CONNECTION",
+            Self::Session(_) => "SESSION",
+            Self::Context(_) => "CONTEXT",
+            Self::Client(_) => "CLIENT",
+            Self::MessageRouter(_) => "MESSAGE_ROUTER",
+            Self::Serialization(_) => "SERIALIZATION",
+            Self::Deserialization(_) => "DESERIALIZATION",
+            Self::InvalidMessage(_) => "INVALID_MESSAGE",
+            Self::State(_) => "STATE",
+            Self::Authorization(_) => "AUTHORIZATION",
+            Self::UnsupportedOperation(_) => "UNSUPPORTED_OPERATION",
+            Self::CircuitBreaker(_) => "CIRCUIT_BREAKER",
+            Self::Io(_) => "IO",
+            Self::Json(_) => "JSON",
+            Self::Task(_) => "TASK",
+            Self::Handler(_) => "HANDLER",
+            Self::Plugin(_) => "PLUGIN",
+            Self::Security(_) => "SECURITY",
+            Self::Resource(_) => "RESOURCE",
+            Self::Validation(_) => "VALIDATION",
+            Self::Lifecycle(_) => "LIFECYCLE",
+            Self::Tool(_) => "TOOL",
+            Self::WireFormat(_) => "WIRE_FORMAT",
+            Self::NotInitialized(_) => "NOT_INITIALIZED",
+            Self::General(_) => "GENERAL",
+            Self::AlreadyInProgress(_) => "ALREADY_IN_PROGRESS",
+            Self::Monitoring(_) => "MONITORING",
+            Self::NotConnected(_) => "NOT_CONNECTED",
+            Self::Timeout(_) => "TIMEOUT",
+            Self::Remote(_) => "REMOTE",
+            Self::Unexpected(_) => "UNEXPECTED",
+            Self::VersionMismatch(_) => "VERSION_MISMATCH",
+            Self::Unsupported(_) => "UNSUPPORTED",
+            Self::NotImplemented(_) => "NOT_IMPLEMENTED",
+            Self::NotAuthorized(_) => "NOT_AUTHORIZED",
+            Self::InvalidState(_) => "INVALID_STATE",
+            Self::InvalidOperation(_) => "INVALID_OPERATION",
             Self::InternalError(_) => "INTERNAL_ERROR",
             Self::Sync(_) => "SYNC",
             Self::AlreadyExists(_) => "ALREADY_EXISTS",

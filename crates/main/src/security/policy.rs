@@ -232,7 +232,7 @@ impl SecurityPolicy {
 impl PolicyRule {
     /// Create a new policy rule
     #[must_use]
-    pub fn new(
+    pub const fn new(
         rule_id: String,
         name: String,
         condition: PolicyCondition,
@@ -250,13 +250,13 @@ impl PolicyRule {
 
     /// Set rule priority
     #[must_use]
-    pub fn with_priority(mut self, priority: u32) -> Self {
+    pub const fn with_priority(mut self, priority: u32) -> Self {
         self.priority = priority;
         self
     }
 
     /// Enable or disable rule
-    pub fn set_enabled(&mut self, enabled: bool) {
+    pub const fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
     }
 }

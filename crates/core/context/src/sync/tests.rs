@@ -2,6 +2,8 @@
 // ORC-Notice: Sync mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use super::*;
 use crate::ContextState;
 use serde_json::json;
@@ -188,4 +190,101 @@ fn test_sync_statistics_fields() {
     };
     assert_eq!(stats.pending_operations, 0);
     assert_eq!(stats.subscribers, 0);
+}
+
+#[test]
+fn test_sync_config_default() {
+    let config = SyncConfig::default();
+    assert_eq!(config.sync_timeout_seconds, 30);
+    assert_eq!(config.heartbeat_interval_seconds, 10);
+    assert_eq!(config.max_retry_attempts, 3);
+    assert!(config.auto_resolve_conflicts);
+}
+
+#[test]
+fn test_sync_message_new() {
+    let msg = SyncMessage::new(
+        SyncOperation::Heartbeat {
+            node_id: "n1".to_string(),
+            timestamp: SystemTime::now(),
+        },
+        "source".to_string(),
+    );
+    assert!(!msg.id.is_empty());
+    assert_eq!(msg.source, "source");
+    assert_eq!(msg.priority, 0);
+    assert_eq!(msg.retry_count, 0);
+}
+
+#[test]
+fn test_sync_message_high_priority() {
+    let msg = SyncMessage::high_priority(
+        SyncOperation::Heartbeat {
+            node_id: "n1".to_string(),
+            timestamp: SystemTime::now(),
+        },
+        "source".to_string(),
+    );
+    assert_eq!(msg.priority, 10);
+}
+
+#[test]
+fn test_sync_message_increment_retry() {
+    let mut msg = SyncMessage::new(
+        SyncOperation::Heartbeat {
+            node_id: "n1".to_string(),
+            timestamp: SystemTime::now(),
+        },
+        "source".to_string(),
+    );
+    msg.increment_retry();
+    msg.increment_retry();
+    assert_eq!(msg.retry_count, 2);
+}
+
+#[test]
+fn test_sync_message_is_expired() {
+    let mut msg = SyncMessage::new(
+        SyncOperation::Heartbeat {
+            node_id: "n1".to_string(),
+            timestamp: SystemTime::now(),
+        },
+        "source".to_string(),
+    );
+    msg.timestamp = SystemTime::now() - Duration::from_secs(400);
+    let config = SyncConfig {
+        max_message_age_seconds: 300,
+        ..Default::default()
+    };
+    assert!(msg.is_expired(&config));
+}
+
+#[test]
+fn test_partition_recovery_strategy_serde() {
+    let strategies = vec![
+        PartitionRecoveryStrategy::WaitForHealing,
+        PartitionRecoveryStrategy::AttemptReconnection,
+        PartitionRecoveryStrategy::UseCachedState,
+        PartitionRecoveryStrategy::FailoverToBackup,
+    ];
+    for s in strategies {
+        let json = serde_json::to_string(&s).unwrap();
+        let decoded: PartitionRecoveryStrategy = serde_json::from_str(&json).unwrap();
+        assert!(std::mem::discriminant(&s) == std::mem::discriminant(&decoded));
+    }
+}
+
+#[test]
+fn test_conflict_resolution_strategy_serde() {
+    let strategies = vec![
+        ConflictResolutionStrategy::KeepLatest,
+        ConflictResolutionStrategy::KeepOldest,
+        ConflictResolutionStrategy::Merge,
+        ConflictResolutionStrategy::Manual,
+    ];
+    for s in strategies {
+        let json = serde_json::to_string(&s).unwrap();
+        let decoded: ConflictResolutionStrategy = serde_json::from_str(&json).unwrap();
+        assert!(std::mem::discriminant(&s) == std::mem::discriminant(&decoded));
+    }
 }

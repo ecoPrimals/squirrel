@@ -302,7 +302,7 @@ impl McpIntegration {
 
     /// Check if MCP integration is initialized
     #[must_use]
-    pub fn is_initialized(&self) -> bool {
+    pub const fn is_initialized(&self) -> bool {
         self.initialized
     }
 

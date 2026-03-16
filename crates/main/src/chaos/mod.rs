@@ -216,7 +216,7 @@ impl AIResilienceCoordinator {
 
             let result = ResilienceTestResult {
                 test_id: test.test_id.clone(),
-                test_type: test.test_type.clone(),
+                test_type: test.test_type,
                 duration_ms,
                 status: TestStatus::Completed,
                 ai_operations_tested: 25,    // Simulated

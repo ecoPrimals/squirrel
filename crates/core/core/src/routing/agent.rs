@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tracing::{info, warn};
 
 /// Health status of a registered agent
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgentHealthStatus {
     /// Agent is healthy and available
     Healthy,
@@ -101,8 +101,8 @@ impl RegisteredAgent {
 
     /// Get current load as a percentage of max capacity
     pub fn load_percentage(&self) -> f64 {
-        let current_load = *self.current_load.read() as f64;
-        let max_capacity = self.max_concurrent_tasks as f64;
+        let current_load = f64::from(*self.current_load.read());
+        let max_capacity = f64::from(self.max_concurrent_tasks);
         if max_capacity > 0.0 {
             (current_load / max_capacity) * 100.0
         } else {
@@ -145,7 +145,7 @@ impl RegisteredAgent {
     pub fn update_response_time(&self, response_time_ms: f64) {
         let mut avg_response_time = self.average_response_time.write();
         // Simple moving average with weight 0.1 for new values
-        *avg_response_time = (*avg_response_time * 0.9) + (response_time_ms * 0.1);
+        *avg_response_time = (*avg_response_time).mul_add(0.9, response_time_ms * 0.1);
     }
 
     /// Update health status
@@ -341,7 +341,7 @@ impl AgentRegistry {
     /// Get agent summaries
     pub fn get_agent_summaries(&self) -> Vec<AgentSummary> {
         let agents = self.agents.read();
-        agents.values().map(|agent| agent.get_summary()).collect()
+        agents.values().map(RegisteredAgent::get_summary).collect()
     }
 
     /// Get registry statistics
@@ -360,7 +360,7 @@ impl AgentRegistry {
             total_capacity,
             current_load,
             capacity_utilization: if total_capacity > 0 {
-                (current_load as f64 / total_capacity as f64) * 100.0
+                (f64::from(current_load) / f64::from(total_capacity)) * 100.0
             } else {
                 0.0
             },
@@ -394,7 +394,7 @@ impl AgentRegistry {
     }
 
     /// Get health check configuration
-    pub fn get_health_check_config(&self) -> &HealthCheckConfig {
+    pub const fn get_health_check_config(&self) -> &HealthCheckConfig {
         &self.health_check_config
     }
 }
@@ -434,25 +434,25 @@ impl HealthCheckConfig {
     }
 
     /// Set check interval
-    pub fn with_check_interval(mut self, interval: chrono::Duration) -> Self {
+    pub const fn with_check_interval(mut self, interval: chrono::Duration) -> Self {
         self.check_interval = interval;
         self
     }
 
     /// Set check timeout
-    pub fn with_check_timeout(mut self, timeout: chrono::Duration) -> Self {
+    pub const fn with_check_timeout(mut self, timeout: chrono::Duration) -> Self {
         self.check_timeout = timeout;
         self
     }
 
     /// Set failure threshold
-    pub fn with_failure_threshold(mut self, threshold: u32) -> Self {
+    pub const fn with_failure_threshold(mut self, threshold: u32) -> Self {
         self.failure_threshold = threshold;
         self
     }
 
     /// Set success threshold
-    pub fn with_success_threshold(mut self, threshold: u32) -> Self {
+    pub const fn with_success_threshold(mut self, threshold: u32) -> Self {
         self.success_threshold = threshold;
         self
     }
@@ -461,10 +461,10 @@ impl HealthCheckConfig {
 impl std::fmt::Display for AgentHealthStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AgentHealthStatus::Healthy => write!(f, "Healthy"),
-            AgentHealthStatus::Degraded => write!(f, "Degraded"),
-            AgentHealthStatus::Unhealthy => write!(f, "Unhealthy"),
-            AgentHealthStatus::Offline => write!(f, "Offline"),
+            Self::Healthy => write!(f, "Healthy"),
+            Self::Degraded => write!(f, "Degraded"),
+            Self::Unhealthy => write!(f, "Unhealthy"),
+            Self::Offline => write!(f, "Offline"),
         }
     }
 }

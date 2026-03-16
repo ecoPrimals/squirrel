@@ -12,7 +12,7 @@ use tracing::{debug, error, warn};
 use super::context_trait::{ErrorContextTrait, WithContext};
 use super::types::{ErrorContext, ErrorSeverity};
 
-/// Example: Implementing ErrorContextTrait for a custom error type
+/// Example: Implementing `ErrorContextTrait` for a custom error type
 ///
 /// This shows how to provide full context information for an error.
 #[derive(Debug)]
@@ -63,7 +63,7 @@ pub fn log_error_with_context(error: &dyn ErrorContextTrait) {
 
     eprintln!("Error occurred:");
     for (key, value) in log_entry {
-        eprintln!("  {}: {}", key, value);
+        eprintln!("  {key}: {value}");
     }
 
     if error.should_alert() {
@@ -75,7 +75,7 @@ pub fn log_error_with_context(error: &dyn ErrorContextTrait) {
 ///
 /// This shows how to add context as errors propagate up the call stack.
 pub mod context_propagation {
-    use super::*;
+    use super::{ErrorContextTrait, ErrorSeverity, WithContext};
 
     /// Example database error type for demonstrating error context propagation.
     #[derive(Debug, Clone)]
@@ -101,7 +101,7 @@ pub mod context_propagation {
     impl WithContext for DatabaseError {
         fn with_context(self, operation: &str, component: &str) -> Self {
             // In a real implementation, you'd add this context to the error
-            eprintln!("Adding context: {} in {}", operation, component);
+            eprintln!("Adding context: {operation} in {component}");
             self
         }
 
@@ -115,7 +115,7 @@ pub mod context_propagation {
     pub fn save_to_database(data: &str) -> Result<(), DatabaseError> {
         // Simulate database error
         Err(DatabaseError {
-            message: format!("Failed to save: {}", data),
+            message: format!("Failed to save: {data}"),
             severity: ErrorSeverity::High,
         })
     }
@@ -196,6 +196,7 @@ impl ErrorStats {
     }
 
     /// Returns the percentage of errors that were critical severity.
+    #[allow(clippy::cast_precision_loss)]
     pub fn get_critical_rate(&self) -> f64 {
         if self.total_errors == 0 {
             return 0.0;

@@ -803,6 +803,7 @@ pub mod utils {
 // Note: Types are defined in this module, no need to re-export them
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -932,5 +933,80 @@ mod tests {
         assert_eq!(cmd.name, "test_cmd");
         assert_eq!(cmd.description, "A test");
         assert_eq!(cmd.category, Some("utils".to_string()));
+    }
+
+    #[test]
+    fn test_plugin_context_get_config() {
+        let mut ctx = PluginContext::new("test".to_string());
+        ctx.config = serde_json::json!({"key": "value"});
+        assert_eq!(ctx.get_config("key"), Some(&serde_json::json!("value")));
+        assert_eq!(ctx.get_config("missing"), None);
+    }
+
+    #[test]
+    fn test_plugin_manager_lifecycle() {
+        let manager = PluginManager::new();
+        assert!(manager.list_plugins().unwrap().is_empty());
+        assert!(!manager.has_plugin("nonexistent").unwrap());
+    }
+
+    #[test]
+    fn test_plugin_manager_has_plugin_empty() {
+        let manager = PluginManager::new();
+        assert!(!manager.has_plugin("x").unwrap());
+    }
+
+    #[test]
+    fn test_validate_plugin_info_valid() {
+        let info = PluginInfo {
+            id: "test-id".to_string(),
+            name: "Test".to_string(),
+            version: "1.0.0".to_string(),
+            state: PluginStatus::Uninitialized,
+            config: PluginConfig::default(),
+            stats: PluginStats::default(),
+            capabilities: vec![],
+            description: String::new(),
+            author: String::new(),
+            license: "MIT".to_string(),
+            repository: None,
+            keywords: vec![],
+            metadata: serde_json::json!({}),
+        };
+        assert!(utils::validate_plugin_info(&info).is_ok());
+    }
+
+    #[test]
+    fn test_validate_plugin_info_empty_id() {
+        let mut info = PluginInfo {
+            id: String::new(),
+            name: "Test".to_string(),
+            version: "1.0.0".to_string(),
+            state: PluginStatus::Uninitialized,
+            config: PluginConfig::default(),
+            stats: PluginStats::default(),
+            capabilities: vec![],
+            description: String::new(),
+            author: String::new(),
+            license: "MIT".to_string(),
+            repository: None,
+            keywords: vec![],
+            metadata: serde_json::json!({}),
+        };
+        assert!(utils::validate_plugin_info(&info).is_err());
+        info.id = "x".to_string();
+        info.name = String::new();
+        assert!(utils::validate_plugin_info(&info).is_err());
+        info.name = "Test".to_string();
+        info.version = String::new();
+        assert!(utils::validate_plugin_info(&info).is_err());
+        info.version = "invalid".to_string();
+        assert!(utils::validate_plugin_info(&info).is_err());
+    }
+
+    #[test]
+    fn test_plugin_utils_create_default_context() {
+        let ctx = utils::create_default_context("my-plugin".to_string());
+        assert_eq!(ctx.plugin_id, "my-plugin");
     }
 }

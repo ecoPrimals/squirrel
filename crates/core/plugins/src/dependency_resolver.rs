@@ -214,16 +214,16 @@ impl DependencyResolver {
         self.detect_circular_dependencies(&mut result)?;
 
         // Step 3: Resolve version conflicts
-        self.resolve_version_conflicts(&mut result)?;
+        self.resolve_version_conflicts(&mut result);
 
         // Step 4: Filter platform-specific dependencies
-        self.filter_platform_dependencies(&mut result)?;
+        self.filter_platform_dependencies(&mut result);
 
         // Step 5: Perform topological sort for initialization order
         self.topological_sort(&mut result)?;
 
         // Step 6: Optimize order by dependency types
-        self.optimize_initialization_order(&mut result)?;
+        self.optimize_initialization_order(&mut result);
 
         // Cache the result
         self.resolution_cache.insert(cache_key, result.clone());
@@ -342,7 +342,8 @@ impl DependencyResolver {
     }
 
     /// Attempt to resolve version conflicts
-    fn resolve_version_conflicts(&self, result: &mut ResolutionResult) -> Result<()> {
+    #[allow(clippy::unused_self)] // Required for consistent resolver API
+    fn resolve_version_conflicts(&self, result: &mut ResolutionResult) {
         debug!("Resolving version conflicts");
 
         for conflict in &result.version_conflicts {
@@ -360,12 +361,10 @@ impl DependencyResolver {
                 conflict.dependency_name, conflict.required_version, conflict.available_version
             ));
         }
-
-        Ok(())
     }
 
     /// Filter dependencies based on current platform
-    fn filter_platform_dependencies(&self, result: &mut ResolutionResult) -> Result<()> {
+    fn filter_platform_dependencies(&self, result: &mut ResolutionResult) {
         debug!(
             "Filtering platform-specific dependencies for platform: {}",
             self.current_platform
@@ -396,8 +395,6 @@ impl DependencyResolver {
         result
             .unresolved_plugins
             .retain(|(plugin_id, _)| !excluded_plugins.contains(plugin_id));
-
-        Ok(())
     }
 
     /// Perform topological sort to determine initialization order
@@ -473,7 +470,7 @@ impl DependencyResolver {
     }
 
     /// Optimize initialization order based on dependency types
-    fn optimize_initialization_order(&self, result: &mut ResolutionResult) -> Result<()> {
+    fn optimize_initialization_order(&self, result: &mut ResolutionResult) {
         debug!("Optimizing initialization order by dependency types");
 
         // Separate plugins by dependency types for better ordering
@@ -483,23 +480,15 @@ impl DependencyResolver {
         let mut other_plugins = Vec::new();
 
         for &plugin_id in &result.initialization_order {
-            let has_critical_deps = self
-                .dependencies
-                .get(&plugin_id)
-                .map(|deps| {
-                    deps.iter()
-                        .any(|d| d.dependency_type == DependencyType::Critical)
-                })
-                .unwrap_or(false);
+            let has_critical_deps = self.dependencies.get(&plugin_id).is_some_and(|deps| {
+                deps.iter()
+                    .any(|d| d.dependency_type == DependencyType::Critical)
+            });
 
-            let has_extension_deps = self
-                .dependencies
-                .get(&plugin_id)
-                .map(|deps| {
-                    deps.iter()
-                        .any(|d| d.dependency_type == DependencyType::Extension)
-                })
-                .unwrap_or(false);
+            let has_extension_deps = self.dependencies.get(&plugin_id).is_some_and(|deps| {
+                deps.iter()
+                    .any(|d| d.dependency_type == DependencyType::Extension)
+            });
 
             if has_critical_deps {
                 critical_plugins.push(plugin_id);
@@ -520,7 +509,6 @@ impl DependencyResolver {
         optimized_order.extend(extension_plugins);
 
         result.initialization_order = optimized_order;
-        Ok(())
     }
 
     /// Generate a cache key based on current plugin and dependency state
@@ -556,7 +544,7 @@ impl DependencyResolver {
             .get(&plugin_id)
             .map(|p| p.metadata().name.clone());
 
-        if let Some(name) = plugin_name {
+        plugin_name.map_or_else(Vec::new, |name| {
             self.dependencies
                 .iter()
                 .filter_map(|(id, deps)| {
@@ -567,9 +555,7 @@ impl DependencyResolver {
                     }
                 })
                 .collect()
-        } else {
-            Vec::new()
-        }
+        })
     }
 
     /// Clear the resolution cache
@@ -581,7 +567,7 @@ impl DependencyResolver {
     /// Get statistics about the current resolution state
     pub fn get_statistics(&self) -> ResolutionStatistics {
         let total_plugins = self.plugins.len();
-        let total_dependencies = self.dependencies.values().map(|deps| deps.len()).sum();
+        let total_dependencies = self.dependencies.values().map(std::vec::Vec::len).sum();
         let optional_dependencies = self
             .dependencies
             .values()

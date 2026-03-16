@@ -14,11 +14,7 @@ use crate::rules::models::{Rule, RuleAction, RuleCondition, RuleMetadata};
 use std::sync::Arc;
 
 /// Helper to create a test rule
-pub(crate) fn create_test_rule(
-    id: &str,
-    priority: i32,
-    conditions: Vec<RuleCondition>,
-) -> Arc<Rule> {
+pub fn create_test_rule(id: &str, priority: i32, conditions: Vec<RuleCondition>) -> Arc<Rule> {
     Arc::new(Rule {
         id: id.to_string(),
         name: format!("Test Rule {}", id),

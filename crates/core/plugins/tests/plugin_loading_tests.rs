@@ -133,13 +133,13 @@ storage = false
 
         // Create multiple plugin directories
         for i in 1..=5 {
-            let plugin_dir = temp_dir.path().join(format!("plugin-{}", i));
+            let plugin_dir = temp_dir.path().join(format!("plugin-{i}"));
             fs::create_dir(&plugin_dir).unwrap();
 
             if i % 2 == 0 {
-                create_test_manifest_toml(&plugin_dir, &format!("plugin-{}", i), "1.0.0").unwrap();
+                create_test_manifest_toml(&plugin_dir, &format!("plugin-{i}"), "1.0.0").unwrap();
             } else {
-                create_test_manifest_json(&plugin_dir, &format!("plugin-{}", i), "1.0.0").unwrap();
+                create_test_manifest_json(&plugin_dir, &format!("plugin-{i}"), "1.0.0").unwrap();
             }
         }
 

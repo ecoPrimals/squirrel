@@ -212,8 +212,9 @@ pub struct JsonRpcServer {
 
     /// Registry of remote primals that announced their tools.
     /// Key: tool name → socket path for forwarding.
+    /// Registry: tool name -> announced primal. Uses Arc<str> keys for O(1) clone.
     pub(crate) announced_tools:
-        Arc<RwLock<std::collections::HashMap<String, super::types::AnnouncedPrimal>>>,
+        Arc<RwLock<std::collections::HashMap<Arc<str>, super::types::AnnouncedPrimal>>>,
 
     /// Capability registry loaded from capability_registry.toml (source of truth)
     pub capability_registry: Arc<crate::capabilities::registry::CapabilityRegistry>,

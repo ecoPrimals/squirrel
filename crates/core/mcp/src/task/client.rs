@@ -11,7 +11,12 @@ use tokio::net::UnixStream;
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
 
-use crate::task::json_rpc_types::*;
+use crate::task::json_rpc_types::{
+    AssignTaskRequest, AssignTaskResponse, CancelTaskRequest, CancelTaskResponse,
+    CompleteTaskRequest, CompleteTaskResponse, CreateTaskRequest, CreateTaskResponse,
+    GetTaskRequest, GetTaskResponse, JsonTask, ListTasksRequest, ListTasksResponse,
+    ReportProgressRequest, ReportProgressResponse, UpdateTaskRequest, UpdateTaskResponse,
+};
 use crate::task::types::{AgentType, Task, TaskPriority, TaskStatus};
 
 /// Parameters for creating a new task
@@ -67,7 +72,7 @@ pub struct TaskClientConfig {
     pub max_backoff_ms: u64,
 }
 
-/// Client wrapper for the TaskService JSON-RPC API
+/// Client wrapper for the `TaskService` JSON-RPC API
 #[derive(Clone)]
 pub struct MCPTaskClient {
     /// Client configuration
@@ -101,8 +106,8 @@ impl MCPTaskClient {
     }
 
     /// Create a new task client with the given configuration
-    pub fn with_config(config: TaskClientConfig) -> Self {
-        MCPTaskClient { config }
+    pub const fn with_config(config: TaskClientConfig) -> Self {
+        Self { config }
     }
 }
 
@@ -124,27 +129,27 @@ impl MCPTaskClient {
     }
 
     /// Get the maximum retries from the configuration
-    pub fn max_retries(&self) -> u32 {
+    pub const fn max_retries(&self) -> u32 {
         self.config.max_retries
     }
 
     /// Get the connect timeout from the configuration
-    pub fn connect_timeout(&self) -> u64 {
+    pub const fn connect_timeout(&self) -> u64 {
         self.config.connect_timeout_ms
     }
 
     /// Get the request timeout from the configuration
-    pub fn request_timeout(&self) -> u64 {
+    pub const fn request_timeout(&self) -> u64 {
         self.config.request_timeout_ms
     }
 
     /// Get the initial backoff from the configuration
-    pub fn initial_backoff(&self) -> u64 {
+    pub const fn initial_backoff(&self) -> u64 {
         self.config.initial_backoff_ms
     }
 
     /// Get the maximum backoff from the configuration
-    pub fn max_backoff(&self) -> u64 {
+    pub const fn max_backoff(&self) -> u64 {
         self.config.max_backoff_ms
     }
 
@@ -164,10 +169,9 @@ impl MCPTaskClient {
 
         let request_bytes = serde_json::to_vec(&request).context("Failed to serialize request")?;
 
-        let stream = UnixStream::connect(&socket_path).await.context(format!(
-            "Failed to connect to task server at {}",
-            socket_path
-        ))?;
+        let stream = UnixStream::connect(&socket_path)
+            .await
+            .context(format!("Failed to connect to task server at {socket_path}"))?;
 
         let (mut reader, mut writer) = stream.into_split();
         writer.write_all(&request_bytes).await?;
@@ -185,7 +189,7 @@ impl MCPTaskClient {
                 .get("message")
                 .and_then(|m| m.as_str())
                 .unwrap_or("Unknown error");
-            return Err(anyhow!("JSON-RPC error: {}", msg));
+            return Err(anyhow!("JSON-RPC error: {msg}"));
         }
 
         response
@@ -281,9 +285,9 @@ impl MCPTaskClient {
     /// List tasks with optional filtering
     pub async fn list_tasks(&self, params: ListTasksParams) -> Result<Vec<Task>> {
         let request = ListTasksRequest {
-            status: params.status.map(|s| s as i32).unwrap_or(-1),
+            status: params.status.map_or(-1, |s| s as i32),
             agent_id: params.agent_id.unwrap_or_default(),
-            agent_type: params.agent_type.map(|a| a as i32).unwrap_or(-1),
+            agent_type: params.agent_type.map_or(-1, |a| a as i32),
             context_id: params.context_id.unwrap_or_default(),
             limit: params.limit.unwrap_or(100).min(i32::MAX as u32) as i32,
             offset: params.offset.unwrap_or(0).min(i32::MAX as u32) as i32,
@@ -406,7 +410,7 @@ impl MCPTaskClient {
     }
 }
 
-/// Convert JsonTask to Task
+/// Convert `JsonTask` to Task
 fn json_task_to_task(json: JsonTask) -> Task {
     let input_data = if json.input_data.is_empty() {
         None

@@ -116,7 +116,7 @@ impl MockCommandRegistry {
         if let Some(command) = self.commands.get(name) {
             Ok(command.help())
         } else {
-            Err(format!("Command '{}' not found", name))
+            Err(format!("Command '{name}' not found"))
         }
     }
 }

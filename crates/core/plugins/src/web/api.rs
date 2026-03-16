@@ -155,7 +155,7 @@ pub struct PluginMarketplaceEntry {
 /// WebSocket event message for plugin updates.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebSocketMessage {
-    /// Event type (e.g. "plugin_loaded", "status_changed").
+    /// Event type (e.g. "`plugin_loaded`", "`status_changed`").
     pub event_type: String,
     /// Plugin ID if event is plugin-specific.
     pub plugin_id: Option<Uuid>,
@@ -617,6 +617,7 @@ impl PluginManagementAPI {
     }
 
     /// Execute plugin command
+    #[allow(clippy::unused_async)]
     async fn execute_plugin_command(
         &self,
         plugin_id: Uuid,
@@ -637,6 +638,7 @@ impl PluginManagementAPI {
     }
 
     /// Search marketplace plugins
+    #[allow(clippy::unused_async)]
     async fn search_marketplace_plugins(&self, search: PluginSearchRequest) -> Result<WebResponse> {
         // In real implementation, this would search the plugin marketplace
         // For now, return sample data
@@ -668,6 +670,7 @@ impl PluginManagementAPI {
     }
 
     /// Get marketplace plugin details
+    #[allow(clippy::unused_async)]
     async fn get_marketplace_plugin_details(&self, plugin_id: Uuid) -> Result<WebResponse> {
         // In real implementation, this would fetch plugin details from marketplace
         let sample_plugin = PluginMarketplaceEntry {
@@ -696,7 +699,7 @@ impl PluginManagementAPI {
     async fn install_marketplace_plugin(&self, plugin_id: Uuid) -> Result<WebResponse> {
         // This would integrate with the install_plugin method
         let install_request = PluginInstallRequest {
-            source: format!("marketplace://{}", plugin_id),
+            source: format!("marketplace://{plugin_id}"),
             version: None,
             configuration: None,
         };
@@ -705,6 +708,7 @@ impl PluginManagementAPI {
     }
 
     /// Get marketplace categories
+    #[allow(clippy::unused_async)]
     async fn get_marketplace_categories(&self) -> Result<WebResponse> {
         let categories = vec![
             "utility",
@@ -788,7 +792,7 @@ impl PluginManagementAPI {
             dependencies: metadata
                 .dependencies
                 .iter()
-                .map(|id| id.to_string())
+                .map(std::string::ToString::to_string)
                 .collect(),
             endpoints,
         })
@@ -799,14 +803,14 @@ impl PluginManagementAPI {
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() >= 4 {
             let id_str = parts[3];
-            Uuid::parse_str(id_str).map_err(|e| anyhow::anyhow!("Invalid plugin ID: {}", e))
+            Uuid::parse_str(id_str).map_err(|e| anyhow::anyhow!("Invalid plugin ID: {e}"))
         } else {
             Err(anyhow::anyhow!("Invalid path format"))
         }
     }
 
     /// Extract search parameters from request
-    fn extract_search_params(&self, _request: &WebRequest) -> Result<PluginSearchRequest> {
+    const fn extract_search_params(&self, _request: &WebRequest) -> Result<PluginSearchRequest> {
         // In real implementation, this would parse query parameters
         Ok(PluginSearchRequest {
             query: None,
@@ -819,6 +823,7 @@ impl PluginManagementAPI {
     }
 
     /// Emit WebSocket event to all connected clients
+    #[allow(clippy::unused_async)]
     async fn emit_websocket_event(&self, message: WebSocketMessage) {
         // In real implementation, this would send the message to all connected WebSocket clients
         // For now, just log it
@@ -833,7 +838,7 @@ pub struct PluginWebSocketHandler {
 
 impl PluginWebSocketHandler {
     /// Creates a new WebSocket handler backed by the plugin management API.
-    pub fn new(api: Arc<PluginManagementAPI>) -> Self {
+    pub const fn new(api: Arc<PluginManagementAPI>) -> Self {
         Self { api }
     }
 
@@ -851,16 +856,22 @@ impl PluginWebSocketHandler {
             ],
         };
 
-        let mut connections = self.api.websocket_connections.write().await;
-        connections.insert(connection_id, connection);
+        self.api
+            .websocket_connections
+            .write()
+            .await
+            .insert(connection_id, connection);
 
         Ok(())
     }
 
     /// Handle WebSocket disconnection
     pub async fn handle_disconnection(&self, connection_id: Uuid) -> Result<()> {
-        let mut connections = self.api.websocket_connections.write().await;
-        connections.remove(&connection_id);
+        self.api
+            .websocket_connections
+            .write()
+            .await
+            .remove(&connection_id);
 
         Ok(())
     }
@@ -887,7 +898,7 @@ mod tests {
         let api = PluginManagementAPI::new(manager);
 
         let plugin_id = Uuid::new_v4();
-        let path = format!("/api/plugins/{}", plugin_id);
+        let path = format!("/api/plugins/{plugin_id}");
 
         let extracted_id = api.extract_plugin_id(&path).unwrap();
         assert_eq!(extracted_id, plugin_id);

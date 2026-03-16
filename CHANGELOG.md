@@ -9,6 +9,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.7] - 2026-03-16
+
+Comprehensive audit execution: ecoBin compliance, clippy zero-error, typed errors,
+structured logging, zero-copy evolution, test expansion, and documentation alignment.
+
+### Added
+
+- **`universal-constants::identity`** — centralized `PRIMAL_ID`, `JWT_ISSUER`,
+  `JWT_AUDIENCE`, `JWT_SIGNING_KEY_ID` constants. Auth crates import from here
+  instead of hardcoding strings.
+- **`CommandError` (thiserror)** — typed error enum replacing `Box<dyn Error>` in
+  `squirrel-commands` (~80 instances). Variants: Io, Serialization, Validation,
+  Hook, Lifecycle, ResourceNotFound, Allocation, Lock.
+- **`FormatterError` (thiserror)** — typed error for CLI formatter.
+- **152 new tests** — MCP error handling, transport framing, plugin state,
+  performance optimizer, visualization system, SDK types, config validation,
+  environment detection.
+- **`enhanced/platform_types.rs`** — extracted from `enhanced/mod.rs` (992→701 lines).
+- **`benchmarking/runners.rs`** — extracted from `benchmarking/mod.rs` (988→477 lines).
+
+### Changed
+
+- **ecoBin compliance** — removed `openssl-sys`, `native-tls`, `anthropic-sdk` from
+  all feature paths. Gated `sysinfo` behind `system-metrics` feature. Default build
+  has zero chimeric C dependencies.
+- **Structured logging** — ~50 `println!/eprintln!` calls in production evolved to
+  `tracing::{info,warn,error,debug}`. `println!` reserved for CLI and startup banner.
+- **Zero-copy patterns** — `Arc<str>` for primal identifiers and capabilities in
+  `jsonrpc_handlers.rs` and `self_knowledge.rs`. `bytes::Bytes` for frame payloads.
+  `Arc<dyn ValidationRule>` replacing `Box::new(self.clone())` (11 sites).
+- **Clippy zero-error** — all lib targets pass `cargo clippy --all-features --lib
+  -- -D warnings` with pedantic + nursery. Hundreds of lint fixes applied.
+- **Unsafe elimination** — all `unsafe { env::set_var }` calls in 4 test files
+  migrated to `temp_env`. Added `temp-env` to MCP crate dev-deps.
+- **`--all-features` build** — fixed 12 compile errors in `ai-tools/clients` module,
+  cleaned MCP `build.rs`, fixed doc-markdown lints in `universal-constants`.
+- **Stubs documented** — `unified_manager.rs` STUB comments replaced with proper docs.
+  Mocks verified behind `#[cfg(test)]`.
+
+### Removed
+
+- **TODO comment** in MCP Cargo.toml (wateringHole violation: no TODOs in committed code)
+- **Stale `anthropic-sdk` dep** from `ai-tools` (pulled `native-tls`/`openssl`)
+- **Stale `openai-api-rs` dep** from MCP crate (pulled `reqwest` 0.11)
+- **`CODEBASE_STRUCTURE.md`** — obsolete spec (described layout from September 2024)
+- **`LEGACY_PROVIDERS_DEPRECATED.md`** — superseded by capability-ai migration
+- **`README_MOVED.md`** — stale redirect doc in model_splitting/
+
+### Metrics
+
+| Metric | alpha.6 | alpha.7 |
+|--------|---------|---------|
+| Tests | 4,667 | 4,819 (+152) |
+| Coverage | 67% | 69% |
+| Clippy (lib) | FAIL (350+ errors) | PASS (0 errors) |
+| `cargo fmt` | FAIL (10+ files) | PASS |
+| `--all-features` build | FAIL (125+ errors) | PASS |
+| C deps (default) | 0 (claimed) | 0 (verified) |
+| `Box<dyn Error>` in libs | ~80 | 0 (commands, cli) |
+| `println!` in production | ~50 | 0 |
+| `unsafe` in tests | 4 files | 0 |
+| Files >1000 lines | 0 | 0 (two refactored) |
+| Hardcoded JWT strings | 8 | 0 (centralized) |
+
 ## [0.1.0-alpha.6] - 2026-03-16
 
 Test coverage expansion, reqwest 0.12 migration, disabled test re-enablement.

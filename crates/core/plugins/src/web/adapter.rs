@@ -59,7 +59,7 @@ where
     T: LegacyWebPluginTrait + Plugin + Send + Sync + 'static,
 {
     /// Create a new legacy plugin adapter
-    pub fn new(plugin: Arc<T>) -> Self {
+    pub const fn new(plugin: Arc<T>) -> Self {
         let endpoints = vec![];
         let components = vec![];
 
@@ -73,14 +73,14 @@ where
     /// Convert legacy endpoint to new format
     pub fn convert_legacy_endpoint(&self, legacy: &crate::plugin::WebEndpoint) -> WebEndpoint {
         let method = match legacy.method.to_uppercase().as_str() {
-            "GET" => HttpMethod::Get,
             "POST" => HttpMethod::Post,
             "PUT" => HttpMethod::Put,
             "DELETE" => HttpMethod::Delete,
             "PATCH" => HttpMethod::Patch,
             "OPTIONS" => HttpMethod::Options,
             "HEAD" => HttpMethod::Head,
-            _ => HttpMethod::Get, // Default to GET for unknown methods
+            "GET" => HttpMethod::Get,
+            _ => HttpMethod::Get, // Unknown methods default to GET
         };
 
         WebEndpoint::new(
@@ -112,10 +112,7 @@ where
             }
         }
 
-        let comp_id = match Uuid::parse_str(&legacy.id) {
-            Ok(id) => id,
-            Err(_) => Uuid::new_v4(),
-        };
+        let comp_id = Uuid::parse_str(&legacy.id).unwrap_or_else(|_| Uuid::new_v4());
 
         let mut component = WebComponent::new(
             comp_id,
@@ -180,7 +177,7 @@ where
             .map(|c| {
                 // First convert to our LegacyWebComponent structure
                 let legacy_comp = LegacyWebComponent {
-                    id: c.id.to_string(),
+                    id: c.id.clone(),
                     name: c.name.clone(),
                     description: "Converted legacy component".to_string(),
                     component_type: "custom".to_string(),
@@ -196,7 +193,7 @@ where
         // Extract parameters from the request
         let path = request.path.clone();
         let method = request.method.to_string();
-        let body = request.body.clone().unwrap_or(json!({}));
+        let body = request.body.clone().unwrap_or_else(|| json!({}));
 
         // Call legacy plugin with the extracted parameters
         match self.plugin.handle_request(&path, &method, body).await {
@@ -249,7 +246,7 @@ where
     T: Plugin + Send + Sync + 'static,
 {
     /// Create a new plugin adapter
-    pub fn new(plugin: Arc<T>) -> Self {
+    pub const fn new(plugin: Arc<T>) -> Self {
         Self { plugin }
     }
 

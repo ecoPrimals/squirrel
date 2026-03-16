@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Debug;
-#[expect(unused_imports, reason = "re-export for planned consumer")]
 use std::sync::Arc;
 use std::sync::RwLock;
+#[cfg(feature = "system-metrics")]
 use sysinfo::{System, SystemExt};
 
 /// Trait for implementing command validation rules.
@@ -32,9 +32,6 @@ pub trait ValidationRule: Send + Sync + std::fmt::Debug {
     /// # Errors
     /// Returns an error if validation fails with a description of the failure
     fn validate(&self, command: &dyn Command, context: &ValidationContext) -> Result<()>;
-
-    /// Clone the rule into a new Box.
-    fn clone_box(&self) -> Box<dyn ValidationRule>;
 }
 
 /// Error type for validation failures
@@ -74,7 +71,7 @@ pub struct ValidationContext {
     data: RwLock<HashMap<String, String>>,
     /// Rules for validation (currently unused)
     #[serde(skip)]
-    rules: HashMap<String, Box<dyn ValidationRule>>,
+    rules: HashMap<String, Arc<dyn ValidationRule>>,
 }
 
 impl ValidationContext {
@@ -142,8 +139,8 @@ pub struct CommandValidator {
     patterns: HashMap<String, Regex>,
     /// Context for validation operations containing metadata about the command being validated
     context: ValidationContext,
-    /// List of validation rules
-    rules: RwLock<Vec<Box<dyn ValidationRule>>>,
+    /// List of validation rules (Arc for O(1) clone when sharing)
+    rules: RwLock<Vec<Arc<dyn ValidationRule>>>,
 }
 
 impl CommandValidator {
@@ -161,7 +158,7 @@ impl CommandValidator {
     ///
     /// # Errors
     /// Returns an error if the write lock cannot be acquired.
-    pub fn add_rule(&self, rule: Box<dyn ValidationRule>) -> Result<()> {
+    pub fn add_rule(&self, rule: Arc<dyn ValidationRule>) -> Result<()> {
         let mut rules = self.rules.write().map_err(|e| {
             CommandError::ValidationError(format!("Failed to acquire write lock: {e}"))
         })?;
@@ -207,21 +204,24 @@ impl CommandValidator {
         Ok(())
     }
 
-    /// Validates system requirements including memory and thread usage
+    /// Validates system requirements including memory and thread usage.
+    /// Only runs when `system-metrics` feature is enabled (ecoBin: pure Rust default).
     fn validate_system_requirements() -> Result<()> {
-        let mut sys = System::new_all();
-        sys.refresh_all();
+        #[cfg(feature = "system-metrics")]
+        {
+            let mut sys = System::new_all();
+            sys.refresh_all();
 
-        // Check available memory
-        let total_memory = sys.total_memory();
-        let available_memory = sys.available_memory();
+            // Check available memory
+            let total_memory = sys.total_memory();
+            let available_memory = sys.available_memory();
 
-        if available_memory < total_memory / 10 {
-            return Err(CommandError::ValidationError(
-                "Insufficient available memory".to_string(),
-            ));
+            if available_memory < total_memory / 10 {
+                return Err(CommandError::ValidationError(
+                    "Insufficient available memory".to_string(),
+                ));
+            }
         }
-
         Ok(())
     }
 
@@ -278,10 +278,6 @@ impl ValidationRule for RequiredArgumentsRule {
 
     fn description(&self) -> &'static str {
         "Validates that required arguments are present"
-    }
-
-    fn clone_box(&self) -> Box<dyn ValidationRule> {
-        Box::new(self.clone())
     }
 }
 
@@ -343,10 +339,6 @@ impl ValidationRule for ArgumentPatternRule {
     fn description(&self) -> &'static str {
         "Validates argument values against regex patterns"
     }
-
-    fn clone_box(&self) -> Box<dyn ValidationRule> {
-        Box::new(self.clone())
-    }
 }
 
 /// Rule that validates required environment variables
@@ -388,10 +380,6 @@ impl ValidationRule for EnvironmentRule {
 
     fn description(&self) -> &'static str {
         "Validates required environment variables"
-    }
-
-    fn clone_box(&self) -> Box<dyn ValidationRule> {
-        Box::new(self.clone())
     }
 }
 
@@ -458,10 +446,6 @@ impl ValidationRule for NameLengthRule {
     fn description(&self) -> &'static str {
         "Validates command name length"
     }
-
-    fn clone_box(&self) -> Box<dyn ValidationRule> {
-        Box::new(self.clone())
-    }
 }
 
 /// Rule that validates command description length
@@ -503,10 +487,6 @@ impl ValidationRule for DescriptionRule {
 
     fn description(&self) -> &'static str {
         "Validates command description length"
-    }
-
-    fn clone_box(&self) -> Box<dyn ValidationRule> {
-        Box::new(self.clone())
     }
 }
 
@@ -575,10 +555,6 @@ impl ValidationRule for InputSanitizationRule {
     fn description(&self) -> &'static str {
         "Validates command input against unsafe patterns"
     }
-
-    fn clone_box(&self) -> Box<dyn ValidationRule> {
-        Box::new(self.clone())
-    }
 }
 
 /// Rule that validates resource usage against defined limits
@@ -607,44 +583,42 @@ impl ResourceValidationRule {
         }
     }
 
-    /// Checks if the current memory usage is within the specified limits
-    ///
-    /// # Returns
-    /// * `Ok(())` if memory usage is within limits
-    /// * `Err(Box<dyn Error>)` if memory usage exceeds limits
+    /// Checks if the current memory usage is within the specified limits.
+    /// Only runs when `system-metrics` feature is enabled (ecoBin: pure Rust default).
     fn check_memory_usage(&self) -> Result<()> {
-        let mut sys = System::new_all();
-        sys.refresh_all();
-        let used_memory = sys.used_memory();
-        let memory_usage_mb = (used_memory / 1024 / 1024) as usize;
+        #[cfg(feature = "system-metrics")]
+        {
+            let mut sys = System::new_all();
+            sys.refresh_all();
+            let used_memory = sys.used_memory();
+            let memory_usage_mb = (used_memory / 1024 / 1024) as usize;
 
-        if memory_usage_mb > self.max_memory_mb {
-            return Err(CommandError::ValidationError(format!(
-                "Memory usage ({}) exceeds maximum allowed ({} MB)",
-                memory_usage_mb, self.max_memory_mb
-            )));
+            if memory_usage_mb > self.max_memory_mb {
+                return Err(CommandError::ValidationError(format!(
+                    "Memory usage ({}) exceeds maximum allowed ({} MB)",
+                    memory_usage_mb, self.max_memory_mb
+                )));
+            }
         }
-
         Ok(())
     }
 
-    /// Checks if the current thread usage is within the specified limits
-    ///
-    /// # Returns
-    /// * `Ok(())` if thread usage is within limits
-    /// * `Err(Box<dyn Error>)` if thread usage exceeds limits
+    /// Checks if the current thread usage is within the specified limits.
+    /// Only runs when `system-metrics` feature is enabled (ecoBin: pure Rust default).
     fn check_thread_usage(&self) -> Result<()> {
-        let mut sys = System::new_all();
-        sys.refresh_all();
-        let thread_count = sys.cpus().len();
+        #[cfg(feature = "system-metrics")]
+        {
+            let mut sys = System::new_all();
+            sys.refresh_all();
+            let thread_count = sys.cpus().len();
 
-        if thread_count > self.max_threads {
-            return Err(CommandError::ValidationError(format!(
-                "Thread count ({}) exceeds maximum allowed ({})",
-                thread_count, self.max_threads
-            )));
+            if thread_count > self.max_threads {
+                return Err(CommandError::ValidationError(format!(
+                    "Thread count ({}) exceeds maximum allowed ({})",
+                    thread_count, self.max_threads
+                )));
+            }
         }
-
         Ok(())
     }
 }
@@ -663,17 +637,12 @@ impl ValidationRule for ResourceValidationRule {
     fn description(&self) -> &'static str {
         "Validates command against resource limits"
     }
-
-    fn clone_box(&self) -> Box<dyn ValidationRule> {
-        Box::new(self.clone())
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::CommandResult;
-    use std::sync::Arc;
 
     #[derive(Debug, Clone)]
     struct TestCommand;
@@ -822,6 +791,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "system-metrics")]
     fn test_resource_validation_rule() {
         let mut sys = System::new_all();
         sys.refresh_all();
@@ -838,7 +808,7 @@ mod tests {
     fn test_validator_rules() {
         let validator = CommandValidator::new();
         let rule = NameLengthRule::new(3, 10);
-        validator.add_rule(Box::new(rule)).unwrap();
+        validator.add_rule(Arc::new(rule)).unwrap();
         let command = TestCommand;
         assert!(validator.validate(&command).is_ok());
     }
@@ -863,10 +833,7 @@ mod tests {
 
         for i in 0..10 {
             assert_eq!(
-                context
-                    .get(&format!("key{i}"))
-                    .unwrap()
-                    .map(|s| s.to_string()),
+                context.get(&format!("key{i}")).unwrap().map(|s| s),
                 Some(format!("value{i}"))
             );
         }

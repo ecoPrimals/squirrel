@@ -3,12 +3,12 @@
 
 //! Task Server Implementation
 //!
-//! This module provides a comprehensive gRPC server implementation for the TaskService.
+//! This module provides a comprehensive gRPC server implementation for the `TaskService`.
 //! The original 1,402-line server.rs file has been refactored into focused modules:
 //!
 //! - `types`: Trait definitions and type aliases
 //! - `watchers`: Task watcher management functionality  
-//! - `service`: Core TaskServiceImpl struct and initialization
+//! - `service`: Core `TaskServiceImpl` struct and initialization
 //! - `handlers`: gRPC service method implementations
 //! - `commands`: Production command registry and execution logic
 //! - `mock`: Mock implementations for testing only

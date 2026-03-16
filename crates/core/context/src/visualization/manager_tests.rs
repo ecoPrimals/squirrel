@@ -349,7 +349,7 @@ async fn test_multiple_format_renders() {
         let rendered = manager
             .render_visualization(&response.visualization_id, format)
             .await
-            .expect(&format!("Should render in {} format", format));
+            .unwrap_or_else(|_| panic!("Should render in {} format", format));
 
         assert!(!rendered.is_empty());
     }

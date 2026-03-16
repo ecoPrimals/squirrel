@@ -73,9 +73,9 @@ impl CapabilityMetrics {
 
         // Update average discovery time
         let duration_ms = duration.as_millis() as f64;
-        metrics.avg_discovery_time_ms = (metrics.avg_discovery_time_ms
-            * (metrics.total_discovery_requests - 1) as f64
-            + duration_ms)
+        metrics.avg_discovery_time_ms = metrics
+            .avg_discovery_time_ms
+            .mul_add((metrics.total_discovery_requests - 1) as f64, duration_ms)
             / metrics.total_discovery_requests as f64;
 
         // Update histogram
@@ -86,10 +86,10 @@ impl CapabilityMetrics {
             .or_insert(0) += 1;
 
         // Update average services found
-        metrics.avg_services_found = (metrics.avg_services_found
-            * (metrics.total_discovery_requests - 1) as f64
-            + services_found as f64)
-            / metrics.total_discovery_requests as f64;
+        metrics.avg_services_found = metrics.avg_services_found.mul_add(
+            (metrics.total_discovery_requests - 1) as f64,
+            services_found as f64,
+        ) / metrics.total_discovery_requests as f64;
 
         // Update top capabilities
         for capability in capabilities {
@@ -101,8 +101,8 @@ impl CapabilityMetrics {
 
         // Update success rate
         let successful_requests = if success {
-            (metrics.discovery_success_rate / 100.0 * (metrics.total_discovery_requests - 1) as f64)
-                + 1.0
+            (metrics.discovery_success_rate / 100.0)
+                .mul_add((metrics.total_discovery_requests - 1) as f64, 1.0)
         } else {
             metrics.discovery_success_rate / 100.0 * (metrics.total_discovery_requests - 1) as f64
         };
@@ -134,9 +134,10 @@ impl CapabilityMetrics {
 
         // Update average selection time
         let duration_ms = duration.as_millis() as f64;
-        metrics.avg_selection_time_ms =
-            (metrics.avg_selection_time_ms * (metrics.total_selections - 1) as f64 + duration_ms)
-                / metrics.total_selections as f64;
+        metrics.avg_selection_time_ms = metrics
+            .avg_selection_time_ms
+            .mul_add((metrics.total_selections - 1) as f64, duration_ms)
+            / metrics.total_selections as f64;
 
         // Update selections by capability
         *metrics
@@ -195,8 +196,9 @@ impl CapabilityMetrics {
 
         // Update average lookup time
         let lookup_time_us = lookup_time.as_micros() as f64;
-        metrics.avg_lookup_time_us = (metrics.avg_lookup_time_us * (total_operations - 1) as f64
-            + lookup_time_us)
+        metrics.avg_lookup_time_us = metrics
+            .avg_lookup_time_us
+            .mul_add((total_operations - 1) as f64, lookup_time_us)
             / total_operations as f64;
 
         // Update utilization
@@ -229,9 +231,9 @@ impl CapabilityMetrics {
 
         // Update average routing time
         let duration_ms = duration.as_millis() as f64;
-        metrics.avg_routing_time_ms = (metrics.avg_routing_time_ms
-            * (metrics.total_routed_requests - 1) as f64
-            + duration_ms)
+        metrics.avg_routing_time_ms = metrics
+            .avg_routing_time_ms
+            .mul_add((metrics.total_routed_requests - 1) as f64, duration_ms)
             / metrics.total_routed_requests as f64;
 
         // Update operation distribution
@@ -250,8 +252,8 @@ impl CapabilityMetrics {
 
         // Update success rate
         let successful_requests = if success {
-            (metrics.routing_success_rate / 100.0 * (metrics.total_routed_requests - 1) as f64)
-                + 1.0
+            (metrics.routing_success_rate / 100.0)
+                .mul_add((metrics.total_routed_requests - 1) as f64, 1.0)
         } else {
             metrics.routing_success_rate / 100.0 * (metrics.total_routed_requests - 1) as f64
         };
@@ -309,8 +311,8 @@ impl CapabilityMetrics {
             timestamp: Utc::now(),
             category: category.to_string(),
             message: message.to_string(),
-            service_id: service_id.map(|s| s.to_string()),
-            capability: capability.map(|c| c.to_string()),
+            service_id: service_id.map(std::string::ToString::to_string),
+            capability: capability.map(std::string::ToString::to_string),
             recovery_attempted,
             recovery_successful,
         };

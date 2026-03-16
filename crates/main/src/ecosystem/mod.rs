@@ -196,14 +196,14 @@ impl EcosystemPrimalType {
         since = "0.1.0",
         note = "Use capability() for discovery, as_str() for display only"
     )]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            EcosystemPrimalType::ToadStool => "toadstool",
-            EcosystemPrimalType::Songbird => "songbird",
-            EcosystemPrimalType::BearDog => "beardog",
-            EcosystemPrimalType::NestGate => "nestgate",
-            EcosystemPrimalType::Squirrel => "squirrel",
-            EcosystemPrimalType::BiomeOS => "biomeos",
+            Self::ToadStool => "toadstool",
+            Self::Songbird => "songbird",
+            Self::BearDog => "beardog",
+            Self::NestGate => "nestgate",
+            Self::Squirrel => "squirrel",
+            Self::BiomeOS => "biomeos",
         }
     }
 
@@ -226,14 +226,14 @@ impl EcosystemPrimalType {
         since = "0.1.0",
         note = "Use generic env vars like SERVICE_MESH_ENDPOINT"
     )]
-    pub fn env_name(&self) -> &'static str {
+    pub const fn env_name(&self) -> &'static str {
         match self {
-            EcosystemPrimalType::ToadStool => "TOADSTOOL",
-            EcosystemPrimalType::Songbird => "SONGBIRD",
-            EcosystemPrimalType::BearDog => "BEARDOG",
-            EcosystemPrimalType::NestGate => "NESTGATE",
-            EcosystemPrimalType::Squirrel => "SQUIRREL",
-            EcosystemPrimalType::BiomeOS => "BIOMEOS",
+            Self::ToadStool => "TOADSTOOL",
+            Self::Songbird => "SONGBIRD",
+            Self::BearDog => "BEARDOG",
+            Self::NestGate => "NESTGATE",
+            Self::Squirrel => "SQUIRREL",
+            Self::BiomeOS => "BIOMEOS",
         }
     }
 
@@ -256,7 +256,7 @@ impl EcosystemPrimalType {
     /// ```
     #[must_use]
     #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
-    pub fn service_name(&self) -> &'static str {
+    pub const fn service_name(&self) -> &'static str {
         self.as_str()
     }
 
@@ -265,15 +265,15 @@ impl EcosystemPrimalType {
     /// Returns the capability constant for capability-based discovery.
     /// Use `universal_constants::capabilities::SELF_PRIMAL_NAME` when referring to self.
     #[must_use]
-    pub fn capability(&self) -> &'static str {
+    pub const fn capability(&self) -> &'static str {
         use universal_constants::capabilities;
         match self {
-            EcosystemPrimalType::ToadStool => capabilities::COMPUTE_CAPABILITY,
-            EcosystemPrimalType::Songbird => capabilities::SERVICE_MESH_CAPABILITY,
-            EcosystemPrimalType::BearDog => capabilities::SECURITY_CAPABILITY,
-            EcosystemPrimalType::NestGate => capabilities::STORAGE_CAPABILITY,
-            EcosystemPrimalType::Squirrel => capabilities::SELF_PRIMAL_NAME,
-            EcosystemPrimalType::BiomeOS => capabilities::ECOSYSTEM_CAPABILITY,
+            Self::ToadStool => capabilities::COMPUTE_CAPABILITY,
+            Self::Songbird => capabilities::SERVICE_MESH_CAPABILITY,
+            Self::BearDog => capabilities::SECURITY_CAPABILITY,
+            Self::NestGate => capabilities::STORAGE_CAPABILITY,
+            Self::Squirrel => capabilities::SELF_PRIMAL_NAME,
+            Self::BiomeOS => capabilities::ECOSYSTEM_CAPABILITY,
         }
     }
 }
@@ -288,12 +288,12 @@ impl std::str::FromStr for EcosystemPrimalType {
     /// **DEPRECATED**: Use capability-based discovery instead.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "toadstool" => Ok(EcosystemPrimalType::ToadStool),
-            "songbird" => Ok(EcosystemPrimalType::Songbird),
-            "beardog" => Ok(EcosystemPrimalType::BearDog),
-            "nestgate" => Ok(EcosystemPrimalType::NestGate),
-            "squirrel" => Ok(EcosystemPrimalType::Squirrel),
-            "biomeos" => Ok(EcosystemPrimalType::BiomeOS),
+            "toadstool" => Ok(Self::ToadStool),
+            "songbird" => Ok(Self::Songbird),
+            "beardog" => Ok(Self::BearDog),
+            "nestgate" => Ok(Self::NestGate),
+            "squirrel" => Ok(Self::Squirrel),
+            "biomeos" => Ok(Self::BiomeOS),
             _ => Err(format!("Unknown primal type: {s}")),
         }
     }
@@ -676,8 +676,11 @@ impl EcosystemManager {
                         for provider in providers {
                             if seen.insert(provider.socket.clone()) {
                                 let socket_str = provider.socket.display().to_string();
-                                let caps: Vec<&str> =
-                                    provider.capabilities.iter().map(|s| s.as_str()).collect();
+                                let caps: Vec<&str> = provider
+                                    .capabilities
+                                    .iter()
+                                    .map(std::string::String::as_str)
+                                    .collect();
                                 let metadata = provider
                                     .metadata
                                     .iter()
@@ -957,12 +960,12 @@ impl EcosystemManager {
 impl std::fmt::Display for EcosystemPrimalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EcosystemPrimalType::ToadStool => write!(f, "toadstool"),
-            EcosystemPrimalType::Songbird => write!(f, "songbird"),
-            EcosystemPrimalType::BearDog => write!(f, "beardog"),
-            EcosystemPrimalType::NestGate => write!(f, "nestgate"),
-            EcosystemPrimalType::Squirrel => write!(f, "squirrel"),
-            EcosystemPrimalType::BiomeOS => write!(f, "biomeos"),
+            Self::ToadStool => write!(f, "toadstool"),
+            Self::Songbird => write!(f, "songbird"),
+            Self::BearDog => write!(f, "beardog"),
+            Self::NestGate => write!(f, "nestgate"),
+            Self::Squirrel => write!(f, "squirrel"),
+            Self::BiomeOS => write!(f, "biomeos"),
         }
     }
 }

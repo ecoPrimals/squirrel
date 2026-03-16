@@ -133,7 +133,7 @@ impl AnthropicAdapter {
         // Discover who provides HTTP capability (TRUE PRIMAL!)
         let http_provider = discover_capability("http.request")
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("No HTTP provider found: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("No HTTP provider found: {e}")))?;
 
         debug!(
             "Delegating HTTP to {} (discovered via capability)",
@@ -181,8 +181,7 @@ impl AnthropicAdapter {
 
         if let Some(error) = rpc_response.get("error") {
             return Err(PrimalError::NetworkError(format!(
-                "HTTP delegation error: {}",
-                error
+                "HTTP delegation error: {error}"
             )));
         }
 
@@ -240,7 +239,7 @@ impl AnthropicAdapter {
         // Songbird returns body as string, parse it
         let http_response: serde_json::Value = match body_value {
             serde_json::Value::String(s) => serde_json::from_str(&s).map_err(|e| {
-                PrimalError::ParsingError(format!("Failed to parse body JSON: {}", e))
+                PrimalError::ParsingError(format!("Failed to parse body JSON: {e}"))
             })?,
             other => other, // Already parsed (for future compatibility)
         };
@@ -257,8 +256,7 @@ impl AnthropicAdapter {
                 .and_then(|m| m.as_str())
                 .unwrap_or("Unknown error");
             return Err(PrimalError::NetworkError(format!(
-                "Anthropic API error ({}): {}",
-                error_type, error_msg
+                "Anthropic API error ({error_type}): {error_msg}"
             )));
         }
 
@@ -272,9 +270,11 @@ impl AnthropicAdapter {
         let (input_cost_per_1m, output_cost_per_1m) = Self::estimate_cost_per_1m_tokens(model);
 
         let cost_usd = Some(
-            (anthropic_response.usage.input_tokens as f64 / 1_000_000.0 * input_cost_per_1m)
-                + (anthropic_response.usage.output_tokens as f64 / 1_000_000.0
-                    * output_cost_per_1m),
+            (f64::from(anthropic_response.usage.input_tokens) / 1_000_000.0).mul_add(
+                input_cost_per_1m,
+                f64::from(anthropic_response.usage.output_tokens) / 1_000_000.0
+                    * output_cost_per_1m,
+            ),
         );
 
         // Convert to universal format
@@ -313,11 +313,11 @@ impl AnthropicAdapter {
 
 #[async_trait]
 impl AiProviderAdapter for AnthropicAdapter {
-    fn provider_id(&self) -> &str {
+    fn provider_id(&self) -> &'static str {
         "anthropic"
     }
 
-    fn provider_name(&self) -> &str {
+    fn provider_name(&self) -> &'static str {
         "Anthropic (Claude)"
     }
 
@@ -398,13 +398,15 @@ mod tests {
 
     #[test]
     fn test_anthropic_adapter_creation() {
-        // Without API key, should fail
-        unsafe { std::env::remove_var("ANTHROPIC_API_KEY") };
-        assert!(AnthropicAdapter::new().is_err());
+        let result = temp_env::with_var("ANTHROPIC_API_KEY", None::<&str>, || {
+            AnthropicAdapter::new()
+        });
+        assert!(result.is_err());
 
-        // With API key, should succeed
-        unsafe { std::env::set_var("ANTHROPIC_API_KEY", "test-key") };
-        let adapter = AnthropicAdapter::new().unwrap();
+        let adapter = temp_env::with_var("ANTHROPIC_API_KEY", Some("test-key"), || {
+            AnthropicAdapter::new()
+        })
+        .unwrap();
         assert_eq!(adapter.provider_id(), "anthropic");
         assert_eq!(adapter.provider_name(), "Anthropic (Claude)");
         assert!(!adapter.is_local());
@@ -451,8 +453,10 @@ mod tests {
 
     #[test]
     fn test_adapter_quality_tier() {
-        unsafe { std::env::set_var("ANTHROPIC_API_KEY", "test-key-qt") };
-        let adapter = AnthropicAdapter::new().unwrap();
+        let adapter = temp_env::with_var("ANTHROPIC_API_KEY", Some("test-key-qt"), || {
+            AnthropicAdapter::new()
+        })
+        .unwrap();
         assert_eq!(adapter.quality_tier(), QualityTier::Premium);
         assert_eq!(adapter.avg_latency_ms(), 2000);
         assert!(adapter.cost_per_unit().is_some());
@@ -460,18 +464,27 @@ mod tests {
 
     #[test]
     fn test_default_model() {
-        unsafe { std::env::remove_var("ANTHROPIC_DEFAULT_MODEL") };
-        unsafe { std::env::set_var("ANTHROPIC_API_KEY", "test-key-dm") };
-        let adapter = AnthropicAdapter::new().unwrap();
+        let adapter = temp_env::with_vars(
+            [
+                ("ANTHROPIC_DEFAULT_MODEL", None::<&str>),
+                ("ANTHROPIC_API_KEY", Some("test-key-dm")),
+            ],
+            || AnthropicAdapter::new(),
+        )
+        .unwrap();
         assert_eq!(adapter.default_model, "claude-3-haiku-20240307");
     }
 
     #[test]
     fn test_custom_default_model() {
-        unsafe { std::env::set_var("ANTHROPIC_API_KEY", "test-key-cdm") };
-        unsafe { std::env::set_var("ANTHROPIC_DEFAULT_MODEL", "claude-3-opus") };
-        let adapter = AnthropicAdapter::new().unwrap();
+        let adapter = temp_env::with_vars(
+            [
+                ("ANTHROPIC_API_KEY", Some("test-key-cdm")),
+                ("ANTHROPIC_DEFAULT_MODEL", Some("claude-3-opus")),
+            ],
+            || AnthropicAdapter::new(),
+        )
+        .unwrap();
         assert_eq!(adapter.default_model, "claude-3-opus");
-        unsafe { std::env::remove_var("ANTHROPIC_DEFAULT_MODEL") };
     }
 }

@@ -40,18 +40,18 @@ pub struct RoutingConfig {
     pub manual_routing_rules: Vec<ManualRoutingRule>,
 
     // Primal endpoints (fixed mappings)
-    /// NestGate endpoint for storage persistence
+    /// `NestGate` endpoint for storage persistence
     pub nestgate_endpoint: Option<String>,
     /// Toadstool endpoint for compute
     pub toadstool_endpoint: Option<String>,
-    /// BearDog endpoint for security
+    /// `BearDog` endpoint for security
     pub beardog_endpoint: Option<String>,
-    /// BiomeOS endpoint for integration
+    /// `BiomeOS` endpoint for integration
     pub biomeos_endpoint: Option<String>,
 }
 
 /// Load balancing strategies available for agent selection
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum LoadBalancingStrategy {
     /// Simple round-robin selection
     RoundRobin,
@@ -64,6 +64,7 @@ pub enum LoadBalancingStrategy {
     /// Select based on agent capabilities
     CapabilityBased,
     /// Adaptive selection based on performance
+    #[default]
     Adaptive,
 }
 
@@ -83,13 +84,14 @@ pub struct AgentSelectionConfig {
 }
 
 /// Agent selection modes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum SelectionMode {
     /// Fully automatic selection
     Automatic,
     /// Manual selection only
     Manual,
     /// Hybrid approach with preferences
+    #[default]
     Hybrid,
 }
 
@@ -143,9 +145,9 @@ pub enum RoutingCondition {
     /// Match by task tag
     TaskTag(String, String),
     /// Logical AND of conditions
-    And(Vec<RoutingCondition>),
+    And(Vec<Self>),
     /// Logical OR of conditions
-    Or(Vec<RoutingCondition>),
+    Or(Vec<Self>),
 }
 
 /// Actions to take when routing conditions are met
@@ -197,18 +199,6 @@ impl Default for AgentSelectionConfig {
     }
 }
 
-impl Default for LoadBalancingStrategy {
-    fn default() -> Self {
-        Self::Adaptive
-    }
-}
-
-impl Default for SelectionMode {
-    fn default() -> Self {
-        Self::Hybrid
-    }
-}
-
 impl RoutingConfig {
     /// Create a new routing configuration with default values
     pub fn new() -> Self {
@@ -216,43 +206,43 @@ impl RoutingConfig {
     }
 
     /// Set maximum concurrent tasks
-    pub fn with_max_concurrent_tasks(mut self, max_tasks: usize) -> Self {
+    pub const fn with_max_concurrent_tasks(mut self, max_tasks: usize) -> Self {
         self.max_concurrent_tasks = max_tasks;
         self
     }
 
     /// Set task timeout
-    pub fn with_task_timeout(mut self, timeout: Duration) -> Self {
+    pub const fn with_task_timeout(mut self, timeout: Duration) -> Self {
         self.task_timeout = timeout;
         self
     }
 
     /// Set load balancing strategy
-    pub fn with_load_balancing_strategy(mut self, strategy: LoadBalancingStrategy) -> Self {
+    pub const fn with_load_balancing_strategy(mut self, strategy: LoadBalancingStrategy) -> Self {
         self.load_balancing_strategy = strategy;
         self
     }
 
     /// Enable context persistence
-    pub fn with_context_persistence(mut self, enabled: bool) -> Self {
+    pub const fn with_context_persistence(mut self, enabled: bool) -> Self {
         self.context_persistence = enabled;
         self
     }
 
     /// Enable federation
-    pub fn with_federation(mut self, enabled: bool) -> Self {
+    pub const fn with_federation(mut self, enabled: bool) -> Self {
         self.federation_enabled = enabled;
         self
     }
 
     /// Enable scaling
-    pub fn with_scaling(mut self, enabled: bool) -> Self {
+    pub const fn with_scaling(mut self, enabled: bool) -> Self {
         self.scaling_enabled = enabled;
         self
     }
 
     /// Enable performance monitoring
-    pub fn with_performance_monitoring(mut self, enabled: bool) -> Self {
+    pub const fn with_performance_monitoring(mut self, enabled: bool) -> Self {
         self.performance_monitoring = enabled;
         self
     }
@@ -334,19 +324,19 @@ impl AgentGroup {
     }
 
     /// Set group priority
-    pub fn with_priority(mut self, priority: u32) -> Self {
+    pub const fn with_priority(mut self, priority: u32) -> Self {
         self.priority = priority;
         self
     }
 
     /// Set selection strategy
-    pub fn with_selection_strategy(mut self, strategy: LoadBalancingStrategy) -> Self {
+    pub const fn with_selection_strategy(mut self, strategy: LoadBalancingStrategy) -> Self {
         self.selection_strategy = strategy;
         self
     }
 
     /// Set maximum concurrent tasks
-    pub fn with_max_concurrent_tasks(mut self, max_tasks: usize) -> Self {
+    pub const fn with_max_concurrent_tasks(mut self, max_tasks: usize) -> Self {
         self.max_concurrent_tasks = Some(max_tasks);
         self
     }
@@ -366,7 +356,7 @@ impl AgentGroup {
 
 impl ManualRoutingRule {
     /// Create a new manual routing rule
-    pub fn new(rule_id: String, condition: RoutingCondition, action: RoutingAction) -> Self {
+    pub const fn new(rule_id: String, condition: RoutingCondition, action: RoutingAction) -> Self {
         Self {
             rule_id,
             condition,
@@ -377,13 +367,13 @@ impl ManualRoutingRule {
     }
 
     /// Set rule priority
-    pub fn with_priority(mut self, priority: u32) -> Self {
+    pub const fn with_priority(mut self, priority: u32) -> Self {
         self.priority = priority;
         self
     }
 
     /// Enable or disable the rule
-    pub fn with_enabled(mut self, enabled: bool) -> Self {
+    pub const fn with_enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
         self
     }

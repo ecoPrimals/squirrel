@@ -16,7 +16,7 @@ use squirrel_core::{
 ///
 /// Squirrel MCP operates as:
 /// - **Sovereign Multi-MCP Coordinator**: Routes AI tasks across multiple MCP endpoints
-/// - **Ecosystem Participant**: Coordinates with Songbird, NestGate, BearDog, ToadStool
+/// - **Ecosystem Participant**: Coordinates with Songbird, `NestGate`, `BearDog`, `ToadStool`
 /// - **Federation Leader**: Spawns additional Squirrel instances for scaling
 /// - **Universal Agent**: Can federate across nodes for distributed AI processing
 #[tokio::main]

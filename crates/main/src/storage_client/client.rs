@@ -303,7 +303,8 @@ impl UniversalStorageClient {
             provider.health.last_check = chrono::Utc::now();
 
             if response.success {
-                provider.health.health_score = (provider.health.health_score * 0.9 + 0.1).min(1.0);
+                provider.health.health_score =
+                    provider.health.health_score.mul_add(0.9, 0.1).min(1.0);
             } else {
                 provider.health.health_score = (provider.health.health_score * 0.9).max(0.1);
             }
@@ -401,7 +402,7 @@ impl UniversalStorageClient {
 
     /// Get storage client configuration
     #[must_use]
-    pub fn get_storage_config(&self) -> &StorageClientConfig {
+    pub const fn get_storage_config(&self) -> &StorageClientConfig {
         // Use config field to provide storage configuration access
         &self.config
     }

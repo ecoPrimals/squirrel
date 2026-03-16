@@ -13,7 +13,12 @@ use tracing::{debug, info};
 
 use crate::error::PrimalError;
 
-use super::types::*;
+use super::types::{
+    AgentResourceLimits, AgentSecurity, AgentSpec, AgentStorage, AuthenticationConfig,
+    AuthorizationConfig, BiomeManifest, BiomeMetadata, BiomeNetworking, BiomeResources,
+    BiomeSecurity, BiomeStorage, DnsConfig, EncryptionConfig, ExecutionEnvironment, IngressConfig,
+    ResourceLimits, ResourcePolicies, ResourceReservations, SecurityPolicies, TokenConfig,
+};
 
 // ============================================================================
 // PARSER TYPES
@@ -54,7 +59,7 @@ impl BiomeManifestParser {
 
     /// Creates a parser with the given configuration.
     #[must_use]
-    pub fn with_config(config: ManifestParserConfig) -> Self {
+    pub const fn with_config(config: ManifestParserConfig) -> Self {
         Self { config }
     }
 

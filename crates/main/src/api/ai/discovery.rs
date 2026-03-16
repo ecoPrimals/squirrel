@@ -133,7 +133,7 @@ pub async fn has_ai_providers() -> bool {
         .collect();
 
     for h in handles {
-        if let Ok(true) = h.await {
+        if matches!(h.await, Ok(true)) {
             return true;
         }
     }

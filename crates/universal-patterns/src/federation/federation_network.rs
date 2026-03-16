@@ -793,7 +793,7 @@ mod proptest_tests {
 
     fn node_info_strategy() -> impl Strategy<Value = NodeInfo> {
         (
-            any::<[u8; 16]>().prop_map(|b| Uuid::from_bytes(b)),
+            any::<[u8; 16]>().prop_map(Uuid::from_bytes),
             any::<String>(),
             any::<String>(),
             proptest::collection::vec(any::<String>(), 0..4),

@@ -186,14 +186,14 @@ impl CapabilityRequest {
 
     /// Set timeout
     #[must_use]
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+    pub const fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
 
     /// Disable cache
     #[must_use]
-    pub fn no_cache(mut self) -> Self {
+    pub const fn no_cache(mut self) -> Self {
         self.use_cache = false;
         self
     }

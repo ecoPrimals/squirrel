@@ -506,8 +506,9 @@ impl PerformanceTracker {
             }
 
             // Update average (simple moving average)
-            metric.average_value = (metric.average_value * (metric.sample_count - 1) as f64
-                + value)
+            metric.average_value = metric
+                .average_value
+                .mul_add((metric.sample_count - 1) as f64, value)
                 / metric.sample_count as f64;
 
             // Update trend (simplified)

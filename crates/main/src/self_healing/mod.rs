@@ -158,7 +158,7 @@ impl SelfHealingManager {
 
     /// Get all component health statuses
     #[must_use]
-    pub fn get_all_component_health(&self) -> &HashMap<String, ComponentHealth> {
+    pub const fn get_all_component_health(&self) -> &HashMap<String, ComponentHealth> {
         &self.component_health
     }
 

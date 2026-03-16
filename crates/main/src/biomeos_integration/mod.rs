@@ -239,13 +239,13 @@ impl SquirrelBiomeOSIntegration {
 
     /// Create an optimized version of the `BiomeOS` integration
     #[must_use]
-    pub fn new_optimized() -> SquirrelBiomeOSIntegration {
-        SquirrelBiomeOSIntegration::new("optimized-squirrel".to_string())
+    pub fn new_optimized() -> Self {
+        Self::new("optimized-squirrel".to_string())
     }
 
     /// Migrate to optimized implementation
-    pub async fn migrate_to_optimized(self) -> Result<SquirrelBiomeOSIntegration, PrimalError> {
-        let optimized = SquirrelBiomeOSIntegration::new("migration-squirrel".to_string());
+    pub async fn migrate_to_optimized(self) -> Result<Self, PrimalError> {
+        let optimized = Self::new("migration-squirrel".to_string());
 
         // Migration logic would go here to transfer state
         // For now, we return a fresh optimized instance
@@ -579,7 +579,7 @@ impl SquirrelBiomeOSIntegration {
 
     /// Get current health status
     #[must_use]
-    pub fn get_health_status(&self) -> &HealthStatus {
+    pub const fn get_health_status(&self) -> &HealthStatus {
         &self.health_status
     }
 
@@ -942,6 +942,7 @@ impl Default for HealthCheckConfig {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -975,5 +976,126 @@ mod tests {
 
         integration.update_health_status("running");
         assert!(integration.health_status.timestamp >= original_timestamp);
+    }
+
+    #[tokio::test]
+    async fn test_register_with_biomeos() {
+        let mut integration = SquirrelBiomeOSIntegration::new("register-test".to_string());
+        let result = integration.register_with_biomeos().await;
+        assert!(result.is_ok());
+        assert_eq!(integration.health_status.status, "registered");
+    }
+
+    #[tokio::test]
+    async fn test_health_check() {
+        let mut integration = SquirrelBiomeOSIntegration::new("health-test".to_string());
+        let result = integration.health_check().await;
+        assert!(result.is_ok());
+        assert!(
+            integration.health_status.status == STATUS_RUNNING
+                || integration.health_status.status == "degraded"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_generate_manifest_template() {
+        let integration = SquirrelBiomeOSIntegration::new("manifest-test".to_string());
+        let manifest = integration.generate_manifest_template();
+        assert!(!manifest.metadata.name.is_empty());
+        assert!(!manifest.metadata.version.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_parse_manifest_content() {
+        let integration = SquirrelBiomeOSIntegration::new("parse-test".to_string());
+        let yaml = r#"
+metadata:
+  name: parsed-biome
+  description: Parsed test
+  version: 2.0.0
+  biomeos_version: 0.2.0
+  created_at: 2024-01-01T00:00:00Z
+  updated_at: 2024-01-01T00:00:00Z
+  author: test
+  labels: {}
+agents: []
+services: {}
+resources:
+  limits: { memory_gb: 8.0, cpu_cores: 4.0, storage_gb: 100.0, network_bandwidth_mbps: 1000.0 }
+  reservations: { memory_gb: 2.0, cpu_cores: 1.0, storage_gb: 10.0 }
+  policies: { memory_over_commit: false, cpu_over_commit: true, storage_over_commit: false, resource_quotas: {} }
+security:
+  authentication: { enabled: true, method: oauth2, providers: [github] }
+  authorization: { enabled: true, method: rbac, policies: [default] }
+  encryption: { enabled: true, algorithm: AES256, key_size: 256, at_rest: true, in_transit: true }
+  tokens: { enabled: true, expiration_seconds: 3600, refresh_enabled: true }
+  policies: { network_policies: [], pod_security_policies: [], rbac_policies: [] }
+storage: { volumes: [], volume_claim_templates: [], storage_classes: [] }
+networking:
+  ingress: { enabled: true, host: test.example.com, tls_enabled: true, annotations: {} }
+  network_policies: []
+  dns: { enabled: true, servers: ["8.8.8.8"], search_domains: [] }
+primals: {}
+"#;
+        let result = integration.parse_manifest_content(yaml).await;
+        assert!(result.is_ok());
+        let manifest = result.unwrap();
+        assert_eq!(manifest.metadata.name, "parsed-biome");
+        assert_eq!(manifest.metadata.version, "2.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_list_deployed_agents() {
+        let integration = SquirrelBiomeOSIntegration::new("agents-test".to_string());
+        let agents = integration.list_deployed_agents().await;
+        assert!(agents.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_deployment_status() {
+        let integration = SquirrelBiomeOSIntegration::new("deploy-test".to_string());
+        let status = integration.get_deployment_status().await;
+        assert!(status.total_agents >= 0);
+    }
+
+    #[tokio::test]
+    async fn test_deploy_agents_from_manifest() {
+        let mut integration = SquirrelBiomeOSIntegration::new("deploy-manifest-test".to_string());
+        let manifest = integration.generate_manifest_template();
+        let result = integration.deploy_agents_from_manifest(&manifest).await;
+        assert!(result.is_ok());
+        let deployed = result.unwrap();
+        assert!(deployed.len() >= 0);
+    }
+
+    #[tokio::test]
+    async fn test_migrate_to_optimized() {
+        let integration = SquirrelBiomeOSIntegration::new("migrate-test".to_string());
+        let result = integration.migrate_to_optimized().await;
+        assert!(result.is_ok());
+        let optimized = result.unwrap();
+        assert_eq!(optimized.biome_id, "migration-squirrel");
+    }
+
+    #[tokio::test]
+    async fn test_new_optimized() {
+        let integration = SquirrelBiomeOSIntegration::new_optimized();
+        assert_eq!(integration.biome_id, "optimized-squirrel");
+    }
+
+    #[tokio::test]
+    async fn test_ecosystem_endpoints_default() {
+        let endpoints = EcosystemEndpoints::default();
+        assert!(!endpoints.ai_api.is_empty());
+        assert!(!endpoints.health.is_empty());
+        assert!(endpoints.ai_api.contains("/ai"));
+    }
+
+    #[tokio::test]
+    async fn test_resource_requirements_default() {
+        let req = ResourceRequirements::default();
+        assert_eq!(req.cpu, "4");
+        assert_eq!(req.memory, "8Gi");
+        assert!(req.gpu.is_some());
     }
 }

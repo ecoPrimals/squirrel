@@ -7,6 +7,7 @@
 //! All types are JSON-RPC 2.0 compliant.
 
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// Request to query AI with a prompt
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,7 +35,7 @@ pub struct QueryAiRequest {
 }
 
 /// Response from AI query
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QueryAiResponse {
     /// The AI's response text
     pub response: String,
@@ -56,7 +57,7 @@ pub struct QueryAiResponse {
 }
 
 /// Request to list available AI providers
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ListProvidersRequest {
     /// Filter by capability (optional)
     pub capability: Option<String>,
@@ -66,7 +67,7 @@ pub struct ListProvidersRequest {
 }
 
 /// Information about an AI provider
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProviderInfo {
     /// Provider ID
     pub id: String,
@@ -91,7 +92,7 @@ pub struct ProviderInfo {
 }
 
 /// Response with list of providers
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ListProvidersResponse {
     /// Available providers
     pub providers: Vec<ProviderInfo>,
@@ -104,7 +105,7 @@ pub struct ListProvidersResponse {
 ///
 /// Extended to support the neuralSpring adapter pattern where remote
 /// primals register their socket path and tools for routing.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnnounceCapabilitiesRequest {
     /// Capability namespaces to announce (e.g. `["science.physics", "science.chem"]`)
     pub capabilities: Vec<String>,
@@ -129,7 +130,7 @@ pub struct AnnounceCapabilitiesRequest {
 }
 
 /// Response from capability announcement
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnnounceCapabilitiesResponse {
     /// Whether the announcement was successful
     pub success: bool,
@@ -145,22 +146,23 @@ pub struct AnnounceCapabilitiesResponse {
 }
 
 /// An announced remote primal, stored for tool routing.
+/// Uses `Arc<str>` for identifiers to avoid cloning on hot paths.
 #[derive(Debug, Clone)]
 pub struct AnnouncedPrimal {
     /// Primal name (e.g. `"neuralSpring"`)
-    pub primal: String,
+    pub primal: Arc<str>,
     /// Socket path for forwarding
-    pub socket_path: String,
+    pub socket_path: Arc<str>,
     /// Capability namespaces
-    pub capabilities: Vec<String>,
+    pub capabilities: Vec<Arc<str>>,
     /// Tool names this primal serves
-    pub tools: Vec<String>,
+    pub tools: Vec<Arc<str>>,
     /// When the announcement was received
     pub announced_at: chrono::DateTime<chrono::Utc>,
 }
 
 /// Response from tool.list
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolListResponse {
     /// All available tools (local + remote)
     pub tools: Vec<ToolListEntry>,
@@ -169,7 +171,7 @@ pub struct ToolListResponse {
 }
 
 /// A single tool in the tool.list response (McpToolDef pattern from neuralSpring)
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolListEntry {
     /// Tool name
     pub name: String,
@@ -185,7 +187,7 @@ pub struct ToolListEntry {
 }
 
 /// Where a tool comes from
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ToolSource {
     /// Built into squirrel
     Builtin,
@@ -197,7 +199,7 @@ pub enum ToolSource {
 }
 
 /// Request for health check
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HealthCheckRequest {}
 
 /// Health status information

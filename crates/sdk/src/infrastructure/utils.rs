@@ -556,4 +556,106 @@ mod tests {
         let result = safe_lock_or_fallback(&mutex, || 0, "test");
         assert_eq!(result, 42);
     }
+
+    #[test]
+    fn test_generate_listener_id() {
+        let id = generate_listener_id();
+        assert!(id.starts_with("listener_"));
+    }
+
+    #[test]
+    fn test_generate_plugin_id() {
+        let id = generate_plugin_id();
+        assert!(id.starts_with("plugin_"));
+    }
+
+    #[test]
+    fn test_generate_command_id() {
+        let id = generate_command_id();
+        assert!(id.starts_with("command_"));
+    }
+
+    #[test]
+    fn test_current_timestamp() {
+        let ts = current_timestamp();
+        assert!(ts > 0);
+    }
+
+    #[test]
+    fn test_current_timestamp_iso() {
+        let ts = current_timestamp_iso();
+        assert!(ts.contains("2022"));
+    }
+
+    #[test]
+    fn test_error_conversion_serde() {
+        use super::error_conversion;
+        let err = serde_json::from_str::<serde_json::Value>("{").unwrap_err();
+        let pe = error_conversion::serde_error(err);
+        assert!(matches!(pe, crate::PluginError::SerializationError { .. }));
+    }
+
+    #[test]
+    fn test_error_conversion_network() {
+        use super::error_conversion;
+        let pe = error_conversion::network_error("fetch", "connection refused");
+        assert!(matches!(pe, crate::PluginError::NetworkError { .. }));
+    }
+
+    #[test]
+    fn test_error_conversion_validation() {
+        use super::error_conversion;
+        let pe = error_conversion::validation_error("field", "invalid");
+        assert!(matches!(pe, crate::PluginError::ValidationError { .. }));
+    }
+
+    #[test]
+    #[cfg(target_arch = "wasm32")]
+    fn test_performance_timer() {
+        use super::performance::Timer;
+        let timer = Timer::new("test");
+        let elapsed = timer.elapsed();
+        assert!(elapsed >= 0);
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_performance_timer_native() {
+        use super::performance::Timer;
+        let timer = Timer::new("test");
+        let _ = timer.elapsed();
+        std::mem::forget(timer);
+    }
+
+    #[test]
+    fn test_performance_string_pool() {
+        use super::performance::StringPool;
+        let mut pool = StringPool::new();
+        let s1 = pool.get_or_create("key").to_string();
+        let s2 = pool.get_or_create("key").to_string();
+        assert_eq!(s1, s2);
+        assert_eq!(pool.size(), 1);
+    }
+
+    #[test]
+    fn test_performance_string_builder() {
+        use super::performance::StringBuilder;
+        let mut sb = StringBuilder::with_capacity(10);
+        sb.append("hello");
+        sb.append_char('!');
+        assert_eq!(sb.len(), 6);
+        assert!(!sb.is_empty());
+        assert_eq!(sb.build(), "hello!");
+    }
+
+    #[test]
+    fn test_performance_batch_processor() {
+        use super::performance::BatchProcessor;
+        let mut bp = BatchProcessor::new(2);
+        assert!(bp.add(1).is_none());
+        let batch = bp.add(2);
+        assert!(batch.is_some());
+        let batch = batch.unwrap();
+        assert_eq!(batch, vec![1, 2]);
+    }
 }

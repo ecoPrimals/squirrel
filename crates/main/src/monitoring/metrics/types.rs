@@ -13,7 +13,7 @@ use crate::monitoring::MetricType;
 
 /// Internal metric definition
 #[derive(Debug, Clone)]
-pub(crate) struct MetricDefinition {
+pub struct MetricDefinition {
     pub name: String,
     pub metric_type: MetricType,
     pub description: String,

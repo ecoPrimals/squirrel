@@ -66,6 +66,7 @@ pub mod builders;
 pub mod capabilities;
 pub mod deployment;
 pub mod env_vars;
+pub mod identity;
 pub mod limits;
 pub mod network;
 pub mod protocol;

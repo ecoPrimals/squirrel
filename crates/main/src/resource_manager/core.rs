@@ -154,8 +154,9 @@ impl ResourceManager {
                     pool_metrics.avg_duration_ms = if pool_metrics.total_runs == 1 {
                         new_duration_ms
                     } else {
-                        (pool_metrics.avg_duration_ms * (pool_metrics.total_runs - 1) as f64
-                            + new_duration_ms)
+                        pool_metrics
+                            .avg_duration_ms
+                            .mul_add((pool_metrics.total_runs - 1) as f64, new_duration_ms)
                             / pool_metrics.total_runs as f64
                     };
 
@@ -237,8 +238,9 @@ impl ResourceManager {
                     memory_metrics.avg_duration_ms = if memory_metrics.total_runs == 1 {
                         new_duration_ms
                     } else {
-                        (memory_metrics.avg_duration_ms * (memory_metrics.total_runs - 1) as f64
-                            + new_duration_ms)
+                        memory_metrics
+                            .avg_duration_ms
+                            .mul_add((memory_metrics.total_runs - 1) as f64, new_duration_ms)
                             / memory_metrics.total_runs as f64
                     };
 
@@ -385,7 +387,7 @@ impl ResourceManager {
     }
 
     /// Get count of active operations (for graceful shutdown)
-    pub(crate) fn active_operations(&self) -> usize {
+    pub(crate) const fn active_operations(&self) -> usize {
         // Sum up all tracked active operations
         // In production, this would track actual pending cleanup operations
         0 // For now, return 0 - can be enhanced with proper tracking

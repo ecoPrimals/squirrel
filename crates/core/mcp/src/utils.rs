@@ -17,7 +17,7 @@ use crate::error::{MCPError, Result};
 
 const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
 
-fn hex_val(c: u8) -> Option<u8> {
+const fn hex_val(c: u8) -> Option<u8> {
     match c {
         b'0'..=b'9' => Some(c - b'0'),
         b'a'..=b'f' => Some(c - b'a' + 10),
@@ -304,7 +304,7 @@ impl ValidationUtils {
     }
 
     /// Validate port number
-    pub fn is_valid_port(port: u16) -> bool {
+    pub const fn is_valid_port(port: u16) -> bool {
         port > 0
     }
 

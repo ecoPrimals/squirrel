@@ -60,10 +60,8 @@ impl DefaultPluginManager {
 
     /// Get plugin manager status
     pub async fn get_status(&self) -> PluginManagerStatus {
-        let plugins = self.plugins.read().await;
+        let total = self.plugins.read().await.len();
         let statuses = self.statuses.read().await;
-
-        let total = plugins.len();
         let active = statuses
             .values()
             .filter(|s| **s == PluginStatus::Running)
@@ -72,6 +70,7 @@ impl DefaultPluginManager {
             .values()
             .filter(|s| **s == PluginStatus::Failed)
             .count();
+        drop(statuses);
 
         PluginManagerStatus::new(total, active, failed)
     }
@@ -177,9 +176,8 @@ async fn load_plugins_from_directory<M: PluginRegistry + PluginManagerTrait>(
         let manifest_path_json = subdir.join("plugin.json");
 
         let metadata = if manifest_path_toml.exists() {
-            let content = match fs::read_to_string(&manifest_path_toml).await {
-                Ok(c) => c,
-                Err(_) => continue, // Skip on read error
+            let Ok(content) = fs::read_to_string(&manifest_path_toml).await else {
+                continue; // Skip on read error
             };
             let manifest: PluginManifestToml = match toml::from_str(&content) {
                 Ok(m) => m,
@@ -195,9 +193,8 @@ async fn load_plugins_from_directory<M: PluginRegistry + PluginManagerTrait>(
                 dependencies: Vec::new(),
             }
         } else if manifest_path_json.exists() {
-            let content = match fs::read_to_string(&manifest_path_json).await {
-                Ok(c) => c,
-                Err(_) => continue,
+            let Ok(content) = fs::read_to_string(&manifest_path_json).await else {
+                continue;
             };
             let manifest: PluginManifestJson = match serde_json::from_str(&content) {
                 Ok(m) => m,
@@ -234,26 +231,26 @@ impl PluginRegistry for DefaultPluginManager {
         let id = plugin.id();
         let name = plugin.metadata().name.clone();
 
-        let mut plugins = self.plugins.write().await;
-        let mut statuses = self.statuses.write().await;
-        let mut name_to_id = self.name_to_id.write().await;
-
-        plugins.insert(id, plugin);
-        statuses.insert(id, PluginStatus::Registered);
-        name_to_id.insert(name, id);
+        self.plugins.write().await.insert(id, plugin);
+        self.statuses
+            .write()
+            .await
+            .insert(id, PluginStatus::Registered);
+        self.name_to_id.write().await.insert(name, id);
 
         Ok(())
     }
 
     async fn unregister_plugin(&self, id: Uuid) -> Result<()> {
-        let mut plugins = self.plugins.write().await;
-        let mut statuses = self.statuses.write().await;
-        let mut name_to_id = self.name_to_id.write().await;
-
-        if let Some(plugin) = plugins.remove(&id) {
-            let name = plugin.metadata().name.clone();
-            statuses.remove(&id);
-            name_to_id.remove(&name);
+        let name = self
+            .plugins
+            .write()
+            .await
+            .remove(&id)
+            .map(|p| p.metadata().name.clone());
+        if let Some(name) = name {
+            self.statuses.write().await.remove(&id);
+            self.name_to_id.write().await.remove(&name);
         }
 
         Ok(())
@@ -261,36 +258,43 @@ impl PluginRegistry for DefaultPluginManager {
 
     async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
         let plugins = self.plugins.read().await;
-        plugins
+        let result = plugins
             .get(&id)
             .cloned()
-            .ok_or_else(|| crate::errors::PluginError::NotFound(id))
+            .ok_or_else(|| crate::errors::PluginError::NotFound(id));
+        drop(plugins);
+        result
     }
 
     async fn get_plugin_by_name(&self, name: &str) -> Result<Arc<dyn Plugin>> {
-        let name_to_id = self.name_to_id.read().await;
-        let id = name_to_id
+        let id = *self
+            .name_to_id
+            .read()
+            .await
             .get(name)
             .ok_or_else(|| crate::errors::PluginError::PluginNotFound(name.to_string()))?;
-        PluginRegistry::get_plugin(self, *id).await
+        PluginRegistry::get_plugin(self, id).await
     }
 
     async fn list_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
         let plugins = self.plugins.read().await;
-        Ok(plugins.values().cloned().collect())
+        let result = plugins.values().cloned().collect();
+        drop(plugins);
+        Ok(result)
     }
 
     async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus> {
         let statuses = self.statuses.read().await;
-        statuses
+        let result = statuses
             .get(&id)
-            .cloned()
-            .ok_or_else(|| crate::errors::PluginError::NotFound(id))
+            .copied()
+            .ok_or_else(|| crate::errors::PluginError::NotFound(id));
+        drop(statuses);
+        result
     }
 
     async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()> {
-        let mut statuses = self.statuses.write().await;
-        statuses.insert(id, status);
+        self.statuses.write().await.insert(id, status);
         Ok(())
     }
 
@@ -399,7 +403,9 @@ mod tests {
         let manager = DefaultPluginManager::new();
         let plugin = make_test_plugin("named");
         manager.register_plugin(plugin).await.unwrap();
-        let found = PluginRegistry::get_plugin_by_name(&manager, "named").await.unwrap();
+        let found = PluginRegistry::get_plugin_by_name(&manager, "named")
+            .await
+            .unwrap();
         assert_eq!(found.metadata().name, "named");
     }
 
@@ -421,10 +427,14 @@ mod tests {
         let id = plugin.id();
         manager.register_plugin(plugin).await.unwrap();
         manager.initialize_plugin(id).await.unwrap();
-        let status = PluginManagerTrait::get_plugin_status(&manager, id).await.unwrap();
+        let status = PluginManagerTrait::get_plugin_status(&manager, id)
+            .await
+            .unwrap();
         assert_eq!(status, PluginStatus::Running);
         manager.shutdown_plugin(id).await.unwrap();
-        let status = PluginManagerTrait::get_plugin_status(&manager, id).await.unwrap();
+        let status = PluginManagerTrait::get_plugin_status(&manager, id)
+            .await
+            .unwrap();
         assert_eq!(status, PluginStatus::Inactive);
     }
 
@@ -451,7 +461,7 @@ mod tests {
         match result {
             Ok(_) => panic!("expected error for unknown plugin"),
             Err(PluginError::NotFound(id)) => assert_eq!(id, unknown_id),
-            Err(e) => panic!("expected NotFound, got {:?}", e),
+            Err(e) => panic!("expected NotFound, got {e:?}"),
         }
     }
 }

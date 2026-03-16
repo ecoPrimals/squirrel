@@ -144,14 +144,14 @@ pub enum PrimalError {
 // Add support for Box<dyn Error> conversion for our Arc<str> modernization
 impl From<Box<dyn std::error::Error + Send + Sync>> for PrimalError {
     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        PrimalError::Generic(format!("Boxed error: {err}"))
+        Self::Generic(format!("Boxed error: {err}"))
     }
 }
 
 // Add support for DiscoveryError conversion
 impl From<crate::capabilities::discovery::DiscoveryError> for PrimalError {
     fn from(err: crate::capabilities::discovery::DiscoveryError) -> Self {
-        PrimalError::NetworkError(format!("Discovery error: {err}"))
+        Self::NetworkError(format!("Discovery error: {err}"))
     }
 }
 

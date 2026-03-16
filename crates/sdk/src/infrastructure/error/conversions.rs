@@ -294,3 +294,103 @@ impl From<Box<dyn std::error::Error>> for PluginError {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+    use crate::infrastructure::error::context::ErrorContext;
+
+    #[test]
+    fn test_plugin_error_error_code() {
+        assert_eq!(
+            PluginError::UnknownCommand {
+                command: "x".into()
+            }
+            .error_code(),
+            1001
+        );
+        assert_eq!(
+            PluginError::NetworkError {
+                operation: "x".into(),
+                message: "y".into()
+            }
+            .error_code(),
+            2001
+        );
+        assert_eq!(
+            PluginError::InitializationError { reason: "x".into() }.error_code(),
+            3001
+        );
+    }
+
+    #[test]
+    fn test_plugin_error_with_context() {
+        let err = PluginError::TimeoutError {
+            operation: "test".into(),
+            seconds: 5,
+        };
+        let ctx = ErrorContext::new("test_op");
+        let enhanced = err.with_context(ctx);
+        assert_eq!(enhanced.context.operation, "test_op");
+    }
+
+    #[test]
+    fn test_from_serde_json_error() {
+        let invalid = "invalid json {{{";
+        let err: PluginError = serde_json::from_str::<serde_json::Value>(invalid)
+            .unwrap_err()
+            .into();
+        assert!(matches!(err, PluginError::JsonError { .. }));
+    }
+
+    #[test]
+    fn test_from_io_error() {
+        let err: PluginError =
+            std::io::Error::new(std::io::ErrorKind::NotFound, "file not found").into();
+        assert!(matches!(err, PluginError::FileSystemError { .. }));
+    }
+
+    #[test]
+    fn test_from_parse_int_error() {
+        let err: PluginError = "not_a_number".parse::<i32>().unwrap_err().into();
+        assert!(matches!(err, PluginError::InvalidParameter { .. }));
+    }
+
+    #[test]
+    fn test_from_parse_float_error() {
+        let err: PluginError = "not_a_float".parse::<f64>().unwrap_err().into();
+        assert!(matches!(err, PluginError::InvalidParameter { .. }));
+    }
+
+    #[test]
+    fn test_from_try_recv_error_empty() {
+        let (_tx, rx) = std::sync::mpsc::channel::<i32>();
+        let err: PluginError = rx.try_recv().unwrap_err().into();
+        assert!(matches!(err, PluginError::TemporaryFailure { .. }));
+    }
+
+    #[test]
+    fn test_from_try_recv_error_disconnected() {
+        let (tx, rx) = std::sync::mpsc::channel::<i32>();
+        drop(tx);
+        let err: PluginError = rx.try_recv().unwrap_err().into();
+        assert!(matches!(err, PluginError::CommunicationError { .. }));
+    }
+
+    #[test]
+    fn test_from_recv_error() {
+        let (tx, rx) = std::sync::mpsc::channel::<i32>();
+        drop(tx);
+        let err: PluginError = rx.recv().unwrap_err().into();
+        assert!(matches!(err, PluginError::CommunicationError { .. }));
+    }
+
+    #[test]
+    fn test_from_send_error() {
+        let (tx, rx) = std::sync::mpsc::channel::<i32>();
+        drop(rx);
+        let err: PluginError = tx.send(1).unwrap_err().into();
+        assert!(matches!(err, PluginError::CommunicationError { .. }));
+    }
+}

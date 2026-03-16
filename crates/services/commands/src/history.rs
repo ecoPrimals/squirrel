@@ -7,7 +7,6 @@
 //! command execution history, as well as replaying previous commands.
 
 use std::collections::VecDeque;
-use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -504,11 +503,11 @@ impl CommandHistory {
     }
 
     /// Cleans up history entries that exceed the maximum size limit
-    pub fn cleanup(&mut self) -> Result<usize, Box<dyn Error>> {
+    pub fn cleanup(&mut self) -> Result<usize, CommandError> {
         let mut entries = self.entries.write().map_err(|e| {
-            Box::new(io::Error::other(format!(
-                "Failed to acquire write lock: {e}"
-            )))
+            CommandError::Lock(format!(
+                "Failed to acquire write lock on history entries: {e}"
+            ))
         })?;
 
         let current_len = entries.len();
@@ -528,7 +527,7 @@ impl CommandHistory {
 
     /// Cleans up old entries if the history size exceeds the maximum limit
     /// This is used internally when adding new entries to maintain size limits
-    fn cleanup_if_needed(&mut self) -> Result<(), Box<dyn Error>> {
+    fn cleanup_if_needed(&mut self) -> Result<(), CommandError> {
         self.cleanup()?;
         Ok(())
     }

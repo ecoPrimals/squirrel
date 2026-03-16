@@ -36,7 +36,7 @@ pub struct WebRequest {
 }
 
 impl WebRequest {
-    /// Create a new WebRequest
+    /// Create a new `WebRequest`
     pub fn new(
         method: HttpMethod,
         path: String,
@@ -95,7 +95,7 @@ impl WebRequest {
     }
 
     /// Check if the request is authenticated
-    pub fn is_authenticated(&self) -> bool {
+    pub const fn is_authenticated(&self) -> bool {
         self.user_id.is_some()
     }
 
@@ -104,15 +104,14 @@ impl WebRequest {
     where
         T: for<'de> serde::Deserialize<'de>,
     {
-        match &self.body {
-            Some(body) => serde_json::from_value(body.clone()),
-            None => {
-                use std::io::{Error, ErrorKind};
-                // Create a custom error with a message
-                let io_err = Error::new(ErrorKind::InvalidInput, "Request body is empty");
-                // Convert to serde_json::Error
-                Err(serde_json::Error::io(io_err))
-            }
+        if let Some(body) = &self.body {
+            serde_json::from_value(body.clone())
+        } else {
+            use std::io::{Error, ErrorKind};
+            // Create a custom error with a message
+            let io_err = Error::new(ErrorKind::InvalidInput, "Request body is empty");
+            // Convert to serde_json::Error
+            Err(serde_json::Error::io(io_err))
         }
     }
 }

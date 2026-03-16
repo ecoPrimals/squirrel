@@ -5,16 +5,17 @@
 //!
 //! This module provides functionality for creating and configuring command registries.
 
+use std::{
+    fmt,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
+
+use crate::error::CommandError;
 use crate::{
     builtin::{EchoCommand, ExitCommand, HelpCommand, HistoryCommand, KillCommand, VersionCommand},
     history::CommandHistory,
     registry::{CommandRegistry, CommandResult},
-};
-use std::{
-    error::Error,
-    fmt,
-    sync::{Arc, Mutex},
-    time::Instant,
 };
 
 use squirrel_interfaces::plugins::CommandsPlugin;
@@ -33,7 +34,7 @@ pub trait CommandRegistryFactory: fmt::Debug {
     /// # Returns
     ///
     /// A Result containing an `Arc<Mutex<CommandRegistry>>` or an error
-    fn create_registry(&self) -> Result<Arc<Mutex<CommandRegistry>>, Box<dyn Error>>;
+    fn create_registry(&self) -> Result<Arc<Mutex<CommandRegistry>>, CommandError>;
 
     /// Register built-in commands in the provided registry
     ///
@@ -47,7 +48,7 @@ pub trait CommandRegistryFactory: fmt::Debug {
     fn register_builtin_commands(
         &self,
         registry: &Arc<Mutex<CommandRegistry>>,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<(), CommandError>;
 }
 
 /// Create a command registry with built-in commands
@@ -55,7 +56,7 @@ pub trait CommandRegistryFactory: fmt::Debug {
 /// # Returns
 ///
 /// A Result containing an `Arc<Mutex<CommandRegistry>>` or an error
-pub fn create_command_registry() -> Result<Arc<Mutex<CommandRegistry>>, Box<dyn Error>> {
+pub fn create_command_registry() -> Result<Arc<Mutex<CommandRegistry>>, CommandError> {
     debug!("Factory: Creating command registry using DefaultCommandRegistryFactory");
     let factory = DefaultCommandRegistryFactory::new();
     factory.create_registry()
@@ -69,7 +70,7 @@ pub fn create_command_registry() -> Result<Arc<Mutex<CommandRegistry>>, Box<dyn 
 /// # Returns
 ///
 /// A tuple containing the command registry and the plugin adapter
-pub fn create_command_registry_with_plugin() -> Result<RegistryWithPlugin, Box<dyn Error>> {
+pub fn create_command_registry_with_plugin() -> Result<RegistryWithPlugin, CommandError> {
     // Create the registry (validates it can be built)
     let _registry = create_command_registry()?;
 
@@ -108,7 +109,7 @@ impl Default for DefaultCommandRegistryFactory {
 }
 
 impl CommandRegistryFactory for DefaultCommandRegistryFactory {
-    fn create_registry(&self) -> Result<Arc<Mutex<CommandRegistry>>, Box<dyn Error>> {
+    fn create_registry(&self) -> Result<Arc<Mutex<CommandRegistry>>, CommandError> {
         debug!("Factory: Creating command registry");
         let start = Instant::now();
 
@@ -129,7 +130,7 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
     fn register_builtin_commands(
         &self,
         registry: &Arc<Mutex<CommandRegistry>>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CommandError> {
         debug!("Factory: Registering built-in commands");
         let start = Instant::now();
 
@@ -139,7 +140,7 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
         // Add the history hook to Record command executions
         {
             let registry_guard = registry.lock().map_err(|e| {
-                Box::<dyn Error>::from(format!(
+                CommandError::Lock(format!(
                     "Failed to acquire lock on registry to register history hook: {e}"
                 ))
             })?;
@@ -161,7 +162,7 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
         {
             debug!("Factory: Registering non-help commands (acquiring lock)");
             let registry_guard = registry.lock().map_err(|e| {
-                Box::<dyn Error>::from(format!(
+                CommandError::Lock(format!(
                     "Failed to acquire lock on registry to register non-help commands: {e}"
                 ))
             })?;
@@ -192,7 +193,7 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
         {
             debug!("Factory: Registering help command (acquiring lock)");
             let registry_guard = registry.lock().map_err(|e| {
-                Box::<dyn Error>::from(format!(
+                CommandError::Lock(format!(
                     "Failed to acquire lock on registry to register help command: {e}"
                 ))
             })?;
@@ -241,7 +242,7 @@ mod tests {
     }
 
     #[test]
-    fn test_create_command_registry() -> Result<(), Box<dyn Error>> {
+    fn test_create_command_registry() -> Result<(), CommandError> {
         // Initialize logging for tests
         let _ = tracing_subscriber::fmt::try_init();
 
@@ -252,8 +253,7 @@ mod tests {
         let commands = {
             let timer = TestLockTimer::new("list_commands");
             let registry_lock = registry.lock().map_err(|e| {
-                let err_msg = format!("Failed to acquire lock on command registry: {}", e);
-                Box::<dyn Error>::from(err_msg)
+                CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
             })?;
 
             let cmds = registry_lock.list_commands()?;
@@ -289,8 +289,7 @@ mod tests {
             // Get command with lock
             let command = {
                 let registry_lock = registry.lock().map_err(|e| {
-                    let err_msg = format!("Failed to acquire lock on command registry: {}", e);
-                    Box::<dyn Error>::from(err_msg)
+                    CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
                 })?;
 
                 // Clone the command while holding the lock
@@ -322,8 +321,7 @@ mod tests {
             // Get command with lock
             let command = {
                 let registry_lock = registry.lock().map_err(|e| {
-                    let err_msg = format!("Failed to acquire lock on command registry: {}", e);
-                    Box::<dyn Error>::from(err_msg)
+                    CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
                 })?;
 
                 // Clone the command while holding the lock
@@ -354,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn test_default_factory() -> Result<(), Box<dyn Error>> {
+    fn test_default_factory() -> Result<(), CommandError> {
         // Initialize logging for tests
         let _ = tracing_subscriber::fmt::try_init();
 
@@ -366,8 +364,7 @@ mod tests {
         let commands = {
             let timer = TestLockTimer::new("list_commands");
             let registry_lock = registry.lock().map_err(|e| {
-                let err_msg = format!("Failed to acquire lock on command registry: {}", e);
-                Box::<dyn Error>::from(err_msg)
+                CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
             })?;
 
             let cmds = registry_lock.list_commands()?;
@@ -400,8 +397,7 @@ mod tests {
         let help_texts = {
             let timer = TestLockTimer::new("get_command_help");
             let registry_lock = registry.lock().map_err(|e| {
-                let err_msg = format!("Failed to acquire lock on command registry: {}", e);
-                Box::<dyn Error>::from(err_msg)
+                CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
             })?;
 
             // Get help for multiple commands while holding the lock
@@ -441,7 +437,7 @@ mod tests {
 
     // New comprehensive test that checks factory creation with custom commands
     #[test]
-    fn test_factory_with_custom_commands() -> Result<(), Box<dyn Error>> {
+    fn test_factory_with_custom_commands() -> Result<(), CommandError> {
         // Initialize logging for tests
         let _ = tracing_subscriber::fmt::try_init();
 
@@ -481,8 +477,7 @@ mod tests {
         {
             let timer = TestLockTimer::new("register_custom_command");
             let registry_lock = registry.lock().map_err(|e| {
-                let err_msg = format!("Failed to acquire lock on command registry: {}", e);
-                Box::<dyn Error>::from(err_msg)
+                CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
             })?;
 
             registry_lock.register("custom", Arc::new(CustomCommand))?;
@@ -496,8 +491,7 @@ mod tests {
             // Get command with lock
             let command = {
                 let registry_lock = registry.lock().map_err(|e| {
-                    let err_msg = format!("Failed to acquire lock on command registry: {}", e);
-                    Box::<dyn Error>::from(err_msg)
+                    CommandError::Lock(format!("Failed to acquire lock on command registry: {e}"))
                 })?;
 
                 // Clone the command while holding the lock

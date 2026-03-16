@@ -805,7 +805,7 @@ mod tests {
             output_tokens: 100,
             total_tokens: 300,
         };
-        let cloned = usage.clone();
+        let cloned = usage;
         assert_eq!(cloned.total_tokens, 300);
     }
 

@@ -125,7 +125,7 @@ pub struct ValidationResult {
 
 impl ValidationResult {
     /// Create a successful validation result
-    pub fn valid(sanitized_input: String) -> Self {
+    pub const fn valid(sanitized_input: String) -> Self {
         Self {
             is_valid: true,
             sanitized_input: Some(sanitized_input),
@@ -135,7 +135,7 @@ impl ValidationResult {
     }
 
     /// Create an invalid validation result
-    pub fn invalid(violations: Vec<SecurityViolation>, risk_level: RiskLevel) -> Self {
+    pub const fn invalid(violations: Vec<SecurityViolation>, risk_level: RiskLevel) -> Self {
         Self {
             is_valid: false,
             sanitized_input: None,

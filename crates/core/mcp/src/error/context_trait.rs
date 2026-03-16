@@ -91,7 +91,7 @@ pub trait ErrorContextTrait {
 
     /// Get the full error context if available
     ///
-    /// Returns None if the error doesn't provide a full ErrorContext struct.
+    /// Returns None if the error doesn't provide a full `ErrorContext` struct.
     #[inline]
     fn get_context(&self) -> Option<&ErrorContext> {
         None
@@ -180,12 +180,15 @@ pub trait WithContext: Sized {
     ///     Ok(())
     /// }
     /// ```
+    #[must_use]
     fn with_context(self, operation: &str, component: &str) -> Self;
 
     /// Add severity information to this error
+    #[must_use]
     fn with_severity(self, severity: ErrorSeverity) -> Self;
 
     /// Mark this error as unrecoverable
+    #[must_use]
     fn as_unrecoverable(&self) -> Self
     where
         Self: Clone,
@@ -217,7 +220,7 @@ impl<T, E> ResultContextExt<T, E> for Result<T, E>
 where
     E: WithContext,
 {
-    fn context(self, operation: &str, component: &str) -> Result<T, E> {
+    fn context(self, operation: &str, component: &str) -> Self {
         self.map_err(|e| e.with_context(operation, component))
     }
 }

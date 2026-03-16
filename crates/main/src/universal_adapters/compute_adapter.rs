@@ -277,7 +277,7 @@ impl UniversalComputeAdapter {
 
     /// Get current compute service info
     #[must_use]
-    pub fn get_current_compute_service(&self) -> Option<&ServiceInfo> {
+    pub const fn get_current_compute_service(&self) -> Option<&ServiceInfo> {
         self.preferred_compute_service.as_ref()
     }
 

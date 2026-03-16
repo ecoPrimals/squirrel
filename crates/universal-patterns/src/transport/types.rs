@@ -216,7 +216,7 @@ mod tests {
     fn test_transport_config_default() {
         let config = TransportConfig::default();
         assert_eq!(config.preferred_transport, None);
-        assert_eq!(config.enable_fallback, true);
+        assert!(config.enable_fallback);
         assert_eq!(config.timeout_ms, 5000);
         assert_eq!(config.socket_base_dir, None);
     }
@@ -234,7 +234,7 @@ mod tests {
             config.preferred_transport,
             Some(TransportType::UnixFilesystem)
         );
-        assert_eq!(config.enable_fallback, false);
+        assert!(!config.enable_fallback);
         assert_eq!(config.timeout_ms, 10000);
         assert_eq!(config.socket_base_dir, Some(socket_dir));
     }
@@ -389,7 +389,7 @@ mod tests {
     fn test_listener_config_default() {
         let config = ListenerConfig::default();
         assert_eq!(config.preferred_transport, None);
-        assert_eq!(config.enable_fallback, true);
+        assert!(config.enable_fallback);
         assert_eq!(config.socket_base_dir, None);
         assert_eq!(config.backlog, Some(128));
         #[cfg(unix)]
@@ -412,7 +412,7 @@ mod tests {
             config.preferred_transport,
             Some(TransportType::UnixAbstract)
         );
-        assert_eq!(config.enable_fallback, false);
+        assert!(!config.enable_fallback);
         assert_eq!(config.socket_base_dir, Some(socket_dir));
         assert_eq!(config.backlog, Some(256));
         #[cfg(unix)]

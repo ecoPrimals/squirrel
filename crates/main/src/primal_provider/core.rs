@@ -200,13 +200,13 @@ impl SquirrelPrimalProvider {
             .iter()
             .filter(|p| {
                 p.get("is_healthy")
-                    .and_then(|v| v.as_bool())
+                    .and_then(serde_json::Value::as_bool)
                     .unwrap_or(false)
             })
             .filter_map(|p| {
                 p.get("display_name")
                     .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
+                    .map(std::string::ToString::to_string)
             })
             .collect();
 
@@ -495,7 +495,7 @@ impl SquirrelPrimalProvider {
             .iter()
             .filter(|p| {
                 p.get("is_healthy")
-                    .and_then(|v| v.as_bool())
+                    .and_then(serde_json::Value::as_bool)
                     .unwrap_or(false)
             })
             .count();
@@ -503,13 +503,13 @@ impl SquirrelPrimalProvider {
             .iter()
             .filter(|p| {
                 p.get("is_healthy")
-                    .and_then(|v| v.as_bool())
+                    .and_then(serde_json::Value::as_bool)
                     .unwrap_or(false)
             })
             .filter_map(|p| {
                 p.get("display_name")
                     .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
+                    .map(std::string::ToString::to_string)
             })
             .collect();
 
@@ -570,19 +570,19 @@ impl SquirrelPrimalProvider {
 
     /// Get primal name
     #[must_use]
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         "Squirrel AI Primal"
     }
 
     /// Get primal description
     #[must_use]
-    pub fn description(&self) -> &'static str {
+    pub const fn description(&self) -> &'static str {
         "AI coordination and context analysis primal"
     }
 
     /// Convenience method to access `primal_id` from trait
     #[must_use]
-    pub fn primal_id(&self) -> &'static str {
+    pub const fn primal_id(&self) -> &'static str {
         "squirrel"
     }
 
@@ -605,7 +605,7 @@ impl SquirrelPrimalProvider {
 
     /// Convenience method to access `primal_type` from trait
     #[must_use]
-    pub fn primal_type(&self) -> PrimalType {
+    pub const fn primal_type(&self) -> PrimalType {
         PrimalType::AI
     }
 

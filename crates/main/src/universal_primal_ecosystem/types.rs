@@ -141,7 +141,7 @@ impl CachedCapabilityMatch {
     }
 
     /// Update access statistics
-    pub fn accessed(&mut self) {
+    pub const fn accessed(&mut self) {
         self.access_count += 1;
     }
 }

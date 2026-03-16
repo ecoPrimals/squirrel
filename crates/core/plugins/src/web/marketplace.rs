@@ -27,6 +27,7 @@ pub struct PluginMarketplaceClient {
     repositories: Arc<RwLock<Vec<PluginRepository>>>,
     /// HTTP client for making requests
     #[cfg(feature = "marketplace")]
+    #[allow(dead_code)]
     http_client: reqwest::Client,
     /// Cache for marketplace data
     cache: Arc<RwLock<MarketplaceCache>>,
@@ -422,6 +423,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Get featured plugins
+    #[allow(clippy::unused_async)]
     async fn get_featured_plugins(&self) -> Result<WebResponse> {
         let featured_plugins = self.get_sample_plugins("featured");
 
@@ -436,6 +438,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Get trending plugins
+    #[allow(clippy::unused_async)]
     async fn get_trending_plugins(&self) -> Result<WebResponse> {
         let trending_plugins = self.get_sample_plugins("trending");
 
@@ -492,6 +495,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Install plugin from marketplace
+    #[allow(clippy::unused_async)]
     async fn install_plugin(&self, plugin_id: Uuid) -> Result<WebResponse> {
         let installation_id = Uuid::new_v4();
 
@@ -518,6 +522,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Get installation status list
+    #[allow(clippy::unused_async)]
     async fn get_installations(&self) -> Result<WebResponse> {
         // In real implementation, this would return actual installation statuses
         let installations = vec![InstallationStatus {
@@ -543,6 +548,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Get installation status
+    #[allow(clippy::unused_async)]
     async fn get_installation_status(&self, installation_id: Uuid) -> Result<WebResponse> {
         // In real implementation, this would fetch the actual installation status
         let installation_status = InstallationStatus {
@@ -569,6 +575,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Cancel installation
+    #[allow(clippy::unused_async)]
     async fn cancel_installation(&self, installation_id: Uuid) -> Result<WebResponse> {
         // In real implementation, this would cancel the actual installation
         Ok(WebResponse {
@@ -583,6 +590,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Helper function to search a specific repository
+    #[allow(clippy::unused_async)]
     async fn search_repository(
         &self,
         _repo: &PluginRepository,
@@ -653,7 +661,7 @@ impl PluginMarketplaceClient {
 
     /// Generate cache key for search criteria
     fn generate_cache_key(&self, criteria: &MarketplaceSearchCriteria) -> String {
-        format!("{:?}", criteria)
+        format!("{criteria:?}")
     }
 
     /// Extract UUID from URL path
@@ -663,9 +671,9 @@ impl PluginMarketplaceClient {
             if *id_str == "cancel" && parts.len() > 1 {
                 // Handle /cancel endpoints
                 Uuid::parse_str(parts[parts.len() - 2])
-                    .map_err(|e| anyhow::anyhow!("Invalid UUID: {}", e))
+                    .map_err(|e| anyhow::anyhow!("Invalid UUID: {e}"))
             } else {
-                Uuid::parse_str(id_str).map_err(|e| anyhow::anyhow!("Invalid UUID: {}", e))
+                Uuid::parse_str(id_str).map_err(|e| anyhow::anyhow!("Invalid UUID: {e}"))
             }
         } else {
             Err(anyhow::anyhow!("No UUID found in path"))
@@ -676,9 +684,9 @@ impl PluginMarketplaceClient {
     fn get_sample_plugins(&self, plugin_type: &str) -> Vec<MarketplacePlugin> {
         vec![MarketplacePlugin {
             id: Uuid::new_v4(),
-            name: format!("Sample {} Plugin", plugin_type),
+            name: format!("Sample {plugin_type} Plugin"),
             version: "1.0.0".to_string(),
-            description: format!("A sample {} plugin for demonstration", plugin_type),
+            description: format!("A sample {plugin_type} plugin for demonstration"),
             author: "Plugin Author".to_string(),
             category: "utility".to_string(),
             tags: vec!["sample".to_string(), plugin_type.to_string()],

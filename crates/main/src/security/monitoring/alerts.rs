@@ -53,7 +53,7 @@ pub struct SecurityAlert {
 /// Alert types
 ///
 /// Categories of security alerts that can be generated.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum AlertType {
     /// Multiple failed authentication attempts (brute force)
     BruteForceAttempt,
@@ -144,7 +144,7 @@ impl SecurityAlert {
     }
 
     /// Escalate alert severity
-    pub fn escalate(&mut self) {
+    pub const fn escalate(&mut self) {
         self.severity = match self.severity {
             EventSeverity::Info => EventSeverity::Warning,
             EventSeverity::Warning => EventSeverity::High,
@@ -182,7 +182,7 @@ impl AlertBuilder {
     }
 
     /// Set severity
-    pub fn severity(mut self, severity: EventSeverity) -> Self {
+    pub const fn severity(mut self, severity: EventSeverity) -> Self {
         self.severity = severity;
         self
     }

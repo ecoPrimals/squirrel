@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::str::FromStr;
 use thiserror::Error;
+use tracing::warn;
 use universal_constants::capabilities;
 use universal_constants::timeouts;
 
@@ -223,17 +224,15 @@ impl Environment {
             |_| {
                 match self {
                     Self::Production => {
-                        eprintln!("🚨 FATAL SECURITY ERROR: DATABASE_URL environment variable is required in production");
-                        eprintln!(
-                            "   Production deployment blocked to prevent security vulnerability"
-                        );
-                        eprintln!("   Please set DATABASE_URL environment variable with secure credentials");
+                        warn!("FATAL SECURITY ERROR: DATABASE_URL environment variable is required in production");
+                        warn!("Production deployment blocked to prevent security vulnerability");
+                        warn!("Please set DATABASE_URL environment variable with secure credentials");
                         std::process::exit(1);
                     }
                     Self::Staging => {
-                        eprintln!("⚠️  WARNING: DATABASE_URL not set in staging, using fallback");
+                        warn!("DATABASE_URL not set in staging, using fallback");
                         std::env::var("DATABASE_URL_STAGING").unwrap_or_else(|_| {
-                            eprintln!("🚨 ERROR: Neither DATABASE_URL nor DATABASE_URL_STAGING is set");
+                            warn!("ERROR: Neither DATABASE_URL nor DATABASE_URL_STAGING is set");
                             std::process::exit(1);
                         })
                     }
@@ -244,7 +243,7 @@ impl Environment {
             },
             |url| {
                 if *self == Self::Production && url.contains("password") {
-                    eprintln!("⚠️  WARNING: Production DATABASE_URL appears to contain hardcoded password");
+                    warn!("Production DATABASE_URL appears to contain hardcoded password");
                 }
                 url
             },
@@ -767,5 +766,65 @@ mod tests {
     fn test_environment_config_validate_ok() {
         let config = test_env_config();
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_network_config_from_env_defaults() {
+        temp_env::with_vars(
+            [
+                ("MCP_REQUEST_TIMEOUT_MS", Some("5000")),
+                ("MCP_MAX_CONNECTIONS", Some("50")),
+            ],
+            || {
+                let config = NetworkConfig::from_env().expect("should load");
+                assert!(config.port > 0);
+                assert_eq!(config.request_timeout_ms, 5000);
+                assert_eq!(config.max_connections, 50);
+            },
+        );
+    }
+
+    #[test]
+    fn test_network_config_from_env_invalid_timeout() {
+        temp_env::with_var("MCP_REQUEST_TIMEOUT_MS", Some("invalid"), || {
+            assert!(NetworkConfig::from_env().is_err());
+        });
+    }
+
+    #[test]
+    fn test_ai_provider_config_from_env() {
+        temp_env::with_var("AI_REQUEST_TIMEOUT_MS", Some("15000"), || {
+            let config = AIProviderConfig::from_env().expect("should load");
+            assert_eq!(config.request_timeout_ms, 15000);
+        });
+    }
+
+    #[test]
+    fn test_ai_provider_config_from_env_invalid() {
+        temp_env::with_var("AI_REQUEST_TIMEOUT_MS", Some("not_a_number"), || {
+            assert!(AIProviderConfig::from_env().is_err());
+        });
+    }
+
+    #[test]
+    fn test_ecosystem_config_from_env() {
+        temp_env::with_vars(
+            [
+                ("NESTGATE_ENDPOINT", Some("http://127.0.0.1:8444")),
+                ("BEARDOG_ENDPOINT", Some("http://127.0.0.1:8443")),
+                ("TOADSTOOL_ENDPOINT", Some("http://127.0.0.1:8445")),
+                ("SERVICE_MESH_ENDPOINT", Some("http://127.0.0.1:8446")),
+            ],
+            || {
+                let config = EcosystemConfig::from_env().expect("should load");
+                assert!(config.nestgate_endpoint.contains("127.0.0.1"));
+            },
+        );
+    }
+
+    #[test]
+    fn test_environment_config_snake_case_serialization() {
+        let env = Environment::Development;
+        assert_eq!(env.config_suffix(), "dev");
     }
 }

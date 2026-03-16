@@ -4,7 +4,31 @@
 use colored::*;
 use prettytable::{Cell, Row, Table};
 use serde::Serialize;
-use std::error::Error;
+use thiserror::Error;
+
+/// Error type for formatter operations
+#[derive(Debug, Error)]
+pub enum FormatterError {
+    /// Serialization error (JSON/YAML)
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+
+    /// Unknown formatter requested
+    #[error("Unknown formatter: {0}")]
+    UnknownFormat(String),
+}
+
+impl From<serde_json::Error> for FormatterError {
+    fn from(err: serde_json::Error) -> Self {
+        FormatterError::Serialization(err.to_string())
+    }
+}
+
+impl From<serde_yml::Error> for FormatterError {
+    fn from(err: serde_yml::Error) -> Self {
+        FormatterError::Serialization(err.to_string())
+    }
+}
 
 /// Output format options
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -36,7 +60,7 @@ impl Formatter {
     pub fn format<T: Serialize + std::fmt::Debug>(
         &self,
         data: T,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, FormatterError> {
         match self {
             Formatter::Text(f) => f.format(data),
             Formatter::Json(f) => f.format(data),
@@ -45,7 +69,7 @@ impl Formatter {
     }
 
     /// Format an error into a string
-    pub fn format_error(&self, error: &dyn Error) -> String {
+    pub fn format_error(&self, error: &dyn std::error::Error) -> String {
         match self {
             Formatter::Text(f) => f.format_error(error),
             Formatter::Json(f) => f.format_error(error),
@@ -77,12 +101,12 @@ impl TextFormatter {
     pub fn format<T: Serialize + std::fmt::Debug>(
         &self,
         data: T,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> Result<String, FormatterError> {
         Ok(format!("{:#?}", data))
     }
 
     /// Format an error into a string
-    pub fn format_error(&self, error: &dyn Error) -> String {
+    pub fn format_error(&self, error: &dyn std::error::Error) -> String {
         format!("Error: {}", error.to_string().red())
     }
 
@@ -117,12 +141,12 @@ impl JsonFormatter {
     }
 
     /// Format data into a string
-    pub fn format<T: Serialize>(&self, data: T) -> Result<String, Box<dyn Error>> {
+    pub fn format<T: Serialize>(&self, data: T) -> Result<String, FormatterError> {
         Ok(serde_json::to_string_pretty(&data)?)
     }
 
     /// Format an error into a string
-    pub fn format_error(&self, error: &dyn Error) -> String {
+    pub fn format_error(&self, error: &dyn std::error::Error) -> String {
         serde_json::json!({
             "error": {
                 "message": error.to_string(),
@@ -168,12 +192,12 @@ impl YamlFormatter {
     }
 
     /// Format data into a string
-    pub fn format<T: Serialize>(&self, data: T) -> Result<String, Box<dyn Error>> {
+    pub fn format<T: Serialize>(&self, data: T) -> Result<String, FormatterError> {
         Ok(serde_yml::to_string(&data)?)
     }
 
     /// Format an error into a string
-    pub fn format_error(&self, error: &dyn Error) -> String {
+    pub fn format_error(&self, error: &dyn std::error::Error) -> String {
         serde_yml::to_string(&serde_json::json!({
             "error": {
                 "message": error.to_string(),
@@ -227,13 +251,13 @@ impl Factory {
     }
 
     /// Create a formatter from a string format name
-    pub fn create_formatter(format: &str) -> Result<Formatter, Box<dyn Error>> {
+    pub fn create_formatter(format: &str) -> Result<Formatter, FormatterError> {
         match format.to_lowercase().as_str() {
             "text" => Ok(Formatter::Text(TextFormatter::new())),
             "json" => Ok(Formatter::Json(JsonFormatter::new())),
             "yaml" | "yml" => Ok(Formatter::Yaml(YamlFormatter::new())),
             "table" => Ok(Formatter::Text(TextFormatter::new())), // Uses text formatter's table implementation
-            _ => Err(format!("Unknown formatter: {}", format).into()),
+            _ => Err(FormatterError::UnknownFormat(format.to_string())),
         }
     }
 }

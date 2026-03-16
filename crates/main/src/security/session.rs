@@ -96,7 +96,7 @@ impl SecuritySession {
 
     /// Set authorization level
     #[must_use]
-    pub fn with_authorization_level(mut self, level: AuthorizationLevel) -> Self {
+    pub const fn with_authorization_level(mut self, level: AuthorizationLevel) -> Self {
         self.authorization_level = level;
         self
     }
@@ -128,7 +128,7 @@ impl SecuritySession {
 
     /// Check if session has required authorization level
     #[must_use]
-    pub fn has_authorization_level(&self, required_level: &AuthorizationLevel) -> bool {
+    pub const fn has_authorization_level(&self, required_level: &AuthorizationLevel) -> bool {
         use AuthorizationLevel::{Admin, Elevated, None, System, User};
 
         matches!(

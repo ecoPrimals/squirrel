@@ -57,7 +57,7 @@ pub fn calculate_performance_score(
     routing: &RoutingMetrics,
 ) -> f64 {
     // Speed score based on discovery and routing times
-    let avg_time = (discovery.avg_discovery_time_ms + routing.avg_routing_time_ms) / 2.0;
+    let avg_time = f64::midpoint(discovery.avg_discovery_time_ms, routing.avg_routing_time_ms);
     let speed_score = if avg_time < 10.0 {
         1.0
     } else if avg_time < 100.0 {
@@ -69,7 +69,7 @@ pub fn calculate_performance_score(
     // Cache effectiveness score
     let cache_score = cache.hit_rate / 100.0;
 
-    (speed_score + cache_score) / 2.0
+    f64::midpoint(speed_score, cache_score)
 }
 
 /// Calculate reliability score (0.0 to 1.0)
@@ -89,7 +89,7 @@ pub fn calculate_reliability_score(routing: &RoutingMetrics, errors: &ErrorMetri
     let routing_reliability = routing.routing_success_rate / 100.0;
     let recovery_reliability = errors.recovery_success_rate / 100.0;
 
-    (routing_reliability + recovery_reliability) / 2.0
+    f64::midpoint(routing_reliability, recovery_reliability)
 }
 
 #[cfg(test)]

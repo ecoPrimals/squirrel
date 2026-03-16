@@ -8,9 +8,13 @@
 //! Tool handlers live in `handlers_tool.rs`.
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
-use super::types::*;
+use super::types::{
+    AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckResponse,
+    ListProvidersResponse, ProviderInfo, QueryAiRequest, QueryAiResponse,
+};
 use crate::niche;
 use serde_json::Value;
+use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, info, warn};
 
@@ -85,7 +89,7 @@ impl JsonRpcServer {
             let ai_request = TextGenerationRequest {
                 prompt: request.prompt,
                 system: None,
-                max_tokens: request.max_tokens.map(|v| v as u32).unwrap_or(1024),
+                max_tokens: request.max_tokens.map_or(1024, |v| v as u32),
                 temperature: request.temperature.unwrap_or(0.7),
                 model: request.model,
                 constraints: vec![],
@@ -97,8 +101,8 @@ impl JsonRpcServer {
                 Ok(ai_response) => {
                     let response = QueryAiResponse {
                         response: ai_response.text,
-                        provider: ai_response.provider_id.to_string(),
-                        model: ai_response.model.to_string(),
+                        provider: ai_response.provider_id.clone(),
+                        model: ai_response.model.clone(),
                         tokens_used: ai_response.usage.map(|u| u.total_tokens as usize),
                         latency_ms: start.elapsed().as_millis() as u64,
                         success: true,
@@ -204,16 +208,26 @@ impl JsonRpcServer {
         let mut tools_registered = 0usize;
 
         if let (Some(primal), Some(socket_path)) = (&request.primal, &request.socket_path) {
-            let tools = match request.tools.clone() {
-                Some(t) if !t.is_empty() => t,
-                _ => request.capabilities.clone(),
+            let tools: Vec<Arc<str>> = match &request.tools {
+                Some(t) if !t.is_empty() => t.iter().map(|s| Arc::from(s.as_str())).collect(),
+                _ => request
+                    .capabilities
+                    .iter()
+                    .map(|s| Arc::from(s.as_str()))
+                    .collect(),
             };
             tools_registered = tools.len();
 
+            let capabilities: Vec<Arc<str>> = request
+                .capabilities
+                .iter()
+                .map(|s| Arc::from(s.as_str()))
+                .collect();
+
             let announced = super::types::AnnouncedPrimal {
-                primal: primal.clone(),
-                socket_path: socket_path.clone(),
-                capabilities: request.capabilities.clone(),
+                primal: Arc::from(primal.as_str()),
+                socket_path: Arc::from(socket_path.as_str()),
+                capabilities: capabilities.clone(),
                 tools: tools.clone(),
                 announced_at: chrono::Utc::now(),
             };
@@ -224,7 +238,7 @@ impl JsonRpcServer {
                     "Registered remote tool '{}' -> {} at {}",
                     tool_name, primal, socket_path
                 );
-                registry.insert(tool_name.clone(), announced.clone());
+                registry.insert(Arc::clone(tool_name), announced.clone());
             }
         }
 
@@ -258,15 +272,15 @@ impl JsonRpcServer {
 
         for cap in niche::CAPABILITIES {
             let mut entry = serde_json::Map::new();
-            if let Some(cm) = cost_map {
-                if let Some(cost) = cm.get(*cap) {
-                    entry.insert("cost".to_string(), cost.clone());
-                }
+            if let Some(cm) = cost_map
+                && let Some(cost) = cm.get(*cap)
+            {
+                entry.insert("cost".to_string(), cost.clone());
             }
-            if let Some(dm) = dep_map {
-                if let Some(dep) = dm.get(*cap) {
-                    entry.insert("depends_on".to_string(), dep.clone());
-                }
+            if let Some(dm) = dep_map
+                && let Some(dep) = dm.get(*cap)
+            {
+                entry.insert("depends_on".to_string(), dep.clone());
             }
             methods.insert(cap.to_string(), Value::Object(entry));
         }
@@ -455,6 +469,7 @@ impl JsonRpcServer {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -700,5 +715,380 @@ mod tests {
         assert!(result.is_some());
         let parsed: Vec<serde_json::Value> = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(parsed.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_handle_lifecycle_register() {
+        let server = make_server();
+        let result = server.handle_lifecycle_register().await.unwrap();
+        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert!(
+            result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap()
+                .contains("squirrel")
+        );
+        assert!(result.get("version").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_lifecycle_status() {
+        let server = make_server();
+        let result = server.handle_lifecycle_status().await.unwrap();
+        assert_eq!(
+            result.get("status").and_then(|v| v.as_str()),
+            Some("healthy")
+        );
+        assert!(result.get("version").is_some());
+        assert!(result.get("uptime_seconds").is_some());
+        assert_eq!(
+            result.get("service").and_then(|v| v.as_str()),
+            Some("squirrel")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_discover_peers() {
+        let server = make_server();
+        let result = server.handle_discover_peers(None).await.unwrap();
+        assert!(result.get("peers").and_then(|v| v.as_array()).is_some());
+        assert!(result.get("total").and_then(|v| v.as_u64()).is_some());
+        assert_eq!(
+            result.get("discovery_method").and_then(|v| v.as_str()),
+            Some("socket_scan")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_single_request_ping() {
+        let server = make_server();
+        let req = r#"{"jsonrpc":"2.0","method":"system.ping","id":42}"#;
+        let result = server.handle_request_or_batch(req).await;
+        assert!(result.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(
+            parsed
+                .get("result")
+                .and_then(|r| r.get("pong"))
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(parsed.get("id").and_then(|v| v.as_i64()), Some(42));
+    }
+
+    #[tokio::test]
+    async fn test_handle_parse_error() {
+        let server = make_server();
+        let result = server.handle_request_or_batch("not valid json {{{").await;
+        assert!(result.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert!(parsed.get("error").is_some());
+        assert_eq!(
+            parsed
+                .get("error")
+                .and_then(|e| e.get("code"))
+                .and_then(|c| c.as_i64()),
+            Some(error_codes::PARSE_ERROR as i64)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_invalid_jsonrpc_version() {
+        let server = make_server();
+        let req = r#"{"jsonrpc":"1.0","method":"system.ping","id":1}"#;
+        let result = server.handle_request_or_batch(req).await;
+        assert!(result.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert!(parsed.get("error").is_some());
+        assert!(
+            parsed
+                .get("error")
+                .and_then(|e| e.get("message"))
+                .and_then(|m| m.as_str())
+                .unwrap_or("")
+                .contains("2.0")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_announce_with_primal_and_socket() {
+        let server = make_server();
+        let params = Some(json!({
+            "capabilities": ["tool.remote"],
+            "primal": "songbird-1",
+            "socket_path": "/tmp/songbird.sock",
+            "tools": ["tool.remote"]
+        }));
+        let result = server.handle_announce_capabilities(params).await.unwrap();
+        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            result.get("tools_registered").and_then(|v| v.as_u64()),
+            Some(1)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_list_tools() {
+        let server = make_server();
+        let result = server.handle_list_tools().await.unwrap();
+        assert!(result.get("tools").and_then(|v| v.as_array()).is_some());
+        assert!(result.get("total").and_then(|v| v.as_u64()).is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_context_create() {
+        let server = make_server();
+        let params = Some(json!({"session_id": "test-session-123", "metadata": {"key": "value"}}));
+        let result = server.handle_context_create(params).await.unwrap();
+        assert!(result.get("id").is_some());
+        assert!(result.get("version").is_some());
+        assert!(result.get("created_at").is_some());
+        assert_eq!(
+            result
+                .get("metadata")
+                .and_then(|m| m.get("key"))
+                .and_then(|v| v.as_str()),
+            Some("value")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_context_create_auto_session_id() {
+        let server = make_server();
+        let result = server.handle_context_create(None).await.unwrap();
+        assert!(
+            result
+                .get("id")
+                .and_then(|v| v.as_str())
+                .map(|s| !s.is_empty())
+                .unwrap_or(false)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_context_update_missing_params() {
+        let server = make_server();
+        let result = server.handle_context_update(None).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_handle_context_summarize_missing_params() {
+        let server = make_server();
+        let result = server.handle_context_summarize(None).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_tool_missing_params() {
+        let server = make_server();
+        let result = server.handle_execute_tool(None).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_tool_missing_tool_param() {
+        let server = make_server();
+        let params = Some(json!({"args": {}}));
+        let result = server.handle_execute_tool(params).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_context_create() {
+        let server = make_server();
+        let req = r#"{"jsonrpc":"2.0","method":"context.create","params":{"session_id":"req-test"},"id":1}"#;
+        let result = server.handle_request_or_batch(req).await;
+        assert!(result.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert!(parsed.get("result").is_some());
+        assert!(parsed.get("result").and_then(|r| r.get("id")).is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_tool_list() {
+        let server = make_server();
+        let req = r#"{"jsonrpc":"2.0","method":"tool.list","id":1}"#;
+        let result = server.handle_request_or_batch(req).await;
+        assert!(result.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert!(parsed.get("result").is_some());
+        assert!(
+            parsed
+                .get("result")
+                .and_then(|r| r.get("tools"))
+                .and_then(|v| v.as_array())
+                .is_some()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_context_update_valid() {
+        let server = make_server();
+        let create_params =
+            Some(json!({"session_id": "update-test-session", "metadata": {"key": "v1"}}));
+        let create_result = server.handle_context_create(create_params).await.unwrap();
+        let ctx_id = create_result
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap()
+            .to_string();
+
+        let update_params = Some(json!({"id": ctx_id, "data": {"updated": true}}));
+        let update_result = server.handle_context_update(update_params).await.unwrap();
+        assert_eq!(
+            update_result.get("id").and_then(|v| v.as_str()),
+            Some(ctx_id.as_str())
+        );
+        assert!(
+            update_result
+                .get("version")
+                .and_then(|v| v.as_u64())
+                .unwrap()
+                >= 1
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_context_summarize_valid() {
+        let server = make_server();
+        let create_params = Some(json!({"session_id": "summarize-test-session"}));
+        let create_result = server.handle_context_create(create_params).await.unwrap();
+        let ctx_id = create_result
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap()
+            .to_string();
+
+        let summarize_params = Some(json!({"id": ctx_id}));
+        let summarize_result = server
+            .handle_context_summarize(summarize_params)
+            .await
+            .unwrap();
+        assert_eq!(
+            summarize_result.get("id").and_then(|v| v.as_str()),
+            Some(ctx_id.as_str())
+        );
+        assert!(
+            summarize_result
+                .get("summary")
+                .and_then(|v| v.as_str())
+                .unwrap()
+                .contains("Context")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_tool_system_health() {
+        let server = make_server();
+        let params = Some(json!({"tool": "system.health", "args": {}}));
+        let result = server.handle_execute_tool(params).await.unwrap();
+        assert_eq!(
+            result.get("tool").and_then(|v| v.as_str()),
+            Some("system.health")
+        );
+        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert!(
+            result
+                .get("output")
+                .and_then(|v| v.as_str())
+                .unwrap()
+                .contains("healthy")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_tool_unknown_tool() {
+        let server = make_server();
+        let params = Some(json!({"tool": "nonexistent.tool", "args": {}}));
+        let result = server.handle_execute_tool(params).await.unwrap();
+        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(false));
+        assert!(
+            result
+                .get("error")
+                .and_then(|v| v.as_str())
+                .unwrap()
+                .contains("not found")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_legacy_health_alias() {
+        let server = make_server();
+        let req = r#"{"jsonrpc":"2.0","method":"health","id":1}"#;
+        let result = server.handle_request_or_batch(req).await;
+        assert!(result.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert!(parsed.get("result").is_some());
+        assert_eq!(
+            parsed
+                .get("result")
+                .and_then(|r| r.get("status"))
+                .and_then(|v| v.as_str()),
+            Some("healthy")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_legacy_ping_alias() {
+        let server = make_server();
+        let req = r#"{"jsonrpc":"2.0","method":"ping","id":1}"#;
+        let result = server.handle_request_or_batch(req).await;
+        assert!(result.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(
+            parsed
+                .get("result")
+                .and_then(|r| r.get("pong"))
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_method_not_found() {
+        let server = make_server();
+        let req = r#"{"jsonrpc":"2.0","method":"unknown.method","id":1}"#;
+        let result = server.handle_request_or_batch(req).await;
+        assert!(result.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert!(parsed.get("error").is_some());
+        assert_eq!(
+            parsed
+                .get("error")
+                .and_then(|e| e.get("code"))
+                .and_then(|c| c.as_i64()),
+            Some(error_codes::METHOD_NOT_FOUND as i64)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_batch_notification_no_response() {
+        let server = make_server();
+        let batch = r#"[{"jsonrpc":"2.0","method":"system.ping"}]"#;
+        let result = server.handle_request_or_batch(batch).await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_tool_execute() {
+        let server = make_server();
+        let req = r#"{"jsonrpc":"2.0","method":"tool.execute","params":{"tool":"system.health","args":{}},"id":1}"#;
+        let result = server.handle_request_or_batch(req).await;
+        assert!(result.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert!(parsed.get("result").is_some());
+        assert_eq!(
+            parsed
+                .get("result")
+                .and_then(|r| r.get("success"))
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
     }
 }

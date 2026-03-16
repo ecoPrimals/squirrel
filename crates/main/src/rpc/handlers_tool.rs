@@ -41,7 +41,9 @@ impl JsonRpcServer {
 
         let remote = {
             let registry = self.announced_tools.read().await;
-            registry.get(tool_name).map(|a| a.socket_path.clone())
+            registry
+                .get(tool_name)
+                .map(|a| std::sync::Arc::clone(&a.socket_path))
         };
 
         if let Some(socket_path) = remote {
@@ -50,7 +52,7 @@ impl JsonRpcServer {
                 tool_name, socket_path
             );
             return self
-                .forward_tool_to_remote(tool_name, &args, &socket_path)
+                .forward_tool_to_remote(tool_name, &args, socket_path.as_ref())
                 .await;
         }
 
@@ -152,7 +154,10 @@ impl JsonRpcServer {
             Ok(result.clone())
         } else if let Some(error) = response.get("error") {
             Err(JsonRpcError {
-                code: error.get("code").and_then(|c| c.as_i64()).unwrap_or(-1) as i32,
+                code: error
+                    .get("code")
+                    .and_then(serde_json::Value::as_i64)
+                    .unwrap_or(-1) as i32,
                 message: error
                     .get("message")
                     .and_then(|m| m.as_str())
@@ -208,18 +213,18 @@ impl JsonRpcServer {
 
         let announced = self.announced_tools.read().await;
         for (tool_name, announced_primal) in announced.iter() {
-            if seen.insert(tool_name.clone()) {
+            if seen.insert(tool_name.as_ref().to_string()) {
                 let domain = tool_name
                     .split('.')
                     .next()
                     .unwrap_or("external")
                     .to_string();
                 entries.push(super::types::ToolListEntry {
-                    name: tool_name.clone(),
+                    name: tool_name.as_ref().to_string(),
                     description: format!("Remote tool from {}", announced_primal.primal),
                     domain,
                     source: super::types::ToolSource::Remote {
-                        primal: announced_primal.primal.clone(),
+                        primal: announced_primal.primal.as_ref().to_string(),
                     },
                     input_schema: None,
                 });

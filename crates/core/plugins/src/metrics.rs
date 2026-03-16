@@ -20,7 +20,7 @@ pub struct PluginManagerStatus {
 
 impl PluginManagerStatus {
     /// Creates status from plugin counts.
-    pub fn new(total: usize, active: usize, failed: usize) -> Self {
+    pub const fn new(total: usize, active: usize, failed: usize) -> Self {
         Self {
             total_plugins: total,
             active_plugins: active,

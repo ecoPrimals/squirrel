@@ -67,7 +67,7 @@ impl PrimalRequest {
 
     /// Set request timeout
     #[must_use]
-    pub fn with_timeout(mut self, timeout_ms: u64) -> Self {
+    pub const fn with_timeout(mut self, timeout_ms: u64) -> Self {
         self.timeout_ms = Some(timeout_ms);
         self
     }

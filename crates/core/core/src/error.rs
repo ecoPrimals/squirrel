@@ -30,16 +30,16 @@ pub enum CoreError {
 impl std::fmt::Display for CoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CoreError::General(msg) => write!(f, "General error: {msg}"),
-            CoreError::ServiceDiscovery(msg) => write!(f, "Service discovery error: {msg}"),
-            CoreError::Configuration(msg) => write!(f, "Configuration error: {msg}"),
-            CoreError::Network(msg) => write!(f, "Network error: {msg}"),
-            CoreError::Serialization(msg) => write!(f, "Serialization error: {msg}"),
-            CoreError::Timeout(msg) => write!(f, "Timeout error: {msg}"),
-            CoreError::NotFound(msg) => write!(f, "Not found: {msg}"),
-            CoreError::AlreadyExists(msg) => write!(f, "Already exists: {msg}"),
-            CoreError::InvalidServiceConfig(msg) => write!(f, "Invalid service config: {msg}"),
-            CoreError::ServiceNotFound(msg) => write!(f, "Service not found: {msg}"),
+            Self::General(msg) => write!(f, "General error: {msg}"),
+            Self::ServiceDiscovery(msg) => write!(f, "Service discovery error: {msg}"),
+            Self::Configuration(msg) => write!(f, "Configuration error: {msg}"),
+            Self::Network(msg) => write!(f, "Network error: {msg}"),
+            Self::Serialization(msg) => write!(f, "Serialization error: {msg}"),
+            Self::Timeout(msg) => write!(f, "Timeout error: {msg}"),
+            Self::NotFound(msg) => write!(f, "Not found: {msg}"),
+            Self::AlreadyExists(msg) => write!(f, "Already exists: {msg}"),
+            Self::InvalidServiceConfig(msg) => write!(f, "Invalid service config: {msg}"),
+            Self::ServiceNotFound(msg) => write!(f, "Service not found: {msg}"),
         }
     }
 }

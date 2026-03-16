@@ -33,7 +33,7 @@ pub struct WebEndpoint {
 
 impl WebEndpoint {
     /// Create a new web endpoint
-    pub fn new(id: Uuid, path: String, method: HttpMethod, description: String) -> Self {
+    pub const fn new(id: Uuid, path: String, method: HttpMethod, description: String) -> Self {
         Self {
             id,
             path,
@@ -53,13 +53,13 @@ impl WebEndpoint {
     }
 
     /// Make this endpoint public (no authentication required)
-    pub fn make_public(mut self) -> Self {
+    pub const fn make_public(mut self) -> Self {
         self.is_public = true;
         self
     }
 
     /// Make this endpoint admin-only
-    pub fn make_admin(mut self) -> Self {
+    pub const fn make_admin(mut self) -> Self {
         self.is_admin = true;
         self
     }

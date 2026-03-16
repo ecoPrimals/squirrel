@@ -22,8 +22,7 @@ impl JsonRpcServer {
             .as_ref()
             .and_then(|p| p.get("session_id"))
             .and_then(|v| v.as_str())
-            .map(ToString::to_string)
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+            .map_or_else(|| uuid::Uuid::new_v4().to_string(), ToString::to_string);
 
         let metadata = params
             .as_ref()

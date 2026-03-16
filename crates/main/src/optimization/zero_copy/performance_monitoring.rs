@@ -21,7 +21,7 @@ pub struct ZeroCopyMetrics {
 impl ZeroCopyMetrics {
     /// Create new metrics tracker
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             allocations_saved: AtomicUsize::new(0),
             bytes_saved: AtomicU64::new(0),

@@ -27,7 +27,12 @@
 
 // Note: This module is feature-gated via #[cfg(feature = "tarpc-rpc")] in mod.rs
 
-use super::tarpc_service::*;
+use super::tarpc_service::{
+    AnnounceCapabilitiesParams, AnnounceCapabilitiesResult, CapabilityDiscoverResult,
+    DiscoveryPeersResult, HealthCheckResult, ListProvidersResult, PingResult, QueryAiParams,
+    QueryAiResult, SquirrelRpc, SquirrelRpcClient, SystemMetricsResult, ToolExecuteResult,
+    ToolListResult,
+};
 use super::tarpc_transport::TarpcTransportAdapter;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
@@ -97,7 +102,7 @@ impl SquirrelClient {
     }
 
     /// Set default timeout for RPC calls
-    pub fn set_default_timeout(&mut self, timeout: Duration) {
+    pub const fn set_default_timeout(&mut self, timeout: Duration) {
         self.default_timeout = timeout;
     }
 
@@ -252,7 +257,7 @@ impl SquirrelClientBuilder {
     }
 
     /// Set custom timeout
-    pub fn timeout(mut self, timeout: Duration) -> Self {
+    pub const fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }

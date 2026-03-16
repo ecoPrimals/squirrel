@@ -13,11 +13,12 @@ use serde_json::Value;
 use tracing::{debug, info, warn};
 
 /// Storage backend for contexts
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum ContextStorage {
     /// Store contexts locally in memory
+    #[default]
     Local,
-    /// Store contexts in NestGate
+    /// Store contexts in `NestGate`
     NestGate { endpoint: String },
     /// Store contexts across federation nodes
     Federation { nodes: Vec<String> },
@@ -312,14 +313,14 @@ impl ContextManager {
         let mut total_size = 0;
 
         // Calculate size of persistent contexts
-        for context in self.persistent_contexts.iter() {
+        for context in &self.persistent_contexts {
             if let Ok(serialized) = serde_json::to_string(&context.data) {
                 total_size += serialized.len();
             }
         }
 
         // Calculate size of shared contexts
-        for context in self.shared_contexts.iter() {
+        for context in &self.shared_contexts {
             if let Ok(serialized) = serde_json::to_string(&context.data) {
                 total_size += serialized.len();
             }
@@ -401,7 +402,7 @@ impl ContextManager {
     }
 
     /// Get storage backend
-    pub fn get_storage_backend(&self) -> Option<&ContextStorage> {
+    pub const fn get_storage_backend(&self) -> Option<&ContextStorage> {
         self.context_storage.as_ref()
     }
 }
@@ -435,11 +436,5 @@ pub struct ContextExport {
 impl Default for ContextManager {
     fn default() -> Self {
         Self::new(Some(ContextStorage::Local))
-    }
-}
-
-impl Default for ContextStorage {
-    fn default() -> Self {
-        Self::Local
     }
 }

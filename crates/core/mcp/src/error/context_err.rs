@@ -40,12 +40,12 @@ pub enum ContextError {
 
 impl From<String> for ContextError {
     fn from(message: String) -> Self {
-        ContextError::General(message)
+        Self::General(message)
     }
 }
 
 impl From<&str> for ContextError {
     fn from(message: &str) -> Self {
-        ContextError::General(message.to_string())
+        Self::General(message.to_string())
     }
 }

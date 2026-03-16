@@ -72,7 +72,7 @@ impl ProductionCommandRegistry {
         let commands_result = SafeOperation::execute(|| {
             self.commands.try_write().map_err(|e| {
                 ProductionError::concurrency(
-                    format!("Failed to acquire command registry write lock: {}", e),
+                    format!("Failed to acquire command registry write lock: {e}"),
                     "command_registration",
                     true,
                 )
@@ -97,7 +97,7 @@ impl ProductionCommandRegistry {
         let commands_result = SafeOperation::execute(|| {
             self.commands.try_read().map_err(|e| {
                 ProductionError::concurrency(
-                    format!("Failed to acquire command registry read lock: {}", e),
+                    format!("Failed to acquire command registry read lock: {e}"),
                     "command_listing",
                     true,
                 )
@@ -130,7 +130,7 @@ impl ProductionCommandRegistry {
             let commands_result = SafeOperation::execute(|| {
                 self.commands.try_read().map_err(|e| {
                     ProductionError::concurrency(
-                        format!("Failed to acquire command registry read lock: {}", e),
+                        format!("Failed to acquire command registry read lock: {e}"),
                         "command_execution",
                         true,
                     )
@@ -152,9 +152,9 @@ impl ProductionCommandRegistry {
         let available = self.list_commands().await.unwrap_or_default().join(", ");
         let command = command.ok_or_else(|| {
             ProductionError::not_found(
-                format!("Command '{}' not found", command_name),
+                format!("Command '{command_name}' not found"),
                 "command_execution",
-                Some(format!("Available commands: {}", available)),
+                Some(format!("Available commands: {available}")),
             )
         })?;
 
@@ -162,7 +162,7 @@ impl ProductionCommandRegistry {
         let result = SafeOperation::execute(|| {
             command.execute(&args).map_err(|e| {
                 ProductionError::execution(
-                    format!("Command '{}' execution failed: {}", command_name, e),
+                    format!("Command '{command_name}' execution failed: {e}"),
                     "command_execution",
                     true,
                 )
@@ -196,7 +196,7 @@ impl ProductionCommandRegistry {
         let commands_result = SafeOperation::execute(|| {
             self.commands.try_read().map_err(|e| {
                 ProductionError::concurrency(
-                    format!("Failed to acquire command registry read lock: {}", e),
+                    format!("Failed to acquire command registry read lock: {e}"),
                     "command_help",
                     true,
                 )
@@ -209,7 +209,7 @@ impl ProductionCommandRegistry {
                     Ok(command.help())
                 } else {
                     Err(ProductionError::not_found(
-                        format!("Command '{}' not found", command_name),
+                        format!("Command '{command_name}' not found"),
                         "command_help",
                         Some(format!(
                             "Available commands: {}",
@@ -235,7 +235,7 @@ impl ProductionCommandRegistry {
         let stats_result = SafeOperation::execute(|| {
             self.execution_stats.try_write().map_err(|e| {
                 ProductionError::concurrency(
-                    format!("Failed to acquire stats write lock: {}", e),
+                    format!("Failed to acquire stats write lock: {e}"),
                     "stats_update",
                     false, // Not retryable - stats are not critical
                 )
@@ -253,9 +253,9 @@ impl ProductionCommandRegistry {
             }
 
             let duration_ms = execution_time.as_millis() as f64;
-            command_stats.average_duration_ms = (command_stats.average_duration_ms
-                * (command_stats.total_executions - 1) as f64
-                + duration_ms)
+            command_stats.average_duration_ms = command_stats
+                .average_duration_ms
+                .mul_add((command_stats.total_executions - 1) as f64, duration_ms)
                 / command_stats.total_executions as f64;
             command_stats.last_execution = Some(chrono::Utc::now());
         }
@@ -266,7 +266,7 @@ impl ProductionCommandRegistry {
         let stats_result = SafeOperation::execute(|| {
             self.execution_stats.try_read().map_err(|e| {
                 ProductionError::concurrency(
-                    format!("Failed to acquire stats read lock: {}", e),
+                    format!("Failed to acquire stats read lock: {e}"),
                     "stats_read",
                     false,
                 )
@@ -307,11 +307,11 @@ pub fn get_command_registry() -> &'static ProductionCommandRegistry {
 pub struct HelpCommand;
 
 impl SimpleCommand for HelpCommand {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "help"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Show help information for commands"
     }
 
@@ -326,7 +326,7 @@ impl SimpleCommand for HelpCommand {
                 .block_on(async { get_command_registry().get_command_help(command_name).await })
             {
                 Ok(help) => Ok(help),
-                Err(e) => Err(format!("Failed to get help for '{}': {}", command_name, e)),
+                Err(e) => Err(format!("Failed to get help for '{command_name}': {e}")),
             }
         }
     }
@@ -369,10 +369,7 @@ impl TaskServiceImpl {
         args: HashMap<String, String>,
     ) -> Result<String, String> {
         // Convert HashMap to Vec<String> for execution
-        let args_vec: Vec<String> = args
-            .into_iter()
-            .map(|(k, v)| format!("{}={}", k, v))
-            .collect();
+        let args_vec: Vec<String> = args.into_iter().map(|(k, v)| format!("{k}={v}")).collect();
 
         match get_command_registry()
             .execute_command(command_name, args_vec)
@@ -434,7 +431,7 @@ pub fn json_params_to_string_vec(params_value: &serde_json::Value) -> Result<Vec
                     serde_json::Value::String(s) => string_vec.push(s.clone()),
                     serde_json::Value::Number(n) => string_vec.push(n.to_string()),
                     serde_json::Value::Bool(b) => string_vec.push(b.to_string()),
-                    _ => return Err(format!("Unsupported parameter type: {:?}", value)),
+                    _ => return Err(format!("Unsupported parameter type: {value:?}")),
                 }
             }
             Ok(string_vec)

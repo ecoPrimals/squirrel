@@ -116,37 +116,23 @@ level = "info"
 
     #[test]
     fn test_load_from_env_vars() {
-        // Set test environment variables
-        unsafe { env::set_var("SQUIRREL_TEST_VAR", "test_value") };
-
-        // Test environment loading with prefix
-        let result = ConfigLoader::new()
-            .with_env_prefix("SQUIRREL_TEST_");
-        
+        let result = temp_env::with_var("SQUIRREL_TEST_VAR", Some("test_value"), || {
+            ConfigLoader::new().with_env_prefix("SQUIRREL_TEST_")
+        });
         assert!(result.is_ok(), "Should load from environment variables");
-
-        // Cleanup
-        unsafe { env::remove_var("SQUIRREL_TEST_VAR") };
     }
 
     #[test]
     fn test_env_var_precedence() {
-        // Test that env vars override file config
-        let (_temp_dir, config_path) = setup_temp_config_file(
-            create_test_config_toml(),
-            "config.toml"
-        );
+        let (_temp_dir, config_path) =
+            setup_temp_config_file(create_test_config_toml(), "config.toml");
 
-        unsafe { env::set_var("SQUIRREL_NETWORK_PORT", "9999") };
-
-        // Load config with both file and env
-        let result = ConfigLoader::new()
-            .with_file_if_exists(&config_path)
-            .and_then(|loader| loader.with_env_prefix("SQUIRREL_"));
-
+        let result = temp_env::with_var("SQUIRREL_NETWORK_PORT", Some("9999"), || {
+            ConfigLoader::new()
+                .with_file_if_exists(&config_path)
+                .and_then(|loader| loader.with_env_prefix("SQUIRREL_"))
+        });
         assert!(result.is_ok(), "Should load with env override");
-        
-        unsafe { env::remove_var("SQUIRREL_NETWORK_PORT") };
     }
 
     #[test]
@@ -167,21 +153,16 @@ level = "info"
 
     #[test]
     fn test_config_merge_override() {
-        // Test merging configs via file then env (env should override)
-        let (_temp_dir, config_path) = setup_temp_config_file(
-            create_test_config_toml(),
-            "config.toml"
-        );
-        
-        unsafe { env::set_var("SQUIRREL_NETWORK_BIND_ADDRESS", "0.0.0.0") };
-        
-        let result = ConfigLoader::new()
-            .with_file_if_exists(&config_path)
-            .and_then(|loader| loader.with_env_prefix("SQUIRREL_"));
-        
+        let (_temp_dir, config_path) =
+            setup_temp_config_file(create_test_config_toml(), "config.toml");
+
+        let result =
+            temp_env::with_var("SQUIRREL_NETWORK_BIND_ADDRESS", Some("0.0.0.0"), || {
+                ConfigLoader::new()
+                    .with_file_if_exists(&config_path)
+                    .and_then(|loader| loader.with_env_prefix("SQUIRREL_"))
+            });
         assert!(result.is_ok(), "Should merge file and env config");
-        
-        unsafe { env::remove_var("SQUIRREL_NETWORK_BIND_ADDRESS") };
     }
 
     #[test]
@@ -277,13 +258,10 @@ level = "info"
 
     #[test]
     fn test_config_environment_detection() {
-        // Test automatic environment detection
-        unsafe { env::set_var("ENVIRONMENT", "production") };
-        
-        let loader = ConfigLoader::new();
-        assert!(loader.build().is_ok(), "Should detect environment");
-        
-        unsafe { env::remove_var("ENVIRONMENT") };
+        let result = temp_env::with_var("ENVIRONMENT", Some("production"), || {
+            ConfigLoader::new().build()
+        });
+        assert!(result.is_ok(), "Should detect environment");
     }
 
     // ========== Edge Cases ==========

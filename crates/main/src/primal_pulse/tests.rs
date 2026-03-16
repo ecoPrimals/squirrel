@@ -226,7 +226,6 @@ mod tests {
     // E2E TESTS
     // ============================================================================
 
-
     #[tokio::test]
     async fn test_graph_optimize_full_workflow() {
         // Test complete graph optimization workflow

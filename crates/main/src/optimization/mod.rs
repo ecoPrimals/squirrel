@@ -28,7 +28,7 @@ pub const OPTIMIZATION_VERSION: &str = "1.0.0";
 
 /// Check if optimizations are enabled
 #[must_use]
-pub fn optimizations_enabled() -> bool {
+pub const fn optimizations_enabled() -> bool {
     true // Optimizations always enabled; feature gate reserved for future use
 }
 

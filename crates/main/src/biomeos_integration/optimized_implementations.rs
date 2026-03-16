@@ -115,7 +115,7 @@ impl OptimizedServiceRegistration {
             .unwrap_or(8080);
         let base_url = format!("http://localhost:{test_port}");
         let endpoints = crate::ecosystem::ServiceEndpoints {
-            primary: base_url.to_string(),
+            primary: base_url.clone(),
             secondary: vec![
                 format!("{}/metrics", base_url),
                 format!("{}/admin", base_url),
@@ -133,8 +133,8 @@ impl OptimizedServiceRegistration {
         self.metrics.record_clone_avoided();
 
         EcosystemServiceRegistration {
-            service_id: Arc::from(service_id.to_string()),
-            name: service_id.to_string(),
+            service_id: Arc::from(service_id.clone()),
+            name: service_id.clone(),
             description: format!("BiomeOS integration for {service_id}"),
             primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel, // Use enum directly
             biome_id: Some(biome_id.map_or_else(
@@ -308,8 +308,7 @@ impl OptimizedContextState {
         };
 
         let key_arc: Arc<str> = Arc::from(session_id.clone());
-        self.active_sessions
-            .insert(key_arc, session_context.clone());
+        self.active_sessions.insert(key_arc, session_context);
         self.metrics.record_clone_avoided();
 
         // Return the created session context

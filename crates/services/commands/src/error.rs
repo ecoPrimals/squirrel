@@ -6,84 +6,84 @@
 //! This module defines the errors that can occur in the commands crate.
 
 use std::error::Error;
-use std::fmt;
 
 /// Result type for command operations
 pub type Result<T> = std::result::Result<T, CommandError>;
 
 /// Error type for command operations
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum CommandError {
     /// Error parsing command input
+    #[error("Input error: {0}")]
     InputError(String),
 
     /// Error validating command
+    #[error("Validation error: {0}")]
     ValidationError(String),
 
     /// Error executing command
+    #[error("Execution error: {0}")]
     ExecutionError(String),
 
     /// Error with resources
+    #[error("Resource error: {0}")]
     ResourceError(String),
 
     /// Error with permissions
+    #[error("Permission error: {0}")]
     PermissionError(String),
 
     /// Error with IO operations
+    #[error("IO error: {0}")]
     IoError(String),
 
     /// Internal command error
+    #[error("Internal error: {0}")]
     Internal(String),
 
     /// Error with serialization/deserialization
+    #[error("Serialization error: {0}")]
     SerializationError(String),
 
     /// Error with command registry operations
+    #[error("Registry error: {0}")]
     RegistryError(String),
 
     /// Error when a command is not found
+    #[error("Command not found: {0}")]
     CommandNotFound(String),
 
     /// Error when a command already exists
+    #[error("Command already exists: {0}")]
     CommandAlreadyExists(String),
 
     /// Error with journal operations
-    JournalError(crate::journal::JournalError),
+    #[error("Journal error: {0}")]
+    JournalError(#[from] crate::journal::JournalError),
+
+    /// Error during hook execution
+    #[error("Hook error: {0}")]
+    Hook(String),
+
+    /// Error acquiring lock
+    #[error("Lock error: {0}")]
+    Lock(String),
+
+    /// Error during lifecycle stage execution
+    #[error("Lifecycle error: {0}")]
+    Lifecycle(String),
+
+    /// Error when a resource type is not found
+    #[error("Resource type not found: {0}")]
+    ResourceNotFound(String),
+
+    /// Error when allocation is not found
+    #[error("Allocation error: {0}")]
+    Allocation(String),
 
     /// Custom error type
+    #[error("Error: {0}")]
     Other(String),
-}
-
-impl fmt::Display for CommandError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CommandError::InputError(msg) => write!(f, "Input error: {msg}"),
-            CommandError::ValidationError(msg) => write!(f, "Validation error: {msg}"),
-            CommandError::ExecutionError(msg) => write!(f, "Execution error: {msg}"),
-            CommandError::ResourceError(msg) => write!(f, "Resource error: {msg}"),
-            CommandError::PermissionError(msg) => write!(f, "Permission error: {msg}"),
-            CommandError::IoError(err) => write!(f, "IO error: {err}"),
-            CommandError::SerializationError(msg) => write!(f, "Serialization error: {msg}"),
-            CommandError::RegistryError(msg) => write!(f, "Registry error: {msg}"),
-            CommandError::CommandNotFound(msg) => write!(f, "Command not found error: {msg}"),
-            CommandError::CommandAlreadyExists(msg) => {
-                write!(f, "Command already exists error: {msg}")
-            }
-            CommandError::JournalError(err) => write!(f, "Journal error: {err}"),
-            CommandError::Internal(msg) => write!(f, "Internal error: {msg}"),
-            CommandError::Other(err) => write!(f, "Error: {err}"),
-        }
-    }
-}
-
-impl Error for CommandError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            CommandError::IoError(_) => None,
-            CommandError::Other(_) => None,
-            _ => None,
-        }
-    }
 }
 
 impl From<std::io::Error> for CommandError {
@@ -110,8 +110,8 @@ impl From<&str> for CommandError {
     }
 }
 
-impl From<crate::journal::JournalError> for CommandError {
-    fn from(err: crate::journal::JournalError) -> Self {
-        CommandError::JournalError(err)
+impl From<Box<dyn Error + Send + Sync>> for CommandError {
+    fn from(err: Box<dyn Error + Send + Sync>) -> Self {
+        CommandError::Other(err.to_string())
     }
 }

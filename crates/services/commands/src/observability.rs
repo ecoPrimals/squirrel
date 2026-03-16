@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_observability_system_default() {
-        let _sys = ObservabilitySystem::default();
+        let _sys = ObservabilitySystem;
     }
 
     #[test]

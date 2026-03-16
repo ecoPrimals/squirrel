@@ -208,7 +208,7 @@ primals: {}
 
         let result = parser.parse_content(yaml_content).await;
         if let Err(ref e) = result {
-            eprintln!("Manifest parsing error: {:?}", e);
+            tracing::error!("Manifest parsing error: {:?}", e);
         }
         assert!(
             result.is_ok(),

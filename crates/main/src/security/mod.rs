@@ -70,7 +70,7 @@ pub struct SecuritySystemBuilder {
 impl SecuritySystemBuilder {
     /// Create a new security system builder
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             orchestration_config: None,
             enable_beardog_integration: false,
@@ -86,7 +86,7 @@ impl SecuritySystemBuilder {
 
     /// Enable `BearDog` security integration
     #[must_use]
-    pub fn with_beardog_integration(mut self, enable: bool) -> Self {
+    pub const fn with_beardog_integration(mut self, enable: bool) -> Self {
         self.enable_beardog_integration = enable;
         self
     }

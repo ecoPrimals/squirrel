@@ -18,7 +18,7 @@ pub const ERROR_HANDLING_VERSION: &str = "1.4.3";
 
 /// Check if enhanced error handling is enabled
 #[must_use]
-pub fn enhanced_error_handling_enabled() -> bool {
+pub const fn enhanced_error_handling_enabled() -> bool {
     true // Standard Rust error handling always enabled
 }
 

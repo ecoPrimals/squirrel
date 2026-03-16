@@ -49,11 +49,10 @@ impl ErrorTestService {
         if rand::random::<f32>() < failure_rate {
             *self.error_count.lock().await += 1;
             Err(TestError::ServiceError(format!(
-                "Operation {} failed",
-                operation
+                "Operation {operation} failed"
             )))
         } else {
-            Ok(format!("Success: {}", operation))
+            Ok(format!("Success: {operation}"))
         }
     }
 
@@ -87,7 +86,7 @@ async fn test_error_handling_with_retry() {
     let mut error_count = 0;
 
     for i in 0..50 {
-        let operation = format!("test-operation-{}", i);
+        let operation = format!("test-operation-{i}");
 
         // Implement retry logic
         let max_retries = 3;
@@ -113,18 +112,12 @@ async fn test_error_handling_with_retry() {
 
         if attempt >= max_retries {
             error_count += 1;
-            println!(
-                "Operation {} failed after {} attempts: {:?}",
-                operation, max_retries, last_error
-            );
+            println!("Operation {operation} failed after {max_retries} attempts: {last_error:?}");
         }
     }
 
     assert!(success_count > 0, "Should have some successful operations");
-    println!(
-        "Results: {} successes, {} final failures",
-        success_count, error_count
-    );
+    println!("Results: {success_count} successes, {error_count} final failures");
 }
 
 /// Test timeout handling
@@ -156,12 +149,12 @@ async fn test_timeout_error_handling() {
 
         match result {
             Ok(Ok(_)) => {
-                println!("Operation succeeded on retry {}", retry_count);
+                println!("Operation succeeded on retry {retry_count}");
                 break;
             }
             _ => {
                 if retry_count < max_retries {
-                    println!("Retry {} failed, waiting {:?}", retry_count, backoff_delay);
+                    println!("Retry {retry_count} failed, waiting {backoff_delay:?}");
                     tokio::time::sleep(backoff_delay).await;
                     backoff_delay *= 2; // Exponential backoff
                 }
@@ -192,7 +185,7 @@ async fn test_concurrent_error_handling() {
         let error_count_clone = error_count.clone();
 
         handles.push(tokio::spawn(async move {
-            let operation = format!("concurrent-op-{}", i);
+            let operation = format!("concurrent-op-{i}");
 
             // Each task implements its own retry logic
             for attempt in 0..3 {
@@ -221,7 +214,7 @@ async fn test_concurrent_error_handling() {
 
     for handle in handles {
         match handle.await.unwrap() {
-            Ok(_) => successful_tasks += 1,
+            Ok(()) => successful_tasks += 1,
             Err(_) => failed_tasks += 1,
         }
     }
@@ -230,13 +223,9 @@ async fn test_concurrent_error_handling() {
     let final_errors = *error_count.lock().await;
 
     println!(
-        "Concurrent results: {} successful operations, {} failed operations",
-        final_success, final_errors
+        "Concurrent results: {final_success} successful operations, {final_errors} failed operations"
     );
-    println!(
-        "Task results: {} successful tasks, {} failed tasks",
-        successful_tasks, failed_tasks
-    );
+    println!("Task results: {successful_tasks} successful tasks, {failed_tasks} failed tasks");
 
     assert!(final_success > 0, "Should have some successful operations");
     assert_eq!(
@@ -259,7 +248,7 @@ async fn test_error_recovery_mechanisms() {
     // Execute operations with recovery mechanism
     for i in 0..30 {
         total_operations += 1;
-        let operation = format!("recovery-test-{}", i);
+        let operation = format!("recovery-test-{i}");
 
         match service.execute_with_error_handling(&operation).await {
             Ok(_) => {
@@ -271,12 +260,12 @@ async fn test_error_recovery_mechanisms() {
                     println!("Triggering recovery after {} operations", i + 1);
 
                     match service.attempt_recovery().await {
-                        Ok(_) => {
+                        Ok(()) => {
                             recovery_triggered = true;
                             println!("Recovery successful");
                         }
                         Err(recovery_error) => {
-                            println!("Recovery failed: {}", recovery_error);
+                            println!("Recovery failed: {recovery_error}");
                         }
                     }
                 }
@@ -287,10 +276,10 @@ async fn test_error_recovery_mechanisms() {
     let (total_errors, recovery_attempts) = service.get_stats().await;
 
     println!("Recovery test results:");
-    println!("  Total operations: {}", total_operations);
-    println!("  Successful operations: {}", successful_operations);
-    println!("  Total errors: {}", total_errors);
-    println!("  Recovery attempts: {}", recovery_attempts);
+    println!("  Total operations: {total_operations}");
+    println!("  Successful operations: {successful_operations}");
+    println!("  Total errors: {total_errors}");
+    println!("  Recovery attempts: {recovery_attempts}");
 
     assert!(recovery_attempts > 0, "Should have attempted recovery");
     assert!(
@@ -335,16 +324,16 @@ async fn test_circuit_breaker_pattern() {
             // Check if circuit should transition from Open to HalfOpen
             {
                 let state = self.state.lock().await;
-                if *state == CircuitState::Open {
-                    if let Some(last_failure) = *self.last_failure_time.lock().await {
-                        if last_failure.elapsed() > self.recovery_timeout {
-                            drop(state);
-                            *self.state.lock().await = CircuitState::HalfOpen;
-                        } else {
-                            return Err(TestError::ServiceError(
-                                "Circuit breaker is open".to_string(),
-                            ));
-                        }
+                if *state == CircuitState::Open
+                    && let Some(last_failure) = *self.last_failure_time.lock().await
+                {
+                    if last_failure.elapsed() > self.recovery_timeout {
+                        drop(state);
+                        *self.state.lock().await = CircuitState::HalfOpen;
+                    } else {
+                        return Err(TestError::ServiceError(
+                            "Circuit breaker is open".to_string(),
+                        ));
                     }
                 }
             }
@@ -391,7 +380,7 @@ async fn test_circuit_breaker_pattern() {
     let mut results = Vec::new();
 
     for i in 0..10 {
-        let operation_name = format!("circuit-test-{}", i);
+        let operation_name = format!("circuit-test-{i}");
         let service_clone = &service;
 
         let result = circuit_breaker
@@ -425,7 +414,7 @@ async fn test_circuit_breaker_pattern() {
         .call(async { service.execute_with_error_handling("recovery-test").await })
         .await;
 
-    println!("Recovery result: {:?}", recovery_result);
+    println!("Recovery result: {recovery_result:?}");
     println!(
         "Final circuit state: {:?}",
         circuit_breaker.get_state().await
@@ -459,7 +448,7 @@ async fn test_graceful_degradation() {
                 .execute_with_error_handling(operation)
                 .await
             {
-                Ok(result) => Ok(format!("PRIMARY: {}", result)),
+                Ok(result) => Ok(format!("PRIMARY: {result}")),
                 Err(_) => {
                     // Fall back to secondary service
                     match self
@@ -467,7 +456,7 @@ async fn test_graceful_degradation() {
                         .execute_with_error_handling(operation)
                         .await
                     {
-                        Ok(result) => Ok(format!("FALLBACK: {}", result)),
+                        Ok(result) => Ok(format!("FALLBACK: {result}")),
                         Err(error) => Err(error),
                     }
                 }
@@ -486,7 +475,7 @@ async fn test_graceful_degradation() {
     let mut total_failures = 0;
 
     for i in 0..50 {
-        let operation = format!("degradation-test-{}", i);
+        let operation = format!("degradation-test-{i}");
 
         match service.execute_with_fallback(&operation).await {
             Ok(result) => {
@@ -503,9 +492,9 @@ async fn test_graceful_degradation() {
     }
 
     println!("Graceful degradation results:");
-    println!("  Primary successes: {}", primary_successes);
-    println!("  Fallback successes: {}", fallback_successes);
-    println!("  Total failures: {}", total_failures);
+    println!("  Primary successes: {primary_successes}");
+    println!("  Fallback successes: {fallback_successes}");
+    println!("  Total failures: {total_failures}");
 
     // Verify graceful degradation worked
     assert!(

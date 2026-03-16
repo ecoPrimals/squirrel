@@ -8,7 +8,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Task representation for JSON-RPC (replaces GenTask)
+/// Task representation for JSON-RPC (replaces `GenTask`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonTask {
     /// Unique task identifier

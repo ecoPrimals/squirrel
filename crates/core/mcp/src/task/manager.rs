@@ -3,7 +3,7 @@
 
 //! Task manager for managing tasks and their lifecycle.
 //!
-//! This module provides a TaskManager that handles task creation,
+//! This module provides a `TaskManager` that handles task creation,
 //! retrieval, updates, and assignment. It maintains the state of
 //! all tasks in the system.
 
@@ -18,7 +18,7 @@ use crate::task::types::{Task, TaskStatus};
 
 /// Manager for task creation, execution and monitoring.
 ///
-/// The TaskManager is responsible for maintaining the state of all tasks
+/// The `TaskManager` is responsible for maintaining the state of all tasks
 /// in the system, handling their creation, updating, and assignment to agents.
 #[derive(Debug)]
 pub struct TaskManager {
@@ -85,7 +85,7 @@ impl TaskManager {
         tasks
             .get(id)
             .cloned()
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {} not found", id)))
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {id} not found")))
     }
 
     /// Update an existing task.
@@ -160,7 +160,7 @@ impl TaskManager {
         // Get the task
         let mut task = tasks
             .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {} not found", task_id)))?
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
             .clone();
 
         // Check if the task is in a valid state to be assigned
@@ -175,8 +175,7 @@ impl TaskManager {
         let prerequisites_met = self.check_prerequisites(&task).await?;
         if !prerequisites_met {
             return Err(Error::InvalidState(format!(
-                "Prerequisites for task {} are not all met",
-                task_id
+                "Prerequisites for task {task_id} are not all met"
             )));
         }
 
@@ -208,7 +207,7 @@ impl TaskManager {
         // Get the task
         let mut task = tasks
             .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {} not found", task_id)))?
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
             .clone();
 
         // Check if the task is in a valid state to update progress
@@ -239,7 +238,7 @@ impl TaskManager {
         // Get the task
         let mut task = tasks
             .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {} not found", task_id)))?
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
             .clone();
 
         // Check if the task is in a valid state to be completed
@@ -265,10 +264,7 @@ impl TaskManager {
         tasks
             .get(task_id)
             .ok_or_else(|| {
-                Error::NotFound(format!(
-                    "Task with ID {} not found after completion",
-                    task_id
-                ))
+                Error::NotFound(format!("Task with ID {task_id} not found after completion"))
             })
             .cloned()
     }
@@ -280,7 +276,7 @@ impl TaskManager {
         // Get the task
         let mut task = tasks
             .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {} not found", task_id)))?
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
             .clone();
 
         // Mark the task as failed
@@ -299,7 +295,7 @@ impl TaskManager {
         // Get the task
         let mut task = tasks
             .get_mut(task_id)
-            .ok_or_else(|| Error::NotFound(format!("Task with ID {} not found", task_id)))?
+            .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
             .clone();
 
         // Check if the task is in a valid state to be cancelled
@@ -459,19 +455,18 @@ impl TaskManager {
         Ok(())
     }
 
-    /// List all tasks for a specific agent (alias for get_agent_tasks for compatibility)
+    /// List all tasks for a specific agent (alias for `get_agent_tasks` for compatibility)
     pub async fn list_tasks(&self, agent_id: Option<&str>) -> Result<Vec<Task>> {
-        match agent_id {
-            Some(agent_id) => self.get_agent_tasks(agent_id).await,
-            None => {
-                // Return all tasks if no agent specified
-                let tasks = self.tasks.read().await;
-                Ok(tasks.values().cloned().collect())
-            }
+        if let Some(agent_id) = agent_id {
+            self.get_agent_tasks(agent_id).await
+        } else {
+            // Return all tasks if no agent specified
+            let tasks = self.tasks.read().await;
+            Ok(tasks.values().cloned().collect())
         }
     }
 
-    /// Update task progress (alias for update_progress for compatibility)
+    /// Update task progress (alias for `update_progress` for compatibility)
     pub async fn update_task_progress(
         &self,
         task_id: &str,

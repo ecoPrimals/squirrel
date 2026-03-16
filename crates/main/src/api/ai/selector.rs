@@ -33,7 +33,7 @@ pub enum QualityTier {
 }
 
 impl QualityTier {
-    fn score(&self) -> f64 {
+    const fn score(&self) -> f64 {
         match self {
             Self::Low => 1.0,
             Self::Medium => 2.0,
@@ -61,7 +61,7 @@ pub struct ProviderSelector {
 
 impl ProviderSelector {
     /// Create a new provider selector
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             enable_fallback: true,
         }

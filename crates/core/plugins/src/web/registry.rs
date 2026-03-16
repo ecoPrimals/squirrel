@@ -91,7 +91,7 @@ impl WebPluginRegistry {
         Ok(count)
     }
 
-    /// Try to get a plugin as a WebPlugin
+    /// Try to get a plugin as a `WebPlugin`
     fn try_get_web_plugin<'a>(
         &self,
         plugin: &'a Arc<dyn crate::plugin::Plugin>,
@@ -251,17 +251,13 @@ impl WebPluginRegistry {
     /// Handle a web request
     pub async fn handle_request(&self, mut request: WebRequest) -> Result<WebResponse> {
         // Try to find exact matching endpoint
-        match self
+        if let Ok(plugin) = self
             .find_plugin_for_endpoint(&request.path, request.method)
             .await
         {
-            Ok(plugin) => {
-                return plugin.handle_request(request).await;
-            }
-            Err(_) => {
-                // Continue to pattern matching below
-            }
+            return plugin.handle_request(request).await;
         }
+        // Continue to pattern matching below
 
         // If not found, try pattern matching
         let path_result = self

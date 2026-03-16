@@ -35,7 +35,7 @@ pub enum ShutdownPhase {
 impl ShutdownPhase {
     /// Returns a human-readable description of the shutdown phase.
     #[must_use]
-    pub fn description(&self) -> &'static str {
+    pub const fn description(&self) -> &'static str {
         match self {
             Self::StopAccepting => "Stop accepting new requests",
             Self::DrainRequests => "Drain existing requests",

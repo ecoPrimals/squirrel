@@ -15,7 +15,7 @@
 //! capability (e.g., "crypto.signing"), not by hardcoded primal name.
 //!
 //! **API**: JSON-RPC 2.0 over Unix sockets
-//! **Crypto**: Ed25519 (EdDSA) for JWT signing/verification
+//! **Crypto**: Ed25519 (`EdDSA`) for JWT signing/verification
 //! **Pure Rust**: 100% (no ring, no C deps!)
 
 use anyhow::{Context, Result};

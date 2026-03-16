@@ -313,7 +313,7 @@ where
 }
 
 /// Service health status
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ServiceHealthStatus {
     /// Health status not yet determined
     Unknown,
@@ -557,7 +557,7 @@ pub struct PrimalStatus {
 }
 
 /// Service status enumeration
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ServiceStatus {
     /// Status not yet determined
     Unknown,

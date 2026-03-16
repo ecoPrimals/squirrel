@@ -91,7 +91,7 @@ impl IpcProtocol {
     }
 
     /// Get protocol name for negotiation
-    pub fn negotiation_name(&self) -> &'static str {
+    pub const fn negotiation_name(&self) -> &'static str {
         match self {
             Self::JsonRpc => "jsonrpc",
             #[cfg(feature = "tarpc-rpc")]

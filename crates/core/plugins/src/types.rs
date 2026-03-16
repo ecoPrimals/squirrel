@@ -93,6 +93,7 @@ pub struct PluginConfig {
 
 /// Resource limits for plugins
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_field_names)]
 pub struct ResourceLimits {
     /// Maximum memory usage in bytes
     pub max_memory_bytes: Option<u64>,
@@ -150,6 +151,7 @@ pub trait CorePlugin: Plugin {
 
 /// Web plugin trait for web interface extensions
 #[cfg(feature = "web")]
+#[allow(dead_code)]
 pub trait WebPlugin: Plugin {
     /// Get the web plugin assets directory
     fn get_assets_dir(&self) -> Option<&str>;
@@ -172,6 +174,7 @@ pub trait WebPlugin: Plugin {
 
 /// MCP plugin trait for MCP protocol extensions
 #[cfg(feature = "mcp")]
+#[allow(dead_code)]
 pub trait McpPlugin: Plugin {
     /// Get the MCP plugin name
     fn get_mcp_name(&self) -> &str;
@@ -210,6 +213,7 @@ pub trait ToolPlugin: Plugin {
 
 /// CLI plugin trait for CLI interface extensions
 #[cfg(feature = "cli")]
+#[allow(dead_code)]
 pub trait CliPlugin: Plugin {
     /// Get the CLI plugin name
     fn get_cli_name(&self) -> &str;
@@ -261,8 +265,14 @@ mod tests {
     #[test]
     fn test_resource_limits_default() {
         let limits = ResourceLimits::default();
-        assert_eq!(limits.max_memory_bytes, Some(limits::DEFAULT_PLUGIN_MAX_MEMORY_BYTES));
-        assert_eq!(limits.max_cpu_percent, Some(limits::DEFAULT_PLUGIN_MAX_CPU_PERCENT));
+        assert_eq!(
+            limits.max_memory_bytes,
+            Some(limits::DEFAULT_PLUGIN_MAX_MEMORY_BYTES)
+        );
+        assert_eq!(
+            limits.max_cpu_percent,
+            Some(limits::DEFAULT_PLUGIN_MAX_CPU_PERCENT)
+        );
         assert_eq!(
             limits.max_execution_time_secs,
             Some(limits::DEFAULT_PLUGIN_MAX_EXECUTION_TIME_SECS)

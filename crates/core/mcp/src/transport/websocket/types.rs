@@ -31,7 +31,7 @@ pub enum WebSocketState {
 
 impl WebSocketState {
     /// Check if the state is Connected
-    pub fn is_connected(&self) -> bool {
+    pub const fn is_connected(&self) -> bool {
         matches!(self, Self::Connected)
     }
 }

@@ -207,8 +207,7 @@ impl ExampleWebPlugin {
             Ok(WebResponse::ok(item.clone()))
         } else {
             Ok(WebResponse::not_found(&format!(
-                "Example with ID {} not found",
-                id
+                "Example with ID {id} not found"
             )))
         }
     }
@@ -234,8 +233,7 @@ impl ExampleWebPlugin {
             Ok(WebResponse::ok(details))
         } else {
             Ok(WebResponse::not_found(&format!(
-                "Example with ID {} not found",
-                id
+                "Example with ID {id} not found"
             )))
         }
     }
@@ -259,8 +257,7 @@ impl ExampleWebPlugin {
             })))
         } else {
             Ok(WebResponse::not_found(&format!(
-                "Example with ID {} not found",
-                id
+                "Example with ID {id} not found"
             )))
         }
     }
@@ -301,8 +298,7 @@ impl ExampleWebPlugin {
             })))
         } else {
             Ok(WebResponse::not_found(&format!(
-                "Example with ID {} not found",
-                id
+                "Example with ID {id} not found"
             )))
         }
     }
@@ -317,8 +313,7 @@ impl ExampleWebPlugin {
             Ok(WebResponse::no_content())
         } else {
             Ok(WebResponse::not_found(&format!(
-                "Example with ID {} not found",
-                id
+                "Example with ID {id} not found"
             )))
         }
     }
@@ -481,7 +476,7 @@ impl LegacyWebPluginTrait for ExampleWebPlugin {
         let response = WebPlugin::handle_request(self, request).await?;
 
         // Return just the body
-        Ok(response.body.unwrap_or(json!({})))
+        Ok(response.body.unwrap_or_else(|| json!({})))
     }
 
     fn get_components(&self) -> Vec<LegacyWebComponent> {

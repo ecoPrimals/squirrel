@@ -118,7 +118,7 @@ pub struct MemoryOptimizationConfig {
 
 impl PerformanceOptimizerConfig {
     /// Production-optimized configuration
-    pub fn production() -> Self {
+    pub const fn production() -> Self {
         Self {
             hot_path_cache: HotPathCacheConfig {
                 max_cached_operations: 10000,
@@ -147,7 +147,7 @@ impl PerformanceOptimizerConfig {
     }
 
     /// Development configuration with reduced overhead
-    pub fn development() -> Self {
+    pub const fn development() -> Self {
         Self {
             hot_path_cache: HotPathCacheConfig {
                 max_cached_operations: 1000,
@@ -485,7 +485,7 @@ impl PluginPerformanceOptimizer {
         plugin_name: &str,
         registry: &ZeroCopyPluginRegistry,
     ) -> Option<Arc<ZeroCopyPluginEntry>> {
-        let cache_key = format!("lookup:{}", plugin_name);
+        let cache_key = format!("lookup:{plugin_name}");
 
         // Check hot path cache first
         if let Some(cached) = self.hot_path_cache.get_plugin_lookup(&cache_key).await {
@@ -529,7 +529,7 @@ impl PluginPerformanceOptimizer {
         capability: &str,
         registry: &ZeroCopyPluginRegistry,
     ) -> Vec<Arc<ZeroCopyPluginEntry>> {
-        let cache_key = format!("capability:{}", capability);
+        let cache_key = format!("capability:{capability}");
 
         // Check hot path cache
         if let Some(cached) = self.hot_path_cache.get_capability_query(&cache_key).await {
@@ -621,6 +621,7 @@ impl PluginPerformanceOptimizer {
     }
 
     /// Get comprehensive optimization metrics
+    #[allow(clippy::cast_precision_loss)]
     pub async fn get_optimization_metrics(&self) -> OptimizerMetrics {
         let cache_stats = self.hot_path_cache.get_statistics().await;
         let batch_stats = self.batch_processor.get_statistics().await;
@@ -680,6 +681,7 @@ impl PluginPerformanceOptimizer {
     }
 
     /// Calculate cache efficiency from statistics
+    #[allow(clippy::unused_self, clippy::cast_precision_loss)]
     fn calculate_cache_efficiency(&self, stats: &CacheStatistics) -> f64 {
         let total_requests = stats.lookup_hits
             + stats.lookup_misses
@@ -763,6 +765,7 @@ impl BatchProcessor {
         }
     }
 
+    #[allow(clippy::cast_precision_loss)]
     async fn batch_load_plugins(
         &self,
         plugin_entries: Vec<Arc<ZeroCopyPluginEntry>>,
@@ -879,7 +882,10 @@ pub fn init_global_optimizer() -> Result<()> {
 
 /// High-performance utilities for plugin operations
 pub mod optimized_ops {
-    use super::*;
+    use super::{
+        Arc, OptimizerMetrics, Result, ZeroCopyPlugin, ZeroCopyPluginEntry, ZeroCopyPluginRegistry,
+        get_global_optimizer,
+    };
 
     /// Perform an optimized plugin lookup
     pub async fn fast_plugin_lookup(
@@ -913,5 +919,78 @@ pub mod optimized_ops {
     /// Get current optimization metrics
     pub async fn get_performance_metrics() -> OptimizerMetrics {
         get_global_optimizer().get_optimization_metrics().await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_performance_optimizer_config_production() {
+        let config = PerformanceOptimizerConfig::production();
+        assert_eq!(config.hot_path_cache.max_cached_operations, 10000);
+        assert_eq!(config.hot_path_cache.min_access_count, 3);
+        assert!(config.hot_path_cache.enable_warming);
+        assert_eq!(config.batch_processing.max_batch_size, 100);
+        assert!(config.batch_processing.dynamic_batching);
+        assert!(config.predictive_loading.enabled);
+        assert!((config.predictive_loading.confidence_threshold - 0.7).abs() < 1e-9);
+        assert!(config.memory_optimization.zero_copy_enabled);
+        assert!(config.memory_optimization.enable_compaction);
+    }
+
+    #[test]
+    fn test_performance_optimizer_config_development() {
+        let config = PerformanceOptimizerConfig::development();
+        assert_eq!(config.hot_path_cache.max_cached_operations, 1000);
+        assert!(!config.hot_path_cache.enable_warming);
+        assert_eq!(config.batch_processing.max_batch_size, 20);
+        assert!(!config.batch_processing.dynamic_batching);
+        assert!(!config.predictive_loading.enabled);
+        assert!(!config.memory_optimization.enable_compaction);
+    }
+
+    #[tokio::test]
+    async fn test_get_global_optimizer() {
+        let optimizer = get_global_optimizer();
+        assert!(Arc::strong_count(&optimizer) >= 2);
+    }
+
+    #[test]
+    fn test_optimizer_metrics_default() {
+        let metrics = OptimizerMetrics::default();
+        assert_eq!(metrics.cache_efficiency, 0.0);
+        assert_eq!(metrics.batch_efficiency, 0.0);
+        assert_eq!(metrics.prediction_accuracy, 0.0);
+        assert_eq!(metrics.memory_saved_bytes, 0);
+        assert_eq!(metrics.operations_optimized, 0);
+    }
+
+    #[test]
+    fn test_optimizer_metrics_clone() {
+        let metrics = OptimizerMetrics {
+            cache_efficiency: 0.7,
+            batch_efficiency: 0.5,
+            prediction_accuracy: 0.8,
+            memory_saved_bytes: 1024,
+            operations_optimized: 100,
+            total_time_saved_ms: 500,
+        };
+        let cloned = metrics.clone();
+        assert_eq!(metrics.cache_efficiency, cloned.cache_efficiency);
+        assert_eq!(metrics.operations_optimized, cloned.operations_optimized);
+    }
+
+    #[tokio::test]
+    async fn test_plugin_performance_optimizer_new() {
+        let config = PerformanceOptimizerConfig::development();
+        let _optimizer = PluginPerformanceOptimizer::new(config);
+    }
+
+    #[tokio::test]
+    async fn test_get_performance_metrics() {
+        let metrics = optimized_ops::get_performance_metrics().await;
+        assert!(metrics.cache_efficiency >= 0.0 && metrics.cache_efficiency <= 1.0);
     }
 }

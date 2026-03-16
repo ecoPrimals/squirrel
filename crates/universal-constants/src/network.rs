@@ -190,9 +190,9 @@ pub const DEFAULT_SQUIRREL_SERVER_PORT: u16 = 9010;
 /// Used when binding the main API server (e.g. squirrel-mcp-server).
 pub const DEFAULT_JSON_RPC_PORT: u16 = 8080;
 
-/// Default port for BiomeOS ecosystem API
+/// Default port for `BiomeOS` ecosystem API
 ///
-/// Used for BiomeOS AI, MCP, context, health, and metrics endpoints.
+/// Used for `BiomeOS` AI, MCP, context, health, and metrics endpoints.
 pub const DEFAULT_BIOMEOS_PORT: u16 = 5000;
 
 /// Default bind address for API server (all interfaces + JSON-RPC port)
@@ -200,7 +200,7 @@ pub const DEFAULT_BIOMEOS_PORT: u16 = 5000;
 /// Format: "0.0.0.0:{port}". Use when starting HTTP API servers.
 #[must_use]
 pub fn default_api_bind_addr() -> String {
-    format!("{}:{}", BIND_ALL_INTERFACES, DEFAULT_JSON_RPC_PORT)
+    format!("{BIND_ALL_INTERFACES}:{DEFAULT_JSON_RPC_PORT}")
 }
 
 // ============================================================================
@@ -322,6 +322,7 @@ pub fn http_url(host: &str, port: u16, path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[allow(deprecated)]
     use super::{
         ADMIN_ENDPOINT, DEFAULT_LOCALHOST, DISCOVERY_ENDPOINT, HEALTH_ENDPOINT,
         LOCALHOST_HTTP_TEMPLATE, LOCALHOST_IPV4, LOCALHOST_WS_TEMPLATE, METRICS_ENDPOINT,

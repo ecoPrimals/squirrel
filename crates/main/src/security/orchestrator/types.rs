@@ -215,7 +215,7 @@ pub struct SecurityResponse {
 }
 
 /// Types of automated security responses
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResponseType {
     /// Log the incident
     Log,

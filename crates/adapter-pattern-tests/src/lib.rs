@@ -12,7 +12,12 @@
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::unwrap_used,
+    clippy::expect_used
+)]
 
 mod auth;
 mod commands;

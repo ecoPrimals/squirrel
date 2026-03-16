@@ -524,7 +524,7 @@ mod tests {
             data: serde_json::Value,
         ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
             // Simply add a marker field
-            let mut result = data.clone();
+            let mut result = data;
             if let serde_json::Value::Object(ref mut map) = result {
                 map.insert("transformed".to_string(), json!(true));
                 map.insert("transformation_id".to_string(), json!(self.id));
@@ -544,7 +544,7 @@ mod tests {
             data: serde_json::Value,
         ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
             // Simply add a marker field
-            let mut result = data.clone();
+            let mut result = data;
             if let serde_json::Value::Object(ref mut map) = result {
                 map.insert("converted".to_string(), json!(true));
                 map.insert("adapter_id".to_string(), json!(self.metadata.id));

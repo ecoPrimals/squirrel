@@ -76,7 +76,7 @@ impl ServiceDefinition {
     }
 
     /// Set health status
-    pub fn with_health_status(mut self, status: HealthStatus) -> Self {
+    pub const fn with_health_status(mut self, status: HealthStatus) -> Self {
         self.health_status = status;
         self
     }
@@ -168,15 +168,15 @@ impl ServiceType {
     /// Get string representation
     pub fn as_str(&self) -> &str {
         match self {
-            ServiceType::AI => "ai",
-            ServiceType::Compute => "compute",
-            ServiceType::Storage => "storage",
-            ServiceType::Security => "security",
-            ServiceType::Communication => "communication",
-            ServiceType::Discovery => "discovery",
-            ServiceType::Monitoring => "monitoring",
-            ServiceType::Gateway => "gateway",
-            ServiceType::Custom(s) => s,
+            Self::AI => "ai",
+            Self::Compute => "compute",
+            Self::Storage => "storage",
+            Self::Security => "security",
+            Self::Communication => "communication",
+            Self::Discovery => "discovery",
+            Self::Monitoring => "monitoring",
+            Self::Gateway => "gateway",
+            Self::Custom(s) => s,
         }
     }
 }
@@ -186,15 +186,15 @@ impl std::str::FromStr for ServiceType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s.to_lowercase().as_str() {
-            "ai" => ServiceType::AI,
-            "compute" => ServiceType::Compute,
-            "storage" => ServiceType::Storage,
-            "security" => ServiceType::Security,
-            "communication" => ServiceType::Communication,
-            "discovery" => ServiceType::Discovery,
-            "monitoring" => ServiceType::Monitoring,
-            "gateway" => ServiceType::Gateway,
-            _ => ServiceType::Custom(s.to_string()),
+            "ai" => Self::AI,
+            "compute" => Self::Compute,
+            "storage" => Self::Storage,
+            "security" => Self::Security,
+            "communication" => Self::Communication,
+            "discovery" => Self::Discovery,
+            "monitoring" => Self::Monitoring,
+            "gateway" => Self::Gateway,
+            _ => Self::Custom(s.to_string()),
         })
     }
 }
@@ -220,7 +220,7 @@ pub struct ServiceEndpoint {
 
 impl ServiceEndpoint {
     /// Create a new service endpoint
-    pub fn new(url: String, protocol: String, port: u16) -> Self {
+    pub const fn new(url: String, protocol: String, port: u16) -> Self {
         Self {
             url,
             protocol,
@@ -233,7 +233,7 @@ impl ServiceEndpoint {
     }
 
     /// Set as primary endpoint
-    pub fn as_primary(mut self) -> Self {
+    pub const fn as_primary(mut self) -> Self {
         self.primary = true;
         self
     }
@@ -245,7 +245,7 @@ impl ServiceEndpoint {
     }
 
     /// Set weight for load balancing
-    pub fn with_weight(mut self, weight: f32) -> Self {
+    pub const fn with_weight(mut self, weight: f32) -> Self {
         self.weight = Some(weight);
         self
     }
@@ -295,17 +295,17 @@ pub enum HealthStatus {
 
 impl HealthStatus {
     /// Check if service is available
-    pub fn is_available(&self) -> bool {
-        matches!(self, HealthStatus::Healthy | HealthStatus::Unhealthy)
+    pub const fn is_available(&self) -> bool {
+        matches!(self, Self::Healthy | Self::Unhealthy)
     }
 
     /// Get string representation
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            HealthStatus::Healthy => "healthy",
-            HealthStatus::Unhealthy => "unhealthy",
-            HealthStatus::Degraded => "degraded",
-            HealthStatus::Unavailable => "unavailable",
+            Self::Healthy => "healthy",
+            Self::Unhealthy => "unhealthy",
+            Self::Degraded => "degraded",
+            Self::Unavailable => "unavailable",
         }
     }
 }
@@ -346,7 +346,7 @@ pub enum SortField {
     LastHeartbeat,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum SortOrder {
     /// Ascending order
     #[default]
@@ -380,7 +380,7 @@ impl ServiceQuery {
     }
 
     /// Filter by health status
-    pub fn with_health_status(mut self, status: HealthStatus) -> Self {
+    pub const fn with_health_status(mut self, status: HealthStatus) -> Self {
         self.health_status = Some(status);
         self
     }
@@ -392,20 +392,20 @@ impl ServiceQuery {
     }
 
     /// Sort by field
-    pub fn sort_by(mut self, field: SortField, order: SortOrder) -> Self {
+    pub const fn sort_by(mut self, field: SortField, order: SortOrder) -> Self {
         self.sort_field = Some(field);
         self.sort_order = order;
         self
     }
 
     /// Limit results
-    pub fn limit(mut self, limit: usize) -> Self {
+    pub const fn limit(mut self, limit: usize) -> Self {
         self.limit = Some(limit);
         self
     }
 
     /// Set offset for pagination
-    pub fn offset(mut self, offset: usize) -> Self {
+    pub const fn offset(mut self, offset: usize) -> Self {
         self.offset = Some(offset);
         self
     }
@@ -413,10 +413,10 @@ impl ServiceQuery {
     /// Check if service matches this query
     pub fn matches(&self, service: &ServiceDefinition) -> bool {
         // Service type filter
-        if let Some(ref service_type) = self.service_type {
-            if service.service_type != *service_type {
-                return false;
-            }
+        if let Some(ref service_type) = self.service_type
+            && service.service_type != *service_type
+        {
+            return false;
         }
 
         // Capabilities filter
@@ -432,10 +432,10 @@ impl ServiceQuery {
         }
 
         // Health status filter
-        if let Some(ref health_status) = self.health_status {
-            if service.health_status != *health_status {
-                return false;
-            }
+        if let Some(ref health_status) = self.health_status
+            && service.health_status != *health_status
+        {
+            return false;
         }
 
         // Tags filter

@@ -263,14 +263,14 @@ impl CowString {
     /// Efficiently handles different string types without unnecessary allocations.
     /// Useful for APIs that can accept both owned and borrowed strings.
     #[must_use]
-    pub fn from_string(s: String) -> Cow<'static, str> {
+    pub const fn from_string(s: String) -> Cow<'static, str> {
         Cow::Owned(s)
     }
 
     /// Create a `Cow<str>` from a string slice
     #[must_use]
     #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Cow<'_, str> {
+    pub const fn from_str(s: &str) -> Cow<'_, str> {
         Cow::Borrowed(s)
     }
 

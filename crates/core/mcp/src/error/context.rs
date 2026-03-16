@@ -242,7 +242,7 @@ impl LocalErrorContext {
     /// Increments the recovery attempt counter
     ///
     /// This is called each time a recovery attempt is made.
-    pub fn increment_recovery_attempts(&mut self) {
+    pub const fn increment_recovery_attempts(&mut self) {
         self.recovery_attempts += 1;
     }
 }
@@ -350,6 +350,7 @@ impl ErrorHandler {
             history.pop_front();
         }
         history.push_back(record);
+        drop(history);
 
         Ok(())
     }
@@ -372,8 +373,7 @@ impl ErrorHandler {
     /// Result indicating success or an error
     #[instrument(skip(self))]
     pub async fn clear_history(&self) -> Result<()> {
-        let mut history = self.error_history.write().await;
-        history.clear();
+        self.error_history.write().await.clear();
         Ok(())
     }
 }
@@ -524,7 +524,7 @@ impl ErrorHandler {
     /// # Returns
     ///
     /// Boolean indicating whether recovery was successful
-    pub fn apply_recovery_strategy(
+    pub const fn apply_recovery_strategy(
         &self,
         // These parameters are intentionally unused in this implementation
         // but may be used by derived implementations
@@ -545,7 +545,7 @@ impl ErrorHandler {
     /// # Returns
     ///
     /// Result indicating success or an `MCPError`
-    pub fn recover_context(
+    pub const fn recover_context(
         &self,
         _context: &mut LocalErrorContext,
         _strategy: &RecoveryStrategy,
@@ -557,110 +557,175 @@ impl ErrorHandler {
 
 #[cfg(test)]
 mod tests {
-    // Temporarily commented out until fixed
-    /*
     use super::*;
     use serde_json::json;
-    use chrono::Utc;
+
+    #[test]
+    fn test_error_handler_error_display() {
+        assert!(format!("{}", ErrorHandlerError::Recovery("msg".into())).contains("Recovery"));
+        assert!(format!("{}", ErrorHandlerError::State("msg".into())).contains("State"));
+        assert!(format!("{}", ErrorHandlerError::Strategy("msg".into())).contains("Strategy"));
+        assert!(format!("{}", ErrorHandlerError::Context("msg".into())).contains("Context"));
+    }
+
+    #[test]
+    fn test_error_handler_error_from_serde() {
+        let err: ErrorHandlerError = serde_json::from_str::<serde_json::Value>("invalid")
+            .unwrap_err()
+            .into();
+        assert!(matches!(err, ErrorHandlerError::SerdeJson(_)));
+    }
+
+    #[test]
+    fn test_local_error_context_new() {
+        let ctx = LocalErrorContext::new("type_a", "msg", "component_x");
+        assert_eq!(ctx.error_type(), "type_a");
+        assert_eq!(ctx.message(), "msg");
+        assert_eq!(ctx.component(), "component_x");
+        assert_eq!(ctx.severity(), ErrorSeverity::Low);
+        assert_eq!(ctx.recovery_attempts(), 0);
+        assert!(ctx.metadata().is_none());
+    }
+
+    #[test]
+    fn test_local_error_context_with_severity() {
+        let ctx = LocalErrorContext::new("t", "m", "c").with_severity(ErrorSeverity::Critical);
+        assert_eq!(ctx.severity(), ErrorSeverity::Critical);
+    }
+
+    #[test]
+    fn test_local_error_context_with_metadata() {
+        let meta = json!({"key": "value"});
+        let ctx = LocalErrorContext::new("t", "m", "c").with_metadata(meta.clone());
+        assert_eq!(ctx.metadata(), Some(&meta));
+    }
+
+    #[test]
+    fn test_local_error_context_increment_recovery_attempts() {
+        let mut ctx = LocalErrorContext::new("t", "m", "c");
+        assert_eq!(ctx.recovery_attempts(), 0);
+        ctx.increment_recovery_attempts();
+        ctx.increment_recovery_attempts();
+        assert_eq!(ctx.recovery_attempts(), 2);
+    }
+
+    #[test]
+    fn test_recovery_strategy_serde() {
+        let strategy = RecoveryStrategy {
+            max_attempts: 3,
+            backoff_ms: 100,
+            timeout_ms: 5000,
+            requires_manual_intervention: false,
+        };
+        let json = serde_json::to_string(&strategy).expect("serialize");
+        let parsed: RecoveryStrategy = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed.max_attempts, 3);
+        assert_eq!(parsed.backoff_ms, 100);
+    }
 
     #[tokio::test]
-    async fn test_error_context_add_error() {
-        let mut context = ErrorContext::new(10);
-
-        context.add_error(
-            "test_error",
-            "Test message",
-            Some("Test details".to_string()),
-            None,
-            Some(json!({"key": "value"})),
-        ).await.unwrap();
-
-        let history = context.get_error_history().await;
+    async fn test_error_handler_record_and_get_history() {
+        let handler = ErrorHandler::new(10);
+        handler
+            .record_error("err1".into(), "msg1".into(), Some("details".into()))
+            .await
+            .expect("record");
+        let history = handler.get_error_history().await.expect("get");
         assert_eq!(history.len(), 1);
-        assert_eq!(history[0].error_type, "test_error");
-        assert_eq!(history[0].message, "Test message");
-        assert_eq!(history[0].details, Some("Test details".to_string()));
+        assert_eq!(history[0].error_type, "err1");
+        assert_eq!(history[0].message, "msg1");
+        assert_eq!(history[0].details, Some("details".into()));
     }
 
     #[tokio::test]
-    async fn test_error_context_max_size() {
-        let mut context = ErrorContext::new(10);
-
-        // Add 15 errors, should only keep the last 10
-        for i in 0..15 {
-            context.add_error(
-                &format!("error_{}", i),
-                &format!("Message {}", i),
-                None,
-                None,
-                None,
-            ).await.unwrap();
+    async fn test_error_handler_max_history_size() {
+        let handler = ErrorHandler::new(3);
+        for i in 0..5 {
+            handler
+                .record_error(format!("err_{i}"), format!("msg_{i}"), None)
+                .await
+                .expect("record");
         }
-
-        let history = context.get_error_history().await;
-        assert_eq!(history.len(), 10);
-
-        // Should have errors 5-14
-        for i in 0..10 {
-            assert_eq!(history[i].error_type, format!("error_{}", i + 5));
-        }
+        let history = handler.get_error_history().await.expect("get");
+        assert_eq!(history.len(), 3);
+        assert_eq!(history[0].error_type, "err_2");
+        assert_eq!(history[1].error_type, "err_3");
+        assert_eq!(history[2].error_type, "err_4");
     }
 
     #[tokio::test]
-    async fn test_error_context_recovery() {
-        let mut context = ErrorContext::new(10);
+    async fn test_error_handler_clear_history() {
+        let handler = ErrorHandler::new(10);
+        handler
+            .record_error("err".into(), "msg".into(), None)
+            .await
+            .expect("record");
+        handler.clear_history().await.expect("clear");
+        let history = handler.get_error_history().await.expect("get");
+        assert!(history.is_empty());
+    }
 
-        // Register a recovery handler
-        context.register_recovery_handler("test_error", Box::new(|ctx| {
-            println!("Recovering from error: {:?}", ctx);
-            Ok(())
-        })).await.unwrap();
-
-        // Add an error
-        context.add_error(
-            "test_error",
-            "Test message",
-            None,
-            None,
-            None,
-        ).await.unwrap();
-
-        // Try recovery
-        let result = context.try_recover("test_error", json!({})).await;
-        assert!(result.is_ok());
-
-        let history = context.get_error_history().await;
+    #[tokio::test]
+    async fn test_error_handler_handle_error() {
+        let handler = ErrorHandler::new(10);
+        let ctx = LocalErrorContext::new("test_err", "test message", "test_component");
+        handler.handle_error(ctx).await.expect("handle");
+        let history = handler.get_error_history().await.expect("get");
         assert_eq!(history.len(), 1);
+        assert_eq!(history[0].error_type, "test_err");
     }
 
     #[tokio::test]
-    async fn test_error_context_no_recovery() {
-        let mut context = ErrorContext::new(10);
-
-        // Add an error without a recovery handler
-        context.add_error(
-            "test_error",
-            "Test message",
-            None,
-            None,
-            None,
-        ).await.unwrap();
-
-        // Try recovery
-        let result = context.try_recover("test_error", json!({})).await;
-        assert!(result.is_err());
-
-        // Add a second error
-        context.add_error(
-            "test_error_2",
-            "Test message 2",
-            None,
-            None,
-            None,
-        ).await.unwrap();
-
-        let history = context.get_error_history().await;
-        assert_eq!(history.len(), 2);
+    async fn test_error_handler_register_recovery_strategy() {
+        let handler = ErrorHandler::new(10);
+        let strategy = RecoveryStrategy {
+            max_attempts: 5,
+            backoff_ms: 200,
+            timeout_ms: 1000,
+            requires_manual_intervention: false,
+        };
+        handler
+            .register_recovery_strategy("conn_err".into(), strategy)
+            .await
+            .expect("register");
     }
-    */
+
+    #[test]
+    fn test_error_handler_apply_recovery_strategy() {
+        let handler = ErrorHandler::new(10);
+        let mut ctx = LocalErrorContext::new("t", "m", "c");
+        let strategy = RecoveryStrategy {
+            max_attempts: 1,
+            backoff_ms: 100,
+            timeout_ms: 500,
+            requires_manual_intervention: false,
+        };
+        assert!(handler.apply_recovery_strategy(&mut ctx, &strategy));
+    }
+
+    #[test]
+    fn test_error_handler_recover_context() {
+        let handler = ErrorHandler::new(10);
+        let mut ctx = LocalErrorContext::new("t", "m", "c");
+        let strategy = RecoveryStrategy {
+            max_attempts: 1,
+            backoff_ms: 100,
+            timeout_ms: 500,
+            requires_manual_intervention: false,
+        };
+        assert!(handler.recover_context(&mut ctx, &strategy).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_error_handler_clone_shares_history() {
+        let handler = ErrorHandler::new(5);
+        handler
+            .record_error("shared".into(), "msg".into(), None)
+            .await
+            .expect("record");
+        let cloned = handler.clone();
+        let history = cloned.get_error_history().await.expect("get");
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].error_type, "shared");
+    }
 }

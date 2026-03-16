@@ -18,7 +18,7 @@ use crate::observability::CorrelationId;
 ///
 /// Represents different categories of security events that can be monitored
 /// and analyzed by the security monitoring system.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SecurityEventType {
     /// Authentication event
     Authentication {
@@ -144,7 +144,7 @@ pub enum EventSeverity {
 
 /// Behavioral pattern for anomaly detection
 #[derive(Debug, Clone)]
-pub(crate) struct BehavioralPattern {
+pub struct BehavioralPattern {
     /// Client IP address
     pub client_ip: String,
 
@@ -172,7 +172,7 @@ pub(crate) struct BehavioralPattern {
 
 /// Request pattern for behavioral analysis
 #[derive(Debug, Clone)]
-pub(crate) struct RequestPattern {
+pub struct RequestPattern {
     /// Request timestamp
     pub timestamp: Instant,
 

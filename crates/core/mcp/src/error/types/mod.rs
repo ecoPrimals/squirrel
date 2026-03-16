@@ -58,7 +58,7 @@ pub type MCPResult<T> = std::result::Result<T, MCPError>;
 /// Canonical Result type for MCP operations
 ///
 /// This is the primary Result type used throughout the MCP system.
-/// It provides a convenient alias for Result<T, MCPError>.
+/// It provides a convenient alias for Result<T, `MCPError`>.
 ///
 /// # Examples
 ///

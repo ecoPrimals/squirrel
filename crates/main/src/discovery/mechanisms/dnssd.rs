@@ -61,7 +61,7 @@ impl Default for DnssdDiscovery {
 
 impl DnssdDiscovery {
     /// Create a new DNS-SD discovery client
-    pub fn new(domain: String, service_type: String) -> Self {
+    pub const fn new(domain: String, service_type: String) -> Self {
         Self {
             domain,
             service_type,

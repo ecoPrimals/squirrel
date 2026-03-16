@@ -127,7 +127,7 @@ impl OpenAiAdapter {
         // Discover who provides HTTP capability (TRUE PRIMAL!)
         let http_provider = discover_capability("http.request")
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("No HTTP provider found: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("No HTTP provider found: {e}")))?;
 
         debug!(
             "Delegating HTTP to {} (discovered via capability)",
@@ -175,8 +175,7 @@ impl OpenAiAdapter {
 
         if let Some(error) = rpc_response.get("error") {
             return Err(PrimalError::NetworkError(format!(
-                "HTTP delegation error: {}",
-                error
+                "HTTP delegation error: {error}"
             )));
         }
 
@@ -235,7 +234,7 @@ impl OpenAiAdapter {
         // Songbird returns body as string, parse it
         let http_response: serde_json::Value = match body_value {
             serde_json::Value::String(s) => serde_json::from_str(&s).map_err(|e| {
-                PrimalError::ParsingError(format!("Failed to parse body JSON: {}", e))
+                PrimalError::ParsingError(format!("Failed to parse body JSON: {e}"))
             })?,
             other => other, // Already parsed (for future compatibility)
         };
@@ -250,9 +249,11 @@ impl OpenAiAdapter {
         let (prompt_cost_per_1k, completion_cost_per_1k) = Self::estimate_cost_per_1k_tokens(model);
 
         let cost_usd = Some(
-            (openai_response.usage.prompt_tokens as f64 / 1000.0 * prompt_cost_per_1k)
-                + (openai_response.usage.completion_tokens as f64 / 1000.0
-                    * completion_cost_per_1k),
+            (f64::from(openai_response.usage.prompt_tokens) / 1000.0).mul_add(
+                prompt_cost_per_1k,
+                f64::from(openai_response.usage.completion_tokens) / 1000.0
+                    * completion_cost_per_1k,
+            ),
         );
 
         // Convert to universal format
@@ -291,11 +292,11 @@ impl OpenAiAdapter {
 
 #[async_trait]
 impl AiProviderAdapter for OpenAiAdapter {
-    fn provider_id(&self) -> &str {
+    fn provider_id(&self) -> &'static str {
         "openai"
     }
 
-    fn provider_name(&self) -> &str {
+    fn provider_name(&self) -> &'static str {
         "OpenAI (GPT)"
     }
 
@@ -379,13 +380,12 @@ mod tests {
 
     #[test]
     fn test_openai_adapter_creation() {
-        // Without API key, should fail
-        unsafe { std::env::remove_var("OPENAI_API_KEY") };
-        assert!(OpenAiAdapter::new().is_err());
+        let result = temp_env::with_var("OPENAI_API_KEY", None::<&str>, || OpenAiAdapter::new());
+        assert!(result.is_err());
 
-        // With API key, should succeed
-        unsafe { std::env::set_var("OPENAI_API_KEY", "test-key") };
-        let adapter = OpenAiAdapter::new().unwrap();
+        let adapter =
+            temp_env::with_var("OPENAI_API_KEY", Some("test-key"), || OpenAiAdapter::new())
+                .unwrap();
         assert_eq!(adapter.provider_id(), "openai");
         assert_eq!(adapter.provider_name(), "OpenAI (GPT)");
         assert!(!adapter.is_local());
@@ -429,8 +429,10 @@ mod tests {
 
     #[test]
     fn test_adapter_quality_tier() {
-        unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-qt") };
-        let adapter = OpenAiAdapter::new().unwrap();
+        let adapter = temp_env::with_var("OPENAI_API_KEY", Some("test-key-qt"), || {
+            OpenAiAdapter::new()
+        })
+        .unwrap();
         assert_eq!(adapter.quality_tier(), QualityTier::Premium);
         assert_eq!(adapter.avg_latency_ms(), 1500);
         assert!(adapter.cost_per_unit().is_some());
@@ -438,8 +440,10 @@ mod tests {
 
     #[test]
     fn test_default_model() {
-        unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-dm") };
-        let adapter = OpenAiAdapter::new().unwrap();
+        let adapter = temp_env::with_var("OPENAI_API_KEY", Some("test-key-dm"), || {
+            OpenAiAdapter::new()
+        })
+        .unwrap();
         assert_eq!(adapter.default_model, "gpt-4");
     }
 }

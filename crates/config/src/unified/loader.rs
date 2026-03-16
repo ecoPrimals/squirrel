@@ -445,12 +445,11 @@ mod tests {
 
     #[test]
     fn test_sources_tracking() {
-        // Create a config with security disabled to avoid JWT/API key requirements
-        let mut loader = ConfigLoader::new();
-        loader.config.security.enabled = false;
-        let loaded = loader.validate().unwrap().build_with_sources().unwrap();
-        assert!(!loaded.sources().is_empty());
-        assert!(loaded.has_source("secure_defaults"));
+        let mut cfg_loader = ConfigLoader::new();
+        cfg_loader.config.security.enabled = false;
+        let resolved = cfg_loader.validate().unwrap().build_with_sources().unwrap();
+        assert!(!resolved.sources().is_empty());
+        assert!(resolved.has_source("secure_defaults"));
     }
 
     #[test]
@@ -489,10 +488,10 @@ mod tests {
 
     #[test]
     fn test_loaded_config_into_config() {
-        let mut loader = ConfigLoader::new();
-        loader.config.security.enabled = false;
-        let loaded = loader.validate().unwrap().build_with_sources().unwrap();
-        let config = loaded.into_config();
+        let mut cfg_loader = ConfigLoader::new();
+        cfg_loader.config.security.enabled = false;
+        let resolved = cfg_loader.validate().unwrap().build_with_sources().unwrap();
+        let config = resolved.into_config();
         assert!(!config.system.instance_id.is_empty());
     }
 
@@ -529,12 +528,12 @@ mod tests {
 
     #[test]
     fn test_with_env_prefix() {
-        let mut loader = ConfigLoader::new();
-        loader.config.security.enabled = false;
-        let result = loader.with_env_prefix("SQUIRREL_");
+        let mut cfg_loader = ConfigLoader::new();
+        cfg_loader.config.security.enabled = false;
+        let result = cfg_loader.with_env_prefix("SQUIRREL_");
         assert!(result.is_ok());
-        let loaded = result.unwrap().build_with_sources().unwrap();
-        assert!(loaded.has_source("env:"));
+        let resolved = result.unwrap().build_with_sources().unwrap();
+        assert!(resolved.has_source("env:"));
     }
 
     #[test]
@@ -625,7 +624,13 @@ mod tests {
     fn test_merge_config_non_overlapping_fields() {
         let temp_dir = TempDir::new().unwrap();
         let file1 = temp_dir.path().join("a.toml");
-        write_valid_config(&file1, &[("system.instance_id", "instance-from-a"), ("system.environment", "staging")]);
+        write_valid_config(
+            &file1,
+            &[
+                ("system.instance_id", "instance-from-a"),
+                ("system.environment", "staging"),
+            ],
+        );
         let file2 = temp_dir.path().join("b.toml");
         write_valid_config(
             &file2,
@@ -657,9 +662,23 @@ mod tests {
     fn test_merge_config_precedence_later_wins() {
         let temp_dir = TempDir::new().unwrap();
         let file1 = temp_dir.path().join("first.toml");
-        write_valid_config(&file1, &[("system.instance_id", "first-instance"), ("system.environment", "development"), ("network.http_port", "8080")]);
+        write_valid_config(
+            &file1,
+            &[
+                ("system.instance_id", "first-instance"),
+                ("system.environment", "development"),
+                ("network.http_port", "8080"),
+            ],
+        );
         let file2 = temp_dir.path().join("second.toml");
-        write_valid_config(&file2, &[("system.instance_id", "second-instance"), ("system.environment", "production"), ("network.http_port", "9999")]);
+        write_valid_config(
+            &file2,
+            &[
+                ("system.instance_id", "second-instance"),
+                ("system.environment", "production"),
+                ("network.http_port", "9999"),
+            ],
+        );
 
         let mut loader = ConfigLoader::new();
         loader.config.security.enabled = false;
@@ -724,7 +743,10 @@ mod tests {
         let result = temp_env::with_vars(
             [
                 ("SQUIRREL_HTTP_PORT", Some("8888")),
-                ("JWT_SECRET", Some("test-jwt-secret-at-least-32-characters-long")),
+                (
+                    "JWT_SECRET",
+                    Some("test-jwt-secret-at-least-32-characters-long"),
+                ),
             ],
             ConfigLoader::load,
         );

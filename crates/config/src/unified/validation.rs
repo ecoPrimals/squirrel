@@ -457,6 +457,7 @@ impl Validator {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -569,5 +570,56 @@ mod tests {
     fn test_validate_jwt_secret() {
         assert!(Validator::validate_jwt_secret("this_is_a_very_long_secret_key_for_jwt").is_ok());
         assert!(Validator::validate_jwt_secret("short").is_err());
+    }
+
+    #[test]
+    fn test_validation_error_display() {
+        let err = ValidationError::Invalid {
+            field: "port".to_string(),
+            reason: "must be > 0".to_string(),
+        };
+        assert!(err.to_string().contains("port"));
+        assert!(err.to_string().contains("must be > 0"));
+
+        let err = ValidationError::Missing {
+            field: "hostname".to_string(),
+        };
+        assert!(err.to_string().contains("hostname"));
+
+        let err = ValidationError::Constraint {
+            field: "timeout".to_string(),
+            constraint: "> 0".to_string(),
+        };
+        assert!(err.to_string().contains("timeout"));
+
+        let err = ValidationError::Conflict {
+            description: "ports must differ".to_string(),
+        };
+        assert!(err.to_string().contains("Conflict"));
+
+        let err = ValidationError::FileNotFound {
+            path: "/nonexistent".to_string(),
+        };
+        assert!(err.to_string().contains("File not found"));
+    }
+
+    #[test]
+    fn test_validate_file_exists_nonexistent() {
+        let result =
+            Validator::validate_file_exists(std::path::Path::new("/nonexistent/path"), "config");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_dir_exists_nonexistent() {
+        let result =
+            Validator::validate_dir_exists(std::path::Path::new("/nonexistent/dir"), "data_dir");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_hostname_too_long() {
+        let long = "a".repeat(254);
+        assert!(Validator::validate_hostname(&long).is_err());
     }
 }

@@ -471,7 +471,7 @@ impl ProductionRateLimiter {
     }
 
     /// Get rate limit for specific endpoint type
-    fn get_rate_limit_for_endpoint(&self, endpoint_type: &EndpointType) -> u32 {
+    const fn get_rate_limit_for_endpoint(&self, endpoint_type: &EndpointType) -> u32 {
         match endpoint_type {
             EndpointType::Api => self.config.api_requests_per_minute,
             EndpointType::Authentication => self.config.auth_requests_per_minute,

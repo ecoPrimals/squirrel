@@ -31,56 +31,49 @@ pub enum HttpMethod {
 impl HttpMethod {
     /// Check if the method is GET
     pub fn is_get(&self) -> bool {
-        *self == HttpMethod::Get
+        *self == Self::Get
     }
 
     /// Check if the method is POST
     pub fn is_post(&self) -> bool {
-        *self == HttpMethod::Post
+        *self == Self::Post
     }
 
     /// Check if the method is PUT
     pub fn is_put(&self) -> bool {
-        *self == HttpMethod::Put
+        *self == Self::Put
     }
 
     /// Check if the method is DELETE
     pub fn is_delete(&self) -> bool {
-        *self == HttpMethod::Delete
+        *self == Self::Delete
     }
 
     /// Check if the method is PATCH
     pub fn is_patch(&self) -> bool {
-        *self == HttpMethod::Patch
+        *self == Self::Patch
     }
 
     /// Check if the method is OPTIONS
     pub fn is_options(&self) -> bool {
-        *self == HttpMethod::Options
+        *self == Self::Options
     }
 
     /// Check if the method is HEAD
     pub fn is_head(&self) -> bool {
-        *self == HttpMethod::Head
+        *self == Self::Head
     }
 
     /// Check if the method is safe (doesn't modify resources)
-    pub fn is_safe(&self) -> bool {
-        matches!(
-            self,
-            HttpMethod::Get | HttpMethod::Head | HttpMethod::Options
-        )
+    pub const fn is_safe(&self) -> bool {
+        matches!(self, Self::Get | Self::Head | Self::Options)
     }
 
     /// Check if the method is idempotent (can be called multiple times with same effect)
-    pub fn is_idempotent(&self) -> bool {
+    pub const fn is_idempotent(&self) -> bool {
         matches!(
             self,
-            HttpMethod::Get
-                | HttpMethod::Head
-                | HttpMethod::Options
-                | HttpMethod::Put
-                | HttpMethod::Delete
+            Self::Get | Self::Head | Self::Options | Self::Put | Self::Delete
         )
     }
 }
@@ -88,13 +81,13 @@ impl HttpMethod {
 impl fmt::Display for HttpMethod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HttpMethod::Get => write!(f, "GET"),
-            HttpMethod::Post => write!(f, "POST"),
-            HttpMethod::Put => write!(f, "PUT"),
-            HttpMethod::Delete => write!(f, "DELETE"),
-            HttpMethod::Patch => write!(f, "PATCH"),
-            HttpMethod::Options => write!(f, "OPTIONS"),
-            HttpMethod::Head => write!(f, "HEAD"),
+            Self::Get => write!(f, "GET"),
+            Self::Post => write!(f, "POST"),
+            Self::Put => write!(f, "PUT"),
+            Self::Delete => write!(f, "DELETE"),
+            Self::Patch => write!(f, "PATCH"),
+            Self::Options => write!(f, "OPTIONS"),
+            Self::Head => write!(f, "HEAD"),
         }
     }
 }
@@ -104,14 +97,14 @@ impl FromStr for HttpMethod {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
-            "GET" => Ok(HttpMethod::Get),
-            "POST" => Ok(HttpMethod::Post),
-            "PUT" => Ok(HttpMethod::Put),
-            "DELETE" => Ok(HttpMethod::Delete),
-            "PATCH" => Ok(HttpMethod::Patch),
-            "OPTIONS" => Ok(HttpMethod::Options),
-            "HEAD" => Ok(HttpMethod::Head),
-            _ => Err(format!("Unknown HTTP method: {}", s)),
+            "GET" => Ok(Self::Get),
+            "POST" => Ok(Self::Post),
+            "PUT" => Ok(Self::Put),
+            "DELETE" => Ok(Self::Delete),
+            "PATCH" => Ok(Self::Patch),
+            "OPTIONS" => Ok(Self::Options),
+            "HEAD" => Ok(Self::Head),
+            _ => Err(format!("Unknown HTTP method: {s}")),
         }
     }
 }
@@ -149,7 +142,7 @@ pub enum HttpStatus {
 
 impl HttpStatus {
     /// Get the status code
-    pub fn code(&self) -> u16 {
+    pub const fn code(&self) -> u16 {
         *self as u16
     }
 
@@ -159,7 +152,7 @@ impl HttpStatus {
     }
 
     /// Check if the status is an error (4xx or 5xx)
-    pub fn is_error(&self) -> bool {
+    pub const fn is_error(&self) -> bool {
         self.code() >= 400
     }
 
@@ -169,7 +162,7 @@ impl HttpStatus {
     }
 
     /// Check if the status is a server error (5xx)
-    pub fn is_server_error(&self) -> bool {
+    pub const fn is_server_error(&self) -> bool {
         self.code() >= 500
     }
 }

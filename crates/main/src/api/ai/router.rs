@@ -23,10 +23,6 @@ use super::adapters::{AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
 
 // Deprecated adapters (feature-gated, v0.3.0 removal planned)
 #[cfg(feature = "deprecated-adapters")]
-#[expect(
-    unexpected_cfgs,
-    reason = "deprecated-adapters feature defined in Cargo.toml"
-)]
 use super::adapters::{AnthropicAdapter, OpenAiAdapter};
 use super::http_provider_config::{HttpAiProviderConfig, get_enabled_http_providers};
 
@@ -61,13 +57,13 @@ pub struct AiRouter {
 impl AiRouter {
     /// Create a new AI router with capability-based discovery (TRUE PRIMAL!)
     ///
-    /// This method uses service mesh to discover AI providers via capability-based discovery.
-    /// It will discover ANY primal offering AI capabilities and also load external
-    /// vendors from configuration.
+    /// Discovers AI providers via: (1) HTTP providers from `AI_HTTP_PROVIDERS` / API keys,
+    /// (2) `AI_PROVIDER_SOCKETS` hint, (3) biomeOS socket scan for local compute primals.
     ///
     /// # Arguments
     ///
-    /// * `_service_mesh_client` - Service mesh client for capability discovery (placeholder)
+    /// * `_service_mesh_client` - Reserved for future capability registry integration.
+    ///   Currently unused; discovery uses env/config/sockets. Pass `None`.
     ///
     /// # Returns
     ///
@@ -76,7 +72,7 @@ impl AiRouter {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let router = AiRouter::new_with_discovery(service_mesh).await?;
+    /// let router = AiRouter::new_with_discovery(None).await?;
     /// ```
     pub async fn new_with_discovery(
         _service_mesh_client: Option<Arc<dyn std::any::Any + Send + Sync>>,
@@ -112,7 +108,9 @@ impl AiRouter {
 
                 let enabled_http_providers = get_enabled_http_providers();
 
-                if !enabled_http_providers.is_empty() {
+                if enabled_http_providers.is_empty() {
+                    info!("ℹ️  No HTTP providers enabled. Set AI_HTTP_PROVIDERS or API keys to enable.");
+                } else {
                     info!("📋 Enabled HTTP providers: {}",
                         enabled_http_providers.iter()
                             .map(|p| p.provider_id.as_str())
@@ -139,8 +137,6 @@ impl AiRouter {
                             }
                         }
                     }
-                } else {
-                    info!("ℹ️  No HTTP providers enabled. Set AI_HTTP_PROVIDERS or API keys to enable.");
                 }
 
                 // 2. Check for Unix socket providers (other primals)

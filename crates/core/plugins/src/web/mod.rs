@@ -84,6 +84,7 @@ use crate::plugin::Plugin;
 
 /// Web plugin trait
 #[async_trait]
+#[allow(dead_code)]
 pub trait WebPlugin: Plugin {
     /// Get web endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;
@@ -143,7 +144,7 @@ pub struct PluginManagementInterface {
 
 impl PluginManagementInterface {
     /// Create a new plugin management interface
-    pub fn new(
+    pub const fn new(
         api: PluginManagementAPI,
         websocket_handler: PluginWebSocketHandler,
         registry: WebPluginRegistry,
@@ -211,6 +212,7 @@ impl PluginManagementInterface {
     }
 
     /// Get plugin logs
+    #[allow(clippy::unused_async)]
     async fn get_plugin_logs(&self, _path: &str) -> Result<WebResponse> {
         use std::collections::HashMap;
 

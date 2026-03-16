@@ -14,6 +14,7 @@
 // we prioritize more critical issues (error handling, hardcoding elimination).
 // Will be fixed in systematic refactoring pass.
 #![allow(
+    unused_imports,
     clippy::items_after_test_module,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
@@ -324,6 +325,8 @@ pub mod dispatch {
 
 /// Client factory functions for easy instantiation
 pub mod clients {
+    use super::*;
+    use std::sync::Arc;
 
     /// Create a new OpenAI client
     ///

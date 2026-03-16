@@ -267,7 +267,7 @@ impl CommandRegistry {
     /// 
     /// Returns a `CommandError` if the registry lock is poisoned
     #[expect(dead_code, reason = "Validation rule API for extensible command registry")]
-    pub fn add_validation_rule(&mut self, rule: Box<dyn ValidationRule>) -> Result<(), CommandError> {
+    pub fn add_validation_rule(&mut self, rule: std::sync::Arc<dyn ValidationRule>) -> Result<(), CommandError> {
         let _ = self.validator.add_rule(rule);
         Ok(())
     }
@@ -293,8 +293,8 @@ impl Default for CommandRegistry {
 /// Factory for creating `CommandRegistry` instances
 #[derive(Default)]
 pub struct CommandRegistryFactory {
-    /// Command validation rules to apply during registration
-    validation_rules: Vec<Box<dyn ValidationRule>>,
+    /// Command validation rules to apply during registration (Arc for O(1) clone)
+    validation_rules: Vec<std::sync::Arc<dyn ValidationRule>>,
     /// Custom lifecycle handlers
     lifecycle_handlers: Vec<Box<dyn LifecycleHandler>>,
 }
@@ -320,7 +320,7 @@ impl CommandRegistryFactory {
     /// Adds a validation rule to the factory
     #[must_use]
     #[expect(dead_code, reason = "Builder method for validation rules")]
-    pub fn with_validation_rule(mut self, rule: Box<dyn validation::ValidationRule>) -> Self {
+    pub fn with_validation_rule(mut self, rule: std::sync::Arc<dyn validation::ValidationRule>) -> Self {
         self.validation_rules.push(rule);
         self
     }
@@ -347,9 +347,9 @@ impl CommandRegistryFactory {
     pub fn create(&self) -> Result<Arc<CommandRegistry>, CommandError> {
         let mut registry = CommandRegistry::new();
         
-        // Add validation rules
+        // Add validation rules (Arc::clone is O(1))
         for rule in &self.validation_rules {
-            registry.add_validation_rule(rule.clone_box())?;
+            registry.add_validation_rule(std::sync::Arc::clone(rule))?;
         }
         
         // Add lifecycle handlers
@@ -374,9 +374,9 @@ impl CommandRegistryFactory {
     pub fn create_with_builtins(&self) -> Result<Arc<CommandRegistry>, CommandError> {
         let mut registry = CommandRegistry::new();
         
-        // Add validation rules
+        // Add validation rules (Arc::clone is O(1))
         for rule in &self.validation_rules {
-            registry.add_validation_rule(rule.clone_box())?;
+            registry.add_validation_rule(std::sync::Arc::clone(rule))?;
         }
         
         // Add lifecycle handlers
@@ -456,10 +456,6 @@ impl ValidationRule for TestValidationRule {
     
     fn validate(&self, _cmd: &dyn Command, _context: &validation::ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
         Ok(())
-    }
-    
-    fn clone_box(&self) -> Box<dyn ValidationRule> {
-        Box::new(self.clone())
     }
 }
 
@@ -575,16 +571,12 @@ mod tests {
             fn validate(&self, _cmd: &dyn Command, _context: &validation::ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
                 Ok(())
             }
-            
-            fn clone_box(&self) -> Box<dyn ValidationRule> {
-                Box::new(self.clone())
-            }
         }
         
         // Since we're testing the factory's structure, just verify that we can create it with a rule
         // We're not actually going to use the factory to create a registry with rules
         let factory = CommandRegistryFactory::new()
-            .with_validation_rule(Box::new(TestValidationRule));
+            .with_validation_rule(std::sync::Arc::new(TestValidationRule));
         
         // Just assert that we have a factory (we can't actually test the rules are added properly)
         assert!(factory.validation_rules.len() > 0);

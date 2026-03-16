@@ -34,7 +34,7 @@ pub struct ProtocolRequest {
 
 impl ProtocolRequest {
     /// Create a new protocol request
-    pub fn new(supported: Vec<IpcProtocol>) -> Self {
+    pub const fn new(supported: Vec<IpcProtocol>) -> Self {
         Self { supported }
     }
 
@@ -90,7 +90,7 @@ pub struct ProtocolResponse {
 
 impl ProtocolResponse {
     /// Create a new protocol response
-    pub fn new(selected: IpcProtocol) -> Self {
+    pub const fn new(selected: IpcProtocol) -> Self {
         Self { selected }
     }
 

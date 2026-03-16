@@ -127,14 +127,13 @@ impl From<io::Error> for TransportError {
     fn from(err: io::Error) -> Self {
         match err.kind() {
             io::ErrorKind::ConnectionRefused => Self::ConnectionFailed(err.to_string()),
-            io::ErrorKind::ConnectionReset => Self::ConnectionClosed(err.to_string()),
-            io::ErrorKind::ConnectionAborted => Self::ConnectionClosed(err.to_string()),
-            io::ErrorKind::NotConnected => Self::ConnectionClosed(err.to_string()),
-            io::ErrorKind::TimedOut => Self::Timeout(err.to_string()),
-            io::ErrorKind::WouldBlock => Self::Timeout(err.to_string()),
+            io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::NotConnected
+            | io::ErrorKind::UnexpectedEof => Self::ConnectionClosed(err.to_string()),
+            io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => Self::Timeout(err.to_string()),
             io::ErrorKind::InvalidData => Self::InvalidFrame(err.to_string()),
             io::ErrorKind::InvalidInput => Self::ProtocolError(err.to_string()),
-            io::ErrorKind::UnexpectedEof => Self::ConnectionClosed(err.to_string()),
             _ => Self::IoError(err.to_string()),
         }
     }
@@ -166,12 +165,12 @@ impl From<MCPError> for TransportError {
 /// Implement `From<String>` for `TransportError` to simplify error handling
 impl From<String> for TransportError {
     fn from(msg: String) -> Self {
-        TransportError::ConnectionError(msg)
+        Self::ConnectionError(msg)
     }
 }
 
 impl From<&str> for TransportError {
     fn from(msg: &str) -> Self {
-        TransportError::ConnectionError(msg.to_string())
+        Self::ConnectionError(msg.to_string())
     }
 }

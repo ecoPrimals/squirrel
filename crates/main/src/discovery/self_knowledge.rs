@@ -15,7 +15,27 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+fn serialize_arc_str_vec<S>(v: &[Arc<str>], s: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use serde::Serialize;
+    v.iter()
+        .map(AsRef::as_ref)
+        .collect::<Vec<&str>>()
+        .serialize(s)
+}
+
+fn deserialize_arc_str_vec<'de, D>(d: D) -> std::result::Result<Vec<Arc<str>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let v: Vec<String> = Vec::deserialize(d)?;
+    Ok(v.into_iter().map(Arc::from).collect())
+}
+
 /// Identity of this primal (self-knowledge)
+/// Uses `Arc<str>` for capabilities to avoid cloning on hot paths.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalIdentity {
     /// Name of this primal (discovered from environment or generated)
@@ -24,8 +44,12 @@ pub struct PrimalIdentity {
     /// Primal type (e.g., "squirrel", "songbird", "beardog")
     pub primal_type: String,
 
-    /// Capabilities this primal provides
-    pub capabilities: Vec<String>,
+    /// Capabilities this primal provides (Arc for O(1) clone)
+    #[serde(
+        serialize_with = "serialize_arc_str_vec",
+        deserialize_with = "deserialize_arc_str_vec"
+    )]
+    pub capabilities: Vec<Arc<str>>,
 
     /// Version
     pub version: String,
@@ -86,22 +110,26 @@ impl PrimalSelfKnowledge {
         // Capability namespace follows the {domain}.{operation} convention
         // used by the discovery system (probe_socket, discover_capability, etc.)
         // This ensures Squirrel is discoverable by other primals scanning sockets.
+        // Default Squirrel capabilities — static to avoid allocation
+        const DEFAULT_CAPABILITIES: &[&str] = &[
+            "ai.query",
+            "ai.complete",
+            "ai.chat",
+            "ai.inference",
+            "ai.list_providers",
+            "tool.execute",
+            "system.health",
+            "capability.discover",
+        ];
+
         let capabilities = env::var("PRIMAL_CAPABILITIES")
             .ok()
-            .map(|s| s.split(',').map(|c| c.trim().to_string()).collect())
+            .map(|s| s.split(',').map(|c| Arc::from(c.trim())).collect())
             .unwrap_or_else(|| {
-                // Default Squirrel capabilities
-                // Uses standard {domain}.{operation} namespace for discovery alignment
-                vec![
-                    "ai.query".into(),
-                    "ai.complete".into(),
-                    "ai.chat".into(),
-                    "ai.inference".into(),
-                    "ai.list_providers".into(),
-                    "tool.execute".into(),
-                    "system.health".into(),
-                    "capability.discover".into(),
-                ]
+                DEFAULT_CAPABILITIES
+                    .iter()
+                    .map(|s| Arc::from(*s))
+                    .collect::<Vec<Arc<str>>>()
             });
 
         // Version
@@ -120,9 +148,9 @@ impl PrimalSelfKnowledge {
         let port = env::var("PRIMAL_PORT").ok().and_then(|p| p.parse().ok());
 
         let identity = PrimalIdentity {
-            name: name.clone(),
+            name,
             primal_type,
-            capabilities: capabilities.clone(),
+            capabilities,
             version,
             instance_id,
             host,
@@ -141,7 +169,7 @@ impl PrimalSelfKnowledge {
 
     /// Get this primal's identity
     #[must_use]
-    pub fn identity(&self) -> &PrimalIdentity {
+    pub const fn identity(&self) -> &PrimalIdentity {
         &self.identity
     }
 
@@ -295,7 +323,13 @@ impl PrimalSelfKnowledge {
             "{}-{}",
             self.identity.primal_type, self.identity.instance_id
         );
-        let capabilities = self.identity.capabilities.clone();
+        // Convert Arc<str> to Vec<String> once for discovery APIs
+        let capabilities: Vec<String> = self
+            .identity
+            .capabilities
+            .iter()
+            .map(ToString::to_string)
+            .collect();
         let mut metadata = std::collections::HashMap::new();
         metadata.insert("version".to_string(), self.identity.version.clone());
         metadata.insert("primal_type".to_string(), self.identity.primal_type.clone());
@@ -376,8 +410,10 @@ impl PrimalSelfKnowledge {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::niche;
 
     #[test]
     fn test_discover_self() {
@@ -457,5 +493,170 @@ mod tests {
                 );
             },
         );
+    }
+
+    #[test]
+    fn test_primal_identity_construction() {
+        temp_env::with_vars(
+            [
+                ("PRIMAL_NAME", Some("test-squirrel")),
+                ("PRIMAL_TYPE", Some("squirrel")),
+                ("PRIMAL_CAPABILITIES", Some("ai.query,system.health")),
+                ("PRIMAL_PORT", Some("9200")),
+            ],
+            || {
+                let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+                let identity = self_knowledge.identity();
+
+                assert_eq!(identity.name, "test-squirrel");
+                assert_eq!(identity.primal_type, "squirrel");
+                assert_eq!(identity.capabilities.len(), 2);
+                assert!(
+                    identity
+                        .capabilities
+                        .iter()
+                        .any(|c| c.as_ref() == "ai.query")
+                );
+                assert!(
+                    identity
+                        .capabilities
+                        .iter()
+                        .any(|c| c.as_ref() == "system.health")
+                );
+                assert_eq!(identity.port, Some(9200));
+                assert!(!identity.instance_id.is_empty());
+                assert!(identity.instance_id.contains("test-squirrel"));
+            },
+        );
+    }
+
+    #[test]
+    fn test_primal_identity_default_capabilities() {
+        temp_env::with_var("PRIMAL_CAPABILITIES", None::<&str>, || {
+            let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+            let identity = self_knowledge.identity();
+
+            assert!(!identity.capabilities.is_empty());
+            assert!(
+                identity
+                    .capabilities
+                    .iter()
+                    .any(|c| c.as_ref() == "ai.query")
+            );
+            assert!(
+                identity
+                    .capabilities
+                    .iter()
+                    .any(|c| c.as_ref() == "system.health")
+            );
+        });
+    }
+
+    #[test]
+    fn test_niche_cost_estimates() {
+        let costs = niche::cost_estimates_json();
+        let map = costs
+            .as_object()
+            .expect("cost_estimates_json returns object");
+        assert!(map.contains_key("ai.query"));
+        assert!(map.contains_key("lifecycle.register"));
+        let ai_query = map.get("ai.query").and_then(|v| v.as_object()).unwrap();
+        assert!(ai_query.contains_key("latency_ms"));
+        assert!(ai_query.contains_key("gpu_beneficial"));
+    }
+
+    #[test]
+    fn test_niche_operation_dependencies() {
+        let deps = niche::operation_dependencies();
+        let map = deps
+            .as_object()
+            .expect("operation_dependencies returns object");
+        assert!(map.contains_key("ai.query"));
+        assert!(
+            map.get("ai.query")
+                .and_then(|v| v.as_array())
+                .unwrap()
+                .contains(&serde_json::json!("prompt"))
+        );
+        assert!(map.contains_key("tool.execute"));
+        assert!(
+            map.get("tool.execute")
+                .and_then(|v| v.as_array())
+                .unwrap()
+                .contains(&serde_json::json!("tool"))
+        );
+    }
+
+    #[test]
+    fn test_niche_consumed_capabilities() {
+        assert!(niche::CONSUMED_CAPABILITIES.contains(&"discovery.register"));
+        assert!(niche::CONSUMED_CAPABILITIES.contains(&"crypto.sign"));
+        assert!(niche::CONSUMED_CAPABILITIES.iter().all(|c| c.contains('.')));
+    }
+
+    #[tokio::test]
+    async fn test_discovered_empty_initially() {
+        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+        let discovered = self_knowledge.discovered().await;
+        assert!(discovered.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_announce_capabilities_succeeds() {
+        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+        let result = self_knowledge.announce_capabilities().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_announce_capabilities_with_port() {
+        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+        let result = self_knowledge.announce_capabilities_with_port(9999).await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_primal_identity_serialization_roundtrip() {
+        temp_env::with_vars(
+            [
+                ("PRIMAL_NAME", Some("serial-test")),
+                ("PRIMAL_TYPE", Some("squirrel")),
+                ("PRIMAL_CAPABILITIES", Some("ai.query,system.health")),
+            ],
+            || {
+                let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+                let identity = self_knowledge.identity();
+                let json = serde_json::to_string(identity).unwrap();
+                let deserialized: PrimalIdentity = serde_json::from_str(&json).unwrap();
+                assert_eq!(identity.name, deserialized.name);
+                assert_eq!(identity.primal_type, deserialized.primal_type);
+                assert_eq!(identity.capabilities.len(), deserialized.capabilities.len());
+                assert_eq!(identity.version, deserialized.version);
+            },
+        );
+    }
+
+    #[test]
+    fn test_primal_identity_host_fallback() {
+        temp_env::with_var("PRIMAL_NAME", Some("host-test"), || {
+            let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+            let identity = self_knowledge.identity();
+            assert!(!identity.host.is_empty());
+            assert!(identity.host == "localhost" || hostname::get().is_ok());
+        });
+    }
+
+    #[test]
+    fn test_primal_identity_instance_id_format() {
+        temp_env::with_var("PRIMAL_NAME", Some("instance-test"), || {
+            let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+            let identity = self_knowledge.identity();
+            assert!(identity.instance_id.contains("instance-test"));
+            assert!(
+                identity
+                    .instance_id
+                    .contains(&std::process::id().to_string())
+            );
+        });
     }
 }

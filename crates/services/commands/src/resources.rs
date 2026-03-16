@@ -2,30 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use std::collections::HashMap;
-use std::error::Error;
 use std::sync::RwLock;
+
+use crate::error::CommandError;
 use std::time::{Duration, SystemTime};
-
-/// Error type for resource-related operations
-#[derive(Debug)]
-pub struct ResourceError {
-    /// Type of resource that caused the error
-    pub resource_type: String,
-    /// Description of the error
-    pub message: String,
-}
-
-impl std::fmt::Display for ResourceError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Resource error ({}): {}",
-            self.resource_type, self.message
-        )
-    }
-}
-
-impl Error for ResourceError {}
 
 /// Represents a limit on a specific resource
 #[derive(Debug, Clone)]
@@ -59,7 +39,7 @@ impl ResourceLimit {
     /// Returns an error if:
     /// - The requested amount would exceed the maximum limit
     /// - The current usage would overflow when adding the requested amount
-    pub fn check_and_update(&mut self, amount: u64) -> Result<(), Box<dyn Error>> {
+    pub fn check_and_update(&mut self, amount: u64) -> Result<(), CommandError> {
         // Check if we need to reset
         if let Some(interval) = self.reset_interval {
             let now = SystemTime::now();
@@ -71,13 +51,10 @@ impl ResourceLimit {
 
         // Check if we have enough resources
         if self.current_value + amount > self.max_value {
-            return Err(Box::new(ResourceError {
-                resource_type: "limit".to_string(),
-                message: format!(
-                    "Resource limit exceeded: {} + {} > {}",
-                    self.current_value, amount, self.max_value
-                ),
-            }));
+            return Err(CommandError::ResourceError(format!(
+                "Resource limit exceeded: {} + {} > {}",
+                self.current_value, amount, self.max_value
+            )));
         }
 
         self.current_value += amount;
@@ -117,16 +94,12 @@ impl ResourceManager {
     ///
     /// # Errors
     /// Returns an error if unable to acquire write lock
-    pub fn set_limit(
-        &self,
-        resource_type: &str,
-        limit: ResourceLimit,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn set_limit(&self, resource_type: &str, limit: ResourceLimit) -> Result<(), CommandError> {
         let mut limits = self.limits.write().map_err(|_| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: "Failed to acquire write lock on limits".to_string(),
-            })
+            CommandError::Lock(format!(
+                "Failed to acquire write lock on limits for {}",
+                resource_type
+            ))
         })?;
 
         limits.insert(resource_type.to_string(), limit);
@@ -147,30 +120,27 @@ impl ResourceManager {
         resource_type: &str,
         amount: u64,
         owner: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CommandError> {
         // Update limit
         let mut limits = self.limits.write().map_err(|_| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: "Failed to acquire write lock on limits".to_string(),
-            })
+            CommandError::Lock(format!(
+                "Failed to acquire write lock on limits for {}",
+                resource_type
+            ))
         })?;
 
-        let limit = limits.get_mut(resource_type).ok_or_else(|| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: "Resource type not found".to_string(),
-            })
-        })?;
+        let limit = limits
+            .get_mut(resource_type)
+            .ok_or_else(|| CommandError::ResourceNotFound(resource_type.to_string()))?;
 
         limit.check_and_update(amount)?;
 
         // Update allocation
         let mut allocations = self.allocations.write().map_err(|_| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: "Failed to acquire write lock on allocations".to_string(),
-            })
+            CommandError::Lock(format!(
+                "Failed to acquire write lock on allocations for {}",
+                resource_type
+            ))
         })?;
 
         let command_allocations = allocations
@@ -199,47 +169,38 @@ impl ResourceManager {
         resource_type: &str,
         amount: u64,
         owner: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CommandError> {
         let mut allocations = self.allocations.write().map_err(|_| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: "Failed to acquire write lock on allocations".to_string(),
-            })
+            CommandError::Lock(format!(
+                "Failed to acquire write lock on allocations for {}",
+                resource_type
+            ))
         })?;
 
         let command_allocations = allocations.get_mut(owner).ok_or_else(|| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: format!("No allocations found for command {owner}"),
-            })
+            CommandError::Allocation(format!("No allocations found for command {owner}"))
         })?;
 
         let current_allocation = command_allocations.get_mut(resource_type).ok_or_else(|| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: format!(
-                    "No allocation found for resource type {resource_type} in command {owner}"
-                ),
-            })
+            CommandError::Allocation(format!(
+                "No allocation found for resource type {resource_type} in command {owner}"
+            ))
         })?;
 
         if *current_allocation < amount {
-            return Err(Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: format!(
-                    "Cannot deallocate {amount} units when only {current_allocation} are allocated"
-                ),
-            }));
+            return Err(CommandError::Allocation(format!(
+                "Cannot deallocate {amount} units when only {current_allocation} are allocated"
+            )));
         }
 
         *current_allocation -= amount;
 
         // Update limit
         let mut limits = self.limits.write().map_err(|_| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: "Failed to acquire write lock on limits".to_string(),
-            })
+            CommandError::Lock(format!(
+                "Failed to acquire write lock on limits for {}",
+                resource_type
+            ))
         })?;
 
         if let Some(limit) = limits.get_mut(resource_type) {
@@ -260,12 +221,12 @@ impl ResourceManager {
     ///
     /// # Errors
     /// Returns an error if unable to acquire read lock
-    pub fn get_allocation(&self, resource_type: &str, owner: &str) -> Result<u64, Box<dyn Error>> {
+    pub fn get_allocation(&self, resource_type: &str, owner: &str) -> Result<u64, CommandError> {
         let allocations = self.allocations.read().map_err(|_| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: "Failed to acquire read lock on allocations".to_string(),
-            })
+            CommandError::Lock(format!(
+                "Failed to acquire read lock on allocations for {}",
+                resource_type
+            ))
         })?;
 
         Ok(*allocations
@@ -284,20 +245,18 @@ impl ResourceManager {
     ///
     /// # Errors
     /// Returns an error if the resource type is not found
-    pub fn get_limit(&self, resource_type: &str) -> Result<ResourceLimit, Box<dyn Error>> {
+    pub fn get_limit(&self, resource_type: &str) -> Result<ResourceLimit, CommandError> {
         let limits = self.limits.read().map_err(|_| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: "Failed to acquire read lock on limits".to_string(),
-            })
+            CommandError::Lock(format!(
+                "Failed to acquire read lock on limits for {}",
+                resource_type
+            ))
         })?;
 
-        Ok(limits.get(resource_type).cloned().ok_or_else(|| {
-            Box::new(ResourceError {
-                resource_type: resource_type.to_string(),
-                message: "Resource type not found".to_string(),
-            })
-        })?)
+        limits
+            .get(resource_type)
+            .cloned()
+            .ok_or_else(|| CommandError::ResourceNotFound(resource_type.to_string()))
     }
 }
 

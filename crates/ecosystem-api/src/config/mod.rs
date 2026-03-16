@@ -147,26 +147,26 @@ mod tests {
         let prefix = "UCFG_FULL_TEST";
         temp_env::with_vars(
             [
-                (format!("{}_SERVICE_NAME", prefix), Some("test-svc")),
+                (format!("{prefix}_SERVICE_NAME"), Some("test-svc")),
                 (
-                    format!("{}_SERVICE_DESCRIPTION", prefix),
+                    format!("{prefix}_SERVICE_DESCRIPTION"),
                     Some("A test service"),
                 ),
                 (
-                    format!("{}_SONGBIRD_DISCOVERY_ENDPOINT", prefix),
+                    format!("{prefix}_SONGBIRD_DISCOVERY_ENDPOINT"),
                     Some("http://disc:8001"),
                 ),
                 (
-                    format!("{}_SONGBIRD_REGISTRATION_ENDPOINT", prefix),
+                    format!("{prefix}_SONGBIRD_REGISTRATION_ENDPOINT"),
                     Some("http://reg:8001"),
                 ),
                 (
-                    format!("{}_SONGBIRD_HEALTH_ENDPOINT", prefix),
+                    format!("{prefix}_SONGBIRD_HEALTH_ENDPOINT"),
                     Some("http://health:8001"),
                 ),
             ],
             || {
-                let loader = ConfigLoader::new(&prefix);
+                let loader = ConfigLoader::new(prefix);
                 let config = loader.load_universal_config();
                 assert!(config.is_ok());
                 let config = config.unwrap();

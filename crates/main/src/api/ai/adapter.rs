@@ -72,16 +72,16 @@ impl UniversalAiAdapter {
     /// Extract metadata from capability provider
     fn extract_metadata(provider: &CapabilityProvider, _capability: &str) -> ProviderMetadata {
         // Try to extract provider type from metadata
-        let provider_type = provider
-            .metadata
-            .get("provider_type")
-            .map(|s| match s.as_str() {
-                "local" => ProviderType::Local,
-                "cloud" => ProviderType::Cloud,
-                "custom" => ProviderType::Custom,
-                _ => ProviderType::Custom,
-            })
-            .unwrap_or(ProviderType::Custom);
+        let provider_type =
+            provider
+                .metadata
+                .get("provider_type")
+                .map_or(ProviderType::Custom, |s| match s.as_str() {
+                    "local" => ProviderType::Local,
+                    "cloud" => ProviderType::Cloud,
+                    "custom" => ProviderType::Custom,
+                    _ => ProviderType::Custom,
+                });
 
         // Try to extract models from metadata
         // Metadata is String values, so we'll try to parse as JSON if it looks like an array
@@ -107,11 +107,7 @@ impl UniversalAiAdapter {
             name: provider.id.clone(),
             provider_type,
             models,
-            capabilities: provider
-                .capabilities
-                .iter()
-                .map(|s| s.to_string())
-                .collect(),
+            capabilities: provider.capabilities.to_vec(),
             avg_latency_ms: None,
             cost_tier,
             extra: provider
@@ -266,7 +262,7 @@ impl AiCapability for UniversalAiAdapter {
             .and_then(|v| v.as_str())
             .map(String::from);
 
-        let cost_usd = result.get("cost_usd").and_then(|v| v.as_f64());
+        let cost_usd = result.get("cost_usd").and_then(serde_json::Value::as_f64);
 
         Ok(UniversalAiResponse {
             text,

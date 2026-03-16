@@ -16,7 +16,7 @@ impl Default for DiscoveryService {
 
 impl DiscoveryService {
     /// Creates a new discovery service.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 }

@@ -31,14 +31,11 @@ pub use universal::{ProviderMetadata, UniversalAiAdapter};
 #[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 pub mod anthropic;
 #[cfg(feature = "deprecated-adapters")]
-#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 pub mod openai;
 
 #[cfg(feature = "deprecated-adapters")]
-#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 pub use anthropic::AnthropicAdapter;
 #[cfg(feature = "deprecated-adapters")]
-#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 pub use openai::OpenAiAdapter;
 
 use super::types::{

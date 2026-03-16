@@ -92,10 +92,6 @@ impl ValidationRule for TestValidationRule {
     fn validate(&self, _cmd: &dyn Command, _context: &ValidationContext) -> Result<(), CommandError> {
         Ok(())
     }
-    
-    fn clone_box(&self) -> Box<dyn ValidationRule> {
-        Box::new(self.clone())
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -136,9 +132,9 @@ fn create_test_command() -> Box<dyn Command> {
 
 /// Creates a test validation rule
 #[allow(dead_code)]
-fn create_test_validation_rule() -> Box<dyn ValidationRule> {
-    // ARRANGE: Create a test validation rule
-    Box::new(TestValidationRule)
+fn create_test_validation_rule() -> std::sync::Arc<dyn ValidationRule> {
+    // ARRANGE: Create a test validation rule (Arc for O(1) clone)
+    std::sync::Arc::new(TestValidationRule)
 }
 
 /// Creates a test lifecycle hook

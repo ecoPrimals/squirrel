@@ -9,17 +9,18 @@
 
 | Metric | Value |
 |--------|-------|
-| Build | GREEN (0 errors, 2 pre-existing doc warnings) |
-| Tests | 4,667 passing / 0 failed across 21 crates |
+| Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
+| Tests | 4,819 passing / 0 failed / 140 ignored across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
-| Clippy | CLEAN (pedantic + nursery + deny unwrap/expect) |
-| Docs | All 21 crates `#![warn(missing_docs)]` |
+| Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on all lib targets |
+| Docs | All crates `#![warn(missing_docs)]` |
 | Formatting | `cargo fmt --all -- --check` passes |
-| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` unconditional; tests migrated to `temp_env` |
-| Pure Rust | 100% default features (zero C deps; reqwest 0.12/rustls 0.23 behind optional features) |
-| Coverage | 66% line coverage via `cargo-llvm-cov` (target: 90%) |
-| Crates | 21 workspace members |
-| Files >1000 lines | 0 (jsonrpc_handlers.rs refactored to 3 domain files) |
+| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]`; tests use `temp_env` (no `unsafe` env ops) |
+| Pure Rust | 100% default features (zero C deps); `ring`/`zstd-sys`/`sysinfo` behind optional features only |
+| ecoBin | Compliant — `openssl`/`native-tls` removed from all features; `sysinfo` behind `system-metrics` |
+| Coverage | 69% line coverage via `cargo-llvm-cov` (target: 90%) |
+| Crates | 22 workspace members |
+| Files >1000 lines | 0 (enhanced/mod.rs refactored 992→701; benchmarking/mod.rs 988→477) |
 | Property tests | 10 (proptest round-trip for all JSON-RPC types + niche) |
 
 ## JSON-RPC Methods
@@ -61,12 +62,19 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 `capability.list` returns per-method cost/dependency detail for PathwayLearner scheduling.
 
-## Primal Names (`primal_names.rs`)
+## Primal Identity
 
-Centralized constants for socket discovery hints (groundSpring V106 pattern).
-All socket path construction uses `primal_names::*` constants instead of raw strings.
-Runtime discovery uses capabilities, not names — names are only for socket file
-naming conventions and logging.
+Centralized in `universal-constants::identity`:
+
+| Constant | Value | Usage |
+|----------|-------|-------|
+| `PRIMAL_ID` | `"squirrel"` | Socket naming, logging |
+| `JWT_ISSUER` | `"squirrel-mcp"` | JWT token `iss` claim |
+| `JWT_AUDIENCE` | `"squirrel-mcp-api"` | JWT token `aud` claim |
+| `JWT_SIGNING_KEY_ID` | `"squirrel-jwt-signing-key"` | BearDog key lookup |
+
+Runtime discovery uses capabilities, not primal names. Names are only for socket
+file naming conventions and logging.
 
 ## Context Management
 
@@ -95,10 +103,33 @@ requiring AI capabilities.
 | `ecosystem` | Ecosystem integration | ON |
 | `tarpc-rpc` | High-performance binary RPC via tarpc | ON |
 | `delegated-jwt` | Capability-based JWT delegation | ON |
-| `system-metrics` | sysinfo C dependency | OFF |
+| `system-metrics` | sysinfo (C dependency) | OFF |
 | `monitoring` | Prometheus metrics (brings hyper) | OFF |
 | `nvml` | NVIDIA GPU detection via nvml-wrapper | OFF |
 | `local-jwt` | Local JWT signing (brings ring C dep) | OFF |
+
+## Zero-Copy Patterns
+
+| Pattern | Where |
+|---------|-------|
+| `Arc<str>` for identifiers | `jsonrpc_handlers.rs` (`AnnouncedPrimal`), `self_knowledge.rs` (capabilities) |
+| `Arc<dyn ValidationRule>` | `validation.rs` — eliminates `Box::new(self.clone())` |
+| `bytes::Bytes` for payloads | `transport/frame.rs` — O(1) clone on frame data |
+| `&'static str` for constants | `self_knowledge.rs` — default capabilities |
+
+## Error Handling
+
+| Crate | Error Type | Pattern |
+|-------|-----------|---------|
+| `squirrel-commands` | `CommandError` (thiserror) | Typed variants: Io, Serialization, Validation, Hook, Lifecycle, etc. |
+| `squirrel-cli` | `FormatterError` (thiserror) | Serialization, UnknownFormat |
+| `squirrel-mcp` | `MCPError` (thiserror) | Protocol, transport, context, plugin errors |
+| `universal-error` | `UniversalError` | Cross-crate error type |
+
+## Logging
+
+Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
+`println!` reserved for CLI user-facing output and startup banner only.
 
 ## Ecosystem Integration
 
@@ -106,7 +137,7 @@ requiring AI capabilities.
 |-----------|--------|
 | Capability Registry | `capability_registry.toml` loaded at startup |
 | Niche Self-Knowledge | `niche.rs` with capabilities, costs, deps, consumed capabilities |
-| Primal Names | `primal_names.rs` with centralized socket discovery hints |
+| Primal Identity | `universal-constants::identity` — centralized JWT/primal constants |
 | Deploy Graph | `squirrel_deploy.toml` (BYOB pattern) |
 | Orchestration Types | `DeploymentGraphDef`, `GraphNode`, `TickConfig` (ludoSpring wire-compatible) |
 | biomeOS Lifecycle | `lifecycle.register` + 30s heartbeat (when orchestrator detected) |
@@ -136,7 +167,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards |
-| cargo-llvm-cov | Installed, coverage measurable |
+| cargo-llvm-cov | Installed, 69% line coverage measured |
 | proptest | Round-trip invariants for all JSON-RPC types |
 
 ## Known Issues
@@ -144,3 +175,6 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 1. `test_load_from_json_file` flaky under full workspace runs (env var pollution) — needs `#[serial]`
 2. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
 3. `model_splitting/` stub module — waiting on ToadStool integration
+4. 140 ignored tests — doc-tests for `universal-patterns` examples requiring runtime services
+5. Coverage at 69% — gap to 90% target (~27K uncovered lines remaining)
+6. `redis` v0.23.3 will be rejected by future Rust — upgrade needed

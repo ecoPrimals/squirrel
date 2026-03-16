@@ -17,6 +17,7 @@ use crate::{
 };
 
 /// API Server for the MCP Routing Service
+#[allow(clippy::struct_field_names)]
 pub struct ApiServer {
     ecosystem_service: Arc<EcosystemService>,
     routing_service: Arc<McpRoutingService>,
@@ -32,7 +33,7 @@ struct AppState {
 
 impl ApiServer {
     /// Create a new API server
-    pub fn new(
+    pub const fn new(
         ecosystem_service: Arc<EcosystemService>,
         routing_service: Arc<McpRoutingService>,
         federation_service: Arc<FederationService>,
@@ -105,17 +106,14 @@ impl ApiServer {
 
 /// Health check endpoint
 async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
-    let ecosystem_health = match state.ecosystem.health_check().await {
-        Ok(health) => health,
-        Err(_) => {
-            return Json(HealthResponse {
-                status: "unhealthy".to_string(),
-                timestamp: chrono::Utc::now().to_rfc3339(),
-                ecosystem_status: "Error".to_string(),
-                version: crate::SQUIRREL_MCP_VERSION.to_string(),
-            })
-            .into_response();
-        }
+    let Ok(ecosystem_health) = state.ecosystem.health_check().await else {
+        return Json(HealthResponse {
+            status: "unhealthy".to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            ecosystem_status: "Error".to_string(),
+            version: crate::SQUIRREL_MCP_VERSION.to_string(),
+        })
+        .into_response();
     };
 
     let response = HealthResponse {
@@ -130,17 +128,14 @@ async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
 
 /// Get routing status
 async fn get_status(State(state): State<AppState>) -> impl IntoResponse {
-    let ecosystem_health = match state.ecosystem.health_check().await {
-        Ok(health) => health,
-        Err(_) => {
-            return Json(StatusResponse {
-                status: "inactive".to_string(),
-                timestamp: chrono::Utc::now().to_rfc3339(),
-                ecosystem_health: "Error".to_string(),
-                version: crate::SQUIRREL_MCP_VERSION.to_string(),
-            })
-            .into_response();
-        }
+    let Ok(ecosystem_health) = state.ecosystem.health_check().await else {
+        return Json(StatusResponse {
+            status: "inactive".to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            ecosystem_health: "Error".to_string(),
+            version: crate::SQUIRREL_MCP_VERSION.to_string(),
+        })
+        .into_response();
     };
 
     let response = StatusResponse {
@@ -185,14 +180,14 @@ async fn route_mcp_task(
 
 /// List registered agents
 async fn list_agents(State(state): State<AppState>) -> impl IntoResponse {
-    let stats = state.routing.get_stats();
+    let routing_stats = state.routing.get_stats();
 
     let response = AgentsResponse {
-        total_agents: stats.registered_agents,
-        active_tasks: stats.active_tasks,
-        completed_tasks: stats.completed_tasks,
-        failed_tasks: stats.failed_tasks,
-        average_response_time: stats.average_response_time,
+        total_agents: routing_stats.registered_agents,
+        active_tasks: routing_stats.active_tasks,
+        completed_tasks: routing_stats.completed_tasks,
+        failed_tasks: routing_stats.failed_tasks,
+        average_response_time: routing_stats.average_response_time,
     };
 
     Json(response).into_response()
@@ -204,7 +199,7 @@ async fn register_agent(
     Json(agent): Json<AgentSpec>,
 ) -> impl IntoResponse {
     let result = match state.routing.register_agent(agent).await {
-        Ok(_) => RegisterResponse {
+        Ok(()) => RegisterResponse {
             success: true,
             message: "Agent registered successfully".to_string(),
             agent_count: 1,
@@ -217,8 +212,8 @@ async fn register_agent(
 
 /// Get routing statistics
 async fn get_routing_stats(State(state): State<AppState>) -> impl IntoResponse {
-    let stats = state.routing.get_stats();
-    Json(stats)
+    let routing_stats = state.routing.get_stats();
+    Json(routing_stats)
 }
 
 // Federation handlers
@@ -254,10 +249,10 @@ async fn join_federation(
 
 /// List federation nodes
 async fn list_federation_nodes(State(state): State<AppState>) -> impl IntoResponse {
-    let stats = state.federation.get_federation_stats();
+    let federation_stats = state.federation.get_federation_stats();
 
     let response = NodesResponse {
-        node_count: stats.federation_nodes,
+        node_count: federation_stats.federation_nodes,
         nodes: vec![], // Would include actual node details
     };
     Json(response).into_response()
@@ -285,13 +280,14 @@ async fn scale_federation(
 
 /// Get federation statistics
 async fn get_federation_stats(State(state): State<AppState>) -> impl IntoResponse {
-    let stats = state.federation.get_federation_stats();
-    Json(stats)
+    let federation_stats = state.federation.get_federation_stats();
+    Json(federation_stats)
 }
 
 // Ecosystem coordination handlers
 
 /// Discover primals
+#[allow(clippy::cast_possible_truncation)]
 async fn discover_primals(State(state): State<AppState>) -> impl IntoResponse {
     let primals = match state.ecosystem.discover_primals().await {
         Ok(p) => p,
@@ -318,6 +314,7 @@ async fn coordinate_task(
 }
 
 /// List discovered primals
+#[allow(clippy::cast_possible_truncation)]
 async fn list_discovered_primals(State(state): State<AppState>) -> impl IntoResponse {
     let primals = state.ecosystem.get_discovered_primals();
 
@@ -396,7 +393,7 @@ struct ApiError(Error);
 
 impl From<Error> for ApiError {
     fn from(err: Error) -> Self {
-        ApiError(err)
+        Self(err)
     }
 }
 
@@ -457,6 +454,7 @@ struct AgentsResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 struct AgentInfo {
     id: String,
     endpoint: String,
@@ -538,6 +536,7 @@ struct ShutdownResponse {
 // Request types
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 struct McpTaskRequest {
     task_id: Option<String>,
     agent_id: String,

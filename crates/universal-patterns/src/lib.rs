@@ -38,7 +38,10 @@
     clippy::similar_names,
     clippy::redundant_else,
     clippy::single_match_else,
-    clippy::unused_self
+    clippy::unused_self,
+    clippy::or_fun_call,
+    clippy::unwrap_in_result,
+    clippy::unwrap_used
 )]
 
 //! # Universal Patterns Framework

@@ -55,7 +55,7 @@ impl Default for WebSocketConfig {
 }
 
 /// Connection state
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectionState {
     /// Connection is being established
     Connecting,
@@ -109,7 +109,7 @@ pub struct WebSocketTransport {
 
 impl WebSocketTransport {
     /// Create new WebSocket transport
-    pub fn new(connection: ConnectionInfo, config: WebSocketConfig) -> Self {
+    pub const fn new(connection: ConnectionInfo, config: WebSocketConfig) -> Self {
         Self { connection, config }
     }
 }
@@ -160,9 +160,9 @@ impl WebSocketServer {
     #[instrument(skip(self))]
     pub async fn start(&mut self) -> Result<()> {
         let addr = format!("{}:{}", self.config.bind_address, self.config.port);
-        let listener = TcpListener::bind(&addr).await.map_err(|e| {
-            MCPError::Transport(format!("Failed to bind to {}: {}", addr, e).into())
-        })?;
+        let listener = TcpListener::bind(&addr)
+            .await
+            .map_err(|e| MCPError::Transport(format!("Failed to bind to {addr}: {e}").into()))?;
 
         info!("WebSocket server listening on {}", addr);
 
@@ -203,6 +203,7 @@ impl WebSocketServer {
     }
 
     /// Handle a WebSocket connection
+    #[allow(clippy::too_many_arguments)]
     async fn handle_connection(
         stream: TcpStream,
         connection_id: String,
@@ -343,7 +344,7 @@ impl WebSocketServer {
             Ok(())
         } else {
             Err(MCPError::Transport(
-                format!("Client {} not found", client_id).into(),
+                format!("Client {client_id} not found").into(),
             ))
         }
     }
@@ -522,8 +523,7 @@ impl WebSocketClient {
         let (_response_tx, mut response_rx) = mpsc::channel(1);
 
         // Send message (simplified - in real implementation would handle request/response correlation)
-        let sender = self.message_sender.lock().await;
-        if let Some(ref sender) = *sender {
+        if let Some(ref sender) = *self.message_sender.lock().await {
             sender
                 .send(message)
                 .await

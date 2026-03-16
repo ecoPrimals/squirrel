@@ -3,8 +3,8 @@
 
 //! Capability-Based Crypto Provider - TRUE PRIMAL Architecture
 //!
-//! This module replaces the hardcoded BearDogClient with capability-based discovery.
-//! Instead of knowing about "BearDog", we discover "crypto.signing" capability at runtime.
+//! This module replaces the hardcoded `BearDogClient` with capability-based discovery.
+//! Instead of knowing about "`BearDog`", we discover "crypto.signing" capability at runtime.
 //!
 //! **TRUE PRIMAL Pattern**:
 //! - Self-knowledge only (Squirrel knows it needs "crypto.signing")
@@ -31,7 +31,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tracing::{debug, error, info};
 
-/// Capability-based crypto provider (replaces hardcoded BearDogClient)
+/// Capability-based crypto provider (replaces hardcoded `BearDogClient`)
 #[derive(Clone)]
 pub struct CapabilityCryptoProvider {
     /// Discovered endpoint for crypto.signing capability
@@ -43,7 +43,7 @@ pub struct CapabilityCryptoProvider {
 
 impl CapabilityCryptoProvider {
     /// Create new capability-based crypto provider
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             endpoint: None,
             discovery_timeout: std::time::Duration::from_millis(500),
@@ -53,8 +53,8 @@ impl CapabilityCryptoProvider {
     /// Discover crypto.signing capability
     ///
     /// Uses environment-first discovery:
-    /// 1. Check CRYPTO_SIGNING_ENDPOINT env var
-    /// 2. Check CRYPTO_ENDPOINT env var
+    /// 1. Check `CRYPTO_SIGNING_ENDPOINT` env var
+    /// 2. Check `CRYPTO_ENDPOINT` env var
     /// 3. Try well-known socket paths
     /// 4. Return error if not found
     async fn discover_endpoint(&mut self) -> Result<Arc<str>> {
@@ -96,7 +96,10 @@ impl CapabilityCryptoProvider {
             debug!("Trying well-known socket path: {}", path);
             if tokio::fs::metadata(path).await.is_ok() {
                 // Socket exists, verify it provides crypto.signing
-                if let Ok(true) = self.verify_capability(path, "crypto.signing").await {
+                if matches!(
+                    self.verify_capability(path, "crypto.signing").await,
+                    Ok(true)
+                ) {
                     info!("✅ Discovered crypto.signing at: {}", path);
                     let endpoint_arc: Arc<str> = Arc::from(path.as_str());
                     self.endpoint = Some(Arc::clone(&endpoint_arc));
@@ -135,8 +138,7 @@ impl CapabilityCryptoProvider {
                 {
                     return Ok(caps_array.iter().any(|c| {
                         c.as_str()
-                            .map(|s| s == capability || s.starts_with(capability))
-                            .unwrap_or(false)
+                            .is_some_and(|s| s == capability || s.starts_with(capability))
                     }));
                 }
                 Ok(false)
@@ -222,7 +224,7 @@ impl CapabilityCryptoProvider {
         let valid = response
             .get("result")
             .and_then(|r| r.get("valid"))
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .ok_or_else(|| anyhow::anyhow!("Invalid response: missing valid field"))?;
 
         debug!(
@@ -232,7 +234,7 @@ impl CapabilityCryptoProvider {
         Ok(valid)
     }
 
-    /// Verify signature using key_id (provider manages key lookup)
+    /// Verify signature using `key_id` (provider manages key lookup)
     ///
     /// This is useful for JWT and other scenarios where the provider manages keys
     pub async fn verify_ed25519_with_key_id(
@@ -266,7 +268,7 @@ impl CapabilityCryptoProvider {
         let valid = response
             .get("result")
             .and_then(|r| r.get("valid"))
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .ok_or_else(|| anyhow::anyhow!("Invalid response: missing valid field"))?;
 
         debug!(
@@ -343,7 +345,7 @@ impl Default for CapabilityCryptoConfig {
 }
 
 impl CapabilityCryptoProvider {
-    /// Create from config (for compatibility with old BearDogClientConfig)
+    /// Create from config (for compatibility with old `BearDogClientConfig`)
     pub fn from_config(config: CapabilityCryptoConfig) -> Self {
         let mut provider = Self::new();
 

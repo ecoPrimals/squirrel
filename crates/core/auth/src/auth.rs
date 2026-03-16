@@ -71,7 +71,7 @@ impl AuthService {
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or(8443); // Default security auth port
-            format!("http://localhost:{}", port)
+            format!("http://localhost:{port}")
         });
 
         debug!(
@@ -168,7 +168,7 @@ impl AuthService {
     }
 
     /// Authenticate user with discovered security capability
-    pub async fn authenticate(&mut self, request: LoginRequest) -> AuthResult<LoginResponse> {
+    pub async fn authenticate(&self, request: LoginRequest) -> AuthResult<LoginResponse> {
         match &self.auth_provider {
             AuthProvider::SecurityCapability {
                 endpoint,
@@ -191,7 +191,7 @@ impl AuthService {
 
     /// Authenticate using any discovered security capability - completely generic
     async fn authenticate_with_security_capability(
-        &mut self,
+        &self,
         request: LoginRequest,
         endpoint: &str,
         capability_info: &SecurityCapabilityInfo,
@@ -220,7 +220,7 @@ impl AuthService {
             let auth_data: serde_json::Value = response.json().await?;
 
             // Parse generic security response
-            let user = self.parse_security_user_response(&auth_data)?;
+            let user = Self::parse_security_user_response(&auth_data)?;
             let session_duration = Duration::hours(8); // Default 8-hour session
             let session = Session::new(user.id, session_duration, self.auth_provider.clone());
 
@@ -254,24 +254,20 @@ impl AuthService {
                 session_token: None,
                 expires_at: None,
                 error_message: Some(format!(
-                    "Security capability authentication failed: {}",
-                    error_text
+                    "Security capability authentication failed: {error_text}"
                 )),
             })
         }
     }
 
     /// Standalone authentication (failsafe fallback)
-    async fn authenticate_standalone(
-        &mut self,
-        request: LoginRequest,
-    ) -> AuthResult<LoginResponse> {
+    async fn authenticate_standalone(&self, request: LoginRequest) -> AuthResult<LoginResponse> {
         debug!("Authenticating in standalone mode");
 
         // Simple credential check for demo/fallback
         if let Some(user) = self.users.get(&request.username) {
             // In a real implementation, you'd hash and compare passwords properly
-            if self.verify_password(&request.password, &request.username) {
+            if Self::verify_password(&request.password, &request.username) {
                 let session_duration = Duration::hours(8);
                 let session = Session::new(user.id, session_duration, AuthProvider::Standalone);
 
@@ -315,16 +311,10 @@ impl AuthService {
     }
 
     /// Development authentication (always succeeds for testing)
-    async fn authenticate_development(
-        &mut self,
-        request: LoginRequest,
-    ) -> AuthResult<LoginResponse> {
+    async fn authenticate_development(&self, request: LoginRequest) -> AuthResult<LoginResponse> {
         debug!("Authenticating in development mode");
 
-        let user = User::new(
-            &request.username,
-            &format!("{}@dev.local", request.username),
-        );
+        let user = User::new(&request.username, format!("{}@dev.local", request.username));
         let session_duration = Duration::hours(24); // Long session for dev
         let session = Session::new(user.id, session_duration, AuthProvider::Development);
 
@@ -359,7 +349,7 @@ impl AuthService {
             }
 
             // Get user information based on auth provider
-            if let Some(user) = self.get_user_by_id(&session.user_id).await? {
+            if let Some(user) = self.get_user_by_id(&session.user_id)? {
                 let auth_context = AuthContext::new(
                     &user,
                     session.id,
@@ -376,7 +366,7 @@ impl AuthService {
     }
 
     /// Invalidate a session
-    pub async fn logout(&mut self, session_token: &str) -> AuthResult<bool> {
+    pub async fn logout(&self, session_token: &str) -> AuthResult<bool> {
         let session_id = Uuid::parse_str(session_token)
             .map_err(|e| AuthError::token_error("parse", e.to_string()))?;
 
@@ -384,19 +374,19 @@ impl AuthService {
     }
 
     /// Get current authentication provider
-    pub fn get_auth_provider(&self) -> &AuthProvider {
+    pub const fn get_auth_provider(&self) -> &AuthProvider {
         &self.auth_provider
     }
 
     // Helper methods
 
-    fn parse_security_user_response(&self, data: &serde_json::Value) -> AuthResult<User> {
+    fn parse_security_user_response(data: &serde_json::Value) -> AuthResult<User> {
         let username = data["username"]
             .as_str()
             .or_else(|| data["user"]["username"].as_str())
             .ok_or_else(|| AuthError::internal_error("Missing username in security response"))?;
 
-        let default_email = format!("{}@security.local", username);
+        let default_email = format!("{username}@security.local");
         let email = data["email"]
             .as_str()
             .or_else(|| data["user"]["email"].as_str())
@@ -419,7 +409,7 @@ impl AuthService {
         Ok(user)
     }
 
-    fn verify_password(&self, password: &str, username: &str) -> bool {
+    fn verify_password(password: &str, username: &str) -> bool {
         // Simple fallback verification - in production use proper hashing
         match username {
             "admin" => password == "admin123",
@@ -428,7 +418,7 @@ impl AuthService {
         }
     }
 
-    async fn get_user_by_id(&self, user_id: &Uuid) -> AuthResult<Option<User>> {
+    fn get_user_by_id(&self, user_id: &Uuid) -> AuthResult<Option<User>> {
         // In standalone mode, find user by ID
         for user in self.users.values() {
             if user.id == *user_id {

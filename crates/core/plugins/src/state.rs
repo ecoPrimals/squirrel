@@ -72,6 +72,7 @@ impl PluginStateManager for MemoryStateManager {
         Box::pin(async move {
             let mut states = self.states.write().await;
             states.insert(*plugin_id, state);
+            drop(states);
             Ok(())
         })
     }
@@ -83,6 +84,7 @@ impl PluginStateManager for MemoryStateManager {
         Box::pin(async move {
             let mut states = self.states.write().await;
             states.remove(plugin_id);
+            drop(states);
             Ok(())
         })
     }
@@ -117,7 +119,9 @@ impl PluginStateManager for FileStateManager {
             // Check cache first
             let cache = self.cache.read().await;
             if let Some(value) = cache.get(plugin_id) {
-                return Ok(Some(value.clone()));
+                let result = Ok(Some(value.clone()));
+                drop(cache);
+                return result;
             }
 
             // If not in cache, try to read from file
@@ -129,6 +133,7 @@ impl PluginStateManager for FileStateManager {
                     drop(cache);
                     let mut cache = self.cache.write().await;
                     cache.insert(*plugin_id, value.clone());
+                    drop(cache);
                     Ok(Some(value))
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -154,6 +159,7 @@ impl PluginStateManager for FileStateManager {
             let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
             let content = serde_json::to_string(&state)?;
             tokio::fs::write(&file_path, content).await?;
+            drop(cache);
 
             Ok(())
         })
@@ -170,11 +176,93 @@ impl PluginStateManager for FileStateManager {
 
             // Remove file if exists
             let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
-            match tokio::fs::remove_file(&file_path).await {
+            let result = match tokio::fs::remove_file(&file_path).await {
                 Ok(()) => Ok(()),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
                 Err(e) => Err(e.into()),
-            }
+            };
+            drop(cache);
+            result
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_memory_state_manager_set_and_get() {
+        let manager = MemoryStateManager::new();
+        let plugin_id = Uuid::new_v4();
+        let state = json!({"key": "value", "count": 42});
+
+        manager
+            .set_state(&plugin_id, state.clone())
+            .await
+            .expect("set_state");
+        let retrieved = manager.get_state(&plugin_id).await.expect("get_state");
+        assert_eq!(retrieved, Some(state));
+    }
+
+    #[tokio::test]
+    async fn test_memory_state_manager_get_missing_returns_none() {
+        let manager = MemoryStateManager::new();
+        let plugin_id = Uuid::new_v4();
+        let retrieved = manager.get_state(&plugin_id).await.expect("get_state");
+        assert!(retrieved.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_memory_state_manager_remove_state() {
+        let manager = MemoryStateManager::new();
+        let plugin_id = Uuid::new_v4();
+        manager
+            .set_state(&plugin_id, json!({"x": 1}))
+            .await
+            .expect("set");
+        manager.remove_state(&plugin_id).await.expect("remove");
+        let retrieved = manager.get_state(&plugin_id).await.expect("get");
+        assert!(retrieved.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_memory_state_manager_overwrite() {
+        let manager = MemoryStateManager::new();
+        let plugin_id = Uuid::new_v4();
+        manager
+            .set_state(&plugin_id, json!({"v": 1}))
+            .await
+            .expect("set");
+        manager
+            .set_state(&plugin_id, json!({"v": 2}))
+            .await
+            .expect("overwrite");
+        let retrieved = manager.get_state(&plugin_id).await.expect("get");
+        assert_eq!(retrieved, Some(json!({"v": 2})));
+    }
+
+    #[tokio::test]
+    async fn test_memory_state_manager_multiple_plugins() {
+        let manager = MemoryStateManager::new();
+        let id1 = Uuid::new_v4();
+        let id2 = Uuid::new_v4();
+        manager.set_state(&id1, json!({"a": 1})).await.expect("set");
+        manager.set_state(&id2, json!({"b": 2})).await.expect("set");
+
+        assert_eq!(
+            manager.get_state(&id1).await.expect("get"),
+            Some(json!({"a": 1}))
+        );
+        assert_eq!(
+            manager.get_state(&id2).await.expect("get"),
+            Some(json!({"b": 2}))
+        );
+    }
+
+    #[test]
+    fn test_memory_state_manager_default() {
+        let _ = MemoryStateManager::default();
     }
 }

@@ -91,7 +91,7 @@ impl PerformanceMetrics {
     }
 
     /// Mark as successful
-    pub fn mark_success(&mut self, total_duration: Duration) {
+    pub const fn mark_success(&mut self, total_duration: Duration) {
         self.success = true;
         self.total_duration = total_duration;
     }
@@ -104,7 +104,7 @@ impl PerformanceMetrics {
     }
 
     /// Increment attempt count
-    pub fn increment_attempts(&mut self) {
+    pub const fn increment_attempts(&mut self) {
         self.attempts += 1;
     }
 }
@@ -281,13 +281,13 @@ pub struct OperationResult {
 impl OperationResult {
     /// Check if operation was successful
     #[must_use]
-    pub fn is_success(&self) -> bool {
+    pub const fn is_success(&self) -> bool {
         self.metrics.success
     }
 
     /// Get total duration
     #[must_use]
-    pub fn duration(&self) -> Duration {
+    pub const fn duration(&self) -> Duration {
         self.metrics.total_duration
     }
 

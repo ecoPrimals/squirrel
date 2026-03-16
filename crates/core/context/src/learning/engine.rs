@@ -421,12 +421,11 @@ impl LearningEngine {
         }
 
         // If no action found, return random action
-        if best_action.is_none() {
+        let Some(best_action_str) = best_action else {
             return self.select_random_action(state).await;
-        }
+        };
 
         // Extract action from state_action string
-        let best_action_str = best_action.unwrap();
         let action_parts: Vec<&str> = best_action_str.split('_').collect();
         let action_type = if action_parts.len() > 1 {
             action_parts[1..].join("_")

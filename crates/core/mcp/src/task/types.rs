@@ -210,13 +210,13 @@ impl Task {
     }
 
     /// Set the priority of the task.
-    pub fn with_priority(mut self, priority: TaskPriority) -> Self {
+    pub const fn with_priority(mut self, priority: TaskPriority) -> Self {
         self.priority_code = priority;
         self
     }
 
     /// Set the agent type that can handle this task.
-    pub fn with_agent_type(mut self, agent_type: AgentType) -> Self {
+    pub const fn with_agent_type(mut self, agent_type: AgentType) -> Self {
         self.agent_type = agent_type;
         self
     }
@@ -246,13 +246,13 @@ impl Task {
     }
 
     /// Set the deadline for the task.
-    pub fn with_deadline(mut self, deadline: DateTime<Utc>) -> Self {
+    pub const fn with_deadline(mut self, deadline: DateTime<Utc>) -> Self {
         self.deadline = Some(deadline);
         self
     }
 
     /// Make the task watchable for live updates.
-    pub fn watchable(mut self) -> Self {
+    pub const fn watchable(mut self) -> Self {
         self.watchable = true;
         self
     }
@@ -359,7 +359,7 @@ impl Task {
     }
 
     /// Set maximum retries for the task.
-    pub fn set_max_retries(&mut self, max_retries: i32) {
+    pub const fn set_max_retries(&mut self, max_retries: i32) {
         self.max_retries = max_retries;
     }
 }
@@ -374,14 +374,14 @@ impl Task {
 impl From<i32> for TaskStatus {
     fn from(code: i32) -> Self {
         match code {
-            0 => TaskStatus::Waiting,
-            1 => TaskStatus::Pending,
-            2 => TaskStatus::Running,
-            3 => TaskStatus::Completed,
-            4 => TaskStatus::Failed,
-            5 => TaskStatus::Cancelled,
-            99 => TaskStatus::All,
-            _ => TaskStatus::Waiting,
+            0 => Self::Waiting,
+            1 => Self::Pending,
+            2 => Self::Running,
+            3 => Self::Completed,
+            4 => Self::Failed,
+            5 => Self::Cancelled,
+            99 => Self::All,
+            _ => Self::Waiting,
         }
     }
 }
@@ -400,16 +400,16 @@ impl From<TaskStatus> for i32 {
     }
 }
 
-/// Task priority enum that maps to the protobuf PriorityCode
+/// Task priority enum that maps to the protobuf `PriorityCode`
 impl From<i32> for TaskPriority {
     fn from(value: i32) -> Self {
         match value {
-            0 => TaskPriority::Low,
-            1 => TaskPriority::Medium,
-            2 => TaskPriority::High,
-            3 => TaskPriority::Critical,
-            4 => TaskPriority::Normal,
-            _ => TaskPriority::Unspecified,
+            0 => Self::Low,
+            1 => Self::Medium,
+            2 => Self::High,
+            3 => Self::Critical,
+            4 => Self::Normal,
+            _ => Self::Unspecified,
         }
     }
 }
@@ -427,19 +427,19 @@ impl From<TaskPriority> for i32 {
     }
 }
 
-/// Agent type enum that maps to the protobuf AgentTypeCode
+/// Agent type enum that maps to the protobuf `AgentTypeCode`
 impl From<i32> for AgentType {
     fn from(value: i32) -> Self {
         match value {
-            0 => AgentType::Unspecified,
-            1 => AgentType::Human,
-            2 => AgentType::AI,
-            3 => AgentType::System,
-            4 => AgentType::General,
-            5 => AgentType::DataProcessor,
-            6 => AgentType::FileHandler,
-            7 => AgentType::Task,
-            _ => AgentType::Unspecified,
+            0 => Self::Unspecified,
+            1 => Self::Human,
+            2 => Self::AI,
+            3 => Self::System,
+            4 => Self::General,
+            5 => Self::DataProcessor,
+            6 => Self::FileHandler,
+            7 => Self::Task,
+            _ => Self::Unspecified,
         }
     }
 }

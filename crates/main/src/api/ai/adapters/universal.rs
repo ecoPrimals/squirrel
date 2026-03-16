@@ -34,7 +34,10 @@
 //! }
 //! ```
 
-use super::*;
+use super::{
+    AiProviderAdapter, ImageGenerationRequest, ImageGenerationResponse, QualityTier,
+    TextGenerationRequest, TextGenerationResponse,
+};
 use crate::error::PrimalError;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -143,7 +146,7 @@ impl UniversalAiAdapter {
     }
 
     /// Create adapter with custom timeout
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+    pub const fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
@@ -290,8 +293,8 @@ impl AiProviderAdapter for UniversalAiAdapter {
 
     fn quality_tier(&self) -> QualityTier {
         match self.metadata.quality.as_deref() {
-            Some("premium") | Some("high") => QualityTier::Premium,
-            Some("low") | Some("fast") => QualityTier::Fast,
+            Some("premium" | "high") => QualityTier::Premium,
+            Some("low" | "fast") => QualityTier::Fast,
             _ => QualityTier::Standard,
         }
     }

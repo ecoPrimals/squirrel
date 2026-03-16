@@ -100,7 +100,9 @@ impl ContextAnalysis {
 
         // Confidence: base 0.5 for keyword match, scaled by keyword density
         let confidence = if best_match_count > 0 {
-            (0.5 + 0.5 * (best_match_count as f64 / word_count as f64)).min(0.95)
+            0.5f64
+                .mul_add(best_match_count as f64 / word_count as f64, 0.5)
+                .min(0.95)
         } else {
             0.3 // Low confidence for "general" fallback
         };

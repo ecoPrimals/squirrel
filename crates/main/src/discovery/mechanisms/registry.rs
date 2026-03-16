@@ -107,7 +107,7 @@ pub struct RegistryDiscovery {
 
 impl RegistryDiscovery {
     /// Create a new registry discovery client
-    pub fn new(registry_type: RegistryType, endpoint: String) -> Self {
+    pub const fn new(registry_type: RegistryType, endpoint: String) -> Self {
         Self {
             registry_type,
             endpoint,
@@ -124,7 +124,7 @@ impl RegistryDiscovery {
     }
 
     /// Set query timeout
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+    pub const fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }

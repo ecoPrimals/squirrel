@@ -20,6 +20,7 @@ use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
 use squirrel::shutdown::ShutdownManager;
 use std::process;
 use std::sync::Arc;
+use tracing::{error, info, warn};
 
 use cli::{Cli, Commands, exit_codes};
 
@@ -34,6 +35,18 @@ async fn run() -> i32 {
     // Parse CLI arguments using clap
     let cli = Cli::parse();
 
+    // Initialize tracing for all commands (verbose = debug for server)
+    let log_level = match &cli.command {
+        Commands::Server { verbose: true, .. } => "debug",
+        _ => "info",
+    };
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(format!("squirrel={log_level},warn"))
+        .with_target(false)
+        .with_thread_ids(true)
+        .with_line_number(true)
+        .try_init();
+
     // Route to appropriate handler based on subcommand
     match cli.command {
         Commands::Server {
@@ -44,7 +57,7 @@ async fn run() -> i32 {
             verbose,
         } => {
             if let Err(e) = run_server(port, daemon, socket, bind, verbose).await {
-                eprintln!("Error: {e:?}");
+                error!("Error: {e:?}");
                 return exit_codes::ERROR;
             }
         }
@@ -60,7 +73,7 @@ async fn run() -> i32 {
             subsystem,
         } => {
             if let Err(e) = doctor::run_doctor(comprehensive, format, subsystem).await {
-                eprintln!("Error: {e:?}");
+                error!("Error: {e:?}");
                 return exit_codes::ERROR;
             }
         }
@@ -90,7 +103,7 @@ async fn run_client(
     let params_value: serde_json::Value = match serde_json::from_str(&params) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("Invalid --params JSON: {e}");
+            error!("Invalid --params JSON: {e}");
             return exit_codes::CONFIG_ERROR;
         }
     };
@@ -108,7 +121,7 @@ async fn run_client(
                 exit_codes::SUCCESS
             }
             Err(e) => {
-                eprintln!("Error: {e:?}");
+                error!("Error: {e:?}");
                 if let Some(ipc_err) = e.downcast_ref::<universal_patterns::IpcClientError>() {
                     match ipc_err {
                         universal_patterns::IpcClientError::Connection(_)
@@ -122,7 +135,7 @@ async fn run_client(
             }
         },
         _ = tokio::signal::ctrl_c() => {
-            eprintln!("\nInterrupted");
+            error!("Interrupted");
             exit_codes::INTERRUPTED
         }
     }
@@ -134,7 +147,7 @@ async fn run_server(
     daemon: bool,
     socket: Option<String>,
     bind: String,
-    verbose: bool,
+    _verbose: bool,
 ) -> Result<()> {
     // Load configuration (file + env vars)
     let mut config = squirrel::config::ConfigLoader::load(None)?;
@@ -149,21 +162,7 @@ async fn run_server(
     config.server.port = port;
     config.server.bind = bind.clone();
 
-    // Initialize tracing subscriber with config
-    let log_level = if verbose {
-        "debug"
-    } else {
-        &config.logging.level
-    };
-
-    // FUTURE: [Feature] Add JSON logging support with tracing-subscriber json feature
-    // Tracking: Planned for v0.2.0 - enhanced logging features
-    tracing_subscriber::fmt()
-        .with_env_filter(format!("squirrel={log_level},debug"))
-        .with_target(false)
-        .with_thread_ids(true)
-        .with_line_number(true)
-        .init();
+    // Tracing already initialized in run() with verbose-based level
 
     println!("🐿️  Squirrel AI/MCP Primal Starting...");
     println!("   Version: {}", env!("CARGO_PKG_VERSION"));
@@ -186,13 +185,13 @@ async fn run_server(
     ));
     let shutdown_manager = Arc::new(ShutdownManager::new());
 
-    println!("✅ Ecosystem Manager initialized");
-    println!("✅ Metrics Collector initialized");
-    println!("✅ Shutdown Manager initialized");
+    info!("Ecosystem Manager initialized");
+    info!("Metrics Collector initialized");
+    info!("Shutdown Manager initialized");
 
     // Legacy HTTP API server REMOVED - Squirrel uses Unix sockets + JSON-RPC + tarpc!
-    println!("✅ Modern architecture: Unix sockets + JSON-RPC + tarpc");
-    println!("   (No HTTP server - TRUE PRIMAL!)");
+    info!("Modern architecture: Unix sockets + JSON-RPC + tarpc");
+    info!("No HTTP server - TRUE PRIMAL!");
 
     // Determine socket path using priority:
     // 1. CLI --socket argument (HIGHEST PRIORITY)
@@ -202,44 +201,43 @@ async fn run_server(
     use squirrel::rpc::unix_socket;
 
     let socket_path = if let Some(path) = socket.clone() {
-        println!("📌 Socket path from CLI argument: {path}");
+        info!("Socket path from CLI argument: {path}");
         path
     } else if let Some(ref path) = config.server.socket {
-        println!("📌 Socket path from config: {path}");
+        info!("Socket path from config: {path}");
         path.clone()
     } else {
         let node_id = unix_socket::get_node_id();
         let path = unix_socket::get_socket_path(&node_id);
-        println!("📌 Socket path from auto-detection: {path}");
+        info!("Socket path from auto-detection: {path}");
         path
     };
 
-    println!("🔌 Starting JSON-RPC server...");
-    println!("   Socket: {socket_path}");
-    println!("   Bind: {bind} (unused in Unix socket mode)");
-    println!("   Port: {port} (unused in Unix socket mode)");
+    info!("Starting JSON-RPC server...");
+    info!("Socket: {socket_path}");
+    info!("Bind: {bind} (unused in Unix socket mode)");
+    info!("Port: {port} (unused in Unix socket mode)");
     if daemon {
-        println!("   Daemon mode: enabled (FUTURE: implement background detach)");
+        info!("Daemon mode: enabled (FUTURE: implement background detach)");
     }
-    println!();
-    println!("✅ Squirrel AI/MCP Primal Ready!");
+    info!("Squirrel AI/MCP Primal Ready!");
 
     // Initialize AI router with capability-based discovery
-    println!("🤖 Initializing AI router...");
+    info!("Initializing AI router...");
     let ai_router = match squirrel::api::AiRouter::new_with_discovery(None).await {
         Ok(router) => {
             let provider_count = router.provider_count().await;
             if provider_count > 0 {
-                println!("   ✅ {provider_count} AI provider(s) discovered");
+                info!("{provider_count} AI provider(s) discovered");
             } else {
-                println!("   ⚠️  No AI providers found (query_ai will return 'not configured')");
-                println!("   💡 Set AI_PROVIDER_SOCKETS env var for capability discovery");
+                warn!("No AI providers found (query_ai will return 'not configured')");
+                info!("Set AI_PROVIDER_SOCKETS env var for capability discovery");
             }
             Some(Arc::new(router))
         }
         Err(e) => {
-            println!("   ⚠️  AI router initialization failed: {e}");
-            println!("   💡 Server will start without AI capabilities");
+            warn!("AI router initialization failed: {e}");
+            info!("Server will start without AI capabilities");
             None
         }
     };
@@ -293,7 +291,7 @@ async fn run_server(
     let shutdown_rx_songbird = shutdown_tx.subscribe();
     if let Some(songbird_socket) = squirrel::capabilities::songbird::discover_socket() {
         if squirrel::capabilities::songbird::register(&songbird_socket, &socket_path).await {
-            println!("✅ Registered with Songbird");
+            info!("Registered with Songbird");
 
             let _songbird_heartbeat = squirrel::capabilities::songbird::start_heartbeat_loop(
                 songbird_socket,
@@ -301,10 +299,10 @@ async fn run_server(
                 std::time::Duration::from_secs(30),
                 shutdown_rx_songbird,
             );
-            println!("✅ Songbird heartbeat started (30s interval)");
+            info!("Songbird heartbeat started (30s interval)");
         }
     } else {
-        println!("   ℹ️  No Songbird socket found — peer discovery unavailable");
+        info!("No Songbird socket found — peer discovery unavailable");
     }
 
     println!("   Press Ctrl+C to stop");
@@ -315,13 +313,13 @@ async fn run_server(
             println!("\n👋 Shutting down gracefully...");
 
             if let Err(e) = shutdown_manager.request_shutdown().await {
-                eprintln!("⚠️ Shutdown error: {e}");
+                warn!("Shutdown error: {e}");
             }
 
             println!("✅ Shutdown complete");
         }
         _ = server_task => {
-            println!("Server task completed");
+            info!("Server task completed");
         }
     }
 

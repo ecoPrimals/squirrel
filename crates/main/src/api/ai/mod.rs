@@ -3,17 +3,17 @@
 
 // AI routing and provider selection modules
 
-pub(crate) mod action_registry;
+pub mod action_registry;
 pub mod adapter; // Universal AI adapter (vendor-agnostic)
-pub(crate) mod adapters;
+pub mod adapters;
 pub mod bridge; // Bridge between universal and legacy interfaces
-pub(crate) mod constraint_router;
-pub(crate) mod constraints;
+pub mod constraint_router;
+pub mod constraints;
 pub mod discovery; // Capability-based AI provider discovery
-pub(crate) mod http_provider_config; // HTTP provider configuration (vendor-agnostic)
-pub(crate) mod router;
-pub(crate) mod selector;
-pub(crate) mod types;
+pub mod http_provider_config; // HTTP provider configuration (vendor-agnostic)
+pub mod router;
+pub mod selector;
+pub mod types;
 pub mod universal; // Universal AI interface (vendor-agnostic)
 
 #[cfg(test)]

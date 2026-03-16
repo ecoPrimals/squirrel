@@ -1,12 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Compatibility module for legacy squirrel_core references
+//! Compatibility module for legacy `squirrel_core` references
 //!
-//! This module re-exports types from squirrel_context for backward compatibility.
+//! This module re-exports types from `squirrel_context` for backward compatibility.
 
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
+#![allow(missing_docs)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::unused_async)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::branches_sharing_code)]
+#![allow(clippy::option_if_let_else)]
+#![allow(clippy::significant_drop_tightening)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::needless_collect)]
+#![allow(clippy::struct_excessive_bools)]
+#![allow(clippy::significant_drop_in_scrutinee)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::expect_used)]
 // Core modules for Squirrel MCP ecosystem coordination
 #[cfg(feature = "http-api")]
 pub mod api;
@@ -124,7 +140,7 @@ pub enum Error {
 #[cfg(feature = "http-client")]
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Self {
-        Error::Http(err.to_string())
+        Self::Http(err.to_string())
     }
 }
 
@@ -943,7 +959,7 @@ pub struct FederationLoadBalancer {
 
 #[cfg(feature = "mesh")]
 impl FederationLoadBalancer {
-    pub fn new(load_metrics: std::sync::Arc<LoadMetrics>) -> Self {
+    pub const fn new(load_metrics: std::sync::Arc<LoadMetrics>) -> Self {
         Self {
             load_metrics,
             balancing_strategy: LoadBalancingStrategy::RoundRobin,

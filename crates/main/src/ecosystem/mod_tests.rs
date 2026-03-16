@@ -3,6 +3,8 @@
 
 //! Tests for ecosystem module
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use super::*;
 use crate::monitoring::metrics::MetricsCollector;
 use chrono::Utc;
@@ -268,4 +270,100 @@ async fn test_ecosystem_manager_concurrent_status_access() {
     for handle in handles {
         handle.await.unwrap();
     }
+}
+
+#[tokio::test]
+async fn test_ecosystem_manager_get_ecosystem_status() {
+    let mut manager = create_test_manager();
+    manager.initialize().await.unwrap();
+
+    let status = manager.get_ecosystem_status().await;
+    assert!(!status.status.is_empty());
+    assert!(status.status == "active" || status.status == "degraded");
+    assert!(status.timestamp.timestamp() > 0);
+    assert!(status.overall_health >= 0.0 && status.overall_health <= 1.0);
+}
+
+#[tokio::test]
+async fn test_ecosystem_manager_update_health_status() {
+    let mut manager = create_test_manager();
+    manager.initialize().await.unwrap();
+
+    let result = manager
+        .update_health_status(
+            "test_component",
+            ComponentHealth {
+                status: "healthy".to_string(),
+                last_check: Utc::now(),
+                error: None,
+                metadata: HashMap::new(),
+            },
+        )
+        .await;
+    assert!(result.is_ok());
+
+    let status = manager.get_manager_status().await;
+    assert!(
+        status
+            .health_status
+            .component_statuses
+            .contains_key("test_component")
+    );
+}
+
+#[tokio::test]
+async fn test_ecosystem_manager_complete_coordination() {
+    let manager = create_test_manager();
+    let result = manager.complete_coordination("coord_123", true).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_ecosystem_manager_discover_services() {
+    let manager = create_test_manager();
+    let result = manager.discover_services().await;
+    assert!(result.is_ok());
+    assert!(result.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn test_ecosystem_manager_deregister_from_service_mesh() {
+    let manager = create_test_manager();
+    let result = manager.deregister_from_service_mesh().await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_ecosystem_manager_shutdown() {
+    let manager = create_test_manager();
+    let result = manager.shutdown().await;
+    assert!(result.is_ok());
+
+    let status = manager.get_manager_status().await;
+    assert_eq!(status.status, "shutdown");
+}
+
+#[tokio::test]
+async fn test_ecosystem_manager_start_coordination_fails_when_no_services() {
+    let mut manager = create_test_manager();
+    manager.initialize().await.unwrap();
+
+    let result = manager
+        .start_coordination_by_capabilities(vec!["nonexistent_capability"], HashMap::new())
+        .await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("No service found"));
+}
+
+#[tokio::test]
+async fn test_ecosystem_manager_authenticate_universal() {
+    let mut manager = create_test_manager();
+    manager.initialize().await.unwrap();
+
+    let mut credentials = HashMap::new();
+    credentials.insert("user_id".to_string(), "test-user".to_string());
+    let result = manager.authenticate_universal(credentials).await;
+    assert!(result.is_ok());
+    let session_id = result.unwrap();
+    assert!(session_id.starts_with("beardog_session_"));
 }

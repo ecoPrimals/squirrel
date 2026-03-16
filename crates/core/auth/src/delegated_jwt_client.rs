@@ -3,14 +3,14 @@
 
 //! Delegated JWT Client - Production JWT via Capability Discovery (TRUE PRIMAL!)
 //!
-//! **Evolution**: BearDog → Capability Discovery
-//! - OLD: Hardcoded "BearDog" socket paths (DEV knowledge!)
+//! **Evolution**: `BearDog` → Capability Discovery
+//! - OLD: Hardcoded "`BearDog`" socket paths (DEV knowledge!)
 //! - NEW: Discover "crypto.ed25519.sign" capability at runtime (TRUE PRIMAL!)
 //!
 //! **Philosophy**: Deploy like an infant - knows nothing, discovers everything!
 //! - Squirrel doesn't know which primal provides crypto
 //! - Squirrel discovers capability at startup
-//! - Could be BearDog, could be any crypto primal, could change!
+//! - Could be `BearDog`, could be any crypto primal, could change!
 
 #[cfg(feature = "delegated-jwt")]
 use crate::capability_jwt::{
@@ -19,6 +19,7 @@ use crate::capability_jwt::{
 use crate::{AuthError, AuthResult, JwtClaims};
 use chrono::{DateTime, Utc};
 use tracing::{debug, info};
+use universal_constants::identity;
 use uuid::Uuid;
 
 /// Delegated JWT Client - High-level wrapper for capability-based JWT
@@ -62,7 +63,7 @@ impl DelegatedJwtClient {
 
         let capability_service =
             CapabilityJwtService::new(capability_config).map_err(|e| AuthError::Internal {
-                message: format!("Failed to initialize capability-based JWT service: {}", e),
+                message: format!("Failed to initialize capability-based JWT service: {e}"),
             })?;
 
         Ok(Self { capability_service })
@@ -84,7 +85,7 @@ impl DelegatedJwtClient {
             .unwrap_or_else(|_| "/var/run/crypto/provider.sock".to_string());
 
         let key_id =
-            env::var("JWT_KEY_ID").unwrap_or_else(|_| "squirrel-jwt-signing-key".to_string());
+            env::var("JWT_KEY_ID").unwrap_or_else(|_| identity::JWT_SIGNING_KEY_ID.to_string());
 
         let expiry_hours = env::var("JWT_EXPIRY_HOURS")
             .ok()

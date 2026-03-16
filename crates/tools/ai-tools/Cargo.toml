@@ -39,8 +39,9 @@ tracing = { version = "0.1", features = ["log"] }
 
 # AI service clients (OPTIONAL - for dev/testing only!)
 # Production delegates to Songbird via Unix sockets!
+# anthropic-sdk REMOVED: pulls reqwest with default native-tls (chimeric C dep).
+# Direct HTTP providers return Err("not yet implemented") - use capability_ai instead.
 openai = { version = "1.1", default-features = false, features = ["rustls"], optional = true }
-anthropic-sdk = { version = "0.1", optional = true }
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
@@ -98,7 +99,7 @@ capability-ai = []
 # Direct HTTP to AI vendors (DEV/TESTING ONLY!)
 # Brings reqwest → rustls → ring
 # Use for development without Songbird
-direct-http = ["dep:reqwest", "dep:openai", "dep:anthropic-sdk"]
+direct-http = ["dep:reqwest", "dep:openai"]
 
 # Legacy feature flags (kept for compatibility)
 anthropic = ["direct-http"]

@@ -6,6 +6,7 @@
 //! This crate demonstrates the Adapter Pattern in Rust with a command-based architecture.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! It focuses on three main adapter implementations:
 //!
 //! 1. Registry Adapter - Basic adapter for command registry operations

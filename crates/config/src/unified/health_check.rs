@@ -259,13 +259,8 @@ mod tests {
 
     #[test]
     fn test_success_threshold_returns_recovery_threshold() {
-        let config = HealthCheckConfig::simple(
-            true,
-            Duration::from_secs(30),
-            Duration::from_secs(5),
-            3,
-            7,
-        );
+        let config =
+            HealthCheckConfig::simple(true, Duration::from_secs(30), Duration::from_secs(5), 3, 7);
         assert_eq!(config.success_threshold(), 7);
     }
 
@@ -277,5 +272,4 @@ mod tests {
         assert_eq!(config.interval, cloned.interval);
         assert_eq!(config.failure_threshold, cloned.failure_threshold);
     }
-
 }

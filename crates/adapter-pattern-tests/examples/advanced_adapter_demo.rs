@@ -104,22 +104,22 @@ async fn demo_authentication(adapter: &mut McpAdapter) -> CommandResult<()> {
 
     println!("1. Anonymous authentication:");
     match adapter.execute_with_auth("hello", vec![], Auth::None).await {
-        Ok(result) => println!("  Success: {}", result),
-        Err(e) => println!("  Error: {}", e),
+        Ok(result) => println!("  Success: {result}"),
+        Err(e) => println!("  Error: {e}"),
     }
 
     println!("\n2. Username/password authentication:");
     let user_auth = Auth::User("admin".to_string(), "password".to_string());
     match adapter.execute_with_auth("hello", vec![], user_auth).await {
-        Ok(result) => println!("  Success: {}", result),
-        Err(e) => println!("  Error: {}", e),
+        Ok(result) => println!("  Success: {result}"),
+        Err(e) => println!("  Error: {e}"),
     }
 
     println!("\n3. API key authentication:");
     let api_auth = Auth::ApiKey("squirrel-api-key".to_string());
     match adapter.execute_with_auth("hello", vec![], api_auth).await {
-        Ok(result) => println!("  Success: {}", result),
-        Err(e) => println!("  Error: {}", e),
+        Ok(result) => println!("  Success: {result}"),
+        Err(e) => println!("  Error: {e}"),
     }
 
     println!("\n4. Invalid authentication:");
@@ -128,8 +128,8 @@ async fn demo_authentication(adapter: &mut McpAdapter) -> CommandResult<()> {
         .execute_with_auth("hello", vec![], invalid_auth)
         .await
     {
-        Ok(result) => println!("  Unexpected success: {}", result),
-        Err(e) => println!("  Expected error: {}", e),
+        Ok(result) => println!("  Unexpected success: {result}"),
+        Err(e) => println!("  Expected error: {e}"),
     }
 
     Ok(())
@@ -149,26 +149,26 @@ async fn demo_authorization(adapter: &mut McpAdapter) -> CommandResult<()> {
     let regular_cmds = adapter.get_available_commands(regular_auth.clone()).await?;
     let anon_cmds = adapter.get_available_commands(Auth::None).await?;
 
-    println!("  Admin can access: {:?}", admin_cmds);
-    println!("  Power user can access: {:?}", power_cmds);
-    println!("  Regular user can access: {:?}", regular_cmds);
-    println!("  Anonymous can access: {:?}", anon_cmds);
+    println!("  Admin can access: {admin_cmds:?}");
+    println!("  Power user can access: {power_cmds:?}");
+    println!("  Regular user can access: {regular_cmds:?}");
+    println!("  Anonymous can access: {anon_cmds:?}");
 
     println!("\n2. Admin command access:");
     match adapter
         .execute_with_auth("admin-stats", vec![], admin_auth.clone())
         .await
     {
-        Ok(result) => println!("  Admin access: {}", result),
-        Err(e) => println!("  Admin access error: {}", e),
+        Ok(result) => println!("  Admin access: {result}"),
+        Err(e) => println!("  Admin access error: {e}"),
     }
 
     match adapter
         .execute_with_auth("admin-stats", vec![], power_auth.clone())
         .await
     {
-        Ok(result) => println!("  Power user access: {}", result),
-        Err(e) => println!("  Power user access error: {}", e),
+        Ok(result) => println!("  Power user access: {result}"),
+        Err(e) => println!("  Power user access error: {e}"),
     }
 
     println!("\n3. Power user command access:");
@@ -176,16 +176,16 @@ async fn demo_authorization(adapter: &mut McpAdapter) -> CommandResult<()> {
         .execute_with_auth("power-tool", vec![], power_auth.clone())
         .await
     {
-        Ok(result) => println!("  Power user access: {}", result),
-        Err(e) => println!("  Power user access error: {}", e),
+        Ok(result) => println!("  Power user access: {result}"),
+        Err(e) => println!("  Power user access error: {e}"),
     }
 
     match adapter
         .execute_with_auth("power-tool", vec![], regular_auth.clone())
         .await
     {
-        Ok(result) => println!("  Regular user access: {}", result),
-        Err(e) => println!("  Regular user access error: {}", e),
+        Ok(result) => println!("  Regular user access: {result}"),
+        Err(e) => println!("  Regular user access error: {e}"),
     }
 
     Ok(())
@@ -197,7 +197,7 @@ async fn demo_token_authentication(adapter: &mut McpAdapter) -> CommandResult<()
 
     println!("1. Generating token for admin user:");
     let token = adapter.generate_token("admin", "password")?;
-    println!("  Token: {}", token);
+    println!("  Token: {token}");
 
     println!("\n2. Using token for authentication:");
     let token_auth = Auth::Token(token);
@@ -206,8 +206,8 @@ async fn demo_token_authentication(adapter: &mut McpAdapter) -> CommandResult<()
         .execute_with_auth("admin-stats", vec![], token_auth.clone())
         .await
     {
-        Ok(result) => println!("  Command execution: {}", result),
-        Err(e) => println!("  Error: {}", e),
+        Ok(result) => println!("  Command execution: {result}"),
+        Err(e) => println!("  Error: {e}"),
     }
 
     println!("\n3. Attempting with invalid token:");
@@ -217,8 +217,8 @@ async fn demo_token_authentication(adapter: &mut McpAdapter) -> CommandResult<()
         .execute_with_auth("hello", vec![], invalid_token)
         .await
     {
-        Ok(result) => println!("  Unexpected success: {}", result),
-        Err(e) => println!("  Expected error: {}", e),
+        Ok(result) => println!("  Unexpected success: {result}"),
+        Err(e) => println!("  Expected error: {e}"),
     }
 
     Ok(())
@@ -253,7 +253,7 @@ async fn demo_audit_logging(adapter: &mut McpAdapter) -> CommandResult<()> {
     for (i, entry) in logs.iter().enumerate() {
         println!("{}. Command log entry {}", i + 1, i + 1);
         // Since we can't access the private fields directly, we'll just print the Debug representation
-        println!("   Log: {:?}", entry);
+        println!("   Log: {entry:?}");
         println!();
     }
 
@@ -263,13 +263,13 @@ async fn demo_audit_logging(adapter: &mut McpAdapter) -> CommandResult<()> {
 /// Print a section header
 fn print_section(title: &str) {
     println!("\n{}", "=".repeat(80));
-    println!("  {}", title);
+    println!("  {title}");
     println!("{}\n", "=".repeat(80));
 }
 
 /// Print a header
 fn print_header(title: &str) {
     println!("\n{}", "#".repeat(80));
-    println!("  {}", title);
+    println!("  {title}");
     println!("{}\n", "#".repeat(80));
 }

@@ -356,7 +356,7 @@ impl UniversalSecurityClient {
 
             if response.success {
                 provider.health.health_score =
-                    (provider.health.health_score * 0.95 + 0.05).min(1.0);
+                    provider.health.health_score.mul_add(0.95, 0.05).min(1.0);
             } else {
                 provider.health.health_score = (provider.health.health_score * 0.95).max(0.1);
                 provider.health.incident_count += 1;
@@ -447,7 +447,7 @@ impl UniversalSecurityClient {
 
     /// Get security client configuration
     #[must_use]
-    pub fn get_security_config(&self) -> &SecurityClientConfig {
+    pub const fn get_security_config(&self) -> &SecurityClientConfig {
         // Use config field to provide security configuration access
         &self.config
     }

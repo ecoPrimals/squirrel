@@ -15,7 +15,7 @@
 //!    and capability routing. Squirrel will discover Songbird via capability
 //!    registry and register MCP services.
 //!
-//! 2. **ToadStool** (compute): Task delegation, job submission, and resource
+//! 2. **`ToadStool`** (compute): Task delegation, job submission, and resource
 //!    allocation. Integration via universal adapter when compute capability
 //!    is discovered.
 //!
@@ -26,7 +26,7 @@
 //!
 //! - `ServiceRegistration` and `EcosystemIntegration` types
 //! - `register_mcp_services()`: Register Squirrel MCP with service mesh
-//! - Future: Songbird client, ToadStool client (when those crates exist)
+//! - Future: Songbird client, `ToadStool` client (when those crates exist)
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
@@ -84,6 +84,7 @@ impl Default for EcosystemIntegration {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

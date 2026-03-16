@@ -3,14 +3,14 @@
 
 //! Capability-Based JWT Service (TRUE PRIMAL!)
 //!
-//! **Evolution**: BearDog JWT → Capability JWT
+//! **Evolution**: `BearDog` JWT → Capability JWT
 //! - OLD: `BearDogJwtService` (hardcoded primal name!)
 //! - NEW: `CapabilityJwtService` (discovers crypto at runtime!)
 //!
 //! **Philosophy**: Deploy like an infant - knows nothing, discovers everything!
 //! - Squirrel doesn't know which primal provides crypto
 //! - Squirrel discovers "crypto.ed25519.sign" capability
-//! - Could be BearDog, could be any crypto primal, could be multiple!
+//! - Could be `BearDog`, could be any crypto primal, could be multiple!
 
 use crate::capability_crypto::{CapabilityCryptoConfig, CapabilityCryptoProvider};
 use crate::{AuthContext, AuthError};
@@ -19,12 +19,13 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD as BASE64_URL};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info};
+use universal_constants::identity;
 use uuid::Uuid;
 
-/// JWT header for Ed25519 (EdDSA)
+/// JWT header for Ed25519 (`EdDSA`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct JwtHeader {
-    /// Algorithm: EdDSA (Ed25519)
+    /// Algorithm: `EdDSA` (Ed25519)
     alg: String,
     /// Token type: JWT
     typ: String,
@@ -83,13 +84,13 @@ impl JwtClaims {
             iat: now.timestamp(),
             exp: expires_at.timestamp(),
             nbf: now.timestamp(),
-            iss: "squirrel-mcp".to_string(),
-            aud: "squirrel-mcp-api".to_string(),
+            iss: identity::JWT_ISSUER.to_string(),
+            aud: identity::JWT_AUDIENCE.to_string(),
             jti: Uuid::new_v4().to_string(),
         }
     }
 
-    /// Convert JWT claims to AuthContext
+    /// Convert JWT claims to `AuthContext`
     pub fn to_auth_context(&self) -> Result<AuthContext, AuthError> {
         let user_id = Uuid::parse_str(&self.sub).map_err(|_| AuthError::InvalidToken)?;
 
@@ -131,7 +132,7 @@ impl Default for CapabilityJwtConfig {
     fn default() -> Self {
         Self {
             crypto_config: CapabilityCryptoConfig::default(),
-            key_id: "squirrel-jwt-signing-key".to_string(),
+            key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
             expiry_hours: 24,
         }
     }
@@ -142,7 +143,7 @@ impl Default for CapabilityJwtConfig {
 /// **NO hardcoded primal names!**
 /// - Discovers crypto capability at runtime
 /// - Uses whichever primal provides "crypto.ed25519.sign"
-/// - Currently might be BearDog, future could be any crypto primal
+/// - Currently might be `BearDog`, future could be any crypto primal
 ///
 /// # Examples
 ///
@@ -214,18 +215,18 @@ impl CapabilityJwtService {
         // 1. Create and encode header
         let header = JwtHeader::default();
         let header_json = serde_json::to_vec(&header).map_err(|e| AuthError::Internal {
-            message: format!("Failed to encode JWT header: {}", e),
+            message: format!("Failed to encode JWT header: {e}"),
         })?;
         let header_b64 = BASE64_URL.encode(&header_json);
 
         // 2. Encode claims
         let claims_json = serde_json::to_vec(&claims).map_err(|e| AuthError::Internal {
-            message: format!("Failed to encode JWT claims: {}", e),
+            message: format!("Failed to encode JWT claims: {e}"),
         })?;
         let claims_b64 = BASE64_URL.encode(&claims_json);
 
         // 3. Create signing input
-        let signing_input = format!("{}.{}", header_b64, claims_b64);
+        let signing_input = format!("{header_b64}.{claims_b64}");
 
         // 4. Sign via discovered crypto capability (Pure Rust!)
         let signature = self
@@ -242,7 +243,7 @@ impl CapabilityJwtService {
         let signature_b64 = BASE64_URL.encode(&signature);
 
         // 6. Construct final JWT
-        let token = format!("{}.{}", signing_input, signature_b64);
+        let token = format!("{signing_input}.{signature_b64}");
 
         debug!(
             "JWT token created via crypto capability: length={}, header={}, claims={}, sig={}",
@@ -278,7 +279,7 @@ impl CapabilityJwtService {
         })?;
 
         // 3. Verify signature via discovered crypto capability (Pure Rust!)
-        let signing_input = format!("{}.{}", header_b64, claims_b64);
+        let signing_input = format!("{header_b64}.{claims_b64}");
         let is_valid = self
             .crypto_client
             .clone() // Clone for async mutable access
@@ -379,8 +380,8 @@ mod tests {
         assert_eq!(claims.username, "alice");
         assert_eq!(claims.roles.len(), 2);
         assert_eq!(claims.session_id, session_id.to_string());
-        assert_eq!(claims.iss, "squirrel-mcp");
-        assert_eq!(claims.aud, "squirrel-mcp-api");
+        assert_eq!(claims.iss, identity::JWT_ISSUER);
+        assert_eq!(claims.aud, identity::JWT_AUDIENCE);
     }
 
     #[test]
@@ -393,7 +394,7 @@ mod tests {
     #[test]
     fn test_capability_jwt_config_default() {
         let config = CapabilityJwtConfig::default();
-        assert_eq!(config.key_id, "squirrel-jwt-signing-key");
+        assert_eq!(config.key_id, identity::JWT_SIGNING_KEY_ID);
         assert_eq!(config.expiry_hours, 24);
     }
 

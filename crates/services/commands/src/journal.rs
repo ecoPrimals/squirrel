@@ -56,6 +56,7 @@ pub enum JournalError {
 }
 
 // Manual implementation of Clone for JournalError
+#[allow(clippy::unwrap_used)] // Intentional: invalid JSON "{" always fails, unwrap_err is safe
 impl Clone for JournalError {
     fn clone(&self) -> Self {
         match self {
@@ -686,7 +687,7 @@ mod tests {
             JournalEntry::new("test-command", vec!["arg1".to_string(), "arg2".to_string()]);
 
         let result = Ok("Command executed successfully".to_string());
-        entry.complete(result.clone());
+        entry.complete(result);
 
         assert_eq!(entry.state, JournalEntryState::Completed);
         assert_eq!(
@@ -750,7 +751,7 @@ mod tests {
     fn test_command_journal_basic_workflow() {
         // Create a journal with in-memory persistence
         let persistence = Arc::new(InMemoryJournalPersistence::new());
-        let journal = CommandJournal::new(persistence.clone(), 100);
+        let journal = CommandJournal::new(persistence, 100);
 
         let command = TestCommand {};
         let args = vec!["arg1".to_string(), "arg2".to_string()];
@@ -762,9 +763,7 @@ mod tests {
         let result = command.execute(&args);
 
         // Record command completion
-        journal
-            .record_completion(id.clone(), result.clone())
-            .unwrap();
+        journal.record_completion(id.clone(), result).unwrap();
 
         // Get the entry
         let entry = journal.get_entry(id).unwrap();
@@ -781,7 +780,7 @@ mod tests {
     fn test_command_journal_failed_command() {
         // Create a journal with in-memory persistence
         let persistence = Arc::new(InMemoryJournalPersistence::new());
-        let journal = CommandJournal::new(persistence.clone(), 100);
+        let journal = CommandJournal::new(persistence, 100);
 
         let command = TestCommand {};
         let args = vec!["fail".to_string()];
@@ -808,7 +807,7 @@ mod tests {
     fn test_find_incomplete_entries() {
         // Create a journal with in-memory persistence
         let persistence = Arc::new(InMemoryJournalPersistence::new());
-        let journal = CommandJournal::new(persistence.clone(), 100);
+        let journal = CommandJournal::new(persistence, 100);
 
         let command = TestCommand {};
 
@@ -838,7 +837,7 @@ mod tests {
     fn test_recover_incomplete_entries() {
         // Create a journal with in-memory persistence
         let persistence = Arc::new(InMemoryJournalPersistence::new());
-        let journal = CommandJournal::new(persistence.clone(), 100);
+        let journal = CommandJournal::new(persistence, 100);
 
         let command = TestCommand {};
 
@@ -869,7 +868,7 @@ mod tests {
     fn test_entry_search() {
         // Create a journal with in-memory persistence
         let persistence = Arc::new(InMemoryJournalPersistence::new());
-        let journal = CommandJournal::new(persistence.clone(), 100);
+        let journal = CommandJournal::new(persistence, 100);
 
         let command = TestCommand {};
 
@@ -878,7 +877,7 @@ mod tests {
             .record_start(&command, &["search1".to_string()])
             .unwrap();
         journal
-            .record_completion(id1.clone(), Ok("Success 1".to_string()))
+            .record_completion(id1, Ok("Success 1".to_string()))
             .unwrap();
 
         let id2 = journal
@@ -923,7 +922,7 @@ mod tests {
     fn test_journal_capacity() {
         // Create a journal with small capacity
         let persistence = Arc::new(InMemoryJournalPersistence::new());
-        let journal = CommandJournal::new(persistence.clone(), 2);
+        let journal = CommandJournal::new(persistence, 2);
 
         let command = TestCommand {};
 

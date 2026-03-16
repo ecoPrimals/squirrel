@@ -39,7 +39,7 @@ pub trait PluginRegistry: Send + Sync {
     /// Get all registered plugins
     async fn get_all_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>>;
 
-    /// Get all plugins (alias for get_all_plugins)
+    /// Get all plugins (alias for `get_all_plugins`)
     async fn get_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
         self.get_all_plugins().await
     }

@@ -157,7 +157,8 @@ impl MCPInterface for MCPAdapter {
             }
         }
 
-        // Default response when no mock is available or in production
+        // Default response when MCP protocol is not yet wired (Phase 2).
+        // In production this is a placeholder until full MCP transport integration.
         Ok(RemoteAIResponse {
             response_id: uuid::Uuid::new_v4(),
             request_id: request.request_id,
@@ -200,7 +201,7 @@ impl MCPInterface for MCPAdapter {
         #[cfg(test)]
         let mut all_capabilities = HashMap::new();
         #[cfg(not(test))]
-        let all_capabilities = HashMap::new();
+        let all_capabilities = HashMap::new(); // Placeholder until MCP protocol wired (Phase 2)
 
         // Include mock capabilities for testing
         #[cfg(test)]

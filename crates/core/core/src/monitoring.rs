@@ -391,9 +391,8 @@ impl MonitoringService {
                 return Err(Error::Monitoring(
                     "No monitoring providers available".to_string(),
                 ));
-            } else {
-                tracing::warn!("⚠️ No monitoring providers available, using fallback logging");
             }
+            tracing::warn!("⚠️ No monitoring providers available, using fallback logging");
         } else {
             tracing::info!(
                 "✅ Monitoring service initialized with {} providers",
@@ -426,7 +425,7 @@ impl MonitoringService {
         }
 
         // Try to record with all providers (best effort)
-        for provider in providers.iter() {
+        for provider in &providers {
             if let Err(e) = provider.record_event(event.clone()).await {
                 tracing::debug!(
                     "Provider {} failed to record event: {}",
@@ -449,7 +448,7 @@ impl MonitoringService {
         }
 
         // Try to record with all providers (best effort)
-        for provider in providers.iter() {
+        for provider in &providers {
             if let Err(e) = provider.record_metric(metric.clone()).await {
                 tracing::debug!(
                     "Provider {} failed to record metric: {}",
@@ -472,7 +471,7 @@ impl MonitoringService {
         }
 
         // Try to record with all providers (best effort)
-        for provider in providers.iter() {
+        for provider in &providers {
             if let Err(e) = provider.record_health(component, health.clone()).await {
                 tracing::debug!(
                     "Provider {} failed to record health: {}",
@@ -499,7 +498,7 @@ impl MonitoringService {
         }
 
         // Try to record with all providers (best effort)
-        for provider in providers.iter() {
+        for provider in &providers {
             if let Err(e) = provider
                 .record_performance(component, metrics.clone())
                 .await
@@ -529,7 +528,7 @@ impl MonitoringService {
         let providers = self.providers.read().clone();
         let mut provider_statuses = Vec::new();
 
-        for provider in providers.iter() {
+        for provider in &providers {
             let health = provider
                 .provider_health()
                 .await
@@ -677,7 +676,7 @@ pub struct FallbackLogger {
 
 impl FallbackLogger {
     /// Creates a new fallback logger with the given config.
-    pub fn new(config: FallbackConfig) -> Self {
+    pub const fn new(config: FallbackConfig) -> Self {
         Self { config }
     }
 
@@ -709,7 +708,7 @@ impl FallbackLogger {
                 "debug" => tracing::debug!("🏥 Health: {} = {:?}", component, health),
                 "info" => tracing::info!("🏥 Health: {} = {:?}", component, health),
                 "warn" if matches!(health, HealthStatus::Degraded | HealthStatus::Unhealthy) => {
-                    tracing::warn!("🏥 Health: {} = {:?}", component, health)
+                    tracing::warn!("🏥 Health: {} = {:?}", component, health);
                 }
                 _ => {}
             }

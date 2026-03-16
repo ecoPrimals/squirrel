@@ -187,7 +187,7 @@ impl UniversalSecurityAdapter {
 
     /// Get current security service info (if any)
     #[must_use]
-    pub fn get_current_security_service(&self) -> Option<&ServiceInfo> {
+    pub const fn get_current_security_service(&self) -> Option<&ServiceInfo> {
         self.preferred_security_service.as_ref()
     }
 

@@ -2,35 +2,19 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(unused_imports)]
-use super::Command;
-use super::lifecycle::{LifecycleHook, LifecycleStage};
-use super::validation::ValidationError;
-use crate::CommandResult;
-use crate::history::CommandHistory;
-use crate::validation::CommandValidator;
-use clap::Parser;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Instant;
+
 use tracing::{debug, error};
 
-/// Error type for hook failures.
-#[derive(Debug)]
-pub struct HookError {
-    /// Error message describing the hook failure
-    pub message: String,
-}
-
-impl std::fmt::Display for HookError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Hook error: {}", self.message)
-    }
-}
-
-impl Error for HookError {}
+use crate::CommandResult;
+use crate::error::CommandError;
+use crate::history::CommandHistory;
+use crate::validation::CommandValidator;
+use crate::{Command, lifecycle::LifecycleHook, lifecycle::LifecycleStage};
 
 /// A trait for command hooks that can be executed during command lifecycle stages
 pub trait Hook: Send + Sync {
@@ -49,7 +33,7 @@ pub trait Hook: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the hook fails to execute
-    fn execute(&self, command: &dyn Command) -> Result<(), Box<dyn Error>>;
+    fn execute(&self, command: &dyn Command) -> Result<(), CommandError>;
 }
 
 /// Context for hook execution.
@@ -64,7 +48,7 @@ pub struct HookContext {
 }
 
 /// Type alias for a hook function that returns a Result
-type HookFunction = Box<dyn Fn() -> Result<(), Box<dyn Error>>>;
+type HookFunction = Box<dyn Fn() -> Result<(), CommandError>>;
 
 /// Type alias for a map of hook names to their implementations
 type HookMap = HashMap<String, HookFunction>;
@@ -101,15 +85,12 @@ impl HookRegistry {
     ///
     /// # Errors
     /// Returns an error if a hook with the given name already exists
-    pub fn register<F>(&mut self, name: String, hook: F) -> Result<(), Box<dyn Error>>
+    pub fn register<F>(&mut self, name: String, hook: F) -> Result<(), CommandError>
     where
-        F: Fn() -> Result<(), Box<dyn Error>> + 'static,
+        F: Fn() -> Result<(), CommandError> + 'static,
     {
         if self.hooks.contains_key(&name) {
-            return Err(Box::new(ValidationError {
-                rule_name: "HookRegistry".to_string(),
-                message: format!("Hook '{name}' already exists"),
-            }));
+            return Err(CommandError::Hook(format!("Hook '{name}' already exists")));
         }
 
         self.hooks.insert(name, Box::new(hook));
@@ -120,14 +101,9 @@ impl HookRegistry {
     ///
     /// # Errors
     /// Returns an error if any hook fails to execute
-    pub fn execute_hooks(&self) -> Result<(), Box<dyn Error>> {
+    pub fn execute_hooks(&self) -> Result<(), CommandError> {
         for (name, hook) in &self.hooks {
-            if let Err(e) = hook() {
-                return Err(Box::new(ValidationError {
-                    rule_name: "HookRegistry".to_string(),
-                    message: format!("Hook '{name}' failed: {e}"),
-                }));
-            }
+            hook().map_err(|e| CommandError::Hook(format!("Hook '{name}' failed: {e}")))?;
         }
         Ok(())
     }
@@ -140,11 +116,9 @@ impl HookRegistry {
     ///
     /// # Errors
     /// Returns an error if unable to acquire write lock on context
-    pub fn set_context_data(&self, key: &str, value: &str) -> Result<(), Box<dyn Error>> {
+    pub fn set_context_data(&self, key: &str, value: &str) -> Result<(), CommandError> {
         let mut context = self.context.write().map_err(|_| {
-            Box::new(HookError {
-                message: "Failed to acquire write lock on context".to_string(),
-            }) as Box<dyn Error>
+            CommandError::Lock("Failed to acquire write lock on context".to_string())
         })?;
         context.insert(key.to_string(), value.to_string());
         Ok(())
@@ -161,11 +135,9 @@ impl HookRegistry {
     ///
     /// # Errors
     /// Returns an error if unable to acquire read lock on context
-    pub fn get_context_data(&self, key: &str) -> Result<Option<String>, Box<dyn Error>> {
+    pub fn get_context_data(&self, key: &str) -> Result<Option<String>, CommandError> {
         let context = self.context.read().map_err(|_| {
-            Box::new(HookError {
-                message: "Failed to acquire read lock on context".to_string(),
-            }) as Box<dyn Error>
+            CommandError::Lock("Failed to acquire read lock on context".to_string())
         })?;
         Ok(context.get(key).cloned())
     }
@@ -199,7 +171,7 @@ impl Hook for LoggingHook {
         "Logs command execution stages"
     }
 
-    fn execute(&self, command: &dyn Command) -> Result<(), Box<dyn Error>> {
+    fn execute(&self, command: &dyn Command) -> Result<(), CommandError> {
         println!("Executing command '{}'", command.name());
         Ok(())
     }
@@ -239,7 +211,7 @@ impl Hook for MetricsHook {
         "Collects command execution metrics"
     }
 
-    fn execute(&self, command: &dyn Command) -> Result<(), Box<dyn Error>> {
+    fn execute(&self, command: &dyn Command) -> Result<(), CommandError> {
         println!("Metrics - Command: {}", command.name());
         Ok(())
     }
@@ -276,11 +248,9 @@ impl Hook for TimingHook {
         "Measures command execution time"
     }
 
-    fn execute(&self, command: &dyn Command) -> Result<(), Box<dyn Error>> {
+    fn execute(&self, command: &dyn Command) -> Result<(), CommandError> {
         let mut start_time = self.start_time.write().map_err(|_| {
-            Box::new(HookError {
-                message: "Failed to acquire write lock on start time".to_string(),
-            }) as Box<dyn Error>
+            CommandError::Lock("Failed to acquire write lock on start time".to_string())
         })?;
 
         match *start_time {
@@ -330,18 +300,12 @@ impl LifecycleHook for ArgumentValidationHook {
         vec![LifecycleStage::Validation]
     }
 
-    fn on_stage(
-        &self,
-        stage: &LifecycleStage,
-        command: &dyn Command,
-    ) -> Result<(), Box<dyn Error>> {
+    fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), CommandError> {
         if *stage == LifecycleStage::Validation {
-            let validator = self.validator.read().map_err(|e| {
-                Box::new(ValidationError {
-                    rule_name: "argument_validation".to_string(),
-                    message: format!("Failed to acquire read lock: {e}"),
-                })
-            })?;
+            let validator = self
+                .validator
+                .read()
+                .map_err(|e| CommandError::Lock(format!("Failed to acquire read lock: {e}")))?;
 
             validator.validate(command)?;
         }
@@ -386,18 +350,12 @@ impl LifecycleHook for EnvironmentValidationHook {
         vec![LifecycleStage::Validation]
     }
 
-    fn on_stage(
-        &self,
-        stage: &LifecycleStage,
-        command: &dyn Command,
-    ) -> Result<(), Box<dyn Error>> {
+    fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), CommandError> {
         if *stage == LifecycleStage::Validation {
-            let validator = self.validator.read().map_err(|e| {
-                Box::new(ValidationError {
-                    rule_name: "environment_validation".to_string(),
-                    message: format!("Failed to acquire read lock: {e}"),
-                })
-            })?;
+            let validator = self
+                .validator
+                .read()
+                .map_err(|e| CommandError::Lock(format!("Failed to acquire read lock: {e}")))?;
 
             validator.validate(command)?;
         }
@@ -442,18 +400,12 @@ impl LifecycleHook for ResourceValidationHook {
         vec![LifecycleStage::Validation]
     }
 
-    fn on_stage(
-        &self,
-        stage: &LifecycleStage,
-        command: &dyn Command,
-    ) -> Result<(), Box<dyn Error>> {
+    fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), CommandError> {
         if *stage == LifecycleStage::Validation {
-            let validator = self.validator.read().map_err(|e| {
-                Box::new(ValidationError {
-                    rule_name: "resource_validation".to_string(),
-                    message: format!("Failed to acquire read lock: {e}"),
-                })
-            })?;
+            let validator = self
+                .validator
+                .read()
+                .map_err(|e| CommandError::Lock(format!("Failed to acquire read lock: {e}")))?;
 
             validator.validate(command)?;
         }
@@ -498,12 +450,10 @@ impl HookManager {
     pub fn add_hook(
         &mut self,
         name: &str,
-        hook: Box<dyn Fn() -> Result<(), Box<dyn Error>>>,
-    ) -> Result<(), Box<dyn Error>> {
+        hook: Box<dyn Fn() -> Result<(), CommandError>>,
+    ) -> Result<(), CommandError> {
         if self.hooks.contains_key(name) {
-            return Err(Box::new(HookError {
-                message: format!("Hook '{name}' already exists"),
-            }));
+            return Err(CommandError::Hook(format!("Hook '{name}' already exists")));
         }
         self.hooks.insert(name.to_string(), hook);
         Ok(())
@@ -513,13 +463,9 @@ impl HookManager {
     ///
     /// # Errors
     /// Returns an error if any hook fails to execute
-    pub fn execute_hooks(&self) -> Result<(), Box<dyn Error>> {
+    pub fn execute_hooks(&self) -> Result<(), CommandError> {
         for (name, hook) in &self.hooks {
-            hook().map_err(|e| {
-                Box::new(HookError {
-                    message: format!("Hook '{name}' failed: {e}"),
-                }) as Box<dyn Error>
-            })?;
+            hook().map_err(|e| CommandError::Hook(format!("Hook '{name}' failed: {e}")))?;
         }
         Ok(())
     }
@@ -553,7 +499,7 @@ pub struct PostExecutionHook {
 }
 
 /// Result type for command processors
-pub type CommandProcessorResult = Result<(), Box<dyn Error>>;
+pub type CommandProcessorResult = Result<(), CommandError>;
 
 /// Command processor trait
 ///
@@ -700,7 +646,7 @@ mod tests {
     #[test]
     fn test_hook_execution() {
         let mut manager = HookManager::new();
-        let hook = || -> Result<(), Box<dyn Error>> { Ok(()) };
+        let hook = || -> Result<(), CommandError> { Ok(()) };
         manager.add_hook("test_hook", Box::new(hook)).unwrap();
         manager.execute_hooks().unwrap();
     }
@@ -708,7 +654,8 @@ mod tests {
     #[test]
     fn test_hook_error_handling() {
         let mut manager = HookManager::new();
-        let hook = || -> Result<(), Box<dyn Error>> { Err("Hook error".into()) };
+        let hook =
+            || -> Result<(), CommandError> { Err(CommandError::Hook("Hook error".to_string())) };
         manager.add_hook("error_hook", Box::new(hook)).unwrap();
         assert!(manager.execute_hooks().is_err());
     }

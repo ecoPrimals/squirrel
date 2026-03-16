@@ -110,7 +110,7 @@ pub enum PluginStatus {
 impl PluginStatus {
     /// Create a new registered status
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self::Registered
     }
 }
@@ -132,7 +132,7 @@ impl Default for PluginStatus {
     }
 }
 
-/// Legacy Plugin trait, will be deprecated in favor of IPlugin
+/// Legacy Plugin trait, will be deprecated in favor of `IPlugin`
 ///
 /// NOTE: This trait uses `async_trait` because it is used as a trait object (`dyn Plugin`)
 /// throughout the codebase. Native async traits are not compatible with trait objects.

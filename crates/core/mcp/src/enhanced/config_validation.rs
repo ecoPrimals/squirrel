@@ -570,8 +570,10 @@ mod tests {
     
     #[test]
     fn test_environment_from_string() {
-        unsafe { std::env::set_var("MCP_ENVIRONMENT", "production") };
-        let validator = ConfigValidator::from_env().unwrap();
+        let validator = temp_env::with_var("MCP_ENVIRONMENT", Some("production"), || {
+            ConfigValidator::from_env()
+        })
+        .unwrap();
         assert_eq!(validator.environment, Environment::Production);
     }
 } 

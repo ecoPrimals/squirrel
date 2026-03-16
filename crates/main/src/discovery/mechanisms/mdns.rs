@@ -53,7 +53,7 @@ impl Default for MdnsDiscovery {
 
 impl MdnsDiscovery {
     /// Create a new mDNS discovery client
-    pub fn new(service_type: String, timeout: Duration) -> Self {
+    pub const fn new(service_type: String, timeout: Duration) -> Self {
         Self {
             service_type,
             timeout,

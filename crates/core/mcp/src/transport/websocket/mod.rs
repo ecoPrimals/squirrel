@@ -224,12 +224,11 @@ impl WebSocketTransport {
                     }
 
                     // Drain buffered messages
-                    if let Some(ref sender) = self.ws_sender {
-                        if let Err(e) =
+                    if let Some(ref sender) = self.ws_sender
+                        && let Err(e) =
                             drain_message_buffer(self.message_buffer.clone(), sender).await
-                        {
-                            warn!("Failed to drain message buffer after reconnection: {}", e);
-                        }
+                    {
+                        warn!("Failed to drain message buffer after reconnection: {}", e);
                     }
 
                     return Ok(());
@@ -248,7 +247,7 @@ impl WebSocketTransport {
 
         error!("❌ Reconnection failed after {} attempts", max_attempts);
         Err(MCPError::Transport(TransportError::ConnectionFailed(
-            format!("Reconnection failed after {} attempts", max_attempts),
+            format!("Reconnection failed after {max_attempts} attempts"),
         )))
     }
 
@@ -336,7 +335,7 @@ impl Transport for WebSocketTransport {
             .send(SocketCommand::Send(message))
             .await
         {
-            Ok(_) => {
+            Ok(()) => {
                 // Update last activity
                 let mut meta = self.metadata.lock().await;
                 meta.last_activity = Utc::now();
@@ -365,15 +364,14 @@ impl Transport for WebSocketTransport {
 
         if let Some(ref mut rx) = *reader_guard {
             let received: Option<MCPMessage> = rx.recv().await;
-            match received {
-                Some(mcp_message) => Ok(mcp_message),
-                None => {
-                    error!("Reader channel (reader_rx) is closed. Cannot receive message.");
-                    *self.connection_state.lock().await = WebSocketState::Disconnected;
-                    Err(MCPError::Transport(TransportError::ConnectionClosed(
-                        "Reader channel closed".to_string(),
-                    )))
-                }
+            if let Some(mcp_message) = received {
+                Ok(mcp_message)
+            } else {
+                error!("Reader channel (reader_rx) is closed. Cannot receive message.");
+                *self.connection_state.lock().await = WebSocketState::Disconnected;
+                Err(MCPError::Transport(TransportError::ConnectionClosed(
+                    "Reader channel closed".to_string(),
+                )))
             }
         } else {
             error!("Reader channel (reader_rx) is None. Cannot receive message.");
@@ -468,10 +466,10 @@ impl Transport for WebSocketTransport {
             *state = WebSocketState::Disconnected;
         }
 
-        if let Some(sender) = &self.ws_sender {
-            if let Err(e) = sender.send(SocketCommand::Close).await {
-                error!("Failed to send close command to WebSocket task: {}", e);
-            }
+        if let Some(sender) = &self.ws_sender
+            && let Err(e) = sender.send(SocketCommand::Close).await
+        {
+            error!("Failed to send close command to WebSocket task: {}", e);
         }
 
         {

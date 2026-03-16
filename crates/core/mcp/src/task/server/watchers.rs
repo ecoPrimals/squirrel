@@ -23,7 +23,7 @@ pub struct TaskWatcherManager {
 }
 
 impl TaskWatcherManager {
-    /// Create a new TaskWatcherManager
+    /// Create a new `TaskWatcherManager`
     pub fn new() -> Self {
         Self {
             watchers: Arc::new(RwLock::new(HashMap::new())),

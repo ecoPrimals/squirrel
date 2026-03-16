@@ -59,7 +59,9 @@
     clippy::or_fun_call,
     clippy::if_not_else,
     clippy::needless_continue,
-    clippy::map_unwrap_or
+    clippy::map_unwrap_or,
+    clippy::unwrap_used,
+    clippy::expect_used
 )]
 //!
 //! #[wasm_bindgen]
@@ -116,6 +118,7 @@ pub mod prelude {
 
     // Client APIs
     #[cfg(feature = "http")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::client::http::*;
 
     #[cfg(feature = "fs")]
@@ -266,7 +269,7 @@ pub fn validate_environment() -> Result<(), PluginError> {
     {
         if web_sys::window().is_none() {
             return Err(PluginError::InitializationError {
-                message: "SDK requires browser environment".to_string(),
+                reason: "SDK requires browser environment".to_string(),
             });
         }
     }
@@ -372,5 +375,62 @@ pub mod internal {
     pub fn init_plugin_environment(_plugin_id: &str) -> PluginResult<()> {
         // Basic initialization - can be expanded later
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_version() {
+        let v = version();
+        assert!(!v.is_empty());
+        assert!(v.chars().next().unwrap().is_ascii_digit());
+    }
+
+    #[test]
+    fn test_build_info() {
+        let info = build_info();
+        assert!(info.get("version").is_some());
+        assert!(info.get("features").is_some());
+        assert!(info.get("target").is_some());
+        assert!(info.get("profile").is_some());
+    }
+
+    #[test]
+    fn test_has_feature() {
+        assert!(!has_feature("nonexistent"));
+        #[cfg(feature = "http")]
+        assert!(has_feature("http"));
+        #[cfg(feature = "mcp")]
+        assert!(has_feature("mcp"));
+    }
+
+    #[test]
+    fn test_enabled_features() {
+        let features = enabled_features();
+        assert!(!features.contains(&"nonexistent"));
+    }
+
+    #[test]
+    fn test_metadata() {
+        let meta = metadata();
+        assert_eq!(meta.version, version());
+        assert!(!meta.build_timestamp.is_empty());
+        assert!(!meta.features.is_empty() || meta.features.is_empty());
+    }
+
+    #[test]
+    fn test_init() {
+        let result = init();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_internal_init_plugin_environment() {
+        let result = internal::init_plugin_environment("test-plugin");
+        assert!(result.is_ok());
     }
 }

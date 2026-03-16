@@ -136,7 +136,7 @@ pub struct DeployedAgent {
 }
 
 /// Agent status
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentStatus {
     /// Agent is being deployed
     Deploying,

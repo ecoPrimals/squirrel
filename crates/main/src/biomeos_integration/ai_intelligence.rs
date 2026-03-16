@@ -480,7 +480,7 @@ impl AiIntelligence {
         let processing_time = 100; // Placeholder for actual processing time
 
         Ok(IntelligenceResponse {
-            request_id: request.request_id.to_string(),
+            request_id: request.request_id,
             intelligence_type: "analysis".to_string(),
             result: serde_json::json!({
                 "analysis": "completed",
@@ -616,7 +616,7 @@ impl IntelligenceEngine {
         Ok(())
     }
 
-    fn is_healthy(&self) -> bool {
+    const fn is_healthy(&self) -> bool {
         true
     }
 }
@@ -627,7 +627,7 @@ impl OptimizationEngine {
         Ok(())
     }
 
-    fn is_healthy(&self) -> bool {
+    const fn is_healthy(&self) -> bool {
         true
     }
 }
@@ -638,7 +638,7 @@ impl PredictionEngine {
         Ok(())
     }
 
-    fn is_healthy(&self) -> bool {
+    const fn is_healthy(&self) -> bool {
         true
     }
 }

@@ -965,7 +965,7 @@ mod tests {
         for cap in &caps {
             let json = serde_json::to_string(cap).unwrap();
             let deser: PrimalCapability = serde_json::from_str(&json).unwrap();
-            assert_eq!(*cap, deser, "Failed roundtrip for: {:?}", cap);
+            assert_eq!(*cap, deser, "Failed roundtrip for: {cap:?}");
         }
     }
 

@@ -123,7 +123,7 @@ pub fn get_enabled_http_providers() -> Vec<HttpAiProviderConfig> {
             let all_configs = get_http_provider_configs();
             providers_str
                 .split(',')
-                .map(|s| s.trim())
+                .map(str::trim)
                 .filter_map(|provider_id| {
                     all_configs
                         .iter()

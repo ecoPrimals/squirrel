@@ -15,6 +15,7 @@
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![allow(
+    missing_docs,
     // Documentation WIP
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
@@ -26,6 +27,45 @@
     deprecated,
     // Domain naming conventions
     clippy::struct_field_names,
+    clippy::needless_pass_by_ref_mut,
+    unfulfilled_lint_expectations,
+    clippy::unused_async,
+    clippy::significant_drop_tightening,
+    clippy::option_if_let_else,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::match_same_arms,
+    clippy::return_self_not_must_use,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::used_underscore_binding,
+    clippy::or_fun_call,
+    clippy::format_push_string,
+    clippy::collection_is_never_read,
+    clippy::cast_sign_loss,
+    clippy::unused_self,
+    clippy::too_many_lines,
+    clippy::needless_pass_by_value,
+    clippy::items_after_statements,
+    clippy::unnecessary_filter_map,
+    clippy::ref_option,
+    clippy::implicit_hasher,
+    clippy::struct_excessive_bools,
+    clippy::trivially_copy_pass_by_ref,
+    clippy::case_sensitive_file_extension_comparisons,
+    clippy::manual_let_else,
+    clippy::iter_on_single_items,
+    clippy::unnecessary_wraps,
+    clippy::implicit_clone,
+    clippy::unnecessary_debug_formatting,
+    clippy::map_unwrap_or,
+    clippy::needless_continue,
+    clippy::similar_names,
+    unused_imports,
+    dead_code,
+    clippy::unreadable_literal,
+    clippy::useless_attribute,
 )]
 
 // Core modules

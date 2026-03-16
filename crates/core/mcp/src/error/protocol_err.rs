@@ -118,13 +118,13 @@ pub enum ProtocolError {
 
 impl From<String> for ProtocolError {
     fn from(msg: String) -> Self {
-        ProtocolError::InvalidFormat(msg)
+        Self::InvalidFormat(msg)
     }
 }
 
 impl From<&str> for ProtocolError {
     fn from(msg: &str) -> Self {
-        ProtocolError::InvalidFormat(msg.to_string())
+        Self::InvalidFormat(msg.to_string())
     }
 }
 

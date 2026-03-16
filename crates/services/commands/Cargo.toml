@@ -36,7 +36,7 @@ parking_lot.workspace = true
 bytes.workspace = true
 dashmap.workspace = true
 regex.workspace = true
-sysinfo.workspace = true
+sysinfo = { workspace = true, optional = true }
 secrecy.workspace = true
 
 # gRPC REMOVED - NOT ecoPrimals standard!
@@ -55,7 +55,8 @@ clap.workspace = true
 
 [features]
 default = []
-# Feature flag for orchestrator integration removed - now handled by Songbird
+# ecoBin: sysinfo (C dep) only behind system-metrics for pure Rust default
+system-metrics = ["dep:sysinfo"]
 
 [lints]
 workspace = true

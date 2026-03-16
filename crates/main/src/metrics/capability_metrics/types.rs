@@ -283,7 +283,7 @@ impl ErrorEvent {
     }
 
     /// Mark recovery as attempted
-    pub fn with_recovery(mut self, successful: bool) -> Self {
+    pub const fn with_recovery(mut self, successful: bool) -> Self {
         self.recovery_attempted = true;
         self.recovery_successful = successful;
         self

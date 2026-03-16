@@ -203,12 +203,11 @@ async fn try_socket_scan(capability: &str) -> Result<Option<CapabilityProvider>,
     })
     .await;
 
-    match scan_result {
-        Ok(result) => result,
-        Err(_) => {
-            warn!("Socket scan timed out after 5s");
-            Ok(None)
-        }
+    if let Ok(result) = scan_result {
+        result
+    } else {
+        warn!("Socket scan timed out after 5s");
+        Ok(None)
     }
 }
 
@@ -335,7 +334,10 @@ pub async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Disc
                         .get("message")
                         .and_then(|m| m.as_str())
                         .unwrap_or("unknown"),
-                    error.get("code").and_then(|c| c.as_i64()).unwrap_or(-1)
+                    error
+                        .get("code")
+                        .and_then(serde_json::Value::as_i64)
+                        .unwrap_or(-1)
                 );
                 // Socket doesn't support discover_capabilities method - return error
                 return Err(DiscoveryError::ProbeFailed(

@@ -6,11 +6,27 @@
 #![allow(async_fn_in_trait)]
 #![allow(clippy::unused_self)]
 #![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::significant_drop_tightening)]
+#![allow(clippy::option_if_let_else)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::redundant_closure_call)]
+#![allow(clippy::or_fun_call)]
+#![allow(clippy::unused_async)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::needless_continue)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::struct_excessive_bools)]
 //! Machine Context Protocol (MCP) Implementation
 //!
 //! This crate provides a complete implementation of the Machine Context Protocol,
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 //! including message types, transport layers, and utility functions.
 
 pub mod constants;

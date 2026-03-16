@@ -259,7 +259,7 @@ impl UniversalStorageAdapter {
 
     /// Get current storage service info
     #[must_use]
-    pub fn get_current_storage_service(&self) -> Option<&ServiceInfo> {
+    pub const fn get_current_storage_service(&self) -> Option<&ServiceInfo> {
         self.preferred_storage_service.as_ref()
     }
 

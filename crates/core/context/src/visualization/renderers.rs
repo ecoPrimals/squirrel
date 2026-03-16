@@ -188,7 +188,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_json_renderer_default() {
-        let renderer = JsonRenderer::default();
+        let renderer = JsonRenderer;
         let _ = format!("{:?}", renderer);
     }
 
@@ -221,7 +221,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_terminal_renderer_default() {
-        let renderer = TerminalRenderer::default();
+        let renderer = TerminalRenderer;
         let _ = format!("{:?}", renderer);
     }
 
@@ -288,7 +288,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_html_renderer_default() {
-        let renderer = HtmlRenderer::default();
+        let renderer = HtmlRenderer;
         let _ = format!("{:?}", renderer);
     }
 
@@ -314,7 +314,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_markdown_renderer_default() {
-        let renderer = MarkdownRenderer::default();
+        let renderer = MarkdownRenderer;
         let _ = format!("{:?}", renderer);
     }
 

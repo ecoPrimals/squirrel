@@ -3,7 +3,7 @@
 
 //! Core Task Service Implementation
 //!
-//! This module contains the main TaskServiceImpl struct and its initialization methods.
+//! This module contains the main `TaskServiceImpl` struct and its initialization methods.
 
 use crate::task::manager::TaskManager;
 use std::sync::Arc;
@@ -39,15 +39,15 @@ pub struct TaskServiceImpl {
 
 impl TaskServiceImpl {
     /// Creates a new task service with the given task manager and configuration.
-    pub fn new(task_manager: Arc<Mutex<TaskManager>>, config: TaskServerConfig) -> Self {
+    pub const fn new(task_manager: Arc<Mutex<TaskManager>>, config: TaskServerConfig) -> Self {
         Self {
             task_manager,
             config,
         }
     }
 
-    /// Create a new TaskServiceImpl with the provided TaskManager.
-    /// Use handle_json_rpc_request to process JSON-RPC requests.
+    /// Create a new `TaskServiceImpl` with the provided `TaskManager`.
+    /// Use `handle_json_rpc_request` to process JSON-RPC requests.
     pub fn create_server(task_manager: Arc<Mutex<TaskManager>>) -> Self {
         Self::new(task_manager, TaskServerConfig::default())
     }

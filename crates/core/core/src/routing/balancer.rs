@@ -208,9 +208,9 @@ impl LoadBalancer {
         agent: &RegisteredAgent,
         performance_history: &HashMap<String, Vec<PerformanceMetric>>,
     ) -> f64 {
-        let current_load = *agent.current_load.read() as f64;
+        let current_load = f64::from(*agent.current_load.read());
         let avg_response_time = *agent.average_response_time.read();
-        let max_capacity = agent.max_concurrent_tasks as f64;
+        let max_capacity = f64::from(agent.max_concurrent_tasks);
 
         // Base score from capacity utilization (higher available capacity = better)
         let capacity_score = (max_capacity - current_load) / max_capacity;
@@ -232,9 +232,8 @@ impl LoadBalancer {
             if recent_metrics.is_empty() {
                 0.5 // Neutral score for agents with no recent history
             } else {
-                let success_rate = recent_metrics.iter().filter(|m| m.success).count() as f64
-                    / recent_metrics.len() as f64;
-                success_rate
+                recent_metrics.iter().filter(|m| m.success).count() as f64
+                    / recent_metrics.len() as f64
             }
         } else {
             0.5 // Neutral score for agents with no history
@@ -242,7 +241,7 @@ impl LoadBalancer {
 
         // Weighted combination of scores
         let final_score =
-            (capacity_score * 0.4) + (response_time_score * 0.3) + (performance_score * 0.3);
+            capacity_score.mul_add(0.4, response_time_score * 0.3) + (performance_score * 0.3);
 
         debug!(
             "Agent {} adaptive score: capacity={:.2}, response_time={:.2}, performance={:.2}, final={:.2}",
@@ -311,7 +310,8 @@ impl LoadBalancer {
             .sum::<f64>()
             / total_requests as f64;
 
-        let avg_load = metrics.iter().map(|m| m.load as f64).sum::<f64>() / total_requests as f64;
+        let avg_load =
+            metrics.iter().map(|m| f64::from(m.load)).sum::<f64>() / total_requests as f64;
 
         Some(AgentPerformanceStats {
             total_requests,
@@ -329,7 +329,7 @@ impl LoadBalancer {
     }
 
     /// Get current load balancing strategy
-    pub fn get_strategy(&self) -> &LoadBalancingStrategy {
+    pub const fn get_strategy(&self) -> &LoadBalancingStrategy {
         &self.strategy
     }
 

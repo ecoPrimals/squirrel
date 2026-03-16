@@ -31,38 +31,38 @@ pub enum ComponentType {
 
 impl ComponentType {
     /// Check if this is a page component
-    pub fn is_page(&self) -> bool {
-        matches!(self, ComponentType::Page)
+    pub const fn is_page(&self) -> bool {
+        matches!(self, Self::Page)
     }
 
     /// Check if this is a partial component
-    pub fn is_partial(&self) -> bool {
-        matches!(self, ComponentType::Partial)
+    pub const fn is_partial(&self) -> bool {
+        matches!(self, Self::Partial)
     }
 
     /// Check if this is a navigation component
-    pub fn is_navigation(&self) -> bool {
-        matches!(self, ComponentType::Navigation)
+    pub const fn is_navigation(&self) -> bool {
+        matches!(self, Self::Navigation)
     }
 
     /// Check if this is a widget component
-    pub fn is_widget(&self) -> bool {
-        matches!(self, ComponentType::Widget)
+    pub const fn is_widget(&self) -> bool {
+        matches!(self, Self::Widget)
     }
 
     /// Check if this is a modal component
-    pub fn is_modal(&self) -> bool {
-        matches!(self, ComponentType::Modal)
+    pub const fn is_modal(&self) -> bool {
+        matches!(self, Self::Modal)
     }
 
     /// Check if this is a form component
-    pub fn is_form(&self) -> bool {
-        matches!(self, ComponentType::Form)
+    pub const fn is_form(&self) -> bool {
+        matches!(self, Self::Form)
     }
 
     /// Check if this is a custom component
-    pub fn is_custom(&self) -> bool {
-        matches!(self, ComponentType::Custom(_))
+    pub const fn is_custom(&self) -> bool {
+        matches!(self, Self::Custom(_))
     }
 }
 
@@ -109,6 +109,7 @@ impl WebComponent {
     }
 
     /// Add a property to the component
+    #[must_use]
     pub fn with_property(mut self, key: &str, value: Value) -> Self {
         self.properties.insert(key.to_string(), value);
         self
@@ -121,7 +122,7 @@ impl WebComponent {
     }
 
     /// Set the priority for ordering
-    pub fn with_priority(mut self, priority: i32) -> Self {
+    pub const fn with_priority(mut self, priority: i32) -> Self {
         self.priority = priority;
         self
     }

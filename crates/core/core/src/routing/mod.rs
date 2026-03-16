@@ -260,7 +260,7 @@ impl McpRoutingService {
         // Update response time
         {
             let mut avg_response_time = self.state.average_response_time.write();
-            *avg_response_time = (*avg_response_time * 0.9) + (duration.as_secs_f64() * 0.1);
+            *avg_response_time = (*avg_response_time).mul_add(0.9, duration.as_secs_f64() * 0.1);
         }
 
         // Decrement active tasks
@@ -388,17 +388,17 @@ impl McpRoutingService {
     }
 
     /// Get agent registry
-    pub fn get_agent_registry(&self) -> &Arc<AgentRegistry> {
+    pub const fn get_agent_registry(&self) -> &Arc<AgentRegistry> {
         &self.agent_registry
     }
 
     /// Get load balancer
-    pub fn get_load_balancer(&self) -> &Arc<LoadBalancer> {
+    pub const fn get_load_balancer(&self) -> &Arc<LoadBalancer> {
         &self.load_balancer
     }
 
     /// Get context manager
-    pub fn get_context_manager(&self) -> &Arc<ContextManager> {
+    pub const fn get_context_manager(&self) -> &Arc<ContextManager> {
         &self.context_manager
     }
 }
@@ -435,7 +435,7 @@ impl McpRouter for McpRoutingService {
             metadata: ResponseMetadata {
                 context_updated: false,
                 processing_time: std::time::Duration::from_millis(100),
-                agent_version: Some(selected_agent.id.clone()),
+                agent_version: Some(selected_agent.id),
             },
         })
     }

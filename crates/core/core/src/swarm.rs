@@ -13,7 +13,7 @@ impl Default for SwarmService {
 }
 
 impl SwarmService {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 }

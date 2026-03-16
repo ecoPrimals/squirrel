@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn test_learning_request_type_variants() {
-        let types = vec![
+        let types = [
             LearningRequestType::ContextOptimization,
             LearningRequestType::PatternAnalysis,
             LearningRequestType::PerformanceOptimization,

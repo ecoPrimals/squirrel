@@ -204,3 +204,91 @@ pub(super) struct QueuedMessage {
     pub timestamp: DateTime<Utc>,
     pub retry_count: u32,
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_network_config_default() {
+        let config = NetworkConfig::default();
+        assert!(matches!(config.protocol, NetworkProtocol::Http));
+        assert_eq!(config.port, 8080);
+        assert!(config.encryption_enabled);
+        assert_eq!(config.max_connections, 1000);
+    }
+
+    #[test]
+    fn test_network_protocol_serde() {
+        let protocols = vec![
+            NetworkProtocol::Http,
+            NetworkProtocol::Grpc,
+            NetworkProtocol::WebSocket,
+            NetworkProtocol::Custom("custom".to_string()),
+        ];
+        for p in protocols {
+            let json = serde_json::to_string(&p).unwrap();
+            let decoded: NetworkProtocol = serde_json::from_str(&json).unwrap();
+            assert!(std::mem::discriminant(&p) == std::mem::discriminant(&decoded));
+        }
+    }
+
+    #[test]
+    fn test_node_info_creation() {
+        let info = NodeInfo {
+            id: Uuid::new_v4(),
+            name: "test-node".to_string(),
+            version: "1.0.0".to_string(),
+            capabilities: vec!["sync".to_string()],
+            endpoints: vec!["http://localhost:8080".to_string()],
+            metadata: std::collections::HashMap::new(),
+        };
+        assert_eq!(info.name, "test-node");
+        assert_eq!(info.capabilities.len(), 1);
+    }
+
+    #[test]
+    fn test_peer_status_serde() {
+        let statuses = vec![
+            PeerStatus::Connected,
+            PeerStatus::Disconnected,
+            PeerStatus::Connecting,
+            PeerStatus::Error("timeout".to_string()),
+        ];
+        for s in statuses {
+            let json = serde_json::to_string(&s).unwrap();
+            let decoded: PeerStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(s, decoded);
+        }
+    }
+
+    #[test]
+    fn test_data_operation_serde() {
+        let ops = vec![
+            DataOperation::Create,
+            DataOperation::Read,
+            DataOperation::Update,
+            DataOperation::Delete,
+            DataOperation::Sync,
+        ];
+        for op in ops {
+            let json = serde_json::to_string(&op).unwrap();
+            let decoded: DataOperation = serde_json::from_str(&json).unwrap();
+            assert!(std::mem::discriminant(&op) == std::mem::discriminant(&decoded));
+        }
+    }
+
+    #[test]
+    fn test_network_stats_creation() {
+        let stats = NetworkStats {
+            peer_count: 5,
+            connection_count: 3,
+            queued_messages: 10,
+            node_id: Uuid::new_v4(),
+            uptime: Utc::now(),
+        };
+        assert_eq!(stats.peer_count, 5);
+        assert_eq!(stats.queued_messages, 10);
+    }
+}

@@ -29,7 +29,7 @@ impl DiscoveryOps {
             if let Err(e) =
                 Self::perform_service_discovery(service_registry, primal_type, endpoint).await
             {
-                eprintln!("Failed to discover service for {primal_type:?}: {e}");
+                tracing::error!("Failed to discover service for {primal_type:?}: {e}");
                 continue;
             }
         }

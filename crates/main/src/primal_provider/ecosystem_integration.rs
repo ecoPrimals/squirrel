@@ -161,7 +161,7 @@ impl SquirrelPrimalProvider {
 
     /// Check if this primal can serve the given context
     #[must_use]
-    pub fn can_serve_context(&self, context: &crate::universal::PrimalContext) -> bool {
+    pub const fn can_serve_context(&self, context: &crate::universal::PrimalContext) -> bool {
         match context.security_level {
             crate::universal::SecurityLevel::Public => false,
             crate::universal::SecurityLevel::Basic => false,

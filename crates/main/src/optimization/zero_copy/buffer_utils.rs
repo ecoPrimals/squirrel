@@ -16,7 +16,7 @@ pub struct BufferPool {
 impl BufferPool {
     /// Create a new buffer pool
     #[must_use]
-    pub fn new(buffer_size: usize, max_buffers: usize) -> Self {
+    pub const fn new(buffer_size: usize, max_buffers: usize) -> Self {
         Self {
             buffers: VecDeque::new(),
             buffer_size,
@@ -71,13 +71,13 @@ impl SharedBuffer {
 
     /// Get buffer length
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len
     }
 
     /// Check if buffer is empty
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 

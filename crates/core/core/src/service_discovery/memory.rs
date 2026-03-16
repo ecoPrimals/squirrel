@@ -4,7 +4,7 @@
 //! In-memory service discovery implementation
 //!
 //! This module provides a simple in-memory implementation of the service discovery
-//! interface. It stores services in a HashMap and handles expiration based on
+//! interface. It stores services in a `HashMap` and handles expiration based on
 //! heartbeat timeouts.
 
 use async_trait::async_trait;
@@ -42,7 +42,7 @@ pub struct ServiceRegistration {
 
 /// In-memory service discovery implementation
 ///
-/// This implementation stores services in memory using a HashMap. It provides
+/// This implementation stores services in memory using a `HashMap`. It provides
 /// automatic cleanup of expired services based on heartbeat timeouts.
 ///
 /// # Examples
@@ -248,11 +248,11 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
         let services = self.services.read().await;
         let service = services.get(service_id).cloned();
 
-        if let Some(ref service) = service {
-            if self.is_service_expired(service) {
-                debug!("Service {} is expired", service_id);
-                return Ok(None);
-            }
+        if let Some(ref service) = service
+            && self.is_service_expired(service)
+        {
+            debug!("Service {} is expired", service_id);
+            return Ok(None);
         }
 
         Ok(service)

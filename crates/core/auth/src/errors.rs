@@ -96,12 +96,12 @@ pub enum AuthError {
     CapabilityProviderError(String),
 
     // Legacy compatibility (for migration period)
-    /// BearDog service unavailable (deprecated: use CapabilityProviderUnavailable)
+    /// `BearDog` service unavailable (deprecated: use `CapabilityProviderUnavailable`)
     #[error("BearDog unavailable: {0}")]
     #[deprecated(note = "Use CapabilityProviderUnavailable instead (capability-based)")]
     BeardogUnavailable(String),
 
-    /// BearDog returned an error (deprecated: use CapabilityProviderError)
+    /// `BearDog` returned an error (deprecated: use `CapabilityProviderError`)
     #[error("BearDog error: {0}")]
     #[deprecated(note = "Use CapabilityProviderError instead (capability-based)")]
     BeardogError(String),
@@ -177,19 +177,19 @@ impl From<reqwest::Error> for AuthError {
 
 impl From<serde_json::Error> for AuthError {
     fn from(err: serde_json::Error) -> Self {
-        Self::internal_error(format!("JSON serialization error: {}", err))
+        Self::internal_error(format!("JSON serialization error: {err}"))
     }
 }
 
 impl From<uuid::Error> for AuthError {
     fn from(err: uuid::Error) -> Self {
-        Self::internal_error(format!("UUID error: {}", err))
+        Self::internal_error(format!("UUID error: {err}"))
     }
 }
 
 impl From<anyhow::Error> for AuthError {
     fn from(err: anyhow::Error) -> Self {
-        Self::internal_error(format!("Internal error: {}", err))
+        Self::internal_error(format!("Internal error: {err}"))
     }
 }
 

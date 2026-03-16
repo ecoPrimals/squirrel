@@ -207,7 +207,7 @@ pub struct OptimizationResult {
 impl CoordinationGraph {
     /// Create a new empty coordination graph
     #[must_use]
-    pub fn new(purpose: String) -> Self {
+    pub const fn new(purpose: String) -> Self {
         Self {
             nodes: Vec::new(),
             edges: Vec::new(),

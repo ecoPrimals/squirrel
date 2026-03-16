@@ -100,7 +100,7 @@ impl MessageId {
 
     /// Check if the message ID is empty.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
@@ -124,7 +124,7 @@ pub struct ProtocolVersion {
 
 impl ProtocolVersion {
     /// Create a new protocol version
-    pub fn new(major: u16, minor: u16) -> Self {
+    pub const fn new(major: u16, minor: u16) -> Self {
         Self { major, minor }
     }
 
@@ -238,11 +238,10 @@ impl MCPMessage {
 
     /// Extracts the command name from the message payload.
     pub fn command(&self) -> String {
-        if let Some(cmd) = self.payload.get("command") {
-            cmd.as_str().unwrap_or("unknown").to_string()
-        } else {
-            "unknown".to_string()
-        }
+        self.payload.get("command").map_or_else(
+            || "unknown".to_string(),
+            |cmd| cmd.as_str().unwrap_or("unknown").to_string(),
+        )
     }
 }
 
@@ -285,7 +284,7 @@ impl TryFrom<Message> for MCPMessage {
             }
         };
 
-        let mcp_message: MCPMessage = serde_json::from_str(&json_str).map_err(|e| {
+        let mcp_message: Self = serde_json::from_str(&json_str).map_err(|e| {
             crate::error::MCPError::Transport(format!("Failed to parse JSON message: {e}").into())
         })?;
 
@@ -298,7 +297,7 @@ impl From<MCPMessage> for Message {
     fn from(mcp_message: MCPMessage) -> Self {
         let json_str = serde_json::to_string(&mcp_message)
             .unwrap_or_else(|_| r#"{"error": "Failed to serialize message"}"#.to_string());
-        Message::Text(json_str)
+        Self::Text(json_str)
     }
 }
 

@@ -130,8 +130,9 @@ mod tests {
         assert_eq!(context.severity, ErrorSeverity::High);
         assert_eq!(context.error_code, "DB-001");
 
-        let error =
-            MCPError::Context(crate::error::ContextError::General("Query failed".to_string()));
+        let error = MCPError::Context(crate::error::ContextError::General(
+            "Query failed".to_string(),
+        ));
         assert!(matches!(error, MCPError::Context(_)));
     }
 

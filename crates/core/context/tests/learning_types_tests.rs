@@ -55,7 +55,7 @@ fn test_learning_state_stopped() {
 #[test]
 fn test_learning_state_clone() {
     let state1 = LearningState::Learning;
-    let state2 = state1.clone();
+    let state2 = state1;
 
     assert!(matches!(state2, LearningState::Learning));
 }
@@ -63,7 +63,7 @@ fn test_learning_state_clone() {
 #[test]
 fn test_learning_state_debug() {
     let state = LearningState::Learning;
-    let debug_str = format!("{:?}", state);
+    let debug_str = format!("{state:?}");
 
     assert!(!debug_str.is_empty());
     assert!(debug_str.contains("Learning"));
@@ -79,7 +79,7 @@ fn test_learning_state_serialization() {
 
 #[test]
 fn test_learning_state_lifecycle() {
-    let lifecycle = vec![
+    let lifecycle = [
         LearningState::Initializing,
         LearningState::Learning,
         LearningState::Evaluating,
@@ -155,7 +155,7 @@ fn test_learning_action_type_custom_with_message() {
 #[test]
 fn test_learning_action_type_clone() {
     let action1 = LearningActionType::ApplyRule;
-    let action2 = action1.clone();
+    let action2 = action1;
 
     assert!(matches!(action2, LearningActionType::ApplyRule));
 }
@@ -163,7 +163,7 @@ fn test_learning_action_type_clone() {
 #[test]
 fn test_learning_action_type_debug() {
     let action = LearningActionType::UpdatePolicy;
-    let debug_str = format!("{:?}", action);
+    let debug_str = format!("{action:?}");
 
     assert!(!debug_str.is_empty());
 }
@@ -186,7 +186,7 @@ fn test_learning_action_type_custom_serialization() {
 
 #[test]
 fn test_learning_action_type_all_variants() {
-    let actions = vec![
+    let actions = [
         LearningActionType::ModifyContext,
         LearningActionType::ApplyRule,
         LearningActionType::UpdatePolicy,
@@ -224,7 +224,7 @@ fn test_context_learning_manager_config_clone() {
 #[test]
 fn test_context_learning_manager_config_debug() {
     let config = ContextLearningManagerConfig::default();
-    let debug_str = format!("{:?}", config);
+    let debug_str = format!("{config:?}");
 
     assert!(!debug_str.is_empty());
 }
@@ -243,7 +243,7 @@ fn test_learning_state_all_transitions() {
 
     for state in states {
         let _cloned = state.clone();
-        let _debug = format!("{:?}", state);
+        let _debug = format!("{state:?}");
     }
 
     assert!(true, "All states should support clone and debug");
@@ -269,7 +269,7 @@ fn test_learning_action_type_custom_empty_string() {
 #[test]
 fn test_learning_action_type_custom_long_string() {
     let long_msg = "a".repeat(1000);
-    let action = LearningActionType::Custom(long_msg.clone());
+    let action = LearningActionType::Custom(long_msg);
 
     if let LearningActionType::Custom(msg) = action {
         assert_eq!(msg.len(), 1000);
@@ -442,7 +442,7 @@ fn test_learning_state_all_match_patterns() {
     ];
 
     for (state, name) in states {
-        let debug_str = format!("{:?}", state);
+        let debug_str = format!("{state:?}");
         assert!(debug_str.contains(name));
     }
 }

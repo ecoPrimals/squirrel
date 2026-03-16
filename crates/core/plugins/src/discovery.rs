@@ -6,15 +6,15 @@
 //!
 //! This module provides the plugin discovery and loading architecture:
 //!
-//! - **PluginManifest**: Deserializable manifest format (manifest.json) describing plugin metadata,
+//! - **`PluginManifest`**: Deserializable manifest format (manifest.json) describing plugin metadata,
 //!   entry point, capabilities, and dependencies.
-//! - **PluginLoader**: Async trait for loading a plugin from a manifest and path. Implementations
+//! - **`PluginLoader`**: Async trait for loading a plugin from a manifest and path. Implementations
 //!   may perform dynamic loading (e.g. via `libloading`) or other strategies.
-//! - **PluginDiscovery**: Async trait for discovering plugins in a directory (e.g. scanning for
+//! - **`PluginDiscovery`**: Async trait for discovering plugins in a directory (e.g. scanning for
 //!   manifest.json files).
-//! - **FilePluginDiscovery**: Discovers plugins by scanning directories for manifest.json and
+//! - **`FilePluginDiscovery`**: Discovers plugins by scanning directories for manifest.json and
 //!   delegates loading to a `PluginLoader`.
-//! - **DefaultPluginLoader** / **DefaultPluginDiscovery**: Default implementations. Dynamic
+//! - **`DefaultPluginLoader`** / **`DefaultPluginDiscovery`**: Default implementations. Dynamic
 //!   plugin loading is not yet implemented; their load methods return errors.
 
 // Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
@@ -69,6 +69,7 @@ pub struct PluginManifest {
 impl PluginManifest {
     /// Convert to plugin metadata (used by tests and testing feature)
     #[must_use]
+    #[allow(dead_code)]
     #[cfg(any(test, feature = "testing"))]
     #[expect(
         deprecated,
@@ -132,7 +133,7 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
         if !directory.exists() {
             let err = std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Plugin directory does not exist: {directory:?}"),
+                format!("Plugin directory does not exist: {}", directory.display()),
             );
             return Err(PluginError::IoError(err).into());
         }
@@ -230,7 +231,7 @@ impl PluginDiscovery for DefaultPluginDiscovery {
         if !directory.exists() {
             let err = std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Plugin directory does not exist: {directory:?}"),
+                format!("Plugin directory does not exist: {}", directory.display()),
             );
             return Err(PluginError::IoError(err).into());
         }
@@ -258,6 +259,7 @@ impl DefaultPluginDiscovery {
     }
 
     /// Load a plugin from a path
+    #[allow(clippy::unused_async)]
     pub async fn load_plugin(&self, path: &Path) -> Result<Arc<dyn Plugin>> {
         anyhow::bail!(
             "Dynamic plugin loading not yet implemented at path: {}",
@@ -344,17 +346,16 @@ mod tests {
     async fn test_default_discovery_empty_dir() {
         let temp_dir = TempDir::new().unwrap();
         let discovery = DefaultPluginDiscovery::new();
-        let plugins = discovery
-            .discover_plugins(temp_dir.path())
-            .await
-            .unwrap();
+        let plugins = discovery.discover_plugins(temp_dir.path()).await.unwrap();
         assert!(plugins.is_empty());
     }
 
     #[tokio::test]
     async fn test_default_discovery_nonexistent_dir() {
         let discovery = DefaultPluginDiscovery::new();
-        let result = discovery.discover_plugins(Path::new("/nonexistent/path/12345")).await;
+        let result = discovery
+            .discover_plugins(Path::new("/nonexistent/path/12345"))
+            .await;
         assert!(result.is_err());
     }
 
@@ -364,19 +365,20 @@ mod tests {
         let manifest = PluginManifest {
             name: "test".to_string(),
             version: "1.0".to_string(),
-            description: "".to_string(),
-            author: "".to_string(),
-            entry_point: "".to_string(),
-            plugin_type: "".to_string(),
+            description: String::new(),
+            author: String::new(),
+            entry_point: String::new(),
+            plugin_type: String::new(),
             dependencies: vec![],
             capabilities: vec![],
         };
-        let result = loader
-            .load_plugin(&manifest, Path::new("/tmp"))
-            .await;
+        let result = loader.load_plugin(&manifest, Path::new("/tmp")).await;
         match result {
             Ok(_) => panic!("expected load_plugin to fail"),
-            Err(e) => assert!(e.to_string().contains("Dynamic plugin loading not yet implemented")),
+            Err(e) => assert!(
+                e.to_string()
+                    .contains("Dynamic plugin loading not yet implemented")
+            ),
         }
     }
 }

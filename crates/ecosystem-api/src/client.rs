@@ -114,7 +114,12 @@ impl SongbirdClient {
                     self.retry_config.max_retries
                 );
                 sleep(Duration::from_millis(delay)).await;
-                delay = ((delay as f64) * self.retry_config.backoff_multiplier) as u64;
+                // Intentional: delay is in ms (u64), backoff uses f64; truncation acceptable for retry timing
+                #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+                {
+                    let new_delay = (delay as f64) * self.retry_config.backoff_multiplier;
+                    delay = u64::try_from(new_delay.round() as i64).unwrap_or(0);
+                }
                 delay = delay.min(self.retry_config.max_delay_ms);
             }
 
@@ -128,7 +133,6 @@ impl SongbirdClient {
                             Ok(result) => return Ok(result),
                             Err(e) => {
                                 last_error = Some(UniversalError::Serialization(e.to_string()));
-                                continue;
                             }
                         }
                     } else if status.is_client_error() {
@@ -149,12 +153,10 @@ impl SongbirdClient {
                         last_error = Some(UniversalError::Network(format!(
                             "HTTP {status}: {error_text}"
                         )));
-                        continue;
                     }
                 }
                 Err(e) => {
                     last_error = Some(UniversalError::Network(e.to_string()));
-                    continue;
                 }
             }
         }
@@ -320,12 +322,15 @@ impl MockServiceMeshClient {
     pub async fn add_service(&self, service_id: String, service: ServiceInfo) {
         let mut services = self.services.write().await;
         services.insert(service_id, service);
+        drop(services);
     }
 
     /// Get all registered services
     pub async fn get_all_services(&self) -> Vec<ServiceInfo> {
         let services = self.services.read().await;
-        services.values().cloned().collect()
+        let result = services.values().cloned().collect();
+        drop(services);
+        result
     }
 }
 
@@ -356,6 +361,7 @@ impl ServiceMeshClient for MockServiceMeshClient {
     async fn deregister_service(&self, service_id: &str) -> UniversalResult<()> {
         let mut services = self.services.write().await;
         services.remove(service_id);
+        drop(services);
         Ok(())
     }
 
@@ -364,45 +370,37 @@ impl ServiceMeshClient for MockServiceMeshClient {
         let mut results = Vec::new();
 
         for service in services.values() {
-            let mut matches = true;
-
-            if let Some(ref service_type) = query.service_type {
-                if service.service_type != *service_type {
-                    matches = false;
-                }
-            }
-
-            if let Some(primal_type) = query.primal_type {
-                if service.primal_type != primal_type {
-                    matches = false;
-                }
-            }
-
-            if !query.capabilities.is_empty() {
-                for capability in &query.capabilities {
-                    if !service.capabilities.contains(capability) {
-                        matches = false;
-                        break;
-                    }
-                }
-            }
+            let matches = query
+                .service_type
+                .as_ref()
+                .is_none_or(|st| service.service_type == *st)
+                && query.primal_type.is_none_or(|pt| service.primal_type == pt)
+                && (query.capabilities.is_empty()
+                    || query
+                        .capabilities
+                        .iter()
+                        .all(|c| service.capabilities.contains(c)));
 
             if matches {
                 results.push(service.clone());
             }
         }
 
+        drop(services);
         Ok(results)
     }
 
     async fn get_service(&self, service_id: &str) -> UniversalResult<Option<ServiceInfo>> {
         let services = self.services.read().await;
-        Ok(services.get(service_id).cloned())
+        let result = services.get(service_id).cloned();
+        drop(services);
+        Ok(result)
     }
 
     async fn report_health(&self, service_id: &str, health: HealthStatus) -> UniversalResult<()> {
         let mut health_reports = self.health_reports.write().await;
         health_reports.insert(service_id.to_string(), health);
+        drop(health_reports);
         Ok(())
     }
 
@@ -415,6 +413,7 @@ impl ServiceMeshClient for MockServiceMeshClient {
                 chrono::Utc::now().to_rfc3339(),
             );
         }
+        drop(services);
         Ok(())
     }
 

@@ -478,7 +478,7 @@ impl EnhancedDemoRouter {
         "automatic".to_string()
     }
 
-    fn count_capability_matches(&self, task: &DemoTask) -> u32 {
+    const fn count_capability_matches(&self, task: &DemoTask) -> u32 {
         // Simple capability matching simulation
         task.required_capabilities.len() as u32
     }

@@ -121,13 +121,16 @@ impl PluginManager {
             // Security verification handled by BearDog framework
         }
 
-        let mut statuses = self.statuses.write().await;
-        let mut name_to_id = self.name_to_id.write().await;
-
         self.plugins.insert(id, plugin.clone());
         self.plugin_configs.insert(id, PluginConfig::default());
-        statuses.insert(id, PluginStatus::Registered);
-        name_to_id.insert(metadata.name.clone(), id);
+        self.statuses
+            .write()
+            .await
+            .insert(id, PluginStatus::Registered);
+        self.name_to_id
+            .write()
+            .await
+            .insert(metadata.name.clone(), id);
 
         info!(
             "Plugin {} (ID: {}) registered successfully with signature verification",
@@ -150,14 +153,17 @@ impl PluginRegistry for PluginManager {
     }
 
     async fn unregister_plugin(&self, id: Uuid) -> Result<()> {
-        let mut statuses = self.statuses.write().await;
-        let mut name_to_id = self.name_to_id.write().await;
-
         if let Some((_, plugin)) = self.plugins.remove(&id) {
             let metadata = plugin.metadata();
             self.plugin_configs.remove(&id);
-            statuses.remove(&id);
-            name_to_id.remove(&metadata.name);
+            {
+                let mut statuses = self.statuses.write().await;
+                statuses.remove(&id);
+            }
+            {
+                let mut name_to_id = self.name_to_id.write().await;
+                name_to_id.remove(&metadata.name);
+            }
             info!("Plugin {} unregistered successfully", metadata.name);
             Ok(())
         } else {
@@ -173,11 +179,13 @@ impl PluginRegistry for PluginManager {
     }
 
     async fn get_plugin_by_name(&self, name: &str) -> Result<Arc<dyn Plugin>> {
-        let name_to_id = self.name_to_id.read().await;
-        let id = name_to_id
-            .get(name)
-            .ok_or_else(|| PluginError::PluginNotFound(name.to_string()))?;
-        PluginManagerTrait::get_plugin(self, *id).await
+        let id = {
+            let name_to_id = self.name_to_id.read().await;
+            *name_to_id
+                .get(name)
+                .ok_or_else(|| PluginError::PluginNotFound(name.to_string()))?
+        };
+        PluginManagerTrait::get_plugin(self, id).await
     }
 
     async fn list_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
@@ -336,12 +344,16 @@ mod tests {
         manager.init().await.unwrap();
         let plugins = manager.list_plugins().await.unwrap();
         let id = plugins[0].id();
-        let status = PluginManagerTrait::get_plugin_status(&manager, id).await.unwrap();
+        let status = PluginManagerTrait::get_plugin_status(&manager, id)
+            .await
+            .unwrap();
         assert_eq!(status, PluginStatus::Registered);
         PluginManagerTrait::set_plugin_status(&manager, id, PluginStatus::Running)
             .await
             .unwrap();
-        let status = PluginManagerTrait::get_plugin_status(&manager, id).await.unwrap();
+        let status = PluginManagerTrait::get_plugin_status(&manager, id)
+            .await
+            .unwrap();
         assert_eq!(status, PluginStatus::Running);
     }
 
@@ -353,10 +365,14 @@ mod tests {
         let id = plugin.id();
         manager.register_plugin(plugin).await.unwrap();
         manager.initialize_plugin(id).await.unwrap();
-        let status = PluginManagerTrait::get_plugin_status(&manager, id).await.unwrap();
+        let status = PluginManagerTrait::get_plugin_status(&manager, id)
+            .await
+            .unwrap();
         assert_eq!(status, PluginStatus::Running);
         manager.shutdown_plugin(id).await.unwrap();
-        let status = PluginManagerTrait::get_plugin_status(&manager, id).await.unwrap();
+        let status = PluginManagerTrait::get_plugin_status(&manager, id)
+            .await
+            .unwrap();
         assert_eq!(status, PluginStatus::Stopped);
     }
 

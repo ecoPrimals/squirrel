@@ -357,11 +357,11 @@ pub trait SessionManager: Send + Sync {
 #[async_trait]
 impl SessionManager for SessionManagerImpl {
     async fn create_session(&self, client_info: Option<String>) -> Result<String, PrimalError> {
-        SessionManagerImpl::create_session(self, client_info).await
+        Self::create_session(self, client_info).await
     }
 
     async fn get_session_metadata(&self, session_id: &str) -> Result<SessionMetadata, PrimalError> {
-        SessionManagerImpl::get_session_metadata(self, session_id).await
+        Self::get_session_metadata(self, session_id).await
     }
 
     async fn update_session_data(
@@ -369,11 +369,11 @@ impl SessionManager for SessionManagerImpl {
         session_id: &str,
         data: HashMap<String, serde_json::Value>,
     ) -> Result<(), PrimalError> {
-        SessionManagerImpl::update_session(self, session_id, data).await
+        Self::update_session(self, session_id, data).await
     }
 
     async fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError> {
-        SessionManagerImpl::terminate_session(self, session_id).await
+        Self::terminate_session(self, session_id).await
     }
 }
 

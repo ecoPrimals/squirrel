@@ -78,7 +78,7 @@ pub struct PrometheusExporter {
 impl PrometheusExporter {
     /// Create a new Prometheus exporter
     #[must_use]
-    pub fn new(config: ExporterConfig) -> Self {
+    pub const fn new(config: ExporterConfig) -> Self {
         Self { config }
     }
 }
@@ -147,7 +147,7 @@ impl MetricsExporter for PrometheusExporter {
             &mut prometheus_output,
             "squirrel_active_connections",
             "Number of active connections",
-            system_metrics.active_connections as f64,
+            f64::from(system_metrics.active_connections),
         );
         emit_gauge(
             &mut prometheus_output,
@@ -227,7 +227,7 @@ pub struct JsonExporter {
 impl JsonExporter {
     /// Create a new JSON exporter
     #[must_use]
-    pub fn new(config: ExporterConfig) -> Self {
+    pub const fn new(config: ExporterConfig) -> Self {
         Self { config }
     }
 }

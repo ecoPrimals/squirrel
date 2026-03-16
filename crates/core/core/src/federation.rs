@@ -17,6 +17,7 @@ use universal_constants::network::{DEFAULT_SQUIRREL_SERVER_PORT, get_service_por
 
 /// Federation service for managing distributed Squirrel MCP instances
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct FederationService {
     config: FederationConfig,
     state: Arc<FederationState>,
@@ -101,7 +102,7 @@ impl FederationService {
 
         let state = Arc::new(FederationState {
             status: RwLock::new(FederationStatus::Forming),
-            federation_id: federation_id.clone(),
+            federation_id,
             leader_node: RwLock::new(None),
             last_scale_event: RwLock::new(None),
             total_capacity: RwLock::new(0),
@@ -215,8 +216,7 @@ impl FederationService {
         // Federation probing requires HTTP delegation to Songbird
         // Pattern: CapabilityHttpClient::discover("http.client").await?
         Err(Error::Federation(format!(
-            "Federation node probing not yet implemented (requires Songbird HTTP delegation): {}",
-            endpoint
+            "Federation node probing not yet implemented (requires Songbird HTTP delegation): {endpoint}"
         )))
     }
 
@@ -237,6 +237,7 @@ impl FederationService {
     }
 
     /// Find the leader node in the federation
+    #[allow(dead_code)]
     async fn find_leader_node(&self) -> Result<SquirrelInstance> {
         // Simple leader election: use the node with the lowest ID
         // In practice, this would be more sophisticated
@@ -245,8 +246,7 @@ impl FederationService {
 
         for entry in self.instances.iter() {
             let instance = entry.value();
-            if leader.is_none()
-                || &instance.id < leader.as_ref().map(|l| &l.id).unwrap_or(&String::new())
+            if leader.is_none() || &instance.id < leader.as_ref().map_or(&String::new(), |l| &l.id)
             {
                 leader = Some(instance.clone());
             }
@@ -301,7 +301,7 @@ impl FederationService {
                     self.check_federation_health().await;
                     self.check_instance_health().await;
                 }
-                _ = self.shutdown_notify.notified() => {
+                () = self.shutdown_notify.notified() => {
                     tracing::info!("Health monitoring loop shutting down");
                     break;
                 }
@@ -318,7 +318,7 @@ impl FederationService {
                 _ = interval.tick() => {
                     self.collect_load_metrics().await;
                 }
-                _ = self.shutdown_notify.notified() => {
+                () = self.shutdown_notify.notified() => {
                     tracing::info!("Load monitoring loop shutting down");
                     break;
                 }
@@ -342,7 +342,7 @@ impl FederationService {
                         tracing::error!("Scaling evaluation failed: {}", e);
                     }
                 }
-                _ = self.shutdown_notify.notified() => {
+                () = self.shutdown_notify.notified() => {
                     tracing::info!("Auto-scaling loop shutting down");
                     break;
                 }
@@ -359,7 +359,7 @@ impl FederationService {
                 _ = interval.tick() => {
                     self.maintain_federation().await;
                 }
-                _ = self.shutdown_notify.notified() => {
+                () = self.shutdown_notify.notified() => {
                     tracing::info!("Federation maintenance loop shutting down");
                     break;
                 }
@@ -447,7 +447,7 @@ impl FederationService {
         if current_utilization > self.scaling_policy.scale_up_threshold {
             if current_instances < self.scaling_policy.max_instances {
                 let target_instances =
-                    ((current_instances as f64 * self.scaling_policy.scale_factor) as u32)
+                    ((f64::from(current_instances) * self.scaling_policy.scale_factor) as u32)
                         .min(self.scaling_policy.max_instances);
 
                 tracing::info!(
@@ -464,8 +464,8 @@ impl FederationService {
         else if current_utilization < self.scaling_policy.scale_down_threshold
             && current_instances > self.scaling_policy.min_instances
         {
-            let target_instances = ((current_instances as f64 / self.scaling_policy.scale_factor)
-                as u32)
+            let target_instances = ((f64::from(current_instances)
+                / self.scaling_policy.scale_factor) as u32)
                 .max(self.scaling_policy.min_instances);
 
             tracing::info!(
@@ -486,10 +486,10 @@ impl FederationService {
     async fn calculate_overall_utilization(&self) -> f64 {
         let cpu = self.load_metrics.cpu_usage;
         let memory = self.load_metrics.memory_usage;
-        let queue_pressure = (self.load_metrics.queue_length as f64) / 100.0;
+        let queue_pressure = f64::from(self.load_metrics.queue_length) / 100.0;
 
         // Weighted average of different metrics
-        (cpu * 0.4 + memory * 0.3 + queue_pressure * 0.3).min(1.0)
+        (cpu.mul_add(0.4, memory * 0.3) + queue_pressure * 0.3).min(1.0)
     }
 
     /// Scale up by spawning new instances
@@ -619,6 +619,7 @@ impl FederationService {
     }
 
     /// Get current node endpoint
+    #[allow(dead_code)]
     fn get_node_endpoint(&self) -> String {
         format!(
             "http://{}:{}",
@@ -630,6 +631,7 @@ impl FederationService {
     }
 
     /// Get current node capabilities
+    #[allow(dead_code)]
     fn get_node_capabilities(&self) -> Vec<String> {
         vec![
             "mcp".to_string(),
@@ -671,10 +673,10 @@ impl FederationService {
         }
 
         // Leave federation if we're part of one
-        if self.config.federation_enabled {
-            if let Err(e) = self.leave_federation().await {
-                tracing::warn!("Failed to leave federation during shutdown: {}", e);
-            }
+        if self.config.federation_enabled
+            && let Err(e) = self.leave_federation().await
+        {
+            tracing::warn!("Failed to leave federation during shutdown: {}", e);
         }
 
         tracing::info!("Federation service shutdown complete");
@@ -718,7 +720,7 @@ impl SwarmManager for FederationService {
             current_load: 0,
             region: config.region.clone(),
             zone: config.zone.clone(),
-            metadata: config.metadata.clone(),
+            metadata: config.metadata,
         };
 
         // Store the instance
@@ -741,7 +743,7 @@ impl SwarmManager for FederationService {
 
         for node_spec in nodes {
             match self.add_federation_node(node_spec.clone()).await {
-                Ok(_) => {
+                Ok(()) => {
                     successful_nodes.push(node_spec);
                 }
                 Err(e) => {
@@ -817,6 +819,7 @@ impl FederationService {
 
 // Supporting types
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 struct NodeInfo {
     node_id: String,
     region: Option<String>,
@@ -828,6 +831,7 @@ struct NodeInfo {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 struct JoinRequest {
     node_id: String,
     endpoint: String,

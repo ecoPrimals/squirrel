@@ -287,7 +287,7 @@ impl UniversalComputeClient {
                             0
                         });
                     // Clamp i64 to i32::MAX to avoid truncation
-                    code.min(i32::MAX as i64).max(i32::MIN as i64) as i32
+                    code.min(i64::from(i32::MAX)).max(i64::from(i32::MIN)) as i32
                 },
                 stdout: response
                     .data
@@ -364,7 +364,8 @@ impl UniversalComputeClient {
             provider.health.last_check = chrono::Utc::now();
 
             if response.success {
-                provider.health.health_score = (provider.health.health_score * 0.9 + 0.1).min(1.0);
+                provider.health.health_score =
+                    provider.health.health_score.mul_add(0.9, 0.1).min(1.0);
             } else {
                 provider.health.health_score = (provider.health.health_score * 0.9).max(0.1);
             }
@@ -373,7 +374,7 @@ impl UniversalComputeClient {
 
     /// Get compute client configuration
     #[must_use]
-    pub fn get_compute_config(&self) -> &ComputeClientConfig {
+    pub const fn get_compute_config(&self) -> &ComputeClientConfig {
         // Use config field to provide configuration access
         &self.config
     }

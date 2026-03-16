@@ -176,7 +176,7 @@ impl ErrorContext {
     /// Increments the retry count for this error context
     ///
     /// This is called each time a recovery attempt is made for the error.
-    pub fn increment_retry_count(&mut self) {
+    pub const fn increment_retry_count(&mut self) {
         self.retry_count += 1;
     }
 }

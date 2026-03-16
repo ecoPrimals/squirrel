@@ -45,9 +45,10 @@ impl SessionManager {
         sessions.insert(session.id, session);
 
         // Clean up expired sessions while we have the write lock (best effort)
-        if let Err(e) = self.cleanup_expired_sessions_internal(&mut sessions).await {
+        if let Err(e) = self.cleanup_expired_sessions_internal(&mut sessions) {
             tracing::warn!("Failed to cleanup expired sessions: {}", e);
         }
+        drop(sessions);
 
         Ok(())
     }
@@ -55,41 +56,46 @@ impl SessionManager {
     /// Get a session by ID
     pub async fn get_session(&self, session_id: &Uuid) -> AuthResult<Option<Session>> {
         let sessions = self.sessions.read().await;
-        if let Some(session) = sessions.get(session_id) {
+        let result = if let Some(session) = sessions.get(session_id) {
             if session.is_expired() || !session.is_active {
                 debug!("Session {} is expired or inactive", session_id);
-                return Ok(None);
+                None
+            } else {
+                Some(session.clone())
             }
-            Ok(Some(session.clone()))
         } else {
-            Ok(None)
-        }
+            None
+        };
+        drop(sessions);
+        Ok(result)
     }
 
     /// Update session last accessed time
     pub async fn touch_session(&self, session_id: &Uuid) -> AuthResult<bool> {
         let mut sessions = self.sessions.write().await;
-        if let Some(session) = sessions.get_mut(session_id)
-            && !session.is_expired()
-            && session.is_active
-        {
-            session.touch();
-            debug!("Updated last accessed time for session {}", session_id);
-            return Ok(true);
-        }
-        Ok(false)
+        let result = sessions.get_mut(session_id).map_or(false, |session| {
+            if !session.is_expired() && session.is_active {
+                session.touch();
+                debug!("Updated last accessed time for session {}", session_id);
+                true
+            } else {
+                false
+            }
+        });
+        drop(sessions);
+        Ok(result)
     }
 
     /// Invalidate a session
     pub async fn invalidate_session(&self, session_id: &Uuid) -> AuthResult<bool> {
         let mut sessions = self.sessions.write().await;
-        if let Some(session) = sessions.get_mut(session_id) {
+        let result = sessions.get_mut(session_id).map_or(false, |session| {
             session.invalidate();
             debug!("Invalidated session {}", session_id);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+            true
+        });
+        drop(sessions);
+        Ok(result)
     }
 
     /// Get all active sessions for a user
@@ -102,6 +108,7 @@ impl SessionManager {
             })
             .cloned()
             .collect();
+        drop(sessions);
 
         Ok(user_sessions)
     }
@@ -122,17 +129,20 @@ impl SessionManager {
             "Invalidated {} sessions for user {}",
             invalidated_count, user_id
         );
+        drop(sessions);
         Ok(invalidated_count)
     }
 
     /// Clean up expired sessions
     pub async fn cleanup_expired_sessions(&self) -> AuthResult<usize> {
         let mut sessions = self.sessions.write().await;
-        self.cleanup_expired_sessions_internal(&mut sessions).await
+        let result = self.cleanup_expired_sessions_internal(&mut sessions);
+        drop(sessions);
+        result
     }
 
     /// Internal cleanup method (requires write lock)
-    async fn cleanup_expired_sessions_internal(
+    fn cleanup_expired_sessions_internal(
         &self,
         sessions: &mut HashMap<Uuid, Session>,
     ) -> AuthResult<usize> {
@@ -177,6 +187,7 @@ impl SessionManager {
                 AuthProvider::Development => {} // Don't count dev sessions
             }
         }
+        drop(sessions);
 
         Ok(SessionStats {
             total_sessions,
@@ -194,19 +205,21 @@ impl SessionManager {
         additional_duration: Duration,
     ) -> AuthResult<bool> {
         let mut sessions = self.sessions.write().await;
-        if let Some(session) = sessions.get_mut(session_id)
-            && session.is_active
-            && !session.is_expired()
-        {
-            session.expires_at += additional_duration;
-            debug!(
-                "Extended session {} by {} minutes",
-                session_id,
-                additional_duration.num_minutes()
-            );
-            return Ok(true);
-        }
-        Ok(false)
+        let result = sessions.get_mut(session_id).map_or(false, |session| {
+            if session.is_active && !session.is_expired() {
+                session.expires_at += additional_duration;
+                debug!(
+                    "Extended session {} by {} minutes",
+                    session_id,
+                    additional_duration.num_minutes()
+                );
+                true
+            } else {
+                false
+            }
+        });
+        drop(sessions);
+        Ok(result)
     }
 }
 

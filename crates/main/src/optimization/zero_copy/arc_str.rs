@@ -223,7 +223,7 @@ impl SmartString {
 
     /// Get the underlying `Arc<str>`
     #[must_use]
-    pub fn as_arc_str(&self) -> &ArcStr {
+    pub const fn as_arc_str(&self) -> &ArcStr {
         &self.0
     }
 

@@ -15,7 +15,14 @@
 
 // Note: This module is feature-gated via #[cfg(feature = "tarpc-rpc")] in mod.rs
 
-use super::tarpc_service::*;
+use super::tarpc_service::{
+    AnnounceCapabilitiesParams, AnnounceCapabilitiesResult, CapabilityDiscoverResult,
+    ContextCreateParams, ContextCreateResult, ContextSummarizeParams, ContextSummarizeResult,
+    ContextUpdateParams, ContextUpdateResult, DiscoveryPeersResult, HealthCheckResult,
+    LifecycleRegisterResult, LifecycleStatusResult, ListProvidersResult, PeerInfo, PingResult,
+    ProviderInfo, QueryAiParams, QueryAiResult, SquirrelRpc, SystemMetricsResult,
+    ToolExecuteResult, ToolListEntry, ToolListResult, ToolSource,
+};
 use anyhow::Result;
 use futures::prelude::*;
 use std::collections::HashMap;
@@ -35,7 +42,7 @@ pub struct TarpcRpcServer {
 
 impl TarpcRpcServer {
     /// Create tarpc server that delegates to the given JSON-RPC server
-    pub fn from_jsonrpc(jsonrpc: Arc<super::JsonRpcServer>) -> Self {
+    pub const fn from_jsonrpc(jsonrpc: Arc<super::JsonRpcServer>) -> Self {
         Self { jsonrpc }
     }
 
@@ -81,10 +88,16 @@ impl TarpcRpcServer {
             model: Arc::from(v.get("model").and_then(|x| x.as_str()).unwrap_or("none")),
             tokens_used: v
                 .get("tokens_used")
-                .and_then(|x| x.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .map(|u| u as usize),
-            latency_ms: v.get("latency_ms").and_then(|x| x.as_u64()).unwrap_or(0),
-            success: v.get("success").and_then(|x| x.as_bool()).unwrap_or(false),
+            latency_ms: v
+                .get("latency_ms")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
+            success: v
+                .get("success")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
         }
     }
 
@@ -117,14 +130,20 @@ impl TarpcRpcServer {
             })
             .collect();
         ListProvidersResult {
-            total: v.get("total").and_then(|x| x.as_u64()).unwrap_or(0) as usize,
+            total: v
+                .get("total")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0) as usize,
             providers,
         }
     }
 
     fn json_to_announce_result(v: &serde_json::Value) -> AnnounceCapabilitiesResult {
         AnnounceCapabilitiesResult {
-            success: v.get("success").and_then(|x| x.as_bool()).unwrap_or(false),
+            success: v
+                .get("success")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
             message: v
                 .get("message")
                 .and_then(|x| x.as_str())
@@ -137,7 +156,7 @@ impl TarpcRpcServer {
                 .to_string(),
             tools_registered: v
                 .get("tools_registered")
-                .and_then(|x| x.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .unwrap_or(0) as usize,
         }
     }
@@ -156,23 +175,28 @@ impl TarpcRpcServer {
                 .to_string(),
             uptime_seconds: v
                 .get("uptime_seconds")
-                .and_then(|x| x.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .unwrap_or(0),
             active_providers: v
                 .get("active_providers")
-                .and_then(|x| x.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .unwrap_or(0) as usize,
             requests_processed: v
                 .get("requests_processed")
-                .and_then(|x| x.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .unwrap_or(0),
-            avg_response_time_ms: v.get("avg_response_time_ms").and_then(|x| x.as_f64()),
+            avg_response_time_ms: v
+                .get("avg_response_time_ms")
+                .and_then(serde_json::Value::as_f64),
         }
     }
 
     fn json_to_ping_result(v: &serde_json::Value) -> PingResult {
         PingResult {
-            pong: v.get("pong").and_then(|x| x.as_bool()).unwrap_or(true),
+            pong: v
+                .get("pong")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true),
             timestamp: v
                 .get("timestamp")
                 .and_then(|x| x.as_str())
@@ -207,7 +231,10 @@ impl TarpcRpcServer {
             })
             .collect();
         DiscoveryPeersResult {
-            total: v.get("total").and_then(|x| x.as_u64()).unwrap_or(0) as usize,
+            total: v
+                .get("total")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0) as usize,
             peers,
             discovery_method: v
                 .get("discovery_method")
@@ -224,7 +251,10 @@ impl TarpcRpcServer {
                 .and_then(|x| x.as_str())
                 .unwrap_or("")
                 .to_string(),
-            success: v.get("success").and_then(|x| x.as_bool()).unwrap_or(false),
+            success: v
+                .get("success")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
             output: v
                 .get("output")
                 .and_then(|x| x.as_str())
@@ -273,7 +303,10 @@ impl TarpcRpcServer {
             })
             .collect();
         ToolListResult {
-            total: v.get("total").and_then(|x| x.as_u64()).unwrap_or(0) as usize,
+            total: v
+                .get("total")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0) as usize,
             tools,
         }
     }
@@ -316,17 +349,22 @@ impl TarpcRpcServer {
         SystemMetricsResult {
             requests_handled: v
                 .get("requests_handled")
-                .and_then(|x| x.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .unwrap_or(0),
-            errors: v.get("errors").and_then(|x| x.as_u64()).unwrap_or(0),
+            errors: v
+                .get("errors")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
             uptime_seconds: v
                 .get("uptime_seconds")
-                .and_then(|x| x.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .unwrap_or(0),
-            avg_response_time_ms: v.get("avg_response_time_ms").and_then(|x| x.as_f64()),
+            avg_response_time_ms: v
+                .get("avg_response_time_ms")
+                .and_then(serde_json::Value::as_f64),
             success_rate: v
                 .get("success_rate")
-                .and_then(|x| x.as_f64())
+                .and_then(serde_json::Value::as_f64)
                 .unwrap_or(1.0),
         }
     }
@@ -516,7 +554,10 @@ impl SquirrelRpc for TarpcRpcServer {
                     .and_then(|x| x.as_str())
                     .unwrap_or("")
                     .to_string(),
-                version: v.get("version").and_then(|x| x.as_u64()).unwrap_or(0),
+                version: v
+                    .get("version")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0),
                 created_at: v
                     .get("created_at")
                     .and_then(|x| x.as_str())
@@ -549,7 +590,10 @@ impl SquirrelRpc for TarpcRpcServer {
                     .and_then(|x| x.as_str())
                     .unwrap_or("")
                     .to_string(),
-                version: v.get("version").and_then(|x| x.as_u64()).unwrap_or(0),
+                version: v
+                    .get("version")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0),
                 updated_at: v
                     .get("updated_at")
                     .and_then(|x| x.as_str())
@@ -581,7 +625,10 @@ impl SquirrelRpc for TarpcRpcServer {
                     .and_then(|x| x.as_str())
                     .unwrap_or("")
                     .to_string(),
-                version: v.get("version").and_then(|x| x.as_u64()).unwrap_or(0),
+                version: v
+                    .get("version")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0),
                 summary: v
                     .get("summary")
                     .and_then(|x| x.as_str())
@@ -590,7 +637,7 @@ impl SquirrelRpc for TarpcRpcServer {
                 data: v.get("data").cloned().unwrap_or(serde_json::json!({})),
                 synchronized: v
                     .get("synchronized")
-                    .and_then(|x| x.as_bool())
+                    .and_then(serde_json::Value::as_bool)
                     .unwrap_or(false),
             },
             Err(_) => ContextSummarizeResult {
@@ -606,7 +653,10 @@ impl SquirrelRpc for TarpcRpcServer {
     async fn lifecycle_register(self, _ctx: context::Context) -> LifecycleRegisterResult {
         match self.jsonrpc.handle_lifecycle_register().await {
             Ok(v) => LifecycleRegisterResult {
-                success: v.get("success").and_then(|x| x.as_bool()).unwrap_or(true),
+                success: v
+                    .get("success")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(true),
                 message: v
                     .get("message")
                     .and_then(|x| x.as_str())
@@ -635,7 +685,7 @@ impl SquirrelRpc for TarpcRpcServer {
                     .to_string(),
                 uptime_seconds: v
                     .get("uptime_seconds")
-                    .and_then(|x| x.as_u64())
+                    .and_then(serde_json::Value::as_u64)
                     .unwrap_or(0),
             },
             Err(_) => LifecycleStatusResult {

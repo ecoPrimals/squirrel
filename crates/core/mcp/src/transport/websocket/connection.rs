@@ -66,15 +66,13 @@ pub async fn establish_connection(
         response.status()
     );
 
-    let (peer, local) = match socket.get_ref() {
+    let (peer, local) = if let MaybeTlsStream::Plain(tcp) = socket.get_ref() {
         // For plain TCP connections
-        MaybeTlsStream::Plain(tcp) => (tcp.peer_addr().ok(), tcp.local_addr().ok()),
+        (tcp.peer_addr().ok(), tcp.local_addr().ok())
+    } else {
         // For all TLS connections (regardless of implementation)
-        // Use a conditional pattern match that will work with various versions
-        _ => {
-            warn!("Could not determine peer/local address from TLS WebSocket stream.");
-            (None, None)
-        }
+        warn!("Could not determine peer/local address from TLS WebSocket stream.");
+        (None, None)
     };
 
     *peer_addr.lock().await = peer;

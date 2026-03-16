@@ -5,7 +5,7 @@
 // The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
 #![allow(deprecated)]
 
-//! PluginV2 trait with improved thread safety
+//! `PluginV2` trait with improved thread safety
 //!
 //! This module provides a new version of the Plugin trait that uses callbacks
 //! instead of direct adapter references to avoid potential Send/Sync issues.
@@ -41,7 +41,7 @@ pub type LoadStateCallback = Box<dyn Fn(Uuid, &str) -> Result<Value> + Send + Sy
 /// Callback for permission check
 pub type CheckPermissionCallback = Box<dyn Fn(&str, Uuid) -> Result<bool> + Send + Sync>;
 
-/// Callbacks for PluginV2
+/// Callbacks for `PluginV2`
 #[derive(Default)]
 pub struct PluginCallbacks {
     /// Log a message
@@ -102,7 +102,7 @@ pub trait WebPluginExtV2: PluginV2 {
     ) -> impl std::future::Future<Output = Result<Value>> + Send;
 }
 
-/// Helper struct to adapt PluginV2 to Plugin for backward compatibility
+/// Helper struct to adapt `PluginV2` to Plugin for backward compatibility
 #[allow(dead_code)] // Used by adapt_plugin_v2, exercised in tests
 #[derive(Debug)]
 pub struct PluginWrapper<T: PluginV2> {
@@ -111,8 +111,8 @@ pub struct PluginWrapper<T: PluginV2> {
 
 #[allow(dead_code)] // Used by adapt_plugin_v2, exercised in tests
 impl<T: PluginV2> PluginWrapper<T> {
-    /// Create a new PluginWrapper with the given PluginV2 implementation
-    pub fn new(inner: T) -> Self {
+    /// Create a new `PluginWrapper` with the given `PluginV2` implementation
+    pub const fn new(inner: T) -> Self {
         Self { inner }
     }
 }
@@ -140,7 +140,7 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
     }
 }
 
-/// Helper function to adapt a PluginV2 to Plugin (used in tests)
+/// Helper function to adapt a `PluginV2` to Plugin (used in tests)
 #[allow(dead_code)] // Used in tests; public API for PluginV2 adoption
 pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
     Arc::new(PluginWrapper::new(plugin))
@@ -220,7 +220,7 @@ mod tests {
         // Set up callbacks
         let callbacks = PluginCallbacks {
             log: Some(Box::new(|level, message| {
-                println!("[{}] {}", level, message);
+                println!("[{level}] {message}");
                 Ok(())
             })),
             ..Default::default()

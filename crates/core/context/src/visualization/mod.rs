@@ -351,7 +351,54 @@ impl VisualizationSystem {
         };
 
         if let Err(e) = self.event_broadcaster.send(event) {
-            eprintln!("Failed to emit visualization event: {e}");
+            tracing::error!("Failed to emit visualization event: {e}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_visualization_system_config_default() {
+        let config = VisualizationSystemConfig::default();
+        assert!(config.enable_json);
+        assert!(config.enable_terminal);
+        assert!(config.enable_html);
+        assert!(config.enable_metrics);
+        assert_eq!(config.max_history, 1000);
+        assert_eq!(config.update_interval, Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_visualization_event_serialization() {
+        let event = VisualizationEvent {
+            event_type: VisualizationEventType::StateChanged,
+            timestamp: Utc::now(),
+            data: json!({"key": "value"}),
+        };
+        let json_str = serde_json::to_string(&event).expect("serialize");
+        let _deserialized: VisualizationEvent =
+            serde_json::from_str(&json_str).expect("deserialize");
+    }
+
+    #[test]
+    fn test_visualization_event_type_variants() {
+        let _ = VisualizationEventType::StateChanged;
+        let _ = VisualizationEventType::RuleApplied;
+        let _ = VisualizationEventType::VisualizationCreated;
+        let _ = VisualizationEventType::MetricsUpdated;
+        let _ = VisualizationEventType::WebServerStarted;
+    }
+
+    #[tokio::test]
+    async fn test_visualization_system_new_without_web() {
+        let mut config = VisualizationSystemConfig::default();
+        config.enable_web = false;
+        let system = VisualizationSystem::new(config).await.expect("create");
+        let _metrics = system.get_metrics().await;
+        let _rx = system.subscribe_to_events();
     }
 }

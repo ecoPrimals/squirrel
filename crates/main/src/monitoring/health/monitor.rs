@@ -236,7 +236,7 @@ impl HealthMonitor {
     }
 
     /// Set maximum history size
-    pub fn set_max_history_size(&mut self, size: usize) {
+    pub const fn set_max_history_size(&mut self, size: usize) {
         self.max_history_size = size;
     }
 }

@@ -50,18 +50,18 @@ async fn demo_registry_adapter() -> CommandResult<()> {
 
     // List available commands
     let commands = adapter.list_commands()?;
-    println!("Available commands: {:?}", commands);
+    println!("Available commands: {commands:?}");
 
     // Execute commands
     let result = adapter.execute("hello", vec![])?;
-    println!("Hello command result: {}", result);
+    println!("Hello command result: {result}");
 
     let result = adapter.execute("echo", vec!["Hello".to_string(), "there!".to_string()])?;
-    println!("Echo command result: {}", result);
+    println!("Echo command result: {result}");
 
     // Get help for a command
     let help = adapter.get_help("hello")?;
-    println!("Help for hello command: {}", help);
+    println!("Help for hello command: {help}");
 
     Ok(())
 }
@@ -93,9 +93,9 @@ async fn demo_mcp_adapter() -> CommandResult<()> {
     let user_cmds = adapter.get_available_commands(user_auth.clone()).await?;
     let anon_cmds = adapter.get_available_commands(anon_auth.clone()).await?;
 
-    println!("Commands available to admin: {:?}", admin_cmds);
-    println!("Commands available to regular user: {:?}", user_cmds);
-    println!("Commands available to anonymous user: {:?}", anon_cmds);
+    println!("Commands available to admin: {admin_cmds:?}");
+    println!("Commands available to regular user: {user_cmds:?}");
+    println!("Commands available to anonymous user: {anon_cmds:?}");
 
     // Execute commands with different auth levels
     println!("\nCommand execution with authentication:");
@@ -103,20 +103,20 @@ async fn demo_mcp_adapter() -> CommandResult<()> {
     let result = adapter
         .execute_with_auth("regular", vec![], admin_auth.clone())
         .await?;
-    println!("Regular command with admin auth: {}", result);
+    println!("Regular command with admin auth: {result}");
 
     let result = adapter
         .execute_with_auth("admin-cmd", vec![], admin_auth.clone())
         .await?;
-    println!("Admin command with admin auth: {}", result);
+    println!("Admin command with admin auth: {result}");
 
     // Try to execute admin command with regular user
     match adapter
         .execute_with_auth("admin-cmd", vec![], user_auth)
         .await
     {
-        Ok(result) => println!("Unexpected success: {}", result),
-        Err(e) => println!("Expected error: {}", e),
+        Ok(result) => println!("Unexpected success: {result}"),
+        Err(e) => println!("Expected error: {e}"),
     }
 
     // Try to execute admin command anonymously
@@ -124,8 +124,8 @@ async fn demo_mcp_adapter() -> CommandResult<()> {
         .execute_with_auth("admin-cmd", vec![], anon_auth)
         .await
     {
-        Ok(result) => println!("Unexpected success: {}", result),
-        Err(e) => println!("Expected error: {}", e),
+        Ok(result) => println!("Unexpected success: {result}"),
+        Err(e) => println!("Expected error: {e}"),
     }
 
     Ok(())
@@ -150,17 +150,17 @@ async fn demo_plugin_adapter() -> CommandResult<()> {
 
     // List commands
     let commands = adapter.get_commands().await?;
-    println!("Plugin commands: {:?}", commands);
+    println!("Plugin commands: {commands:?}");
 
     // Execute a command
     let result = adapter
         .execute("plugin-cmd", vec!["plugin".to_string(), "arg".to_string()])
         .await?;
-    println!("Plugin command result: {}", result);
+    println!("Plugin command result: {result}");
 
     // Get help
     let help = adapter.get_help("advanced").await?;
-    println!("Help for advanced command: {}", help);
+    println!("Help for advanced command: {help}");
 
     Ok(())
 }
@@ -190,16 +190,16 @@ async fn demo_adapter_trait() -> CommandResult<()> {
 
 /// Tests an adapter through the common trait interface
 async fn test_adapter(adapter: &dyn CommandAdapter, name: &str) -> CommandResult<()> {
-    println!("Testing {} adapter:", name);
+    println!("Testing {name} adapter:");
 
     let result = adapter.execute("test", vec![]).await?;
-    println!("  Execution result: {}", result);
+    println!("  Execution result: {result}");
 
     let help = adapter.get_help("test").await?;
-    println!("  Help result: {}", help);
+    println!("  Help result: {help}");
 
     let commands = adapter.list_commands().await?;
-    println!("  Commands: {:?}", commands);
+    println!("  Commands: {commands:?}");
 
     Ok(())
 }
@@ -207,6 +207,6 @@ async fn test_adapter(adapter: &dyn CommandAdapter, name: &str) -> CommandResult
 /// Helper function to print section headers
 fn print_section(title: &str) {
     println!("\n{}", "=".repeat(50));
-    println!("=== {} ===", title);
+    println!("=== {title} ===");
     println!("{}\n", "=".repeat(50));
 }

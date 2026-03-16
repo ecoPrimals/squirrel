@@ -6,7 +6,7 @@
 //! This module provides LOCAL JWT validation using jsonwebtoken crate.
 //! It brings `ring` v0.17 C dependency, so it's feature-gated for dev/testing only.
 //!
-//! **Production Mode**: Use BearDog JWT delegation (Pure Rust!)
+//! **Production Mode**: Use `BearDog` JWT delegation (Pure Rust!)
 //! **Dev Mode**: Use this module (fast iteration, with ring C dep)
 //!
 //! Enable with: `--features local-jwt`
@@ -15,6 +15,7 @@ use crate::{AuthContext, AuthError};
 use chrono::{DateTime, Utc};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
+use universal_constants::identity;
 use uuid::Uuid;
 
 /// JWT claims payload for local (dev-mode) token validation.
@@ -64,8 +65,8 @@ impl JwtClaims {
             iat: now.timestamp(),
             exp: expires_at.timestamp(),
             nbf: now.timestamp(),
-            iss: "squirrel-mcp".to_string(),
-            aud: "squirrel-mcp-api".to_string(),
+            iss: identity::JWT_ISSUER.to_string(),
+            aud: identity::JWT_AUDIENCE.to_string(),
             jti: Uuid::new_v4().to_string(),
         }
     }
@@ -107,8 +108,8 @@ impl JwtTokenManager {
     /// Create a token manager with the given HMAC secret.
     pub fn new(secret: &[u8]) -> Self {
         let mut validation = Validation::new(Algorithm::HS256);
-        validation.set_issuer(&["squirrel-mcp"]);
-        validation.set_audience(&["squirrel-mcp-api"]);
+        validation.set_issuer(&[identity::JWT_ISSUER]);
+        validation.set_audience(&[identity::JWT_AUDIENCE]);
         validation.validate_exp = true;
         validation.validate_nbf = true;
 

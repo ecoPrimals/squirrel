@@ -34,6 +34,7 @@ impl LoginRequest {
     }
 
     /// Add additional authentication factors (MFA, etc.)
+    #[must_use]
     pub fn with_factors(mut self, factors: serde_json::Value) -> Self {
         self.additional_factors = Some(factors);
         self
@@ -139,7 +140,7 @@ impl Permission {
     }
 
     /// Check if this permission matches another permission
-    pub fn matches(&self, other: &Permission) -> bool {
+    pub fn matches(&self, other: &Self) -> bool {
         self.resource == other.resource && self.action == other.action && self.scope == other.scope
     }
 }
@@ -278,7 +279,7 @@ impl Session {
     }
 
     /// Invalidate the session
-    pub fn invalidate(&mut self) {
+    pub const fn invalidate(&mut self) {
         self.is_active = false;
     }
 }
@@ -286,7 +287,7 @@ impl Session {
 /// JWT Claims Structure (used by both local and delegated JWT)
 ///
 /// This struct is always available regardless of feature flags,
-/// since it's needed by both BearDog JWT client and local JWT validation.
+/// since it's needed by both `BearDog` JWT client and local JWT validation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwtClaims {
     /// Subject claim: the user ID.
@@ -525,8 +526,8 @@ mod tests {
 
     #[test]
     fn login_request_serde_roundtrip() {
-        let req = LoginRequest::new("alice", "secret")
-            .with_factors(serde_json::json!({"mfa": true}));
+        let req =
+            LoginRequest::new("alice", "secret").with_factors(serde_json::json!({"mfa": true}));
         let json = serde_json::to_string(&req).unwrap();
         let restored: LoginRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(restored.username, req.username);

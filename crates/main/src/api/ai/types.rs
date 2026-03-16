@@ -127,7 +127,7 @@ fn default_image_size() -> String {
     "512x512".to_string()
 }
 
-fn default_n_images() -> u32 {
+const fn default_n_images() -> u32 {
     1
 }
 
@@ -193,11 +193,11 @@ pub struct TextGenerationRequest {
     pub params: HashMap<String, serde_json::Value>,
 }
 
-fn default_max_tokens() -> u32 {
+const fn default_max_tokens() -> u32 {
     1024
 }
 
-fn default_temperature() -> f32 {
+const fn default_temperature() -> f32 {
     0.7
 }
 
@@ -265,7 +265,7 @@ impl AiErrorResponse {
 
     /// Mark as retryable
     #[must_use]
-    pub fn retryable(mut self) -> Self {
+    pub const fn retryable(mut self) -> Self {
         self.retryable = true;
         self
     }

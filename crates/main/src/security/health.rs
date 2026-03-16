@@ -90,7 +90,7 @@ impl SecurityHealth {
 
     /// Check if the overall security system is healthy
     #[must_use]
-    pub fn is_healthy(&self) -> bool {
+    pub const fn is_healthy(&self) -> bool {
         matches!(
             self.overall_status,
             HealthStatus::Healthy | HealthStatus::Warning
@@ -255,7 +255,7 @@ impl UniversalSecurityHealthChecker {
 
     /// Get the current health status
     #[must_use]
-    pub fn current_health(&self) -> &SecurityHealth {
+    pub const fn current_health(&self) -> &SecurityHealth {
         &self.health_status
     }
 

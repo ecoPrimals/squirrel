@@ -208,7 +208,7 @@ impl ConfigLoader {
         let config = match path.extension().and_then(|e| e.to_str()) {
             Some("toml") => toml::from_str(&contents)
                 .with_context(|| format!("Failed to parse TOML config: {}", path.display()))?,
-            Some("yaml") | Some("yml") => serde_yml::from_str(&contents)
+            Some("yaml" | "yml") => serde_yml::from_str(&contents)
                 .with_context(|| format!("Failed to parse YAML config: {}", path.display()))?,
             Some("json") => serde_json::from_str(&contents)
                 .with_context(|| format!("Failed to parse JSON config: {}", path.display()))?,
@@ -264,6 +264,7 @@ impl ConfigLoader {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -589,5 +590,27 @@ discovery:
             let result = ConfigLoader::apply_env_overrides(&mut config);
             assert!(result.is_err());
         });
+    }
+
+    #[test]
+    fn test_server_config_socket_override() {
+        let server = ServerConfig::default();
+        assert!(server.socket.is_none());
+        let with_socket = ServerConfig {
+            socket: Some("/tmp/custom.sock".to_string()),
+            ..server
+        };
+        assert_eq!(with_socket.socket.as_deref(), Some("/tmp/custom.sock"));
+    }
+
+    #[test]
+    fn test_logging_config_file_path() {
+        let mut logging = LoggingConfig::default();
+        assert!(logging.file.is_none());
+        logging.file = Some(std::path::PathBuf::from("/var/log/squirrel.log"));
+        assert_eq!(
+            logging.file.as_ref().unwrap(),
+            &std::path::PathBuf::from("/var/log/squirrel.log")
+        );
     }
 }

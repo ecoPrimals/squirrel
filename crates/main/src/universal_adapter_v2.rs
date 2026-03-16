@@ -381,7 +381,7 @@ pub struct UniversalClient {
 
 impl UniversalClient {
     /// Create from active connection
-    fn from_connection(connection: ActiveConnection) -> Self {
+    const fn from_connection(connection: ActiveConnection) -> Self {
         Self { connection }
     }
 
@@ -391,7 +391,7 @@ impl UniversalClient {
     }
 
     /// Get the protocol being used
-    pub fn protocol(&self) -> Protocol {
+    pub const fn protocol(&self) -> Protocol {
         self.connection.protocol
     }
 

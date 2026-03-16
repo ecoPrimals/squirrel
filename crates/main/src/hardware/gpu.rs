@@ -142,56 +142,52 @@ async fn detect_nvidia_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalErro
                 let mut total_vram = 0u64;
 
                 for i in 0..device_count {
-                    if let Ok(device) = nvml.device_by_index(i) {
-                        if let Ok(name) = device.name().map(|n| n.to_string()) {
-                            if let Ok(memory_info) = device.memory_info() {
-                                let vram_total_gb =
-                                    (memory_info.total / (1024 * 1024 * 1024)) as u32;
-                                let vram_free_gb = (memory_info.free / (1024 * 1024 * 1024)) as u32;
+                    if let Ok(device) = nvml.device_by_index(i)
+                        && let Ok(name) = device.name()
+                        && let Ok(memory_info) = device.memory_info()
+                    {
+                        let vram_total_gb = (memory_info.total / (1024 * 1024 * 1024)) as u32;
+                        let vram_free_gb = (memory_info.free / (1024 * 1024 * 1024)) as u32;
 
-                                total_vram += vram_total_gb as u64;
+                        total_vram += u64::from(vram_total_gb);
 
-                                // Get additional GPU info for performance prediction
-                                let compute_capability = device
-                                    .cuda_compute_capability()
-                                    .ok()
-                                    .map(|cc| format!("{}.{}", cc.major, cc.minor));
+                        // Get additional GPU info for performance prediction
+                        let compute_capability = device
+                            .cuda_compute_capability()
+                            .ok()
+                            .map(|cc| format!("{}.{}", cc.major, cc.minor));
 
-                                let architecture = compute_capability
-                                    .as_ref()
-                                    .and_then(|cc| architecture_from_compute_capability(cc));
+                        let architecture = compute_capability
+                            .as_ref()
+                            .and_then(|cc| architecture_from_compute_capability(cc));
 
-                                let power_draw =
-                                    device.power_usage().ok().map(|p| (p / 1000) as u32); // Convert mW to W
+                        let power_draw = device.power_usage().ok().map(|p| p / 1000); // Convert mW to W
 
-                                let memory_bandwidth = device.memory_info().ok().and_then(|_| {
-                                    // Estimate bandwidth from model if not directly available
-                                    estimate_bandwidth(&name)
-                                });
+                        let memory_bandwidth = device.memory_info().ok().and_then(|_| {
+                            // Estimate bandwidth from model if not directly available
+                            estimate_bandwidth(&name)
+                        });
 
-                                // Estimate performance based on GPU model and architecture
-                                let estimated_tokens_per_sec =
-                                    estimate_performance(&name, &architecture);
+                        // Estimate performance based on GPU model and architecture
+                        let estimated_tokens_per_sec = estimate_performance(&name, &architecture);
 
-                                let efficiency = estimated_tokens_per_sec
-                                    .zip(power_draw)
-                                    .map(|(tokens, watts)| tokens / watts as f32);
+                        let efficiency = estimated_tokens_per_sec
+                            .zip(power_draw)
+                            .map(|(tokens, watts)| tokens / watts as f32);
 
-                                gpus.push(GpuInfo {
-                                    model: name,
-                                    vram_total_gb,
-                                    vram_available_gb: vram_free_gb,
-                                    index: i,
-                                    vendor: "NVIDIA".to_string(),
-                                    compute_capability,
-                                    architecture,
-                                    memory_bandwidth_gb_s: memory_bandwidth,
-                                    estimated_tokens_per_sec,
-                                    power_draw_watts: power_draw,
-                                    efficiency_tokens_per_watt: efficiency,
-                                });
-                            }
-                        }
+                        gpus.push(GpuInfo {
+                            model: name,
+                            vram_total_gb,
+                            vram_available_gb: vram_free_gb,
+                            index: i,
+                            vendor: "NVIDIA".to_string(),
+                            compute_capability,
+                            architecture,
+                            memory_bandwidth_gb_s: memory_bandwidth,
+                            estimated_tokens_per_sec,
+                            power_draw_watts: power_draw,
+                            efficiency_tokens_per_watt: efficiency,
+                        });
                     }
                 }
 
@@ -374,38 +370,36 @@ async fn detect_nvidia_fallback() -> Result<Option<LocalGpuCapabilities>, Primal
 
             for (index, line) in stdout.lines().enumerate() {
                 let parts: Vec<&str> = line.split(',').map(str::trim).collect();
-                if parts.len() >= 3 {
-                    if let (Ok(total_mb), Ok(free_mb)) =
+                if parts.len() >= 3
+                    && let (Ok(total_mb), Ok(free_mb)) =
                         (parts[1].parse::<f64>(), parts[2].parse::<f64>())
-                    {
-                        let vram_total_gb = (total_mb / 1024.0).ceil() as u32;
-                        let vram_free_gb = (free_mb / 1024.0).ceil() as u32;
-                        total_vram += vram_total_gb;
+                {
+                    let vram_total_gb = (total_mb / 1024.0).ceil() as u32;
+                    let vram_free_gb = (free_mb / 1024.0).ceil() as u32;
+                    total_vram += vram_total_gb;
 
-                        let model_name = parts[0].to_string();
-                        let architecture = detect_architecture_from_name(&model_name);
-                        let memory_bandwidth = estimate_bandwidth(&model_name);
-                        let estimated_tokens_per_sec =
-                            estimate_performance(&model_name, &architecture);
-                        let power_draw = estimate_power(&model_name);
-                        let efficiency = estimated_tokens_per_sec
-                            .zip(power_draw)
-                            .map(|(tokens, watts)| tokens / watts as f32);
+                    let model_name = parts[0].to_string();
+                    let architecture = detect_architecture_from_name(&model_name);
+                    let memory_bandwidth = estimate_bandwidth(&model_name);
+                    let estimated_tokens_per_sec = estimate_performance(&model_name, &architecture);
+                    let power_draw = estimate_power(&model_name);
+                    let efficiency = estimated_tokens_per_sec
+                        .zip(power_draw)
+                        .map(|(tokens, watts)| tokens / watts as f32);
 
-                        gpus.push(GpuInfo {
-                            model: model_name,
-                            vram_total_gb,
-                            vram_available_gb: vram_free_gb,
-                            index: index as u32,
-                            vendor: "NVIDIA".to_string(),
-                            compute_capability: None, // Not available from nvidia-smi basic query
-                            architecture,
-                            memory_bandwidth_gb_s: memory_bandwidth,
-                            estimated_tokens_per_sec,
-                            power_draw_watts: power_draw,
-                            efficiency_tokens_per_watt: efficiency,
-                        });
-                    }
+                    gpus.push(GpuInfo {
+                        model: model_name,
+                        vram_total_gb,
+                        vram_available_gb: vram_free_gb,
+                        index: index as u32,
+                        vendor: "NVIDIA".to_string(),
+                        compute_capability: None, // Not available from nvidia-smi basic query
+                        architecture,
+                        memory_bandwidth_gb_s: memory_bandwidth,
+                        estimated_tokens_per_sec,
+                        power_draw_watts: power_draw,
+                        efficiency_tokens_per_watt: efficiency,
+                    });
                 }
             }
 
@@ -494,52 +488,49 @@ async fn detect_amd_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalError> 
                         .args(["--showproductname", "--device", &index.to_string()])
                         .output()
                         .await
+                        && name_output.status.success()
                     {
-                        if name_output.status.success() {
-                            let name_stdout = String::from_utf8_lossy(&name_output.stdout);
-                            let model_name = name_stdout
-                                .lines()
-                                .find(|l| !l.contains("GPU") && !l.is_empty())
-                                .unwrap_or("AMD GPU")
-                                .trim()
-                                .to_string();
+                        let name_stdout = String::from_utf8_lossy(&name_output.stdout);
+                        let model_name = name_stdout
+                            .lines()
+                            .find(|l| !l.contains("GPU") && !l.is_empty())
+                            .unwrap_or("AMD GPU")
+                            .trim()
+                            .to_string();
 
-                            // Parse VRAM from first output
-                            if let Some(vram_str) = parts.get(1) {
-                                if let Ok(vram_mb) =
-                                    vram_str.replace("MB", "").trim().parse::<u32>()
-                                {
-                                    let vram_total_gb = vram_mb.div_ceil(1024); // Round up
+                        // Parse VRAM from first output
+                        if let Some(vram_str) = parts.get(1)
+                            && let Ok(vram_mb) = vram_str.replace("MB", "").trim().parse::<u32>()
+                        {
+                            let vram_total_gb = vram_mb.div_ceil(1024); // Round up
 
-                                    // Estimate free VRAM (assume 90% available if idle)
-                                    let vram_free_gb = (vram_total_gb as f32 * 0.9) as u32;
+                            // Estimate free VRAM (assume 90% available if idle)
+                            let vram_free_gb = (vram_total_gb as f32 * 0.9) as u32;
 
-                                    total_vram += vram_total_gb;
+                            total_vram += vram_total_gb;
 
-                                    let architecture = detect_architecture_from_name(&model_name);
-                                    let memory_bandwidth = estimate_bandwidth(&model_name);
-                                    let estimated_tokens_per_sec =
-                                        estimate_performance(&model_name, &architecture);
-                                    let power_draw = estimate_power(&model_name);
-                                    let efficiency = estimated_tokens_per_sec
-                                        .zip(power_draw)
-                                        .map(|(tokens, watts)| tokens / watts as f32);
+                            let architecture = detect_architecture_from_name(&model_name);
+                            let memory_bandwidth = estimate_bandwidth(&model_name);
+                            let estimated_tokens_per_sec =
+                                estimate_performance(&model_name, &architecture);
+                            let power_draw = estimate_power(&model_name);
+                            let efficiency = estimated_tokens_per_sec
+                                .zip(power_draw)
+                                .map(|(tokens, watts)| tokens / watts as f32);
 
-                                    gpus.push(GpuInfo {
-                                        model: model_name,
-                                        vram_total_gb,
-                                        vram_available_gb: vram_free_gb,
-                                        index: index as u32,
-                                        vendor: "AMD".to_string(),
-                                        compute_capability: None, // AMD uses gfx architecture version
-                                        architecture,
-                                        memory_bandwidth_gb_s: memory_bandwidth,
-                                        estimated_tokens_per_sec,
-                                        power_draw_watts: power_draw,
-                                        efficiency_tokens_per_watt: efficiency,
-                                    });
-                                }
-                            }
+                            gpus.push(GpuInfo {
+                                model: model_name,
+                                vram_total_gb,
+                                vram_available_gb: vram_free_gb,
+                                index: index as u32,
+                                vendor: "AMD".to_string(),
+                                compute_capability: None, // AMD uses gfx architecture version
+                                architecture,
+                                memory_bandwidth_gb_s: memory_bandwidth,
+                                estimated_tokens_per_sec,
+                                power_draw_watts: power_draw,
+                                efficiency_tokens_per_watt: efficiency,
+                            });
                         }
                     }
                 }

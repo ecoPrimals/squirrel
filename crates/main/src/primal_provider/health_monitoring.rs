@@ -96,10 +96,7 @@ impl HealthReporting {
             .session_id
             .clone()
             .unwrap_or_else(|| "unknown".to_string());
-        details.insert(
-            "instance_id".to_string(),
-            serde_json::json!(instance_id.clone()),
-        );
+        details.insert("instance_id".to_string(), serde_json::json!(instance_id));
         string_details.insert("instance_id".to_string(), instance_id);
 
         PrimalHealth {

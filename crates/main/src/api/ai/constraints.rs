@@ -77,7 +77,7 @@ pub struct PrioritizedConstraint {
 }
 
 /// Source of a constraint (for audit/debug)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ConstraintSource {
     /// User-specified in request
@@ -104,7 +104,7 @@ pub struct ConstraintSet {
 
 impl ConstraintSet {
     /// Create an empty constraint set
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             constraints: Vec::new(),
         }
@@ -227,7 +227,7 @@ pub struct ConstraintBuilder {
 
 impl ConstraintBuilder {
     /// Create a new constraint builder
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             set: ConstraintSet::new(),
         }

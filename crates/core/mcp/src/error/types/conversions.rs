@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Type conversion implementations for MCPError.
+//! Type conversion implementations for `MCPError`.
 
 use super::{MCPError, WireFormatError};
 use crate::error::protocol_err::ProtocolError;
@@ -21,20 +21,20 @@ impl From<serde_json::Error> for MCPError {
 
 impl From<WireFormatError> for MCPError {
     fn from(err: WireFormatError) -> Self {
-        MCPError::Protocol(ProtocolError::Wire(err.to_string()))
+        Self::Protocol(ProtocolError::Wire(err.to_string()))
     }
 }
 
 // Implement From<String> for MCPError to handle cases where String is converted to MCPError
 impl From<String> for MCPError {
     fn from(msg: String) -> Self {
-        MCPError::General(msg)
+        Self::General(msg)
     }
 }
 
 // Implement From<&str> for MCPError for convenience
 impl From<&str> for MCPError {
     fn from(msg: &str) -> Self {
-        MCPError::General(msg.to_string())
+        Self::General(msg.to_string())
     }
 }

@@ -133,6 +133,7 @@ impl ZeroCopyPluginMetadata {
     }
 
     /// Add capability (returns new instance with updated capabilities)
+    #[must_use]
     pub fn with_capability(mut self, capability: String) -> Self {
         let mut caps = (*self.capabilities).clone();
         caps.push(capability);
@@ -141,6 +142,7 @@ impl ZeroCopyPluginMetadata {
     }
 
     /// Add dependency (returns new instance with updated dependencies)
+    #[must_use]
     pub fn with_dependency(mut self, dependency: String) -> Self {
         let mut deps = (*self.dependencies).clone();
         deps.push(dependency);
@@ -149,6 +151,7 @@ impl ZeroCopyPluginMetadata {
     }
 
     /// Add tag (returns new instance with updated tags)
+    #[must_use]
     pub fn with_tag(mut self, tag: String) -> Self {
         let mut tag_list = (*self.tags).clone();
         tag_list.push(tag);
@@ -157,6 +160,7 @@ impl ZeroCopyPluginMetadata {
     }
 
     /// Add custom metadata (returns new instance with updated metadata)
+    #[must_use]
     pub fn with_custom_metadata(mut self, key: String, value: String) -> Self {
         let mut metadata = (*self.custom_metadata).clone();
         metadata.insert(key, value);
@@ -196,7 +200,9 @@ impl ZeroCopyPluginMetadata {
 
     /// Get custom metadata value (zero allocation)
     pub fn get_custom_metadata(&self, key: &str) -> Option<&str> {
-        self.custom_metadata.get(key).map(|s| s.as_str())
+        self.custom_metadata
+            .get(key)
+            .map(std::string::String::as_str)
     }
 }
 
@@ -279,7 +285,7 @@ impl ZeroCopyPluginConfig {
 
     /// Get environment variable (zero allocation)
     pub fn get_env(&self, key: &str) -> Option<&str> {
-        self.environment.get(key).map(|s| s.as_str())
+        self.environment.get(key).map(std::string::String::as_str)
     }
 }
 
@@ -346,6 +352,7 @@ impl ZeroCopyPluginState {
     }
 
     /// Update status (creates new state with updated status)
+    #[must_use]
     pub fn with_status(mut self, new_status: PluginStatus, reason: Option<String>) -> Self {
         let transition = StateTransition {
             from: self.status,
@@ -617,6 +624,7 @@ impl ZeroCopyPluginRegistry {
     pub async fn get_plugin(&self, plugin_id: Uuid) -> Option<Arc<ZeroCopyPluginEntry>> {
         let plugins = self.plugins.read().await;
         let result = plugins.get(&plugin_id).cloned();
+        drop(plugins);
 
         // Update stats
         {
@@ -705,54 +713,63 @@ impl PluginMetadataBuilder {
     }
 
     /// Set plugin ID
-    pub fn id(mut self, id: Uuid) -> Self {
+    #[must_use]
+    pub const fn id(mut self, id: Uuid) -> Self {
         self.id = Some(id);
         self
     }
 
     /// Set plugin name
+    #[must_use]
     pub fn name(mut self, name: String) -> Self {
         self.name = Some(name);
         self
     }
 
     /// Set plugin version
+    #[must_use]
     pub fn version(mut self, version: String) -> Self {
         self.version = Some(version);
         self
     }
 
     /// Set plugin description
+    #[must_use]
     pub fn description(mut self, description: String) -> Self {
         self.description = Some(description);
         self
     }
 
     /// Set plugin author
+    #[must_use]
     pub fn author(mut self, author: String) -> Self {
         self.author = Some(author);
         self
     }
 
     /// Add capability
+    #[must_use]
     pub fn capability(mut self, capability: String) -> Self {
         self.capabilities.push(capability);
         self
     }
 
     /// Add dependency
+    #[must_use]
     pub fn dependency(mut self, dependency: String) -> Self {
         self.dependencies.push(dependency);
         self
     }
 
     /// Add tag
+    #[must_use]
     pub fn tag(mut self, tag: String) -> Self {
         self.tags.push(tag);
         self
     }
 
     /// Add custom metadata
+    #[must_use]
     pub fn custom_metadata(mut self, key: String, value: String) -> Self {
         self.custom_metadata.insert(key, value);
         self

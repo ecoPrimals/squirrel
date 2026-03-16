@@ -292,19 +292,19 @@ impl UniversalAiRequest {
     }
 
     /// Set max tokens
-    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+    pub const fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
         self
     }
 
     /// Set temperature
-    pub fn with_temperature(mut self, temperature: f32) -> Self {
+    pub const fn with_temperature(mut self, temperature: f32) -> Self {
         self.temperature = Some(temperature);
         self
     }
 
     /// Enable streaming
-    pub fn with_streaming(mut self) -> Self {
+    pub const fn with_streaming(mut self) -> Self {
         self.stream = true;
         self
     }

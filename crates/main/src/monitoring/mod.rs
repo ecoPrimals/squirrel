@@ -95,7 +95,7 @@ pub struct CustomMetricDefinition {
 }
 
 /// Metric type enumeration
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MetricType {
     /// Monotonically increasing counter
     Counter,
@@ -178,7 +178,7 @@ pub struct SystemStatus {
 }
 
 /// System health state
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HealthState {
     /// All systems operational
     Healthy,
