@@ -6,10 +6,6 @@ authors = ["ecoPrimals Contributors"]
 license = "AGPL-3.0-only"
 description = "Plugin system for squirrel"
 
-[lints.clippy]
-# Modern async Rust uses async fn in traits (stable since Rust 1.75)
-async_fn_in_trait = "allow"
-
 [dependencies]
 # Core dependencies
 async-trait = "0.1"
@@ -64,3 +60,6 @@ cli = []
 marketplace = ["dep:reqwest"]
 repository-server = ["marketplace"]
 standard = ["core", "web", "mcp-interfaces", "marketplace", "repository-server"] 
+
+[lints]
+workspace = true

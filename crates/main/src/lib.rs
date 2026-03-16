@@ -44,7 +44,11 @@ pub mod error_handling;
 pub mod hardware;
 pub mod metrics; // Capability-based metrics and observability
 pub mod monitoring;
+/// Niche self-knowledge: identity, capabilities, costs, dependencies.
+pub mod niche;
 pub mod observability;
+/// Orchestration primitives for multi-primal composition (deploy graphs).
+pub mod orchestration;
 /// Zero-copy and performance optimization utilities.
 pub mod optimization;
 pub mod primal_provider;

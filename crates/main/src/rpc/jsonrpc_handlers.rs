@@ -9,6 +9,7 @@
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
 use super::types::*;
+use crate::niche;
 use serde_json::Value;
 use std::time::Instant;
 use tracing::{debug, info, warn};
@@ -282,7 +283,10 @@ impl JsonRpcServer {
                 "protocol": reg.protocol,
                 "service_name": self.service_name,
                 "domain": reg.domain,
-            }
+            },
+            "cost_estimates": niche::cost_estimates_json(),
+            "operation_dependencies": niche::operation_dependencies(),
+            "consumed_capabilities": niche::CONSUMED_CAPABILITIES,
         });
 
         Ok(response)
@@ -930,9 +934,27 @@ mod tests {
         let caps = result
             .get("capabilities")
             .and_then(|v| v.as_array())
-            .unwrap();
+            .expect("test: capabilities must be array");
         assert!(caps.iter().any(|c| c.as_str() == Some("ai.query")));
         assert!(caps.iter().any(|c| c.as_str() == Some("system.health")));
+
+        // Verify niche self-knowledge fields are present
+        assert!(
+            result.get("cost_estimates").is_some(),
+            "response must include cost_estimates"
+        );
+        assert!(
+            result.get("operation_dependencies").is_some(),
+            "response must include operation_dependencies"
+        );
+        let consumed = result
+            .get("consumed_capabilities")
+            .and_then(|v| v.as_array())
+            .expect("test: consumed_capabilities must be array");
+        assert!(
+            consumed.iter().any(|c| c.as_str() == Some("discovery.register")),
+            "consumed_capabilities must include discovery.register"
+        );
     }
 
     #[tokio::test]

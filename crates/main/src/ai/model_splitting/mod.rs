@@ -38,7 +38,7 @@
 //!
 //! ## Migration Guide
 //!
-//! See: `docs/architecture/MODEL_SPLITTING_MOVED_TO_TOADSTOOL.md`
+//! Model loading → ToadStool. Tensor routing → Songbird.
 //!
 //! ## Stub Types (For Backward Compatibility)
 //!

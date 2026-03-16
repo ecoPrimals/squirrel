@@ -131,6 +131,7 @@ tempfile = "3.8"
 temp-env = "0.3"  # Env var isolation for tests (avoids cross-test interference)
 pretty_assertions = "1.4"
 serial_test = "3.0"  # For serializing tests that modify global state (env vars)
+proptest = "1.4"     # Property-based testing (groundSpring/wetSpring pattern)
 
 [[bin]]
 name = "squirrel"
@@ -144,3 +145,6 @@ required-features = ["benchmarking"]
 [lib]
 name = "squirrel"
 path = "src/lib.rs" 
+
+[lints]
+workspace = true

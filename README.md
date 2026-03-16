@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/syntheticChemistry) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,465 passing | **Edition**: 2024 | **Rust**: 1.85+ | **Coverage**: 66%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,552 passing | **Edition**: 2024 | **Rust**: 1.85+ | **Coverage**: 66%
 
 ---
 
@@ -74,7 +74,8 @@ IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
 Transport: Unix sockets → Named pipes → TCP (automatic fallback)
 HTTP:      Feature-gated OFF by default (optional dev/test only)
-Lifecycle: biomeOS lifecycle.register + 30s heartbeat (when orchestrator detected)
+Lifecycle: biomeOS lifecycle.register + Songbird discovery.register + 30s heartbeat
+Niche:     niche.rs self-knowledge (capabilities, costs, dependencies, consumed)
 Edition:   Rust 2024
 ```
 
@@ -115,9 +116,8 @@ squirrel/
 │   ├── universal-constants/  # Shared constants
 │   ├── universal-error/      # Unified error types
 │   └── universal-patterns/   # Transport and traits
-├── tests/                    # Integration + chaos tests
+├── tests/                    # Integration, chaos, proptest
 ├── specs/                    # Specifications
-├── examples/                 # Code examples
 └── config/                   # Environment configs
 ```
 
@@ -126,6 +126,7 @@ squirrel/
 ## Code Standards
 
 - `#![forbid(unsafe_code)]` unconditional on all 22 crates
+- `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code
 - `#![warn(missing_docs)]` on all library crates
 - `cargo clippy` with `pedantic` + `nursery` lints enabled
 - `cargo fmt` and `cargo doc`: zero warnings
@@ -135,6 +136,7 @@ squirrel/
 - Edition 2024 across all 22 workspace crates
 - `tracing` for logging (no `log` crate)
 - Capability-based discovery (no hardcoded primal names)
+- Property-based testing via `proptest` for serialization invariants
 
 ---
 

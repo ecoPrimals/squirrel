@@ -34,10 +34,12 @@
 //! ## Usage
 //!
 //! ```rust,no_run
-//! use squirrel_mcp_auth::{AuthResult, DelegatedJwtClient};
+//! use squirrel_mcp_auth::{AuthResult, capability_jwt::CapabilityJwtConfig};
 //!
-//! # async fn example() -> AuthResult<()> {
-//! let jwt_client = DelegatedJwtClient::new("unix:///run/user/1000/biomeos/beardog.sock");
+//! # fn example() -> AuthResult<()> {
+//! let config = CapabilityJwtConfig::default();
+//! // Production: DelegatedJwtClient::new(config)?
+//! // Dev: DelegatedJwtClient::new_dev(secret)?
 //! # Ok(())
 //! # }
 //! ```

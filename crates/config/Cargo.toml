@@ -42,13 +42,5 @@ tempfile = "3.8"
 serial_test = "3.0"
 temp-env = "0.3"
 
-[lints.clippy]
-# Stylistic lints with 20+ instances - allow at crate level
-missing-errors-doc = "allow"
-missing-panics-doc = "allow"
-must-use-candidate = "allow"
-missing-const-for-fn = "allow"
-doc-markdown = "allow"
-uninlined-format-args = "allow"
-redundant-closure-for-method-calls = "allow"
-assigning-clones = "allow"
+[lints]
+workspace = true

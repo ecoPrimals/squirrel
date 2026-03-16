@@ -9,6 +9,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.4] - 2026-03-16
+
+Spring absorption: niche self-knowledge, Songbird announcement, proptest,
+deployment graph types, SocketConfig DI, deny(unwrap/expect).
+
+### Added
+
+- **`niche.rs`** — structured self-knowledge module (groundSpring/wetSpring/airSpring pattern):
+  `CAPABILITIES`, `CONSUMED_CAPABILITIES`, `COST_ESTIMATES`, `DEPENDENCIES`,
+  `SEMANTIC_MAPPINGS`, `FEATURE_GATES`, plus JSON functions `operation_dependencies()`,
+  `cost_estimates_json()`, `semantic_mappings_json()` — 8 invariant tests
+- **Songbird announcement** — `capabilities/songbird.rs` implements `discovery.register` +
+  `discovery.heartbeat` loop (wetSpring pattern); wired into main server startup
+- **`orchestration/` module** — `DeploymentGraphDef`, `GraphNode`, `TickConfig` types
+  wire-compatible with ludoSpring exp054 and biomeOS TOML; includes topological sort,
+  cycle detection, `requires_squirrel()` — 7 tests
+- **`SocketConfig` DI pattern** — injectable config struct for socket path resolution
+  (airSpring pattern); `_with` variants avoid `temp_env`/`#[serial]` — 8 tests
+- **`proptest` round-trip tests** — `tests/proptest_roundtrip.rs` with 10 property tests
+  covering all JSON-RPC types and niche JSON serialization
+- `PartialEq` derive on all JSON-RPC request/response types
+
+### Changed
+
+- **`deny(clippy::expect_used, clippy::unwrap_used)`** in `[workspace.lints.clippy]`
+- All 22 crates now inherit `[lints] workspace = true`
+- `capability.discover` response now includes `cost_estimates`, `operation_dependencies`,
+  and `consumed_capabilities` from `niche.rs`
+- `send_jsonrpc` in lifecycle module made `pub(crate)` for reuse by songbird module
+
+### Fixed
+
+- Pre-existing doctest in `squirrel-mcp-auth` (`DelegatedJwtClient::new` signature change)
+- Pre-existing doctest in `universal-error` (`Arc<str>` conversion)
+- Removed conflicting `[lints.clippy]` sections from 4 crates (config, plugins, core, mcp)
+
+### Metrics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Tests | 4,465 | 4,552 (+87) |
+| Niche self-knowledge | None | `niche.rs` with 20 capabilities, 14 consumed |
+| Songbird registration | Not implemented | `discovery.register` + heartbeat |
+| Property tests | 0 | 10 (proptest round-trip) |
+| Deployment graph types | None | `DeploymentGraphDef` + topo sort |
+| SocketConfig DI tests | 0 | 8 (no temp_env needed) |
+| Workspace lint inheritance | 11/22 crates | 22/22 crates |
+| deny(unwrap/expect) | Not enforced | Enforced workspace-wide |
+
 ## [0.1.0-alpha.3] - 2026-03-16
 
 Deep debt evolution, modern idiomatic Rust, and ecosystem standards alignment.

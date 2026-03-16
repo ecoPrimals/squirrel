@@ -31,6 +31,7 @@
 pub mod discovery;
 pub mod lifecycle;
 pub mod registry;
+pub mod songbird;
 
 // Re-exports for convenience
 pub use discovery::{
@@ -38,3 +39,4 @@ pub use discovery::{
 };
 pub use lifecycle::{find_biomeos_socket, register_with_biomeos};
 pub use registry::CapabilityRegistry;
+pub use songbird::discover_socket as discover_songbird_socket;

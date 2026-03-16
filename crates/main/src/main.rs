@@ -289,6 +289,24 @@ async fn run_server(
         println!("   ℹ️  No biomeOS socket found — standalone mode");
     }
 
+    // Songbird service-mesh registration (wetSpring pattern)
+    let shutdown_rx_songbird = shutdown_tx.subscribe();
+    if let Some(songbird_socket) = squirrel::capabilities::songbird::discover_socket() {
+        if squirrel::capabilities::songbird::register(&songbird_socket, &socket_path).await {
+            println!("✅ Registered with Songbird");
+
+            let _songbird_heartbeat = squirrel::capabilities::songbird::start_heartbeat_loop(
+                songbird_socket,
+                socket_path.clone(),
+                std::time::Duration::from_secs(30),
+                shutdown_rx_songbird,
+            );
+            println!("✅ Songbird heartbeat started (30s interval)");
+        }
+    } else {
+        println!("   ℹ️  No Songbird socket found — peer discovery unavailable");
+    }
+
     println!("   Press Ctrl+C to stop");
     println!();
 

@@ -33,6 +33,95 @@
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
+/// Injectable socket configuration (airSpring `SocketConfig` pattern).
+///
+/// Replaces env-var reads in production code with explicit config fields,
+/// enabling test isolation without `temp_env` or `#[serial]`.
+#[derive(Debug, Clone, Default)]
+pub struct SocketConfig {
+    /// Overrides `SQUIRREL_SOCKET` (Tier 1).
+    pub squirrel_socket: Option<String>,
+    /// Overrides `BIOMEOS_SOCKET_PATH` (Tier 2).
+    pub biomeos_socket_path: Option<String>,
+    /// Overrides `PRIMAL_SOCKET` (Tier 3).
+    pub primal_socket: Option<String>,
+    /// Overrides `SQUIRREL_FAMILY_ID`.
+    pub family_id: Option<String>,
+    /// Overrides `SQUIRREL_NODE_ID`.
+    pub node_id: Option<String>,
+}
+
+impl SocketConfig {
+    /// Build config by reading the environment (the default path).
+    #[must_use]
+    pub fn from_env() -> Self {
+        Self {
+            squirrel_socket: std::env::var("SQUIRREL_SOCKET").ok(),
+            biomeos_socket_path: std::env::var("BIOMEOS_SOCKET_PATH").ok(),
+            primal_socket: std::env::var("PRIMAL_SOCKET").ok(),
+            family_id: std::env::var("SQUIRREL_FAMILY_ID").ok(),
+            node_id: std::env::var("SQUIRREL_NODE_ID").ok(),
+        }
+    }
+}
+
+/// Get socket path using an explicit `SocketConfig` (injectable, test-friendly).
+#[must_use]
+pub fn get_socket_path_with(config: &SocketConfig, node_id: &str) -> String {
+    // Tier 1: Primal-specific socket path override
+    if let Some(ref socket_path) = config.squirrel_socket {
+        debug!("Socket Path: {socket_path} (Tier 1 - primal-specific)");
+        return socket_path.clone();
+    }
+
+    // Tier 2: Generic orchestrator (Neural API coordination)
+    if let Some(ref socket_path) = config.biomeos_socket_path {
+        debug!("Socket Path: {socket_path} (Tier 2 - Neural API)");
+        return socket_path.clone();
+    }
+
+    let family_id = get_family_id_with(config);
+
+    // Tier 3: Generic PRIMAL_SOCKET with family suffix
+    if let Some(ref generic_socket) = config.primal_socket {
+        let suffixed_path = format!("{generic_socket}-{family_id}");
+        debug!("Socket Path: {suffixed_path} (Tier 3 - generic primal)");
+        return suffixed_path;
+    }
+
+    // Tier 4: XDG runtime directory
+    if let Some(xdg_path) = get_xdg_socket_path() {
+        debug!("Socket Path: {xdg_path} (Tier 4 - STANDARD biomeOS)");
+        return xdg_path;
+    }
+
+    // Tier 5: Temp directory fallback
+    let fallback_path = format!("/tmp/squirrel-{family_id}-{node_id}.sock");
+    debug!("Socket Path: {fallback_path} (Tier 5 - dev/testing ONLY)");
+    fallback_path
+}
+
+/// Get family ID from config or use default.
+#[must_use]
+pub fn get_family_id_with(config: &SocketConfig) -> String {
+    config
+        .family_id
+        .clone()
+        .unwrap_or_else(|| "default".to_string())
+}
+
+/// Get node ID from config or use hostname.
+#[must_use]
+pub fn get_node_id_with(config: &SocketConfig) -> String {
+    config.node_id.clone().unwrap_or_else(|| {
+        debug!("No node_id in config, using hostname");
+        hostname::get()
+            .ok()
+            .and_then(|h| h.into_string().ok())
+            .unwrap_or_else(|| "squirrel".to_string())
+    })
+}
+
 /// Get the socket path following biomeOS atomic standards
 ///
 /// ## Priority Order (5-Tier Fallback)
@@ -65,53 +154,7 @@ use tracing::{debug, info, warn};
 /// ```
 #[must_use]
 pub fn get_socket_path(node_id: &str) -> String {
-    // Tier 1: Primal-specific socket path override
-    if let Ok(socket_path) = std::env::var("SQUIRREL_SOCKET") {
-        debug!(
-            "Socket Path: {} (from SQUIRREL_SOCKET env var ⭐ Tier 1 - primal-specific)",
-            socket_path
-        );
-        return socket_path;
-    }
-
-    // Tier 2: Generic orchestrator environment variable (Neural API coordination)
-    if let Ok(socket_path) = std::env::var("BIOMEOS_SOCKET_PATH") {
-        debug!(
-            "Socket Path: {} (from BIOMEOS_SOCKET_PATH env var ⭐ Tier 2 - Neural API)",
-            socket_path
-        );
-        return socket_path;
-    }
-
-    // Get family ID for atomic grouping
-    let family_id = get_family_id();
-
-    // Tier 3: Generic PRIMAL_SOCKET with family suffix (like BearDog A++ pattern)
-    if let Ok(generic_socket) = std::env::var("PRIMAL_SOCKET") {
-        let suffixed_path = format!("{generic_socket}-{family_id}");
-        debug!(
-            "Socket Path: {} (from PRIMAL_SOCKET env var ⭐ Tier 3 - generic primal)",
-            suffixed_path
-        );
-        return suffixed_path;
-    }
-
-    // Tier 4: XDG runtime directory with biomeos subdirectory (STANDARD biomeOS path)
-    if let Some(xdg_path) = get_xdg_socket_path() {
-        debug!(
-            "Socket Path: {} (from XDG runtime ⭐ Tier 4 - STANDARD biomeOS)",
-            xdg_path
-        );
-        return xdg_path;
-    }
-
-    // Tier 5: Temp directory fallback (dev/testing only - NOT for production!)
-    let fallback_path = format!("/tmp/squirrel-{family_id}-{node_id}.sock");
-    debug!(
-        "Socket Path: {} (from /tmp ⭐ Tier 5 - dev/testing ONLY)",
-        fallback_path
-    );
-    fallback_path
+    get_socket_path_with(&SocketConfig::from_env(), node_id)
 }
 
 /// Get XDG-compliant socket path with biomeos subdirectory (STANDARD)
@@ -182,26 +225,16 @@ pub fn ensure_biomeos_directory() -> std::io::Result<PathBuf> {
     Ok(path)
 }
 
-/// Get family ID from environment or use default
-///
-/// Family ID groups primals into atomic units (Tower, Node, Nest).
+/// Get family ID from environment or use default.
 #[must_use]
 pub fn get_family_id() -> String {
-    std::env::var("SQUIRREL_FAMILY_ID").unwrap_or_else(|_| "default".to_string())
+    get_family_id_with(&SocketConfig::from_env())
 }
 
-/// Get node ID from environment or generate one
-///
-/// Node ID identifies individual instances within a family.
+/// Get node ID from environment or generate one.
 #[must_use]
 pub fn get_node_id() -> String {
-    std::env::var("SQUIRREL_NODE_ID").unwrap_or_else(|_| {
-        debug!("SQUIRREL_NODE_ID not set, using hostname");
-        hostname::get()
-            .ok()
-            .and_then(|h| h.into_string().ok())
-            .unwrap_or_else(|| "squirrel".to_string())
-    })
+    get_node_id_with(&SocketConfig::from_env())
 }
 
 /// Prepare socket path for binding
@@ -471,5 +504,88 @@ mod tests {
             let path = get_socket_path("test-node");
             assert!(path.contains("/biomeos/squirrel.sock") || path.starts_with("/tmp/"));
         });
+    }
+
+    // ── Injectable SocketConfig tests (no temp_env, no serial) ──────────
+
+    #[test]
+    fn di_tier1_squirrel_socket() {
+        let config = SocketConfig {
+            squirrel_socket: Some("/custom/squirrel.sock".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            get_socket_path_with(&config, "node1"),
+            "/custom/squirrel.sock"
+        );
+    }
+
+    #[test]
+    fn di_tier2_biomeos_socket_path() {
+        let config = SocketConfig {
+            biomeos_socket_path: Some("/tmp/squirrel-nat0.sock".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            get_socket_path_with(&config, "node1"),
+            "/tmp/squirrel-nat0.sock"
+        );
+    }
+
+    #[test]
+    fn di_tier1_overrides_tier2() {
+        let config = SocketConfig {
+            squirrel_socket: Some("/custom/squirrel.sock".into()),
+            biomeos_socket_path: Some("/tmp/should-not-use.sock".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            get_socket_path_with(&config, "node1"),
+            "/custom/squirrel.sock"
+        );
+    }
+
+    #[test]
+    fn di_tier3_primal_socket_with_family() {
+        let config = SocketConfig {
+            primal_socket: Some("/custom/primal".into()),
+            family_id: Some("nat0".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            get_socket_path_with(&config, "node1"),
+            "/custom/primal-nat0"
+        );
+    }
+
+    #[test]
+    fn di_family_id_from_config() {
+        let config = SocketConfig {
+            family_id: Some("test-family-42".into()),
+            ..Default::default()
+        };
+        assert_eq!(get_family_id_with(&config), "test-family-42");
+    }
+
+    #[test]
+    fn di_family_id_default() {
+        let config = SocketConfig::default();
+        assert_eq!(get_family_id_with(&config), "default");
+    }
+
+    #[test]
+    fn di_node_id_from_config() {
+        let config = SocketConfig {
+            node_id: Some("custom-node".into()),
+            ..Default::default()
+        };
+        assert_eq!(get_node_id_with(&config), "custom-node");
+    }
+
+    #[test]
+    fn di_node_id_default_hostname() {
+        let config = SocketConfig::default();
+        let node_id = get_node_id_with(&config);
+        assert!(!node_id.is_empty());
     }
 }

@@ -56,3 +56,6 @@ clap.workspace = true
 [features]
 default = []
 # Feature flag for orchestrator integration removed - now handled by Songbird
+
+[lints]
+workspace = true

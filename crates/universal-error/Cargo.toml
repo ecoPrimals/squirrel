@@ -25,3 +25,6 @@ squirrel-mcp = { path = "../core/mcp" }
 
 [features]
 default = []
+
+[lints]
+workspace = true

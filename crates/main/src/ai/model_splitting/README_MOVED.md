@@ -49,7 +49,7 @@ Squirrel now only:
 - Routes user requests
 - Manages AI intent (NOT hardware details)
 
-See: `docs/architecture/MODEL_SPLITTING_MOVED_TO_TOADSTOOL.md`
+See ToadStool repository for the new implementation.
 
 ---
 

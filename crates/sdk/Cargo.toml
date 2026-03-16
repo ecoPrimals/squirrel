@@ -134,3 +134,6 @@ wasm-bindgen-test = "0.3"
 [lib]
 # rlib for all targets; cdylib dropped on musl/native (use wasm-pack for wasm cdylib builds)
 crate-type = ["rlib"]
+
+[lints]
+workspace = true

@@ -64,7 +64,7 @@ pub async fn register_with_biomeos(
         "id": 1
     });
 
-    match send_jsonrpc(biomeos_socket, &request).await {
+    match send_jsonrpc_public(biomeos_socket, &request).await {
         Ok(resp) => {
             if resp.get("error").is_some() {
                 warn!(
@@ -113,7 +113,7 @@ pub fn spawn_heartbeat(
                         "id": 1
                     });
 
-                    match send_jsonrpc(&biomeos_socket, &request).await {
+                    match send_jsonrpc_public(&biomeos_socket, &request).await {
                         Ok(_) => debug!("heartbeat sent to biomeOS"),
                         Err(e) => debug!("heartbeat failed (biomeOS may be down): {e}"),
                     }
@@ -176,7 +176,9 @@ pub fn install_signal_handlers(
 }
 
 /// Send a single JSON-RPC request over a Unix socket and read the response.
-async fn send_jsonrpc(
+///
+/// Used by both `lifecycle` (biomeOS) and `songbird` announcement modules.
+pub(crate) async fn send_jsonrpc_public(
     socket: &Path,
     request: &serde_json::Value,
 ) -> anyhow::Result<serde_json::Value> {

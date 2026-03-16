@@ -218,7 +218,7 @@ pub type Result<T> = std::result::Result<T, UniversalError>;
 ///
 /// fn operation_that_fails() -> Result<()> {
 ///     // Any domain error automatically converts
-///     Err(UniversalError::General("something went wrong".to_string()))
+///     Err(UniversalError::General("something went wrong".into()))
 /// }
 /// ```
 ///

@@ -578,7 +578,6 @@ impl PluginPerformanceOptimizer {
             for entry in plugin_entries {
                 // STUB: Plugin loading is intentionally simplified for performance benchmarking.
                 // Full dynamic loading will be implemented when the unified plugin system is redesigned.
-                // Tracked in: specs/active/plugins/unified-plugin-system.md
                 warn!(
                     plugin_name = %entry.name(),
                     "batch_load_plugins: stub path — no real plugin loaded; unified plugin system not yet implemented"
@@ -771,7 +770,6 @@ impl BatchProcessor {
         let results = Vec::new();
 
         // STUB: Simulate batch loading. Full dynamic loading deferred to unified plugin system.
-        // Tracked in: specs/active/plugins/unified-plugin-system.md
         for entry in plugin_entries {
             warn!(
                 plugin_name = %entry.name(),

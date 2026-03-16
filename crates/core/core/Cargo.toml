@@ -6,10 +6,6 @@ authors = ["ecoPrimals Contributors"]
 license = "AGPL-3.0-only"
 description = "Core squirrel functionality"
 
-[lints.clippy]
-# Modern async Rust uses async fn in traits (stable since Rust 1.75)
-async_fn_in_trait = "allow"
-
 [dependencies]
 # Core async and serialization
 tokio = { version = "1.0", features = ["full"] }
@@ -69,3 +65,6 @@ http-api = ["dep:axum", "dep:tower", "dep:tower-http", "mesh"]
 # HTTP client utilities (brings reqwest)
 http-client = ["dep:reqwest"]
 
+
+[lints]
+workspace = true

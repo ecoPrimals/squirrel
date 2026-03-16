@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 16, 2026
-**Version**: 0.1.0-alpha.3
+**Version**: 0.1.0-alpha.4
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,9 +10,9 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN (0 errors, 0 warnings) |
-| Tests | 4,465 passing / 0 failed across 22 crates |
+| Tests | 4,552 passing / 0 failed across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
-| Clippy | CLEAN (pedantic + nursery lints enabled) |
+| Clippy | CLEAN (pedantic + nursery + deny unwrap/expect) |
 | Docs | All 22 crates `#![warn(missing_docs)]` — zero doc warnings |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 — `#![forbid(unsafe_code)]` unconditional on all 22 crates |
@@ -20,6 +20,7 @@
 | Coverage | 66% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 22 workspace members |
 | Files >1000 lines | 0 |
+| Property tests | 10 (proptest round-trip for all JSON-RPC types + niche) |
 
 ## JSON-RPC Methods
 
@@ -41,6 +42,34 @@ All 18 JSON-RPC methods mirrored as tarpc service methods with typed request/res
 structs. `TarpcRpcServer` delegates to `JsonRpcServer` for shared handler logic.
 Protocol negotiation selects tarpc or JSON-RPC per-connection.
 
+## Niche Self-Knowledge (`niche.rs`)
+
+Follows the groundSpring/wetSpring/airSpring niche pattern:
+
+| Constant | What |
+|----------|------|
+| `CAPABILITIES` | 20 exposed methods (ai, capability, system, discovery, tool, context, lifecycle) |
+| `CONSUMED_CAPABILITIES` | 14 external capabilities from BearDog, Songbird, ToadStool, NestGate |
+| `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
+| `DEPENDENCIES` | 4 primals (beardog, songbird required; toadstool, nestgate optional) |
+| `SEMANTIC_MAPPINGS` | Short name → fully qualified capability mapping |
+| `operation_dependencies()` | DAG inputs per operation for parallelization |
+
+`capability.discover` response now includes `cost_estimates`, `operation_dependencies`, and `consumed_capabilities`.
+
+## Service Registration
+
+| Target | Protocol | Status |
+|--------|----------|--------|
+| biomeOS | `lifecycle.register` + 30s heartbeat | Active (when orchestrator detected) |
+| Songbird | `discovery.register` + 30s heartbeat | Active (when Songbird socket detected) |
+
+## Orchestration
+
+`DeploymentGraphDef` types (from ludoSpring exp054) absorbed for multi-primal
+composition awareness. Squirrel can parse deployment graphs and identify nodes
+requiring AI capabilities.
+
 ## Feature Gates
 
 | Feature | What it gates | Default |
@@ -59,28 +88,43 @@ Protocol negotiation selects tarpc or JSON-RPC per-connection.
 | Component | Status |
 |-----------|--------|
 | Capability Registry | `capability_registry.toml` loaded at startup |
+| Niche Self-Knowledge | `niche.rs` with capabilities, costs, deps, consumed capabilities |
 | Deploy Graph | `squirrel_deploy.toml` (BYOB pattern) |
+| Orchestration Types | `DeploymentGraphDef`, `GraphNode`, `TickConfig` (ludoSpring wire-compatible) |
 | biomeOS Lifecycle | `lifecycle.register` + 30s heartbeat (when orchestrator detected) |
+| Songbird Discovery | `discovery.register` + 30s heartbeat (when Songbird detected) |
 | BearDog Crypto | Discovery via biomeOS socket scan |
 | ToadStool AI | Auto-discovered via biomeOS socket scan for local inference |
 | Signal Handling | SIGTERM + SIGINT → socket cleanup + graceful shutdown |
 
-## Crypto Migration
+## Socket Configuration
 
-See [docs/CRYPTO_MIGRATION.md](docs/CRYPTO_MIGRATION.md) for the path from reqwest 0.11 (ring) toward pure Rust. ecosystem-api uses reqwest 0.12 as proof of concept.
+Injectable `SocketConfig` pattern (absorbed from airSpring):
+
+```
+Tier 1: SQUIRREL_SOCKET (primal-specific override)
+Tier 2: BIOMEOS_SOCKET_PATH (Neural API orchestration)
+Tier 3: PRIMAL_SOCKET + family suffix
+Tier 4: XDG runtime: /run/user/<uid>/biomeos/squirrel.sock
+Tier 5: /tmp/squirrel-<family>-<node>.sock (dev only)
+```
+
+All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Tooling
 
 | Tool | Config |
 |------|--------|
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
-| clippy | `clippy.toml` — pedantic + nursery via `[workspace.lints.clippy]` |
+| clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards |
 | cargo-llvm-cov | Installed, coverage measurable |
+| proptest | Round-trip invariants for all JSON-RPC types |
 
 ## Known Issues
 
 1. Coverage at 66% — needs targeted test expansion for cli, auth, mcp crates (<40%)
 2. Context methods (`context.create`/`update`/`summarize`) use stub storage — persistence via NestGate planned
-3. `universal-patterns` `test_discover_peers` timing-sensitive under CI pressure
+3. `test_load_from_json_file` flaky under full workspace runs (env var pollution) — needs `#[serial]`
 4. reqwest 0.11 → 0.12 migration incomplete (1 of 10 crates upgraded)
+5. `model_splitting/` stub module — waiting on ToadStool integration

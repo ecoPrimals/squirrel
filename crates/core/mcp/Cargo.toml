@@ -5,9 +5,6 @@ edition = "2024"
 authors = ["ecoPrimals Contributors"]
 license = "AGPL-3.0-only"
 
-[lints.clippy]
-async_fn_in_trait = "allow"
-
 [dependencies]
 # Core async runtime
 tokio = { version = "1.0", features = ["full"] }
@@ -143,3 +140,6 @@ persistence = ["dep:sled", "dep:sqlx", "dep:redis"]
 metrics = ["dep:metrics", "dep:metrics-exporter-prometheus"]
 compression = ["dep:zstd", "dep:flate2", "dep:lz4"]
 sync-placeholders = []
+
+[lints]
+workspace = true
