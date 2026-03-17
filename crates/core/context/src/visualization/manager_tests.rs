@@ -295,7 +295,7 @@ fn test_visualization_manager_stats_default() {
     };
 
     assert_eq!(stats.total_created, 0);
-    assert_eq!(stats.average_render_time_ms, 0.0);
+    assert!((stats.average_render_time_ms - 0.0).abs() < 1e-9);
 }
 
 #[test]
@@ -420,13 +420,13 @@ fn test_visualization_manager_stats_new() {
     assert_eq!(stats.total_renderings, 0);
     assert_eq!(stats.cache_hits, 0);
     assert_eq!(stats.cache_misses, 0);
-    assert_eq!(stats.average_render_time_ms, 0.0);
+    assert!((stats.average_render_time_ms - 0.0).abs() < 1e-9);
 }
 
 #[test]
 fn test_visualization_manager_stats_cache_hit_rate() {
     let mut stats = VisualizationManagerStats::new();
-    assert_eq!(stats.cache_hit_rate(), 0.0);
+    assert!((stats.cache_hit_rate() - 0.0).abs() < 1e-9);
 
     stats.cache_hits = 3;
     stats.cache_misses = 7;

@@ -179,7 +179,7 @@ mod tests {
         let config = EcosystemConfig::default();
         assert!(config.validate().is_ok());
 
-        let mut invalid_config = config.clone();
+        let mut invalid_config = config;
         invalid_config.service_name = String::new();
         assert!(invalid_config.validate().is_err());
     }

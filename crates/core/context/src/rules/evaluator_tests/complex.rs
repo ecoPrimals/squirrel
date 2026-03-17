@@ -96,8 +96,8 @@ async fn test_find_matching_rules_sorted_by_priority() {
         }],
     );
 
-    let rules = vec![rule1, rule2, rule3];
-    let result = evaluator.find_matching_rules(&rules, &context).await;
+    let rule_list = vec![rule1, rule2, rule3];
+    let result = evaluator.find_matching_rules(&rule_list, &context).await;
 
     assert!(result.is_ok());
     let matching = result.expect("test: operation should succeed");

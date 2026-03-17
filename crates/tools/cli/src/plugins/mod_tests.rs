@@ -104,6 +104,6 @@ unknown_key = "ignored"
 fn test_get_plugin_directories_returns_vec() {
     let dirs = super::get_plugin_directories();
     // Should at least include the HOME-based directory if HOME is set
-    // The function always returns a vec, even if empty
-    assert!(dirs.len() >= 0); // Just verify it doesn't panic
+    // The function always returns a vec, even if empty - verify it doesn't panic
+    let _ = dirs.len();
 }

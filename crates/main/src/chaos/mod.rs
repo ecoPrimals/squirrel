@@ -424,7 +424,7 @@ mod tests {
                 failure_rate,
             } => {
                 assert_eq!(service_name, "openai");
-                assert_eq!(failure_rate, 0.5);
+                assert!((failure_rate - 0.5).abs() < f64::EPSILON);
             }
             _ => panic!("Wrong test type"),
         }

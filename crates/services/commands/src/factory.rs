@@ -438,12 +438,6 @@ mod tests {
     // New comprehensive test that checks factory creation with custom commands
     #[test]
     fn test_factory_with_custom_commands() -> Result<(), CommandError> {
-        // Initialize logging for tests
-        let _ = tracing_subscriber::fmt::try_init();
-
-        info!("Test: Starting test_factory_with_custom_commands");
-
-        // Create a custom command
         #[derive(Debug, Clone)]
         struct CustomCommand;
 
@@ -468,6 +462,10 @@ mod tests {
                 Box::new(self.clone())
             }
         }
+
+        // Initialize logging for tests
+        let _ = tracing_subscriber::fmt::try_init();
+        info!("Test: Starting test_factory_with_custom_commands");
 
         // Create registry with factory
         let factory = DefaultCommandRegistryFactory;

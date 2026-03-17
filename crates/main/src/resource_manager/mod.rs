@@ -103,8 +103,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_resource_manager_start_background_tasks_disabled() {
-        let mut config = ResourceManagerConfig::default();
-        config.enable_auto_cleanup = false;
+        let config = ResourceManagerConfig {
+            enable_auto_cleanup: false,
+            ..Default::default()
+        };
         let manager = ResourceManager::new(config);
         let result = manager.start_background_tasks().await;
         assert!(result.is_ok());

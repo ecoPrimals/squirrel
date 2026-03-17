@@ -31,9 +31,9 @@
 //!
 //! ```rust
 //! use std::sync::Arc;
-//! use squirrel_core::{InMemoryServiceDiscovery, ServiceDiscovery, ServiceDefinition, ServiceType};
+//! use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceDiscovery, ServiceDefinition, ServiceType};
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example() -> CoreResult<()> {
 //! let discovery = Arc::new(InMemoryServiceDiscovery::new());
 //!
 //! // Register a service
@@ -58,9 +58,9 @@
 //! ### Basic Service Registration
 //!
 //! ```rust
-//! use squirrel_core::{InMemoryServiceDiscovery, ServiceDefinition, ServiceType, ServiceEndpoint};
+//! use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceDefinition, ServiceDiscovery, ServiceEndpoint, ServiceType};
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example() -> CoreResult<()> {
 //! let discovery = InMemoryServiceDiscovery::new();
 //!
 //! let endpoint = ServiceEndpoint::new(
@@ -86,9 +86,10 @@
 //! ### Service Discovery with Query
 //!
 //! ```rust
-//! use squirrel_core::{InMemoryServiceDiscovery, ServiceQuery, ServiceType, HealthStatus};
+//! use squirrel_core::service_discovery::HealthStatus;
+//! use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceDiscovery, ServiceQuery, ServiceType};
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example() -> CoreResult<()> {
 //! let discovery = InMemoryServiceDiscovery::new();
 //!
 //! let query = ServiceQuery::new()
@@ -97,7 +98,7 @@
 //!     .with_health_status(HealthStatus::Healthy)
 //!     .limit(10);
 //!
-//! let services = discovery.discover_services(query).await?;
+//! let services: Vec<_> = discovery.discover_services(query).await?;
 //! println!("Found {} matching services", services.len());
 //! # Ok(())
 //! # }
@@ -107,9 +108,9 @@
 //!
 //! ```rust
 //! use std::sync::Arc;
-//! use squirrel_core::{InMemoryServiceDiscovery, ServiceRegistry, ServiceDefinition, ServiceType};
+//! use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceDefinition, ServiceRegistry, ServiceType};
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example() -> CoreResult<()> {
 //! let discovery = Arc::new(InMemoryServiceDiscovery::new());
 //! let registry = ServiceRegistry::new(discovery);
 //!

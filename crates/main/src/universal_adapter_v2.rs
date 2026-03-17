@@ -7,17 +7,17 @@
 //! **Philosophy**: Like an infant, Squirrel starts with ZERO hardcoded knowledge
 //! and discovers its world through universal patterns.
 //!
-//! Following patterns from:
-//! - Songbird: Agnostic service discovery
-//! - BearDog: Universal infant discovery
+//! Following capability-based discovery patterns:
+//! - Orchestration: Agnostic service discovery (env: SERVICE_MESH_PORT)
+//! - Security: Universal infant discovery (env: SECURITY_SERVICE_PORT)
 //!
 //! ## Core Principle
 //!
 //! ```text
 //! ❌ OLD: N² Hardcoded Connections
-//! Squirrel → ToadstoolClient → "http://localhost:8500"
-//! Squirrel → BearDogClient → "https://localhost:7443"
-//! Squirrel → SongbirdClient → "http://localhost:9090"
+//! Squirrel → ComputeClient → "http://localhost:8500"
+//! Squirrel → SecurityClient → "https://localhost:8443"
+//! Squirrel → OrchestrationClient → "http://localhost:9090"
 //!
 //! ✅ NEW: O(1) Universal Adapter
 //! Squirrel → UniversalAdapterV2 → discover("compute") → ANY compute provider
@@ -52,7 +52,7 @@ use tracing::{debug, info};
 /// // Discover compute capability (could be Toadstool, AWS Lambda, etc.)
 /// let compute = adapter.connect_capability("compute").await?;
 ///
-/// // Discover security capability (could be BearDog, Vault, etc.)
+/// // Discover security capability (any provider exposing security)
 /// let security = adapter.connect_capability("security").await?;
 ///
 /// // NO hardcoded knowledge of specific primals!
@@ -385,6 +385,74 @@ impl UniversalClient {
         Self { connection }
     }
 
+    /// Extract Unix socket path from the discovered service endpoint.
+    /// Returns error if endpoint is not a Unix socket (e.g. HTTP).
+    fn extract_unix_socket_path(&self) -> Result<std::path::PathBuf, PrimalError> {
+        let endpoint = &self.connection.service.endpoint;
+        if let Some(path) = endpoint.strip_prefix("unix://") {
+            Ok(std::path::PathBuf::from(path))
+        } else if let Some(path) = endpoint.strip_prefix("jsonrpc+unix://") {
+            Ok(std::path::PathBuf::from(path))
+        } else if endpoint.ends_with(".sock") {
+            Ok(std::path::PathBuf::from(endpoint))
+        } else {
+            Err(PrimalError::NotSupported(format!(
+                "Capability '{}' at {} does not support JSON-RPC over Unix socket. \
+                 HTTP/HTTPS endpoints require delegation to a primal with 'http.proxy' capability.",
+                self.connection.service.name, endpoint
+            )))
+        }
+    }
+
+    /// Send JSON-RPC request over Unix socket and return the result value.
+    async fn send_jsonrpc_over_unix(
+        &self,
+        socket_path: &std::path::Path,
+        request: &serde_json::Value,
+    ) -> Result<serde_json::Value, PrimalError> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::UnixStream;
+
+        let mut stream = UnixStream::connect(socket_path).await.map_err(|e| {
+            PrimalError::NetworkError(format!(
+                "Failed to connect to Unix socket {}: {e}",
+                socket_path.display()
+            ))
+        })?;
+
+        let request_bytes = serde_json::to_vec(request)
+            .map_err(|e| PrimalError::InvalidInput(format!("Failed to serialize: {e}")))?;
+
+        stream
+            .write_all(&request_bytes)
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to write: {e}")))?;
+        stream
+            .write_all(b"\n")
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to write delimiter: {e}")))?;
+
+        let mut response_bytes = Vec::new();
+        stream
+            .read_to_end(&mut response_bytes)
+            .await
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to read: {e}")))?;
+
+        let json_rpc_response: serde_json::Value = serde_json::from_slice(&response_bytes)
+            .map_err(|e| {
+                PrimalError::SerializationError(format!("Failed to deserialize response: {e}"))
+            })?;
+
+        if let Some(error) = json_rpc_response.get("error") {
+            return Err(PrimalError::RemoteError(error.to_string()));
+        }
+
+        json_rpc_response
+            .get("result")
+            .cloned()
+            .ok_or_else(|| PrimalError::InvalidResponse("Missing result field".to_string()))
+    }
+
     /// Get the endpoint this client is connected to
     pub fn endpoint(&self) -> &str {
         &self.connection.service.endpoint
@@ -403,22 +471,18 @@ impl UniversalClient {
     /// Execute a capability request
     ///
     /// This is the universal method for invoking any capability.
-    /// It uses the protocol router to intelligently select the best
-    /// transport protocol (tarpc, JSON-RPC, or HTTPS).
+    /// Routes to the discovered primal via JSON-RPC over Unix socket.
+    /// Uses the adapter's discovered capabilities—no hardcoded primal knowledge.
     ///
     /// # Errors
     ///
-    /// Returns error if request fails or protocol negotiation fails
+    /// Returns error if capability endpoint is not a Unix socket, request fails,
+    /// or the capability is not found.
     pub async fn execute_capability<T, R>(&self, request: T) -> Result<R, PrimalError>
     where
         T: Serialize,
         R: for<'de> Deserialize<'de>,
     {
-        // protocol_router DELETED - use JSON-RPC or tarpc directly
-        // use crate::rpc::protocol_router::{
-        //     ProtocolCapabilities, ProtocolRequest, ProtocolRouter, ProtocolRouterConfig,
-        // };
-
         tracing::debug!(
             "Executing capability on service '{}' at {} (protocol: {:?})",
             self.connection.service.name,
@@ -426,24 +490,25 @@ impl UniversalClient {
             self.connection.protocol
         );
 
-        // Serialize request to JSON for protocol-agnostic transport
+        let socket_path = self.extract_unix_socket_path()?;
+
         let params = serde_json::to_value(&request)
             .map_err(|e| PrimalError::InvalidInput(format!("Failed to serialize request: {e}")))?;
 
-        // Protocol capabilities REMOVED - use Unix sockets directly
-        // Modern implementation: JSON-RPC over Unix sockets
-        // let capabilities = ProtocolCapabilities {
-        //     supports_tarpc: self.connection.protocol == Protocol::Tarpc,
-        //     is_local: ...,
-        //     requires_secure: ...,
-        // };
+        let json_rpc_request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": uuid::Uuid::new_v4().to_string(),
+            "method": "execute",
+            "params": params,
+        });
 
-        // Protocol router REMOVED - modern TRUE PRIMAL uses JSON-RPC over Unix sockets
-        let _ = params; // Silence unused warning
-        Err(PrimalError::NotSupported(
-            "Protocol routing removed. TRUE PRIMAL architecture uses JSON-RPC over Unix sockets."
-                .to_string(),
-        ))
+        let response = self
+            .send_jsonrpc_over_unix(&socket_path, &json_rpc_request)
+            .await?;
+
+        serde_json::from_value(response).map_err(|e| {
+            PrimalError::SerializationError(format!("Failed to deserialize response: {e}"))
+        })
     }
 }
 

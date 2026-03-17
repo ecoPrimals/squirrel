@@ -15,6 +15,7 @@ mod tests {
         SecurityConfig, SecurityFallback,
     };
     use crate::security::providers::SecurityServiceConfig;
+    use crate::security::traits::UniversalSecurityProvider;
     use crate::traits::{AuthResult, Credentials, Principal, PrincipalType};
     // Note: Utc and Uuid reserved for future timestamp/ID tests
     use std::collections::HashMap;
@@ -458,7 +459,6 @@ mod tests {
             service_id: "test-service".to_string(),
         };
 
-        use crate::security::traits::UniversalSecurityProvider;
         let auth_result = UniversalSecurityProvider::authenticate(&provider, &credentials)
             .await
             .expect("Authentication failed");

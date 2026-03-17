@@ -21,17 +21,13 @@ async fn main() -> CommandResult<()> {
     // Create and configure the MCP adapter with various users and commands
     let mut mcp_adapter = setup_enhanced_mcp_adapter()?;
 
-    // Demonstrate authentication with different methods
-    demo_authentication(&mut mcp_adapter).await?;
+    demo_authentication(&mcp_adapter).await?;
 
-    // Demonstrate authorization with role-based permissions
-    demo_authorization(&mut mcp_adapter).await?;
+    demo_authorization(&mcp_adapter).await?;
 
-    // Demonstrate token-based authentication
     demo_token_authentication(&mut mcp_adapter).await?;
 
-    // Demonstrate audit logging
-    demo_audit_logging(&mut mcp_adapter).await?;
+    demo_audit_logging(&mcp_adapter).await?;
 
     print_header("Advanced Adapter Pattern Demo Completed");
 
@@ -100,7 +96,7 @@ fn setup_enhanced_mcp_adapter() -> CommandResult<McpAdapter> {
 }
 
 /// Demonstrate different authentication methods
-async fn demo_authentication(adapter: &mut McpAdapter) -> CommandResult<()> {
+async fn demo_authentication(adapter: &McpAdapter) -> CommandResult<()> {
     print_section("Authentication Demo");
 
     println!("1. Anonymous authentication:");
@@ -137,7 +133,7 @@ async fn demo_authentication(adapter: &mut McpAdapter) -> CommandResult<()> {
 }
 
 /// Demonstrate role-based authorization
-async fn demo_authorization(adapter: &mut McpAdapter) -> CommandResult<()> {
+async fn demo_authorization(adapter: &McpAdapter) -> CommandResult<()> {
     print_section("Authorization Demo");
 
     let admin_auth = Auth::User("admin".to_string(), "password".to_string());
@@ -226,7 +222,7 @@ async fn demo_token_authentication(adapter: &mut McpAdapter) -> CommandResult<()
 }
 
 /// Demonstrate audit logging
-async fn demo_audit_logging(adapter: &mut McpAdapter) -> CommandResult<()> {
+async fn demo_audit_logging(adapter: &McpAdapter) -> CommandResult<()> {
     print_section("Audit Logging Demo");
 
     println!("Executing various commands to generate log entries...");

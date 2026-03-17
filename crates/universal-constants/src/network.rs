@@ -179,7 +179,14 @@ pub const DEFAULT_GRPC_PORT: u16 = 50051;
 /// Use for production servers that accept external connections.
 pub const BIND_ALL_INTERFACES: &str = "0.0.0.0";
 
-/// Fallback Songbird/ecosystem API port (discovery, registration)
+/// Fallback orchestration/ecosystem API port (discovery, registration)
+///
+/// **Deprecated**: Use `universal_constants::deployment::ports::service_mesh()` for
+/// env-aware, capability-based port resolution instead.
+#[deprecated(
+    since = "3.0.0",
+    note = "Use deployment::ports::service_mesh() for capability-based discovery"
+)]
 pub const DEFAULT_SONGBIRD_PORT: u16 = 8001;
 
 /// Fallback Squirrel main server port

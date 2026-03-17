@@ -285,15 +285,15 @@ mod tests {
             .and_then(|p| p.parent())
             .map(|p| p.join("capability_registry.toml"));
 
-        if let Some(path) = registry_path {
-            if path.exists() {
-                let registry = CapabilityRegistry::load(&path);
-                assert_eq!(registry.primal.name, "squirrel");
-                assert!(!registry.capabilities.is_empty());
-                let methods = registry.method_names();
-                assert!(methods.contains(&"ai.query"));
-                assert!(methods.contains(&"context.create"));
-            }
+        if let Some(path) = registry_path
+            && path.exists()
+        {
+            let registry = CapabilityRegistry::load(&path);
+            assert_eq!(registry.primal.name, "squirrel");
+            assert!(!registry.capabilities.is_empty());
+            let methods = registry.method_names();
+            assert!(methods.contains(&"ai.query"));
+            assert!(methods.contains(&"context.create"));
         }
     }
 

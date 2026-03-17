@@ -29,13 +29,13 @@ impl MockMemoryAwareService {
             cache_size: 0,
         }
     }
-    fn set_memory_limit_mb(&mut self, limit: usize) {
+    const fn set_memory_limit_mb(&mut self, limit: usize) {
         self.memory_limit_mb = limit;
     }
-    fn allocate_mb(&mut self, amount: usize) {
+    const fn allocate_mb(&mut self, amount: usize) {
         self.memory_used_mb += amount;
     }
-    fn deallocate_mb(&mut self, amount: usize) {
+    const fn deallocate_mb(&mut self, amount: usize) {
         self.memory_used_mb = self.memory_used_mb.saturating_sub(amount);
     }
     fn memory_pressure(&self) -> f64 {
@@ -219,11 +219,11 @@ enum CpuLoad {
 }
 
 impl CpuLoad {
-    fn processing_time(&self) -> Duration {
+    const fn processing_time(&self) -> Duration {
         match self {
-            CpuLoad::Normal => Duration::from_millis(10),
-            CpuLoad::Moderate => Duration::from_millis(50),
-            CpuLoad::High => Duration::from_millis(100),
+            Self::Normal => Duration::from_millis(10),
+            Self::Moderate => Duration::from_millis(50),
+            Self::High => Duration::from_millis(100),
         }
     }
 }
@@ -252,10 +252,10 @@ impl MockCpuIntensiveService {
             request_count: 0,
         }
     }
-    fn set_cpu_load(&mut self, load: CpuLoad) {
+    const fn set_cpu_load(&mut self, load: CpuLoad) {
         self.cpu_load = load;
     }
-    fn enable_priority_queue(&mut self, enabled: bool) {
+    const fn enable_priority_queue(&mut self, enabled: bool) {
         self.priority_queue_enabled = enabled;
     }
     async fn handle_request(
@@ -350,7 +350,7 @@ async fn chaos_08_cpu_saturation() -> ChaosResult<()> {
         let m = metrics.read().await;
         assert_eq!(m.completed, 20);
         assert!(normal_duration.as_millis() < 500, "Should complete quickly");
-        println!("✅ Phase 1: 20 requests completed in {:?}", normal_duration);
+        println!("✅ Phase 1: 20 requests completed in {normal_duration:?}");
     }
 
     {

@@ -24,7 +24,7 @@ fn create_test_config() -> EcosystemConfig {
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or(8000);
-            format!("http://localhost:{}", port)
+            format!("http://localhost:{port}")
         }),
         ..Default::default()
     }
@@ -62,7 +62,7 @@ async fn test_ecosystem_manager_creation() {
     let config = create_test_config();
     let metrics = create_test_metrics();
 
-    let manager = EcosystemManager::new(config.clone(), metrics);
+    let manager = EcosystemManager::new(config, metrics);
 
     assert_eq!(manager.config.service_id.as_ref(), "test-squirrel-001");
     assert_eq!(manager.config.service_name, "Test Squirrel");
@@ -243,7 +243,7 @@ async fn test_ecosystem_manager_discover_services() {
 
     let services = result.expect("test: should succeed");
     // Empty or populated - just verify it returns a vec
-    assert!(services.len() >= 0);
+    let _ = services.len();
 }
 
 #[tokio::test]
@@ -559,8 +559,7 @@ async fn test_capability_based_multiple_capabilities() {
         let result = manager.find_services_by_capability(capability).await;
         assert!(
             result.is_ok(),
-            "Discovery of '{}' capability should not error",
-            capability
+            "Discovery of '{capability}' capability should not error"
         );
     }
 }
@@ -608,8 +607,7 @@ async fn test_capability_discovery_with_specific_operations() {
         let result = manager.find_services_by_capability(capability).await;
         assert!(
             result.is_ok(),
-            "Semantic capability '{}' should be discoverable",
-            capability
+            "Semantic capability '{capability}' should be discoverable"
         );
     }
 }

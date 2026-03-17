@@ -262,24 +262,24 @@ mod tests {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
         ctx.set("string", "hello").unwrap();
         ctx.set("number", 42).unwrap();
-        ctx.set("float", 3.14).unwrap();
+        ctx.set("float", 2.5).unwrap();
         ctx.set("bool", true).unwrap();
         ctx.set("vec", vec![1, 2, 3]).unwrap();
 
-        let s: Option<String> = ctx.get("string").unwrap();
-        assert_eq!(s, Some("hello".to_string()));
+        let string_val: Option<String> = ctx.get("string").unwrap();
+        assert_eq!(string_val, Some("hello".to_string()));
 
-        let n: Option<i32> = ctx.get("number").unwrap();
-        assert_eq!(n, Some(42));
+        let number_val: Option<i32> = ctx.get("number").unwrap();
+        assert_eq!(number_val, Some(42));
 
-        let f: Option<f64> = ctx.get("float").unwrap();
-        assert_eq!(f, Some(3.14));
+        let float_val: Option<f64> = ctx.get("float").unwrap();
+        assert!((float_val.unwrap() - 2.5).abs() < f64::EPSILON);
 
-        let b: Option<bool> = ctx.get("bool").unwrap();
-        assert_eq!(b, Some(true));
+        let bool_val: Option<bool> = ctx.get("bool").unwrap();
+        assert_eq!(bool_val, Some(true));
 
-        let v: Option<Vec<i32>> = ctx.get("vec").unwrap();
-        assert_eq!(v, Some(vec![1, 2, 3]));
+        let vec_val: Option<Vec<i32>> = ctx.get("vec").unwrap();
+        assert_eq!(vec_val, Some(vec![1, 2, 3]));
     }
 
     #[test]

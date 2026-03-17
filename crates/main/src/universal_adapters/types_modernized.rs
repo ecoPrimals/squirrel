@@ -374,7 +374,7 @@ mod tests {
         ];
         for k in &known {
             let interned = intern_universal_string(k);
-            assert_eq!(&*interned, *k, "Mismatch for key '{}'", k);
+            assert_eq!(&*interned, *k, "Mismatch for key '{k}'");
         }
     }
 

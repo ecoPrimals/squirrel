@@ -50,11 +50,11 @@ mod tests {
 
     #[test]
     fn test_metric_value_gauge_serde() {
-        let val = MetricValue::Gauge(3.14);
+        let val = MetricValue::Gauge(std::f64::consts::PI);
         let json = serde_json::to_string(&val).unwrap();
         let deserialized: MetricValue = serde_json::from_str(&json).unwrap();
         if let MetricValue::Gauge(v) = deserialized {
-            assert!((v - 3.14).abs() < f64::EPSILON);
+            assert!((v - std::f64::consts::PI).abs() < f64::EPSILON);
         } else {
             panic!("Expected Gauge variant");
         }

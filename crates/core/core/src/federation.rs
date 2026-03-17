@@ -17,7 +17,10 @@ use universal_constants::network::{DEFAULT_SQUIRREL_SERVER_PORT, get_service_por
 
 /// Federation service for managing distributed Squirrel MCP instances
 #[derive(Clone)]
-#[expect(dead_code, reason = "public API — consumers use federation coordination")]
+#[expect(
+    dead_code,
+    reason = "public API — consumers use federation coordination"
+)]
 pub struct FederationService {
     config: FederationConfig,
     state: Arc<FederationState>,
@@ -619,7 +622,10 @@ impl FederationService {
     }
 
     /// Get current node endpoint
-    #[expect(dead_code, reason = "Phase 2 placeholder — connection address tracking")]
+    #[expect(
+        dead_code,
+        reason = "Phase 2 placeholder — connection address tracking"
+    )]
     fn get_node_endpoint(&self) -> String {
         format!(
             "http://{}:{}",

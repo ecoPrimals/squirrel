@@ -111,6 +111,7 @@ async fn test_active_integrations_empty() {
 
     let status = manager.status.read().await;
     assert_eq!(status.active_registrations.len(), 0);
+    drop(status);
 }
 
 #[tokio::test]

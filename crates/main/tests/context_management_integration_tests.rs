@@ -46,8 +46,9 @@ async fn test_context_concurrent_access() {
     for i in 0..10 {
         let ctx = context.clone();
         handles.push(tokio::spawn(async move {
-            let mut c = ctx.write().await;
-            c.insert(format!("key_{}", i), format!("value_{}", i));
+            ctx.write()
+                .await
+                .insert(format!("key_{i}"), format!("value_{i}"));
         }));
     }
 
@@ -60,6 +61,7 @@ async fn test_context_concurrent_access() {
 
     let final_context = context.read().await;
     assert_eq!(final_context.len(), 10, "Should have all 10 entries");
+    drop(final_context);
 }
 
 /// Test context cleanup
@@ -81,7 +83,7 @@ async fn test_context_size_handling() {
 
     // Add many entries
     for i in 0..1000 {
-        context.insert(format!("key_{}", i), format!("value_{}", i));
+        context.insert(format!("key_{i}"), format!("value_{i}"));
     }
 
     assert_eq!(context.len(), 1000);

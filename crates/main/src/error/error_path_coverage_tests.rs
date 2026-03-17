@@ -147,7 +147,7 @@ mod error_path_tests {
     #[test]
     fn test_error_debug_format() {
         let error = PrimalError::Network("Connection failed".to_string());
-        let debug_str = format!("{:?}", error);
+        let debug_str = format!("{error:?}");
         assert!(debug_str.contains("Network"));
         assert!(debug_str.contains("Connection failed"));
     }

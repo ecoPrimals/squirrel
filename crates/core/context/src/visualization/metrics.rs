@@ -92,7 +92,7 @@ mod tests {
         assert_eq!(metrics.total_renderings, 0);
         assert_eq!(metrics.cache_hits, 0);
         assert_eq!(metrics.cache_misses, 0);
-        assert_eq!(metrics.average_render_time_ms, 0.0);
+        assert!((metrics.average_render_time_ms - 0.0).abs() < 1e-9);
     }
 
     #[test]
@@ -115,7 +115,7 @@ mod tests {
     #[test]
     fn test_cache_hit_rate_no_accesses() {
         let metrics = VisualizationMetrics::new();
-        assert_eq!(metrics.cache_hit_rate(), 0.0);
+        assert!((metrics.cache_hit_rate() - 0.0).abs() < 1e-9);
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod tests {
         let mut metrics = VisualizationMetrics::new();
         metrics.cache_hits = 10;
         metrics.cache_misses = 0;
-        assert_eq!(metrics.cache_hit_rate(), 1.0);
+        assert!((metrics.cache_hit_rate() - 1.0).abs() < 1e-9);
     }
 
     #[test]
@@ -131,7 +131,7 @@ mod tests {
         let mut metrics = VisualizationMetrics::new();
         metrics.cache_hits = 0;
         metrics.cache_misses = 10;
-        assert_eq!(metrics.cache_hit_rate(), 0.0);
+        assert!((metrics.cache_hit_rate() - 0.0).abs() < 1e-9);
     }
 
     #[test]

@@ -459,7 +459,10 @@ impl OptimizationUtils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::capability::{AITask, SecurityRequirements, TaskType};
+    use crate::common::capability::{
+        AITask, CostMetrics, PerformanceMetrics, ResourceRequirements, RoutingPreferences,
+        SecurityRequirements, TaskType,
+    };
     use crate::router::types::RoutingHint;
 
     #[test]
@@ -472,7 +475,10 @@ mod tests {
     fn test_provider_scorer_creation() {
         let scorer = ProviderScorer::new();
         // Just ensure it can be created
-        assert!(std::ptr::eq(&scorer, &scorer));
+        assert!(std::ptr::eq(
+            std::ptr::from_ref(&scorer),
+            std::ptr::from_ref(&scorer)
+        ));
     }
 
     #[test]
@@ -566,11 +572,11 @@ mod tests {
                 supports_function_calling: false,
                 supports_tool_use: false,
                 supports_images: false,
-                performance_metrics: Default::default(),
-                cost_metrics: Default::default(),
-                resource_requirements: Default::default(),
-                routing_preferences: Default::default(),
-                security_requirements: Default::default(),
+                performance_metrics: PerformanceMetrics::default(),
+                cost_metrics: CostMetrics::default(),
+                resource_requirements: ResourceRequirements::default(),
+                routing_preferences: RoutingPreferences::default(),
+                security_requirements: SecurityRequirements::default(),
             })
         }
 

@@ -11,7 +11,6 @@
 //! and implements the `EcosystemServiceRegistration` standard for seamless integration.
 
 #![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
@@ -36,6 +35,7 @@
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
+    clippy::float_cmp,
     clippy::match_same_arms,
     clippy::return_self_not_must_use,
     clippy::unwrap_used,

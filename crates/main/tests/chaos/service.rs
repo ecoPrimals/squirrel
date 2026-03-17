@@ -25,15 +25,12 @@ async fn chaos_01_service_crash_recovery() -> ChaosResult<()> {
     let request_count = 10;
     for i in 0..request_count {
         let result = send_request(&service, &metrics, i).await;
-        assert!(result.is_ok(), "Request {} should succeed", i);
+        assert!(result.is_ok(), "Request {i} should succeed");
     }
     {
         let m = metrics.read().await;
         assert_eq!(m.successful_requests, request_count as u64);
-        println!(
-            "✅ Phase 2: {} successful requests completed",
-            request_count
-        );
+        println!("✅ Phase 2: {request_count} successful requests completed");
     }
 
     {
@@ -50,8 +47,7 @@ async fn chaos_01_service_crash_recovery() -> ChaosResult<()> {
             let error_msg = e.to_string();
             assert!(
                 error_msg.contains("service unavailable") || error_msg.contains("crashed"),
-                "Error message should be informative: {}",
-                error_msg
+                "Error message should be informative: {error_msg}"
             );
         }
     }

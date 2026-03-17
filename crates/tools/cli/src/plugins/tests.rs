@@ -65,7 +65,8 @@ impl Plugin for TestPlugin {
 
 /// Plugin manager test utilities
 pub struct PluginManagerTester {
-    /// Plugin manager instance
+    /// Plugin manager instance (used for future test extensions)
+    #[allow(dead_code)]
     manager: PluginManager,
 }
 
@@ -108,6 +109,7 @@ pub struct PluginTestUtils;
 
 impl PluginTestUtils {
     /// Create a test plugin manager
+    #[allow(dead_code)]
     pub fn create_test_manager() -> PluginManager {
         PluginManager::new()
     }
@@ -129,6 +131,7 @@ impl PluginTestUtils {
 }
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use super::*;
 

@@ -39,6 +39,7 @@ pub enum PluginType {
 
 /// Plugin state enumeration (reserved for plugin state management system)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(dead_code)] // Reserved for plugin state management; used in tests
 pub enum PluginState {
     /// Plugin is loaded and ready
     Loaded,
@@ -54,6 +55,7 @@ pub enum PluginState {
 
 /// Plugin data format enumeration (reserved for plugin data serialization system)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(dead_code)] // Reserved for plugin data serialization; used in tests
 pub enum PluginDataFormat {
     /// JSON format
     Json,

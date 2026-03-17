@@ -75,8 +75,10 @@ mod tests {
 
     #[test]
     fn test_ecosystem_manager_with_biome() {
-        let mut config = EcosystemConfig::default();
-        config.biome_id = Some("test-biome".to_string());
+        let config = EcosystemConfig {
+            biome_id: Some("test-biome".to_string()),
+            ..Default::default()
+        };
 
         let metrics = Arc::new(MetricsCollector::new());
         let manager = EcosystemManager::new(config, metrics);
@@ -97,7 +99,7 @@ mod tests {
         let manager = create_test_manager();
         let status = manager.status.read().await;
 
-        assert_eq!(status.health_status.health_score, 0.0);
+        assert!((status.health_status.health_score - 0.0).abs() < f64::EPSILON);
         assert_eq!(status.health_status.component_statuses.len(), 0);
         assert_eq!(status.health_status.health_errors.len(), 0);
     }

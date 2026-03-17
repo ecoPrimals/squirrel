@@ -130,7 +130,6 @@ fn test_client_builder_config() {
 
     // Just verify the builder exists and methods work
     // Fields are private (good encapsulation)
-    assert!(true);
 }
 
 /// Test client wrapper ergonomics

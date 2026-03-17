@@ -7,14 +7,15 @@ use ecosystem_api::types::{PrimalContext, PrimalRequest, PrimalType, SecurityLev
 use std::sync::Arc;
 
 fn test_ecosystem_config() -> EcosystemConfig {
-    let mut config = EcosystemConfig::default();
-    config.service_id = Arc::from("test-squirrel");
-    config.service_name = "Test Squirrel".to_string();
-    config.service_host = "localhost".to_string();
-    config.service_port = 8080;
-    config.service_mesh_endpoint = "http://localhost:8500".to_string();
-    config.biome_id = Some("test-biome".to_string());
-    config
+    EcosystemConfig {
+        service_id: Arc::from("test-squirrel"),
+        service_name: "Test Squirrel".to_string(),
+        service_host: "localhost".to_string(),
+        service_port: 8080,
+        service_mesh_endpoint: "http://localhost:8500".to_string(),
+        biome_id: Some("test-biome".to_string()),
+        ..Default::default()
+    }
 }
 
 fn test_primal_context() -> PrimalContext {

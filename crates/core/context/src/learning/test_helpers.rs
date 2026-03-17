@@ -199,7 +199,7 @@ mod tests {
         assert_valid_config(&config);
         assert!(config.enable_reinforcement_learning);
         assert!(!config.enable_experience_replay); // Simplified for tests
-        assert_eq!(config.learning_rate, 0.1);
+        assert!((config.learning_rate - 0.1).abs() < 1e-9);
     }
 
     #[test]
@@ -217,7 +217,7 @@ mod tests {
         assert_valid_policy_config(&config);
         assert_eq!(config.input_size, 10);
         assert_eq!(config.output_size, 5);
-        assert_eq!(config.dropout_rate, 0.0); // Disabled for deterministic tests
+        assert!((config.dropout_rate - 0.0).abs() < 1e-9); // Disabled for deterministic tests
     }
 
     #[test]

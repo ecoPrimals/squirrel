@@ -290,7 +290,7 @@ mod tests {
     fn test_plugin_item_new() {
         let meta = sample_metadata();
         let path = PathBuf::from("/plugins/test.so");
-        let item = PluginItem::new(meta.clone(), path.clone(), PluginStatus::Installed);
+        let item = PluginItem::new(meta, path, PluginStatus::Installed);
 
         assert_eq!(item.metadata().name, "test-plugin");
         assert_eq!(item.path(), Path::new("/plugins/test.so"));

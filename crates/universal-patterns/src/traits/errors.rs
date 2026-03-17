@@ -194,13 +194,14 @@ mod tests {
     #[test]
     fn test_primal_result_ok() {
         let result: PrimalResult<i32> = Ok(42);
-        assert_eq!(result.unwrap(), 42);
+        assert!(matches!(result, Ok(42)));
     }
 
     #[test]
     fn test_primal_result_err() {
-        let result: PrimalResult<i32> = Err(PrimalError::Timeout("expired".into()));
+        let err = PrimalError::Timeout("expired".into());
+        assert!(err.to_string().contains("Timeout"));
+        let result: PrimalResult<i32> = Err(err);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Timeout"));
     }
 }

@@ -376,7 +376,7 @@ mod tests {
         let request = HealthCheckRequest {};
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: HealthCheckRequest = serde_json::from_str(&json).unwrap();
-        let _ = format!("{:?}", deserialized);
+        let _ = format!("{deserialized:?}");
     }
 
     #[test]

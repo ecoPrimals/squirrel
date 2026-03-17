@@ -188,8 +188,8 @@ mod tests {
         assert!(plugin.initialize().await.is_ok());
 
         // Test command registration
-        let mut registry = CommandRegistry::new();
-        assert!(plugin.register_commands(&mut registry).is_ok());
+        let registry = CommandRegistry::new();
+        assert!(plugin.register_commands(&registry).is_ok());
 
         // Test plugin execution
         let result = plugin.execute(&["status".to_string()]).await;

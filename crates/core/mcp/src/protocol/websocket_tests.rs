@@ -42,6 +42,7 @@ fn create_test_message(message_type: MessageType, content: &str) -> MCPMessage {
 }
 
 /// Helper function to wait for server to start
+#[allow(dead_code)]
 async fn wait_for_server_start(port: u16) -> Result<(), Box<dyn std::error::Error>> {
     let mut retries = 0;
     loop {

@@ -44,7 +44,7 @@ mod tests {
         ] {
             let request = create_test_request("chat", Some(model.to_string()));
             let provider = AIProviderSelection::select_provider(&request).unwrap();
-            assert_eq!(provider, "auto", "Model '{}' should return 'auto'", model);
+            assert_eq!(provider, "auto", "Model '{model}' should return 'auto'");
         }
     }
 
@@ -133,7 +133,7 @@ mod tests {
 
         let request = AIInferenceRequest {
             task_type: "chat".to_string(),
-            messages: messages.clone(),
+            messages,
             model: None,
             parameters: HashMap::new(),
         };
@@ -166,7 +166,7 @@ mod tests {
 
     #[test]
     fn test_provider_selection_empty_model_returns_auto() {
-        let request = create_test_request("chat", Some("".to_string()));
+        let request = create_test_request("chat", Some(String::new()));
         let provider = AIProviderSelection::select_provider(&request).unwrap();
         assert_eq!(provider, "auto");
     }

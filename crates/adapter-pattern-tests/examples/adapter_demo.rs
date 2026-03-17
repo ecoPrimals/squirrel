@@ -18,7 +18,7 @@ use std::sync::Arc;
 #[tokio::main]
 async fn main() -> CommandResult<()> {
     // Demo the Registry Adapter
-    demo_registry_adapter().await?;
+    demo_registry_adapter()?;
 
     // Demo the MCP Adapter
     demo_mcp_adapter().await?;
@@ -34,7 +34,7 @@ async fn main() -> CommandResult<()> {
     Ok(())
 }
 
-async fn demo_registry_adapter() -> CommandResult<()> {
+fn demo_registry_adapter() -> CommandResult<()> {
     print_section("Registry Adapter Demo");
 
     // Create the adapter

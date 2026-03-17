@@ -93,18 +93,15 @@ mod tests {
         let mut msg = ZeroCopyMessage::new(Arc::from("request"), Arc::from("data"));
 
         for i in 0..10 {
-            msg.add_metadata(
-                Arc::from(format!("key{}", i)),
-                Arc::from(format!("value{}", i)),
-            );
+            msg.add_metadata(Arc::from(format!("key{i}")), Arc::from(format!("value{i}")));
         }
 
         assert_eq!(msg.metadata.len(), 10);
 
         for i in 0..10 {
             assert_eq!(
-                msg.get_metadata(&format!("key{}", i)),
-                Some(format!("value{}", i).as_str())
+                msg.get_metadata(&format!("key{i}")),
+                Some(format!("value{i}").as_str())
             );
         }
     }
@@ -171,7 +168,7 @@ mod tests {
 
         // Create multiple messages sharing the same Arc<str>
         let msg1 = ZeroCopyMessage::new(msg_type.clone(), content.clone());
-        let msg2 = ZeroCopyMessage::new(msg_type.clone(), content.clone());
+        let msg2 = ZeroCopyMessage::new(msg_type, content);
 
         assert_eq!(msg1.get_type(), msg2.get_type());
         assert_eq!(msg1.get_content(), msg2.get_content());

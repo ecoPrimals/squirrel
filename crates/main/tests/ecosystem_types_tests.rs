@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, deprecated)]
 //! Comprehensive tests for Ecosystem Primal Types
 //!
 //! Tests ecosystem primal types and their properties.
@@ -55,7 +55,7 @@ fn test_primal_type_biomeos() {
 #[test]
 fn test_primal_type_clone() {
     let primal1 = EcosystemPrimalType::ToadStool;
-    let primal2 = primal1.clone();
+    let primal2 = primal1;
 
     assert_eq!(primal1, primal2);
 }
@@ -71,7 +71,7 @@ fn test_primal_type_copy() {
 #[test]
 fn test_primal_type_debug() {
     let primal = EcosystemPrimalType::BearDog;
-    let debug_str = format!("{:?}", primal);
+    let debug_str = format!("{primal:?}");
 
     assert!(!debug_str.is_empty());
     assert!(debug_str.contains("BearDog"));
@@ -188,7 +188,7 @@ fn test_primal_type_env_name_biomeos() {
 
 #[test]
 fn test_primal_type_all_variants() {
-    let primals = vec![
+    let primals = [
         EcosystemPrimalType::ToadStool,
         EcosystemPrimalType::Songbird,
         EcosystemPrimalType::BearDog,
@@ -212,7 +212,7 @@ fn test_primal_type_equality() {
 
 #[test]
 fn test_primal_type_all_distinct() {
-    let primals = vec![
+    let primals = [
         EcosystemPrimalType::ToadStool,
         EcosystemPrimalType::Songbird,
         EcosystemPrimalType::BearDog,

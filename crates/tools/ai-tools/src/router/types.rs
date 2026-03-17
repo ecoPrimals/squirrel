@@ -481,7 +481,10 @@ impl TryFlattenStreamExt
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::capability::{CostTier, ModelType, SecurityRequirements, TaskType};
+    use crate::common::capability::{
+        CostMetrics, CostTier, ModelType, PerformanceMetrics, ResourceRequirements,
+        RoutingPreferences, SecurityRequirements, TaskType,
+    };
     use uuid::Uuid;
 
     #[test]
@@ -532,7 +535,7 @@ mod tests {
         assert_eq!(stats.total_requests, 0);
         assert_eq!(stats.successful_requests, 0);
         assert_eq!(stats.failed_requests, 0);
-        assert_eq!(stats.average_latency_ms, 0.0);
+        assert!((stats.average_latency_ms - 0.0).abs() < f64::EPSILON);
         assert!(stats.provider_usage.is_empty());
     }
 
@@ -558,11 +561,11 @@ mod tests {
             supports_function_calling: false,
             supports_tool_use: false,
             supports_images: false,
-            performance_metrics: Default::default(),
-            cost_metrics: Default::default(),
-            resource_requirements: Default::default(),
-            routing_preferences: Default::default(),
-            security_requirements: Default::default(),
+            performance_metrics: PerformanceMetrics::default(),
+            cost_metrics: CostMetrics::default(),
+            resource_requirements: ResourceRequirements::default(),
+            routing_preferences: RoutingPreferences::default(),
+            security_requirements: SecurityRequirements::default(),
         };
 
         assert!(task_matches_capabilities(&task, &capabilities));
@@ -576,11 +579,11 @@ mod tests {
             supports_function_calling: false,
             supports_tool_use: false,
             supports_images: false,
-            performance_metrics: Default::default(),
-            cost_metrics: Default::default(),
-            resource_requirements: Default::default(),
-            routing_preferences: Default::default(),
-            security_requirements: Default::default(),
+            performance_metrics: PerformanceMetrics::default(),
+            cost_metrics: CostMetrics::default(),
+            resource_requirements: ResourceRequirements::default(),
+            routing_preferences: RoutingPreferences::default(),
+            security_requirements: SecurityRequirements::default(),
         };
 
         assert!(!task_matches_capabilities(&task, &bad_capabilities));

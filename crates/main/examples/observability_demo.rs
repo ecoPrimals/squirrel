@@ -93,12 +93,11 @@ async fn demo_service_call_with_correlation() -> Result<(), Box<dyn std::error::
         if attempt == 3 {
             // Success on final attempt
             break;
-        } else {
-            // Simulate retry
-            let delay = Duration::from_millis(1000);
-            ctx.log_retry(attempt, delay, "connection_timeout");
-            sleep(Duration::from_millis(10)).await; // Shortened for demo
         }
+        // Simulate retry
+        let delay = Duration::from_millis(1000);
+        ctx.log_retry(attempt, delay, "connection_timeout");
+        sleep(Duration::from_millis(10)).await; // Shortened for demo
     }
 
     let result = ctx.complete_success();

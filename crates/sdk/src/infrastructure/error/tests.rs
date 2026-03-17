@@ -4,6 +4,7 @@
 //! Tests for the error handling system in the Squirrel Plugin SDK
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use super::super::*;
     use wasm_bindgen_test::*;
@@ -79,14 +80,9 @@ mod tests {
             validation::validate_required_string(&params, "name").unwrap(),
             "test"
         );
-        assert_eq!(
-            validation::validate_required_number(&params, "count").unwrap(),
-            42.0
-        );
-        assert_eq!(
-            validation::validate_boolean(&params, "enabled", false).unwrap(),
-            true
-        );
+        let count = validation::validate_required_number(&params, "count").unwrap();
+        assert!((count - 42.0).abs() < f64::EPSILON);
+        assert!(validation::validate_boolean(&params, "enabled", false).unwrap());
         assert_eq!(
             validation::validate_array(&params, "items").unwrap().len(),
             3
@@ -230,7 +226,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_validation_helpers_extended() {
-        let params = serde_json::json!({
+        let _params = serde_json::json!({
             "url": "https://example.com",
             "email": "test@example.com",
             "non_empty": "value",

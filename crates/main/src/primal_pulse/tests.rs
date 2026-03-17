@@ -6,7 +6,7 @@
 //! Includes unit, e2e, chaos, and fault injection tests
 
 #[cfg(test)]
-mod tests {
+mod primal_pulse_tests {
     use super::super::neural_graph::{CoordinationGraph, GraphAnalyzer, GraphNode, GraphOptimizer};
 
     // ============================================================================
@@ -133,15 +133,15 @@ mod tests {
         // Add multiple nodes pointing to hub
         for i in 1..=4 {
             graph.add_node(GraphNode {
-                primal_name: format!("spoke{}", i),
-                capability: format!("cap{}", i),
+                primal_name: format!("spoke{i}"),
+                capability: format!("cap{i}"),
                 estimated_latency_ms: 100,
                 estimated_cost_usd: 0.0,
                 reliability: 0.99,
             });
 
             graph.add_edge(super::super::neural_graph::GraphEdge {
-                from: format!("spoke{}", i),
+                from: format!("spoke{i}"),
                 to: "hub".to_string(),
                 edge_type: super::super::neural_graph::EdgeType::Sequential,
                 condition: None,
@@ -194,8 +194,8 @@ mod tests {
         // Create long sequential chain
         for i in 1..=5 {
             graph.add_node(GraphNode {
-                primal_name: format!("node{}", i),
-                capability: format!("cap{}", i),
+                primal_name: format!("node{i}"),
+                capability: format!("cap{i}"),
                 estimated_latency_ms: 500,
                 estimated_cost_usd: 0.0,
                 reliability: 0.99,
@@ -204,7 +204,7 @@ mod tests {
             if i > 1 {
                 graph.add_edge(super::super::neural_graph::GraphEdge {
                     from: format!("node{}", i - 1),
-                    to: format!("node{}", i),
+                    to: format!("node{i}"),
                     edge_type: super::super::neural_graph::EdgeType::Sequential,
                     condition: None,
                 });
@@ -281,9 +281,8 @@ mod tests {
         let graph = CoordinationGraph::new("Empty".to_string());
         let analysis = GraphAnalyzer::analyze(&graph);
 
-        // Empty graph still returns valid analysis
-        assert!(analysis.depth >= 0);
-        assert!(analysis.width >= 0); // May have minimum width of 1
+        // Empty graph still returns valid analysis (usize always >= 0)
+        let _ = (analysis.depth, analysis.width);
         assert_eq!(analysis.estimated_latency_ms, 0);
     }
 
@@ -305,7 +304,7 @@ mod tests {
 
         let recommendations = GraphOptimizer::optimize(&graph, &analysis);
         // Optimizer may or may not have recommendations - just verify it doesn't panic
-        assert!(recommendations.len() >= 0);
+        let _ = recommendations.len();
     }
 
     #[test]
@@ -341,8 +340,8 @@ mod tests {
         // Create 100 parallel branches
         for i in 1..=100 {
             graph.add_node(GraphNode {
-                primal_name: format!("parallel{}", i),
-                capability: format!("cap{}", i),
+                primal_name: format!("parallel{i}"),
+                capability: format!("cap{i}"),
                 estimated_latency_ms: 100,
                 estimated_cost_usd: 0.0,
                 reliability: 0.99,
@@ -350,7 +349,7 @@ mod tests {
 
             graph.add_edge(super::super::neural_graph::GraphEdge {
                 from: "source".to_string(),
-                to: format!("parallel{}", i),
+                to: format!("parallel{i}"),
                 edge_type: super::super::neural_graph::EdgeType::Parallel,
                 condition: None,
             });
@@ -367,7 +366,7 @@ mod tests {
     #[test]
     fn test_graph_analysis_with_missing_metadata() {
         // Fault: Missing metadata fields
-        let mut graph = CoordinationGraph::new("".to_string()); // Empty purpose
+        let mut graph = CoordinationGraph::new(String::new()); // Empty purpose
 
         graph.add_node(GraphNode {
             primal_name: "node".to_string(),
@@ -400,7 +399,7 @@ mod tests {
 
         // May have no recommendations for perfect graph
         // This should not panic or error
-        assert!(recommendations.len() >= 0);
+        let _ = recommendations.len();
     }
 
     #[test]

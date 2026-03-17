@@ -380,12 +380,11 @@ mod tests {
 
     #[test]
     fn test_openai_adapter_creation() {
-        let result = temp_env::with_var("OPENAI_API_KEY", None::<&str>, || OpenAiAdapter::new());
+        let result = temp_env::with_var("OPENAI_API_KEY", None::<&str>, OpenAiAdapter::new);
         assert!(result.is_err());
 
         let adapter =
-            temp_env::with_var("OPENAI_API_KEY", Some("test-key"), || OpenAiAdapter::new())
-                .unwrap();
+            temp_env::with_var("OPENAI_API_KEY", Some("test-key"), OpenAiAdapter::new).unwrap();
         assert_eq!(adapter.provider_id(), "openai");
         assert_eq!(adapter.provider_name(), "OpenAI (GPT)");
         assert!(!adapter.is_local());

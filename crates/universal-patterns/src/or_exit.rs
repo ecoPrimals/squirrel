@@ -148,20 +148,29 @@ mod tests {
 
     #[test]
     fn exit_code_heuristic_config() {
-        assert_eq!(exit_code_for_error("missing config file"), exit_codes::CONFIG);
+        assert_eq!(
+            exit_code_for_error("missing config file"),
+            exit_codes::CONFIG
+        );
         assert_eq!(exit_code_for_error("bad TOML syntax"), exit_codes::CONFIG);
         assert_eq!(exit_code_for_error("env var not set"), exit_codes::CONFIG);
     }
 
     #[test]
     fn exit_code_heuristic_network() {
-        assert_eq!(exit_code_for_error("socket bind failed"), exit_codes::NETWORK);
+        assert_eq!(
+            exit_code_for_error("socket bind failed"),
+            exit_codes::NETWORK
+        );
         assert_eq!(exit_code_for_error("connect refused"), exit_codes::NETWORK);
     }
 
     #[test]
     fn exit_code_heuristic_permission() {
-        assert_eq!(exit_code_for_error("permission denied"), exit_codes::PERMISSION);
+        assert_eq!(
+            exit_code_for_error("permission denied"),
+            exit_codes::PERMISSION
+        );
     }
 
     #[test]
@@ -171,7 +180,10 @@ mod tests {
 
     #[test]
     fn exit_code_heuristic_generic() {
-        assert_eq!(exit_code_for_error("something went wrong"), exit_codes::ERROR);
+        assert_eq!(
+            exit_code_for_error("something went wrong"),
+            exit_codes::ERROR
+        );
     }
 
     #[test]

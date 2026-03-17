@@ -469,7 +469,7 @@ mod tests {
                 ("ANTHROPIC_DEFAULT_MODEL", None::<&str>),
                 ("ANTHROPIC_API_KEY", Some("test-key-dm")),
             ],
-            || AnthropicAdapter::new(),
+            AnthropicAdapter::new,
         )
         .unwrap();
         assert_eq!(adapter.default_model, "claude-3-haiku-20240307");
@@ -482,7 +482,7 @@ mod tests {
                 ("ANTHROPIC_API_KEY", Some("test-key-cdm")),
                 ("ANTHROPIC_DEFAULT_MODEL", Some("claude-3-opus")),
             ],
-            || AnthropicAdapter::new(),
+            AnthropicAdapter::new,
         )
         .unwrap();
         assert_eq!(adapter.default_model, "claude-3-opus");

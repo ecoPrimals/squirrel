@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,925 passing | **Edition**: 2024 | **Rust**: 1.85+ | **Coverage**: 69%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 5,228 passing | **Edition**: 2024 | **Rust**: 1.93+ | **Coverage**: 67.6%
 
 ---
 
@@ -11,7 +11,7 @@
 
 Squirrel is a sovereign AI Model Context Protocol (MCP) service. It routes AI requests, manages context windows, coordinates multiple MCP servers, and provides vendor-agnostic model selection through runtime capability discovery.
 
-Any OpenAI-compatible server, cloud API, or local model can plug in through the same interface. Squirrel discovers services at runtime — no hardcoded names, no compile-time coupling.
+Any OpenAI-compatible server, cloud API, or local model can plug in through the same interface. Squirrel discovers services at runtime — no hardcoded names, no compile-time coupling. Every port and endpoint is overridable via environment variables.
 
 See [ORIGIN.md](ORIGIN.md) for the full story of how Squirrel was built using constrained evolution.
 
@@ -24,12 +24,12 @@ See [ORIGIN.md](ORIGIN.md) for the full story of how Squirrel was built using co
 - Capability registry ([`capability_registry.toml`](capability_registry.toml))
 - Deploy graph ([`squirrel_deploy.toml`](squirrel_deploy.toml))
 
-### Delegates
+### Delegates (via capability discovery — no hardcoded primal knowledge)
 
-- Auth and crypto to **BearDog** (via capability discovery)
-- Data storage to **NestGate**
-- Service mesh to **Songbird**
-- GPU compute to **ToadStool**
+- Auth and crypto to any primal providing `security.*` capabilities
+- Data storage to any primal providing `storage.*` capabilities
+- Service mesh / HTTP proxy to any primal providing `network.*` capabilities
+- GPU compute to any primal providing `compute.*` capabilities
 
 ---
 

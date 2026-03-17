@@ -745,8 +745,8 @@ mod tests {
     #[test]
     fn test_metrics_uptime() {
         let metrics = ServerMetrics::new();
-        // uptime_seconds() is always >= 0 from the moment of creation
-        assert!(metrics.uptime_seconds() >= 0);
+        // uptime_seconds() returns u64, always >= 0
+        let _ = metrics.uptime_seconds();
     }
 
     #[test]

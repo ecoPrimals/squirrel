@@ -4,8 +4,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Capability-Based AI Demo
 //!
-//! This demo shows how to use the new capability_ai pattern for AI operations.
-//! Instead of directly calling HTTP APIs (OpenAI, Anthropic, etc.), we delegate
+//! This demo shows how to use the new `capability_ai` pattern for AI operations.
+//! Instead of directly calling HTTP APIs (`OpenAI`, Anthropic, etc.), we delegate
 //! all HTTP to Songbird via Unix sockets.
 //!
 //! **Benefits**:
@@ -74,7 +74,7 @@ async fn demo_basic_chat() -> anyhow::Result<()> {
     info!("   Response: {}", response.content);
     info!(
         "   Tokens used: {}",
-        response.usage.as_ref().map(|u| u.total_tokens).unwrap_or(0)
+        response.usage.as_ref().map_or(0, |u| u.total_tokens)
     );
     info!("");
 

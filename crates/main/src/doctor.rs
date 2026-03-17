@@ -32,6 +32,7 @@ pub enum HealthStatus {
     /// System has warnings but is functional
     Warning,
     /// System has errors (used in match arms, JSON deserialization, and test fixtures)
+    #[allow(dead_code)]
     Error,
 }
 
@@ -46,7 +47,7 @@ pub struct HealthReport {
 }
 
 /// Run health diagnostics
-pub async fn run_doctor(
+pub fn run_doctor(
     comprehensive: bool,
     format: OutputFormat,
     subsystem: Option<Subsystem>,
@@ -117,8 +118,7 @@ pub async fn run_doctor(
 
     // Exit with appropriate code
     match overall_status {
-        HealthStatus::Ok => Ok(()),
-        HealthStatus::Warning => Ok(()), // Warnings don't fail
+        HealthStatus::Ok | HealthStatus::Warning => Ok(()), // Warnings don't fail
         HealthStatus::Error => anyhow::bail!("Health check failed"),
     }
 }
@@ -691,44 +691,42 @@ mod tests {
         assert!(
             recs.iter()
                 .any(|r| r.contains("ecosystem registry") || r.contains("service mesh")),
-            "Expected capability-based ecosystem recommendation, got: {:?}",
-            recs
+            "Expected capability-based ecosystem recommendation, got: {recs:?}"
         );
         assert!(
             recs.iter()
                 .any(|r| r.contains("security provider") || r.contains("auth")),
-            "Expected capability-based security recommendation, got: {:?}",
-            recs
+            "Expected capability-based security recommendation, got: {recs:?}"
         );
     }
 
     #[tokio::test]
     async fn test_run_doctor_text_format() {
-        let result = run_doctor(false, OutputFormat::Text, None).await;
+        let result = run_doctor(false, OutputFormat::Text, None);
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_run_doctor_json_format() {
-        let result = run_doctor(false, OutputFormat::Json, None).await;
+        let result = run_doctor(false, OutputFormat::Json, None);
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_run_doctor_subsystem_filter_config() {
-        let result = run_doctor(false, OutputFormat::Text, Some(Subsystem::Config)).await;
+        let result = run_doctor(false, OutputFormat::Text, Some(Subsystem::Config));
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_run_doctor_subsystem_filter_ai() {
-        let result = run_doctor(false, OutputFormat::Text, Some(Subsystem::Ai)).await;
+        let result = run_doctor(false, OutputFormat::Text, Some(Subsystem::Ai));
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_run_doctor_comprehensive() {
-        let result = run_doctor(true, OutputFormat::Text, None).await;
+        let result = run_doctor(true, OutputFormat::Text, None);
         assert!(result.is_ok());
     }
 

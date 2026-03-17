@@ -435,8 +435,10 @@ mod tests {
 
     #[test]
     fn test_listener_hierarchy_with_preference() {
-        let mut config = ListenerConfig::default();
-        config.preferred_transport = Some(TransportType::Tcp);
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::Tcp),
+            ..Default::default()
+        };
 
         let hierarchy = UniversalListener::get_transport_hierarchy(&config);
         assert_eq!(hierarchy[0], TransportType::Tcp);
@@ -444,9 +446,11 @@ mod tests {
 
     #[test]
     fn test_listener_hierarchy_with_preference_and_fallback() {
-        let mut config = ListenerConfig::default();
-        config.preferred_transport = Some(TransportType::Tcp);
-        config.enable_fallback = true;
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::Tcp),
+            enable_fallback: true,
+            ..Default::default()
+        };
 
         let hierarchy = UniversalListener::get_transport_hierarchy(&config);
         assert_eq!(hierarchy.len(), 2);
@@ -456,9 +460,11 @@ mod tests {
 
     #[test]
     fn test_listener_hierarchy_no_fallback() {
-        let mut config = ListenerConfig::default();
-        config.enable_fallback = false;
-        config.preferred_transport = Some(TransportType::UnixFilesystem);
+        let config = ListenerConfig {
+            enable_fallback: false,
+            preferred_transport: Some(TransportType::UnixFilesystem),
+            ..Default::default()
+        };
 
         let hierarchy = UniversalListener::get_transport_hierarchy(&config);
         assert_eq!(hierarchy.len(), 1);
@@ -475,8 +481,10 @@ mod tests {
 
     #[test]
     fn test_listener_socket_path_with_custom_base_dir() {
-        let mut config = ListenerConfig::default();
-        config.socket_base_dir = Some(PathBuf::from("/tmp/custom_sockets"));
+        let config = ListenerConfig {
+            socket_base_dir: Some(PathBuf::from("/tmp/custom_sockets")),
+            ..Default::default()
+        };
 
         let path = UniversalListener::get_socket_path("my_service", &config);
 
@@ -487,8 +495,10 @@ mod tests {
     #[tokio::test]
     async fn test_listener_bind_tcp_and_accept() {
         // Use TCP explicitly for reliable cross-platform binding
-        let mut config = ListenerConfig::default();
-        config.preferred_transport = Some(TransportType::Tcp);
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::Tcp),
+            ..Default::default()
+        };
 
         let listener = UniversalListener::bind("test_bind_accept", Some(config))
             .await
@@ -520,8 +530,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_listener_bind_with_preferred_tcp() {
-        let mut config = ListenerConfig::default();
-        config.preferred_transport = Some(TransportType::Tcp);
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::Tcp),
+            ..Default::default()
+        };
 
         let result = UniversalListener::bind("test_tcp_bind", Some(config)).await;
         assert!(result.is_ok());

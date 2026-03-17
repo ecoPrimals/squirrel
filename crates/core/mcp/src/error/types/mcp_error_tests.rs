@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Comprehensive tests for MCPError type
+//! Comprehensive tests for `MCPError` type
 //!
 //! This module provides thorough testing of the MCPError enum,
 //! ensuring proper error construction, conversion, and formatting.

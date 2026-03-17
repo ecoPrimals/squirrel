@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn test_severity_clone() {
         let severity = ErrorSeverity::High;
-        let cloned = severity.clone();
+        let cloned = severity;
         assert_eq!(severity, cloned);
     }
 
@@ -121,11 +121,11 @@ mod tests {
     #[test]
     fn test_severity_debug_formatting() {
         let low = ErrorSeverity::Low;
-        let debug_str = format!("{:?}", low);
+        let debug_str = format!("{low:?}");
         assert!(debug_str.contains("Low"));
 
         let critical = ErrorSeverity::Critical;
-        let debug_str = format!("{:?}", critical);
+        let debug_str = format!("{critical:?}");
         assert!(debug_str.contains("Critical"));
     }
 

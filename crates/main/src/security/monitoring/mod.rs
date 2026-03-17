@@ -672,8 +672,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_monitoring_with_disabled_real_time() {
-        let mut config = SecurityMonitoringConfig::default();
-        config.enable_real_time_monitoring = false;
+        let config = SecurityMonitoringConfig {
+            enable_real_time_monitoring: false,
+            ..Default::default()
+        };
         let system = SecurityMonitoringSystem::new(config);
 
         let correlation_id = CorrelationId::new();
@@ -719,9 +721,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_monitoring_buffer_flush_on_size() {
-        let mut config = SecurityMonitoringConfig::default();
-        config.enable_real_time_monitoring = false;
-        config.event_buffer_size = 3;
+        let config = SecurityMonitoringConfig {
+            enable_real_time_monitoring: false,
+            event_buffer_size: 3,
+            ..Default::default()
+        };
         let system = SecurityMonitoringSystem::new(config);
 
         for i in 0..5 {
@@ -752,8 +756,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_monitoring_shutdown_phases() {
-        let mut config = SecurityMonitoringConfig::default();
-        config.enable_real_time_monitoring = false;
+        let config = SecurityMonitoringConfig {
+            enable_real_time_monitoring: false,
+            ..Default::default()
+        };
         let system = SecurityMonitoringSystem::new(config);
 
         assert!(system.shutdown(ShutdownPhase::StopAccepting).await.is_ok());

@@ -343,7 +343,9 @@ mod tests {
 
         let cached = CachedCapabilityMatch {
             matches: Vec::new(),
-            cached_at: Instant::now() - Duration::from_secs(400),
+            cached_at: Instant::now()
+                .checked_sub(Duration::from_secs(400))
+                .unwrap(),
             ttl_seconds: 300,
             access_count: 0,
         };

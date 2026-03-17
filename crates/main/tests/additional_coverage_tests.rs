@@ -13,7 +13,7 @@ mod mcp_error_tests {
     #[test]
     fn test_mcp_error_resource_exhausted_display() {
         let error = MCPError::ResourceExhausted("Memory limit reached".to_string());
-        let display = format!("{}", error);
+        let display = format!("{error}");
         assert!(
             !display.is_empty(),
             "Error should have display representation"
@@ -24,7 +24,7 @@ mod mcp_error_tests {
     #[test]
     fn test_mcp_error_invalid_argument_display() {
         let error = MCPError::InvalidArgument("Invalid parameter type".to_string());
-        let display = format!("{}", error);
+        let display = format!("{error}");
         assert!(!display.is_empty());
         assert!(display.len() > 5);
     }
@@ -32,7 +32,7 @@ mod mcp_error_tests {
     #[test]
     fn test_mcp_error_not_found_display() {
         let error = MCPError::NotFound("Resource not found".to_string());
-        let display = format!("{}", error);
+        let display = format!("{error}");
         assert!(!display.is_empty());
         assert!(display.len() > 5);
     }
@@ -40,7 +40,7 @@ mod mcp_error_tests {
 
 #[cfg(test)]
 mod capability_request_tests {
-    use squirrel::universal::PrimalContext;
+    use squirrel::universal::{NetworkLocation, PrimalContext, SecurityLevel};
     use squirrel::universal_primal_ecosystem::CapabilityRequest;
     use std::collections::HashMap;
 
@@ -51,8 +51,8 @@ mod capability_request_tests {
             device_id: "test_device".to_string(),
             session_id: Some("test_session".to_string()),
             biome_id: None,
-            network_location: Default::default(),
-            security_level: Default::default(),
+            network_location: NetworkLocation::default(),
+            security_level: SecurityLevel::default(),
             metadata: HashMap::new(),
         }
     }
@@ -102,7 +102,7 @@ mod capability_request_tests {
 
 #[cfg(test)]
 mod ecosystem_tests {
-    use squirrel::universal::PrimalContext;
+    use squirrel::universal::{NetworkLocation, PrimalContext, SecurityLevel};
     use squirrel::universal_primal_ecosystem::CapabilityRequest;
     use squirrel::universal_primal_ecosystem::UniversalPrimalEcosystem;
     use std::collections::HashMap;
@@ -114,8 +114,8 @@ mod ecosystem_tests {
             device_id: "test_device".to_string(),
             session_id: Some("test_session".to_string()),
             biome_id: None,
-            network_location: Default::default(),
-            security_level: Default::default(),
+            network_location: NetworkLocation::default(),
+            security_level: SecurityLevel::default(),
             metadata: HashMap::new(),
         }
     }
@@ -141,15 +141,8 @@ mod ecosystem_tests {
         let stats = ecosystem.get_cache_stats().await;
 
         // Cache should be accessible and stats should be valid
-        // Using valid_cache_entries which is one of the actual fields
-        assert!(
-            stats.valid_cache_entries >= 0,
-            "Cache stats should be accessible"
-        );
-
-        // Test other available cache statistics fields
-        assert!(stats.discovery_cache_size >= 0);
-        assert!(stats.capabilities_cache_size >= 0);
+        // usize fields are always >= 0; we just verify stats are accessible
+        let _ = stats;
     }
 
     #[tokio::test]
@@ -197,7 +190,7 @@ mod primal_type_tests {
         ];
 
         for primal_type in types {
-            let display = format!("{}", primal_type);
+            let display = format!("{primal_type}");
             assert!(!display.is_empty(), "Type display should not be empty");
             // AI is 2 chars, which is fine - it's descriptive enough
             assert!(
@@ -210,7 +203,7 @@ mod primal_type_tests {
     #[test]
     fn test_primal_type_debug() {
         let ai_type = PrimalType::AI;
-        let debug = format!("{:?}", ai_type);
+        let debug = format!("{ai_type:?}");
         assert!(!debug.is_empty());
     }
 

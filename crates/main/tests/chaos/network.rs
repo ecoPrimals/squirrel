@@ -127,13 +127,13 @@ impl MockFlakeyService {
             request_count: 0,
         }
     }
-    fn set_failure_rate(&mut self, rate: f64) {
+    const fn set_failure_rate(&mut self, rate: f64) {
         self.failure_rate = rate;
     }
     fn handle_request(&mut self, request_id: usize) -> ChaosResult<String> {
         self.request_count += 1;
         if should_fail(self.failure_rate) {
-            Err(format!("Transient network failure - request {}", request_id).into())
+            Err(format!("Transient network failure - request {request_id}").into())
         } else {
             Ok(format!(
                 "Request {} processed by {} (attempt {})",
@@ -190,7 +190,7 @@ async fn send_flakey_request(
                     let mut m = metrics.write().await;
                     m.permanent_failures += 1;
                     return Err(
-                        format!("Permanent failure after {} retries: {}", max_retries, e).into(),
+                        format!("Permanent failure after {max_retries} retries: {e}").into(),
                     );
                 }
             }
@@ -235,7 +235,7 @@ async fn chaos_05_intermittent_network_failures() -> ChaosResult<()> {
     }
     for i in 10..60 {
         let result = send_flakey_request(&service, &metrics, i, 10).await;
-        assert!(result.is_ok(), "Request {} should succeed after retries", i);
+        assert!(result.is_ok(), "Request {i} should succeed after retries");
     }
     {
         let m = metrics.read().await;
@@ -307,7 +307,7 @@ impl MockDnsResolver {
     fn register(&mut self, hostname: &str, ip: &str) {
         self.records.insert(hostname.to_string(), ip.to_string());
     }
-    fn set_failure_mode(&mut self, fail: bool) {
+    const fn set_failure_mode(&mut self, fail: bool) {
         self.failure_mode = fail;
     }
     fn expire_cache(&mut self) {
@@ -318,13 +318,13 @@ impl MockDnsResolver {
             return Ok(ip.clone());
         }
         if self.failure_mode {
-            return Err(format!("DNS resolution failed for {}", hostname).into());
+            return Err(format!("DNS resolution failed for {hostname}").into());
         }
         if let Some(ip) = self.records.get(hostname) {
             self.cache.insert(hostname.to_string(), ip.clone());
             Ok(ip.clone())
         } else {
-            Err(format!("Hostname not found: {}", hostname).into())
+            Err(format!("Hostname not found: {hostname}").into())
         }
     }
 }
@@ -387,7 +387,7 @@ async fn chaos_06_dns_resolution_failures() -> ChaosResult<()> {
     }
     for hostname in &["service-a.local", "service-b.local", "service-c.local"] {
         let result = resolve_with_cache(&resolver, &metrics, hostname).await;
-        assert!(result.is_ok(), "DNS should resolve {}", hostname);
+        assert!(result.is_ok(), "DNS should resolve {hostname}");
     }
     {
         let m = metrics.read().await;

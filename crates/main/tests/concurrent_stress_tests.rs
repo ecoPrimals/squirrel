@@ -57,14 +57,13 @@ async fn stress_atomic_operations() {
     let actual = counter.load(Ordering::SeqCst);
     assert_eq!(
         actual, expected,
-        "Lost updates detected: expected {}, got {}",
-        expected, actual
+        "Lost updates detected: expected {expected}, got {actual}"
     );
 }
 
 /// Test: Concurrent read/write without deadlock
 ///
-/// Verifies: RwLock patterns don't deadlock under load
+/// Verifies: `RwLock` patterns don't deadlock under load
 #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
 async fn stress_rwlock_no_deadlock() {
     const READERS: usize = 100;
@@ -145,9 +144,7 @@ async fn stress_semaphore_rate_limiting() {
     let max = max_observed.load(Ordering::SeqCst);
     assert!(
         max <= MAX_CONCURRENT as u64,
-        "Semaphore violated: max {} concurrent (limit {})",
-        max,
-        MAX_CONCURRENT
+        "Semaphore violated: max {max} concurrent (limit {MAX_CONCURRENT})"
     );
 }
 
@@ -383,10 +380,10 @@ async fn stress_performance_baseline() {
     // Verify: No lost operations
     assert_eq!(
         total_ops_actual, TOTAL_OPS,
-        "Lost operations: expected {}, got {}",
-        TOTAL_OPS, total_ops_actual
+        "Lost operations: expected {TOTAL_OPS}, got {total_ops_actual}"
     );
 
+    #[allow(clippy::cast_precision_loss)]
     let ops_per_sec = total_ops_actual as f64 / elapsed.as_secs_f64();
     println!(
         "Performance: {:.2} M ops/sec ({}M ops in {:?})",
@@ -399,8 +396,7 @@ async fn stress_performance_baseline() {
     // (lowered threshold for CI environments)
     assert!(
         ops_per_sec > 500_000.0,
-        "Performance too low: {:.0} ops/sec (expected >500K)",
-        ops_per_sec
+        "Performance too low: {ops_per_sec:.0} ops/sec (expected >500K)"
     );
 }
 
@@ -432,13 +428,14 @@ async fn stress_zero_race_conditions() {
     }
 
     // Verify: All entries present and correct
-    let map = map.read().await;
-    assert_eq!(map.len(), WRITERS * ENTRIES_PER_WRITER);
+    let map_guard = map.read().await;
+    assert_eq!(map_guard.len(), WRITERS * ENTRIES_PER_WRITER);
 
     for writer_id in 0..WRITERS {
         for i in 0..ENTRIES_PER_WRITER {
             let key = writer_id * ENTRIES_PER_WRITER + i;
-            assert_eq!(map.get(&key), Some(&writer_id));
+            assert_eq!(map_guard.get(&key), Some(&writer_id));
         }
     }
+    drop(map_guard);
 }

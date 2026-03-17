@@ -40,7 +40,7 @@ impl MockRateLimitedService {
         self.active_requests += 1;
         tokio::time::sleep(Duration::from_millis(10)).await;
         self.active_requests -= 1;
-        Ok(format!("Request {} processed", request_id))
+        Ok(format!("Request {request_id} processed"))
     }
 }
 
@@ -76,7 +76,7 @@ async fn send_herd_request(
     if over_limit {
         let mut m = metrics.write().await;
         m.rate_limited += 1;
-        return Err(format!("Rate limit exceeded").into());
+        return Err("Rate limit exceeded".to_string().into());
     }
     tokio::time::sleep(Duration::from_millis(10)).await;
     {
@@ -218,7 +218,7 @@ async fn send_long_request(
     let mut m = metrics.write().await;
     m.long_completed += 1;
     m.total_long_duration_ms += elapsed.as_millis() as u64;
-    Ok(format!("Long request {} completed", request_id))
+    Ok(format!("Long request {request_id} completed"))
 }
 
 async fn send_short_request(
@@ -244,7 +244,7 @@ async fn send_short_request(
     let mut m = metrics.write().await;
     m.short_completed += 1;
     m.total_short_duration_ms += elapsed.as_millis() as u64;
-    Ok(format!("Short request {} completed", request_id))
+    Ok(format!("Short request {request_id} completed"))
 }
 
 /// Test 12: Long-Running Operations Under Load
@@ -476,7 +476,7 @@ async fn chaos_13_concurrent_writes_race_conditions() -> ChaosResult<()> {
     }
     let mut complex_success = 0;
     for handle in handles {
-        if let Ok(Ok(_)) = handle.await {
+        if let Ok(Ok(())) = handle.await {
             complex_success += 1;
         }
     }
@@ -517,7 +517,7 @@ impl MockCancellableService {
             leaked_resources: 0,
         }
     }
-    fn active_resources_arc(&self) -> &Arc<AtomicUsize> {
+    const fn active_resources_arc(&self) -> &Arc<AtomicUsize> {
         &self.active_resources
     }
     fn allocate_resource(&mut self) {
@@ -570,15 +570,17 @@ async fn send_cancellable_request(
         metrics: metrics.clone(),
     };
     let result = tokio::select! {
-        _ = tokio::time::sleep(duration) => Ok("completed"),
-        _ = tokio::time::sleep(Duration::from_secs(100)) => Err("timeout"),
+        () = tokio::time::sleep(duration) => Ok("completed"),
+        () = tokio::time::sleep(Duration::from_secs(100)) => Err("timeout"),
     };
     let mut m = metrics.write().await;
     match result {
         Ok(_) => m.completed += 1,
         Err(_) => m.cancelled += 1,
     }
-    result.map(|s| s.to_string()).map_err(|e| e.into())
+    result
+        .map(std::string::ToString::to_string)
+        .map_err(std::convert::Into::into)
 }
 
 /// Ensures resources are freed when request is cancelled (aborted)
@@ -856,7 +858,7 @@ async fn chaos_15_mixed_read_write_storm() -> ChaosResult<()> {
         }
     }
     for handle in write_handles {
-        if let Ok(Ok(_)) = handle.await {
+        if let Ok(Ok(())) = handle.await {
             mixed_success += 1;
         }
     }
@@ -891,7 +893,7 @@ async fn chaos_15_mixed_read_write_storm() -> ChaosResult<()> {
         }
     }
     for handle in write_handles {
-        if let Ok(Ok(_)) = handle.await {
+        if let Ok(Ok(())) = handle.await {
             storm_success += 1;
         }
     }

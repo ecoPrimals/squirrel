@@ -4,7 +4,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Basic MCP Core tests
 //!
-//! Minimal tests to verify core error handling works with the actual MCPError implementation.
+//! Minimal tests to verify core error handling works with the actual `MCPError` implementation.
 
 use squirrel_mcp::MCPError;
 
@@ -33,8 +33,7 @@ fn test_mcp_error_internal() {
 #[test]
 fn test_mcp_result_ok() {
     let result: Result<String, MCPError> = Ok("success".to_string());
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "success");
+    assert!(matches!(result.as_ref(), Ok(s) if s == "success"));
 }
 
 #[test]

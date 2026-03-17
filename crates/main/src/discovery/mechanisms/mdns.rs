@@ -224,8 +224,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_mdns_disabled() {
-        let mut mdns = MdnsDiscovery::default();
-        mdns.enabled = false;
+        let mdns = MdnsDiscovery {
+            enabled: false,
+            ..Default::default()
+        };
 
         let result = mdns.discover_by_capability("ai").await;
         assert!(result.is_ok());

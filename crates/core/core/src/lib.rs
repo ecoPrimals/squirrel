@@ -23,7 +23,6 @@
 #![allow(clippy::struct_excessive_bools)]
 #![allow(clippy::significant_drop_in_scrutinee)]
 #![allow(clippy::cast_sign_loss)]
-#![allow(clippy::expect_used)]
 // Core modules for Squirrel MCP ecosystem coordination
 #[cfg(feature = "http-api")]
 pub mod api;

@@ -167,9 +167,9 @@ async fn test_list_metric_definitions() {
     // Register multiple metrics
     for i in 1..=3 {
         let metric_def = CustomMetricDefinition {
-            name: format!("metric_{}", i),
+            name: format!("metric_{i}"),
             metric_type: MetricType::Counter,
-            description: format!("Description {}", i),
+            description: format!("Description {i}"),
             labels: vec![],
             unit: "count".to_string(),
             source: "test".to_string(),
@@ -333,7 +333,7 @@ async fn test_history_size_limit() {
                 timestamp: Utc::now(),
                 metrics: std::collections::HashMap::new(),
                 system_metrics: super::SystemMetrics {
-                    cpu_usage: i as f64,
+                    cpu_usage: f64::from(i),
                     ..Default::default()
                 },
             });
@@ -369,8 +369,7 @@ async fn test_component_specific_metrics_all_components() {
         let metrics = collector.get_component_metrics(component).await.unwrap();
         assert!(
             !metrics.is_empty(),
-            "Internal component {} should have metrics",
-            component
+            "Internal component {component} should have metrics"
         );
     }
 
@@ -415,7 +414,7 @@ async fn test_multiple_metric_recordings() {
     for i in 1..=5 {
         let labels = HashMap::new();
         collector
-            .record_metric("multi_record_metric", i as f64 * 10.0, labels)
+            .record_metric("multi_record_metric", f64::from(i) * 10.0, labels)
             .await
             .unwrap();
     }
@@ -476,7 +475,7 @@ async fn test_metric_type_preservation() {
 
     for (i, metric_type) in metric_types.iter().enumerate() {
         let metric_def = CustomMetricDefinition {
-            name: format!("type_test_{}", i),
+            name: format!("type_test_{i}"),
             metric_type: metric_type.clone(),
             description: "Type test".to_string(),
             labels: vec![],
@@ -488,13 +487,13 @@ async fn test_metric_type_preservation() {
 
         let labels = HashMap::new();
         collector
-            .record_metric(&format!("type_test_{}", i), 1.0, labels)
+            .record_metric(&format!("type_test_{i}"), 1.0, labels)
             .await
             .unwrap();
     }
 
     for (i, expected_type) in metric_types.iter().enumerate() {
-        let value = collector.values.get(&format!("type_test_{}", i)).unwrap();
+        let value = collector.values.get(&format!("type_test_{i}")).unwrap();
         assert!(matches!(&value.value().metric_type, t if t == expected_type));
     }
 }

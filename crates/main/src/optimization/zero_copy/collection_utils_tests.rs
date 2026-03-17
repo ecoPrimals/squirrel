@@ -91,14 +91,14 @@ mod tests {
 
         // Insert multiple values
         for i in 0..10 {
-            set.insert_arc(format!("key{}", i));
+            set.insert_arc(format!("key{i}"));
         }
 
         assert_eq!(set.len(), 10);
 
         // Verify all exist
         for i in 0..10 {
-            assert!(set.contains_str(&format!("key{}", i)));
+            assert!(set.contains_str(&format!("key{i}")));
         }
     }
 
@@ -128,8 +128,8 @@ mod tests {
         let key1: Arc<str> = Arc::from("key1");
         let key2: Arc<str> = Arc::from("key2");
 
-        map.insert(key1.clone(), "value1".to_string());
-        map.insert(key2.clone(), "value2".to_string());
+        map.insert(key1, "value1".to_string());
+        map.insert(key2, "value2".to_string());
 
         assert_eq!(map.get_str("key1"), Some(&"value1".to_string()));
         assert_eq!(map.get_str("key2"), Some(&"value2".to_string()));

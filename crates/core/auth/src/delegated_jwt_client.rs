@@ -275,7 +275,7 @@ mod tests {
 
     // Integration tests require crypto capability provider running
     #[tokio::test]
-    #[ignore]
+    #[ignore = "requires crypto capability provider running"]
     async fn test_create_and_verify_token_integration() {
         // Socket path from capability discovery (NOT hardcoded!)
         let client = DelegatedJwtClient::new_from_env().unwrap();

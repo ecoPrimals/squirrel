@@ -371,7 +371,7 @@ mod tests {
             rpc_server_running: false,
             uptime: 42,
         };
-        let debug = format!("{:?}", status);
+        let debug = format!("{status:?}");
         assert!(debug.contains("initialized: true"));
         assert!(debug.contains("uptime: 42"));
     }
@@ -386,9 +386,9 @@ mod tests {
             rpc_server_running: true,
             uptime: 100,
         };
-        let cloned = status.clone();
-        assert_eq!(cloned.initialized, true);
-        assert_eq!(cloned.rpc_server_running, true);
+        let cloned = status;
+        assert!(cloned.initialized);
+        assert!(cloned.rpc_server_running);
         assert_eq!(cloned.uptime, 100);
     }
 }

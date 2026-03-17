@@ -163,7 +163,10 @@ mod tests {
     async fn test_handle_ping() {
         let server = make_server();
         let result = server.handle_ping().await.unwrap();
-        assert_eq!(result.get("pong").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            result.get("pong").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
         assert!(result.get("timestamp").is_some());
     }
 
@@ -227,14 +230,17 @@ mod tests {
         let server = make_server();
         let params = Some(json!({"capabilities": ["ai.inference", "tool.execute"]}));
         let result = server.handle_announce_capabilities(params).await.unwrap();
-        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            result.get("success").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
         assert!(
             result
                 .get("message")
                 .unwrap()
                 .as_str()
                 .unwrap()
-                .contains("2")
+                .contains('2')
         );
     }
 
@@ -250,7 +256,10 @@ mod tests {
     async fn test_handle_list_providers_no_router() {
         let server = make_server();
         let result = server.handle_list_providers(None).await.unwrap();
-        assert_eq!(result.get("total").and_then(|v| v.as_u64()), Some(0));
+        assert_eq!(
+            result.get("total").and_then(serde_json::Value::as_u64),
+            Some(0)
+        );
         assert!(
             result
                 .get("providers")
@@ -319,7 +328,10 @@ mod tests {
     async fn test_handle_lifecycle_register() {
         let server = make_server();
         let result = server.handle_lifecycle_register().await.unwrap();
-        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            result.get("success").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
         assert!(
             result
                 .get("message")
@@ -351,7 +363,12 @@ mod tests {
         let server = make_server();
         let result = server.handle_discover_peers(None).await.unwrap();
         assert!(result.get("peers").and_then(|v| v.as_array()).is_some());
-        assert!(result.get("total").and_then(|v| v.as_u64()).is_some());
+        assert!(
+            result
+                .get("total")
+                .and_then(serde_json::Value::as_u64)
+                .is_some()
+        );
         assert_eq!(
             result.get("discovery_method").and_then(|v| v.as_str()),
             Some("socket_scan")
@@ -369,10 +386,13 @@ mod tests {
             parsed
                 .get("result")
                 .and_then(|r| r.get("pong"))
-                .and_then(|v| v.as_bool()),
+                .and_then(serde_json::Value::as_bool),
             Some(true)
         );
-        assert_eq!(parsed.get("id").and_then(|v| v.as_i64()), Some(42));
+        assert_eq!(
+            parsed.get("id").and_then(serde_json::Value::as_i64),
+            Some(42)
+        );
     }
 
     #[tokio::test]
@@ -386,8 +406,8 @@ mod tests {
             parsed
                 .get("error")
                 .and_then(|e| e.get("code"))
-                .and_then(|c| c.as_i64()),
-            Some(error_codes::PARSE_ERROR as i64)
+                .and_then(serde_json::Value::as_i64),
+            Some(i64::from(error_codes::PARSE_ERROR))
         );
     }
 
@@ -419,9 +439,14 @@ mod tests {
             "tools": ["tool.remote"]
         }));
         let result = server.handle_announce_capabilities(params).await.unwrap();
-        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
         assert_eq!(
-            result.get("tools_registered").and_then(|v| v.as_u64()),
+            result.get("success").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .get("tools_registered")
+                .and_then(serde_json::Value::as_u64),
             Some(1)
         );
     }
@@ -431,7 +456,12 @@ mod tests {
         let server = make_server();
         let result = server.handle_list_tools().await.unwrap();
         assert!(result.get("tools").and_then(|v| v.as_array()).is_some());
-        assert!(result.get("total").and_then(|v| v.as_u64()).is_some());
+        assert!(
+            result
+                .get("total")
+                .and_then(serde_json::Value::as_u64)
+                .is_some()
+        );
     }
 
     #[tokio::test]
@@ -546,7 +576,7 @@ mod tests {
         assert!(
             update_result
                 .get("version")
-                .and_then(|v| v.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .unwrap()
                 >= 1
         );
@@ -590,7 +620,10 @@ mod tests {
             result.get("tool").and_then(|v| v.as_str()),
             Some("system.health")
         );
-        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            result.get("success").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
         assert!(
             result
                 .get("output")
@@ -605,7 +638,10 @@ mod tests {
         let server = make_server();
         let params = Some(json!({"tool": "nonexistent.tool", "args": {}}));
         let result = server.handle_execute_tool(params).await.unwrap();
-        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(false));
+        assert_eq!(
+            result.get("success").and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
         assert!(
             result
                 .get("error")
@@ -627,8 +663,8 @@ mod tests {
             parsed
                 .get("error")
                 .and_then(|e| e.get("code"))
-                .and_then(|c| c.as_i64()),
-            Some(error_codes::METHOD_NOT_FOUND as i64)
+                .and_then(serde_json::Value::as_i64),
+            Some(i64::from(error_codes::METHOD_NOT_FOUND))
         );
     }
 
@@ -652,7 +688,7 @@ mod tests {
             parsed
                 .get("result")
                 .and_then(|r| r.get("success"))
-                .and_then(|v| v.as_bool()),
+                .and_then(serde_json::Value::as_bool),
             Some(true)
         );
     }

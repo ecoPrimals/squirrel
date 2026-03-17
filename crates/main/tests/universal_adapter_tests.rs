@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Comprehensive integration tests for UniversalAdapterV2
+//! Comprehensive integration tests for `UniversalAdapterV2`
 //!
 //! Tests the complete universal adapter flow including protocol negotiation,
 //! connection pooling, capability execution, and error handling.
@@ -39,7 +39,7 @@ fn test_connect_capability_from_environment() {
 
                 assert_eq!(client.endpoint(), "http://localhost:8888");
                 assert_eq!(client.service_name(), "test.service-provider");
-            })
+            });
         },
     );
 }
@@ -55,12 +55,12 @@ fn test_connect_capability_not_found() {
             assert!(result.is_err());
             match result {
                 Err(e) => {
-                    let err_msg = format!("{:?}", e);
+                    let err_msg = format!("{e:?}");
                     assert!(err_msg.contains("not found") || err_msg.contains("Capability"));
                 }
                 Ok(_) => panic!("Expected error for non-existent capability"),
             }
-        })
+        });
     });
 }
 
@@ -85,7 +85,7 @@ fn test_connection_pooling_reuse() {
 
                 assert_eq!(client1.endpoint(), client2.endpoint());
                 assert_eq!(client1.endpoint(), "http://localhost:7890");
-            })
+            });
         },
     );
 }
@@ -106,7 +106,7 @@ fn test_protocol_detection_https() {
 
                 assert_eq!(client.protocol(), Protocol::Https);
                 assert_eq!(client.endpoint(), "https://secure.example.com:443");
-            })
+            });
         },
     );
 }
@@ -127,7 +127,7 @@ fn test_protocol_detection_unix_socket() {
 
                 assert_eq!(client.protocol(), Protocol::JsonRpc);
                 assert_eq!(client.endpoint(), "unix:///var/run/service.sock");
-            })
+            });
         },
     );
 }
@@ -148,7 +148,7 @@ fn test_protocol_detection_localhost() {
 
                 assert_eq!(client.protocol(), Protocol::Http);
                 assert_eq!(client.endpoint(), "http://localhost:9999");
-            })
+            });
         },
     );
 }
@@ -181,7 +181,7 @@ fn test_multiple_capability_connections() {
                 assert_eq!(ai.endpoint(), "http://localhost:8001");
                 assert_eq!(storage.endpoint(), "http://localhost:8002");
                 assert_eq!(compute.endpoint(), "http://localhost:8003");
-            })
+            });
         },
     );
 }
@@ -222,7 +222,7 @@ fn test_adapter_with_complex_capability_names() {
                     .await
                     .expect("Storage");
                 assert_eq!(storage.endpoint(), "http://localhost:8003");
-            })
+            });
         },
     );
 }
@@ -256,7 +256,7 @@ fn test_adapter_concurrent_connections() {
                 assert_eq!(result1.unwrap().endpoint(), "http://localhost:9001");
                 assert_eq!(result2.unwrap().endpoint(), "http://localhost:9002");
                 assert_eq!(result3.unwrap().endpoint(), "http://localhost:9003");
-            })
+            });
         },
     );
 }
@@ -288,7 +288,7 @@ fn test_connection_metadata() {
 
                 assert!(!client.service_name().is_empty());
                 assert!(client.endpoint().starts_with("http://"));
-            })
+            });
         },
     );
 }
@@ -305,7 +305,7 @@ fn test_adapter_with_ipv4_endpoint() {
                 .expect("Should connect to IPv4 endpoint");
 
             assert_eq!(client.endpoint(), "http://192.168.1.100:8080");
-        })
+        });
     });
 }
 
@@ -321,6 +321,6 @@ fn test_adapter_with_ipv6_endpoint() {
                 .expect("Should connect to IPv6 endpoint");
 
             assert_eq!(client.endpoint(), "http://[::1]:8080");
-        })
+        });
     });
 }

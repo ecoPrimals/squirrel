@@ -22,7 +22,7 @@ pub struct TestData {
 impl TestData {
     /// Creates a new test data value as JSON
     #[must_use]
-    pub fn new(message: &str, value: i32) -> serde_json::Value {
+    pub fn create_json(message: &str, value: i32) -> serde_json::Value {
         serde_json::json!({
             "message": message,
             "value": value
@@ -137,13 +137,13 @@ async fn test_multiple_contexts() {
     assert_eq!(contexts.len(), 3);
 
     // Verify context retrieval
-    let context1 = adapter.get_context("context1").await.unwrap();
-    let context2 = adapter.get_context("context2").await.unwrap();
-    let context3 = adapter.get_context("context3").await.unwrap();
+    let ctx1 = adapter.get_context("context1").await.unwrap();
+    let ctx2 = adapter.get_context("context2").await.unwrap();
+    let ctx3 = adapter.get_context("context3").await.unwrap();
 
-    assert_eq!(context1.data, json!({"id": 1}));
-    assert_eq!(context2.data, json!({"id": 2}));
-    assert_eq!(context3.data, json!({"id": 3}));
+    assert_eq!(ctx1.data, json!({"id": 1}));
+    assert_eq!(ctx2.data, json!({"id": 2}));
+    assert_eq!(ctx3.data, json!({"id": 3}));
 
     // Delete a context
     adapter.delete_context("context2").await.unwrap();
@@ -185,11 +185,11 @@ async fn test_thread_safety() {
     assert_eq!(contexts.len(), 2);
 
     // Verify we can retrieve both contexts
-    let context1 = adapter.get_context("thread1").await.unwrap();
-    let context2 = adapter.get_context("thread2").await.unwrap();
+    let ctx1 = adapter.get_context("thread1").await.unwrap();
+    let ctx2 = adapter.get_context("thread2").await.unwrap();
 
-    assert_eq!(context1.data, json!({"source": "thread1"}));
-    assert_eq!(context2.data, json!({"source": "thread2"}));
+    assert_eq!(ctx1.data, json!({"source": "thread1"}));
+    assert_eq!(ctx2.data, json!({"source": "thread2"}));
 }
 
 #[test]
@@ -396,7 +396,7 @@ async fn test_context_adapter_config() {
 }
 
 #[cfg(test)]
-mod tests {
+mod plugin_integration {
     use serde_json::json;
     use std::sync::Arc;
 

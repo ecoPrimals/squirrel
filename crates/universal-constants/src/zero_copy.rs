@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Zero-copy string utilities using ArcStr
+//! Zero-copy string utilities using `ArcStr`
 //!
 //! This module provides utilities for efficient string handling with zero-copy semantics.
 
@@ -42,8 +42,8 @@ static COMMON_STRINGS: LazyLock<HashMap<&'static str, ArcStr>> = LazyLock::new(|
 
 /// Intern a string with zero-copy for common values
 ///
-/// For frequently used strings, this returns a cached ArcStr instance.
-/// For uncommon strings, it creates a new ArcStr.
+/// For frequently used strings, this returns a cached `ArcStr` instance.
+/// For uncommon strings, it creates a new `ArcStr`.
 ///
 /// # Examples
 ///
@@ -60,14 +60,14 @@ pub fn intern(s: &str) -> ArcStr {
         .unwrap_or_else(|| ArcStr::from(s))
 }
 
-/// Create ArcStr from owned String
+/// Create `ArcStr` from owned `String`
 ///
-/// This consumes the String and converts it to ArcStr efficiently.
+/// This consumes the `String` and converts it to `ArcStr` efficiently.
 pub fn from_string(s: String) -> ArcStr {
     ArcStr::from(s)
 }
 
-/// Create ArcStr from static string
+/// Create `ArcStr` from static string
 ///
 /// For compile-time known strings, this is zero-cost.
 pub fn from_static(s: &'static str) -> ArcStr {

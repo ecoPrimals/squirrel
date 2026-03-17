@@ -8,7 +8,7 @@
 //! Everything else was moved to other projects during the tearout:
 //! - Web → Songbird
 //! - Compute/Storage → ToadStool/NestGate  
-//! - Security → BearDog
+//! - Security → `BearDog`
 //! - Complex monitoring → Distributed
 
 type Result<T> = std::result::Result<T, squirrel::error::PrimalError>;
@@ -38,8 +38,7 @@ fn test_mcp_error_creation() {
 fn test_mcp_result_handling() {
     // Test 3: Result type usage
     let success: Result<String> = Ok("success".to_string());
-    assert!(success.is_ok());
-    assert_eq!(success.unwrap(), "success");
+    assert!(matches!(success.as_ref(), Ok(s) if s == "success"));
 
     let failure: Result<String> = Err(PrimalError::Internal("failure".to_string()));
     assert!(failure.is_err());
@@ -50,17 +49,17 @@ fn test_error_code_consistency() {
     // Test 4: Error codes are consistent for protocol compliance
     // Note: Using simple string checks since PrimalError doesn't have error_code method
     assert!(
-        PrimalError::Configuration("".to_string())
+        PrimalError::Configuration(String::new())
             .to_string()
             .contains("Configuration")
     );
     assert!(
-        PrimalError::OperationFailed("".to_string())
+        PrimalError::OperationFailed(String::new())
             .to_string()
             .contains("Operation failed")
     );
     assert!(
-        PrimalError::Internal("".to_string())
+        PrimalError::Internal(String::new())
             .to_string()
             .contains("Internal")
     );

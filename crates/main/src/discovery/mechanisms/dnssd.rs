@@ -284,8 +284,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_dnssd_disabled() {
-        let mut dnssd = DnssdDiscovery::default();
-        dnssd.enabled = false;
+        let dnssd = DnssdDiscovery {
+            enabled: false,
+            ..Default::default()
+        };
 
         let result = dnssd.discover_by_capability("ai").await;
         assert!(result.is_ok());

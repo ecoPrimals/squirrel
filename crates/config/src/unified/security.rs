@@ -304,6 +304,11 @@ impl SecurityConfig {
     }
 
     /// Create a development config (relaxed security)
+    ///
+    /// Uses hardcoded dev credentials for local development only.
+    /// The `expect()` calls are safe: the literal strings are compile-time constants
+    /// that satisfy validation (JWT secret ≥32 chars, API key ≥16 chars).
+    /// If these ever fail, it indicates a bug in the validation logic, not runtime input.
     pub fn development() -> Self {
         Self {
             enabled: true,

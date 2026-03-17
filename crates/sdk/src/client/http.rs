@@ -667,6 +667,12 @@ mod tests {
 
     #[test]
     fn test_http_response_json() {
+        #[derive(Deserialize, PartialEq, Debug)]
+        struct TestData {
+            name: String,
+            value: i32,
+        }
+
         let response = HttpResponse {
             status: 200,
             status_text: "OK".to_string(),
@@ -675,12 +681,6 @@ mod tests {
             ok: true,
             url: "https://example.com".to_string(),
         };
-
-        #[derive(Deserialize, PartialEq, Debug)]
-        struct TestData {
-            name: String,
-            value: i32,
-        }
 
         let data: TestData = response.json().unwrap();
         assert_eq!(data.name, "test");

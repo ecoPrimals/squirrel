@@ -70,15 +70,15 @@ fn test_error_variants() {
 
 #[test]
 fn test_result_type() {
-    fn returns_result() -> Result<String, AIToolsError> {
-        Ok("success".to_string())
+    fn returns_result() -> String {
+        "success".to_string()
     }
 
     fn returns_error() -> Result<String, AIToolsError> {
         Err(AIToolsError::Configuration("test error".to_string()))
     }
 
-    assert!(returns_result().is_ok());
+    assert_eq!(returns_result(), "success");
     assert!(returns_error().is_err());
 }
 
@@ -134,8 +134,7 @@ fn test_network_error_variants() {
         let error_str = error.to_string();
         assert!(
             error_str.contains("error") || error_str.contains("timeout"),
-            "Error message should indicate connectivity issue: {}",
-            error_str
+            "Error message should indicate connectivity issue: {error_str}"
         );
     }
 }
@@ -168,8 +167,7 @@ fn test_parsing_errors() {
                 || msg.contains("Parse")
                 || msg.contains("Invalid")
                 || msg.contains("format"),
-            "Error should indicate parsing issue: {}",
-            msg
+            "Error should indicate parsing issue: {msg}"
         );
     }
 }
@@ -188,7 +186,7 @@ fn test_timeout_error_creation() {
     use std::time::Duration;
 
     let timeout_duration = Duration::from_secs(30);
-    let error = AIToolsError::Network(format!("Operation timed out after {:?}", timeout_duration));
+    let error = AIToolsError::Network(format!("Operation timed out after {timeout_duration:?}"));
 
     let err_str = error.to_string();
     assert!(err_str.contains("timed out") || err_str.contains("timeout"));

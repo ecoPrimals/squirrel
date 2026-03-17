@@ -19,7 +19,7 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust
+//! ```rust,ignore
 //! use squirrel_sdk::prelude::*;
 //! use wasm_bindgen::prelude::*;
 

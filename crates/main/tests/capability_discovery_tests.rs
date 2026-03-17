@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Tests for capability discovery - env var, error paths, DiscoveryError
+//! Tests for capability discovery - env var, error paths, `DiscoveryError`
 
 use squirrel::capabilities::discovery::{CapabilityProvider, DiscoveryError, discover_capability};
 use tempfile::tempdir;
@@ -69,7 +69,7 @@ fn test_capability_provider_debug() {
         metadata: std::collections::HashMap::new(),
         discovered_via: "env:TEST".to_string(),
     };
-    let debug_str = format!("{:?}", provider);
+    let debug_str = format!("{provider:?}");
     assert!(debug_str.contains("test-id"));
     assert!(debug_str.contains("cap1"));
 }

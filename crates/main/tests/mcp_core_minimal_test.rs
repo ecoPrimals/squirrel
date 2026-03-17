@@ -5,7 +5,7 @@
 //! Minimal MCP Core Tests
 //!
 //! Tests for the most basic core Machine Context Protocol functionality.
-//! This tests the actual MCPError types that exist in the codebase.
+//! This tests the actual `MCPError` types that exist in the codebase.
 
 #[cfg(test)]
 mod minimal_core_tests {
@@ -28,8 +28,7 @@ mod minimal_core_tests {
     fn test_result_handling() {
         // Test Result type usage - core to MCP protocol
         let success: Result<String, MCPError> = Ok("success".to_string());
-        assert!(success.is_ok());
-        assert_eq!(success.expect("Expected success value"), "success");
+        assert!(matches!(success.as_ref(), Ok(s) if s == "success"));
 
         let failure: Result<String, MCPError> = Err(MCPError::Internal("failure".to_string()));
         assert!(failure.is_err());

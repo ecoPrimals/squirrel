@@ -330,7 +330,7 @@ mod tests {
             max: "120".into(),
         };
         assert!(err.to_string().contains("150"));
-        assert!(err.to_string().contains("0"));
+        assert!(err.to_string().contains('0'));
         assert!(err.to_string().contains("120"));
     }
 
@@ -404,7 +404,7 @@ mod tests {
                 assert_eq!(name, "x");
                 assert!(reason.contains("200"));
                 assert!(
-                    reason.contains("0-100") || (reason.contains("0") && reason.contains("100"))
+                    reason.contains("0-100") || (reason.contains('0') && reason.contains("100"))
                 );
             }
             _ => panic!("Expected InvalidParameter"),
@@ -454,7 +454,8 @@ mod tests {
     #[test]
     fn test_validate_required_number_ok() {
         let params = sample_params();
-        assert_eq!(validate_required_number(&params, "count").unwrap(), 42.0);
+        let result = validate_required_number(&params, "count").unwrap();
+        assert!((result - 42.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -466,20 +467,14 @@ mod tests {
     #[test]
     fn test_validate_boolean_present() {
         let params = sample_params();
-        assert_eq!(validate_boolean(&params, "enabled", false).unwrap(), true);
+        assert!(validate_boolean(&params, "enabled", false).unwrap());
     }
 
     #[test]
     fn test_validate_boolean_missing_uses_default() {
         let params = sample_params();
-        assert_eq!(
-            validate_boolean(&params, "nonexistent", true).unwrap(),
-            true
-        );
-        assert_eq!(
-            validate_boolean(&params, "nonexistent", false).unwrap(),
-            false
-        );
+        assert!(validate_boolean(&params, "nonexistent", true).unwrap());
+        assert!(!validate_boolean(&params, "nonexistent", false).unwrap());
     }
 
     #[test]

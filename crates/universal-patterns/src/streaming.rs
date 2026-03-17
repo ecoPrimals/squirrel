@@ -163,7 +163,12 @@ mod tests {
     fn error_item() {
         let item = StreamItem::error(5, "disk full");
         assert_eq!(item.kind, StreamKind::Error);
-        assert!(item.payload["error"].as_str().unwrap().contains("disk full"));
+        assert!(
+            item.payload["error"]
+                .as_str()
+                .unwrap()
+                .contains("disk full")
+        );
     }
 
     #[test]

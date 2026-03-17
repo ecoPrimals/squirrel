@@ -10,7 +10,7 @@ use crate::service_discovery::types::ServiceType;
 use std::str::FromStr;
 
 #[cfg(test)]
-mod tests {
+mod service_type_tests {
     use super::*;
 
     #[tokio::test]

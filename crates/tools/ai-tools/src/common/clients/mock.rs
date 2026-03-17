@@ -399,11 +399,11 @@ mod tests {
     async fn test_mock_client_health_score() {
         let client = MockAIClient::new();
         let score = client.health_score().await;
-        assert_eq!(score, 1.0);
+        assert!((score - 1.0).abs() < f64::EPSILON);
 
         let unavailable_client = MockAIClient::unavailable();
         let score = unavailable_client.health_score().await;
-        assert_eq!(score, 0.0);
+        assert!((score - 0.0).abs() < f64::EPSILON);
     }
 
     #[test]

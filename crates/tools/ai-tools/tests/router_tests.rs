@@ -141,10 +141,10 @@ fn test_routing_config_timeouts() {
 
     // Test long timeout
     let config = RouterConfig {
-        routing_timeout_ms: 300000, // 5 minutes
+        routing_timeout_ms: 300_000, // 5 minutes
         ..Default::default()
     };
-    assert_eq!(config.routing_timeout_ms, 300000);
+    assert_eq!(config.routing_timeout_ms, 300_000);
 }
 
 #[test]

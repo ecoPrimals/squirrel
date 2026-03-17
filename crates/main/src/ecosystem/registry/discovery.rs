@@ -277,7 +277,7 @@ mod tests {
     #[allow(deprecated)] // Tests deprecated path for backward compatibility
     fn create_test_service(primal_type: EcosystemPrimalType) -> Arc<DiscoveredService> {
         Arc::new(DiscoveredService {
-            service_id: Arc::from(format!("{:?}-test", primal_type)),
+            service_id: Arc::from(format!("{primal_type:?}-test")),
             primal_type,
             endpoint: Arc::from("http://test.local"),
             health_endpoint: Arc::from("http://test.local/health"),

@@ -28,8 +28,8 @@ fn test_compute_provider_from_discovered_primal() {
     assert_eq!(provider.metadata.version, "unknown");
     assert_eq!(provider.metadata.architectures, vec!["x86_64"]);
     assert_eq!(provider.metadata.regions, vec!["local"]);
-    assert_eq!(provider.health.health_score, 1.0);
-    assert_eq!(provider.routing_score, 0.8);
+    assert!((provider.health.health_score - 1.0).abs() < f64::EPSILON);
+    assert!((provider.routing_score - 0.8).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -65,11 +65,11 @@ fn test_compute_provider_health() {
         last_check: Utc::now(),
     };
 
-    assert_eq!(health.health_score, 0.92);
-    assert_eq!(health.cpu_load, 0.65);
-    assert_eq!(health.memory_usage, 0.70);
+    assert!((health.health_score - 0.92).abs() < f64::EPSILON);
+    assert!((health.cpu_load - 0.65).abs() < f64::EPSILON);
+    assert!((health.memory_usage - 0.70).abs() < f64::EPSILON);
     assert_eq!(health.queue_length, 5);
-    assert_eq!(health.avg_execution_time_ms, 1500.0);
+    assert!((health.avg_execution_time_ms - 1500.0).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -159,5 +159,5 @@ fn test_compute_provider_routing_score() {
     let provider = ComputeProvider::from_discovered_primal(&primal);
 
     // Default routing score should be 0.8
-    assert_eq!(provider.routing_score, 0.8);
+    assert!((provider.routing_score - 0.8).abs() < f64::EPSILON);
 }

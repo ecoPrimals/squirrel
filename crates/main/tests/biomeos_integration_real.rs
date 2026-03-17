@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Real BiomeOS Integration Tests
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::uninlined_format_args,
+    clippy::absurd_extreme_comparisons,
+    clippy::significant_drop_tightening,
+    clippy::doc_markdown
+)]
+//! Real `BiomeOS` Integration Tests
 //!
-//! These tests validate the actual SquirrelBiomeOSIntegration API,
+//! These tests validate the actual `SquirrelBiomeOSIntegration` API,
 //! replacing the fictional test methods that were removed during deep evolution.
 //!
 //! Philosophy: Test reality, not fiction.
@@ -12,7 +19,7 @@
 use squirrel::biomeos_integration::*;
 use squirrel::error::PrimalError;
 
-/// Test BiomeOS integration creation and basic operations
+/// Test `BiomeOS` integration creation and basic operations
 #[tokio::test]
 async fn test_biomeos_integration_creation() {
     let integration = SquirrelBiomeOSIntegration::new("test-biome".to_string());
@@ -26,7 +33,7 @@ async fn test_biomeos_integration_creation() {
     assert_eq!(health.status, "initializing");
 }
 
-/// Test BiomeOS registration workflow
+/// Test `BiomeOS` registration workflow
 ///
 /// Note: This may fail if no biomeOS server is running, which is expected.
 /// The test validates the registration logic, not server availability.
@@ -46,13 +53,13 @@ async fn test_biomeos_registration() {
             // Registration successful - biomeOS server was available
             println!("✅ Registration successful - biomeOS server available");
         }
-        Err(PrimalError::Network(_)) | Err(PrimalError::NetworkError(_)) => {
+        Err(PrimalError::Network(_) | PrimalError::NetworkError(_)) => {
             // Expected when no biomeOS server is running
             println!("✅ Network error as expected (no server)");
         }
         Err(e) => {
             // May be other expected errors (Configuration, etc.)
-            println!("⚠️ Error during registration (may be expected): {:?}", e);
+            println!("⚠️ Error during registration (may be expected): {e:?}");
         }
     }
 }
@@ -109,7 +116,7 @@ async fn test_agent_deployment_management() {
     let status = integration.get_deployment_status().await;
 
     // Should return valid status
-    assert!(status.total_agents >= 0);
+    let _ = status.total_agents; // usize is always >= 0
     println!("✅ Deployment status: {:?}", status);
 }
 
@@ -265,7 +272,7 @@ async fn test_error_handling_patterns() {
     // Test 1: Registration with no server
     match integration.register_with_biomeos().await {
         Ok(()) => println!("Registration succeeded (server available)"),
-        Err(PrimalError::Network(msg)) | Err(PrimalError::NetworkError(msg)) => {
+        Err(PrimalError::Network(msg) | PrimalError::NetworkError(msg)) => {
             println!("✅ Network error handled: {}", msg);
             assert!(!msg.is_empty(), "Error message should not be empty");
         }
@@ -329,7 +336,7 @@ async fn test_thread_safety() {
 
 /// Comprehensive integration test
 ///
-/// Tests the complete lifecycle of a BiomeOS integration
+/// Tests the complete lifecycle of a `BiomeOS` integration
 #[tokio::test]
 async fn test_complete_lifecycle() {
     let mut integration = SquirrelBiomeOSIntegration::new("test-lifecycle-biome".to_string());

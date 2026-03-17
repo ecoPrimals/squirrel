@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, dead_code, missing_docs)]
 use std::env;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct ModelConfig {
     name: String,
     description: String,

@@ -369,8 +369,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_reconnect_max_attempts() {
-        let mut config = McpClientConfig::default();
-        config.max_reconnect_attempts = 2;
+        let config = McpClientConfig {
+            max_reconnect_attempts: 2,
+            ..McpClientConfig::default()
+        };
         let mut manager = ConnectionManager::new(config.clone());
 
         let result = manager.reconnect(&config, 2).await;

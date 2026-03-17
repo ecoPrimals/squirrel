@@ -34,14 +34,13 @@ async fn jsonrpc_roundtrip(socket_path: &std::path::Path, method: &str, params: 
 }
 
 /// Helper: spawn a minimal echo JSON-RPC server on a Unix socket
-async fn spawn_mock_server(socket_path: PathBuf) -> tokio::task::JoinHandle<()> {
+fn spawn_mock_server(socket_path: PathBuf) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let listener = UnixListener::bind(&socket_path).unwrap();
         // Accept connections in a loop
         loop {
-            let (mut stream, _) = match listener.accept().await {
-                Ok(conn) => conn,
-                Err(_) => break,
+            let Ok((mut stream, _)) = listener.accept().await else {
+                break;
             };
             tokio::spawn(async move {
                 let mut buf = Vec::new();
@@ -87,7 +86,7 @@ async fn spawn_mock_server(socket_path: PathBuf) -> tokio::task::JoinHandle<()> 
                         let resp_bytes = serde_json::to_vec(&response).unwrap();
                         let _ = stream.write_all(&resp_bytes).await;
                         return;
-                    },
+                    }
                     _ => json!({ "echo": method }),
                 };
 
@@ -107,7 +106,7 @@ async fn spawn_mock_server(socket_path: PathBuf) -> tokio::task::JoinHandle<()> 
 async fn test_cross_primal_health_exchange() {
     let tmp = tempfile::TempDir::new().unwrap();
     let sock = tmp.path().join("health.sock");
-    let server = spawn_mock_server(sock.clone()).await;
+    let server = spawn_mock_server(sock.clone());
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let resp = jsonrpc_roundtrip(&sock, "system.health", json!({})).await;
@@ -122,7 +121,7 @@ async fn test_cross_primal_health_exchange() {
 async fn test_capability_list_ecosystem_format() {
     let tmp = tempfile::TempDir::new().unwrap();
     let sock = tmp.path().join("caplist.sock");
-    let server = spawn_mock_server(sock.clone()).await;
+    let server = spawn_mock_server(sock.clone());
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let resp = jsonrpc_roundtrip(&sock, "capability.list", json!({})).await;
@@ -149,7 +148,7 @@ async fn test_capability_list_ecosystem_format() {
 async fn test_ipc_error_phase_propagation() {
     let tmp = tempfile::TempDir::new().unwrap();
     let sock = tmp.path().join("error.sock");
-    let server = spawn_mock_server(sock.clone()).await;
+    let server = spawn_mock_server(sock.clone());
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let resp = jsonrpc_roundtrip(&sock, "error.test", json!({})).await;
@@ -166,11 +165,12 @@ async fn test_connect_error_phase() {
 
     // Attempt to connect to a non-existent socket — must yield Connect-phase error
     let result = IpcClient::discover("nonexistent-primal-xyz-test");
-    let err = match result {
-        Err(e) => e,
-        Ok(_) => panic!("discover should fail for nonexistent primal"),
+    let Err(err) = result else {
+        panic!("discover should fail for nonexistent primal");
     };
-    let ipc_err = err.downcast_ref::<IpcClientError>().expect("IpcClientError");
+    let ipc_err = err
+        .downcast_ref::<IpcClientError>()
+        .expect("IpcClientError");
     assert_eq!(ipc_err.phase(), IpcErrorPhase::Connect);
 }
 
@@ -178,7 +178,7 @@ async fn test_connect_error_phase() {
 async fn test_concurrent_ipc_requests() {
     let tmp = tempfile::TempDir::new().unwrap();
     let sock = tmp.path().join("concurrent.sock");
-    let server = spawn_mock_server(sock.clone()).await;
+    let server = spawn_mock_server(sock.clone());
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let mut handles = Vec::new();
@@ -201,7 +201,7 @@ async fn test_concurrent_ipc_requests() {
 async fn test_graceful_disconnect() {
     let tmp = tempfile::TempDir::new().unwrap();
     let sock = tmp.path().join("disconnect.sock");
-    let server = spawn_mock_server(sock.clone()).await;
+    let server = spawn_mock_server(sock.clone());
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     // Connect and immediately drop without sending data

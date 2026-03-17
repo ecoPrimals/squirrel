@@ -21,7 +21,7 @@ fn test_primal_error_display() {
 #[test]
 fn test_primal_error_debug() {
     let err = PrimalError::InvalidOperation("test".to_string());
-    let debug_str = format!("{:?}", err);
+    let debug_str = format!("{err:?}");
     assert!(debug_str.contains("InvalidOperation"));
 }
 
@@ -61,7 +61,7 @@ fn test_url_parse_error_conversion() {
 #[test]
 fn test_boxed_error_conversion() {
     let boxed_err: Box<dyn std::error::Error + Send + Sync> =
-        Box::new(io::Error::new(io::ErrorKind::Other, "test error"));
+        Box::new(io::Error::other("test error"));
     let primal_err: PrimalError = boxed_err.into();
 
     match primal_err {
@@ -125,7 +125,7 @@ fn test_all_error_variants() {
     // Ensure all variants can be created and displayed
     for err in variants {
         let _msg = err.to_string();
-        let _debug = format!("{:?}", err);
+        let _debug = format!("{err:?}");
     }
 }
 

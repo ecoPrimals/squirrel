@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    missing_docs,
+    clippy::uninlined_format_args,
+    clippy::items_after_statements,
+    unused_variables
+)]
 // Integration tests gated behind `integration-tests` feature — API migration
 // (websocket, MCPMessage, WebSocketConfig) tracked in CURRENT_STATUS.md known issues.
 #[cfg(not(feature = "integration-tests"))]
@@ -79,7 +86,7 @@ mod basic_mcp_impl {
         assert_eq!(config.bind_address, "127.0.0.1");
         assert_eq!(config.port, 8080);
         assert_eq!(config.max_connections, 100);
-        assert!(config.enable_compression);
+        assert_eq!(config.buffer_size, 1024);
     }
 
     #[tokio::test]
@@ -89,7 +96,7 @@ mod basic_mcp_impl {
         let server = WebSocketServer::new(config);
 
         // Test server events subscription
-        let _receiver = server.subscribe_events();
+        let _receiver = server.subscribe();
 
         // Test connection listing (should be empty initially)
         let connections = server.get_connections().await;
@@ -110,15 +117,23 @@ mod basic_mcp_impl {
     #[tokio::test]
     async fn test_websocket_transport_creation() {
         // Test WebSocket transport creation
+        use squirrel_mcp::protocol::websocket::{ConnectionInfo, ConnectionState};
         let config = WebSocketConfig::default();
-        let _transport = WebSocketTransport::new(config);
-
-        // Test transport creation in different modes
-        let config2 = WebSocketConfig::default();
-        let _server_transport = WebSocketTransport::server(config2);
-
-        let config3 = WebSocketConfig::default();
-        let _client_transport = WebSocketTransport::client(config3);
+        let connection = ConnectionInfo {
+            id: uuid::Uuid::new_v4().to_string(),
+            remote_address: "127.0.0.1:0".to_string(),
+            state: ConnectionState::Disconnected,
+            connected_at: std::time::Instant::now(),
+            last_message_at: None,
+            message_count: 0,
+            last_ping: None,
+            last_pong: None,
+            bytes_sent: 0,
+            bytes_received: 0,
+            messages_sent: 0,
+            messages_received: 0,
+        };
+        let _transport = WebSocketTransport::new(connection, config);
     }
 
     #[tokio::test]
@@ -163,7 +178,7 @@ mod basic_mcp_impl {
     #[tokio::test]
     async fn test_message_codec() {
         // Test message codec creation
-        let codec = MessageCodec::new();
+        let _codec = MessageCodec::new();
 
         // Test frame creation
         let test_data = b"test message";
@@ -186,13 +201,10 @@ mod basic_mcp_impl {
         let config = WebSocketConfig {
             bind_address: "127.0.0.1".to_string(),
             port: 8081,
-            max_message_size: 1024 * 1024,
-            connection_timeout: std::time::Duration::from_secs(30),
-            ping_interval: std::time::Duration::from_secs(30),
-            pong_timeout: std::time::Duration::from_secs(5),
+            timeout_seconds: 30,
             max_connections: 50,
-            enable_compression: true,
-            subprotocol: Some("mcp".to_string()),
+            buffer_size: 1024 * 1024,
+            connection_timeout: std::time::Duration::from_secs(30),
         };
 
         // 3. Create WebSocket server
@@ -202,7 +214,22 @@ mod basic_mcp_impl {
         let _client = WebSocketClient::new(config.clone());
 
         // 5. Create transport layer
-        let _transport = WebSocketTransport::new(config);
+        use squirrel_mcp::protocol::websocket::{ConnectionInfo, ConnectionState};
+        let connection = ConnectionInfo {
+            id: uuid::Uuid::new_v4().to_string(),
+            remote_address: "127.0.0.1:0".to_string(),
+            state: ConnectionState::Disconnected,
+            connected_at: std::time::Instant::now(),
+            last_message_at: None,
+            message_count: 0,
+            last_ping: None,
+            last_pong: None,
+            bytes_sent: 0,
+            bytes_received: 0,
+            messages_sent: 0,
+            messages_received: 0,
+        };
+        let _transport = WebSocketTransport::new(connection, config);
 
         // 6. Test message creation and serialization
         let message = MCPMessage::default();

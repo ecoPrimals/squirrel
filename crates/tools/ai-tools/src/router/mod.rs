@@ -169,8 +169,14 @@ mod tests {
         let scorer = ProviderScorer::new();
 
         // Just verify they can be created
-        assert!(std::ptr::eq(&selector, &selector));
-        assert!(std::ptr::eq(&scorer, &scorer));
+        assert!(std::ptr::eq(
+            std::ptr::from_ref(&selector),
+            std::ptr::from_ref(&selector)
+        ));
+        assert!(std::ptr::eq(
+            std::ptr::from_ref(&scorer),
+            std::ptr::from_ref(&scorer)
+        ));
     }
 
     #[test]
@@ -197,7 +203,7 @@ mod tests {
         assert_eq!(stats.total_requests, 0);
         assert_eq!(stats.successful_requests, 0);
         assert_eq!(stats.failed_requests, 0);
-        assert_eq!(stats.average_latency_ms, 0.0);
+        assert!((stats.average_latency_ms - 0.0).abs() < f64::EPSILON);
         assert!(stats.provider_usage.is_empty());
     }
 

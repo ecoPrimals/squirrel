@@ -101,8 +101,7 @@ pub fn should_fail(failure_rate: f64) -> bool {
 /// Simulate network delay
 pub async fn simulate_network_delay(min_ms: u64, max_ms: u64) {
     use rand::Rng;
-    let mut rng = rand::thread_rng();
-    let delay_ms = rng.gen_range(min_ms..=max_ms);
+    let delay_ms = rand::thread_rng().gen_range(min_ms..=max_ms);
     tokio::time::sleep(Duration::from_millis(delay_ms)).await;
 }
 
@@ -130,7 +129,7 @@ pub struct MockService {
     pub request_count: u64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServiceState {
     Healthy,
     Crashed,
@@ -146,15 +145,15 @@ impl MockService {
         }
     }
 
-    pub fn is_healthy(&self) -> bool {
+    pub const fn is_healthy(&self) -> bool {
         matches!(self.state, ServiceState::Healthy)
     }
 
-    pub fn crash(&mut self) {
+    pub const fn crash(&mut self) {
         self.state = ServiceState::Crashed;
     }
 
-    pub fn recover(&mut self) {
+    pub const fn recover(&mut self) {
         self.state = ServiceState::Healthy;
     }
 
@@ -166,10 +165,10 @@ impl MockService {
             }
             ServiceState::Crashed => Err("service unavailable - crashed".into()),
             ServiceState::Recovering => {
-                if self.request_count % 3 == 0 {
+                if self.request_count.is_multiple_of(3) {
                     self.state = ServiceState::Healthy;
                     self.request_count += 1;
-                    Ok(format!("Request {} processed after recovery", request_id))
+                    Ok(format!("Request {request_id} processed after recovery"))
                 } else {
                     Err("service still recovering".into())
                 }
@@ -194,7 +193,7 @@ impl ServiceMetrics {
         self.avg_response_time_ms = self.total_response_time_ms / self.successful_requests as f64;
     }
 
-    pub fn record_failure(&mut self) {
+    pub const fn record_failure(&mut self) {
         self.failed_requests += 1;
     }
 }
@@ -285,19 +284,19 @@ pub struct NetworkController {
 }
 
 impl NetworkController {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { partitioned: false }
     }
 
-    pub fn can_communicate(&self, _zone_a: &str, _zone_b: &str) -> bool {
+    pub const fn can_communicate(&self, _zone_a: &str, _zone_b: &str) -> bool {
         !self.partitioned
     }
 
-    pub fn partition(&mut self, _zone_a: &str, _zone_b: &str) {
+    pub const fn partition(&mut self, _zone_a: &str, _zone_b: &str) {
         self.partitioned = true;
     }
 
-    pub fn heal(&mut self, _zone_a: &str, _zone_b: &str) {
+    pub const fn heal(&mut self, _zone_a: &str, _zone_b: &str) {
         self.partitioned = false;
     }
 }
@@ -354,18 +353,20 @@ mod tests {
     fn test_chaos_config_default() {
         let config = ChaosConfig::default();
         assert_eq!(config.duration, Duration::from_secs(60));
-        assert_eq!(config.failure_rate, 0.1);
+        assert!((config.failure_rate - 0.1).abs() < f64::EPSILON);
         assert_eq!(config.num_clients, 100);
     }
 
     #[test]
     fn test_chaos_metrics_success_rate() {
-        let mut metrics = ChaosMetrics::default();
-        metrics.total_requests = 100;
-        metrics.successful_requests = 95;
-        metrics.failed_requests = 5;
-        assert_eq!(metrics.success_rate(), 95.0);
-        assert_eq!(metrics.failure_rate(), 5.0);
+        let metrics = ChaosMetrics {
+            total_requests: 100,
+            successful_requests: 95,
+            failed_requests: 5,
+            ..Default::default()
+        };
+        assert!((metrics.success_rate() - 95.0).abs() < f64::EPSILON);
+        assert!((metrics.failure_rate() - 5.0).abs() < f64::EPSILON);
     }
 
     #[test]

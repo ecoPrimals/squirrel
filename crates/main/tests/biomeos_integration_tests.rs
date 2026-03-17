@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Comprehensive tests for BiomeOS Integration Agent Status
+//! Comprehensive tests for `BiomeOS` Integration Agent Status
 //!
 //! Tests agent deployment status variants and lifecycle.
 
@@ -68,7 +68,7 @@ fn test_agent_status_updating() {
 #[test]
 fn test_agent_status_clone() {
     let status1 = AgentStatus::Running;
-    let status2 = status1.clone();
+    let status2 = status1;
 
     assert!(matches!(status2, AgentStatus::Running));
 }
@@ -76,7 +76,7 @@ fn test_agent_status_clone() {
 #[test]
 fn test_agent_status_failed_clone() {
     let status1 = AgentStatus::Failed("test error".to_string());
-    let status2 = status1.clone();
+    let status2 = status1;
 
     assert!(matches!(status2, AgentStatus::Failed(_)));
 }
@@ -84,7 +84,7 @@ fn test_agent_status_failed_clone() {
 #[test]
 fn test_agent_status_debug() {
     let status = AgentStatus::Running;
-    let debug_str = format!("{:?}", status);
+    let debug_str = format!("{status:?}");
 
     assert!(!debug_str.is_empty());
 }
@@ -92,14 +92,14 @@ fn test_agent_status_debug() {
 #[test]
 fn test_agent_status_failed_debug() {
     let status = AgentStatus::Failed("test error".to_string());
-    let debug_str = format!("{:?}", status);
+    let debug_str = format!("{status:?}");
 
     assert!(debug_str.contains("test error"));
 }
 
 #[test]
 fn test_agent_status_lifecycle_sequence() {
-    let lifecycle = vec![
+    let lifecycle = [
         AgentStatus::Deploying,
         AgentStatus::Starting,
         AgentStatus::Running,
@@ -134,7 +134,7 @@ fn test_agent_status_failed_empty_message() {
 #[test]
 fn test_agent_status_failed_long_message() {
     let long_msg = "a".repeat(1000);
-    let status = AgentStatus::Failed(long_msg.clone());
+    let status = AgentStatus::Failed(long_msg);
 
     if let AgentStatus::Failed(msg) = status {
         assert_eq!(msg.len(), 1000);
@@ -177,7 +177,7 @@ fn test_agent_status_all_variants() {
     let _ = AgentStatus::Scaling;
     let _ = AgentStatus::Updating;
 
-    assert!(true, "All agent status variants should be creatable");
+    // All agent status variants should be creatable (compilation verifies)
 }
 
 #[test]
@@ -199,7 +199,7 @@ fn test_agent_status_deserialization_running() {
 #[test]
 fn test_agent_status_operational_states() {
     // States that represent actively operational agents
-    let operational = vec![
+    let operational = [
         AgentStatus::Running,
         AgentStatus::Scaling,
         AgentStatus::Updating,
@@ -211,7 +211,7 @@ fn test_agent_status_operational_states() {
 #[test]
 fn test_agent_status_transitional_states() {
     // States that represent transitions
-    let transitional = vec![
+    let transitional = [
         AgentStatus::Starting,
         AgentStatus::Deploying,
         AgentStatus::Stopping,
@@ -223,7 +223,7 @@ fn test_agent_status_transitional_states() {
 #[test]
 fn test_agent_status_terminal_states() {
     // States that are terminal
-    let terminal = vec![
+    let terminal = [
         AgentStatus::Stopped,
         AgentStatus::Failed("error".to_string()),
     ];
@@ -235,10 +235,10 @@ fn test_agent_status_terminal_states() {
 fn test_agent_status_match_pattern() {
     let status = AgentStatus::Running;
 
-    let is_operational = match status {
-        AgentStatus::Running | AgentStatus::Scaling | AgentStatus::Updating => true,
-        _ => false,
-    };
+    let is_operational = matches!(
+        status,
+        AgentStatus::Running | AgentStatus::Scaling | AgentStatus::Updating
+    );
 
     assert!(is_operational);
 }

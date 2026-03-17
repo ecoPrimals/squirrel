@@ -307,7 +307,10 @@ mod tests {
             IpcEndpoint::TcpLocal(discovered_addr) => {
                 assert_eq!(discovered_addr, addr);
             }
-            other => panic!("Expected TcpLocal, got {:?}", other),
+            #[cfg(unix)]
+            other @ IpcEndpoint::UnixSocket(_) => panic!("Expected TcpLocal, got {:?}", other),
+            #[cfg(windows)]
+            other @ IpcEndpoint::NamedPipe(_) => panic!("Expected TcpLocal, got {:?}", other),
         }
 
         // Clean up - remove discovery files

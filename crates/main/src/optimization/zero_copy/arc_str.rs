@@ -421,8 +421,7 @@ mod tests {
             let interned = intern::get_common(name);
             assert!(
                 interned.is_some(),
-                "Semantic method name '{}' should be pre-interned",
-                name
+                "Semantic method name '{name}' should be pre-interned"
             );
             assert_eq!(&*interned.unwrap(), *name);
         }
@@ -442,8 +441,7 @@ mod tests {
             let interned = intern::get_common(domain);
             assert!(
                 interned.is_some(),
-                "Capability domain '{}' should be pre-interned",
-                domain
+                "Capability domain '{domain}' should be pre-interned"
             );
             assert_eq!(&*interned.unwrap(), *domain);
         }
@@ -461,11 +459,7 @@ mod tests {
         ];
         for ep in &endpoints {
             let interned = intern::get_common(ep);
-            assert!(
-                interned.is_some(),
-                "Endpoint '{}' should be pre-interned",
-                ep
-            );
+            assert!(interned.is_some(), "Endpoint '{ep}' should be pre-interned");
             assert_eq!(&*interned.unwrap(), *ep);
         }
     }
@@ -483,8 +477,7 @@ mod tests {
             let interned = intern::get_common(metric);
             assert!(
                 interned.is_some(),
-                "Metric '{}' should be pre-interned",
-                metric
+                "Metric '{metric}' should be pre-interned"
             );
             assert_eq!(&*interned.unwrap(), *metric);
         }
@@ -542,13 +535,13 @@ mod tests {
     #[test]
     fn test_smart_string_display() {
         let s = SmartString::new("display-test");
-        assert_eq!(format!("{}", s), "display-test");
+        assert_eq!(format!("{s}"), "display-test");
     }
 
     #[test]
     fn test_smart_string_debug() {
         let s = SmartString::new("debug-test");
-        let debug_output = format!("{:?}", s);
+        let debug_output = format!("{s:?}");
         assert!(debug_output.contains("debug-test"));
     }
 

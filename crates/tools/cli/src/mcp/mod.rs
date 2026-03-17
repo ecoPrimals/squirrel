@@ -35,7 +35,7 @@ mod tests {
 
     // Converting to tokio async test as per async programming pattern
     #[tokio::test]
-    #[ignore] // Network-dependent test - requires actual network server
+    #[ignore = "Network-dependent test - requires actual network server"]
     async fn test_subscription_system() {
         // Skip this test as it's network-dependent and can hang
         println!(
@@ -45,7 +45,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // Network-dependent test - requires actual network server
+    #[ignore = "Network-dependent test - requires actual network server"]
     async fn test_multiple_subscribers() {
         // Skip this test as it's network-dependent and can hang
         println!(
@@ -153,10 +153,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_command_registry_integration() {
+        use std::time::Instant;
+
         println!("=== STARTING MCP COMMAND REGISTRY TEST ===");
         println!("Using mock-based testing by default to ensure fast completion");
 
-        use std::time::Instant;
         let start_time = Instant::now();
 
         // Progress counter setup
@@ -185,12 +186,13 @@ mod tests {
 
     // We'll keep the network test implementation but add a separate test for it that's ignored by default
     #[tokio::test]
-    #[ignore] // Ignored by default because it can be slow and unreliable
+    #[ignore = "Ignored by default because it can be slow and unreliable"]
     async fn test_command_registry_integration_network() {
+        use std::time::Instant;
+
         println!("=== STARTING MCP COMMAND REGISTRY NETWORK TEST ===");
         println!("WARNING: This test may take longer and is less reliable than the mock test");
 
-        use std::time::Instant;
         let start_time = Instant::now();
 
         // Progress counter setup
@@ -244,9 +246,8 @@ mod tests {
             .map_err(|e| format!("Failed to register command: {}", e))?;
 
         // Set up a server on a random port with the command registry
-        let port = match portpicker::pick_unused_port() {
-            Some(p) => p,
-            None => return Err("No ports available".to_string()),
+        let Some(port) = portpicker::pick_unused_port() else {
+            return Err("No ports available".to_string());
         };
         println!("Starting server on port {}", port);
 
@@ -603,14 +604,9 @@ mod tests {
     // Adding new mock-based versions of the tests that won't hang
     #[tokio::test]
     async fn test_subscription_system_mock() {
-        println!("Starting test_subscription_system_mock");
-
         // Create an in-memory mock server for subscription testing
         struct MockSubscriptionServer {
-            subscribers: std::collections::HashMap<
-                String,
-                Vec<Box<dyn Fn(MCPMessage) -> Result<(), String> + Send + Sync>>,
-            >,
+            subscribers: SubscriptionMap,
         }
 
         impl MockSubscriptionServer {
@@ -653,6 +649,8 @@ mod tests {
             }
         }
 
+        println!("Starting test_subscription_system_mock");
+
         // Create the mock server
         let mut server = MockSubscriptionServer::new();
 
@@ -664,13 +662,12 @@ mod tests {
         println!("Setting up subscription...");
         let _subscription_id = server.subscribe("test_topic", move |msg| {
             println!("Received notification: {:?}", msg);
-            let payload = msg.clone();
 
             // Clone tx to move into task
             let tx_clone = tx.clone();
             tokio::spawn(async move {
                 let tx = tx_clone.lock().await;
-                let _ = tx.send(payload).await;
+                let _ = tx.send(msg).await;
             });
 
             Ok(())
@@ -706,14 +703,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_multiple_subscribers_mock() {
-        println!("Starting test_multiple_subscribers_mock");
-
         // Create an in-memory mock server for subscription testing
         struct MockSubscriptionServer {
-            subscribers: std::collections::HashMap<
-                String,
-                Vec<Box<dyn Fn(MCPMessage) -> Result<(), String> + Send + Sync>>,
-            >,
+            subscribers: SubscriptionMap,
         }
 
         impl MockSubscriptionServer {
@@ -756,6 +748,8 @@ mod tests {
             }
         }
 
+        println!("Starting test_multiple_subscribers_mock");
+
         // Create the mock server
         let mut server = MockSubscriptionServer::new();
 
@@ -772,13 +766,12 @@ mod tests {
             let tx1 = tx1.clone();
             move |msg| {
                 println!("Subscriber 1 received notification: {:?}", msg);
-                let payload = msg.clone();
 
                 // Clone tx to move into task
                 let tx_clone = tx1.clone();
                 tokio::spawn(async move {
                     let tx = tx_clone.lock().await;
-                    let _ = tx.send(payload).await;
+                    let _ = tx.send(msg).await;
                 });
 
                 Ok(())
@@ -791,13 +784,12 @@ mod tests {
             let tx2 = tx2.clone();
             move |msg| {
                 println!("Subscriber 2 received notification: {:?}", msg);
-                let payload = msg.clone();
 
                 // Clone tx to move into task
                 let tx_clone = tx2.clone();
                 tokio::spawn(async move {
                     let tx = tx_clone.lock().await;
-                    let _ = tx.send(payload).await;
+                    let _ = tx.send(msg).await;
                 });
 
                 Ok(())

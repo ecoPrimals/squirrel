@@ -105,7 +105,7 @@ async fn test_benchmark_suite_report_summary() {
         suite_id: "test_summary_123".to_string(),
         total_duration: Duration::from_secs(1),
         total_benchmarks: results.len(),
-        results: results.clone(),
+        results,
         system_metrics: SystemMetrics::default(),
         timestamp: Utc::now(),
     };

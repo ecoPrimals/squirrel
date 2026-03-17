@@ -611,13 +611,27 @@ mod tests {
                 "system.instance_id" => config.system.instance_id = value.to_string(),
                 "system.environment" => config.system.environment = value.to_string(),
                 "system.log_level" => config.system.log_level = value.to_string(),
-                "network.http_port" => config.network.http_port = value.parse().unwrap(),
-                "network.websocket_port" => config.network.websocket_port = value.parse().unwrap(),
+                "network.http_port" => {
+                    if let Ok(port) = value.parse() {
+                        config.network.http_port = port;
+                    } else {
+                        tracing::warn!("Skipping invalid network.http_port override: {value:?}");
+                    }
+                }
+                "network.websocket_port" => {
+                    if let Ok(port) = value.parse() {
+                        config.network.websocket_port = port;
+                    } else {
+                        tracing::warn!(
+                            "Skipping invalid network.websocket_port override: {value:?}"
+                        );
+                    }
+                }
                 _ => {}
             }
         }
-        let toml = toml::to_string(&config).unwrap();
-        fs::write(path, toml).unwrap();
+        let toml = toml::to_string(&config).unwrap(); // default config always serializes
+        fs::write(path, toml).unwrap(); // test helper: temp dir is writable
     }
 
     #[test]

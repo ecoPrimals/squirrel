@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::future_not_send,
+    missing_docs
+)]
 //! Modern Concurrent Test Helpers
 //!
 //! This module provides utilities for writing truly concurrent tests without sleeps.
@@ -202,10 +207,10 @@ where
 
             // Wait for notification or timeout
             tokio::select! {
-                _ = self.notify.notified() => {
+                () = self.notify.notified() => {
                     // Condition might have changed, loop to check
                 }
-                _ = tokio::time::sleep(deadline - now) => {
+                () = tokio::time::sleep(deadline - now) => {
                     // Timeout
                     return Err(StateTimeoutError);
                 }
@@ -439,11 +444,11 @@ pub enum StressTestError {
 impl std::fmt::Display for StressTestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StressTestError::TaskPanicked(i, e) => {
-                write!(f, "Task {} panicked: {}", i, e)
+            Self::TaskPanicked(i, e) => {
+                write!(f, "Task {i} panicked: {e}")
             }
-            StressTestError::TaskFailed(i, e) => {
-                write!(f, "Task {} failed: {}", i, e)
+            Self::TaskFailed(i, e) => {
+                write!(f, "Task {i} failed: {e}")
             }
         }
     }

@@ -172,14 +172,11 @@ mod tests {
             .map(|cap| tokio::spawn(async move { discover_capability(cap).await.is_ok() }))
             .collect();
 
-        let mut has = false;
         for h in handles {
-            if let Ok(true) = h.await {
-                has = true;
+            if matches!(h.await, Ok(true)) {
                 break;
             }
         }
         // Result is deterministic (true or false)
-        assert!(has || !has);
     }
 }

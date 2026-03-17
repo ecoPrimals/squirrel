@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Comprehensive tests for UniversalCorrelationTracker
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::assertions_on_constants,
+    clippy::unused_async
+)]
+//! Comprehensive tests for `UniversalCorrelationTracker`
 //!
 //! Tests distributed tracing, correlation IDs, operation lifecycle,
 //! and observability features.
@@ -91,7 +96,7 @@ async fn test_correlation_id_creation() {
 
     // IDs should be unique (test string representation)
     assert_ne!(
-        format!("{}", id1),
+        format!("{id1}"),
         format!("{}", id2),
         "Correlation IDs should be unique"
     );
@@ -100,7 +105,7 @@ async fn test_correlation_id_creation() {
 #[tokio::test]
 async fn test_correlation_id_display() {
     let id = CorrelationId::new();
-    let display = format!("{}", id);
+    let display = format!("{id}");
 
     assert!(
         !display.is_empty(),
@@ -204,16 +209,16 @@ async fn test_multiple_trackers() {
 #[tokio::test]
 async fn test_correlation_id_string_conversion() {
     let id = CorrelationId::new();
-    let string_repr = format!("{}", id);
+    let string_repr = format!("{id}");
 
     // Should be a valid UUID-like string
-    assert!(string_repr.contains("-"), "Should look like a UUID");
+    assert!(string_repr.contains('-'), "Should look like a UUID");
 }
 
 #[test]
 fn test_operation_status_clone() {
     let status = OperationStatus::InProgress;
-    let cloned = status.clone();
+    let cloned = status;
 
     assert!(matches!(cloned, OperationStatus::InProgress));
 }
@@ -289,7 +294,7 @@ fn test_operation_status_debug() {
     ];
 
     for status in statuses {
-        let debug_str = format!("{:?}", status);
+        let debug_str = format!("{status:?}");
         assert!(!debug_str.is_empty(), "Debug should produce output");
     }
 }
@@ -366,8 +371,8 @@ async fn test_correlation_id_lifecycle() {
     // Test that IDs work through their full lifecycle
     let id = CorrelationId::new();
     let _cloned = id.clone();
-    let _string = format!("{}", id);
-    let _debug = format!("{:?}", id);
+    let _string = format!("{id}");
+    let _debug = format!("{id:?}");
 
     assert!(true, "CorrelationId should support full lifecycle");
 }
@@ -400,7 +405,7 @@ async fn test_short_timeout_config() {
 async fn test_long_timeout_config() {
     let config = CorrelationConfig {
         max_operations_history: 1000,
-        operation_timeout: Duration::from_secs(604800), // 1 week
+        operation_timeout: Duration::from_secs(604_800), // 1 week
         enable_cross_primal_correlation: true,
         auto_cleanup_completed: true,
     };
@@ -441,7 +446,7 @@ async fn test_auto_cleanup_disabled() {
 #[test]
 fn test_operation_status_failed_with_long_message() {
     let long_message = "a".repeat(10000);
-    let status = OperationStatus::Failed(long_message.clone());
+    let status = OperationStatus::Failed(long_message);
 
     if let OperationStatus::Failed(msg) = status {
         assert_eq!(msg.len(), 10000);
@@ -464,7 +469,7 @@ async fn test_correlation_id_equality() {
 async fn test_correlation_id_as_str() {
     let id = CorrelationId::new();
     let as_str = id.as_str();
-    let display = format!("{}", id);
+    let display = format!("{id}");
 
     assert_eq!(as_str, display, "as_str and Display should match");
 }
@@ -480,10 +485,10 @@ async fn test_correlation_id_from_string() {
 #[tokio::test]
 async fn test_correlation_id_default() {
     let id = CorrelationId::default();
-    let display = format!("{}", id);
+    let display = format!("{id}");
 
     assert!(!display.is_empty(), "Default ID should not be empty");
-    assert!(display.contains("-"), "Default ID should be UUID-like");
+    assert!(display.contains('-'), "Default ID should be UUID-like");
 }
 
 #[tokio::test]

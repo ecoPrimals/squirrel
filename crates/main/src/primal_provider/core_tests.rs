@@ -10,7 +10,6 @@ mod tests {
     #[test]
     fn test_module_compiles() {
         // Ensure module compiles correctly
-        assert!(true);
     }
 
     #[test]
@@ -290,7 +289,7 @@ mod tests {
             details: Some(serde_json::json!(details)),
         };
 
-        assert_eq!(health.healthy, true);
+        assert!(health.healthy);
         assert_eq!(health.score, 0.95);
     }
 

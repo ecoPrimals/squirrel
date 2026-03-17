@@ -75,9 +75,8 @@ pub fn write_manifest(manifest: &PrimalManifest) -> std::io::Result<()> {
     };
 
     let path = dir.join(filename);
-    let json = serde_json::to_string_pretty(manifest).map_err(|e| {
-        std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
-    })?;
+    let json = serde_json::to_string_pretty(manifest)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
 
     std::fs::write(&path, json)?;
     debug!(path = %path.display(), primal = %manifest.primal, "wrote primal manifest");
@@ -117,12 +116,9 @@ fn manifest_directory() -> PathBuf {
 }
 
 fn scan_directory(dir: &Path) -> Vec<PrimalManifest> {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => {
-            debug!(dir = %dir.display(), "manifest directory not found");
-            return Vec::new();
-        }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        debug!(dir = %dir.display(), "manifest directory not found");
+        return Vec::new();
     };
 
     let mut manifests = Vec::new();
@@ -220,29 +216,37 @@ mod tests {
     #[test]
     fn write_and_remove_manifest() {
         let dir = TempDir::new().unwrap();
-        temp_env::with_var("XDG_RUNTIME_DIR", Some(dir.path().to_str().unwrap()), || {
-            let m = test_manifest();
-            write_manifest(&m).unwrap();
+        temp_env::with_var(
+            "XDG_RUNTIME_DIR",
+            Some(dir.path().to_str().unwrap()),
+            || {
+                let m = test_manifest();
+                write_manifest(&m).unwrap();
 
-            let expected = dir.path().join("ecoPrimals/test-primal.json");
-            assert!(expected.exists());
+                let expected = dir.path().join("ecoPrimals/test-primal.json");
+                assert!(expected.exists());
 
-            remove_manifest("test-primal", None).unwrap();
-            assert!(!expected.exists());
-        });
+                remove_manifest("test-primal", None).unwrap();
+                assert!(!expected.exists());
+            },
+        );
     }
 
     #[test]
     fn write_manifest_with_family_id() {
         let dir = TempDir::new().unwrap();
-        temp_env::with_var("XDG_RUNTIME_DIR", Some(dir.path().to_str().unwrap()), || {
-            let mut m = test_manifest();
-            m.family_id = Some("alpha".into());
-            write_manifest(&m).unwrap();
+        temp_env::with_var(
+            "XDG_RUNTIME_DIR",
+            Some(dir.path().to_str().unwrap()),
+            || {
+                let mut m = test_manifest();
+                m.family_id = Some("alpha".into());
+                write_manifest(&m).unwrap();
 
-            let expected = dir.path().join("ecoPrimals/test-primal-alpha.json");
-            assert!(expected.exists());
-        });
+                let expected = dir.path().join("ecoPrimals/test-primal-alpha.json");
+                assert!(expected.exists());
+            },
+        );
     }
 
     #[test]

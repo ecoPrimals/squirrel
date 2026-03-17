@@ -335,8 +335,10 @@ mod tests {
 
     #[test]
     fn test_mcp_capabilities_enable_mcp() {
-        let mut capabilities = McpCapabilities::default();
-        capabilities.supports_mcp = false;
+        let capabilities = McpCapabilities {
+            supports_mcp: false,
+            ..McpCapabilities::default()
+        };
 
         let enabled_capabilities = capabilities.enable_mcp();
         assert!(enabled_capabilities.supports_mcp);

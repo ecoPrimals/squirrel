@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::significant_drop_tightening,
+    clippy::cast_precision_loss
+)]
 //! Timing and latency chaos tests
 
 use super::helpers::*;
@@ -35,11 +40,11 @@ impl MockServiceWithLatency {
         }
     }
 
-    fn set_latency(&mut self, latency: Duration) {
+    const fn set_latency(&mut self, latency: Duration) {
         self.latency = latency;
     }
 
-    fn enable_fallback(&mut self, enabled: bool) {
+    const fn enable_fallback(&mut self, enabled: bool) {
         self.fallback_enabled = enabled;
     }
 
@@ -52,10 +57,7 @@ impl MockServiceWithLatency {
     }
 
     fn handle_fallback(&self, request_id: usize) -> ChaosResult<String> {
-        Ok(format!(
-            "Request {} served from cache (fallback)",
-            request_id
-        ))
+        Ok(format!("Request {request_id} served from cache (fallback)"))
     }
 }
 
@@ -77,17 +79,14 @@ async fn send_request_with_timeout(
     let latency_ms = elapsed.as_secs_f64() * 1000.0;
 
     let mut m = metrics.write().await;
-    match result {
-        Ok(Ok(_)) => {
-            m.successful += 1;
-            m.total_latency_ms += latency_ms;
-            m.avg_latency_ms = m.total_latency_ms / m.successful as f64;
-            Ok("Request completed".to_string())
-        }
-        _ => {
-            m.timeouts += 1;
-            Err("Request timed out".into())
-        }
+    if let Ok(Ok(_)) = result {
+        m.successful += 1;
+        m.total_latency_ms += latency_ms;
+        m.avg_latency_ms = m.total_latency_ms / m.successful as f64;
+        Ok("Request completed".to_string())
+    } else {
+        m.timeouts += 1;
+        Err("Request timed out".into())
     }
 }
 
@@ -109,18 +108,15 @@ async fn send_request_with_fallback(
     let latency_ms = elapsed.as_secs_f64() * 1000.0;
 
     let mut m = metrics.write().await;
-    match result {
-        Ok(Ok(_)) => {
-            m.successful += 1;
-            m.total_latency_ms += latency_ms;
-            m.avg_latency_ms = m.total_latency_ms / m.successful as f64;
-            Ok("Request completed".to_string())
-        }
-        _ => {
-            m.fallbacks += 1;
-            let svc = service.read().await;
-            svc.handle_fallback(request_id)
-        }
+    if let Ok(Ok(_)) = result {
+        m.successful += 1;
+        m.total_latency_ms += latency_ms;
+        m.avg_latency_ms = m.total_latency_ms / m.successful as f64;
+        Ok("Request completed".to_string())
+    } else {
+        m.fallbacks += 1;
+        let svc = service.read().await;
+        svc.handle_fallback(request_id)
     }
 }
 

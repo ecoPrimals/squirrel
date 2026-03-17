@@ -219,8 +219,8 @@ mod tests {
         };
         let json = serde_json::to_string(&dp).unwrap();
         let deserialized: DataPoint = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.x, 1.0);
-        assert_eq!(deserialized.y, 2.0);
+        assert!((deserialized.x - 1.0).abs() < 1e-9);
+        assert!((deserialized.y - 2.0).abs() < 1e-9);
         assert_eq!(deserialized.z, Some(3.0));
     }
 

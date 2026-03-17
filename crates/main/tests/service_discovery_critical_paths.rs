@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, unexpected_cfgs)]
 //! Critical Path Service Discovery Tests
 //!
 //! Comprehensive tests for capability-based service discovery - the core

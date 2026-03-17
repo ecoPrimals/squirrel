@@ -3,7 +3,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #[cfg(test)]
-mod sync_tests {
+mod tests {
     use crate::ContextState;
     use crate::sync::*;
     use std::time::{Duration, SystemTime};

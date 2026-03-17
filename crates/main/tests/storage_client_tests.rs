@@ -123,8 +123,8 @@ fn test_performance_requirements_custom() {
     };
 
     assert_eq!(perf.max_latency_ms, 100);
-    assert_eq!(perf.min_throughput_mbps, 10.0);
-    assert_eq!(perf.availability_sla, 0.999);
+    assert!((perf.min_throughput_mbps - 10.0).abs() < f64::EPSILON);
+    assert!((perf.availability_sla - 0.999).abs() < f64::EPSILON);
     assert_eq!(perf.durability_nines, 11);
 }
 
@@ -140,7 +140,7 @@ fn test_storage_capability_preference() {
         required: true,
     };
 
-    assert_eq!(pref.weight, 0.8);
+    assert!((pref.weight - 0.8).abs() < f64::EPSILON);
     assert!(pref.required);
 }
 
@@ -155,22 +155,22 @@ fn test_storage_capability_preference_optional() {
         required: false,
     };
 
-    assert_eq!(pref.weight, 0.3);
+    assert!((pref.weight - 0.3).abs() < f64::EPSILON);
     assert!(!pref.required);
 }
 
 #[test]
 fn test_data_classification_clone() {
     let class1 = DataClassification::Confidential;
-    let class2 = class1.clone();
+    let _class2 = class1.clone();
 
-    assert!(matches!(class2, DataClassification::Confidential));
+    assert!(matches!(class1, DataClassification::Confidential));
 }
 
 #[test]
 fn test_data_classification_debug() {
     let class = DataClassification::Public;
-    let debug_str = format!("{:?}", class);
+    let debug_str = format!("{class:?}");
 
     assert!(!debug_str.is_empty());
 }
@@ -182,7 +182,7 @@ fn test_storage_capability_debug() {
         encryption: false,
         replication: true,
     };
-    let debug_str = format!("{:?}", cap);
+    let debug_str = format!("{cap:?}");
 
     assert!(!debug_str.is_empty());
 }
@@ -195,7 +195,7 @@ fn test_performance_requirements_debug() {
         availability_sla: 0.99,
         durability_nines: 9,
     };
-    let debug_str = format!("{:?}", perf);
+    let debug_str = format!("{perf:?}");
 
     assert!(!debug_str.is_empty());
 }
@@ -203,7 +203,7 @@ fn test_performance_requirements_debug() {
 #[test]
 fn test_storage_config_debug() {
     let config = StorageClientConfig::default();
-    let debug_str = format!("{:?}", config);
+    let debug_str = format!("{config:?}");
 
     assert!(!debug_str.is_empty());
 }
@@ -228,7 +228,7 @@ fn test_performance_requirements_clone() {
     let perf2 = perf1.clone();
 
     assert_eq!(perf1.max_latency_ms, perf2.max_latency_ms);
-    assert_eq!(perf1.availability_sla, perf2.availability_sla);
+    assert!((perf1.availability_sla - perf2.availability_sla).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -238,9 +238,9 @@ fn test_storage_capability_clone() {
         encryption: true,
         replication: false,
     };
-    let cap2 = cap1.clone();
+    let _cap2 = cap1.clone();
 
-    assert!(matches!(cap2, StorageCapabilityType::ObjectStorage { .. }));
+    assert!(matches!(cap1, StorageCapabilityType::ObjectStorage { .. }));
 }
 
 #[test]
@@ -255,7 +255,7 @@ fn test_storage_capability_preference_clone() {
     };
     let pref2 = pref1.clone();
 
-    assert_eq!(pref1.weight, pref2.weight);
+    assert!((pref1.weight - pref2.weight).abs() < f64::EPSILON);
     assert_eq!(pref1.required, pref2.required);
 }
 
@@ -416,8 +416,8 @@ fn test_weight_bounds() {
         required: true,
     };
 
-    assert_eq!(pref_min.weight, 0.0);
-    assert_eq!(pref_max.weight, 1.0);
+    assert!((pref_min.weight - 0.0).abs() < f64::EPSILON);
+    assert!((pref_max.weight - 1.0).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -477,7 +477,7 @@ fn test_storage_client_config_with_preferences() {
 
 #[test]
 fn test_all_data_classifications() {
-    let classifications = vec![
+    let classifications = [
         DataClassification::Public,
         DataClassification::Internal,
         DataClassification::Confidential,

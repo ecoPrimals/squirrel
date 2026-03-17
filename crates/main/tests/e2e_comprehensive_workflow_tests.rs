@@ -44,6 +44,7 @@ mod tests {
     #[tokio::test]
     async fn test_complete_error_handling_workflow() {
         use squirrel::error::PrimalError;
+        use tokio::time::{Duration, timeout};
 
         // 1. Trigger various error types
         let network_err = PrimalError::Network("connection failed".to_string());
@@ -74,7 +75,7 @@ mod tests {
         assert!(result.is_err());
 
         // 4. Test error transformation
-        let transformed = result.map_err(|e| PrimalError::Internal(format!("Wrapped: {}", e)));
+        let transformed = result.map_err(|e| PrimalError::Internal(format!("Wrapped: {e}")));
         assert!(transformed.is_err());
         if let Err(PrimalError::Internal(msg)) = transformed {
             assert!(msg.contains("Wrapped"));
@@ -91,7 +92,6 @@ mod tests {
         assert!(primal_err.to_string().contains("IO error"));
 
         // 7. Test timeout error handling
-        use tokio::time::{Duration, timeout};
         let timeout_result = timeout(
             Duration::from_millis(1),
             std::future::pending::<Result<(), PrimalError>>(),
@@ -100,10 +100,7 @@ mod tests {
         assert!(timeout_result.is_err(), "Timeout should trigger error");
 
         // 8. Test error recovery
-        let recovered = match timeout_result {
-            Ok(inner) => inner,
-            Err(_) => Ok(()), // Recovered from timeout
-        };
+        let recovered = timeout_result.map_or(Ok(()), |inner| inner);
         assert!(recovered.is_ok());
     }
 
@@ -153,11 +150,7 @@ mod tests {
         // 1. Create unique correlation IDs
         let id1 = CorrelationId::new();
         let id2 = CorrelationId::new();
-        assert_ne!(
-            format!("{}", id1),
-            format!("{}", id2),
-            "IDs should be unique"
-        );
+        assert_ne!(format!("{id1}"), format!("{}", id2), "IDs should be unique");
 
         // 2. Clone and compare
         let id3 = id1.clone();

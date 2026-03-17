@@ -523,10 +523,10 @@ mod tests {
         assert_eq!(stats.total_requests, 0);
         assert_eq!(stats.successful_requests, 0);
         assert_eq!(stats.failed_requests, 0);
-        assert_eq!(stats.average_latency_ms, 0.0);
+        assert!((stats.average_latency_ms - 0.0).abs() < f64::EPSILON);
 
-        assert_eq!(router.get_success_rate(), 0.0);
-        assert_eq!(router.get_average_latency(), 0.0);
+        assert!((router.get_success_rate() - 0.0).abs() < f64::EPSILON);
+        assert!((router.get_average_latency() - 0.0).abs() < f64::EPSILON);
     }
 
     #[test]

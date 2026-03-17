@@ -597,9 +597,11 @@ mod tests {
         let config_path = dir.path().join("test_config.toml");
 
         // Create and save config
-        let mut config = CliConfig::default();
-        config.log_level = "debug".to_string();
-        config.output_format = "json".to_string();
+        let mut config = CliConfig {
+            log_level: "debug".to_string(),
+            output_format: "json".to_string(),
+            ..Default::default()
+        };
         config.set("custom_key", "custom_value".to_string())?;
 
         config.save_to_file(&config_path)?;

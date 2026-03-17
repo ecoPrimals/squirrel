@@ -600,10 +600,10 @@ mod tests {
         assert!(retrieved2.is_some());
 
         // List transactions
-        let transactions = manager.list_transactions();
-        assert_eq!(transactions.len(), 2);
-        assert!(transactions.contains(&id1));
-        assert!(transactions.contains(&id2));
+        let tx_list = manager.list_transactions();
+        assert_eq!(tx_list.len(), 2);
+        assert!(tx_list.contains(&id1));
+        assert!(tx_list.contains(&id2));
 
         // Remove a transaction
         manager
@@ -611,9 +611,9 @@ mod tests {
             .expect("Failed to remove transaction1 in test");
 
         // List transactions again
-        let transactions = manager.list_transactions();
-        assert_eq!(transactions.len(), 1);
-        assert!(transactions.contains(&id2));
+        let tx_list = manager.list_transactions();
+        assert_eq!(tx_list.len(), 1);
+        assert!(tx_list.contains(&id2));
 
         // Try to get the removed transaction
         let retrieved1 = manager.get_transaction(id1);

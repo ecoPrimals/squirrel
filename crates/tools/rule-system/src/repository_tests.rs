@@ -214,8 +214,8 @@ mod tests {
 
         let result = repo.get_rules_by_category("security").await;
         assert!(result.is_ok());
-        let rules = result.unwrap();
-        assert_eq!(rules.len(), 2);
+        let rule_list = result.unwrap();
+        assert_eq!(rule_list.len(), 2);
     }
 
     #[tokio::test]

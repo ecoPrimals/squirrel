@@ -125,7 +125,7 @@ async fn test_discovered_service_freshness() {
     // Test with old discovery time
     let old_service = DiscoveredService {
         discovered_at: SystemTime::now() - Duration::from_secs(120),
-        ..service.clone()
+        ..service
     };
 
     assert!(!old_service.is_fresh(Duration::from_secs(60)));
@@ -203,7 +203,7 @@ fn test_discovery_with_complex_endpoint() {
                 let engine = RuntimeDiscoveryEngine::new();
                 let result = engine.discover_capability("complex").await;
 
-                assert!(result.is_ok(), "Failed for endpoint: {}", env_value);
+                assert!(result.is_ok(), "Failed for endpoint: {env_value}");
                 let service = result.unwrap();
                 assert_eq!(service.endpoint, expected_endpoint);
             });
@@ -229,7 +229,7 @@ async fn test_primal_self_knowledge_discover_primal() {
 #[tokio::test]
 async fn test_discovery_priority_ordering() {
     // Test that discovered services can be ordered by priority
-    let mut services = vec![
+    let mut services = [
         DiscoveredService {
             name: "low-priority".to_string(),
             endpoint: "http://localhost:8001".to_string(),

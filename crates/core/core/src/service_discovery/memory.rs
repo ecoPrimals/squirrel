@@ -122,7 +122,7 @@ impl InMemoryServiceDiscovery {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::InMemoryServiceDiscovery;
+    /// # use squirrel_core::{CoreResult, InMemoryServiceDiscovery};
     /// # async fn example() -> CoreResult<()> {
     /// let discovery = InMemoryServiceDiscovery::new();
     /// let expired_services = discovery.cleanup_expired_services().await?;

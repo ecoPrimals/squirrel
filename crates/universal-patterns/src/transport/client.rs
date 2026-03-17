@@ -542,11 +542,12 @@ mod tests {
 
     #[test]
     fn test_transport_config_custom() {
-        let mut config = TransportConfig::default();
-        config.preferred_transport = Some(TransportType::Tcp);
-        config.enable_fallback = false;
-        config.timeout_ms = 10000;
-        config.socket_base_dir = Some(PathBuf::from("/tmp/custom"));
+        let config = TransportConfig {
+            preferred_transport: Some(TransportType::Tcp),
+            enable_fallback: false,
+            timeout_ms: 10000,
+            socket_base_dir: Some(PathBuf::from("/tmp/custom")),
+        };
 
         assert_eq!(config.preferred_transport, Some(TransportType::Tcp));
         assert!(!config.enable_fallback);
@@ -604,8 +605,10 @@ mod tests {
 
     #[test]
     fn test_transport_hierarchy_with_preference() {
-        let mut config = TransportConfig::default();
-        config.preferred_transport = Some(TransportType::Tcp);
+        let config = TransportConfig {
+            preferred_transport: Some(TransportType::Tcp),
+            ..Default::default()
+        };
 
         let hierarchy = UniversalTransport::get_transport_hierarchy(&config);
         assert_eq!(hierarchy.len(), 2);
@@ -617,8 +620,10 @@ mod tests {
     fn test_transport_hierarchy_with_preference_unix() {
         #[cfg(unix)]
         {
-            let mut config = TransportConfig::default();
-            config.preferred_transport = Some(TransportType::UnixFilesystem);
+            let config = TransportConfig {
+                preferred_transport: Some(TransportType::UnixFilesystem),
+                ..Default::default()
+            };
 
             let hierarchy = UniversalTransport::get_transport_hierarchy(&config);
             assert_eq!(hierarchy.len(), 2);
@@ -629,9 +634,11 @@ mod tests {
 
     #[test]
     fn test_transport_hierarchy_no_fallback() {
-        let mut config = TransportConfig::default();
-        config.preferred_transport = Some(TransportType::Tcp);
-        config.enable_fallback = false;
+        let config = TransportConfig {
+            preferred_transport: Some(TransportType::Tcp),
+            enable_fallback: false,
+            ..Default::default()
+        };
 
         let hierarchy = UniversalTransport::get_transport_hierarchy(&config);
         assert_eq!(hierarchy.len(), 1);
@@ -694,8 +701,10 @@ mod tests {
 
     #[test]
     fn test_socket_path_generation_custom_dir() {
-        let mut config = TransportConfig::default();
-        config.socket_base_dir = Some(PathBuf::from("/tmp/custom_sockets"));
+        let config = TransportConfig {
+            socket_base_dir: Some(PathBuf::from("/tmp/custom_sockets")),
+            ..Default::default()
+        };
 
         let path = UniversalTransport::get_socket_path("my_service", &config);
 

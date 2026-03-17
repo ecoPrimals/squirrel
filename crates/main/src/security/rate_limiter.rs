@@ -873,7 +873,7 @@ mod tests {
         // Test fields
         assert!(result.allowed);
         assert_eq!(result.remaining_tokens, Some(50));
-        assert_eq!(result.client_banned, false);
+        assert!(!result.client_banned);
     }
 
     #[tokio::test]

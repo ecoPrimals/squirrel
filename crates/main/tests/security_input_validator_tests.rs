@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Comprehensive tests for ProductionInputValidator
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::field_reassign_with_default
+)]
+//! Comprehensive tests for `ProductionInputValidator`
 //!
 //! These tests ensure proper validation, sanitization, and error handling
 //! for all input types and attack vectors.
@@ -24,8 +28,10 @@ fn test_validator_initialization() {
 
 #[test]
 fn test_sql_injection_detection() {
-    let mut config = InputValidationConfig::default();
-    config.strict_mode = true; // Use strict mode for clearer detection
+    let config = InputValidationConfig {
+        strict_mode: true, // Use strict mode for clearer detection
+        ..Default::default()
+    };
     let validator = ProductionInputValidator::new(config).unwrap();
 
     // Test obvious SQL injection patterns
@@ -40,8 +46,7 @@ fn test_sql_injection_detection() {
         // Should detect SQL patterns
         assert!(
             !result.violations.is_empty(),
-            "Should detect SQL patterns in: {}",
-            input
+            "Should detect SQL patterns in: {input}"
         );
     }
 }
@@ -61,14 +66,13 @@ fn test_xss_detection() {
 
     for input in xss_inputs {
         let result = validator.validate_input(input, InputType::Html, None);
-        assert!(!result.is_valid, "Should detect XSS: {}", input);
+        assert!(!result.is_valid, "Should detect XSS: {input}");
         assert!(
             result
                 .violations
                 .iter()
                 .any(|v| v.violation_type == ViolationType::XssAttack),
-            "Should flag XSS for: {}",
-            input
+            "Should flag XSS for: {input}"
         );
     }
 }
@@ -88,18 +92,13 @@ fn test_command_injection_detection() {
 
     for input in command_injections {
         let result = validator.validate_input(input, InputType::CommandParam, None);
-        assert!(
-            !result.is_valid,
-            "Should detect command injection: {}",
-            input
-        );
+        assert!(!result.is_valid, "Should detect command injection: {input}");
         assert!(
             result
                 .violations
                 .iter()
                 .any(|v| v.violation_type == ViolationType::CommandInjection),
-            "Should flag command injection for: {}",
-            input
+            "Should flag command injection for: {input}"
         );
     }
 }
@@ -118,14 +117,13 @@ fn test_path_traversal_detection() {
 
     for input in path_traversals {
         let result = validator.validate_input(input, InputType::FilePath, None);
-        assert!(!result.is_valid, "Should detect path traversal: {}", input);
+        assert!(!result.is_valid, "Should detect path traversal: {input}");
         assert!(
             result
                 .violations
                 .iter()
                 .any(|v| v.violation_type == ViolationType::PathTraversal),
-            "Should flag path traversal for: {}",
-            input
+            "Should flag path traversal for: {input}"
         );
     }
 }
@@ -144,23 +142,24 @@ fn test_nosql_injection_detection() {
 
     for input in nosql_injections {
         let result = validator.validate_input(input, InputType::DatabaseParam, None);
-        assert!(!result.is_valid, "Should detect NoSQL injection: {}", input);
+        assert!(!result.is_valid, "Should detect NoSQL injection: {input}");
         assert!(
             result
                 .violations
                 .iter()
                 .any(|v| v.violation_type == ViolationType::NoSqlInjection),
-            "Should flag NoSQL injection for: {}",
-            input
+            "Should flag NoSQL injection for: {input}"
         );
     }
 }
 
 #[test]
 fn test_length_validation() {
-    let mut config = InputValidationConfig::default();
-    config.max_text_length = 10; // Use max_text_length for Text type
-    config.strict_mode = true; // Use strict mode to ensure rejection
+    let config = InputValidationConfig {
+        max_text_length: 10, // Use max_text_length for Text type
+        strict_mode: true,   // Use strict mode to ensure rejection
+        ..Default::default()
+    };
     let validator = ProductionInputValidator::new(config).unwrap();
 
     let long_input = "a".repeat(100);
@@ -177,8 +176,10 @@ fn test_length_validation() {
 
 #[test]
 fn test_html_sanitization() {
-    let mut config = InputValidationConfig::default();
-    config.strict_mode = false; // Allow sanitization
+    let mut config = InputValidationConfig {
+        strict_mode: false, // Allow sanitization
+        ..Default::default()
+    };
     config.allowed_html_tags.insert("b".to_string());
     config.allowed_html_tags.insert("i".to_string());
     let validator = ProductionInputValidator::new(config).unwrap();
@@ -211,8 +212,7 @@ fn test_safe_inputs_pass_validation() {
         let result = validator.validate_input(input, input_type, None);
         assert!(
             result.violations.is_empty() || result.risk_level <= RiskLevel::Low,
-            "Safe input should pass or have low risk: {}",
-            input
+            "Safe input should pass or have low risk: {input}"
         );
     }
 }
@@ -290,8 +290,8 @@ fn test_email_sanitization() {
     let result = validator.validate_input(input, InputType::Email, None);
 
     if let Some(sanitized) = result.sanitized_input {
-        assert!(!sanitized.contains("<"), "Should remove < from email");
-        assert!(!sanitized.contains(">"), "Should remove > from email");
+        assert!(!sanitized.contains('<'), "Should remove < from email");
+        assert!(!sanitized.contains('>'), "Should remove > from email");
         // Note: The word "script" itself may remain, but the < > are removed
     }
 }

@@ -6,6 +6,8 @@
 //! This module contains types and functions for planned features that are not yet fully implemented.
 //! These are kept here for future development.
 
+#![allow(dead_code)]
+
 /// Learning request type for context optimization
 ///
 /// Note: Planned feature for queuing optimization tasks - implementation in progress
@@ -125,10 +127,10 @@ mod tests {
     #[test]
     fn test_context_usage_pattern_default() {
         let pattern = ContextUsagePattern::default();
-        assert_eq!(pattern.frequency, 0.0);
-        assert_eq!(pattern.efficiency, 0.0);
-        assert_eq!(pattern.error_rate, 0.0);
-        assert_eq!(pattern.complexity_score, 0.0);
+        assert!((pattern.frequency - 0.0).abs() < 1e-9);
+        assert!((pattern.efficiency - 0.0).abs() < 1e-9);
+        assert!((pattern.error_rate - 0.0).abs() < 1e-9);
+        assert!((pattern.complexity_score - 0.0).abs() < 1e-9);
     }
 
     #[test]
@@ -255,7 +257,7 @@ mod tests {
         let result = analyze_state_change_patterns(&[]);
         assert!(!result.suggests_optimization);
         assert_eq!(result.optimization_type, "general_optimization");
-        assert_eq!(result.confidence, 0.6);
+        assert!((result.confidence - 0.6).abs() < 1e-9);
     }
 
     #[test]
@@ -286,7 +288,7 @@ mod tests {
         let result = analyze_state_change_patterns(&changes);
         assert!(result.suggests_optimization);
         assert_eq!(result.optimization_type, "state_stabilization");
-        assert_eq!(result.confidence, 0.6);
+        assert!((result.confidence - 0.6).abs() < 1e-9);
     }
 
     #[test]
@@ -307,7 +309,7 @@ mod tests {
         let result = analyze_state_change_patterns(&changes);
         assert!(result.suggests_optimization);
         assert_eq!(result.optimization_type, "error_reduction");
-        assert_eq!(result.confidence, 0.9);
+        assert!((result.confidence - 0.9).abs() < 1e-9);
     }
 
     #[test]
@@ -321,7 +323,7 @@ mod tests {
         let result = analyze_state_change_patterns(&changes);
         assert!(result.suggests_optimization);
         assert_eq!(result.optimization_type, "error_reduction");
-        assert_eq!(result.confidence, 0.9);
+        assert!((result.confidence - 0.9).abs() < 1e-9);
     }
 
     #[test]
@@ -333,6 +335,6 @@ mod tests {
         };
         assert!(analysis.suggests_optimization);
         assert_eq!(analysis.optimization_type, "error_reduction");
-        assert_eq!(analysis.confidence, 0.95);
+        assert!((analysis.confidence - 0.95).abs() < 1e-9);
     }
 }

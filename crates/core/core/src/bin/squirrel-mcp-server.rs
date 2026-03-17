@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+//! Squirrel MCP Server - Universal Swarm MCP Agent System
+//!
+//! This binary starts the Squirrel MCP server for multi-MCP coordination,
+//! ecosystem participation, and federation.
+
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use std::sync::Arc;
 use tokio::signal;
@@ -35,7 +40,7 @@ async fn main() -> Result<()> {
     info!("Version: {}", squirrel_core::SQUIRREL_MCP_VERSION);
 
     // Load configuration
-    let config = load_configuration().await?;
+    let config = load_configuration();
     info!("Configuration loaded successfully");
 
     // Initialize monitoring service first (delegates to Songbird when available)
@@ -168,7 +173,7 @@ struct SquirrelConfig {
 }
 
 /// Load configuration from environment and files
-async fn load_configuration() -> Result<SquirrelConfig> {
+fn load_configuration() -> SquirrelConfig {
     // Create monitoring configuration with Songbird delegation
     let monitoring_config = MonitoringConfig {
         enabled: std::env::var("MONITORING_ENABLED")
@@ -179,8 +184,9 @@ async fn load_configuration() -> Result<SquirrelConfig> {
             .unwrap_or_else(|_| "false".to_string())
             .parse()
             .unwrap_or(false),
-        songbird_config: if let Ok(songbird_endpoint) = std::env::var("SONGBIRD_ENDPOINT") {
-            Some(SongbirdConfig {
+        songbird_config: std::env::var("SONGBIRD_ENDPOINT")
+            .ok()
+            .map(|songbird_endpoint| SongbirdConfig {
                 endpoint: songbird_endpoint,
                 service_name: "squirrel-mcp".to_string(),
                 auth_token: std::env::var("SONGBIRD_AUTH_TOKEN").ok(),
@@ -194,19 +200,16 @@ async fn load_configuration() -> Result<SquirrelConfig> {
                         .parse()
                         .unwrap_or(30),
                 ),
-            })
-        } else {
-            None
-        },
+            }),
         ..Default::default()
     };
 
-    Ok(SquirrelConfig {
+    SquirrelConfig {
         ecosystem: EcosystemConfig::default(),
         routing: RoutingConfig::default(),
         federation: FederationConfig::default(),
         monitoring: monitoring_config,
-    })
+    }
 }
 
 /// Print startup summary with monitoring status

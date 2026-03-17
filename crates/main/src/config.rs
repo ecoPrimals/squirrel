@@ -19,7 +19,8 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use universal_constants::network::{BIND_ALL_INTERFACES, DEFAULT_SQUIRREL_SERVER_PORT};
+use universal_constants::deployment::ports;
+use universal_constants::network::BIND_ALL_INTERFACES;
 
 /// Main Squirrel configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,7 +113,7 @@ impl Default for ServerConfig {
         Self {
             socket: None,
             bind: BIND_ALL_INTERFACES.to_string(),
-            port: DEFAULT_SQUIRREL_SERVER_PORT,
+            port: ports::squirrel_server(),
             daemon: false,
             max_connections: 100,
             request_timeout_secs: 30,

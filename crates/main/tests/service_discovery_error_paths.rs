@@ -33,10 +33,11 @@ impl EcosystemServiceDiscovery {
         }
     }
 
-    fn new_with_config(config: ServiceDiscoveryConfig) -> Self {
+    const fn new_with_config(config: ServiceDiscoveryConfig) -> Self {
         Self { config }
     }
 
+    #[allow(clippy::unused_async)]
     async fn discover_by_capability(
         &self,
         capability: &str,
@@ -75,11 +76,10 @@ async fn test_discover_nonexistent_capability() {
         Err(PrimalError::ServiceDiscoveryFailed(msg)) => {
             assert!(
                 msg.contains("not found") || msg.contains("No service"),
-                "Error message should indicate service not found: {}",
-                msg
+                "Error message should indicate service not found: {msg}"
             );
         }
-        Err(e) => panic!("Expected ServiceDiscoveryFailed, got: {:?}", e),
+        Err(e) => panic!("Expected ServiceDiscoveryFailed, got: {e:?}"),
         Ok(_) => panic!("Expected error, got success"),
     }
 }
@@ -117,7 +117,7 @@ async fn test_discover_without_env_vars() {
         Err(PrimalError::ServiceDiscoveryFailed(_)) => {
             // Acceptable if service is not running locally
         }
-        Err(e) => panic!("Unexpected error type: {:?}", e),
+        Err(e) => panic!("Unexpected error type: {e:?}"),
     }
 }
 
@@ -154,7 +154,6 @@ async fn test_discover_with_invalid_dns() {
     let config = ServiceDiscoveryConfig {
         dns_domain: Some("invalid.domain.that.does.not.exist.local".to_string()),
         environment: Some("development".to_string()), // Allow fallback
-        ..Default::default()
     };
     let discovery = EcosystemServiceDiscovery::new_with_config(config);
 
@@ -172,7 +171,7 @@ async fn test_discover_with_invalid_dns() {
             // Expected - DNS failed and no fallback available
             assert!(!msg.is_empty(), "Error message should not be empty");
         }
-        Err(e) => panic!("Unexpected error type: {:?}", e),
+        Err(e) => panic!("Unexpected error type: {e:?}"),
     }
 
     // No cleanup needed - no env var mutation!
@@ -203,8 +202,7 @@ async fn test_cache_behavior() {
         // Cache hit should be very fast (< 10ms)
         assert!(
             duration.as_millis() < 10,
-            "Cached discovery took too long: {:?}",
-            duration
+            "Cached discovery took too long: {duration:?}"
         );
     }
 }
@@ -227,8 +225,7 @@ async fn test_error_message_quality() {
 
         assert!(
             error_msg.len() > 10,
-            "Error message should be descriptive, got: {}",
-            error_msg
+            "Error message should be descriptive, got: {error_msg}"
         );
     }
 }
@@ -277,14 +274,11 @@ async fn test_concurrent_discovery() {
         match result {
             Ok(Ok(_)) => successes += 1,
             Ok(Err(_)) => failures += 1,
-            Err(e) => panic!("Task panicked: {:?}", e),
+            Err(e) => panic!("Task panicked: {e:?}"),
         }
     }
 
-    println!(
-        "Concurrent discovery: {} successes, {} failures",
-        successes, failures
-    );
+    println!("Concurrent discovery: {successes} successes, {failures} failures");
 
     // At least some should complete (either success or graceful failure)
     assert!(

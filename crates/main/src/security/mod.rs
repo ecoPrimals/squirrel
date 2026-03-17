@@ -113,6 +113,46 @@ impl Default for SecuritySystemBuilder {
     }
 }
 
+/// Production security system facade for easy integration
+pub struct ProductionSecuritySystem {
+    orchestrator: Arc<SecurityOrchestrator>,
+    beardog_coordinator: Option<Arc<BeardogSecurityCoordinator>>,
+}
+
+impl ProductionSecuritySystem {
+    /// Create a new production security system
+    pub async fn new(config: SecurityOrchestrationConfig) -> Result<Self, PrimalError> {
+        let orchestrator = SecurityOrchestrator::new(config).await?;
+
+        Ok(Self {
+            orchestrator: Arc::new(orchestrator),
+            beardog_coordinator: None,
+        })
+    }
+
+    /// Get the security orchestrator
+    #[must_use]
+    pub fn orchestrator(&self) -> Arc<SecurityOrchestrator> {
+        Arc::clone(&self.orchestrator)
+    }
+
+    /// Get `BearDog` coordinator if available
+    #[must_use]
+    pub fn beardog_coordinator(&self) -> Option<Arc<BeardogSecurityCoordinator>> {
+        self.beardog_coordinator.clone()
+    }
+
+    /// Perform comprehensive security check
+    pub async fn check_security(&self, request: SecurityCheckRequest) -> SecurityCheckResult {
+        self.orchestrator.check_security(request).await
+    }
+
+    /// Get comprehensive security statistics
+    pub async fn get_security_statistics(&self) -> orchestrator::SecurityStatistics {
+        self.orchestrator.get_security_statistics().await
+    }
+}
+
 #[cfg(test)]
 mod security_mod_tests {
     use super::*;
@@ -180,45 +220,5 @@ mod security_mod_tests {
         let config = SecurityOrchestrationConfig::default();
         let system = ProductionSecuritySystem::new(config).await.unwrap();
         assert!(system.beardog_coordinator().is_none());
-    }
-}
-
-/// Production security system facade for easy integration
-pub struct ProductionSecuritySystem {
-    orchestrator: Arc<SecurityOrchestrator>,
-    beardog_coordinator: Option<Arc<BeardogSecurityCoordinator>>,
-}
-
-impl ProductionSecuritySystem {
-    /// Create a new production security system
-    pub async fn new(config: SecurityOrchestrationConfig) -> Result<Self, PrimalError> {
-        let orchestrator = SecurityOrchestrator::new(config).await?;
-
-        Ok(Self {
-            orchestrator: Arc::new(orchestrator),
-            beardog_coordinator: None,
-        })
-    }
-
-    /// Get the security orchestrator
-    #[must_use]
-    pub fn orchestrator(&self) -> Arc<SecurityOrchestrator> {
-        Arc::clone(&self.orchestrator)
-    }
-
-    /// Get `BearDog` coordinator if available
-    #[must_use]
-    pub fn beardog_coordinator(&self) -> Option<Arc<BeardogSecurityCoordinator>> {
-        self.beardog_coordinator.clone()
-    }
-
-    /// Perform comprehensive security check
-    pub async fn check_security(&self, request: SecurityCheckRequest) -> SecurityCheckResult {
-        self.orchestrator.check_security(request).await
-    }
-
-    /// Get comprehensive security statistics
-    pub async fn get_security_statistics(&self) -> orchestrator::SecurityStatistics {
-        self.orchestrator.get_security_statistics().await
     }
 }

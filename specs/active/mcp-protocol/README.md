@@ -1,6 +1,6 @@
 ---
 version: 1.2.0
-last_updated: 2024-09-30
+last_updated: 2026-03-17
 status: implemented
 ---
 
@@ -55,18 +55,16 @@ The MCP implementation is now 100% complete. All core components are implemented
 ## Key Documentation
 
 ### Core Implementation
-- [PROGRESS.md](PROGRESS.md) - Detailed implementation progress and status (100% complete)
 - [MCP_SPECIFICATION.md](MCP_SPECIFICATION.md) - Core specification document
 - [protocol.md](protocol.md) - Protocol message format and communication details
-
-### Security Documentation
-- [RBAC_IMPLEMENTATION_STATUS.md](RBAC_IMPLEMENTATION_STATUS.md) - RBAC implementation status
-- [rbac_implementation_example.md](rbac_implementation_example.md) - RBAC usage examples
-- [RBAC_CIRCULAR_DEPENDENCY_SOLUTION.md](RBAC_CIRCULAR_DEPENDENCY_SOLUTION.md) - How circular dependencies were resolved
+- [MCP_INTEGRATION_GUIDE.md](MCP_INTEGRATION_GUIDE.md) - Integration guide
+- [PROTOCOL_ADAPTER_SUMMARY.md](PROTOCOL_ADAPTER_SUMMARY.md) - Protocol adapter patterns
 
 ### Monitoring and Resilience
 - [observability-telemetry.md](observability-telemetry.md) - Observability framework specification
-- [resilience-implementation/](resilience-implementation/) - Resilience framework implementation details
+
+### Security
+Auth and RBAC are delegated to the security primal via capability discovery (`security.jwt.validate`, `security.rbac.check`). See `crates/core/auth/` for the delegation client.
 
 ## Directory Structure
 ```
@@ -155,4 +153,4 @@ mcp/
 
 ## Contact
 
-For questions or feedback on the MCP specifications, contact the Core Team at core-team@squirrel-labs.org. 
+See the [ecoPrimals](https://github.com/ecoPrimals) organization for contribution guidelines.

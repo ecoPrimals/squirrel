@@ -62,8 +62,8 @@ export BIOMEOS_SOCKET_PATH="/run/user/$(id -u)/biomeos/neural-api.sock"
 # Or send JSON-RPC via client subcommand
 ./target/release/squirrel client --method system.ping
 
-# Or use a custom script (see examples/rpc_client.rs)
-cargo run --example rpc_client
+# Or run an existing example
+cargo run --example observability_demo
 ```
 
 ---

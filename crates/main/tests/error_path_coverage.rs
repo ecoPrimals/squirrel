@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, unexpected_cfgs)]
 //! Error Path Coverage Tests
 //!
 //! This module provides comprehensive error path testing to improve
@@ -470,14 +470,14 @@ mod error_type_tests {
     #[test]
     fn test_error_display_formatting() {
         let err = PrimalError::NetworkError("Connection refused".to_string());
-        let display = format!("{}", err);
+        let display = format!("{err}");
         assert!(display.contains("Connection refused"));
     }
 
     #[test]
     fn test_error_debug_formatting() {
         let err = PrimalError::SerializationError("Invalid JSON".to_string());
-        let debug = format!("{:?}", err);
+        let debug = format!("{err:?}");
         assert!(debug.contains("SerializationError"));
     }
 

@@ -42,7 +42,7 @@ mod additional_error_coverage {
 
         assert!(err1.to_string().contains("Network error"));
         assert!(err2.to_string().contains("Network error"));
-        assert_ne!(format!("{:?}", err1), format!("{:?}", err2));
+        assert_ne!(format!("{err1:?}"), format!("{err2:?}"));
     }
 
     #[test]
@@ -72,8 +72,8 @@ mod additional_error_coverage {
         let err1 = PrimalError::ServiceDiscoveryFailed("no services".to_string());
         let err2 = PrimalError::ServiceDiscoveryError("timeout".to_string());
 
-        let display1 = format!("{}", err1);
-        let display2 = format!("{}", err2);
+        let display1 = format!("{err1}");
+        let display2 = format!("{err2}");
 
         assert!(display1.contains("Service discovery"));
         assert!(display2.contains("Service discovery"));
@@ -195,7 +195,7 @@ mod additional_error_coverage {
 
         for level in levels {
             // Test that each level can be formatted
-            let debug_str = format!("{:?}", level);
+            let debug_str = format!("{level:?}");
             assert!(!debug_str.is_empty());
         }
     }
@@ -277,8 +277,8 @@ mod additional_error_coverage {
         ];
 
         for err in errors {
-            let debug_str = format!("{:?}", err);
-            let display_str = format!("{}", err);
+            let debug_str = format!("{err:?}");
+            let display_str = format!("{err}");
 
             assert!(!debug_str.is_empty());
             assert!(!display_str.is_empty());
@@ -306,6 +306,7 @@ mod additional_error_coverage {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn test_error_result_fallback_pattern() {
         // Test fallback pattern using standard Result
         let primary: SafeResult<String> = Err(PrimalError::Internal("primary failed".to_string()));
@@ -316,7 +317,7 @@ mod additional_error_coverage {
     #[test]
     fn test_recovery_strategy_enum_coverage() {
         // Exercise all recovery strategy variants
-        let strategies = vec![
+        let strategies = [
             RecoveryStrategy::Retry,
             RecoveryStrategy::Fallback,
             RecoveryStrategy::Fail,

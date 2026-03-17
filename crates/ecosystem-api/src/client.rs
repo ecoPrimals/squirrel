@@ -607,6 +607,7 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
+    #[allow(deprecated)]
     #[test]
     fn test_songbird_client_new() {
         let result = SongbirdClient::new(
@@ -619,6 +620,7 @@ mod tests {
         let _with_timeout = client.with_timeout(Duration::from_secs(10));
     }
 
+    #[allow(deprecated)]
     #[test]
     fn test_songbird_client_with_auth() {
         let result = SongbirdClient::new(

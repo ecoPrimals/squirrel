@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
 // Mock Verification Test - Ensures mocks are only in test code
 //
 // This test verifies our "zero mocks in production" discipline
@@ -17,7 +17,7 @@ mod mock_verification_tests {
                 let path = entry.path();
                 if path.is_dir() {
                     visit_dirs(&path, violations);
-                } else if path.extension().map(|ext| ext == "rs").unwrap_or(false) {
+                } else if path.extension().is_some_and(|ext| ext == "rs") {
                     let path_str = path.to_str().unwrap_or("");
                     if path_str.contains("_test")
                         || path_str.contains("/tests/")
@@ -42,7 +42,7 @@ mod mock_verification_tests {
                 for (i, line) in lines.iter().enumerate() {
                     if (line.contains("struct Mock") || line.contains("fn mock_"))
                         && !line.trim().starts_with("//")
-                        && !line.trim().starts_with("*")
+                        && !line.trim().starts_with('*')
                     {
                         // Check if this line is within a #[cfg(test)] module
                         // Look backwards for #[cfg(test)] and mod tests
@@ -50,11 +50,12 @@ mod mock_verification_tests {
                         for j in (0..i).rev() {
                             if lines[j].contains("#[cfg(test)]") {
                                 // Check if there's a mod after this cfg
-                                for k in (j + 1).min(i)..=i {
-                                    if lines[k].contains("mod ") && lines[k].contains("{") {
-                                        is_in_test_mod = true;
-                                        break;
-                                    }
+                                let range_start = (j + 1).min(i);
+                                if lines[range_start..=i]
+                                    .iter()
+                                    .any(|line| line.contains("mod ") && line.contains('{'))
+                                {
+                                    is_in_test_mod = true;
                                 }
                                 break;
                             }
@@ -81,13 +82,12 @@ mod mock_verification_tests {
 
         visit_dirs(&src_dir, &mut mock_violations);
 
-        if !mock_violations.is_empty() {
-            panic!(
-                "Found {} mock violations in production code:\n{}",
-                mock_violations.len(),
-                mock_violations.join("\n")
-            );
-        }
+        assert!(
+            mock_violations.is_empty(),
+            "Found {} mock violations in production code:\n{}",
+            mock_violations.len(),
+            mock_violations.join("\n")
+        );
     }
 
     #[test]

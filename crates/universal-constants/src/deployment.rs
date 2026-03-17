@@ -32,7 +32,7 @@
 
 /// Port configuration with environment variable support
 pub mod ports {
-    use std::env;
+    use crate::config_helpers;
 
     /// MCP server port
     ///
@@ -41,10 +41,7 @@ pub mod ports {
     /// **Usage**: Primary MCP protocol server
     #[must_use]
     pub fn mcp_server() -> u16 {
-        env::var("MCP_SERVER_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(8443)
+        config_helpers::get_port("MCP_SERVER_PORT", 8443)
     }
 
     /// Service mesh orchestration port
@@ -55,10 +52,7 @@ pub mod ports {
     /// **Note**: Discovers actual service mesh at runtime, no hardcoded primal names
     #[must_use]
     pub fn service_mesh() -> u16 {
-        env::var("SERVICE_MESH_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(8444)
+        config_helpers::get_port("SERVICE_MESH_PORT", 8444)
     }
 
     /// Security service port
@@ -69,10 +63,7 @@ pub mod ports {
     /// **Note**: Discovers actual security provider at runtime
     #[must_use]
     pub fn security_service() -> u16 {
-        env::var("SECURITY_SERVICE_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(8443)
+        config_helpers::get_port("SECURITY_SERVICE_PORT", 8443)
     }
 
     /// Storage service port
@@ -83,10 +74,7 @@ pub mod ports {
     /// **Note**: Discovers actual storage provider at runtime
     #[must_use]
     pub fn storage_service() -> u16 {
-        env::var("STORAGE_SERVICE_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(8445)
+        config_helpers::get_port("STORAGE_SERVICE_PORT", 8445)
     }
 
     /// Compute service port
@@ -97,10 +85,7 @@ pub mod ports {
     /// **Note**: Discovers actual compute provider at runtime
     #[must_use]
     pub fn compute_service() -> u16 {
-        env::var("COMPUTE_SERVICE_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(8446)
+        config_helpers::get_port("COMPUTE_SERVICE_PORT", 8446)
     }
 
     /// API gateway port
@@ -110,10 +95,7 @@ pub mod ports {
     /// **Usage**: Public-facing API gateway
     #[must_use]
     pub fn api_gateway() -> u16 {
-        env::var("API_GATEWAY_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(8080)
+        config_helpers::get_port("API_GATEWAY_PORT", 8080)
     }
 
     /// WebSocket server port
@@ -123,10 +105,7 @@ pub mod ports {
     /// **Usage**: WebSocket transport layer
     #[must_use]
     pub fn websocket() -> u16 {
-        env::var("WEBSOCKET_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(8448)
+        config_helpers::get_port("WEBSOCKET_PORT", 8448)
     }
 
     /// Metrics/monitoring port
@@ -136,10 +115,7 @@ pub mod ports {
     /// **Usage**: Prometheus metrics endpoint
     #[must_use]
     pub fn metrics() -> u16 {
-        env::var("METRICS_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(9090)
+        config_helpers::get_port("METRICS_PORT", 9090)
     }
 
     /// Health check port
@@ -149,10 +125,7 @@ pub mod ports {
     /// **Usage**: Health check endpoint
     #[must_use]
     pub fn health() -> u16 {
-        env::var("HEALTH_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(9091)
+        config_helpers::get_port("HEALTH_PORT", 9091)
     }
 
     /// CLI MCP server port
@@ -162,10 +135,7 @@ pub mod ports {
     /// **Usage**: CLI MCP server
     #[must_use]
     pub fn cli_mcp() -> u16 {
-        env::var("CLI_MCP_PORT")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(9000)
+        config_helpers::get_port("CLI_MCP_PORT", 9000)
     }
 
     /// `PostgreSQL` database port
@@ -175,11 +145,41 @@ pub mod ports {
     /// **Usage**: `PostgreSQL` database connections
     #[must_use]
     pub fn postgres() -> u16 {
-        env::var("POSTGRES_PORT")
-            .or_else(|_| env::var("DATABASE_PORT"))
+        std::env::var("POSTGRES_PORT")
+            .or_else(|_| std::env::var("DATABASE_PORT"))
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(5432)
+    }
+
+    /// Squirrel main server port (HTTP API)
+    ///
+    /// **Environment**: `SQUIRREL_SERVER_PORT`\
+    /// **Default**: `9010`\
+    /// **Usage**: Squirrel HTTP API server (CLI `server` default)
+    #[must_use]
+    pub fn squirrel_server() -> u16 {
+        config_helpers::get_port("SQUIRREL_SERVER_PORT", 9010)
+    }
+
+    /// `BiomeOS` UI / frontend port
+    ///
+    /// **Environment**: `BIOMEOS_UI_PORT`\
+    /// **Default**: `3000`\
+    /// **Usage**: `BiomeOS` ecosystem frontend web UI
+    #[must_use]
+    pub fn biomeos_ui() -> u16 {
+        config_helpers::get_port("BIOMEOS_UI_PORT", 3000)
+    }
+
+    /// Ollama local AI model server port
+    ///
+    /// **Environment**: `OLLAMA_PORT`\
+    /// **Default**: `11434`\
+    /// **Usage**: Local Ollama AI inference endpoint
+    #[must_use]
+    pub fn ollama() -> u16 {
+        config_helpers::get_port("OLLAMA_PORT", 11434)
     }
 }
 
@@ -348,7 +348,19 @@ pub mod endpoints {
         format!("http://{host}:{port}/{svc}")
     }
 
-    /// Build security service endpoint
+    /// Build security service base URL (host:port only, for clients that append paths)
+    ///
+    /// **Format**: `http://{host}:{port}`\
+    /// **Environment**: `SECURITY_SERVICE_HOST`, `SECURITY_SERVICE_PORT`\
+    /// **Example**: `http://localhost:8443`
+    #[must_use]
+    pub fn security_service_base() -> String {
+        let host = hosts::security_service();
+        let port = ports::security_service();
+        format!("http://{host}:{port}")
+    }
+
+    /// Build security service endpoint (with service path)
     ///
     /// **Format**: `http://{host}:{port}/{service}`\
     /// **Example**: `http://localhost:8445/security`
@@ -386,24 +398,25 @@ pub mod endpoints {
 
     /// Get `BiomeOS` UI endpoint (default: <http://localhost:3000>)
     ///
-    /// **Environment**: `BIOMEOS_UI_ENDPOINT`\
+    /// **Environment**: `BIOMEOS_UI_ENDPOINT` (full URL) or `BIOMEOS_UI_PORT` (port only)\
     /// **Default**: <http://localhost:3000>\
     /// **Example**: Frontend web UI endpoint
     #[must_use]
     pub fn biomeos_ui() -> String {
         let host = hosts::default();
-        env::var("BIOMEOS_UI_ENDPOINT").unwrap_or_else(|_| format!("http://{host}:3000"))
+        env::var("BIOMEOS_UI_ENDPOINT")
+            .unwrap_or_else(|_| format!("http://{host}:{}", ports::biomeos_ui()))
     }
 
     /// Get Ollama endpoint (default: <http://localhost:11434>)
     ///
-    /// **Environment**: `OLLAMA_ENDPOINT`\
+    /// **Environment**: `OLLAMA_ENDPOINT` (full URL) or `OLLAMA_PORT` (port only)\
     /// **Default**: <http://localhost:11434>\
     /// **Example**: Local Ollama AI model server
     #[must_use]
     pub fn ollama() -> String {
         let host = hosts::default();
-        env::var("OLLAMA_ENDPOINT").unwrap_or_else(|_| format!("http://{host}:11434"))
+        env::var("OLLAMA_ENDPOINT").unwrap_or_else(|_| format!("http://{host}:{}", ports::ollama()))
     }
 
     /// Build WebSocket endpoint
@@ -546,6 +559,13 @@ mod tests {
         assert_eq!(ports::health(), 9091);
         assert_eq!(ports::cli_mcp(), 9000);
         assert_eq!(ports::postgres(), 5432);
+    }
+
+    #[test]
+    fn test_ports_squirrel_biomeos_ollama() {
+        assert_eq!(ports::squirrel_server(), 9010);
+        assert_eq!(ports::biomeos_ui(), 3000);
+        assert_eq!(ports::ollama(), 11434);
     }
 
     #[test]

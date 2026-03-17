@@ -33,7 +33,7 @@ fn test_compute_capability_preference() {
         required: true,
     };
 
-    assert_eq!(pref.weight, 0.9);
+    assert!((pref.weight - 0.9).abs() < f64::EPSILON);
     assert!(pref.required);
 }
 
@@ -235,8 +235,8 @@ fn test_workload_characteristics() {
         parallelizability: 0.7,
     };
 
-    assert_eq!(workload.cpu_intensity, 0.8);
-    assert_eq!(workload.gpu_requirement, 0.9);
+    assert!((workload.cpu_intensity - 0.8).abs() < f64::EPSILON);
+    assert!((workload.gpu_requirement - 0.9).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -369,8 +369,8 @@ fn test_resource_utilization() {
         network_utilization: Some(0.40),
     };
 
-    assert_eq!(utilization.cpu_utilization, 0.75);
-    assert_eq!(utilization.gpu_utilization, Some(0.85));
+    assert!((utilization.cpu_utilization - 0.75).abs() < f64::EPSILON);
+    assert!((utilization.gpu_utilization.unwrap() - 0.85).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -384,7 +384,7 @@ fn test_cost_breakdown() {
         total_cost: 2.90,
     };
 
-    assert_eq!(cost.total_cost, 2.90);
+    assert!((cost.total_cost - 2.90).abs() < f64::EPSILON);
     assert_eq!(cost.gpu_cost, Some(2.00));
 }
 
@@ -411,7 +411,7 @@ fn test_compute_performance_metrics() {
     };
 
     assert_eq!(metrics.execution_time, Duration::from_secs(120));
-    assert_eq!(metrics.provider_health, 0.95);
+    assert!((metrics.provider_health - 0.95).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -424,7 +424,7 @@ fn test_workload_analysis() {
     };
 
     assert_eq!(analysis.patterns.len(), 2);
-    assert_eq!(analysis.efficiency_score, 0.85);
+    assert!((analysis.efficiency_score - 0.85).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -442,7 +442,7 @@ fn test_ai_compute_insights() {
         },
     };
 
-    assert_eq!(insights.confidence_score, 0.92);
+    assert!((insights.confidence_score - 0.92).abs() < f64::EPSILON);
     assert_eq!(insights.performance_optimizations.len(), 1);
 }
 

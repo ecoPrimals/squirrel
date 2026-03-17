@@ -258,7 +258,8 @@ mod tests {
     fn test_from_unified_error() {
         use universal_error::tools::AIToolsError;
 
-        let cases: Vec<(AIToolsError, fn(&AIError) -> bool)> = vec![
+        type ErrorTestCase = (AIToolsError, fn(&AIError) -> bool);
+        let cases: Vec<ErrorTestCase> = vec![
             (AIToolsError::Provider("p".into()), |e| {
                 matches!(e, AIError::Provider(_))
             }),
@@ -309,7 +310,7 @@ mod tests {
     #[test]
     fn test_result_type_alias() {
         let ok_result: Result<i32> = Ok(42);
-        assert_eq!(ok_result.unwrap(), 42);
+        assert!(matches!(ok_result, Ok(42)));
 
         let err_result: Result<i32> = Err(AIError::Timeout("expired".into()));
         assert!(err_result.is_err());

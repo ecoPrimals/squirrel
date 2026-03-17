@@ -32,7 +32,7 @@ mod tests {
     #[test]
     fn test_security_level_clone() {
         let level = SecurityLevel::High;
-        let cloned = level.clone();
+        let cloned = level;
         assert!(matches!(cloned, SecurityLevel::High));
     }
 
@@ -59,7 +59,7 @@ mod tests {
         let error = WireFormatError {
             message: "invalid format".to_string(),
         };
-        let display = format!("{}", error);
+        let display = format!("{error}");
         assert!(display.contains("Wire format error"));
         assert!(display.contains("invalid format"));
     }
@@ -90,7 +90,7 @@ mod tests {
         let error = WireFormatError {
             message: "debug test".to_string(),
         };
-        let debug_str = format!("{:?}", error);
+        let debug_str = format!("{error:?}");
         assert!(debug_str.contains("WireFormatError"));
         assert!(debug_str.contains("debug test"));
     }

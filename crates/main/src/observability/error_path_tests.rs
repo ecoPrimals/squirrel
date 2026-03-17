@@ -33,7 +33,7 @@ mod observability_error_tests {
     #[test]
     fn test_correlation_id_display() {
         let id = CorrelationId::from_string("display-test");
-        let displayed = format!("{}", id);
+        let displayed = format!("{id}");
 
         assert_eq!(displayed, "display-test");
     }
@@ -44,7 +44,7 @@ mod observability_error_tests {
 
         // Default should generate a valid UUID
         assert!(!id.as_str().is_empty());
-        assert!(id.as_str().len() > 0);
+        assert!(!id.as_str().is_empty());
     }
 
     #[test]
@@ -187,7 +187,6 @@ mod observability_error_tests {
         assert_eq!(ctx.correlation_id, correlation_id);
     }
 
-    #[test]
     #[test]
     fn test_operation_context_add_metadata() {
         let ctx = OperationContext::new("service_call")

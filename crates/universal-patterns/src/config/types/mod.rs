@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn test_auth_method_variants() {
-        let _none = AuthMethod::None;
+        assert!(matches!(AuthMethod::None, AuthMethod::None));
         let token = AuthMethod::Token {
             token_file: PathBuf::from("/path/to/token"),
         };
@@ -458,7 +458,10 @@ mod tests {
         let file = CredentialStorage::File {
             path: PathBuf::from("/tmp/creds"),
         };
-        let _beardog = CredentialStorage::Beardog;
+        assert!(matches!(
+            CredentialStorage::Beardog,
+            CredentialStorage::Beardog
+        ));
 
         let memory_json = serde_json::to_string(&memory).unwrap();
         let file_json = serde_json::to_string(&file).unwrap();

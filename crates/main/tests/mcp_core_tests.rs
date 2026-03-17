@@ -5,7 +5,7 @@
 //! MCP Core Tests
 //!
 //! Tests for core Machine Context Protocol functionality in Squirrel.
-//! Tests the actual MCPError implementation and error codes.
+//! Tests the actual `MCPError` implementation and error codes.
 
 use squirrel_mcp::MCPError;
 
@@ -29,8 +29,7 @@ mod core_functionality {
     fn test_mcp_result_handling() {
         // Test Result type usage - core to MCP protocol
         let success: Result<String, MCPError> = Ok("success".to_string());
-        assert!(success.is_ok());
-        assert_eq!(success.unwrap(), "success");
+        assert!(matches!(success.as_ref(), Ok(s) if s == "success"));
 
         let failure: Result<String, MCPError> = Err(MCPError::Internal("failure".to_string()));
         assert!(failure.is_err());
@@ -39,19 +38,19 @@ mod core_functionality {
     #[test]
     fn test_error_code_consistency() {
         // Verify error codes are consistent - important for protocol compliance
-        assert_eq!(MCPError::Validation("".to_string()).error_code(), "MCP-023");
+        assert_eq!(MCPError::Validation(String::new()).error_code(), "MCP-023");
         assert_eq!(
-            MCPError::OperationFailed("".to_string()).error_code(),
+            MCPError::OperationFailed(String::new()).error_code(),
             "MCP-049"
         );
-        assert_eq!(MCPError::Internal("".to_string()).error_code(), "MCP-057");
+        assert_eq!(MCPError::Internal(String::new()).error_code(), "MCP-057");
         assert_eq!(
-            MCPError::InternalError("".to_string()).error_code(),
+            MCPError::InternalError(String::new()).error_code(),
             "MCP-044"
         );
-        assert_eq!(MCPError::Network("".to_string()).error_code(), "MCP-053");
+        assert_eq!(MCPError::Network(String::new()).error_code(), "MCP-053");
         assert_eq!(
-            MCPError::Configuration("".to_string()).error_code(),
+            MCPError::Configuration(String::new()).error_code(),
             "MCP-051"
         );
     }
@@ -60,14 +59,11 @@ mod core_functionality {
     fn test_error_category_str() {
         // Test category string representation
         assert_eq!(
-            MCPError::Validation("".to_string()).category_str(),
+            MCPError::Validation(String::new()).category_str(),
             "VALIDATION"
         );
-        assert_eq!(
-            MCPError::Internal("".to_string()).category_str(),
-            "INTERNAL"
-        );
-        assert_eq!(MCPError::Network("".to_string()).category_str(), "NETWORK");
+        assert_eq!(MCPError::Internal(String::new()).category_str(), "INTERNAL");
+        assert_eq!(MCPError::Network(String::new()).category_str(), "NETWORK");
     }
 
     #[test]
@@ -93,12 +89,12 @@ mod core_functionality {
     fn test_common_error_codes() {
         // Test common error variants and their codes
         let test_cases = vec![
-            (MCPError::Timeout("".to_string()), "MCP-033"),
-            (MCPError::Authentication("".to_string()), "MCP-058"),
-            (MCPError::Authorization("".to_string()), "MCP-013"),
-            (MCPError::NotFound("".to_string()), "MCP-039"),
-            (MCPError::InvalidArgument("".to_string()), "MCP-038"),
-            (MCPError::RateLimit("".to_string()), "MCP-059"),
+            (MCPError::Timeout(String::new()), "MCP-033"),
+            (MCPError::Authentication(String::new()), "MCP-058"),
+            (MCPError::Authorization(String::new()), "MCP-013"),
+            (MCPError::NotFound(String::new()), "MCP-039"),
+            (MCPError::InvalidArgument(String::new()), "MCP-038"),
+            (MCPError::RateLimit(String::new()), "MCP-059"),
         ];
 
         for (error, expected_code) in test_cases {

@@ -49,8 +49,7 @@ mod tests {
     #[test]
     fn test_mcp_ai_tools_config_default() {
         let _config = McpAiToolsConfig::default();
-        // Test that default construction works
-        assert!(true);
+        // Test that default construction works (no panic)
     }
 
     #[test]
@@ -88,14 +87,20 @@ mod tests {
     #[tokio::test]
     async fn test_websocket_manager_creation() {
         let manager = WebSocketManager::new();
-        let connections = manager.connections.read().await;
-        assert_eq!(connections.len(), 0);
+        let len = {
+            let connections = manager.connections.read().await;
+            connections.len()
+        };
+        assert_eq!(len, 0);
     }
 
     #[tokio::test]
     async fn test_service_registry_creation() {
         let registry = ServiceRegistry::new();
-        let services = registry.services.read().await;
-        assert_eq!(services.len(), 0);
+        let len = {
+            let services = registry.services.read().await;
+            services.len()
+        };
+        assert_eq!(len, 0);
     }
 }

@@ -420,8 +420,10 @@ mod tests {
 
     #[test]
     fn test_sanitization_in_non_strict_mode() {
-        let mut config = InputValidationConfig::default();
-        config.strict_mode = false;
+        let config = InputValidationConfig {
+            strict_mode: false,
+            ..Default::default()
+        };
 
         let validator = ProductionInputValidator::new(config).unwrap();
         let result =

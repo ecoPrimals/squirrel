@@ -278,6 +278,7 @@ mod tests {
     use super::*;
 
     #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[allow(clippy::too_many_lines)]
     fn make_error(variant: &str) -> PluginError {
         match variant {
             "UnknownCommand" => PluginError::UnknownCommand {
@@ -773,7 +774,7 @@ mod tests {
     fn test_recovery_suggestions_missing_param() {
         let err = make_error("MissingParameter");
         let suggestions = err.recovery_suggestions();
-        assert!(suggestions.len() >= 1);
+        assert!(!suggestions.is_empty());
     }
 
     #[test]

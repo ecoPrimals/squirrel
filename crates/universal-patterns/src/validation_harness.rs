@@ -184,22 +184,25 @@ impl ValidationHarness {
     /// Format results as a human-readable summary.
     #[must_use]
     pub fn summary(&self) -> String {
+        use std::fmt::Write;
         let mut out = format!("=== {} ===\n", self.name);
         for r in &self.results {
             let detail = r.detail.as_deref().unwrap_or("");
-            out.push_str(&format!(
-                "  [{:4}] {:30} {:>8.1?} {}\n",
+            let _ = writeln!(
+                out,
+                "  [{:4}] {:30} {:>8.1?} {}",
                 r.outcome, r.name, r.duration, detail
-            ));
+            );
         }
-        out.push_str(&format!(
-            "\n  {} passed, {} failed, {} skipped, {} warnings ({} total)\n",
+        let _ = writeln!(
+            out,
+            "\n  {} passed, {} failed, {} skipped, {} warnings ({} total)",
             self.passed(),
             self.failed(),
             self.skipped(),
             self.warnings(),
             self.total(),
-        ));
+        );
         out
     }
 

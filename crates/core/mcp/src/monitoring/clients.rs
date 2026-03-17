@@ -89,8 +89,19 @@ pub struct MonitoringEvent {
 /// In-memory implementation of MonitoringClient
 ///
 /// A lightweight monitoring backend that stores metrics, events, and health
-/// status in memory. Used as the default when no external monitoring system
-/// is configured, and also useful for testing.
+/// status in memory.
+///
+/// ## Production use (intentional)
+///
+/// This client is used in production as the **default fallback** when no external
+/// monitoring system is configured (see `MonitoringSystem::new()` in `system.rs`).
+/// When `MONITORING_ENDPOINT` is unset, Squirrel uses this in-memory client so
+/// that circuit breakers, metrics collection, and health checks continue to work
+/// without requiring Prometheus/Grafana. Production deployments that need external
+/// monitoring should use `MonitoringSystem::with_monitoring_client()` with a
+/// `ProductionMonitoringClient`.
+///
+/// Also used in tests for isolation.
 pub struct InMemoryMonitoringClient {
     /// Component ID for this client
     component_id: String,

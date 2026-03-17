@@ -18,15 +18,18 @@
 //! ## Usage
 //!
 //! ```rust,no_run
-//! use crate::routing::{McpRoutingService, RoutingConfig};
-//! use crate::routing::config::LoadBalancingStrategy;
+//! use squirrel_core::routing::config::LoadBalancingStrategy;
+//! use squirrel_core::routing::{McpRoutingService, RoutingConfig};
 //!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let config = RoutingConfig::new()
 //!     .with_load_balancing_strategy(LoadBalancingStrategy::Adaptive)
 //!     .with_max_concurrent_tasks(100);
 //!
 //! let routing_service = McpRoutingService::new(config)?;
-//! routing_service.start().await?;
+//! tokio::runtime::Runtime::new().unwrap().block_on(routing_service.start())?;
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod agent;
@@ -80,7 +83,7 @@ pub struct McpRoutingService {
     load_balancer: Arc<LoadBalancer>,
     /// Context manager
     context_manager: Arc<ContextManager>,
-    // Note: HTTP removed - use Songbird via Unix sockets for any HTTP needs
+    // Note: HTTP removed - use orchestration/service-mesh via Unix sockets for any HTTP needs
 }
 
 /// Internal state for the routing service

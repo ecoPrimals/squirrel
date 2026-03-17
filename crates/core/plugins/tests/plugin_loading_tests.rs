@@ -10,11 +10,11 @@
 mod plugin_loading_tests {
     use squirrel_plugins::{DefaultPluginManager, PluginManagerTrait};
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::Path;
     use tempfile::TempDir;
 
     /// Helper to create a test plugin manifest (TOML)
-    fn create_test_manifest_toml(dir: &PathBuf, name: &str, version: &str) -> std::io::Result<()> {
+    fn create_test_manifest_toml(dir: &Path, name: &str, version: &str) -> std::io::Result<()> {
         let manifest = format!(
             r#"
 [plugin]
@@ -43,7 +43,7 @@ storage = false
     }
 
     /// Helper to create a test plugin manifest (JSON)
-    fn create_test_manifest_json(dir: &PathBuf, name: &str, version: &str) -> std::io::Result<()> {
+    fn create_test_manifest_json(dir: &Path, name: &str, version: &str) -> std::io::Result<()> {
         let manifest = serde_json::json!({
             "id": uuid::Uuid::new_v4().to_string(),
             "name": name,

@@ -371,14 +371,20 @@ impl IpcClient {
 
         let request_bytes = serde_json::to_vec(&request)?;
 
-        stream.write_all(&request_bytes).await.map_err(|e| IpcClientError::Io {
-            phase: IpcErrorPhase::Write,
-            source: e,
-        })?;
-        stream.write_all(b"\n").await.map_err(|e| IpcClientError::Io {
-            phase: IpcErrorPhase::Write,
-            source: e,
-        })?;
+        stream
+            .write_all(&request_bytes)
+            .await
+            .map_err(|e| IpcClientError::Io {
+                phase: IpcErrorPhase::Write,
+                source: e,
+            })?;
+        stream
+            .write_all(b"\n")
+            .await
+            .map_err(|e| IpcClientError::Io {
+                phase: IpcErrorPhase::Write,
+                source: e,
+            })?;
         stream.flush().await.map_err(|e| IpcClientError::Io {
             phase: IpcErrorPhase::Write,
             source: e,
@@ -423,17 +429,14 @@ impl IpcClient {
             .into());
         }
 
-        response
-            .get("result")
-            .cloned()
-            .ok_or_else(|| {
-                IpcClientError::Rpc {
-                    phase: IpcErrorPhase::NoResult,
-                    code: IpcClientError::INTERNAL_ERROR,
-                    message: "response missing 'result' field".to_string(),
-                }
-                .into()
-            })
+        response.get("result").cloned().ok_or_else(|| {
+            IpcClientError::Rpc {
+                phase: IpcErrorPhase::NoResult,
+                code: IpcClientError::INTERNAL_ERROR,
+                message: "response missing 'result' field".to_string(),
+            }
+            .into()
+        })
     }
 
     // -----------------------------------------------------------------------
@@ -500,10 +503,11 @@ pub fn parse_capabilities_from_response(response: &serde_json::Value) -> Vec<Str
 }
 
 fn extract_string_array(value: &serde_json::Value, key: &str) -> Option<Vec<String>> {
-    value
-        .get(key)
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+    value.get(key).and_then(|v| v.as_array()).map(|arr| {
+        arr.iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect()
+    })
 }
 
 /// Extract a structured error from a JSON-RPC error response.
@@ -659,24 +663,30 @@ mod tests {
 
     #[test]
     fn error_retryable_by_phase() {
-        assert!(IpcClientError::Connection {
-            phase: IpcErrorPhase::Connect,
-            message: "refused".into()
-        }
-        .is_retryable());
+        assert!(
+            IpcClientError::Connection {
+                phase: IpcErrorPhase::Connect,
+                message: "refused".into()
+            }
+            .is_retryable()
+        );
 
-        assert!(IpcClientError::Timeout {
-            phase: IpcErrorPhase::Read,
-            duration: Duration::from_secs(5)
-        }
-        .is_retryable());
+        assert!(
+            IpcClientError::Timeout {
+                phase: IpcErrorPhase::Read,
+                duration: Duration::from_secs(5)
+            }
+            .is_retryable()
+        );
 
-        assert!(!IpcClientError::Rpc {
-            phase: IpcErrorPhase::JsonRpcError,
-            code: -32601,
-            message: "method not found".into()
-        }
-        .is_retryable());
+        assert!(
+            !IpcClientError::Rpc {
+                phase: IpcErrorPhase::JsonRpcError,
+                code: -32601,
+                message: "method not found".into()
+            }
+            .is_retryable()
+        );
     }
 
     #[test]

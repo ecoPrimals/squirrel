@@ -6,7 +6,7 @@
 //!
 //! This test validates the basic manifest parsing functionality.
 
-use squirrel::biomeos_integration::manifest::*;
+use squirrel::biomeos_integration::manifest::BiomeManifestParser;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,12 +38,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Test validation
     println!("\n✅ Testing validation...");
     let mut invalid_manifest = parsed.clone();
-    invalid_manifest.metadata.name = "".to_string();
+    invalid_manifest.metadata.name = String::new();
 
     let invalid_yaml = serde_yml::to_string(&invalid_manifest)?;
     match parser.parse_content(&invalid_yaml).await {
         Ok(_) => println!("   ❌ Validation should have failed"),
-        Err(e) => println!("   ✅ Validation correctly failed: {}", e),
+        Err(e) => println!("   ✅ Validation correctly failed: {e}"),
     }
 
     // 5. Show agent details

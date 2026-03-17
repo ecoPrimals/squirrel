@@ -173,8 +173,8 @@ mod tests {
         let config = ResourceManagerConfig::default();
         let manager = ResourceManager::new(config);
 
-        // Verify manager was created with empty state
-        assert!(!manager.config.enable_auto_cleanup || manager.config.enable_auto_cleanup);
+        // Verify manager was created
+        let _ = manager.config.enable_auto_cleanup;
     }
 
     #[tokio::test]
@@ -200,7 +200,7 @@ mod tests {
 
         for i in 0..3 {
             manager
-                .register_connection_pool(format!("pool-{}", i), ())
+                .register_connection_pool(format!("pool-{i}"), ())
                 .await;
         }
 
@@ -236,8 +236,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_start_background_tasks_disabled() {
-        let mut config = ResourceManagerConfig::default();
-        config.enable_auto_cleanup = false;
+        let config = ResourceManagerConfig {
+            enable_auto_cleanup: false,
+            ..Default::default()
+        };
 
         let manager = ResourceManager::new(config);
         let result = manager.start_background_tasks().await;
@@ -249,11 +251,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_start_background_tasks_enabled() {
-        let mut config = ResourceManagerConfig::default();
-        config.enable_auto_cleanup = true;
-        config.connection_cleanup_interval = Duration::from_secs(3600); // Long interval
-        config.memory_cleanup_interval = Duration::from_secs(3600);
-        config.health_check_interval = Duration::from_secs(3600);
+        let config = ResourceManagerConfig {
+            enable_auto_cleanup: true,
+            connection_cleanup_interval: Duration::from_secs(3600), // Long interval
+            memory_cleanup_interval: Duration::from_secs(3600),
+            health_check_interval: Duration::from_secs(3600),
+            ..Default::default()
+        };
 
         let manager = ResourceManager::new(config);
         let result = manager.start_background_tasks().await;
@@ -401,7 +405,7 @@ mod tests {
 
         for phase in &phases {
             let result = manager.shutdown(*phase).await;
-            assert!(result.is_ok(), "Phase {:?} failed", phase);
+            assert!(result.is_ok(), "Phase {phase:?} failed");
         }
 
         // Verify final state

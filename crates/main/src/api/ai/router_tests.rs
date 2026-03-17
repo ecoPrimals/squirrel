@@ -20,11 +20,8 @@ async fn test_router_new_with_discovery() {
 async fn test_router_provider_count() {
     let router = AiRouter::new_with_discovery(None).await.unwrap();
 
-    // Check that we can get provider count
-    let count = router.provider_count().await;
-
-    // Count should be non-negative (may be 0 if no env vars set)
-    assert!(count >= 0);
+    // Verify we can get provider count without panicking
+    let _ = router.provider_count().await;
 }
 
 #[tokio::test]
@@ -180,7 +177,7 @@ async fn test_text_generation_request_validation() {
 
     // Test with empty prompt
     let request = TextGenerationRequest {
-        prompt: "".to_string(),
+        prompt: String::new(),
         system: None,
         max_tokens: 100,
         temperature: 0.7,
@@ -200,7 +197,7 @@ async fn test_image_generation_request_validation() {
 
     // Test with empty prompt
     let request = ImageGenerationRequest {
-        prompt: "".to_string(),
+        prompt: String::new(),
         negative_prompt: None,
         size: "512x512".to_string(),
         n: 1,

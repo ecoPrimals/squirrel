@@ -386,13 +386,9 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        // Multi-tier BearDog endpoint resolution
+        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT or SECURITY_SERVICE_PORT)
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8443); // Default BearDog security port
-            format!("http://localhost:{}", port)
+            universal_constants::deployment::endpoints::security_service_base()
         });
         config.beardog_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
@@ -409,13 +405,9 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        // Multi-tier BearDog endpoint resolution
+        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT or SECURITY_SERVICE_PORT)
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8443); // Default BearDog security port
-            format!("http://localhost:{}", port)
+            universal_constants::deployment::endpoints::security_service_base()
         });
         config.beardog_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
@@ -432,21 +424,16 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        // Multi-tier BearDog endpoint resolution
+        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT or SECURITY_SERVICE_PORT)
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8443); // Default BearDog security port
-            format!("http://localhost:{}", port)
+            universal_constants::deployment::endpoints::security_service_base()
         });
         config.beardog_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = false;
         config.audit_logging = false;
 
-        use crate::security::providers::SecurityServiceConfig;
-        let service_config = SecurityServiceConfig {
+        let service_config = crate::security::providers::SecurityServiceConfig {
             service_id: "test-service".to_string(),
             endpoint: config.beardog_endpoint.as_ref().map(|u| u.to_string()),
             timeout_seconds: Some(30),
@@ -470,13 +457,9 @@ mod tests {
         config.auth_method = AuthMethod::Beardog {
             service_id: "test-service".to_string(),
         };
-        // Multi-tier BearDog endpoint resolution
+        // Capability-based endpoint resolution (env: BEARDOG_ENDPOINT or SECURITY_SERVICE_PORT)
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8443); // Default BearDog security port
-            format!("http://localhost:{}", port)
+            universal_constants::deployment::endpoints::security_service_base()
         });
         config.beardog_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
@@ -514,12 +497,12 @@ mod tests {
         // Check that we get health responses (may succeed or fail depending on system state)
         // The important thing is that the method returns without panicking
         // Primary may succeed if there's a beardog service running locally
-        let _primary_status = primary_health; // Just check it doesn't panic
+        let _ = primary_health;
 
         // Fallback should be configured when fallback is enabled
         assert!(fallback_health.is_some(), "Fallback should be configured");
 
         // Verify fallback returns a health result
-        let _fallback_status = fallback_health.unwrap(); // Check it doesn't panic
+        let _ = fallback_health.unwrap();
     }
 }

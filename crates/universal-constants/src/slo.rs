@@ -340,6 +340,10 @@ pub fn slos_by_category(category: SloCategory) -> Vec<NamedSlo> {
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::assertions_on_constants,
+    reason = "validating SLO constant relationships"
+)]
 mod tests {
     use super::*;
 

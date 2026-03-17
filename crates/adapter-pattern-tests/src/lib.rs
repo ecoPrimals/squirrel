@@ -11,14 +11,9 @@
 //! 3. Plugin Adapter - Adapter for plugin system integration
 
 #![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 #![warn(missing_docs)]
-#![allow(
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::unwrap_used,
-    clippy::expect_used
-)]
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 mod auth;
 mod commands;

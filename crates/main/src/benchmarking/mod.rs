@@ -222,7 +222,7 @@ impl BenchmarkSuite {
     }
 
     /// Core benchmark execution framework
-    pub(crate) async fn run_benchmark<F, Fut>(
+    pub async fn run_benchmark<F, Fut>(
         &self,
         name: &str,
         config: BenchmarkConfig,

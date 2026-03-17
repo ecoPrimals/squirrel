@@ -550,7 +550,7 @@ mod tests {
         for c in &constraints {
             let json = serde_json::to_string(c).unwrap();
             let deser: RoutingConstraint = serde_json::from_str(&json).unwrap();
-            assert_eq!(*c, deser, "Failed roundtrip for: {:?}", c);
+            assert_eq!(*c, deser, "Failed roundtrip for: {c:?}");
         }
     }
 
@@ -569,7 +569,7 @@ mod tests {
         for s in &sources {
             let json = serde_json::to_string(s).unwrap();
             let deser: ConstraintSource = serde_json::from_str(&json).unwrap();
-            assert_eq!(*s, deser, "Failed roundtrip for: {:?}", s);
+            assert_eq!(*s, deser, "Failed roundtrip for: {s:?}");
         }
     }
 

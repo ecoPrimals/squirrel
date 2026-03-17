@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, deprecated)]
 //! Comprehensive tests for capability-based discovery
 //!
 //! Tests the new environment variable and service discovery features
@@ -107,7 +107,7 @@ fn test_from_str_invalid() {
 fn test_all_primals_unique_names() {
     use std::collections::HashSet;
 
-    let primals = vec![
+    let primals = [
         EcosystemPrimalType::Squirrel,
         EcosystemPrimalType::Songbird,
         EcosystemPrimalType::ToadStool,
@@ -117,11 +117,17 @@ fn test_all_primals_unique_names() {
     ];
 
     // Check all service names are unique
-    let service_names: HashSet<_> = primals.iter().map(|p| p.service_name()).collect();
+    let service_names: HashSet<_> = primals
+        .iter()
+        .map(squirrel::EcosystemPrimalType::service_name)
+        .collect();
     assert_eq!(service_names.len(), primals.len());
 
     // Check all env names are unique
-    let env_names: HashSet<_> = primals.iter().map(|p| p.env_name()).collect();
+    let env_names: HashSet<_> = primals
+        .iter()
+        .map(squirrel::EcosystemPrimalType::env_name)
+        .collect();
     assert_eq!(env_names.len(), primals.len());
 }
 

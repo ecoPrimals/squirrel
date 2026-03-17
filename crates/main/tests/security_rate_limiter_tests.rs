@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Comprehensive tests for ProductionRateLimiter
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::assertions_on_constants,
+    clippy::field_reassign_with_default
+)]
+//! Comprehensive tests for `ProductionRateLimiter`
 //!
-//! Tests DoS protection, rate limiting enforcement, ban mechanisms,
+//! Tests `DoS` protection, rate limiting enforcement, ban mechanisms,
 //! adaptive limiting, and security features.
 
 use squirrel::security::rate_limiter::{EndpointType, ProductionRateLimiter, RateLimitConfig};
@@ -15,7 +20,7 @@ use tokio::time::sleep;
 #[tokio::test]
 async fn test_rate_limiter_initialization() {
     let config = RateLimitConfig::default();
-    let limiter = ProductionRateLimiter::new(config);
+    let _limiter = ProductionRateLimiter::new(config);
 
     // Should initialize successfully with default config
     assert!(true, "Rate limiter initialized");

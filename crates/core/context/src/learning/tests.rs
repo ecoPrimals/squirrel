@@ -25,9 +25,9 @@ use uuid::Uuid;
 fn test_learning_system_config_default() {
     let config = LearningSystemConfig::default();
     assert!(config.enable_reinforcement_learning);
-    assert_eq!(config.learning_rate, 0.001);
-    assert_eq!(config.discount_factor, 0.95);
-    assert_eq!(config.exploration_rate, 0.1);
+    assert!((config.learning_rate - 0.001).abs() < 1e-9);
+    assert!((config.discount_factor - 0.95).abs() < 1e-9);
+    assert!((config.exploration_rate - 0.1).abs() < 1e-9);
 }
 
 #[test]
@@ -35,7 +35,7 @@ fn test_learning_system_config_serialization() {
     let config = LearningSystemConfig::default();
     let json = serde_json::to_string(&config).expect("serialize");
     let restored: LearningSystemConfig = serde_json::from_str(&json).expect("deserialize");
-    assert_eq!(config.learning_rate, restored.learning_rate);
+    assert!((config.learning_rate - restored.learning_rate).abs() < 1e-9);
 }
 
 #[test]
@@ -134,7 +134,7 @@ async fn test_adaptive_rule_system_remove_rule() {
 #[test]
 fn test_rule_performance_default() {
     let perf = RulePerformance::default();
-    assert_eq!(perf.success_rate, 0.0);
+    assert!((perf.success_rate - 0.0).abs() < 1e-9);
     assert_eq!(perf.application_count, 0);
 }
 
@@ -329,7 +329,7 @@ async fn test_learning_metrics_new() {
     let config = Arc::new(test_helpers::create_test_learning_config());
     let metrics = LearningMetrics::new(config).await.expect("create");
     let perf = metrics.get_performance().await;
-    assert_eq!(perf.learning_rate, 0.0);
+    assert!((perf.learning_rate - 0.0).abs() < 1e-9);
 }
 
 #[tokio::test]
@@ -341,7 +341,7 @@ async fn test_learning_metrics_update_performance() {
     updates.insert("success_rate".to_string(), 0.9);
     metrics.update_performance(updates).await.expect("update");
     let perf = metrics.get_performance().await;
-    assert_eq!(perf.success_rate, 0.9);
+    assert!((perf.success_rate - 0.9).abs() < 1e-9);
 }
 
 #[tokio::test]
@@ -382,7 +382,7 @@ async fn test_learning_metrics_custom_metric() {
 #[test]
 fn test_learning_performance_default() {
     let p = LearningPerformance::default();
-    assert_eq!(p.success_rate, 0.0);
+    assert!((p.success_rate - 0.0).abs() < 1e-9);
 }
 
 #[test]
@@ -534,7 +534,7 @@ fn test_success_reward_calculator() {
     let calc = SuccessRewardCalculator::new(10.0, -5.0);
     let ctx = make_reward_context(true);
     let r = calc.calculate_reward(&ctx).expect("calc");
-    assert_eq!(r, 10.0);
+    assert!((r - 10.0).abs() < 1e-9);
 }
 
 #[test]
@@ -555,7 +555,7 @@ fn test_reward_breakdown_construction() {
         time_penalty: 0.0,
         final_reward: 2.0,
     };
-    assert_eq!(b.final_reward, 2.0);
+    assert!((b.final_reward - 2.0).abs() < 1e-9);
 }
 
 // --- manager ---

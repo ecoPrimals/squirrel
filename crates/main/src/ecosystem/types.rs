@@ -8,70 +8,95 @@
 //! including service registration, primal types, capabilities, and
 //! configuration structures.
 
-// Backward compatibility: kept for deserialization of legacy data
-#[expect(
-    deprecated,
-    reason = "backward compat: EcosystemPrimalType for legacy deserialization"
-)]
-use super::EcosystemPrimalType;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Ecosystem service registration for Squirrel AI primal
-///
-/// This struct follows the standardized format for service discovery
-/// and registration within the ecoPrimals ecosystem.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcosystemServiceRegistration {
-    /// Unique service identifier: "primal-squirrel-{instance}"
-    pub service_id: String,
-
-    /// Primal type from standardized enum
-    pub primal_type: EcosystemPrimalType,
-
-    /// Service name
-    pub name: String,
-
-    /// Service description
-    pub description: String,
-
-    /// Associated biome identifier (if applicable)
-    pub biome_id: Option<String>,
-
-    /// Service version
-    pub version: String,
-
-    /// Service capabilities (standardized format)
-    pub capabilities: ServiceCapabilities,
-
-    /// API endpoints (standardized format)
-    pub endpoints: ServiceEndpoints,
-
-    /// Service dependencies
-    pub dependencies: Vec<String>,
-
-    /// Service tags
-    pub tags: Vec<String>,
-
-    /// Primal provider info
-    pub primal_provider: Option<String>,
-
-    /// Health check configuration
-    pub health_check: HealthCheckConfig,
-
-    /// Security configuration
-    pub security_config: SecurityConfig,
-
-    /// Resource requirements
-    pub resource_requirements: ResourceSpec,
-
-    /// Service metadata
-    pub metadata: HashMap<String, String>,
-
-    /// Registration timestamp
-    pub registered_at: DateTime<Utc>,
+/// Standardized primal types for ecosystem integration (canonical definition)
+#[deprecated(
+    since = "0.1.0",
+    note = "Use CapabilityRegistry for capability-based discovery instead of hardcoded primal types"
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum EcosystemPrimalType {
+    ToadStool,
+    Songbird,
+    BearDog,
+    NestGate,
+    Squirrel,
+    BiomeOS,
 }
+
+impl EcosystemPrimalType {
+    #[must_use]
+    #[deprecated(since = "0.1.0", note = "Use capability() for discovery")]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ToadStool => "toadstool",
+            Self::Songbird => "songbird",
+            Self::BearDog => "beardog",
+            Self::NestGate => "nestgate",
+            Self::Squirrel => "squirrel",
+            Self::BiomeOS => "biomeos",
+        }
+    }
+    #[must_use]
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use generic env vars like SERVICE_MESH_ENDPOINT"
+    )]
+    pub const fn env_name(&self) -> &'static str {
+        match self {
+            Self::ToadStool => "TOADSTOOL",
+            Self::Songbird => "SONGBIRD",
+            Self::BearDog => "BEARDOG",
+            Self::NestGate => "NESTGATE",
+            Self::Squirrel => "SQUIRREL",
+            Self::BiomeOS => "BIOMEOS",
+        }
+    }
+    #[must_use]
+    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
+    pub const fn service_name(&self) -> &'static str {
+        self.as_str()
+    }
+    #[must_use]
+    pub const fn capability(&self) -> &'static str {
+        use universal_constants::capabilities;
+        match self {
+            Self::ToadStool => capabilities::COMPUTE_CAPABILITY,
+            Self::Songbird => capabilities::SERVICE_MESH_CAPABILITY,
+            Self::BearDog => capabilities::SECURITY_CAPABILITY,
+            Self::NestGate => capabilities::STORAGE_CAPABILITY,
+            Self::Squirrel => capabilities::SELF_PRIMAL_NAME,
+            Self::BiomeOS => capabilities::ECOSYSTEM_CAPABILITY,
+        }
+    }
+}
+
+#[expect(deprecated, reason = "backward compat")]
+impl std::str::FromStr for EcosystemPrimalType {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "toadstool" => Ok(Self::ToadStool),
+            "songbird" => Ok(Self::Songbird),
+            "beardog" => Ok(Self::BearDog),
+            "nestgate" => Ok(Self::NestGate),
+            "squirrel" => Ok(Self::Squirrel),
+            "biomeos" => Ok(Self::BiomeOS),
+            _ => Err(format!("Unknown primal type: {s}")),
+        }
+    }
+}
+
+impl std::fmt::Display for EcosystemPrimalType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+// EcosystemServiceRegistration is defined in registration.rs with Arc<str> zero-copy service_id
 
 /// Standardized primal types for ecosystem integration
 ///
@@ -85,14 +110,6 @@ pub struct EcosystemServiceRegistration {
 /// - **Scalability**: Cannot add new primals without code changes
 /// - **Evolution**: Cannot evolve primal names or capabilities
 ///
-/// ## Migration Path
-///
-/// ```ignore
-/// // OLD (hardcoded):
-/// let primal_type = EcosystemPrimalType::Songbird;
-/// ```
-// NOTE: EcosystemPrimalType is defined in ecosystem/mod.rs (canonical source)
-// and re-exported via `pub use types::*` -- do not duplicate here.
 /// Service capabilities with proper Default implementation
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ServiceCapabilities {

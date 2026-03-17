@@ -699,7 +699,7 @@ mod tests {
     #[tokio::test]
     async fn test_shutdown_signal_clone() {
         let signal1 = ShutdownSignal::Graceful;
-        let signal2 = signal1.clone();
+        let signal2 = signal1;
 
         assert!(matches!(signal2, ShutdownSignal::Graceful));
     }
@@ -885,14 +885,14 @@ mod tests {
     #[test]
     fn test_shutdown_phase_debug() {
         let phase = ShutdownPhase::DrainRequests;
-        let debug_str = format!("{:?}", phase);
+        let debug_str = format!("{phase:?}");
         assert!(debug_str.contains("DrainRequests"));
     }
 
     #[test]
     fn test_shutdown_signal_debug() {
         let signal = ShutdownSignal::Graceful;
-        let debug_str = format!("{:?}", signal);
+        let debug_str = format!("{signal:?}");
         assert!(debug_str.contains("Graceful"));
     }
 

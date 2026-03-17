@@ -26,8 +26,8 @@ mod tests {
         DiscoveredService {
             service_id: id.into(),
             primal_type,
-            endpoint: format!("http://localhost:{}/{}", test_port, id).into(),
-            health_endpoint: format!("http://localhost:{}/{}/health", test_port, id).into(),
+            endpoint: format!("http://localhost:{test_port}/{id}").into(),
+            health_endpoint: format!("http://localhost:{test_port}/{id}/health").into(),
             api_version: "v1".into(),
             capabilities: vec!["test".into()],
             discovered_at: Utc::now(),
@@ -97,8 +97,8 @@ mod tests {
 
         for i in 0..5 {
             let service =
-                create_test_service(&format!("squirrel_{}", i), EcosystemPrimalType::Squirrel);
-            services.insert(format!("squirrel_{}", i), service);
+                create_test_service(&format!("squirrel_{i}"), EcosystemPrimalType::Squirrel);
+            services.insert(format!("squirrel_{i}"), service);
         }
 
         let registry = Arc::new(RwLock::new(services));
@@ -115,9 +115,9 @@ mod tests {
 
         for i in 0..10 {
             let mut service =
-                create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
+                create_test_service(&format!("service_{i}"), EcosystemPrimalType::Squirrel);
             service.health_status = ServiceHealthStatus::Healthy;
-            services.insert(format!("service_{}", i), service);
+            services.insert(format!("service_{i}"), service);
         }
 
         let registry = Arc::new(RwLock::new(services));
@@ -136,9 +136,9 @@ mod tests {
 
         for i in 0..5 {
             let mut service =
-                create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
+                create_test_service(&format!("service_{i}"), EcosystemPrimalType::Squirrel);
             service.health_status = ServiceHealthStatus::Unhealthy;
-            services.insert(format!("service_{}", i), service);
+            services.insert(format!("service_{i}"), service);
         }
 
         let registry = Arc::new(RwLock::new(services));
@@ -157,14 +157,14 @@ mod tests {
 
         for i in 0..20 {
             let service = create_test_service(
-                &format!("service_{}", i),
+                &format!("service_{i}"),
                 if i % 2 == 0 {
                     EcosystemPrimalType::Squirrel
                 } else {
                     EcosystemPrimalType::NestGate
                 },
             );
-            services.insert(format!("service_{}", i), service);
+            services.insert(format!("service_{i}"), service);
         }
 
         let registry = Arc::new(RwLock::new(services));
@@ -231,7 +231,7 @@ mod tests {
     async fn test_service_stats_with_diverse_primal_types() {
         let mut services = HashMap::new();
 
-        let primal_types = vec![
+        let primal_types = [
             EcosystemPrimalType::Squirrel,
             EcosystemPrimalType::NestGate,
             EcosystemPrimalType::ToadStool,
@@ -239,8 +239,8 @@ mod tests {
         ];
 
         for (i, primal_type) in primal_types.iter().enumerate() {
-            let service = create_test_service(&format!("service_{}", i), primal_type.clone());
-            services.insert(format!("service_{}", i), service);
+            let service = create_test_service(&format!("service_{i}"), *primal_type);
+            services.insert(format!("service_{i}"), service);
         }
 
         let registry = Arc::new(RwLock::new(services));
@@ -257,13 +257,13 @@ mod tests {
 
         for i in 0..10 {
             let mut service =
-                create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
+                create_test_service(&format!("service_{i}"), EcosystemPrimalType::Squirrel);
             service.health_status = if i < 5 {
                 ServiceHealthStatus::Healthy
             } else {
                 ServiceHealthStatus::Unhealthy
             };
-            services.insert(format!("service_{}", i), service);
+            services.insert(format!("service_{i}"), service);
         }
 
         let registry = Arc::new(RwLock::new(services));
@@ -284,8 +284,8 @@ mod tests {
         let mut services = HashMap::new();
         for i in 0..10 {
             let service =
-                create_test_service(&format!("service_{}", i), EcosystemPrimalType::Squirrel);
-            services.insert(format!("service_{}", i), service);
+                create_test_service(&format!("service_{i}"), EcosystemPrimalType::Squirrel);
+            services.insert(format!("service_{i}"), service);
         }
 
         let registry = Arc::new(RwLock::new(services));
@@ -341,7 +341,7 @@ mod tests {
 
         // Simulate metric collection
         for capability in &capabilities {
-            if let Some(count) = capability_metrics.get_mut(&capability.to_string()) {
+            if let Some(count) = capability_metrics.get_mut(*capability) {
                 *count += 1;
             }
         }
@@ -425,7 +425,7 @@ mod tests {
         assert_eq!(error_rates.len(), 3);
 
         // All error rates should be low
-        for (_, rate) in &error_rates {
+        for rate in error_rates.values() {
             assert!(*rate < 0.05, "Error rate should be below 5%");
         }
     }
@@ -452,7 +452,7 @@ mod tests {
         assert_eq!(availability_metrics.len(), 4);
 
         // All should have high availability
-        for (_, availability) in &availability_metrics {
+        for availability in availability_metrics.values() {
             assert!(
                 *availability >= 99.9,
                 "Availability should be at least 99.9%"
@@ -529,7 +529,7 @@ mod tests {
         ];
 
         for ((capability, version), count) in versioned_capabilities {
-            version_metrics.insert(format!("{}.{}", capability, version), count);
+            version_metrics.insert(format!("{capability}.{version}"), count);
         }
 
         // Verify version metrics show migration trends
@@ -556,8 +556,7 @@ mod tests {
             let depth = label.matches('.').count();
             assert!(
                 depth >= 3,
-                "Metric labels should have at least 3 levels: {}",
-                label
+                "Metric labels should have at least 3 levels: {label}"
             );
         }
     }
@@ -657,7 +656,7 @@ mod tests {
         assert_eq!(gauges.len(), 3);
 
         // All gauges should be reasonable
-        for (_, value) in &gauges {
+        for value in gauges.values() {
             assert!(
                 *value >= 0 && *value <= 100,
                 "Gauge value should be reasonable"

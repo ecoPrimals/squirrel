@@ -252,7 +252,7 @@ mod tests {
         assert!(!strings.is_empty());
         strings.clear();
         assert!(strings.is_empty());
-        assert!(strings.len() == 0);
+        assert!(strings.is_empty());
         assert!(strings.get("openai").is_none());
     }
 

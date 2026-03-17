@@ -620,7 +620,7 @@ mod tests {
     fn test_health_recommendations_below_80_percent() {
         let mut manager = create_test_manager();
         for i in 0..5 {
-            manager.register_component(&format!("comp_{}", i));
+            manager.register_component(&format!("comp_{i}"));
         }
         // Only 1/5 healthy = 20%
         manager.update_component_health("comp_0", HealthStatus::Healthy, "OK");
@@ -730,7 +730,7 @@ mod tests {
         };
         let json = serde_json::to_string(&summary).unwrap();
         let deserialized: SystemHealthSummary = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.overall_healthy, true);
+        assert!(deserialized.overall_healthy);
         assert_eq!(deserialized.total_components, 5);
         assert_eq!(deserialized.healthy_count, 4);
     }

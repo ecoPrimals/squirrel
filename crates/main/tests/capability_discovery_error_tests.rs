@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::unused_async)]
 //! Capability Discovery Error Path Tests
 //!
 //! These tests ensure robust error handling in capability-based service discovery.
@@ -109,11 +109,11 @@ mod capability_discovery_error_tests {
                     if result.is_err() {
                         match result {
                             Err(PrimalError::ServiceDiscoveryFailed(_)) => {}
-                            Err(e) => panic!("Unexpected error type: {:?}", e),
+                            Err(e) => panic!("Unexpected error type: {e:?}"),
                             _ => {}
                         }
                     }
-                })
+                });
             },
         );
     }
@@ -174,8 +174,7 @@ mod capability_discovery_error_tests {
         for i in 0..10 {
             let disc = discovery.clone();
             let handle = tokio::spawn(async move {
-                disc.is_capability_available(&format!("test_cap_{}", i))
-                    .await
+                disc.is_capability_available(&format!("test_cap_{i}")).await
             });
             handles.push(handle);
         }
@@ -203,11 +202,11 @@ mod capability_discovery_error_tests {
                     if result.is_err() {
                         match result {
                             Err(PrimalError::ServiceDiscoveryFailed(_)) => {}
-                            Err(e) => panic!("Unexpected error type: {:?}", e),
+                            Err(e) => panic!("Unexpected error type: {e:?}"),
                             _ => {}
                         }
                     }
-                })
+                });
             },
         );
     }

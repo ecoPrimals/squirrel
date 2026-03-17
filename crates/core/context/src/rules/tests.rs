@@ -221,8 +221,8 @@ async fn test_rule_evaluator() -> crate::rules::error::Result<()> {
     });
 
     // Find matching rules
-    let rules = repository.get_all_rules().await?;
-    let matching_rules = evaluator.find_matching_rules(&rules, &context).await?;
+    let all_rules = repository.get_all_rules().await?;
+    let matching_rules = evaluator.find_matching_rules(&all_rules, &context).await?;
     assert_eq!(matching_rules.len(), 2);
 
     // Rules should be sorted by priority (rule2 first, then rule1)

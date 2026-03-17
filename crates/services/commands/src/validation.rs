@@ -206,6 +206,7 @@ impl CommandValidator {
 
     /// Validates system requirements including memory and thread usage.
     /// Only runs when `system-metrics` feature is enabled (ecoBin: pure Rust default).
+    #[allow(clippy::unnecessary_wraps)] // Result needed when system-metrics feature is enabled
     fn validate_system_requirements() -> Result<()> {
         #[cfg(feature = "system-metrics")]
         {
@@ -585,6 +586,7 @@ impl ResourceValidationRule {
 
     /// Checks if the current memory usage is within the specified limits.
     /// Only runs when `system-metrics` feature is enabled (ecoBin: pure Rust default).
+    #[allow(clippy::unnecessary_wraps)] // Result needed when system-metrics feature is enabled
     fn check_memory_usage(&self) -> Result<()> {
         #[cfg(feature = "system-metrics")]
         {
@@ -605,6 +607,7 @@ impl ResourceValidationRule {
 
     /// Checks if the current thread usage is within the specified limits.
     /// Only runs when `system-metrics` feature is enabled (ecoBin: pure Rust default).
+    #[allow(clippy::unnecessary_wraps)] // Result needed when system-metrics feature is enabled
     fn check_thread_usage(&self) -> Result<()> {
         #[cfg(feature = "system-metrics")]
         {
@@ -833,7 +836,7 @@ mod tests {
 
         for i in 0..10 {
             assert_eq!(
-                context.get(&format!("key{i}")).unwrap().map(|s| s),
+                context.get(&format!("key{i}")).unwrap(),
                 Some(format!("value{i}"))
             );
         }

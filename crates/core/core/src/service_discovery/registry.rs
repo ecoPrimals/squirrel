@@ -27,7 +27,7 @@ use crate::error::CoreResult;
 /// ```rust
 /// use std::sync::Arc;
 /// use std::time::Duration;
-/// use squirrel_core::{ServiceRegistry, InMemoryServiceDiscovery, ServiceDefinition, ServiceType};
+/// use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceDefinition, ServiceRegistry, ServiceType};
 ///
 /// # async fn example() -> CoreResult<()> {
 /// let discovery = Arc::new(InMemoryServiceDiscovery::new());
@@ -122,7 +122,7 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{ServiceRegistry, ServiceDefinition, ServiceType};
+    /// # use squirrel_core::{CoreResult, ServiceDefinition, ServiceRegistry, ServiceType};
     /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
     /// let service = ServiceDefinition::new(
     ///     "my-service".to_string(),
@@ -163,7 +163,7 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceRegistry;
+    /// # use squirrel_core::{CoreResult, ServiceRegistry};
     /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
     /// registry.deregister_local_service("my-service").await?;
     /// # Ok(())
@@ -197,7 +197,8 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{ServiceRegistry, HealthStatus};
+    /// # use squirrel_core::service_discovery::HealthStatus;
+    /// # use squirrel_core::{CoreResult, ServiceRegistry};
     /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
     /// registry.update_local_service_health("my-service", HealthStatus::Unhealthy).await?;
     /// # Ok(())
@@ -257,7 +258,7 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceRegistry;
+    /// # use squirrel_core::{CoreResult, ServiceRegistry};
     /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
     /// registry.start_heartbeat_loop().await?;
     /// # Ok(())
@@ -306,7 +307,7 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceRegistry;
+    /// # use squirrel_core::{CoreResult, ServiceRegistry};
     /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
     /// registry.shutdown().await?;
     /// # Ok(())

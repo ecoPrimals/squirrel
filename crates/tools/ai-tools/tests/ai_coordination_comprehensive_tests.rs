@@ -22,8 +22,10 @@ async fn test_ai_router_creation() {
 
 #[tokio::test]
 async fn test_ai_router_with_timeout() {
-    let mut config = RouterConfig::default();
-    config.routing_timeout_ms = 30000; // 30 seconds in milliseconds
+    let config = RouterConfig {
+        routing_timeout_ms: 30_000, // 30 seconds in milliseconds
+        ..Default::default()
+    };
     let router = AIRouter::new(config);
 
     // Router should respect timeout configuration

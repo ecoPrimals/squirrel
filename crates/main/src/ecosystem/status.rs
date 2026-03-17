@@ -154,7 +154,7 @@ mod tests {
 
         assert_eq!(status.status, "healthy");
         assert!(status.service_mesh_status.enabled);
-        assert_eq!(status.overall_health, 1.0);
+        assert!((status.overall_health - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -176,7 +176,7 @@ mod tests {
             },
         );
 
-        assert_eq!(health.health_score, 0.75);
+        assert!((health.health_score - 0.75).abs() < f64::EPSILON);
         assert_eq!(health.health_errors.len(), 1);
         assert!(health.component_statuses.contains_key("database"));
     }
@@ -212,7 +212,7 @@ mod tests {
         let deserialized: EcosystemIntegrationStatus = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.status, "healthy");
         assert_eq!(deserialized.active_integrations.len(), 2);
-        assert_eq!(deserialized.overall_health, 0.85);
+        assert!((deserialized.overall_health - 0.85).abs() < f64::EPSILON);
         assert!(deserialized.service_mesh_status.enabled);
         assert!(!deserialized.service_mesh_status.registered);
     }
@@ -358,7 +358,7 @@ mod tests {
 
         let json = serde_json::to_string(&health).unwrap();
         let deserialized: HealthStatus = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.health_score, 0.92);
+        assert!((deserialized.health_score - 0.92).abs() < f64::EPSILON);
         assert!(deserialized.health_errors.is_empty());
     }
 }

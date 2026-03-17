@@ -523,7 +523,7 @@ mod tests {
         let _ = evaluator.evaluate_rule(&rule, "ctx1", &context).await;
 
         // Clear cache
-        evaluator.clear_cache().await;
+        let _ = evaluator.clear_cache().await;
 
         // Evaluate again (should not use cache)
         let result = evaluator.evaluate_rule(&rule, "ctx1", &context).await;

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! CLI structure for Squirrel UniBin architecture
+//! CLI structure for Squirrel `UniBin` architecture
 //!
-//! UniBin exit codes: 0=success, 1=error, 2=config, 3=network, 130=interrupted
+//! `UniBin` exit codes: 0=success, 1=error, 2=config, 3=network, 130=interrupted
 
-/// UniBin standard exit codes — re-exports from `universal-patterns::exit_codes`
+/// `UniBin` standard exit codes — re-exports from `universal-patterns::exit_codes`
 /// with Squirrel-specific aliases for backward compatibility.
 pub mod exit_codes {
     pub use universal_patterns::exit_codes::{
@@ -44,8 +44,8 @@ pub enum Commands {
     /// Supports multiple AI providers (cloud APIs, local servers, model hubs) with
     /// intelligent routing based on cost, quality, and latency.
     Server {
-        /// Server port for HTTP API
-        #[arg(short, long, default_value = "9010")]
+        /// Server port for HTTP API (env: `SQUIRREL_SERVER_PORT`)
+        #[arg(short, long, default_value_t = universal_constants::deployment::ports::squirrel_server())]
         port: u16,
 
         /// Run as background daemon
@@ -152,11 +152,11 @@ pub enum Subsystem {
 impl fmt::Display for Subsystem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Subsystem::Ai => write!(f, "ai"),
-            Subsystem::Ecosystem => write!(f, "ecosystem"),
-            Subsystem::Config => write!(f, "config"),
-            Subsystem::Socket => write!(f, "socket"),
-            Subsystem::Rpc => write!(f, "rpc"),
+            Self::Ai => write!(f, "ai"),
+            Self::Ecosystem => write!(f, "ecosystem"),
+            Self::Config => write!(f, "config"),
+            Self::Socket => write!(f, "socket"),
+            Self::Rpc => write!(f, "rpc"),
         }
     }
 }
@@ -562,7 +562,7 @@ mod tests {
         let subsystems = vec!["ai", "ecosystem", "config", "socket", "rpc"];
         for sub in subsystems {
             let result = Cli::try_parse_from(["squirrel", "doctor", "--subsystem", sub]);
-            assert!(result.is_ok(), "Subsystem '{}' should be valid", sub);
+            assert!(result.is_ok(), "Subsystem '{sub}' should be valid");
         }
     }
 

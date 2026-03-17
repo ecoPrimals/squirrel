@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    missing_docs,
+    clippy::cast_sign_loss,
+    clippy::needless_continue,
+    clippy::too_many_lines,
+    clippy::significant_drop_tightening,
+    dead_code,
+    clippy::enum_variant_names
+)]
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -349,14 +359,15 @@ async fn test_circuit_breaker_pattern() {
                 }
                 Err(error) => {
                     // Failure - increment counter and check threshold
-                    let mut failure_count = self.failure_count.lock().await;
-                    *failure_count += 1;
-                    *self.last_failure_time.lock().await = Some(std::time::Instant::now());
+                    {
+                        let mut failure_count = self.failure_count.lock().await;
+                        *failure_count += 1;
+                        *self.last_failure_time.lock().await = Some(std::time::Instant::now());
 
-                    if *failure_count >= self.failure_threshold {
-                        *self.state.lock().await = CircuitState::Open;
+                        if *failure_count >= self.failure_threshold {
+                            *self.state.lock().await = CircuitState::Open;
+                        }
                     }
-
                     Err(error)
                 }
             }

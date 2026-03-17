@@ -395,8 +395,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_visualization_system_new_without_web() {
-        let mut config = VisualizationSystemConfig::default();
-        config.enable_web = false;
+        let config = VisualizationSystemConfig {
+            enable_web: false,
+            ..Default::default()
+        };
         let system = VisualizationSystem::new(config).await.expect("create");
         let _metrics = system.get_metrics().await;
         let _rx = system.subscribe_to_events();

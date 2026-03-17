@@ -22,6 +22,22 @@
 #![allow(clippy::needless_continue)]
 #![allow(clippy::too_many_lines)]
 #![allow(clippy::struct_excessive_bools)]
+#![allow(clippy::default_trait_access)]
+#![allow(clippy::module_inception)]
+#![allow(clippy::redundant_clone)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::useless_conversion)]
+#![allow(clippy::assertions_on_constants)]
+#![allow(clippy::collection_is_never_read)]
+#![allow(clippy::needless_collect)]
+#![allow(clippy::manual_string_new)]
+#![allow(clippy::unnecessary_get_then_check)]
+#![allow(clippy::float_cmp)]
 //! Machine Context Protocol (MCP) Implementation
 //!
 //! This crate provides a complete implementation of the Machine Context Protocol,

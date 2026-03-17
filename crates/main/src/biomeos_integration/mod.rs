@@ -612,7 +612,7 @@ primals: {}
     async fn test_get_deployment_status() {
         let integration = SquirrelBiomeOSIntegration::new("deploy-test".to_string());
         let status = integration.get_deployment_status().await;
-        assert!(status.total_agents >= 0);
+        let _ = status.total_agents; // usize is always >= 0
     }
 
     #[tokio::test]
@@ -622,7 +622,7 @@ primals: {}
         let result = integration.deploy_agents_from_manifest(&manifest).await;
         assert!(result.is_ok());
         let deployed = result.unwrap();
-        assert!(deployed.len() >= 0);
+        let _ = deployed.len(); // usize is always >= 0
     }
 
     #[tokio::test]

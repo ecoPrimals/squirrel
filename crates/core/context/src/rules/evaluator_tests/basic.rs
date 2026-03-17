@@ -10,13 +10,11 @@ use serde_json::json;
 #[test]
 fn test_evaluator_new() {
     let _evaluator = RuleEvaluator::new();
-    assert!(true, "Should create evaluator successfully");
 }
 
 #[test]
 fn test_evaluator_default() {
     let _evaluator = RuleEvaluator::default();
-    assert!(true, "Should create evaluator with default");
 }
 
 #[tokio::test]

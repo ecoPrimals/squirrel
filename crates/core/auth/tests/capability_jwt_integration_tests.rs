@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
 // Integration tests gated behind `integration-tests` feature — API migration
 // (CryptoClient → CapabilityCryptoConfig endpoint) tracked in CURRENT_STATUS.md known issues.
 #[cfg(not(feature = "integration-tests"))]
@@ -19,7 +19,7 @@ mod integration_tests {
     use chrono::{Duration, Utc};
     use serde_json::json;
     use squirrel_mcp_auth::{
-        capability_crypto::{CryptoClient, CryptoClientConfig},
+        capability_crypto::{CapabilityCryptoConfig, CapabilityCryptoProvider},
         capability_jwt::{CapabilityJwtConfig, CapabilityJwtService, JwtClaims},
     };
     use std::path::PathBuf;
@@ -32,12 +32,13 @@ mod integration_tests {
     /// This is a simple test server that responds to JSON-RPC requests
     /// for crypto.ed25519.sign and crypto.ed25519.verify.
     struct MockCryptoProvider {
+        #[allow(dead_code)]
         socket_path: PathBuf,
         listener: UnixListener,
     }
 
     impl MockCryptoProvider {
-        async fn new(socket_path: PathBuf) -> std::io::Result<Self> {
+        fn new(socket_path: PathBuf) -> std::io::Result<Self> {
             // Remove socket if it exists
             let _ = std::fs::remove_file(&socket_path);
 
@@ -50,13 +51,8 @@ mod integration_tests {
         }
 
         async fn run(&self) {
-            loop {
-                match self.listener.accept().await {
-                    Ok((stream, _)) => {
-                        tokio::spawn(Self::handle_connection(stream));
-                    }
-                    Err(_) => break,
-                }
+            while let Ok((stream, _)) = self.listener.accept().await {
+                tokio::spawn(Self::handle_connection(stream));
             }
         }
 
@@ -78,7 +74,7 @@ mod integration_tests {
             let id = request["id"].as_u64().unwrap_or(0);
 
             let response = match method {
-                "crypto.ed25519.sign" => {
+                "crypto.sign" | "crypto.ed25519.sign" => {
                     // Mock signature (64 bytes of deterministic data)
                     let _data = request["params"]["data"].as_str().unwrap_or("");
                     let signature = BASE64.encode(vec![42u8; 64]); // Mock signature
@@ -91,7 +87,7 @@ mod integration_tests {
                         }
                     })
                 }
-                "crypto.ed25519.verify" => {
+                "crypto.verify" | "crypto.ed25519.verify" => {
                     // Mock verification (always returns true for our mock signature)
                     json!({
                         "jsonrpc": "2.0",
@@ -125,9 +121,8 @@ mod integration_tests {
         let socket_path = PathBuf::from("/tmp/test-crypto-capability.sock");
 
         // Start mock provider
-        let provider = MockCryptoProvider::new(socket_path.clone())
-            .await
-            .expect("Failed to create mock provider");
+        let provider =
+            MockCryptoProvider::new(socket_path.clone()).expect("Failed to create mock provider");
 
         tokio::spawn(async move {
             provider.run().await;
@@ -136,28 +131,26 @@ mod integration_tests {
         // Give server time to start
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        // Create crypto client
-        let config = CryptoClientConfig {
-            socket_path,
-            timeout_secs: 5,
-            max_retries: 3,
-            retry_delay_ms: 100,
+        // Create crypto provider with socket endpoint
+        let config = CapabilityCryptoConfig {
+            endpoint: Some(socket_path.to_string_lossy().to_string()),
+            discovery_timeout_ms: Some(5000),
         };
 
-        let client = CryptoClient::new(config).expect("Failed to create crypto client");
+        let mut client = CapabilityCryptoProvider::from_config(config);
 
         // Test signing
         let data = b"Hello, capability discovery!";
         let signature = client
-            .ed25519_sign(data, "test-key")
+            .sign_ed25519(data)
             .await
             .expect("Failed to sign data");
 
         assert_eq!(signature.len(), 64, "Signature should be 64 bytes");
 
-        // Test verification
+        // Test verification (use key_id since mock doesn't provide public_key)
         let valid = client
-            .ed25519_verify(data, &signature, "test-key")
+            .verify_ed25519_with_key_id(data, &signature, "test-key")
             .await
             .expect("Failed to verify signature");
 
@@ -172,9 +165,8 @@ mod integration_tests {
         let socket_path = PathBuf::from("/tmp/test-jwt-capability.sock");
 
         // Start mock provider
-        let provider = MockCryptoProvider::new(socket_path.clone())
-            .await
-            .expect("Failed to create mock provider");
+        let provider =
+            MockCryptoProvider::new(socket_path.clone()).expect("Failed to create mock provider");
 
         tokio::spawn(async move {
             provider.run().await;
@@ -185,11 +177,9 @@ mod integration_tests {
 
         // Create JWT service with capability discovery
         let config = CapabilityJwtConfig {
-            crypto_config: CryptoClientConfig {
-                socket_path,
-                timeout_secs: 5,
-                max_retries: 3,
-                retry_delay_ms: 100,
+            crypto_config: CapabilityCryptoConfig {
+                endpoint: Some(socket_path.to_string_lossy().to_string()),
+                discovery_timeout_ms: Some(5000),
             },
             key_id: "test-jwt-key".to_string(),
             expiry_hours: 24,
@@ -240,9 +230,8 @@ mod integration_tests {
     async fn test_jwt_token_extraction() {
         let socket_path = PathBuf::from("/tmp/test-jwt-extract.sock");
 
-        let provider = MockCryptoProvider::new(socket_path.clone())
-            .await
-            .expect("Failed to create mock provider");
+        let provider =
+            MockCryptoProvider::new(socket_path.clone()).expect("Failed to create mock provider");
 
         tokio::spawn(async move {
             provider.run().await;
@@ -251,11 +240,9 @@ mod integration_tests {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         let config = CapabilityJwtConfig {
-            crypto_config: CryptoClientConfig {
-                socket_path,
-                timeout_secs: 5,
-                max_retries: 3,
-                retry_delay_ms: 100,
+            crypto_config: CapabilityCryptoConfig {
+                endpoint: Some(socket_path.to_string_lossy().to_string()),
+                discovery_timeout_ms: Some(5000),
             },
             key_id: "test-key".to_string(),
             expiry_hours: 24,
@@ -289,9 +276,8 @@ mod integration_tests {
     async fn test_expired_token() {
         let socket_path = PathBuf::from("/tmp/test-jwt-expired.sock");
 
-        let provider = MockCryptoProvider::new(socket_path.clone())
-            .await
-            .expect("Failed to create mock provider");
+        let provider =
+            MockCryptoProvider::new(socket_path.clone()).expect("Failed to create mock provider");
 
         tokio::spawn(async move {
             provider.run().await;
@@ -300,11 +286,9 @@ mod integration_tests {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         let config = CapabilityJwtConfig {
-            crypto_config: CryptoClientConfig {
-                socket_path,
-                timeout_secs: 5,
-                max_retries: 3,
-                retry_delay_ms: 100,
+            crypto_config: CapabilityCryptoConfig {
+                endpoint: Some(socket_path.to_string_lossy().to_string()),
+                discovery_timeout_ms: Some(5000),
             },
             key_id: "test-key".to_string(),
             expiry_hours: 24,
@@ -341,17 +325,14 @@ mod integration_tests {
 
         temp_env::with_vars(
             [
-                ("CRYPTO_CAPABILITY_SOCKET", Some(socket_path)),
+                ("CRYPTO_ENDPOINT", Some(socket_path)),
                 ("JWT_KEY_ID", Some("env-test-key")),
                 ("JWT_EXPIRY_HOURS", Some("12")),
             ],
             || {
                 let config = CapabilityJwtConfig::default();
 
-                assert_eq!(
-                    config.crypto_config.socket_path.to_str().unwrap(),
-                    socket_path
-                );
+                assert_eq!(config.crypto_config.endpoint.as_deref(), Some(socket_path));
                 assert_eq!(config.key_id, "squirrel-jwt-signing-key");
                 assert_eq!(config.expiry_hours, 24);
             },

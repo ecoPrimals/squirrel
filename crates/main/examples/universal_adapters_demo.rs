@@ -77,13 +77,13 @@ impl SquirrelAICoordinator {
             .security_adapter
             .authenticate_universal("ai_user_123")
             .await?;
-        println!("   ✅ Authentication coordinated: session {}", session_id);
+        println!("   ✅ Authentication coordinated: session {session_id}");
 
         let authorized = self
             .security_adapter
             .authorize_universal(&session_id, "ai_coordination")
             .await?;
-        println!("   ✅ Authorization coordinated: {}", authorized);
+        println!("   ✅ Authorization coordinated: {authorized}");
 
         // Phase 2: Orchestration Coordination (discovers Songbird or any orchestration service)
         println!("\n🎼 Phase 2: Orchestration Coordination");
@@ -125,13 +125,13 @@ impl SquirrelAICoordinator {
             .storage_adapter
             .store_ai_context("ai_coordination_context", ai_context_data)
             .await?;
-        println!("   ✅ AI context stored: {}", storage_id);
+        println!("   ✅ AI context stored: {storage_id}");
 
         let backup_id = self
             .storage_adapter
             .backup_ai_data("daily_ai_backup")
             .await?;
-        println!("   ✅ AI data backup created: {}", backup_id);
+        println!("   ✅ AI data backup created: {backup_id}");
 
         // Phase 4: Compute Coordination (discovers ToadStool or any compute service)
         println!("\n🍄 Phase 4: Compute Coordination");
@@ -159,7 +159,7 @@ impl SquirrelAICoordinator {
                 ]),
             )
             .await?;
-        println!("   ✅ AI workload executed: {}", execution_id);
+        println!("   ✅ AI workload executed: {execution_id}");
 
         let performance_metrics = self.compute_adapter.monitor_compute_performance().await?;
         println!(
@@ -197,7 +197,7 @@ impl SquirrelAICoordinator {
         // Show adapter-specific status
         println!("\n   🔒 Security Adapter Status:");
         let security_capabilities = self.security_adapter.get_security_capabilities().await?;
-        println!("     Available capabilities: {:?}", security_capabilities);
+        println!("     Available capabilities: {security_capabilities:?}");
         println!("     Health: {}", self.security_adapter.is_healthy().await);
 
         println!("\n   🎼 Orchestration Adapter Status:");
@@ -205,10 +205,7 @@ impl SquirrelAICoordinator {
             .orchestration_adapter
             .get_orchestration_capabilities()
             .await?;
-        println!(
-            "     Available capabilities: {:?}",
-            orchestration_capabilities
-        );
+        println!("     Available capabilities: {orchestration_capabilities:?}");
         println!(
             "     Health: {}",
             self.orchestration_adapter.is_healthy().await
@@ -216,12 +213,12 @@ impl SquirrelAICoordinator {
 
         println!("\n   🏠 Storage Adapter Status:");
         let storage_capabilities = self.storage_adapter.get_storage_capabilities().await?;
-        println!("     Available capabilities: {:?}", storage_capabilities);
+        println!("     Available capabilities: {storage_capabilities:?}");
         println!("     Health: {}", self.storage_adapter.is_healthy().await);
 
         println!("\n   🍄 Compute Adapter Status:");
         let compute_capabilities = self.compute_adapter.get_compute_capabilities().await?;
-        println!("     Available capabilities: {:?}", compute_capabilities);
+        println!("     Available capabilities: {compute_capabilities:?}");
         println!("     Health: {}", self.compute_adapter.is_healthy().await);
 
         Ok(())

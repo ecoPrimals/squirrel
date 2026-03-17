@@ -15,7 +15,7 @@ This guide provides essential information for AI teams working on the Squirrel p
 
 ### Prerequisites
 
-- Rust 1.85 or newer
+- Rust 1.93 or newer
 
 ### Development Environment Setup
 
@@ -30,10 +30,10 @@ This guide provides essential information for AI teams working on the Squirrel p
    cargo build
    ```
 
-3. Set up environment variables:
+3. Set environment variables as needed (see `crates/universal-constants/src/deployment.rs` for available overrides):
    ```bash
-   cp .env.example .env
-   # Edit .env with your settings
+   export SQUIRREL_SERVER_PORT=3000
+   export LOCAL_AI_ENDPOINT=http://localhost:11434
    ```
 
 ## Project Structure for AI Components
@@ -45,21 +45,16 @@ squirrel/
 ├── crates/
 │   ├── tools/
 │   │   └── ai-tools/               # Primary AI integration tools
-│   ├── integration/
-│   │   └── mcp-pyo3-bindings/      # Python bindings for ML models
 │   ├── core/
-│   │   └── mcp/                    # Machine Context Protocol
-│   └── main/
-│       └── src/
-│           └── components/
-│               └── ai/             # Frontend AI components
-├── specs/
-│   ├── tools/
-│   │   └── ai-tools/               # AI tools specifications
-│   └── integration/
-│       └── mcp-pyo3-bindings/      # Python bindings specifications
-└── tests/
-    └── py/                         # Python-based AI tests
+│   │   ├── mcp/                    # Machine Context Protocol
+│   │   └── context/                # Context management + learning
+│   ├── main/
+│   │   └── src/
+│   │       └── ai/                 # AI routing, provider selection
+│   └── universal-constants/        # Primal identity, deployment config
+└── specs/
+    └── active/
+        └── mcp-protocol/           # MCP protocol specifications
 ```
 
 ## Key AI Integration Points
@@ -137,7 +132,7 @@ pub trait AIToolProvider: Send + Sync {
 2. **Implementation**: Implement the AI functionality in `crates/tools/ai-tools/`
 3. **Testing**: Write tests in `tests/py/` and `tests/rs/`
 4. **Integration**: Integrate with the MCP using the ToolHandler interface
-5. **UI Integration**: Add any necessary UI components in `crates/main/src/components/ai/`
+5. **Ecosystem Integration**: Wire capability discovery for AI-dependent operations
 
 ## Best Practices for AI Development
 
@@ -333,25 +328,19 @@ fn bench_model_inference(b: &mut Bencher) {
 
 ### Internal Documentation
 
-- [MCP Protocol Specification](../core/mcp/MCP_SPECIFICATION.md)
-- [AI Tool Implementation Guide](./ai-tools/IMPLEMENTATION_GUIDE.md)
-- [PyO3 Integration Guide](../integration/mcp-pyo3-bindings/INTEGRATION_GUIDE.md)
+- [MCP Protocol Specification](../active/mcp-protocol/MCP_SPECIFICATION.md)
+- [Capability Registry](../../capability_registry.toml)
+- [CURRENT_STATUS.md](../../CURRENT_STATUS.md)
 
 ### External References
 
 - [Rust AI Ecosystem Guide](https://github.com/vaaaaanquish/Awesome-Rust-MachineLearning)
-- [PyO3 User Guide](https://pyo3.rs/)
-- [ONNX Runtime for Rust](https://github.com/microsoft/onnxruntime-rs)
 - [Rust Tokenizers](https://github.com/huggingface/tokenizers)
 
 ## Support and Contact
 
-For questions about AI development in Squirrel:
-
-- **Slack Channel**: #ai-development
-- **Team Lead**: ai-team@squirrel-labs.org
-- **Issue Tracker**: Use the "AI Component" label in GitHub issues
+See the [ecoPrimals](https://github.com/ecoPrimals) organization for contribution guidelines.
 
 ---
 
-*This document is maintained by the AI Tools Team. Last revision: March 16, 2026.* 
+*Last revision: March 17, 2026.* 

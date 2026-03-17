@@ -9,6 +9,8 @@
 //! Instead of hardcoding specific provider names, we define what capabilities
 //! security services should provide and how they integrate universally.
 
+#![allow(dead_code)] // Public API types for capability-based security — used by external consumers
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -285,7 +287,6 @@ pub enum ComplianceStatus {
 }
 
 /// Universal security service provider trait alias for backward compatibility
-#[expect(dead_code, reason = "required by trait/interface contract — API compatibility")]
 pub trait UniversalSecurityProvider: UniversalSecurityService {}
 
 impl<T: UniversalSecurityService> UniversalSecurityProvider for T {}

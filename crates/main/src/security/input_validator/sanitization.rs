@@ -363,8 +363,8 @@ mod tests {
         let result = sanitize_email(input, &patterns);
 
         // Should remove dangerous characters
-        assert!(!result.contains("<"));
-        assert!(!result.contains(">"));
+        assert!(!result.contains('<'));
+        assert!(!result.contains('>'));
     }
 
     #[test]

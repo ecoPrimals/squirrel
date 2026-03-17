@@ -55,11 +55,8 @@ mod integration_error_scenarios {
         )
         .await;
 
-        // Should either complete or timeout gracefully
-        match result {
-            Ok(_) => assert!(true, "Completed within timeout"),
-            Err(_) => assert!(true, "Timed out gracefully"),
-        }
+        // Should either complete or timeout gracefully (both outcomes are acceptable)
+        let _ = result;
     }
 
     #[tokio::test]
@@ -77,9 +74,9 @@ mod integration_error_scenarios {
                     required_capabilities: vec![format!("capability_{}", i)],
                     optional_capabilities: vec![],
                     context: PrimalContext {
-                        user_id: format!("user-{}", i),
-                        device_id: format!("device-{}", i),
-                        session_id: Some(format!("session-{}", i)),
+                        user_id: format!("user-{i}"),
+                        device_id: format!("device-{i}"),
+                        session_id: Some(format!("session-{i}")),
                         biome_id: None,
                         network_location: NetworkLocation::default(),
                         security_level: SecurityLevel::Standard,
@@ -105,7 +102,7 @@ mod integration_error_scenarios {
 
         let request = CapabilityRequest {
             required_capabilities: vec![
-                "".to_string(),             // Empty
+                String::new(),              // Empty
                 " ".to_string(),            // Whitespace only
                 "a".repeat(1000),           // Very long
                 "cap\0ability".to_string(), // Null byte
@@ -141,7 +138,7 @@ mod integration_error_scenarios {
                         required_capabilities: vec!["test".to_string()],
                         optional_capabilities: vec![],
                         context: PrimalContext {
-                            user_id: format!("user-{}", i),
+                            user_id: format!("user-{i}"),
                             device_id: "device".to_string(),
                             session_id: None,
                             biome_id: None,
@@ -165,8 +162,7 @@ mod integration_error_scenarios {
         }
 
         // Final cache stats check
-        let stats = ecosystem.get_cache_stats().await;
-        assert!(stats.discovery_cache_size >= 0);
+        let _stats = ecosystem.get_cache_stats().await;
     }
 
     // ============================================================================
@@ -181,10 +177,7 @@ mod integration_error_scenarios {
         let result = ecosystem.discover_service_mesh().await;
 
         // Should handle gracefully (either succeed with fallback or error gracefully)
-        match result {
-            Ok(()) => assert!(true, "Service mesh discovery succeeded or used fallback"),
-            Err(_) => assert!(true, "Service mesh discovery failed gracefully"),
-        }
+        let _ = result;
     }
 
     #[tokio::test]
@@ -197,8 +190,8 @@ mod integration_error_scenarios {
 
             // Each attempt should be consistent and safe
             match result {
-                Ok(()) => println!("Attempt {} succeeded", i),
-                Err(e) => println!("Attempt {} failed gracefully: {}", i, e),
+                Ok(()) => println!("Attempt {i} succeeded"),
+                Err(e) => println!("Attempt {i} failed gracefully: {e}"),
             }
         }
     }
@@ -234,9 +227,7 @@ mod integration_error_scenarios {
             let debug_str = format!("{:?}", context.security_level);
             assert!(
                 debug_str.contains(name),
-                "Security level {:?} should contain {}",
-                level,
-                name
+                "Security level {level:?} should contain {name}"
             );
         }
     }
@@ -274,7 +265,7 @@ mod integration_error_scenarios {
 
     #[test]
     fn test_error_with_empty_message() {
-        let err = PrimalError::Generic("".to_string());
+        let err = PrimalError::Generic(String::new());
         let display = err.to_string();
         assert!(
             !display.is_empty(),
@@ -285,7 +276,7 @@ mod integration_error_scenarios {
     #[test]
     fn test_error_with_very_long_message() {
         let long_message = "error ".repeat(1000);
-        let err = PrimalError::Internal(long_message.clone());
+        let err = PrimalError::Internal(long_message);
         let display = err.to_string();
         assert!(display.contains("error"));
     }

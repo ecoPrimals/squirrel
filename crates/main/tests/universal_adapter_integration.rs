@@ -87,7 +87,8 @@ async fn test_concurrent_adapter_access() {
     let adapter = Arc::new(UniversalComputeAdapter::new(registry));
 
     // Act: Spawn 50 concurrent tasks (stress test)
-    let tasks: Vec<_> = (0..50)
+    // Assert: All tasks complete successfully
+    for (idx, task) in (0..50)
         .map(|i| {
             let adapter = Arc::clone(&adapter); // Zero-copy share
             tokio::spawn(async move {
@@ -96,10 +97,8 @@ async fn test_concurrent_adapter_access() {
                 i // Return task ID
             })
         })
-        .collect();
-
-    // Assert: All tasks complete successfully
-    for (idx, task) in tasks.into_iter().enumerate() {
+        .enumerate()
+    {
         let result = task.await.expect("Task should not panic");
         assert_eq!(result, idx);
     }

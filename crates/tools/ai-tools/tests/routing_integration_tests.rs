@@ -120,7 +120,7 @@ fn test_request_context_builder() {
     };
 
     let session_id = uuid::Uuid::new_v4();
-    let context = RequestContext::new(task.clone())
+    let context = RequestContext::new(task)
         .with_user_id("user123")
         .with_session_id(session_id);
 

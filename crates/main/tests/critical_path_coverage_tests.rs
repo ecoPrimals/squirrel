@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::absurd_extreme_comparisons,
+    clippy::assertions_on_constants
+)]
 //! Critical path tests for capability matching edge cases
 //!
 //! These tests cover error paths, edge cases, and integration scenarios
@@ -107,7 +112,7 @@ mod capability_matching_critical_tests {
         let ecosystem = UniversalPrimalEcosystem::new(create_test_context());
 
         let request = CapabilityRequest {
-            required_capabilities: vec!["".to_string()], // Empty capability
+            required_capabilities: vec![String::new()], // Empty capability
             optional_capabilities: vec![],
             context: create_test_context(),
             metadata: HashMap::new(),
@@ -168,10 +173,7 @@ mod capability_matching_critical_tests {
 
         // ASSERT: Cache should be working
         assert!(result1.is_ok() && result2.is_ok());
-        assert!(
-            stats.discovery_cache_size >= 0,
-            "Cache stats should be accessible"
-        );
+        let _ = stats; // Cache stats accessible
     }
 
     #[tokio::test]
@@ -309,10 +311,7 @@ mod service_discovery_integration_tests {
         let result = ecosystem.discover_service_mesh().await;
 
         // ASSERT: Should handle gracefully (may succeed with fallback or fail gracefully)
-        match result {
-            Ok(()) => assert!(true, "Service mesh discovered or fallback works"),
-            Err(_) => assert!(true, "Graceful error when service mesh not available"),
-        }
+        let _ = result;
     }
 
     #[tokio::test]
@@ -328,10 +327,7 @@ mod service_discovery_integration_tests {
         .await;
 
         // ASSERT: Should complete or timeout gracefully
-        match result {
-            Ok(_) => assert!(true, "Discovery completed within timeout"),
-            Err(_) => assert!(true, "Discovery timed out gracefully"),
-        }
+        let _ = result;
     }
 
     #[tokio::test]

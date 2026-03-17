@@ -571,13 +571,12 @@ mod tests {
     fn test_file_size_formatting() {
         assert_eq!(utils::format_file_size(512), "512 B");
         assert_eq!(utils::format_file_size(1536), "1.5 KB");
-        assert_eq!(utils::format_file_size(1048576), "1.0 MB");
+        assert_eq!(utils::format_file_size(1_048_576), "1.0 MB");
     }
 
     #[wasm_bindgen_test]
     fn test_file_system_creation() {
         let _fs = FileSystem::new();
-        // FileSystem is successfully created
-        assert!(true);
+        // FileSystem is successfully created (no panic)
     }
 }

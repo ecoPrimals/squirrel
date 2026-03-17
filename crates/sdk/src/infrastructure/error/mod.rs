@@ -304,7 +304,7 @@ mod mod_tests {
         let config = retry::RetryConfig::default();
         assert_eq!(config.max_retries, 3);
         assert_eq!(config.initial_delay, 1000);
-        assert_eq!(config.backoff_multiplier, 2.0);
+        assert!((config.backoff_multiplier - 2.0).abs() < f64::EPSILON);
         assert_eq!(config.max_delay, 30000);
     }
 

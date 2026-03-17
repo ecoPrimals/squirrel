@@ -37,6 +37,7 @@ use crate::plugin::{Plugin, PluginMetadata};
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Fields used for deserialization, tests, and PluginLoader::load_plugin
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -69,6 +70,7 @@ impl PluginManifest {
     /// Convert to plugin metadata (used by tests and testing feature)
     #[must_use]
     #[cfg(any(test, feature = "testing"))]
+    #[allow(dead_code)] // Reserved for tests and testing feature
     #[expect(
         deprecated,
         reason = "backward compat: PluginMetadata during migration"
@@ -268,6 +270,7 @@ impl DefaultPluginDiscovery {
 
 /// Default plugin loader implementation (kept for trait impl / future use)
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)] // Used in tests and as PluginLoader implementation
 pub struct DefaultPluginLoader;
 
 #[async_trait]

@@ -246,8 +246,6 @@ fn test_learning_state_all_transitions() {
         let _cloned = state.clone();
         let _debug = format!("{state:?}");
     }
-
-    assert!(true, "All states should support clone and debug");
 }
 
 #[test]

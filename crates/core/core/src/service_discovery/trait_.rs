@@ -21,9 +21,9 @@ use crate::error::CoreResult;
 ///
 /// ```rust
 /// use std::sync::Arc;
-/// use squirrel_core::{InMemoryServiceDiscovery, ServiceDiscovery, ServiceDefinition, ServiceType};
+/// use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceDiscovery, ServiceDefinition, ServiceType};
 ///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # async fn example() -> CoreResult<()> {
 /// let discovery = Arc::new(InMemoryServiceDiscovery::new());
 ///
 /// // Register a service
@@ -57,7 +57,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{ServiceDefinition, ServiceType};
+    /// # use squirrel_core::{CoreResult, ServiceDefinition, ServiceDiscovery, ServiceType};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// let service = ServiceDefinition::new(
     ///     "my-service".to_string(),
@@ -84,6 +84,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
+    /// # use squirrel_core::{CoreResult, ServiceDiscovery};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// discovery.deregister_service("my-service").await?;
     /// # Ok(())
@@ -104,7 +105,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{ServiceQuery, ServiceType};
+    /// # use squirrel_core::{CoreResult, ServiceDiscovery, ServiceQuery, ServiceType};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// let query = ServiceQuery::new()
     ///     .with_service_type(ServiceType::AI)
@@ -124,6 +125,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
+    /// # use squirrel_core::{CoreResult, ServiceDiscovery};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// let services = discovery.get_active_services().await?;
     /// println!("Found {} active services", services.len());
@@ -145,6 +147,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
+    /// # use squirrel_core::{CoreResult, ServiceDiscovery};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// if let Some(service) = discovery.get_service("my-service").await? {
     ///     println!("Found service: {}", service.name);
@@ -168,7 +171,8 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::HealthStatus;
+    /// # use squirrel_core::service_discovery::HealthStatus;
+    /// # use squirrel_core::{CoreResult, ServiceDiscovery};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// discovery.update_service_health("my-service", HealthStatus::Unhealthy).await?;
     /// # Ok(())
@@ -193,6 +197,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
+    /// # use squirrel_core::{CoreResult, ServiceDiscovery};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// discovery.heartbeat("my-service").await?;
     /// # Ok(())
@@ -209,6 +214,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
+    /// # use squirrel_core::{CoreResult, ServiceDiscovery};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// let stats = discovery.get_service_stats().await?;
     /// println!("Total services: {}", stats.total_services);
@@ -232,7 +238,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceType;
+    /// # use squirrel_core::{CoreResult, ServiceDiscovery, ServiceType};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// let ai_services = discovery.get_services_by_type(ServiceType::AI).await?;
     /// println!("Found {} AI services", ai_services.len());
@@ -257,6 +263,7 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
+    /// # use squirrel_core::{CoreResult, ServiceDiscovery};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
     /// let chat_services = discovery.get_services_by_capability("chat").await?;
     /// println!("Found {} services with chat capability", chat_services.len());

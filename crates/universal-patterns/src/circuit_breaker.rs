@@ -18,8 +18,8 @@
 //! socket. After a cooldown period, the breaker enters half-open state and
 //! allows a single probe request.
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
@@ -77,11 +77,12 @@ impl CircuitBreaker {
         match state {
             CircuitState::Closed => true,
             CircuitState::Open => {
-                if let Some(last) = *self.last_failure.read().await {
-                    if last.elapsed() >= self.cooldown {
-                        *self.state.write().await = CircuitState::HalfOpen;
-                        return true;
-                    }
+                let value = *self.last_failure.read().await;
+                if let Some(last) = value
+                    && last.elapsed() >= self.cooldown
+                {
+                    *self.state.write().await = CircuitState::HalfOpen;
+                    return true;
                 }
                 false
             }
@@ -377,11 +378,7 @@ mod tests {
                     let a = Arc::clone(&attempts_clone);
                     async move {
                         let n = a.fetch_add(1, Ordering::Relaxed);
-                        if n < 2 {
-                            Err("retryable")
-                        } else {
-                            Ok(42)
-                        }
+                        if n < 2 { Err("retryable") } else { Ok(42) }
                     }
                 },
                 |_: &&str| true,

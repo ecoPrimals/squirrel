@@ -569,7 +569,7 @@ mod tests {
             let handle = tokio::spawn(async move {
                 let mut update_data = HashMap::new();
                 update_data.insert(
-                    format!("concurrent_key_{}", i),
+                    format!("concurrent_key_{i}"),
                     serde_json::Value::Number(i.into()),
                 );
                 manager_clone
@@ -611,7 +611,7 @@ mod tests {
         for i in 0..20 {
             let manager_clone = Arc::clone(&manager);
             let handle = tokio::spawn(async move {
-                let client_info = Some(format!("concurrent_client_{}", i));
+                let client_info = Some(format!("concurrent_client_{i}"));
                 manager_clone.create_session(client_info).await.unwrap()
             });
             handles.push(handle);

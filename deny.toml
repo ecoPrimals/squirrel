@@ -2,13 +2,13 @@
 # cargo-deny configuration for ecoPrimals supply chain auditing
 
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
+version = 2
+# cargo-deny 0.19: vulnerability/notice always deny; unmaintained uses scope
+unmaintained = "workspace"
 yanked = "deny"
-notice = "warn"
 
 [licenses]
-unlicensed = "deny"
+version = 2
 allow = [
     "AGPL-3.0-only",
     "AGPL-3.0-or-later",
@@ -23,12 +23,19 @@ allow = [
     "BSL-1.0",
     "CC0-1.0",
     "OpenSSL",
+    "MPL-2.0",
 ]
-copyleft = "allow"
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# ecoBin: Pure Rust required. ring/openssl contain C/ASM; use RustCrypto/rustls alternatives.
+# Default build (no HTTP features) has zero ring. HTTP features (reqwest) pull ring via rustls;
+# migration path: rustls-tls-manual-roots-no-provider + aws-lc-rs or rustls-rustcrypto. See docs/CRYPTO_MIGRATION.md.
+deny = [
+    { name = "ring", reason = "ecoBin: C/ASM crypto. Use rustls-tls-manual-roots-no-provider + aws-lc-rs, or RustCrypto for hashing. See docs/CRYPTO_MIGRATION.md.", use-instead = "rustls (aws-lc-rs/rustls-rustcrypto), sha2, blake3" },
+    { name = "openssl", reason = "ecoBin: C crypto. Use rustls or RustCrypto suite.", use-instead = "rustls, sha2, aes-gcm, ed25519-dalek" },
+]
 
 [sources]
 unknown-registry = "deny"

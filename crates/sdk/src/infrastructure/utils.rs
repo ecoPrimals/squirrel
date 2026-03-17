@@ -64,7 +64,7 @@ pub fn current_timestamp() -> u64 {
     #[cfg(test)]
     {
         // In tests, return a fixed timestamp to avoid WASM calls
-        1640995200000 // January 1, 2022 00:00:00 UTC
+        1_640_995_200_000 // January 1, 2022 00:00:00 UTC
     }
 }
 
@@ -525,7 +525,7 @@ mod tests {
         let uuid1 = generate_uuid();
         let uuid2 = generate_uuid();
         assert_ne!(uuid1, uuid2);
-        assert!(uuid1.len() > 0);
+        assert!(!uuid1.is_empty());
     }
 
     #[test]

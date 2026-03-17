@@ -180,7 +180,7 @@ mod tests {
     fn mock_provider(id: &str, action: &str) -> ActionProvider {
         ActionProvider {
             provider_id: id.to_string(),
-            provider_name: format!("Provider {}", id),
+            provider_name: format!("Provider {id}"),
             action: action.to_string(),
             input_schema: serde_json::json!({"prompt": "string"}),
             output_schema: serde_json::json!({"result": "string"}),

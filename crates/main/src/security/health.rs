@@ -364,28 +364,38 @@ mod tests {
     fn test_overall_status_escalation() {
         let mut health = SecurityHealth::new();
 
-        let mut healthy_comp = ComponentHealth::default();
-        healthy_comp.status = HealthStatus::Healthy;
+        let healthy_comp = ComponentHealth {
+            status: HealthStatus::Healthy,
+            ..Default::default()
+        };
         health.add_component("a".to_string(), healthy_comp);
         assert_eq!(health.overall_status, HealthStatus::Healthy);
 
-        let mut warning_comp = ComponentHealth::default();
-        warning_comp.status = HealthStatus::Warning;
+        let warning_comp = ComponentHealth {
+            status: HealthStatus::Warning,
+            ..Default::default()
+        };
         health.add_component("b".to_string(), warning_comp);
         assert_eq!(health.overall_status, HealthStatus::Warning);
 
-        let mut degraded_comp = ComponentHealth::default();
-        degraded_comp.status = HealthStatus::Degraded;
+        let degraded_comp = ComponentHealth {
+            status: HealthStatus::Degraded,
+            ..Default::default()
+        };
         health.add_component("c".to_string(), degraded_comp);
         assert_eq!(health.overall_status, HealthStatus::Degraded);
 
-        let mut critical_comp = ComponentHealth::default();
-        critical_comp.status = HealthStatus::Critical;
+        let critical_comp = ComponentHealth {
+            status: HealthStatus::Critical,
+            ..Default::default()
+        };
         health.add_component("d".to_string(), critical_comp);
         assert_eq!(health.overall_status, HealthStatus::Critical);
 
-        let mut down_comp = ComponentHealth::default();
-        down_comp.status = HealthStatus::Down;
+        let down_comp = ComponentHealth {
+            status: HealthStatus::Down,
+            ..Default::default()
+        };
         health.add_component("e".to_string(), down_comp);
         assert_eq!(health.overall_status, HealthStatus::Down);
     }

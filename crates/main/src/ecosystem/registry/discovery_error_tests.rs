@@ -59,7 +59,7 @@ mod error_path_tests {
         assert_eq!(services.len(), 3);
 
         // Verify all types discovered
-        let types: Vec<_> = services.iter().map(|s| s.primal_type.clone()).collect();
+        let types: Vec<_> = services.iter().map(|s| s.primal_type).collect();
         assert!(types.contains(&EcosystemPrimalType::Squirrel));
         assert!(types.contains(&EcosystemPrimalType::BearDog));
         assert!(types.contains(&EcosystemPrimalType::Songbird));
@@ -107,7 +107,7 @@ mod error_path_tests {
     #[tokio::test]
     async fn test_get_metadata_zero_copy() {
         use crate::optimization::zero_copy::ArcStr;
-        let registry = Arc::new(RwLock::new(HashMap::<ArcStr, Arc<DiscoveredService>>::new()));
+        let _registry = Arc::new(RwLock::new(HashMap::<ArcStr, Arc<DiscoveredService>>::new()));
         let mut metadata = HashMap::new();
         metadata.insert("version", "1.0.0");
         metadata.insert("region", "us-west");
@@ -124,11 +124,15 @@ mod error_path_tests {
 
         // Metadata lookup should not allocate
         assert_eq!(
-            service.get_metadata("version").map(|v| v.as_ref()),
+            service
+                .get_metadata("version")
+                .map(std::convert::AsRef::as_ref),
             Some("1.0.0")
         );
         assert_eq!(
-            service.get_metadata("region").map(|v| v.as_ref()),
+            service
+                .get_metadata("region")
+                .map(std::convert::AsRef::as_ref),
             Some("us-west")
         );
         assert_eq!(service.get_metadata("nonexistent"), None);
@@ -174,11 +178,11 @@ mod error_path_tests {
         let reg = registry.read().await;
         if let Some(service) = reg.values().next() {
             match service.health_status {
-                ServiceHealthStatus::Healthy => assert!(true),
-                ServiceHealthStatus::Unhealthy => assert!(false, "Should be healthy"),
-                ServiceHealthStatus::Unknown => assert!(false, "Should be healthy"),
-                ServiceHealthStatus::Degraded => assert!(false, "Should be healthy"),
-                ServiceHealthStatus::Offline => assert!(false, "Should be healthy"),
+                ServiceHealthStatus::Healthy => {}
+                ServiceHealthStatus::Unhealthy => unreachable!("Should be healthy"),
+                ServiceHealthStatus::Unknown => unreachable!("Should be healthy"),
+                ServiceHealthStatus::Degraded => unreachable!("Should be healthy"),
+                ServiceHealthStatus::Offline => unreachable!("Should be healthy"),
             }
         }
     }
@@ -244,7 +248,7 @@ mod error_path_tests {
         assert_eq!(service.capabilities.len(), 3);
         for cap in &service.capabilities {
             // Each capability is Arc<str>
-            assert!(cap.len() > 0);
+            assert!(!cap.is_empty());
         }
     }
 
@@ -412,7 +416,7 @@ mod error_path_tests {
             assert!(!capability.is_empty());
 
             // Error message should reference capability, not primal name
-            let error_msg = format!("Capability '{}' not found", capability);
+            let error_msg = format!("Capability '{capability}' not found");
             assert!(error_msg.contains(capability));
             assert!(!error_msg.contains("Songbird"));
             assert!(!error_msg.contains("BearDog"));
@@ -429,13 +433,10 @@ mod error_path_tests {
         ];
 
         for (domain, operation) in invalid_operations {
-            let semantic_capability = format!("{}.{}", domain, operation);
+            let _semantic_capability = format!("{domain}.{operation}");
 
             // Error should use semantic format
-            let error_msg = format!(
-                "Operation '{}' not supported for domain '{}'",
-                operation, domain
-            );
+            let error_msg = format!("Operation '{operation}' not supported for domain '{domain}'");
 
             assert!(error_msg.contains(domain));
             assert!(error_msg.contains(operation));
@@ -452,10 +453,8 @@ mod error_path_tests {
         let timeout = Duration::from_millis(100);
 
         // Simulate timeout error
-        let error_msg = format!(
-            "Discovery timeout after {:?} for capability '{}'",
-            timeout, capability
-        );
+        let error_msg =
+            format!("Discovery timeout after {timeout:?} for capability '{capability}'");
 
         assert!(error_msg.contains("timeout"));
         assert!(error_msg.contains(capability));
@@ -473,8 +472,7 @@ mod error_path_tests {
 
         for (capability, required, available) in capability_versions {
             let error_msg = format!(
-                "Version mismatch for '{}': required {} but found {}",
-                capability, required, available
+                "Version mismatch for '{capability}': required {required} but found {available}"
             );
 
             assert!(error_msg.contains(capability));
@@ -505,8 +503,7 @@ mod error_path_tests {
             for (key, value) in metadata {
                 if value.is_empty() {
                     let error_msg = format!(
-                        "Invalid metadata for capability '{}': '{}' cannot be empty",
-                        capability, key
+                        "Invalid metadata for capability '{capability}': '{key}' cannot be empty"
                     );
                     assert!(error_msg.contains(capability));
                     assert!(error_msg.contains(key));
@@ -523,13 +520,12 @@ mod error_path_tests {
             ("secure_backup", vec!["storage", "crypto", "compression"]),
         ];
 
-        for (capability, deps) in capability_dependencies {
+        for (capability, _deps) in capability_dependencies {
             // Simulate missing dependency
             let missing_dep = "compression";
 
             let error_msg = format!(
-                "Cannot resolve capability '{}': dependency '{}' not available",
-                capability, missing_dep
+                "Cannot resolve capability '{capability}': dependency '{missing_dep}' not available"
             );
 
             assert!(error_msg.contains(capability));
@@ -540,12 +536,6 @@ mod error_path_tests {
     #[tokio::test]
     async fn test_capability_circular_dependency_error() {
         // Test detection of circular dependencies
-        let circular_deps = vec![
-            ("service_a", "service_b"),
-            ("service_b", "service_c"),
-            ("service_c", "service_a"), // Circular!
-        ];
-
         let error_msg =
             "Circular dependency detected: service_a → service_b → service_c → service_a";
 
@@ -564,8 +554,7 @@ mod error_path_tests {
         let limit = 100;
 
         let error_msg = format!(
-            "Rate limit exceeded for '{}': {} requests/min exceeds limit of {}",
-            capability, requests, limit
+            "Rate limit exceeded for '{capability}': {requests} requests/min exceeds limit of {limit}"
         );
 
         assert!(error_msg.contains("Rate limit"));
@@ -578,7 +567,7 @@ mod error_path_tests {
         // Test authentication errors in capability access
         let capability = "crypto.decrypt";
 
-        let error_msg = format!("Authentication required for capability '{}'", capability);
+        let error_msg = format!("Authentication required for capability '{capability}'");
 
         assert!(error_msg.contains("Authentication"));
         assert!(error_msg.contains(capability));
@@ -591,10 +580,8 @@ mod error_path_tests {
         let capability = "storage.delete";
         let requester = "service_x";
 
-        let error_msg = format!(
-            "Service '{}' not authorized for capability '{}'",
-            requester, capability
-        );
+        let error_msg =
+            format!("Service '{requester}' not authorized for capability '{capability}'");
 
         assert!(error_msg.contains("authorized"));
         assert!(error_msg.contains(capability));
@@ -606,10 +593,8 @@ mod error_path_tests {
         // Test resource exhaustion errors
         let capability = "compute.execute";
 
-        let error_msg = format!(
-            "Resource exhaustion for capability '{}': insufficient memory",
-            capability
-        );
+        let error_msg =
+            format!("Resource exhaustion for capability '{capability}': insufficient memory");
 
         assert!(error_msg.contains("Resource exhaustion"));
         assert!(error_msg.contains(capability));
@@ -638,10 +623,8 @@ mod error_path_tests {
         // Test serialization/deserialization errors
         let capability = "ai.inference";
 
-        let error_msg = format!(
-            "Failed to serialize request for capability '{}': invalid UTF-8",
-            capability
-        );
+        let error_msg =
+            format!("Failed to serialize request for capability '{capability}': invalid UTF-8");
 
         assert!(error_msg.contains("serialize"));
         assert!(error_msg.contains(capability));
@@ -656,7 +639,7 @@ mod error_path_tests {
         let fallback = "ai.inference";
         let final_fallback = "ai";
 
-        let degradation_chain = vec![preferred, fallback, final_fallback];
+        let degradation_chain = [preferred, fallback, final_fallback];
 
         // Simulate degradation
         for (i, capability) in degradation_chain.iter().enumerate() {
@@ -685,10 +668,8 @@ mod error_path_tests {
             retry_counts.insert(capability, attempt);
 
             if attempt == max_retries {
-                let error_msg = format!(
-                    "Max retries ({}) exceeded for capability '{}'",
-                    max_retries, capability
-                );
+                let error_msg =
+                    format!("Max retries ({max_retries}) exceeded for capability '{capability}'");
                 assert!(error_msg.contains("Max retries"));
                 assert!(error_msg.contains(capability));
             }
@@ -698,7 +679,7 @@ mod error_path_tests {
     #[tokio::test]
     async fn test_capability_partial_failure() {
         // Test handling of partial failures in multi-capability operations
-        let requested_capabilities = vec![
+        let requested_capabilities = [
             ("ai.inference", true),    // Success
             ("crypto.encrypt", false), // Failure
             ("storage.put", true),     // Success
@@ -731,8 +712,7 @@ mod error_path_tests {
         let request_id = "req_12345";
 
         let error_msg = format!(
-            "Error in '{}.{}' [request: {}]: operation failed",
-            capability, operation, request_id
+            "Error in '{capability}.{operation}' [request: {request_id}]: operation failed"
         );
 
         assert!(error_msg.contains(capability));

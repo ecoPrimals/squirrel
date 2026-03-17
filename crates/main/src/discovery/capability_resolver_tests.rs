@@ -13,7 +13,7 @@ use std::time::Duration;
 fn test_capability_resolver_new() {
     let resolver = CapabilityResolver::new();
     // Verify resolver was created successfully
-    assert!(format!("{:?}", resolver).contains("CapabilityResolver"));
+    assert!(format!("{resolver:?}").contains("CapabilityResolver"));
 }
 
 #[test]
@@ -22,13 +22,13 @@ fn test_capability_resolver_with_registry() {
         RegistryType::Consul,
         "http://localhost:8500".to_string(),
     );
-    assert!(format!("{:?}", resolver).contains("CapabilityResolver"));
+    assert!(format!("{resolver:?}").contains("CapabilityResolver"));
 }
 
 #[test]
 fn test_capability_resolver_default() {
     let resolver = CapabilityResolver::default();
-    assert!(format!("{:?}", resolver).contains("CapabilityResolver"));
+    assert!(format!("{resolver:?}").contains("CapabilityResolver"));
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn test_discovery_method_variants() {
     ];
 
     for method in methods {
-        let debug_str = format!("{:?}", method);
+        let debug_str = format!("{method:?}");
         assert!(!debug_str.is_empty());
     }
 }
@@ -62,7 +62,7 @@ fn test_discovery_method_equality() {
 #[test]
 fn test_discovery_method_clone() {
     let method = DiscoveryMethod::MDns;
-    let cloned = method.clone();
+    let cloned = method;
     assert_eq!(method, cloned);
 }
 
@@ -71,7 +71,7 @@ fn test_discover_from_env_found() {
     let test_endpoint = env::var("TEST_AI_PORT")
         .ok()
         .and_then(|p| p.parse::<u16>().ok())
-        .map(|port| format!("http://localhost:{}", port))
+        .map(|port| format!("http://localhost:{port}"))
         .unwrap_or_else(|| "http://localhost:8000".to_string());
 
     temp_env::with_var("AI_COMPLETE_ENDPOINT", Some(test_endpoint.as_str()), || {

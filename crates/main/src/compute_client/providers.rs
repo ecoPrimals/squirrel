@@ -135,7 +135,7 @@ mod tests {
                     geo_location: None,
                 },
                 security_level: SecurityLevel::Standard,
-                metadata: Default::default(),
+                metadata: std::collections::HashMap::default(),
             },
             port_info: None,
         }

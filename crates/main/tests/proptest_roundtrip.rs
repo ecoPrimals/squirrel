@@ -10,7 +10,6 @@
 
 use proptest::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 fn roundtrip_json<T>(value: &T)
 where

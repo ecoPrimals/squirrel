@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: March 16, 2026
+**Last Updated**: March 17, 2026
 **Version**: 0.1.0-alpha.10
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
@@ -10,19 +10,19 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 4,925 passing / 0 failed across 21 crates |
+| Tests | 5,228 passing / 0 failed across 21 crates |
 | Edition | 2024 (Rust 1.93.0) |
-| Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on lib; `cfg_attr(test, allow)` on test targets |
-| Docs | All crates `#![warn(missing_docs)]`; `cargo doc --workspace --no-deps` 0 warnings |
+| Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
+| Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
-| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all 25 crate entry points |
-| Pure Rust | 100% default features (zero C deps); `ring`/`zstd-sys`/`sysinfo` behind optional features only |
-| ecoBin | Compliant — `openssl`/`native-tls` removed from all features; `sysinfo` behind `system-metrics` |
-| Coverage | 69% line coverage via `cargo-llvm-cov` (target: 90%) |
+| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all crate entry points |
+| Pure Rust | 100% default features (zero C deps); `ring`/`openssl` banned in `deny.toml` |
+| ecoBin | Compliant — `deny.toml` explicitly bans `ring` and `openssl`; `sysinfo` behind `system-metrics` |
+| Coverage | 67.6% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 21 workspace members |
-| Files >1000 lines | 0 (max: 996 — `performance_optimizer.rs`) |
+| Files >1000 lines | 0 (max: 991 — `router.rs`, likely dead code pending review) |
 | Property tests | 17 (proptest round-trip for all JSON-RPC types + niche + 7 wire-format fuzz) |
-| Mocks in production | 0 — all mocks behind `#[cfg(test)]` |
+| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
 | Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted |
 
 ## JSON-RPC Methods
@@ -121,10 +121,11 @@ requiring AI capabilities.
 
 | Pattern | Where |
 |---------|-------|
-| `Arc<str>` for identifiers | `jsonrpc_handlers.rs` (`AnnouncedPrimal`), `self_knowledge.rs` (capabilities) |
+| `Arc<str>` for identifiers | `jsonrpc_handlers.rs` (`AnnouncedPrimal`), `self_knowledge.rs`, `EcosystemServiceRegistration` |
 | `Arc<dyn ValidationRule>` | `validation.rs` — eliminates `Box::new(self.clone())` |
 | `bytes::Bytes` for payloads | `transport/frame.rs` — O(1) clone on frame data |
 | `&'static str` for constants | `self_knowledge.rs` — default capabilities |
+| Struct update syntax | Builder patterns use `..Default::default()` throughout |
 
 ## Error Handling
 
@@ -190,7 +191,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked |
-| cargo-llvm-cov | Installed, 69% line coverage measured |
+| cargo-llvm-cov | Installed, 67.6% line coverage measured |
 | proptest | Round-trip + wire-format fuzz for all JSON-RPC types (17 properties) |
 
 ## Known Issues
@@ -199,9 +200,22 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 2. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
 3. `model_splitting/` redirect stub — functionality moved to ToadStool; module retained as navigation aid
 4. `unified_manager` — Phase 2 placeholder for unified plugin system
-5. Coverage at 69% — gap to 90% target (~40K uncovered lines remaining)
+5. Coverage at 67.6% — gap to 90% target; incremental expansion underway
 6. `redis` v0.23 behind optional `persistence` feature — upgrade to 0.25+ when ecosystem stabilizes
-7. ~800 `unwrap()`/`expect()` remaining in non-test production code — incremental migration to `?` needed
-8. ~150 hardcoded primal name literals across codebase — should use `socket_env_var()`/`address_env_var()` patterns
-9. Pre-existing `absurd_extreme_comparisons` clippy error in 5 test files (comparing `>= 0` on unsigned types) — test-only, not blocking
-10. ~~Legacy benchmark files~~ — resolved: orphan bench files removed; only `ecosystem_benchmarks` remains (wired)
+7. `router.rs` (991 lines) — likely dead code, pending investigation before refactoring or removal
+
+## Changes Since Last Handoff (March 17, 2026)
+
+### Deep Audit & Evolution Sprint
+
+- **Clippy**: Full `--all-features --all-targets -D warnings` pass — zero warnings across all 21 crates
+- **Formatting**: `cargo fmt` clean across entire workspace
+- **Auth tests**: Complete rewrite of `auth_tests.rs` to align with current `squirrel_mcp_auth` API
+- **Doctests**: Fixed all doctest failures in `squirrel-core` service discovery; marked malformed WASM example as `ignore`
+- **Smart refactoring**: `performance_optimizer.rs` (996L → 10 focused modules); `ecosystem/mod.rs` (985L → 4 files)
+- **Hardcoding evolution**: All ports now environment-overridable via `get_port()` helpers; capability-based delegation replaces hardcoded primal names in `send_to_primal` and `delegate_to_songbird`
+- **deny.toml**: Explicit bans for `ring` and `openssl` with documented Pure Rust alternatives
+- **Float comparisons**: Epsilon-based assertions replace `assert_eq!` on floats
+- **Struct initialization**: Struct update syntax replaces `Default::default()` + field reassignment
+- **Doc quality**: `doc_markdown` backtick compliance across all crates; wildcard imports replaced with explicit imports
+- **Stubs evolved**: `execute_capability` now sends JSON-RPC over Unix sockets; `send_to_primal` discovers endpoints via capability registry

@@ -88,7 +88,7 @@
 //! ```
 
 #![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::expect_used))]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]
@@ -112,33 +112,33 @@ pub mod validation_harness;
 
 // Re-export commonly used types for convenience
 pub use builder::UniversalConfigBuilder;
+pub use circuit_breaker::{CircuitBreaker, CircuitState, ResilientCaller, RetryPolicy};
+pub use compute_dispatch::{ComputeDispatchRequest, ComputeDispatchResponse};
 pub use config::{
     InstanceLifecycleConfig, LoadBalancingStrategy, MultiInstanceConfig, PortManagementConfig,
     PrimalInstanceConfig, UniversalPrimalConfig,
 };
-pub use circuit_breaker::{CircuitBreaker, CircuitState, ResilientCaller, RetryPolicy};
-pub use compute_dispatch::{ComputeDispatchRequest, ComputeDispatchResponse};
 pub use dispatch_outcome::{DispatchError, DispatchOutcome};
 pub use ipc_client::{
     CapabilityInfo, IpcClient, IpcClientError, extract_rpc_error, parse_capabilities_from_response,
 };
 pub use manifest_discovery::PrimalManifest;
 pub use or_exit::{OrExit, exit_codes};
-pub use validation_harness::{CheckOutcome, CheckResult, ValidationHarness};
 pub use registry::{
     DiscoveredPrimal, EnhancedRegistryStatistics, RegistryStatistics, UniversalPrimalRegistry,
 };
 pub use security::{SecurityContext, UniversalSecurityClient, UniversalSecurityProvider};
+pub use streaming::{StreamItem, StreamKind};
 pub use traits::{
     DynamicPortInfo, PrimalCapability, PrimalContext, PrimalError, PrimalHealth, PrimalProvider,
     PrimalRequest, PrimalRequestType, PrimalResponse, PrimalResponseType, PrimalResult, PrimalType,
     SecurityLevel,
 };
-pub use streaming::{StreamItem, StreamKind};
 pub use transport::{
     ListenerConfig, RemoteAddr, TransportConfig, TransportType, UniversalListener,
     UniversalTransport,
 };
+pub use validation_harness::{CheckOutcome, CheckResult, ValidationHarness};
 
 /// Initialize the universal primal system
 ///

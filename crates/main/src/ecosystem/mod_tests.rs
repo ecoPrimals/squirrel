@@ -123,7 +123,7 @@ fn test_ecosystem_config_validation() {
     invalid2.service_host = String::new();
     assert!(invalid2.validate().is_err());
 
-    let mut invalid3 = config.clone();
+    let mut invalid3 = config;
     invalid3.service_port = 0;
     assert!(invalid3.validate().is_err());
 }
@@ -190,7 +190,7 @@ fn test_ecosystem_manager_status_with_health() {
     assert_eq!(status.status, "initialized");
     assert!(status.initialized_at.is_some());
     assert_eq!(status.active_registrations.len(), 1);
-    assert_eq!(status.health_status.health_score, 1.0);
+    assert!((status.health_status.health_score - 1.0).abs() < f64::EPSILON);
 }
 
 // ===== EcosystemManager Tests =====
@@ -220,7 +220,7 @@ async fn test_ecosystem_manager_initial_status() {
     assert_eq!(status.active_registrations.len(), 0);
     assert_eq!(status.error_count, 0);
     assert!(status.last_error.is_none());
-    assert_eq!(status.health_status.health_score, 0.0);
+    assert!((status.health_status.health_score - 0.0).abs() < f64::EPSILON);
 }
 
 #[tokio::test]

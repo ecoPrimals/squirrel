@@ -75,7 +75,7 @@ where
 /// assert_eq!(url, "http://localhost:8080/api");
 /// ```
 pub fn build_url(scheme: &str, host: &str, port: u16, path: &str) -> String {
-    format!("{}://{}:{}{}", scheme, host, port, path)
+    format!("{scheme}://{host}:{port}{path}")
 }
 
 /// Get timeout duration from environment variable in seconds
@@ -132,12 +132,14 @@ impl ServiceConfig {
     }
 
     /// Get the port
-    pub fn port(&self) -> u16 {
+    #[must_use]
+    pub const fn port(&self) -> u16 {
         self.port
     }
 
     /// Get the timeout duration
-    pub fn timeout(&self) -> std::time::Duration {
+    #[must_use]
+    pub const fn timeout(&self) -> std::time::Duration {
         std::time::Duration::from_secs(self.timeout_secs)
     }
 
@@ -152,7 +154,7 @@ impl ServiceConfig {
     }
 }
 
-/// Builder for ServiceConfig
+/// Builder for `ServiceConfig`
 #[derive(Debug, Default)]
 pub struct ServiceConfigBuilder {
     env_prefix: Option<String>,
@@ -162,26 +164,30 @@ pub struct ServiceConfigBuilder {
 }
 
 impl ServiceConfigBuilder {
-    /// Set environment variable prefix (e.g., "MYSERVICE" will look for MYSERVICE_HOST, MYSERVICE_PORT)
+    /// Set environment variable prefix (e.g., `MYSERVICE` will look for `MYSERVICE_HOST`, `MYSERVICE_PORT`)
+    #[must_use]
     pub fn with_env_prefix(mut self, prefix: &str) -> Self {
         self.env_prefix = Some(prefix.to_string());
         self
     }
 
     /// Set default host
+    #[must_use]
     pub fn with_default_host(mut self, host: &str) -> Self {
         self.default_host = host.to_string();
         self
     }
 
     /// Set default port
-    pub fn with_default_port(mut self, port: u16) -> Self {
+    #[must_use]
+    pub const fn with_default_port(mut self, port: u16) -> Self {
         self.default_port = port;
         self
     }
 
     /// Set default timeout in seconds
-    pub fn with_default_timeout_secs(mut self, secs: u64) -> Self {
+    #[must_use]
+    pub const fn with_default_timeout_secs(mut self, secs: u64) -> Self {
         self.default_timeout_secs = secs;
         self
     }
@@ -193,19 +199,19 @@ impl ServiceConfigBuilder {
         let host_var = if prefix.is_empty() {
             "HOST".to_string()
         } else {
-            format!("{}_HOST", prefix)
+            format!("{prefix}_HOST")
         };
 
         let port_var = if prefix.is_empty() {
             "PORT".to_string()
         } else {
-            format!("{}_PORT", prefix)
+            format!("{prefix}_PORT")
         };
 
         let timeout_var = if prefix.is_empty() {
             "TIMEOUT".to_string()
         } else {
-            format!("{}_TIMEOUT", prefix)
+            format!("{prefix}_TIMEOUT")
         };
 
         let host = get_host(&host_var, &self.default_host);

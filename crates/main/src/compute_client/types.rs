@@ -625,7 +625,7 @@ mod tests {
         for level in levels {
             let json = serde_json::to_string(&level).unwrap();
             let deserialized: IsolationLevel = serde_json::from_str(&json).unwrap();
-            assert_eq!(format!("{:?}", deserialized), format!("{:?}", level));
+            assert_eq!(format!("{deserialized:?}"), format!("{level:?}"));
         }
     }
 
@@ -640,7 +640,7 @@ mod tests {
         for level in levels {
             let json = serde_json::to_string(&level).unwrap();
             let deserialized: NetworkSecurityLevel = serde_json::from_str(&json).unwrap();
-            assert_eq!(format!("{:?}", deserialized), format!("{:?}", level));
+            assert_eq!(format!("{deserialized:?}"), format!("{level:?}"));
         }
     }
 
@@ -667,7 +667,7 @@ mod tests {
         for op in ops {
             let json = serde_json::to_string(&op).unwrap();
             let deserialized: ComputeOperation = serde_json::from_str(&json).unwrap();
-            assert_eq!(format!("{:?}", deserialized), format!("{:?}", op));
+            assert_eq!(format!("{deserialized:?}"), format!("{op:?}"));
         }
     }
 
@@ -682,7 +682,7 @@ mod tests {
         for priority in priorities {
             let json = serde_json::to_string(&priority).unwrap();
             let deserialized: ComputePriority = serde_json::from_str(&json).unwrap();
-            assert_eq!(format!("{:?}", deserialized), format!("{:?}", priority));
+            assert_eq!(format!("{deserialized:?}"), format!("{priority:?}"));
         }
     }
 
@@ -700,7 +700,7 @@ mod tests {
         for pref in prefs {
             let json = serde_json::to_string(&pref).unwrap();
             let deserialized: CostPerformancePreference = serde_json::from_str(&json).unwrap();
-            assert_eq!(format!("{:?}", deserialized), format!("{:?}", pref));
+            assert_eq!(format!("{deserialized:?}"), format!("{pref:?}"));
         }
     }
 

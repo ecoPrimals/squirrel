@@ -22,7 +22,7 @@ use crate::error::CoreResult;
 ///
 /// ```rust
 /// use std::sync::Arc;
-/// use squirrel_core::{ServiceDiscoveryClient, InMemoryServiceDiscovery, ServiceType};
+/// use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceDiscoveryClient, ServiceType};
 ///
 /// # async fn example() -> CoreResult<()> {
 /// let discovery = Arc::new(InMemoryServiceDiscovery::new());
@@ -74,7 +74,7 @@ impl ServiceDiscoveryClient {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{ServiceDiscoveryClient, ServiceType};
+    /// # use squirrel_core::{CoreResult, ServiceDiscoveryClient, ServiceType};
     /// # async fn example(client: &ServiceDiscoveryClient) -> CoreResult<()> {
     /// if let Some(service) = client.find_service_by_type(ServiceType::AI).await? {
     ///     println!("Found AI service: {}", service.name);
@@ -105,7 +105,7 @@ impl ServiceDiscoveryClient {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceDiscoveryClient;
+    /// # use squirrel_core::{CoreResult, ServiceDiscoveryClient};
     /// # async fn example(client: &ServiceDiscoveryClient) -> CoreResult<()> {
     /// if let Some(service) = client.find_service_by_capability("chat").await? {
     ///     println!("Found chat service: {}", service.name);
@@ -139,7 +139,7 @@ impl ServiceDiscoveryClient {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::{ServiceDiscoveryClient, ServiceType};
+    /// # use squirrel_core::{CoreResult, ServiceDiscoveryClient, ServiceType};
     /// # async fn example(client: &ServiceDiscoveryClient) -> CoreResult<()> {
     /// let services = client.find_services_for_load_balancing(ServiceType::AI).await?;
     /// println!("Found {} AI services for load balancing", services.len());
@@ -173,7 +173,7 @@ impl ServiceDiscoveryClient {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceDiscoveryClient;
+    /// # use squirrel_core::{CoreResult, ServiceDiscoveryClient};
     /// # async fn example(client: &ServiceDiscoveryClient) -> CoreResult<()> {
     /// if let Some(service) = client.find_best_service_for_capability("chat").await? {
     ///     println!("Found best chat service: {}", service.name);
@@ -229,7 +229,7 @@ impl ServiceDiscoveryClient {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceDiscoveryClient;
+    /// # use squirrel_core::{CoreResult, ServiceDiscoveryClient};
     /// # use std::collections::HashMap;
     /// # async fn example(client: &ServiceDiscoveryClient) -> CoreResult<()> {
     /// let mut metadata = HashMap::new();
@@ -267,7 +267,7 @@ impl ServiceDiscoveryClient {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceDiscoveryClient;
+    /// # use squirrel_core::{CoreResult, ServiceDiscoveryClient};
     /// # async fn example(client: &ServiceDiscoveryClient) -> CoreResult<()> {
     /// let capabilities = vec!["chat".to_string(), "translate".to_string()];
     /// let services = client.find_services_with_capabilities(capabilities).await?;
@@ -298,7 +298,7 @@ impl ServiceDiscoveryClient {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::ServiceDiscoveryClient;
+    /// # use squirrel_core::{CoreResult, ServiceDiscoveryClient};
     /// # async fn example(client: &ServiceDiscoveryClient) -> CoreResult<()> {
     /// let stats = client.get_stats().await?;
     /// println!("Total services: {}", stats.total_services);
@@ -393,11 +393,11 @@ mod tests {
         discovery.register_service(service1).await.unwrap();
         discovery.register_service(service2).await.unwrap();
 
-        let services = client
+        let found = client
             .find_services_for_load_balancing(ServiceType::AI)
             .await
             .unwrap();
-        assert_eq!(services.len(), 2);
+        assert_eq!(found.len(), 2);
     }
 
     #[tokio::test]

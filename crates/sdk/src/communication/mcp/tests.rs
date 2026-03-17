@@ -34,10 +34,10 @@ fn test_mcp_message_deserialization() {
 /// Test message size validation
 #[test]
 fn test_message_size_validation() {
-    let _client = McpClient::new();
+    let client = McpClient::new();
 
     // Create a message that would exceed max size
-    let large_payload = "x".repeat(_client.config.max_message_size + 1);
+    let large_payload = "x".repeat(client.config.max_message_size + 1);
     let large_message = McpMessage {
         id: "test-id".to_string(),
         message_type: "test".to_string(),
@@ -48,7 +48,7 @@ fn test_message_size_validation() {
     // This should fail when trying to send
     // Note: This test validates the message size check logic
     let message_json = serde_json::to_string(&large_message).unwrap();
-    assert!(message_json.len() > _client.config.max_message_size);
+    assert!(message_json.len() > client.config.max_message_size);
 }
 
 /// Test reconnection logic
@@ -204,13 +204,13 @@ async fn test_message_handler_ping_pong() {
     let mut handler = MessageHandler::new();
 
     // Create ping message
-    let ping = handler.create_ping_message();
-    assert_eq!(ping.message_type, "ping");
+    let ping_req = handler.create_ping_message();
+    assert_eq!(ping_req.message_type, "ping");
 
     // Create pong response
-    let pong = handler.create_pong_message(&ping.id);
-    assert_eq!(pong.message_type, "pong");
-    assert_eq!(pong.payload["ping_id"], ping.id);
+    let pong_resp = handler.create_pong_message(&ping_req.id);
+    assert_eq!(pong_resp.message_type, "pong");
+    assert_eq!(pong_resp.payload["ping_id"], ping_req.id);
 }
 
 /// Test connection manager state

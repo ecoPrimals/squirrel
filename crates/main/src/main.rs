@@ -4,10 +4,15 @@
 
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![allow(
+    clippy::option_if_let_else,
+    clippy::cast_possible_truncation,
+    clippy::match_same_arms
+)]
 
 //! Squirrel AI Coordinator Main Entry Point
 //!
-//! UniBin Architecture v1.0.0 compliant entry point.
+//! `UniBin` Architecture v1.0.0 compliant entry point.
 //! Modern, idiomatic async Rust with clap-based CLI.
 
 mod cli;
@@ -31,7 +36,7 @@ async fn main() {
     process::exit(code);
 }
 
-/// Returns exit code (UniBin: 0=success, 1=error, 2=config, 3=network, 130=interrupted)
+/// Returns exit code (`UniBin`: 0=success, 1=error, 2=config, 3=network, 130=interrupted)
 async fn run() -> i32 {
     // Parse CLI arguments using clap
     let cli = Cli::parse();
@@ -73,7 +78,7 @@ async fn run() -> i32 {
             format,
             subsystem,
         } => {
-            if let Err(e) = doctor::run_doctor(comprehensive, format, subsystem).await {
+            if let Err(e) = doctor::run_doctor(comprehensive, format, subsystem) {
                 error!("Error: {e:?}");
                 return exit_codes::ERROR;
             }
@@ -143,6 +148,7 @@ async fn run_client(
 }
 
 /// Run server mode
+#[allow(clippy::too_many_lines)]
 async fn run_server(
     port: u16,
     daemon: bool,
@@ -150,6 +156,9 @@ async fn run_server(
     bind: String,
     _verbose: bool,
 ) -> Result<()> {
+    use squirrel::rpc::JsonRpcServer;
+    use squirrel::rpc::unix_socket;
+
     // Load configuration (file + env vars)
     let mut config = squirrel::config::ConfigLoader::load(None)?;
 
@@ -199,8 +208,6 @@ async fn run_server(
     // 2. config.server.socket (from config file or env)
     // 3. Environment variables (SQUIRREL_SOCKET, BIOMEOS_SOCKET_PATH)
     // 4. Default fallback (XDG or /tmp)
-    use squirrel::rpc::unix_socket;
-
     let socket_path = if let Some(path) = socket.clone() {
         info!("Socket path from CLI argument: {path}");
         path
@@ -243,7 +250,6 @@ async fn run_server(
         }
     };
 
-    use squirrel::rpc::JsonRpcServer;
     let server = ai_router.map_or_else(
         || Arc::new(JsonRpcServer::new(socket_path.clone())),
         |router| Arc::new(JsonRpcServer::with_ai_router(socket_path.clone(), router)),

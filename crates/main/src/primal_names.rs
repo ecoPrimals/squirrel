@@ -102,8 +102,19 @@ mod tests {
     #[test]
     fn all_names_are_lowercase_ascii() {
         for name in [
-            SQUIRREL, BIOMEOS, SONGBIRD, BEARDOG, NESTGATE, TOADSTOOL, CORALREEF, BARRACUDA,
-            RHIZOCRYPT, PETALTONGUE, SWEETGRASS, LOAMSPINE, SKUNKBAT,
+            SQUIRREL,
+            BIOMEOS,
+            SONGBIRD,
+            BEARDOG,
+            NESTGATE,
+            TOADSTOOL,
+            CORALREEF,
+            BARRACUDA,
+            RHIZOCRYPT,
+            PETALTONGUE,
+            SWEETGRASS,
+            LOAMSPINE,
+            SKUNKBAT,
         ] {
             assert!(
                 name.chars().all(|c| c.is_ascii_lowercase()),

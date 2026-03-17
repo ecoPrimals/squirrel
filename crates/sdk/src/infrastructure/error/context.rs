@@ -336,17 +336,19 @@ mod tests {
 
     #[test]
     fn test_enhanced_error_std_error_source() {
+        use std::error::Error;
+
         let root = EnhancedError::new(network_error(), ErrorContext::new("root"));
         let chained =
             EnhancedError::new(security_error(), ErrorContext::new("chain")).with_source(root);
-        use std::error::Error;
         assert!(chained.source().is_some());
     }
 
     #[test]
     fn test_enhanced_error_std_error_no_source() {
-        let enhanced = EnhancedError::new(network_error(), ErrorContext::new("op"));
         use std::error::Error;
+
+        let enhanced = EnhancedError::new(network_error(), ErrorContext::new("op"));
         assert!(enhanced.source().is_none());
     }
 

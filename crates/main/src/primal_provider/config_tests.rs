@@ -44,9 +44,14 @@ mod tests {
             config.get("instance_id").and_then(|v| v.as_str()),
             Some("multi-field-test")
         );
-        assert_eq!(config.get("enabled").and_then(|v| v.as_bool()), Some(true));
         assert_eq!(
-            config.get("timeout_secs").and_then(|v| v.as_u64()),
+            config.get("enabled").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            config
+                .get("timeout_secs")
+                .and_then(serde_json::Value::as_u64),
             Some(30)
         );
     }
@@ -85,9 +90,9 @@ mod tests {
     #[test]
     fn test_biomeos_endpoints_with_custom_port() {
         let port = 8000;
-        let base_url = format!("http://localhost:{}", port);
-        let registration_url = format!("{}/register", base_url);
-        let health_url = format!("{}/health", base_url);
+        let base_url = format!("http://localhost:{port}");
+        let registration_url = format!("{base_url}/register");
+        let health_url = format!("{base_url}/health");
 
         assert!(registration_url.contains("8000"));
         assert!(health_url.contains("8000"));
@@ -137,7 +142,7 @@ mod tests {
         use uuid::Uuid;
 
         let uuid = Uuid::new_v4();
-        let instance_id = format!("squirrel-instance-{}", uuid);
+        let instance_id = format!("squirrel-instance-{uuid}");
 
         assert!(instance_id.len() > 20); // UUID is 36 chars + prefix
         assert!(instance_id.starts_with("squirrel-instance-"));
@@ -154,8 +159,7 @@ mod tests {
     #[test]
     fn test_configuration_validation_result() {
         let result: Result<bool, String> = Ok(true);
-        assert!(result.is_ok());
-        assert!(result.unwrap());
+        assert!(matches!(result, Ok(true)));
     }
 
     // ========== URL Construction Tests ==========
@@ -166,7 +170,7 @@ mod tests {
         let port = 8080;
         let path = "/api/v1/health";
 
-        let url = format!("http://{}:{}{}", host, port, path);
+        let url = format!("http://{host}:{port}{path}");
 
         assert_eq!(url, "http://localhost:8080/api/v1/health");
         assert!(url.starts_with("http://"));
@@ -180,7 +184,7 @@ mod tests {
         let port = 443;
         let path = "/secure/endpoint";
 
-        let url = format!("https://{}:{}{}", host, port, path);
+        let url = format!("https://{host}:{port}{path}");
 
         assert_eq!(url, "https://example.com:443/secure/endpoint");
         assert!(url.starts_with("https://"));
@@ -191,7 +195,7 @@ mod tests {
         let host = "localhost";
         let port = 3000;
 
-        let ws_url = format!("ws://{}:{}/ws", host, port);
+        let ws_url = format!("ws://{host}:{port}/ws");
 
         assert_eq!(ws_url, "ws://localhost:3000/ws");
         assert!(ws_url.starts_with("ws://"));
@@ -200,19 +204,20 @@ mod tests {
     // ========== Error Handling Tests ==========
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn test_result_ok_handling() {
         let result: Result<serde_json::Value, String> = Ok(json!({"success": true}));
-
-        assert!(result.is_ok());
         let value = result.unwrap();
-        assert_eq!(value.get("success").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            value.get("success").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn test_result_error_handling() {
         let result: Result<serde_json::Value, String> = Err("test error".to_string());
-
-        assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "test error");
     }
 
@@ -237,7 +242,10 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(json_string).unwrap();
 
         assert_eq!(parsed.get("test").and_then(|v| v.as_str()), Some("data"));
-        assert_eq!(parsed.get("value").and_then(|v| v.as_u64()), Some(123));
+        assert_eq!(
+            parsed.get("value").and_then(serde_json::Value::as_u64),
+            Some(123)
+        );
     }
 
     #[test]
