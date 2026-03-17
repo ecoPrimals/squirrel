@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Critical path tests for capability matching edge cases
 //!
 //! These tests cover error paths, edge cases, and integration scenarios

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Real BiomeOS Integration Tests
 //!
 //! These tests validate the actual SquirrelBiomeOSIntegration API,

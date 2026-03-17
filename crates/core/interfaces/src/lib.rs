@@ -6,6 +6,7 @@
 //!
 //! This crate contains shared interfaces that are used by multiple Squirrel components.
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 //! The primary purpose is to break circular dependencies between crates.
 

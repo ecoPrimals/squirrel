@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 16, 2026
-**Version**: 0.1.0-alpha.7
+**Version**: 0.1.0-alpha.8
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,18 +10,20 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 4,819 passing / 0 failed / 140 ignored across 22 crates |
+| Tests | 4,835 passing / 0 failed across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
-| Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on all lib targets |
-| Docs | All crates `#![warn(missing_docs)]` |
+| Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on lib; `cfg_attr(test, allow)` on test targets |
+| Docs | All crates `#![warn(missing_docs)]`; `cargo doc --workspace --no-deps` 0 warnings |
 | Formatting | `cargo fmt --all -- --check` passes |
-| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]`; tests use `temp_env` (no `unsafe` env ops) |
+| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all 25 crate entry points |
 | Pure Rust | 100% default features (zero C deps); `ring`/`zstd-sys`/`sysinfo` behind optional features only |
 | ecoBin | Compliant — `openssl`/`native-tls` removed from all features; `sysinfo` behind `system-metrics` |
 | Coverage | 69% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 22 workspace members |
-| Files >1000 lines | 0 (enhanced/mod.rs refactored 992→701; benchmarking/mod.rs 988→477) |
+| Files >1000 lines | 0 (max: 996 — `performance_optimizer.rs`) |
 | Property tests | 10 (proptest round-trip for all JSON-RPC types + niche) |
+| Mocks in production | 0 — all mocks behind `#[cfg(test)]` |
+| Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted |
 
 ## JSON-RPC Methods
 
@@ -38,6 +40,9 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 | Lifecycle | `lifecycle.register`, `lifecycle.status` |
 
 **JSON-RPC batch support**: Full Section 6 compliance — array of requests → array of responses.
+
+**Legacy aliases removed**: Flat names (`query_ai`, `health`, `ping`, etc.) no longer
+accepted. All clients must use the semantic `{domain}.{verb}` names above.
 
 ## tarpc Service
 
@@ -148,16 +153,18 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 
 ## Socket Configuration
 
-Injectable `SocketConfig` pattern (absorbed from airSpring):
+Injectable `SocketConfig` pattern (absorbed from airSpring). `FAMILY_ID`-compliant
+per `PRIMAL_IPC_PROTOCOL.md`:
 
 ```
 Tier 1: SQUIRREL_SOCKET (primal-specific override)
 Tier 2: BIOMEOS_SOCKET_PATH (Neural API orchestration)
 Tier 3: PRIMAL_SOCKET + family suffix
-Tier 4: XDG runtime: /run/user/<uid>/biomeos/squirrel.sock
+Tier 4: XDG runtime: /run/user/<uid>/biomeos/squirrel-${FAMILY_ID}.sock
 Tier 5: /tmp/squirrel-<family>-<node>.sock (dev only)
 ```
 
+When `FAMILY_ID` is not set, Tier 4 falls back to `squirrel.sock` (single-instance).
 All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Tooling
@@ -175,6 +182,8 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 1. `test_load_from_json_file` flaky under full workspace runs (env var pollution) — needs `#[serial]`
 2. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
 3. `model_splitting/` stub module — waiting on ToadStool integration
-4. 140 ignored tests — doc-tests for `universal-patterns` examples requiring runtime services
-5. Coverage at 69% — gap to 90% target (~27K uncovered lines remaining)
+4. `unified_manager` — Phase 2 placeholder for unified plugin system
+5. Coverage at 69% — gap to 90% target (~40K uncovered lines remaining)
 6. `redis` v0.23.3 will be rejected by future Rust — upgrade needed
+7. ~800 `unwrap()`/`expect()` remaining in non-test production code — incremental migration to `?` needed
+8. ~150 hardcoded primal name literals across codebase — should reference `universal_constants::identity`

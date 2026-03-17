@@ -20,6 +20,7 @@
 //!
 //! This crate provides a unified configuration system supporting:
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 //! - Environment variable overrides
 //! - TOML/JSON/YAML file configuration

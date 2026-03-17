@@ -5,6 +5,7 @@
 //!
 //! This crate provides a unified error handling system that extends the excellent
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 #![allow(
     clippy::doc_markdown,

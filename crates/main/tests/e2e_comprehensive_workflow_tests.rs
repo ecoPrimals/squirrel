@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Comprehensive End-to-End Workflow Tests
 //!
 //! These tests validate complete user workflows across the entire system.

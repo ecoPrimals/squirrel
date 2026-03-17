@@ -235,15 +235,24 @@ pub fn get_socket_dir() -> std::path::PathBuf {
 ///
 /// Discovery order:
 /// 1. `{SERVICE}_SOCKET` env var (e.g. `SQUIRREL_SOCKET`)
-/// 2. `$XDG_RUNTIME_DIR/biomeos/{service}.sock`
-/// 3. `/tmp/biomeos/{service}.sock`
+/// 2. `$XDG_RUNTIME_DIR/biomeos/{service}-{family_id}.sock` (with `FAMILY_ID`)
+/// 3. `$XDG_RUNTIME_DIR/biomeos/{service}.sock` (no `FAMILY_ID` set)
+/// 4. `/tmp/biomeos/{service}.sock` (fallback)
+///
+/// Per `PRIMAL_IPC_PROTOCOL.md`, the standard socket name includes `FAMILY_ID`
+/// when set: `<primal>-${FAMILY_ID}.sock`. This allows multiple primal instances
+/// (different families) to coexist.
 #[must_use]
 pub fn get_socket_path(service: &str) -> std::path::PathBuf {
     let env_key = format!("{}_SOCKET", service.to_uppercase());
     if let Ok(path) = std::env::var(&env_key) {
         return std::path::PathBuf::from(path);
     }
-    get_socket_dir().join(format!("{service}.sock"))
+    let filename = match std::env::var("FAMILY_ID") {
+        Ok(family_id) if !family_id.is_empty() => format!("{service}-{family_id}.sock"),
+        _ => format!("{service}.sock"),
+    };
+    get_socket_dir().join(filename)
 }
 
 // ============================================================================

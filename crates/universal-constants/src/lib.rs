@@ -6,6 +6,7 @@
 //!
 //! This crate provides a **single source of truth** for all constants used throughout
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 //! the Squirrel Universal AI Primal system. It consolidates previously scattered constants
 //! from multiple locations into one well-organized, type-safe, and maintainable location.
@@ -64,6 +65,7 @@
 // Module declarations
 pub mod builders;
 pub mod capabilities;
+pub mod config_helpers;
 pub mod deployment;
 pub mod env_vars;
 pub mod identity;
@@ -72,6 +74,7 @@ pub mod network;
 pub mod protocol;
 pub mod slo;
 pub mod timeouts;
+pub mod zero_copy;
 
 // Re-export commonly used items for convenience
 pub use env_vars::*;

@@ -11,6 +11,7 @@
 //! and implements the `EcosystemServiceRegistration` standard for seamless integration.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]

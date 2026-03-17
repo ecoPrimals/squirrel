@@ -38,6 +38,7 @@
 //!
 //! Core command processing functionality for the Squirrel MCP ecosystem.
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 //! This service handles basic command execution and validation.
 

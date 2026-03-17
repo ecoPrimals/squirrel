@@ -6,6 +6,7 @@
 //! This crate provides AI provider integrations and routing capabilities.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 // Allow deprecated items during error type migration to universal-error crate
 #![allow(deprecated)]

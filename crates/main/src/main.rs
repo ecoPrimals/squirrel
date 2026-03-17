@@ -3,6 +3,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 //! Squirrel AI Coordinator Main Entry Point
 //!

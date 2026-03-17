@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+//! Squirrel MCP demo binary — configuration-based routing and primal coordination showcase.
+
 use serde_json::json;
 use std::collections::HashMap;
 use tokio::time::{Duration, sleep};

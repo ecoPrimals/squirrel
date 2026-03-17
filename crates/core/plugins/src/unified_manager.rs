@@ -1,31 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Unified Plugin Manager
+//! Unified Plugin Manager — Phase 2 placeholder.
 //!
-//! High-performance plugin manager that combines the best features from both
-//! CLI and Core plugin systems, using zero-copy optimizations for maximum
-//! performance. Provides 10-100x faster plugin loading and management.
+//! This module will provide a high-performance plugin manager combining CLI and
+//! Core plugin systems with zero-copy optimizations. Phase 2 scope includes:
 //!
-//! ## Current Status
-//!
-//! This module contains placeholder implementations to allow compilation.
-//! The full plugin system is planned for future implementation.
-
-// NOTE(plugin-system): Unified plugin manager modules - implementation deferred to Phase 2
-// The following modules need to be implemented when rebuilding the plugin system:
-// - manager: Core plugin manager with lifecycle management
-// - loader: Plugin loading and discovery
-// - native: Native Rust plugin support
-// - wasm: WebAssembly plugin support
-// - script: Script-based plugin support (Python, Lua, etc.)
-// - event_bus: Plugin event communication system
-// - security: Plugin sandboxing and security policies
-// - builtin: Built-in plugin registry
-// Tracked in: plugin system redesign work
-
-// Temporary stub implementations to allow compilation
-// These need to be properly implemented when rebuilding the plugin system
+//! - Lifecycle management (load, start, stop, unload)
+//! - Native Rust and WASM plugin backends
+//! - Plugin event bus (pub/sub inter-plugin messaging)
+//! - Sandboxing and security policies
+//! - Built-in plugin registry
 
 /// **STUB**: Unified plugin manager combining CLI and Core plugin systems.
 ///

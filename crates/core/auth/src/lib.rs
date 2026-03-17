@@ -10,6 +10,7 @@
 //!
 //! Modern authentication system leveraging capability-based discovery and ecosystem integration.
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 //! This completely replaces the severely outdated legacy auth code with a clean, modern architecture.
 //!

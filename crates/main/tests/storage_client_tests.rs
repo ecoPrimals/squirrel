@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Comprehensive tests for Universal Storage Client types and configurations
 //!
 //! Tests storage types, configurations, capability preferences, and data classification.

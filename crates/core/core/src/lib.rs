@@ -6,6 +6,7 @@
 //! This module re-exports types from `squirrel_context` for backward compatibility.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![allow(missing_docs)]
 #![allow(clippy::unused_self)]
 #![allow(clippy::unused_async)]

@@ -5,6 +5,7 @@
 //!
 //! This module provides a comprehensive plugin system with support for:
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 //! - Plugin loading and management
 //! - Security validation and sandboxing

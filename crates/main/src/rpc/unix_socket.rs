@@ -176,8 +176,11 @@ fn get_xdg_socket_path() -> Option<String> {
             return None;
         }
 
-        // Standard biomeOS socket path (no family suffix for simplicity)
-        let socket_path = format!("{xdg_runtime_dir}/biomeos/squirrel.sock");
+        let filename = match std::env::var("FAMILY_ID") {
+            Ok(fid) if !fid.is_empty() => format!("squirrel-{fid}.sock"),
+            _ => "squirrel.sock".to_string(),
+        };
+        let socket_path = format!("{xdg_runtime_dir}/biomeos/{filename}");
         Some(socket_path)
     } else {
         debug!("XDG runtime directory does not exist: {}", xdg_runtime_dir);

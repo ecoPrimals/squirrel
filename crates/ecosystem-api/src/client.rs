@@ -294,21 +294,21 @@ impl ServiceMeshClient for SongbirdClient {
 }
 
 /// Mock service mesh client for testing
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 #[derive(Clone)]
 pub struct MockServiceMeshClient {
     services: std::sync::Arc<tokio::sync::RwLock<HashMap<String, ServiceInfo>>>,
     health_reports: std::sync::Arc<tokio::sync::RwLock<HashMap<String, HealthStatus>>>,
 }
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 impl Default for MockServiceMeshClient {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 impl MockServiceMeshClient {
     /// Create a new mock client
     pub fn new() -> Self {
@@ -334,7 +334,7 @@ impl MockServiceMeshClient {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 #[async_trait]
 impl ServiceMeshClient for MockServiceMeshClient {
     async fn register_service(
@@ -484,7 +484,7 @@ impl ServiceMeshClientFactory {
     }
 
     /// Create a mock client for testing
-    #[cfg(any(test, feature = "testing"))]
+    #[cfg(test)]
     pub fn create_mock_client() -> impl ServiceMeshClient {
         MockServiceMeshClient::new()
     }
@@ -639,7 +639,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[cfg(feature = "testing")]
     #[test]
     fn test_health_monitor_new() {
         let mock = MockServiceMeshClient::new();
@@ -648,7 +647,6 @@ mod tests {
             HealthMonitor::new(client, "test-service".to_string(), Duration::from_secs(30));
     }
 
-    #[cfg(feature = "testing")]
     #[test]
     fn test_service_discovery_new() {
         let mock = MockServiceMeshClient::new();

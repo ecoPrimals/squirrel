@@ -9,10 +9,10 @@
 //!
 //! ## Discovery Protocol
 //!
-//! This module sends `{"method":"discover_capabilities"}` JSON-RPC probes
+//! This module sends `{"method":"capability.discover"}` JSON-RPC probes
 //! to sockets during scanning. Any primal that responds with its capabilities
 //! list can be discovered. Squirrel's own JSON-RPC server also handles
-//! this method (see `jsonrpc_server.rs` - `handle_discover_capabilities`),
+//! this method (see `jsonrpc_server.rs` - `handle_discover_capabilities` for `capability.discover`),
 //! making Squirrel discoverable by other primals.
 //!
 //! ## Songbird Alignment (Feb 9, 2026)
@@ -295,7 +295,7 @@ pub async fn probe_socket(socket_path: &Path) -> Result<CapabilityProvider, Disc
     // Build discovery request (JSON-RPC 2.0)
     let request = serde_json::json!({
         "jsonrpc": "2.0",
-        "method": "discover_capabilities",
+        "method": "capability.discover",
         "params": {},
         "id": Uuid::new_v4().to_string(),
     });

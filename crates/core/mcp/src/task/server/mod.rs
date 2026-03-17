@@ -26,6 +26,7 @@
 // Import all refactored modules
 pub mod commands;
 pub mod handlers;
+#[cfg(test)]
 pub mod mock;
 pub mod service;
 pub mod types;

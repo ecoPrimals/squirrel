@@ -34,6 +34,7 @@
 //! ```
 
 #![forbid(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]

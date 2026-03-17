@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 // Imports updated - ecosystem_client removed (was HTTP-based, violates TRUE PRIMAL)
 use squirrel::biomeos_integration::*;
 use squirrel::error::PrimalError;

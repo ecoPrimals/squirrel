@@ -9,6 +9,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.8] - 2026-03-16
+
+Deep debt execution: file refactoring, mock isolation, legacy alias removal,
+FAMILY_ID socket compliance, clippy --all-targets, and documentation alignment.
+
+### Added
+
+- **`handlers_ai.rs`** — AI domain handlers extracted from `jsonrpc_handlers.rs`
+- **`handlers_capability.rs`** — Capability domain handlers extracted
+- **`handlers_system.rs`** — System/Discovery/Lifecycle handlers extracted
+- **`biomeos_integration/types.rs`** — data types extracted from `biomeos_integration/mod.rs`
+- **`sdk/core/manager.rs`** — `PluginManager`, `PluginFactory`, `register_plugin!` extracted from `plugin.rs`
+- **`universal-constants::zero_copy`** and **`config_helpers`** modules exposed publicly
+- **16 new tests** for handler refactoring verification
+
+### Changed
+
+- **Clippy `--all-targets`** — `cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))`
+  applied systematically across 109 files; test code can use `unwrap()`/`expect()` while
+  production code remains denied
+- **File refactoring** — `jsonrpc_handlers.rs` (1094→~400), `biomeos_integration/mod.rs`
+  (1101→658), `plugin.rs` (1012→838) — all now under 1000 lines
+- **Legacy aliases removed** — flat names (`query_ai`, `health`, `ping`, etc.) no longer
+  dispatched; only semantic `{domain}.{verb}` method names accepted
+- **Mock isolation** — `MockServiceMeshClient` changed from `cfg(any(test, feature = "testing"))`
+  to strict `#[cfg(test)]`; MCP `mock` module gated behind `#[cfg(test)]`
+- **FAMILY_ID socket compliance** — `get_socket_path` and `get_xdg_socket_path` now include
+  `${FAMILY_ID}` suffix per `PRIMAL_IPC_PROTOCOL.md`
+- **`capability.discover`** method name — `probe_socket` now sends semantic name instead of
+  legacy `discover_capabilities`
+- **`unified_manager.rs`** docs updated to Phase 2 placeholder language
+
+### Removed
+
+- **Legacy JSON-RPC aliases** — dispatch arms for `query_ai`, `list_providers`, `announce_capabilities`,
+  `discover_capabilities`, `health`, `metrics`, `ping`, `discover_peers`, `list_tools`,
+  `execute_tool`
+- **Stale planning docs** — 11 analysis/strategy/migration markdown files archived
+
+### Metrics
+
+| Metric | alpha.7 | alpha.8 |
+|--------|---------|---------|
+| Tests | 4,819 | 4,835 (+16) |
+| Coverage | 69% | 69% |
+| Clippy (`--all-targets`) | FAIL (test unwrap) | PASS (0 errors) |
+| `cargo doc` warnings | 0 | 0 |
+| Files >1000 lines | 0 | 0 (max: 996) |
+| Mocks in production | ~2 | 0 |
+| Legacy aliases | Active | Removed |
+
 ## [0.1.0-alpha.7] - 2026-03-16
 
 Comprehensive audit execution: ecoBin compliance, clippy zero-error, typed errors,

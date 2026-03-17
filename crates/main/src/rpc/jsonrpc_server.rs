@@ -30,9 +30,6 @@
 //! - `tool.execute` - Tool execution (local + forwarding to announced primals)
 //! - `tool.list` - List available tools (local + remote announced)
 //!
-//! Legacy aliases (deprecated, emit warnings — Phase 2):
-//! `query_ai`, `list_providers`, `announce_capabilities`, `discover_capabilities`,
-//! `health`, `metrics`, `ping`, `discover_peers`, `execute_tool`
 //!
 //! ## Protocol
 //!
@@ -212,7 +209,7 @@ pub struct JsonRpcServer {
 
     /// Registry of remote primals that announced their tools.
     /// Key: tool name → socket path for forwarding.
-    /// Registry: tool name -> announced primal. Uses Arc<str> keys for O(1) clone.
+    /// Registry: tool name -> announced primal. Uses `Arc<str>` keys for O(1) clone.
     pub(crate) announced_tools:
         Arc<RwLock<std::collections::HashMap<Arc<str>, super::types::AnnouncedPrimal>>>,
 
@@ -647,71 +644,6 @@ impl JsonRpcServer {
             "lifecycle.register" => self.handle_lifecycle_register().await,
             "lifecycle.status" => self.handle_lifecycle_status().await,
 
-            // Legacy aliases (deprecated — Phase 2 of wateringHole semantic naming standard)
-            "query_ai" => {
-                warn!(
-                    "Deprecated method '{}'. Use 'ai.query' instead.",
-                    request.method
-                );
-                self.handle_query_ai(request.params).await
-            }
-            "list_providers" => {
-                warn!(
-                    "Deprecated method '{}'. Use 'ai.list_providers' instead.",
-                    request.method
-                );
-                self.handle_list_providers(request.params).await
-            }
-            "announce_capabilities" => {
-                warn!(
-                    "Deprecated method '{}'. Use 'capability.announce' instead.",
-                    request.method
-                );
-                self.handle_announce_capabilities(request.params).await
-            }
-            "discover_capabilities" => {
-                warn!(
-                    "Deprecated method '{}'. Use 'capability.discover' instead.",
-                    request.method
-                );
-                self.handle_discover_capabilities().await
-            }
-            "health" => {
-                warn!(
-                    "Deprecated method '{}'. Use 'system.health' instead.",
-                    request.method
-                );
-                self.handle_health().await
-            }
-            "metrics" => {
-                warn!(
-                    "Deprecated method '{}'. Use 'system.metrics' instead.",
-                    request.method
-                );
-                self.handle_metrics().await
-            }
-            "ping" => {
-                warn!(
-                    "Deprecated method '{}'. Use 'system.ping' instead.",
-                    request.method
-                );
-                self.handle_ping().await
-            }
-            "discover_peers" => {
-                warn!(
-                    "Deprecated method '{}'. Use 'discovery.peers' instead.",
-                    request.method
-                );
-                self.handle_discover_peers(request.params).await
-            }
-            "execute_tool" => {
-                warn!(
-                    "Deprecated method '{}'. Use 'tool.execute' instead.",
-                    request.method
-                );
-                self.handle_execute_tool(request.params).await
-            }
-
             // Method not found
             _ => Err(self.method_not_found(request.method.as_ref())),
         };
@@ -753,7 +685,7 @@ mod tests {
     fn test_jsonrpc_request_serialization() {
         let request = JsonRpcRequest {
             jsonrpc: Arc::from("2.0"),
-            method: Arc::from("query_ai"),
+            method: Arc::from("ai.query"),
             params: Some(json!({"prompt": "Hello"})),
             id: Some(json!(1)),
         };
