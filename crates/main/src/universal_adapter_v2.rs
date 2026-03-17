@@ -441,8 +441,7 @@ impl UniversalClient {
         // Protocol router REMOVED - modern TRUE PRIMAL uses JSON-RPC over Unix sockets
         let _ = params; // Silence unused warning
         Err(PrimalError::NotSupported(
-            "Protocol routing removed. TRUE PRIMAL architecture uses JSON-RPC over Unix sockets. \
-             See docs/PRIMAL_COMMUNICATION_ARCHITECTURE.md for modern patterns."
+            "Protocol routing removed. TRUE PRIMAL architecture uses JSON-RPC over Unix sockets."
                 .to_string(),
         ))
     }

@@ -547,8 +547,7 @@ impl UniversalPrimalEcosystem {
         // This is the concentrated gap strategy: only Songbird handles HTTP
         Err(PrimalError::NotImplemented(
             "HTTP delegation to Songbird not yet implemented. \
-             TRUE PRIMAL pattern: discover 'http.proxy' capability and delegate. \
-             See docs/PRIMAL_COMMUNICATION_ARCHITECTURE.md"
+             TRUE PRIMAL pattern: discover 'http.proxy' capability and delegate."
                 .to_string(),
         ))
     }

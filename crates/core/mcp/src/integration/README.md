@@ -112,6 +112,4 @@ When adding a new adapter:
 ## Further Information
 
 For more detailed guidance, see:
-- `INTEGRATION_IMPLEMENTATION.md` in the crate root
-- The MCP Integration Guide in `specs/mcp/MCP_INTEGRATION_GUIDE.md`
-- The adapter pattern documentation in `specs/patterns/adapter-implementation-guide.md` 
+- The MCP Integration Guide in `specs/active/mcp-protocol/MCP_INTEGRATION_GUIDE.md` 

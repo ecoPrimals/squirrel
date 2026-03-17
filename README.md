@@ -125,7 +125,7 @@ squirrel/
 
 ## Code Standards
 
-- `#![forbid(unsafe_code)]` unconditional on all 22 crates
+- `#![forbid(unsafe_code)]` unconditional on all 21 crates
 - `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code
 - `#![warn(missing_docs)]` on all library crates
 - `cargo clippy` with `pedantic` + `nursery` lints — zero errors on `--all-features --lib`
@@ -133,7 +133,7 @@ squirrel/
 - Pure Rust: zero C dependencies in default build (ecoBin compliant)
 - All source files under 1,000 lines
 - SPDX `AGPL-3.0-only` license on all crates (`[workspace.package]`)
-- Edition 2024 across all 22 workspace crates
+- Edition 2024 across all 21 workspace crates
 - `tracing` for structured logging (no `println!` in production)
 - Typed errors via `thiserror` (no `Box<dyn Error>` in library code)
 - Zero-copy patterns: `Arc<str>`, `bytes::Bytes`, `Arc<dyn Trait>` on hot paths

@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
     info!("✅ Demo complete! All operations used Unix sockets, zero HTTP!");
     info!("   Pattern: capability_ai → Songbird (Unix) → AI Provider (HTTP)");
     info!("");
-    info!("📚 See docs/CAPABILITY_AI_MIGRATION_GUIDE.md for more examples!");
+    info!("See capability_registry.toml for the full capability catalog.");
 
     Ok(())
 }

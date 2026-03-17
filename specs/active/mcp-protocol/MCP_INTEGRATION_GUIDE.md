@@ -767,10 +767,8 @@ Key points to remember:
 - Add comprehensive logging and metrics
 - Write thorough tests for your integrations
 
-For more information, refer to the following resources:
-- [specs/integration/README.md](../integration/README.md) - Overview of integration architecture
-- [specs/patterns/command-adapter-pattern.md](../patterns/command-adapter-pattern.md) - Detailed command adapter pattern
-- [specs/patterns/adapter-implementation-guide.md](../patterns/adapter-implementation-guide.md) - Adapter implementation guide
+For more information, see the `capability_registry.toml` at the project root and the
+`CURRENT_STATUS.md` for the latest integration status.
 
 ---
 

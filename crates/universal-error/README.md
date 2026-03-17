@@ -319,12 +319,9 @@ squirrel-mcp = { path = "../core/mcp" }  # Re-export MCP errors
 
 ## Links
 
-- [Error Unification Strategy](../../ERROR_UNIFICATION_STRATEGY.md)
-- [Error Unification Quick Start](../../ERROR_UNIFICATION_QUICK_START.md)
 - [MCP Error Documentation](../core/mcp/src/error/README.md)
-- [Codebase Unification Assessment](../../CODEBASE_UNIFICATION_ASSESSMENT_NOV_9_2025.md)
 
 ## License
 
-MIT OR Apache-2.0
+AGPL-3.0-only
 

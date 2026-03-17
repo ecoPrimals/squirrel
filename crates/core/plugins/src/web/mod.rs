@@ -6,7 +6,6 @@
 //! This module provides functionality for web plugins.
 //!
 //! The web plugin system is being migrated to a unified architecture.
-//! For migration instructions, see the guide at `crates/plugins/docs/WEB_PLUGIN_MIGRATION.md`.
 //!
 //! ## Migration Status
 //!

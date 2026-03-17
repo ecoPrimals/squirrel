@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 4,925 passing / 0 failed across 22 crates |
+| Tests | 4,925 passing / 0 failed across 21 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on lib; `cfg_attr(test, allow)` on test targets |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --workspace --no-deps` 0 warnings |
@@ -19,7 +19,7 @@
 | Pure Rust | 100% default features (zero C deps); `ring`/`zstd-sys`/`sysinfo` behind optional features only |
 | ecoBin | Compliant — `openssl`/`native-tls` removed from all features; `sysinfo` behind `system-metrics` |
 | Coverage | 69% line coverage via `cargo-llvm-cov` (target: 90%) |
-| Crates | 22 workspace members |
+| Crates | 21 workspace members |
 | Files >1000 lines | 0 (max: 996 — `performance_optimizer.rs`) |
 | Property tests | 17 (proptest round-trip for all JSON-RPC types + niche + 7 wire-format fuzz) |
 | Mocks in production | 0 — all mocks behind `#[cfg(test)]` |
@@ -35,6 +35,7 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 | Capability | `capability.announce`, `capability.discover`, **`capability.list`** |
 | Context | `context.create`, `context.update`, `context.summarize` |
 | System | `system.health`, `system.status`, `system.metrics`, `system.ping` |
+| Health | `health.liveness`, `health.readiness` (PRIMAL_IPC_PROTOCOL v3.0) |
 | Discovery | `discovery.peers` |
 | Tool | `tool.execute`, `tool.list` |
 | Lifecycle | `lifecycle.register`, `lifecycle.status` |
@@ -203,4 +204,4 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 7. ~800 `unwrap()`/`expect()` remaining in non-test production code — incremental migration to `?` needed
 8. ~150 hardcoded primal name literals across codebase — should use `socket_env_var()`/`address_env_var()` patterns
 9. Pre-existing `absurd_extreme_comparisons` clippy error in 5 test files (comparing `>= 0` on unsigned types) — test-only, not blocking
-10. Legacy benchmark files (`crates/main/benches/`) reference removed modules — benchmarks need rewrite
+10. ~~Legacy benchmark files~~ — resolved: orphan bench files removed; only `ecosystem_benchmarks` remains (wired)
