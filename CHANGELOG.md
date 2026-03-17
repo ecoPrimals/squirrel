@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.10] - 2026-03-16
+
+Deep ecosystem absorption: patterns from all springs and primals (toadStool S157b,
+coralReef Iter 52, biomeOS v2.48, neuralSpring V112, groundSpring V112, loamSpine v0.9.3,
+sweetGrass v0.7.19, barraCuda v0.3.5, petalTongue v1.6.6, airSpring v0.8.7,
+rhizoCrypt v0.13, hotSpring v0.6.32). 4,925 tests passing.
+
+### Added
+
+- **`OrExit<T>`** — zero-panic binary entry point trait with structured exit codes
+  and human-readable error messages — ecosystem consensus from 6+ primals
+- **`DispatchOutcome<T>`** — protocol vs application error separation at RPC dispatch
+  — absorbed from groundSpring V112, loamSpine v0.9.3, sweetGrass v0.7.19
+- **`CircuitBreaker` + `RetryPolicy` + `ResilientCaller`** — IPC resilience with
+  exponential backoff gated by `IpcErrorPhase.is_retryable()` — absorbed from
+  petalTongue v1.6.6
+- **`health.liveness` + `health.readiness`** — PRIMAL_IPC_PROTOCOL v3.0 health probes
+  — absorbed from sweetGrass v0.7.19, petalTongue v1.6.6, coralReef Iter 52
+- **4-format capability parsing** — flat, object, nested, double-nested+wrapper
+  response formats — absorbed from airSpring v0.8.7
+- **`PrimalManifest` discovery** — `$XDG_RUNTIME_DIR/ecoPrimals/*.json` manifest scan
+  as fallback when Songbird unavailable — absorbed from rhizoCrypt v0.13
+- **`extract_rpc_error()`** — structured JSON-RPC error extraction with
+  `RpcError` type — absorbed from loamSpine v0.9.3, petalTongue v1.6.6
+- **`ValidationHarness`** — multi-check validation runner with pass/fail/skip/warn
+  reporting (sync + async) — absorbed from rhizoCrypt v0.13
+- **Centralized `exit_codes`** — `universal-patterns::exit_codes` module with
+  SUCCESS/ERROR/CONFIG/NETWORK/PERMISSION/RESOURCE/INTERRUPTED constants
+- **Phase 2 primal names** — `primal_names::RHIZOCRYPT`, `PETALTONGUE`,
+  `SWEETGRASS`, `LOAMSPINE`, `SKUNKBAT` added to complete the ecosystem catalogue
+- **7 JSON-RPC wire-format proptest fuzz tests** — request validity, success
+  response roundtrip, error extractability, capability parsing, reserved code ranges
+
+### Changed
+
+- **CLI exit codes** now re-export from `universal-patterns::exit_codes` instead
+  of defining inline — single source of truth across all binary entry points
+
 ## [0.1.0-alpha.9] - 2026-03-16
 
 Ecosystem absorption: cross-primal patterns from rhizoCrypt, sweetGrass, coralReef,

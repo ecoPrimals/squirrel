@@ -44,6 +44,21 @@ pub const CORALREEF: &str = "coralreef";
 /// barraCuda GPU math primal (root-level primal).
 pub const BARRACUDA: &str = "barracuda";
 
+/// rhizoCrypt cryptographic storage primal (Phase 2 primal).
+pub const RHIZOCRYPT: &str = "rhizocrypt";
+
+/// petalTongue natural language primal (Phase 2 primal).
+pub const PETALTONGUE: &str = "petaltongue";
+
+/// sweetGrass environmental sensing primal (Phase 2 primal).
+pub const SWEETGRASS: &str = "sweetgrass";
+
+/// loamSpine provenance primal (Phase 2 primal).
+pub const LOAMSPINE: &str = "loamspine";
+
+/// skunkBat anomaly detection primal (Phase 2 primal).
+pub const SKUNKBAT: &str = "skunkbat";
+
 // -- Socket filename conventions --------------------------------------------------
 
 /// Standard biomeOS socket subdirectory under XDG_RUNTIME_DIR.
@@ -88,6 +103,7 @@ mod tests {
     fn all_names_are_lowercase_ascii() {
         for name in [
             SQUIRREL, BIOMEOS, SONGBIRD, BEARDOG, NESTGATE, TOADSTOOL, CORALREEF, BARRACUDA,
+            RHIZOCRYPT, PETALTONGUE, SWEETGRASS, LOAMSPINE, SKUNKBAT,
         ] {
             assert!(
                 name.chars().all(|c| c.is_ascii_lowercase()),

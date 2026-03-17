@@ -628,6 +628,10 @@ impl JsonRpcServer {
             "system.metrics" => self.handle_metrics().await,
             "system.ping" => self.handle_ping().await,
 
+            // Health domain — PRIMAL_IPC_PROTOCOL v3.0
+            "health.liveness" => self.handle_health_liveness().await,
+            "health.readiness" => self.handle_health_readiness().await,
+
             // Discovery domain — semantic names (preferred)
             "discovery.peers" => self.handle_discover_peers(request.params).await,
 

@@ -254,6 +254,153 @@ proptest! {
     }
 }
 
+// ── JSON-RPC wire-format fuzz (absorbed from airSpring v0.8.7) ──────────
+// Tests the full JSON-RPC 2.0 envelope, not just payloads.
+
+use universal_patterns::{IpcClientError, extract_rpc_error, parse_capabilities_from_response};
+
+prop_compose! {
+    fn arb_jsonrpc_request()(
+        method in "[a-z]{2,10}\\.[a-z]{2,10}",
+        id in 1u64..1_000_000,
+        has_params in proptest::bool::ANY,
+        param_key in "[a-z]{2,10}",
+        param_val in "[a-zA-Z0-9]{1,20}",
+    ) -> serde_json::Value {
+        let params = if has_params {
+            serde_json::json!({ param_key: param_val })
+        } else {
+            serde_json::json!({})
+        };
+        serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+            "id": id
+        })
+    }
+}
+
+prop_compose! {
+    fn arb_jsonrpc_success_response()(
+        id in 1u64..1_000_000,
+        result_key in "[a-z]{2,10}",
+        result_val in "[a-zA-Z0-9]{1,20}",
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": { result_key: result_val },
+            "id": id
+        })
+    }
+}
+
+prop_compose! {
+    fn arb_jsonrpc_error_response()(
+        id in 1u64..1_000_000,
+        code in prop_oneof![
+            Just(IpcClientError::PARSE_ERROR),
+            Just(IpcClientError::INVALID_REQUEST),
+            Just(IpcClientError::METHOD_NOT_FOUND),
+            Just(IpcClientError::INVALID_PARAMS),
+            Just(IpcClientError::INTERNAL_ERROR),
+            (-32099i32..=-32000),
+        ],
+        message in "[a-zA-Z0-9 ]{5,50}",
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "jsonrpc": "2.0",
+            "error": { "code": code, "message": message },
+            "id": id
+        })
+    }
+}
+
+prop_compose! {
+    fn arb_capability_response_flat()(
+        caps in proptest::collection::vec("[a-z]{2,8}\\.[a-z]{2,8}", 1..10),
+        primal in "[a-z]{3,10}",
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "primal": primal,
+            "capabilities": caps
+        })
+    }
+}
+
+prop_compose! {
+    fn arb_capability_response_nested()(
+        caps in proptest::collection::vec("[a-z]{2,8}\\.[a-z]{2,8}", 1..10),
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "result": {
+                "capabilities": caps
+            }
+        })
+    }
+}
+
+proptest! {
+    #[test]
+    fn jsonrpc_request_is_valid_json(req in arb_jsonrpc_request()) {
+        let json_str = serde_json::to_string(&req).unwrap();
+        let decoded: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(decoded["jsonrpc"], "2.0");
+        assert!(decoded["method"].is_string());
+        assert!(decoded["id"].is_number());
+    }
+
+    #[test]
+    fn jsonrpc_success_response_roundtrip(resp in arb_jsonrpc_success_response()) {
+        let json_str = serde_json::to_string(&resp).unwrap();
+        let decoded: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(decoded["jsonrpc"], "2.0");
+        assert!(decoded["result"].is_object());
+        assert!(decoded.get("error").is_none());
+    }
+
+    #[test]
+    fn jsonrpc_error_response_extractable(resp in arb_jsonrpc_error_response()) {
+        let err = extract_rpc_error(&resp).unwrap();
+        assert!(err.code != 0);
+        assert!(!err.message.is_empty());
+    }
+
+    #[test]
+    fn capability_flat_parseable(resp in arb_capability_response_flat()) {
+        let caps = parse_capabilities_from_response(&resp);
+        assert!(!caps.is_empty());
+        for cap in &caps {
+            assert!(cap.contains('.'), "capability should be dotted: {cap}");
+        }
+    }
+
+    #[test]
+    fn capability_nested_parseable(resp in arb_capability_response_nested()) {
+        let caps = parse_capabilities_from_response(&resp);
+        assert!(!caps.is_empty());
+    }
+
+    #[test]
+    fn jsonrpc_error_code_in_reserved_range(resp in arb_jsonrpc_error_response()) {
+        let err = extract_rpc_error(&resp).unwrap();
+        // All generated codes should be either standard or server range
+        assert!(
+            err.code <= -32000,
+            "error code should be in reserved range: {}",
+            err.code
+        );
+    }
+
+    #[test]
+    fn capability_empty_response_returns_empty(_v in Just(())) {
+        let empty = serde_json::json!({});
+        assert!(parse_capabilities_from_response(&empty).is_empty());
+        let null_resp = serde_json::json!(null);
+        assert!(parse_capabilities_from_response(&null_resp).is_empty());
+    }
+}
+
 // ── Niche invariants ────────────────────────────────────────────────────
 
 #[test]

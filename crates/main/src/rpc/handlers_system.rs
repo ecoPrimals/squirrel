@@ -15,7 +15,7 @@ use tracing::{debug, info, warn};
 impl JsonRpcServer {
     // -- System domain -------------------------------------------------------
 
-    /// Handle `system.health` / `health` method
+    /// Handle `system.health` / `health` method (full health report).
     pub(crate) async fn handle_health(&self) -> Result<Value, JsonRpcError> {
         debug!("health check");
 
@@ -39,6 +39,46 @@ impl JsonRpcServer {
             message: format!("Serialization error: {e}"),
             data: None,
         })
+    }
+
+    /// Handle `health.liveness` — PRIMAL_IPC_PROTOCOL v3.0.
+    ///
+    /// Minimal check: process is alive and can respond to JSON-RPC.
+    /// Absorbed from sweetGrass v0.7.19 / petalTongue v1.6.6.
+    pub(crate) async fn handle_health_liveness(&self) -> Result<Value, JsonRpcError> {
+        debug!("health.liveness probe");
+        Ok(serde_json::json!({
+            "alive": true,
+            "version": env!("CARGO_PKG_VERSION"),
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+        }))
+    }
+
+    /// Handle `health.readiness` — PRIMAL_IPC_PROTOCOL v3.0.
+    ///
+    /// Checks whether the primal is ready to serve requests. Verifies
+    /// critical subsystems are initialized (AI router, capability registry).
+    pub(crate) async fn handle_health_readiness(&self) -> Result<Value, JsonRpcError> {
+        debug!("health.readiness probe");
+
+        let ai_ready = if let Some(router) = &self.ai_router {
+            router.provider_count().await > 0
+        } else {
+            false
+        };
+
+        let cap_count = self.capability_registry.method_names().len();
+        let ready = cap_count > 0;
+
+        Ok(serde_json::json!({
+            "ready": ready,
+            "checks": {
+                "capability_registry": cap_count > 0,
+                "ai_router": ai_ready,
+            },
+            "version": env!("CARGO_PKG_VERSION"),
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+        }))
     }
 
     /// Handle `system.metrics` / `metrics` method

@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 16, 2026
-**Version**: 0.1.0-alpha.9
+**Version**: 0.1.0-alpha.10
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 4,862 passing / 0 failed across 22 crates |
+| Tests | 4,925 passing / 0 failed across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on lib; `cfg_attr(test, allow)` on test targets |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --workspace --no-deps` 0 warnings |
@@ -21,7 +21,7 @@
 | Coverage | 69% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 22 workspace members |
 | Files >1000 lines | 0 (max: 996 — `performance_optimizer.rs`) |
-| Property tests | 10 (proptest round-trip for all JSON-RPC types + niche) |
+| Property tests | 17 (proptest round-trip for all JSON-RPC types + niche + 7 wire-format fuzz) |
 | Mocks in production | 0 — all mocks behind `#[cfg(test)]` |
 | Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted |
 
@@ -134,6 +134,9 @@ requiring AI capabilities.
 | `squirrel-mcp` | `MCPError` (thiserror) | Protocol, transport, context, plugin errors |
 | `universal-error` | `UniversalError` | Cross-crate error type |
 | `universal-patterns` | `IpcClientError` + `IpcErrorPhase` | Phase-tagged IPC errors (Connect, Write, Read, JsonRpcError, NoResult) with `is_retryable()` — absorbed from rhizoCrypt v0.13 |
+| `universal-patterns` | `DispatchOutcome<T>` | Protocol vs application error separation at RPC dispatch — absorbed from groundSpring/loamSpine/sweetGrass |
+| `universal-patterns` | `CircuitBreaker` + `RetryPolicy` | IPC resilience with exponential backoff gated by `IpcErrorPhase` — absorbed from petalTongue v1.6.6 |
+| `universal-patterns` | `RpcError` + `extract_rpc_error()` | Structured JSON-RPC error extraction — absorbed from loamSpine/petalTongue |
 
 ## Logging
 
@@ -154,6 +157,14 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | BearDog Crypto | Discovery via biomeOS socket scan |
 | ToadStool AI | Auto-discovered via capability-based biomeOS socket scan |
 | Signal Handling | SIGTERM + SIGINT → socket cleanup + graceful shutdown |
+| Health Probes v3.0 | `health.liveness` + `health.readiness` — PRIMAL_IPC_PROTOCOL v3.0 |
+| Circuit Breaker | `CircuitBreaker` + `RetryPolicy` + `ResilientCaller` for IPC resilience |
+| Manifest Discovery | `PrimalManifest` scan at `$XDG_RUNTIME_DIR/ecoPrimals/*.json` — Songbird fallback |
+| OrExit Pattern | `OrExit<T>` trait + centralized `exit_codes` for zero-panic binary entry points |
+| DispatchOutcome | `DispatchOutcome<T>` for protocol vs application error separation |
+| Validation Harness | `ValidationHarness` for multi-check binary validation (doctor, validate) |
+| 4-Format Capability Parsing | flat, object, nested, double-nested response formats |
+| Primal Names | `primal_names::*` constants for all 13 ecosystem primals |
 
 ## Socket Configuration
 
@@ -179,7 +190,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked |
 | cargo-llvm-cov | Installed, 69% line coverage measured |
-| proptest | Round-trip invariants for all JSON-RPC types |
+| proptest | Round-trip + wire-format fuzz for all JSON-RPC types (17 properties) |
 
 ## Known Issues
 

@@ -94,16 +94,21 @@
 #![warn(missing_docs)]
 
 pub mod builder;
+pub mod circuit_breaker;
 pub mod compute_dispatch;
 pub mod config;
+pub mod dispatch_outcome;
 pub mod federation;
 pub mod ipc_client;
+pub mod manifest_discovery;
+pub mod or_exit;
 pub mod provenance;
 pub mod registry;
 pub mod security;
 pub mod streaming;
 pub mod traits;
 pub mod transport;
+pub mod validation_harness;
 
 // Re-export commonly used types for convenience
 pub use builder::UniversalConfigBuilder;
@@ -111,8 +116,15 @@ pub use config::{
     InstanceLifecycleConfig, LoadBalancingStrategy, MultiInstanceConfig, PortManagementConfig,
     PrimalInstanceConfig, UniversalPrimalConfig,
 };
+pub use circuit_breaker::{CircuitBreaker, CircuitState, ResilientCaller, RetryPolicy};
 pub use compute_dispatch::{ComputeDispatchRequest, ComputeDispatchResponse};
-pub use ipc_client::{CapabilityInfo, IpcClient, IpcClientError, parse_capabilities_from_response};
+pub use dispatch_outcome::{DispatchError, DispatchOutcome};
+pub use ipc_client::{
+    CapabilityInfo, IpcClient, IpcClientError, extract_rpc_error, parse_capabilities_from_response,
+};
+pub use manifest_discovery::PrimalManifest;
+pub use or_exit::{OrExit, exit_codes};
+pub use validation_harness::{CheckOutcome, CheckResult, ValidationHarness};
 pub use registry::{
     DiscoveredPrimal, EnhancedRegistryStatistics, RegistryStatistics, UniversalPrimalRegistry,
 };

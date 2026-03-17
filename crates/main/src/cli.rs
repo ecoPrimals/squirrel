@@ -5,13 +5,12 @@
 //!
 //! UniBin exit codes: 0=success, 1=error, 2=config, 3=network, 130=interrupted
 
-/// UniBin standard exit codes
+/// UniBin standard exit codes — re-exports from `universal-patterns::exit_codes`
+/// with Squirrel-specific aliases for backward compatibility.
 pub mod exit_codes {
-    pub const SUCCESS: i32 = 0;
-    pub const ERROR: i32 = 1;
-    pub const CONFIG_ERROR: i32 = 2;
-    pub const NETWORK_ERROR: i32 = 3;
-    pub const INTERRUPTED: i32 = 130;
+    pub use universal_patterns::exit_codes::{
+        CONFIG as CONFIG_ERROR, ERROR, INTERRUPTED, NETWORK as NETWORK_ERROR, SUCCESS,
+    };
 }
 
 // Modern, idiomatic Rust CLI using clap derive API.

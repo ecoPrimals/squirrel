@@ -457,30 +457,116 @@ impl IpcClient {
     }
 }
 
-/// Parse capabilities from a `capability.list` response in either format.
+/// Parse capabilities from a `capability.list` response in any of 4 formats.
 ///
-/// Supports both:
-/// - **New format** (ecosystem consensus): `{ "capabilities": ["a.b", "c.d"] }`
-/// - **Legacy format**: `{ "methods": { "a.b": {...}, "c.d": {...} } }`
+/// Absorbed from airSpring v0.8.7 — handles all ecosystem response shapes:
 ///
-/// This allows Squirrel to interoperate with primals that have not yet
-/// adopted the flat-array format.
+/// 1. **Flat array** (ecosystem consensus): `{ "capabilities": ["a.b", "c.d"] }`
+/// 2. **Legacy object** (method keys): `{ "methods": { "a.b": {...} } }`
+/// 3. **Nested** (wrapped in result): `{ "result": { "capabilities": [...] } }`
+/// 4. **Double-nested** (JSON-RPC + result wrapper): `{ "result": { "result": { "capabilities": [...] } } }`
 pub fn parse_capabilities_from_response(response: &serde_json::Value) -> Vec<String> {
-    // Try new flat-array format first
-    if let Some(caps) = response.get("capabilities").and_then(|v| v.as_array()) {
-        return caps
-            .iter()
-            .filter_map(|v| v.as_str().map(String::from))
-            .collect();
+    // Try flat-array format first (most common)
+    if let Some(caps) = extract_string_array(response, "capabilities") {
+        return caps;
     }
 
-    // Fall back to legacy "methods" keys
+    // Try legacy "methods" keys
     if let Some(methods) = response.get("methods").and_then(|v| v.as_object()) {
         return methods.keys().cloned().collect();
     }
 
+    // Try single-nested: { "result": { "capabilities": [...] } }
+    if let Some(inner) = response.get("result") {
+        if let Some(caps) = extract_string_array(inner, "capabilities") {
+            return caps;
+        }
+        if let Some(methods) = inner.get("methods").and_then(|v| v.as_object()) {
+            return methods.keys().cloned().collect();
+        }
+
+        // Try double-nested: { "result": { "result": { "capabilities": [...] } } }
+        if let Some(inner2) = inner.get("result") {
+            if let Some(caps) = extract_string_array(inner2, "capabilities") {
+                return caps;
+            }
+            if let Some(methods) = inner2.get("methods").and_then(|v| v.as_object()) {
+                return methods.keys().cloned().collect();
+            }
+        }
+    }
+
     Vec::new()
 }
+
+fn extract_string_array(value: &serde_json::Value, key: &str) -> Option<Vec<String>> {
+    value
+        .get(key)
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+}
+
+/// Extract a structured error from a JSON-RPC error response.
+///
+/// Absorbed from loamSpine v0.9.3 / petalTongue v1.6.6. Extracts the
+/// code, message, and optional data from a JSON-RPC `-32xxx` error.
+///
+/// Returns `None` if the response is not an error or is malformed.
+pub fn extract_rpc_error(response: &serde_json::Value) -> Option<RpcError> {
+    let error = response.get("error")?;
+    let code = error.get("code").and_then(|v| v.as_i64())? as i32;
+    let message = error
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown error")
+        .to_string();
+    let data = error.get("data").cloned();
+
+    Some(RpcError {
+        code,
+        message,
+        data,
+    })
+}
+
+/// Structured JSON-RPC error extracted from a response.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RpcError {
+    /// JSON-RPC error code (e.g., -32601 for method not found).
+    pub code: i32,
+    /// Human-readable error message.
+    pub message: String,
+    /// Optional additional data.
+    pub data: Option<serde_json::Value>,
+}
+
+impl RpcError {
+    /// Whether this is a "method not found" error.
+    #[must_use]
+    pub fn is_method_not_found(&self) -> bool {
+        self.code == IpcClientError::METHOD_NOT_FOUND
+    }
+
+    /// Whether this is an internal error.
+    #[must_use]
+    pub fn is_internal(&self) -> bool {
+        self.code == IpcClientError::INTERNAL_ERROR
+    }
+
+    /// Whether this error code is in the reserved JSON-RPC range (-32000 to -32099).
+    #[must_use]
+    pub fn is_server_error(&self) -> bool {
+        (-32099..=-32000).contains(&self.code)
+    }
+}
+
+impl std::fmt::Display for RpcError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "JSON-RPC error {}: {}", self.code, self.message)
+    }
+}
+
+impl std::error::Error for RpcError {}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -728,5 +814,116 @@ mod tests {
         let resp = serde_json::json!({});
         let caps = super::parse_capabilities_from_response(&resp);
         assert!(caps.is_empty());
+    }
+
+    // -- 4-format capability parsing (absorbed from airSpring v0.8.7) ----------
+
+    #[test]
+    fn parse_capabilities_nested_result() {
+        let resp = serde_json::json!({
+            "result": {
+                "primal": "test",
+                "capabilities": ["nested.cap"]
+            }
+        });
+        let caps = super::parse_capabilities_from_response(&resp);
+        assert_eq!(caps, vec!["nested.cap"]);
+    }
+
+    #[test]
+    fn parse_capabilities_double_nested_result() {
+        let resp = serde_json::json!({
+            "result": {
+                "result": {
+                    "capabilities": ["deep.cap"]
+                }
+            }
+        });
+        let caps = super::parse_capabilities_from_response(&resp);
+        assert_eq!(caps, vec!["deep.cap"]);
+    }
+
+    #[test]
+    fn parse_capabilities_nested_legacy_methods() {
+        let resp = serde_json::json!({
+            "result": {
+                "methods": { "legacy.nested": {} }
+            }
+        });
+        let caps = super::parse_capabilities_from_response(&resp);
+        assert_eq!(caps, vec!["legacy.nested"]);
+    }
+
+    #[test]
+    fn parse_capabilities_double_nested_legacy_methods() {
+        let resp = serde_json::json!({
+            "result": {
+                "result": {
+                    "methods": { "deep.legacy": {} }
+                }
+            }
+        });
+        let caps = super::parse_capabilities_from_response(&resp);
+        assert_eq!(caps, vec!["deep.legacy"]);
+    }
+
+    // -- extract_rpc_error tests -----------------------------------------------
+
+    #[test]
+    fn extract_rpc_error_from_error_response() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32601,
+                "message": "method not found",
+                "data": {"method": "foo.bar"}
+            },
+            "id": 1
+        });
+        let err = super::extract_rpc_error(&resp).unwrap();
+        assert_eq!(err.code, -32601);
+        assert_eq!(err.message, "method not found");
+        assert!(err.is_method_not_found());
+        assert!(!err.is_internal());
+        assert!(err.data.is_some());
+    }
+
+    #[test]
+    fn extract_rpc_error_returns_none_for_success() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": {"ok": true},
+            "id": 1
+        });
+        assert!(super::extract_rpc_error(&resp).is_none());
+    }
+
+    #[test]
+    fn extract_rpc_error_internal() {
+        let resp = serde_json::json!({
+            "error": { "code": -32603, "message": "internal error" }
+        });
+        let err = super::extract_rpc_error(&resp).unwrap();
+        assert!(err.is_internal());
+    }
+
+    #[test]
+    fn extract_rpc_error_server_range() {
+        let resp = serde_json::json!({
+            "error": { "code": -32050, "message": "custom server error" }
+        });
+        let err = super::extract_rpc_error(&resp).unwrap();
+        assert!(err.is_server_error());
+    }
+
+    #[test]
+    fn rpc_error_display() {
+        let err = super::RpcError {
+            code: -32601,
+            message: "method not found".into(),
+            data: None,
+        };
+        assert!(err.to_string().contains("-32601"));
+        assert!(err.to_string().contains("method not found"));
     }
 }
