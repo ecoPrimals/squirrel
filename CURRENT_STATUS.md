@@ -185,9 +185,11 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 1. `test_load_from_json_file` flaky under full workspace runs (env var pollution) — needs `#[serial]`
 2. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
-3. `model_splitting/` stub module — waiting on ToadStool integration
+3. `model_splitting/` redirect stub — functionality moved to ToadStool; module retained as navigation aid
 4. `unified_manager` — Phase 2 placeholder for unified plugin system
 5. Coverage at 69% — gap to 90% target (~40K uncovered lines remaining)
-6. `redis` v0.23.3 will be rejected by future Rust — upgrade needed
+6. `redis` v0.23 behind optional `persistence` feature — upgrade to 0.25+ when ecosystem stabilizes
 7. ~800 `unwrap()`/`expect()` remaining in non-test production code — incremental migration to `?` needed
-8. ~150 hardcoded primal name literals across codebase — should reference `universal_constants::identity`
+8. ~150 hardcoded primal name literals across codebase — should use `socket_env_var()`/`address_env_var()` patterns
+9. Pre-existing `absurd_extreme_comparisons` clippy error in 5 test files (comparing `>= 0` on unsigned types) — test-only, not blocking
+10. Legacy benchmark files (`crates/main/benches/`) reference removed modules — benchmarks need rewrite
