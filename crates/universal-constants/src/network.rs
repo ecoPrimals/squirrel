@@ -255,6 +255,35 @@ pub fn get_socket_path(service: &str) -> std::path::PathBuf {
     get_socket_dir().join(filename)
 }
 
+/// Generic environment variable name for a primal's socket path.
+///
+/// Pattern absorbed from sweetGrass v0.7.17: `{PRIMAL_NAME}_SOCKET`.
+/// Any primal works without code changes — no per-primal constants needed.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let key = socket_env_var("rhizocrypt"); // "RHIZOCRYPT_SOCKET"
+/// ```
+#[must_use]
+pub fn socket_env_var(primal_name: &str) -> String {
+    format!("{}_SOCKET", primal_name.to_uppercase())
+}
+
+/// Generic environment variable name for a primal's network address.
+///
+/// Pattern absorbed from sweetGrass v0.7.17: `{PRIMAL_NAME}_ADDRESS`.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let key = address_env_var("rhizocrypt"); // "RHIZOCRYPT_ADDRESS"
+/// ```
+#[must_use]
+pub fn address_env_var(primal_name: &str) -> String {
+    format!("{}_ADDRESS", primal_name.to_uppercase())
+}
+
 // ============================================================================
 // URL Templates
 // ============================================================================
@@ -453,5 +482,18 @@ mod tests {
             let path = super::get_socket_path("testprimal");
             assert_eq!(path, std::path::PathBuf::from("/custom/path.sock"));
         });
+    }
+
+    #[test]
+    fn test_socket_env_var() {
+        assert_eq!(super::socket_env_var("rhizocrypt"), "RHIZOCRYPT_SOCKET");
+        assert_eq!(super::socket_env_var("sweetGrass"), "SWEETGRASS_SOCKET");
+        assert_eq!(super::socket_env_var("squirrel"), "SQUIRREL_SOCKET");
+    }
+
+    #[test]
+    fn test_address_env_var() {
+        assert_eq!(super::address_env_var("rhizocrypt"), "RHIZOCRYPT_ADDRESS");
+        assert_eq!(super::address_env_var("squirrel"), "SQUIRREL_ADDRESS");
     }
 }

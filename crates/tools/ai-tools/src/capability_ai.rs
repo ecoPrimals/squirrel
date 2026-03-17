@@ -451,11 +451,9 @@ struct JsonRpcRequest {
 /// JSON-RPC 2.0 response
 #[derive(Debug, Deserialize)]
 struct JsonRpcResponse {
-    #[allow(dead_code)]
-    // Required for serde Deserialize - fields parsed but only result/error used
+    #[expect(dead_code, reason = "deserialized from JSON-RPC at runtime")]
     jsonrpc: String,
-    #[allow(dead_code)]
-    // Required for serde Deserialize - fields parsed but only result/error used
+    #[expect(dead_code, reason = "deserialized from JSON-RPC at runtime")]
     id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<JsonValue>,
@@ -468,7 +466,7 @@ struct JsonRpcResponse {
 struct JsonRpcError {
     code: i32,
     message: String,
-    #[allow(dead_code)] // Required for serde Deserialize - optional field parsed but not used
+    #[expect(dead_code, reason = "deserialized from JSON-RPC at runtime")]
     #[serde(skip_serializing_if = "Option::is_none")]
     data: Option<JsonValue>,
 }

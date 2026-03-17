@@ -9,6 +9,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.9] - 2026-03-16
+
+Ecosystem absorption: cross-primal patterns from rhizoCrypt, sweetGrass, coralReef,
+petalTongue, and wetSpring integrated. Modern idiomatic Rust evolution across IPC,
+error handling, dependency management, and capability introspection.
+
+### Added
+
+- **`IpcErrorPhase`** — phase-tagged IPC errors (Connect, Write, Read, JsonRpcError,
+  NoResult) with `is_retryable()` — absorbed from rhizoCrypt v0.13 structured error pattern
+- **`StreamItem` / `StreamKind`** — NDJSON streaming types for pipeline coordination
+  (data, progress, error, done, heartbeat) — absorbed from rhizoCrypt v0.13
+- **`ComputeDispatchRequest` / `ComputeDispatchResponse`** — typed `compute.dispatch` client
+  for ToadStool GPU routing — absorbed from coralReef v0.4.18
+- **`parse_capabilities_from_response()`** — dual-format capability parsing (flat array +
+  legacy methods-object) for interop with primals at different evolution stages
+- **`socket_env_var()` / `address_env_var()`** — generic primal discovery helpers
+  replacing hardcoded per-primal environment variable names — absorbed from sweetGrass v0.7.17
+- **`from_env_reader(F)`** — DI config reader pattern for testable env-driven config
+  without mutating process state — absorbed from rhizoCrypt v0.13
+- **`capability.list` ecosystem fields** — flat `capabilities` array, `domains` list,
+  and `locality` (local/external) for cross-primal introspection consensus
+- **6 cross-primal IPC e2e tests** — health exchange, capability list format validation,
+  error propagation, concurrent requests, graceful disconnect
+- **27 new unit tests** across streaming, compute dispatch, capability parsing, and socket helpers
+
+### Changed
+
+- **tarpc 0.34 → 0.37** — aligned with rhizoCrypt ecosystem; `Context::deadline` updated
+  from `SystemTime` to `Instant`
+- **`#[allow(dead_code)]` → `#[expect(dead_code, reason)]`** — 52 attributes migrated to
+  modern Rust `#[expect]` with descriptive reasons; unfulfilled expectations automatically cleaned
+- **`deny.toml` hardened** — `yanked = "deny"` (was "warn") per ecosystem consensus
+- **`IpcClientError` restructured** — all variants now carry `IpcErrorPhase` for retry-aware
+  error handling; `is_retryable()` method added
+
+### Metrics
+
+| Metric | alpha.8 | alpha.9 |
+|--------|---------|---------|
+| Tests | 4,835 | 4,862 (+27) |
+| tarpc | 0.34 | 0.37 |
+| `#[allow(dead_code)]` in prod | 52 | 0 (all migrated to `#[expect]`) |
+| deny.toml yanked | warn | deny |
+| New modules | — | streaming, compute_dispatch |
+| Cross-primal e2e tests | 0 | 6 |
+
 ## [0.1.0-alpha.8] - 2026-03-16
 
 Deep debt execution: file refactoring, mock isolation, legacy alias removal,

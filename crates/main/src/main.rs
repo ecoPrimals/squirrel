@@ -125,9 +125,9 @@ async fn run_client(
                 error!("Error: {e:?}");
                 if let Some(ipc_err) = e.downcast_ref::<universal_patterns::IpcClientError>() {
                     match ipc_err {
-                        universal_patterns::IpcClientError::Connection(_)
+                        universal_patterns::IpcClientError::Connection { .. }
                         | universal_patterns::IpcClientError::NotFound(_)
-                        | universal_patterns::IpcClientError::Timeout(_) => exit_codes::NETWORK_ERROR,
+                        | universal_patterns::IpcClientError::Timeout { .. } => exit_codes::NETWORK_ERROR,
                         _ => exit_codes::ERROR,
                     }
                 } else {

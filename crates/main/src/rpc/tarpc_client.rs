@@ -114,7 +114,7 @@ impl SquirrelClient {
     /// Create a context with default timeout
     fn create_context(&self) -> context::Context {
         let mut ctx = context::current();
-        ctx.deadline = std::time::SystemTime::now() + self.default_timeout;
+        ctx.deadline = std::time::Instant::now() + self.default_timeout;
         ctx
     }
 

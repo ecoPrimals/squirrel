@@ -168,7 +168,6 @@ pub enum SecurityCapability {
 ///
 /// This trait defines the interface for security services that can be
 /// dynamically discovered and used based on their capabilities.
-#[expect(dead_code, reason = "API designed for future use")]
 pub trait UniversalSecurityService: Send + Sync {
     /// Get the capabilities this security service provides
     fn get_capabilities(&self) -> Vec<SecurityCapability>;
@@ -253,7 +252,6 @@ impl SecurityResponse {
     }
 
     /// Create a failed security response
-    #[expect(dead_code, reason = "Failed response constructor for error paths")]
     pub fn failed(request_id: String, reason: String) -> Result<Self, SecurityError> {
         Ok(Self {
             request_id,
@@ -278,7 +276,6 @@ pub enum SecurityResponseStatus {
 }
 
 /// Compliance status
-#[allow(dead_code)] // Public API for compliance reporting; used by external consumers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ComplianceStatus {
     Compliant,
@@ -288,20 +285,18 @@ pub enum ComplianceStatus {
 }
 
 /// Universal security service provider trait alias for backward compatibility
-#[allow(dead_code)] // Trait alias for API compatibility; used when casting to provider types
+#[expect(dead_code, reason = "required by trait/interface contract — API compatibility")]
 pub trait UniversalSecurityProvider: UniversalSecurityService {}
 
 impl<T: UniversalSecurityService> UniversalSecurityProvider for T {}
 
 /// Universal security service registry
 /// Services register themselves with their capabilities here
-#[allow(dead_code)] // Public API for capability-based service discovery
 pub struct UniversalSecurityRegistry {
     services: HashMap<String, Arc<dyn UniversalSecurityService>>,
     capabilities_index: HashMap<SecurityCapability, Vec<String>>,
 }
 
-#[allow(dead_code)] // Public API for capability-based service discovery
 impl UniversalSecurityRegistry {
     /// Create a new security service registry
     pub fn new() -> Self {
@@ -386,7 +381,6 @@ impl UniversalSecurityRegistry {
 }
 
 /// Check if two security capabilities match
-#[allow(dead_code)] // Used by find_optimal_service; public utility for capability matching
 pub fn capabilities_match(required: &SecurityCapability, provided: &SecurityCapability) -> bool {
     use SecurityCapability::*;
 
@@ -449,7 +443,6 @@ impl Default for TrustLevel {
 
 /// Example registration function for any security service
 /// This shows how a specific security service (like BearDog) would register
-#[allow(dead_code)] // Public API for service registration; used by ecosystem bootstrap
 pub async fn register_security_service(
     registry: &mut UniversalSecurityRegistry,
     service: Arc<dyn UniversalSecurityService>,
@@ -462,7 +455,6 @@ pub async fn register_security_service(
 /// Integrates with Beardog security service through capability-based discovery
 /// NOTE: HTTP removed - Uses Unix socket communication via Songbird
 pub struct BeardogSecurityProvider {
-    #[allow(dead_code)] // Stored for future Unix socket config; used in initialize()
     config: SecurityServiceConfig,
     // Note: HTTP client removed - should use Unix socket for Beardog communication
 }
@@ -560,7 +552,6 @@ impl UniversalSecurityService for BeardogSecurityProvider {
 /// Local Security Provider Implementation  
 /// Provides basic local security capabilities for fallback scenarios
 pub struct LocalSecurityProvider {
-    #[allow(dead_code)] // Used in get_service_info for trust_level selection
     config: SecurityServiceConfig,
 }
 

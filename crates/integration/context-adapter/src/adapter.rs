@@ -670,7 +670,7 @@ impl ContextAdapter {
     ///
     /// # Returns
     /// The converted adapter context data with appropriate ID and timestamps
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — context state conversion")]
     fn convert_context_state(state: &ContextState) -> AdapterContextData {
         let now = Utc::now();
 

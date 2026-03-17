@@ -103,13 +103,11 @@ pub trait WebPluginExtV2: PluginV2 {
 }
 
 /// Helper struct to adapt `PluginV2` to Plugin for backward compatibility
-#[allow(dead_code)] // Used by adapt_plugin_v2, exercised in tests
 #[derive(Debug)]
 pub struct PluginWrapper<T: PluginV2> {
     inner: T,
 }
 
-#[allow(dead_code)] // Used by adapt_plugin_v2, exercised in tests
 impl<T: PluginV2> PluginWrapper<T> {
     /// Create a new `PluginWrapper` with the given `PluginV2` implementation
     pub const fn new(inner: T) -> Self {
@@ -141,7 +139,6 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
 }
 
 /// Helper function to adapt a `PluginV2` to Plugin (used in tests)
-#[allow(dead_code)] // Used in tests; public API for PluginV2 adoption
 pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
     Arc::new(PluginWrapper::new(plugin))
 }

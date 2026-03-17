@@ -73,7 +73,7 @@ impl ExamplePlugin {
     }
 
     /// Handle state transition (reserved for future state-machine validation)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — state-machine validation")]
     fn transition_to(&mut self, new_state: PluginState) -> Result<(), PluginError> {
         if !PluginState::is_valid_transition(self.state, new_state) {
             return Err(PluginError::ValidationError(format!(

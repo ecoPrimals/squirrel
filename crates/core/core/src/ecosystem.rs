@@ -32,7 +32,7 @@ pub struct EcosystemService {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "internal state — fields used via RwLock access")]
 struct EcosystemState {
     service_id: String,
     node_id: String,
@@ -596,7 +596,7 @@ impl EcosystemService {
     }
 
     /// Parse primal type from string
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — primal type parsing")]
     fn parse_primal_type(&self, type_str: &str) -> Result<PrimalType> {
         match type_str.to_lowercase().as_str() {
             "squirrel" => Ok(PrimalType::Squirrel),
@@ -706,7 +706,7 @@ impl EcosystemService {
 
 // Supporting data structures
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 struct ServiceRegistration {
     service_id: String,
     primal_type: String,
@@ -717,7 +717,7 @@ struct ServiceRegistration {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 struct ServiceInfo {
     service_id: String,
     primal_type: String,
@@ -727,7 +727,7 @@ struct ServiceInfo {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 struct PrimalInfo {
     capabilities: Vec<String>,
     metadata: HashMap<String, String>,

@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 16, 2026
-**Version**: 0.1.0-alpha.8
+**Version**: 0.1.0-alpha.9
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 4,835 passing / 0 failed across 22 crates |
+| Tests | 4,862 passing / 0 failed across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on lib; `cfg_attr(test, allow)` on test targets |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --workspace --no-deps` 0 warnings |
@@ -46,9 +46,10 @@ accepted. All clients must use the semantic `{domain}.{verb}` names above.
 
 ## tarpc Service
 
-All JSON-RPC methods mirrored as tarpc service methods with typed request/response
-structs. `TarpcRpcServer` delegates to `JsonRpcServer` for shared handler logic.
-Protocol negotiation selects tarpc or JSON-RPC per-connection.
+tarpc 0.37 (upgraded from 0.34). All JSON-RPC methods mirrored as tarpc service
+methods with typed request/response structs. `TarpcRpcServer` delegates to
+`JsonRpcServer` for shared handler logic. Protocol negotiation selects tarpc or
+JSON-RPC per-connection.
 
 ## Niche Self-Knowledge (`niche.rs`)
 
@@ -65,7 +66,9 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 `capability.discover` response includes `cost_estimates`, `operation_dependencies`, and `consumed_capabilities`.
 
-`capability.list` returns per-method cost/dependency detail for PathwayLearner scheduling.
+`capability.list` returns per-method cost/dependency detail for PathwayLearner scheduling,
+plus a flat `capabilities` array, `domains` list, and `locality` (local/external) for
+ecosystem-consensus introspection (absorbed from sweetGrass/rhizoCrypt).
 
 ## Primal Identity
 
@@ -130,6 +133,7 @@ requiring AI capabilities.
 | `squirrel-cli` | `FormatterError` (thiserror) | Serialization, UnknownFormat |
 | `squirrel-mcp` | `MCPError` (thiserror) | Protocol, transport, context, plugin errors |
 | `universal-error` | `UniversalError` | Cross-crate error type |
+| `universal-patterns` | `IpcClientError` + `IpcErrorPhase` | Phase-tagged IPC errors (Connect, Write, Read, JsonRpcError, NoResult) with `is_retryable()` — absorbed from rhizoCrypt v0.13 |
 
 ## Logging
 
@@ -173,7 +177,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 |------|--------|
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
-| cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards |
+| cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked |
 | cargo-llvm-cov | Installed, 69% line coverage measured |
 | proptest | Round-trip invariants for all JSON-RPC types |
 

@@ -58,7 +58,6 @@ pub struct PluginSecurityManager;
 ///
 /// Minimal struct for compilation. Reserved for plugin testing infrastructure.
 /// Full plugin behavior will be implemented when the unified system is built.
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct PlaceholderPlugin;
 
@@ -66,7 +65,7 @@ impl PlaceholderPlugin {
     /// Create a new placeholder plugin.
     ///
     /// Stub constructor; returns an empty placeholder. Reserved for plugin testing.
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — unified plugin system")]
     pub fn new(_name: String) -> Self {
         Self
     }

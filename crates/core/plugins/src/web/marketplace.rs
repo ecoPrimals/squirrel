@@ -21,13 +21,13 @@ use crate::web::{HttpMethod, HttpStatus, WebEndpoint, WebRequest, WebResponse};
 #[derive(Clone)]
 pub struct PluginMarketplaceClient {
     /// Plugin manager instance (reserved for marketplace plugin management)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — marketplace plugin management")]
     manager: Arc<DefaultPluginManager>,
     /// Configured repositories
     repositories: Arc<RwLock<Vec<PluginRepository>>>,
     /// HTTP client for making requests
     #[cfg(feature = "marketplace")]
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "used when feature marketplace is enabled")]
     http_client: reqwest::Client,
     /// Cache for marketplace data
     cache: Arc<RwLock<MarketplaceCache>>,

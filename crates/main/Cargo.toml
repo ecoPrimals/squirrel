@@ -45,7 +45,7 @@ hostname = "0.4"
 nix = { workspace = true }
 
 # tarpc for high-performance RPC (Phase 2) - Fixed with correct versions from Songbird/BearDog
-tarpc = { version = "0.34", features = ["full"], optional = true }
+tarpc = { version = "0.37", features = ["full"], optional = true }
 tokio-serde = { version = "0.8.0", features = ["bincode"], optional = true }
 bincode = { version = "1.3", optional = true }
 

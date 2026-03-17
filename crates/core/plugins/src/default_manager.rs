@@ -32,13 +32,13 @@ pub struct DefaultPluginManager {
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
     /// Dependency resolver for initialization order (reserved for dependency resolution system)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — dependency resolution system")]
     dependency_resolver: Arc<RwLock<DependencyResolver>>,
     /// State manager for plugin state persistence (reserved for state persistence system)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — state persistence system")]
     state_manager: Arc<dyn PluginStateManager>,
     /// Discovery service for plugin loading (reserved for plugin discovery system)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — plugin discovery system")]
     discovery: Arc<DefaultPluginDiscovery>,
     /// Performance metrics
     metrics: Arc<RwLock<PluginManagerMetrics>>,
@@ -117,10 +117,10 @@ struct PluginManifestSection {
     version: String,
     description: String,
     author: String,
-    #[allow(dead_code)] // Required for serde Deserialize - fields parsed from manifest but not used
+    #[expect(dead_code, reason = "deserialized from TOML manifest at runtime")]
     #[serde(default)]
     capabilities: Option<toml::Value>,
-    #[allow(dead_code)] // Required for serde Deserialize - fields parsed from manifest but not used
+    #[expect(dead_code, reason = "deserialized from TOML manifest at runtime")]
     #[serde(default)]
     dependencies: Vec<toml::Value>,
 }
@@ -133,10 +133,10 @@ struct PluginManifestJson {
     version: String,
     description: String,
     author: String,
-    #[allow(dead_code)] // Required for serde Deserialize - fields parsed from manifest but not used
+    #[expect(dead_code, reason = "deserialized from JSON manifest at runtime")]
     #[serde(default)]
     capabilities: Option<serde_json::Value>,
-    #[allow(dead_code)] // Required for serde Deserialize - fields parsed from manifest but not used
+    #[expect(dead_code, reason = "deserialized from JSON manifest at runtime")]
     #[serde(default)]
     dependencies: Vec<serde_json::Value>,
 }

@@ -17,7 +17,7 @@ use universal_constants::network::{DEFAULT_SQUIRREL_SERVER_PORT, get_service_por
 
 /// Federation service for managing distributed Squirrel MCP instances
 #[derive(Clone)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "public API — consumers use federation coordination")]
 pub struct FederationService {
     config: FederationConfig,
     state: Arc<FederationState>,
@@ -237,7 +237,7 @@ impl FederationService {
     }
 
     /// Find the leader node in the federation
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — leader election")]
     async fn find_leader_node(&self) -> Result<SquirrelInstance> {
         // Simple leader election: use the node with the lowest ID
         // In practice, this would be more sophisticated
@@ -619,7 +619,7 @@ impl FederationService {
     }
 
     /// Get current node endpoint
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — connection address tracking")]
     fn get_node_endpoint(&self) -> String {
         format!(
             "http://{}:{}",
@@ -631,7 +631,7 @@ impl FederationService {
     }
 
     /// Get current node capabilities
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — capability discovery")]
     fn get_node_capabilities(&self) -> Vec<String> {
         vec![
             "mcp".to_string(),
@@ -819,7 +819,7 @@ impl FederationService {
 
 // Supporting types
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 struct NodeInfo {
     node_id: String,
     region: Option<String>,
@@ -831,7 +831,7 @@ struct NodeInfo {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 struct JoinRequest {
     node_id: String,
     endpoint: String,

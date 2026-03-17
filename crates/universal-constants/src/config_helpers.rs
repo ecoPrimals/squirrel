@@ -39,6 +39,31 @@ pub fn get_host(env_var: &str, default: &str) -> String {
     env::var(env_var).unwrap_or_else(|_| default.to_string())
 }
 
+/// Read a configuration value from environment, using a custom reader function.
+///
+/// Pattern absorbed from rhizoCrypt v0.13: `from_env_reader(F)` enables
+/// tests to inject deterministic environment values without mutating
+/// process state.
+///
+/// # Example
+///
+/// ```rust
+/// use universal_constants::config_helpers::from_env_reader;
+///
+/// // Production: reads real env
+/// let val = from_env_reader("MY_KEY", "default", |k| std::env::var(k));
+///
+/// // Test: inject a fake reader
+/// let val = from_env_reader("MY_KEY", "default", |_| Ok("test-value".to_string()));
+/// assert_eq!(val, "test-value");
+/// ```
+pub fn from_env_reader<F>(key: &str, default: &str, reader: F) -> String
+where
+    F: FnOnce(&str) -> Result<String, std::env::VarError>,
+{
+    reader(key).unwrap_or_else(|_| default.to_string())
+}
+
 /// Build URL from environment-driven host and port
 ///
 /// # Examples

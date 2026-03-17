@@ -454,7 +454,7 @@ struct AgentsResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 struct AgentInfo {
     id: String,
     endpoint: String,
@@ -536,7 +536,7 @@ struct ShutdownResponse {
 // Request types
 
 #[derive(Debug, Serialize, Deserialize)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 struct McpTaskRequest {
     task_id: Option<String>,
     agent_id: String,

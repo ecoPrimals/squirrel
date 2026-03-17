@@ -84,7 +84,6 @@ use crate::plugin::Plugin;
 
 /// Web plugin trait
 #[async_trait]
-#[allow(dead_code)]
 pub trait WebPlugin: Plugin {
     /// Get web endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;

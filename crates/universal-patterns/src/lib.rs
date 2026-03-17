@@ -94,12 +94,14 @@
 #![warn(missing_docs)]
 
 pub mod builder;
+pub mod compute_dispatch;
 pub mod config;
 pub mod federation;
 pub mod ipc_client;
 pub mod provenance;
 pub mod registry;
 pub mod security;
+pub mod streaming;
 pub mod traits;
 pub mod transport;
 
@@ -109,7 +111,8 @@ pub use config::{
     InstanceLifecycleConfig, LoadBalancingStrategy, MultiInstanceConfig, PortManagementConfig,
     PrimalInstanceConfig, UniversalPrimalConfig,
 };
-pub use ipc_client::{CapabilityInfo, IpcClient, IpcClientError};
+pub use compute_dispatch::{ComputeDispatchRequest, ComputeDispatchResponse};
+pub use ipc_client::{CapabilityInfo, IpcClient, IpcClientError, parse_capabilities_from_response};
 pub use registry::{
     DiscoveredPrimal, EnhancedRegistryStatistics, RegistryStatistics, UniversalPrimalRegistry,
 };
@@ -119,6 +122,7 @@ pub use traits::{
     PrimalRequest, PrimalRequestType, PrimalResponse, PrimalResponseType, PrimalResult, PrimalType,
     SecurityLevel,
 };
+pub use streaming::{StreamItem, StreamKind};
 pub use transport::{
     ListenerConfig, RemoteAddr, TransportConfig, TransportType, UniversalListener,
     UniversalTransport,

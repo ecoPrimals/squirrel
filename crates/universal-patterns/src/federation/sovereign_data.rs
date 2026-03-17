@@ -150,7 +150,7 @@ pub trait AccessControlManager: Send + Sync {
 /// Default encryption key manager
 pub struct DefaultEncryptionKeyManager {
     /// Key storage (reserved for future key persistence)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — key persistence")]
     keys: Arc<RwLock<HashMap<String, Vec<u8>>>>,
 }
 

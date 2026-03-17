@@ -52,7 +52,7 @@ pub struct EvaluationStatistics {
     /// Number of successful evaluations
     successful_evaluations: u64,
     /// Number of failed evaluations (reserved for future error-tracking)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — error-tracking")]
     failed_evaluations: u64,
 }
 

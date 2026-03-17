@@ -105,10 +105,25 @@ impl JsonRpcServer {
             methods.insert(cap.to_string(), Value::Object(entry));
         }
 
+        let capabilities: Vec<&str> = niche::CAPABILITIES.to_vec();
+
+        let domains: Vec<&str> = capabilities
+            .iter()
+            .filter_map(|c| c.split('.').next())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+
         Ok(serde_json::json!({
             "primal": niche::PRIMAL_ID,
             "version": niche::PRIMAL_VERSION,
             "domain": niche::DOMAIN,
+            "capabilities": capabilities,
+            "domains": domains,
+            "locality": {
+                "local": capabilities,
+                "external": niche::CONSUMED_CAPABILITIES,
+            },
             "methods": methods,
             "consumed_capabilities": niche::CONSUMED_CAPABILITIES,
         }))

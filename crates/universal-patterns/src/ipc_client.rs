@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Autonomous IPC Client — Squirrel-owned JSON-RPC 2.0 over Unix sockets
-#![allow(dead_code)] // IPC types used for JSON-RPC serialization/deserialization
 //!
 //! # TRUE PRIMAL Pattern
 //!
@@ -41,17 +40,47 @@ use tokio::time::{Duration, timeout};
 // Errors
 // ---------------------------------------------------------------------------
 
+/// Phase of the IPC call where an error occurred.
+///
+/// Absorbed from rhizoCrypt v0.13 — enables targeted retry logic:
+/// retry on `Connect`/`Write`, do NOT retry on `JsonRpcError` with `-32601`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum IpcErrorPhase {
+    /// Socket connection failed (retryable)
+    Connect,
+    /// Writing request to socket failed (retryable)
+    Write,
+    /// Reading response from socket failed (retryable)
+    Read,
+    /// Response was not valid JSON
+    InvalidJson,
+    /// Server returned a JSON-RPC error (check code before retrying)
+    JsonRpcError,
+    /// No `result` field in a successful-looking response
+    NoResult,
+}
+
 /// IPC client errors — modern idiomatic Rust with `thiserror`
+///
+/// Each variant carries an [`IpcErrorPhase`] for retry-aware error handling.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum IpcClientError {
     /// Failed to connect to ecosystem socket
-    #[error("connection failed: {0}")]
-    Connection(String),
+    #[error("[{phase:?}] connection failed: {message}")]
+    Connection {
+        /// Error phase (always `Connect`)
+        phase: IpcErrorPhase,
+        /// Human-readable detail
+        message: String,
+    },
 
     /// JSON-RPC error from server
-    #[error("JSON-RPC error {code}: {message}")]
+    #[error("[{phase:?}] JSON-RPC error {code}: {message}")]
     Rpc {
+        /// Error phase (always `JsonRpcError`)
+        phase: IpcErrorPhase,
         /// JSON-RPC standard error code
         code: i32,
         /// Human-readable error message
@@ -59,20 +88,54 @@ pub enum IpcClientError {
     },
 
     /// Request timeout
-    #[error("request timed out after {0:?}")]
-    Timeout(Duration),
+    #[error("[{phase:?}] request timed out after {duration:?}")]
+    Timeout {
+        /// Which phase timed out
+        phase: IpcErrorPhase,
+        /// How long we waited
+        duration: Duration,
+    },
 
     /// I/O error
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("[{phase:?}] I/O error: {source}")]
+    Io {
+        /// Which phase the I/O error occurred in
+        phase: IpcErrorPhase,
+        /// Underlying I/O error
+        source: std::io::Error,
+    },
 
     /// Serialization error
-    #[error("serialization error: {0}")]
+    #[error("[InvalidJson] serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
     /// Socket not found at expected path
-    #[error("ecosystem socket not found: {0}")]
+    #[error("[Connect] ecosystem socket not found: {0}")]
     NotFound(PathBuf),
+}
+
+impl IpcClientError {
+    /// The phase in which this error occurred — use for retry decisions.
+    #[must_use]
+    pub fn phase(&self) -> IpcErrorPhase {
+        match self {
+            Self::Connection { phase, .. }
+            | Self::Rpc { phase, .. }
+            | Self::Timeout { phase, .. }
+            | Self::Io { phase, .. } => *phase,
+            Self::Serialization(_) => IpcErrorPhase::InvalidJson,
+            Self::NotFound(_) => IpcErrorPhase::Connect,
+        }
+    }
+
+    /// Whether this error is safe to retry without side effects.
+    #[must_use]
+    pub fn is_retryable(&self) -> bool {
+        matches!(
+            self.phase(),
+            IpcErrorPhase::Connect | IpcErrorPhase::Write | IpcErrorPhase::Read
+        )
+    }
 }
 
 /// Standard JSON-RPC 2.0 error codes
@@ -290,12 +353,13 @@ impl IpcClient {
             UnixStream::connect(&self.socket_path),
         )
         .await
-        .map_err(|_| IpcClientError::Timeout(self.connection_timeout))?
-        .with_context(|| {
-            format!(
-                "failed to connect to ecosystem at {}",
-                self.socket_path.display()
-            )
+        .map_err(|_| IpcClientError::Timeout {
+            phase: IpcErrorPhase::Connect,
+            duration: self.connection_timeout,
+        })?
+        .map_err(|e| IpcClientError::Io {
+            phase: IpcErrorPhase::Connect,
+            source: e,
         })?;
 
         let request = serde_json::json!({
@@ -306,12 +370,23 @@ impl IpcClient {
         });
 
         let request_bytes = serde_json::to_vec(&request)?;
-        stream.write_all(&request_bytes).await?;
-        stream.write_all(b"\n").await?;
-        stream.flush().await?;
 
-        // Shutdown write side to signal end-of-request
-        stream.shutdown().await?;
+        stream.write_all(&request_bytes).await.map_err(|e| IpcClientError::Io {
+            phase: IpcErrorPhase::Write,
+            source: e,
+        })?;
+        stream.write_all(b"\n").await.map_err(|e| IpcClientError::Io {
+            phase: IpcErrorPhase::Write,
+            source: e,
+        })?;
+        stream.flush().await.map_err(|e| IpcClientError::Io {
+            phase: IpcErrorPhase::Write,
+            source: e,
+        })?;
+        stream.shutdown().await.map_err(|e| IpcClientError::Io {
+            phase: IpcErrorPhase::Write,
+            source: e,
+        })?;
 
         let mut response_bytes = Vec::with_capacity(4096);
         timeout(
@@ -319,13 +394,17 @@ impl IpcClient {
             stream.read_to_end(&mut response_bytes),
         )
         .await
-        .map_err(|_| IpcClientError::Timeout(self.request_timeout))?
-        .context("failed to read response")?;
+        .map_err(|_| IpcClientError::Timeout {
+            phase: IpcErrorPhase::Read,
+            duration: self.request_timeout,
+        })?
+        .map_err(|e| IpcClientError::Io {
+            phase: IpcErrorPhase::Read,
+            source: e,
+        })?;
 
-        let response: Value =
-            serde_json::from_slice(&response_bytes).context("failed to parse JSON-RPC response")?;
+        let response: Value = serde_json::from_slice(&response_bytes)?;
 
-        // Check for JSON-RPC error
         if let Some(error) = response.get("error") {
             let code = error
                 .get("code")
@@ -336,13 +415,25 @@ impl IpcClient {
                 .and_then(Value::as_str)
                 .unwrap_or("unknown error")
                 .to_string();
-            return Err(IpcClientError::Rpc { code, message }.into());
+            return Err(IpcClientError::Rpc {
+                phase: IpcErrorPhase::JsonRpcError,
+                code,
+                message,
+            }
+            .into());
         }
 
         response
             .get("result")
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("response missing 'result' field"))
+            .ok_or_else(|| {
+                IpcClientError::Rpc {
+                    phase: IpcErrorPhase::NoResult,
+                    code: IpcClientError::INTERNAL_ERROR,
+                    message: "response missing 'result' field".to_string(),
+                }
+                .into()
+            })
     }
 
     // -----------------------------------------------------------------------
@@ -364,6 +455,31 @@ impl IpcClient {
         // Fallback: /tmp/biomeos/{service_id}.sock (ecosystem convention)
         PathBuf::from(universal_constants::network::BIOMEOS_SOCKET_FALLBACK_DIR).join(sock_name)
     }
+}
+
+/// Parse capabilities from a `capability.list` response in either format.
+///
+/// Supports both:
+/// - **New format** (ecosystem consensus): `{ "capabilities": ["a.b", "c.d"] }`
+/// - **Legacy format**: `{ "methods": { "a.b": {...}, "c.d": {...} } }`
+///
+/// This allows Squirrel to interoperate with primals that have not yet
+/// adopted the flat-array format.
+pub fn parse_capabilities_from_response(response: &serde_json::Value) -> Vec<String> {
+    // Try new flat-array format first
+    if let Some(caps) = response.get("capabilities").and_then(|v| v.as_array()) {
+        return caps
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
+    }
+
+    // Fall back to legacy "methods" keys
+    if let Some(methods) = response.get("methods").and_then(|v| v.as_object()) {
+        return methods.keys().cloned().collect();
+    }
+
+    Vec::new()
 }
 
 // ---------------------------------------------------------------------------
@@ -420,31 +536,61 @@ mod tests {
     #[test]
     fn error_display_formatting() {
         let err = IpcClientError::Rpc {
+            phase: IpcErrorPhase::JsonRpcError,
             code: -32601,
             message: "method not found".to_string(),
         };
-        assert_eq!(err.to_string(), "JSON-RPC error -32601: method not found");
+        assert!(err.to_string().contains("-32601"));
+        assert!(err.to_string().contains("method not found"));
     }
 
     #[test]
     fn error_display_connection() {
-        let err = IpcClientError::Connection("refused".to_string());
-        assert_eq!(err.to_string(), "connection failed: refused");
+        let err = IpcClientError::Connection {
+            phase: IpcErrorPhase::Connect,
+            message: "refused".to_string(),
+        };
+        assert!(err.to_string().contains("refused"));
+        assert_eq!(err.phase(), IpcErrorPhase::Connect);
     }
 
     #[test]
     fn error_display_timeout() {
-        let err = IpcClientError::Timeout(Duration::from_secs(5));
-        assert_eq!(err.to_string(), "request timed out after 5s");
+        let err = IpcClientError::Timeout {
+            phase: IpcErrorPhase::Read,
+            duration: Duration::from_secs(5),
+        };
+        assert!(err.to_string().contains("5s"));
+        assert_eq!(err.phase(), IpcErrorPhase::Read);
     }
 
     #[test]
     fn error_display_not_found() {
         let err = IpcClientError::NotFound(PathBuf::from("/tmp/missing.sock"));
-        assert_eq!(
-            err.to_string(),
-            "ecosystem socket not found: /tmp/missing.sock"
-        );
+        assert!(err.to_string().contains("/tmp/missing.sock"));
+        assert_eq!(err.phase(), IpcErrorPhase::Connect);
+    }
+
+    #[test]
+    fn error_retryable_by_phase() {
+        assert!(IpcClientError::Connection {
+            phase: IpcErrorPhase::Connect,
+            message: "refused".into()
+        }
+        .is_retryable());
+
+        assert!(IpcClientError::Timeout {
+            phase: IpcErrorPhase::Read,
+            duration: Duration::from_secs(5)
+        }
+        .is_retryable());
+
+        assert!(!IpcClientError::Rpc {
+            phase: IpcErrorPhase::JsonRpcError,
+            code: -32601,
+            message: "method not found".into()
+        }
+        .is_retryable());
     }
 
     #[test]
@@ -541,5 +687,46 @@ mod tests {
         assert_eq!(client.request_timeout, Duration::from_secs(120));
         assert_eq!(client.connection_timeout, Duration::from_millis(500));
         assert_eq!(client.socket_path, PathBuf::from("/tmp/test.sock"));
+    }
+
+    #[test]
+    fn parse_capabilities_new_format() {
+        let resp = serde_json::json!({
+            "primal": "test",
+            "capabilities": ["ai.query", "system.health"]
+        });
+        let caps = super::parse_capabilities_from_response(&resp);
+        assert_eq!(caps.len(), 2);
+        assert!(caps.contains(&"ai.query".to_string()));
+    }
+
+    #[test]
+    fn parse_capabilities_legacy_format() {
+        let resp = serde_json::json!({
+            "primal": "test",
+            "methods": {
+                "ai.query": { "cost": { "latency_ms": 500 } },
+                "system.health": { "cost": { "latency_ms": 1 } }
+            }
+        });
+        let caps = super::parse_capabilities_from_response(&resp);
+        assert_eq!(caps.len(), 2);
+    }
+
+    #[test]
+    fn parse_capabilities_prefers_new_format() {
+        let resp = serde_json::json!({
+            "capabilities": ["new.cap"],
+            "methods": { "old.cap": {} }
+        });
+        let caps = super::parse_capabilities_from_response(&resp);
+        assert_eq!(caps, vec!["new.cap"]);
+    }
+
+    #[test]
+    fn parse_capabilities_empty_response() {
+        let resp = serde_json::json!({});
+        let caps = super::parse_capabilities_from_response(&resp);
+        assert!(caps.is_empty());
     }
 }

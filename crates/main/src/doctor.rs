@@ -32,10 +32,6 @@ pub enum HealthStatus {
     /// System has warnings but is functional
     Warning,
     /// System has errors (used in match arms, JSON deserialization, and test fixtures)
-    #[expect(
-        dead_code,
-        reason = "Used in match arms, JSON deserialization, and test fixtures"
-    )]
     Error,
 }
 

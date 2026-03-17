@@ -38,7 +38,6 @@ pub enum PluginType {
 }
 
 /// Plugin state enumeration (reserved for plugin state management system)
-#[expect(dead_code, reason = "planned feature not yet wired")]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginState {
     /// Plugin is loaded and ready
@@ -54,7 +53,6 @@ pub enum PluginState {
 }
 
 /// Plugin data format enumeration (reserved for plugin data serialization system)
-#[expect(dead_code, reason = "planned feature not yet wired")]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginDataFormat {
     /// JSON format
@@ -151,7 +149,7 @@ pub trait CorePlugin: Plugin {
 
 /// Web plugin trait for web interface extensions
 #[cfg(feature = "web")]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "used when feature web is enabled")]
 pub trait WebPlugin: Plugin {
     /// Get the web plugin assets directory
     fn get_assets_dir(&self) -> Option<&str>;
@@ -174,7 +172,7 @@ pub trait WebPlugin: Plugin {
 
 /// MCP plugin trait for MCP protocol extensions
 #[cfg(feature = "mcp")]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "used when feature mcp is enabled")]
 pub trait McpPlugin: Plugin {
     /// Get the MCP plugin name
     fn get_mcp_name(&self) -> &str;
@@ -213,7 +211,7 @@ pub trait ToolPlugin: Plugin {
 
 /// CLI plugin trait for CLI interface extensions
 #[cfg(feature = "cli")]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "used when feature cli is enabled")]
 pub trait CliPlugin: Plugin {
     /// Get the CLI plugin name
     fn get_cli_name(&self) -> &str;

@@ -145,7 +145,7 @@ impl WebSocketTransport {
     }
 
     /// Placeholder for internal message sending logic (reserved for WebSocket message sending system)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — WebSocket message sending system")]
     async fn send_internal(
         &self,
         ws_message: tokio_tungstenite::tungstenite::protocol::Message,
@@ -297,7 +297,7 @@ impl WebSocketTransport {
     }
 
     /// Get the remote address of the WebSocket connection (reserved for connection address tracking)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Phase 2 placeholder — connection address tracking")]
     pub async fn remote_addr(&self) -> std::result::Result<Option<SocketAddr>, MCPError> {
         // Access the peer_addr field instead of trying to access a stream field
         let peer_addr = self.peer_addr.lock().await;

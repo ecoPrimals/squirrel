@@ -37,7 +37,6 @@ use crate::plugin::{Plugin, PluginMetadata};
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
-#[expect(dead_code, reason = "Manifest structure for plugin discovery system")]
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -69,7 +68,6 @@ pub struct PluginManifest {
 impl PluginManifest {
     /// Convert to plugin metadata (used by tests and testing feature)
     #[must_use]
-    #[allow(dead_code)]
     #[cfg(any(test, feature = "testing"))]
     #[expect(
         deprecated,
@@ -269,7 +267,6 @@ impl DefaultPluginDiscovery {
 }
 
 /// Default plugin loader implementation (kept for trait impl / future use)
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub struct DefaultPluginLoader;
 

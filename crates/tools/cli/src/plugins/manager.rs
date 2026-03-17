@@ -482,7 +482,7 @@ impl PluginManager {
     }
 
     /// Create a test plugin instance for testing
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "public API — used for testing plugin infrastructure")]
     fn create_test_plugin(
         &self,
         name: String,
