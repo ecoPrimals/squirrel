@@ -229,6 +229,25 @@ async fn run_server(
     }
     info!("Squirrel AI/MCP Primal Ready!");
 
+    // Write primal manifest for biomeOS manifest-based discovery
+    let manifest = universal_patterns::manifest_discovery::PrimalManifest {
+        primal: squirrel::niche::PRIMAL_ID.into(),
+        version: env!("CARGO_PKG_VERSION").into(),
+        socket: std::path::PathBuf::from(&socket_path),
+        capabilities: squirrel::niche::CAPABILITIES
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect(),
+        pid: Some(std::process::id()),
+        started_at: Some(chrono::Utc::now().to_rfc3339()),
+        family_id: std::env::var("FAMILY_ID").ok(),
+    };
+    if let Err(e) = universal_patterns::manifest_discovery::write_manifest(&manifest) {
+        warn!("Failed to write primal manifest: {e}");
+    } else {
+        info!("Primal manifest written for bootstrap discovery");
+    }
+
     // Initialize AI router with capability-based discovery
     info!("Initializing AI router...");
     let ai_router = match squirrel::api::AiRouter::new_with_discovery(None).await {
@@ -313,9 +332,17 @@ async fn run_server(
 
     info!("Press Ctrl+C to stop");
 
+    let family_id = std::env::var("FAMILY_ID").ok();
     tokio::select! {
         _ = signal_task => {
             info!("Shutting down gracefully...");
+
+            if let Err(e) = universal_patterns::manifest_discovery::remove_manifest(
+                squirrel::niche::PRIMAL_ID,
+                family_id.as_deref(),
+            ) {
+                warn!("Failed to remove primal manifest: {e}");
+            }
 
             if let Err(e) = shutdown_manager.request_shutdown().await {
                 warn!("Shutdown error: {e}");

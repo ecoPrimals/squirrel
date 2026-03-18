@@ -72,6 +72,7 @@ pub mod identity;
 pub mod limits;
 pub mod network;
 pub mod protocol;
+pub mod safe_cast;
 pub mod slo;
 pub mod sys_info;
 pub mod timeouts;

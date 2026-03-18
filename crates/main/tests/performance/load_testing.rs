@@ -116,7 +116,7 @@ impl LoadTestEngine {
             .iter()
             .map(|m| m.latency.as_secs_f64() * 1000.0)
             .collect();
-        latencies.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        latencies.sort_by(|a, b| a.total_cmp(b));
 
         let average_latency_ms = if !latencies.is_empty() {
             latencies.iter().sum::<f64>() / latencies.len() as f64

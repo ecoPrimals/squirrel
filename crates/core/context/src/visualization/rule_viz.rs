@@ -85,7 +85,7 @@ impl RuleVisualizer {
         
         // Sort rules by different criteria
         let mut by_impact: Vec<_> = rule_impacts.iter().collect();
-        by_impact.sort_by(|a, b| b.1.impact_score.partial_cmp(&a.1.impact_score).unwrap());
+        by_impact.sort_by(|a, b| b.1.impact_score.total_cmp(&a.1.impact_score));
         
         let mut by_usage: Vec<_> = rule_impacts.iter().collect();
         by_usage.sort_by(|a, b| b.1.apply_count.cmp(&a.1.apply_count));
@@ -155,7 +155,7 @@ impl RuleVisualizer {
         
         // Sort rules by impact score
         let mut sorted_rules: Vec<_> = rule_impacts.iter().collect();
-        sorted_rules.sort_by(|a, b| b.1.impact_score.partial_cmp(&a.1.impact_score).unwrap());
+        sorted_rules.sort_by(|a, b| b.1.impact_score.total_cmp(&a.1.impact_score));
         
         for (i, (rule_id, impact)) in sorted_rules.iter().enumerate() {
             let connector = if i == sorted_rules.len() - 1 { "└─" } else { "├─" };

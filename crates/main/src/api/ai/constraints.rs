@@ -185,10 +185,7 @@ impl ConstraintSet {
                 RoutingConstraint::MaxCost(cost) => Some(*cost),
                 _ => None,
             })
-            .min_by(|a, b| {
-                // Safe comparison: treat NaN as greater (worse) than any number
-                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Greater)
-            })
+            .min_by(f64::total_cmp)
     }
 
     /// Get maximum acceptable latency

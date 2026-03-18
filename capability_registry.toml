@@ -96,6 +96,29 @@ description = "Report own capabilities for socket scanning"
 [capabilities.capability_discover.input_schema]
 type = "object"
 
+[capabilities.capability_list]
+method = "capability.list"
+domain = "capability.discovery"
+description = "List per-method cost/dependency detail for PathwayLearner scheduling"
+[capabilities.capability_list.input_schema]
+type = "object"
+
+# --- Health probes (PRIMAL_IPC_PROTOCOL v3.0) ---
+
+[capabilities.health_liveness]
+method = "health.liveness"
+domain = "health.probe"
+description = "Liveness probe — returns ok if process is alive"
+[capabilities.health_liveness.input_schema]
+type = "object"
+
+[capabilities.health_readiness]
+method = "health.readiness"
+domain = "health.probe"
+description = "Readiness probe — returns ok if ready to accept requests"
+[capabilities.health_readiness.input_schema]
+type = "object"
+
 # --- System domain ---
 
 [capabilities.system_health]
