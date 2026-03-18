@@ -117,16 +117,22 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "crypto.sign",
     "crypto.verify",
     "auth.validate_token",
+    "secrets.store",
+    "secrets.retrieve",
+    "secrets.list",
+    "secrets.delete",
     // Discovery (Songbird)
     "discovery.register",
     "discovery.find_primals",
     "discovery.query",
-    // Compute delegation (ToadStool S158)
+    // Compute delegation (ToadStool S158b)
     "compute.execute",
     "compute.submit",
     "compute.dispatch.submit",
     "compute.dispatch.status",
     "compute.dispatch.result",
+    "compute.dispatch.capabilities",
+    "compute.dispatch.cancel",
     "compute.hardware.observe",
     // Storage (NestGate)
     "storage.put",
@@ -136,6 +142,9 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "model.register",
     "model.locate",
     "model.metadata",
+    "model.exists",
+    // MCP tool discovery (domain springs)
+    "mcp.tools.list",
     // DAG sessions (rhizoCrypt)
     "dag.session.create",
     // Provenance / attribution (sweetGrass)

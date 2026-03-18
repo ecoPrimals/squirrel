@@ -29,12 +29,23 @@ allow = [
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
-# ecoBin: Pure Rust required. ring/openssl contain C/ASM; use RustCrypto/rustls alternatives.
-# Default build (no HTTP features) has zero ring. HTTP features (reqwest) pull ring via rustls;
-# migration path: rustls-tls-manual-roots-no-provider + aws-lc-rs or rustls-rustcrypto. See docs/CRYPTO_MIGRATION.md.
+# ecoBin v3: Pure Rust required. 14-crate C-dependency ban list per groundSpring V115 / wateringHole standard.
+# ring allowed only as transitive dep of rustls (feature-gated); migration: rustls-rustcrypto.
 deny = [
-    { name = "ring", reason = "ecoBin: C/ASM crypto. Use rustls-tls-manual-roots-no-provider + aws-lc-rs, or RustCrypto for hashing. See docs/CRYPTO_MIGRATION.md.", use-instead = "rustls (aws-lc-rs/rustls-rustcrypto), sha2, blake3" },
+    { name = "openssl-sys", reason = "ecoBin: C crypto FFI. Use rustls + RustCrypto.", use-instead = "rustls" },
     { name = "openssl", reason = "ecoBin: C crypto. Use rustls or RustCrypto suite.", use-instead = "rustls, sha2, aes-gcm, ed25519-dalek" },
+    { name = "native-tls", reason = "ecoBin: platform C TLS. Use rustls.", use-instead = "rustls" },
+    { name = "aws-lc-sys", reason = "ecoBin: C crypto FFI. Use RustCrypto.", use-instead = "sha2, aes-gcm" },
+    { name = "aws-lc-rs", reason = "ecoBin: C/ASM crypto. Use RustCrypto.", use-instead = "sha2, aes-gcm, ed25519-dalek" },
+    { name = "ring", reason = "ecoBin: C/ASM crypto. See docs/CRYPTO_MIGRATION.md.", use-instead = "rustls (rustls-rustcrypto), sha2, blake3" },
+    { name = "libz-sys", reason = "ecoBin: C compression FFI. Use flate2 (rust backend) or miniz_oxide.", use-instead = "flate2 (default-features = false, features = [\"rust_backend\"])" },
+    { name = "bzip2-sys", reason = "ecoBin: C compression FFI.", use-instead = "bzip2-rs" },
+    { name = "curl-sys", reason = "ecoBin: C HTTP FFI. Use reqwest (rustls).", use-instead = "reqwest" },
+    { name = "libsqlite3-sys", reason = "ecoBin: C database FFI. Use rusqlite bundled or redb.", use-instead = "redb, sled" },
+    { name = "cmake", reason = "ecoBin: C build system. Pure Rust only.", use-instead = "cc-free alternatives" },
+    { name = "cc", reason = "ecoBin: C compiler invocation. Pure Rust only.", use-instead = "Pure Rust crates" },
+    { name = "pkg-config", reason = "ecoBin: C pkg-config FFI discovery.", use-instead = "Pure Rust crates" },
+    { name = "vcpkg", reason = "ecoBin: C/C++ package manager integration.", use-instead = "Pure Rust crates" },
 ]
 
 [sources]

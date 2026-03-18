@@ -85,11 +85,12 @@ impl CapabilityCryptoProvider {
         // Prioritize the standard biomeOS socket directory, then fall back to legacy paths.
         let uid = nix::unistd::getuid();
         let well_known_paths: Vec<String> = vec![
+            format!("/run/user/{uid}/biomeos/security.sock"),
+            format!("/run/user/{uid}/biomeos/crypto.sock"),
             format!("/run/user/{uid}/biomeos/beardog.sock"),
             format!("/run/user/{uid}/biomeos/primal-crypto.sock"),
             "/tmp/primal-crypto.sock".to_string(),
             "/tmp/beardog.sock".to_string(),
-            "/var/run/crypto-provider.sock".to_string(),
         ];
 
         for path in &well_known_paths {
@@ -125,7 +126,7 @@ impl CapabilityCryptoProvider {
         // Quick capability check via JSON-RPC
         let request = json!({
             "jsonrpc": "2.0",
-            "method": "capabilities.list",
+            "method": "capability.list",
             "id": 1
         });
 

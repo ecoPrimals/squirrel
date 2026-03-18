@@ -512,6 +512,21 @@ fn extract_string_array(value: &serde_json::Value, key: &str) -> Option<Vec<Stri
     })
 }
 
+/// Extract the `"result"` field from a JSON-RPC success response.
+///
+/// Returns `Err` if the response contains an `"error"` field (converted to
+/// [`RpcError`]) or if the `"result"` field is missing entirely.
+pub fn extract_rpc_result(response: &serde_json::Value) -> Result<serde_json::Value, RpcError> {
+    if let Some(err) = extract_rpc_error(response) {
+        return Err(err);
+    }
+    response.get("result").cloned().ok_or_else(|| RpcError {
+        code: IpcClientError::INTERNAL_ERROR,
+        message: "response missing 'result' field".to_string(),
+        data: None,
+    })
+}
+
 /// Extract a structured error from a JSON-RPC error response.
 ///
 /// Absorbed from loamSpine v0.9.3 / petalTongue v1.6.6. Extracts the
@@ -937,5 +952,48 @@ mod tests {
         };
         assert!(err.to_string().contains("-32601"));
         assert!(err.to_string().contains("method not found"));
+    }
+
+    // -- extract_rpc_result tests -----------------------------------------------
+
+    #[test]
+    fn extract_rpc_result_from_success() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": {"ok": true},
+            "id": 1
+        });
+        let result = super::extract_rpc_result(&resp).unwrap();
+        assert_eq!(result, serde_json::json!({"ok": true}));
+    }
+
+    #[test]
+    fn extract_rpc_result_from_error_returns_err() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "error": {"code": -32601, "message": "method not found"},
+            "id": 1
+        });
+        let err = super::extract_rpc_result(&resp).unwrap_err();
+        assert_eq!(err.code, -32601);
+        assert!(err.is_method_not_found());
+    }
+
+    #[test]
+    fn extract_rpc_result_missing_result_field() {
+        let resp = serde_json::json!({"jsonrpc": "2.0", "id": 1});
+        let err = super::extract_rpc_result(&resp).unwrap_err();
+        assert!(err.message.contains("missing"));
+    }
+
+    #[test]
+    fn extract_rpc_result_null_result_is_ok() {
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": null,
+            "id": 1
+        });
+        let result = super::extract_rpc_result(&resp).unwrap();
+        assert!(result.is_null());
     }
 }

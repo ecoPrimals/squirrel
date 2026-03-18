@@ -160,18 +160,8 @@ impl UniversalAiAdapter {
         // Parse JSON-RPC response
         let rpc_response: serde_json::Value = serde_json::from_str(&response_line)?;
 
-        // Check for error
-        if let Some(error) = rpc_response.get("error") {
-            return Err(PrimalError::NetworkError(format!(
-                "Provider error: {error}"
-            )));
-        }
-
-        // Extract result
-        rpc_response
-            .get("result")
-            .cloned()
-            .ok_or_else(|| PrimalError::ParsingError("No result in response".to_string()))
+        universal_patterns::extract_rpc_result(&rpc_response)
+            .map_err(|rpc_err| PrimalError::NetworkError(format!("Provider error: {rpc_err}")))
     }
 }
 

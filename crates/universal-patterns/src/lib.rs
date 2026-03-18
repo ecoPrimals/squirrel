@@ -120,7 +120,8 @@ pub use config::{
 };
 pub use dispatch_outcome::{DispatchError, DispatchOutcome};
 pub use ipc_client::{
-    CapabilityInfo, IpcClient, IpcClientError, extract_rpc_error, parse_capabilities_from_response,
+    CapabilityInfo, IpcClient, IpcClientError, extract_rpc_error, extract_rpc_result,
+    parse_capabilities_from_response,
 };
 pub use manifest_discovery::PrimalManifest;
 pub use or_exit::{OrExit, exit_codes};

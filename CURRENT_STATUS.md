@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 18, 2026
-**Version**: 0.1.0-alpha.12
+**Version**: 0.1.0-alpha.13
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,18 +10,18 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 4,730 passing (lib tests verified) / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
+| Tests | 5,599 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all crate entry points |
-| Pure Rust | 100% default features (zero C deps); `ring`/`openssl` banned in `deny.toml`; `sysinfo` removed |
-| ecoBin | Compliant v3.0 — `deny.toml` bans `ring`/`openssl`; pure Rust `sys_info` via `/proc` parsing |
+| Pure Rust | 100% default features (zero C deps); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed |
+| ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
 | Coverage | 71% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 22 workspace members |
 | Files >1000 lines | 0 (max: 974 — adapter.rs, unwired legacy) |
-| Property tests | 17 (proptest round-trip for all JSON-RPC types + niche + 7 wire-format fuzz) |
+| Property tests | 23 (proptest round-trip for all JSON-RPC types + niche + 7 wire-format fuzz + 6 IPC fuzz) |
 | redis | 1.0.5 (upgraded from 0.23) |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
 | Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted |
@@ -62,7 +62,7 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 | Constant | What |
 |----------|------|
 | `CAPABILITIES` | 21 exposed methods (ai, capability, system, discovery, tool, context, lifecycle) |
-| `CONSUMED_CAPABILITIES` | 14 external capabilities from BearDog, Songbird, ToadStool, NestGate |
+| `CONSUMED_CAPABILITIES` | 22 external capabilities from BearDog, Songbird, ToadStool, NestGate, domain springs |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
 | `DEPENDENCIES` | 4 primals (beardog, songbird required; toadstool, nestgate optional) |
 | `SEMANTIC_MAPPINGS` | Short name → fully qualified capability mapping |
@@ -170,7 +170,7 @@ Replaces the `sysinfo` crate (C dependency) for ecoBin v3.0 compliance.
 | `universal-patterns` | `IpcClientError` + `IpcErrorPhase` | Phase-tagged IPC errors with `.context()` chains |
 | `universal-patterns` | `DispatchOutcome<T>` | Protocol vs application error separation at RPC dispatch |
 | `universal-patterns` | `CircuitBreaker` + `RetryPolicy` | IPC resilience with exponential backoff gated by `IpcErrorPhase` |
-| `universal-patterns` | `RpcError` + `extract_rpc_error()` | Structured JSON-RPC error extraction |
+| `universal-patterns` | `RpcError` + `extract_rpc_result()` + `extract_rpc_error()` | Centralized JSON-RPC result/error extraction |
 | `squirrel` (main) | `PrimalError` | `From<anyhow::Error>` for seamless `.context()` chains |
 
 ## Logging
@@ -211,7 +211,8 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | DispatchOutcome | `DispatchOutcome<T>` for protocol vs application error separation |
 | Validation Harness | `ValidationHarness` for multi-check binary validation (doctor, validate) |
 | 4-Format Capability Parsing | flat, object, nested, double-nested response formats |
-| Primal Names | `primal_names::*` constants for all 13 ecosystem primals |
+| Primal Names | `primal_names::*` machine IDs + `display` submodule for all 13 ecosystem primals |
+| Spring Tool Discovery | `spring_tools::SpringToolDiscovery` — runtime MCP tool aggregation from domain springs |
 | Human Dignity | `DignityEvaluator` + `DignityGuard` for AI operation checks |
 | Capability Identifiers | `CapabilityIdentifier` type replacing deprecated `EcosystemPrimalType` enum |
 
@@ -238,9 +239,9 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | just | `justfile` — ci, check, fmt, clippy, test, coverage, build-release, audit, doctor |
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
-| cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked |
+| cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked, 14-crate ecoBin C-dep ban |
 | cargo-llvm-cov | 71% line coverage (target: 90%) |
-| proptest | Round-trip + wire-format fuzz for all JSON-RPC types (17 properties) |
+| proptest | Round-trip + wire-format fuzz + IPC fuzz for all JSON-RPC types (23 properties) |
 | rust-toolchain | `rust-toolchain.toml` — pinned stable + clippy + rustfmt + llvm-tools-preview |
 
 ## Known Issues
@@ -251,27 +252,22 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (March 18, 2026)
 
-### alpha.12 Sprint
+### alpha.13 Sprint (Cross-Ecosystem Absorption)
 
-- **Smart file refactoring**: `router.rs` 991→155 lines, `lib.rs` 970→245, `journal.rs` 969→6 submodules, `types.rs` 985→7 submodules
-- **Hardcoded URLs extracted**: AI provider URLs now env-overridable via `ai_providers` module
-- **Discovery stubs evolved**: Socket-registry backed implementations
-- **346+ new tests**: Across auth, config, commands, context, rule-system
-- **Coverage**: 67.16% → 70.53%
-- **Clone reduction**: On hot paths
-- **Benchmark fix**: criterion sample_size
-- **redis upgraded**: 0.23 → 1.0.5
-- **proptest centralized**: In workspace
+- **Spring tool discovery**: `spring_tools.rs` — runtime `mcp.tools.list` aggregation from domain springs; merged into `tool.list` + `tool.execute` routing
+- **Centralized `extract_rpc_result()`**: Replaces 5 ad-hoc `.get("result")` sites across adapters
+- **Capability-first sockets**: `security.sock`/`crypto.sock` preferred over `beardog.sock`
+- **`capability.list` method name**: Fixed from `capabilities.list` typo
+- **ecoBin 14-crate ban**: `deny.toml` expanded from 2 to 14 banned C-dep crates
+- **Consumed capabilities**: 14 → 22 (secrets.*, compute.dispatch.capabilities/cancel, model.exists, mcp.tools.list)
+- **Primal display names**: `universal-constants::primal_names` with `display` submodule
+- **6 proptest IPC fuzz tests**: parse, extract, dispatch never-panic properties
+- **Tests**: 4,730 → 5,599
+
+### Prior (alpha.12)
+
+- Smart file refactoring, hardcoded URL extraction, discovery stubs evolved, 346+ new tests, redis 0.23→1.0.5
 
 ### Prior (alpha.11)
 
-- **Lint tightening**: Reduced `#[allow]` blocks from ~50 to ~18 lints per crate; `unwrap_used`/`expect_used` now test-only
-- **Clippy compliance**: Fixed 170+ lint violations across all crates (production and test code)
-- **tarpc negotiation**: Implemented client-side protocol negotiation (`negotiate_client` + bail on non-tarpc)
-- **sysinfo removal**: Replaced C dependency with pure Rust `/proc` parsing (`sys_info` module)
-- **Plugin manager**: `UnifiedPluginManager` fully implemented (was a stub) with event bus and security manager
-- **Human dignity**: `DignityEvaluator` + `DignityGuard` added to AI routing
-- **Dev credentials**: Hardcoded JWT secrets and TLS paths replaced with env var loading
-- **Capability identifiers**: `CapabilityIdentifier` type introduced; `EcosystemPrimalType` deprecated
-- **Manifest writer**: Squirrel writes `$XDG_RUNTIME_DIR/ecoPrimals/squirrel.json` at startup; cleans up on shutdown
-- **Health probes**: `health.liveness` + `health.readiness` added (PRIMAL_IPC_PROTOCOL v3.0)
+- Lint tightening, 170+ clippy fixes, tarpc negotiation, sysinfo removal, plugin manager, human dignity, capability identifiers

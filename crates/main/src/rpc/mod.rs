@@ -42,6 +42,7 @@ mod jsonrpc_handlers;
 pub mod jsonrpc_server;
 pub mod protocol;
 pub mod protocol_negotiation;
+pub mod spring_tools;
 pub mod types;
 pub mod unix_socket;
 

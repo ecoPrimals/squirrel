@@ -72,6 +72,7 @@ pub mod env_vars;
 pub mod identity;
 pub mod limits;
 pub mod network;
+pub mod primal_names;
 pub mod protocol;
 pub mod safe_cast;
 pub mod slo;

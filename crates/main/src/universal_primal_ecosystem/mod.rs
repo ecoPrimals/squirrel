@@ -505,14 +505,9 @@ impl UniversalPrimalEcosystem {
                 PrimalError::SerializationError(format!("Failed to deserialize response: {e}"))
             })?;
 
-        // Extract result or error
-        if let Some(error) = json_rpc_response.get("error") {
-            return Err(PrimalError::RemoteError(error.to_string()));
-        }
-
-        let result = json_rpc_response
-            .get("result")
-            .ok_or_else(|| PrimalError::InvalidResponse("Missing result field".to_string()))?;
+        let result = universal_patterns::extract_rpc_result(&json_rpc_response)
+            .map_err(|rpc_err| PrimalError::RemoteError(rpc_err.to_string()))?;
+        let result = &result;
 
         // Convert to PrimalResponse
         Ok(PrimalResponse {

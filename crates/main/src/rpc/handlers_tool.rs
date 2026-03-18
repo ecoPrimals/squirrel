@@ -56,6 +56,16 @@ impl JsonRpcServer {
                 .await;
         }
 
+        // Check spring tool routing table (mcp.tools.list discovery)
+        let spring_discovery = super::spring_tools::SpringToolDiscovery::new();
+        let routing_table = spring_discovery.build_routing_table().await;
+        if let Some(socket_path) = routing_table.get(tool_name) {
+            info!("Routing tool '{}' to spring at {}", tool_name, socket_path);
+            return self
+                .forward_tool_to_remote(tool_name, &args, socket_path.as_ref())
+                .await;
+        }
+
         info!("Executing local tool: {tool_name}");
 
         let executor = crate::tool::ToolExecutor::new();
@@ -150,29 +160,17 @@ impl JsonRpcServer {
                 data: None,
             })?;
 
-        if let Some(result) = response.get("result") {
-            Ok(result.clone())
-        } else if let Some(error) = response.get("error") {
-            Err(JsonRpcError {
-                code: error
-                    .get("code")
-                    .and_then(serde_json::Value::as_i64)
-                    .unwrap_or(-1) as i32,
-                message: error
-                    .get("message")
-                    .and_then(|m| m.as_str())
-                    .unwrap_or("Remote error")
-                    .to_string(),
-                data: error.get("data").cloned(),
-            })
-        } else {
-            Ok(response)
-        }
+        universal_patterns::extract_rpc_result(&response).map_err(|rpc_err| JsonRpcError {
+            code: rpc_err.code,
+            message: rpc_err.message,
+            data: rpc_err.data,
+        })
     }
 
     /// Handle `tool.list` — list all available tools.
     ///
-    /// Returns local built-ins + tools announced by remote primals.
+    /// Returns local built-ins + tools announced by remote primals +
+    /// tools discovered from domain springs via `mcp.tools.list`.
     /// Tool definitions enriched with JSON Schema from capability_registry.toml.
     pub(crate) async fn handle_list_tools(&self) -> Result<Value, JsonRpcError> {
         debug!("tool.list request");
@@ -227,6 +225,23 @@ impl JsonRpcServer {
                         primal: announced_primal.primal.as_ref().to_string(),
                     },
                     input_schema: None,
+                });
+            }
+        }
+
+        // Discover tools from domain springs via mcp.tools.list
+        let spring_discovery = super::spring_tools::SpringToolDiscovery::new();
+        let spring_tools = spring_discovery.discover_spring_tools().await;
+        for (tool_def, _socket_path) in &spring_tools {
+            if seen.insert(tool_def.name.clone()) {
+                entries.push(super::types::ToolListEntry {
+                    name: tool_def.name.clone(),
+                    description: tool_def.description.clone(),
+                    domain: tool_def.domain.clone(),
+                    source: super::types::ToolSource::Remote {
+                        primal: format!("{}-spring", tool_def.domain),
+                    },
+                    input_schema: tool_def.input_schema.clone(),
                 });
             }
         }

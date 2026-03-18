@@ -400,6 +400,60 @@ proptest! {
     }
 }
 
+// ── IPC fuzz tests (absorbed from healthSpring / wetSpring) ─────────────
+// Verify parsers never panic on arbitrary input.
+
+use universal_patterns::extract_rpc_result;
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn parse_request_never_panics(bytes in proptest::collection::vec(proptest::num::u8::ANY, 0..512)) {
+        let _ = serde_json::from_slice::<serde_json::Value>(&bytes);
+    }
+
+    #[test]
+    fn parse_capabilities_never_panics(json in arb_jsonrpc_success_response()) {
+        let _ = parse_capabilities_from_response(&json);
+    }
+
+    #[test]
+    fn extract_rpc_result_never_panics(
+        has_result in proptest::bool::ANY,
+        has_error in proptest::bool::ANY,
+        key in "[a-z]{2,8}",
+        val in "[a-zA-Z0-9]{1,20}",
+    ) {
+        let mut obj = serde_json::Map::new();
+        obj.insert("jsonrpc".to_string(), serde_json::json!("2.0"));
+        obj.insert("id".to_string(), serde_json::json!(1));
+        if has_result {
+            obj.insert("result".to_string(), serde_json::json!({ key: val }));
+        }
+        if has_error {
+            obj.insert("error".to_string(), serde_json::json!({"code": -32600, "message": "test"}));
+        }
+        let response = serde_json::Value::Object(obj);
+        let _ = extract_rpc_result(&response);
+    }
+
+    #[test]
+    fn extract_rpc_error_never_panics(json in arb_jsonrpc_error_response()) {
+        let _ = extract_rpc_error(&json);
+        let _ = extract_rpc_result(&json);
+    }
+
+    #[test]
+    fn dispatch_method_name_never_panics(
+        method in "([a-z]{1,10}\\.){0,3}[a-z]{1,10}",
+    ) {
+        let domain = method.split('.').next().unwrap_or("unknown");
+        assert!(!domain.is_empty());
+        assert!(method.split('.').count() > 0);
+    }
+}
+
 // ── Niche invariants ────────────────────────────────────────────────────
 
 #[test]

@@ -9,6 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.13] - 2026-03-18
+
+Cross-ecosystem absorption sprint: capability-first socket discovery, spring MCP
+tool discovery, centralized `extract_rpc_result()`, full 14-crate ecoBin ban list,
+primal display names, proptest IPC fuzz tests. 5,599 tests passing, zero clippy
+warnings, zero TODOs.
+
+### Added
+
+- **`spring_tools.rs`** — runtime MCP tool discovery from domain springs via
+  `mcp.tools.list` JSON-RPC calls; tools merged into `tool.list` response with
+  automatic routing via `tool.execute`
+- **`extract_rpc_result()`** — centralized JSON-RPC result/error extraction in
+  `universal-patterns`; replaces 5 ad-hoc `.get("result")` sites in production code
+- **`primal_names` module** — `universal-constants::primal_names` with machine IDs,
+  `display` submodule with branded display names, and `display_name()` lookup function
+- **6 proptest IPC fuzz tests** — `parse_request_never_panics`, `extract_rpc_result_never_panics`,
+  `extract_rpc_error_never_panics`, `dispatch_method_name_never_panics`, plus capability
+  parsing and request parsing fuzz
+- **4 `extract_rpc_result` unit tests** — success, error, missing result, null result
+
+### Changed
+
+- **Capability-first socket discovery** — `capability_crypto.rs` now prioritizes
+  `security.sock` / `crypto.sock` over `beardog.sock`; primals discover capabilities,
+  not other primals
+- **`capabilities.list` → `capability.list`** — fixed method name typo to match
+  ecosystem semantic naming standard
+- **`deny.toml` expanded to 14 crates** — full ecoBin C-dependency ban list per
+  groundSpring V115: added `openssl-sys`, `native-tls`, `aws-lc-sys`, `aws-lc-rs`,
+  `libz-sys`, `bzip2-sys`, `curl-sys`, `libsqlite3-sys`, `cmake`, `cc`, `pkg-config`,
+  `vcpkg`
+- **Consumed capabilities expanded** — added `secrets.*` (4 methods from BearDog),
+  `compute.dispatch.capabilities/cancel` (ToadStool S158b), `model.exists`
+  (NestGate 4.1), `mcp.tools.list` (domain springs)
+- **`tool.list` response** now includes tools discovered from domain springs
+- **`tool.execute` routing** checks spring routing table for forwarding
+
+### Metrics
+
+| Metric | alpha.12 | alpha.13 |
+|--------|----------|----------|
+| Tests | 4,730 | 5,599 |
+| Consumed capabilities | 14 | 22 |
+| ecoBin banned crates | 2 | 14 |
+| Ad-hoc `.get("result")` | 5+ | 0 (centralized) |
+| Proptest properties | 17 | 23 |
+| Primal display names | — | 13 primals |
+| Spring tool discovery | — | Implemented |
+
 ## [0.1.0-alpha.12] - 2026-03-18
 
 Deep debt resolution: smart file refactoring, hardcoded URL extraction, discovery

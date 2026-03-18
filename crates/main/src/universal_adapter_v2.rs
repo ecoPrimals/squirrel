@@ -450,14 +450,8 @@ impl UniversalClient {
                 PrimalError::SerializationError(format!("Failed to deserialize response: {e}"))
             })?;
 
-        if let Some(error) = json_rpc_response.get("error") {
-            return Err(PrimalError::RemoteError(error.to_string()));
-        }
-
-        json_rpc_response
-            .get("result")
-            .cloned()
-            .ok_or_else(|| PrimalError::InvalidResponse("Missing result field".to_string()))
+        universal_patterns::extract_rpc_result(&json_rpc_response)
+            .map_err(|rpc_err| PrimalError::RemoteError(rpc_err.to_string()))
     }
 
     /// Get the endpoint this client is connected to
