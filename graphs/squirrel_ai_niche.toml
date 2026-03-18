@@ -1,0 +1,123 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# ORC-Notice: Ecosystem deployment topology licensed under ORC
+# Copyright (C) 2026 ecoPrimals Contributors
+#
+# biomeOS Niche Deployment Graph — Squirrel AI coordination niche
+#
+# Defines Squirrel's germination order and dependency topology in the
+# primalSpring-compatible [graph] format. biomeOS and primalSpring use
+# this graph to deploy and validate Squirrel's composition.
+#
+# Deploy order:
+#   Tower Atomic (BearDog + Songbird) → Squirrel → petalTongue (optional viz)
+#
+# Usage:
+#   biomeos deploy --graph graphs/squirrel_ai_niche.toml
+#   primalspring validate --graph graphs/squirrel_ai_niche.toml
+
+[graph]
+name = "squirrel_ai_coordination_niche"
+description = "Squirrel AI coordination niche: Tower + AI + optional viz"
+version = "0.1.0"
+coordination = "Sequential"
+
+# ── Node 1: BearDog (crypto + identity) ─────────────────────────────
+[[graph.node]]
+name = "beardog"
+binary = "beardog_primal"
+order = 1
+required = true
+health_method = "health.liveness"
+by_capability = "crypto"
+capabilities = [
+    "crypto.sign",
+    "crypto.verify",
+    "auth.validate_token",
+    "secrets.store",
+    "secrets.retrieve",
+    "relay.authorize",
+]
+
+# ── Node 2: Songbird (discovery + mesh) ─────────────────────────────
+[[graph.node]]
+name = "songbird"
+binary = "songbird_primal"
+order = 2
+required = true
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "discovery"
+capabilities = [
+    "discovery.register",
+    "discovery.find_primals",
+    "discovery.query",
+]
+
+# ── Node 3: Squirrel (AI coordination) ──────────────────────────────
+[[graph.node]]
+name = "squirrel"
+binary = "squirrel"
+order = 3
+required = true
+depends_on = ["beardog", "songbird"]
+health_method = "health.liveness"
+by_capability = "ai"
+capabilities = [
+    "ai.query",
+    "ai.complete",
+    "ai.chat",
+    "ai.list_providers",
+    "capability.announce",
+    "capability.discover",
+    "capability.list",
+    "tool.execute",
+    "tool.list",
+    "health.liveness",
+    "health.readiness",
+]
+
+# ── Node 4: ToadStool (optional: GPU compute) ───────────────────────
+[[graph.node]]
+name = "toadstool"
+binary = "toadstool_primal"
+order = 4
+required = false
+depends_on = ["beardog", "songbird"]
+health_method = "health.liveness"
+by_capability = "compute"
+capabilities = [
+    "compute.execute",
+    "compute.submit",
+    "compute.dispatch.submit",
+]
+
+# ── Node 5: NestGate (optional: model cache + persistence) ──────────
+[[graph.node]]
+name = "nestgate"
+binary = "nestgate_primal"
+order = 5
+required = false
+depends_on = ["beardog", "songbird"]
+health_method = "health.liveness"
+by_capability = "storage"
+capabilities = [
+    "storage.put",
+    "storage.get",
+    "model.register",
+    "model.locate",
+]
+
+# ── Node 6: petalTongue (optional: visualization) ───────────────────
+[[graph.node]]
+name = "petaltongue"
+binary = "petaltongue"
+order = 6
+required = false
+depends_on = ["beardog", "songbird", "squirrel"]
+health_method = "health.liveness"
+by_capability = "visualization"
+capabilities = [
+    "visualization.render",
+    "visualization.render.dashboard",
+    "interaction.subscribe",
+]

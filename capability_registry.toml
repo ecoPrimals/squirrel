@@ -236,3 +236,27 @@ domain = "lifecycle.biomeos"
 description = "Heartbeat status report to biomeOS"
 [capabilities.lifecycle_status.input_schema]
 type = "object"
+
+# --- Graph domain (primalSpring BYOB) ---
+
+[capabilities.graph_parse]
+method = "graph.parse"
+domain = "graph.coordination"
+description = "Parse a BYOB deployment graph TOML into structured representation"
+[capabilities.graph_parse.input_schema]
+type = "object"
+required = ["graph_toml"]
+[capabilities.graph_parse.input_schema.properties.graph_toml]
+type = "string"
+description = "TOML-encoded deployment graph"
+
+[capabilities.graph_validate]
+method = "graph.validate"
+domain = "graph.coordination"
+description = "Structurally validate a BYOB deployment graph"
+[capabilities.graph_validate.input_schema]
+type = "object"
+required = ["graph_toml"]
+[capabilities.graph_validate.input_schema.properties.graph_toml]
+type = "string"
+description = "TOML-encoded deployment graph to validate"

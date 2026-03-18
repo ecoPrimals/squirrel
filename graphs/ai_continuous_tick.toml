@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# ORC-Notice: Ecosystem deployment topology licensed under ORC
+# Copyright (C) 2026 ecoPrimals Contributors
+#
+# biomeOS Continuous Tick Graph — AI coordination with petalTongue viz
+#
+# A 10 Hz continuous graph that feeds AI query results through
+# petalTongue for live dashboard rendering. Demonstrates Squirrel
+# participating in a real-time coordination loop alongside petalTongue.
+#
+# This graph validates:
+#   - Squirrel can serve AI queries within tick budget
+#   - petalTongue can render results in real-time
+#   - Feedback loops work across primals
+
+[graph]
+name = "ai_continuous_tick"
+description = "10 Hz AI coordination → petalTongue viz loop"
+version = "0.1.0"
+coordination = "Continuous"
+
+# ── Node 1: AI query dispatcher ─────────────────────────────────────
+[[graph.node]]
+name = "ai_dispatch"
+binary = "squirrel"
+order = 1
+required = true
+health_method = "health.liveness"
+by_capability = "ai"
+capabilities = ["ai.query", "tool.execute"]
+
+# ── Node 2: Result aggregator ───────────────────────────────────────
+[[graph.node]]
+name = "result_agg"
+binary = "squirrel"
+order = 2
+required = true
+depends_on = ["ai_dispatch"]
+health_method = "health.liveness"
+capabilities = ["capability.list"]
+
+# ── Node 3: Visualization push ──────────────────────────────────────
+[[graph.node]]
+name = "viz_push"
+binary = "petaltongue"
+order = 3
+required = false
+depends_on = ["result_agg"]
+health_method = "health.liveness"
+by_capability = "visualization"
+capabilities = ["visualization.render", "visualization.render.stream"]

@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.15] - 2026-03-18
+
+BYOB graph coordination sprint: primalSpring-compatible `NicheDeployGraph` types,
+`graph.parse` + `graph.validate` RPC handlers, 2 BYOB deploy graphs, coordination
+consumed capabilities, primalSpring + petalTongue as optional dependencies.
+5,440 tests passing, zero clippy warnings, zero TODOs.
+
+### Added
+
+- **`NicheDeployGraph` types** — primalSpring-compatible `[graph]` + `[[graph.node]]`
+  TOML types with structural validation, capability queries, and JSON roundtrip
+- **`graphs/squirrel_ai_niche.toml`** — BYOB niche deploy graph: Tower Atomic →
+  Squirrel → petalTongue (optional); structurally validated at compile time
+- **`graphs/ai_continuous_tick.toml`** — 10 Hz continuous coordination graph:
+  AI dispatch → result aggregation → petalTongue viz push
+- **`graph.parse` RPC handler** — accepts TOML, returns parsed graph as JSON
+- **`graph.validate` RPC handler** — structural validation with issues, node count,
+  squirrel participation detection
+- **`handlers_graph.rs`** — new graph domain handler module
+- **10 new deploy graph tests** — parse, structural validation, capability queries,
+  dependency detection, JSON roundtrip, all-graphs sweep
+- **3 consumed capabilities** — `coordination.validate_composition`,
+  `coordination.deploy_atomic`, `composition.nucleus_health` (primalSpring)
+- **2 optional dependencies** — primalSpring (coordination), petalTongue (visualization)
+
+### Changed
+
+- **Exposed capabilities** — 21 → 23 (`graph.parse`, `graph.validate`)
+- **Consumed capabilities** — 29 → 32 (coordination)
+- **Dependencies** — 4 → 6 (+ primalSpring, petalTongue optional)
+- **`capability_registry.toml`** — added `graph.parse`, `graph.validate` entries
+
+### Metrics
+
+| Metric | alpha.14 | alpha.15 |
+|--------|----------|----------|
+| Tests | 5,430 | 5,440 |
+| Exposed capabilities | 21 | 23 |
+| Consumed capabilities | 29 | 32 |
+| Dependencies | 4 | 6 |
+| BYOB deploy graphs | 0 | 2 |
+| Graph domain RPC handlers | 0 | 2 |
+
 ## [0.1.0-alpha.14] - 2026-03-18
 
 Ecosystem alignment sprint: capability registry TOML sync test, `SpringToolDef`

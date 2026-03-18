@@ -693,6 +693,10 @@ impl JsonRpcServer {
             "lifecycle.register" => self.handle_lifecycle_register().await,
             "lifecycle.status" => self.handle_lifecycle_status().await,
 
+            // Graph domain — primalSpring BYOB coordination
+            "graph.parse" => self.handle_graph_parse(request.params).await,
+            "graph.validate" => self.handle_graph_validate(request.params).await,
+
             // Method not found
             _ => Err(self.method_not_found(request.method.as_ref())),
         };

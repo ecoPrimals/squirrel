@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 18, 2026
-**Version**: 0.1.0-alpha.14
+**Version**: 0.1.0-alpha.15
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 5,430 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
+| Tests | 5,440 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
@@ -42,6 +42,7 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 | Discovery | `discovery.peers` |
 | Tool | `tool.execute`, `tool.list` |
 | Lifecycle | `lifecycle.register`, `lifecycle.status` |
+| Graph | `graph.parse`, `graph.validate` (primalSpring BYOB) |
 
 **JSON-RPC batch support**: Full Section 6 compliance — array of requests → array of responses.
 
@@ -61,10 +62,10 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 | Constant | What |
 |----------|------|
-| `CAPABILITIES` | 21 exposed methods (ai, capability, system, discovery, tool, context, lifecycle) |
-| `CONSUMED_CAPABILITIES` | 29 external capabilities from BearDog, Songbird, ToadStool, NestGate, domain springs, rhizoCrypt, sweetGrass |
+| `CAPABILITIES` | 23 exposed methods (ai, capability, system, discovery, tool, context, lifecycle, graph) |
+| `CONSUMED_CAPABILITIES` | 32 external capabilities from BearDog, Songbird, ToadStool, NestGate, domain springs, rhizoCrypt, sweetGrass, primalSpring |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
-| `DEPENDENCIES` | 4 primals (beardog, songbird required; toadstool, nestgate optional) |
+| `DEPENDENCIES` | 6 primals (beardog, songbird required; toadstool, nestgate, primalspring, petaltongue optional) |
 | `SEMANTIC_MAPPINGS` | Short name → fully qualified capability mapping |
 | `operation_dependencies()` | DAG inputs per operation for parallelization |
 
@@ -215,6 +216,9 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | Primal Names | `primal_names::*` machine IDs + `display` submodule for all 13 ecosystem primals |
 | Spring Tool Discovery | `spring_tools::SpringToolDiscovery` — runtime MCP tool aggregation from domain springs; `SpringToolDef` aligned with biomeOS `McpToolDefinition` V251 |
 | Human Dignity | `DignityEvaluator` + `DignityGuard` for AI operation checks |
+| BYOB Deploy Graphs | `graphs/squirrel_ai_niche.toml` + `ai_continuous_tick.toml` — primalSpring-compatible BYOB niche graphs |
+| NicheDeployGraph Types | Wire-compatible with primalSpring `deploy.rs` — `[graph]` + `[[graph.node]]` TOML format |
+| Graph Handlers | `graph.parse` + `graph.validate` — RPC endpoints for graph introspection |
 | Capability Identifiers | `CapabilityIdentifier` type replacing deprecated `EcosystemPrimalType` enum |
 
 ## Socket Configuration
@@ -253,15 +257,20 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (March 18, 2026)
 
-### alpha.14 Sprint (Ecosystem Alignment)
+### alpha.15 Sprint (BYOB Graph Coordination)
 
-- **Capability registry TOML sync test**: Compile-time verified `niche::CAPABILITIES` ↔ `capability_registry.toml` bidirectional invariant
-- **`identity::PRIMAL_DOMAIN`**: `"ai"` constant in `universal-constants::identity` for cross-primal consistency; test-verified against `niche::DOMAIN`
-- **`SpringToolDef` aligned with biomeOS `McpToolDefinition`**: Added `version` and `primal` fields (optional, backward-compatible)
-- **7 new consumed capabilities**: `health.liveness/readiness` (probe peers), `relay.authorize/status` (BearDog), `dag.event.append/vertex.query` (rhizoCrypt), `anchoring.verify` (sweetGrass)
-- **Consumed capabilities**: 22 → 29
-- **Cross-compile CI**: `build-ecobin-arm` (aarch64-musl) + `build-ecobin-all` in justfile
-- **Tests**: 5,430 passing, 0 failures
+- **`NicheDeployGraph` types**: primalSpring-compatible `[graph]` + `[[graph.node]]` TOML with structural validation, capability queries, JSON roundtrip
+- **2 BYOB deploy graphs**: `squirrel_ai_niche.toml` (Sequential: Tower → Squirrel → petalTongue), `ai_continuous_tick.toml` (Continuous: 10 Hz AI → viz loop)
+- **`graph.parse` + `graph.validate` RPC handlers**: Accept TOML, return parsed/validated graphs — enables primalSpring to send graphs for introspection
+- **Coordination consumed capabilities**: `coordination.validate_composition`, `coordination.deploy_atomic`, `composition.nucleus_health` (primalSpring)
+- **Dependencies**: 4 → 6 (+ primalSpring, petalTongue optional)
+- **Capabilities**: 21 → 23 exposed, 29 → 32 consumed
+- **10 new graph tests**: Parse, validate, capability query, roundtrip, all-graphs sweep
+- **Tests**: 5,440 passing, 0 failures
+
+### Prior (alpha.14)
+
+- Capability registry TOML sync test, `identity::PRIMAL_DOMAIN`, `SpringToolDef` McpToolDefinition alignment, 7 consumed capabilities, aarch64-musl CI
 
 ### Prior (alpha.13)
 

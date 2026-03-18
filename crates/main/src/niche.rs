@@ -77,6 +77,9 @@ pub const CAPABILITIES: &[&str] = &[
     // Lifecycle (biomeOS)
     "lifecycle.register",
     "lifecycle.status",
+    // Graph introspection (primalSpring BYOB)
+    "graph.parse",
+    "graph.validate",
 ];
 
 /// Semantic mappings: short operation name → fully qualified capability.
@@ -105,6 +108,8 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("update", "context.update"),
     ("summarize", "context.summarize"),
     ("register", "lifecycle.register"),
+    ("parse_graph", "graph.parse"),
+    ("validate_graph", "graph.validate"),
 ];
 
 /// Consumed capabilities — what Squirrel calls on other primals.
@@ -159,6 +164,10 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "anchoring.anchor",
     "anchoring.verify",
     "attribution.calculate_rewards",
+    // Coordination (primalSpring)
+    "coordination.validate_composition",
+    "coordination.deploy_atomic",
+    "composition.nucleus_health",
 ];
 
 /// Primal dependencies for deployment.
@@ -178,6 +187,16 @@ pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
         "nestgate",
         false,
         "persistent storage (graceful fallback to in-memory cache)",
+    ),
+    (
+        "primalspring",
+        false,
+        "coordination validation and BYOB graph execution",
+    ),
+    (
+        "petaltongue",
+        false,
+        "visualization and user interface rendering",
     ),
 ];
 
@@ -208,6 +227,8 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("context.summarize", 300, true),
     ("lifecycle.register", 10, false),
     ("lifecycle.status", 1, false),
+    ("graph.parse", 5, false),
+    ("graph.validate", 50, false),
 ];
 
 /// Operation dependency hints for biomeOS Pathway Learner parallelization.
@@ -238,6 +259,8 @@ pub fn operation_dependencies() -> serde_json::Value {
         "context.summarize": ["id"],
         "lifecycle.register": [],
         "lifecycle.status": [],
+        "graph.parse": ["graph_toml"],
+        "graph.validate": ["graph_toml"],
     })
 }
 
@@ -269,6 +292,8 @@ pub fn cost_estimates_json() -> serde_json::Value {
         "context.summarize":     { "latency_ms": 300, "cpu": "medium", "memory_bytes": 32768, "gpu_beneficial": true },
         "lifecycle.register":    { "latency_ms": 10,  "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "lifecycle.status":      { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
+        "graph.parse":           { "latency_ms": 5,   "cpu": "low",    "memory_bytes": 2048,  "gpu_beneficial": false },
+        "graph.validate":        { "latency_ms": 50,  "cpu": "low",    "memory_bytes": 4096,  "gpu_beneficial": false },
     })
 }
 
@@ -295,6 +320,8 @@ pub fn semantic_mappings_json() -> serde_json::Value {
         "update":         "context.update",
         "summarize":      "context.summarize",
         "register":       "lifecycle.register",
+        "parse_graph":    "graph.parse",
+        "validate_graph": "graph.validate",
     })
 }
 
