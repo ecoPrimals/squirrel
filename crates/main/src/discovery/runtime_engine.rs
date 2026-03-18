@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
-#![allow(deprecated)]
+#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Runtime discovery engine
 //!
@@ -87,8 +87,19 @@ impl RuntimeDiscoveryEngine {
             return Ok(service);
         }
 
-        // Stage 2: Try mDNS (local network)
-        debug!("Stage 2: Trying mDNS for '{}'", capability);
+        // Stage 2: Try socket registry (biomeOS - primary primal discovery)
+        debug!("Stage 2: Trying socket registry for '{}'", capability);
+        let socket_registry = crate::discovery::mechanisms::SocketRegistryDiscovery::new();
+        if let Ok(services) = socket_registry.discover_by_capability(capability)
+            && let Some(service) = services.into_iter().next()
+        {
+            info!("✅ Found via socket registry: {}", service.endpoint);
+            self.cache.insert(capability.into(), service.clone());
+            return Ok(service);
+        }
+
+        // Stage 3: Try mDNS (local network; falls back to socket registry)
+        debug!("Stage 3: Trying mDNS for '{}'", capability);
         let mdns = crate::discovery::mechanisms::MdnsDiscovery::default();
         if let Ok(services) = mdns.discover_by_capability(capability).await
             && let Some(service) = services.into_iter().next()
@@ -97,8 +108,8 @@ impl RuntimeDiscoveryEngine {
             return Ok(service);
         }
 
-        // Stage 3: Try DNS-SD (network-wide)
-        debug!("Stage 3: Trying DNS-SD for '{}'", capability);
+        // Stage 4: Try DNS-SD (network-wide; falls back to socket registry)
+        debug!("Stage 4: Trying DNS-SD for '{}'", capability);
         let dnssd = crate::discovery::mechanisms::DnssdDiscovery::default();
         if let Ok(services) = dnssd.discover_by_capability(capability).await
             && let Some(service) = services.into_iter().next()
@@ -107,9 +118,9 @@ impl RuntimeDiscoveryEngine {
             return Ok(service);
         }
 
-        // Stage 4: Try service registry (if configured)
+        // Stage 5: Try external service registry (if configured)
         if let Ok(registry_endpoint) = std::env::var("SERVICE_REGISTRY_ENDPOINT") {
-            debug!("Stage 4: Trying service registry for '{}'", capability);
+            debug!("Stage 5: Trying service registry for '{}'", capability);
             let registry_type =
                 std::env::var("SERVICE_REGISTRY_TYPE").unwrap_or_else(|_| "consul".to_string());
 
@@ -131,7 +142,7 @@ impl RuntimeDiscoveryEngine {
             }
         }
 
-        // Stage 5: P2P multicast (future)
+        // Stage 6: P2P multicast (future)
         // Mesh networking for peer discovery
 
         Err(DiscoveryError::CapabilityNotFound {

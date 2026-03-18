@@ -282,7 +282,7 @@ where
     Ok(Arc::from(s))
 }
 
-#[allow(clippy::ref_option)]
+#[expect(clippy::ref_option, reason = "Optional reference; API design")]
 fn serialize_optional_arc_str<S>(opt: &Option<Arc<str>>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,

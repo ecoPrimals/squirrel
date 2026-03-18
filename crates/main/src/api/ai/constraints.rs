@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Idiomatic constraint system for AI routing
-#![allow(dead_code)] // Public API surface awaiting consumer activation
 //!
 //! Allows users, teams, and other primals to configure routing preferences.
 //! Designed to be extensible for future constraint types.

@@ -7,9 +7,6 @@
 //! Complex integrations have been moved to specialized frameworks.
 
 pub mod types;
-// pub mod adapter;  // Commented out due to compilation issues - will be reimplemented
-// pub mod handler;  // Moved to specialized frameworks
-// pub mod helpers;  // Simplified - basic functionality only
 pub mod tests;
 
 // Re-export core types

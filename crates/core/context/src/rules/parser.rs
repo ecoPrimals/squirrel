@@ -486,3 +486,354 @@ impl FrontmatterParser {
             .map_err(|e| RuleError::ParseError(format!("Failed to parse YAML frontmatter: {e}")))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::io::Write;
+    use std::path::Path;
+    use tempfile::NamedTempFile;
+
+    const VALID_RULE_CONTENT: &str = r#"---
+id: parse-file-test
+name: Parse File Test
+description: Testing parse_file from disk
+patterns:
+  - "test"
+---
+
+## Conditions
+
+```json
+{
+  "type": "match",
+  "config": {
+    "path": "test",
+    "pattern": ".*"
+  }
+}
+```
+
+## Actions
+
+```json
+{
+  "type": "log",
+  "config": {
+    "level": "info",
+    "message": "test"
+  }
+}
+```
+"#;
+
+    #[tokio::test]
+    async fn test_parse_file_valid() {
+        let mut temp_file = NamedTempFile::new().expect("create temp file");
+        temp_file
+            .write_all(VALID_RULE_CONTENT.as_bytes())
+            .expect("write");
+        temp_file.flush().expect("flush");
+
+        let path = temp_file.path();
+        let result = RuleParser::parse_file(path).await;
+
+        assert!(
+            result.is_ok(),
+            "Should parse valid rule file: {:?}",
+            result.err()
+        );
+        let rule = result.unwrap();
+        assert_eq!(rule.id, "parse-file-test");
+        assert_eq!(rule.name, "Parse File Test");
+    }
+
+    #[tokio::test]
+    async fn test_parse_file_not_found() {
+        let path = Path::new("/nonexistent/path/that/does/not/exist.mdc");
+        let result = RuleParser::parse_file(path).await;
+
+        assert!(result.is_err(), "Should fail for missing file");
+        assert!(matches!(result.unwrap_err(), RuleError::IoError(_)));
+    }
+
+    #[tokio::test]
+    async fn test_parse_file_path_ref() {
+        let mut temp_file = NamedTempFile::new().expect("create temp file");
+        temp_file
+            .write_all(VALID_RULE_CONTENT.as_bytes())
+            .expect("write");
+        temp_file.flush().expect("flush");
+
+        let path: &Path = temp_file.path();
+        let result = RuleParser::parse_file(path).await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_yaml_frontmatter_invalid() {
+        let invalid_yaml = "id: unclosed: quote \"test";
+        let result = FrontmatterParser::parse_yaml_frontmatter(invalid_yaml);
+
+        assert!(result.is_err(), "Should fail on invalid YAML");
+        match result.unwrap_err() {
+            RuleError::ParseError(msg) => {
+                assert!(
+                    msg.contains("frontmatter"),
+                    "Error should mention frontmatter"
+                );
+            }
+            _ => panic!("Expected ParseError"),
+        }
+    }
+
+    #[test]
+    fn test_parse_yaml_frontmatter_valid() {
+        let valid_yaml = "id: test\nname: Test\npatterns:\n  - \"x\"";
+        let result = FrontmatterParser::parse_yaml_frontmatter(valid_yaml);
+
+        assert!(result.is_ok());
+        let value = result.unwrap();
+        assert_eq!(value.get("id").and_then(|v| v.as_str()), Some("test"));
+        assert_eq!(value.get("name").and_then(|v| v.as_str()), Some("Test"));
+    }
+
+    #[test]
+    fn test_rule_to_mdc_roundtrip_semantic() {
+        let content = r#"---
+id: roundtrip-semantic
+name: Roundtrip Semantic
+description: Verify rule_to_mdc preserves data
+version: 3.0.0
+category: custom
+priority: 42
+patterns:
+  - "pat1"
+  - "pat2"
+metadata:
+  key1: "value1"
+  key2: 123
+---
+
+## Conditions
+
+```json
+{"type": "exists", "config": {"path": "x"}}
+```
+
+## Actions
+
+```json
+{"type": "log", "config": {"level": "info", "message": "msg"}}
+```
+"#;
+
+        let rule = RuleParser::parse_string(content).expect("parse");
+        let mdc = rule_to_mdc(&rule).expect("serialize");
+
+        assert!(mdc.starts_with("---\n"));
+        assert!(mdc.contains("id: roundtrip-semantic"));
+        assert!(mdc.contains("name: Roundtrip Semantic"));
+        assert!(mdc.contains("version: 3.0.0"));
+        assert!(mdc.contains("category: custom"));
+        assert!(mdc.contains("priority: 42"));
+        assert!(mdc.contains("pat1"));
+        assert!(mdc.contains("pat2"));
+        assert!(mdc.contains("metadata: |"));
+        assert!(mdc.contains("```json"));
+    }
+
+    #[test]
+    fn test_rule_to_mdc_with_metadata() {
+        let mut metadata = RuleMetadata::new();
+        metadata.set("author", json!("tester"));
+        metadata.set("count", json!(42));
+
+        let rule = Rule {
+            id: "meta-rule".to_string(),
+            name: "Meta Rule".to_string(),
+            description: "Has metadata".to_string(),
+            version: "1.0.0".to_string(),
+            category: "test".to_string(),
+            priority: 50,
+            patterns: vec!["ab".to_string()],
+            conditions: vec![RuleCondition::Exists {
+                path: "x".to_string(),
+            }],
+            actions: vec![RuleAction::LogMessage {
+                level: "info".to_string(),
+                message: "test".to_string(),
+            }],
+            metadata,
+        };
+
+        let mdc = rule_to_mdc(&rule).expect("serialize");
+        assert!(mdc.contains("author"));
+        assert!(mdc.contains("tester"));
+    }
+
+    #[test]
+    fn test_parse_empty_string() {
+        let result = RuleParser::parse_string("");
+        assert!(result.is_err());
+        if let RuleError::ParseError(msg) = result.unwrap_err() {
+            assert!(msg.contains("frontmatter"));
+        }
+    }
+
+    #[test]
+    fn test_parse_invalid_yaml_frontmatter() {
+        let content = r#"---
+id: test
+name: Test
+invalid: [unclosed
+---
+
+## Conditions
+
+```json
+{"type": "match", "config": {"path": "x", "pattern": ".*"}}
+```
+
+## Actions
+
+```json
+{"type": "log", "config": {"level": "info", "message": "x"}}
+```
+"#;
+
+        let result = RuleParser::parse_string(content);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_all_condition_types() {
+        let content = r#"---
+id: all-conditions
+name: All Conditions
+description: Test
+patterns:
+  - "ab"
+---
+
+## Conditions
+
+```json
+{"type": "match", "config": {"path": "a", "pattern": "x"}}
+```
+
+```json
+{"type": "exists", "config": {"path": "b"}}
+```
+
+```json
+{"type": "compare", "config": {"path1": "a", "path2": "b", "operator": "eq"}}
+```
+
+```json
+{"type": "js", "config": {"expression": "true"}}
+```
+
+```json
+{"type": "custom", "config": {"id": "c1", "config": {}}}
+```
+
+## Actions
+
+```json
+{"type": "log", "config": {"level": "info", "message": "ok"}}
+```
+"#;
+
+        let result = RuleParser::parse_string(content);
+        assert!(result.is_ok(), "{:?}", result.err());
+        let rule = result.unwrap();
+        assert_eq!(rule.conditions.len(), 5);
+    }
+
+    #[test]
+    fn test_parse_all_action_types() {
+        let content = r#"---
+id: all-actions
+name: All Actions
+description: Test
+patterns:
+  - "ab"
+---
+
+## Conditions
+
+```json
+{"type": "exists", "config": {"path": "x"}}
+```
+
+## Actions
+
+```json
+{"type": "modify", "config": {"path": "x", "value": "y"}}
+```
+
+```json
+{"type": "recovery", "config": {"name": "r1", "description": "d1"}}
+```
+
+```json
+{"type": "transform", "config": {"id": "t1", "input_path": "i", "output_path": "o"}}
+```
+
+```json
+{"type": "command", "config": {"command": "echo", "args": ["hi"]}}
+```
+
+```json
+{"type": "api", "config": {"url": "http://x", "method": "GET"}}
+```
+
+```json
+{"type": "log", "config": {"level": "info", "message": "m"}}
+```
+
+```json
+{"type": "notify", "config": {"title": "t", "message": "m", "level": "info"}}
+```
+
+```json
+{"type": "custom", "config": {"id": "c1", "config": {}}}
+```
+"#;
+
+        let result = RuleParser::parse_string(content);
+        assert!(result.is_ok(), "{:?}", result.err());
+        let rule = result.unwrap();
+        assert_eq!(rule.actions.len(), 8);
+    }
+
+    #[test]
+    fn test_parse_section_trailing_newline() {
+        let content = r#"---
+id: trailing-nl
+name: Trailing Newline
+description: x
+patterns:
+  - "ab"
+---
+
+## Conditions
+
+```json
+{"type": "exists", "config": {"path": "x"}}
+```
+
+## Actions
+
+```json
+{"type": "log", "config": {"level": "info", "message": "x"}}
+```
+
+"#;
+
+        let result = RuleParser::parse_string(content);
+        assert!(result.is_ok());
+    }
+}

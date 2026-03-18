@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security monitoring statistics
-#![allow(dead_code)] // Security monitoring infrastructure awaiting activation
 //!
 //! Tracks and reports statistics about security events, alerts, and
 //! monitoring system health.
@@ -64,12 +63,14 @@ impl Default for SecurityMonitoringStats {
 /// Statistics collector for security monitoring
 ///
 /// Thread-safe statistics collection and calculation.
+#[allow(dead_code)] // Reserved for security monitoring dashboard
 pub struct StatsCollector {
     stats: Arc<RwLock<SecurityMonitoringStats>>,
     start_time: Instant,
     last_calculation: Arc<RwLock<Instant>>,
 }
 
+#[allow(dead_code)] // Reserved for security monitoring dashboard
 impl StatsCollector {
     /// Create a new statistics collector
     pub fn new() -> Self {

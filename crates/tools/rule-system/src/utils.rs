@@ -81,7 +81,7 @@ pub fn extract_value_by_path(data: &Value, path: &str) -> Option<Value> {
     Some(current.clone())
 }
 
-/// Parse array index from a path part (e.g., "items[0]")
+/// Parse array index from a path part (e.g., "items\[0\]")
 fn parse_array_index(part: &str) -> Option<(&str, usize)> {
     let open_bracket = part.find('[')?;
     let close_bracket = part.find(']')?;

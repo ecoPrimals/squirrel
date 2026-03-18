@@ -65,7 +65,10 @@ impl IpcProtocol {
     /// assert_eq!(IpcProtocol::from_str("jsonrpc"), Some(IpcProtocol::JsonRpc));
     /// assert_eq!(IpcProtocol::from_str("invalid"), None);
     /// ```
-    #[allow(clippy::should_implement_trait)]
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "Custom from_str avoids FromStr trait conflict"
+    )]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "jsonrpc" | "json-rpc" | "json_rpc" => Some(Self::JsonRpc),

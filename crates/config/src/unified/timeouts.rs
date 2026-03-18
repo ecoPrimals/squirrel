@@ -408,4 +408,206 @@ mod tests {
             },
         );
     }
+
+    // ========== All env var overrides ==========
+    #[test]
+    fn test_request_timeout_from_env() {
+        temp_env::with_var("SQUIRREL_REQUEST_TIMEOUT_SECS", Some("90"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.request_timeout_secs, 90);
+            assert_eq!(config.request_timeout(), Duration::from_secs(90));
+        });
+    }
+
+    #[test]
+    fn test_health_check_timeout_from_env() {
+        temp_env::with_var("SQUIRREL_HEALTH_CHECK_TIMEOUT_SECS", Some("15"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.health_check_timeout_secs, 15);
+            assert_eq!(config.health_check_timeout(), Duration::from_secs(15));
+        });
+    }
+
+    #[test]
+    fn test_operation_timeout_from_env() {
+        temp_env::with_var("SQUIRREL_OPERATION_TIMEOUT_SECS", Some("25"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.operation_timeout_secs, 25);
+            assert_eq!(config.operation_timeout(), Duration::from_secs(25));
+        });
+    }
+
+    #[test]
+    fn test_database_timeout_from_env() {
+        temp_env::with_var("SQUIRREL_DATABASE_TIMEOUT_SECS", Some("45"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.database_timeout_secs, 45);
+            assert_eq!(config.database_timeout(), Duration::from_secs(45));
+        });
+    }
+
+    #[test]
+    fn test_heartbeat_interval_from_env() {
+        temp_env::with_var("SQUIRREL_HEARTBEAT_INTERVAL_SECS", Some("60"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.heartbeat_interval_secs, 60);
+            assert_eq!(config.heartbeat_interval(), Duration::from_secs(60));
+        });
+    }
+
+    #[test]
+    fn test_discovery_timeout_from_env() {
+        temp_env::with_var("SQUIRREL_DISCOVERY_TIMEOUT_SECS", Some("20"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.discovery_timeout_secs, 20);
+            assert_eq!(config.discovery_timeout(), Duration::from_secs(20));
+        });
+    }
+
+    #[test]
+    fn test_ai_inference_timeout_from_env() {
+        temp_env::with_var("SQUIRREL_AI_INFERENCE_TIMEOUT_SECS", Some("180"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.ai_inference_timeout_secs, 180);
+            assert_eq!(config.ai_inference_timeout(), Duration::from_secs(180));
+        });
+    }
+
+    #[test]
+    fn test_plugin_load_timeout_from_env() {
+        temp_env::with_var("SQUIRREL_PLUGIN_LOAD_TIMEOUT_SECS", Some("30"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.plugin_load_timeout_secs, 30);
+            assert_eq!(config.plugin_load_timeout(), Duration::from_secs(30));
+        });
+    }
+
+    #[test]
+    fn test_session_timeout_from_env() {
+        temp_env::with_var("SQUIRREL_SESSION_TIMEOUT_SECS", Some("7200"), || {
+            let config = TimeoutConfig::from_env();
+            assert_eq!(config.session_timeout_secs, 7200);
+            assert_eq!(config.session_timeout(), Duration::from_secs(7200));
+        });
+    }
+
+    // ========== All Duration getters ==========
+    #[test]
+    fn test_all_duration_getters() {
+        let config = TimeoutConfig::default();
+        assert_eq!(
+            config.connection_timeout(),
+            Duration::from_secs(config.connection_timeout_secs)
+        );
+        assert_eq!(
+            config.request_timeout(),
+            Duration::from_secs(config.request_timeout_secs)
+        );
+        assert_eq!(
+            config.health_check_timeout(),
+            Duration::from_secs(config.health_check_timeout_secs)
+        );
+        assert_eq!(
+            config.operation_timeout(),
+            Duration::from_secs(config.operation_timeout_secs)
+        );
+        assert_eq!(
+            config.database_timeout(),
+            Duration::from_secs(config.database_timeout_secs)
+        );
+        assert_eq!(
+            config.heartbeat_interval(),
+            Duration::from_secs(config.heartbeat_interval_secs)
+        );
+        assert_eq!(
+            config.discovery_timeout(),
+            Duration::from_secs(config.discovery_timeout_secs)
+        );
+        assert_eq!(
+            config.ai_inference_timeout(),
+            Duration::from_secs(config.ai_inference_timeout_secs)
+        );
+        assert_eq!(
+            config.plugin_load_timeout(),
+            Duration::from_secs(config.plugin_load_timeout_secs)
+        );
+        assert_eq!(
+            config.session_timeout(),
+            Duration::from_secs(config.session_timeout_secs)
+        );
+    }
+
+    // ========== get_custom_timeout and is_custom_timeout ==========
+    #[test]
+    fn test_get_custom_timeout_unknown_returns_operation_default() {
+        let config = TimeoutConfig::default();
+        assert!(!config.is_custom_timeout("unknown_op"));
+        assert_eq!(
+            config.get_custom_timeout("unknown_op"),
+            config.operation_timeout()
+        );
+    }
+
+    #[test]
+    fn test_custom_timeout_name_case_insensitive() {
+        temp_env::with_var("SQUIRREL_CUSTOM_TIMEOUT_MY_OP_SECS", Some("77"), || {
+            let config = TimeoutConfig::from_env();
+            assert!(config.is_custom_timeout("my_op"));
+            assert_eq!(config.get_custom_timeout("my_op"), Duration::from_secs(77));
+        });
+    }
+
+    // ========== Validation error paths ==========
+    #[test]
+    fn test_validate_fails_zero_connection_timeout() {
+        temp_env::with_var("SQUIRREL_CONNECTION_TIMEOUT_SECS", Some("0"), || {
+            let config = TimeoutConfig::from_env();
+            assert!(config.validate().is_err());
+        });
+    }
+
+    #[test]
+    fn test_validate_fails_zero_request_timeout() {
+        temp_env::with_var("SQUIRREL_REQUEST_TIMEOUT_SECS", Some("0"), || {
+            let config = TimeoutConfig::from_env();
+            assert!(config.validate().is_err());
+        });
+    }
+
+    #[test]
+    fn test_validate_fails_health_check_exceeds_max() {
+        temp_env::with_var("SQUIRREL_HEALTH_CHECK_TIMEOUT_SECS", Some("60"), || {
+            let config = TimeoutConfig::from_env();
+            assert!(config.validate().is_err());
+        });
+    }
+
+    #[test]
+    fn test_validate_fails_session_exceeds_max() {
+        temp_env::with_var("SQUIRREL_SESSION_TIMEOUT_SECS", Some("100000"), || {
+            let config = TimeoutConfig::from_env();
+            assert!(config.validate().is_err());
+        });
+    }
+
+    #[test]
+    fn test_validate_ok_at_boundaries() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_HEALTH_CHECK_TIMEOUT_SECS", Some("30")),
+                ("SQUIRREL_SESSION_TIMEOUT_SECS", Some("86400")),
+            ],
+            || {
+                let config = TimeoutConfig::from_env();
+                assert!(config.validate().is_ok());
+            },
+        );
+    }
+
+    #[test]
+    fn test_default_uses_from_env() {
+        let config = TimeoutConfig::default();
+        assert!(config.connection_timeout_secs > 0);
+        assert!(config.session_timeout_secs > 0);
+    }
 }

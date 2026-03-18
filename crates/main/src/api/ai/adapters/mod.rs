@@ -28,7 +28,6 @@ pub use universal::{ProviderMetadata, UniversalAiAdapter};
 // DEPRECATED: HTTP-delegating adapters (v0.3.0 removal planned)
 // Enable with `deprecated-adapters` feature
 #[cfg(feature = "deprecated-adapters")]
-#[allow(unexpected_cfgs)] // Feature defined in Cargo.toml
 pub mod anthropic;
 #[cfg(feature = "deprecated-adapters")]
 pub mod openai;

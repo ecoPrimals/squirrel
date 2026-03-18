@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Constraint-based provider selection
-#![allow(dead_code)] // Public API surface awaiting consumer activation
+#![expect(dead_code, reason = "API surface awaiting consumer activation")]
 //!
 //! Applies routing constraints to filter and score providers.
 

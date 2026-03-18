@@ -8,7 +8,9 @@
 
 use async_trait::async_trait;
 
-use super::types::{HealthStatus, ServiceDefinition, ServiceQuery, ServiceStats, ServiceType};
+use super::types::{
+    ServiceDefinition, ServiceHealthStatus, ServiceQuery, ServiceStats, ServiceType,
+};
 use crate::error::CoreResult;
 
 /// Service discovery trait
@@ -171,15 +173,18 @@ pub trait ServiceDiscovery: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::service_discovery::HealthStatus;
+    /// # use squirrel_core::service_discovery::ServiceHealthStatus;
     /// # use squirrel_core::{CoreResult, ServiceDiscovery};
     /// # async fn example(discovery: &dyn ServiceDiscovery) -> CoreResult<()> {
-    /// discovery.update_service_health("my-service", HealthStatus::Unhealthy).await?;
+    /// discovery.update_service_health("my-service", ServiceHealthStatus::Unhealthy).await?;
     /// # Ok(())
     /// # }
     /// ```
-    async fn update_service_health(&self, service_id: &str, health: HealthStatus)
-    -> CoreResult<()>;
+    async fn update_service_health(
+        &self,
+        service_id: &str,
+        health: ServiceHealthStatus,
+    ) -> CoreResult<()>;
 
     /// Send heartbeat for service
     ///

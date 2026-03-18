@@ -65,7 +65,7 @@ impl BiomeManifestParser {
 
     /// Generates a template biome manifest for reference or scaffolding.
     #[must_use]
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines, reason = "Manifest parsing; refactor planned")]
     pub fn generate_template() -> BiomeManifest {
         let ui_host = std::env::var("UI_HOST").unwrap_or_else(|_| "localhost".to_string());
 

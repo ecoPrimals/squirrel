@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use std::collections::HashMap;
+use bytes::Bytes;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
@@ -139,7 +140,7 @@ pub struct Message {
     
     /// Binary payload (if any, base64 encoded when serialized)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub binary_payload: Option<Vec<u8>>,
+    pub binary_payload: Option<Bytes>,
     
     /// Timestamp when the message was created
     #[serde(with = "chrono::serde::ts_seconds")]
@@ -238,8 +239,9 @@ impl Message {
     }
     
     /// Set binary payload
-    #[must_use] pub fn with_binary_payload(mut self, payload: Vec<u8>) -> Self {
-        self.binary_payload = Some(payload);
+    #[must_use]
+    pub fn with_binary_payload(mut self, payload: impl Into<Bytes>) -> Self {
+        self.binary_payload = Some(payload.into());
         self
     }
     
@@ -389,7 +391,7 @@ impl Message {
 pub struct MessageBuilder {
     message_type: MessageType,
     content: String,
-    binary_payload: Option<Vec<u8>>,
+    binary_payload: Option<Bytes>,
     source: String,
     destination: String,
     priority: MessagePriority,
@@ -441,8 +443,8 @@ impl MessageBuilder {
     }
 
     /// Set binary payload
-    pub fn with_binary_payload(mut self, payload: Vec<u8>) -> Self {
-        self.binary_payload = Some(payload);
+    pub fn with_binary_payload(mut self, payload: impl Into<Bytes>) -> Self {
+        self.binary_payload = Some(payload.into());
         self
     }
 

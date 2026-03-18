@@ -27,6 +27,7 @@ use super::adapters::{AnthropicAdapter, OpenAiAdapter};
 use super::http_provider_config::{HttpAiProviderConfig, get_enabled_http_providers};
 
 use super::constraint_router::select_provider_with_constraints;
+use super::dignity::{DignityCheckRequest, DignityEvaluator};
 use super::selector::{ProviderInfo, ProviderSelector};
 use super::types::{
     ActionRequirements, ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
@@ -54,6 +55,23 @@ pub struct AiRouter {
     max_retries: usize,
 }
 
+/// Run dignity check (wateringHole/sovereignty_guardian). Non-blocking: logs warning on violation.
+fn run_dignity_check(prompt: &str, model: Option<&str>, context: Option<&str>) {
+    let evaluator = DignityEvaluator;
+    let request = DignityCheckRequest {
+        prompt,
+        model,
+        context,
+    };
+    let result = evaluator.evaluate_request(&request);
+    if !result.passed {
+        warn!(
+            "Dignity check failed (wateringHole/sovereignty_guardian): {}",
+            result.explanation
+        );
+    }
+}
+
 impl AiRouter {
     /// Create a new AI router with capability-based discovery (TRUE PRIMAL!)
     ///
@@ -74,7 +92,7 @@ impl AiRouter {
     /// ```rust,ignore
     /// let router = AiRouter::new_with_discovery(None).await?;
     /// ```
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines, reason = "Router dispatch; refactor planned")]
     pub async fn new_with_discovery(
         _service_mesh_client: Option<Arc<dyn std::any::Any + Send + Sync>>,
     ) -> Result<Self, PrimalError> {
@@ -382,6 +400,8 @@ impl AiRouter {
     ) -> Result<ImageGenerationResponse, PrimalError> {
         info!("🎨 Routing image generation request: '{}'", request.prompt);
 
+        run_dignity_check(&request.prompt, None, None);
+
         let provider_infos = self.get_image_generation_providers().await?;
 
         if provider_infos.is_empty() {
@@ -498,6 +518,8 @@ impl AiRouter {
             "💬 Routing text generation request ({} tokens max)",
             request.max_tokens
         );
+
+        run_dignity_check(&request.prompt, request.model.as_deref(), None);
 
         let providers = self.providers.read().await;
 

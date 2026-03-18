@@ -36,4 +36,8 @@ pub enum ToolError {
     /// Generic internal tool error
     #[error("Internal tool error: {0}")]
     InternalError(String),
+
+    /// Tool validation failed
+    #[error("Tool validation failed: {0}")]
+    ValidationFailed(String),
 }

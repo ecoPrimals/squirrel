@@ -6,12 +6,11 @@
 //! Simplified transport layer focusing on core functionality.
 
 pub mod frame;
+pub mod framing;
 /// Transport types and metadata
 pub mod types;
-// pub mod tcp;      // Commented out due to compilation issues
 #[cfg(feature = "websocket")]
-pub mod websocket; // Re-enabled for Web-MCP integration
-// pub mod stdio;    // Commented out due to compilation issues
+pub mod websocket;
 
 // Re-export core types
 pub use types::*;

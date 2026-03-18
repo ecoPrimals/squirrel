@@ -107,7 +107,7 @@ impl Default for DefaultPluginManager {
     }
 }
 
-/// Manifest format for plugin.toml (TOML with [plugin] section)
+/// Manifest format for plugin.toml (TOML with `\[plugin\]` section)
 #[derive(serde::Deserialize)]
 struct PluginManifestToml {
     plugin: PluginManifestSection,

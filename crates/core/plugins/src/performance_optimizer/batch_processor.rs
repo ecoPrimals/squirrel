@@ -41,7 +41,7 @@ impl BatchProcessor {
         }
     }
 
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(clippy::cast_precision_loss, reason = "Batch metrics calculation")]
     pub(super) async fn batch_load_plugins(
         &self,
         plugin_entries: Vec<Arc<ZeroCopyPluginEntry>>,

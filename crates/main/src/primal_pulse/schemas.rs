@@ -2,9 +2,9 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! JSON schemas for PrimalPulse tools
-#![allow(dead_code)] // Schema functions used for dynamic MCP tool registration
 //!
 //! Defines input/output schemas for dynamic tool registration
+#![allow(dead_code)] // Schema functions used by dynamic tool registration
 
 use serde_json::{Value, json};
 

@@ -32,6 +32,7 @@
 pub mod constants;
 pub mod error;
 pub mod protocol;
+pub mod security;
 pub mod transport;
 pub mod types;
 pub mod utils;

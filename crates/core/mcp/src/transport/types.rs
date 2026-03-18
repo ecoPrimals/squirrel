@@ -6,6 +6,7 @@
 // BearDog handles security: // use crate::security::types::EncryptionFormat;
 use crate::types::CompressionFormat;
 use crate::types::EncryptionFormat;
+use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -55,7 +56,7 @@ pub enum TransportEvent {
     /// Connection was closed, optionally with a reason
     Disconnected(Option<String>),
     /// Raw message bytes were received
-    MessageReceived(Vec<u8>),
+    MessageReceived(Bytes),
     /// An error occurred
     Error(String),
 }
@@ -102,7 +103,7 @@ pub struct TransportMessage {
     /// Unique message identifier
     pub id: String,
     /// Raw message payload
-    pub payload: Vec<u8>,
+    pub payload: Bytes,
     /// Message metadata
     pub metadata: TransportMessageMetadata,
 }

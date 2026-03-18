@@ -6,6 +6,7 @@
 //! Type definitions for federation network communication including
 //! configuration, messages, nodes, peers, and statistics.
 
+use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -97,7 +98,7 @@ pub enum NetworkMessage {
         /// The type of data operation
         operation: DataOperation,
         /// The data being synchronized
-        data: Vec<u8>,
+        data: Bytes,
         /// Checksum for data integrity verification
         checksum: String,
     },
@@ -113,7 +114,7 @@ pub enum NetworkMessage {
         /// Type identifier for the message
         message_type: String,
         /// Message payload data
-        payload: Vec<u8>,
+        payload: Bytes,
         /// ID of the message sender
         sender: Uuid,
         /// ID of the intended recipient (None for broadcast)

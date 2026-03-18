@@ -113,7 +113,7 @@ impl ToolExecutor {
     ///
     /// Dispatches to built-in implementations or returns an error for
     /// unregistered tools.
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines, reason = "Command dispatch; refactor planned")]
     pub async fn execute_tool(
         &self,
         tool_name: &str,

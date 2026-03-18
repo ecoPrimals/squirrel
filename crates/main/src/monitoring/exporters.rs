@@ -86,7 +86,7 @@ impl PrometheusExporter {
 
 #[async_trait]
 impl MetricsExporter for PrometheusExporter {
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines, reason = "Export logic; refactor planned")]
     async fn export_metrics(&self, metrics: AllMetrics) -> Result<String, PrimalError> {
         // Prometheus exposition format (text/plain; version=0.0.4)
         // See: https://prometheus.io/docs/instrumenting/exposition_formats/
@@ -288,9 +288,10 @@ mod tests {
     use chrono::Utc;
 
     fn create_test_config(name: &str) -> ExporterConfig {
+        let endpoint = http_url(DEFAULT_LOCALHOST, get_service_port("metrics"), "/metrics");
         ExporterConfig {
             name: name.to_string(),
-            endpoint: "http://localhost:9090/metrics".to_string(),
+            endpoint,
             interval: std::time::Duration::from_secs(30),
             auth: None,
             headers: HashMap::new(),

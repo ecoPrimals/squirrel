@@ -7,7 +7,7 @@
 
 use super::*;
 use crate::service_discovery::{
-    HealthStatus, InMemoryServiceDiscovery, ServiceDefinition, ServiceDiscoveryClient,
+    InMemoryServiceDiscovery, ServiceDefinition, ServiceDiscoveryClient, ServiceHealthStatus,
     ServiceEndpoint, ServiceQuery, ServiceRegistry, ServiceType,
 };
 use std::sync::Arc;
@@ -160,7 +160,7 @@ async fn test_service_query_complex() {
     let query = ServiceQuery::new()
         .with_service_type(ServiceType::AI)
         .with_capability("advanced".to_string())
-        .with_health_status(HealthStatus::Healthy)
+        .with_health_status(ServiceHealthStatus::Healthy)
         .limit(5);
 
     let results = discovery.discover_services(query).await.unwrap();
@@ -373,5 +373,5 @@ async fn test_service_update_health_status() {
         .unwrap();
 
     let found = discovery.get_service("health-test").await.unwrap().unwrap();
-    assert_eq!(found.health_status, HealthStatus::Healthy);
+    assert_eq!(found.health_status, ServiceHealthStatus::Healthy);
 }

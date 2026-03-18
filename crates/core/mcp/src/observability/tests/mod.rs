@@ -411,16 +411,6 @@ fn test_error_handling() -> ObservabilityResult<()> {
 // of the Observability Framework components working together.
 
 // Missing modules - uncomment when implementations are available
-// mod dashboard_integration_tests;
-// mod framework_tests;
-
-// Re-export test utilities for use in other test modules
-// These are currently missing - uncomment when implemented
-// pub use super::metrics::tests::helpers as metrics_test_helpers;
-// pub use super::tracing::tests::helpers as tracing_test_helpers;
-// pub use super::health::tests::helpers as health_test_helpers;
-// pub use super::alerting::tests::helpers as alerting_test_helpers;
-
 // Test utilities for the Observability Framework
 pub mod helpers {
     use std::sync::Arc;
@@ -514,8 +504,6 @@ pub mod helpers {
     }
 }
 
-// Add example_tests module
-// mod example_tests;
 
 /// Test framework initialization and basic usage
 #[tokio::test]

@@ -115,7 +115,7 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Register squirrel AI with biomeOS ecosystem
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines, reason = "Integration logic; refactor planned")]
     pub async fn register_with_biomeos(&mut self) -> Result<(), PrimalError> {
         let registration = EcosystemServiceRegistration {
             service_id: self.service_id.clone(),

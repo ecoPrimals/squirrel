@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// API Server for the MCP Routing Service
-#[allow(clippy::struct_field_names)]
+#[expect(clippy::struct_field_names, reason = "Domain naming convention")]
 pub struct ApiServer {
     ecosystem_service: Arc<EcosystemService>,
     routing_service: Arc<McpRoutingService>,
@@ -287,7 +287,10 @@ async fn get_federation_stats(State(state): State<AppState>) -> impl IntoRespons
 // Ecosystem coordination handlers
 
 /// Discover primals
-#[allow(clippy::cast_possible_truncation)]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "API response handling; value ranges audited"
+)]
 async fn discover_primals(State(state): State<AppState>) -> impl IntoResponse {
     let primals = match state.ecosystem.discover_primals().await {
         Ok(p) => p,
@@ -314,7 +317,10 @@ async fn coordinate_task(
 }
 
 /// List discovered primals
-#[allow(clippy::cast_possible_truncation)]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "API response handling; value ranges audited"
+)]
 async fn list_discovered_primals(State(state): State<AppState>) -> impl IntoResponse {
     let primals = state.ecosystem.get_discovered_primals();
 

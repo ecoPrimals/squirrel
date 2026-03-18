@@ -524,12 +524,14 @@ impl ErrorHandler {
     /// # Returns
     ///
     /// Boolean indicating whether recovery was successful
+    #[expect(
+        unused_variables,
+        reason = "Trait default impl; params reserved for derived implementations"
+    )]
     pub const fn apply_recovery_strategy(
         &self,
-        // These parameters are intentionally unused in this implementation
-        // but may be used by derived implementations
-        #[allow(unused_variables)] context: &mut LocalErrorContext,
-        #[allow(unused_variables)] strategy: &RecoveryStrategy,
+        context: &mut LocalErrorContext,
+        strategy: &RecoveryStrategy,
     ) -> bool {
         // Default implementation returns true
         true

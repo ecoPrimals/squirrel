@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! WebSocket transport implementation for MCP.
-#![allow(dead_code)] // WebSocket transport awaiting activation
+#![expect(dead_code, reason = "WebSocket transport awaiting activation")]
 
 // This module provides a WebSocket-based transport implementation
 // for Machine Context Protocol (MCP) communication. It supports
@@ -300,7 +300,6 @@ impl WebSocketTransport {
     }
 
     /// Get the remote address of the WebSocket connection (reserved for connection address tracking)
-    #[allow(dead_code)] // Phase 2 placeholder — connection address tracking
     pub async fn remote_addr(&self) -> std::result::Result<Option<SocketAddr>, MCPError> {
         // Access the peer_addr field instead of trying to access a stream field
         let peer_addr = self.peer_addr.lock().await;

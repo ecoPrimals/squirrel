@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Security level placeholder for core MCP functionality
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum SecurityLevel {
     /// Low security level
     Low,

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core security monitoring types
-#![allow(dead_code)] // Security monitoring types awaiting activation
+#![expect(dead_code, reason = "Security monitoring types awaiting activation")]
 //!
 //! This module contains the fundamental types used throughout the security
 //! monitoring system, including events, severity levels, and patterns.

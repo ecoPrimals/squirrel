@@ -81,10 +81,10 @@ fn test_feature_extraction_method_serialization() {
 fn test_reward_parameters_default() {
     let params = RewardParameters::default();
 
-    assert_eq!(params.success_reward, 10.0);
-    assert_eq!(params.failure_penalty, -5.0);
-    assert_eq!(params.step_penalty, -0.1);
-    assert_eq!(params.context_improvement_reward, 5.0);
+    assert!((params.success_reward - 10.0).abs() < f64::EPSILON);
+    assert!((params.failure_penalty - (-5.0)).abs() < f64::EPSILON);
+    assert!((params.step_penalty - (-0.1)).abs() < f64::EPSILON);
+    assert!((params.context_improvement_reward - 5.0).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -92,8 +92,8 @@ fn test_reward_parameters_clone() {
     let params = RewardParameters::default();
     let cloned = params.clone();
 
-    assert_eq!(cloned.success_reward, params.success_reward);
-    assert_eq!(cloned.error_penalty, params.error_penalty);
+    assert!((cloned.success_reward - params.success_reward).abs() < f64::EPSILON);
+    assert!((cloned.error_penalty - params.error_penalty).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -103,8 +103,8 @@ fn test_reward_parameters_serialization() {
     let deserialized: RewardParameters =
         serde_json::from_str(&serialized).expect("Failed to deserialize");
 
-    assert_eq!(deserialized.success_reward, params.success_reward);
-    assert_eq!(deserialized.failure_penalty, params.failure_penalty);
+    assert!((deserialized.success_reward - params.success_reward).abs() < f64::EPSILON);
+    assert!((deserialized.failure_penalty - params.failure_penalty).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -113,8 +113,8 @@ fn test_learning_stats_default() {
 
     assert_eq!(stats.total_episodes, 0);
     assert_eq!(stats.successful_episodes, 0);
-    assert_eq!(stats.average_episode_length, 0.0);
-    assert_eq!(stats.average_reward_per_episode, 0.0);
+    assert!(stats.average_episode_length.abs() < f64::EPSILON);
+    assert!(stats.average_reward_per_episode.abs() < f64::EPSILON);
     assert_eq!(stats.successful_episodes, 0);
     assert_eq!(stats.contexts_learned, 0);
     assert_eq!(stats.rule_adaptations, 0);
@@ -368,8 +368,8 @@ async fn test_manager_provide_reward() {
 
     let active_episodes = manager.get_active_episodes().await;
     assert_eq!(active_episodes[0].rewards.len(), 1, "Should have 1 reward");
-    assert_eq!(
-        active_episodes[0].rewards[0], 5.0,
+    assert!(
+        (active_episodes[0].rewards[0] - 5.0).abs() < f64::EPSILON,
         "Reward value should match"
     );
 }
@@ -403,16 +403,16 @@ async fn test_manager_multiple_rewards() {
 
     let active_episodes = manager.get_active_episodes().await;
     assert_eq!(active_episodes[0].rewards.len(), 3, "Should have 3 rewards");
-    assert_eq!(
-        active_episodes[0].rewards[0], 1.0,
+    assert!(
+        (active_episodes[0].rewards[0] - 1.0).abs() < f64::EPSILON,
         "First reward should be 1.0"
     );
-    assert_eq!(
-        active_episodes[0].rewards[1], 2.0,
+    assert!(
+        (active_episodes[0].rewards[1] - 2.0).abs() < f64::EPSILON,
         "Second reward should be 2.0"
     );
-    assert_eq!(
-        active_episodes[0].rewards[2], 3.0,
+    assert!(
+        (active_episodes[0].rewards[2] - 3.0).abs() < f64::EPSILON,
         "Third reward should be 3.0"
     );
 }
@@ -453,12 +453,12 @@ async fn test_manager_episode_with_actions_and_rewards() {
     let active_episodes = manager.get_active_episodes().await;
     assert_eq!(active_episodes[0].actions.len(), 2, "Should have 2 actions");
     assert_eq!(active_episodes[0].rewards.len(), 2, "Should have 2 rewards");
-    assert_eq!(
-        active_episodes[0].rewards[0], 1.0,
+    assert!(
+        (active_episodes[0].rewards[0] - 1.0).abs() < f64::EPSILON,
         "First reward should be 1.0"
     );
-    assert_eq!(
-        active_episodes[0].rewards[1], 2.0,
+    assert!(
+        (active_episodes[0].rewards[1] - 2.0).abs() < f64::EPSILON,
         "Second reward should be 2.0"
     );
 }
@@ -579,8 +579,8 @@ async fn test_manager_failed_episode() {
     let history = manager.get_episode_history().await;
     assert_eq!(history.len(), 1, "Should have 1 completed episode");
     assert!(!history[0].success, "Episode should be marked as failed");
-    assert_eq!(
-        history[0].total_reward, -5.0,
+    assert!(
+        (history[0].total_reward - (-5.0)).abs() < f64::EPSILON,
         "Total reward should be negative"
     );
 }
@@ -653,11 +653,11 @@ async fn test_manager_multiple_contexts() {
         .expect("Failed to start episode 3");
 
     let active_episodes = manager.get_active_episodes().await;
-    assert_eq!(active_episodes.len(), 3, "Should have 3 active episodes");
-
-    // Different contexts should have different episode IDs
-    let episode_ids: Vec<String> = active_episodes.iter().map(|e| e.id.clone()).collect();
-    assert_eq!(episode_ids.len(), 3, "All episodes should have unique IDs");
+    assert_eq!(
+        active_episodes.len(),
+        3,
+        "Should have 3 active episodes with unique IDs"
+    );
 }
 
 #[tokio::test]
@@ -668,8 +668,8 @@ async fn test_reward_parameters_custom_values() {
         ..Default::default()
     };
 
-    assert_eq!(params.success_reward, 20.0);
-    assert_eq!(params.failure_penalty, -10.0);
+    assert!((params.success_reward - 20.0).abs() < f64::EPSILON);
+    assert!((params.failure_penalty - (-10.0)).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -698,4 +698,268 @@ fn test_manager_config_custom_intervals() {
 
     assert_eq!(config.learning_update_interval.as_secs(), 5);
     assert_eq!(config.context_observation_interval.as_millis(), 500);
+}
+
+// ============================================================================
+// Model management, training, inference tests
+// ============================================================================
+
+#[tokio::test]
+async fn test_manager_learning_stats_after_multiple_episodes() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+
+    for i in 0..5 {
+        let episode_id = manager
+            .start_episode(&format!("context_{}", i))
+            .await
+            .expect("Failed to start episode");
+        manager
+            .take_action(&episode_id, &format!("context_{}", i))
+            .await
+            .expect("Failed to take action");
+        manager
+            .provide_reward(&episode_id, (i + 1) as f64)
+            .await
+            .expect("Failed to provide reward");
+        manager
+            .end_episode(&episode_id, i % 2 == 0)
+            .await
+            .expect("Failed to end episode");
+    }
+
+    let stats = manager.get_learning_stats().await;
+    assert_eq!(stats.total_episodes, 5);
+    assert!(stats.successful_episodes >= 2);
+    assert!(stats.success_rate > 0.0);
+    assert!(stats.average_reward_per_episode > 0.0);
+}
+
+#[tokio::test]
+async fn test_manager_episode_total_reward_calculation() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+
+    let episode_id = manager
+        .start_episode("test_context")
+        .await
+        .expect("Failed to start episode");
+
+    manager
+        .provide_reward(&episode_id, 1.0)
+        .await
+        .expect("Failed");
+    manager
+        .provide_reward(&episode_id, 2.0)
+        .await
+        .expect("Failed");
+    manager
+        .provide_reward(&episode_id, 3.0)
+        .await
+        .expect("Failed");
+
+    manager
+        .end_episode(&episode_id, true)
+        .await
+        .expect("Failed");
+
+    let history = manager.get_episode_history().await;
+    assert_eq!(history.len(), 1);
+    assert!((history[0].total_reward - 6.0).abs() < 0.001);
+}
+
+#[tokio::test]
+async fn test_manager_episode_duration_recorded() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+
+    let episode_id = manager.start_episode("test_context").await.expect("Failed");
+    manager
+        .end_episode(&episode_id, true)
+        .await
+        .expect("Failed");
+
+    let history = manager.get_episode_history().await;
+    assert_eq!(history.len(), 1);
+    assert!(history[0].duration.is_some());
+}
+
+#[tokio::test]
+async fn test_manager_set_rule_manager() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+
+    let rule_manager = Arc::new(crate::rules::RuleManager::new("./rules"));
+    manager.set_rule_manager(rule_manager).await;
+}
+
+#[tokio::test]
+async fn test_manager_action_inference_from_engine() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+
+    let episode_id = manager
+        .start_episode("inference_context")
+        .await
+        .expect("Failed");
+
+    let action = manager
+        .take_action(&episode_id, "inference_context")
+        .await
+        .expect("Failed to take action");
+
+    assert!(!action.id.is_empty());
+    assert!(!action.action_type.is_empty());
+    assert!(action.confidence >= 0.0 && action.confidence <= 1.0);
+}
+
+#[tokio::test]
+async fn test_manager_session_tracks_multiple_episodes() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+    manager.start().await.expect("Failed to start");
+
+    let ep1 = manager.start_episode("ctx1").await.expect("Failed");
+    let ep2 = manager.start_episode("ctx2").await.expect("Failed");
+
+    manager.end_episode(&ep1, true).await.expect("Failed");
+    manager.end_episode(&ep2, false).await.expect("Failed");
+
+    let session = manager.get_current_session().await;
+    assert!(session.is_some());
+    let session = session.unwrap();
+    assert!(session.episodes.len() >= 2);
+}
+
+#[tokio::test]
+async fn test_manager_learning_stats_success_rate() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+
+    for i in 0..5 {
+        let ep = manager
+            .start_episode(&format!("ctx_{}", i))
+            .await
+            .expect("Failed");
+        manager.provide_reward(&ep, 1.0).await.expect("Failed");
+        manager.end_episode(&ep, i < 3).await.expect("Failed");
+    }
+
+    let stats = manager.get_learning_stats().await;
+    assert_eq!(stats.total_episodes, 5);
+    assert_eq!(stats.successful_episodes, 3);
+    assert!((stats.success_rate - 0.6).abs() < 0.01);
+}
+
+#[tokio::test]
+async fn test_manager_context_manager_access() {
+    use squirrel_interfaces::context::ContextManager as ContextManagerTrait;
+
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    let context_manager = manager.get_context_manager();
+    manager.initialize().await.expect("Failed to initialize");
+
+    let init_result = context_manager.initialize().await;
+    assert!(init_result.is_ok());
+}
+
+#[tokio::test]
+async fn test_manager_learning_engine_access() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    let engine = manager.get_learning_engine();
+    let state = engine.get_state().await;
+    assert!(matches!(
+        state,
+        crate::learning::LearningState::Initializing
+    ));
+}
+
+#[tokio::test]
+async fn test_manager_provide_reward_updates_learning_engine() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+
+    let episode_id = manager.start_episode("test_context").await.expect("Failed");
+
+    manager
+        .take_action(&episode_id, "test_context")
+        .await
+        .expect("Failed to take action");
+
+    let result = manager.provide_reward(&episode_id, 5.0).await;
+    assert!(result.is_ok());
+
+    let active = manager.get_active_episodes().await;
+    assert_eq!(active[0].rewards.len(), 1);
+    assert!((active[0].rewards[0] - 5.0).abs() < 0.001);
+}
+
+#[tokio::test]
+async fn test_manager_episode_final_state_recorded() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let manager = ContextLearningManager::new(system_config)
+        .await
+        .expect("Failed to create manager");
+
+    manager.initialize().await.expect("Failed to initialize");
+
+    let episode_id = manager.start_episode("test_context").await.expect("Failed");
+
+    manager
+        .end_episode(&episode_id, true)
+        .await
+        .expect("Failed");
+
+    let history = manager.get_episode_history().await;
+    assert_eq!(history.len(), 1);
+    assert!(history[0].final_state.is_some());
+}
+
+#[test]
+fn test_manager_reward_parameters_default() {
+    let params = super::manager::RewardParameters::default();
+    assert!((params.success_reward - 10.0).abs() < f64::EPSILON);
+    assert!((params.failure_penalty - (-5.0)).abs() < f64::EPSILON);
+    assert!((params.step_penalty - (-0.1)).abs() < f64::EPSILON);
+    assert!((params.error_penalty - (-10.0)).abs() < f64::EPSILON);
 }

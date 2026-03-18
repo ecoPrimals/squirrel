@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use crate::error::{MCPError, tool::ToolError};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
-use anyhow::{Result, Context};
 use serde::{Deserialize, Serialize};
-use crate::mcp::error::{MCPError, ToolError};
+use std::collections::{HashMap, HashSet};
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tool {
@@ -53,7 +52,7 @@ pub struct ReturnType {
     pub description: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SecurityLevel {
     Low,
     Medium,
@@ -69,7 +68,7 @@ pub struct ToolState {
     pub error_count: u64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ToolStatus {
     Active,
     Inactive,
@@ -81,6 +80,12 @@ pub struct ToolManager {
     tools: RwLock<HashMap<String, Tool>>,
     states: RwLock<HashMap<String, ToolState>>,
     capabilities: RwLock<HashMap<String, HashSet<String>>>, // capability -> tool IDs
+}
+
+impl Default for ToolManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ToolManager {
@@ -99,7 +104,8 @@ impl ToolManager {
         // Update capabilities index
         let mut capabilities = self.capabilities.write().await;
         for capability in &tool.capabilities {
-            capabilities.entry(capability.name.clone())
+            capabilities
+                .entry(capability.name.clone())
                 .or_insert_with(HashSet::new)
                 .insert(tool.id.clone());
         }
@@ -115,8 +121,9 @@ impl ToolManager {
         // Store tool and state
         let mut tools = self.tools.write().await;
         let mut states = self.states.write().await;
-        tools.insert(tool.id.clone(), tool);
-        states.insert(tool.id.clone(), state);
+        let tool_id = tool.id.clone();
+        tools.insert(tool_id.clone(), tool);
+        states.insert(tool_id, state);
 
         Ok(())
     }
@@ -135,10 +142,11 @@ impl ToolManager {
         // Remove tool and state
         let mut tools = self.tools.write().await;
         let mut states = self.states.write().await;
-        tools.remove(tool_id)
-            .ok_or_else(|| MCPError::Tool(ToolError::RegistrationFailed(
-                format!("Tool not found: {}", tool_id)
-            )))?;
+        tools.remove(tool_id).ok_or_else(|| {
+            MCPError::Tool(ToolError::RegistrationFailed(format!(
+                "Tool not found: {tool_id}"
+            )))
+        })?;
         states.remove(tool_id);
 
         Ok(())
@@ -160,76 +168,87 @@ impl ToolManager {
             state.status = status;
             state.last_used = Utc::now();
         } else {
-            return Err(MCPError::Tool(ToolError::LifecycleError(
-                format!("Tool not found: {}", tool_id)
-            )).into());
+            return Err(MCPError::Tool(ToolError::LifecycleError(format!(
+                "Tool not found: {tool_id}"
+            )))
+            .into());
         }
         Ok(())
     }
 
     pub async fn find_tools_by_capability(&self, capability: &str) -> Result<HashSet<String>> {
         let capabilities = self.capabilities.read().await;
-        Ok(capabilities.get(capability)
-            .cloned()
-            .unwrap_or_default())
+        Ok(capabilities.get(capability).cloned().unwrap_or_default())
     }
 
     pub async fn validate_capability(&self, tool_id: &str, capability: &str) -> Result<()> {
         let tools = self.tools.read().await;
-        let tool = tools.get(tool_id)
-            .ok_or_else(|| MCPError::Tool(ToolError::ValidationFailed(
-                format!("Tool not found: {}", tool_id)
-            )))?;
+        let tool = tools.get(tool_id).ok_or_else(|| {
+            MCPError::Tool(ToolError::ValidationFailed(format!(
+                "Tool not found: {tool_id}"
+            )))
+        })?;
 
         if !tool.capabilities.iter().any(|c| c.name == capability) {
-            return Err(MCPError::Tool(ToolError::ValidationFailed(
-                format!("Tool {} does not have capability {}", tool_id, capability)
-            )).into());
+            return Err(MCPError::Tool(ToolError::ValidationFailed(format!(
+                "Tool {tool_id} does not have capability {capability}"
+            )))
+            .into());
         }
 
         Ok(())
     }
 
+    #[expect(
+        clippy::unused_self,
+        reason = "method will use self when validation checks security context"
+    )]
     fn validate_tool(&self, tool: &Tool) -> Result<()> {
         // Validate basic fields
         if tool.id.is_empty() {
             return Err(MCPError::Tool(ToolError::ValidationFailed(
-                "Tool ID cannot be empty".to_string()
-            )).into());
+                "Tool ID cannot be empty".to_string(),
+            ))
+            .into());
         }
 
         if tool.name.is_empty() {
             return Err(MCPError::Tool(ToolError::ValidationFailed(
-                "Tool name cannot be empty".to_string()
-            )).into());
+                "Tool name cannot be empty".to_string(),
+            ))
+            .into());
         }
 
         if tool.version.is_empty() {
             return Err(MCPError::Tool(ToolError::ValidationFailed(
-                "Tool version cannot be empty".to_string()
-            )).into());
+                "Tool version cannot be empty".to_string(),
+            ))
+            .into());
         }
 
         // Validate capabilities
         if tool.capabilities.is_empty() {
             return Err(MCPError::Tool(ToolError::ValidationFailed(
-                "Tool must have at least one capability".to_string()
-            )).into());
+                "Tool must have at least one capability".to_string(),
+            ))
+            .into());
         }
 
         for capability in &tool.capabilities {
             if capability.name.is_empty() {
                 return Err(MCPError::Tool(ToolError::ValidationFailed(
-                    "Capability name cannot be empty".to_string()
-                )).into());
+                    "Capability name cannot be empty".to_string(),
+                ))
+                .into());
             }
 
             // Validate parameters
             for param in &capability.parameters {
                 if param.name.is_empty() {
                     return Err(MCPError::Tool(ToolError::ValidationFailed(
-                        "Parameter name cannot be empty".to_string()
-                    )).into());
+                        "Parameter name cannot be empty".to_string(),
+                    ))
+                    .into());
                 }
             }
         }
@@ -260,12 +279,13 @@ impl ToolManager {
     pub async fn get_active_tools(&self) -> Result<Vec<Tool>> {
         let tools = self.tools.read().await;
         let states = self.states.read().await;
-        
-        Ok(tools.values()
+
+        Ok(tools
+            .values()
             .filter(|tool| {
-                states.get(&tool.id)
-                    .map(|state| state.status == ToolStatus::Active)
-                    .unwrap_or(false)
+                states
+                    .get(&tool.id)
+                    .is_some_and(|state| state.status == ToolStatus::Active)
             })
             .cloned()
             .collect())
@@ -273,9 +293,10 @@ impl ToolManager {
 
     pub async fn get_tools_by_security_level(&self, level: SecurityLevel) -> Result<Vec<Tool>> {
         let tools = self.tools.read().await;
-        Ok(tools.values()
+        Ok(tools
+            .values()
             .filter(|tool| tool.security_level == level)
             .cloned()
             .collect())
     }
-} 
+}

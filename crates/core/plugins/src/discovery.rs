@@ -37,7 +37,6 @@ use crate::plugin::{Plugin, PluginMetadata};
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)] // Fields used for deserialization, tests, and PluginLoader::load_plugin
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -52,9 +51,11 @@ pub struct PluginManifest {
     pub author: String,
 
     /// Plugin entry point
+    #[allow(dead_code)] // Reserved for dynamic plugin loading; used in tests
     pub entry_point: String,
 
     /// Plugin type
+    #[allow(dead_code)] // Reserved for dynamic plugin loading; used in tests
     pub plugin_type: String,
 
     /// Plugin dependencies
@@ -259,7 +260,10 @@ impl DefaultPluginDiscovery {
     }
 
     /// Load a plugin from a path
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     pub async fn load_plugin(&self, path: &Path) -> Result<Arc<dyn Plugin>> {
         anyhow::bail!(
             "Dynamic plugin loading not yet implemented at path: {}",
@@ -270,7 +274,7 @@ impl DefaultPluginDiscovery {
 
 /// Default plugin loader implementation (kept for trait impl / future use)
 #[derive(Debug, Copy, Clone)]
-#[allow(dead_code)] // Used in tests and as PluginLoader implementation
+#[allow(dead_code)] // PluginLoader impl; used in tests
 pub struct DefaultPluginLoader;
 
 #[async_trait]

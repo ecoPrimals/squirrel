@@ -187,7 +187,7 @@ pub enum PrimalCapability {
 }
 
 impl Hash for PrimalCapability {
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines, reason = "Type definitions; refactor planned")]
     fn hash<H: Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
         match self {

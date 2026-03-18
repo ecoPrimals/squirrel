@@ -75,7 +75,6 @@ pub mod json_rpc_types;
 pub mod state;
 /// Server implementation for MCP synchronization
 pub mod server;
-// pub use state::{StateChange, StateOperation}; // Remove re-export if direct import is used everywhere
 
 #[cfg(test)]
 mod tests;

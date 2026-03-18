@@ -6,13 +6,13 @@
 //! This module provides identity management functionality for the MCP system.
 //! Actual identity operations are delegated to the BearDog framework.
 
+use crate::error::Result;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use crate::error::Result;
 
 /// User identity information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ pub struct UserIdentity {
 }
 
 /// Default identity manager implementation
-/// 
+///
 /// This provides basic identity management that can be extended
 /// or replaced with BearDog integration in the future.
 #[derive(Debug, Clone)]
@@ -44,7 +44,11 @@ impl DefaultIdentityManager {
     }
 
     /// Create a new user identity
-    pub async fn create_identity(&self, username: String, email: Option<String>) -> Result<UserIdentity> {
+    pub async fn create_identity(
+        &self,
+        username: String,
+        email: Option<String>,
+    ) -> Result<UserIdentity> {
         let identity = UserIdentity {
             id: Uuid::new_v4(),
             username,
@@ -69,7 +73,10 @@ impl DefaultIdentityManager {
     /// Get user identity by username
     pub async fn get_identity_by_username(&self, username: &str) -> Result<Option<UserIdentity>> {
         let identities = self.identities.read().await;
-        Ok(identities.values().find(|i| i.username == username).cloned())
+        Ok(identities
+            .values()
+            .find(|i| i.username == username)
+            .cloned())
     }
 
     /// Update user identity
@@ -87,7 +94,11 @@ impl DefaultIdentityManager {
     }
 
     /// Authenticate user
-    pub async fn authenticate(&self, username: &str, _password: &str) -> Result<Option<UserIdentity>> {
+    pub async fn authenticate(
+        &self,
+        username: &str,
+        _password: &str,
+    ) -> Result<Option<UserIdentity>> {
         // Placeholder implementation - delegate to BearDog
         self.get_identity_by_username(username).await
     }
@@ -106,4 +117,4 @@ impl Default for DefaultIdentityManager {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

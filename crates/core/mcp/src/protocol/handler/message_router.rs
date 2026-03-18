@@ -10,21 +10,21 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::mcp::MessageType;
+use crate::protocol::types::MessageType;
 use crate::security::manager::SecurityManagerImpl;
 
-// Placeholder trait - actual handler implementation would go in a separate module
-pub trait MessageHandler: Send + Sync {
-    // Handler methods would be defined here
-}
+/// Placeholder trait — actual handler implementation would go in a separate module
+pub trait MessageHandler: Send + Sync {}
 
-/// MessageRouter is responsible for routing messages to the appropriate handler
-/// based on message type and content.
+/// Handler map: message type -> ordered handler chain
+type HandlerMap = HashMap<MessageType, Vec<Arc<dyn MessageHandler>>>;
+
+/// Routes MCP messages to the appropriate handler based on message type.
 #[derive(Clone)]
 pub struct MessageRouter {
-    /// Map of handlers for different message types
-    handlers: Arc<RwLock<HashMap<MessageType, Vec<Arc<dyn MessageHandler>>>>>,
-    /// Security manager for permission checking
+    #[allow(dead_code)]
+    handlers: Arc<RwLock<HandlerMap>>,
+    #[allow(dead_code)]
     security: Arc<SecurityManagerImpl>,
 }
 
@@ -36,7 +36,4 @@ impl MessageRouter {
             security,
         }
     }
-
-    // Additional routing methods would be implemented here as needed
 }
-

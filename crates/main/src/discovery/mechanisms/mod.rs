@@ -15,6 +15,7 @@ pub mod env_vars;
 pub mod mdns;
 pub mod registry;
 pub mod registry_trait;
+pub mod socket_registry;
 
 // Re-export for convenience
 pub use dnssd::DnssdDiscovery;
@@ -27,3 +28,4 @@ pub use mdns::MdnsDiscovery;
 )]
 pub use registry::{RegistryDiscovery, RegistryType};
 pub use registry_trait::{ServiceRegistryProvider, auto_detect_registry};
+pub use socket_registry::{SocketRegistryDiscovery, discover_from_socket_registry};

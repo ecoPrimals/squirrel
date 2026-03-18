@@ -186,7 +186,7 @@ mod tests {
 
     // We'll keep the network test implementation but add a separate test for it that's ignored by default
     #[tokio::test]
-    #[ignore = "Ignored by default because it can be slow and unreliable"]
+    #[ignore = "Network-dependent: requires actual MCP server, slow and unreliable"]
     async fn test_command_registry_integration_network() {
         use std::time::Instant;
 

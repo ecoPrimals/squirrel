@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Bridge Adapter - Connect Universal AI to Legacy Router
-#![allow(dead_code)] // Migration bridge awaiting activation
 //!
 //! This module provides a bridge between the new universal AI interface
 //! (AiCapability) and the legacy router interface (AiProviderAdapter).

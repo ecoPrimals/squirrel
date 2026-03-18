@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! GPU Detection and Management
-#![allow(dead_code)] // Hardware detection API used at runtime
 //!
 //! Provides GPU detection and VRAM tracking for AI model management.
 //! Maintains primal self-knowledge - only reports on THIS instance's GPU.

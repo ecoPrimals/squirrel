@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core Squirrel Primal Provider Implementation
-#![allow(dead_code)] // Provider fields used by ecosystem integration at runtime
+#![expect(
+    dead_code,
+    reason = "Provider fields used by ecosystem integration at runtime"
+)]
 
 // TryFutureExt removed - not currently used in this module
 use std::collections::HashMap;

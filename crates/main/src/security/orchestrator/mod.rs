@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Security Orchestration System
-#![allow(dead_code)] // Security infrastructure awaiting full wiring
 //!
 //! This module provides unified security orchestration that coordinates:
 //! - Authentication and authorization
@@ -84,7 +83,10 @@ impl SecurityOrchestrator {
     }
 
     /// Perform comprehensive security check
-    #[allow(clippy::too_many_lines)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Orchestration logic; refactor planned"
+    )]
     pub async fn check_security(&self, request: SecurityCheckRequest) -> SecurityCheckResult {
         let mut security_events = Vec::new();
         let mut recommended_actions = Vec::new();

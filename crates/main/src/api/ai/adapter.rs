@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal AI Adapter - Works with ANY AI Provider
-#![allow(dead_code)] // Public API surface awaiting consumer activation
 //!
 //! This adapter implements the `AiCapability` trait for any provider
 //! that exposes AI capabilities via JSON-RPC over Unix sockets.

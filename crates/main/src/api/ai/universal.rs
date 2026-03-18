@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal AI Interface - Vendor-Agnostic
-#![allow(dead_code)] // Public API types awaiting consumer activation
 //!
 //! This module defines a universal, capability-based interface for AI providers.
 //! NO vendor-specific code. Works with ANY AI provider (cloud or local).

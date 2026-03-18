@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 // Backward compatibility: discover_services/DiscoveredService use EcosystemPrimalType for legacy format
-#![allow(deprecated)]
+#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Service discovery operations for the ecosystem registry
 

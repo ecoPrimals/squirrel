@@ -30,7 +30,6 @@ pub struct ActionExecutor {
 
 /// Action execution record
 #[derive(Debug, Clone)]
-/// Action execution record
 pub struct ActionExecution {
     /// Action ID
     action_id: String,
@@ -44,9 +43,34 @@ pub struct ActionExecution {
     result: ActionResult,
 }
 
+impl ActionExecution {
+    /// Returns the action ID
+    #[must_use]
+    pub fn action_id(&self) -> &str {
+        &self.action_id
+    }
+
+    /// Returns the rule ID
+    #[must_use]
+    pub fn rule_id(&self) -> &str {
+        &self.rule_id
+    }
+
+    /// Returns the context ID
+    #[must_use]
+    pub fn context_id(&self) -> &str {
+        &self.context_id
+    }
+
+    /// Returns the execution result
+    #[must_use]
+    pub fn result(&self) -> &ActionResult {
+        &self.result
+    }
+}
+
 /// Action execution statistics
 #[derive(Debug, Clone)]
-/// Action execution statistics
 pub struct ActionStatistics {
     /// Total number of actions executed
     total_actions: u64,
@@ -58,6 +82,32 @@ pub struct ActionStatistics {
     average_duration: chrono::Duration,
     /// Actions by type
     actions_by_type: HashMap<String, u64>,
+}
+
+impl ActionStatistics {
+    /// Returns the total number of actions executed
+    #[must_use]
+    pub fn total_actions(&self) -> u64 {
+        self.total_actions
+    }
+
+    /// Returns the number of successful actions
+    #[must_use]
+    pub fn successful_actions(&self) -> u64 {
+        self.successful_actions
+    }
+
+    /// Returns the number of failed actions
+    #[must_use]
+    pub fn failed_actions(&self) -> u64 {
+        self.failed_actions
+    }
+
+    /// Returns the count for a specific action type
+    #[must_use]
+    pub fn count_for_type(&self, action_type: &str) -> u64 {
+        self.actions_by_type.get(action_type).copied().unwrap_or(0)
+    }
 }
 
 impl Default for ActionStatistics {
@@ -198,7 +248,10 @@ impl ActionExecutor {
     }
 
     /// Execute modify context action
-    #[allow(clippy::unnecessary_wraps)]
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "Result needed for trait compatibility"
+    )]
     fn execute_modify_context(
         &self,
         path: &str,
@@ -223,7 +276,10 @@ impl ActionExecutor {
     }
 
     /// Execute create recovery point action
-    #[allow(clippy::unnecessary_wraps)]
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "Result needed for trait compatibility"
+    )]
     fn execute_create_recovery_point(
         &self,
         description: &str,
@@ -248,7 +304,10 @@ impl ActionExecutor {
     }
 
     /// Execute transformation action
-    #[allow(clippy::unnecessary_wraps)]
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "Result needed for trait compatibility"
+    )]
     fn execute_transformation(
         &self,
         transformation_id: &str,
@@ -272,7 +331,10 @@ impl ActionExecutor {
     }
 
     /// Execute notify action
-    #[allow(clippy::unnecessary_wraps)]
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "Result needed for trait compatibility"
+    )]
     fn execute_notify(
         &self,
         channel: &str,
@@ -327,7 +389,10 @@ impl ActionExecutor {
     }
 
     /// Execute script action
-    #[allow(clippy::unnecessary_wraps)]
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "Result needed for trait compatibility"
+    )]
     fn execute_script(
         &self,
         script: &str,
@@ -352,7 +417,10 @@ impl ActionExecutor {
     }
 
     /// Execute validate context action
-    #[allow(clippy::unnecessary_wraps)]
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "Result needed for trait compatibility"
+    )]
     fn execute_validate_context(
         &self,
         schema: &Value,
@@ -409,7 +477,10 @@ impl ActionExecutor {
         }
 
         // Update average duration using saturating arithmetic to avoid truncation
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "Action execution; value range audited"
+        )]
         let count = stats.total_actions.min(i32::MAX as u64) as i32;
         let total_duration = stats.average_duration * (count.saturating_sub(1)) + duration;
         stats.average_duration = if count > 0 {
@@ -622,3 +693,7 @@ pub fn create_action_executor_with_config() -> RuleSystemResult<ActionExecutor> 
     // Add any custom configuration here
     Ok(executor)
 }
+
+#[cfg(test)]
+#[path = "actions_tests.rs"]
+mod tests;

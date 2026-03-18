@@ -10,7 +10,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::mcp::{SecurityLevel, security::rbac::Permission};
+use crate::error::SecurityLevel;
+use crate::security::rbac::Permission;
 
 /// Team message types for collaboration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,7 +122,7 @@ pub struct TeamWorkflow {
 }
 
 /// Workflow status states
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorkflowStatus {
     Active,
     Paused,
@@ -209,4 +210,3 @@ pub struct WorkflowFilter {
     pub assignee: Option<String>,
     pub priority: Option<Priority>,
 }
-

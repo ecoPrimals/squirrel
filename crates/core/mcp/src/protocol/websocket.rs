@@ -203,7 +203,10 @@ impl WebSocketServer {
     }
 
     /// Handle a WebSocket connection
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "WebSocket handler configuration; builder refactor planned"
+    )]
     async fn handle_connection(
         stream: TcpStream,
         connection_id: String,

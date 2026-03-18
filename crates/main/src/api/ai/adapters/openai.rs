@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // Allow deprecated items for backward compatibility
-#![allow(deprecated)]
+#![expect(deprecated, reason = "Deprecated adapter; removal planned")]
 
 //! OpenAI AI Provider Adapter with Capability-Based HTTP Delegation
 //!
@@ -36,6 +36,7 @@ use std::collections::HashMap;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tracing::{debug, error, info};
+use universal_constants::ai_providers;
 use uuid::Uuid;
 
 /// OpenAI chat completion request format
@@ -57,7 +58,7 @@ struct OpenAiMessage {
 
 /// OpenAI API response
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)] // Fields used by serde deserialization
+#[expect(dead_code, reason = "Fields used by serde deserialization")]
 struct OpenAiResponse {
     id: String,
     model: String,
@@ -66,7 +67,7 @@ struct OpenAiResponse {
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)] // Fields used by serde deserialization
+#[expect(dead_code, reason = "Fields used by serde deserialization")]
 struct OpenAiChoice {
     message: OpenAiMessage,
     finish_reason: String,
@@ -218,7 +219,7 @@ impl OpenAiAdapter {
         let response_json = self
             .delegate_http(
                 "POST",
-                "https://api.openai.com/v1/chat/completions",
+                &ai_providers::openai_chat_completions_url(),
                 headers,
                 serde_json::to_value(&openai_request)?,
             )

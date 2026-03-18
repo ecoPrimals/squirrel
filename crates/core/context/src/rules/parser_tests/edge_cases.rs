@@ -11,7 +11,7 @@
 //! - MDC roundtrip conversion
 //! - Section parsing edge cases
 
-use crate::rules::parser::{rule_to_mdc, FrontmatterParser, RuleParser};
+use crate::rules::parser::{FrontmatterParser, RuleParser, rule_to_mdc};
 
 /// Test frontmatter extraction with CRLF line endings
 #[test]

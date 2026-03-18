@@ -28,14 +28,13 @@
 //
 // ARCHITECTURAL: These require trait/API redesign, not simple code edits.
 // Each will be resolved as the module is refactored.
-#![allow(
+#![allow(clippy::missing_panics_doc)] // Progressive lint tightening; many test helpers
+#![expect(
     // Docs WIP — tracked for completion
     missing_docs,
     clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
     // Edition 2024 stabilisation noise
     async_fn_in_trait,
-    unfulfilled_lint_expectations,
     // Genuine domain naming (e.g. ToadStool, BiomeOS)
     clippy::doc_markdown,
     clippy::struct_field_names,
@@ -61,6 +60,7 @@
     // Noisy in domain code — many intentional patterns
     clippy::items_after_statements,
     clippy::struct_excessive_bools,
+    reason = "Progressive lint tightening per CHANGELOG"
 )]
 
 // Core modules

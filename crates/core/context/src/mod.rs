@@ -36,8 +36,6 @@ use uuid;
 
 /// Synchronization functionality for distributed context state
 pub mod sync;
-// Tracking functionality for monitoring context state changes
-// pub mod tracker; // Temporarily commented out due to encoding issues
 
 /// A snapshot of context state at a point in time
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -304,7 +302,6 @@ impl Default for ContextData {
 pub mod manager;
 /// State management module for handling context state transitions
 pub mod state;
-// pub mod tracker;
 
 #[cfg(test)]
 mod tests {

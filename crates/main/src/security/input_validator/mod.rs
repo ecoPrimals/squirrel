@@ -180,7 +180,7 @@ impl ProductionInputValidator {
     ///     }
     /// }
     /// ```
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines, reason = "Validation logic; refactor planned")]
     pub fn validate_input(
         &self,
         input: &str,

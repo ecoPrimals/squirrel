@@ -269,7 +269,7 @@ impl CowString {
 
     /// Create a `Cow<str>` from a string slice
     #[must_use]
-    #[allow(clippy::should_implement_trait)]
+    #[allow(clippy::should_implement_trait)] // Custom from_str avoids FromStr trait conflict
     pub const fn from_str(s: &str) -> Cow<'_, str> {
         Cow::Borrowed(s)
     }

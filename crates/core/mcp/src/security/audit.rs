@@ -6,11 +6,11 @@
 //! This module provides audit functionality for the MCP system.
 //! Actual auditing is delegated to the BearDog framework.
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Audit event for security logging
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,7 +26,7 @@ pub struct AuditEvent {
 }
 
 /// Default audit service implementation
-/// 
+///
 /// This provides a basic audit service that can be extended
 /// or replaced with BearDog integration in the future.
 #[derive(Debug, Clone)]
@@ -65,4 +65,4 @@ impl Default for DefaultAuditService {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

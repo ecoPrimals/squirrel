@@ -3,7 +3,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! JSON-RPC 2.0 Server with Universal Transport (Isomorphic IPC)
-#![allow(dead_code)] // JSON-RPC request/response fields used in deserialization
+#![expect(dead_code, reason = "JSON-RPC fields used in serde deserialization")]
 //!
 //! Modern, idiomatic Rust implementation of JSON-RPC 2.0 protocol for
 //! biomeOS integration. This server uses Universal Transport abstractions

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
-#![allow(deprecated)]
+#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Capability resolver - Core discovery engine
 //!
@@ -8,7 +8,7 @@
 //! replaces all hardcoded service references with dynamic discovery.
 
 use crate::discovery::mechanisms::{
-    DnssdDiscovery, MdnsDiscovery, RegistryDiscovery, RegistryType,
+    DnssdDiscovery, MdnsDiscovery, RegistryDiscovery, RegistryType, discover_from_socket_registry,
 };
 use crate::discovery::types::{
     CapabilityRequest, DiscoveredService, DiscoveryError, DiscoveryResult,
@@ -85,7 +85,16 @@ impl CapabilityResolver {
             return Ok(service);
         }
 
-        // 2. Try service registry (if configured)
+        // 2. Try socket registry (biomeOS - primary primal discovery)
+        debug!("Trying socket registry discovery...");
+        if let Ok(services) = discover_from_socket_registry(&request.capability)
+            && let Some(service) = services.into_iter().next()
+        {
+            info!("✅ Found via socket registry (priority 65)");
+            return Ok(service);
+        }
+
+        // 3. Try external service registry (if configured)
         if let Some(registry) = &self.registry {
             debug!("Trying service registry discovery...");
             if let Ok(services) = registry.discover_by_capability(&request.capability).await
@@ -96,7 +105,7 @@ impl CapabilityResolver {
             }
         }
 
-        // 3. Try mDNS for local network
+        // 4. Try mDNS for local network (falls back to socket registry)
         debug!("Trying mDNS discovery...");
         if let Ok(services) = self.mdns.discover_by_capability(&request.capability).await
             && let Some(service) = services.into_iter().next()
@@ -105,7 +114,7 @@ impl CapabilityResolver {
             return Ok(service);
         }
 
-        // 4. Try DNS-SD for network-wide discovery
+        // 5. Try DNS-SD for network-wide discovery (falls back to socket registry)
         debug!("Trying DNS-SD discovery...");
         if let Ok(services) = self.dnssd.discover_by_capability(&request.capability).await
             && let Some(service) = services.into_iter().next()

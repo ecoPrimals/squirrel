@@ -6,13 +6,13 @@
 //! This module provides key storage functionality for the MCP system.
 //! Actual key storage operations are delegated to the BearDog framework.
 
+use crate::error::Result;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use crate::error::Result;
 
 /// Stored key information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ pub struct StoredKey {
 }
 
 /// In-memory key storage implementation
-/// 
+///
 /// This provides basic key storage that can be extended
 /// or replaced with BearDog integration in the future.
 #[derive(Debug, Clone)]
@@ -44,7 +44,13 @@ impl InMemoryKeyStorage {
     }
 
     /// Store a key
-    pub async fn store_key(&self, name: String, key_type: String, data: Vec<u8>, expires_at: Option<DateTime<Utc>>) -> Result<Uuid> {
+    pub async fn store_key(
+        &self,
+        name: String,
+        key_type: String,
+        data: Vec<u8>,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> Result<Uuid> {
         let key = StoredKey {
             id: Uuid::new_v4(),
             name,
@@ -112,7 +118,7 @@ impl InMemoryKeyStorage {
         let mut keys = self.keys.write().await;
         let now = Utc::now();
         let mut removed = 0;
-        
+
         keys.retain(|_, key| {
             if let Some(expires_at) = key.expires_at {
                 if now > expires_at {
@@ -125,7 +131,7 @@ impl InMemoryKeyStorage {
                 true
             }
         });
-        
+
         Ok(removed)
     }
 }
@@ -134,4 +140,4 @@ impl Default for InMemoryKeyStorage {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

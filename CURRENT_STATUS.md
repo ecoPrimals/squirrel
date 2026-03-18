@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: March 17, 2026
-**Version**: 0.1.0-alpha.11
+**Last Updated**: March 18, 2026
+**Version**: 0.1.0-alpha.12
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 4,979 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
+| Tests | 4,730 passing (lib tests verified) / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
@@ -18,10 +18,11 @@
 | Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all crate entry points |
 | Pure Rust | 100% default features (zero C deps); `ring`/`openssl` banned in `deny.toml`; `sysinfo` removed |
 | ecoBin | Compliant v3.0 — `deny.toml` bans `ring`/`openssl`; pure Rust `sys_info` via `/proc` parsing |
-| Coverage | 69% line coverage via `cargo-llvm-cov` (target: 90%) |
+| Coverage | 71% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 22 workspace members |
-| Files >1000 lines | 0 (max: 991 — `router.rs`) |
+| Files >1000 lines | 0 (max: 974 — adapter.rs, unwired legacy) |
 | Property tests | 17 (proptest round-trip for all JSON-RPC types + niche + 7 wire-format fuzz) |
+| redis | 1.0.5 (upgraded from 0.23) |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
 | Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted |
 | TODO/FIXME in code | 0 (2 documented `STUB` comments in performance_optimizer — Phase 2 deferred) |
@@ -238,21 +239,31 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked |
-| cargo-llvm-cov | 69% line coverage (target: 90%) |
+| cargo-llvm-cov | 71% line coverage (target: 90%) |
 | proptest | Round-trip + wire-format fuzz for all JSON-RPC types (17 properties) |
 | rust-toolchain | `rust-toolchain.toml` — pinned stable + clippy + rustfmt + llvm-tools-preview |
 
 ## Known Issues
 
 1. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
-2. `test_load_from_json_file` flaky under full workspace runs (env var pollution) — needs `#[serial]`
-3. Coverage at 69% — gap to 90% target; incremental expansion underway
-4. `redis` v0.23 behind optional `persistence` feature — upgrade to 0.25+ when ecosystem stabilizes
-5. `router.rs` (991 lines) at file size limit — pending dead-code investigation
+2. Coverage at 71% — gap to 90% target; incremental expansion underway
+3. `adapter.rs` (974L) unwired legacy code — protocol module not wired into tree
 
-## Changes Since Last Handoff (March 17, 2026)
+## Changes Since Last Handoff (March 18, 2026)
 
-### Deep Audit & Lint Evolution Sprint (alpha.11)
+### alpha.12 Sprint
+
+- **Smart file refactoring**: `router.rs` 991→155 lines, `lib.rs` 970→245, `journal.rs` 969→6 submodules, `types.rs` 985→7 submodules
+- **Hardcoded URLs extracted**: AI provider URLs now env-overridable via `ai_providers` module
+- **Discovery stubs evolved**: Socket-registry backed implementations
+- **346+ new tests**: Across auth, config, commands, context, rule-system
+- **Coverage**: 67.16% → 70.53%
+- **Clone reduction**: On hot paths
+- **Benchmark fix**: criterion sample_size
+- **redis upgraded**: 0.23 → 1.0.5
+- **proptest centralized**: In workspace
+
+### Prior (alpha.11)
 
 - **Lint tightening**: Reduced `#[allow]` blocks from ~50 to ~18 lints per crate; `unwrap_used`/`expect_used` now test-only
 - **Clippy compliance**: Fixed 170+ lint violations across all crates (production and test code)
@@ -262,17 +273,5 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 - **Human dignity**: `DignityEvaluator` + `DignityGuard` added to AI routing
 - **Dev credentials**: Hardcoded JWT secrets and TLS paths replaced with env var loading
 - **Capability identifiers**: `CapabilityIdentifier` type introduced; `EcosystemPrimalType` deprecated
-- **Hardcoded IP removal**: `ip_address: Some("127.0.0.1")` → `ip_address: None` for runtime discovery
-- **Error context**: `From<anyhow::Error>` for `PrimalError`; `.context()` on IPC serialization paths
-- **Tracing migration**: All `println!`/`eprintln!` in server code replaced with `tracing` macros
-- **Infrastructure**: `rust-toolchain.toml` + `justfile` for reproducible builds
-
-### Cross-Ecosystem Absorption Sprint (alpha.11+)
-
-- **Manifest writer**: Squirrel writes `$XDG_RUNTIME_DIR/ecoPrimals/squirrel.json` at startup; cleans up on shutdown (biomeOS v2.49 / rhizoCrypt v0.13)
-- **Consumed capabilities**: Added ToadStool S158 `compute.dispatch.*`, NestGate 4.1 `model.*`, rhizoCrypt `dag.session.create`, sweetGrass `anchoring.anchor`/`attribution.calculate_rewards`
-- **Health probes**: `health.liveness` + `health.readiness` added to CAPABILITIES, registry, cost estimates, semantic mappings (PRIMAL_IPC_PROTOCOL v3.0)
-- **`safe_cast` module**: `usize_to_u32`, `f64_to_f32`, `i64_to_usize`, `f64_to_u64_clamped` (groundSpring V114 / airSpring V0.8.9)
-- **`total_cmp()` sweep**: All 5 `partial_cmp().unwrap()` replaced with `f64::total_cmp` (neuralSpring V115)
-- **Platform-agnostic tests**: `/tmp` hardcoding replaced with `std::env::temp_dir()` where files are created
-- **Leverage guide**: Updated to alpha.11 with health probes, manifest discovery, human dignity, primalSpring exp044, RPGPT
+- **Manifest writer**: Squirrel writes `$XDG_RUNTIME_DIR/ecoPrimals/squirrel.json` at startup; cleans up on shutdown
+- **Health probes**: `health.liveness` + `health.readiness` added (PRIMAL_IPC_PROTOCOL v3.0)

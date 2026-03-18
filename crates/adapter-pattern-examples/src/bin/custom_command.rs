@@ -102,7 +102,7 @@ impl WeatherCommand {
     }
 
     // This would use a real API in a production application
-    #[allow(clippy::unnecessary_wraps)]
+    #[expect(clippy::unnecessary_wraps, reason = "Result for API consistency")]
     fn get_weather(city: &str) -> CommandResult<String> {
         // Simulate API response
         match city.to_lowercase().as_str() {

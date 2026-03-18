@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin Performance Optimizer
-#![allow(dead_code)] // Performance optimizer infrastructure awaiting activation
+#![expect(
+    dead_code,
+    reason = "Performance optimizer infrastructure awaiting activation"
+)]
 //!
 //! This module provides advanced performance optimizations for plugin operations including:
 //! - Hot path caching for frequent operations

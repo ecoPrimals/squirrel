@@ -334,7 +334,10 @@ impl LoadBalancer {
     }
 
     /// Acquire a permit for concurrent execution
-    #[allow(clippy::expect_used)] // Semaphore closed is unreachable in normal operation
+    #[expect(
+        clippy::expect_used,
+        reason = "Semaphore closed is unreachable in normal operation"
+    )]
     pub async fn acquire_permit(&'_ self) -> tokio::sync::SemaphorePermit<'_> {
         self.semaphore
             .acquire()

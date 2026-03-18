@@ -134,3 +134,147 @@ impl CommandAdapter for RegistryAdapter {
         self.list_commands()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::TestCommand;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_command_registry_default() {
+        let registry = CommandRegistry::default();
+        let cmds = registry.list_commands().unwrap();
+        assert!(cmds.is_empty());
+    }
+
+    #[test]
+    fn test_command_registry_register_and_execute() {
+        let mut registry = CommandRegistry::new();
+        let cmd = Arc::new(TestCommand::new("hello", "Says hello", "Hello!"));
+        registry.register("hello", cmd).unwrap();
+
+        let result = registry.execute("hello", vec![]).unwrap();
+        assert_eq!(result, "Hello!");
+    }
+
+    #[test]
+    fn test_command_registry_execute_with_args() {
+        let mut registry = CommandRegistry::new();
+        let cmd = Arc::new(TestCommand::new("echo", "Echoes", "Echo"));
+        registry.register("echo", cmd).unwrap();
+
+        let result = registry
+            .execute("echo", vec!["a".to_string(), "b".to_string()])
+            .unwrap();
+        assert!(result.contains('a'));
+        assert!(result.contains('b'));
+    }
+
+    #[test]
+    fn test_command_registry_execute_not_found() {
+        let registry = CommandRegistry::new();
+        let result = registry.execute("missing", vec![]);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(CommandError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_command_registry_get_help() {
+        let mut registry = CommandRegistry::new();
+        let cmd = Arc::new(TestCommand::new("hello", "Says hello", "Hello!"));
+        registry.register("hello", cmd).unwrap();
+
+        let help = registry.get_help("hello").unwrap();
+        assert_eq!(help, "hello: Says hello");
+    }
+
+    #[test]
+    fn test_command_registry_get_help_not_found() {
+        let registry = CommandRegistry::new();
+        let result = registry.get_help("missing");
+        assert!(result.is_err());
+        assert!(matches!(result, Err(CommandError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_command_registry_list_commands() {
+        let mut registry = CommandRegistry::new();
+        registry
+            .register("a", Arc::new(TestCommand::new("a", "A", "a")))
+            .unwrap();
+        registry
+            .register("b", Arc::new(TestCommand::new("b", "B", "b")))
+            .unwrap();
+
+        let cmds = registry.list_commands().unwrap();
+        assert_eq!(cmds.len(), 2);
+        assert!(cmds.contains(&"a".to_string()));
+        assert!(cmds.contains(&"b".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_registry_adapter_default() {
+        let adapter = RegistryAdapter::default();
+        let cmds = adapter.list_commands().unwrap();
+        assert!(cmds.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_registry_adapter_register_execute() {
+        let mut adapter = RegistryAdapter::new();
+        let cmd = Arc::new(TestCommand::new("hello", "Says hello", "Hello!"));
+        adapter.register("hello", cmd).unwrap();
+
+        let result = <RegistryAdapter as CommandAdapter>::execute(&adapter, "hello", vec![]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Hello!");
+    }
+
+    #[tokio::test]
+    async fn test_registry_adapter_execute_not_found() {
+        let adapter = RegistryAdapter::new();
+        let result =
+            <RegistryAdapter as CommandAdapter>::execute(&adapter, "missing", vec![]).await;
+        assert!(result.is_err());
+        assert!(matches!(result, Err(CommandError::NotFound(_))));
+    }
+
+    #[tokio::test]
+    async fn test_registry_adapter_get_help() {
+        let mut adapter = RegistryAdapter::new();
+        let cmd = Arc::new(TestCommand::new("hello", "Says hello", "Hello!"));
+        adapter.register("hello", cmd).unwrap();
+
+        let help = <RegistryAdapter as CommandAdapter>::get_help(&adapter, "hello")
+            .await
+            .unwrap();
+        assert_eq!(help, "hello: Says hello");
+    }
+
+    #[tokio::test]
+    async fn test_registry_adapter_get_help_not_found() {
+        let adapter = RegistryAdapter::new();
+        let result = <RegistryAdapter as CommandAdapter>::get_help(&adapter, "missing").await;
+        assert!(result.is_err());
+        assert!(matches!(result, Err(CommandError::NotFound(_))));
+    }
+
+    #[tokio::test]
+    async fn test_registry_adapter_list_commands() {
+        let mut adapter = RegistryAdapter::new();
+        adapter
+            .register("a", Arc::new(TestCommand::new("a", "A", "a")))
+            .unwrap();
+        adapter
+            .register("b", Arc::new(TestCommand::new("b", "B", "b")))
+            .unwrap();
+
+        let cmds = <RegistryAdapter as CommandAdapter>::list_commands(&adapter)
+            .await
+            .unwrap();
+        assert_eq!(cmds.len(), 2);
+        assert!(cmds.contains(&"a".to_string()));
+        assert!(cmds.contains(&"b".to_string()));
+    }
+}

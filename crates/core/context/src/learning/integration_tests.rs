@@ -282,7 +282,10 @@ async fn test_failed_episode_workflow() {
     let history = manager.get_episode_history().await;
     assert_eq!(history.len(), 1);
     assert!(!history[0].success, "Episode should be marked as failed");
-    assert_eq!(history[0].rewards[0], -10.0, "Reward should be negative");
+    assert!(
+        (history[0].rewards[0] - (-10.0)).abs() < f64::EPSILON,
+        "Reward should be negative"
+    );
 }
 
 #[tokio::test]
@@ -372,7 +375,7 @@ async fn test_learning_system_statistics() {
     // Initial statistics should be zeroed
     assert_eq!(stats.total_episodes, 0);
     assert_eq!(stats.total_actions, 0);
-    assert_eq!(stats.total_rewards, 0.0);
+    assert!(stats.total_rewards.abs() < f64::EPSILON);
 }
 
 #[tokio::test]
@@ -662,4 +665,230 @@ async fn test_manager_stats_persistence() {
     let _stats = manager.get_learning_stats().await;
     // Stats tracking depends on implementation
     // Stats lifetime ends naturally (no need for explicit drop)
+}
+
+// ============================================================================
+// LearningIntegration-specific tests
+// ============================================================================
+
+#[tokio::test]
+async fn test_learning_integration_new_with_full_config() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config).await;
+
+    assert!(
+        integration.is_ok(),
+        "LearningIntegration creation should succeed with full config"
+    );
+}
+
+#[tokio::test]
+async fn test_learning_integration_get_state() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("Failed to create integration");
+
+    let state = integration.get_state().await;
+    assert!(!state.active_integrations.is_empty() || state.errors.is_empty());
+}
+
+#[tokio::test]
+async fn test_learning_integration_get_stats() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("Failed to create integration");
+
+    let stats = integration.get_stats().await;
+    assert_eq!(stats.total_operations, 0);
+    assert_eq!(stats.successful_operations, 0);
+    assert_eq!(stats.failed_operations, 0);
+}
+
+#[tokio::test]
+async fn test_learning_integration_initialize() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("Failed to create integration");
+
+    let result = integration.initialize().await;
+    assert!(result.is_ok(), "Integration initialize should succeed");
+}
+
+#[tokio::test]
+async fn test_learning_integration_trigger_learning_episode() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("Failed to create integration");
+
+    let result = integration.trigger_learning_episode("test_context").await;
+
+    assert!(
+        result.is_ok(),
+        "Trigger learning episode should succeed: {:?}",
+        result.err()
+    );
+    let episode_id = result.expect("Should have episode id");
+    assert!(!episode_id.is_empty());
+}
+
+#[tokio::test]
+async fn test_learning_integration_calculate_reward() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("Failed to create integration");
+
+    let result = integration
+        .calculate_reward("test_context", serde_json::json!({"action": "test"}))
+        .await;
+
+    assert!(
+        result.is_ok(),
+        "Calculate reward should succeed: {:?}",
+        result.err()
+    );
+    let reward = result.expect("Should have reward");
+    assert!(reward.is_finite());
+}
+
+#[tokio::test]
+async fn test_learning_integration_get_learning_status() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("Failed to create integration");
+
+    let result = integration.get_learning_status().await;
+    assert!(result.is_ok(), "Get learning status should succeed");
+
+    let status = result.expect("Should have status");
+    assert!(status.get("integration_state").is_some());
+    assert!(status.get("integration_stats").is_some());
+    assert!(status.get("components").is_some());
+}
+
+#[tokio::test]
+async fn test_learning_integration_start_stop() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("Failed to create integration");
+
+    integration
+        .initialize()
+        .await
+        .expect("Failed to initialize");
+
+    integration.start().await.expect("Failed to start");
+    let state = integration.get_state().await;
+    assert!(matches!(
+        state.status,
+        super::integration::IntegrationStatus::Active
+    ));
+
+    integration.stop().await.expect("Failed to stop");
+    let state = integration.get_state().await;
+    assert!(matches!(
+        state.status,
+        super::integration::IntegrationStatus::Stopped
+    ));
+}
+
+#[tokio::test]
+async fn test_learning_integration_config_default() {
+    let config = super::integration::LearningIntegrationConfig::default();
+
+    assert!(config.enable_context_manager);
+    assert!(config.enable_rule_manager);
+    assert!(config.enable_visualization);
+    assert!(config.enable_auto_triggers);
+    assert_eq!(config.update_interval, std::time::Duration::from_secs(30));
+}
+
+#[tokio::test]
+async fn test_trigger_thresholds_default() {
+    let thresholds = super::integration::TriggerThresholds::default();
+
+    assert_eq!(thresholds.min_context_changes, 10);
+    assert_eq!(thresholds.min_rule_applications, 5);
+    assert!((thresholds.error_rate_threshold - 0.2).abs() < 1e-9);
+    assert!((thresholds.performance_threshold - 0.7).abs() < 1e-9);
+}
+
+#[tokio::test]
+async fn test_integration_stats_after_operations() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("Failed to create integration");
+
+    // Trigger operations that update stats
+    let _ = integration.trigger_learning_episode("ctx1").await;
+    let _ = integration
+        .calculate_reward("ctx1", serde_json::json!({}))
+        .await;
+
+    let stats = integration.get_stats().await;
+    assert!(stats.total_operations >= 1);
+    assert!(stats.learning_episodes >= 1);
+}
+
+#[tokio::test]
+async fn test_learning_integration_minimal_config() {
+    let mut config = test_helpers::create_test_learning_config();
+    config.enable_reinforcement_learning = true;
+    config.enable_adaptive_rules = false;
+    config.enable_learning_metrics = false;
+
+    let config = Arc::new(config);
+    let integration = LearningIntegration::new(config).await;
+
+    assert!(
+        integration.is_ok(),
+        "Integration should work with minimal config"
+    );
+}
+
+#[tokio::test]
+async fn test_integration_state_serialization() {
+    use super::integration::{IntegrationError, IntegrationState, IntegrationStatus};
+
+    let state = IntegrationState {
+        status: IntegrationStatus::Active,
+        last_update: chrono::Utc::now(),
+        active_integrations: vec!["context".to_string(), "rules".to_string()],
+        errors: vec![IntegrationError {
+            id: "err1".to_string(),
+            error_type: "test".to_string(),
+            message: "Test error".to_string(),
+            timestamp: chrono::Utc::now(),
+            component: "test_component".to_string(),
+        }],
+    };
+
+    let serialized = serde_json::to_string(&state).expect("Should serialize");
+    assert!(serialized.contains("Active"));
+    assert!(serialized.contains("err1"));
+}
+
+#[tokio::test]
+async fn test_integration_status_variants() {
+    use super::integration::IntegrationStatus;
+
+    let statuses = [
+        IntegrationStatus::Initializing,
+        IntegrationStatus::Active,
+        IntegrationStatus::Paused,
+        IntegrationStatus::Stopped,
+        IntegrationStatus::Error,
+    ];
+
+    for status in statuses {
+        let debug_str = format!("{:?}", status);
+        assert!(!debug_str.is_empty());
+    }
 }

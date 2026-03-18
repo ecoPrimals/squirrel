@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal AI Adapter - Capability-Based Discovery
-#![allow(dead_code)] // Public API surface awaiting consumer activation
+#![expect(dead_code, reason = "API surface awaiting consumer activation")]
 //!
 //! This adapter works with ANY AI provider via Unix socket communication,
 //! discovered through Songbird's capability-based discovery system.

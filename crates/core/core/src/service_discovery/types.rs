@@ -28,7 +28,7 @@ pub struct ServiceDefinition {
     /// Service metadata and tags
     pub metadata: HashMap<String, String>,
     /// Health status
-    pub health_status: HealthStatus,
+    pub health_status: ServiceHealthStatus,
     /// Registration timestamp
     pub registered_at: DateTime<Utc>,
     /// Last heartbeat timestamp
@@ -51,7 +51,7 @@ impl ServiceDefinition {
             endpoints,
             capabilities: Vec::new(),
             metadata: HashMap::new(),
-            health_status: HealthStatus::Healthy,
+            health_status: ServiceHealthStatus::Healthy,
             registered_at: now,
             last_heartbeat: now,
         }
@@ -76,7 +76,7 @@ impl ServiceDefinition {
     }
 
     /// Set health status
-    pub const fn with_health_status(mut self, status: HealthStatus) -> Self {
+    pub const fn with_health_status(mut self, status: ServiceHealthStatus) -> Self {
         self.health_status = status;
         self
     }
@@ -280,9 +280,9 @@ impl ServiceEndpoint {
     }
 }
 
-/// Health status enumeration
+/// Health status for service discovery (distinct from crate-level `HealthStatus` for primals).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum HealthStatus {
+pub enum ServiceHealthStatus {
     /// Service is healthy and available
     Healthy,
     /// Service is unhealthy but still available
@@ -293,7 +293,7 @@ pub enum HealthStatus {
     Unavailable,
 }
 
-impl HealthStatus {
+impl ServiceHealthStatus {
     /// Check if service is available
     pub const fn is_available(&self) -> bool {
         matches!(self, Self::Healthy | Self::Unhealthy)
@@ -320,7 +320,7 @@ pub struct ServiceQuery {
     /// Filter by metadata
     pub metadata: HashMap<String, String>,
     /// Filter by health status
-    pub health_status: Option<HealthStatus>,
+    pub health_status: Option<ServiceHealthStatus>,
     /// Filter by tags
     pub tags: Vec<String>,
     /// Sort field
@@ -380,7 +380,7 @@ impl ServiceQuery {
     }
 
     /// Filter by health status
-    pub const fn with_health_status(mut self, status: HealthStatus) -> Self {
+    pub const fn with_health_status(mut self, status: ServiceHealthStatus) -> Self {
         self.health_status = Some(status);
         self
     }
@@ -541,10 +541,10 @@ impl ServiceStats {
 
         for service in services {
             match service.health_status {
-                HealthStatus::Healthy => self.healthy_services += 1,
-                HealthStatus::Unhealthy => self.unhealthy_services += 1,
-                HealthStatus::Degraded => self.degraded_services += 1,
-                HealthStatus::Unavailable => self.unavailable_services += 1,
+                ServiceHealthStatus::Healthy => self.healthy_services += 1,
+                ServiceHealthStatus::Unhealthy => self.unhealthy_services += 1,
+                ServiceHealthStatus::Degraded => self.degraded_services += 1,
+                ServiceHealthStatus::Unavailable => self.unavailable_services += 1,
             }
 
             *self

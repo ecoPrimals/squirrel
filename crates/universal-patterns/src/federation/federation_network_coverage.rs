@@ -270,7 +270,7 @@ mod network_error_tests {
     /// Test data sync message with checksum
     #[test]
     fn test_data_sync_message() {
-        let data = b"test data".to_vec();
+        let data = bytes::Bytes::from_static(b"test data");
         let checksum = "abc123".to_string();
 
         let msg = NetworkMessage::DataSync {
@@ -313,7 +313,7 @@ mod network_error_tests {
     #[test]
     fn test_federation_message_broadcast() {
         let sender = Uuid::new_v4();
-        let payload = b"broadcast message".to_vec();
+        let payload = bytes::Bytes::from_static(b"broadcast message");
 
         let msg = NetworkMessage::Federation {
             message_type: "announcement".to_string(),
@@ -343,7 +343,7 @@ mod network_error_tests {
     fn test_federation_message_direct() {
         let sender = Uuid::new_v4();
         let recipient = Uuid::new_v4();
-        let payload = b"direct message".to_vec();
+        let payload = bytes::Bytes::from_static(b"direct message");
 
         let msg = NetworkMessage::Federation {
             message_type: "direct".to_string(),

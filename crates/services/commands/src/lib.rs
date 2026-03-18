@@ -2,8 +2,8 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Squirrel Commands Service
-#![allow(dead_code)] // Command service awaiting full wiring
-#![allow(
+#![expect(dead_code, reason = "Command service awaiting full wiring")]
+#![expect(
     clippy::redundant_else,
     clippy::uninlined_format_args,
     clippy::unused_async,
@@ -20,7 +20,6 @@
     clippy::cast_precision_loss,
     clippy::if_not_else,
     clippy::return_self_not_must_use,
-    clippy::too_many_lines,
     clippy::suboptimal_flops,
     clippy::cast_possible_truncation,
     clippy::single_match_else,
@@ -29,11 +28,11 @@
     clippy::cast_possible_wrap,
     clippy::needless_pass_by_value,
     clippy::cast_sign_loss,
-    clippy::match_same_arms,
     clippy::map_unwrap_or,
     clippy::format_push_string,
     clippy::unnecessary_literal_bound,
-    clippy::unused_self
+    clippy::unused_self,
+    reason = "Progressive lint tightening; tracked for refactor"
 )]
 //!
 //! Core command processing functionality for the Squirrel MCP ecosystem.

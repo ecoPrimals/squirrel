@@ -64,8 +64,8 @@ impl BasicToolExecutor {
         F: Fn(ToolContext) -> Result<serde_json::Value, ToolError> + Send + Sync + 'static,
     {
         let capability_string = capability.into();
-        self.capabilities.push(capability_string.clone());
-        self.handlers.insert(capability_string, Box::new(handler));
+        self.handlers.insert(capability_string.clone(), Box::new(handler));
+        self.capabilities.push(capability_string);
     }
 }
 
@@ -180,26 +180,23 @@ impl RemoteToolExecutor {
 
 impl ToolExecutor for RemoteToolExecutor {
     fn execute(&self, ctx: ToolContext) -> impl std::future::Future<Output = Result<ToolExecutionResult, ToolError>> + Send {
-        let tool_id = self.tool_id.clone();
-        let capability = ctx.capability.clone();
-        let request_id = ctx.request_id.clone();
         let base_url = self.base_url.clone();
         
         async move {
-            // Log execution
+            // Log execution (use ctx fields directly to avoid redundant clones)
             info!(
-                tool_id = tool_id,
-                capability = capability,
-                request_id = request_id,
+                tool_id = ctx.tool_id,
+                capability = ctx.capability,
+                request_id = ctx.request_id,
                 endpoint = base_url,
                 "Executing remote tool function"
             );
 
             // Prepare the request payload
             let request_payload = serde_json::json!({
-                "tool_id": tool_id,
-                "capability": capability,
-                "request_id": request_id,
+                "tool_id": ctx.tool_id,
+                "capability": ctx.capability,
+                "request_id": ctx.request_id,
                 "parameters": ctx.parameters
             });
 

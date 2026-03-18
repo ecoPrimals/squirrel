@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Message handling for WebSocket transport.
-#![allow(dead_code)] // WebSocket transport awaiting activation
+#![expect(dead_code, reason = "WebSocket transport awaiting activation")]
 
 use crate::error::{MCPError, Result};
 use crate::protocol::types::MCPMessage;

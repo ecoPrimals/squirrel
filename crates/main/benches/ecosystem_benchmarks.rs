@@ -134,7 +134,7 @@ fn stress_testing_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("stress_testing");
     group.measurement_time(Duration::from_secs(120));
-    group.sample_size(5);
+    group.sample_size(10);
 
     let benchmark_suite = rt.block_on(async { initialize_benchmarking().await.unwrap() });
 

@@ -23,6 +23,8 @@ mod evaluator;
 mod evaluator_tests;
 mod models;
 mod parser;
+#[cfg(test)]
+mod parser_tests;
 mod plugin;
 mod repository;
 mod tests;

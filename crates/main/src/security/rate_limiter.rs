@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Production Rate Limiting & `DoS` Protection
-#![allow(dead_code)] // Rate limiting infrastructure awaiting activation
+#![expect(dead_code, reason = "Rate limiting infrastructure awaiting activation")]
 //!
 //! This module provides comprehensive rate limiting to protect against:
 //! - Denial of Service (`DoS`) attacks

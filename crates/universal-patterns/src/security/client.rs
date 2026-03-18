@@ -166,7 +166,7 @@ impl UniversalSecurityClient {
         }
 
         // Fall back to local provider if available and enabled
-        #[allow(clippy::collapsible_if)]
+        #[expect(clippy::collapsible_if, reason = "Readability; intentional structure")]
         if self.config.fallback.enable_local_fallback
             && let Some(fallback) = &self.fallback
         {

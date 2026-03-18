@@ -9,6 +9,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.12] - 2026-03-18
+
+Deep debt resolution: smart file refactoring, hardcoded URL extraction, discovery
+stub evolution, clone reduction, and test coverage expansion. 4,730 lib tests
+passing, 71% line coverage.
+
+### Added
+
+- **`ai_providers` module** — env-overridable AI provider URLs (`ANTHROPIC_API_BASE_URL`,
+  `OPENAI_API_BASE_URL`) following the infant primal pattern from `network.rs`
+- **Socket registry discovery** — `SocketRegistryDiscovery` reads from
+  `$XDG_RUNTIME_DIR/biomeos/socket-registry.json` with TTL cache and capability matching
+- **346+ new tests** — auth (36), config (49), commands (48), context (58+40),
+  rule-system (33), adapter-pattern (69), auth-jwt (23)
+- **`SecurityConfig` default impl** — enables test setup without field assignment
+
+### Changed
+
+- **Smart file refactoring** — `router.rs` (991→155), `core/lib.rs` (970→245),
+  `journal.rs` (969→6 submodules), `ecosystem-api/types.rs` (985→7 submodules);
+  all backward-compatible via re-exports
+- **Hardcoded URL extraction** — AI provider URLs, monitoring endpoints, and
+  universal adapter endpoints now use env-overridable functions
+- **Discovery evolution** — DNS-SD and mDNS stubs now fall back to socket registry;
+  `RuntimeDiscoveryEngine`, `CapabilityResolver`, and `PrimalSelfKnowledge` include
+  socket registry as Stage 2
+- **Clone reduction** — removed redundant `.clone()` calls in tool executor,
+  discovery self-knowledge, workflow manager, and tool management
+- **redis upgraded** — 0.23.3 → 1.0.5 in `squirrel-mcp`
+- **proptest centralized** — version 1.10.0 declared in workspace `[dependencies]`
+- **Benchmark fix** — criterion `sample_size(5)` → `sample_size(10)` (minimum)
+
+### Fixed
+
+- **Flaky `test_load_from_json_file`** — wrapped in `temp_env::with_vars_unset` for
+  environment isolation
+- **`RegistryAdapter::clone()`** — was creating empty adapter instead of cloning
+  existing one (lost registered commands)
+- **mDNS test assertion** — updated service type from `_primal._tcp.local.` to
+  `_biomeos._tcp.local.`
+
+### Removed
+
+- **Commented-out module declarations** in `primal_pulse/mod.rs`, `web_integration/mod.rs`,
+  `mcp/transport/mod.rs`, `mcp/integration/mod.rs`, `mcp/sync/mod.rs`, `context/mod.rs`,
+  `tool/lifecycle/mod.rs`, `observability/tests/mod.rs`, `cli/plugins/mod.rs`,
+  `ai/model_splitting/mod.rs`
+
+### Metrics
+
+| Metric | alpha.11 | alpha.12 |
+|--------|----------|----------|
+| Tests (lib) | 4,979 | 4,730 (recount after refactoring) |
+| Coverage | 69% | 71% |
+| Files >1000 lines | 0 | 0 (max: 974 — unwired legacy) |
+| redis | 0.23.3 | 1.0.5 |
+| New tests | — | 346+ |
+| Clone reduction sites | — | 4 modules |
+| Hardcoded URLs | 8+ | 0 (env-overridable) |
+| Discovery stubs | Empty | Socket-registry backed |
+
 ## [0.1.0-alpha.11] - 2026-03-17
 
 Deep audit and idiomatic Rust evolution sprint. Tightened lint gates, eliminated C

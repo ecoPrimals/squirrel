@@ -5,6 +5,7 @@
 //!
 //! Core protocol types and handlers for Machine Context Protocol.
 
+pub mod handler;
 pub mod types;
 #[cfg(feature = "websocket")]
 pub mod websocket;

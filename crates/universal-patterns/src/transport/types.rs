@@ -4,6 +4,7 @@
 //! Core types and enums for universal transport abstraction
 #![allow(dead_code)] // Transport types used at runtime for discovery
 
+use bytes::Bytes;
 use std::path::PathBuf;
 
 /// IPC endpoint discovered at runtime
@@ -143,9 +144,9 @@ pub enum RemoteAddr {
 #[derive(Debug)]
 pub struct InProcessTransport {
     /// Sender half of the channel
-    sender: tokio::sync::mpsc::UnboundedSender<Vec<u8>>,
+    sender: tokio::sync::mpsc::UnboundedSender<Bytes>,
     /// Receiver half of the channel
-    receiver: tokio::sync::mpsc::UnboundedReceiver<Vec<u8>>,
+    receiver: tokio::sync::mpsc::UnboundedReceiver<Bytes>,
     /// Buffer for reading data
     read_buffer: std::sync::Mutex<Vec<u8>>,
 }
@@ -185,8 +186,8 @@ impl InProcessTransport {
     }
 
     /// Send data through the channel
-    pub(crate) fn send(&self, data: Vec<u8>) -> Result<(), std::io::Error> {
-        self.sender.send(data).map_err(|_| {
+    pub(crate) fn send(&self, data: impl Into<Bytes>) -> Result<(), std::io::Error> {
+        self.sender.send(data.into()).map_err(|_| {
             std::io::Error::new(
                 std::io::ErrorKind::BrokenPipe,
                 "In-process transport channel closed",
@@ -195,7 +196,7 @@ impl InProcessTransport {
     }
 
     /// Try to receive data from the channel (non-blocking)
-    pub(crate) fn try_recv(&mut self) -> Result<Option<Vec<u8>>, std::io::Error> {
+    pub(crate) fn try_recv(&mut self) -> Result<Option<Bytes>, std::io::Error> {
         match self.receiver.try_recv() {
             Ok(data) => Ok(Some(data)),
             Err(tokio::sync::mpsc::error::TryRecvError::Empty) => Ok(None),
@@ -290,7 +291,7 @@ mod tests {
 
         // Receive message on server side
         let received = server.try_recv().unwrap();
-        assert_eq!(received, Some(message));
+        assert_eq!(received.as_deref(), Some(message.as_slice()));
 
         // Send message from server to client
         let response = vec![6, 7, 8];
@@ -298,7 +299,7 @@ mod tests {
 
         // Receive response on client side
         let received_response = client.try_recv().unwrap();
-        assert_eq!(received_response, Some(response));
+        assert_eq!(received_response.as_deref(), Some(response.as_slice()));
     }
 
     #[test]
@@ -323,7 +324,7 @@ mod tests {
         // Receive all messages in order
         for i in 0..5 {
             let received = receiver.try_recv().unwrap();
-            assert_eq!(received, Some(vec![i, i + 1, i + 2]));
+            assert_eq!(received.as_deref(), Some([i, i + 1, i + 2].as_slice()));
         }
 
         // Channel should be empty now
@@ -340,7 +341,7 @@ mod tests {
 
         // Receive the large message
         let received = server.try_recv().unwrap();
-        assert_eq!(received, Some(large_message));
+        assert_eq!(received.as_deref(), Some(large_message.as_slice()));
     }
 
     #[test]

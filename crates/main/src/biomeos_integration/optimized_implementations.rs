@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
-#![allow(deprecated)]
+#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Optimized `BiomeOS` Integration Implementations
 //!
@@ -366,7 +366,7 @@ impl OptimizedContextState {
 
 /// Registers a service with the ecosystem using the given parameters.
 #[must_use]
-#[allow(clippy::implicit_hasher)]
+#[expect(clippy::implicit_hasher, reason = "Generic HashMap consumer API")]
 pub fn register_with_ecosystem(
     service_id: &str,
     primal_type: EcosystemPrimalType, // Already correct type

@@ -315,6 +315,17 @@ struct JsonRpcError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    use tokio::net::UnixListener;
+
+    #[test]
+    fn test_beardog_client_config_default() {
+        let config = BearDogClientConfig::default();
+        assert_eq!(config.socket_path, "/var/run/beardog/crypto.sock");
+        assert_eq!(config.timeout_secs, 5);
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.retry_delay_ms, 100);
+    }
 
     #[test]
     fn test_beardog_client_creation() {
@@ -341,6 +352,16 @@ mod tests {
     }
 
     #[test]
+    fn test_beardog_client_creation_nonexistent_socket() {
+        let config = BearDogClientConfig {
+            socket_path: "/nonexistent/path/crypto.sock".to_string(),
+            ..Default::default()
+        };
+        let client = BearDogClient::new(config);
+        assert!(client.is_ok());
+    }
+
+    #[test]
     fn test_request_id_increments() {
         let config = BearDogClientConfig::default();
         let client = BearDogClient::new(config).unwrap();
@@ -354,5 +375,206 @@ mod tests {
         assert_eq!(id3, 3);
     }
 
-    // Integration tests (require security provider running) are in integration tests
+    #[test]
+    fn test_ed25519_sign_mock_socket() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let dir = tempfile::tempdir().unwrap();
+            let socket_path = dir.path().join("beardog-sign.sock");
+            let path_str = socket_path.to_string_lossy().to_string();
+
+            let listener = UnixListener::bind(&socket_path).unwrap();
+
+            let server_handle = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                assert_eq!(req["method"], "crypto.ed25519.sign");
+                assert_eq!(req["params"]["key_id"], "test-key");
+                let sig_b64 = BASE64
+                    .encode(b"mock-ed25519-signature-64-bytes!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                let response = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": req["id"],
+                    "result": { "result": { "signature": sig_b64 } }
+                });
+                let mut stream = reader.into_inner();
+                stream
+                    .write_all(response.to_string().as_bytes())
+                    .await
+                    .unwrap();
+                stream.write_all(b"\n").await.unwrap();
+            });
+
+            let config = BearDogClientConfig {
+                socket_path: path_str.clone(),
+                timeout_secs: 5,
+                max_retries: 1,
+                retry_delay_ms: 10,
+            };
+            let client = BearDogClient::new(config).unwrap();
+            let sig = client.ed25519_sign(b"hello", "test-key").await;
+
+            let _ = server_handle.await;
+            sig
+        });
+
+        let signature = result.unwrap();
+        assert!(!signature.is_empty());
+    }
+
+    #[test]
+    fn test_ed25519_verify_mock_socket() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let dir = tempfile::tempdir().unwrap();
+            let socket_path = dir.path().join("beardog-verify.sock");
+            let path_str = socket_path.to_string_lossy().to_string();
+
+            let listener = UnixListener::bind(&socket_path).unwrap();
+
+            let server_handle = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                assert_eq!(req["method"], "crypto.ed25519.verify");
+                let response = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": req["id"],
+                    "result": { "result": { "valid": true } }
+                });
+                let mut stream = reader.into_inner();
+                stream
+                    .write_all(response.to_string().as_bytes())
+                    .await
+                    .unwrap();
+                stream.write_all(b"\n").await.unwrap();
+            });
+
+            let config = BearDogClientConfig {
+                socket_path: path_str.clone(),
+                timeout_secs: 5,
+                max_retries: 1,
+                retry_delay_ms: 10,
+            };
+            let client = BearDogClient::new(config).unwrap();
+            let valid = client.ed25519_verify(b"data", b"signature", "key-1").await;
+
+            let _ = server_handle.await;
+            valid
+        });
+
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_ed25519_verify_invalid_mock_socket() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let dir = tempfile::tempdir().unwrap();
+            let socket_path = dir.path().join("beardog-verify-invalid.sock");
+            let path_str = socket_path.to_string_lossy().to_string();
+
+            let listener = UnixListener::bind(&socket_path).unwrap();
+
+            let server_handle = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                assert_eq!(req["method"], "crypto.ed25519.verify");
+                let response = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": req["id"],
+                    "result": { "result": { "valid": false } }
+                });
+                let mut stream = reader.into_inner();
+                stream
+                    .write_all(response.to_string().as_bytes())
+                    .await
+                    .unwrap();
+                stream.write_all(b"\n").await.unwrap();
+            });
+
+            let config = BearDogClientConfig {
+                socket_path: path_str.clone(),
+                timeout_secs: 5,
+                max_retries: 1,
+                retry_delay_ms: 10,
+            };
+            let client = BearDogClient::new(config).unwrap();
+            let valid = client.ed25519_verify(b"data", b"bad-sig", "key-1").await;
+
+            let _ = server_handle.await;
+            valid
+        });
+
+        assert!(!result.unwrap());
+    }
+
+    #[test]
+    fn test_ed25519_sign_no_socket_fails() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let config = BearDogClientConfig {
+                socket_path: "/nonexistent/socket/path.sock".to_string(),
+                timeout_secs: 1,
+                max_retries: 1,
+                retry_delay_ms: 10,
+            };
+            let client = BearDogClient::new(config).unwrap();
+            client.ed25519_sign(b"data", "key").await
+        });
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_json_rpc_error_response() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(async {
+            let dir = tempfile::tempdir().unwrap();
+            let socket_path = dir.path().join("beardog-error.sock");
+            let path_str = socket_path.to_string_lossy().to_string();
+
+            let listener = UnixListener::bind(&socket_path).unwrap();
+
+            let server_handle = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                let response = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": req["id"],
+                    "error": { "code": -32000, "message": "Internal error" }
+                });
+                let mut stream = reader.into_inner();
+                stream
+                    .write_all(response.to_string().as_bytes())
+                    .await
+                    .unwrap();
+                stream.write_all(b"\n").await.unwrap();
+            });
+
+            let config = BearDogClientConfig {
+                socket_path: path_str.clone(),
+                timeout_secs: 5,
+                max_retries: 1,
+                retry_delay_ms: 10,
+            };
+            let client = BearDogClient::new(config).unwrap();
+            let sig = client.ed25519_sign(b"data", "key").await;
+
+            let _ = server_handle.await;
+            sig
+        });
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Internal error"));
+    }
 }

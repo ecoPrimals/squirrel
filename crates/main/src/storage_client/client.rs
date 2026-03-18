@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Storage Client Implementation
-#![allow(dead_code)] // Storage client infrastructure awaiting activation
+#![expect(
+    dead_code,
+    reason = "Storage client infrastructure awaiting activation"
+)]
 
 use base64::{Engine as _, engine::general_purpose};
 use dashmap::DashMap;

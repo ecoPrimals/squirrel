@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
-#![allow(deprecated)]
+#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Primal Self-Knowledge - Each primal knows ONLY itself
 //!
@@ -207,7 +207,7 @@ impl PrimalSelfKnowledge {
                 priority: 100, // ENV vars have highest priority
             };
 
-            // Cache it
+            // Cache it (clone for cache, return original to avoid extra clone)
             self.discovered
                 .write()
                 .await
@@ -216,8 +216,25 @@ impl PrimalSelfKnowledge {
             return Ok(service);
         }
 
-        // Stage 2: Try mDNS (local network discovery)
-        debug!("Stage 2: Trying mDNS discovery for '{}'", capability);
+        // Stage 2: Try socket registry (biomeOS - primary primal discovery)
+        debug!("Stage 2: Trying socket registry for '{}'", capability);
+        if let Ok(services) =
+            crate::discovery::mechanisms::discover_from_socket_registry(capability)
+            && let Some(service) = services.into_iter().next()
+        {
+            info!(
+                "✅ Found '{}' via socket registry: {}",
+                capability, service.endpoint
+            );
+            self.discovered
+                .write()
+                .await
+                .insert(capability.to_string(), service.clone());
+            return Ok(service);
+        }
+
+        // Stage 3: Try mDNS (local network; falls back to socket registry)
+        debug!("Stage 3: Trying mDNS discovery for '{}'", capability);
         let mdns = crate::discovery::mechanisms::MdnsDiscovery::default();
         if let Ok(services) = mdns.discover_by_capability(capability).await
             && let Some(service) = services.into_iter().next()
@@ -230,8 +247,8 @@ impl PrimalSelfKnowledge {
             return Ok(service);
         }
 
-        // Stage 3: Try DNS-SD (network-wide discovery)
-        debug!("Stage 3: Trying DNS-SD discovery for '{}'", capability);
+        // Stage 4: Try DNS-SD (network-wide; falls back to socket registry)
+        debug!("Stage 4: Trying DNS-SD discovery for '{}'", capability);
         let dnssd = crate::discovery::mechanisms::DnssdDiscovery::default();
         if let Ok(services) = dnssd.discover_by_capability(capability).await
             && let Some(service) = services.into_iter().next()
@@ -244,10 +261,10 @@ impl PrimalSelfKnowledge {
             return Ok(service);
         }
 
-        // Stage 4: Try service registry (if configured)
+        // Stage 5: Try external service registry (if configured)
         if let Ok(registry_endpoint) = std::env::var("SERVICE_REGISTRY_ENDPOINT") {
             debug!(
-                "Stage 4: Trying service registry discovery for '{}'",
+                "Stage 5: Trying service registry discovery for '{}'",
                 capability
             );
             let registry_type =
@@ -278,7 +295,7 @@ impl PrimalSelfKnowledge {
             }
         }
 
-        // Stage 5: P2P multicast (future implementation)
+        // Stage 6: P2P multicast (future implementation)
         // Would provide mesh networking and peer discovery
         // Priority: 40 (lowest, but highly resilient)
 

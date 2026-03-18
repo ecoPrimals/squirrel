@@ -277,11 +277,11 @@ patterns:
 /// Test frontmatter extraction helper
 #[test]
 fn test_frontmatter_extraction() {
-    let content_with_frontmatter = r#"---
+    let content_with_frontmatter = r"---
 id: test
 name: Test
 ---
-Body content here"#;
+Body content here";
 
     let result = FrontmatterParser::extract_frontmatter(content_with_frontmatter);
     assert!(result.is_ok());

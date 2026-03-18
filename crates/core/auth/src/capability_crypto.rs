@@ -364,21 +364,256 @@ impl CapabilityCryptoProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    use tokio::net::UnixListener;
 
-    #[tokio::test]
-    async fn test_discovery_from_env() {
-        temp_env::with_var(
-            "CRYPTO_SIGNING_ENDPOINT",
-            Some("/tmp/test-crypto.sock"),
-            || {
-                let _provider = CapabilityCryptoProvider::new();
-            },
-        );
+    #[test]
+    fn test_provider_new() {
+        let _provider = CapabilityCryptoProvider::new();
+    }
+
+    #[test]
+    fn test_provider_default() {
+        let _provider = CapabilityCryptoProvider::default();
     }
 
     #[test]
     fn test_config_default() {
         let config = CapabilityCryptoConfig::default();
         assert_eq!(config.discovery_timeout_ms, Some(500));
+    }
+
+    #[test]
+    fn test_config_serialize_deserialize() {
+        let config = CapabilityCryptoConfig {
+            endpoint: Some("/tmp/crypto.sock".to_string()),
+            discovery_timeout_ms: Some(1000),
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let restored: CapabilityCryptoConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.endpoint, config.endpoint);
+        assert_eq!(restored.discovery_timeout_ms, config.discovery_timeout_ms);
+    }
+
+    #[test]
+    fn test_from_config_with_endpoint() {
+        let config = CapabilityCryptoConfig {
+            endpoint: Some("/run/user/1000/crypto.sock".to_string()),
+            discovery_timeout_ms: None,
+        };
+        let _provider = CapabilityCryptoProvider::from_config(config);
+    }
+
+    #[test]
+    fn test_from_config_with_timeout() {
+        let config = CapabilityCryptoConfig {
+            endpoint: None,
+            discovery_timeout_ms: Some(2000),
+        };
+        let _provider = CapabilityCryptoProvider::from_config(config);
+    }
+
+    #[test]
+    fn test_from_config_full() {
+        let config = CapabilityCryptoConfig {
+            endpoint: Some("/var/run/crypto.sock".to_string()),
+            discovery_timeout_ms: Some(1500),
+        };
+        let _provider = CapabilityCryptoProvider::from_config(config);
+    }
+
+    #[test]
+    fn test_discovery_from_env() {
+        temp_env::with_var(
+            "CRYPTO_SIGNING_ENDPOINT",
+            Some("/tmp/test-crypto.sock"),
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let mut provider = CapabilityCryptoProvider::new();
+                    let result = provider.sign_ed25519(b"test").await;
+                    assert!(result.is_err());
+                    let err_str = result.unwrap_err().to_string();
+                    assert!(
+                        err_str.contains("connect")
+                            || err_str.contains("timeout")
+                            || err_str.contains("Crypto")
+                            || err_str.contains("Failed")
+                    );
+                });
+            },
+        );
+    }
+
+    #[test]
+    fn test_discovery_from_crypto_endpoint_env() {
+        temp_env::with_vars(
+            [
+                ("CRYPTO_SIGNING_ENDPOINT", None::<&str>),
+                ("CRYPTO_ENDPOINT", Some("/tmp/crypto-alt.sock")),
+            ],
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let mut provider = CapabilityCryptoProvider::new();
+                    let result = provider.sign_ed25519(b"test").await;
+                    assert!(result.is_err());
+                });
+            },
+        );
+    }
+
+    #[test]
+    fn test_sign_ed25519_no_endpoint_fails() {
+        temp_env::with_vars(
+            [
+                ("CRYPTO_SIGNING_ENDPOINT", None::<&str>),
+                ("CRYPTO_ENDPOINT", None::<&str>),
+            ],
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let mut provider = CapabilityCryptoProvider::new();
+                    let result = provider.sign_ed25519(b"data").await;
+                    assert!(result.is_err());
+                    let err_str = result.unwrap_err().to_string();
+                    assert!(
+                        err_str.contains("Crypto capability not found")
+                            || err_str.contains("CRYPTO")
+                    );
+                });
+            },
+        );
+    }
+
+    #[test]
+    fn test_mock_socket_sign_ed25519() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let socket_path = dir.path().join("crypto.sock");
+        let path_str = socket_path.to_string_lossy().to_string();
+
+        let result = temp_env::with_var("CRYPTO_SIGNING_ENDPOINT", Some(path_str.as_str()), || {
+            rt.block_on(async {
+                let listener = UnixListener::bind(&socket_path).unwrap();
+
+                let server_handle = tokio::spawn(async move {
+                    let (stream, _) = listener.accept().await.unwrap();
+                    let mut reader = BufReader::new(stream);
+                    let mut line = String::new();
+                    reader.read_line(&mut line).await.unwrap();
+                    let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                    assert_eq!(req["method"], "crypto.sign");
+                    let sig_b64 = base64::Engine::encode(
+                        &base64::engine::general_purpose::STANDARD,
+                        b"mock-signature-64-bytes!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+                    );
+                    let response = serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "result": { "signature": sig_b64 }
+                    });
+                    let mut stream = reader.into_inner();
+                    stream
+                        .write_all(response.to_string().as_bytes())
+                        .await
+                        .unwrap();
+                    stream.write_all(b"\n").await.unwrap();
+                });
+
+                let mut provider = CapabilityCryptoProvider::new();
+                let sig = provider.sign_ed25519(b"hello").await;
+                let _ = server_handle.await;
+                sig
+            })
+        });
+
+        let signature = result.unwrap();
+        assert!(!signature.is_empty());
+    }
+
+    #[test]
+    fn test_mock_socket_verify_ed25519() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let socket_path = dir.path().join("crypto-verify.sock");
+        let path_str = socket_path.to_string_lossy().to_string();
+
+        let result = temp_env::with_var("CRYPTO_SIGNING_ENDPOINT", Some(path_str.as_str()), || {
+            rt.block_on(async {
+                let listener = UnixListener::bind(&socket_path).unwrap();
+
+                let server_handle = tokio::spawn(async move {
+                    let (stream, _) = listener.accept().await.unwrap();
+                    let mut reader = BufReader::new(stream);
+                    let mut line = String::new();
+                    reader.read_line(&mut line).await.unwrap();
+                    let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                    assert_eq!(req["method"], "crypto.verify");
+                    let response = serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "result": { "valid": true }
+                    });
+                    let mut stream = reader.into_inner();
+                    stream
+                        .write_all(response.to_string().as_bytes())
+                        .await
+                        .unwrap();
+                    stream.write_all(b"\n").await.unwrap();
+                });
+
+                let mut provider = CapabilityCryptoProvider::new();
+                let valid = provider.verify_ed25519(b"data", b"sig", b"pubkey").await;
+                let _ = server_handle.await;
+                valid
+            })
+        });
+
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_mock_socket_verify_ed25519_with_key_id() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let socket_path = dir.path().join("crypto-keyid.sock");
+        let path_str = socket_path.to_string_lossy().to_string();
+
+        let result = temp_env::with_var("CRYPTO_SIGNING_ENDPOINT", Some(path_str.as_str()), || {
+            rt.block_on(async {
+                let listener = UnixListener::bind(&socket_path).unwrap();
+
+                let server_handle = tokio::spawn(async move {
+                    let (stream, _) = listener.accept().await.unwrap();
+                    let mut reader = BufReader::new(stream);
+                    let mut line = String::new();
+                    reader.read_line(&mut line).await.unwrap();
+                    let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                    assert_eq!(req["method"], "crypto.verify");
+                    assert_eq!(req["params"]["key_id"], "jwt-key-1");
+                    let response = serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "result": { "valid": false }
+                    });
+                    let mut stream = reader.into_inner();
+                    stream
+                        .write_all(response.to_string().as_bytes())
+                        .await
+                        .unwrap();
+                    stream.write_all(b"\n").await.unwrap();
+                });
+
+                let mut provider = CapabilityCryptoProvider::new();
+                let valid = provider
+                    .verify_ed25519_with_key_id(b"data", b"sig", "jwt-key-1")
+                    .await;
+                let _ = server_handle.await;
+                valid
+            })
+        });
+
+        assert!(!result.unwrap());
     }
 }

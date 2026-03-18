@@ -24,7 +24,7 @@ pub trait ZeroCopyMapExt<V> {
     fn contains_str(&self, key: &str) -> bool;
 }
 
-#[allow(clippy::implicit_hasher)]
+#[expect(clippy::implicit_hasher, reason = "Generic HashMap consumer API")]
 impl<V> ZeroCopyMapExt<V> for HashMap<Arc<str>, V> {
     fn insert_arc(&mut self, key: String, value: V) -> Option<V> {
         let arc_key: Arc<str> = Arc::from(key);
@@ -50,7 +50,7 @@ pub trait ZeroCopySetExt {
     fn contains_str(&self, value: &str) -> bool;
 }
 
-#[allow(clippy::implicit_hasher)]
+#[expect(clippy::implicit_hasher, reason = "Generic HashMap consumer API")]
 impl ZeroCopySetExt for HashSet<Arc<str>> {
     fn insert_arc(&mut self, value: String) -> bool {
         let arc_value: Arc<str> = Arc::from(value);

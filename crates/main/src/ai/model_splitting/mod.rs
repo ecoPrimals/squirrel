@@ -210,6 +210,3 @@ impl PerformancePrediction {
         Err("MOVED TO TOADSTOOL: Use ToadStool's performance prediction API".to_string())
     }
 }
-
-// Don't re-export - types are already defined above
-// pub use self::{...};

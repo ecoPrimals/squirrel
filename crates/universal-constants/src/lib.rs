@@ -63,6 +63,7 @@
 //! ```
 
 // Module declarations
+pub mod ai_providers;
 pub mod builders;
 pub mod capabilities;
 pub mod config_helpers;

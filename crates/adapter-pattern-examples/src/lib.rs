@@ -618,7 +618,7 @@ impl McpAdapter {
 impl Clone for McpAdapter {
     fn clone(&self) -> Self {
         Self {
-            adapter: RegistryAdapter::new(), // Create new adapter
+            adapter: self.adapter.clone(),
             users: self.users.clone(),
             command_permissions: self.command_permissions.clone(),
             tokens: self.tokens.clone(),
@@ -868,7 +868,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Needs command registration refactoring"]
     async fn test_polymorphic_adapter_usage() -> CommandResult<()> {
         // Function that works with any CommandAdapter implementation
         async fn execute_with_adapter(

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Dynamic action registry for provider-advertised capabilities
-#![allow(dead_code)] // Public API surface awaiting consumer activation
+#![expect(dead_code, reason = "API surface awaiting consumer activation")]
 //!
 //! The `ActionRegistry` is the heart of Phase 6 - it allows providers to
 //! dynamically register new AI actions at runtime without code changes.

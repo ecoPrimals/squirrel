@@ -223,7 +223,7 @@ impl PluginPerformanceOptimizer {
     }
 
     /// Get comprehensive optimization metrics
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(clippy::cast_precision_loss, reason = "Metrics scoring calculation")]
     pub async fn get_optimization_metrics(&self) -> OptimizerMetrics {
         let cache_stats = self.hot_path_cache.get_statistics().await;
         let batch_stats = self.batch_processor.get_statistics().await;
@@ -283,7 +283,11 @@ impl PluginPerformanceOptimizer {
     }
 
     /// Calculate cache efficiency from statistics
-    #[allow(clippy::unused_self, clippy::cast_precision_loss)]
+    #[expect(
+        clippy::unused_self,
+        clippy::cast_precision_loss,
+        reason = "Trait impl; precision loss audited"
+    )]
     fn calculate_cache_efficiency(&self, stats: &CacheStatistics) -> f64 {
         let total_requests = stats.lookup_hits
             + stats.lookup_misses

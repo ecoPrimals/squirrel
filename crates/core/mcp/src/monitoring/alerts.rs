@@ -413,7 +413,7 @@ impl Alert {
             // Check if enough time has passed since the last firing
             if let Some(last_fired_at) = self.last_fired_at {
                 let now = Utc::now();
-                #[allow(clippy::cast_possible_wrap)] // Allow u64->i64 for Duration
+                #[expect(clippy::cast_possible_wrap, reason = "Duration u64 to i64 conversion; values within range")]
                 let duration = Duration::seconds(self.config.minimum_interval_seconds as i64);
 
                 return now - last_fired_at >= duration;

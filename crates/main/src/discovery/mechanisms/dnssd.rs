@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! DNS-SD (DNS Service Discovery) mechanism
-#![allow(dead_code)] // Discovery infrastructure awaiting activation
 //!
 //! Discovers services across networks using DNS-based service discovery (RFC 6763).
 //! Works globally, unlike mDNS which is limited to local networks.
@@ -23,10 +22,11 @@
 //! squirrel-ai._primal._tcp.squirrel.local. TXT "capabilities=ai,embeddings"
 //! ```
 
+use crate::discovery::mechanisms::socket_registry::discover_from_socket_registry;
 use crate::discovery::types::{DiscoveredService, DiscoveryResult};
 use std::collections::HashMap;
 use std::time::Duration;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// DNS-SD discovery client
 #[derive(Debug, Clone)]
@@ -34,13 +34,13 @@ pub struct DnssdDiscovery {
     /// DNS domain to query
     domain: String,
 
-    /// Service type (e.g., "_primal._tcp")
+    /// Service type (e.g., `_biomeos._tcp`)
     service_type: String,
 
     /// DNS server address (optional, defaults to system resolver)
     dns_server: Option<String>,
 
-    /// Query timeout
+    #[allow(dead_code)] // Reserved for real DNS-SD implementation
     timeout: Duration,
 
     /// Enable/disable DNS-SD
@@ -51,7 +51,7 @@ impl Default for DnssdDiscovery {
     fn default() -> Self {
         Self {
             domain: "local.".to_string(),
-            service_type: "_primal._tcp".to_string(),
+            service_type: "_biomeos._tcp".to_string(),
             dns_server: None,
             timeout: Duration::from_secs(5),
             enabled: true,
@@ -79,16 +79,9 @@ impl DnssdDiscovery {
 
     /// Discover services by capability using DNS-SD
     ///
-    /// Queries DNS for services advertising the given capability.
-    ///
-    /// # Implementation Note
-    ///
-    /// This is a production-ready stub that provides the correct interface.
-    /// Full DNS-SD implementation would require additional dependencies:
-    /// - `trust-dns-client` or `hickory-dns` for DNS queries
-    /// - `hickory-resolver` for high-level service discovery
-    ///
-    /// For now, this returns empty results to enable graceful fallback.
+    /// Queries DNS for `_biomeos._tcp` services. Since ecoBin requires pure Rust
+    /// and we don't have trust-dns-resolver/hickory-dns in dependencies, this
+    /// falls back to the socket registry (biomeOS file-based discovery).
     pub async fn discover_by_capability(
         &self,
         capability: &str,
@@ -103,24 +96,21 @@ impl DnssdDiscovery {
             capability
         );
 
-        // Production-ready interface with graceful fallback
-        // Full implementation would:
-        // 1. Query PTR records for {service_type}.{domain}
-        // 2. For each instance, query SRV for host:port
-        // 3. Query TXT for capabilities and metadata
-        // 4. Filter services by capability
-        // 5. Return discovered services
-
         let query = format!("{}.{}", self.service_type, self.domain);
         debug!("DNS-SD query: PTR {}", query);
 
-        // Graceful fallback: return empty results
-        Ok(Vec::new())
+        // No pure-Rust DNS-SD impl available (trust-dns-resolver/hickory-dns not in deps)
+        warn!(
+            "DNS-SD not available (pure-Rust resolver not in dependencies); falling back to socket registry"
+        );
+
+        discover_from_socket_registry(capability)
     }
 
     /// Discover all services in the domain
     ///
     /// Performs a PTR query to enumerate all available services.
+    /// Falls back to socket registry when DNS-SD is unavailable.
     pub async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
         if !self.enabled {
             return Ok(Vec::new());
@@ -128,8 +118,9 @@ impl DnssdDiscovery {
 
         info!("🔍 Querying DNS-SD for all services in {}", self.domain);
 
-        // Production-ready interface with graceful fallback
-        Ok(Vec::new())
+        warn!("DNS-SD not available; falling back to socket registry for discover_all");
+
+        crate::discovery::mechanisms::socket_registry::SocketRegistryDiscovery::new().discover_all()
     }
 
     /// Register service in DNS
@@ -196,6 +187,7 @@ impl DnssdDiscovery {
     /// Parse DNS-SD records into DiscoveredService
     ///
     /// Helper to convert DNS query results into standardized format.
+    #[allow(dead_code)] // Reserved for real DNS-SD implementation; tests exercise the parser
     fn parse_dnssd_records(
         instance: String,
         hostname: &str,
@@ -232,7 +224,7 @@ mod tests {
         let dnssd = DnssdDiscovery::default();
         assert!(dnssd.enabled);
         assert_eq!(dnssd.domain, "local.");
-        assert_eq!(dnssd.service_type, "_primal._tcp");
+        assert_eq!(dnssd.service_type, "_biomeos._tcp");
     }
 
     #[tokio::test]

@@ -318,7 +318,7 @@ impl RuleEvaluator {
         }
 
         // Update average duration using saturating arithmetic to avoid truncation
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(clippy::cast_possible_truncation, reason = "Rule evaluation scoring")]
         let count = stats.total_evaluations.min(i32::MAX as u64) as i32;
         let total_duration = stats.average_duration * (count.saturating_sub(1)) + duration;
         stats.average_duration = if count > 0 {

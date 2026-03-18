@@ -57,7 +57,7 @@ toml = "0.8"
 # Storage and persistence (optional)
 sled = { version = "0.34", optional = true }
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"], optional = true }
-redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], optional = true }
+redis = { version = "1.0", features = ["tokio-comp", "connection-manager"], optional = true }
 
 # Compression (optional)
 zstd = { version = "0.12", optional = true }
@@ -83,7 +83,7 @@ wasmtime-wasi = { version = "12.0", optional = true }
 parking_lot = "0.12"
 rand = "0.8"
 futures = "0.3"
-bytes = "1.0"
+bytes = { version = "1.0", features = ["serde"] }
 clap = "4.0"
 regex = "1.7"
 base64 = "0.21"
@@ -93,7 +93,7 @@ tokio-test = "0.4"
 criterion = { version = "0.5", features = ["html_reports"] }
 tempfile = "3.0"
 mockall = "0.11"
-proptest = "1.0"
+proptest.workspace = true
 insta = "1.34"
 temp-env = "0.3"
 

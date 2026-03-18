@@ -115,7 +115,11 @@ impl SongbirdClient {
                 );
                 sleep(Duration::from_millis(delay)).await;
                 // Intentional: delay is in ms (u64), backoff uses f64; truncation acceptable for retry timing
-                #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+                #[expect(
+                    clippy::cast_precision_loss,
+                    clippy::cast_possible_truncation,
+                    reason = "Client metrics calculation"
+                )]
                 {
                     let new_delay = (delay as f64) * self.retry_config.backoff_multiplier;
                     delay = u64::try_from(new_delay.round() as i64).unwrap_or(0);

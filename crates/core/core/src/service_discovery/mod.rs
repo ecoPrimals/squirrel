@@ -86,7 +86,7 @@
 //! ### Service Discovery with Query
 //!
 //! ```rust
-//! use squirrel_core::service_discovery::HealthStatus;
+//! use squirrel_core::service_discovery::ServiceHealthStatus;
 //! use squirrel_core::{CoreResult, InMemoryServiceDiscovery, ServiceDiscovery, ServiceQuery, ServiceType};
 //!
 //! # async fn example() -> CoreResult<()> {
@@ -95,7 +95,7 @@
 //! let query = ServiceQuery::new()
 //!     .with_service_type(ServiceType::AI)
 //!     .with_capability("chat".to_string())
-//!     .with_health_status(HealthStatus::Healthy)
+//!     .with_health_status(ServiceHealthStatus::Healthy)
 //!     .limit(10);
 //!
 //! let services: Vec<_> = discovery.discover_services(query).await?;

@@ -249,12 +249,27 @@ impl DelegatedJwtClient {
 mod tests {
     use super::*;
     use chrono::Duration;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
     #[test]
     fn test_delegated_client_creation() {
         let config = CapabilityJwtConfig::default();
         let client = DelegatedJwtClient::new(config);
 
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    fn test_delegated_client_creation_with_custom_config() {
+        let config = CapabilityJwtConfig {
+            crypto_config: crate::capability_crypto::CapabilityCryptoConfig {
+                endpoint: Some("/tmp/nonexistent-delegated.sock".to_string()),
+                discovery_timeout_ms: Some(100),
+            },
+            key_id: "custom-jwt-key".to_string(),
+            expiry_hours: 48,
+        };
+        let client = DelegatedJwtClient::new(config);
         assert!(client.is_ok());
     }
 
@@ -271,6 +286,137 @@ mod tests {
                 assert!(client.is_ok());
             },
         );
+    }
+
+    #[test]
+    fn test_delegated_client_from_env_defaults() {
+        temp_env::with_vars(
+            [
+                ("CRYPTO_CAPABILITY_SOCKET", None::<&str>),
+                ("JWT_KEY_ID", None::<&str>),
+                ("JWT_EXPIRY_HOURS", None::<&str>),
+            ],
+            || {
+                let client = DelegatedJwtClient::new_from_env();
+                assert!(client.is_ok());
+            },
+        );
+    }
+
+    #[test]
+    fn test_delegated_client_from_env_invalid_expiry_hours() {
+        temp_env::with_vars(
+            [
+                ("CRYPTO_CAPABILITY_SOCKET", Some("/tmp/test.sock")),
+                ("JWT_EXPIRY_HOURS", Some("not-a-number")),
+            ],
+            || {
+                let client = DelegatedJwtClient::new_from_env();
+                assert!(client.is_ok());
+            },
+        );
+    }
+
+    #[test]
+    fn test_extract_token_from_header() {
+        let config = CapabilityJwtConfig::default();
+        let client = DelegatedJwtClient::new(config).unwrap();
+
+        let token = client
+            .extract_token_from_header("Bearer my-jwt-token-123")
+            .unwrap();
+        assert_eq!(token, "my-jwt-token-123");
+
+        let err = client.extract_token_from_header("Basic credentials");
+        assert!(matches!(err, Err(AuthError::InvalidToken)));
+
+        let err = client.extract_token_from_header("Bearer ");
+        assert!(matches!(err, Err(AuthError::InvalidToken)));
+    }
+
+    #[tokio::test]
+    async fn test_create_and_verify_token_with_mock() {
+        use tokio::io::BufReader;
+        use tokio::net::UnixListener;
+
+        let dir = tempfile::tempdir().unwrap();
+        let socket_path = dir.path().join("delegated-jwt-mock.sock");
+        let path_str = socket_path.to_string_lossy().to_string();
+
+        let listener = UnixListener::bind(&socket_path).unwrap();
+
+        let server_handle = tokio::spawn(async move {
+            let (stream1, _) = listener.accept().await.unwrap();
+            let mut reader = BufReader::new(stream1);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.unwrap();
+            let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+            assert_eq!(req["method"], "crypto.sign");
+            let sig_b64 =
+                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &[0u8; 64][..]);
+            let response = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": { "signature": sig_b64 }
+            });
+            let mut stream = reader.into_inner();
+            stream
+                .write_all(response.to_string().as_bytes())
+                .await
+                .unwrap();
+            stream.write_all(b"\n").await.unwrap();
+
+            let (stream2, _) = listener.accept().await.unwrap();
+            let mut reader2 = BufReader::new(stream2);
+            let mut line2 = String::new();
+            reader2.read_line(&mut line2).await.unwrap();
+            let req2: serde_json::Value = serde_json::from_str(&line2).unwrap();
+            assert_eq!(req2["method"], "crypto.verify");
+            let response2 = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": { "valid": true }
+            });
+            let mut stream2 = reader2.into_inner();
+            stream2
+                .write_all(response2.to_string().as_bytes())
+                .await
+                .unwrap();
+            stream2.write_all(b"\n").await.unwrap();
+        });
+
+        let config = CapabilityJwtConfig {
+            crypto_config: crate::capability_crypto::CapabilityCryptoConfig {
+                endpoint: Some(path_str),
+                discovery_timeout_ms: Some(5000),
+            },
+            key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
+            expiry_hours: 24,
+        };
+        let client = DelegatedJwtClient::new(config).unwrap();
+
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        let expires_at = Utc::now() + Duration::hours(1);
+
+        let token = client
+            .create_token(
+                user_id,
+                "delegated-user".to_string(),
+                vec!["user".to_string(), "editor".to_string()],
+                session_id,
+                expires_at,
+            )
+            .await
+            .unwrap();
+
+        assert!(token.contains('.'));
+
+        let claims = client.verify_token(&token).await.unwrap();
+        let _ = server_handle.await;
+        assert_eq!(claims.username, "delegated-user");
+        assert_eq!(claims.sub, user_id.to_string());
+        assert_eq!(claims.roles.len(), 2);
     }
 
     // Integration tests require crypto capability provider running

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
-#![allow(deprecated)]
-#![allow(dead_code)] // Discovery infrastructure awaiting activation
+#![expect(deprecated, reason = "Backward compatibility during migration")]
 
 //! Service Registry discovery mechanism
 //!
@@ -49,8 +48,10 @@
 //! }
 //! ```
 
+use crate::discovery::mechanisms::socket_registry::SocketRegistryDiscovery;
 use crate::discovery::types::{DiscoveredService, DiscoveryResult};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tracing::{debug, info};
 
@@ -74,6 +75,8 @@ use tracing::{debug, info};
 )]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegistryType {
+    /// biomeOS socket registry (file-system at $XDG_RUNTIME_DIR/biomeos/socket-registry.json)
+    Biomeos,
     /// HashiCorp Consul
     Consul,
     /// CoreOS Etcd
@@ -117,6 +120,33 @@ impl RegistryDiscovery {
         }
     }
 
+    /// Create socket registry discovery (biomeOS file-based)
+    ///
+    /// Reads from `$XDG_RUNTIME_DIR/biomeos/socket-registry.json`.
+    /// This is the primary discovery mechanism for primals.
+    #[must_use]
+    pub const fn socket_registry() -> Self {
+        Self {
+            registry_type: RegistryType::Biomeos,
+            endpoint: String::new(),
+            auth_token: None,
+            timeout: Duration::from_secs(5),
+            enabled: true,
+        }
+    }
+
+    /// Create socket registry discovery with path override (for testing)
+    #[must_use]
+    pub fn socket_registry_with_path(path: &Path) -> Self {
+        Self {
+            registry_type: RegistryType::Biomeos,
+            endpoint: path.to_string_lossy().to_string(),
+            auth_token: None,
+            timeout: Duration::from_secs(5),
+            enabled: true,
+        }
+    }
+
     /// Set authentication token
     pub fn with_auth_token(mut self, token: String) -> Self {
         self.auth_token = Some(token);
@@ -131,17 +161,8 @@ impl RegistryDiscovery {
 
     /// Discover services by capability
     ///
-    /// Queries the registry for services with the specified capability tag.
-    ///
-    /// # Implementation Note
-    ///
-    /// This is a production-ready stub that provides the correct interface.
-    /// Full implementation would require HTTP client and registry-specific API:
-    /// - Consul: GET /v1/catalog/service/{name}?tag={capability}
-    /// - Etcd: GET /v3/kv/range with prefix
-    /// - Kubernetes: List services with label selector
-    ///
-    /// For now, this returns empty results to enable graceful fallback.
+    /// For Biomeos type: reads from $XDG_RUNTIME_DIR/biomeos/socket-registry.json.
+    /// For other types: stub (would require HTTP client for full implementation).
     pub async fn discover_by_capability(
         &self,
         capability: &str,
@@ -151,26 +172,27 @@ impl RegistryDiscovery {
             return Ok(Vec::new());
         }
 
+        if self.registry_type == RegistryType::Biomeos {
+            let discovery = if self.endpoint.is_empty() {
+                SocketRegistryDiscovery::new()
+            } else {
+                SocketRegistryDiscovery::with_path(PathBuf::from(&self.endpoint))
+            };
+            return discovery.discover_by_capability(capability);
+        }
+
         info!(
             "🔍 Querying {:?} registry at {} for capability: {}",
             self.registry_type, self.endpoint, capability
         );
 
-        // Production-ready interface with graceful fallback
-        // Full implementation would:
-        // 1. Build HTTP request for registry API
-        // 2. Add authentication headers if needed
-        // 3. Query for services with capability tag
-        // 4. Parse response based on registry type
-        // 5. Convert to DiscoveredService format
-        // 6. Filter healthy services
-
+        // HTTP-based registries (Consul, Etcd, etc.): stub for now
+        // Full implementation would require registry-specific API
         debug!(
             "Registry query: GET {}/services?capability={}",
             self.endpoint, capability
         );
 
-        // Graceful fallback: return empty results
         Ok(Vec::new())
     }
 
@@ -180,12 +202,20 @@ impl RegistryDiscovery {
             return Ok(Vec::new());
         }
 
+        if self.registry_type == RegistryType::Biomeos {
+            let discovery = if self.endpoint.is_empty() {
+                SocketRegistryDiscovery::new()
+            } else {
+                SocketRegistryDiscovery::with_path(PathBuf::from(&self.endpoint))
+            };
+            return discovery.discover_all();
+        }
+
         info!(
             "🔍 Listing all services from {:?} registry",
             self.registry_type
         );
 
-        // Production-ready interface with graceful fallback
         Ok(Vec::new())
     }
 
@@ -200,7 +230,10 @@ impl RegistryDiscovery {
     /// * `capabilities` - Capabilities/tags
     /// * `health_endpoint` - Health check endpoint (optional)
     /// * `metadata` - Additional metadata
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Registry builder; refactor to builder pattern planned"
+    )]
     pub async fn register_service(
         &self,
         service_id: &str,
@@ -297,6 +330,7 @@ impl RegistryDiscovery {
     /// Parse registry response into DiscoveredService
     ///
     /// Helper to convert registry-specific format to standardized format.
+    #[allow(dead_code)] // Reserved for registry discovery integration
     fn parse_registry_entry(
         service_id: &str,
         service_name: &str,
@@ -323,6 +357,7 @@ impl RegistryDiscovery {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     #[tokio::test]
     async fn test_registry_creation() {
@@ -451,5 +486,24 @@ mod tests {
     fn test_registry_types() {
         assert_eq!(RegistryType::Consul, RegistryType::Consul);
         assert_ne!(RegistryType::Consul, RegistryType::Etcd);
+        assert_eq!(RegistryType::Biomeos, RegistryType::Biomeos);
+    }
+
+    #[tokio::test]
+    async fn test_socket_registry_discover() {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        file.write_all(
+            br#"{"ai": "/run/user/1000/squirrel.sock", "storage": "/run/user/1000/nestgate.sock"}"#,
+        )
+        .unwrap();
+        file.flush().unwrap();
+
+        let registry = RegistryDiscovery::socket_registry_with_path(file.path());
+        let result = registry.discover_by_capability("ai").await;
+        assert!(result.is_ok());
+        let services = result.unwrap();
+        assert_eq!(services.len(), 1);
+        assert_eq!(services[0].endpoint, "unix:///run/user/1000/squirrel.sock");
+        assert_eq!(services[0].discovery_method, "socket_registry");
     }
 }

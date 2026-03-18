@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Message Frame Transport
+//! Message Frame Transport (public API)
 //!
-//! This module provides frame-based message transport for MCP protocol.
+//! This module provides the canonical [`Frame`] type and frame-based message transport for MCP.
+//!
+//! **Layering**: [`Frame`] uses `Bytes` for zero-copy cloning. The codec/framing layer
+//! ([`crate::transport::framing`]) produces and consumes this type; it handles buffering
+//! and length-prefixed wire format.
+//!
+//! Re-exports from framing: [`FrameReader`], [`FrameWriter`] for stream I/O.
 
 use std::io::{Read, Write};
 use std::marker::PhantomData;
@@ -18,6 +24,9 @@ use crate::protocol::types::MCPMessage;
 
 use universal_constants::limits;
 
+// Re-export framing I/O for consumers that need FrameReader/FrameWriter
+pub use crate::transport::framing::{FrameReader, FrameWriter};
+
 /// Maximum frame size (16MB)
 ///
 /// Re-exports [`universal_constants::limits::MAX_TRANSPORT_FRAME_SIZE`] for backward compatibility.
@@ -26,8 +35,10 @@ pub const MAX_FRAME_SIZE: usize = limits::MAX_TRANSPORT_FRAME_SIZE;
 /// Frame header size (4 bytes for length)
 pub const FRAME_HEADER_SIZE: usize = 4;
 
-/// Frame represents a message frame with header and payload.
+/// Canonical message frame type for MCP transport.
+///
 /// Uses `Bytes` for payload — `Bytes::clone()` is O(1) (ref-count increment).
+/// The codec layer ([`crate::transport::framing`]) produces/consumes this type.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Frame {
     /// Raw frame payload bytes (Bytes for zero-copy clone in encode)
@@ -84,7 +95,10 @@ impl Frame {
 
     /// Write frame to a writer
     #[must_use = "I/O errors should be handled"]
-    #[allow(clippy::cast_possible_truncation)] // Frame protocol uses u32 length; truncation acceptable for oversized payloads
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Frame protocol uses u32 length prefix"
+    )]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
         // Write length header (big endian)
         let length = self.payload.len() as u32;
@@ -193,7 +207,10 @@ impl<W: AsyncWrite + Unpin> AsyncFrameWriter<W> {
     }
 
     /// Writes a frame to the underlying stream
-    #[allow(clippy::cast_possible_truncation)] // Frame protocol uses u32 length
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Frame protocol uses u32 length prefix"
+    )]
     pub async fn write_frame(&mut self, frame: &Frame) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 

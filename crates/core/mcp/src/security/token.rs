@@ -6,13 +6,13 @@
 //! This module provides token management functionality for the MCP system.
 //! Actual token operations are delegated to the BearDog framework.
 
+use crate::error::Result;
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc, Duration};
-use crate::error::Result;
 
 /// Token type enumeration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -39,7 +39,12 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, user_id: Uuid, token_hash: String, expires_at: DateTime<Utc>) -> Self {
+    pub fn new(
+        token_type: TokenType,
+        user_id: Uuid,
+        token_hash: String,
+        expires_at: DateTime<Utc>,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             token_type,
@@ -86,7 +91,7 @@ impl Default for TokenConfig {
 }
 
 /// Default token manager implementation
-/// 
+///
 /// This provides basic token management that can be extended
 /// or replaced with BearDog integration in the future.
 #[derive(Debug, Clone)]
@@ -116,24 +121,35 @@ impl DefaultTokenManager {
     }
 
     /// Create a new token
-    pub async fn create_token(&self, token_type: TokenType, user_id: Uuid, token_string: String) -> Result<Token> {
+    pub async fn create_token(
+        &self,
+        token_type: TokenType,
+        user_id: Uuid,
+        token_string: String,
+    ) -> Result<Token> {
         let token_hash = self.hash_token(&token_string);
-        
+
         let expires_at = match token_type {
-            TokenType::Access => Utc::now() + Duration::minutes(self.config.access_token_expiry_minutes),
-            TokenType::Refresh => Utc::now() + Duration::days(self.config.refresh_token_expiry_days),
+            TokenType::Access => {
+                Utc::now() + Duration::minutes(self.config.access_token_expiry_minutes)
+            }
+            TokenType::Refresh => {
+                Utc::now() + Duration::days(self.config.refresh_token_expiry_days)
+            }
             TokenType::Api => Utc::now() + Duration::days(self.config.api_token_expiry_days),
-            TokenType::Session => Utc::now() + Duration::hours(self.config.session_token_expiry_hours),
+            TokenType::Session => {
+                Utc::now() + Duration::hours(self.config.session_token_expiry_hours)
+            }
         };
 
         let token = Token::new(token_type, user_id, token_hash.clone(), expires_at);
-        
+
         let mut tokens = self.tokens.write().await;
         let mut token_hashes = self.token_hashes.write().await;
-        
+
         tokens.insert(token.id, token.clone());
         token_hashes.insert(token_hash, token.id);
-        
+
         Ok(token)
     }
 
@@ -147,7 +163,7 @@ impl DefaultTokenManager {
     pub async fn get_token_by_string(&self, token_string: &str) -> Result<Option<Token>> {
         let token_hash = self.hash_token(token_string);
         let token_hashes = self.token_hashes.read().await;
-        
+
         if let Some(token_id) = token_hashes.get(&token_hash) {
             let tokens = self.tokens.read().await;
             Ok(tokens.get(token_id).cloned())
@@ -200,27 +216,35 @@ impl DefaultTokenManager {
     pub async fn revoke_user_tokens(&self, user_id: &Uuid) -> Result<usize> {
         let mut tokens = self.tokens.write().await;
         let mut count = 0;
-        
+
         for token in tokens.values_mut() {
             if token.user_id == *user_id && !token.is_revoked {
                 token.is_revoked = true;
                 count += 1;
             }
         }
-        
+
         Ok(count)
     }
 
     /// Get user tokens
     pub async fn get_user_tokens(&self, user_id: &Uuid) -> Result<Vec<Token>> {
         let tokens = self.tokens.read().await;
-        Ok(tokens.values().filter(|t| t.user_id == *user_id).cloned().collect())
+        Ok(tokens
+            .values()
+            .filter(|t| t.user_id == *user_id)
+            .cloned()
+            .collect())
     }
 
     /// Get active user tokens
     pub async fn get_active_user_tokens(&self, user_id: &Uuid) -> Result<Vec<Token>> {
         let tokens = self.tokens.read().await;
-        Ok(tokens.values().filter(|t| t.user_id == *user_id && t.is_valid()).cloned().collect())
+        Ok(tokens
+            .values()
+            .filter(|t| t.user_id == *user_id && t.is_valid())
+            .cloned()
+            .collect())
     }
 
     /// Cleanup expired tokens
@@ -228,53 +252,65 @@ impl DefaultTokenManager {
         let mut tokens = self.tokens.write().await;
         let mut token_hashes = self.token_hashes.write().await;
         let mut count = 0;
-        
-        let expired_tokens: Vec<_> = tokens.iter()
+
+        let expired_tokens: Vec<_> = tokens
+            .iter()
             .filter(|(_, token)| token.is_expired())
             .map(|(id, token)| (*id, token.token_hash.clone()))
             .collect();
-        
+
         for (id, hash) in expired_tokens {
             tokens.remove(&id);
             token_hashes.remove(&hash);
             count += 1;
         }
-        
+
         Ok(count)
     }
 
     /// Refresh token
-    pub async fn refresh_token(&self, refresh_token_string: &str) -> Result<Option<(Token, Token)>> {
-        if let Some(refresh_token) = self.get_token_by_string(refresh_token_string).await? {
-            if refresh_token.token_type == TokenType::Refresh && refresh_token.is_valid() {
-                // Create new access token
-                let new_access_token = self.create_token(
+    pub async fn refresh_token(
+        &self,
+        refresh_token_string: &str,
+    ) -> Result<Option<(Token, Token)>> {
+        if let Some(refresh_token) = self.get_token_by_string(refresh_token_string).await?
+            && refresh_token.token_type == TokenType::Refresh
+            && refresh_token.is_valid()
+        {
+            // Create new access token
+            let new_access_token = self
+                .create_token(
                     TokenType::Access,
                     refresh_token.user_id,
                     format!("access_{}", Uuid::new_v4()),
-                ).await?;
-                
-                // Create new refresh token
-                let new_refresh_token = self.create_token(
+                )
+                .await?;
+
+            // Create new refresh token
+            let new_refresh_token = self
+                .create_token(
                     TokenType::Refresh,
                     refresh_token.user_id,
                     format!("refresh_{}", Uuid::new_v4()),
-                ).await?;
-                
-                // Revoke old refresh token
-                self.revoke_token(&refresh_token.id).await?;
-                
-                return Ok(Some((new_access_token, new_refresh_token)));
-            }
+                )
+                .await?;
+
+            // Revoke old refresh token
+            self.revoke_token(&refresh_token.id).await?;
+
+            return Ok(Some((new_access_token, new_refresh_token)));
         }
-        
+
         Ok(None)
     }
 
-    /// Hash token string (placeholder implementation)
+    /// Hash token string (stub — will use proper hashing via BearDog)
+    #[expect(
+        clippy::unused_self,
+        reason = "will use internal hash config when BearDog is integrated"
+    )]
     fn hash_token(&self, token: &str) -> String {
-        // Placeholder implementation - in production, use proper hashing
-        format!("hash_{}", token)
+        format!("hash_{token}")
     }
 
     /// Get token statistics
@@ -284,7 +320,7 @@ impl DefaultTokenManager {
         let active = tokens.values().filter(|t| t.is_valid()).count();
         let expired = tokens.values().filter(|t| t.is_expired()).count();
         let revoked = tokens.values().filter(|t| t.is_revoked).count();
-        
+
         Ok(TokenStatistics {
             total,
             active,
@@ -307,4 +343,4 @@ impl Default for DefaultTokenManager {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

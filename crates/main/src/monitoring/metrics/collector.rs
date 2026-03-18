@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Metrics collector implementation
-#![allow(dead_code)] // Monitoring infrastructure awaiting activation
+#![expect(dead_code, reason = "Monitoring infrastructure awaiting activation")]
 //!
 //! Core metrics collection engine with system monitoring.
 

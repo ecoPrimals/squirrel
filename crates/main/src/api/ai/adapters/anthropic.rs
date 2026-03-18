@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // Allow deprecated items for backward compatibility
-#![allow(deprecated)]
+#![expect(deprecated, reason = "Deprecated adapter; removal planned")]
 
 //! Anthropic AI Provider Adapter with Capability-Based HTTP Delegation
 //!
@@ -36,6 +36,7 @@ use std::collections::HashMap;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tracing::{debug, error, info};
+use universal_constants::ai_providers;
 use uuid::Uuid;
 
 /// Anthropic-specific request format
@@ -58,7 +59,7 @@ struct AnthropicMessage {
 
 /// Anthropic API response
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)] // Fields used by serde deserialization
+#[expect(dead_code, reason = "Fields used by serde deserialization")]
 struct AnthropicResponse {
     id: String,
     model: String,
@@ -67,7 +68,7 @@ struct AnthropicResponse {
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)] // Fields used by serde deserialization
+#[expect(dead_code, reason = "Fields used by serde deserialization")]
 struct AnthropicContent {
     #[serde(rename = "type")]
     content_type: String,
@@ -223,7 +224,7 @@ impl AnthropicAdapter {
         let response_json = self
             .delegate_http(
                 "POST",
-                "https://api.anthropic.com/v1/messages",
+                &ai_providers::anthropic_messages_url(),
                 headers,
                 serde_json::to_value(&anthropic_request)?,
             )

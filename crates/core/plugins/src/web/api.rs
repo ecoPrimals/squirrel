@@ -617,7 +617,10 @@ impl PluginManagementAPI {
     }
 
     /// Execute plugin command
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn execute_plugin_command(
         &self,
         plugin_id: Uuid,
@@ -638,7 +641,10 @@ impl PluginManagementAPI {
     }
 
     /// Search marketplace plugins
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn search_marketplace_plugins(&self, search: PluginSearchRequest) -> Result<WebResponse> {
         // In real implementation, this would search the plugin marketplace
         // For now, return sample data
@@ -670,7 +676,10 @@ impl PluginManagementAPI {
     }
 
     /// Get marketplace plugin details
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn get_marketplace_plugin_details(&self, plugin_id: Uuid) -> Result<WebResponse> {
         // In real implementation, this would fetch plugin details from marketplace
         let sample_plugin = PluginMarketplaceEntry {
@@ -708,7 +717,10 @@ impl PluginManagementAPI {
     }
 
     /// Get marketplace categories
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn get_marketplace_categories(&self) -> Result<WebResponse> {
         let categories = vec![
             "utility",
@@ -823,7 +835,10 @@ impl PluginManagementAPI {
     }
 
     /// Emit WebSocket event to all connected clients
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn emit_websocket_event(&self, message: WebSocketMessage) {
         // In real implementation, this would send the message to all connected WebSocket clients
         // For now, just log it

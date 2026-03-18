@@ -196,7 +196,7 @@ impl ErrorStats {
     }
 
     /// Returns the percentage of errors that were critical severity.
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(clippy::cast_precision_loss, reason = "Example percentage calculation")]
     pub fn get_critical_rate(&self) -> f64 {
         if self.total_errors == 0 {
             return 0.0;

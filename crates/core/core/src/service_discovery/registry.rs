@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info};
 
 use super::trait_::ServiceDiscovery;
-use super::types::{HealthStatus, ServiceDefinition};
+use super::types::{ServiceDefinition, ServiceHealthStatus};
 use crate::error::CoreResult;
 
 /// Service registry for managing service lifecycle
@@ -197,17 +197,17 @@ impl ServiceRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// # use squirrel_core::service_discovery::HealthStatus;
+    /// # use squirrel_core::service_discovery::ServiceHealthStatus;
     /// # use squirrel_core::{CoreResult, ServiceRegistry};
     /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
-    /// registry.update_local_service_health("my-service", HealthStatus::Unhealthy).await?;
+    /// registry.update_local_service_health("my-service", ServiceHealthStatus::Unhealthy).await?;
     /// # Ok(())
     /// # }
     /// ```
     pub async fn update_local_service_health(
         &self,
         service_id: &str,
-        health: HealthStatus,
+        health: ServiceHealthStatus,
     ) -> CoreResult<()> {
         // Update in discovery
         self.discovery
@@ -388,10 +388,10 @@ impl RegistryStats {
 
         for service in services {
             match service.health_status {
-                HealthStatus::Healthy => healthy_services += 1,
-                HealthStatus::Unhealthy => unhealthy_services += 1,
-                HealthStatus::Degraded => degraded_services += 1,
-                HealthStatus::Unavailable => unavailable_services += 1,
+                ServiceHealthStatus::Healthy => healthy_services += 1,
+                ServiceHealthStatus::Unhealthy => unhealthy_services += 1,
+                ServiceHealthStatus::Degraded => degraded_services += 1,
+                ServiceHealthStatus::Unavailable => unavailable_services += 1,
             }
 
             *services_by_type
@@ -502,16 +502,22 @@ mod tests {
 
         registry.register_local_service(service).await.unwrap();
         registry
-            .update_local_service_health("test-service", HealthStatus::Unhealthy)
+            .update_local_service_health("test-service", ServiceHealthStatus::Unhealthy)
             .await
             .unwrap();
 
         let local_services = registry.get_local_services().await;
-        assert_eq!(local_services[0].health_status, HealthStatus::Unhealthy);
+        assert_eq!(
+            local_services[0].health_status,
+            ServiceHealthStatus::Unhealthy
+        );
 
         // Verify it's updated in discovery
         let discovered = discovery.get_service("test-service").await.unwrap();
-        assert_eq!(discovered.unwrap().health_status, HealthStatus::Unhealthy);
+        assert_eq!(
+            discovered.unwrap().health_status,
+            ServiceHealthStatus::Unhealthy
+        );
     }
 
     #[tokio::test]
@@ -540,7 +546,7 @@ mod tests {
                 8081,
             )],
         )
-        .with_health_status(HealthStatus::Unhealthy);
+        .with_health_status(ServiceHealthStatus::Unhealthy);
 
         registry.register_local_service(service1).await.unwrap();
         registry.register_local_service(service2).await.unwrap();

@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! HTTP-based AI provider configuration (vendor-agnostic)
-#![allow(dead_code)] // Runtime provider config awaiting activation
 //!
 //! This module provides a registry of HTTP-based AI providers that can be
 //! discovered at runtime through environment variables, eliminating hardcoded
@@ -28,6 +27,7 @@
 //! ```
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use universal_constants::ai_providers;
 
 /// Configuration for an HTTP-based AI provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,7 +63,7 @@ pub fn get_http_provider_configs() -> Vec<HttpAiProviderConfig> {
         HttpAiProviderConfig {
             provider_id: "anthropic".to_string(),
             provider_name: "Anthropic".to_string(),
-            api_base: "https://api.anthropic.com/v1".to_string(),
+            api_base: ai_providers::anthropic_base_url(),
             api_key_env: "ANTHROPIC_API_KEY".to_string(),
             models: vec![
                 "claude-3-opus-20240229".to_string(),
@@ -81,7 +81,7 @@ pub fn get_http_provider_configs() -> Vec<HttpAiProviderConfig> {
         HttpAiProviderConfig {
             provider_id: "openai".to_string(),
             provider_name: "OpenAI".to_string(),
-            api_base: "https://api.openai.com/v1".to_string(),
+            api_base: ai_providers::openai_base_url(),
             api_key_env: "OPENAI_API_KEY".to_string(),
             models: vec![
                 "gpt-4".to_string(),

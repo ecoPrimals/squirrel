@@ -251,6 +251,30 @@ pub struct SecurityConfig {
     pub token_expiry_minutes: u64,
 }
 
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            require_authentication: true,
+            enable_authorization: true,
+            jwt_secret: std::env::var("JWT_SECRET").ok(),
+            token_expiration_secs: default_token_expiration(),
+            api_keys: vec![],
+            allowed_origins: vec!["*".to_string()],
+            tls_enabled: false,
+            tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
+            tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
+            ca_cert_path: std::env::var("CA_CERT_PATH").ok(),
+            mtls_enabled: false,
+            encryption_default_format: default_encryption_format(),
+            enable_audit: true,
+            enable_encryption: true,
+            enable_rbac: true,
+            token_expiry_minutes: default_token_expiry_minutes(),
+        }
+    }
+}
+
 /// MCP protocol configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpConfig {

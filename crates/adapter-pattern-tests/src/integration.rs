@@ -47,14 +47,20 @@ impl PluginAdapter {
     }
 
     /// Register a command in the plugin adapter
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     pub async fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
         let mut adapter = self.adapter.write().unwrap();
         adapter.register(command.name(), command.clone())
     }
 
     /// Get list of registered commands
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     pub async fn get_commands(&self) -> CommandResult<Vec<String>> {
         let adapter = self.adapter.read().unwrap();
         adapter.list_commands()
@@ -147,4 +153,135 @@ pub async fn test_polymorphic_adapter<A: CommandAdapter + ?Sized>(
     args: Vec<String>,
 ) -> CommandResult<String> {
     adapter.execute(command, args).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::McpAdapter;
+    use crate::commands::RegistryAdapter;
+    use crate::types::TestCommand;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn test_plugin_adapter_default() {
+        let adapter = PluginAdapter::default();
+        assert_eq!(adapter.plugin_id(), "commands");
+        assert_eq!(adapter.version(), "1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_plugin_adapter_new() {
+        let adapter = PluginAdapter::new();
+        assert_eq!(adapter.plugin_id(), "commands");
+        assert_eq!(adapter.version(), "1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_plugin_adapter_register_and_get_commands() {
+        let adapter = PluginAdapter::new();
+        let cmd = Arc::new(TestCommand::new("test-cmd", "Test", "result"));
+        adapter.register_command(cmd).await.unwrap();
+
+        let cmds = adapter.get_commands().await.unwrap();
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0], "test-cmd");
+    }
+
+    #[tokio::test]
+    async fn test_plugin_adapter_command_adapter_execute() {
+        let adapter = PluginAdapter::new();
+        let cmd = Arc::new(TestCommand::new("test", "Test", "output"));
+        adapter.register_command(cmd).await.unwrap();
+
+        let result = <PluginAdapter as CommandAdapter>::execute(&adapter, "test", vec![]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "output");
+    }
+
+    #[tokio::test]
+    async fn test_plugin_adapter_command_adapter_execute_with_args() {
+        let adapter = PluginAdapter::new();
+        let cmd = Arc::new(TestCommand::new("echo", "Echo", "Echo"));
+        adapter.register_command(cmd).await.unwrap();
+
+        let result = <PluginAdapter as CommandAdapter>::execute(
+            &adapter,
+            "echo",
+            vec!["x".to_string(), "y".to_string()],
+        )
+        .await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains('x'));
+    }
+
+    #[tokio::test]
+    async fn test_plugin_adapter_command_adapter_get_help() {
+        let adapter = PluginAdapter::new();
+        let cmd = Arc::new(TestCommand::new("help-cmd", "Help description", "help"));
+        adapter.register_command(cmd).await.unwrap();
+
+        let help = <PluginAdapter as CommandAdapter>::get_help(&adapter, "help-cmd")
+            .await
+            .unwrap();
+        assert_eq!(help, "help-cmd: Help description");
+    }
+
+    #[tokio::test]
+    async fn test_plugin_adapter_command_adapter_execute_not_found() {
+        let adapter = PluginAdapter::new();
+        let result = <PluginAdapter as CommandAdapter>::execute(&adapter, "missing", vec![]).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_mock_adapter_registry() {
+        let mut registry = RegistryAdapter::new();
+        let cmd = Arc::new(TestCommand::new("mock-cmd", "Mock", "mock result"));
+        registry.register("mock-cmd", cmd).unwrap();
+
+        let result = <RegistryAdapter as MockAdapter>::execute(&registry, "mock-cmd", vec![]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "mock result");
+    }
+
+    #[tokio::test]
+    async fn test_mock_adapter_mcp() {
+        let adapter = McpAdapter::new();
+        let cmd = Arc::new(TestCommand::new("mcp-cmd", "MCP", "mcp result"));
+        adapter.register_command(cmd).await.unwrap();
+
+        let result = <McpAdapter as MockAdapter>::execute(&adapter, "mcp-cmd", vec![]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "mcp result");
+    }
+
+    #[tokio::test]
+    async fn test_mock_adapter_plugin() {
+        let adapter = PluginAdapter::new();
+        let cmd = Arc::new(TestCommand::new("plugin-mock", "Plugin", "plugin result"));
+        adapter.register_command(cmd).await.unwrap();
+
+        let result = <PluginAdapter as MockAdapter>::execute(&adapter, "plugin-mock", vec![]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "plugin result");
+    }
+
+    #[tokio::test]
+    async fn test_test_polymorphic_adapter() {
+        let mut registry = RegistryAdapter::new();
+        let cmd = Arc::new(TestCommand::new("poly", "Poly", "polymorphic"));
+        registry.register("poly", cmd).unwrap();
+
+        let result = test_polymorphic_adapter(&registry, "poly", vec![]).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "polymorphic");
+    }
+
+    #[tokio::test]
+    async fn test_test_polymorphic_adapter_not_found() {
+        let registry = RegistryAdapter::new();
+        let result = test_polymorphic_adapter(&registry, "nonexistent", vec![]).await;
+        assert!(result.is_err());
+    }
 }

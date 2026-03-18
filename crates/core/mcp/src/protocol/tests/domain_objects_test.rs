@@ -8,6 +8,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use bytes::Bytes;
 use crate::message::{Message, MessageType, MessagePriority};
 use crate::types::{MCPMessage, MessageId, SecurityMetadata, ProtocolVersion as MCPProtocolVersion};
 use crate::protocol::adapter_wire::{DomainObject, ProtocolVersion, WireMessage, WireFormat};
@@ -21,7 +22,7 @@ async fn test_message_roundtrip_translation() {
         message_type: MessageType::Request,
         priority: MessagePriority::Normal,
         content: "Test integration content".to_string(),
-        binary_payload: Some(vec![1, 2, 3, 4, 5]),
+        binary_payload: Some(Bytes::from_static(&[1, 2, 3, 4, 5])),
         timestamp: Utc::now(),
         in_reply_to: Some("parent-123".to_string()),
         source: "client-test".to_string(),
@@ -50,7 +51,7 @@ async fn test_message_roundtrip_translation() {
     assert_eq!(decoded.message_type, message.message_type);
     assert_eq!(decoded.priority, message.priority);
     assert_eq!(decoded.content, message.content);
-    assert_eq!(decoded.binary_payload, message.binary_payload);
+    assert_eq!(decoded.binary_payload.as_deref(), message.binary_payload.as_deref());
     assert_eq!(decoded.in_reply_to, message.in_reply_to);
     assert_eq!(decoded.source, message.source);
     assert_eq!(decoded.destination, message.destination);
@@ -67,7 +68,7 @@ async fn test_message_version_transformation() {
         message_type: MessageType::Notification,
         priority: MessagePriority::High,
         content: "Version transformation test".to_string(),
-        binary_payload: Some(vec![10, 20, 30]),
+        binary_payload: Some(Bytes::from_static(&[10, 20, 30])),
         timestamp: Utc::now(),
         in_reply_to: None,
         source: "source-system".to_string(),
@@ -106,7 +107,7 @@ async fn test_message_version_transformation() {
     assert_eq!(decoded.id, message.id);
     assert_eq!(decoded.message_type, message.message_type);
     assert_eq!(decoded.content, message.content);
-    assert_eq!(decoded.binary_payload, message.binary_payload);
+    assert_eq!(decoded.binary_payload.as_deref(), message.binary_payload.as_deref());
 }
 
 #[tokio::test]
@@ -241,7 +242,7 @@ async fn test_cross_version_compatibility() {
     assert_eq!(message.source, "legacy-system");
     assert_eq!(message.destination, "modern-system");
     assert_eq!(message.in_reply_to, Some("original-request-id".to_string()));
-    assert_eq!(message.binary_payload, Some(vec![1, 2, 3, 4, 5, 6]));
+    assert_eq!(message.binary_payload.as_deref(), Some([1, 2, 3, 4, 5, 6].as_slice()));
     
     // Check metadata was preserved
     assert!(message.metadata.contains_key("legacy_key"));

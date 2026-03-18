@@ -46,6 +46,13 @@ mod test_helpers;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod adaptive_tests;
+#[cfg(test)]
+mod integration_tests;
+#[cfg(test)]
+mod manager_tests;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

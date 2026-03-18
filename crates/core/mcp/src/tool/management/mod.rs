@@ -79,19 +79,20 @@ impl ToolManager for CoreToolManager {
     fn register_tool(&self, tool: types::Tool) -> impl std::future::Future<Output = Result<(), crate::tool::management::types::ToolError>> + Send {
         let tools = Arc::clone(&self.tools);
         async move {
+            let id = tool.id;
             let tool_info = ToolInfo {
-                id: tool.id.clone(),
-                name: tool.name.clone(),
-                description: tool.description.clone(),
-                version: tool.version.clone(),
+                id: id.clone(),
+                name: tool.name,
+                description: tool.description,
+                version: tool.version,
             };
-            
+
             let mut tools = tools.write().await;
-            if tools.contains_key(&tool.id) {
-                return Err(crate::tool::management::types::ToolError::AlreadyRegistered(tool.id));
+            if tools.contains_key(&id) {
+                return Err(crate::tool::management::types::ToolError::AlreadyRegistered(id));
             }
-            
-            tools.insert(tool.id.clone(), tool_info);
+
+            tools.insert(id, tool_info);
             Ok(())
         }
     }

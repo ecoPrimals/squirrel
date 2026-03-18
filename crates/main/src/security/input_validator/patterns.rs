@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Regex pattern compilation for attack detection
-#![allow(dead_code)] // Security infrastructure awaiting orchestrator wiring
+#![expect(
+    dead_code,
+    reason = "Security infrastructure awaiting orchestrator wiring"
+)]
 //!
 //! Compiles and stores regex patterns used to detect various types
 //! of injection attacks and malicious input patterns.

@@ -6,12 +6,12 @@
 //! This module provides RBAC functionality for the MCP system.
 //! Actual RBAC operations are delegated to the BearDog framework.
 
+use crate::error::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::error::Result;
 
 /// Permission definition
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -21,7 +21,7 @@ pub struct Permission {
 }
 
 impl Permission {
-    pub fn new(resource: String, action: String) -> Self {
+    pub const fn new(resource: String, action: String) -> Self {
         Self { resource, action }
     }
 }
@@ -58,7 +58,7 @@ pub struct UserRoleAssignment {
 }
 
 /// Basic RBAC manager implementation
-/// 
+///
 /// This provides basic RBAC functionality that can be extended
 /// or replaced with BearDog integration in the future.
 #[derive(Debug, Clone)]
@@ -113,7 +113,11 @@ impl BasicRBACManager {
     }
 
     /// Add permission to role
-    pub async fn add_permission_to_role(&self, role_id: &Uuid, permission: Permission) -> Result<()> {
+    pub async fn add_permission_to_role(
+        &self,
+        role_id: &Uuid,
+        permission: Permission,
+    ) -> Result<()> {
         let mut roles = self.roles.write().await;
         if let Some(role) = roles.get_mut(role_id) {
             role.permissions.insert(permission);
@@ -122,7 +126,11 @@ impl BasicRBACManager {
     }
 
     /// Remove permission from role
-    pub async fn remove_permission_from_role(&self, role_id: &Uuid, permission: &Permission) -> Result<()> {
+    pub async fn remove_permission_from_role(
+        &self,
+        role_id: &Uuid,
+        permission: &Permission,
+    ) -> Result<()> {
         let mut roles = self.roles.write().await;
         if let Some(role) = roles.get_mut(role_id) {
             role.permissions.remove(permission);
@@ -131,10 +139,18 @@ impl BasicRBACManager {
     }
 
     /// Assign role to user
-    pub async fn assign_role_to_user(&self, user_id: &Uuid, role_id: &Uuid, granted_by: &Uuid) -> Result<()> {
+    pub async fn assign_role_to_user(
+        &self,
+        user_id: &Uuid,
+        role_id: &Uuid,
+        granted_by: &Uuid,
+    ) -> Result<()> {
         let mut user_roles = self.user_roles.write().await;
-        user_roles.entry(*user_id).or_insert_with(HashSet::new).insert(*role_id);
-        
+        user_roles
+            .entry(*user_id)
+            .or_insert_with(HashSet::new)
+            .insert(*role_id);
+
         let mut assignments = self.role_assignments.write().await;
         assignments.push(UserRoleAssignment {
             user_id: *user_id,
@@ -142,7 +158,7 @@ impl BasicRBACManager {
             granted_by: *granted_by,
             granted_at: chrono::Utc::now(),
         });
-        
+
         Ok(())
     }
 
@@ -162,38 +178,57 @@ impl BasicRBACManager {
     }
 
     /// Check if user has permission
-    pub async fn check_permission(&self, user_id: &Uuid, resource: &str, action: &str) -> Result<bool> {
+    pub async fn check_permission(
+        &self,
+        user_id: &Uuid,
+        resource: &str,
+        action: &str,
+    ) -> Result<bool> {
         let user_role_ids = self.get_user_roles(user_id).await?;
         let roles = self.roles.read().await;
-        
+
         let permission = Permission::new(resource.to_string(), action.to_string());
-        
+
         for role_id in user_role_ids {
             if let Some(role) = roles.get(&role_id) {
                 if role.permissions.contains(&permission) {
                     return Ok(true);
                 }
-                
+
                 // Check parent roles recursively
-                if self.check_permission_in_parent_roles(&role.parent_roles, &permission, &roles).await? {
+                if self
+                    .check_permission_in_parent_roles(&role.parent_roles, &permission, &roles)
+                    .await?
+                {
                     return Ok(true);
                 }
             }
         }
-        
+
         Ok(false)
     }
 
     /// Check permission in parent roles
-    async fn check_permission_in_parent_roles(&self, parent_roles: &HashSet<Uuid>, permission: &Permission, roles: &HashMap<Uuid, Role>) -> Result<bool> {
+    async fn check_permission_in_parent_roles(
+        &self,
+        parent_roles: &HashSet<Uuid>,
+        permission: &Permission,
+        roles: &HashMap<Uuid, Role>,
+    ) -> Result<bool> {
         for parent_role_id in parent_roles {
             if let Some(parent_role) = roles.get(parent_role_id) {
                 if parent_role.permissions.contains(permission) {
                     return Ok(true);
                 }
-                
-                // Check parent's parent roles recursively
-                if self.check_permission_in_parent_roles(&parent_role.parent_roles, permission, roles).await? {
+
+                // Check parent's parent roles recursively (boxed to avoid infinite future size)
+                if Box::pin(self.check_permission_in_parent_roles(
+                    &parent_role.parent_roles,
+                    permission,
+                    roles,
+                ))
+                .await?
+                {
                     return Ok(true);
                 }
             }
@@ -208,9 +243,16 @@ impl BasicRBACManager {
     }
 
     /// Get role assignments for user
-    pub async fn get_user_role_assignments(&self, user_id: &Uuid) -> Result<Vec<UserRoleAssignment>> {
+    pub async fn get_user_role_assignments(
+        &self,
+        user_id: &Uuid,
+    ) -> Result<Vec<UserRoleAssignment>> {
         let assignments = self.role_assignments.read().await;
-        Ok(assignments.iter().filter(|a| a.user_id == *user_id).cloned().collect())
+        Ok(assignments
+            .iter()
+            .filter(|a| a.user_id == *user_id)
+            .cloned()
+            .collect())
     }
 }
 
@@ -218,4 +260,4 @@ impl Default for BasicRBACManager {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

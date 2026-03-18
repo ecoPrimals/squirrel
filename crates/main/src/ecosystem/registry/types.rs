@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
-#![allow(deprecated)]
-#![allow(dead_code)] // Registry types awaiting full ecosystem wiring
+#![expect(deprecated, reason = "Backward compatibility during migration")]
+#![expect(dead_code, reason = "Registry types awaiting full ecosystem wiring")]
 
 //! Core types for the ecosystem registry manager
 
@@ -294,7 +294,7 @@ where
 }
 
 // Additional serde helper functions (serde passes &Option<T> for serialize_with)
-#[allow(clippy::ref_option)]
+#[expect(clippy::ref_option, reason = "Optional reference; API design")]
 fn serialize_optional_arc_str<S>(opt: &Option<Arc<str>>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,

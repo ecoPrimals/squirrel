@@ -210,7 +210,10 @@ impl PluginManagementInterface {
     }
 
     /// Get plugin logs
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn get_plugin_logs(&self, _path: &str) -> Result<WebResponse> {
         use std::collections::HashMap;
 

@@ -9,16 +9,15 @@
 //! **Nov 9, 2025 Update**: SecurityConfig consolidated into unified config system.
 //! Re-exported from `squirrel-mcp-config` for consistency.
 
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use uuid::Uuid;
 use crate::error::Result;
+use std::sync::Arc;
+use uuid::Uuid;
 
-use super::audit::{DefaultAuditService, AuditEvent};
+use super::audit::{AuditEvent, DefaultAuditService};
 use super::crypto::DefaultCryptoProvider;
 use super::identity::{DefaultIdentityManager, UserIdentity};
 use super::key_storage::InMemoryKeyStorage;
-use super::rbac::BasicRBACManager;
+use super::rbac::{BasicRBACManager, Permission};
 use super::token::DefaultTokenManager;
 
 // Re-export SecurityConfig from unified config (Nov 9, 2025 consolidation)
@@ -27,7 +26,7 @@ use super::token::DefaultTokenManager;
 pub use squirrel_mcp_config::SecurityConfig;
 
 /// Security manager implementation
-/// 
+///
 /// This provides comprehensive security management that can be extended
 /// or replaced with BearDog integration in the future.
 #[derive(Debug)]
@@ -85,17 +84,26 @@ impl SecurityManagerImpl {
         self.token_manager.clone()
     }
 
-    /// Initialize security manager
-    pub async fn initialize(&self) -> Result<()> {
-        // Initialize all components
-        // Placeholder implementation - delegate to BearDog
+    /// Initialize security manager (stub — will delegate to BearDog)
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "will be non-const when BearDog init is integrated"
+    )]
+    pub fn initialize(&self) -> Result<()> {
         Ok(())
     }
 
     /// Authenticate user
-    pub async fn authenticate(&self, username: &str, password: &str) -> Result<Option<UserIdentity>> {
-        let result = self.identity_manager.authenticate(username, password).await?;
-        
+    pub async fn authenticate(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> Result<Option<UserIdentity>> {
+        let result = self
+            .identity_manager
+            .authenticate(username, password)
+            .await?;
+
         if self.config.enable_audit {
             let event = AuditEvent {
                 id: Uuid::new_v4(),
@@ -104,23 +112,56 @@ impl SecurityManagerImpl {
                 user_id: Some(username.to_string()),
                 resource_id: None,
                 action: "login".to_string(),
-                status: if result.is_some() { "success" } else { "failure" }.to_string(),
-                message: format!("Authentication attempt for user: {}", username),
+                status: if result.is_some() {
+                    "success"
+                } else {
+                    "failure"
+                }
+                .to_string(),
+                message: format!("Authentication attempt for user: {username}"),
             };
             self.audit_service.log_event(event).await;
         }
-        
+
         Ok(result)
     }
 
-    /// Check permission
-    pub async fn check_permission(&self, user_id: &Uuid, resource: &str, action: &str) -> Result<bool> {
+    /// Check permission using token and Permission struct.
+    /// When RBAC is disabled, always allows. Otherwise parses token as user ID.
+    pub async fn check_permission(&self, token: &str, permission: &Permission) -> Result<()> {
+        if !self.config.enable_rbac {
+            return Ok(());
+        }
+        let user_id = Uuid::parse_str(token).unwrap_or(Uuid::nil());
+        let allowed = self
+            .check_permission_by_id(&user_id, &permission.resource, &permission.action)
+            .await?;
+        if allowed {
+            Ok(())
+        } else {
+            Err(crate::error::MCPError::Authorization(format!(
+                "Permission denied: {}:{}",
+                permission.resource, permission.action
+            )))
+        }
+    }
+
+    /// Check permission by user ID (internal)
+    pub async fn check_permission_by_id(
+        &self,
+        user_id: &Uuid,
+        resource: &str,
+        action: &str,
+    ) -> Result<bool> {
         if !self.config.enable_rbac {
             return Ok(true);
         }
-        
-        let result = self.rbac_manager.check_permission(user_id, resource, action).await?;
-        
+
+        let result = self
+            .rbac_manager
+            .check_permission(user_id, resource, action)
+            .await?;
+
         if self.config.enable_audit {
             let event = AuditEvent {
                 id: Uuid::new_v4(),
@@ -130,39 +171,41 @@ impl SecurityManagerImpl {
                 resource_id: Some(resource.to_string()),
                 action: action.to_string(),
                 status: if result { "granted" } else { "denied" }.to_string(),
-                message: format!("Permission check for user {} on resource {} action {}", user_id, resource, action),
+                message: format!(
+                    "Permission check for user {user_id} on resource {resource} action {action}"
+                ),
             };
             self.audit_service.log_event(event).await;
         }
-        
+
         Ok(result)
     }
 
     /// Encrypt data
-    pub async fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>> {
+    pub fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>> {
         if !self.config.enable_encryption {
             return Ok(data.to_vec());
         }
-        
-        self.crypto_provider.encrypt(data).await
+
+        self.crypto_provider.encrypt(data)
     }
 
     /// Decrypt data
-    pub async fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>> {
+    pub fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>> {
         if !self.config.enable_encryption {
             return Ok(data.to_vec());
         }
-        
-        self.crypto_provider.decrypt(data).await
+
+        self.crypto_provider.decrypt(data)
     }
 
     /// Get security configuration
-    pub fn get_config(&self) -> &SecurityConfig {
+    pub const fn get_config(&self) -> &SecurityConfig {
         &self.config
     }
 
     /// Update security configuration
-    pub async fn update_config(&mut self, config: SecurityConfig) -> Result<()> {
+    pub fn update_config(&mut self, config: SecurityConfig) -> Result<()> {
         self.config = config;
         Ok(())
     }
@@ -186,4 +229,4 @@ impl Clone for SecurityManagerImpl {
             token_manager: self.token_manager.clone(),
         }
     }
-} 
+}

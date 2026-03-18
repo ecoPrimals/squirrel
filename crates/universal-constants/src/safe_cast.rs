@@ -9,10 +9,11 @@
 //!
 //! These functions intentionally use `as` casts after guarding against
 //! overflow/truncation, so we allow the cast lints at the module level.
-#![allow(
+#![expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
-    clippy::cast_precision_loss
+    clippy::cast_precision_loss,
+    reason = "Checked conversions after guards; intentional safe casts"
 )]
 
 /// Cast `usize` to `u32`, returning `None` if the value overflows.

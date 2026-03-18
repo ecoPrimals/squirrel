@@ -12,16 +12,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-// Main module declarations (temporarily commented out until modules are created)
-// pub mod api_gateway;
-// pub mod dashboard;
-// pub mod websocket;
-// pub mod mcp_bridge;
-// pub mod service_manager;
-// pub mod auth;
-// pub mod middleware;
-// pub mod monitoring;
-
 // Placeholder types for compilation
 #[derive(Debug, Clone)]
 /// API Gateway service for handling web requests and routing them to appropriate MCP services.

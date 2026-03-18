@@ -18,7 +18,7 @@ use crate::models::{Rule, RuleAction, RuleCondition};
 
 /// Parser configuration
 #[derive(Debug, Clone)]
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools, reason = "Parser configuration flags")]
 pub struct ParserConfig {
     /// Whether to validate rules during parsing
     pub validate: bool,

@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use super::trait_::ServiceDiscovery;
-use super::types::{HealthStatus, ServiceDefinition, ServiceQuery, ServiceType};
+use super::types::{ServiceDefinition, ServiceHealthStatus, ServiceQuery, ServiceType};
 use crate::error::CoreResult;
 
 /// Service discovery client for making requests
@@ -152,7 +152,7 @@ impl ServiceDiscoveryClient {
     ) -> CoreResult<Vec<ServiceDefinition>> {
         let query = ServiceQuery::new()
             .with_service_type(service_type)
-            .with_health_status(HealthStatus::Healthy);
+            .with_health_status(ServiceHealthStatus::Healthy);
 
         self.discovery.discover_services(query).await
     }

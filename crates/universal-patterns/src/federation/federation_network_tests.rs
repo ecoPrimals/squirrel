@@ -296,7 +296,7 @@ mod tests {
         // Test DataSync message
         let sync = NetworkMessage::DataSync {
             operation: DataOperation::Sync,
-            data: b"sync data".to_vec(),
+            data: bytes::Bytes::from_static(b"sync data"),
             checksum: "abc123".to_string(),
         };
         match sync {
@@ -317,7 +317,7 @@ mod tests {
         // Test Federation message
         let federation = NetworkMessage::Federation {
             message_type: "test".to_string(),
-            payload: b"test payload".to_vec(),
+            payload: bytes::Bytes::from_static(b"test payload"),
             sender: node_id,
             recipient: Some(node_id),
         };

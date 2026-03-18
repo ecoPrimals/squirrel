@@ -4,10 +4,11 @@
 
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![allow(
+#![allow(clippy::match_same_arms)] // Main entry point; legacy patterns under progressive refactor
+#![expect(
     clippy::option_if_let_else,
     clippy::cast_possible_truncation,
-    clippy::match_same_arms
+    reason = "Main entry point; legacy patterns under progressive refactor"
 )]
 
 //! Squirrel AI Coordinator Main Entry Point
@@ -148,7 +149,10 @@ async fn run_client(
 }
 
 /// Run server mode
-#[allow(clippy::too_many_lines)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Server orchestration; refactor planned"
+)]
 async fn run_server(
     port: u16,
     daemon: bool,

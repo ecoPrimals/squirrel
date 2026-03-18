@@ -39,7 +39,7 @@ pub enum PluginType {
 
 /// Plugin state enumeration (reserved for plugin state management system)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(dead_code)] // Reserved for plugin state management; used in tests
+#[allow(dead_code)] // Plugin state tracking; used in tests
 pub enum PluginState {
     /// Plugin is loaded and ready
     Loaded,
@@ -55,7 +55,7 @@ pub enum PluginState {
 
 /// Plugin data format enumeration (reserved for plugin data serialization system)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(dead_code)] // Reserved for plugin data serialization; used in tests
+#[allow(dead_code)] // Plugin data format tracking; used in tests
 pub enum PluginDataFormat {
     /// JSON format
     Json,
@@ -93,7 +93,10 @@ pub struct PluginConfig {
 
 /// Resource limits for plugins
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(clippy::struct_field_names)]
+#[expect(
+    clippy::struct_field_names,
+    reason = "Domain naming convention: plugin_id, plugin_name"
+)]
 pub struct ResourceLimits {
     /// Maximum memory usage in bytes
     pub max_memory_bytes: Option<u64>,

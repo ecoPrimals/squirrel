@@ -20,7 +20,7 @@ use super::ServiceDiscovery;
 use crate::CoreResult;
 use crate::error::CoreError;
 use crate::service_discovery::types::{
-    HealthStatus, ServiceDefinition, ServiceQuery, ServiceStats, ServiceType,
+    ServiceDefinition, ServiceHealthStatus, ServiceQuery, ServiceStats, ServiceType,
 };
 
 // Define ServiceInstance locally if not available elsewhere
@@ -28,7 +28,7 @@ use crate::service_discovery::types::{
 pub struct ServiceInstance {
     pub service_id: String,
     pub endpoint: String,
-    pub status: HealthStatus,
+    pub status: ServiceHealthStatus,
     pub last_heartbeat: chrono::DateTime<Utc>,
 }
 
@@ -261,7 +261,7 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
     async fn update_service_health(
         &self,
         service_id: &str,
-        health: HealthStatus,
+        health: ServiceHealthStatus,
     ) -> CoreResult<()> {
         let mut services = self.services.write().await;
 
@@ -532,7 +532,7 @@ mod tests {
                 8081,
             )],
         )
-        .with_health_status(HealthStatus::Unhealthy);
+        .with_health_status(ServiceHealthStatus::Unhealthy);
 
         discovery.register_service(service1).await.unwrap();
         discovery.register_service(service2).await.unwrap();

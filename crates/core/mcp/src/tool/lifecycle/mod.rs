@@ -14,11 +14,6 @@ pub use state_validator::{
     StateRollbackAttempt
 };
 
-// Re-export types from the lifecycle_refactored module (moved to other frameworks)
-// pub use crate::tool::lifecycle_refactored::{
-//     LifecycleEvent, LifecycleRecord, RecoveryAction, RecoveryStrategy, SecurityLifecycleHook
-// };
-
 // Placeholder types for compatibility
 use serde::{Deserialize, Serialize};
 use crate::tool::management::types::{Tool, ToolError, ToolLifecycleHook};

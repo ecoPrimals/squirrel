@@ -16,7 +16,7 @@ use tracing::{debug, info, warn};
 
 /// Squirrel CLI application entry point
 #[tokio::main]
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines, reason = "CLI main; refactor planned")]
 async fn main() {
     // Set up logger (tracing with env filter)
     tracing_subscriber::fmt()

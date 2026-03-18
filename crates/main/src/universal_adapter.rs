@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
-#![allow(deprecated)]
-#![allow(dead_code)] // Universal adapter fields used by ecosystem at runtime
+#![expect(deprecated, reason = "Backward compatibility during migration")]
+#![expect(
+    dead_code,
+    reason = "Universal adapter fields used by ecosystem at runtime"
+)]
 
 //! Universal Adapter for Squirrel AI Primal
 //!

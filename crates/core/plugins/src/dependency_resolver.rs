@@ -342,7 +342,7 @@ impl DependencyResolver {
     }
 
     /// Attempt to resolve version conflicts
-    #[allow(clippy::unused_self)] // Required for consistent resolver API
+    #[expect(clippy::unused_self, reason = "Consistent resolver API")]
     fn resolve_version_conflicts(&self, result: &mut ResolutionResult) {
         debug!("Resolving version conflicts");
 

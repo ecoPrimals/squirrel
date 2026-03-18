@@ -74,7 +74,7 @@ async fn test_update_rule_performance() {
 
     assert_eq!(performance.application_count, 1);
     assert_eq!(performance.success_count, 1);
-    assert_eq!(performance.success_rate, 1.0);
+    assert!((performance.success_rate - 1.0).abs() < f64::EPSILON);
 }
 
 #[tokio::test]
@@ -104,7 +104,7 @@ async fn test_rule_performance_multiple_updates() {
 
     assert_eq!(performance.application_count, 10);
     assert_eq!(performance.success_count, 5); // 50% success rate
-    assert_eq!(performance.success_rate, 0.5);
+    assert!((performance.success_rate - 0.5).abs() < f64::EPSILON);
 }
 
 #[tokio::test]
@@ -158,8 +158,8 @@ async fn test_adaptation_strategy_threshold() {
 #[tokio::test]
 async fn test_rule_performance_default() {
     let performance = RulePerformance::default();
-    assert_eq!(performance.success_rate, 0.0);
-    assert_eq!(performance.avg_execution_time, 0.0);
+    assert!(performance.success_rate.abs() < f64::EPSILON);
+    assert!(performance.avg_execution_time.abs() < f64::EPSILON);
     assert_eq!(performance.application_count, 0);
     assert_eq!(performance.success_count, 0);
 }
@@ -170,7 +170,7 @@ async fn test_adaptation_stats_default() {
     assert_eq!(stats.total_adaptations, 0);
     assert_eq!(stats.successful_adaptations, 0);
     assert_eq!(stats.failed_adaptations, 0);
-    assert_eq!(stats.average_improvement, 0.0);
+    assert!(stats.average_improvement.abs() < f64::EPSILON);
 }
 
 #[tokio::test]
@@ -187,7 +187,7 @@ async fn test_rule_change_serialization() {
     let deserialized: RuleChange = serde_json::from_str(&serialized).expect("Should deserialize");
 
     assert_eq!(deserialized.change_type, "condition_threshold");
-    assert_eq!(deserialized.confidence, 0.8);
+    assert!((deserialized.confidence - 0.8).abs() < f64::EPSILON);
 }
 
 #[tokio::test]
@@ -297,7 +297,7 @@ async fn test_adaptive_rule_serialization() {
     let deserialized: AdaptiveRule = serde_json::from_str(&serialized).expect("Should deserialize");
 
     assert_eq!(deserialized.adaptation_meta.rule_id, rule.id());
-    assert_eq!(deserialized.adaptation_meta.adaptation_level, 0.5);
+    assert!((deserialized.adaptation_meta.adaptation_level - 0.5).abs() < f64::EPSILON);
 }
 
 #[tokio::test]
@@ -375,4 +375,296 @@ async fn test_rule_performance_impact() {
     let serialized = serde_json::to_string(&performance).expect("Should serialize");
     assert!(serialized.contains("0.9"));
     assert!(serialized.contains("0.85"));
+}
+
+// ============================================================================
+// Strategy selection and parameter update tests
+// ============================================================================
+
+#[tokio::test]
+async fn test_update_performance_nonexistent_rule_no_panic() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    // Updating performance for non-existent rule should not panic
+    let result = system
+        .update_rule_performance("nonexistent_rule_id", true, 0.5)
+        .await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_get_rule_performance_nonexistent_returns_none() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    let performance = system.get_rule_performance("nonexistent_rule_id").await;
+    assert!(performance.is_none());
+}
+
+#[tokio::test]
+async fn test_avg_execution_time_calculation() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    let rule = test_helpers::create_test_rule();
+    let rule_id = rule.id().to_string();
+    system.add_rule(rule).await.expect("Should add rule");
+
+    // Update with specific execution times: 0.5, 1.0, 1.5 -> avg = 1.0
+    system
+        .update_rule_performance(&rule_id, true, 0.5)
+        .await
+        .expect("Should update");
+    system
+        .update_rule_performance(&rule_id, true, 1.0)
+        .await
+        .expect("Should update");
+    system
+        .update_rule_performance(&rule_id, true, 1.5)
+        .await
+        .expect("Should update");
+
+    let performance = system
+        .get_rule_performance(&rule_id)
+        .await
+        .expect("Should get performance");
+
+    assert_eq!(performance.application_count, 3);
+    assert!((performance.avg_execution_time - 1.0).abs() < 0.001);
+}
+
+#[tokio::test]
+async fn test_adaptation_triggers_action_modification_for_slow_rules() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    let rule = test_helpers::create_test_rule();
+    let rule_id = rule.id().to_string();
+    system.add_rule(rule).await.expect("Should add rule");
+
+    // High execution time (>1.0), moderate success rate (>=0.3) -> ActionModification
+    for i in 0..20 {
+        let success = i < 10; // 50% success
+        system
+            .update_rule_performance(&rule_id, success, 2.0)
+            .await
+            .expect("Should update");
+    }
+
+    let adaptations = system.adapt_rules().await.expect("Should adapt rules");
+    assert!(!adaptations.is_empty());
+
+    // Check that we got ActionModification (high avg time path)
+    let has_action_mod = adaptations
+        .iter()
+        .any(|a| matches!(a.adaptation_type, AdaptationType::ActionModification));
+    assert!(
+        has_action_mod,
+        "Expected ActionModification for slow rules, got {:?}",
+        adaptations[0].adaptation_type
+    );
+}
+
+#[tokio::test]
+async fn test_adaptation_triggers_condition_modification_for_low_success() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    let rule = test_helpers::create_test_rule();
+    let rule_id = rule.id().to_string();
+    system.add_rule(rule).await.expect("Should add rule");
+
+    // Very low success rate (<0.3) -> ConditionModification
+    for i in 0..20 {
+        let success = i < 5; // 25% success
+        system
+            .update_rule_performance(&rule_id, success, 0.5)
+            .await
+            .expect("Should update");
+    }
+
+    let adaptations = system.adapt_rules().await.expect("Should adapt rules");
+    assert!(!adaptations.is_empty());
+
+    let has_condition_mod = adaptations
+        .iter()
+        .any(|a| matches!(a.adaptation_type, AdaptationType::ConditionModification));
+    assert!(
+        has_condition_mod,
+        "Expected ConditionModification for low success, got {:?}",
+        adaptations[0].adaptation_type
+    );
+}
+
+#[tokio::test]
+async fn test_adaptation_stats_updated_after_adaptation() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    let rule = test_helpers::create_test_rule();
+    let rule_id = rule.id().to_string();
+    system.add_rule(rule).await.expect("Should add rule");
+
+    for _ in 0..20 {
+        system
+            .update_rule_performance(&rule_id, false, 2.0)
+            .await
+            .expect("Should update");
+    }
+
+    let _ = system.adapt_rules().await.expect("Should adapt");
+
+    let stats = system.get_stats().await;
+    assert!(stats.rule_adaptations >= 1);
+    assert_eq!(stats.last_adapted_rule.as_ref(), Some(&rule_id));
+    assert!(stats.total_adaptations >= 1);
+}
+
+#[tokio::test]
+async fn test_rule_adaptation_has_required_fields() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    let rule = test_helpers::create_test_rule();
+    let rule_id = rule.id().to_string();
+    system.add_rule(rule).await.expect("Should add rule");
+
+    for _ in 0..20 {
+        system
+            .update_rule_performance(&rule_id, false, 2.0)
+            .await
+            .expect("Should update");
+    }
+
+    let adaptations = system.adapt_rules().await.expect("Should adapt");
+    assert!(!adaptations.is_empty());
+
+    let adaptation = &adaptations[0];
+    assert!(!adaptation.id.is_empty());
+    assert_eq!(adaptation.rule_id, rule_id);
+    assert!(!adaptation.reason.is_empty());
+    assert!(!adaptation.changes.is_empty());
+    assert!(adaptation.timestamp.timestamp() > 0);
+}
+
+#[tokio::test]
+async fn test_rule_change_has_correct_structure() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    let rule = test_helpers::create_test_rule();
+    let rule_id = rule.id().to_string();
+    system.add_rule(rule).await.expect("Should add rule");
+
+    for _ in 0..20 {
+        system
+            .update_rule_performance(&rule_id, false, 2.0)
+            .await
+            .expect("Should update");
+    }
+
+    let adaptations = system.adapt_rules().await.expect("Should adapt");
+    let change = &adaptations[0].changes[0];
+
+    assert!(!change.change_type.is_empty());
+    assert!(!change.target.is_empty());
+    assert!(change.confidence >= 0.0 && change.confidence <= 1.0);
+}
+
+#[tokio::test]
+async fn test_multiple_rules_adapt_independently() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    let rule1 = test_helpers::create_test_rule();
+    let rule2 = test_helpers::create_test_rule();
+    let rule_id1 = rule1.id().to_string();
+    let rule_id2 = rule2.id().to_string();
+
+    system.add_rule(rule1).await.expect("Should add rule 1");
+    system.add_rule(rule2).await.expect("Should add rule 2");
+
+    // Only rule1 has poor performance
+    for _ in 0..20 {
+        system
+            .update_rule_performance(&rule_id1, false, 2.0)
+            .await
+            .expect("Should update");
+    }
+    for _ in 0..20 {
+        system
+            .update_rule_performance(&rule_id2, true, 0.1)
+            .await
+            .expect("Should update");
+    }
+
+    let adaptations = system.adapt_rules().await.expect("Should adapt");
+
+    // Only rule1 should be adapted (poor performance)
+    assert!(
+        adaptations
+            .iter()
+            .any(|a| a.rule_id.as_str() == rule_id1.as_str()),
+        "Expected rule1 to be adapted"
+    );
+}
+
+#[tokio::test]
+async fn test_adaptation_history_persists() {
+    let config = test_helpers::create_test_learning_config();
+    let system = AdaptiveRuleSystem::new(Arc::new(config))
+        .await
+        .expect("Should create system");
+
+    let rule = test_helpers::create_test_rule();
+    let rule_id = rule.id().to_string();
+    system.add_rule(rule).await.expect("Should add rule");
+
+    for _ in 0..20 {
+        system
+            .update_rule_performance(&rule_id, false, 2.0)
+            .await
+            .expect("Should update");
+    }
+
+    let adaptations1 = system.adapt_rules().await.expect("Should adapt");
+    let history1 = system.get_adaptations().await;
+
+    // Trigger another adaptation cycle
+    for _ in 0..5 {
+        system
+            .update_rule_performance(&rule_id, false, 2.0)
+            .await
+            .expect("Should update");
+    }
+    let _ = system.adapt_rules().await;
+
+    let history2 = system.get_adaptations().await;
+    assert!(
+        history2.len() >= history1.len(),
+        "Adaptation history should grow"
+    );
+    assert!(
+        history2.len() >= adaptations1.len(),
+        "New adaptations should be recorded"
+    );
 }

@@ -7,7 +7,6 @@
 //! prevention, human oversight, manipulation prevention, and right to explanation.
 
 #![forbid(unsafe_code)]
-#![allow(dead_code)] // Public API surface awaiting consumer activation
 
 use std::fmt;
 

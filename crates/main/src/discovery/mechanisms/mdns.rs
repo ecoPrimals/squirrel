@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! mDNS (Multicast DNS) discovery mechanism
-#![allow(dead_code)] // Discovery infrastructure awaiting activation
 //!
 //! Discovers services on the local network using mDNS/Bonjour/Avahi.
 //! Ideal for zero-configuration local network discovery.
@@ -22,19 +21,20 @@
 //! squirrel-host.local. A 192.168.1.100
 //! ```
 
+use crate::discovery::mechanisms::socket_registry::discover_from_socket_registry;
 use crate::discovery::types::{DiscoveredService, DiscoveryResult};
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Duration;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// mDNS discovery client
 #[derive(Debug, Clone)]
 pub struct MdnsDiscovery {
-    /// Service type to query (e.g., "_primal._tcp.local.")
+    #[allow(dead_code)] // Reserved for real mDNS implementation
     service_type: String,
 
-    /// Query timeout
+    #[allow(dead_code)] // Reserved for real mDNS implementation
     timeout: Duration,
 
     /// Enable/disable mDNS
@@ -44,7 +44,7 @@ pub struct MdnsDiscovery {
 impl Default for MdnsDiscovery {
     fn default() -> Self {
         Self {
-            service_type: "_primal._tcp.local.".to_string(),
+            service_type: "_biomeos._tcp.local.".to_string(),
             timeout: Duration::from_secs(5),
             enabled: true,
         }
@@ -64,15 +64,8 @@ impl MdnsDiscovery {
     /// Discover services by capability using mDNS
     ///
     /// Queries the local network for services advertising the given capability.
-    ///
-    /// # Implementation Note
-    ///
-    /// This is a production-ready stub that provides the correct interface.
-    /// Full mDNS implementation would require additional dependencies:
-    /// - `mdns-sd` crate for service discovery
-    /// - `multicast-dns` for low-level protocol
-    ///
-    /// For now, this returns empty results to enable graceful fallback.
+    /// Since mDNS requires multicast (often with C deps like Avahi), and we need
+    /// pure Rust for ecoBin, this falls back to the socket registry.
     pub async fn discover_by_capability(
         &self,
         capability: &str,
@@ -87,23 +80,17 @@ impl MdnsDiscovery {
             capability
         );
 
-        // Production-ready interface with graceful fallback
-        // Full implementation would:
-        // 1. Create mDNS query for _primal._tcp.local.
-        // 2. Parse TXT records for capabilities
-        // 3. Resolve SRV records to get host:port
-        // 4. Return discovered services
+        debug!("mDNS query for capability: {}", capability);
 
-        debug!("mDNS query sent for capability: {}", capability);
+        warn!("mDNS not available (requires multicast/C deps); falling back to socket registry");
 
-        // Graceful fallback: return empty results
-        // This allows the discovery system to try other mechanisms
-        Ok(Vec::new())
+        discover_from_socket_registry(capability)
     }
 
     /// Discover all services on the local network
     ///
     /// Performs a wildcard query to find all primal services.
+    /// Falls back to socket registry when mDNS is unavailable.
     pub async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
         if !self.enabled {
             return Ok(Vec::new());
@@ -111,8 +98,9 @@ impl MdnsDiscovery {
 
         info!("🔍 Scanning local network with mDNS");
 
-        // Production-ready interface with graceful fallback
-        Ok(Vec::new())
+        warn!("mDNS not available; falling back to socket registry for discover_all");
+
+        crate::discovery::mechanisms::socket_registry::SocketRegistryDiscovery::new().discover_all()
     }
 
     /// Announce this service via mDNS
@@ -156,6 +144,7 @@ impl MdnsDiscovery {
     /// Parse service information from mDNS response
     ///
     /// Helper function to convert mDNS data to DiscoveredService.
+    #[allow(dead_code)] // Reserved for real mDNS implementation; tests exercise the parser
     fn parse_mdns_response(
         name: String,
         address: IpAddr,
@@ -191,7 +180,7 @@ mod tests {
     async fn test_mdns_discovery_creation() {
         let mdns = MdnsDiscovery::default();
         assert!(mdns.enabled);
-        assert_eq!(mdns.service_type, "_primal._tcp.local.");
+        assert_eq!(mdns.service_type, "_biomeos._tcp.local.");
     }
 
     #[tokio::test]

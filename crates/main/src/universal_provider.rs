@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Squirrel Provider Implementation
-#![allow(dead_code)] // Provider implementation used at ecosystem runtime
+#![expect(
+    dead_code,
+    reason = "Provider implementation used at ecosystem runtime"
+)]
 //!
 //! This module provides the implementation of the ecosystem-api `UniversalPrimalProvider`
 //! and `EcosystemIntegration` traits for the Squirrel AI primal.

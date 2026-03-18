@@ -440,4 +440,259 @@ impl AuthService {
         user.roles.push("user".to_string());
         user
     }
+
+    /// Test helper: parse security capability from response body (for unit tests)
+    #[cfg(all(test, feature = "http-auth"))]
+    pub fn parse_security_capability_for_test(
+        response_body: &str,
+    ) -> AuthResult<SecurityCapabilityInfo> {
+        Self::parse_security_capability(response_body)
+    }
+
+    /// Test helper: construct `AuthService` with explicit components (no network)
+    #[cfg(all(test, feature = "http-auth"))]
+    pub fn for_testing(
+        session_manager: SessionManager,
+        auth_provider: AuthProvider,
+        users: HashMap<String, User>,
+    ) -> Self {
+        Self {
+            client: Client::new(),
+            session_manager,
+            auth_provider,
+            users,
+        }
+    }
+}
+
+#[cfg(all(test, feature = "http-auth"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_auth_service_new_standalone_fallback() {
+        // Point to non-existent endpoint so discovery fails and we get Standalone
+        let result = temp_env::with_vars(
+            [
+                ("SECURITY_SERVICE_ENDPOINT", Some("http://127.0.0.1:19999")),
+                ("SECURITY_AUTHENTICATION_PORT", None::<&str>),
+            ],
+            || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(AuthService::new())
+            },
+        );
+        let service = result.expect("AuthService::new should succeed");
+        assert!(matches!(
+            service.get_auth_provider(),
+            AuthProvider::Standalone
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_authenticate_standalone_admin_success() {
+        let session_manager = SessionManager::new();
+        let mut users = HashMap::new();
+        users.insert(
+            "admin".to_string(),
+            User::new("admin", "admin@squirrel.local"),
+        );
+        let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
+
+        let request = LoginRequest::new("admin", "admin123");
+        let response = service.authenticate(request).await.unwrap();
+        assert!(response.success);
+        assert!(response.user_context.is_some());
+        assert!(response.session_token.is_some());
+        assert!(response.error_message.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_authenticate_standalone_wrong_password() {
+        let session_manager = SessionManager::new();
+        let mut users = HashMap::new();
+        users.insert(
+            "admin".to_string(),
+            User::new("admin", "admin@squirrel.local"),
+        );
+        let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
+
+        let request = LoginRequest::new("admin", "wrong");
+        let response = service.authenticate(request).await.unwrap();
+        assert!(!response.success);
+        assert!(response.user_context.is_none());
+        assert_eq!(
+            response.error_message.as_deref(),
+            Some("Invalid credentials")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_authenticate_standalone_user_not_found() {
+        let session_manager = SessionManager::new();
+        let users = HashMap::new();
+        let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
+
+        let request = LoginRequest::new("unknown", "any");
+        let response = service.authenticate(request).await.unwrap();
+        assert!(!response.success);
+        assert_eq!(response.error_message.as_deref(), Some("User not found"));
+    }
+
+    #[tokio::test]
+    async fn test_authenticate_standalone_user_success() {
+        let session_manager = SessionManager::new();
+        let mut users = HashMap::new();
+        users.insert("user".to_string(), User::new("user", "user@squirrel.local"));
+        let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
+
+        let request = LoginRequest::new("user", "user123");
+        let response = service.authenticate(request).await.unwrap();
+        assert!(response.success);
+        assert!(response.user_context.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_authenticate_development_always_succeeds() {
+        let session_manager = SessionManager::new();
+        let users = HashMap::new();
+        let service = AuthService::for_testing(session_manager, AuthProvider::Development, users);
+
+        let request = LoginRequest::new("devuser", "any-password");
+        let response = service.authenticate(request).await.unwrap();
+        assert!(response.success);
+        assert!(response.user_context.is_some());
+        assert_eq!(response.user_context.as_ref().unwrap().username, "devuser");
+    }
+
+    #[tokio::test]
+    async fn test_validate_session_valid() {
+        let session_manager = SessionManager::new();
+        let mut users = HashMap::new();
+        let user = User::new("admin", "admin@squirrel.local");
+        users.insert("admin".to_string(), user.clone());
+        let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
+
+        let request = LoginRequest::new("admin", "admin123");
+        let login_response = service.authenticate(request).await.unwrap();
+        let session_token = login_response.session_token.clone().unwrap();
+
+        let validated = service.validate_session(&session_token).await.unwrap();
+        assert!(validated.is_some());
+        assert_eq!(validated.unwrap().username, "admin");
+    }
+
+    #[tokio::test]
+    async fn test_validate_session_invalid_uuid() {
+        let session_manager = SessionManager::new();
+        let users = HashMap::new();
+        let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
+
+        let result = service.validate_session("not-a-valid-uuid").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_validate_session_unknown_session() {
+        let session_manager = SessionManager::new();
+        let users = HashMap::new();
+        let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
+
+        let fake_uuid = uuid::Uuid::new_v4().to_string();
+        let validated = service.validate_session(&fake_uuid).await.unwrap();
+        assert!(validated.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_logout_valid_session() {
+        let session_manager = SessionManager::new();
+        let mut users = HashMap::new();
+        users.insert(
+            "admin".to_string(),
+            User::new("admin", "admin@squirrel.local"),
+        );
+        let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
+
+        let login_response = service
+            .authenticate(LoginRequest::new("admin", "admin123"))
+            .await
+            .unwrap();
+        let session_token = login_response.session_token.clone().unwrap();
+
+        let result = service.logout(&session_token).await.unwrap();
+        assert!(result);
+    }
+
+    #[tokio::test]
+    async fn test_logout_invalid_uuid() {
+        let session_manager = SessionManager::new();
+        let users = HashMap::new();
+        let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
+
+        let result = service.logout("not-a-uuid").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_auth_provider() {
+        let session_manager = SessionManager::new();
+        let users = HashMap::new();
+        let service = AuthService::for_testing(session_manager, AuthProvider::Development, users);
+        assert!(matches!(
+            service.get_auth_provider(),
+            AuthProvider::Development
+        ));
+    }
+
+    #[test]
+    fn test_parse_security_capability_with_auth() {
+        let body = r#"{"auth": true, "primal_id": "security-primal"}"#;
+        let info = AuthService::parse_security_capability_for_test(body).unwrap();
+        assert_eq!(info.primal_type, "security-primal");
+        assert!(info.supports_auth);
+        assert_eq!(info.api_version, "v1");
+    }
+
+    #[test]
+    fn test_parse_security_capability_with_security() {
+        let body = r#"{"security": true, "session": true}"#;
+        let info = AuthService::parse_security_capability_for_test(body).unwrap();
+        assert_eq!(info.primal_type, "discovered");
+        assert!(info.supports_sessions);
+        assert_eq!(info.api_version, "v1");
+    }
+
+    #[test]
+    fn test_parse_security_capability_with_token() {
+        let body = r#"{"token": "supported"}"#;
+        let info = AuthService::parse_security_capability_for_test(body).unwrap();
+        assert!(info.supports_sessions);
+    }
+
+    #[test]
+    fn test_parse_security_capability_no_capabilities() {
+        let body = r#"{"foo": "bar", "baz": 123}"#;
+        let result = AuthService::parse_security_capability_for_test(body);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_security_capability_empty_body() {
+        let result = AuthService::parse_security_capability_for_test("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_security_capability_primal_id_from_nested() {
+        let body = r#"{"user": {"primal_id": "nested"}}"#;
+        let result = AuthService::parse_security_capability_for_test(body);
+        assert!(result.is_err()); // no auth/security/session keywords
+    }
+
+    #[test]
+    fn test_parse_security_capability_authentication_keyword() {
+        let body = r#"{"authentication": "enabled"}"#;
+        let info = AuthService::parse_security_capability_for_test(body).unwrap();
+        assert!(info.supports_auth);
+    }
 }

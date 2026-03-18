@@ -132,3 +132,147 @@ pub struct CommandLogEntry {
     pub(crate) success: bool,
     pub(crate) message: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_error_display_not_found() {
+        let err = CommandError::NotFound("cmd".to_string());
+        let s = err.to_string();
+        assert!(s.contains("Command not found"));
+        assert!(s.contains("cmd"));
+    }
+
+    #[test]
+    fn test_command_error_display_execution_failed() {
+        let err = CommandError::ExecutionFailed("failed".to_string());
+        let s = err.to_string();
+        assert!(s.contains("Execution failed"));
+        assert!(s.contains("failed"));
+    }
+
+    #[test]
+    fn test_command_error_display_authentication_failed() {
+        let err = CommandError::AuthenticationFailed("bad auth".to_string());
+        let s = err.to_string();
+        assert!(s.contains("Authentication failed"));
+        assert!(s.contains("bad auth"));
+    }
+
+    #[test]
+    fn test_command_error_display_authorization_failed() {
+        let err = CommandError::AuthorizationFailed("no perm".to_string());
+        let s = err.to_string();
+        assert!(s.contains("Authorization failed"));
+        assert!(s.contains("no perm"));
+    }
+
+    #[test]
+    fn test_command_error_display_other() {
+        let err = CommandError::Other("misc".to_string());
+        let s = err.to_string();
+        assert!(s.contains("Error"));
+        assert!(s.contains("misc"));
+    }
+
+    #[test]
+    fn test_command_error_is_std_error() {
+        let err = CommandError::NotFound("x".to_string());
+        let _: &dyn std::error::Error = &err;
+    }
+
+    #[test]
+    fn test_test_command_new() {
+        let cmd = TestCommand::new("name", "desc", "result");
+        assert_eq!(cmd.name(), "name");
+        assert_eq!(cmd.description(), "desc");
+    }
+
+    #[test]
+    fn test_test_command_execute_empty_args() {
+        let cmd = TestCommand::new("echo", "Echo", "output");
+        let result = cmd.execute(vec![]);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "output");
+    }
+
+    #[test]
+    fn test_test_command_execute_with_args() {
+        let cmd = TestCommand::new("echo", "Echo", "Echo");
+        let result = cmd.execute(vec!["a".to_string(), "b".to_string()]);
+        assert!(result.is_ok());
+        let s = result.unwrap();
+        assert!(s.contains('a'));
+        assert!(s.contains('b'));
+    }
+
+    #[test]
+    fn test_test_command_clone() {
+        let cmd = TestCommand::new("x", "y", "z");
+        let cloned = cmd.clone();
+        assert_eq!(cloned.name(), cmd.name());
+    }
+
+    #[test]
+    fn test_auth_variants() {
+        drop(Auth::User("u".to_string(), "p".to_string()));
+        drop(Auth::Token("token".to_string()));
+        drop(Auth::ApiKey("key".to_string()));
+        drop(Auth::None);
+    }
+
+    #[test]
+    fn test_auth_clone() {
+        let a = Auth::User("u".to_string(), "p".to_string());
+        let b = a.clone();
+        match (&a, &b) {
+            (Auth::User(u1, p1), Auth::User(u2, p2)) => {
+                assert_eq!(u1, u2);
+                assert_eq!(p1, p2);
+            }
+            _ => panic!("expected User variant"),
+        }
+    }
+
+    #[test]
+    fn test_user_role_variants() {
+        assert_eq!(UserRole::Admin, UserRole::Admin);
+        assert_eq!(UserRole::PowerUser, UserRole::PowerUser);
+        assert_eq!(UserRole::RegularUser, UserRole::RegularUser);
+        assert_eq!(UserRole::Guest, UserRole::Guest);
+    }
+
+    #[test]
+    fn test_user_role_partial_eq() {
+        assert!(UserRole::Admin != UserRole::Guest);
+        assert!(UserRole::PowerUser == UserRole::PowerUser);
+    }
+
+    #[test]
+    fn test_auth_user_debug() {
+        let user = AuthUser {
+            username: "test".to_string(),
+            roles: vec![UserRole::Admin],
+        };
+        let s = format!("{user:?}");
+        assert!(!s.is_empty());
+    }
+
+    #[test]
+    fn test_command_log_entry() {
+        let entry = CommandLogEntry {
+            command: "cmd".to_string(),
+            args: vec!["a".to_string()],
+            user: Some("user".to_string()),
+            timestamp: std::time::SystemTime::now(),
+            success: true,
+            message: "ok".to_string(),
+        };
+        let s = format!("{entry:?}");
+        assert!(s.contains("cmd"));
+        let cloned = entry.clone();
+        assert_eq!(cloned.command, entry.command);
+    }
+}

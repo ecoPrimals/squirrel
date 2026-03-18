@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! # Universal Adapter V2 - Infant Primal Pattern
-#![allow(dead_code)] // Adapter V2 infrastructure awaiting activation
+#![expect(dead_code, reason = "Adapter V2 infrastructure awaiting activation")]
 //!
 //! **Philosophy**: Like an infant, Squirrel starts with ZERO hardcoded knowledge
 //! and discovers its world through universal patterns.
@@ -522,6 +522,7 @@ impl UniversalClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use universal_constants::network::{DEFAULT_LOCALHOST, get_service_port, http_url};
 
     #[tokio::test]
     async fn test_awaken_infant_primal() {
@@ -535,7 +536,8 @@ mod tests {
 
     #[test]
     fn test_connect_capability_from_env() {
-        temp_env::with_var("COMPUTE_ENDPOINT", Some("http://localhost:8500"), || {
+        let compute_url = http_url(DEFAULT_LOCALHOST, get_service_port("compute"), "");
+        temp_env::with_var("COMPUTE_ENDPOINT", Some(compute_url.as_str()), || {
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async {
                 let adapter = UniversalAdapterV2::awaken().await.unwrap();
@@ -543,7 +545,7 @@ mod tests {
 
                 assert!(client.is_ok());
                 if let Ok(client) = client {
-                    assert_eq!(client.endpoint(), "http://localhost:8500");
+                    assert_eq!(client.endpoint(), compute_url);
                 }
             });
         });
@@ -551,7 +553,8 @@ mod tests {
 
     #[test]
     fn test_connection_pooling() {
-        temp_env::with_var("STORAGE_ENDPOINT", Some("http://localhost:8080"), || {
+        let storage_url = http_url(DEFAULT_LOCALHOST, get_service_port("storage"), "");
+        temp_env::with_var("STORAGE_ENDPOINT", Some(storage_url.as_str()), || {
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async {
                 let adapter = UniversalAdapterV2::awaken().await.unwrap();

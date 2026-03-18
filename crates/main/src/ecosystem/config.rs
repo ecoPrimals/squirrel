@@ -12,7 +12,7 @@ use std::sync::Arc;
 use super::registry::EcosystemRegistryConfig;
 use super::types::{HealthCheckConfig, ResourceSpec, SecurityConfig};
 
-/// Serde helpers for Arc<str> (avoids O(n) String clones when sharing IDs)
+/// Serde helpers for `Arc<str>` (avoids O(n) String clones when sharing IDs)
 fn serialize_arc_str<S>(arc_str: &Arc<str>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,

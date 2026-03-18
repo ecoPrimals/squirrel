@@ -456,11 +456,12 @@ mod tests {
 
     #[test]
     fn test_load_from_toml_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let config_path = dir.path().join("squirrel.toml");
-        std::fs::write(
-            &config_path,
-            r#"
+        temp_env::with_vars_unset(SQUIRREL_ENV_VARS, || {
+            let dir = tempfile::tempdir().unwrap();
+            let config_path = dir.path().join("squirrel.toml");
+            std::fs::write(
+                &config_path,
+                r#"
 [server]
 port = 8080
 bind = "127.0.0.1"
@@ -477,27 +478,29 @@ json = true
 [discovery]
 announce_capabilities = false
 "#,
-        )
-        .unwrap();
+            )
+            .unwrap();
 
-        let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
-        assert_eq!(config.server.port, 8080);
-        assert_eq!(config.server.bind, "127.0.0.1");
-        assert_eq!(config.server.max_connections, 50);
-        assert!(!config.ai.enabled);
-        assert_eq!(config.ai.max_retries, 5);
-        assert_eq!(config.logging.level, "debug");
-        assert!(config.logging.json);
-        assert!(!config.discovery.announce_capabilities);
+            let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
+            assert_eq!(config.server.port, 8080);
+            assert_eq!(config.server.bind, "127.0.0.1");
+            assert_eq!(config.server.max_connections, 50);
+            assert!(!config.ai.enabled);
+            assert_eq!(config.ai.max_retries, 5);
+            assert_eq!(config.logging.level, "debug");
+            assert!(config.logging.json);
+            assert!(!config.discovery.announce_capabilities);
+        });
     }
 
     #[test]
     fn test_load_from_yaml_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let config_path = dir.path().join("squirrel.yaml");
-        std::fs::write(
-            &config_path,
-            r#"
+        temp_env::with_vars_unset(SQUIRREL_ENV_VARS, || {
+            let dir = tempfile::tempdir().unwrap();
+            let config_path = dir.path().join("squirrel.yaml");
+            std::fs::write(
+                &config_path,
+                r#"
 server:
   port: 7070
   bind: "0.0.0.0"
@@ -510,28 +513,31 @@ logging:
 discovery:
   announce_capabilities: true
 "#,
-        )
-        .unwrap();
+            )
+            .unwrap();
 
-        let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
-        assert_eq!(config.server.port, 7070);
-        assert!(config.ai.enabled);
-        assert_eq!(config.ai.max_retries, 3);
-        assert_eq!(config.logging.level, "warn");
+            let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
+            assert_eq!(config.server.port, 7070);
+            assert!(config.ai.enabled);
+            assert_eq!(config.ai.max_retries, 3);
+            assert_eq!(config.logging.level, "warn");
+        });
     }
 
     #[test]
     fn test_load_from_json_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let config_path = dir.path().join("squirrel.json");
-        std::fs::write(
-            &config_path,
-            r#"{"server":{"port":6060,"bind":"0.0.0.0"},"ai":{"enabled":true},"logging":{"level":"info"},"discovery":{"announce_capabilities":true}}"#,
-        )
-        .unwrap();
+        temp_env::with_vars_unset(SQUIRREL_ENV_VARS, || {
+            let dir = tempfile::tempdir().unwrap();
+            let config_path = dir.path().join("squirrel.json");
+            std::fs::write(
+                &config_path,
+                r#"{"server":{"port":6060,"bind":"0.0.0.0"},"ai":{"enabled":true},"logging":{"level":"info"},"discovery":{"announce_capabilities":true}}"#,
+            )
+            .unwrap();
 
-        let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
-        assert_eq!(config.server.port, 6060);
+            let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
+            assert_eq!(config.server.port, 6060);
+        });
     }
 
     #[test]

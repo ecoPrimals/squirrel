@@ -61,7 +61,7 @@ pub fn process_rss_mb() -> Result<f64, io::Error> {
     let parts: Vec<&str> = statm.split_whitespace().collect();
     let rss_pages: u64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
     let page_size = 4096u64;
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(clippy::cast_precision_loss, reason = "CPU percentage calculation")]
     Ok((rss_pages * page_size) as f64 / (1024.0 * 1024.0))
 }
 
@@ -96,7 +96,11 @@ pub fn uptime_seconds() -> Result<u64, io::Error> {
         .next()
         .and_then(|s| s.parse().ok())
         .unwrap_or(0.0);
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "Platform-specific size handling"
+    )]
     Ok(secs.max(0.0).round() as u64)
 }
 
@@ -143,7 +147,7 @@ pub fn system_cpu_usage_percent() -> Result<f64, io::Error> {
     }
     let idle = vals[3];
     let total: u64 = vals.iter().sum();
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(clippy::cast_precision_loss, reason = "Percentage calculation")]
     Ok(if total > 0 {
         ((total - idle) as f64 / total as f64) * 100.0
     } else {

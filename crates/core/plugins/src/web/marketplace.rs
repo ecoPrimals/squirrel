@@ -426,7 +426,10 @@ impl PluginMarketplaceClient {
     }
 
     /// Get featured plugins
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn get_featured_plugins(&self) -> Result<WebResponse> {
         let featured_plugins = self.get_sample_plugins("featured");
 
@@ -441,7 +444,10 @@ impl PluginMarketplaceClient {
     }
 
     /// Get trending plugins
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn get_trending_plugins(&self) -> Result<WebResponse> {
         let trending_plugins = self.get_sample_plugins("trending");
 
@@ -498,7 +504,10 @@ impl PluginMarketplaceClient {
     }
 
     /// Install plugin from marketplace
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn install_plugin(&self, plugin_id: Uuid) -> Result<WebResponse> {
         let installation_id = Uuid::new_v4();
 
@@ -525,7 +534,10 @@ impl PluginMarketplaceClient {
     }
 
     /// Get installation status list
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn get_installations(&self) -> Result<WebResponse> {
         // In real implementation, this would return actual installation statuses
         let installations = vec![InstallationStatus {
@@ -551,7 +563,10 @@ impl PluginMarketplaceClient {
     }
 
     /// Get installation status
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn get_installation_status(&self, installation_id: Uuid) -> Result<WebResponse> {
         // In real implementation, this would fetch the actual installation status
         let installation_status = InstallationStatus {
@@ -578,7 +593,10 @@ impl PluginMarketplaceClient {
     }
 
     /// Cancel installation
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn cancel_installation(&self, installation_id: Uuid) -> Result<WebResponse> {
         // In real implementation, this would cancel the actual installation
         Ok(WebResponse {
@@ -593,7 +611,10 @@ impl PluginMarketplaceClient {
     }
 
     /// Helper function to search a specific repository
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn search_repository(
         &self,
         _repo: &PluginRepository,

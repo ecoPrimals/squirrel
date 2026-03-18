@@ -472,7 +472,10 @@ impl PluginDashboard {
     }
 
     /// Get active alerts
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn get_active_alerts(&self) -> Result<WebResponse> {
         let alerts = self.get_sample_alerts();
 
@@ -487,7 +490,10 @@ impl PluginDashboard {
     }
 
     /// Dismiss an alert
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn dismiss_alert(&self, alert_id: Uuid) -> Result<WebResponse> {
         // In real implementation, this would mark the alert as dismissed
         Ok(WebResponse {
@@ -502,7 +508,10 @@ impl PluginDashboard {
     }
 
     /// Get dashboard configuration
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn get_dashboard_config(&self) -> Result<WebResponse> {
         Ok(WebResponse {
             status: HttpStatus::Ok,
@@ -512,7 +521,10 @@ impl PluginDashboard {
     }
 
     /// Update dashboard configuration
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn update_dashboard_config(&self, config: DashboardConfig) -> Result<WebResponse> {
         // In real implementation, this would update the configuration
         Ok(WebResponse {
@@ -558,7 +570,10 @@ impl PluginDashboard {
     }
 
     /// Collect system health information
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn collect_system_health(&self) -> SystemHealth {
         SystemHealth {
             status: HealthStatus::Healthy,
@@ -588,7 +603,10 @@ impl PluginDashboard {
     }
 
     /// Collect recent activities
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Async trait method; required for future implementations"
+    )]
     async fn collect_recent_activities(&self) -> Vec<ActivityItem> {
         vec![
             ActivityItem {

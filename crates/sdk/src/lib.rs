@@ -23,10 +23,9 @@
 //! use squirrel_sdk::prelude::*;
 //! use wasm_bindgen::prelude::*;
 
-// Allow deprecated items during SDK migration to universal-error crate
-#![allow(deprecated)]
-#![allow(async_fn_in_trait)]
-#![allow(
+#![allow(deprecated)] // SDK migration to universal-error in progress; expect() unfulfilled at lib level
+#![allow(clippy::wildcard_imports)] // Test modules use use super::*; progressive lint tightening
+#![expect(
     clippy::unused_self,
     clippy::unnecessary_wraps,
     clippy::unused_async,
@@ -46,7 +45,6 @@
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::future_not_send,
-    clippy::wildcard_imports,
     clippy::elidable_lifetime_names,
     clippy::struct_excessive_bools,
     clippy::match_same_arms,
@@ -61,7 +59,8 @@
     clippy::needless_continue,
     clippy::map_unwrap_or,
     clippy::unwrap_used,
-    clippy::expect_used
+    clippy::expect_used,
+    reason = "SDK plugin API surface; progressive lint tightening"
 )]
 //!
 //! #[wasm_bindgen]
@@ -118,7 +117,10 @@ pub mod prelude {
 
     // Client APIs
     #[cfg(feature = "http")]
-    #[allow(ambiguous_glob_reexports)]
+    #[expect(
+        ambiguous_glob_reexports,
+        reason = "Prelude re-exports; http/fs feature namespacing"
+    )]
     pub use crate::client::http::*;
 
     #[cfg(feature = "fs")]
@@ -166,7 +168,7 @@ pub fn version() -> &'static str {
 }
 
 /// Get SDK build information
-/// Get enabled features as a Vec<String>
+/// Get enabled features as a `Vec<String>`
 fn get_enabled_features() -> Vec<String> {
     vec![
         #[cfg(feature = "http")]
