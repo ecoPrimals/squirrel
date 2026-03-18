@@ -369,7 +369,8 @@ impl IpcClient {
             "id": id
         });
 
-        let request_bytes = serde_json::to_vec(&request)?;
+        let request_bytes =
+            serde_json::to_vec(&request).context("Failed to serialize JSON-RPC request")?;
 
         stream
             .write_all(&request_bytes)
@@ -409,7 +410,8 @@ impl IpcClient {
             source: e,
         })?;
 
-        let response: Value = serde_json::from_slice(&response_bytes)?;
+        let response: Value =
+            serde_json::from_slice(&response_bytes).context("Failed to parse JSON-RPC response")?;
 
         if let Some(error) = response.get("error") {
             let code = error

@@ -15,6 +15,101 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::{debug, error, info, trace, warn};
 
+/// Run the WebSocket reader loop until connection closes or error
+async fn run_reader_task(
+    mut read: futures_util::stream::SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    read_msg_tx: mpsc::Sender<MCPMessage>,
+    read_state: Arc<Mutex<WebSocketState>>,
+) {
+    while let Some(result) = read.next().await {
+        match result {
+            Ok(Message::Text(text)) => {
+                if let Ok(message) = serde_json::from_str::<MCPMessage>(&text) {
+                    if read_msg_tx.send(message).await.is_err() {
+                        error!("Failed to forward message to channel");
+                        break;
+                    }
+                } else if let Err(e) = serde_json::from_str::<MCPMessage>(&text) {
+                    error!("Failed to parse message: {}", e);
+                }
+            }
+            Ok(Message::Binary(bin)) => {
+                if let Ok(message) = serde_json::from_slice::<MCPMessage>(&bin) {
+                    if read_msg_tx.send(message).await.is_err() {
+                        error!("Failed to forward message to channel");
+                        break;
+                    }
+                } else if let Err(e) = serde_json::from_slice::<MCPMessage>(&bin) {
+                    error!("Failed to parse binary message: {}", e);
+                }
+            }
+            Ok(Message::Ping(_) | Message::Pong(_)) => debug!("Received ping/pong"),
+            Ok(Message::Close(_)) => {
+                info!("WebSocket connection closed by peer.");
+                break;
+            }
+            Ok(Message::Frame(_)) => warn!("Received unexpected WebSocket frame type"),
+            Err(e) => {
+                error!("Error reading from WebSocket: {}", e);
+                break;
+            }
+        }
+    }
+    info!("WebSocket reader task finished.");
+    let mut current_state = read_state.lock().await;
+    if *current_state != WebSocketState::Disconnected {
+        *current_state = WebSocketState::Disconnected;
+        info!("WebSocket state set to Disconnected by reader task.");
+    }
+}
+
+/// Run the WebSocket writer loop until channel closes or error
+async fn run_writer_task(
+    mut write: futures_util::stream::SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
+    mut socket_rx: mpsc::Receiver<SocketCommand>,
+    write_state: Arc<Mutex<WebSocketState>>,
+) {
+    while let Some(command) = socket_rx.recv().await {
+        match command {
+            SocketCommand::Send(message) => match serde_json::to_string(&message) {
+                Ok(json) => {
+                    if write.send(Message::Text(json)).await.is_err() {
+                        error!("WebSocket: Failed to send message");
+                        break;
+                    }
+                }
+                Err(e) => error!("WebSocket: Failed to serialize message: {}", e),
+            },
+            SocketCommand::SendRaw(bytes) => {
+                if write.send(Message::Binary(bytes)).await.is_err() {
+                    error!("WebSocket: Failed to send raw bytes");
+                    break;
+                }
+            }
+            SocketCommand::Ping => {
+                if write.send(Message::Ping(vec![])).await.is_err() {
+                    warn!("WebSocket: Failed to send ping");
+                } else {
+                    trace!("WebSocket: Sent ping frame");
+                }
+            }
+            SocketCommand::Close => {
+                info!("WebSocket writer task received Close command.");
+                if let Err(e) = write.close().await {
+                    error!("Error closing WebSocket: {}", e);
+                }
+                break;
+            }
+        }
+    }
+    info!("WebSocket writer task finished.");
+    let mut current_state = write_state.lock().await;
+    if *current_state != WebSocketState::Disconnected {
+        *current_state = WebSocketState::Disconnected;
+        info!("WebSocket state set to Disconnected by writer task.");
+    }
+}
+
 /// Start the WebSocket reader and writer tasks
 ///
 /// Creates and starts the background tasks for handling the WebSocket connection.
@@ -33,136 +128,13 @@ use tracing::{debug, error, info, trace, warn};
 pub async fn start_websocket_task(
     socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
     msg_tx: mpsc::Sender<MCPMessage>,
-    mut socket_rx: mpsc::Receiver<SocketCommand>,
+    socket_rx: mpsc::Receiver<SocketCommand>,
     state_clone: Arc<Mutex<WebSocketState>>,
 ) -> Result<()> {
-    let (mut write, mut read) = socket.split();
-
-    // Clone for the reader task
+    let (write, read) = socket.split();
     let read_state = state_clone.clone();
-    let read_msg_tx = msg_tx;
-
-    // Start reader task
-    tokio::spawn(async move {
-        while let Some(result) = read.next().await {
-            match result {
-                Ok(Message::Text(text)) => {
-                    // Parse as JSON
-                    match serde_json::from_str::<MCPMessage>(&text) {
-                        Ok(message) => {
-                            if read_msg_tx.send(message).await.is_err() {
-                                error!("Failed to forward message to channel");
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            error!("Failed to parse message: {}", e);
-                            continue;
-                        }
-                    }
-                }
-                Ok(Message::Binary(bin)) => {
-                    // Parse as binary JSON
-                    match serde_json::from_slice::<MCPMessage>(&bin) {
-                        Ok(message) => {
-                            if read_msg_tx.send(message).await.is_err() {
-                                error!("Failed to forward message to channel");
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            error!("Failed to parse binary message: {}", e);
-                            continue;
-                        }
-                    }
-                }
-                Ok(Message::Ping(_) | Message::Pong(_)) => {
-                    // Handle ping/pong, maybe log or ignore
-                    debug!("Received ping/pong");
-                }
-                Ok(Message::Close(_)) => {
-                    // Connection closed by the server
-                    info!("WebSocket connection closed by peer.");
-                    break;
-                }
-                Ok(Message::Frame(_)) => {
-                    // Handle unexpected frame types if necessary
-                    warn!("Received unexpected WebSocket frame type");
-                }
-                Err(e) => {
-                    // Error reading from socket
-                    error!("Error reading from WebSocket: {}", e);
-                    break;
-                }
-            }
-        }
-
-        // Update state to disconnected
-        info!("WebSocket reader task finished.");
-        let mut current_state = read_state.lock().await;
-        if *current_state != WebSocketState::Disconnected {
-            *current_state = WebSocketState::Disconnected;
-            info!("WebSocket state set to Disconnected by reader task.");
-        }
-    });
-
-    // Start writer task
-    let write_state = state_clone;
-    tokio::spawn(async move {
-        while let Some(command) = socket_rx.recv().await {
-            match command {
-                SocketCommand::Send(message) => {
-                    // Serialize to JSON
-                    let json = match serde_json::to_string(&message) {
-                        Ok(j) => j,
-                        Err(e) => {
-                            error!("WebSocket: Failed to serialize message: {}", e);
-                            continue;
-                        }
-                    };
-
-                    // Send as text message
-                    if let Err(e) = write.send(Message::Text(json)).await {
-                        error!("WebSocket: Failed to send message: {}", e);
-                        break;
-                    }
-                }
-                SocketCommand::SendRaw(bytes) => {
-                    // Send as binary message
-                    if let Err(e) = write.send(Message::Binary(bytes)).await {
-                        error!("WebSocket: Failed to send raw bytes: {}", e);
-                        break;
-                    }
-                }
-                SocketCommand::Ping => {
-                    // Send ping frame
-                    if let Err(e) = write.send(Message::Ping(vec![])).await {
-                        warn!("WebSocket: Failed to send ping: {}", e);
-                        // Don't break on ping failure, connection might recover
-                    } else {
-                        trace!("WebSocket: Sent ping frame");
-                    }
-                }
-                SocketCommand::Close => {
-                    // Close the connection gracefully
-                    info!("WebSocket writer task received Close command.");
-                    if let Err(e) = write.close().await {
-                        error!("Error closing WebSocket: {}", e);
-                    }
-                    break;
-                }
-            }
-        }
-
-        // Update state to disconnected
-        info!("WebSocket writer task finished.");
-        let mut current_state = write_state.lock().await;
-        if *current_state != WebSocketState::Disconnected {
-            *current_state = WebSocketState::Disconnected;
-            info!("WebSocket state set to Disconnected by writer task.");
-        }
-    });
-
+    tokio::spawn(run_reader_task(read, msg_tx, read_state));
+    tokio::spawn(run_writer_task(write, socket_rx, state_clone));
     Ok(())
 }
 

@@ -331,13 +331,12 @@ impl Transport for WebSocketTransport {
         }
 
         // Send the message to the write task through the channel
-        match self
-            .ws_sender
-            .as_ref()
-            .expect("ws_sender should be set after connection")
-            .send(SocketCommand::Send(message))
-            .await
-        {
+        let sender = self.ws_sender.as_ref().ok_or_else(|| {
+            MCPError::Transport(TransportError::ConnectionClosed(
+                "WebSocket sender unavailable (not connected)".to_string(),
+            ))
+        })?;
+        match sender.send(SocketCommand::Send(message)).await {
             Ok(()) => {
                 // Update last activity
                 let mut meta = self.metadata.lock().await;

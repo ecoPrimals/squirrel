@@ -83,7 +83,7 @@ impl DeploymentGraphDef {
     /// Returns node IDs in a valid execution order, or `Err` if the graph
     /// contains a cycle.
     pub fn execution_order(&self) -> Result<Vec<String>, String> {
-        use std::collections::{HashMap, HashSet, VecDeque};
+        use std::collections::{HashMap, VecDeque};
 
         let mut in_degree: HashMap<&str, usize> = HashMap::new();
         let mut adjacency: HashMap<&str, Vec<&str>> = HashMap::new();
@@ -104,11 +104,9 @@ impl DeploymentGraphDef {
             .collect();
 
         let mut order = Vec::with_capacity(self.nodes.len());
-        let mut visited = HashSet::new();
 
         while let Some(id) = queue.pop_front() {
             order.push(id.to_string());
-            visited.insert(id);
 
             if let Some(dependents) = adjacency.get(id) {
                 for &dep in dependents {

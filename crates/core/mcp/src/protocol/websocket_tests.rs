@@ -7,7 +7,9 @@
 //! connection management, error scenarios, and performance optimization.
 
 use super::websocket::*;
-use crate::protocol::types::{MCPMessage, MessageId, MessageType, ProtocolVersion};
+use crate::protocol::types::{
+    MCPMessage, MessageId, MessageType, ProtocolVersion, SecurityMetadata,
+};
 use crate::transport::frame::{Frame, MessageCodec};
 
 use std::time::Duration;
@@ -34,7 +36,7 @@ fn create_test_message(message_type: MessageType, content: &str) -> MCPMessage {
             "content": content,
             "timestamp": chrono::Utc::now().to_rfc3339()
         }),
-        security: Default::default(),
+        security: SecurityMetadata::default(),
         metadata: Some(serde_json::json!({})),
         timestamp: chrono::Utc::now(),
         trace_id: Some(format!("trace-{}", uuid::Uuid::new_v4())),
@@ -112,10 +114,10 @@ async fn test_connection_info_creation() {
 #[tokio::test]
 async fn test_websocket_server_creation() {
     let config = create_test_config();
-    let server = WebSocketServer::new(config.clone());
+    let server = WebSocketServer::new(config);
 
     // Test server properties
-    let connections = server.get_connections().await;
+    let connections = server.get_connections();
     assert!(connections.is_empty());
 }
 
@@ -135,11 +137,11 @@ async fn test_message_codec_encoding_decoding() {
     let test_message = create_test_message(MessageType::Command, "test message");
 
     // Test encoding
-    let frame = codec.encode_message(&test_message).await.unwrap();
+    let frame = codec.encode_message(&test_message).unwrap();
     assert!(!frame.payload.is_empty());
 
     // Test decoding
-    let decoded_message = codec.decode_message(&frame).await.unwrap();
+    let decoded_message = codec.decode_message(&frame).unwrap();
     assert_eq!(decoded_message.id.0, test_message.id.0);
     assert_eq!(decoded_message.type_, test_message.type_);
     assert_eq!(decoded_message.payload, test_message.payload);
@@ -171,7 +173,7 @@ async fn test_websocket_server_event_handling() {
 
 #[tokio::test]
 async fn test_connection_state_transitions() {
-    let states = vec![
+    let states = [
         ConnectionState::Connecting,
         ConnectionState::Connected,
         ConnectionState::Disconnecting,
@@ -229,12 +231,13 @@ async fn test_server_event_types() {
     ];
 
     for event in events {
-        match event {
-            ServerEvent::ClientConnected(id) => assert_eq!(id, "client-1"),
-            ServerEvent::ClientDisconnected(id) => assert_eq!(id, "client-1"),
-            ServerEvent::MessageReceived(id, _) => assert_eq!(id, "client-1"),
-            ServerEvent::ConnectionError(id, _) => assert_eq!(id, "client-1"),
-        }
+        let id = match &event {
+            ServerEvent::ClientConnected(id)
+            | ServerEvent::ClientDisconnected(id)
+            | ServerEvent::MessageReceived(id, _)
+            | ServerEvent::ConnectionError(id, _) => id,
+        };
+        assert_eq!(id, "client-1");
     }
 }
 
@@ -250,9 +253,9 @@ async fn test_multiple_message_types() {
     ];
 
     for message_type in message_types {
-        let test_message = create_test_message(message_type.clone(), "test");
-        let frame = codec.encode_message(&test_message).await.unwrap();
-        let decoded = codec.decode_message(&frame).await.unwrap();
+        let test_message = create_test_message(message_type, "test");
+        let frame = codec.encode_message(&test_message).unwrap();
+        let decoded = codec.decode_message(&frame).unwrap();
 
         assert_eq!(decoded.type_, message_type);
     }
@@ -267,10 +270,10 @@ async fn test_large_message_handling() {
     let test_message = create_test_message(MessageType::Command, &large_content);
 
     // Test encoding/decoding large message
-    let frame = codec.encode_message(&test_message).await.unwrap();
+    let frame = codec.encode_message(&test_message).unwrap();
     assert!(frame.payload.len() > 10000);
 
-    let decoded = codec.decode_message(&frame).await.unwrap();
+    let decoded = codec.decode_message(&frame).unwrap();
     assert_eq!(
         decoded
             .payload
@@ -330,14 +333,14 @@ async fn test_error_message_handling() {
             "code": 500,
             "details": "This is a test error"
         }),
-        security: Default::default(),
+        security: SecurityMetadata::default(),
         metadata: Some(serde_json::json!({})),
         timestamp: chrono::Utc::now(),
         trace_id: Some("error-trace".to_string()),
     };
 
-    let frame = codec.encode_message(&error_message).await.unwrap();
-    let decoded = codec.decode_message(&frame).await.unwrap();
+    let frame = codec.encode_message(&error_message).unwrap();
+    let decoded = codec.decode_message(&frame).unwrap();
 
     assert_eq!(decoded.type_, MessageType::Error);
     assert_eq!(
@@ -351,19 +354,14 @@ async fn test_error_message_handling() {
 async fn test_concurrent_message_processing() {
     let codec = MessageCodec::new();
 
-    // Create multiple messages
-    let messages: Vec<_> = (0..10)
-        .map(|i| create_test_message(MessageType::Command, &format!("message {}", i)))
-        .collect();
-
-    // Process messages concurrently
-    let handles: Vec<_> = messages
-        .into_iter()
+    // Create multiple messages and process concurrently
+    let handles: Vec<_> = (0..10)
+        .map(|i| create_test_message(MessageType::Command, &format!("message {i}")))
         .map(|msg| {
             let codec_clone = codec.clone();
             tokio::spawn(async move {
-                let frame = codec_clone.encode_message(&msg).await.unwrap();
-                codec_clone.decode_message(&frame).await.unwrap()
+                let frame = codec_clone.encode_message(&msg).unwrap();
+                codec_clone.decode_message(&frame).unwrap()
             })
         })
         .collect();
@@ -377,7 +375,7 @@ async fn test_concurrent_message_processing() {
         assert_eq!(decoded.type_, MessageType::Command);
         assert_eq!(
             decoded.payload.get("content").unwrap().as_str().unwrap(),
-            format!("message {}", i)
+            format!("message {i}")
         );
     }
 }
@@ -428,7 +426,7 @@ async fn test_message_id_uniqueness() {
 
     // Generate multiple messages and verify unique IDs
     for i in 0..100 {
-        let message = create_test_message(MessageType::Command, &format!("message {}", i));
+        let message = create_test_message(MessageType::Command, &format!("message {i}"));
         assert!(
             message_ids.insert(message.id.0.clone()),
             "Message ID should be unique"
@@ -452,8 +450,8 @@ async fn test_protocol_version_compatibility() {
         let mut message = create_test_message(MessageType::Command, "version test");
         message.version = version.clone();
 
-        let frame = codec.encode_message(&message).await.unwrap();
-        let decoded = codec.decode_message(&frame).await.unwrap();
+        let frame = codec.encode_message(&message).unwrap();
+        let decoded = codec.decode_message(&frame).unwrap();
 
         assert_eq!(decoded.version, version);
     }

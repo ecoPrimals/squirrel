@@ -155,6 +155,13 @@ impl From<crate::capabilities::discovery::DiscoveryError> for PrimalError {
     }
 }
 
+// Add support for anyhow::Error conversion (enables .context() in hot paths)
+impl From<anyhow::Error> for PrimalError {
+    fn from(err: anyhow::Error) -> Self {
+        Self::Generic(format!("{err:#}"))
+    }
+}
+
 #[cfg(test)]
 mod error_path_coverage_tests;
 #[cfg(test)]

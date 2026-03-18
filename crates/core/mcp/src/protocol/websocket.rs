@@ -255,7 +255,7 @@ impl WebSocketServer {
         let codec_out = codec.clone();
         tokio::spawn(async move {
             while let Some(message) = msg_rx.recv().await {
-                let frame = match codec_out.encode_message(&message).await {
+                let frame = match codec_out.encode_message(&message) {
                     Ok(frame) => frame,
                     Err(e) => {
                         error!("Failed to encode message: {}", e);
@@ -299,7 +299,7 @@ impl WebSocketServer {
                     };
 
                     // Decode message
-                    let mcp_message = match codec.decode_message(&frame).await {
+                    let mcp_message = match codec.decode_message(&frame) {
                         Ok(message) => message,
                         Err(e) => {
                             warn!("Failed to decode MCP message: {}", e);
@@ -350,7 +350,7 @@ impl WebSocketServer {
     }
 
     /// Get active connections
-    pub async fn get_connections(&self) -> Vec<ConnectionInfo> {
+    pub fn get_connections(&self) -> Vec<ConnectionInfo> {
         self.connections
             .iter()
             .map(|entry| entry.value().clone())
@@ -431,7 +431,7 @@ impl WebSocketClient {
         // Spawn task to handle outgoing messages
         tokio::spawn(async move {
             while let Some(message) = msg_rx.recv().await {
-                let frame = match codec.encode_message(&message).await {
+                let frame = match codec.encode_message(&message) {
                     Ok(frame) => frame,
                     Err(e) => {
                         error!("Failed to encode message: {}", e);
@@ -477,7 +477,7 @@ impl WebSocketClient {
                         };
 
                         // Decode message
-                        let _mcp_message = match codec_in.decode_message(&frame).await {
+                        let _mcp_message = match codec_in.decode_message(&frame) {
                             Ok(message) => message,
                             Err(e) => {
                                 warn!("Failed to decode MCP message: {}", e);

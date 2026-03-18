@@ -129,7 +129,7 @@ mod tests {
             serde_json::json!({"pattern_type": "auth", "threat_score": 0.2, "provider_used": "bear"}),
         ];
         client
-            .update_ai_metadata(patterns)
+            .update_ai_metadata(&patterns)
             .expect("update metadata");
     }
 }

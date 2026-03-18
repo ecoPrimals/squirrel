@@ -37,7 +37,7 @@ impl JsonRpcServer {
         let args = tool_params
             .get("args")
             .cloned()
-            .unwrap_or(serde_json::json!({}));
+            .unwrap_or_else(|| serde_json::json!({}));
 
         let remote = {
             let registry = self.announced_tools.read().await;

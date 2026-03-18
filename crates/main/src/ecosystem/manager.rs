@@ -4,6 +4,7 @@
 
 //! Ecosystem manager implementation.
 
+use anyhow::Context;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -24,8 +25,7 @@ use super::status::{
     HealthStatus, ServiceMeshStatus,
 };
 use super::types::{
-    EcosystemPrimalType, HealthCheckConfig, ResourceRequirements, ResourceSpec, SecurityConfig,
-    ServiceCapabilities, ServiceEndpoints,
+    EcosystemPrimalType, HealthCheckConfig, SecurityConfig, ServiceCapabilities, ServiceEndpoints,
 };
 
 /// Ecosystem manager for service discovery and communication
@@ -47,7 +47,7 @@ impl EcosystemManager {
                     .unwrap_or_else(|_| "default".to_string()),
                 data_center: std::env::var("DATA_CENTER").ok(),
                 availability_zone: std::env::var("AVAILABILITY_ZONE").ok(),
-                ip_address: Some("127.0.0.1".to_string()),
+                ip_address: None, // Discovered at runtime via capability-based discovery
                 subnet: None,
                 network_id: None,
                 geo_location: None,
@@ -84,7 +84,10 @@ impl EcosystemManager {
 
     pub async fn initialize(&mut self) -> Result<(), PrimalError> {
         tracing::info!("Initializing ecosystem manager with universal patterns");
-        self.universal_ecosystem.initialize().await?;
+        self.universal_ecosystem
+            .initialize()
+            .await
+            .context("Failed to initialize universal ecosystem")?;
         let mut status = self.status.write().await;
         status.status = "initialized".to_string();
         status.initialized_at = Some(Utc::now());
@@ -97,7 +100,7 @@ impl EcosystemManager {
         provider: &SquirrelPrimalProvider,
     ) -> Result<(), PrimalError> {
         tracing::info!("Registering Squirrel service with ecosystem through capability discovery");
-        let registration = self.create_service_registration(provider)?;
+        let registration = self.create_service_registration(provider);
         tracing::info!(
             "Service registration prepared: {:?}",
             registration.service_id
@@ -114,9 +117,9 @@ impl EcosystemManager {
     fn create_service_registration(
         &self,
         provider: &SquirrelPrimalProvider,
-    ) -> Result<EcosystemServiceRegistration, PrimalError> {
+    ) -> EcosystemServiceRegistration {
         let endpoints = provider.endpoints();
-        Ok(EcosystemServiceRegistration {
+        EcosystemServiceRegistration {
             service_id: Arc::clone(&self.config.service_id),
             primal_type: EcosystemPrimalType::Squirrel,
             biome_id: self.config.biome_id.clone(),
@@ -172,7 +175,7 @@ impl EcosystemManager {
             resource_requirements: self.config.resource_requirements.clone(),
             metadata: self.config.metadata.clone(),
             registered_at: Utc::now(),
-        })
+        }
     }
 
     pub async fn discover_services(
@@ -193,7 +196,7 @@ impl EcosystemManager {
             .universal_ecosystem
             .find_by_capability(capability)
             .await
-            .map_err(|e| PrimalError::Configuration(format!("Discovery failed: {e}")))?;
+            .context("Failed to discover services by capability")?;
 
         let services: Vec<super::registry::types::DiscoveredService> = matches
             .into_iter()
@@ -260,7 +263,10 @@ impl EcosystemManager {
             required_capabilities
         );
         for capability in &required_capabilities {
-            let services = self.find_services_by_capability(capability).await?;
+            let services = self
+                .find_services_by_capability(capability)
+                .await
+                .context("Failed to find services for coordination")?;
             if services.is_empty() {
                 return Err(PrimalError::Configuration(format!(
                     "No service found providing capability: {capability}"
@@ -442,13 +448,20 @@ impl EcosystemManager {
         _metadata: HashMap<String, String>,
     ) -> Result<String, PrimalError> {
         tracing::info!("Storing data using universal storage patterns: {}", key);
-        self.universal_ecosystem.store_data(key, data).await?;
+        self.universal_ecosystem
+            .store_data(key, data)
+            .await
+            .context("Failed to store data via universal ecosystem")?;
         Ok(key.to_string())
     }
 
     pub async fn retrieve_data_universal(&self, key: &str) -> Result<Vec<u8>, PrimalError> {
         tracing::info!("Retrieving data using universal storage patterns: {}", key);
-        self.universal_ecosystem.retrieve_data(key).await
+        Ok(self
+            .universal_ecosystem
+            .retrieve_data(key)
+            .await
+            .context("Failed to retrieve data via universal ecosystem")?)
     }
 
     pub async fn execute_computation_universal(
@@ -462,9 +475,11 @@ impl EcosystemManager {
         );
         let computation_request =
             serde_json::json!({ "computation": computation, "parameters": parameters });
-        self.universal_ecosystem
+        Ok(self
+            .universal_ecosystem
             .execute_computation(computation_request)
             .await
+            .context("Failed to execute computation via universal ecosystem")?)
     }
 
     pub async fn authenticate_universal(
@@ -536,7 +551,10 @@ pub async fn initialize_ecosystem_integration(
 ) -> Result<EcosystemManager, PrimalError> {
     tracing::info!("Initializing ecosystem integration with service mesh patterns");
     let mut manager = EcosystemManager::new(config, metrics_collector);
-    manager.initialize().await?;
+    manager
+        .initialize()
+        .await
+        .context("Failed to initialize ecosystem integration")?;
     tracing::info!("Ecosystem integration initialized successfully");
     Ok(manager)
 }

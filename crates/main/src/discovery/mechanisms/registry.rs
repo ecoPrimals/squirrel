@@ -298,9 +298,9 @@ impl RegistryDiscovery {
     ///
     /// Helper to convert registry-specific format to standardized format.
     fn parse_registry_entry(
-        service_id: String,
-        service_name: String,
-        address: String,
+        service_id: &str,
+        service_name: &str,
+        address: &str,
         port: u16,
         tags: Vec<String>,
         metadata: HashMap<String, String>,
@@ -432,9 +432,9 @@ mod tests {
         metadata.insert("version".to_string(), "0.4.1".to_string());
 
         let service = RegistryDiscovery::parse_registry_entry(
-            "instance-1".to_string(),
-            "squirrel".to_string(),
-            "192.168.1.100".to_string(),
+            "instance-1",
+            "squirrel",
+            "192.168.1.100",
             9200,
             tags,
             metadata,

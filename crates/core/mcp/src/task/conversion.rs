@@ -147,7 +147,7 @@ mod tests {
             retry_count: 0,
             max_retries: 3,
         };
-        let json: JsonTask = task.clone().into();
+        let json: JsonTask = task.into();
         assert_eq!(json.id, "task-123");
         assert_eq!(json.name, "Test Task");
         assert_eq!(json.status, TaskStatus::Running as i32);
@@ -165,7 +165,7 @@ mod tests {
         assert_eq!(back.status_code, TaskStatus::Running);
         assert_eq!(back.priority_code, TaskPriority::High);
         assert_eq!(back.agent_type, AgentType::AI);
-        assert_eq!(back.progress, 50.0);
+        assert!((back.progress - 50.0_f32).abs() < f32::EPSILON);
         assert_eq!(back.agent_id.as_deref(), Some("agent-1"));
         assert_eq!(back.context_id.as_deref(), Some("ctx-1"));
     }
@@ -218,7 +218,7 @@ mod tests {
             created_at: None,
             updated_at: None,
             completed_at: None,
-            input_data: input_data.clone(),
+            input_data,
             output_data: vec![],
             error_message: "err".to_string(),
             progress_message: "progress".to_string(),

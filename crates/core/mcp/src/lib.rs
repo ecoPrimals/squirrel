@@ -2,48 +2,32 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(async_fn_in_trait)]
-#![allow(clippy::unused_self)]
-#![allow(clippy::unnecessary_wraps)]
-#![allow(clippy::significant_drop_tightening)]
-#![allow(clippy::option_if_let_else)]
-#![allow(clippy::needless_pass_by_value)]
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_precision_loss)]
-#![allow(clippy::match_same_arms)]
-#![allow(clippy::return_self_not_must_use)]
-#![allow(clippy::redundant_closure_call)]
-#![allow(clippy::or_fun_call)]
-#![allow(clippy::unused_async)]
-#![allow(clippy::cast_possible_wrap)]
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::expect_used)]
-#![allow(clippy::needless_continue)]
-#![allow(clippy::too_many_lines)]
-#![allow(clippy::struct_excessive_bools)]
-#![allow(clippy::default_trait_access)]
-#![allow(clippy::module_inception)]
-#![allow(clippy::redundant_clone)]
-#![allow(clippy::uninlined_format_args)]
-#![allow(clippy::clone_on_copy)]
-#![allow(clippy::doc_markdown)]
-#![allow(clippy::useless_vec)]
-#![allow(clippy::items_after_statements)]
-#![allow(clippy::len_zero)]
-#![allow(clippy::useless_conversion)]
-#![allow(clippy::assertions_on_constants)]
-#![allow(clippy::collection_is_never_read)]
-#![allow(clippy::needless_collect)]
-#![allow(clippy::manual_string_new)]
-#![allow(clippy::unnecessary_get_then_check)]
-#![allow(clippy::float_cmp)]
 //! Machine Context Protocol (MCP) Implementation
 //!
 //! This crate provides a complete implementation of the Machine Context Protocol,
-#![forbid(unsafe_code)]
-#![allow(missing_docs)]
 //! including message types, transport layers, and utility functions.
+
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![allow(
+    // Docs WIP — tracked for completion
+    missing_docs,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    // Edition 2024 stabilisation noise
+    async_fn_in_trait,
+    // Genuine domain naming
+    clippy::doc_markdown,
+    // Numeric casts in protocol handling — audited per-site
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_wrap,
+    // Patterns under active refactor
+    clippy::option_if_let_else,
+    clippy::significant_drop_tightening,
+    clippy::similar_names,
+)]
 
 pub mod constants;
 pub mod error;

@@ -84,6 +84,7 @@ impl SecurityOrchestrator {
     }
 
     /// Perform comprehensive security check
+    #[allow(clippy::too_many_lines)]
     pub async fn check_security(&self, request: SecurityCheckRequest) -> SecurityCheckResult {
         let mut security_events = Vec::new();
         let mut recommended_actions = Vec::new();
@@ -140,7 +141,7 @@ impl SecurityOrchestrator {
             for (field_name, field_value, input_type) in input_data {
                 let validation_result = self.input_validator.validate_input(
                     field_value,
-                    input_type.clone(),
+                    *input_type,
                     Some(request.correlation_id.clone()),
                 );
 

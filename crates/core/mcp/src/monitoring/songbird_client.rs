@@ -144,7 +144,7 @@ impl SongbirdMonitoringClient {
 
     /// Collect system metrics
     async fn collect_system_metrics(&self) -> Result<SongbirdMetrics> {
-        // Use sysinfo or similar to collect real system metrics
+        // Uses universal_constants::sys_info (/proc on Linux) for real system metrics
         // For now, we'll use basic placeholders that can be enhanced
         
         let cpu_usage = self.get_cpu_usage().await?;
@@ -170,16 +170,19 @@ impl SongbirdMonitoringClient {
 
     /// Get CPU usage percentage
     async fn get_cpu_usage(&self) -> Result<f64> {
-        // Implementation would use sysinfo or similar
-        // For now, return a safe default
-        Ok(0.0)
+        // Uses universal_constants::sys_info on Linux; 0.0 elsewhere
+        Ok(universal_constants::sys_info::system_cpu_usage_percent().unwrap_or(0.0))
     }
 
     /// Get memory usage percentage
     async fn get_memory_usage(&self) -> Result<f64> {
-        // Implementation would use sysinfo or similar
-        // For now, return a safe default
-        Ok(0.0)
+        // Uses universal_constants::sys_info on Linux; 0.0 elsewhere
+        let mem = universal_constants::sys_info::memory_info().unwrap_or_default();
+        Ok(if mem.total > 0 {
+            (mem.used as f64 / mem.total as f64) * 100.0
+        } else {
+            0.0
+        })
     }
 
     /// Get active connections count

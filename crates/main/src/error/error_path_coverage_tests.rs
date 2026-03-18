@@ -241,13 +241,12 @@ mod error_path_tests {
 
     #[test]
     fn test_error_with_option_context() {
-        fn operation() -> Result<Option<String>, PrimalError> {
-            Ok(None)
+        fn operation() -> Option<String> {
+            None
         }
 
         let result = operation();
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
+        assert!(result.is_none());
     }
 
     #[test]

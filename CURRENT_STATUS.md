@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 17, 2026
-**Version**: 0.1.0-alpha.10
+**Version**: 0.1.0-alpha.11
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,20 +10,22 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 5,228 passing / 0 failed across 21 crates |
+| Tests | 2,059 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all crate entry points |
-| Pure Rust | 100% default features (zero C deps); `ring`/`openssl` banned in `deny.toml` |
-| ecoBin | Compliant — `deny.toml` explicitly bans `ring` and `openssl`; `sysinfo` behind `system-metrics` |
-| Coverage | 67.6% line coverage via `cargo-llvm-cov` (target: 90%) |
-| Crates | 21 workspace members |
-| Files >1000 lines | 0 (max: 991 — `router.rs`, likely dead code pending review) |
+| Pure Rust | 100% default features (zero C deps); `ring`/`openssl` banned in `deny.toml`; `sysinfo` removed |
+| ecoBin | Compliant v3.0 — `deny.toml` bans `ring`/`openssl`; pure Rust `sys_info` via `/proc` parsing |
+| Coverage | 69% line coverage via `cargo-llvm-cov` (target: 90%) |
+| Crates | 22 workspace members |
+| Files >1000 lines | 0 (max: 991 — `router.rs`) |
 | Property tests | 17 (proptest round-trip for all JSON-RPC types + niche + 7 wire-format fuzz) |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
 | Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted |
+| TODO/FIXME in code | 0 (2 documented `STUB` comments in performance_optimizer — Phase 2 deferred) |
+| Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
 
 ## JSON-RPC Methods
 
@@ -49,8 +51,8 @@ accepted. All clients must use the semantic `{domain}.{verb}` names above.
 
 tarpc 0.37 (upgraded from 0.34). All JSON-RPC methods mirrored as tarpc service
 methods with typed request/response structs. `TarpcRpcServer` delegates to
-`JsonRpcServer` for shared handler logic. Protocol negotiation selects tarpc or
-JSON-RPC per-connection.
+`JsonRpcServer` for shared handler logic. Protocol negotiation (client + server)
+selects tarpc or JSON-RPC per-connection.
 
 ## Niche Self-Knowledge (`niche.rs`)
 
@@ -83,7 +85,8 @@ Centralized in `universal-constants::identity`:
 | `JWT_SIGNING_KEY_ID` | `"squirrel-jwt-signing-key"` | BearDog key lookup |
 
 Runtime discovery uses capabilities, not primal names. Names are only for socket
-file naming conventions and logging.
+file naming conventions and logging. `CapabilityIdentifier` replaces the deprecated
+`EcosystemPrimalType` enum.
 
 ## Context Management
 
@@ -112,10 +115,22 @@ requiring AI capabilities.
 | `ecosystem` | Ecosystem integration | ON |
 | `tarpc-rpc` | High-performance binary RPC via tarpc | ON |
 | `delegated-jwt` | Capability-based JWT delegation | ON |
-| `system-metrics` | sysinfo (C dependency) | OFF |
 | `monitoring` | Prometheus metrics (brings hyper) | OFF |
 | `nvml` | NVIDIA GPU detection via nvml-wrapper | OFF |
 | `local-jwt` | Local JWT signing (brings ring C dep) | OFF |
+
+## Human Dignity Evaluation
+
+AI routing operations pass through `DignityEvaluator` checks:
+
+| Check | What |
+|-------|------|
+| Discrimination risk | Flags operations involving employment, credit, housing, insurance, criminal justice |
+| Human oversight | Requires human-in-the-loop for high-stakes decisions |
+| Manipulation prevention | Detects urgency, scarcity, and dark-pattern language |
+| Explainability | Flags black-box models used for consequential decisions |
+
+`DignityGuard` wraps the evaluator with configurable enforcement (block vs warn).
 
 ## Zero-Copy Patterns
 
@@ -125,7 +140,23 @@ requiring AI capabilities.
 | `Arc<dyn ValidationRule>` | `validation.rs` — eliminates `Box::new(self.clone())` |
 | `bytes::Bytes` for payloads | `transport/frame.rs` — O(1) clone on frame data |
 | `&'static str` for constants | `self_knowledge.rs` — default capabilities |
+| `Cow<str>` | IPC paths, configuration values |
 | Struct update syntax | Builder patterns use `..Default::default()` throughout |
+
+## Pure Rust System Info
+
+`universal-constants::sys_info` provides OS-level metrics without C dependencies:
+
+| Function | Implementation |
+|----------|---------------|
+| `memory_info()` | `/proc/meminfo` parsing on Linux; graceful fallback elsewhere |
+| `process_rss_mb()` | `/proc/self/status` VmRSS parsing |
+| `cpu_count()` | `std::thread::available_parallelism()` |
+| `uptime_seconds()` | `/proc/uptime` parsing |
+| `hostname()` | `rustix::system::uname()` |
+| `system_cpu_usage_percent()` | `/proc/stat` delta sampling |
+
+Replaces the `sysinfo` crate (C dependency) for ecoBin v3.0 compliance.
 
 ## Error Handling
 
@@ -135,15 +166,28 @@ requiring AI capabilities.
 | `squirrel-cli` | `FormatterError` (thiserror) | Serialization, UnknownFormat |
 | `squirrel-mcp` | `MCPError` (thiserror) | Protocol, transport, context, plugin errors |
 | `universal-error` | `UniversalError` | Cross-crate error type |
-| `universal-patterns` | `IpcClientError` + `IpcErrorPhase` | Phase-tagged IPC errors (Connect, Write, Read, JsonRpcError, NoResult) with `is_retryable()` — absorbed from rhizoCrypt v0.13 |
-| `universal-patterns` | `DispatchOutcome<T>` | Protocol vs application error separation at RPC dispatch — absorbed from groundSpring/loamSpine/sweetGrass |
-| `universal-patterns` | `CircuitBreaker` + `RetryPolicy` | IPC resilience with exponential backoff gated by `IpcErrorPhase` — absorbed from petalTongue v1.6.6 |
-| `universal-patterns` | `RpcError` + `extract_rpc_error()` | Structured JSON-RPC error extraction — absorbed from loamSpine/petalTongue |
+| `universal-patterns` | `IpcClientError` + `IpcErrorPhase` | Phase-tagged IPC errors with `.context()` chains |
+| `universal-patterns` | `DispatchOutcome<T>` | Protocol vs application error separation at RPC dispatch |
+| `universal-patterns` | `CircuitBreaker` + `RetryPolicy` | IPC resilience with exponential backoff gated by `IpcErrorPhase` |
+| `universal-patterns` | `RpcError` + `extract_rpc_error()` | Structured JSON-RPC error extraction |
+| `squirrel` (main) | `PrimalError` | `From<anyhow::Error>` for seamless `.context()` chains |
 
 ## Logging
 
 Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
-`println!` reserved for CLI user-facing output and startup banner only.
+`println!` reserved for CLI user-facing output only.
+
+## Plugin System
+
+`UnifiedPluginManager` provides real plugin lifecycle:
+
+| Component | Status |
+|-----------|--------|
+| `UnifiedPluginManager` | Implemented — load, unload, list, get, shutdown |
+| `PluginEventBus` | Implemented — pub/sub with topic-based routing |
+| `PluginSecurityManager` | Implemented — capability-based permission checks |
+| `ManagerMetrics` | Implemented — load/unload/error counters |
+| Performance optimizer stubs | Deferred to Phase 2 (batch_processor, optimizer) |
 
 ## Ecosystem Integration
 
@@ -167,6 +211,8 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | Validation Harness | `ValidationHarness` for multi-check binary validation (doctor, validate) |
 | 4-Format Capability Parsing | flat, object, nested, double-nested response formats |
 | Primal Names | `primal_names::*` constants for all 13 ecosystem primals |
+| Human Dignity | `DignityEvaluator` + `DignityGuard` for AI operation checks |
+| Capability Identifiers | `CapabilityIdentifier` type replacing deprecated `EcosystemPrimalType` enum |
 
 ## Socket Configuration
 
@@ -188,34 +234,35 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 | Tool | Config |
 |------|--------|
+| just | `justfile` — ci, check, fmt, clippy, test, coverage, build-release, audit, doctor |
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked |
-| cargo-llvm-cov | Installed, 67.6% line coverage measured |
+| cargo-llvm-cov | 69% line coverage (target: 90%) |
 | proptest | Round-trip + wire-format fuzz for all JSON-RPC types (17 properties) |
+| rust-toolchain | `rust-toolchain.toml` — pinned stable + clippy + rustfmt + llvm-tools-preview |
 
 ## Known Issues
 
-1. `test_load_from_json_file` flaky under full workspace runs (env var pollution) — needs `#[serial]`
-2. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
-3. `model_splitting/` redirect stub — functionality moved to ToadStool; module retained as navigation aid
-4. `unified_manager` — Phase 2 placeholder for unified plugin system
-5. Coverage at 67.6% — gap to 90% target; incremental expansion underway
-6. `redis` v0.23 behind optional `persistence` feature — upgrade to 0.25+ when ecosystem stabilizes
-7. `router.rs` (991 lines) — likely dead code, pending investigation before refactoring or removal
+1. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
+2. `test_load_from_json_file` flaky under full workspace runs (env var pollution) — needs `#[serial]`
+3. Coverage at 69% — gap to 90% target; incremental expansion underway
+4. `redis` v0.23 behind optional `persistence` feature — upgrade to 0.25+ when ecosystem stabilizes
+5. `router.rs` (991 lines) at file size limit — pending dead-code investigation
 
 ## Changes Since Last Handoff (March 17, 2026)
 
-### Deep Audit & Evolution Sprint
+### Deep Audit & Lint Evolution Sprint (alpha.11)
 
-- **Clippy**: Full `--all-features --all-targets -D warnings` pass — zero warnings across all 21 crates
-- **Formatting**: `cargo fmt` clean across entire workspace
-- **Auth tests**: Complete rewrite of `auth_tests.rs` to align with current `squirrel_mcp_auth` API
-- **Doctests**: Fixed all doctest failures in `squirrel-core` service discovery; marked malformed WASM example as `ignore`
-- **Smart refactoring**: `performance_optimizer.rs` (996L → 10 focused modules); `ecosystem/mod.rs` (985L → 4 files)
-- **Hardcoding evolution**: All ports now environment-overridable via `get_port()` helpers; capability-based delegation replaces hardcoded primal names in `send_to_primal` and `delegate_to_songbird`
-- **deny.toml**: Explicit bans for `ring` and `openssl` with documented Pure Rust alternatives
-- **Float comparisons**: Epsilon-based assertions replace `assert_eq!` on floats
-- **Struct initialization**: Struct update syntax replaces `Default::default()` + field reassignment
-- **Doc quality**: `doc_markdown` backtick compliance across all crates; wildcard imports replaced with explicit imports
-- **Stubs evolved**: `execute_capability` now sends JSON-RPC over Unix sockets; `send_to_primal` discovers endpoints via capability registry
+- **Lint tightening**: Reduced `#[allow]` blocks from ~50 to ~18 lints per crate; `unwrap_used`/`expect_used` now test-only
+- **Clippy compliance**: Fixed 170+ lint violations across all crates (production and test code)
+- **tarpc negotiation**: Implemented client-side protocol negotiation (`negotiate_client` + bail on non-tarpc)
+- **sysinfo removal**: Replaced C dependency with pure Rust `/proc` parsing (`sys_info` module)
+- **Plugin manager**: `UnifiedPluginManager` fully implemented (was a stub) with event bus and security manager
+- **Human dignity**: `DignityEvaluator` + `DignityGuard` added to AI routing
+- **Dev credentials**: Hardcoded JWT secrets and TLS paths replaced with env var loading
+- **Capability identifiers**: `CapabilityIdentifier` type introduced; `EcosystemPrimalType` deprecated
+- **Hardcoded IP removal**: `ip_address: Some("127.0.0.1")` → `ip_address: None` for runtime discovery
+- **Error context**: `From<anyhow::Error>` for `PrimalError`; `.context()` on IPC serialization paths
+- **Tracing migration**: All `println!`/`eprintln!` in server code replaced with `tracing` macros
+- **Infrastructure**: `rust-toolchain.toml` + `justfile` for reproducible builds

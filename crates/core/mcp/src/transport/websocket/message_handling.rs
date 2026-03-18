@@ -13,7 +13,7 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use tracing::{debug, error, warn};
 
 /// Handle received WebSocket message
-pub async fn handle_received_message(message: Message) -> Result<Option<MCPMessage>> {
+pub fn handle_received_message(message: Message) -> Result<Option<MCPMessage>> {
     match message {
         Message::Text(text) => {
             // Parse as JSON

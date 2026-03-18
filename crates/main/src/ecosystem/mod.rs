@@ -37,6 +37,6 @@ pub use registration::EcosystemServiceRegistration;
 pub use registry::*;
 pub use status::*;
 pub use types::{
-    EcosystemPrimalType, HealthCheckConfig, ResourceRequirements, ResourceSpec, SecurityConfig,
-    ServiceCapabilities, ServiceEndpoints,
+    CapabilityIdentifier, EcosystemPrimalType, HealthCheckConfig, ResourceRequirements,
+    ResourceSpec, SecurityConfig, ServiceCapabilities, ServiceEndpoints, capabilities,
 };

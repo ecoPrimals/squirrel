@@ -44,7 +44,8 @@ pub struct SquirrelConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ServerConfig {
-    /// Socket path (overrides default)
+    /// Socket path override. When `None`, use `squirrel::rpc::unix_socket::get_socket_path(node_id)`
+    /// for runtime discovery (XDG, env vars, capability-based).
     pub socket: Option<String>,
 
     /// Bind address (for future HTTP server)

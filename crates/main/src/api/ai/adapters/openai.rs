@@ -57,6 +57,7 @@ struct OpenAiMessage {
 
 /// OpenAI API response
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Fields used by serde deserialization
 struct OpenAiResponse {
     id: String,
     model: String,
@@ -65,6 +66,7 @@ struct OpenAiResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Fields used by serde deserialization
 struct OpenAiChoice {
     message: OpenAiMessage,
     finish_reason: String,

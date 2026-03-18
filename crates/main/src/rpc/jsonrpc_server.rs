@@ -349,8 +349,16 @@ impl JsonRpcServer {
                             "Protocol negotiation requested, tarpc not enabled, selecting JSON-RPC"
                         );
                         let response = "PROTOCOL: jsonrpc\n";
-                        reader.get_mut().write_all(response.as_bytes()).await?;
-                        reader.get_mut().flush().await?;
+                        reader
+                            .get_mut()
+                            .write_all(response.as_bytes())
+                            .await
+                            .context("Failed to write protocol response")?;
+                        reader
+                            .get_mut()
+                            .flush()
+                            .await
+                            .context("Failed to flush protocol response")?;
                         // Continue with JSON-RPC handling below
                         self.handle_jsonrpc_loop(reader).await
                     }
@@ -362,7 +370,7 @@ impl JsonRpcServer {
             }
             Err(e) => {
                 warn!("Error reading from connection: {}", e);
-                Err(e.into())
+                Err(e).context("Failed to read first line from connection")
             }
         }
     }
@@ -376,8 +384,16 @@ impl JsonRpcServer {
         if let Some(response_json) = self.handle_request_or_batch(&first_line).await {
             let mut out = response_json;
             out.push('\n');
-            reader.get_mut().write_all(out.as_bytes()).await?;
-            reader.get_mut().flush().await?;
+            reader
+                .get_mut()
+                .write_all(out.as_bytes())
+                .await
+                .context("Failed to write JSON-RPC response")?;
+            reader
+                .get_mut()
+                .flush()
+                .await
+                .context("Failed to flush JSON-RPC response")?;
         }
 
         self.handle_jsonrpc_loop(reader).await
@@ -403,8 +419,16 @@ impl JsonRpcServer {
                 warn!("Invalid protocol request: {}", e);
                 // Fallback to JSON-RPC
                 let response = "PROTOCOL: jsonrpc\n";
-                reader.get_mut().write_all(response.as_bytes()).await?;
-                reader.get_mut().flush().await?;
+                reader
+                    .get_mut()
+                    .write_all(response.as_bytes())
+                    .await
+                    .context("Failed to write protocol fallback response")?;
+                reader
+                    .get_mut()
+                    .flush()
+                    .await
+                    .context("Failed to flush protocol fallback response")?;
                 return self.handle_jsonrpc_loop(reader).await;
             }
         };
@@ -416,8 +440,16 @@ impl JsonRpcServer {
         // Send response
         let response = ProtocolResponse::new(selected);
         let response_line = response.to_wire();
-        reader.get_mut().write_all(response_line.as_bytes()).await?;
-        reader.get_mut().flush().await?;
+        reader
+            .get_mut()
+            .write_all(response_line.as_bytes())
+            .await
+            .context("Failed to write protocol negotiation response")?;
+        reader
+            .get_mut()
+            .flush()
+            .await
+            .context("Failed to flush protocol negotiation response")?;
 
         info!("✅ Protocol negotiated: {}", selected);
 
@@ -455,8 +487,16 @@ impl JsonRpcServer {
                     if let Some(response_json) = self.handle_request_or_batch(&line).await {
                         let mut out = response_json;
                         out.push('\n');
-                        reader.get_mut().write_all(out.as_bytes()).await?;
-                        reader.get_mut().flush().await?;
+                        reader
+                            .get_mut()
+                            .write_all(out.as_bytes())
+                            .await
+                            .context("Failed to write JSON-RPC response in loop")?;
+                        reader
+                            .get_mut()
+                            .flush()
+                            .await
+                            .context("Failed to flush JSON-RPC response in loop")?;
                     }
                     // None means all-notification batch — no response per spec
                 }
@@ -493,8 +533,16 @@ impl JsonRpcServer {
                     if let Some(response_json) = self.handle_request_or_batch(&line).await {
                         let mut out = response_json;
                         out.push('\n');
-                        reader.get_mut().write_all(out.as_bytes()).await?;
-                        reader.get_mut().flush().await?;
+                        reader
+                            .get_mut()
+                            .write_all(out.as_bytes())
+                            .await
+                            .context("Failed to write JSON-RPC response (legacy)")?;
+                        reader
+                            .get_mut()
+                            .flush()
+                            .await
+                            .context("Failed to flush JSON-RPC response (legacy)")?;
                     }
                 }
                 Err(e) => {
@@ -612,9 +660,7 @@ impl JsonRpcServer {
         // Semantic names are preferred; legacy aliases emit deprecation warnings (Phase 2)
         let result = match request.method.as_ref() {
             // AI domain — semantic names (preferred)
-            "ai.query" => self.handle_query_ai(request.params).await,
-            "ai.complete" => self.handle_query_ai(request.params).await, // alias
-            "ai.chat" => self.handle_query_ai(request.params).await,     // alias
+            "ai.query" | "ai.complete" | "ai.chat" => self.handle_query_ai(request.params).await,
             "ai.list_providers" => self.handle_list_providers(request.params).await,
 
             // Capability domain — semantic names (preferred)
@@ -623,8 +669,7 @@ impl JsonRpcServer {
             "capability.list" => self.handle_capability_list().await,
 
             // System domain — semantic names (preferred)
-            "system.health" => self.handle_health().await,
-            "system.status" => self.handle_health().await, // UniBin alias
+            "system.health" | "system.status" => self.handle_health().await,
             "system.metrics" => self.handle_metrics().await,
             "system.ping" => self.handle_ping().await,
 

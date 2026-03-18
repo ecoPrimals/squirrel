@@ -77,10 +77,8 @@ impl BenchmarkSuite {
         };
         self.run_benchmark("text_generation", config, || async {
             let req = serde_json::json!({"method":"ai.query","params":{"prompt":"bench"},"id":1});
-            let _s =
-                serde_json::to_string(&req).expect("JSON serialization of valid Value cannot fail");
-            let _v: serde_json::Value = serde_json::from_str(&_s)
-                .expect("JSON deserialization of just-serialized Value cannot fail");
+            let s = serde_json::to_string(&req)?;
+            let _v: serde_json::Value = serde_json::from_str(&s)?;
             Ok(())
         })
         .await
@@ -127,7 +125,8 @@ impl BenchmarkSuite {
         self.run_benchmark("response_synthesis", config, || async {
             let mut s = String::with_capacity(4096);
             for i in 0..100 {
-                s.push_str(&format!("token_{i} "));
+                use std::fmt::Write;
+                let _ = write!(s, "token_{i} ");
             }
             let _ = s.len();
             Ok(())
@@ -143,6 +142,7 @@ impl BenchmarkSuite {
         self.run_benchmark("task_scheduling", config, || async {
             let mut v: Vec<u64> = (0..200).rev().collect();
             v.sort_unstable();
+            std::hint::black_box(&v);
             Ok(())
         })
         .await
@@ -202,7 +202,7 @@ impl BenchmarkSuite {
         };
         self.run_benchmark("job_submission", config, || async {
             let job = serde_json::json!({"id": uuid::Uuid::new_v4().to_string(), "type":"compute","priority":5});
-            let _ = serde_json::to_vec(&job).expect("JSON serialization of valid Value cannot fail");
+            let _ = serde_json::to_vec(&job)?;
             Ok(())
         })
         .await
@@ -257,8 +257,7 @@ impl BenchmarkSuite {
         self.run_benchmark("job_completion", config, || async {
             let result =
                 serde_json::json!({"status":"complete","duration_ms":42,"output_size":1024});
-            let _ = serde_json::to_string(&result)
-                .expect("JSON serialization of valid Value cannot fail");
+            let _ = serde_json::to_string(&result)?;
             Ok(())
         })
         .await
@@ -273,7 +272,7 @@ impl BenchmarkSuite {
             let data: Vec<u8> = (0..1024).map(|i| (i % 256) as u8).collect();
             let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data);
             let _ = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &encoded)
-                .expect("base64 decode of just-encoded data cannot fail");
+                .map_err(|e| PrimalError::ParsingError(e.to_string()))?;
             Ok(())
         })
         .await
@@ -303,8 +302,8 @@ impl BenchmarkSuite {
         };
         self.run_benchmark("context_persistence", config, || async {
             let ctx = serde_json::json!({"session":"abc","data":{"k1":"v1","k2":"v2"},"ts": chrono::Utc::now().timestamp()});
-            let bytes = serde_json::to_vec(&ctx).expect("JSON serialization of valid Value cannot fail");
-            let _: serde_json::Value = serde_json::from_slice(&bytes).expect("JSON deserialization of just-serialized Value cannot fail");
+            let bytes = serde_json::to_vec(&ctx)?;
+            let _: serde_json::Value = serde_json::from_slice(&bytes)?;
             Ok(())
         })
         .await
@@ -407,8 +406,8 @@ impl BenchmarkSuite {
         };
         self.run_benchmark("message_serialization", config, || async {
             let msg = serde_json::json!({"jsonrpc":"2.0","method":"test","params":{"data":[1,2,3]},"id":42});
-            let bytes = serde_json::to_vec(&msg).expect("JSON serialization of valid Value cannot fail");
-            let _: serde_json::Value = serde_json::from_slice(&bytes).expect("JSON deserialization of just-serialized Value cannot fail");
+            let bytes = serde_json::to_vec(&msg)?;
+            let _: serde_json::Value = serde_json::from_slice(&bytes)?;
             Ok(())
         })
         .await
@@ -439,7 +438,7 @@ impl BenchmarkSuite {
         };
         self.run_benchmark("session_handling", config, || async {
             let session = serde_json::json!({"id": uuid::Uuid::new_v4().to_string(), "created": chrono::Utc::now().to_rfc3339()});
-            let _ = serde_json::to_string(&session).expect("JSON serialization of valid Value cannot fail");
+            let _ = serde_json::to_string(&session)?;
             Ok(())
         })
         .await
@@ -452,8 +451,7 @@ impl BenchmarkSuite {
         };
         self.run_benchmark("protocol_negotiation", config, || async {
             let header = r#"{"jsonrpc":"2.0","method":"capability.discover","id":1}"#;
-            let v: serde_json::Value =
-                serde_json::from_str(header).expect("JSON header is a compile-time constant");
+            let v: serde_json::Value = serde_json::from_str(header)?;
             let _ = v.get("method").and_then(|m| m.as_str());
             Ok(())
         })

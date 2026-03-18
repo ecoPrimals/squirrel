@@ -9,7 +9,7 @@ use super::types::{AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse};
 use crate::niche;
 use serde_json::Value;
 use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 impl JsonRpcServer {
     /// Handle `capability.announce` — register remote tools for routing.

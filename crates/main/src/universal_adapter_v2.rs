@@ -348,7 +348,11 @@ impl ProtocolNegotiator {
         if endpoint.starts_with("tarpc://") {
             protocols.push(Protocol::Tarpc);
         }
-        if endpoint.starts_with("jsonrpc+unix://") || endpoint.ends_with(".sock") {
+        if endpoint.starts_with("jsonrpc+unix://")
+            || std::path::Path::new(endpoint)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("sock"))
+        {
             protocols.push(Protocol::JsonRpc);
         }
         if endpoint.starts_with("https://") {
@@ -393,7 +397,10 @@ impl UniversalClient {
             Ok(std::path::PathBuf::from(path))
         } else if let Some(path) = endpoint.strip_prefix("jsonrpc+unix://") {
             Ok(std::path::PathBuf::from(path))
-        } else if endpoint.ends_with(".sock") {
+        } else if std::path::Path::new(endpoint)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("sock"))
+        {
             Ok(std::path::PathBuf::from(endpoint))
         } else {
             Err(PrimalError::NotSupported(format!(

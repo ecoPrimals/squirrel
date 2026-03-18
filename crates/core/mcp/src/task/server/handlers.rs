@@ -34,6 +34,11 @@ fn bytes_to_hashmap(data: &[u8]) -> HashMap<String, String> {
     }
 }
 
+/// Serialize a value to JSON for JSON-RPC response, mapping errors to MCPError
+fn to_json_value<T: serde::Serialize>(value: &T) -> Result<serde_json::Value, MCPError> {
+    serde_json::to_value(value).map_err(|e| MCPError::Serialization(e.to_string()))
+}
+
 /// Convert Task to `JsonTask` for JSON-RPC response
 fn task_to_json_task(task: Task) -> JsonTask {
     JsonTask {
@@ -140,21 +145,19 @@ impl TaskServiceImpl {
         match task_manager.create_task(task).await {
             Ok(created_task) => {
                 info!("Task created successfully with ID: {}", created_task.id);
-                Ok(serde_json::to_value(CreateTaskResponse {
+                to_json_value(&CreateTaskResponse {
                     success: true,
                     task_id: created_task.id.as_ref().to_string(),
                     error_message: String::new(),
                 })
-                .unwrap())
             }
             Err(e) => {
                 error!("Failed to create task: {}", e);
-                Ok(serde_json::to_value(CreateTaskResponse {
+                to_json_value(&CreateTaskResponse {
                     success: false,
                     task_id: String::new(),
                     error_message: e.to_string(),
                 })
-                .unwrap())
             }
         }
     }
@@ -173,21 +176,19 @@ impl TaskServiceImpl {
         match task_manager.get_task(&req.task_id).await {
             Ok(task) => {
                 debug!("Task found: {}", task.id);
-                Ok(serde_json::to_value(GetTaskResponse {
+                to_json_value(&GetTaskResponse {
                     task: Some(task_to_json_task(task)),
                     success: true,
                     error_message: String::new(),
                 })
-                .unwrap())
             }
             Err(e) => {
                 error!("Failed to get task {}: {}", req.task_id, e);
-                Ok(serde_json::to_value(GetTaskResponse {
+                to_json_value(&GetTaskResponse {
                     task: None,
                     success: false,
                     error_message: e.to_string(),
                 })
-                .unwrap())
             }
         }
     }
@@ -207,11 +208,10 @@ impl TaskServiceImpl {
             Ok(task) => task,
             Err(e) => {
                 error!("Failed to get task for update {}: {}", req.task_id, e);
-                return Ok(serde_json::to_value(UpdateTaskResponse {
+                return to_json_value(&UpdateTaskResponse {
                     success: false,
                     error_message: e.to_string(),
-                })
-                .unwrap());
+                });
             }
         };
 
@@ -236,19 +236,17 @@ impl TaskServiceImpl {
         match task_manager.update_task(updated_task.clone()).await {
             Ok(_) => {
                 info!("Task updated successfully: {}", req.task_id);
-                Ok(serde_json::to_value(UpdateTaskResponse {
+                to_json_value(&UpdateTaskResponse {
                     success: true,
                     error_message: String::new(),
                 })
-                .unwrap())
             }
             Err(e) => {
                 error!("Failed to update task {}: {}", req.task_id, e);
-                Ok(serde_json::to_value(UpdateTaskResponse {
+                to_json_value(&UpdateTaskResponse {
                     success: false,
                     error_message: e.to_string(),
                 })
-                .unwrap())
             }
         }
     }
@@ -275,23 +273,21 @@ impl TaskServiceImpl {
                 debug!("Found {} tasks", tasks.len());
                 let total_count = tasks.len().min(i32::MAX as usize) as i32;
                 let json_tasks: Vec<JsonTask> = tasks.into_iter().map(task_to_json_task).collect();
-                Ok(serde_json::to_value(ListTasksResponse {
+                to_json_value(&ListTasksResponse {
                     tasks: json_tasks,
                     total_count,
                     success: true,
                     error_message: String::new(),
                 })
-                .unwrap())
             }
             Err(e) => {
                 error!("Failed to list tasks: {}", e);
-                Ok(serde_json::to_value(ListTasksResponse {
+                to_json_value(&ListTasksResponse {
                     tasks: Vec::new(),
                     total_count: 0,
                     success: false,
                     error_message: e.to_string(),
                 })
-                .unwrap())
             }
         }
     }
@@ -313,19 +309,17 @@ impl TaskServiceImpl {
                     "Task assigned successfully: {} to {}",
                     req.task_id, req.agent_id
                 );
-                Ok(serde_json::to_value(AssignTaskResponse {
+                to_json_value(&AssignTaskResponse {
                     success: true,
                     error_message: String::new(),
                 })
-                .unwrap())
             }
             Err(e) => {
                 error!("Failed to assign task {}: {}", req.task_id, e);
-                Ok(serde_json::to_value(AssignTaskResponse {
+                to_json_value(&AssignTaskResponse {
                     success: false,
                     error_message: e.to_string(),
                 })
-                .unwrap())
             }
         }
     }
@@ -352,19 +346,17 @@ impl TaskServiceImpl {
         {
             Ok(_) => {
                 info!("Progress updated for task: {}", req.task_id);
-                Ok(serde_json::to_value(ReportProgressResponse {
+                to_json_value(&ReportProgressResponse {
                     success: true,
                     error_message: String::new(),
                 })
-                .unwrap())
             }
             Err(e) => {
                 error!("Failed to update progress for task {}: {}", req.task_id, e);
-                Ok(serde_json::to_value(ReportProgressResponse {
+                to_json_value(&ReportProgressResponse {
                     success: false,
                     error_message: format!("Failed to update progress: {e}"),
                 })
-                .unwrap())
             }
         }
     }
@@ -389,19 +381,17 @@ impl TaskServiceImpl {
         match task_manager.complete_task(&req.task_id, output_data).await {
             Ok(_) => {
                 info!("Task completed successfully: {}", req.task_id);
-                Ok(serde_json::to_value(CompleteTaskResponse {
+                to_json_value(&CompleteTaskResponse {
                     success: true,
                     error_message: String::new(),
                 })
-                .unwrap())
             }
             Err(e) => {
                 error!("Failed to complete task {}: {}", req.task_id, e);
-                Ok(serde_json::to_value(CompleteTaskResponse {
+                to_json_value(&CompleteTaskResponse {
                     success: false,
                     error_message: e.to_string(),
                 })
-                .unwrap())
             }
         }
     }
@@ -420,19 +410,17 @@ impl TaskServiceImpl {
         match task_manager.cancel_task(&req.task_id, &req.reason).await {
             Ok(_) => {
                 info!("Task cancelled successfully: {}", req.task_id);
-                Ok(serde_json::to_value(CancelTaskResponse {
+                to_json_value(&CancelTaskResponse {
                     success: true,
                     error_message: String::new(),
                 })
-                .unwrap())
             }
             Err(e) => {
                 error!("Failed to cancel task {}: {}", req.task_id, e);
-                Ok(serde_json::to_value(CancelTaskResponse {
+                to_json_value(&CancelTaskResponse {
                     success: false,
                     error_message: e.to_string(),
                 })
-                .unwrap())
             }
         }
     }

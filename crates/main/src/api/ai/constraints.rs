@@ -345,12 +345,10 @@ pub fn from_request(req: &serde_json::Value) -> ConstraintSet {
     let mut builder = ConstraintBuilder::new();
 
     // Legacy field support
-    if let Some(cost_pref) = req.get("cost_preference").and_then(|v| v.as_str()) {
-        match cost_pref {
-            "optimize" | "minimize" => builder = builder.optimize_cost(),
-            "balanced" => {} // Default
-            _ => {}
-        }
+    if let Some(cost_pref) = req.get("cost_preference").and_then(|v| v.as_str())
+        && matches!(cost_pref, "optimize" | "minimize")
+    {
+        builder = builder.optimize_cost();
     }
 
     if let Some(privacy) = req.get("privacy_level").and_then(|v| v.as_str()) {
@@ -364,7 +362,6 @@ pub fn from_request(req: &serde_json::Value) -> ConstraintSet {
     if let Some(quality) = req.get("quality").and_then(|v| v.as_str()) {
         let tier = match quality {
             "basic" => QualityTier::Basic,
-            "standard" => QualityTier::Standard,
             "high" => QualityTier::High,
             "premium" => QualityTier::Premium,
             _ => QualityTier::Standard,

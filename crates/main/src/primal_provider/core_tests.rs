@@ -256,7 +256,6 @@ mod tests {
     #[test]
     fn test_primal_health_healthy() {
         use chrono::Utc;
-        use std::collections::HashMap;
 
         let health = PrimalHealth {
             status: HealthStatus::Healthy,
@@ -295,8 +294,6 @@ mod tests {
 
     #[test]
     fn test_primal_endpoints_construction() {
-        use std::collections::HashMap;
-
         let endpoints = PrimalEndpoints {
             http: Some("http://localhost:8080".to_string()),
             grpc: None,

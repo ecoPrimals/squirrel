@@ -343,8 +343,8 @@ impl ResourceManager {
         {
             // Explicitly drop any cached temporary buffers
             // In practice, this would be integrated with actual buffer pools
-            let _cleanup_marker = Vec::<u8>::new();
-            drop(_cleanup_marker);
+            let cleanup_marker = Vec::<u8>::new();
+            drop(cleanup_marker);
         }
 
         // Allow the async runtime to yield, giving the allocator

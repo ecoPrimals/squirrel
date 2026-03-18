@@ -479,9 +479,8 @@ impl MonitoringSystem {
         for health in health_summary.values() {
             match health {
                 HealthState::Critical => has_critical = true,
-                HealthState::Warning => has_warning = true,
+                HealthState::Warning | HealthState::Unknown => has_warning = true,
                 HealthState::Healthy => {}
-                HealthState::Unknown => has_warning = true,
             }
         }
 

@@ -210,48 +210,56 @@ impl Task {
     }
 
     /// Set the priority of the task.
+    #[must_use]
     pub const fn with_priority(mut self, priority: TaskPriority) -> Self {
         self.priority_code = priority;
         self
     }
 
     /// Set the agent type that can handle this task.
+    #[must_use]
     pub const fn with_agent_type(mut self, agent_type: AgentType) -> Self {
         self.agent_type = agent_type;
         self
     }
 
     /// Set the task's context.
+    #[must_use]
     pub fn with_context(mut self, context_id: &str) -> Self {
         self.context_id = Some(context_id.to_string());
         self
     }
 
     /// Add input data to the task.
+    #[must_use]
     pub fn with_input_data(mut self, input_data: HashMap<String, String>) -> Self {
         self.input_data = Some(input_data);
         self
     }
 
     /// Add metadata to the task.
+    #[must_use]
     pub fn with_metadata(mut self, metadata: HashMap<String, String>) -> Self {
         self.metadata = Some(metadata);
         self
     }
 
     /// Add a prerequisite task that must be completed before this one can start.
+    #[must_use]
     pub fn with_prerequisite(mut self, prerequisite_id: &str) -> Self {
         self.prerequisites.push(prerequisite_id.to_string());
         self
     }
 
     /// Set the deadline for the task.
+    #[must_use]
     pub const fn with_deadline(mut self, deadline: DateTime<Utc>) -> Self {
         self.deadline = Some(deadline);
         self
     }
 
     /// Make the task watchable for live updates.
+    #[must_use]
     pub const fn watchable(mut self) -> Self {
         self.watchable = true;
         self
@@ -374,7 +382,6 @@ impl Task {
 impl From<i32> for TaskStatus {
     fn from(code: i32) -> Self {
         match code {
-            0 => Self::Waiting,
             1 => Self::Pending,
             2 => Self::Running,
             3 => Self::Completed,
@@ -418,8 +425,7 @@ impl From<TaskPriority> for i32 {
     fn from(priority: TaskPriority) -> Self {
         match priority {
             TaskPriority::Low => 0,
-            TaskPriority::Medium => 1,
-            TaskPriority::Normal => 1,
+            TaskPriority::Medium | TaskPriority::Normal => 1,
             TaskPriority::High => 2,
             TaskPriority::Critical => 3,
             TaskPriority::Unspecified => -1,
@@ -431,7 +437,6 @@ impl From<TaskPriority> for i32 {
 impl From<i32> for AgentType {
     fn from(value: i32) -> Self {
         match value {
-            0 => Self::Unspecified,
             1 => Self::Human,
             2 => Self::AI,
             3 => Self::System,

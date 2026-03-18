@@ -355,7 +355,7 @@ impl ProductionRateLimiter {
         }
 
         // Get rate limit for endpoint type
-        let base_limit = self.get_rate_limit_for_endpoint(&endpoint_type);
+        let base_limit = self.get_rate_limit_for_endpoint(endpoint_type);
 
         // Apply adaptive rate limiting
         let adjusted_limit = if self.config.adaptive_limiting {
@@ -471,7 +471,7 @@ impl ProductionRateLimiter {
     }
 
     /// Get rate limit for specific endpoint type
-    const fn get_rate_limit_for_endpoint(&self, endpoint_type: &EndpointType) -> u32 {
+    const fn get_rate_limit_for_endpoint(&self, endpoint_type: EndpointType) -> u32 {
         match endpoint_type {
             EndpointType::Api => self.config.api_requests_per_minute,
             EndpointType::Authentication => self.config.auth_requests_per_minute,

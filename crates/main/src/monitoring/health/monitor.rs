@@ -167,8 +167,7 @@ impl HealthMonitor {
         for health in component_health.values() {
             match health.state {
                 HealthState::Critical => has_critical = true,
-                HealthState::Warning => has_degraded = true,
-                HealthState::Unknown => has_degraded = true,
+                HealthState::Warning | HealthState::Unknown => has_degraded = true,
                 HealthState::Healthy => {}
             }
         }

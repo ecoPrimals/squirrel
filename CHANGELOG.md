@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.11] - 2026-03-17
+
+Deep audit and idiomatic Rust evolution sprint. Tightened lint gates, eliminated C
+dependencies, completed production stubs, added human dignity evaluation, and
+evolved hardcoding to capability-based discovery. 2,059 tests passing.
+
+### Added
+
+- **Human dignity evaluation** — `DignityEvaluator` + `DignityGuard` in AI routing
+  with discrimination, manipulation, oversight, and explainability checks
+- **Pure Rust `sys_info`** — `/proc`-based memory, CPU, uptime, hostname functions
+  replacing the `sysinfo` C dependency (ecoBin v3.0 compliant)
+- **`CapabilityIdentifier`** type with well-known constants (`SERVICE_MESH`,
+  `AI_COORDINATION`, etc.) replacing the deprecated `EcosystemPrimalType` enum
+- **`UnifiedPluginManager`** — real implementation with load/unload lifecycle,
+  `PluginEventBus` (pub/sub), `PluginSecurityManager` (capability-based),
+  and `ManagerMetrics` (was a Phase 2 stub)
+- **`From<anyhow::Error>` for `PrimalError`** — seamless `.context()` error chains
+- **`rust-toolchain.toml`** — pinned stable channel with clippy, rustfmt, llvm-tools
+- **`justfile`** — 17 build/test/lint/deploy recipes (`just ci` runs full gate)
+- **tarpc client negotiation** — `negotiate_client` handshake with bail on non-tarpc
+
+### Changed
+
+- **Lint tightening**: `#[allow]` blocks reduced from ~50 to ~18 per crate;
+  `unwrap_used`/`expect_used` moved to `#[cfg_attr(test, allow(...))]`
+- **170+ Clippy fixes**: `match_same_arms`, `format_push_string`, `or_fun_call`,
+  `trivially_copy_pass_by_ref`, `map_unwrap_or`, `let_else`, `clone_on_copy`,
+  `uninlined_format_args`, `branches_sharing_code`, and many more
+- **Tracing migration**: All `println!`/`eprintln!` in server code replaced with
+  `tracing::info!`/`tracing::error!`
+- **Dev credentials**: Hardcoded JWT secrets and TLS paths replaced with env var
+  loading (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`, `SQUIRREL_TLS_*`)
+- **Hardcoded IP removal**: `ip_address: Some("127.0.0.1")` → `None` for runtime
+  discovery
+- **Port documentation**: All port constants documented as fallbacks; env vars and
+  capability discovery take precedence
+- **IPC error context**: `.context()` added to JSON-RPC serialization/deserialization
+
+### Removed
+
+- **`sysinfo` dependency** — replaced by pure Rust `sys_info` module
+- **`system-metrics` feature gate** — no longer needed (pure Rust always available)
+- **Hardcoded development credentials** from `security.rs` source code
+
 ## [0.1.0-alpha.10] - 2026-03-16
 
 Deep ecosystem absorption: patterns from all springs and primals (toadStool S157b,

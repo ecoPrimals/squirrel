@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn test_severity_all_variants() {
         // Ensure all variants are tested
-        let all_severities = vec![
+        let all_severities = [
             ErrorSeverity::Low,
             ErrorSeverity::Medium,
             ErrorSeverity::High,

@@ -10,8 +10,6 @@ use chrono::Utc;
 use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
-#[cfg(feature = "system-metrics")]
-use sysinfo::System;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
@@ -51,9 +49,6 @@ pub struct MetricsCollector {
     pub(crate) history: Arc<RwLock<Vec<MetricSnapshot>>>,
     /// Maximum history size
     pub(crate) max_history_size: usize,
-    /// System information collector for real metrics
-    #[cfg(feature = "system-metrics")]
-    pub(crate) sys_info: Arc<RwLock<System>>,
     /// Last time external capability discovery was performed
     last_discovery: Arc<RwLock<std::time::Instant>>,
     /// Minimum interval between external discovery scans
@@ -76,8 +71,6 @@ impl MetricsCollector {
             system_metrics: Arc::new(RwLock::new(SystemMetrics::default())),
             history: Arc::new(RwLock::new(Vec::new())),
             max_history_size: 1000,
-            #[cfg(feature = "system-metrics")]
-            sys_info: Arc::new(RwLock::new(System::new())),
             last_discovery: Arc::new(RwLock::new(std::time::Instant::now())),
             discovery_interval: std::time::Duration::from_secs(60),
         }
@@ -278,18 +271,16 @@ impl MetricsCollector {
 
         #[cfg(feature = "system-metrics")]
         {
-            let mut sys = self.sys_info.write().await;
-            sys.refresh_cpu();
-            sys.refresh_memory();
-
-            system_metrics.cpu_usage = f64::from(sys.global_cpu_info().cpu_usage());
-            system_metrics.memory_usage = sys.used_memory();
-            let total_memory = sys.total_memory();
-            system_metrics.memory_percentage = if total_memory > 0 {
-                (sys.used_memory() as f64 / total_memory as f64) * 100.0
-            } else {
-                0.0
-            };
+            if let Ok(mem) = universal_constants::sys_info::memory_info() {
+                system_metrics.memory_usage = mem.used;
+                system_metrics.memory_percentage = if mem.total > 0 {
+                    (mem.used as f64 / mem.total as f64) * 100.0
+                } else {
+                    0.0
+                };
+            }
+            system_metrics.cpu_usage =
+                universal_constants::sys_info::system_cpu_usage_percent().unwrap_or(0.0);
         }
 
         system_metrics.disk_usage = self.get_disk_usage().await?;
@@ -299,7 +290,7 @@ impl MetricsCollector {
         system_metrics.request_rate = self.get_request_rate().await?;
         system_metrics.error_rate = self.get_error_rate().await?;
         system_metrics.avg_response_time = self.get_avg_response_time().await?;
-        system_metrics.uptime = self.get_uptime().await?;
+        system_metrics.uptime = universal_constants::sys_info::uptime_seconds().unwrap_or(0);
 
         Ok(())
     }
@@ -482,32 +473,27 @@ impl MetricsCollector {
 
     #[cfg(feature = "system-metrics")]
     async fn get_cpu_usage(&self) -> Result<f64, PrimalError> {
-        let mut sys = self.sys_info.write().await;
-        sys.refresh_cpu();
-        let cpu_usage = sys.global_cpu_info().cpu_usage();
+        let cpu_usage = universal_constants::sys_info::system_cpu_usage_percent().unwrap_or(0.0);
         debug!("Current CPU usage: {:.2}%", cpu_usage);
-        Ok(f64::from(cpu_usage))
+        Ok(cpu_usage)
     }
 
     #[cfg(feature = "system-metrics")]
     async fn get_memory_usage(&self) -> Result<u64, PrimalError> {
-        let mut sys = self.sys_info.write().await;
-        sys.refresh_memory();
-        let used_memory = sys.used_memory();
+        let used_memory = universal_constants::sys_info::memory_info()
+            .map(|m| m.used)
+            .unwrap_or(0);
         debug!("Current memory usage: {} bytes", used_memory);
         Ok(used_memory)
     }
 
     #[cfg(feature = "system-metrics")]
     async fn get_memory_percentage(&self) -> Result<f64, PrimalError> {
-        let mut sys = self.sys_info.write().await;
-        sys.refresh_memory();
-        let total_memory = sys.total_memory();
-        let used_memory = sys.used_memory();
-        if total_memory == 0 {
+        let mem = universal_constants::sys_info::memory_info().unwrap_or_default();
+        if mem.total == 0 {
             return Ok(0.0);
         }
-        let percentage = (used_memory as f64 / total_memory as f64) * 100.0;
+        let percentage = (mem.used as f64 / mem.total as f64) * 100.0;
         debug!("Current memory percentage: {:.2}%", percentage);
         Ok(percentage)
     }
@@ -541,7 +527,7 @@ impl MetricsCollector {
     }
 
     async fn get_uptime(&self) -> Result<u64, PrimalError> {
-        Ok(3600 * 24 * 5) // 5 days
+        Ok(universal_constants::sys_info::uptime_seconds().unwrap_or(3600 * 24 * 5))
     }
 }
 

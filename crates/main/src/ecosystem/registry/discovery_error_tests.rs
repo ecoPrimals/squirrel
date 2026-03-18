@@ -179,10 +179,10 @@ mod error_path_tests {
         if let Some(service) = reg.values().next() {
             match service.health_status {
                 ServiceHealthStatus::Healthy => {}
-                ServiceHealthStatus::Unhealthy => unreachable!("Should be healthy"),
-                ServiceHealthStatus::Unknown => unreachable!("Should be healthy"),
-                ServiceHealthStatus::Degraded => unreachable!("Should be healthy"),
-                ServiceHealthStatus::Offline => unreachable!("Should be healthy"),
+                ServiceHealthStatus::Unhealthy
+                | ServiceHealthStatus::Unknown
+                | ServiceHealthStatus::Degraded
+                | ServiceHealthStatus::Offline => unreachable!("Should be healthy"),
             }
         }
     }
@@ -672,6 +672,7 @@ mod error_path_tests {
                     format!("Max retries ({max_retries}) exceeded for capability '{capability}'");
                 assert!(error_msg.contains("Max retries"));
                 assert!(error_msg.contains(capability));
+                assert_eq!(retry_counts.get(capability), Some(&max_retries));
             }
         }
     }

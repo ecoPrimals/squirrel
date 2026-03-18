@@ -48,7 +48,7 @@ mod tests {
         // Assert - Should convert to a general error
         match &mcp_err {
             MCPError::General(msg) => assert_eq!(msg, error_msg),
-            _ => assert!(format!("{:?}", mcp_err).contains(error_msg)),
+            _ => assert!(format!("{mcp_err:?}").contains(error_msg)),
         }
     }
 
@@ -63,7 +63,7 @@ mod tests {
 
         // Act & Assert
         for error in errors {
-            let display = format!("{}", error);
+            let display = format!("{error}");
             assert!(!display.is_empty(), "Error display should not be empty");
             assert!(display.len() > 5, "Error display should be descriptive");
         }
@@ -75,7 +75,7 @@ mod tests {
         let error = MCPError::Protocol(ProtocolError::InvalidVersion("2.0".to_string()));
 
         // Act
-        let debug = format!("{:?}", error);
+        let debug = format!("{error:?}");
 
         // Assert
         assert!(!debug.is_empty());
@@ -155,7 +155,7 @@ mod tests {
         let mcp_err = MCPError::from(io_err);
 
         // Assert — message text is preserved even though source chain is lost
-        let display = format!("{}", mcp_err);
+        let display = format!("{mcp_err}");
         assert!(
             display.contains("Access denied"),
             "IO error message should be preserved: {display}"
@@ -188,9 +188,9 @@ mod tests {
 
         // Act & Assert - Each error should have a code or be mappable
         for error in errors {
-            let display = format!("{}", error);
+            let display = format!("{error}");
             // Errors should produce meaningful output
-            assert!(display.len() > 0);
+            assert!(!display.is_empty());
         }
     }
 
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn test_error_severity_ordering() {
         // Arrange
-        let severities = vec![
+        let severities = [
             ErrorSeverity::Low,
             ErrorSeverity::Medium,
             ErrorSeverity::High,
@@ -263,7 +263,7 @@ mod tests {
         // Test canonical to simplified conversion
         let canonical_error =
             CanonicalTransportError::ConnectionFailed("Failed connection".to_string());
-        let simplified_error: crate::error::TransportError = canonical_error.clone();
+        let simplified_error: crate::error::TransportError = canonical_error;
 
         // Verify the variant matches
         match simplified_error {
@@ -276,7 +276,7 @@ mod tests {
         // Test simplified to canonical conversion
         let simplified_error =
             crate::error::TransportError::Timeout("Connection timeout".to_string());
-        let canonical_error: CanonicalTransportError = simplified_error.into();
+        let canonical_error: CanonicalTransportError = simplified_error;
 
         // Verify the variant matches
         match canonical_error {

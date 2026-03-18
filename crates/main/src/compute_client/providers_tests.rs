@@ -6,7 +6,7 @@
 use super::providers::*;
 use crate::universal_primal_ecosystem::DiscoveredPrimal;
 use chrono::Utc;
-use universal_patterns::{PrimalContext, PrimalHealth, PrimalType, SecurityLevel};
+use universal_patterns::{PrimalContext, PrimalHealth, PrimalType};
 
 #[test]
 fn test_compute_provider_from_discovered_primal() {

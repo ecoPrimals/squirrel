@@ -257,7 +257,7 @@ pub enum RiskLevel {
 /// Input type classification for appropriate validation
 ///
 /// Different input types require different validation strategies.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputType {
     /// General text input
     Text,

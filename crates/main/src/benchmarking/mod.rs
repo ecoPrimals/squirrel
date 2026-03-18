@@ -297,7 +297,7 @@ impl BenchmarkSuite {
 
     /// Collect system metrics
     ///
-    /// Uses /proc/self/statm on Linux for memory, sysinfo elsewhere.
+    /// Uses /proc/self/statm on Linux for memory (pure Rust, no C deps).
     pub(crate) async fn collect_system_metrics(&self) -> SystemMetrics {
         let (memory_usage_mb, cpu_usage_percent) = Self::measure_process_resources();
         let (network_io_bytes, disk_io_bytes) = (0u64, 0u64); // Would integrate with /proc/net or similar
@@ -318,55 +318,11 @@ impl BenchmarkSuite {
     /// Measure process memory (RSS) and CPU usage.
     ///
     /// On Linux: reads /proc/self/statm for RSS (resident set size).
-    /// With `system-metrics` feature: falls back to sysinfo crate.
+    /// Uses universal_constants::sys_info (pure Rust, no C deps).
     fn measure_process_resources() -> (f64, f64) {
-        #[cfg(feature = "system-metrics")]
-        {
-            let pid = sysinfo::Pid::from(std::process::id() as usize);
-            let mut sys = sysinfo::System::new_all();
-            sys.refresh_all();
-            sys.refresh_process(pid);
-
-            let mem_mb = {
-                #[cfg(target_os = "linux")]
-                {
-                    Self::read_proc_statm_rss_mb().unwrap_or_else(|_| {
-                        sys.process(pid)
-                            .map_or(0.0, |p| (p.memory() as f64) / (1024.0 * 1024.0))
-                    })
-                }
-                #[cfg(not(target_os = "linux"))]
-                {
-                    sys.process(pid)
-                        .map(|p| (p.memory() as f64) / (1024.0 * 1024.0))
-                        .unwrap_or(0.0)
-                }
-            };
-
-            let cpu = sys.process(pid).map_or(0.0, |p| f64::from(p.cpu_usage()));
-
-            (mem_mb, cpu)
-        }
-
-        #[cfg(not(feature = "system-metrics"))]
-        {
-            #[cfg(target_os = "linux")]
-            let mem_mb = Self::read_proc_statm_rss_mb().unwrap_or(0.0);
-            #[cfg(not(target_os = "linux"))]
-            let mem_mb = 0.0;
-            (mem_mb, 0.0)
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    fn read_proc_statm_rss_mb() -> Result<f64, std::io::Error> {
-        let statm = std::fs::read_to_string("/proc/self/statm")?;
-        // Format: size resident shared text lib data dt (pages, typically 4KB)
-        let parts: Vec<&str> = statm.split_whitespace().collect();
-        let rss_pages: u64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-        let page_size = 4096u64; // Linux default
-        let rss_bytes = rss_pages * page_size;
-        Ok((rss_bytes as f64) / (1024.0 * 1024.0))
+        let mem_mb = universal_constants::sys_info::process_rss_mb().unwrap_or(0.0);
+        let cpu = universal_constants::sys_info::system_cpu_usage_percent().unwrap_or(0.0);
+        (mem_mb, cpu)
     }
 
     /// Get all benchmark results

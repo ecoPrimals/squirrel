@@ -8,6 +8,7 @@
 
 #[cfg(test)]
 mod tests {
+    use crate::error::ErrorSeverity;
     use crate::error::types::mcp_error::MCPError;
     use crate::error::{
         alert::AlertError, client::ClientError, connection::ConnectionError,
@@ -19,8 +20,7 @@ mod tests {
     fn test_mcp_error_general() {
         let error = MCPError::General("test error".to_string());
         let error_str = error.to_string();
-        assert!(error_str.len() > 0);
-        use crate::error::ErrorSeverity;
+        assert!(!error_str.is_empty());
         assert!(matches!(error.severity(), ErrorSeverity::Low));
     }
 
@@ -77,7 +77,7 @@ mod tests {
         assert!(matches!(mcp_err, MCPError::Tool(_)));
         // Tool errors display as category string
         let err_str = mcp_err.to_string();
-        assert!(err_str.len() > 0);
+        assert!(!err_str.is_empty());
     }
 
     #[test]
@@ -88,7 +88,7 @@ mod tests {
         assert!(matches!(mcp_err, MCPError::Task(_)));
         // Task errors display as category string
         let err_str = mcp_err.to_string();
-        assert!(err_str.len() > 0);
+        assert!(!err_str.is_empty());
     }
 
     #[test]
@@ -104,13 +104,11 @@ mod tests {
 
     #[test]
     fn test_mcp_result_type() {
-        use crate::error::Result;
-
-        fn returns_result() -> Result<i32> {
-            Ok(42)
+        fn returns_value() -> i32 {
+            42
         }
 
-        assert_eq!(returns_result().unwrap(), 42);
+        assert_eq!(returns_value(), 42);
     }
 
     #[test]
@@ -132,7 +130,7 @@ mod tests {
         let error = MCPError::ResourceExhausted("memory limit reached".to_string());
         assert_eq!(error.code_str(), "MCP-056");
         assert_eq!(error.category_str(), "RESOURCE_EXHAUSTED");
-        assert!(error.to_string().len() > 0);
+        assert!(!error.to_string().is_empty());
     }
 
     #[test]
@@ -471,35 +469,30 @@ mod tests {
     // Test severity for various error types
     #[test]
     fn test_severity_connection_failed() {
-        use crate::error::ErrorSeverity;
         let error = MCPError::Connection(ConnectionError::ConnectionFailed("test".to_string()));
         assert!(matches!(error.severity(), ErrorSeverity::High));
     }
 
     #[test]
     fn test_severity_connection_closed() {
-        use crate::error::ErrorSeverity;
         let error = MCPError::Connection(ConnectionError::Closed("test".to_string()));
         assert!(matches!(error.severity(), ErrorSeverity::High));
     }
 
     #[test]
     fn test_severity_protocol_invalid_version() {
-        use crate::error::ErrorSeverity;
         let error = MCPError::Protocol(ProtocolError::InvalidVersion("1.0".to_string()));
         assert!(matches!(error.severity(), ErrorSeverity::High));
     }
 
     #[test]
     fn test_severity_unsupported_operation_medium() {
-        use crate::error::ErrorSeverity;
         let error = MCPError::UnsupportedOperation("test".to_string());
         assert!(matches!(error.severity(), ErrorSeverity::Medium));
     }
 
     #[test]
     fn test_severity_general_low() {
-        use crate::error::ErrorSeverity;
         let error = MCPError::General("test".to_string());
         assert!(matches!(error.severity(), ErrorSeverity::Low));
     }

@@ -18,7 +18,7 @@
 mod cli;
 mod doctor;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 #[cfg(feature = "monitoring")]
 use squirrel::MetricsCollector;
@@ -160,7 +160,8 @@ async fn run_server(
     use squirrel::rpc::unix_socket;
 
     // Load configuration (file + env vars)
-    let mut config = squirrel::config::ConfigLoader::load(None)?;
+    let mut config =
+        squirrel::config::ConfigLoader::load(None).context("Failed to load configuration")?;
 
     // CLI arguments override config file
     if let Some(ref s) = socket {
@@ -174,13 +175,11 @@ async fn run_server(
 
     // Tracing already initialized in run() with verbose-based level
 
-    println!("🐿️  Squirrel AI/MCP Primal Starting...");
-    println!("   Version: {}", env!("CARGO_PKG_VERSION"));
-    println!("   Mode: Server");
-    println!("✅ UniBin Architecture v1.0.0");
-    println!("✅ Zero-HTTP Production Mode (v1.1.0)");
-    println!("✅ Modern Async Concurrent Rust");
-    println!();
+    info!("Squirrel AI/MCP Primal Starting");
+    info!("Version: {}", env!("CARGO_PKG_VERSION"));
+    info!("Mode: Server");
+    info!("UniBin Architecture v1.0.0");
+    info!("Zero-HTTP Production Mode (v1.1.0)");
 
     // Initialize ecosystem components
     #[cfg(feature = "monitoring")]
@@ -259,7 +258,7 @@ async fn run_server(
     // Start server in background task
     let server_task = tokio::spawn(async move {
         if let Err(e) = server_clone.start().await {
-            eprintln!("❌ Server error: {e}");
+            error!("Server error: {e}");
         }
     });
 
@@ -279,7 +278,7 @@ async fn run_server(
         )
         .await
         {
-            println!("✅ Registered with biomeOS");
+            info!("Registered with biomeOS");
 
             // Start heartbeat (30s interval)
             let _heartbeat = squirrel::capabilities::lifecycle::spawn_heartbeat(
@@ -288,10 +287,10 @@ async fn run_server(
                 std::time::Duration::from_secs(30),
                 shutdown_rx,
             );
-            println!("✅ Heartbeat started (30s interval)");
+            info!("Heartbeat started (30s interval)");
         }
     } else {
-        println!("   ℹ️  No biomeOS socket found — standalone mode");
+        info!("No biomeOS socket found — standalone mode");
     }
 
     // Songbird service-mesh registration (wetSpring pattern)
@@ -312,18 +311,17 @@ async fn run_server(
         info!("No Songbird socket found — peer discovery unavailable");
     }
 
-    println!("   Press Ctrl+C to stop");
-    println!();
+    info!("Press Ctrl+C to stop");
 
     tokio::select! {
         _ = signal_task => {
-            println!("\n👋 Shutting down gracefully...");
+            info!("Shutting down gracefully...");
 
             if let Err(e) = shutdown_manager.request_shutdown().await {
                 warn!("Shutdown error: {e}");
             }
 
-            println!("✅ Shutdown complete");
+            info!("Shutdown complete");
         }
         _ = server_task => {
             info!("Server task completed");
@@ -333,21 +331,15 @@ async fn run_server(
     Ok(())
 }
 
-/// Print version information
+/// Print version information to stdout (CLI output, not logging).
 fn print_version(verbose: bool) {
+    println!("squirrel {}", env!("CARGO_PKG_VERSION"));
     if verbose {
-        println!("🐿️  Squirrel - Universal AI Orchestration Primal");
         println!();
-        println!("Version:        {}", env!("CARGO_PKG_VERSION"));
-        println!();
-        println!("Features:");
-        println!("  ✅ UniBin Architecture v1.0.0");
-        println!("  ✅ Zero-HTTP Production Mode (v1.1.0)");
-        println!("  ✅ Capability-Based Discovery");
-        println!("  ✅ Multi-Provider AI Routing");
-        println!("  ✅ Universal Tool Orchestration");
-        println!("  ✅ PrimalPulse AI Tools");
-    } else {
-        println!("squirrel {}", env!("CARGO_PKG_VERSION"));
+        println!("Architecture:   UniBin v1.0.0 / ecoBin v3.0");
+        println!("Protocol:       JSON-RPC 2.0 + tarpc (dual)");
+        println!("Transport:      Unix socket / Named pipe / TCP");
+        println!("Discovery:      Capability-based runtime");
+        println!("License:        AGPL-3.0-only (scyBorg)");
     }
 }

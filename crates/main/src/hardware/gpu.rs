@@ -169,7 +169,8 @@ async fn detect_nvidia_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalErro
                         });
 
                         // Estimate performance based on GPU model and architecture
-                        let estimated_tokens_per_sec = estimate_performance(&name, &architecture);
+                        let estimated_tokens_per_sec =
+                            estimate_performance(&name, architecture.as_deref());
 
                         let efficiency = estimated_tokens_per_sec
                             .zip(power_draw)
@@ -263,7 +264,7 @@ fn estimate_bandwidth(model: &str) -> Option<u32> {
 }
 
 /// Estimate AI inference performance from GPU model
-fn estimate_performance(model: &str, architecture: &Option<String>) -> Option<f32> {
+fn estimate_performance(model: &str, architecture: Option<&str>) -> Option<f32> {
     // Tokens per second for reference 7B model (rough estimates)
     let tokens_per_sec = if model.contains("RTX 5090") {
         150.0 // Cutting edge
@@ -298,13 +299,12 @@ fn estimate_performance(model: &str, architecture: &Option<String>) -> Option<f3
     } else {
         // Estimate from architecture if available
         if let Some(arch) = architecture {
-            match arch.as_str() {
+            match arch {
                 "Hopper" => 180.0,
                 "Ampere" => 75.0,
-                "Volta/Turing" => 50.0,
+                "Volta/Turing" | "RDNA2" => 50.0,
                 "Pascal" => 25.0,
                 "RDNA3" => 65.0,
-                "RDNA2" => 50.0,
                 _ => return None,
             }
         } else {
@@ -381,7 +381,8 @@ async fn detect_nvidia_fallback() -> Result<Option<LocalGpuCapabilities>, Primal
                     let model_name = parts[0].to_string();
                     let architecture = detect_architecture_from_name(&model_name);
                     let memory_bandwidth = estimate_bandwidth(&model_name);
-                    let estimated_tokens_per_sec = estimate_performance(&model_name, &architecture);
+                    let estimated_tokens_per_sec =
+                        estimate_performance(&model_name, architecture.as_deref());
                     let power_draw = estimate_power(&model_name);
                     let efficiency = estimated_tokens_per_sec
                         .zip(power_draw)
@@ -512,7 +513,7 @@ async fn detect_amd_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalError> 
                             let architecture = detect_architecture_from_name(&model_name);
                             let memory_bandwidth = estimate_bandwidth(&model_name);
                             let estimated_tokens_per_sec =
-                                estimate_performance(&model_name, &architecture);
+                                estimate_performance(&model_name, architecture.as_deref());
                             let power_draw = estimate_power(&model_name);
                             let efficiency = estimated_tokens_per_sec
                                 .zip(power_draw)
@@ -600,7 +601,8 @@ async fn detect_amd_fallback() -> Result<Option<LocalGpuCapabilities>, PrimalErr
                     let vram_free_gb = (vram_total_gb as f32 * 0.9) as u32;
                     let architecture = detect_architecture_from_name(&model_name);
                     let memory_bandwidth = estimate_bandwidth(&model_name);
-                    let estimated_tokens_per_sec = estimate_performance(&model_name, &architecture);
+                    let estimated_tokens_per_sec =
+                        estimate_performance(&model_name, architecture.as_deref());
                     let power_draw = estimate_power(&model_name);
                     let efficiency = estimated_tokens_per_sec
                         .zip(power_draw)
@@ -695,9 +697,8 @@ mod tests {
 
     #[test]
     fn test_performance_estimation() {
-        let arch = Some("Ampere".to_string());
-        assert!(estimate_performance("RTX 3090", &arch).is_some());
-        assert!(estimate_performance("RX 7900", &Some("RDNA3".to_string())).is_some());
+        assert!(estimate_performance("RTX 3090", Some("Ampere")).is_some());
+        assert!(estimate_performance("RX 7900", Some("RDNA3")).is_some());
     }
 
     #[test]

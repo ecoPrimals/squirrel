@@ -119,7 +119,7 @@ impl Default for MCPTaskClient {
 
 impl MCPTaskClient {
     /// Connect to the task service (no-op for Unix socket - connection is per-request)
-    pub async fn connect(&self) -> Result<()> {
+    pub const fn connect(&self) -> Result<()> {
         Ok(())
     }
 

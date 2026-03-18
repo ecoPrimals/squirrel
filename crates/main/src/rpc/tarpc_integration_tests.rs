@@ -97,7 +97,7 @@ fn test_protocol_types() {
     assert!(negotiation.success);
     assert_eq!(negotiation.protocol, IpcProtocol::JsonRpc);
 
-    let negotiation = ProtocolNegotiation::fallback(None, "test reason".to_string());
+    let negotiation = ProtocolNegotiation::fallback(None, "test reason");
     assert!(!negotiation.success);
     assert_eq!(negotiation.protocol, IpcProtocol::default());
 }

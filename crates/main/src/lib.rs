@@ -14,59 +14,53 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
+// Test code may use unwrap/expect for assertion clarity, exact float comparisons for known constants
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::float_cmp,
+        clippy::unreadable_literal,
+    )
+)]
+// Progressive lint tightening — categorized by remediation type.
+//
+// ARCHITECTURAL: These require trait/API redesign, not simple code edits.
+// Each will be resolved as the module is refactored.
 #![allow(
+    // Docs WIP — tracked for completion
     missing_docs,
-    // Documentation WIP
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    // Modern Rust pattern, not yet stabilized warning
+    // Edition 2024 stabilisation noise
     async_fn_in_trait,
-    // False positives on technical terms
-    clippy::doc_markdown,
-    // Migration in progress
-    deprecated,
-    // Domain naming conventions
-    clippy::struct_field_names,
-    clippy::needless_pass_by_ref_mut,
     unfulfilled_lint_expectations,
-    clippy::unused_async,
-    clippy::significant_drop_tightening,
-    clippy::option_if_let_else,
+    // Genuine domain naming (e.g. ToadStool, BiomeOS)
+    clippy::doc_markdown,
+    clippy::struct_field_names,
+    // Deprecated migration still in-flight
+    deprecated,
+    // Numeric casts in metrics/scoring — audited per-site
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
-    clippy::float_cmp,
-    clippy::match_same_arms,
-    clippy::return_self_not_must_use,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::used_underscore_binding,
-    clippy::or_fun_call,
-    clippy::format_push_string,
-    clippy::collection_is_never_read,
     clippy::cast_sign_loss,
-    clippy::unused_self,
-    clippy::too_many_lines,
-    clippy::needless_pass_by_value,
-    clippy::items_after_statements,
-    clippy::unnecessary_filter_map,
-    clippy::ref_option,
-    clippy::implicit_hasher,
-    clippy::struct_excessive_bools,
-    clippy::trivially_copy_pass_by_ref,
-    clippy::case_sensitive_file_extension_comparisons,
-    clippy::manual_let_else,
-    clippy::iter_on_single_items,
-    clippy::unnecessary_wraps,
-    clippy::implicit_clone,
-    clippy::unnecessary_debug_formatting,
-    clippy::map_unwrap_or,
-    clippy::needless_continue,
+    // Patterns under active refactor
     clippy::similar_names,
-    unused_imports,
-    dead_code,
-    clippy::unreadable_literal,
-    clippy::useless_attribute,
+    clippy::option_if_let_else,
+    clippy::significant_drop_tightening,
+    // ARCHITECTURAL: async trait conformance — 199 call-sites need trait redesign
+    clippy::unused_async,
+    // ARCHITECTURAL: method design — 21 call-sites need API restructuring
+    clippy::unused_self,
+    // ARCHITECTURAL: API surface — 24 call-sites, would break callers
+    clippy::needless_pass_by_ref_mut,
+    // ARCHITECTURAL: builder pattern — 28 call-sites
+    clippy::return_self_not_must_use,
+    // Noisy in domain code — many intentional patterns
+    clippy::items_after_statements,
+    clippy::struct_excessive_bools,
 )]
 
 // Core modules

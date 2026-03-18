@@ -16,7 +16,6 @@ impl HealthReporting {
     /// Generate comprehensive health report
     #[must_use]
     pub fn generate_health_report(provider: &SquirrelPrimalProvider) -> PrimalHealth {
-        let mut details = std::collections::HashMap::new();
         let mut string_details = std::collections::HashMap::new();
 
         // Gather real health data from provider components
@@ -26,51 +25,30 @@ impl HealthReporting {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        details.insert("uptime".to_string(), serde_json::json!(uptime_seconds));
         string_details.insert("uptime".to_string(), uptime_seconds.to_string());
 
         // 2. Session manager health
         let session_count = {
             // SessionManager health check - in a real implementation would query active sessions
             let active_sessions = 15; // Would be: provider.session_manager.get_active_session_count()
-            details.insert(
-                "active_sessions".to_string(),
-                serde_json::json!(active_sessions),
-            );
             string_details.insert("active_sessions".to_string(), active_sessions.to_string());
             active_sessions
         };
 
         // 3. Universal adapter health
         let adapter_status = "healthy"; // Would query: provider.universal_adapter.health_status()
-        details.insert(
-            "adapter_status".to_string(),
-            serde_json::json!(adapter_status),
-        );
         string_details.insert("adapter_status".to_string(), adapter_status.to_string());
 
         // 4. Ecosystem manager health
         let ecosystem_health = "connected"; // Would query: provider.ecosystem_manager.connection_status()
-        details.insert(
-            "ecosystem_health".to_string(),
-            serde_json::json!(ecosystem_health),
-        );
         string_details.insert("ecosystem_health".to_string(), ecosystem_health.to_string());
 
         // 5. Metrics collector health
         let metrics_status = "collecting"; // Would query: provider.metrics_collector.status()
-        details.insert(
-            "metrics_collector".to_string(),
-            serde_json::json!(metrics_status),
-        );
         string_details.insert("metrics_collector".to_string(), metrics_status.to_string());
 
         // 6. Configuration health
         let config_status = "loaded"; // Would check: provider.config_manager.is_healthy()
-        details.insert(
-            "configuration".to_string(),
-            serde_json::json!(config_status),
-        );
         string_details.insert("configuration".to_string(), config_status.to_string());
 
         // 7. Compute resource estimation based on session load
@@ -82,13 +60,10 @@ impl HealthReporting {
         };
         let cpu_usage = memory_usage * 0.7; // CPU typically lower than memory
 
-        details.insert("memory_usage".to_string(), serde_json::json!(memory_usage));
         string_details.insert("memory_usage".to_string(), format!("{memory_usage:.2}"));
-        details.insert("cpu_usage".to_string(), serde_json::json!(cpu_usage));
         string_details.insert("cpu_usage".to_string(), format!("{cpu_usage:.2}"));
 
         // 8. Provider-specific capabilities status
-        details.insert("primal_type".to_string(), serde_json::json!("squirrel"));
         string_details.insert("primal_type".to_string(), "squirrel".to_string());
 
         let instance_id = provider
@@ -96,7 +71,6 @@ impl HealthReporting {
             .session_id
             .clone()
             .unwrap_or_else(|| "unknown".to_string());
-        details.insert("instance_id".to_string(), serde_json::json!(instance_id));
         string_details.insert("instance_id".to_string(), instance_id);
 
         PrimalHealth {
@@ -105,7 +79,9 @@ impl HealthReporting {
             score: 0.95,                   // 95% health score
             last_check: chrono::Utc::now(),
             message: Some("System healthy".to_string()),
-            details: Some(serde_json::to_value(string_details).unwrap_or(serde_json::json!({}))),
+            details: Some(
+                serde_json::to_value(string_details).unwrap_or_else(|_| serde_json::json!({})),
+            ),
         }
     }
 

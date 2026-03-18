@@ -241,8 +241,8 @@ impl OptimizedMessageProcessor {
     }
 
     /// Cache a message for reuse and return a reference-counted handle to it
-    pub fn cache_message(&mut self, key: String, message: ZeroCopyMessage) -> Arc<ZeroCopyMessage> {
-        let key_arc: Arc<str> = Arc::from(key.as_str());
+    pub fn cache_message(&mut self, key: &str, message: ZeroCopyMessage) -> Arc<ZeroCopyMessage> {
+        let key_arc: Arc<str> = Arc::from(key);
         let cached = Arc::new(message);
         self.message_cache.insert(key_arc, (*cached).clone());
         cached
@@ -366,6 +366,7 @@ impl OptimizedContextState {
 
 /// Registers a service with the ecosystem using the given parameters.
 #[must_use]
+#[allow(clippy::implicit_hasher)]
 pub fn register_with_ecosystem(
     service_id: &str,
     primal_type: EcosystemPrimalType, // Already correct type

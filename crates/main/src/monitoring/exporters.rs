@@ -9,6 +9,7 @@
 use async_trait::async_trait; // KEEP: MetricsExporter used as trait object (dyn MetricsExporter)
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Write;
 use universal_constants::network::{DEFAULT_LOCALHOST, get_service_port, http_url};
 
 use super::metrics::AllMetrics;
@@ -85,6 +86,7 @@ impl PrometheusExporter {
 
 #[async_trait]
 impl MetricsExporter for PrometheusExporter {
+    #[allow(clippy::too_many_lines)]
     async fn export_metrics(&self, metrics: AllMetrics) -> Result<String, PrimalError> {
         // Prometheus exposition format (text/plain; version=0.0.4)
         // See: https://prometheus.io/docs/instrumenting/exposition_formats/
@@ -95,14 +97,14 @@ impl MetricsExporter for PrometheusExporter {
 
         // Helper to emit a metric with HELP and TYPE (Prometheus exposition format)
         let emit_gauge = |out: &mut String, name: &str, help: &str, value: f64| {
-            out.push_str(&format!("# HELP {name} {help}\n"));
-            out.push_str(&format!("# TYPE {name} gauge\n"));
-            out.push_str(&format!("{name} {value}\n"));
+            let _ = writeln!(out, "# HELP {name} {help}");
+            let _ = writeln!(out, "# TYPE {name} gauge");
+            let _ = writeln!(out, "{name} {value}");
         };
         let emit_counter = |out: &mut String, name: &str, help: &str, value: f64| {
-            out.push_str(&format!("# HELP {name} {help}\n"));
-            out.push_str(&format!("# TYPE {name} counter\n"));
-            out.push_str(&format!("{name} {value}\n"));
+            let _ = writeln!(out, "# HELP {name} {help}");
+            let _ = writeln!(out, "# TYPE {name} counter");
+            let _ = writeln!(out, "{name} {value}");
         };
 
         // Export system metrics - each with proper HELP and TYPE
@@ -177,9 +179,10 @@ impl MetricsExporter for PrometheusExporter {
         // Export component metrics
         for (component, component_metrics) in &metrics.component_metrics {
             for (metric_name, value) in component_metrics {
-                prometheus_output.push_str(&format!(
-                    "squirrel_component_{metric_name}{{component=\"{component}\"}} {value}\n"
-                ));
+                let _ = writeln!(
+                    prometheus_output,
+                    "squirrel_component_{metric_name}{{component=\"{component}\"}} {value}"
+                );
             }
         }
 
@@ -190,19 +193,21 @@ impl MetricsExporter for PrometheusExporter {
                 if !labels.is_empty() {
                     labels.push(',');
                 }
-                labels.push_str(&format!("{label_key}=\"{label_value}\""));
+                let _ = write!(labels, "{label_key}=\"{label_value}\"");
             }
 
             if labels.is_empty() {
-                prometheus_output.push_str(&format!(
-                    "squirrel_custom_{} {}\n",
+                let _ = writeln!(
+                    prometheus_output,
+                    "squirrel_custom_{} {}",
                     metric_name, metric_value.value
-                ));
+                );
             } else {
-                prometheus_output.push_str(&format!(
-                    "squirrel_custom_{}{{{}}} {}\n",
+                let _ = writeln!(
+                    prometheus_output,
+                    "squirrel_custom_{}{{{}}} {}",
                     metric_name, labels, metric_value.value
-                ));
+                );
             }
         }
 

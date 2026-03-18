@@ -99,7 +99,7 @@ mod basic_mcp_impl {
         let _receiver = server.subscribe();
 
         // Test connection listing (should be empty initially)
-        let connections = server.get_connections().await;
+        let connections = server.get_connections();
         assert!(connections.is_empty());
     }
 

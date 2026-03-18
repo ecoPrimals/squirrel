@@ -122,10 +122,9 @@ impl AiProviderAdapter for BridgeAdapter {
         let metadata = self.capability.metadata();
         match metadata.cost_tier {
             Some(super::universal::CostTier::Free) => QualityTier::Basic,
-            Some(super::universal::CostTier::Low) => QualityTier::Standard,
+            Some(super::universal::CostTier::Low) | None => QualityTier::Standard,
             Some(super::universal::CostTier::Medium) => QualityTier::High,
             Some(super::universal::CostTier::High) => QualityTier::Premium,
-            None => QualityTier::Standard,
         }
     }
 

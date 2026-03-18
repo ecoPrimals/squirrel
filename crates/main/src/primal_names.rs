@@ -130,7 +130,12 @@ mod tests {
             BIOMEOS_SOCKET_NAME,
             NEURAL_API_SOCKET_NAME,
         ] {
-            assert!(name.ends_with(".sock"), "{name} should end with .sock");
+            assert!(
+                std::path::Path::new(name)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("sock")),
+                "{name} should end with .sock"
+            );
         }
     }
 }

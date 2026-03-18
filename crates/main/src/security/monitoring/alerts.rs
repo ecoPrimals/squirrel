@@ -148,8 +148,7 @@ impl SecurityAlert {
         self.severity = match self.severity {
             EventSeverity::Info => EventSeverity::Warning,
             EventSeverity::Warning => EventSeverity::High,
-            EventSeverity::High => EventSeverity::Critical,
-            EventSeverity::Critical => EventSeverity::Critical, // Already at max
+            EventSeverity::High | EventSeverity::Critical => EventSeverity::Critical, // Already at max
         };
     }
 }

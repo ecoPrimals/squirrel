@@ -73,6 +73,7 @@ pub mod limits;
 pub mod network;
 pub mod protocol;
 pub mod slo;
+pub mod sys_info;
 pub mod timeouts;
 pub mod zero_copy;
 

@@ -182,14 +182,17 @@ impl UniversalAiAdapter {
             .await
             .map_err(|_| {
                 PrimalError::NetworkError(format!(
-                    "Timeout connecting to {} at {:?}",
-                    self.metadata.name, self.socket_path
+                    "Timeout connecting to {} at {}",
+                    self.metadata.name,
+                    self.socket_path.display()
                 ))
             })?
             .map_err(|e| {
                 PrimalError::NetworkError(format!(
-                    "Failed to connect to {} at {:?}: {}",
-                    self.metadata.name, self.socket_path, e
+                    "Failed to connect to {} at {}: {}",
+                    self.metadata.name,
+                    self.socket_path.display(),
+                    e
                 ))
             })?;
 

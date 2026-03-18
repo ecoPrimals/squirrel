@@ -198,7 +198,7 @@ impl DnssdDiscovery {
     /// Helper to convert DNS query results into standardized format.
     fn parse_dnssd_records(
         instance: String,
-        hostname: String,
+        hostname: &str,
         port: u16,
         txt_data: HashMap<String, String>,
     ) -> DiscoveredService {
@@ -302,7 +302,7 @@ mod tests {
 
         let service = DnssdDiscovery::parse_dnssd_records(
             "squirrel-prod".to_string(),
-            "node1.example.com".to_string(),
+            "node1.example.com",
             9200,
             txt_data,
         );

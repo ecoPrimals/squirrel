@@ -315,11 +315,7 @@ impl TarpcRpcServer {
         let metadata: HashMap<String, String> = v
             .get("metadata")
             .and_then(|x| x.as_object())
-            .map(|m| {
-                m.iter()
-                    .filter_map(|(k, v)| Some((k.clone(), v.to_string())))
-                    .collect()
-            })
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), v.to_string())).collect())
             .unwrap_or_default();
         CapabilityDiscoverResult {
             primal: v
@@ -392,12 +388,12 @@ impl SquirrelRpc for TarpcRpcServer {
         }
     }
 
-    async fn ai_complete(self, _ctx: context::Context, params: QueryAiParams) -> QueryAiResult {
-        self.ai_query(_ctx, params).await
+    async fn ai_complete(self, ctx: context::Context, params: QueryAiParams) -> QueryAiResult {
+        self.ai_query(ctx, params).await
     }
 
-    async fn ai_chat(self, _ctx: context::Context, params: QueryAiParams) -> QueryAiResult {
-        self.ai_query(_ctx, params).await
+    async fn ai_chat(self, ctx: context::Context, params: QueryAiParams) -> QueryAiResult {
+        self.ai_query(ctx, params).await
     }
 
     async fn ai_list_providers(self, _ctx: context::Context) -> ListProvidersResult {
@@ -448,8 +444,8 @@ impl SquirrelRpc for TarpcRpcServer {
         }
     }
 
-    async fn system_status(self, _ctx: context::Context) -> HealthCheckResult {
-        self.system_health(_ctx).await
+    async fn system_status(self, ctx: context::Context) -> HealthCheckResult {
+        self.system_health(ctx).await
     }
 
     async fn capability_discover(self, _ctx: context::Context) -> CapabilityDiscoverResult {
@@ -545,7 +541,9 @@ impl SquirrelRpc for TarpcRpcServer {
     ) -> ContextCreateResult {
         let json_params = serde_json::json!({
             "session_id": params.session_id,
-            "metadata": params.metadata.unwrap_or(serde_json::json!({})),
+            "metadata": params
+                .metadata
+                .unwrap_or_else(|| serde_json::json!({})),
         });
         match self.jsonrpc.handle_context_create(Some(json_params)).await {
             Ok(v) => ContextCreateResult {
@@ -563,7 +561,10 @@ impl SquirrelRpc for TarpcRpcServer {
                     .and_then(|x| x.as_str())
                     .unwrap_or("")
                     .to_string(),
-                metadata: v.get("metadata").cloned().unwrap_or(serde_json::json!({})),
+                metadata: v
+                    .get("metadata")
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!({})),
             },
             Err(_) => ContextCreateResult {
                 id: String::new(),
@@ -634,7 +635,10 @@ impl SquirrelRpc for TarpcRpcServer {
                     .and_then(|x| x.as_str())
                     .unwrap_or("")
                     .to_string(),
-                data: v.get("data").cloned().unwrap_or(serde_json::json!({})),
+                data: v
+                    .get("data")
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!({})),
                 synchronized: v
                     .get("synchronized")
                     .and_then(serde_json::Value::as_bool)

@@ -71,8 +71,10 @@ fn test_discover_from_env_found() {
     let test_endpoint = env::var("TEST_AI_PORT")
         .ok()
         .and_then(|p| p.parse::<u16>().ok())
-        .map(|port| format!("http://localhost:{port}"))
-        .unwrap_or_else(|| "http://localhost:8000".to_string());
+        .map_or_else(
+            || "http://localhost:8000".to_string(),
+            |port| format!("http://localhost:{port}"),
+        );
 
     temp_env::with_var("AI_COMPLETE_ENDPOINT", Some(test_endpoint.as_str()), || {
         let rt = tokio::runtime::Runtime::new().unwrap();

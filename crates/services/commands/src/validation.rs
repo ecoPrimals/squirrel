@@ -9,8 +9,6 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::sync::RwLock;
-#[cfg(feature = "system-metrics")]
-use sysinfo::{System, SystemExt};
 
 /// Trait for implementing command validation rules.
 ///
@@ -210,14 +208,9 @@ impl CommandValidator {
     fn validate_system_requirements() -> Result<()> {
         #[cfg(feature = "system-metrics")]
         {
-            let mut sys = System::new_all();
-            sys.refresh_all();
-
-            // Check available memory
-            let total_memory = sys.total_memory();
-            let available_memory = sys.available_memory();
-
-            if available_memory < total_memory / 10 {
+            if let Ok(mem) = universal_constants::sys_info::memory_info()
+                && mem.available < mem.total / 10
+            {
                 return Err(CommandError::ValidationError(
                     "Insufficient available memory".to_string(),
                 ));
@@ -590,9 +583,9 @@ impl ResourceValidationRule {
     fn check_memory_usage(&self) -> Result<()> {
         #[cfg(feature = "system-metrics")]
         {
-            let mut sys = System::new_all();
-            sys.refresh_all();
-            let used_memory = sys.used_memory();
+            let used_memory = universal_constants::sys_info::memory_info()
+                .map(|m| m.used)
+                .unwrap_or(0);
             let memory_usage_mb = (used_memory / 1024 / 1024) as usize;
 
             if memory_usage_mb > self.max_memory_mb {
@@ -611,9 +604,7 @@ impl ResourceValidationRule {
     fn check_thread_usage(&self) -> Result<()> {
         #[cfg(feature = "system-metrics")]
         {
-            let mut sys = System::new_all();
-            sys.refresh_all();
-            let thread_count = sys.cpus().len();
+            let thread_count = universal_constants::sys_info::cpu_count().unwrap_or(1) as usize;
 
             if thread_count > self.max_threads {
                 return Err(CommandError::ValidationError(format!(
@@ -796,10 +787,10 @@ mod tests {
     #[test]
     #[cfg(feature = "system-metrics")]
     fn test_resource_validation_rule() {
-        let mut sys = System::new_all();
-        sys.refresh_all();
-        let current_memory_mb = (sys.used_memory() / 1024 / 1024) as usize;
-        let current_threads = sys.cpus().len();
+        let current_memory_mb = universal_constants::sys_info::memory_info()
+            .map(|m| (m.used / 1024 / 1024) as usize)
+            .unwrap_or(0);
+        let current_threads = universal_constants::sys_info::cpu_count().unwrap_or(1) as usize;
 
         // Set limits higher than current usage
         let rule = ResourceValidationRule::new(current_memory_mb + 1024, current_threads + 10);

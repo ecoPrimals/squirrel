@@ -12,27 +12,27 @@ mod tests {
     use std::time::Duration;
     use tokio::time::timeout;
 
-    #[tokio::test]
-    async fn test_error_propagation_through_async() {
+    #[test]
+    fn test_error_propagation_through_async() {
         // Arrange
-        async fn inner_operation() -> Result<(), MCPError> {
+        fn inner_operation() -> Result<(), MCPError> {
             Err(MCPError::Protocol(ProtocolError::InvalidVersion(
                 "1.0".to_string(),
             )))
         }
 
-        async fn outer_operation() -> Result<(), MCPError> {
-            inner_operation().await?;
+        fn outer_operation() -> Result<(), MCPError> {
+            inner_operation()?;
             Ok(())
         }
 
         // Act
-        let result = outer_operation().await;
+        let result = outer_operation();
 
         // Assert
         assert!(result.is_err());
         match result {
-            Err(MCPError::Protocol(_)) => assert!(true),
+            Err(MCPError::Protocol(_)) => {}
             _ => panic!("Error should propagate correctly"),
         }
     }
@@ -188,7 +188,7 @@ mod tests {
         let error = MCPError::Protocol(ProtocolError::InvalidVersion("bad".to_string()));
 
         // Act - Simulate logging
-        let log_entry = format!("Error occurred: {:?}", error);
+        let log_entry = format!("Error occurred: {error:?}");
 
         // Assert - Should produce loggable output
         assert!(!log_entry.is_empty());
@@ -234,9 +234,13 @@ mod tests {
             notifications.push("Critical error notification");
         }
 
-        // Assert
-        // High severity errors should trigger notifications
+        // Assert - High severity errors should trigger notifications
         assert!(error.severity().should_alert());
+        assert_eq!(
+            notifications.len(),
+            0,
+            "Protocol InvalidVersion is High, not Critical"
+        );
     }
 
     #[test]
@@ -270,7 +274,7 @@ mod tests {
         let tasks = (0..5).map(|i| {
             tokio::spawn(async move {
                 if i % 2 == 0 {
-                    Err(MCPError::General(format!("Task {} failed", i)))
+                    Err(MCPError::General(format!("Task {i} failed")))
                 } else {
                     Ok(i)
                 }
@@ -308,7 +312,7 @@ mod tests {
     #[test]
     fn test_error_aggregation() {
         // Arrange
-        let errors = vec![
+        let errors = [
             MCPError::Protocol(ProtocolError::InvalidVersion("1.0".to_string())),
             MCPError::Connection(ConnectionError::Timeout(5000)),
             MCPError::General("Generic error".to_string()),

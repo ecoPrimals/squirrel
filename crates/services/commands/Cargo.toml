@@ -36,7 +36,7 @@ parking_lot.workspace = true
 bytes.workspace = true
 dashmap.workspace = true
 regex.workspace = true
-sysinfo = { workspace = true, optional = true }
+universal-constants = { path = "../../universal-constants" }
 secrecy.workspace = true
 
 # gRPC REMOVED - NOT ecoPrimals standard!
@@ -55,8 +55,8 @@ clap.workspace = true
 
 [features]
 default = []
-# ecoBin: sysinfo (C dep) only behind system-metrics for pure Rust default
-system-metrics = ["dep:sysinfo"]
+# ecoBin: system-metrics uses universal_constants::sys_info (pure Rust, /proc on Linux)
+system-metrics = []
 
 [lints]
 workspace = true

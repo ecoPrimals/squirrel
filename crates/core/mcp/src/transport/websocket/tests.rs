@@ -12,7 +12,7 @@ async fn test_websocket_transport_create() {
     let test_url = std::env::var("TEST_WEBSOCKET_URL").unwrap_or_else(|_| {
         use universal_constants::network::get_service_port;
         let port = get_service_port("websocket");
-        format!("ws://localhost:{}", port)
+        format!("ws://localhost:{port}")
     });
 
     let config = WebSocketConfig {
@@ -48,7 +48,7 @@ async fn test_websocket_transport_send_raw() {
     let test_url = std::env::var("TEST_WEBSOCKET_URL").unwrap_or_else(|_| {
         use universal_constants::network::get_service_port;
         let port = get_service_port("websocket");
-        format!("ws://localhost:{}", port)
+        format!("ws://localhost:{port}")
     });
 
     let config = WebSocketConfig {

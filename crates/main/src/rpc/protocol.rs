@@ -128,7 +128,7 @@ impl ProtocolNegotiation {
     }
 
     /// Failed negotiation (fallback to default)
-    pub fn fallback(requested: Option<IpcProtocol>, reason: String) -> Self {
+    pub fn fallback(requested: Option<IpcProtocol>, reason: &str) -> Self {
         Self {
             protocol: IpcProtocol::default(),
             requested,
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_protocol_negotiation_fallback() {
-        let negotiation = ProtocolNegotiation::fallback(None, "invalid protocol".to_string());
+        let negotiation = ProtocolNegotiation::fallback(None, "invalid protocol");
         assert!(!negotiation.success);
         assert_eq!(negotiation.protocol, IpcProtocol::default());
     }

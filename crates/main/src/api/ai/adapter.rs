@@ -79,7 +79,6 @@ impl UniversalAiAdapter {
                 .map_or(ProviderType::Custom, |s| match s.as_str() {
                     "local" => ProviderType::Local,
                     "cloud" => ProviderType::Cloud,
-                    "custom" => ProviderType::Custom,
                     _ => ProviderType::Custom,
                 });
 
@@ -107,7 +106,7 @@ impl UniversalAiAdapter {
             name: provider.id.clone(),
             provider_type,
             models,
-            capabilities: provider.capabilities.to_vec(),
+            capabilities: provider.capabilities.clone(),
             avg_latency_ms: None,
             cost_tier,
             extra: provider
@@ -127,8 +126,9 @@ impl UniversalAiAdapter {
         // Connect to provider
         let stream = UnixStream::connect(&self.socket).await.map_err(|e| {
             PrimalError::NetworkError(format!(
-                "Failed to connect to provider at {:?}: {}",
-                self.socket, e
+                "Failed to connect to provider at {}: {}",
+                self.socket.display(),
+                e
             ))
         })?;
 

@@ -83,7 +83,7 @@ impl SanitizationPatterns {
 /// Sanitized version of the input, safe for the specified input type
 pub fn sanitize_input(
     input: &str,
-    input_type: &InputType,
+    input_type: InputType,
     config: &InputValidationConfig,
     patterns: &SanitizationPatterns,
 ) -> String {
@@ -387,7 +387,7 @@ mod tests {
         let patterns = create_test_patterns();
 
         let long_input = "a".repeat(200);
-        let result = sanitize_input(&long_input, &InputType::Text, &config, &patterns);
+        let result = sanitize_input(&long_input, InputType::Text, &config, &patterns);
 
         // Should truncate to max_string_length (Text uses max_text_length, but test still valid)
         assert!(result.len() <= config.max_text_length);

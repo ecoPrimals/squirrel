@@ -113,6 +113,7 @@ impl ToolExecutor {
     ///
     /// Dispatches to built-in implementations or returns an error for
     /// unregistered tools.
+    #[allow(clippy::too_many_lines)]
     pub async fn execute_tool(
         &self,
         tool_name: &str,
@@ -150,14 +151,19 @@ impl ToolExecutor {
                 let memory_info = {
                     #[cfg(feature = "system-metrics")]
                     {
-                        let mut sys = sysinfo::System::new();
-                        sys.refresh_memory();
-                        serde_json::json!({
-                            "version": env!("CARGO_PKG_VERSION"),
-                            "primal": "squirrel",
-                            "memory_total_mb": sys.total_memory() / 1024 / 1024,
-                            "memory_used_mb": sys.used_memory() / 1024 / 1024,
-                        })
+                        match universal_constants::sys_info::memory_info() {
+                            Ok(mem) => serde_json::json!({
+                                "version": env!("CARGO_PKG_VERSION"),
+                                "primal": "squirrel",
+                                "memory_total_mb": mem.total / 1024 / 1024,
+                                "memory_used_mb": mem.used / 1024 / 1024,
+                            }),
+                            Err(_) => serde_json::json!({
+                                "version": env!("CARGO_PKG_VERSION"),
+                                "primal": "squirrel",
+                                "note": "memory info unavailable",
+                            }),
+                        }
                     }
                     #[cfg(not(feature = "system-metrics"))]
                     {

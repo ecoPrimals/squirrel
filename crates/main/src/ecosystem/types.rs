@@ -8,9 +8,8 @@
 //! including service registration, primal types, capabilities, and
 //! configuration structures.
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Standardized primal types for ecosystem integration (canonical definition)
 #[deprecated(
@@ -94,6 +93,56 @@ impl std::fmt::Display for EcosystemPrimalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
+}
+
+/// Runtime capability identifier — replaces hardcoded primal type enum.
+/// Primals discover each other by capability, not by name.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CapabilityIdentifier(Arc<str>);
+
+impl CapabilityIdentifier {
+    /// Create a capability identifier from a string.
+    #[must_use]
+    pub fn new(capability: impl AsRef<str>) -> Self {
+        Self(Arc::from(capability.as_ref()))
+    }
+
+    /// Get the capability string.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&str> for CapabilityIdentifier {
+    fn from(s: &str) -> Self {
+        Self::new(s)
+    }
+}
+
+impl std::fmt::Display for CapabilityIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Well-known capability constants for discovery.
+///
+/// Use these as discoverable strings when finding primals by capability.
+/// Primals announce and discover by capability, not by hardcoded primal names.
+pub mod capabilities {
+    /// Service mesh / orchestration capability
+    pub const SERVICE_MESH: &str = "service_mesh";
+    /// Security and authentication capability
+    pub const SECURITY_AUTH: &str = "security.auth";
+    /// Storage capability
+    pub const STORAGE: &str = "storage";
+    /// Compute capability
+    pub const COMPUTE: &str = "compute";
+    /// AI coordination capability
+    pub const AI_COORDINATION: &str = "ai.coordination";
+    /// Lifecycle management capability
+    pub const LIFECYCLE: &str = "lifecycle.management";
 }
 
 // EcosystemServiceRegistration is defined in registration.rs with Arc<str> zero-copy service_id
@@ -195,6 +244,35 @@ pub struct ResourceRequirements {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- CapabilityIdentifier ---
+
+    #[test]
+    fn capability_identifier_new_and_as_str() {
+        let cap = CapabilityIdentifier::new("compute");
+        assert_eq!(cap.as_str(), "compute");
+    }
+
+    #[test]
+    fn capability_identifier_from_str() {
+        let cap: CapabilityIdentifier = "storage".into();
+        assert_eq!(cap.as_str(), "storage");
+    }
+
+    #[test]
+    fn capability_identifier_display() {
+        let cap = CapabilityIdentifier::new("ai.coordination");
+        assert_eq!(format!("{cap}"), "ai.coordination");
+    }
+
+    #[test]
+    fn capability_identifier_eq_and_hash() {
+        let a = CapabilityIdentifier::new("compute");
+        let b = CapabilityIdentifier::new("compute");
+        let c = CapabilityIdentifier::new("storage");
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
 
     // --- ServiceCapabilities ---
 

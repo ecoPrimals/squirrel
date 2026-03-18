@@ -122,15 +122,15 @@ impl PrimalSelfKnowledge {
             "capability.discover",
         ];
 
-        let capabilities = env::var("PRIMAL_CAPABILITIES")
-            .ok()
-            .map(|s| s.split(',').map(|c| Arc::from(c.trim())).collect())
-            .unwrap_or_else(|| {
+        let capabilities = env::var("PRIMAL_CAPABILITIES").ok().map_or_else(
+            || {
                 DEFAULT_CAPABILITIES
                     .iter()
                     .map(|s| Arc::from(*s))
                     .collect::<Vec<Arc<str>>>()
-            });
+            },
+            |s| s.split(',').map(|c| Arc::from(c.trim())).collect(),
+        );
 
         // Version
         let version = env!("CARGO_PKG_VERSION").to_string();

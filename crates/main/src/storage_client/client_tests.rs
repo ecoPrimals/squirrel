@@ -171,7 +171,7 @@ mod tests {
             serde_json::json!({"pattern_type": "upload", "provider_used": "s3", "throughput_mbps": 50.0}),
         ];
         client
-            .update_ai_storage_metadata(patterns)
+            .update_ai_storage_metadata(&patterns)
             .expect("update metadata");
     }
 

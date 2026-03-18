@@ -119,6 +119,14 @@ pub fn get_bind_address() -> String {
 // ============================================================================
 // Fallback Defaults (Use get_service_port() instead!)
 // ============================================================================
+//
+// These port constants are FALLBACKS for when runtime discovery is unavailable:
+// - Environment variables (e.g. SQUIRREL_PORT, WEBSOCKET_PORT) take precedence
+// - Service mesh / capability-based discovery is preferred when available
+// - Use get_service_port(service) for env-aware, discovery-aware resolution
+// - These defaults should only be used in dev/testing or when discovery fails
+//
+// ============================================================================
 
 /// Fallback bind address (use `get_bind_address()` instead)
 ///

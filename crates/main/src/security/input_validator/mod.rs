@@ -180,6 +180,7 @@ impl ProductionInputValidator {
     ///     }
     /// }
     /// ```
+    #[allow(clippy::too_many_lines)]
     pub fn validate_input(
         &self,
         input: &str,
@@ -298,7 +299,7 @@ impl ProductionInputValidator {
         let sanitized_input = if !is_valid && !self.config.strict_mode {
             Some(sanitization::sanitize_input(
                 input,
-                &input_type,
+                input_type,
                 &self.config,
                 &self.sanitization_patterns,
             ))

@@ -34,6 +34,7 @@ impl UniversalComputeAdapter {
     }
 
     /// Coordinate compute operation with any available compute primal
+    #[allow(clippy::too_many_lines)]
     pub async fn coordinate_computation(
         &mut self,
         operation: &str,

@@ -84,6 +84,7 @@ async fn test_metrics_collection() {
         assert!(system_metrics.cpu_usage > 0.0);
         assert!(system_metrics.memory_usage > 0);
     }
+    drop(system_metrics);
 
     assert!(collector.component_metrics.contains_key("ai_intelligence"));
     assert!(collector.component_metrics.contains_key("mcp_integration"));

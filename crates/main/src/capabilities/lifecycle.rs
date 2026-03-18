@@ -159,8 +159,20 @@ pub fn install_signal_handlers(
         #[cfg(unix)]
         {
             use tokio::signal::unix::{SignalKind, signal};
-            let mut sigterm = signal(SignalKind::terminate()).expect("SIGTERM handler");
-            let mut sigint = signal(SignalKind::interrupt()).expect("SIGINT handler");
+            let mut sigterm = match signal(SignalKind::terminate()) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!("Failed to setup SIGTERM handler: {e}");
+                    return;
+                }
+            };
+            let mut sigint = match signal(SignalKind::interrupt()) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!("Failed to setup SIGINT handler: {e}");
+                    return;
+                }
+            };
 
             tokio::select! {
                 _ = sigterm.recv() => {
@@ -174,7 +186,10 @@ pub fn install_signal_handlers(
 
         #[cfg(not(unix))]
         {
-            tokio::signal::ctrl_c().await.expect("Ctrl-C handler");
+            if let Err(e) = tokio::signal::ctrl_c().await {
+                tracing::error!("Failed to setup Ctrl-C handler: {e}");
+                return;
+            }
             info!("Ctrl+C received — cleaning up");
         }
 

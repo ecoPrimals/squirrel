@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn test_error_severity_clone() {
         let severity = ErrorSeverity::High;
-        let cloned = severity.clone();
+        let cloned = severity;
         assert_eq!(severity, cloned);
     }
 
@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn test_security_level_clone() {
         let level = SecurityLevel::Critical;
-        let cloned = level.clone();
+        let cloned = level;
         // Just verify clone works
         let _ = cloned;
     }
@@ -238,7 +238,7 @@ mod tests {
         let error = WireFormatError {
             message: "Test error".to_string(),
         };
-        let display = format!("{}", error);
+        let display = format!("{error}");
         assert!(display.contains("Test error"));
         assert!(display.contains("Wire format error"));
     }
@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn test_mcp_error_general() {
         let error = MCPError::General("Test error".to_string());
-        let display = format!("{}", error);
+        let display = format!("{error}");
         assert!(display.contains("Test"));
     }
 
@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn test_mcp_error_display() {
         let error = MCPError::General("Test message".to_string());
-        let display = format!("{}", error);
+        let display = format!("{error}");
         assert!(!display.is_empty());
     }
 

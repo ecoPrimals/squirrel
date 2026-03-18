@@ -34,7 +34,6 @@ base64 = "0.21"
 rand = "0.8"
 futures = "0.3"
 # lazy_static removed - evolved to std::sync::LazyLock (stable Rust 1.80+)
-sysinfo = { version = "0.30", optional = true }
 
 # Text processing and validation (CRITICAL FIX: Missing regex dependency)
 regex = "1.10"
@@ -114,7 +113,7 @@ ecosystem = []                         # Ecosystem integration (core!)
 tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]  # High-performance binary RPC (core!)
 
 # Optional features
-system-metrics = ["dep:sysinfo"]
+system-metrics = []  # Uses universal_constants::sys_info (pure Rust, /proc on Linux)
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics (optional)
 benchmarking = ["criterion", "pprof", "iai"]     # Benchmarking tools
 enhanced_error_handling = []                     # Enhanced error handling

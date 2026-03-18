@@ -27,7 +27,7 @@ where
     Ok(Arc::from(s))
 }
 
-/// Ecosystem service registration for Squirrel AI primal (Arc<str> version)
+/// Ecosystem service registration for Squirrel AI primal (`Arc<str>` version)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemServiceRegistration {
     #[serde(

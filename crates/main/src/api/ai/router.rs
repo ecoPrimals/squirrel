@@ -74,6 +74,7 @@ impl AiRouter {
     /// ```rust,ignore
     /// let router = AiRouter::new_with_discovery(None).await?;
     /// ```
+    #[allow(clippy::too_many_lines)]
     pub async fn new_with_discovery(
         _service_mesh_client: Option<Arc<dyn std::any::Any + Send + Sync>>,
     ) -> Result<Self, PrimalError> {
@@ -575,8 +576,7 @@ impl AiRouter {
             use super::adapters::QualityTier as AdapterQT;
             use super::selector::QualityTier as SelectorQT;
             let quality_tier = match provider.quality_tier() {
-                AdapterQT::Basic => SelectorQT::Low,
-                AdapterQT::Fast => SelectorQT::Low,
+                AdapterQT::Basic | AdapterQT::Fast => SelectorQT::Low,
                 AdapterQT::Standard => SelectorQT::Medium,
                 AdapterQT::High => SelectorQT::High,
                 AdapterQT::Premium => SelectorQT::Premium,
@@ -620,8 +620,7 @@ impl AiRouter {
             use super::adapters::QualityTier as AdapterQT;
             use super::selector::QualityTier as SelectorQT;
             let quality_tier = match provider.quality_tier() {
-                AdapterQT::Basic => SelectorQT::Low,
-                AdapterQT::Fast => SelectorQT::Low, // Fast models sacrifice quality for speed
+                AdapterQT::Basic | AdapterQT::Fast => SelectorQT::Low, // Fast models sacrifice quality for speed
                 AdapterQT::Standard => SelectorQT::Medium,
                 AdapterQT::High => SelectorQT::High,
                 AdapterQT::Premium => SelectorQT::Premium,

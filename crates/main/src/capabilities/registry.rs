@@ -128,7 +128,7 @@ impl CapabilityRegistry {
                 method: c.method,
                 domain: c.domain,
                 description: c.description,
-                input_schema: c.input_schema.and_then(toml_to_json),
+                input_schema: c.input_schema.map(toml_to_json),
             })
             .collect();
 
@@ -217,27 +217,24 @@ impl CapabilityRegistry {
 }
 
 /// Convert a TOML Value to a serde_json::Value
-fn toml_to_json(value: toml::Value) -> Option<serde_json::Value> {
+fn toml_to_json(value: toml::Value) -> serde_json::Value {
     match value {
-        toml::Value::String(s) => Some(serde_json::Value::String(s)),
-        toml::Value::Integer(i) => Some(serde_json::json!(i)),
-        toml::Value::Float(f) => Some(serde_json::json!(f)),
-        toml::Value::Boolean(b) => Some(serde_json::Value::Bool(b)),
+        toml::Value::String(s) => serde_json::Value::String(s),
+        toml::Value::Integer(i) => serde_json::json!(i),
+        toml::Value::Float(f) => serde_json::json!(f),
+        toml::Value::Boolean(b) => serde_json::Value::Bool(b),
         toml::Value::Array(arr) => {
-            let json_arr: Vec<serde_json::Value> =
-                arr.into_iter().filter_map(toml_to_json).collect();
-            Some(serde_json::Value::Array(json_arr))
+            let json_arr: Vec<serde_json::Value> = arr.into_iter().map(toml_to_json).collect();
+            serde_json::Value::Array(json_arr)
         }
         toml::Value::Table(table) => {
             let mut map = serde_json::Map::new();
             for (k, v) in table {
-                if let Some(json_v) = toml_to_json(v) {
-                    map.insert(k, json_v);
-                }
+                map.insert(k, toml_to_json(v));
             }
-            Some(serde_json::Value::Object(map))
+            serde_json::Value::Object(map)
         }
-        toml::Value::Datetime(dt) => Some(serde_json::Value::String(dt.to_string())),
+        toml::Value::Datetime(dt) => serde_json::Value::String(dt.to_string()),
     }
 }
 
@@ -318,7 +315,7 @@ mod tests {
             );
             t
         });
-        let json = toml_to_json(toml_val).unwrap();
+        let json = toml_to_json(toml_val);
         assert_eq!(json["type"], "object");
         assert!(json["required"].is_array());
     }

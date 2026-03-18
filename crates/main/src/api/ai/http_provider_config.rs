@@ -70,10 +70,11 @@ pub fn get_http_provider_configs() -> Vec<HttpAiProviderConfig> {
                 "claude-3-sonnet-20240229".to_string(),
                 "claude-3-haiku-20240307".to_string(),
             ],
-            required_headers: [("anthropic-version".to_string(), "2023-06-01".to_string())]
-                .iter()
-                .cloned()
-                .collect(),
+            required_headers: std::iter::once((
+                "anthropic-version".to_string(),
+                "2023-06-01".to_string(),
+            ))
+            .collect(),
             api_version: Some("2023-06-01".to_string()),
         },
         // OpenAI (GPT)

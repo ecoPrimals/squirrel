@@ -599,7 +599,7 @@ impl UniversalStorageClient {
     /// Update AI metadata with storage patterns using `ai_metadata` field
     pub fn update_ai_storage_metadata(
         &mut self,
-        storage_patterns: Vec<serde_json::Value>,
+        storage_patterns: &[serde_json::Value],
     ) -> Result<(), PrimalError> {
         // Use ai_metadata field for AI learning and adaptation
         info!(
@@ -608,7 +608,7 @@ impl UniversalStorageClient {
         );
 
         // Process patterns using existing types - simplified implementation
-        for pattern in &storage_patterns {
+        for pattern in storage_patterns {
             let pattern_type = pattern
                 .get("pattern_type")
                 .and_then(|v| v.as_str())

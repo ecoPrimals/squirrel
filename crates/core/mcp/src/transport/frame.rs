@@ -346,7 +346,7 @@ impl MessageCodec {
     }
 
     /// Encode an MCP message into a frame
-    pub async fn encode_message(&self, message: &MCPMessage) -> Result<Frame> {
+    pub fn encode_message(&self, message: &MCPMessage) -> Result<Frame> {
         let json = serde_json::to_string(message)
             .map_err(|e| MCPError::Transport(format!("Failed to serialize message: {e}").into()))?;
 
@@ -356,7 +356,7 @@ impl MessageCodec {
     }
 
     /// Decode a frame into an MCP message
-    pub async fn decode_message(&self, frame: &Frame) -> Result<MCPMessage> {
+    pub fn decode_message(&self, frame: &Frame) -> Result<MCPMessage> {
         let json = std::str::from_utf8(&frame.payload)
             .map_err(|e| MCPError::Transport(format!("Invalid UTF-8 in frame: {e}").into()))?;
 
@@ -477,10 +477,10 @@ mod tests {
 
         let codec = MessageCodec::new();
         let message = MCPMessage::new(MessageType::Command, serde_json::json!({"cmd": "test"}));
-        let frame = codec.encode_message(&message).await.expect("encode");
+        let frame = codec.encode_message(&message).expect("encode");
         assert!(!frame.payload.is_empty());
 
-        let decoded = codec.decode_message(&frame).await.expect("decode");
+        let decoded = codec.decode_message(&frame).expect("decode");
         assert_eq!(decoded.type_, MessageType::Command);
         assert_eq!(
             decoded.payload.get("cmd").and_then(|v| v.as_str()),
@@ -492,7 +492,7 @@ mod tests {
     async fn test_message_codec_decode_invalid_utf8() {
         let codec = MessageCodec::new();
         let frame = Frame::new(vec![0xff, 0xfe, 0xfd]); // Invalid UTF-8
-        let result = codec.decode_message(&frame).await;
+        let result = codec.decode_message(&frame);
         assert!(result.is_err());
     }
 

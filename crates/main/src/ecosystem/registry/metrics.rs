@@ -61,10 +61,7 @@ impl MetricsOps {
                 .record_metric(
                     "ecosystem_service_types",
                     1.0,
-                    [("service_type".to_string(), service_type_string)]
-                        .iter()
-                        .cloned()
-                        .collect(),
+                    std::iter::once(("service_type".to_string(), service_type_string)).collect(),
                 )
                 .await
                 .unwrap_or_else(|e| {

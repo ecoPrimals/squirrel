@@ -163,17 +163,18 @@ impl SquirrelPrimalProvider {
     #[must_use]
     pub const fn can_serve_context(&self, context: &crate::universal::PrimalContext) -> bool {
         match context.security_level {
-            crate::universal::SecurityLevel::Public => false,
-            crate::universal::SecurityLevel::Basic => false,
-            crate::universal::SecurityLevel::Standard => true,
-            crate::universal::SecurityLevel::High => true,
-            crate::universal::SecurityLevel::Critical => true,
-            crate::universal::SecurityLevel::Maximum => true,
-            crate::universal::SecurityLevel::Advanced => true,
-            crate::universal::SecurityLevel::Internal => true,
-            crate::universal::SecurityLevel::Administrative => true,
-            crate::universal::SecurityLevel::Enhanced => true, // Add missing variant
-            crate::universal::SecurityLevel::Custom(_) => true, // Add missing variant
+            crate::universal::SecurityLevel::Public | crate::universal::SecurityLevel::Basic => {
+                false
+            }
+            crate::universal::SecurityLevel::Standard
+            | crate::universal::SecurityLevel::High
+            | crate::universal::SecurityLevel::Critical
+            | crate::universal::SecurityLevel::Maximum
+            | crate::universal::SecurityLevel::Advanced
+            | crate::universal::SecurityLevel::Internal
+            | crate::universal::SecurityLevel::Administrative
+            | crate::universal::SecurityLevel::Enhanced
+            | crate::universal::SecurityLevel::Custom(_) => true,
         }
     }
 

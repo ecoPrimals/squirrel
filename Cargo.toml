@@ -119,8 +119,7 @@ clap = { version = "4.4", features = ["derive"] }
 # prost-types REMOVED  
 # tonic REMOVED - gRPC is NOT our protocol!
 
-# System and utility dependencies
-sysinfo = "0.29"
+# System and utility dependencies (ecoBin v3.0: no sysinfo C dep; use universal_constants::sys_info)
 argon2 = { version = "0.5", features = ["std"] }
 simple_logger = "4.2"
 

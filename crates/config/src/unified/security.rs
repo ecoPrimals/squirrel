@@ -30,6 +30,7 @@
 //! ```
 
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::path::PathBuf;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -305,23 +306,30 @@ impl SecurityConfig {
 
     /// Create a development config (relaxed security)
     ///
-    /// Uses hardcoded dev credentials for local development only.
-    /// The `expect()` calls are safe: the literal strings are compile-time constants
-    /// that satisfy validation (JWT secret ≥32 chars, API key ≥16 chars).
-    /// If these ever fail, it indicates a bug in the validation logic, not runtime input.
+    /// Loads credentials from environment variables. Auth is configured but keys must be
+    /// provided at runtime via env vars or other mechanisms. Does not panic on missing vars.
+    ///
+    /// # Environment variables
+    ///
+    /// - **SQUIRREL_DEV_JWT_SECRET**: JWT secret for development (min 32 chars). If unset, `jwt_secret` is `None`.
+    /// - **SQUIRREL_DEV_API_KEY**: API key for development (min 16 chars). If unset, `api_keys` is empty.
     pub fn development() -> Self {
+        let jwt_secret = env::var("SQUIRREL_DEV_JWT_SECRET")
+            .ok()
+            .and_then(|s| JwtSecret::new(s).ok());
+
+        let api_keys: Vec<ApiKey> = env::var("SQUIRREL_DEV_API_KEY")
+            .ok()
+            .and_then(|s| ApiKey::new(s).ok())
+            .map(|k| vec![k])
+            .unwrap_or_default();
+
         Self {
             enabled: true,
             auth_mode: AuthMode::ApiKey,
             require_authentication: true,
-            jwt_secret: Some(
-                JwtSecret::new("dev-secret-key-at-least-32-chars-long")
-                    .expect("BUG: hardcoded dev JWT secret is valid (>32 chars)")
-            ),
-            api_keys: vec![
-                ApiKey::new("dev-api-key-123456")
-                    .expect("BUG: hardcoded dev API key is valid (>16 chars)")
-            ],
+            jwt_secret,
+            api_keys,
             enable_tls: false, // Not required in dev
             tls_cert_path: None,
             tls_key_path: None,
@@ -332,7 +340,17 @@ impl SecurityConfig {
     }
 
     /// Create a production config (maximum security)
+    ///
+    /// Loads TLS paths from environment variables. Both must be configured for TLS to work.
+    ///
+    /// # Environment variables
+    ///
+    /// - **SQUIRREL_TLS_CERT_PATH**: Path to TLS certificate. If unset, defaults to `None` (must be configured).
+    /// - **SQUIRREL_TLS_KEY_PATH**: Path to TLS private key. If unset, defaults to `None` (must be configured).
     pub fn production() -> Self {
+        let tls_cert_path = env::var("SQUIRREL_TLS_CERT_PATH").ok().map(PathBuf::from);
+        let tls_key_path = env::var("SQUIRREL_TLS_KEY_PATH").ok().map(PathBuf::from);
+
         Self {
             enabled: true,
             auth_mode: AuthMode::Combined, // Strongest auth
@@ -340,8 +358,8 @@ impl SecurityConfig {
             jwt_secret: None,     // Must be set explicitly!
             api_keys: Vec::new(), // Must be set explicitly!
             enable_tls: true,
-            tls_cert_path: Some(PathBuf::from("/etc/squirrel/tls/cert.pem")),
-            tls_key_path: Some(PathBuf::from("/etc/squirrel/tls/key.pem")),
+            tls_cert_path,
+            tls_key_path,
             enable_mtls: false, // Can be enabled if needed
             rate_limiting: true,
             cors_enabled: true,
@@ -673,8 +691,27 @@ mod tests {
         let config = SecurityConfig::development();
         assert!(config.is_enabled());
         assert_eq!(config.auth_mode(), AuthMode::ApiKey);
-        assert!(config.jwt_secret().is_some());
-        assert!(!config.api_keys().is_empty());
+        // jwt_secret and api_keys come from env (SQUIRREL_DEV_JWT_SECRET, SQUIRREL_DEV_API_KEY)
+        // and may be None/empty when unset - no panic
+    }
+
+    #[test]
+    fn test_development_config_with_env() {
+        use temp_env::with_vars;
+        with_vars(
+            [
+                ("SQUIRREL_DEV_JWT_SECRET", Some("dev-secret-key-at-least-32-chars-long")),
+                ("SQUIRREL_DEV_API_KEY", Some("dev-api-key-123456")),
+            ],
+            || {
+                let config = SecurityConfig::development();
+                assert!(config.is_enabled());
+                assert_eq!(config.auth_mode(), AuthMode::ApiKey);
+                assert!(config.jwt_secret().is_some());
+                assert!(!config.api_keys().is_empty());
+                assert!(config.validate().is_ok());
+            },
+        );
     }
 
     #[test]
@@ -782,7 +819,16 @@ mod tests {
         let config = SecurityConfig::testing();
         assert!(config.validate().is_ok());
 
-        let config = SecurityConfig::development();
-        assert!(config.validate().is_ok());
+        // development() validates only when env vars provide credentials
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_DEV_JWT_SECRET", Some("dev-secret-key-at-least-32-chars-long")),
+                ("SQUIRREL_DEV_API_KEY", Some("dev-api-key-123456")),
+            ],
+            || {
+                let config = SecurityConfig::development();
+                assert!(config.validate().is_ok());
+            },
+        );
     }
 }

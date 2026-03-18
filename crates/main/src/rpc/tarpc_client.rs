@@ -30,8 +30,7 @@
 use super::tarpc_service::{
     AnnounceCapabilitiesParams, AnnounceCapabilitiesResult, CapabilityDiscoverResult,
     DiscoveryPeersResult, HealthCheckResult, ListProvidersResult, PingResult, QueryAiParams,
-    QueryAiResult, SquirrelRpc, SquirrelRpcClient, SystemMetricsResult, ToolExecuteResult,
-    ToolListResult,
+    QueryAiResult, SquirrelRpcClient, SystemMetricsResult, ToolExecuteResult, ToolListResult,
 };
 use super::tarpc_transport::TarpcTransportAdapter;
 use anyhow::{Context, Result};
@@ -61,37 +60,52 @@ pub struct SquirrelClient {
 }
 
 impl SquirrelClient {
-    /// Connect to a Squirrel server by service name
+    /// Connect to a Squirrel server by service name.
     ///
-    /// Uses Universal Transport's auto-discovery to locate and connect
-    /// to the server. Supports Unix sockets, TCP, and Named pipes.
+    /// Performs full wateringHole `PRIMAL_IPC_PROTOCOL` compliant connection:
+    /// 1. Discover server via Universal Transport auto-discovery
+    /// 2. Negotiate protocol (tarpc preferred, JSON-RPC fallback)
+    /// 3. Establish tarpc binary channel
     ///
-    /// # Arguments
+    /// # Errors
     ///
-    /// * `service_name` - Service name (e.g., "squirrel")
-    ///
-    /// # Returns
-    ///
-    /// Connected client ready for RPC calls
+    /// Returns an error if discovery fails, negotiation rejects tarpc, or
+    /// the tarpc handshake cannot complete.
     pub async fn connect(service_name: &str) -> Result<Self> {
-        // Connect via Universal Transport auto-discovery
-        let transport = UniversalTransport::connect_discovered(service_name)
+        let mut transport = UniversalTransport::connect_discovered(service_name)
             .await
             .context("Failed to discover and connect to service")?;
 
-        Self::from_transport(service_name, transport).await
+        use super::protocol::IpcProtocol;
+        use super::protocol_negotiation::negotiate_client;
+
+        let preferred = vec![IpcProtocol::Tarpc, IpcProtocol::JsonRpc];
+        let selected = negotiate_client(&mut transport, preferred)
+            .await
+            .context("Protocol negotiation failed")?;
+
+        if selected != IpcProtocol::Tarpc {
+            anyhow::bail!(
+                "Server does not support tarpc (negotiated {selected}); \
+                 use IpcClient for JSON-RPC instead"
+            );
+        }
+
+        Self::from_negotiated_transport(service_name, transport).await
     }
 
-    /// Create a client from an existing Universal Transport
-    pub async fn from_transport(service_name: &str, transport: UniversalTransport) -> Result<Self> {
-        // Wrap transport in tarpc adapter
+    /// Create a client from a transport that has already completed negotiation.
+    ///
+    /// Callers must ensure protocol negotiation selected tarpc before calling.
+    pub async fn from_negotiated_transport(
+        service_name: &str,
+        transport: UniversalTransport,
+    ) -> Result<Self> {
         let adapter = TarpcTransportAdapter::new(transport);
 
-        // Create tarpc transport with bincode serialization
         use tokio_serde::formats::Bincode;
         let transport = tokio_serde::Framed::new(adapter, Bincode::default());
 
-        // Create tarpc client with default config
         let client = SquirrelRpcClient::new(client::Config::default(), transport).spawn();
 
         Ok(Self {
@@ -99,6 +113,15 @@ impl SquirrelClient {
             service_name: service_name.to_string(),
             default_timeout: Duration::from_secs(30),
         })
+    }
+
+    /// Create a client from an existing Universal Transport (legacy, no negotiation).
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use connect() for protocol-negotiated connections"
+    )]
+    pub async fn from_transport(service_name: &str, transport: UniversalTransport) -> Result<Self> {
+        Self::from_negotiated_transport(service_name, transport).await
     }
 
     /// Set default timeout for RPC calls
@@ -262,7 +285,11 @@ impl SquirrelClientBuilder {
         self
     }
 
-    /// Build and connect the client
+    /// Build and connect the client with protocol negotiation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if discovery, negotiation, or connection fails.
     pub async fn connect(self) -> Result<SquirrelClient> {
         let mut client = SquirrelClient::connect(&self.service_name).await?;
         client.set_default_timeout(self.timeout);

@@ -23,14 +23,13 @@ impl DiscoveryOps {
         let mut discovered_services = Vec::new();
 
         for primal_type in primal_types {
-            let endpoint = Self::build_service_endpoint(&primal_type);
+            let endpoint = Self::build_service_endpoint(primal_type);
 
             // Perform discovery for this primal type
             if let Err(e) =
                 Self::perform_service_discovery(service_registry, primal_type, endpoint).await
             {
                 tracing::error!("Failed to discover service for {primal_type:?}: {e}");
-                continue;
             }
         }
 
@@ -72,7 +71,7 @@ impl DiscoveryOps {
     /// - Each primal only knows its own identity
     /// - Runtime discovery enables zero vendor lock-in
     /// - Services can be swapped without code changes
-    fn build_service_endpoint(primal_type: &EcosystemPrimalType) -> String {
+    fn build_service_endpoint(primal_type: EcosystemPrimalType) -> String {
         // 1. Try environment variable first (highest priority)
         let env_var = format!("{}_ENDPOINT", primal_type.env_name());
         if let Ok(endpoint) = std::env::var(&env_var) {
@@ -129,7 +128,7 @@ impl DiscoveryOps {
     /// This enables configuration-driven discovery without environment variables
     fn read_endpoint_from_config(
         _config_path: &str,
-        _primal_type: &EcosystemPrimalType,
+        _primal_type: EcosystemPrimalType,
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         // Future: Configuration file parsing for service endpoints
         // Currently uses environment variables and discovery
@@ -149,7 +148,7 @@ impl DiscoveryOps {
     /// This function uses universal-constants for all port assignments to ensure
     /// consistency across the ecosystem. It does NOT use hardcoded primal names,
     /// instead deriving endpoints from the capability-based primal type.
-    fn get_development_default(primal_type: &EcosystemPrimalType) -> String {
+    fn get_development_default(primal_type: EcosystemPrimalType) -> String {
         use universal_constants::{builders, network};
 
         // Map primal types to their service names for runtime port discovery
@@ -522,7 +521,7 @@ mod tests {
                 ("SERVICE_DISCOVERY_URL", None::<&str>),
             ],
             || {
-                let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Squirrel);
+                let endpoint = DiscoveryOps::build_service_endpoint(EcosystemPrimalType::Squirrel);
                 assert_eq!(endpoint, "http://custom.squirrel");
             },
         );
@@ -537,7 +536,7 @@ mod tests {
                 ("SONGBIRD_ENDPOINT", None::<&str>),
             ],
             || {
-                let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::Songbird);
+                let endpoint = DiscoveryOps::build_service_endpoint(EcosystemPrimalType::Songbird);
                 assert!(endpoint.contains("discovery.local"));
             },
         );
@@ -553,7 +552,7 @@ mod tests {
                 "SQUIRREL_CONFIG",
             ],
             || {
-                let endpoint = DiscoveryOps::build_service_endpoint(&EcosystemPrimalType::BearDog);
+                let endpoint = DiscoveryOps::build_service_endpoint(EcosystemPrimalType::BearDog);
                 if cfg!(debug_assertions) {
                     assert!(endpoint.contains("localhost") || endpoint.contains("127.0.0.1"));
                 } else {

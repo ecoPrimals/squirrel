@@ -58,6 +58,7 @@ struct AnthropicMessage {
 
 /// Anthropic API response
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Fields used by serde deserialization
 struct AnthropicResponse {
     id: String,
     model: String,
@@ -66,6 +67,7 @@ struct AnthropicResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Fields used by serde deserialization
 struct AnthropicContent {
     #[serde(rename = "type")]
     content_type: String,
@@ -326,7 +328,7 @@ impl AiProviderAdapter for AnthropicAdapter {
     }
 
     fn cost_per_unit(&self) -> Option<f64> {
-        Some(0.000015) // ~$0.015 per 1K tokens (opus)
+        Some(0.000_015) // ~$0.015 per 1K tokens (opus)
     }
 
     fn avg_latency_ms(&self) -> u64 {

@@ -33,7 +33,7 @@ pub enum QualityTier {
 }
 
 impl QualityTier {
-    const fn score(&self) -> f64 {
+    const fn score(self) -> f64 {
         match self {
             Self::Low => 1.0,
             Self::Medium => 2.0,
@@ -45,7 +45,6 @@ impl QualityTier {
     fn from_string(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "low" => Self::Low,
-            "medium" => Self::Medium,
             "high" => Self::High,
             "premium" => Self::Premium,
             _ => Self::Medium, // Default

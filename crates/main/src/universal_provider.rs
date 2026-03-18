@@ -110,9 +110,8 @@ impl UniversalSquirrelProvider {
             .and_then(|v| v.as_str())
             .unwrap_or("squirrel-ai-v1");
 
-        let prompt = match payload.get("prompt").and_then(|v| v.as_str()) {
-            Some(p) => p,
-            None => return Err(anyhow::anyhow!("Missing prompt in AI inference request").into()),
+        let Some(prompt) = payload.get("prompt").and_then(|v| v.as_str()) else {
+            return Err(anyhow::anyhow!("Missing prompt in AI inference request").into());
         };
 
         let max_tokens = payload
@@ -570,14 +569,8 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         Ok(())
     }
 
-    fn can_serve_context(&self, context: &PrimalContext) -> bool {
-        match context.security_level {
-            SecurityLevel::Public => true,
-            SecurityLevel::Internal => true,
-            SecurityLevel::Restricted => true,
-            SecurityLevel::Confidential => true,
-            _ => true, // future variants: treat as secure by default
-        }
+    fn can_serve_context(&self, _context: &PrimalContext) -> bool {
+        true // All security levels supported; future variants: treat as secure by default
     }
 
     fn dynamic_port_info(&self) -> Option<DynamicPortInfo> {

@@ -28,7 +28,7 @@ impl JsonRpcServer {
             .as_ref()
             .and_then(|p| p.get("metadata"))
             .cloned()
-            .unwrap_or(serde_json::json!({}));
+            .unwrap_or_else(|| serde_json::json!({}));
 
         let manager = squirrel_context::ContextManager::new();
 
@@ -71,7 +71,10 @@ impl JsonRpcServer {
                 data: None,
             })?;
 
-        let data = params.get("data").cloned().unwrap_or(serde_json::json!({}));
+        let data = params
+            .get("data")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({}));
 
         let manager = squirrel_context::ContextManager::new();
 

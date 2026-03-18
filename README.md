@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 5,228 passing | **Edition**: 2024 | **Rust**: 1.93+ | **Coverage**: 67.6%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 4,969 passing | **Edition**: 2024 | **Rust**: 1.93+ | **Coverage**: 69%
 
 ---
 
@@ -20,6 +20,7 @@ See [ORIGIN.md](ORIGIN.md) for the full story of how Squirrel was built using co
 - AI task routing and provider selection (cost, quality, latency)
 - MCP protocol coordination
 - Context window management (`context.create` / `context.update` / `context.summarize`)
+- Human dignity evaluation on AI operations (discrimination, manipulation, oversight)
 - Session management and configuration
 - Capability registry ([`capability_registry.toml`](capability_registry.toml))
 - Deploy graph ([`squirrel_deploy.toml`](squirrel_deploy.toml))
@@ -48,11 +49,14 @@ cargo build --release
 # Test
 cargo test --workspace
 
+# Full CI gate (fmt + clippy + test + doc)
+just ci
+
 # Lint (zero warnings required)
-cargo clippy --workspace -- -D warnings
+just clippy
 
 # Coverage
-cargo llvm-cov --workspace
+just coverage
 ```
 
 ### Socket Path
@@ -77,6 +81,7 @@ HTTP:      Feature-gated OFF by default (optional dev/test only)
 Lifecycle: biomeOS lifecycle.register + Songbird discovery.register + 30s heartbeat
 Niche:     niche.rs self-knowledge (capabilities, costs, dependencies, consumed)
 Edition:   Rust 2024
+ecoBin:    Pure Rust — zero C dependencies in default build
 ```
 
 ### Capability-Based Discovery
@@ -104,41 +109,44 @@ squirrel/
 │   ├── main/                  # Main library and binary
 │   ├── core/
 │   │   ├── mcp/              # MCP protocol + AI coordinator
-│   │   ├── auth/             # Auth delegation (BearDog client)
+│   │   ├── auth/             # Auth delegation (capability-based client)
 │   │   ├── context/          # Context management + learning
 │   │   ├── core/             # Core types (mesh feature-gated)
 │   │   ├── interfaces/       # Core trait definitions
-│   │   └── plugins/          # Plugin system
+│   │   └── plugins/          # Plugin system (unified manager)
 │   ├── config/               # Unified configuration
 │   ├── tools/                # CLI, AI tools, rule system
 │   ├── services/             # Command services
 │   ├── sdk/                  # SDK for integration
-│   ├── integration/           # Context adapter, ecosystem integration
-│   ├── ecosystem-api/         # Ecosystem API types and client
-│   ├── universal-constants/   # Shared constants + primal identity
-│   ├── universal-error/       # Unified error types
-│   └── universal-patterns/    # Transport, security, federation traits
-└── specs/                     # Specifications
+│   ├── integration/          # Context adapter, ecosystem integration
+│   ├── ecosystem-api/        # Ecosystem API types and client
+│   ├── universal-constants/  # Shared constants, primal identity, sys_info
+│   ├── universal-error/      # Unified error types
+│   └── universal-patterns/   # Transport, security, federation traits
+├── specs/                    # Specifications
+└── justfile                  # Build automation (just ci/test/clippy/coverage)
 ```
 
 ---
 
 ## Code Standards
 
-- `#![forbid(unsafe_code)]` unconditional on all 21 crates
-- `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code
+- `#![forbid(unsafe_code)]` unconditional on all 22 crate roots
+- `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code (test-only `cfg_attr` allows)
 - `#![warn(missing_docs)]` on all library crates
-- `cargo clippy` with `pedantic` + `nursery` lints — zero errors on `--all-features --lib`
+- `cargo clippy` with `pedantic` + `nursery` lints — zero errors on `--all-features --all-targets`
 - `cargo fmt` — zero formatting violations
-- Pure Rust: zero C dependencies in default build (ecoBin compliant)
+- Pure Rust: zero C dependencies in default build (ecoBin v3.0 compliant — `sysinfo` removed)
 - All source files under 1,000 lines
-- SPDX `AGPL-3.0-only` license on all crates (`[workspace.package]`)
-- Edition 2024 across all 21 workspace crates
-- `tracing` for structured logging (no `println!` in production)
-- Typed errors via `thiserror` (no `Box<dyn Error>` in library code)
-- Zero-copy patterns: `Arc<str>`, `bytes::Bytes`, `Arc<dyn Trait>` on hot paths
-- Capability-based discovery (no hardcoded primal names)
+- SPDX `AGPL-3.0-only` license header on all 1,241 `.rs` files
+- Edition 2024 across all 22 workspace crates
+- `tracing` for structured logging (no `println!` in production code)
+- Typed errors via `thiserror`; `.context()` on all key error paths
+- Zero-copy patterns: `Arc<str>`, `bytes::Bytes`, `Cow<str>` on hot paths
+- Capability-based discovery (no hardcoded primal names — `CapabilityIdentifier` replaces enum)
+- Human dignity evaluation on AI operations (discrimination, manipulation, oversight checks)
 - Property-based testing via `proptest` for serialization invariants
+- Dev credentials env-only (no hardcoded secrets in source)
 
 ---
 

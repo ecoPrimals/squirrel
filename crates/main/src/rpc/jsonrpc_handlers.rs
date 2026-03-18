@@ -11,6 +11,7 @@
 //! - `handlers_tool.rs` — `tool.*` methods
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
+use anyhow::Context;
 use serde_json::Value;
 
 impl JsonRpcServer {
@@ -24,11 +25,13 @@ impl JsonRpcServer {
         params: Option<Value>,
     ) -> Result<T, JsonRpcError> {
         match params {
-            Some(value) => serde_json::from_value(value).map_err(|e| JsonRpcError {
-                code: error_codes::INVALID_PARAMS,
-                message: format!("Invalid parameters: {e}"),
-                data: None,
-            }),
+            Some(value) => serde_json::from_value(value)
+                .context("Failed to deserialize JSON-RPC parameters")
+                .map_err(|e| JsonRpcError {
+                    code: error_codes::INVALID_PARAMS,
+                    message: format!("Invalid parameters: {e}"),
+                    data: None,
+                }),
             None => Err(JsonRpcError {
                 code: error_codes::INVALID_PARAMS,
                 message: "Missing parameters".to_string(),
@@ -489,8 +492,7 @@ mod tests {
             result
                 .get("id")
                 .and_then(|v| v.as_str())
-                .map(|s| !s.is_empty())
-                .unwrap_or(false)
+                .is_some_and(|s| !s.is_empty())
         );
     }
 

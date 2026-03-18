@@ -63,10 +63,7 @@ impl ProductionCommandRegistry {
     }
 
     /// Register a command
-    pub async fn register_command(
-        &self,
-        command: Box<dyn SimpleCommand>,
-    ) -> Result<(), ProductionError> {
+    pub fn register_command(&self, command: Box<dyn SimpleCommand>) -> Result<(), ProductionError> {
         let command_name = command.name().to_string();
 
         let commands_result = SafeOperation::execute(|| {
@@ -93,7 +90,7 @@ impl ProductionCommandRegistry {
     }
 
     /// List all available commands
-    pub async fn list_commands(&self) -> Result<Vec<String>, ProductionError> {
+    pub fn list_commands(&self) -> Result<Vec<String>, ProductionError> {
         let commands_result = SafeOperation::execute(|| {
             self.commands.try_read().map_err(|e| {
                 ProductionError::concurrency(
@@ -118,10 +115,10 @@ impl ProductionCommandRegistry {
     }
 
     /// Execute a command
-    pub async fn execute_command(
+    pub fn execute_command(
         &self,
         command_name: &str,
-        args: Vec<String>,
+        args: &[String],
     ) -> Result<String, ProductionError> {
         let start_time = std::time::Instant::now();
 
@@ -149,7 +146,7 @@ impl ProductionCommandRegistry {
             }
         };
 
-        let available = self.list_commands().await.unwrap_or_default().join(", ");
+        let available = self.list_commands().unwrap_or_default().join(", ");
         let command = command.ok_or_else(|| {
             ProductionError::not_found(
                 format!("Command '{command_name}' not found"),
@@ -160,7 +157,7 @@ impl ProductionCommandRegistry {
 
         // Execute the command
         let result = SafeOperation::execute(|| {
-            command.execute(&args).map_err(|e| {
+            command.execute(args).map_err(|e| {
                 ProductionError::execution(
                     format!("Command '{command_name}' execution failed: {e}"),
                     "command_execution",
@@ -173,8 +170,7 @@ impl ProductionCommandRegistry {
         let cmd_result = result.result();
 
         // Update statistics
-        self.update_command_stats(command_name, execution_time, cmd_result.is_ok())
-            .await;
+        self.update_command_stats(command_name, execution_time, cmd_result.is_ok());
 
         match cmd_result {
             Ok(output) => {
@@ -192,7 +188,7 @@ impl ProductionCommandRegistry {
     }
 
     /// Get help for a command
-    pub async fn get_command_help(&self, command_name: &str) -> Result<String, ProductionError> {
+    pub fn get_command_help(&self, command_name: &str) -> Result<String, ProductionError> {
         let commands_result = SafeOperation::execute(|| {
             self.commands.try_read().map_err(|e| {
                 ProductionError::concurrency(
@@ -226,7 +222,7 @@ impl ProductionCommandRegistry {
     }
 
     /// Update command execution statistics
-    async fn update_command_stats(
+    fn update_command_stats(
         &self,
         command_name: &str,
         execution_time: std::time::Duration,
@@ -262,7 +258,7 @@ impl ProductionCommandRegistry {
     }
 
     /// Get command statistics
-    pub async fn get_command_stats(&self, command_name: &str) -> Option<CommandStats> {
+    pub fn get_command_stats(&self, command_name: &str) -> Option<CommandStats> {
         let stats_result = SafeOperation::execute(|| {
             self.execution_stats.try_read().map_err(|e| {
                 ProductionError::concurrency(
@@ -296,8 +292,7 @@ pub fn get_command_registry() -> &'static ProductionCommandRegistry {
     COMMAND_REGISTRY.get_or_init(|| {
         let registry = ProductionCommandRegistry::new();
         // Register built-in commands
-        let _ = tokio::runtime::Handle::current()
-            .block_on(async { registry.register_command(Box::new(HelpCommand)).await });
+        let _ = registry.register_command(Box::new(HelpCommand));
         registry
     })
 }
@@ -322,9 +317,7 @@ impl SimpleCommand for HelpCommand {
         } else {
             // Show help for specific command
             let command_name = &args[0];
-            match tokio::runtime::Handle::current()
-                .block_on(async { get_command_registry().get_command_help(command_name).await })
-            {
+            match get_command_registry().get_command_help(command_name) {
                 Ok(help) => Ok(help),
                 Err(e) => Err(format!("Failed to get help for '{command_name}': {e}")),
             }
@@ -349,8 +342,8 @@ impl SimpleCommand for HelpCommand {
 
 impl TaskServiceImpl {
     /// List available commands
-    pub async fn list_available_commands(&self) -> Result<Vec<String>, String> {
-        match get_command_registry().list_commands().await {
+    pub fn list_available_commands(&self) -> Result<Vec<String>, String> {
+        match get_command_registry().list_commands() {
             Ok(commands) => {
                 info!("Listed {} available commands", commands.len());
                 Ok(commands)
@@ -363,7 +356,7 @@ impl TaskServiceImpl {
     }
 
     /// Execute a command
-    pub async fn execute_command(
+    pub fn execute_command(
         &self,
         command_name: &str,
         args: HashMap<String, String>,
@@ -371,10 +364,7 @@ impl TaskServiceImpl {
         // Convert HashMap to Vec<String> for execution
         let args_vec: Vec<String> = args.into_iter().map(|(k, v)| format!("{k}={v}")).collect();
 
-        match get_command_registry()
-            .execute_command(command_name, args_vec)
-            .await
-        {
+        match get_command_registry().execute_command(command_name, &args_vec) {
             Ok(output) => {
                 info!("Command '{}' executed successfully", command_name);
                 Ok(output)
@@ -387,8 +377,8 @@ impl TaskServiceImpl {
     }
 
     /// Get help for a command
-    pub async fn get_command_help(&self, command_name: &str) -> Result<String, String> {
-        match get_command_registry().get_command_help(command_name).await {
+    pub fn get_command_help(&self, command_name: &str) -> Result<String, String> {
+        match get_command_registry().get_command_help(command_name) {
             Ok(help) => {
                 debug!("Retrieved help for command '{}'", command_name);
                 Ok(help)

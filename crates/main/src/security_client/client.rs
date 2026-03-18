@@ -239,13 +239,13 @@ impl UniversalSecurityClient {
 
         // Factor in trust level requirements
         let trust_match = match (&request.required_trust_level, &provider.trust_level) {
-            (TrustLevel::Maximum, TrustLevel::Maximum) => 1.0,
-            (TrustLevel::High, TrustLevel::High | TrustLevel::Maximum) => 1.0,
-            (
+            (TrustLevel::Maximum, TrustLevel::Maximum)
+            | (TrustLevel::High, TrustLevel::High | TrustLevel::Maximum)
+            | (
                 TrustLevel::Standard,
                 TrustLevel::Standard | TrustLevel::High | TrustLevel::Maximum,
-            ) => 1.0,
-            (TrustLevel::Minimal, _) => 1.0,
+            )
+            | (TrustLevel::Minimal, _) => 1.0,
             _ => 0.5, // Penalty for insufficient trust level
         };
         score *= trust_match;
@@ -532,7 +532,7 @@ impl UniversalSecurityClient {
     /// Update AI metadata based on security patterns using `ai_metadata` field
     pub fn update_ai_metadata(
         &mut self,
-        security_patterns: Vec<serde_json::Value>,
+        security_patterns: &[serde_json::Value],
     ) -> Result<(), PrimalError> {
         // Use ai_metadata field for AI learning and adaptation
         info!(
@@ -541,7 +541,7 @@ impl UniversalSecurityClient {
         );
 
         // Process patterns using existing types - simplified implementation
-        for pattern in &security_patterns {
+        for pattern in security_patterns {
             let pattern_type = pattern
                 .get("pattern_type")
                 .and_then(|v| v.as_str())

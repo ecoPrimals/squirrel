@@ -293,7 +293,8 @@ where
         .collect())
 }
 
-// Additional serde helper functions
+// Additional serde helper functions (serde passes &Option<T> for serialize_with)
+#[allow(clippy::ref_option)]
 fn serialize_optional_arc_str<S>(opt: &Option<Arc<str>>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
