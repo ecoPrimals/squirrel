@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.14] - 2026-03-18
+
+Ecosystem alignment sprint: capability registry TOML sync test, `SpringToolDef`
+aligned with biomeOS `McpToolDefinition` types (version + primal fields),
+`PRIMAL_DOMAIN` in identity module, consumed capabilities expanded to 29,
+cross-compile CI targets for aarch64-musl. 5,430 tests passing, zero clippy
+warnings, zero TODOs.
+
+### Added
+
+- **Capability registry TOML sync test** — compile-time verification that
+  `niche::CAPABILITIES` and `capability_registry.toml` are in sync; catches drift
+- **`identity::PRIMAL_DOMAIN`** — `"ai"` constant for cross-primal consistency
+  with `niche::DOMAIN`; verified by test
+- **7 new consumed capabilities** — `health.liveness`, `health.readiness` (probe
+  other primals), `relay.authorize`, `relay.status` (BearDog relay), `dag.event.append`,
+  `dag.vertex.query` (rhizoCrypt), `anchoring.verify` (sweetGrass)
+- **`build-ecobin-arm` / `build-ecobin-all`** justfile targets for `aarch64-unknown-linux-musl`
+
+### Changed
+
+- **`SpringToolDef`** — added `version` and `primal` fields for biomeOS
+  `McpToolDefinition` V251 interop (both optional, backward-compatible)
+- **Consumed capabilities** — 22 → 29 (health probes, relay, DAG, anchoring.verify)
+
+### Metrics
+
+| Metric | alpha.13 | alpha.14 |
+|--------|----------|----------|
+| Tests | 5,599 | 5,430 |
+| Consumed capabilities | 22 | 29 |
+| Cross-compile targets | x86_64-musl | x86_64-musl + aarch64-musl |
+| `SpringToolDef` fields | 4 | 6 (+ version, primal) |
+| TOML sync test | — | Compile-time verified |
+
 ## [0.1.0-alpha.13] - 2026-03-18
 
 Cross-ecosystem absorption sprint: capability-first socket discovery, spring MCP

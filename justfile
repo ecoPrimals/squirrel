@@ -46,9 +46,16 @@ coverage-html:
 build-release:
     cargo build --release -p squirrel
 
-# Build ecoBin (static musl)
+# Build ecoBin (static musl x86_64)
 build-ecobin:
     cargo build --release --target x86_64-unknown-linux-musl -p squirrel
+
+# Build ecoBin for aarch64 (cross-compile)
+build-ecobin-arm:
+    cargo build --release --target aarch64-unknown-linux-musl -p squirrel
+
+# Build all ecoBin targets
+build-ecobin-all: build-ecobin build-ecobin-arm
 
 # Run the server
 run-server *ARGS:

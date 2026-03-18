@@ -18,7 +18,9 @@ use tracing::{debug, warn};
 /// How long to cache discovered spring tools before re-querying.
 const SPRING_TOOL_CACHE_TTL: Duration = Duration::from_secs(60);
 
-/// A tool definition discovered from a remote spring (McpToolDef pattern).
+/// A tool definition discovered from a remote spring.
+///
+/// Aligned with biomeOS `McpToolDefinition` (V251) for interop.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpringToolDef {
     /// Tool name (e.g., `"health.check"`, `"weather.forecast"`)
@@ -30,6 +32,12 @@ pub struct SpringToolDef {
     /// JSON Schema for input parameters (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_schema: Option<serde_json::Value>,
+    /// Version of the tool (from spring manifest, optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// Primal that provides this tool (discovered at runtime)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primal: Option<String>,
 }
 
 /// Cached spring tools with TTL.
@@ -195,6 +203,8 @@ mod tests {
             description: "Check system health".to_string(),
             domain: "health".to_string(),
             input_schema: Some(serde_json::json!({"type": "object"})),
+            version: Some("1.0.0".to_string()),
+            primal: Some("healthSpring".to_string()),
         };
 
         let json = serde_json::to_string(&tool).unwrap();
@@ -209,6 +219,8 @@ mod tests {
             description: "Get weather forecast".to_string(),
             domain: "weather".to_string(),
             input_schema: None,
+            version: None,
+            primal: None,
         };
 
         let json = serde_json::to_string(&tool).unwrap();

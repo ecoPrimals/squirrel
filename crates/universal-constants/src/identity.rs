@@ -19,6 +19,11 @@ pub const JWT_ISSUER: &str = "squirrel-mcp";
 /// JWT audience claim — identifies Squirrel MCP API as the token consumer.
 pub const JWT_AUDIENCE: &str = "squirrel-mcp-api";
 
+/// Primary capability domain for biomeOS Neural API registration.
+///
+/// Matches `niche::DOMAIN`. Used by biomeOS for domain-scoped routing.
+pub const PRIMAL_DOMAIN: &str = "ai";
+
 /// Default JWT signing key ID in the crypto capability provider.
 ///
 /// Overridable via `JWT_KEY_ID` environment variable at runtime.

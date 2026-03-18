@@ -176,8 +176,9 @@ impl OpenAiAdapter {
         // Parse JSON-RPC response
         let rpc_response: serde_json::Value = serde_json::from_str(&response_line)?;
 
-        universal_patterns::extract_rpc_result(&rpc_response)
-            .map_err(|rpc_err| PrimalError::NetworkError(format!("HTTP delegation error: {rpc_err}")))
+        universal_patterns::extract_rpc_result(&rpc_response).map_err(|rpc_err| {
+            PrimalError::NetworkError(format!("HTTP delegation error: {rpc_err}"))
+        })
     }
 
     /// Call OpenAI API

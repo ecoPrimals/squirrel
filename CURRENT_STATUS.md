@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 18, 2026
-**Version**: 0.1.0-alpha.13
+**Version**: 0.1.0-alpha.14
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 5,599 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
+| Tests | 5,430 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
@@ -21,7 +21,7 @@
 | Coverage | 71% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 22 workspace members |
 | Files >1000 lines | 0 (max: 974 — adapter.rs, unwired legacy) |
-| Property tests | 23 (proptest round-trip for all JSON-RPC types + niche + 7 wire-format fuzz + 6 IPC fuzz) |
+| Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests |
 | redis | 1.0.5 (upgraded from 0.23) |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
 | Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted |
@@ -62,7 +62,7 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 | Constant | What |
 |----------|------|
 | `CAPABILITIES` | 21 exposed methods (ai, capability, system, discovery, tool, context, lifecycle) |
-| `CONSUMED_CAPABILITIES` | 22 external capabilities from BearDog, Songbird, ToadStool, NestGate, domain springs |
+| `CONSUMED_CAPABILITIES` | 29 external capabilities from BearDog, Songbird, ToadStool, NestGate, domain springs, rhizoCrypt, sweetGrass |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
 | `DEPENDENCIES` | 4 primals (beardog, songbird required; toadstool, nestgate optional) |
 | `SEMANTIC_MAPPINGS` | Short name → fully qualified capability mapping |
@@ -81,6 +81,7 @@ Centralized in `universal-constants::identity`:
 | Constant | Value | Usage |
 |----------|-------|-------|
 | `PRIMAL_ID` | `"squirrel"` | Socket naming, logging |
+| `PRIMAL_DOMAIN` | `"ai"` | biomeOS Neural API domain registration |
 | `JWT_ISSUER` | `"squirrel-mcp"` | JWT token `iss` claim |
 | `JWT_AUDIENCE` | `"squirrel-mcp-api"` | JWT token `aud` claim |
 | `JWT_SIGNING_KEY_ID` | `"squirrel-jwt-signing-key"` | BearDog key lookup |
@@ -212,7 +213,7 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | Validation Harness | `ValidationHarness` for multi-check binary validation (doctor, validate) |
 | 4-Format Capability Parsing | flat, object, nested, double-nested response formats |
 | Primal Names | `primal_names::*` machine IDs + `display` submodule for all 13 ecosystem primals |
-| Spring Tool Discovery | `spring_tools::SpringToolDiscovery` — runtime MCP tool aggregation from domain springs |
+| Spring Tool Discovery | `spring_tools::SpringToolDiscovery` — runtime MCP tool aggregation from domain springs; `SpringToolDef` aligned with biomeOS `McpToolDefinition` V251 |
 | Human Dignity | `DignityEvaluator` + `DignityGuard` for AI operation checks |
 | Capability Identifiers | `CapabilityIdentifier` type replacing deprecated `EcosystemPrimalType` enum |
 
@@ -236,7 +237,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 | Tool | Config |
 |------|--------|
-| just | `justfile` — ci, check, fmt, clippy, test, coverage, build-release, audit, doctor |
+| just | `justfile` — ci, check, fmt, clippy, test, coverage, build-release, build-ecobin-all (x86_64+aarch64 musl), audit, doctor |
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked, 14-crate ecoBin C-dep ban |
@@ -252,17 +253,19 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Changes Since Last Handoff (March 18, 2026)
 
-### alpha.13 Sprint (Cross-Ecosystem Absorption)
+### alpha.14 Sprint (Ecosystem Alignment)
 
-- **Spring tool discovery**: `spring_tools.rs` — runtime `mcp.tools.list` aggregation from domain springs; merged into `tool.list` + `tool.execute` routing
-- **Centralized `extract_rpc_result()`**: Replaces 5 ad-hoc `.get("result")` sites across adapters
-- **Capability-first sockets**: `security.sock`/`crypto.sock` preferred over `beardog.sock`
-- **`capability.list` method name**: Fixed from `capabilities.list` typo
-- **ecoBin 14-crate ban**: `deny.toml` expanded from 2 to 14 banned C-dep crates
-- **Consumed capabilities**: 14 → 22 (secrets.*, compute.dispatch.capabilities/cancel, model.exists, mcp.tools.list)
-- **Primal display names**: `universal-constants::primal_names` with `display` submodule
-- **6 proptest IPC fuzz tests**: parse, extract, dispatch never-panic properties
-- **Tests**: 4,730 → 5,599
+- **Capability registry TOML sync test**: Compile-time verified `niche::CAPABILITIES` ↔ `capability_registry.toml` bidirectional invariant
+- **`identity::PRIMAL_DOMAIN`**: `"ai"` constant in `universal-constants::identity` for cross-primal consistency; test-verified against `niche::DOMAIN`
+- **`SpringToolDef` aligned with biomeOS `McpToolDefinition`**: Added `version` and `primal` fields (optional, backward-compatible)
+- **7 new consumed capabilities**: `health.liveness/readiness` (probe peers), `relay.authorize/status` (BearDog), `dag.event.append/vertex.query` (rhizoCrypt), `anchoring.verify` (sweetGrass)
+- **Consumed capabilities**: 22 → 29
+- **Cross-compile CI**: `build-ecobin-arm` (aarch64-musl) + `build-ecobin-all` in justfile
+- **Tests**: 5,430 passing, 0 failures
+
+### Prior (alpha.13)
+
+- Spring tool discovery, centralized `extract_rpc_result()`, capability-first sockets, ecoBin 14-crate ban, primal display names, 6 proptest IPC fuzz tests
 
 ### Prior (alpha.12)
 

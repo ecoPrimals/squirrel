@@ -145,10 +145,19 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "model.exists",
     // MCP tool discovery (domain springs)
     "mcp.tools.list",
+    // Health probes (probe other primals before routing)
+    "health.liveness",
+    "health.readiness",
+    // Relay coordination (BearDog)
+    "relay.authorize",
+    "relay.status",
     // DAG sessions (rhizoCrypt)
     "dag.session.create",
+    "dag.event.append",
+    "dag.vertex.query",
     // Provenance / attribution (sweetGrass)
     "anchoring.anchor",
+    "anchoring.verify",
     "attribution.calculate_rewards",
 ];
 
@@ -397,5 +406,44 @@ mod tests {
         assert_eq!(TRANSPORT, "unix_socket");
         assert_eq!(PROTOCOL, "jsonrpc_2.0");
         assert_eq!(LICENSE, "AGPL-3.0-only");
+    }
+
+    #[test]
+    fn identity_primal_domain_matches_niche_domain() {
+        assert_eq!(
+            universal_constants::identity::PRIMAL_DOMAIN,
+            DOMAIN,
+            "identity::PRIMAL_DOMAIN must match niche::DOMAIN"
+        );
+    }
+
+    #[test]
+    fn capability_registry_toml_sync() {
+        let toml_str = include_str!("../../../capability_registry.toml");
+        let toml: toml::Value = toml_str.parse().expect("valid TOML");
+        let caps_table = toml
+            .get("capabilities")
+            .and_then(|v| v.as_table())
+            .expect("capabilities table");
+
+        let registry_methods: std::collections::BTreeSet<String> = caps_table
+            .values()
+            .filter_map(|v| v.get("method").and_then(|m| m.as_str()).map(String::from))
+            .collect();
+
+        let niche_methods: std::collections::BTreeSet<String> =
+            CAPABILITIES.iter().map(|s| (*s).to_string()).collect();
+
+        let missing_from_toml: Vec<_> = niche_methods.difference(&registry_methods).collect();
+        let missing_from_niche: Vec<_> = registry_methods.difference(&niche_methods).collect();
+
+        assert!(
+            missing_from_toml.is_empty(),
+            "niche::CAPABILITIES has methods not in capability_registry.toml: {missing_from_toml:?}"
+        );
+        assert!(
+            missing_from_niche.is_empty(),
+            "capability_registry.toml has methods not in niche::CAPABILITIES: {missing_from_niche:?}"
+        );
     }
 }
