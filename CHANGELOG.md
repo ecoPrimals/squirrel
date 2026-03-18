@@ -13,7 +13,7 @@ Pre-alpha history is preserved as fossil record in
 
 Deep audit and idiomatic Rust evolution sprint. Tightened lint gates, eliminated C
 dependencies, completed production stubs, added human dignity evaluation, and
-evolved hardcoding to capability-based discovery. 2,059 tests passing.
+evolved hardcoding to capability-based discovery. 4,979 tests passing.
 
 ### Added
 
@@ -47,6 +47,20 @@ evolved hardcoding to capability-based discovery. 2,059 tests passing.
 - **Port documentation**: All port constants documented as fallbacks; env vars and
   capability discovery take precedence
 - **IPC error context**: `.context()` added to JSON-RPC serialization/deserialization
+
+### Absorbed (cross-ecosystem)
+
+- **Manifest writer** — `write_manifest` / `remove_manifest` at startup/shutdown for
+  biomeOS bootstrap discovery (absorbed from rhizoCrypt v0.13 / biomeOS v2.49)
+- **`safe_cast` module** — `usize_to_u32`, `f64_to_f32`, `i64_to_usize`,
+  `f64_to_u64_clamped` (absorbed from groundSpring V114 / airSpring V0.8.9)
+- **Consumed capabilities expanded** — ToadStool S158 `compute.dispatch.*`,
+  NestGate 4.1 `model.*`, rhizoCrypt `dag.session.create`, sweetGrass
+  `anchoring.anchor` / `attribution.calculate_rewards`
+- **Health probes** — `health.liveness` + `health.readiness` added to niche,
+  registry, cost estimates (PRIMAL_IPC_PROTOCOL v3.0)
+- **`total_cmp()`** — replaced all `partial_cmp().unwrap()` with `f64::total_cmp`
+  (absorbed from neuralSpring V115)
 
 ### Removed
 

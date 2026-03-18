@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 2,059 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
+| Tests | 4,979 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
@@ -266,3 +266,13 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 - **Error context**: `From<anyhow::Error>` for `PrimalError`; `.context()` on IPC serialization paths
 - **Tracing migration**: All `println!`/`eprintln!` in server code replaced with `tracing` macros
 - **Infrastructure**: `rust-toolchain.toml` + `justfile` for reproducible builds
+
+### Cross-Ecosystem Absorption Sprint (alpha.11+)
+
+- **Manifest writer**: Squirrel writes `$XDG_RUNTIME_DIR/ecoPrimals/squirrel.json` at startup; cleans up on shutdown (biomeOS v2.49 / rhizoCrypt v0.13)
+- **Consumed capabilities**: Added ToadStool S158 `compute.dispatch.*`, NestGate 4.1 `model.*`, rhizoCrypt `dag.session.create`, sweetGrass `anchoring.anchor`/`attribution.calculate_rewards`
+- **Health probes**: `health.liveness` + `health.readiness` added to CAPABILITIES, registry, cost estimates, semantic mappings (PRIMAL_IPC_PROTOCOL v3.0)
+- **`safe_cast` module**: `usize_to_u32`, `f64_to_f32`, `i64_to_usize`, `f64_to_u64_clamped` (groundSpring V114 / airSpring V0.8.9)
+- **`total_cmp()` sweep**: All 5 `partial_cmp().unwrap()` replaced with `f64::total_cmp` (neuralSpring V115)
+- **Platform-agnostic tests**: `/tmp` hardcoding replaced with `std::env::temp_dir()` where files are created
+- **Leverage guide**: Updated to alpha.11 with health probes, manifest discovery, human dignity, primalSpring exp044, RPGPT
