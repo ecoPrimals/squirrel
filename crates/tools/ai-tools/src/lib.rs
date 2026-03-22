@@ -73,7 +73,6 @@ pub mod capability_http;
 // NO reqwest, NO ring! 100% Pure Rust via ecosystem routing!
 pub mod neural_http;
 
-#[allow(dead_code)]
 mod ipc_routed_providers;
 
 pub mod common;

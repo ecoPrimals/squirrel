@@ -32,7 +32,13 @@ pub enum HealthStatus {
     /// System has warnings but is functional
     Warning,
     /// System has errors (used in match arms, JSON deserialization, and test fixtures)
-    #[allow(dead_code)]
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Constructed via serde/deserialization; unit tests construct this variant"
+        )
+    )]
     Error,
 }
 

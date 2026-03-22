@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 22, 2026
-**Version**: 0.1.0-alpha.16
+**Version**: 0.1.0-alpha.17
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,22 +10,22 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 5,574 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
-| Edition | 2024 (Rust 1.93.0) |
+| Tests | 5,775 passing / 0 failures across 21 workspace members |
+| Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all crate entry points |
 | Pure Rust | 100% default features (zero C deps); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
-| Coverage | 71% line coverage via `cargo-llvm-cov` (target: 90%) |
-| Crates | 22 workspace members |
-| Files >1000 lines | 0 (max: 985 — rate_limiter.rs) |
-| Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests |
+| Coverage | 73% line coverage via `cargo-llvm-cov` (target: 90%) |
+| Crates | 21 workspace members |
+| Files >1000 lines | 0 (max: 977 — web/api.rs) |
+| Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | redis | 1.0.5 (upgraded from 0.23) |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
 | Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted |
-| TODO/FIXME in code | 0 (2 documented `STUB` comments in performance_optimizer — Phase 2 deferred) |
+| TODO/FIXME in code | 0 (documented `STUB` comments only in performance optimizer batch/optimizer — Phase 2 deferred; swarm, coordination, and crypto are production implementations) |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
 
 ## JSON-RPC Methods
@@ -190,7 +190,7 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | `PluginEventBus` | Implemented — pub/sub with topic-based routing |
 | `PluginSecurityManager` | Implemented — capability-based permission checks |
 | `ManagerMetrics` | Implemented — load/unload/error counters |
-| Performance optimizer stubs | Deferred to Phase 2 (batch_processor, optimizer) |
+| Performance optimizer | Batch/optimizer stubs deferred to Phase 2 (`batch_processor`, `optimizer`) |
 
 ## Ecosystem Integration
 
@@ -245,17 +245,34 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked, 14-crate ecoBin C-dep ban |
-| cargo-llvm-cov | 71% line coverage (target: 90%) |
-| proptest | Round-trip + wire-format fuzz + IPC fuzz for all JSON-RPC types (23 properties) |
+| cargo-llvm-cov | 73% line coverage (target: 90%) |
+| proptest | Round-trip + wire-format fuzz + IPC fuzz for all JSON-RPC types (23 properties) + Unix socket IPC tests |
 | rust-toolchain | `rust-toolchain.toml` — pinned stable + clippy + rustfmt + llvm-tools-preview |
 
 ## Known Issues
 
-1. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
-2. Coverage at 71% — gap to 90% target; incremental expansion underway
-3. Performance optimizer stubs deferred to Phase 2 (`batch_processor`, `optimizer`)
+1. Coverage at 73% — gap to 90% target; incremental expansion underway
+2. Performance optimizer `batch_processor` / `optimizer` stubs remain deferred to Phase 2 (swarm coordination, coordination service, and crypto are now production implementations, not stubs)
 
 ## Changes Since Last Handoff (March 22, 2026)
+
+### alpha.17 Sprint (Alpha.17 Audit Sprint)
+
+- **Clippy**: All clippy errors fixed (13+ in monitoring_tests, auth, ecosystem-api, commands, and 20+ more across the workspace).
+- **Chaos**: `chaos_07_memory_pressure` fixed (no longer flaky).
+- **CONTEXT.md**: Created per PUBLIC_SURFACE_STANDARD.
+- **Hardcoded ports**: Evolved to capability discovery in the SDK and config defaults.
+- **Production implementations**: SwarmCoordinator (peer tracking), CoordinationService (lifecycle FSM), DefaultCryptoProvider (ed25519+BLAKE3), web/api (real metrics), dashboard (live registry + /proc), discovery/registry (typed errors); prior swarm, coordination, and crypto stubs are now real implementations.
+- **Clone proliferation**: Reduced via `HealthStatus: Copy`, `Arc::clone` clarity, and scan-then-remove patterns.
+- **Modular refactoring**: `rate_limiter` (5 modules), `monitoring` (6 modules), `streaming` (4 modules), `transport` (5 modules).
+- **Dead code**: Suppressions cleaned in 10+ files; upgraded `allow` to `expect(reason)` where appropriate.
+- **SPDX**: 100% coverage (one missing file fixed).
+- **Documentation**: `warn(missing_docs)` un-suppressed on squirrel-core, squirrel-mcp, and squirrel-cli; 400+ doc comments added.
+- **JSON-RPC**: Semantic naming is 100% `domain.verb` compliant (22 methods).
+- **cargo deny**: Clean (advisories ok, bans ok, licenses ok, sources ok).
+- **Metrics**: Test count 5,574→5,775 (+201); coverage 71%→73%.
+- **Unwrap audit**: All production `unwrap` verified test-only with `cfg_attr` gating.
+- **New tests**: Unix socket IPC, RPC error paths, timeout coverage, and lifecycle edge cases.
 
 ### alpha.16 Sprint (Deep Debt Resolution & Compliance Audit)
 

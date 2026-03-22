@@ -29,6 +29,6 @@ mod tests {
     #[test]
     fn discovery_service_new_and_default_are_equivalent() {
         assert_eq!(std::mem::size_of::<DiscoveryService>(), 0);
-        let _ = (DiscoveryService::new(), DiscoveryService::default());
+        let _ = (DiscoveryService::new(), DiscoveryService);
     }
 }

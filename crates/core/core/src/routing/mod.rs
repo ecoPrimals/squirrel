@@ -439,10 +439,11 @@ impl McpRouter for McpRoutingService {
         // Select best agent using load balancer
         let selected_agent = self.load_balancer.select_agent(available_agents).await?;
 
+        let task_id = task.id;
         // Create a simple task response
         Ok(TaskResponse {
             id: uuid::Uuid::new_v4().to_string(),
-            task_id: task.id.clone(),
+            task_id,
             agent_id: selected_agent.id.clone(),
             execution_time: std::time::Duration::from_millis(100),
             context: None,

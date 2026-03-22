@@ -6,7 +6,10 @@
 //! This module contains types and functions for planned features that are not yet fully implemented.
 //! These are kept here for future development.
 
-#![allow(dead_code)]
+#![expect(
+    dead_code,
+    reason = "Planned learning integration; not yet wired into the runtime"
+)]
 
 /// Learning request type for context optimization
 ///

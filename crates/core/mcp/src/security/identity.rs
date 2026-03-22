@@ -14,15 +14,22 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-/// User identity information
+/// User identity information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserIdentity {
+    /// Primary key for the user record.
     pub id: Uuid,
+    /// Unique login or display name.
     pub username: String,
+    /// Optional email address.
     pub email: Option<String>,
+    /// Role names assigned to the user.
     pub roles: Vec<String>,
+    /// When the identity was created.
     pub created_at: DateTime<Utc>,
+    /// Last successful login time, if any.
     pub last_login: Option<DateTime<Utc>>,
+    /// Whether the account may authenticate.
     pub active: bool,
 }
 
@@ -44,7 +51,7 @@ impl DefaultIdentityManager {
         }
     }
 
-    /// Create a new user identity
+    /// Creates and stores a new user with default role `user`.
     pub async fn create_identity(
         &self,
         username: String,
@@ -65,13 +72,13 @@ impl DefaultIdentityManager {
         Ok(identity)
     }
 
-    /// Get user identity by ID
+    /// Returns the identity for the given id, if it exists.
     pub async fn get_identity(&self, id: &Uuid) -> Result<Option<UserIdentity>> {
         let identities = self.identities.read().await;
         Ok(identities.get(id).cloned())
     }
 
-    /// Get user identity by username
+    /// Looks up an identity by username.
     pub async fn get_identity_by_username(&self, username: &str) -> Result<Option<UserIdentity>> {
         let identities = self.identities.read().await;
         Ok(identities
@@ -80,21 +87,21 @@ impl DefaultIdentityManager {
             .cloned())
     }
 
-    /// Update user identity
+    /// Replaces the stored identity with the given record.
     pub async fn update_identity(&self, identity: UserIdentity) -> Result<()> {
         let mut identities = self.identities.write().await;
         identities.insert(identity.id, identity);
         Ok(())
     }
 
-    /// Delete user identity
+    /// Removes the identity from the store.
     pub async fn delete_identity(&self, id: &Uuid) -> Result<()> {
         let mut identities = self.identities.write().await;
         identities.remove(id);
         Ok(())
     }
 
-    /// Authenticate user
+    /// Resolves credentials to an identity (placeholder until BearDog integration).
     pub async fn authenticate(
         &self,
         username: &str,
@@ -104,7 +111,7 @@ impl DefaultIdentityManager {
         self.get_identity_by_username(username).await
     }
 
-    /// Record login
+    /// Sets `last_login` to the current time for the given user id.
     pub async fn record_login(&self, id: &Uuid) -> Result<()> {
         let mut identities = self.identities.write().await;
         if let Some(identity) = identities.get_mut(id) {

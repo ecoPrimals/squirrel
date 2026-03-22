@@ -314,7 +314,8 @@ impl Default for MockServiceMeshClient {
 
 #[cfg(test)]
 impl MockServiceMeshClient {
-    /// Create a new mock client
+    /// Create a new mock client.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             services: std::sync::Arc::new(tokio::sync::RwLock::new(HashMap::new())),
@@ -487,8 +488,9 @@ impl ServiceMeshClientFactory {
         SongbirdClient::new(base_url, auth_token, retry_config)
     }
 
-    /// Create a mock client for testing
+    /// Create a mock client for testing.
     #[cfg(test)]
+    #[must_use]
     pub fn create_mock_client() -> impl ServiceMeshClient {
         MockServiceMeshClient::new()
     }

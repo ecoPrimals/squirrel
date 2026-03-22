@@ -219,12 +219,13 @@ impl BearDogClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| {
-            anyhow::anyhow!(
+        match last_error {
+            Some(e) => Err(e),
+            None => Err(anyhow::anyhow!(
                 "Security provider request failed after {} retries",
                 self.config.max_retries
-            )
-        }))
+            )),
+        }
     }
 
     /// Send a single JSON-RPC request to security provider

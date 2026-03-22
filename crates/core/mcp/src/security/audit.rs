@@ -12,16 +12,24 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-/// Audit event for security logging
+/// Audit event for security logging.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEvent {
+    /// Unique event identifier.
     pub id: Uuid,
+    /// When the event occurred (UTC).
     pub timestamp: DateTime<Utc>,
+    /// High-level event category or name.
     pub event_type: String,
+    /// Acting user id, if authenticated.
     pub user_id: Option<String>,
+    /// Target resource id, if applicable.
     pub resource_id: Option<String>,
+    /// Action verb or operation name.
     pub action: String,
+    /// Outcome label (e.g. success, denied).
     pub status: String,
+    /// Human-readable detail or error text.
     pub message: String,
 }
 
@@ -43,19 +51,19 @@ impl DefaultAuditService {
         }
     }
 
-    /// Log an audit event
+    /// Appends an audit event to the in-memory log.
     pub async fn log_event(&self, event: AuditEvent) {
         let mut events = self.events.write().await;
         events.push(event);
     }
 
-    /// Get all audit events
+    /// Returns a snapshot of all stored audit events.
     pub async fn get_events(&self) -> Vec<AuditEvent> {
         let events = self.events.read().await;
         events.clone()
     }
 
-    /// Clear all audit events
+    /// Removes every audit event from storage.
     pub async fn clear_events(&self) {
         let mut events = self.events.write().await;
         events.clear();

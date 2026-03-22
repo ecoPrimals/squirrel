@@ -43,27 +43,6 @@ fn create_test_message(message_type: MessageType, content: &str) -> MCPMessage {
     }
 }
 
-/// Helper function to wait for server to start
-#[allow(dead_code)]
-async fn wait_for_server_start(port: u16) -> Result<(), Box<dyn std::error::Error>> {
-    let mut retries = 0;
-    loop {
-        if tokio::net::TcpStream::connect(format!("127.0.0.1:{port}"))
-            .await
-            .is_ok()
-        {
-            break Ok(());
-        }
-
-        retries += 1;
-        if retries > 50 {
-            break Err("Server failed to start within timeout".into());
-        }
-
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-}
-
 #[tokio::test]
 async fn test_websocket_config_creation() {
     let config = create_test_config();

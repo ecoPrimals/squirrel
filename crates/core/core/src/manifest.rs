@@ -28,6 +28,6 @@ mod tests {
 
     #[test]
     fn manifest_service_new_and_default() {
-        let _ = (ManifestService::new(), ManifestService::default());
+        let _ = (ManifestService::new(), ManifestService);
     }
 }

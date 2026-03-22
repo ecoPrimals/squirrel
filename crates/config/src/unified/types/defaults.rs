@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use super::definitions::ServiceRegistryType;
+use universal_constants::network::{get_bind_address, get_service_port};
 
 // Default value functions
 pub fn default_instance_id() -> String {
@@ -77,28 +78,28 @@ pub fn default_plugin_dir() -> PathBuf {
 }
 
 pub fn default_bind_address() -> String {
-    std::env::var("SQUIRREL_BIND_ADDRESS").unwrap_or_else(|_| "127.0.0.1".to_string())
+    std::env::var("SQUIRREL_BIND_ADDRESS").unwrap_or_else(|_| get_bind_address())
 }
 
 pub fn default_http_port() -> u16 {
     std::env::var("SQUIRREL_HTTP_PORT")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(8080)
+        .unwrap_or_else(|| get_service_port("websocket"))
 }
 
 pub fn default_websocket_port() -> u16 {
     std::env::var("SQUIRREL_WEBSOCKET_PORT")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(8081)
+        .unwrap_or_else(|| get_service_port("http"))
 }
 
 pub fn default_grpc_port() -> u16 {
     std::env::var("SQUIRREL_GRPC_PORT")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(8082)
+        .unwrap_or_else(|| get_service_port("admin"))
 }
 
 pub fn default_max_connections() -> u32 {
@@ -167,5 +168,5 @@ pub fn default_metrics_endpoint() -> String {
 }
 
 pub fn default_prometheus_port() -> u16 {
-    9090
+    get_service_port("metrics")
 }

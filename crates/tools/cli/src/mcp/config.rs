@@ -10,14 +10,21 @@ use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use std::time::Duration;
 
-/// Default MCP server configuration values
+/// Default TCP port for the MCP server.
 pub const DEFAULT_MCP_PORT: u16 = 8778;
+/// Default bind host for development MCP servers.
 pub const DEFAULT_DEV_HOST: &str = "127.0.0.1";
+/// Default bind host for production MCP servers.
 pub const DEFAULT_PROD_HOST: &str = "0.0.0.0";
+/// Default MCP client request timeout in seconds.
 pub const DEFAULT_CLIENT_TIMEOUT_SECS: u64 = 30;
+/// Default MCP connection establishment timeout in seconds.
 pub const DEFAULT_CONNECT_TIMEOUT_SECS: u64 = 5;
+/// Default MCP server heartbeat interval in seconds.
 pub const DEFAULT_HEARTBEAT_INTERVAL_SECS: u64 = 30;
+/// Default maximum concurrent MCP connections.
 pub const DEFAULT_MAX_CONNECTIONS: usize = 100;
+/// Default MCP message buffer size in bytes.
 pub const DEFAULT_BUFFER_SIZE: usize = 8192;
 
 /// MCP Server configuration

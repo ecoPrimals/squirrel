@@ -3,6 +3,10 @@
 
 use super::*;
 use crate::HealthStatus;
+use async_trait::async_trait;
+use chrono::Utc;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Minimal provider that always succeeds.
 struct OkProvider(&'static str);
@@ -128,7 +132,7 @@ fn metric_event_types_serde_roundtrip() {
             buckets: vec![0.0, 1.0],
             counts: vec![1, 2],
         },
-        labels: [("k".into(), "v".into())].into_iter().collect(),
+        labels: std::iter::once(("k".into(), "v".into())).collect(),
         timestamp: ts,
     };
     let mv = serde_json::to_value(&m).unwrap();
@@ -138,18 +142,21 @@ fn metric_event_types_serde_roundtrip() {
 
 #[tokio::test]
 async fn initialize_disabled_short_circuits() {
-    let mut cfg = MonitoringConfig::default();
-    cfg.enabled = false;
+    let cfg = MonitoringConfig {
+        enabled: false,
+        ..MonitoringConfig::default()
+    };
     let svc = MonitoringService::new(cfg);
     svc.initialize().await.expect("init");
 }
 
 #[tokio::test]
 async fn initialize_require_provider_errors_without_providers() {
-    let mut cfg = MonitoringConfig::default();
-    cfg.require_provider = true;
-    cfg.songbird_config = None;
-    cfg.provider_configs.clear();
+    let cfg = MonitoringConfig {
+        require_provider: true,
+        songbird_config: None,
+        ..MonitoringConfig::default()
+    };
     let svc = MonitoringService::new(cfg);
     let err = svc.initialize().await.unwrap_err();
     assert!(
@@ -160,15 +167,17 @@ async fn initialize_require_provider_errors_without_providers() {
 
 #[tokio::test]
 async fn initialize_with_songbird_config_adds_provider() {
-    let mut cfg = MonitoringConfig::default();
-    cfg.require_provider = false;
-    cfg.songbird_config = Some(SongbirdConfig {
-        endpoint: "unix:///tmp/sb".into(),
-        service_name: "svc".into(),
-        auth_token: None,
-        batch_size: 10,
-        flush_interval: std::time::Duration::from_secs(1),
-    });
+    let cfg = MonitoringConfig {
+        require_provider: false,
+        songbird_config: Some(SongbirdConfig {
+            endpoint: "unix:///tmp/sb".into(),
+            service_name: "svc".into(),
+            auth_token: None,
+            batch_size: 10,
+            flush_interval: std::time::Duration::from_secs(1),
+        }),
+        ..MonitoringConfig::default()
+    };
     let svc = MonitoringService::new(cfg);
     svc.initialize().await.expect("init");
     let names = svc.get_providers().await;
@@ -177,10 +186,11 @@ async fn initialize_with_songbird_config_adds_provider() {
 
 #[tokio::test]
 async fn initialize_unknown_provider_is_skipped_with_warning_path() {
-    let mut cfg = MonitoringConfig::default();
-    cfg.require_provider = false;
-    cfg.provider_configs
-        .insert("not-songbird".into(), serde_json::json!({}));
+    let cfg = MonitoringConfig {
+        require_provider: false,
+        provider_configs: std::iter::once(("not-songbird".into(), serde_json::json!({}))).collect(),
+        ..MonitoringConfig::default()
+    };
     let svc = MonitoringService::new(cfg);
     svc.initialize().await.expect("init");
     assert!(svc.get_providers().await.is_empty());
@@ -188,18 +198,21 @@ async fn initialize_unknown_provider_is_skipped_with_warning_path() {
 
 #[tokio::test]
 async fn initialize_provider_configs_songbird_branch() {
-    let mut cfg = MonitoringConfig::default();
-    cfg.songbird_config = None;
-    cfg.provider_configs.insert(
-        "songbird".into(),
-        serde_json::json!({
-            "endpoint": "unix:///x",
-            "service_name": "n",
-            "auth_token": null,
-            "batch_size": 1,
-            "flush_interval": {"secs": 1, "nanos": 0}
-        }),
-    );
+    let cfg = MonitoringConfig {
+        songbird_config: None,
+        provider_configs: std::iter::once((
+            "songbird".into(),
+            serde_json::json!({
+                "endpoint": "unix:///x",
+                "service_name": "n",
+                "auth_token": null,
+                "batch_size": 1,
+                "flush_interval": {"secs": 1, "nanos": 0}
+            }),
+        ))
+        .collect(),
+        ..MonitoringConfig::default()
+    };
     let svc = MonitoringService::new(cfg);
     svc.initialize().await.expect("init");
     assert!(svc.get_providers().await.iter().any(|n| n == "songbird"));
@@ -216,23 +229,25 @@ async fn songbird_provider_new_succeeds_and_unknown_provider_config_skipped() {
     })
     .await;
     assert!(res.is_ok());
-    let mut cfg = MonitoringConfig::default();
-    cfg.provider_configs
-        .insert("unknown".into(), serde_json::json!({}));
+    let cfg = MonitoringConfig {
+        provider_configs: std::iter::once(("unknown".into(), serde_json::json!({}))).collect(),
+        ..MonitoringConfig::default()
+    };
     let svc = MonitoringService::new(cfg);
     svc.initialize().await.expect("no required provider");
 }
 
 #[tokio::test]
 async fn record_paths_with_fallback_logger() {
-    let mut fb = FallbackConfig::default();
-    fb.log_level = "debug".into();
     let cfg = MonitoringConfig {
         enabled: true,
         require_provider: false,
         songbird_config: None,
         provider_configs: HashMap::new(),
-        fallback_config: fb,
+        fallback_config: FallbackConfig {
+            log_level: "debug".into(),
+            ..FallbackConfig::default()
+        },
     };
     let svc = MonitoringService::new(cfg);
     let ts = Utc::now();
@@ -347,9 +362,10 @@ async fn songbird_provider_trait_methods() {
 
 #[test]
 fn fallback_logger_branches() {
-    let mut cfg = FallbackConfig::default();
-    cfg.log_level = "info".into();
-    let fb = FallbackLogger::new(cfg);
+    let fb = FallbackLogger::new(FallbackConfig {
+        log_level: "info".into(),
+        ..FallbackConfig::default()
+    });
     let ts = Utc::now();
     fb.log_event(&MonitoringEvent::ServiceStarted {
         service: "s".into(),
@@ -370,16 +386,18 @@ fn fallback_logger_branches() {
     });
     fb.log_metric(&base_metric());
 
-    let mut hcfg = FallbackConfig::default();
-    hcfg.include_health = true;
-    hcfg.log_level = "warn".into();
-    let hf = FallbackLogger::new(hcfg);
+    let hf = FallbackLogger::new(FallbackConfig {
+        include_health: true,
+        log_level: "warn".into(),
+        ..FallbackConfig::default()
+    });
     hf.log_health("x", &HealthStatus::Degraded);
 
-    let mut pcfg = FallbackConfig::default();
-    pcfg.include_performance = true;
-    pcfg.log_level = "info".into();
-    let pf = FallbackLogger::new(pcfg);
+    let pf = FallbackLogger::new(FallbackConfig {
+        include_performance: true,
+        log_level: "info".into(),
+        ..FallbackConfig::default()
+    });
     pf.log_performance(
         "comp",
         &PerformanceMetrics {
@@ -417,9 +435,13 @@ async fn convenience_record_helpers() {
         .unwrap();
     svc.record_error("T", "msg", "comp").await.unwrap();
     svc.record_counter("c", 3, HashMap::new()).await.unwrap();
-    svc.record_gauge("g", 1.5, [("l".into(), "v".into())].into_iter().collect())
-        .await
-        .unwrap();
+    svc.record_gauge(
+        "g",
+        1.5,
+        std::iter::once(("l".into(), "v".into())).collect(),
+    )
+    .await
+    .unwrap();
 }
 
 #[test]

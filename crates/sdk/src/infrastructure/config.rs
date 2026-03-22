@@ -244,9 +244,9 @@ impl NetworkConfig {
                 std::env::var("DEV_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
             }),
             port: std::env::var("NETWORK_PORT")
-                .unwrap_or_else(|_| "8080".to_string())
-                .parse()
-                .unwrap_or(8080),
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(|| get_service_port("websocket")),
             max_connections: std::env::var("NETWORK_MAX_CONNECTIONS")
                 .unwrap_or_else(|_| "100".to_string())
                 .parse()

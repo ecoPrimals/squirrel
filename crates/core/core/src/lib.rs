@@ -7,7 +7,7 @@
 
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![allow(missing_docs)]
+#![warn(missing_docs)]
 #![allow(clippy::unused_self)]
 #![allow(clippy::unused_async)]
 #![allow(clippy::cast_precision_loss)]
@@ -24,27 +24,35 @@
 #![allow(clippy::significant_drop_in_scrutinee)]
 #![allow(clippy::cast_sign_loss)]
 // Core modules for Squirrel MCP ecosystem coordination
+/// HTTP API surface for Squirrel MCP when the `http-api` feature is enabled.
 #[cfg(feature = "http-api")]
 pub mod api;
 /// Configuration loading and validation.
 pub mod config;
+/// Primal coordination primitives for mesh deployments.
 #[cfg(feature = "mesh")]
 pub mod coordination;
 /// Service and primal discovery.
 pub mod discovery;
+/// Ecosystem coordination, discovery, and task routing across primals.
 #[cfg(feature = "mesh")]
 pub mod ecosystem;
 /// Error types for core operations.
 pub mod error;
+/// Multi-node federation, scaling, and load coordination.
 #[cfg(feature = "mesh")]
 pub mod federation;
 /// Manifest parsing and validation.
 pub mod manifest;
+/// Health, metrics, and operational event recording.
 pub mod monitoring;
+/// MCP task routing, agents, and context management.
 #[cfg(feature = "mesh")]
 pub mod routing;
+/// Pluggable service registry and discovery queries.
 #[cfg(feature = "mesh")]
 pub mod service_discovery;
+/// Swarm-level coordination placeholder for future orchestration.
 #[cfg(feature = "mesh")]
 pub mod swarm;
 
@@ -173,17 +181,25 @@ pub trait PrimalCoordinator {
 
 #[cfg(feature = "mesh")]
 #[async_trait::async_trait]
+/// Routes MCP tasks and coordinates agents and capacity within the mesh.
 pub trait McpRouter {
+    /// Routes a single MCP task to an appropriate handler or primal.
     async fn route_task(&self, task: McpTask) -> Result<TaskResponse>;
+    /// Registers and coordinates the given agents for multi-agent work.
     async fn coordinate_agents(&self, agents: Vec<AgentSpec>) -> Result<CoordinationResult>;
+    /// Scales capacity up or down according to the given requirements.
     async fn scale_capacity(&self, requirements: ScaleRequirements) -> Result<ScaleResult>;
 }
 
 #[cfg(feature = "mesh")]
 #[async_trait::async_trait]
+/// Spawns instances, joins federation nodes, and rebalances load across the swarm.
 pub trait SwarmManager {
+    /// Creates a new Squirrel instance from the supplied configuration.
     async fn spawn_squirrel(&self, config: SquirrelConfig) -> Result<SquirrelInstance>;
+    /// Adds the given nodes to the federation and returns aggregate results.
     async fn federate_nodes(&self, nodes: Vec<NodeSpec>) -> Result<FederationResult>;
+    /// Recomputes load distribution using the provided load snapshot.
     async fn balance_load(&self, load: LoadMetrics) -> Result<LoadBalanceResult>;
 }
 
@@ -204,11 +220,13 @@ pub use types::{
 // Deprecated alias for backward compatibility
 #[cfg(feature = "mesh")]
 #[deprecated(since = "0.1.0", note = "Use ServiceMeshLoadBalancerConfig instead")]
+/// Deprecated alias for [`types::ServiceMeshLoadBalancerConfig`]; use that type instead.
 pub type SongbirdLoadBalancerConfig = types::ServiceMeshLoadBalancerConfig;
 
 // Service Mesh Load Balancer Integration Trait (Capability-Based)
 #[cfg(feature = "mesh")]
 #[async_trait::async_trait]
+/// Integrates Squirrel with an external service mesh for registration, routing, and scaling signals.
 pub trait ServiceMeshLoadBalancerIntegration {
     /// Register Squirrel MCP with service mesh load balancer
     async fn register_with_service_mesh(
@@ -235,11 +253,13 @@ pub trait ServiceMeshLoadBalancerIntegration {
     since = "0.1.0",
     note = "Use ServiceMeshLoadBalancerIntegration instead"
 )]
+/// Deprecated marker trait; use [`ServiceMeshLoadBalancerIntegration`] instead.
 pub trait SongbirdLoadBalancerIntegration: ServiceMeshLoadBalancerIntegration {}
 
 // Enhanced MCP Router with Service Mesh Integration
 #[cfg(feature = "mesh")]
 #[async_trait::async_trait]
+/// Combines mesh routing with service mesh registration, stats, and cross-primal coordination.
 pub trait EnhancedMcpRouter: McpRouter + ServiceMeshLoadBalancerIntegration {
     /// Route task with service mesh coordination
     async fn route_task_with_service_mesh(&self, task: McpTask) -> Result<TaskResponse>;

@@ -83,13 +83,21 @@ pub struct ServiceMeshLoadBalancerConfig {
 /// Load balancing strategy for service mesh.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MeshLoadBalancingStrategy {
+    /// Distributes requests evenly in cyclic order across endpoints.
     RoundRobin,
+    /// Prefers endpoints with the fewest active connections.
     LeastConnections,
+    /// Rotates through endpoints weighting each by configured share.
     WeightedRoundRobin,
+    /// Biases toward endpoints with lower recent latency.
     ResponseTimeBased,
+    /// Chooses endpoints that advertise required capabilities.
     CapabilityBased,
+    /// Adjusts weights using live health and latency feedback.
     Adaptive,
+    /// Selects a random eligible endpoint per request.
     Random,
+    /// Skips unhealthy endpoints and prefers those reporting healthy status.
     HealthBased,
 }
 
@@ -218,9 +226,13 @@ pub struct ScaleEvent {
 /// Type of scaling event.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ScaleEventType {
+    /// Add capacity to meet rising load.
     ScaleUp,
+    /// Remove capacity when load is persistently low.
     ScaleDown,
+    /// Redistribute work without changing instance count.
     Rebalance,
+    /// React to critical overload or failure conditions.
     Emergency,
 }
 
@@ -376,9 +388,13 @@ pub struct FederationResult {
 /// Topology of the federation network.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FederationTopology {
+    /// Hub-and-spoke: one central coordinator and dependent spokes.
     Star,
+    /// Each node talks only to two neighbors in a closed loop.
     Ring,
+    /// Fully or densely connected peer mesh for minimal hop count.
     Mesh,
+    /// Hierarchical parent/child structure for scoped control planes.
     Tree,
 }
 
@@ -400,11 +416,17 @@ pub enum FederationStatus {
 /// Status of an instance.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum InstanceStatus {
+    /// Instance is bootstrapping and not yet accepting work.
     Starting,
+    /// Instance is healthy and processing tasks.
     Running,
+    /// Instance is draining and shutting down gracefully.
     Stopping,
+    /// Instance has exited cleanly and is not schedulable.
     Stopped,
+    /// Instance stopped unexpectedly or failed health checks.
     Failed,
+    /// Health or lifecycle state could not be determined.
     Unknown,
 }
 
@@ -463,6 +485,7 @@ pub struct FederationLoadBalancer {
 }
 
 impl FederationLoadBalancer {
+    /// Creates a federation load balancer using the shared load metrics handle.
     #[must_use]
     pub const fn new(load_metrics: std::sync::Arc<LoadMetrics>) -> Self {
         Self {

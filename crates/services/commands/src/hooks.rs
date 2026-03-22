@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(unused_imports)]
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;

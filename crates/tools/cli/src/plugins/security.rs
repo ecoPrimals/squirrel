@@ -19,27 +19,36 @@ use crate::plugins::{Plugin, PluginError}; // Use local PluginMetadata for compa
 #[derive(Error, Debug)]
 pub enum PluginSecurityError {
     #[error("Plugin validation failed: {0}")]
+    /// Plugin validation failed with a reason.
     ValidationFailed(String),
 
     #[error("Plugin signature verification failed: {0}")]
+    /// Plugin signature verification failed with a reason.
     SignatureVerificationFailed(String),
 
     #[error("Plugin sandboxing failed: {0}")]
+    /// Plugin sandboxing failed with a reason.
     SandboxingFailed(String),
 
     #[error("Plugin loading denied: {0}")]
+    /// Plugin loading was denied with a reason.
     LoadingDenied(String),
 
     #[error("Plugin execution timeout")]
+    /// Plugin execution exceeded the allowed time limit.
     ExecutionTimeout,
 }
 
 /// Plugin validation result
 #[derive(Debug)]
 pub struct ValidationResult {
+    /// Whether the plugin passed all validation checks.
     pub is_valid: bool,
+    /// Hex-encoded checksum of the plugin artifact.
     pub checksum: String,
+    /// Whether the plugin signature was verified successfully.
     pub signature_valid: bool,
+    /// Non-fatal security warnings collected during validation.
     pub warnings: Vec<String>,
 }
 
@@ -234,6 +243,7 @@ pub struct SecurePluginStub {
 }
 
 impl SecurePluginStub {
+    /// Creates a secure plugin stub with the given metadata.
     pub fn new(metadata: PluginMetadata) -> Self {
         Self { metadata }
     }

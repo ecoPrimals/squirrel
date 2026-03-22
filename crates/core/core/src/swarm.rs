@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-// Swarm module - placeholder implementation
-// This module handles swarm coordination and management
+//! Placeholder swarm coordination API reserved for future multi-instance orchestration.
 
+/// No-op placeholder for future swarm-level coordination hooks.
 pub struct SwarmService;
 
 impl Default for SwarmService {
@@ -13,6 +13,7 @@ impl Default for SwarmService {
 }
 
 impl SwarmService {
+    /// Creates a new placeholder swarm service instance.
     #[must_use]
     pub const fn new() -> Self {
         Self

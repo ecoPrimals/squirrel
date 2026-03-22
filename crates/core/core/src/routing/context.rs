@@ -19,9 +19,15 @@ pub enum ContextStorage {
     #[default]
     Local,
     /// Store contexts in `NestGate`
-    NestGate { endpoint: String },
+    NestGate {
+        /// `NestGate` base URL or connection target for context storage.
+        endpoint: String,
+    },
     /// Store contexts across federation nodes
-    Federation { nodes: Vec<String> },
+    Federation {
+        /// Peer node identifiers or endpoints participating in shared context sync.
+        nodes: Vec<String>,
+    },
 }
 
 /// A persistent context that is tied to a specific agent

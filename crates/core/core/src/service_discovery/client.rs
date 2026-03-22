@@ -36,6 +36,7 @@ use crate::error::CoreResult;
 /// # }
 /// ```
 pub struct ServiceDiscoveryClient {
+    /// Backing discovery implementation used for register and query operations.
     pub discovery: Arc<dyn ServiceDiscovery>,
 }
 

@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 5,574 passing | **Edition**: 2024 | **Rust**: 1.93+ | **Coverage**: 71%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 5,775 passing | **Edition**: 2024 | **Rust**: 1.94+ | **Coverage**: 73%
 
 ---
 
@@ -73,6 +73,8 @@ Fallback: `/run/user/<uid>/biomeos/squirrel.sock` or `/tmp/squirrel.sock`.
 
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
+
+Fitness:   5,775 tests passing
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation

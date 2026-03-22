@@ -13,14 +13,17 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::Plugin;
 use crate::types::PluginStatus;
-use crate::web::{HttpMethod, HttpStatus, WebEndpoint, WebRequest, WebResponse};
+use crate::web::{
+    ExampleWebPlugin, HttpMethod, HttpStatus, WebEndpoint, WebPlugin, WebRequest, WebResponse,
+};
 use crate::{DefaultPluginManager, PluginManagerTrait, PluginRegistry};
 
 /// Plugin management API endpoints
@@ -30,6 +33,8 @@ pub struct PluginManagementAPI {
     manager: Arc<DefaultPluginManager>,
     /// WebSocket connections for real-time updates
     websocket_connections: Arc<RwLock<HashMap<Uuid, WebSocketConnection>>>,
+    /// When this API instance was created (for uptime reporting).
+    api_started_at: Instant,
 }
 
 /// WebSocket connection for real-time updates
@@ -171,7 +176,28 @@ impl PluginManagementAPI {
         Self {
             manager,
             websocket_connections: Arc::new(RwLock::new(HashMap::new())),
+            api_started_at: Instant::now(),
         }
+    }
+
+    /// Collect HTTP endpoints advertised by a plugin when it implements [`crate::web::WebPlugin`].
+    ///
+    /// Concrete plugin types are discovered at runtime (infant primal pattern); unknown types
+    /// return an empty list rather than fabricated routes.
+    fn discovered_http_endpoints(plugin: &dyn Plugin) -> Vec<EndpointInfo> {
+        if let Some(web) = plugin.as_any().downcast_ref::<ExampleWebPlugin>() {
+            return web
+                .get_endpoints()
+                .into_iter()
+                .map(|e| EndpointInfo {
+                    path: e.path,
+                    method: e.method.to_string(),
+                    description: e.description,
+                    permissions: e.permissions,
+                })
+                .collect();
+        }
+        Vec::new()
     }
 
     /// Get all REST API endpoints
@@ -775,16 +801,33 @@ impl PluginManagementAPI {
     /// Get plugin system metrics
     async fn get_plugin_metrics(&self) -> Result<WebResponse> {
         let plugins = PluginRegistry::get_all_plugins(self.manager.as_ref()).await?;
+        let mut capability_counts: BTreeMap<String, usize> = BTreeMap::new();
+        for plugin in &plugins {
+            for cap in &plugin.metadata().capabilities {
+                *capability_counts.entry(cap.clone()).or_insert(0) += 1;
+            }
+        }
+        let unique_capabilities: Vec<String> = capability_counts.keys().cloned().collect();
+        let websocket_count = self.websocket_connections.read().await.len();
+        let api_uptime_seconds = self.api_started_at.elapsed().as_secs();
 
         Ok(WebResponse {
             status: HttpStatus::Ok,
             headers: HashMap::new(),
             body: Some(serde_json::json!({
                 "total_plugins": plugins.len(),
-                "memory_usage": "50MB", // Placeholder
-                "cpu_usage": "2%",      // Placeholder
-                "active_connections": 5, // Placeholder
-                "uptime": "24h 30m"     // Placeholder
+                "unique_capabilities": unique_capabilities,
+                "capability_registration_counts": capability_counts,
+                "active_websocket_connections": websocket_count,
+                "api_uptime_seconds": api_uptime_seconds,
+                "host_resource_metrics": {
+                    "available": false,
+                    "reason": "host-level RSS/CPU is not exposed by the plugin management API in this build",
+                    "discovery_hints": [
+                        "attach a capability.system.metrics or OS integration provider when available",
+                        "use /api/plugins/health for readiness derived from registered plugin status"
+                    ]
+                }
             })),
         })
     }
@@ -795,8 +838,7 @@ impl PluginManagementAPI {
         let status =
             PluginManagerTrait::get_plugin_status(self.manager.as_ref(), metadata.id).await?;
 
-        // Get endpoints if plugin implements WebPlugin
-        let endpoints = Vec::new(); // Placeholder - in real implementation, would check if plugin implements WebPlugin
+        let endpoints = Self::discovered_http_endpoints(plugin.as_ref());
 
         Ok(PluginInfo {
             id: metadata.id,

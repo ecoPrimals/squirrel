@@ -23,7 +23,7 @@ pub struct PrimalEndpoint {
 }
 
 /// Health status of a primal or component.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HealthStatus {
     /// Fully operational.
     Healthy,

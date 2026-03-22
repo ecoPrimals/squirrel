@@ -18,7 +18,8 @@ pub struct MockCommand {
 }
 
 impl MockCommand {
-    /// Create a new mock command
+    /// Create a new mock command.
+    #[must_use]
     pub fn new(name: &str, description: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -26,7 +27,8 @@ impl MockCommand {
         }
     }
 
-    /// Clone this command into a boxed trait object
+    /// Clone this command into a boxed trait object.
+    #[must_use]
     pub fn clone_box(&self) -> Box<dyn SimpleCommand> {
         Box::new(self.clone())
     }
@@ -80,7 +82,8 @@ pub struct MockCommandRegistry {
 }
 
 impl MockCommandRegistry {
-    /// Create a new mock command registry
+    /// Create a new mock command registry.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
@@ -93,7 +96,8 @@ impl MockCommandRegistry {
         Ok(())
     }
 
-    /// Get list of command names
+    /// Get list of command names.
+    #[must_use]
     pub fn command_names(&self) -> Vec<String> {
         self.commands.keys().cloned().collect()
     }
@@ -103,7 +107,8 @@ impl MockCommandRegistry {
         self.commands.get(name).cloned()
     }
 
-    /// List all commands with their descriptions
+    /// List all commands with their descriptions.
+    #[must_use]
     pub fn list_commands(&self) -> Vec<(String, String)> {
         self.commands
             .values()

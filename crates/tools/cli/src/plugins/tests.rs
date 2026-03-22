@@ -66,15 +66,14 @@ impl Plugin for TestPlugin {
 /// Plugin manager test utilities
 pub struct PluginManagerTester {
     /// Plugin manager instance (used for future test extensions)
-    #[allow(dead_code)]
-    manager: PluginManager,
+    _manager: PluginManager,
 }
 
 impl PluginManagerTester {
     /// Create a new plugin manager tester
     pub fn new() -> Self {
         Self {
-            manager: PluginManager::new(),
+            _manager: PluginManager::new(),
         }
     }
 
@@ -108,12 +107,6 @@ impl PluginManagerTester {
 pub struct PluginTestUtils;
 
 impl PluginTestUtils {
-    /// Create a test plugin manager
-    #[allow(dead_code)]
-    pub fn create_test_manager() -> PluginManager {
-        PluginManager::new()
-    }
-
     /// Verify plugin functionality
     pub async fn verify_plugin_functionality(plugin: &dyn Plugin) -> Result<(), PluginError> {
         // Test plugin initialization

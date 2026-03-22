@@ -13,31 +13,40 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-/// Permission definition
+/// Permission definition.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Permission {
+    /// Resource identifier (e.g. `workflow`, `message`).
     pub resource: String,
+    /// Action name (e.g. `Read`, `Write`).
     pub action: String,
 }
 
 impl Permission {
+    /// Creates a permission for the given resource and action.
     #[must_use]
     pub const fn new(resource: String, action: String) -> Self {
         Self { resource, action }
     }
 }
 
-/// Role definition
+/// Role definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Role {
+    /// Stable role id.
     pub id: Uuid,
+    /// Short role name.
     pub name: String,
+    /// Human-readable description.
     pub description: String,
+    /// Direct permissions granted to this role.
     pub permissions: HashSet<Permission>,
+    /// Parent role ids for permission inheritance.
     pub parent_roles: HashSet<Uuid>,
 }
 
 impl Role {
+    /// Creates an empty role with a new id and the given name and description.
     #[must_use]
     pub fn new(name: String, description: String) -> Self {
         Self {
@@ -53,9 +62,13 @@ impl Role {
 /// User role assignment
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserRoleAssignment {
+    /// User receiving the role.
     pub user_id: Uuid,
+    /// Role being granted.
     pub role_id: Uuid,
+    /// Administrator or system id that granted the role.
     pub granted_by: Uuid,
+    /// When the grant was recorded.
     pub granted_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -81,7 +94,7 @@ impl BasicRBACManager {
         }
     }
 
-    /// Create a new role
+    /// Inserts a new role into the registry.
     pub async fn create_role(&self, name: String, description: String) -> Result<Role> {
         let role = Role::new(name, description);
         let mut roles = self.roles.write().await;
@@ -89,33 +102,33 @@ impl BasicRBACManager {
         Ok(role)
     }
 
-    /// Get role by ID
+    /// Returns the role by id, if present.
     pub async fn get_role(&self, id: &Uuid) -> Result<Option<Role>> {
         let roles = self.roles.read().await;
         Ok(roles.get(id).cloned())
     }
 
-    /// Get role by name
+    /// Looks up a role by its name.
     pub async fn get_role_by_name(&self, name: &str) -> Result<Option<Role>> {
         let roles = self.roles.read().await;
         Ok(roles.values().find(|r| r.name == name).cloned())
     }
 
-    /// Update role
+    /// Replaces the stored role definition.
     pub async fn update_role(&self, role: Role) -> Result<()> {
         let mut roles = self.roles.write().await;
         roles.insert(role.id, role);
         Ok(())
     }
 
-    /// Delete role
+    /// Deletes a role from the registry.
     pub async fn delete_role(&self, id: &Uuid) -> Result<()> {
         let mut roles = self.roles.write().await;
         roles.remove(id);
         Ok(())
     }
 
-    /// Add permission to role
+    /// Adds a permission to a role's direct set.
     pub async fn add_permission_to_role(
         &self,
         role_id: &Uuid,
@@ -128,7 +141,7 @@ impl BasicRBACManager {
         Ok(())
     }
 
-    /// Remove permission from role
+    /// Removes a permission from a role.
     pub async fn remove_permission_from_role(
         &self,
         role_id: &Uuid,
@@ -141,7 +154,7 @@ impl BasicRBACManager {
         Ok(())
     }
 
-    /// Assign role to user
+    /// Grants a role to a user and appends an audit row.
     pub async fn assign_role_to_user(
         &self,
         user_id: &Uuid,
@@ -165,7 +178,7 @@ impl BasicRBACManager {
         Ok(())
     }
 
-    /// Remove role from user
+    /// Revokes a role from a user.
     pub async fn remove_role_from_user(&self, user_id: &Uuid, role_id: &Uuid) -> Result<()> {
         let mut user_roles = self.user_roles.write().await;
         if let Some(roles) = user_roles.get_mut(user_id) {
@@ -174,13 +187,13 @@ impl BasicRBACManager {
         Ok(())
     }
 
-    /// Get user roles
+    /// Returns role ids currently assigned to the user.
     pub async fn get_user_roles(&self, user_id: &Uuid) -> Result<HashSet<Uuid>> {
         let user_roles = self.user_roles.read().await;
         Ok(user_roles.get(user_id).cloned().unwrap_or_default())
     }
 
-    /// Check if user has permission
+    /// Returns true if any of the user's roles (including parents) grant the permission.
     pub async fn check_permission(
         &self,
         user_id: &Uuid,
@@ -211,7 +224,7 @@ impl BasicRBACManager {
         Ok(false)
     }
 
-    /// Check permission in parent roles
+    /// Recursively checks parent roles for a permission match.
     async fn check_permission_in_parent_roles(
         &self,
         parent_roles: &HashSet<Uuid>,
@@ -239,13 +252,13 @@ impl BasicRBACManager {
         Ok(false)
     }
 
-    /// Get all roles
+    /// Returns every role definition in the registry.
     pub async fn get_all_roles(&self) -> Result<Vec<Role>> {
         let roles = self.roles.read().await;
         Ok(roles.values().cloned().collect())
     }
 
-    /// Get role assignments for user
+    /// Returns assignment records for the given user.
     pub async fn get_user_role_assignments(
         &self,
         user_id: &Uuid,

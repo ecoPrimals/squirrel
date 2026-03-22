@@ -11,8 +11,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![allow(
-    // Docs WIP — tracked for completion
-    missing_docs,
+    // Docs WIP — clippy docs tracked for completion (missing_docs enforced via warn above)
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     // Edition 2024 stabilisation noise

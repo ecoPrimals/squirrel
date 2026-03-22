@@ -841,42 +841,32 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
 
     /// Validate if primal can serve the context
     fn can_serve_context(&self, context: &PrimalContext) -> bool {
-        self.can_serve_context(context)
+        Self::can_serve_context(self, context)
     }
 
     /// Get dynamic port information
     fn dynamic_port_info(&self) -> Option<DynamicPortInfo> {
-        self.dynamic_port_info()
+        Self::dynamic_port_info(self)
     }
 
     /// Register with service mesh (capability-based)
     async fn register_with_service_mesh(
         &mut self,
-        _service_mesh_endpoint: &str,
+        service_mesh_endpoint: &str,
     ) -> UniversalResult<String> {
-        // FUTURE: [Service-Mesh-Integration] Implement service mesh registration via capability discovery
-        // Tracking: Planned for v0.2.0 - service mesh integration work
-        // This should:
-        // 1. Discover service mesh (songbird) via ecosystem_manager capability discovery
-        // 2. Register this primal's endpoints and capabilities with the service mesh
-        // 3. Return registration ID or confirmation token
-        Ok("registered (stubbed)".to_string())
+        // Delegate to inherent implementation (`primal_provider::ecosystem_integration`) so the
+        // universal trait stays aligned with the real registration id and logging.
+        Self::register_with_service_mesh(self, service_mesh_endpoint).await
     }
 
     /// Deregister from service mesh
     async fn deregister_from_service_mesh(&mut self) -> UniversalResult<()> {
-        // FUTURE: [Service-Mesh-Integration] Implement service mesh deregistration
-        // Tracking: Planned for v0.2.0 - service mesh integration work
-        // This should:
-        // 1. Discover service mesh via ecosystem_manager
-        // 2. Deregister this primal from the service mesh
-        // 3. Clean up any service mesh state
-        Ok(())
+        Self::deregister_from_service_mesh(self).await
     }
 
     /// Get service mesh status
     fn get_service_mesh_status(&self) -> ServiceMeshStatus {
-        self.get_service_mesh_status()
+        Self::get_service_mesh_status(self)
     }
 
     /// Handle ecosystem request

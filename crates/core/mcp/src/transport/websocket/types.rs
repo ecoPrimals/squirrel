@@ -20,12 +20,16 @@ pub enum ControlMessage {
     Pong,
 }
 
-/// Simple state of the WebSocket connection
+/// Simple state of the WebSocket connection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WebSocketState {
+    /// No active or pending connection.
     Disconnected,
+    /// Handshake or dial in progress.
     Connecting,
+    /// Ready to send and receive frames.
     Connected,
+    /// Terminal failure with a reason string.
     Failed(String),
 }
 

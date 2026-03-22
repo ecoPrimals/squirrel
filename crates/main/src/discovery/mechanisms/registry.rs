@@ -49,11 +49,34 @@
 //! ```
 
 use crate::discovery::mechanisms::socket_registry::SocketRegistryDiscovery;
-use crate::discovery::types::{DiscoveredService, DiscoveryResult};
+use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tracing::{debug, info};
+
+const fn registry_kind_label(registry_type: &RegistryType) -> &'static str {
+    match registry_type {
+        RegistryType::Biomeos => "biomeos_socket_registry",
+        RegistryType::Consul => "consul",
+        RegistryType::Etcd => "etcd",
+        RegistryType::Kubernetes => "kubernetes",
+        RegistryType::Eureka => "eureka",
+        RegistryType::Custom => "custom_http",
+    }
+}
+
+/// Discovery hints when remote HTTP/registry vendors are not wired in this binary (infant primal pattern).
+fn remote_registry_discovery_hints() -> Vec<String> {
+    vec![
+        "use RegistryType::Biomeos (socket-registry.json under XDG_RUNTIME_DIR/biomeos/) for local primals"
+            .to_string(),
+        "implement or inject `ServiceRegistryProvider` (see `registry_trait.rs`) for vendor-specific backends"
+            .to_string(),
+        "announce capabilities via `capability.announce` / local socket registry so peers resolve without a central HTTP registry"
+            .to_string(),
+    ]
+}
 
 /// Service registry type
 ///
@@ -165,7 +188,8 @@ impl RegistryDiscovery {
     /// Discover services by capability
     ///
     /// For Biomeos type: reads from $XDG_RUNTIME_DIR/biomeos/socket-registry.json.
-    /// For other types: stub (would require HTTP client for full implementation).
+    /// For remote HTTP registries: returns [`DiscoveryError::RemoteRegistryUnavailable`] with discovery hints
+    /// (vendor integrations are provided via [`ServiceRegistryProvider`](crate::discovery::mechanisms::registry_trait::ServiceRegistryProvider)).
     pub async fn discover_by_capability(
         &self,
         capability: &str,
@@ -189,17 +213,23 @@ impl RegistryDiscovery {
             self.registry_type, self.endpoint, capability
         );
 
-        // HTTP-based registries (Consul, Etcd, etc.): stub for now
-        // Full implementation would require registry-specific API
         debug!(
-            "Registry query: GET {}/services?capability={}",
+            "Registry query would target HTTP backend at {} (capability={})",
             self.endpoint, capability
         );
 
-        Ok(Vec::new())
+        Err(DiscoveryError::RemoteRegistryUnavailable {
+            registry_kind: registry_kind_label(&self.registry_type).to_string(),
+            endpoint: self.endpoint.clone(),
+            capability: capability.to_string(),
+            hints: remote_registry_discovery_hints(),
+        })
     }
 
     /// Discover all services in the registry
+    ///
+    /// Same availability rules as [`Self::discover_by_capability`]: only [`RegistryType::Biomeos`] is
+    /// implemented here; other backends return [`DiscoveryError::RemoteRegistryUnavailable`].
     pub async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
         if !self.enabled {
             return Ok(Vec::new());
@@ -219,7 +249,12 @@ impl RegistryDiscovery {
             self.registry_type
         );
 
-        Ok(Vec::new())
+        Err(DiscoveryError::RemoteRegistryUnavailable {
+            registry_kind: registry_kind_label(&self.registry_type).to_string(),
+            endpoint: self.endpoint.clone(),
+            capability: "*".to_string(),
+            hints: remote_registry_discovery_hints(),
+        })
     }
 
     /// Register this service in the registry
@@ -360,6 +395,7 @@ impl RegistryDiscovery {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::discovery::types::DiscoveryError;
     use std::io::Write;
 
     #[tokio::test]
@@ -387,9 +423,10 @@ mod tests {
             RegistryDiscovery::new(RegistryType::Consul, "http://consul:8500".to_string());
 
         let result = registry.discover_by_capability("ai").await;
-        assert!(result.is_ok());
-        // Graceful fallback returns empty vec
-        assert_eq!(result.unwrap().len(), 0);
+        assert!(matches!(
+            result,
+            Err(DiscoveryError::RemoteRegistryUnavailable { .. })
+        ));
     }
 
     #[tokio::test]
@@ -397,7 +434,10 @@ mod tests {
         let registry = RegistryDiscovery::new(RegistryType::Etcd, "http://etcd:2379".to_string());
 
         let result = registry.discover_all().await;
-        assert!(result.is_ok());
+        assert!(matches!(
+            result,
+            Err(DiscoveryError::RemoteRegistryUnavailable { .. })
+        ));
     }
 
     #[tokio::test]

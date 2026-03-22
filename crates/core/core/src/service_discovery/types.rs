@@ -370,6 +370,7 @@ pub enum SortField {
     LastHeartbeat,
 }
 
+/// Direction applied when ordering a result set by [`SortField`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum SortOrder {
     /// Ascending order

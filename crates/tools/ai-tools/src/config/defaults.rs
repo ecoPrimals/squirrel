@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn endpoint_aliases_match_local() {
         temp_env::with_vars_unset(
-            &[
+            [
                 "LOCAL_AI_ENDPOINT",
                 "OLLAMA_ENDPOINT",
                 "LLAMACPP_ENDPOINT",

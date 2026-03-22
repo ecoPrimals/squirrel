@@ -107,10 +107,6 @@ gemini = ["direct-http"]
 local = []
 testing = []
 
-[[example]]
-name = "hierarchical_routing_demo"
-path = "examples/hierarchical_routing_demo.rs"
-
 [[bin]]
 name = "ai_tools_demo"
 path = "src/bin/ai_tools_demo.rs" 

@@ -64,6 +64,7 @@ pub mod adapter {
     }
 
     impl CommandAdapter {
+        /// Creates a new empty command adapter.
         pub fn new() -> Self {
             Self {
                 state: String::new(),
@@ -92,6 +93,7 @@ pub mod adapter {
         }
 
         impl CommandRegistryAdapter {
+            /// Creates a new empty command registry adapter.
             pub fn new() -> Self {
                 Self {
                     state: String::new(),
@@ -133,6 +135,7 @@ pub mod context {
     }
 
     impl CommandContext {
+        /// Creates a new empty command context.
         pub fn new() -> Self {
             Self {
                 state: String::new(),
@@ -156,6 +159,7 @@ pub mod executor {
     }
 
     impl ExecutionContext {
+        /// Creates a new empty execution context.
         pub fn new() -> Self {
             Self {
                 state: String::new(),
@@ -183,12 +187,14 @@ pub mod registry {
     }
 
     impl CommandRegistry {
+        /// Creates an empty command registry.
         pub fn new() -> Self {
             Self {
                 commands: Mutex::new(HashMap::new()),
             }
         }
 
+        /// Registers a command under the given name.
         pub fn register_command(&self, name: String, command: Arc<dyn Command>) {
             if let Ok(mut commands) = self.commands.lock() {
                 commands.insert(name, command);
@@ -216,6 +222,7 @@ pub mod registry {
             }
         }
 
+        /// Returns the command registered under `name`, if any.
         pub fn get_command(&self, name: &str) -> Option<Arc<dyn Command>> {
             if let Ok(commands) = self.commands.lock() {
                 commands.get(name).cloned()
@@ -224,6 +231,7 @@ pub mod registry {
             }
         }
 
+        /// Returns the names of all registered commands.
         pub fn list_commands(&self) -> Vec<String> {
             if let Ok(commands) = self.commands.lock() {
                 commands.keys().cloned().collect()
@@ -240,8 +248,10 @@ pub mod error {
     #[derive(Debug, thiserror::Error)]
     pub enum CommandError {
         #[error("Command execution failed: {0}")]
+        /// Command execution failed with an error message.
         ExecutionFailed(String),
         #[error("Invalid command: {0}")]
+        /// Invalid command name or arguments were provided.
         InvalidCommand(String),
     }
 }

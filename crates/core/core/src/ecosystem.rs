@@ -42,13 +42,20 @@ struct EcosystemState {
     coordination_stats: RwLock<CoordinationStats>,
 }
 
+/// Lifecycle and coordination mode of the ecosystem service.
 #[derive(Debug, Clone)]
 pub enum ServiceStatus {
+    /// Service is initializing and not yet steady-state.
     Starting,
-    Standalone,   // Operating without ecosystem coordination
-    Discovering,  // Attempting to discover other primals
-    Coordinating, // Actively coordinating with ecosystem
-    Degraded,     // Some coordination failures but still operational
+    /// Operating without ecosystem coordination.
+    Standalone,
+    /// Discovering peers or the registry before coordinating.
+    Discovering,
+    /// Actively coordinating tasks and health with the ecosystem.
+    Coordinating,
+    /// Partial coordination failures; still operational with reduced guarantees.
+    Degraded,
+    /// Shutting down and draining background work.
     Stopping,
 }
 
@@ -434,12 +441,11 @@ impl PrimalCoordinator for EcosystemService {
             }
         }
 
-        // Update our discovered primals cache and record discovery events
-        for primal in &discovered {
-            self.discovered_primals
-                .insert(primal.id.clone(), primal.clone());
+        let count = discovered.len() as u32;
+        let returned = discovered.clone();
 
-            // Record primal discovery event
+        // Record discovery events (borrowed pass), then move primals into the cache.
+        for primal in &discovered {
             let _ = self
                 .monitoring
                 .record_event(MonitoringEvent::PrimalDiscovered {
@@ -450,15 +456,19 @@ impl PrimalCoordinator for EcosystemService {
                 })
                 .await;
         }
+        for primal in discovered {
+            let id = primal.id.clone();
+            self.discovered_primals.insert(id, primal);
+        }
 
         // Update stats
         {
             let mut stats = self.state.coordination_stats.write();
-            stats.primals_discovered = discovered.len() as u32;
+            stats.primals_discovered = count;
         }
 
-        tracing::debug!("Discovered {} primals", discovered.len());
-        Ok(discovered)
+        tracing::debug!("Discovered {count} primals");
+        Ok(returned)
     }
 
     async fn coordinate_task(&self, task: Task) -> Result<TaskResult> {
@@ -543,10 +553,7 @@ impl PrimalCoordinator for EcosystemService {
 
     async fn health_check(&self) -> Result<HealthStatus> {
         let health = self.get_current_health();
-        let _ = self
-            .monitoring
-            .record_health("ecosystem", health.clone())
-            .await;
+        let _ = self.monitoring.record_health("ecosystem", health).await;
         Ok(health)
     }
 }
@@ -667,7 +674,9 @@ impl EcosystemService {
             candidates
                 .iter()
                 .find(|e| preferred.contains(&e.value().primal_type))
-                .map_or_else(|| candidates[0].value().clone(), |e| e.value().clone())
+                .unwrap_or(&candidates[0])
+                .value()
+                .clone()
         };
 
         tracing::info!(

@@ -9,8 +9,6 @@
 #![warn(missing_docs)]
 //! It includes commands, formatters, and configuration management.
 
-// Allow missing docs for internal implementation details
-#![allow(missing_docs)]
 #![allow(
     clippy::missing_docs_in_private_items,
     clippy::unnecessary_wraps,

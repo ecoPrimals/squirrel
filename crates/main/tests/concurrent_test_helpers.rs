@@ -92,6 +92,10 @@ pub struct EventSender<T = ()> {
 
 impl<T> EventSender<T> {
     /// Send event notification
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` with the value if the receiver was dropped before receiving.
     pub fn send(self, value: T) -> Result<(), T> {
         self.tx.send(value)
     }
@@ -104,6 +108,10 @@ pub struct EventReceiver<T = ()> {
 
 impl<T> EventReceiver<T> {
     /// Wait for event with timeout
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EventTimeoutError`] if the wait exceeds the timeout or the sender was dropped.
     pub async fn await_with_timeout(self, timeout: Duration) -> Result<T, EventTimeoutError> {
         tokio::time::timeout(timeout, self.rx)
             .await
@@ -112,12 +120,17 @@ impl<T> EventReceiver<T> {
     }
 
     /// Wait for event (no timeout)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EventRecvError`] if the sender was dropped without sending a value.
     pub async fn await_event(self) -> Result<T, EventRecvError> {
         self.rx.await.map_err(|_| EventRecvError)
     }
 }
 
 /// Create an event channel for one-time notification
+#[must_use]
 pub fn event_channel<T>() -> (EventSender<T>, EventReceiver<T>) {
     let (tx, rx) = oneshot::channel();
     (EventSender { tx }, EventReceiver { rx })
@@ -144,6 +157,7 @@ impl ConcurrentBarrier {
     ///
     /// All tasks will block at `wait()` until N tasks have reached it,
     /// then all are released simultaneously.
+    #[must_use]
     pub fn new(n: usize) -> Self {
         Self {
             barrier: Arc::new(Barrier::new(n)),
@@ -190,6 +204,10 @@ where
     /// - No wasted CPU cycles
     /// - No artificial delays
     /// - Responds immediately when condition is met
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StateTimeoutError`] if the condition is not satisfied before the deadline.
     pub async fn wait_for(&self, timeout: Duration) -> Result<T, StateTimeoutError> {
         let deadline = tokio::time::Instant::now() + timeout;
 
@@ -240,6 +258,7 @@ pub struct AtomicFlag {
 
 impl AtomicFlag {
     /// Create a new flag (initially false)
+    #[must_use]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             flag: AtomicBool::new(false),
@@ -259,6 +278,10 @@ impl AtomicFlag {
     }
 
     /// Wait for flag to be set (with timeout)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StateTimeoutError`] if the flag is not set before the timeout elapses.
     pub async fn wait_set(&self, timeout: Duration) -> Result<(), StateTimeoutError> {
         if self.is_set() {
             return Ok(());
@@ -291,6 +314,7 @@ pub struct ConcurrentCounter {
 
 impl ConcurrentCounter {
     /// Create a new counter
+    #[must_use]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             count: AtomicUsize::new(0),
@@ -318,6 +342,10 @@ impl ConcurrentCounter {
     }
 
     /// Wait for count to reach target (with timeout)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StateTimeoutError`] if the count does not reach the target before the timeout elapses.
     pub async fn wait_for_count(
         &self,
         target: usize,
@@ -355,6 +383,10 @@ impl Default for ConcurrentCounter {
 /// This is useful for ensuring tests don't hang, but the timeout
 /// should be generous (5-10 seconds). It's a safety net, not a
 /// synchronization mechanism.
+///
+/// # Errors
+///
+/// Returns [`TestTimeoutError`] if the future does not complete before the timeout elapses.
 pub async fn with_timeout<F, T>(timeout: Duration, f: F) -> Result<T, TestTimeoutError>
 where
     F: Future<Output = T>,
@@ -402,6 +434,10 @@ where
 ///
 /// This is useful for catching race conditions and verifying
 /// thread safety.
+///
+/// # Errors
+///
+/// Returns [`StressTestError`] if a spawned task panics or its future returns `Err`.
 pub async fn stress_test<F, Fut>(
     iterations: usize,
     concurrency: usize,

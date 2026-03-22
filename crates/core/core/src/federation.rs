@@ -50,24 +50,42 @@ pub struct FederationService {
     scaling_policy: Arc<ScalingPolicy>,
 }
 
+/// Tunables for node identity, discovery, scaling, and federation networking.
 #[derive(Debug, Clone)]
 pub struct FederationConfig {
+    /// Unique identifier for this node in the federation.
     pub node_id: String,
+    /// Primary listen port for Squirrel on this node.
     pub port: u16,
+    /// Endpoints or URLs used to discover other federation members.
     pub federation_discovery_urls: Vec<String>,
+    /// Whether automatic scale-up and scale-down loops are enabled.
     pub auto_scaling_enabled: bool,
+    /// Minimum Squirrel instances to retain when scaling down.
     pub min_instances: u32,
+    /// Maximum Squirrel instances allowed on this node or cluster slice.
     pub max_instances: u32,
+    /// Utilization fraction above which scale-up is considered.
     pub scale_up_threshold: f64,
+    /// Utilization fraction below which scale-down is considered.
     pub scale_down_threshold: f64,
+    /// Interval between periodic health checks of federation peers.
     pub health_check_interval: chrono::Duration,
+    /// Timeout for federation RPC or join operations.
     pub federation_timeout: chrono::Duration,
+    /// Master switch for federation features versus standalone mode.
     pub federation_enabled: bool,
+    /// Optional region label for topology-aware routing.
     pub region: Option<String>,
+    /// Optional availability zone within the region.
     pub zone: Option<String>,
+    /// Cap on concurrently managed local instances on this node.
     pub max_local_instances: u32,
+    /// Interval between auto-scaling evaluations.
     pub scaling_check_interval: chrono::Duration,
+    /// Logical network shape used for federation messaging assumptions.
     pub topology: FederationTopology,
+    /// Port exposed for federation control or peer traffic.
     pub federation_port: u16,
 }
 
@@ -81,36 +99,60 @@ struct FederationState {
     current_utilization: RwLock<f64>,
 }
 
+/// Snapshot of a remote or peer federation member and its observed health.
 #[derive(Debug, Clone)]
 pub struct FederationNode {
+    /// Stable node identifier within the federation.
     pub id: String,
+    /// Base URL or socket address for contacting this node.
     pub endpoint: String,
+    /// Optional region label for locality.
     pub region: Option<String>,
+    /// Optional zone label within the region.
     pub zone: Option<String>,
+    /// Advertised capability strings used for routing and admission.
     pub capabilities: Vec<String>,
+    /// Maximum concurrent work units this node claims to accept.
     pub capacity: u32,
+    /// Observed load against `capacity` at last measurement.
     pub current_load: u32,
+    /// Aggregated health classification from probes or heartbeats.
     pub health: NodeHealth,
+    /// Last time this node responded to discovery or health traffic.
     pub last_seen: DateTime<Utc>,
+    /// Arbitrary key-value metadata from registration or gossip.
     pub metadata: HashMap<String, String>,
 }
 
+/// Coarse health classification for a federation node or link.
 #[derive(Debug, Clone)]
 pub enum NodeHealth {
+    /// Fully responsive within SLOs.
     Healthy,
+    /// Partially impaired but still contactable.
     Degraded,
+    /// Failing checks or returning errors.
     Unhealthy,
+    /// No recent successful contact; treated as absent.
     Unreachable,
 }
 
+/// Thresholds and cooldowns governing automatic scaling decisions.
 #[derive(Debug)]
 pub struct ScalingPolicy {
+    /// Utilization level that triggers scale-up when sustained.
     pub scale_up_threshold: f64,
+    /// Utilization level that triggers scale-down when sustained.
     pub scale_down_threshold: f64,
+    /// Minimum time between consecutive scale-up actions.
     pub scale_up_cooldown: chrono::Duration,
+    /// Minimum time between consecutive scale-down actions.
     pub scale_down_cooldown: chrono::Duration,
+    /// Lower bound on instance count enforced by the policy.
     pub min_instances: u32,
+    /// Upper bound on instance count enforced by the policy.
     pub max_instances: u32,
+    /// Multiplier applied when computing the next target instance count.
     pub scale_factor: f64,
 }
 
@@ -159,7 +201,7 @@ impl FederationService {
             state,
             instances: Arc::new(DashMap::new()),
             federation_topology: Arc::new(RwLock::new(FederationTopology::Star)),
-            load_balancer: Arc::new(FederationLoadBalancer::new(load_metrics.clone())),
+            load_balancer: Arc::new(FederationLoadBalancer::new(Arc::clone(&load_metrics))),
             monitoring: Arc::new(MonitoringService::new(
                 crate::monitoring::MonitoringConfig::default(),
             )),
@@ -261,15 +303,19 @@ impl FederationService {
         // Simple leader election: use the node with the lowest ID
         // In practice, this would be more sophisticated
 
-        let mut leader: Option<SquirrelInstance> = None;
-
+        let mut best_key: Option<String> = None;
         for entry in self.instances.iter() {
-            let instance = entry.value();
-            if leader.is_none() || &instance.id < leader.as_ref().map_or(&String::new(), |l| &l.id)
+            let key = entry.key();
+            if best_key
+                .as_ref()
+                .is_none_or(|best| key.as_str() < best.as_str())
             {
-                leader = Some(instance.clone());
+                best_key = Some(key.clone());
             }
         }
+
+        let leader =
+            best_key.and_then(|k| self.instances.get(&k).map(|entry| entry.value().clone()));
 
         leader.ok_or_else(|| {
             capability_unavailable_federation(
@@ -753,31 +799,25 @@ impl SwarmManager for FederationService {
             metadata: config.metadata,
         };
 
-        // Store the instance
-        let instance_id_for_log = instance.id.clone();
-        let instance_for_return = instance.clone();
-        self.instances.insert(instance_id, instance);
-
-        // In a real implementation, you would:
-        // 1. Create new process/container with the config
-        // 2. Wait for it to start up and become healthy
-        // 3. Register it with the load balancer
-
-        tracing::info!("Successfully created instance: {}", instance_id_for_log);
-        Ok(instance_for_return)
+        tracing::info!("Successfully created instance: {}", instance_id);
+        self.instances.insert(instance_id, instance.clone());
+        Ok(instance)
     }
 
     async fn federate_nodes(&self, nodes: Vec<NodeSpec>) -> Result<FederationResult> {
-        let mut successful_nodes = Vec::new();
-        let mut failed_nodes = 0;
+        let mut nodes_joined = 0u32;
+        let mut failed_nodes = 0u32;
+        let mut joined_capacity = 0u32;
 
         for node_spec in nodes {
-            match self.add_federation_node(node_spec.clone()).await {
-                Ok(()) => {
-                    successful_nodes.push(node_spec);
+            let node_id = node_spec.id.clone();
+            match self.add_federation_node(node_spec).await {
+                Ok(cap) => {
+                    nodes_joined += 1;
+                    joined_capacity += cap;
                 }
                 Err(e) => {
-                    tracing::error!("Failed to add federation node {}: {}", node_spec.id, e);
+                    tracing::error!("Failed to add federation node {}: {}", node_id, e);
                     failed_nodes += 1;
                 }
             }
@@ -785,18 +825,16 @@ impl SwarmManager for FederationService {
 
         let status = if failed_nodes == 0 {
             FederationStatus::Active
-        } else if successful_nodes.is_empty() {
+        } else if nodes_joined == 0 {
             FederationStatus::Inactive
         } else {
             FederationStatus::Degraded
         };
 
-        let total_capacity: u32 = successful_nodes.iter().map(|n| n.capacity).sum();
-
         Ok(FederationResult {
             federation_id: self.state.federation_id.clone(),
-            nodes_joined: successful_nodes.len() as u32,
-            total_capacity: total_capacity.max(1),
+            nodes_joined,
+            total_capacity: joined_capacity.max(1),
             status,
         })
     }
@@ -827,7 +865,8 @@ impl SwarmManager for FederationService {
 
 impl FederationService {
     /// Add a new node to the federation
-    async fn add_federation_node(&self, node_spec: NodeSpec) -> Result<()> {
+    async fn add_federation_node(&self, node_spec: NodeSpec) -> Result<u32> {
+        let cap = node_spec.capacity;
         let node = SquirrelInstance {
             id: node_spec.id.clone(),
             node_id: self.config.node_id.clone(),
@@ -843,7 +882,7 @@ impl FederationService {
         };
 
         self.instances.insert(node_spec.id, node);
-        Ok(())
+        Ok(cap)
     }
 }
 
@@ -871,15 +910,24 @@ struct JoinRequest {
     capacity: u32,
 }
 
+/// Point-in-time summary of federation membership and load for observability.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FederationStats {
+    /// This node's identifier.
     pub node_id: String,
+    /// Identifier of the logical federation this node belongs to.
     pub federation_id: String,
+    /// Current lifecycle state of the federation from this node's view.
     pub status: FederationStatus,
+    /// Number of Squirrel instances managed locally.
     pub local_instances: u32,
+    /// Count of known peer nodes participating in the federation.
     pub federation_nodes: u32,
+    /// Sum of advertised capacity across tracked members.
     pub total_capacity: u32,
+    /// Blended utilization metric in the 0–1 range.
     pub current_utilization: f64,
+    /// Whether this node currently holds the leader role.
     pub is_leader: bool,
 }
 

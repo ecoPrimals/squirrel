@@ -12,30 +12,17 @@ Core functionality for the Machine Context Protocol (MCP) system, including cont
 - ⚠️ Sync functionality (temporarily disabled)
 - ⚠️ Watch_task real-time monitoring (temporarily disabled)
 
-## Integration Status
+## Integration status
 
-### 🔗 **Nestgate Port Manager Integration**
-**Status:** Waiting for handoff from NAS team
+**Sync** and **watch_task** are compiled but not enabled in default builds. They are intended for tighter coordination with ecosystem service discovery and lifecycle hooks (ports, health, failover). Re-enabling them is tracked as internal work against the existing MCP task and monitoring layers—no external component handoff is required.
 
-The sync and watch_task features are designed to integrate with the Nestgate port manager for:
-- **Service orchestration** - Port assignment and service deployment coordination
-- **Health monitoring** - Real-time service status tracking
-- **Recovery management** - Automated failover and service recovery
-- **Context synchronization** - Shared state management across distributed services
+**Likely integration points when enabled:**
+- `sync/` — distributed state synchronization
+- `task/` — service task orchestration
+- `monitoring/` — health and metrics collection
+- `context_manager.rs` — shared configuration management
 
-**Next Steps:**
-1. Re-enable sync functionality once Nestgate port manager is available
-2. Implement watch_task for real-time service monitoring
-3. Create service adapters for port manager integration
-4. Design notification systems for service lifecycle events
-
-**Integration Points:**
-- `sync/` module - Distributed state synchronization
-- `task/` module - Service task orchestration  
-- `monitoring/` module - Health and metrics collection
-- `context_manager.rs` - Shared configuration management
-
-## Current Status
+## Current status
 - **Compilation:** ✅ All errors resolved (0 compilation errors)
 - **Tests:** ✅ Ready for testing
-- **Disabled Features:** sync, watch_task (awaiting Nestgate integration) 
+- **Disabled features:** sync, watch_task (off by default until wired to deployment policy)

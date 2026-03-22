@@ -362,9 +362,8 @@ impl ZeroCopyPluginState {
         }
     }
 
-    /// Update status (creates new state with updated status)
-    #[must_use]
-    pub fn with_status(mut self, new_status: PluginStatus, reason: Option<String>) -> Self {
+    /// Update status in place, recording a [`StateTransition`].
+    pub fn apply_status(&mut self, new_status: PluginStatus, reason: Option<String>) {
         let transition = StateTransition {
             from: self.status,
             to: new_status,
@@ -372,12 +371,17 @@ impl ZeroCopyPluginState {
             reason,
         };
 
-        let mut history = (*self.state_history).clone();
+        let history = Arc::make_mut(&mut self.state_history);
         history.push(transition);
 
         self.status = new_status;
         self.last_updated = std::time::SystemTime::now();
-        self.state_history = Arc::new(history);
+    }
+
+    /// Update status (builder-style, reuses [`Self::apply_status`])
+    #[must_use]
+    pub fn with_status(mut self, new_status: PluginStatus, reason: Option<String>) -> Self {
+        self.apply_status(new_status, reason);
         self
     }
 
@@ -468,9 +472,8 @@ impl ZeroCopyPluginEntry {
 
     /// Update status
     pub async fn set_status(&self, new_status: PluginStatus, reason: Option<String>) {
-        let mut state = self.state.write().await;
-        let new_state = state.clone().with_status(new_status, reason);
-        *state = new_state;
+        let mut guard = self.state.write().await;
+        ZeroCopyPluginState::apply_status(&mut guard, new_status, reason);
     }
 }
 
@@ -630,7 +633,7 @@ impl ZeroCopyPluginRegistry {
                 let mut capability_index = self.capability_index.write().await;
                 for capability in entry.metadata.capabilities.iter() {
                     capability_index
-                        .entry(capability.clone())
+                        .entry(capability.as_str().to_owned())
                         .or_default()
                         .push(plugin_id);
                 }
@@ -649,7 +652,7 @@ impl ZeroCopyPluginRegistry {
     /// Get plugin by ID (zero-copy lookup)
     pub async fn get_plugin(&self, plugin_id: Uuid) -> Option<Arc<ZeroCopyPluginEntry>> {
         let plugins = self.plugins.read().await;
-        let result = plugins.get(&plugin_id).cloned();
+        let result = plugins.get(&plugin_id).map(Arc::clone);
         drop(plugins);
 
         // Update stats
@@ -695,14 +698,14 @@ impl ZeroCopyPluginRegistry {
         let plugins = self.plugins.read().await;
         plugin_ids
             .iter()
-            .filter_map(|id| plugins.get(id).cloned())
+            .filter_map(|id| plugins.get(id).map(Arc::clone))
             .collect()
     }
 
     /// List all plugins (zero-copy)
     pub async fn list_plugins(&self) -> Vec<Arc<ZeroCopyPluginEntry>> {
         let plugins = self.plugins.read().await;
-        plugins.values().cloned().collect()
+        plugins.values().map(Arc::clone).collect()
     }
 
     /// Get registry statistics

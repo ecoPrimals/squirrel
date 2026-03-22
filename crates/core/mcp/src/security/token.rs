@@ -14,31 +14,46 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-/// Token type enumeration
+/// Kind of token issued or validated by the manager.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TokenType {
+    /// Short-lived API access token.
     Access,
+    /// Long-lived token used to obtain new access tokens.
     Refresh,
+    /// Long-lived automation or integration token.
     Api,
+    /// Interactive browser or session token.
     Session,
 }
 
-/// Token information
+/// Stored token record with hash and lifecycle fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Token {
+    /// Unique record id for this token.
     pub id: Uuid,
+    /// Discriminated token kind.
     pub token_type: TokenType,
+    /// Owning user id.
     pub user_id: Uuid,
+    /// Opaque hash of the secret material (not the raw secret).
     pub token_hash: String,
+    /// Creation timestamp (UTC).
     pub created_at: DateTime<Utc>,
+    /// Instant after which the token must not be accepted.
     pub expires_at: DateTime<Utc>,
+    /// Last successful validation time, if any.
     pub last_used: Option<DateTime<Utc>>,
+    /// Whether the token was explicitly invalidated.
     pub is_revoked: bool,
+    /// OAuth-style scope strings, if used.
     pub scopes: Vec<String>,
+    /// Extension metadata for callers or policy.
     pub metadata: HashMap<String, String>,
 }
 
 impl Token {
+    /// Creates a new token row with empty scopes and metadata.
     #[must_use]
     pub fn new(
         token_type: TokenType,
@@ -60,24 +75,31 @@ impl Token {
         }
     }
 
+    /// Returns true if the current time is past `expires_at`.
     #[must_use]
     pub fn is_expired(&self) -> bool {
         Utc::now() > self.expires_at
     }
 
+    /// Returns true if the token is neither revoked nor expired.
     #[must_use]
     pub fn is_valid(&self) -> bool {
         !self.is_revoked && !self.is_expired()
     }
 }
 
-/// Token configuration
+/// Expiry durations used when minting tokens of each type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenConfig {
+    /// Access token lifetime in minutes.
     pub access_token_expiry_minutes: i64,
+    /// Refresh token lifetime in days.
     pub refresh_token_expiry_days: i64,
+    /// API token lifetime in days.
     pub api_token_expiry_days: i64,
+    /// Session token lifetime in hours.
     pub session_token_expiry_hours: i64,
+    /// Suggested background cleanup interval for expired rows.
     pub cleanup_interval_hours: i64,
 }
 
@@ -105,7 +127,7 @@ pub struct DefaultTokenManager {
 }
 
 impl DefaultTokenManager {
-    /// Create a new token manager
+    /// Creates a manager with default expiry configuration.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -115,7 +137,7 @@ impl DefaultTokenManager {
         }
     }
 
-    /// Create a new token manager with custom configuration
+    /// Creates a manager using the supplied expiry configuration.
     #[must_use]
     pub fn new_with_config(config: TokenConfig) -> Self {
         Self {
@@ -125,7 +147,7 @@ impl DefaultTokenManager {
         }
     }
 
-    /// Create a new token
+    /// Hashes the secret string, assigns expiry from config, and stores the record.
     pub async fn create_token(
         &self,
         token_type: TokenType,
@@ -158,13 +180,13 @@ impl DefaultTokenManager {
         Ok(token)
     }
 
-    /// Get token by ID
+    /// Returns the token record by id, if present.
     pub async fn get_token(&self, id: &Uuid) -> Result<Option<Token>> {
         let tokens = self.tokens.read().await;
         Ok(tokens.get(id).cloned())
     }
 
-    /// Get token by token string
+    /// Resolves a token from its secret string via the hash index.
     pub async fn get_token_by_string(&self, token_string: &str) -> Result<Option<Token>> {
         let token_hash = self.hash_token(token_string);
         let token_hashes = self.token_hashes.read().await;
@@ -177,7 +199,7 @@ impl DefaultTokenManager {
         }
     }
 
-    /// Validate token
+    /// Returns the token after validation and updates `last_used` when valid.
     pub async fn validate_token(&self, token_string: &str) -> Result<Option<Token>> {
         if let Some(mut token) = self.get_token_by_string(token_string).await? {
             if token.is_valid() {
@@ -193,14 +215,14 @@ impl DefaultTokenManager {
         }
     }
 
-    /// Update token
+    /// Inserts or replaces a token record by id.
     pub async fn update_token(&self, token: Token) -> Result<()> {
         let mut tokens = self.tokens.write().await;
         tokens.insert(token.id, token);
         Ok(())
     }
 
-    /// Revoke token
+    /// Marks a token as revoked by id.
     pub async fn revoke_token(&self, id: &Uuid) -> Result<()> {
         let mut tokens = self.tokens.write().await;
         if let Some(token) = tokens.get_mut(id) {
@@ -209,7 +231,7 @@ impl DefaultTokenManager {
         Ok(())
     }
 
-    /// Revoke token by string
+    /// Resolves the token from its secret string and revokes it.
     pub async fn revoke_token_by_string(&self, token_string: &str) -> Result<()> {
         if let Some(token) = self.get_token_by_string(token_string).await? {
             self.revoke_token(&token.id).await?;
@@ -217,7 +239,7 @@ impl DefaultTokenManager {
         Ok(())
     }
 
-    /// Revoke all tokens for user
+    /// Revokes every non-revoked token belonging to the user and returns count.
     pub async fn revoke_user_tokens(&self, user_id: &Uuid) -> Result<usize> {
         let mut tokens = self.tokens.write().await;
         let mut count = 0;
@@ -232,7 +254,7 @@ impl DefaultTokenManager {
         Ok(count)
     }
 
-    /// Get user tokens
+    /// Lists all tokens issued for the user.
     pub async fn get_user_tokens(&self, user_id: &Uuid) -> Result<Vec<Token>> {
         let tokens = self.tokens.read().await;
         Ok(tokens
@@ -242,7 +264,7 @@ impl DefaultTokenManager {
             .collect())
     }
 
-    /// Get active user tokens
+    /// Lists tokens for the user that pass `is_valid`.
     pub async fn get_active_user_tokens(&self, user_id: &Uuid) -> Result<Vec<Token>> {
         let tokens = self.tokens.read().await;
         Ok(tokens
@@ -252,7 +274,7 @@ impl DefaultTokenManager {
             .collect())
     }
 
-    /// Cleanup expired tokens
+    /// Deletes expired tokens from both maps and returns how many were removed.
     pub async fn cleanup_expired_tokens(&self) -> Result<usize> {
         let mut tokens = self.tokens.write().await;
         let mut token_hashes = self.token_hashes.write().await;
@@ -273,7 +295,7 @@ impl DefaultTokenManager {
         Ok(count)
     }
 
-    /// Refresh token
+    /// Exchanges a valid refresh token for a new access and refresh pair.
     pub async fn refresh_token(
         &self,
         refresh_token_string: &str,
@@ -318,7 +340,7 @@ impl DefaultTokenManager {
         format!("hash_{token}")
     }
 
-    /// Get token statistics
+    /// Returns aggregate counts for stored tokens.
     pub async fn get_token_statistics(&self) -> Result<TokenStatistics> {
         let tokens = self.tokens.read().await;
         let total = tokens.len();
@@ -335,12 +357,16 @@ impl DefaultTokenManager {
     }
 }
 
-/// Token statistics
+/// Aggregate counts for token inventory reporting.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenStatistics {
+    /// Total token rows in storage.
     pub total: usize,
+    /// Tokens that are valid (not revoked, not expired).
     pub active: usize,
+    /// Tokens past expiry (may still be present until cleanup).
     pub expired: usize,
+    /// Tokens that were explicitly revoked.
     pub revoked: usize,
 }
 

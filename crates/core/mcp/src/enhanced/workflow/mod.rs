@@ -676,3 +676,4 @@ impl Default for StorageConfig {
             config: HashMap::new(),
         }
     }
+}

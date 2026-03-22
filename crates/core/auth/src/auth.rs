@@ -457,7 +457,11 @@ impl AuthService {
         user
     }
 
-    /// Test helper: parse security capability from response body (for unit tests)
+    /// Test helper: parse security capability from response body (for unit tests).
+    ///
+    /// # Errors
+    ///
+    /// Returns `AuthError` if the response body cannot be parsed as a security capability.
     #[cfg(all(test, feature = "http-auth"))]
     pub fn parse_security_capability_for_test(
         response_body: &str,

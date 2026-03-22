@@ -4,10 +4,13 @@
 use crate::plugins::error::PluginError;
 use std::path::{Path, PathBuf};
 
+/// Trait for discovering plugin library paths on disk.
 pub trait PluginDiscovery {
+    /// Returns paths to plugin libraries found under `plugin_dir`.
     fn discover(&self, plugin_dir: &Path) -> Result<Vec<PathBuf>, PluginError>;
 }
 
+/// Default discovery implementation that scans directories for native plugin libraries.
 pub struct DefaultPluginDiscovery;
 
 impl PluginDiscovery for DefaultPluginDiscovery {

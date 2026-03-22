@@ -6,14 +6,21 @@
 //! This module implements a plugin system that allows extending the
 //! CLI functionality with custom commands and features.
 
+/// Plugin discovery implementations.
 pub mod discovery;
+/// Plugin error types.
 pub mod error;
+/// Example built-in plugin for testing and reference.
 pub mod example_plugin;
+/// Plugin lifecycle and registration.
 pub mod manager;
 #[cfg(test)]
 mod mod_tests;
+/// Plugin trait and metadata types.
 pub mod plugin;
+/// Secure plugin loading and validation.
 pub mod security;
+/// Plugin manager singleton and shared state.
 pub mod state;
 #[cfg(test)]
 mod tests;

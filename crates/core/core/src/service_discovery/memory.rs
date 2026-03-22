@@ -24,19 +24,28 @@ use crate::service_discovery::types::{
 };
 
 // Define ServiceInstance locally if not available elsewhere
+/// Lightweight runtime view of a single registered service endpoint.
 #[derive(Debug, Clone)]
 pub struct ServiceInstance {
+    /// Stable service identifier matching the registry key.
     pub service_id: String,
+    /// Primary contact URL or socket for this instance.
     pub endpoint: String,
+    /// Last reported health classification.
     pub status: ServiceHealthStatus,
+    /// Time of the last successful heartbeat or health update.
     pub last_heartbeat: chrono::DateTime<Utc>,
 }
 
 // Define ServiceRegistration locally if not available elsewhere
+/// Record tying a service id to its full definition at registration time.
 #[derive(Debug, Clone)]
 pub struct ServiceRegistration {
+    /// Service identifier used for lookup and updates.
     pub service_id: String,
+    /// Complete service definition including endpoints and capabilities.
     pub definition: ServiceDefinition,
+    /// Wall-clock time when this registration was recorded.
     pub timestamp: chrono::DateTime<Utc>,
 }
 

@@ -14,15 +14,22 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-/// Stored key information
+/// Stored key material and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredKey {
+    /// Unique key record id.
     pub id: Uuid,
+    /// Human-readable key name.
     pub name: String,
+    /// Semantic type label (e.g. signing, encryption).
     pub key_type: String,
+    /// Raw key bytes or opaque blob.
     pub data: Vec<u8>,
+    /// When the key was created.
     pub created_at: DateTime<Utc>,
+    /// Optional expiry after which the key should not be used.
     pub expires_at: Option<DateTime<Utc>>,
+    /// Whether the key is still valid for use.
     pub active: bool,
 }
 
@@ -44,7 +51,7 @@ impl InMemoryKeyStorage {
         }
     }
 
-    /// Store a key
+    /// Inserts a new key with optional expiry and returns its id.
     pub async fn store_key(
         &self,
         name: String,
@@ -68,39 +75,39 @@ impl InMemoryKeyStorage {
         Ok(id)
     }
 
-    /// Get a key by ID
+    /// Returns the key record by id, if present.
     pub async fn get_key(&self, id: &Uuid) -> Result<Option<StoredKey>> {
         let keys = self.keys.read().await;
         Ok(keys.get(id).cloned())
     }
 
-    /// Get a key by name
+    /// Finds a key by its display name.
     pub async fn get_key_by_name(&self, name: &str) -> Result<Option<StoredKey>> {
         let keys = self.keys.read().await;
         Ok(keys.values().find(|k| k.name == name).cloned())
     }
 
-    /// Update a key
+    /// Replaces the stored record for the key id.
     pub async fn update_key(&self, key: StoredKey) -> Result<()> {
         let mut keys = self.keys.write().await;
         keys.insert(key.id, key);
         Ok(())
     }
 
-    /// Delete a key
+    /// Deletes a key by id.
     pub async fn delete_key(&self, id: &Uuid) -> Result<()> {
         let mut keys = self.keys.write().await;
         keys.remove(id);
         Ok(())
     }
 
-    /// List all active keys
+    /// Lists keys that are still marked active.
     pub async fn list_keys(&self) -> Result<Vec<StoredKey>> {
         let keys = self.keys.read().await;
         Ok(keys.values().filter(|k| k.active).cloned().collect())
     }
 
-    /// Check if a key is expired
+    /// Returns whether the key is past its expiry or missing from the store.
     pub async fn is_key_expired(&self, id: &Uuid) -> Result<bool> {
         let keys = self.keys.read().await;
         if let Some(key) = keys.get(id) {
@@ -114,7 +121,7 @@ impl InMemoryKeyStorage {
         }
     }
 
-    /// Clean up expired keys
+    /// Removes keys whose expiry is in the past and returns how many were removed.
     pub async fn cleanup_expired_keys(&self) -> Result<usize> {
         let mut keys = self.keys.write().await;
         let now = Utc::now();

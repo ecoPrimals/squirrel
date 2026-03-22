@@ -36,6 +36,7 @@ pub struct TeamWorkflowManager {
 }
 
 impl TeamWorkflowManager {
+    /// Creates a manager backed by the given security implementation for permission checks.
     #[instrument(skip(security))]
     pub fn new(security: Arc<SecurityManagerImpl>) -> Self {
         Self {
@@ -47,6 +48,7 @@ impl TeamWorkflowManager {
         }
     }
 
+    /// Stores a new workflow after verifying write permission on the auth token.
     #[instrument(skip(self))]
     pub async fn create_workflow(
         &self,
@@ -65,6 +67,7 @@ impl TeamWorkflowManager {
         Ok(())
     }
 
+    /// Returns the workflow by id after read permission is granted.
     #[instrument(skip(self))]
     pub async fn get_workflow(&self, id: &str, token: &str) -> Result<TeamWorkflow, MCPError> {
         // Validate permissions
@@ -81,6 +84,7 @@ impl TeamWorkflowManager {
             .ok_or_else(|| MCPError::Tool(ToolError::NotFound(id.to_string())))
     }
 
+    /// Sets the workflow status after write permission is granted.
     #[instrument(skip(self))]
     pub async fn update_workflow_status(
         &self,
@@ -104,6 +108,7 @@ impl TeamWorkflowManager {
         }
     }
 
+    /// Appends a message to the workflow log after message write permission is granted.
     #[instrument(skip(self))]
     pub async fn send_message(
         &self,
@@ -126,6 +131,7 @@ impl TeamWorkflowManager {
         Ok(())
     }
 
+    /// Returns all messages for a workflow after read permission is granted.
     #[instrument(skip(self))]
     pub async fn get_messages(
         &self,
@@ -143,6 +149,7 @@ impl TeamWorkflowManager {
         Ok(messages.get(workflow_id).cloned().unwrap_or_default())
     }
 
+    /// Registers a review request after review write permission is granted.
     #[instrument(skip(self))]
     pub async fn create_review(&self, review: ReviewRequest, token: &str) -> Result<(), MCPError> {
         // Validate permissions
@@ -157,6 +164,7 @@ impl TeamWorkflowManager {
         Ok(())
     }
 
+    /// Returns a review by id after read permission is granted.
     #[instrument(skip(self))]
     pub async fn get_review(&self, id: &str, token: &str) -> Result<ReviewRequest, MCPError> {
         // Validate permissions
@@ -173,6 +181,7 @@ impl TeamWorkflowManager {
             .ok_or_else(|| MCPError::Tool(ToolError::NotFound(id.to_string())))
     }
 
+    /// Moves a workflow to a new status and records transition metadata.
     #[instrument(skip(self))]
     pub async fn transition_workflow_state(
         &self,
@@ -232,6 +241,7 @@ impl TeamWorkflowManager {
         }
     }
 
+    /// Computes message and completion metrics for a workflow after read access.
     #[instrument(skip(self))]
     pub async fn get_workflow_metrics(
         &self,
@@ -325,6 +335,7 @@ impl TeamWorkflowManager {
         })
     }
 
+    /// Duplicates a message into each listed workflow after write permission is granted.
     #[instrument(skip(self))]
     pub async fn broadcast_team_message(
         &self,
@@ -356,6 +367,7 @@ impl TeamWorkflowManager {
         Ok(())
     }
 
+    /// Adds a task to a workflow and emits a corresponding task message.
     #[instrument(skip(self))]
     pub async fn create_task(
         &self,
@@ -396,6 +408,7 @@ impl TeamWorkflowManager {
         Ok(())
     }
 
+    /// Updates a task status and posts a status message to the workflow.
     #[instrument(skip(self))]
     pub async fn update_task_status(
         &self,
@@ -445,6 +458,7 @@ impl TeamWorkflowManager {
         }
     }
 
+    /// Returns workflows matching the filter after read permission is granted.
     #[instrument(skip(self))]
     pub async fn filter_workflows(
         &self,
@@ -498,6 +512,7 @@ impl TeamWorkflowManager {
         Ok(filtered)
     }
 
+    /// Returns all tasks recorded for a workflow after task read permission is granted.
     #[instrument(skip(self))]
     pub async fn get_workflow_tasks(
         &self,

@@ -159,11 +159,13 @@ pub mod test_utils {
     use super::*;
 
     /// Create a test biomeOS integration instance
+    #[must_use]
     pub fn create_test_integration() -> SquirrelBiomeOSIntegration {
         SquirrelBiomeOSIntegration::new("test-biome".to_string())
     }
 
     /// Create test health status with all required fields
+    #[must_use]
     pub fn create_test_health_status() -> HealthStatus {
         HealthStatus {
             status: "healthy".to_string(),

@@ -52,6 +52,21 @@ pub enum DiscoveryError {
     /// The requested feature is not supported
     #[error("Feature not supported: {0}")]
     NotSupported(String),
+
+    /// Remote HTTP or vendor-specific registry integration is not available in this build.
+    #[error(
+        "Remote registry backend '{registry_kind}' is not available (endpoint {endpoint}, capability {capability}). Hints: {hints:?}"
+    )]
+    RemoteRegistryUnavailable {
+        /// Registry discriminator (e.g. `consul`, `custom_http`).
+        registry_kind: String,
+        /// Configured endpoint URL or host.
+        endpoint: String,
+        /// Capability filter used for the query (`*` for discover-all).
+        capability: String,
+        /// Suggested capability-based discovery paths (infant primal pattern).
+        hints: Vec<String>,
+    },
 }
 
 /// A discovered service provider

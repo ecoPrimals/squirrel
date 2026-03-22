@@ -17,11 +17,10 @@
 //! This module contains all hardcoded values used throughout the MCP system,
 //! centralized for easy maintenance and configuration.
 
-#![deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
-
 use std::time::Duration;
 
 /// Network Configuration Constants
+#[deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
 pub mod network {
     /// Default bind address for services
     pub const DEFAULT_BIND_ADDRESS: &str = "127.0.0.1";
@@ -46,6 +45,7 @@ pub mod network {
 }
 
 /// Timeout Configuration Constants
+#[deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
 pub mod timeouts {
     use super::Duration;
 
@@ -75,6 +75,7 @@ pub mod timeouts {
 }
 
 /// Message Size Configuration Constants
+#[deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
 pub mod message_sizes {
     /// Default maximum message size (16MB)
     pub const DEFAULT_MAX_MESSAGE_SIZE: usize = 16 * 1024 * 1024;
@@ -93,6 +94,7 @@ pub mod message_sizes {
 }
 
 /// Protocol Configuration Constants
+#[deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
 pub mod protocol {
     /// Default MCP subprotocol
     pub const DEFAULT_MCP_SUBPROTOCOL: &str = "mcp";
@@ -108,6 +110,7 @@ pub mod protocol {
 }
 
 /// Service Configuration Constants
+#[deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
 pub mod services {
     use std::time::Duration;
 
@@ -125,6 +128,7 @@ pub mod services {
 }
 
 /// URL Templates
+#[deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
 pub mod url_templates {
     /// Default localhost HTTP URL template
     pub const LOCALHOST_HTTP_TEMPLATE: &str = "http://localhost:{}";
@@ -152,6 +156,7 @@ pub mod url_templates {
 }
 
 /// Environment Variable Names
+#[deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
 pub mod env_vars {
     /// Bind address environment variable
     pub const BIND_ADDRESS: &str = "MCP_BIND_ADDRESS";
@@ -179,6 +184,7 @@ pub mod env_vars {
 }
 
 /// Helper functions for building common URLs
+#[allow(deprecated)]
 pub mod url_builders {
     use super::url_templates;
     use universal_constants::network;
@@ -247,20 +253,23 @@ mod tests {
     use super::url_builders;
     use super::url_templates;
 
+    #[allow(deprecated)]
     #[test]
     fn network_ports_and_sizes_are_sane() {
         assert_eq!(network::DEFAULT_WEBSOCKET_PORT, 8080);
-        assert!(network::DEFAULT_MAX_CONNECTIONS > 0);
+        assert_ne!(network::DEFAULT_MAX_CONNECTIONS, 0);
         assert_eq!(message_sizes::DEFAULT_CHUNK_SIZE, 4 * 1024);
         assert_eq!(protocol::DEFAULT_MCP_SUBPROTOCOL, "mcp");
     }
 
+    #[allow(deprecated)]
     #[test]
     fn timeouts_are_nonzero() {
         assert!(timeouts::DEFAULT_CONNECTION_TIMEOUT.as_secs() > 0);
         assert!(timeouts::DEFAULT_REQUEST_TIMEOUT >= timeouts::DEFAULT_CONNECTION_TIMEOUT);
     }
 
+    #[allow(deprecated)]
     #[test]
     fn url_helpers_build_expected_paths() {
         assert!(url_builders::health_url("http://h:1").ends_with(url_templates::HEALTH_ENDPOINT));

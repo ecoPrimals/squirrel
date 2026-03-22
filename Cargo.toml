@@ -106,6 +106,8 @@ prometheus = "0.14"
 # Security and additional deps
 secrecy = { version = "0.8", features = ["serde"] }
 zeroize = { version = "1.7", features = ["zeroize_derive"] }
+blake3 = "1.5"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 # axum REMOVED - NOT ecoPrimals standard (use JSON-RPC + tarpc!)
 # tower REMOVED - NOT ecoPrimals standard  
 # tower-http REMOVED - NOT ecoPrimals standard

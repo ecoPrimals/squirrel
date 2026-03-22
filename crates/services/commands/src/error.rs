@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn from_io_error() {
-        let e: CommandError = io::Error::new(io::ErrorKind::Other, "x").into();
+        let e: CommandError = io::Error::other("x").into();
         assert!(matches!(e, CommandError::IoError(_)));
     }
 
@@ -172,8 +172,7 @@ mod tests {
 
     #[test]
     fn from_box_error() {
-        let boxed: Box<dyn Error + Send + Sync> =
-            Box::new(io::Error::new(io::ErrorKind::Other, "boxed"));
+        let boxed: Box<dyn Error + Send + Sync> = Box::new(io::Error::other("boxed"));
         let c: CommandError = boxed.into();
         assert!(matches!(c, CommandError::Other(_)));
     }
