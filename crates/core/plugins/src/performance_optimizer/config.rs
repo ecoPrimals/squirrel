@@ -84,6 +84,7 @@ pub struct MemoryOptimizationConfig {
 
 impl PerformanceOptimizerConfig {
     /// Production-optimized configuration
+    #[must_use]
     pub const fn production() -> Self {
         Self {
             hot_path_cache: HotPathCacheConfig {
@@ -113,6 +114,7 @@ impl PerformanceOptimizerConfig {
     }
 
     /// Development configuration with reduced overhead
+    #[must_use]
     pub const fn development() -> Self {
         Self {
             hot_path_cache: HotPathCacheConfig {

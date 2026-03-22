@@ -34,6 +34,7 @@ pub struct TaskManager {
 
 impl TaskManager {
     /// Create a new task manager.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             tasks: RwLock::new(HashMap::new()),

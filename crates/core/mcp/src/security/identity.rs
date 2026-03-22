@@ -37,6 +37,7 @@ pub struct DefaultIdentityManager {
 
 impl DefaultIdentityManager {
     /// Create a new identity manager
+    #[must_use]
     pub fn new() -> Self {
         Self {
             identities: Arc::new(RwLock::new(HashMap::new())),

@@ -220,8 +220,8 @@ pub async fn load_rule(path: impl AsRef<Path>) -> RuleSystemResult<Rule> {
 /// # Errors
 ///
 /// Returns an error if the rule cannot be serialized.
-pub fn serialize_rule_to_yaml(rule: &Rule) -> Result<String, serde_yml::Error> {
-    serde_yml::to_string(rule)
+pub fn serialize_rule_to_yaml(rule: &Rule) -> Result<String, serde_yaml_ng::Error> {
+    serde_yaml_ng::to_string(rule)
 }
 
 /// Serialize a rule to JSON format

@@ -25,9 +25,9 @@ anyhow.workspace = true
 # once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
 # Squirrel dependencies  
 squirrel-interfaces.workspace = true
-universal-constants = { path = "../../universal-constants" }
+universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 squirrel-context.workspace = true
-squirrel-core = { path = "../../core/core" }
+squirrel-core = { path = "../../core/core", version = "0.1.0" }
 
 [dev-dependencies]
 tokio-test.workspace = true

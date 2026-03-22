@@ -738,4 +738,127 @@ mod tests {
         let err: UniversalResult<i32> = Err(UniversalError::Internal("fail".to_string()));
         assert!(err.is_err());
     }
+
+    #[test]
+    fn test_anyhow_into_universal() {
+        let anyhow_err = anyhow::anyhow!("wrapped failure");
+        let u: UniversalError = anyhow_err.into();
+        assert!(matches!(u, UniversalError::Internal(_)));
+        assert!(u.to_string().contains("wrapped failure"));
+    }
+
+    #[test]
+    fn test_var_error_into_universal() {
+        let var_err =
+            std::env::var("DEFINITELY_MISSING_VAR_FOR_ECOSYSTEM_API_TEST_XYZ").unwrap_err();
+        let u: UniversalError = var_err.into();
+        assert!(matches!(u, UniversalError::Configuration(_)));
+    }
+
+    #[test]
+    fn test_ecosystem_error_from_serde_json() {
+        let e = serde_json::from_str::<serde_json::Value>("{").unwrap_err();
+        let eco: EcosystemError = e.into();
+        assert!(matches!(eco, EcosystemError::Serialization(_)));
+    }
+
+    #[test]
+    fn test_ecosystem_error_from_url_parse() {
+        let e = url::Url::parse("not a valid url").unwrap_err();
+        let eco: EcosystemError = e.into();
+        assert!(matches!(eco, EcosystemError::UrlParsing(_)));
+    }
+
+    #[test]
+    fn test_ecosystem_error_from_io() {
+        let e = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+        let eco: EcosystemError = e.into();
+        assert!(matches!(eco, EcosystemError::Io(_)));
+    }
+
+    #[test]
+    fn test_service_mesh_error_remaining_variants_display() {
+        let cases = [
+            ServiceMeshError::DiscoveryFailed("d".into()),
+            ServiceMeshError::HealthCheckFailed("h".into()),
+            ServiceMeshError::HeartbeatFailed("hb".into()),
+            ServiceMeshError::InvalidResponse("bad".into()),
+            ServiceMeshError::AuthenticationFailed("auth".into()),
+            ServiceMeshError::Timeout("t".into()),
+        ];
+        for err in cases {
+            assert!(!err.to_string().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_health_error_remaining_variants_display() {
+        let cases = [
+            HealthError::Timeout("t".into()),
+            HealthError::CheckFailed("c".into()),
+            HealthError::InvalidStatus("s".into()),
+        ];
+        for err in cases {
+            assert!(!err.to_string().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_capability_error_remaining_variants_display() {
+        let cases = [
+            CapabilityError::Unavailable("u".into()),
+            CapabilityError::Invalid("i".into()),
+            CapabilityError::Conflict("c".into()),
+            CapabilityError::RegistrationFailed("r".into()),
+            CapabilityError::UpdateFailed("u".into()),
+            CapabilityError::ResourceNotMet("res".into()),
+        ];
+        for err in cases {
+            assert!(!err.to_string().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_context_error_remaining_variants_display() {
+        let cases = [
+            ContextError::NotFound("n".into()),
+            ContextError::UpdateFailed("u".into()),
+            ContextError::SerializationFailed("s".into()),
+            ContextError::ValidationFailed("v".into()),
+            ContextError::Conflict("c".into()),
+        ];
+        for err in cases {
+            assert!(!err.to_string().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_resource_error_remaining_variants_display() {
+        let cases = [
+            ResourceError::Exhausted("e".into()),
+            ResourceError::AllocationFailed("a".into()),
+            ResourceError::DeallocationFailed("d".into()),
+            ResourceError::MonitoringFailed("m".into()),
+            ResourceError::InvalidSpec("i".into()),
+            ResourceError::Conflict("c".into()),
+        ];
+        for err in cases {
+            assert!(!err.to_string().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_config_error_from_parsing_errors() {
+        let n = "x".parse::<i32>().unwrap_err();
+        let ce: ConfigError = n.into();
+        assert!(matches!(ce, ConfigError::NumberParsing(_)));
+
+        let f = "x".parse::<f64>().unwrap_err();
+        let ce: ConfigError = f.into();
+        assert!(matches!(ce, ConfigError::FloatParsing(_)));
+
+        let b = "maybe".parse::<bool>().unwrap_err();
+        let ce: ConfigError = b.into();
+        assert!(matches!(ce, ConfigError::BoolParsing(_)));
+    }
 }

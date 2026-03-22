@@ -101,6 +101,7 @@ pub struct UniversalRequest {
 
 impl UniversalRequest {
     /// Create new UniversalRequest with string interning optimization
+    #[must_use]
     pub fn new(request_id: &str, operation: &str, requester: &str) -> Self {
         Self {
             request_id: Arc::from(request_id),
@@ -119,6 +120,7 @@ impl UniversalRequest {
     }
 
     /// Get parameter efficiently without allocation
+    #[must_use]
     pub fn get_parameter(&self, key: &str) -> Option<&Arc<serde_json::Value>> {
         self.parameters
             .iter()
@@ -165,6 +167,7 @@ pub struct UniversalResponse {
 
 impl UniversalResponse {
     /// Create a successful response with `Arc<str>` optimization
+    #[must_use]
     pub fn success(request_id: Arc<str>, data: serde_json::Value) -> Self {
         Self {
             request_id,
@@ -177,6 +180,7 @@ impl UniversalResponse {
     }
 
     /// Create an error response with `Arc<str>` optimization
+    #[must_use]
     pub fn error(request_id: Arc<str>, code: &str, message: &str) -> Self {
         Self {
             request_id,
@@ -248,6 +252,7 @@ pub struct ServiceHealth {
 
 impl ServiceHealth {
     /// Create healthy status
+    #[must_use]
     pub fn healthy() -> Self {
         Self {
             healthy: true,
@@ -257,6 +262,7 @@ impl ServiceHealth {
     }
 
     /// Create unhealthy status with message
+    #[must_use]
     pub fn unhealthy(message: &str) -> Self {
         Self {
             healthy: false,

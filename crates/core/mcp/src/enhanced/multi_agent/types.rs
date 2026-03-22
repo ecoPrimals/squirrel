@@ -322,6 +322,7 @@ pub enum CollaborationType {
     Custom(String),
 }
 
+
 /// Conversation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conversation {
@@ -567,6 +568,7 @@ pub struct MultiAgentMetrics {
     pub resource_utilization: f64,
 }
 
+
 /// Multi-agent configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MultiAgentConfig {
@@ -638,34 +640,6 @@ pub enum ErrorHandlingStrategy {
     
     /// Escalate
     Escalate,
-}
-
-/// Collaboration session
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CollaborationSession {
-    /// Session ID
-    pub id: String,
-    
-    /// Session type
-    pub session_type: CollaborationType,
-    
-    /// Participants
-    pub participants: Vec<String>,
-    
-    /// Session state
-    pub state: CollaborationState,
-    
-    /// Session configuration
-    pub config: CollaborationConfig,
-    
-    /// Session metadata
-    pub metadata: HashMap<String, serde_json::Value>,
-    
-    /// Created timestamp
-    pub created_at: DateTime<Utc>,
-    
-    /// Completed timestamp
-    pub completed_at: Option<DateTime<Utc>>,
 }
 
 /// Collaboration states

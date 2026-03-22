@@ -82,6 +82,10 @@ impl ServiceDiscoveryClient {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if the discovery backend returns an error.
     pub async fn find_service_by_type(
         &self,
         service_type: ServiceType,
@@ -113,6 +117,10 @@ impl ServiceDiscoveryClient {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if the discovery backend returns an error.
     pub async fn find_service_by_capability(
         &self,
         capability: &str,
@@ -146,6 +154,10 @@ impl ServiceDiscoveryClient {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if the discovery backend returns an error.
     pub async fn find_services_for_load_balancing(
         &self,
         service_type: ServiceType,
@@ -181,6 +193,10 @@ impl ServiceDiscoveryClient {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if the discovery backend returns an error.
     pub async fn find_best_service_for_capability(
         &self,
         capability: &str,
@@ -240,6 +256,10 @@ impl ServiceDiscoveryClient {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if the discovery backend returns an error.
     pub async fn find_services_with_metadata(
         &self,
         metadata: std::collections::HashMap<String, String>,
@@ -275,6 +295,10 @@ impl ServiceDiscoveryClient {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if the discovery backend returns an error.
     pub async fn find_services_with_capabilities(
         &self,
         capabilities: Vec<String>,
@@ -307,6 +331,10 @@ impl ServiceDiscoveryClient {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if statistics cannot be read.
     pub async fn get_stats(&self) -> CoreResult<super::types::ServiceStats> {
         self.discovery.get_service_stats().await
     }

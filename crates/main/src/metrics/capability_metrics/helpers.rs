@@ -16,6 +16,7 @@
 /// - "100-500ms": 100-500 milliseconds
 /// - "500-1000ms": 500-1000 milliseconds
 /// - "1000+ms": Over 1 second
+#[must_use]
 pub fn get_time_bucket(time_ms: f64) -> String {
     if time_ms < 10.0 {
         "0-10ms".to_string()
@@ -42,6 +43,7 @@ pub fn get_time_bucket(time_ms: f64) -> String {
 /// - "0.7-0.8": Good quality scores
 /// - "0.8-0.9": Very good quality scores
 /// - "0.9-1.0": Excellent quality scores
+#[must_use]
 pub fn get_score_bucket(score: f64) -> String {
     if score < 0.5 {
         "0.0-0.5".to_string()

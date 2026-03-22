@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: March 18, 2026
-**Version**: 0.1.0-alpha.15
+**Last Updated**: March 22, 2026
+**Version**: 0.1.0-alpha.16
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 5,440 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
+| Tests | 5,574 passing / 0 stable failures (1 known-flaky: `chaos_07`) across 22 crates |
 | Edition | 2024 (Rust 1.93.0) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
@@ -20,7 +20,7 @@
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
 | Coverage | 71% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 22 workspace members |
-| Files >1000 lines | 0 (max: 974 — adapter.rs, unwired legacy) |
+| Files >1000 lines | 0 (max: 985 — rate_limiter.rs) |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests |
 | redis | 1.0.5 (upgraded from 0.23) |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
@@ -253,11 +253,26 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 1. `chaos_07_memory_pressure` flaky under parallel test load (environment-sensitive)
 2. Coverage at 71% — gap to 90% target; incremental expansion underway
-3. `adapter.rs` (974L) unwired legacy code — protocol module not wired into tree
+3. Performance optimizer stubs deferred to Phase 2 (`batch_processor`, `optimizer`)
 
-## Changes Since Last Handoff (March 18, 2026)
+## Changes Since Last Handoff (March 22, 2026)
 
-### alpha.15 Sprint (BYOB Graph Coordination)
+### alpha.16 Sprint (Deep Debt Resolution & Compliance Audit)
+
+- **Clippy pedantic**: Zero warnings on `cargo clippy --all-features -- -D warnings` — `#[must_use]` on 11+ functions, `# Errors` docs on 123+ Result-returning functions, removed blanket `must_use_candidate`/`missing_errors_doc` allows
+- **Dependency evolution**: `serde_yml` (unsound/unmaintained) → `serde_yaml_ng` v0.10 (maintained fork); removed unused `config` v0.13 and `yaml-rust` v0.4
+- **cargo-deny clean**: `advisories ok, bans ok, licenses ok, sources ok` — pinned all 22 wildcard internal deps, documented `cc` build-time exceptions, advisory ignores for tarpc-transitive `bincode`
+- **Capability-based discovery**: Hardcoded ports/IPs evolved to `DiscoveredEndpoint` pattern + env-var discovery chain; primal only has self-knowledge
+- **File refactoring**: `ipc_client.rs` (999L → 6-module split), `types.rs` (972L → 4-file split), `traits.rs` (960L → 6-file split), `monitoring.rs` tests extracted; all files <1000 lines
+- **Production stub evolution**: `PlaceholderPlugin` → `NoOpPlugin`/`DefaultPlugin` (null object), federation → `CapabilityUnavailable` error variant, AI providers → IPC-routed delegation via `IpcRoutedVendorClient`
+- **Unwrap audit**: Removed blanket `#![allow(clippy::unwrap_used)]` from `universal-patterns`, fixed production unwraps in config/presets/security; all crates use `cfg_attr(test, allow(…))`
+- **Test expansion**: 5,440 → 5,574 tests; core/core 0% → 86-100% coverage; new tests across main (shutdown, rate_limiter, rpc, biome), SDK, ecosystem-api, cli, ai-tools
+- **Coverage**: 69.95% → 71.05% lines (72.79% regions, 70.83% functions)
+- **Doc fixes**: 12 intra-doc link warnings fixed, zero doc warnings on `cargo doc --all-features --no-deps`
+- **SPDX**: 100% (1,287/1,287 `.rs` files)
+- **Files**: 1,287 `.rs` files, 425K total lines, max file 985 lines
+
+### Prior: alpha.15 Sprint (BYOB Graph Coordination)
 
 - **`NicheDeployGraph` types**: primalSpring-compatible `[graph]` + `[[graph.node]]` TOML with structural validation, capability queries, JSON roundtrip
 - **2 BYOB deploy graphs**: `squirrel_ai_niche.toml` (Sequential: Tower → Squirrel → petalTongue), `ai_continuous_tick.toml` (Continuous: 10 Hz AI → viz loop)

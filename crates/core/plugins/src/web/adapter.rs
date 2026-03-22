@@ -71,6 +71,7 @@ where
     }
 
     /// Convert legacy endpoint to new format
+    #[must_use]
     pub fn convert_legacy_endpoint(&self, legacy: &crate::plugin::WebEndpoint) -> WebEndpoint {
         let method = match legacy.method.to_uppercase().as_str() {
             "POST" => HttpMethod::Post,
@@ -93,6 +94,7 @@ where
     }
 
     /// Convert legacy component to new format
+    #[must_use]
     pub fn convert_legacy_component(&self, legacy: &LegacyWebComponent) -> WebComponent {
         let component_type = match legacy.component_type.to_lowercase().as_str() {
             "page" => ComponentType::Page,
@@ -251,6 +253,7 @@ where
     }
 
     /// Convert new endpoint to legacy format
+    #[must_use]
     pub fn convert_new_endpoint(&self, new: &WebEndpoint) -> crate::plugin::WebEndpoint {
         crate::plugin::WebEndpoint {
             path: new.path.clone(),
@@ -260,6 +263,7 @@ where
     }
 
     /// Convert new component to legacy format
+    #[must_use]
     pub fn convert_new_component(&self, new: &WebComponent) -> LegacyWebComponent {
         let component_type = match &new.component_type {
             ComponentType::Page => "page",

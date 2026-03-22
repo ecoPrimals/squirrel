@@ -18,6 +18,7 @@ pub struct Route {
 
 impl Route {
     /// Create a new route from a pattern
+    #[must_use]
     pub fn new(pattern: &str) -> Self {
         let param_names = Self::extract_param_names(pattern);
         let has_params = !param_names.is_empty();
@@ -60,6 +61,7 @@ impl Route {
     }
 
     /// Check if a path matches this route pattern
+    #[must_use]
     pub fn matches(&self, path: &str) -> bool {
         if !self.has_params {
             return self.pattern == path;
@@ -88,6 +90,7 @@ impl Route {
     }
 
     /// Extract parameters from a path using this route pattern
+    #[must_use]
     pub fn extract_params(&self, path: &str) -> Option<HashMap<String, String>> {
         let mut params = HashMap::new();
 

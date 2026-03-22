@@ -14,8 +14,9 @@
 //!   manifest.json files).
 //! - **`FilePluginDiscovery`**: Discovers plugins by scanning directories for manifest.json and
 //!   delegates loading to a `PluginLoader`.
-//! - **`DefaultPluginLoader`** / **`DefaultPluginDiscovery`**: Default implementations. Dynamic
-//!   plugin loading is not yet implemented; their load methods return errors.
+//! - **`DefaultPluginLoader`** / **`DefaultPluginDiscovery`**: Default implementations. Native
+//!   dynamic library loading is not compiled in here; load attempts return structured
+//!   [`PluginError::LoadError`] with discovery hints (other primals expose plugins via IPC).
 
 // Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
 #![allow(deprecated)]
@@ -29,6 +30,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::fs;
+use tracing::{debug, info};
 #[cfg(any(test, feature = "testing"))]
 use uuid::Uuid;
 
@@ -37,6 +39,10 @@ use crate::plugin::{Plugin, PluginMetadata};
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
+#[allow(
+    dead_code,
+    reason = "Serde-populated manifest schema; fields read in tests and to_metadata (testing feature)"
+)]
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -51,11 +57,9 @@ pub struct PluginManifest {
     pub author: String,
 
     /// Plugin entry point
-    #[allow(dead_code)] // Reserved for dynamic plugin loading; used in tests
     pub entry_point: String,
 
     /// Plugin type
-    #[allow(dead_code)] // Reserved for dynamic plugin loading; used in tests
     pub plugin_type: String,
 
     /// Plugin dependencies
@@ -172,24 +176,26 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
     }
 }
 
-/// Create a placeholder plugin from metadata.
-/// Used when loading plugin manifests from disk (plugin.toml / plugin.json)
-/// since dynamic plugin loading is not yet implemented.
+/// Build a no-op plugin from manifest metadata (null object pattern).
+///
+/// Used when a manifest is present but this primal does not host native plugin code: the plugin
+/// entry is a documented no-op; real implementations are discovered on other primals via IPC.
 #[expect(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
 )]
-pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
-    Arc::new(PlaceholderPlugin { metadata })
+#[must_use]
+pub fn create_noop_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
+    Arc::new(NoOpPlugin { metadata })
 }
 
-/// A placeholder plugin implementation
+/// No-op plugin: satisfies the [`Plugin`] contract without side effects; logs lifecycle for observability.
 #[expect(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
 )]
 #[derive(Debug, Clone)]
-struct PlaceholderPlugin {
+pub struct NoOpPlugin {
     metadata: PluginMetadata,
 }
 
@@ -198,16 +204,26 @@ struct PlaceholderPlugin {
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
 )]
-impl Plugin for PlaceholderPlugin {
+impl Plugin for NoOpPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }
 
     async fn initialize(&self) -> Result<()> {
+        info!(
+            plugin_id = %self.metadata.id,
+            plugin_name = %self.metadata.name,
+            "NoOpPlugin initialize (no-op); no native code loaded on this primal"
+        );
         Ok(())
     }
 
     async fn shutdown(&self) -> Result<()> {
+        info!(
+            plugin_id = %self.metadata.id,
+            plugin_name = %self.metadata.name,
+            "NoOpPlugin shutdown (no-op)"
+        );
         Ok(())
     }
 
@@ -237,8 +253,10 @@ impl PluginDiscovery for DefaultPluginDiscovery {
             return Err(PluginError::IoError(err).into());
         }
 
-        // In a real implementation, this would load plugins from the directory
-        // For now, just return an empty vector
+        debug!(
+            directory = %directory.display(),
+            "DefaultPluginDiscovery: directory scan returns empty; discovered plugins from other primals arrive via IPC capability registry"
+        );
         Ok(Vec::new())
     }
 }
@@ -260,15 +278,20 @@ impl DefaultPluginDiscovery {
     }
 
     /// Load a plugin from a path
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] when native dynamic loading is unavailable for the given path.
     #[expect(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
     pub async fn load_plugin(&self, path: &Path) -> Result<Arc<dyn Plugin>> {
-        anyhow::bail!(
-            "Dynamic plugin loading not yet implemented at path: {}",
+        Err(PluginError::LoadError(format!(
+            "Native dynamic loading unavailable on this primal for path {}. Discover plugin providers via IPC or use manifest-only no-op registration.",
             path.display()
-        )
+        ))
+        .into())
     }
 }
 
@@ -285,10 +308,11 @@ impl PluginLoader for DefaultPluginLoader {
         manifest: &PluginManifest,
         _path: &Path,
     ) -> Result<Arc<dyn Plugin>> {
-        anyhow::bail!(
-            "Dynamic plugin loading not yet implemented for manifest: {}",
+        Err(PluginError::LoadError(format!(
+            "Native loader not available for manifest `{}` on this primal; load from peer primals via IPC discovery.",
             manifest.name
-        )
+        ))
+        .into())
     }
 }
 
@@ -337,10 +361,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_placeholder_plugin() {
-        let metadata = PluginMetadata::new("placeholder-test", "1.0", "desc", "author");
-        let plugin = create_placeholder_plugin(metadata);
-        assert_eq!(plugin.metadata().name, "placeholder-test");
+    async fn test_create_noop_plugin() {
+        let metadata = PluginMetadata::new("noop-test", "1.0", "desc", "author");
+        let plugin = create_noop_plugin(metadata);
+        assert_eq!(plugin.metadata().name, "noop-test");
         assert_eq!(plugin.metadata().version, "1.0");
         plugin.initialize().await.unwrap();
         plugin.shutdown().await.unwrap();
@@ -379,10 +403,7 @@ mod tests {
         let result = loader.load_plugin(&manifest, Path::new("/tmp")).await;
         match result {
             Ok(_) => panic!("expected load_plugin to fail"),
-            Err(e) => assert!(
-                e.to_string()
-                    .contains("Dynamic plugin loading not yet implemented")
-            ),
+            Err(e) => assert!(e.to_string().contains("Native loader not available")),
         }
     }
 }

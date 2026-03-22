@@ -9,6 +9,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.16] - 2026-03-22
+
+Deep debt resolution and compliance audit sprint: full Clippy pedantic pass, dependency
+evolution (serde_yml → serde_yaml_ng), cargo-deny clean, capability-based discovery
+evolution, smart file refactoring, production stub evolution, test expansion.
+5,574 tests passing, zero clippy warnings, zero doc warnings.
+
+### Added
+
+- **IPC-routed AI delegation** — `IpcRoutedVendorClient` in ai-tools routes AI
+  requests through ecosystem IPC rather than direct HTTP, honoring ecoBin boundaries
+- **`CapabilityUnavailable` error variant** — structured 503 error for federation
+  operations pending capability discovery, replacing hardcoded "not yet implemented" strings
+- **`NoOpPlugin` / `DefaultPlugin`** — null-object pattern replacing `PlaceholderPlugin`
+  and `SystemPlaceholderPlugin` with proper lifecycle logging
+- **`monitoring_tests.rs`** — extracted test module for monitoring (953 + 431 lines
+  from original 1,384)
+- **134+ new tests** — core/core (0% → 86-100%), main (shutdown, rate_limiter, rpc,
+  biome), SDK, ecosystem-api, cli, ai-tools
+- **`# Errors` doc sections** — 123+ Result-returning public functions documented
+- **`#[must_use]`** — 11+ return-value functions annotated
+
+### Changed
+
+- **`serde_yml` → `serde_yaml_ng` v0.10** — migrated off unmaintained/unsound crate
+  across all workspace Cargo.tomls and source files
+- **Removed `config` v0.13** — unused external dependency (and its transitive `yaml-rust`)
+- **Removed `yaml-rust` v0.4** — unused direct dependency in rule-system
+- **Pinned all 22 wildcard internal deps** — cargo-deny bans check now passes
+- **`ipc_client.rs`** — 999-line monolith → 6-module split (types, discovery,
+  connection, messaging, tests)
+- **`types.rs`** (config) — 972-line monolith → 4-file split (definitions, defaults,
+  impls)
+- **`traits.rs`** (ecosystem-api) — 960-line monolith → 6-file split (primal, mesh,
+  discovery, ai, config, tests)
+- **`adapter.rs`** (MCP) — split into core + tests modules
+- **Hardcoded ports/IPs** → `DiscoveredEndpoint` + env-var discovery chain
+- **Production unwraps** — removed blanket `#![allow(clippy::unwrap_used)]`, fixed
+  `.unwrap()` in config/presets and security/client
+- **Wildcard imports** — replaced with explicit imports throughout refactored modules
+- **`deny.toml`** — documented `cc@1` / `libsqlite3-sys` build-time exceptions,
+  advisory ignores for tarpc-transitive `bincode` and `linked-hash-map`
+
+### Fixed
+
+- **12 intra-doc link warnings** — `CoreError` cross-crate references in service_discovery
+- **`dead_code` warning** — `PluginManifest` fields annotated with reason
+- **`redundant_closure`** — `ports::ollama()` closure simplified
+- **`redundant_pub_crate`** — defaults functions made `pub` for serde access
+
+### Metrics
+
+| Metric | alpha.15 | alpha.16 |
+|--------|----------|----------|
+| Tests | 5,440 | 5,574 |
+| Line coverage | ~69.95% | ~71.05% |
+| Clippy warnings | 0 | 0 |
+| Doc warnings | 12 | 0 |
+| Files >1000L | 1 | 0 |
+| `.rs` files | ~1,268 | 1,287 |
+| cargo-deny | bans failing | all clean |
+
 ## [0.1.0-alpha.15] - 2026-03-18
 
 BYOB graph coordination sprint: primalSpring-compatible `NicheDeployGraph` types,

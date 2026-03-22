@@ -82,6 +82,10 @@ pub struct BearDogClient {
 
 impl BearDogClient {
     /// Create a new security provider client
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the client cannot be initialized.
     pub fn new(config: BearDogClientConfig) -> Result<Self> {
         // Validate socket path exists (in production)
         if !Path::new(&config.socket_path).exists() {
@@ -110,6 +114,10 @@ impl BearDogClient {
     ///
     /// # Returns
     /// Raw Ed25519 signature (64 bytes)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the JSON-RPC request fails or the response is invalid.
     pub async fn ed25519_sign(&self, data: &[u8], key_id: &str) -> Result<Vec<u8>> {
         debug!(
             "Ed25519 sign request: key_id={}, data_len={}",
@@ -151,6 +159,10 @@ impl BearDogClient {
     ///
     /// # Returns
     /// `true` if signature is valid, `false` otherwise
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the JSON-RPC request fails or the response is invalid.
     pub async fn ed25519_verify(
         &self,
         data: &[u8],

@@ -18,7 +18,7 @@ serde_json = "1.0"
 chrono = "0.4"
 
 # Re-export the excellent MCP error system
-squirrel-mcp = { path = "../core/mcp" }
+squirrel-mcp = { path = "../core/mcp", version = "0.1.0" }
 
 [dev-dependencies]
 # For testing

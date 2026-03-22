@@ -1,8 +1,7 @@
 # Configuration Validation Guide
 
-**Date**: November 10, 2025  
-**Status**: Active  
-**Related ADR**: [ADR-008](../../docs/adr/ADR-008-configuration-standardization.md)
+**Date**: November 10, 2025 (updated March 22, 2026)  
+**Status**: Active
 
 ---
 
@@ -478,9 +477,8 @@ Validator::validate_port(port)
 
 ## Further Reading
 
-- [ADR-008: Configuration Standardization](../../docs/adr/ADR-008-configuration-standardization.md)
 - [Configuration Module API Docs](src/unified/validation.rs)
-- [SquirrelUnifiedConfig](src/unified/types.rs)
+- [SquirrelUnifiedConfig](src/unified/types/definitions.rs)
 - [ConfigLoader](src/unified/loader.rs)
 
 ---

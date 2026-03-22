@@ -26,11 +26,13 @@ pub enum ErrorSeverity {
 
 impl ErrorSeverity {
     /// Check if severity requires immediate attention
+    #[must_use]
     pub const fn requires_immediate_attention(&self) -> bool {
         matches!(self, Self::High | Self::Critical)
     }
 
     /// Check if severity should trigger alerts
+    #[must_use]
     pub const fn should_alert(&self) -> bool {
         matches!(self, Self::High | Self::Critical)
     }

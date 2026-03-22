@@ -338,6 +338,7 @@ impl ProductionError {
     }
 
     /// Check if the error is recoverable
+    #[must_use]
     pub const fn is_recoverable(&self) -> bool {
         match self {
             Self::Configuration { .. } | Self::NotFound { .. } => false,
@@ -357,6 +358,7 @@ impl ProductionError {
     }
 
     /// Get suggested retry delay in milliseconds
+    #[must_use]
     pub const fn retry_delay_ms(&self) -> Option<u64> {
         match self {
             Self::Network { retry_after, .. }
@@ -381,6 +383,7 @@ impl ProductionError {
     }
 
     /// Get error severity level
+    #[must_use]
     pub const fn severity(&self) -> ErrorSeverity {
         match self {
             Self::Configuration { .. } => ErrorSeverity::Critical,

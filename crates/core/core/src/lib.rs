@@ -112,6 +112,15 @@ pub enum Error {
     #[error("Discovery error: {0}")]
     Discovery(String),
 
+    /// Required capability is not available on this primal; discover via IPC.
+    #[error("Capability unavailable: {capability}. {hint}")]
+    CapabilityUnavailable {
+        /// Capability id (e.g. `http.client`, `federation:probe-node`).
+        capability: String,
+        /// How to resolve (registry, socket env, Songbird delegation, etc.).
+        hint: String,
+    },
+
     /// Federation operation failed.
     #[error("Federation error: {0}")]
     Federation(String),

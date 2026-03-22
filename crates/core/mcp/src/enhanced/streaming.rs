@@ -483,6 +483,7 @@ pub enum StreamPriority {
     Critical,
 }
 
+
 impl Default for StreamPriority {
     fn default() -> Self {
         StreamPriority::Normal

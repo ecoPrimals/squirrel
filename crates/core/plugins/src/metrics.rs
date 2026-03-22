@@ -20,6 +20,7 @@ pub struct PluginManagerStatus {
 
 impl PluginManagerStatus {
     /// Creates status from plugin counts.
+    #[must_use]
     pub const fn new(total: usize, active: usize, failed: usize) -> Self {
         Self {
             total_plugins: total,
@@ -40,6 +41,7 @@ pub struct PluginManagerMetrics {
 
 impl PluginManagerMetrics {
     /// Creates default metrics.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }

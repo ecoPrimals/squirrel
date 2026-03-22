@@ -40,8 +40,7 @@
     clippy::single_match_else,
     clippy::unused_self,
     clippy::or_fun_call,
-    clippy::unwrap_in_result,
-    clippy::unwrap_used
+    clippy::unwrap_in_result
 )]
 
 //! # Universal Patterns Framework
@@ -88,7 +87,7 @@
 //! ```
 
 #![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]

@@ -96,6 +96,7 @@ pub async fn register(songbird_socket: &Path, own_socket: &str) -> bool {
 /// Spawn a background heartbeat loop that sends `discovery.heartbeat` to Songbird.
 ///
 /// Runs until `shutdown_rx` receives a signal.
+#[must_use]
 pub fn start_heartbeat_loop(
     songbird_socket: PathBuf,
     own_socket: String,

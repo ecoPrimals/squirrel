@@ -39,6 +39,7 @@ pub struct Token {
 }
 
 impl Token {
+    #[must_use]
     pub fn new(
         token_type: TokenType,
         user_id: Uuid,
@@ -59,10 +60,12 @@ impl Token {
         }
     }
 
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         Utc::now() > self.expires_at
     }
 
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         !self.is_revoked && !self.is_expired()
     }
@@ -103,6 +106,7 @@ pub struct DefaultTokenManager {
 
 impl DefaultTokenManager {
     /// Create a new token manager
+    #[must_use]
     pub fn new() -> Self {
         Self {
             tokens: Arc::new(RwLock::new(HashMap::new())),
@@ -112,6 +116,7 @@ impl DefaultTokenManager {
     }
 
     /// Create a new token manager with custom configuration
+    #[must_use]
     pub fn new_with_config(config: TokenConfig) -> Self {
         Self {
             tokens: Arc::new(RwLock::new(HashMap::new())),

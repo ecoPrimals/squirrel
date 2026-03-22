@@ -81,6 +81,7 @@ pub struct MCPTaskClient {
 
 impl MCPTaskClient {
     /// Default task client configuration
+    #[must_use]
     pub fn default_config() -> TaskClientConfig {
         let server_address = std::env::var("TASK_SERVER_SOCKET")
             .or_else(|_| std::env::var("TASK_SERVER_ENDPOINT"))
@@ -101,11 +102,13 @@ impl MCPTaskClient {
     }
 
     /// Create a new task client with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(Self::default_config())
     }
 
     /// Create a new task client with the given configuration
+    #[must_use]
     pub const fn with_config(config: TaskClientConfig) -> Self {
         Self { config }
     }
@@ -124,31 +127,37 @@ impl MCPTaskClient {
     }
 
     /// Get the server address (socket path) from the configuration
+    #[must_use]
     pub fn server_address(&self) -> String {
         self.config.server_address.clone()
     }
 
     /// Get the maximum retries from the configuration
+    #[must_use]
     pub const fn max_retries(&self) -> u32 {
         self.config.max_retries
     }
 
     /// Get the connect timeout from the configuration
+    #[must_use]
     pub const fn connect_timeout(&self) -> u64 {
         self.config.connect_timeout_ms
     }
 
     /// Get the request timeout from the configuration
+    #[must_use]
     pub const fn request_timeout(&self) -> u64 {
         self.config.request_timeout_ms
     }
 
     /// Get the initial backoff from the configuration
+    #[must_use]
     pub const fn initial_backoff(&self) -> u64 {
         self.config.initial_backoff_ms
     }
 
     /// Get the maximum backoff from the configuration
+    #[must_use]
     pub const fn max_backoff(&self) -> u64 {
         self.config.max_backoff_ms
     }

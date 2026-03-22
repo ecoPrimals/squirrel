@@ -55,6 +55,7 @@ impl Default for CommandStats {
 
 impl ProductionCommandRegistry {
     /// Create a new production command registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             commands: Arc::new(RwLock::new(HashMap::new())),
@@ -258,6 +259,7 @@ impl ProductionCommandRegistry {
     }
 
     /// Get command statistics
+    #[must_use]
     pub fn get_command_stats(&self, command_name: &str) -> Option<CommandStats> {
         let stats_result = SafeOperation::execute(|| {
             self.execution_stats.try_read().map_err(|e| {
@@ -437,6 +439,7 @@ pub struct LocalCommandRegistry {
 
 impl LocalCommandRegistry {
     /// Create a new local command registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
@@ -444,6 +447,7 @@ impl LocalCommandRegistry {
     }
 
     /// Get list of command names
+    #[must_use]
     pub fn command_names(&self) -> Vec<String> {
         self.commands.keys().cloned().collect()
     }

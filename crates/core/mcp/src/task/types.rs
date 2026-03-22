@@ -201,6 +201,7 @@ impl Default for Task {
 
 impl Task {
     /// Create a new task with the given name and description.
+    #[must_use]
     pub fn new(name: &str, description: &str) -> Self {
         Self {
             name: Arc::from(name),
@@ -266,31 +267,37 @@ impl Task {
     }
 
     /// Check if the task is pending.
+    #[must_use]
     pub fn is_pending(&self) -> bool {
         self.status_code == TaskStatus::Pending
     }
 
     /// Check if the task is running.
+    #[must_use]
     pub fn is_running(&self) -> bool {
         self.status_code == TaskStatus::Running
     }
 
     /// Check if the task is completed.
+    #[must_use]
     pub fn is_completed(&self) -> bool {
         self.status_code == TaskStatus::Completed
     }
 
     /// Check if the task has failed.
+    #[must_use]
     pub fn is_failed(&self) -> bool {
         self.status_code == TaskStatus::Failed
     }
 
     /// Check if the task has been cancelled.
+    #[must_use]
     pub fn is_cancelled(&self) -> bool {
         self.status_code == TaskStatus::Cancelled
     }
 
     /// Check if the task is finished (completed, failed, or cancelled).
+    #[must_use]
     pub fn is_finished(&self) -> bool {
         self.is_completed() || self.is_failed() || self.is_cancelled()
     }
@@ -337,6 +344,7 @@ impl Task {
     }
 
     /// Check if the task is overdue.
+    #[must_use]
     pub fn is_overdue(&self) -> bool {
         if let Some(deadline) = self.deadline {
             Utc::now() > deadline && !self.is_finished()
@@ -346,6 +354,7 @@ impl Task {
     }
 
     /// Check if the task can be retried.
+    #[must_use]
     pub fn can_retry(&self) -> bool {
         self.is_failed() && self.retry_count < self.max_retries
     }

@@ -146,6 +146,7 @@ impl CapabilityRegistry {
     }
 
     /// Return just the method names (for capability.discover response)
+    #[must_use]
     pub fn method_names(&self) -> Vec<&str> {
         self.capabilities
             .iter()
@@ -154,6 +155,7 @@ impl CapabilityRegistry {
     }
 
     /// Find a capability by method name
+    #[must_use]
     pub fn find(&self, method: &str) -> Option<&CapabilityDef> {
         self.capabilities.iter().find(|c| c.method == method)
     }

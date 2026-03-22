@@ -27,8 +27,8 @@ tokio-tungstenite = { version = "0.20", optional = true }
 tungstenite = { version = "0.20", optional = true }
 
 # Internal crates
-squirrel-mcp-config = { path = "../../config" }
-universal-constants = { path = "../../universal-constants" }
+squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
+universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 
 # WebSocket support (optional, behind websocket feature)
 axum = { version = "0.6", features = ["ws", "headers"], optional = true }

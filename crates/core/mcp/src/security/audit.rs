@@ -36,6 +36,7 @@ pub struct DefaultAuditService {
 
 impl DefaultAuditService {
     /// Create a new audit service
+    #[must_use]
     pub fn new() -> Self {
         Self {
             events: Arc::new(RwLock::new(Vec::new())),

@@ -114,6 +114,7 @@ pub struct DependencyResolver {
 
 impl DependencyResolver {
     /// Create a new dependency resolver
+    #[must_use]
     pub fn new() -> Self {
         let current_platform = if cfg!(target_os = "windows") {
             "windows".to_string()
@@ -136,6 +137,10 @@ impl DependencyResolver {
     }
 
     /// Register a plugin with the dependency resolver
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the plugin version is invalid or registration fails.
     pub fn register_plugin(&mut self, plugin: Arc<dyn Plugin>) -> Result<()> {
         let metadata = plugin.metadata();
         let id = metadata.id;
@@ -177,6 +182,10 @@ impl DependencyResolver {
     }
 
     /// Register enhanced dependencies for a plugin
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if dependency registration fails.
     pub fn register_enhanced_dependencies(
         &mut self,
         plugin_id: Uuid,
@@ -187,6 +196,10 @@ impl DependencyResolver {
     }
 
     /// Resolve all plugin dependencies and return initialization order
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if validation or topological resolution fails.
     pub fn resolve_dependencies(&mut self) -> Result<ResolutionResult> {
         info!("Starting plugin dependency resolution");
 

@@ -201,65 +201,76 @@ impl Default for AgentSelectionConfig {
 
 impl RoutingConfig {
     /// Create a new routing configuration with default values
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set maximum concurrent tasks
+    #[must_use]
     pub const fn with_max_concurrent_tasks(mut self, max_tasks: usize) -> Self {
         self.max_concurrent_tasks = max_tasks;
         self
     }
 
     /// Set task timeout
+    #[must_use]
     pub const fn with_task_timeout(mut self, timeout: Duration) -> Self {
         self.task_timeout = timeout;
         self
     }
 
     /// Set load balancing strategy
+    #[must_use]
     pub const fn with_load_balancing_strategy(mut self, strategy: LoadBalancingStrategy) -> Self {
         self.load_balancing_strategy = strategy;
         self
     }
 
     /// Enable context persistence
+    #[must_use]
     pub const fn with_context_persistence(mut self, enabled: bool) -> Self {
         self.context_persistence = enabled;
         self
     }
 
     /// Enable federation
+    #[must_use]
     pub const fn with_federation(mut self, enabled: bool) -> Self {
         self.federation_enabled = enabled;
         self
     }
 
     /// Enable scaling
+    #[must_use]
     pub const fn with_scaling(mut self, enabled: bool) -> Self {
         self.scaling_enabled = enabled;
         self
     }
 
     /// Enable performance monitoring
+    #[must_use]
     pub const fn with_performance_monitoring(mut self, enabled: bool) -> Self {
         self.performance_monitoring = enabled;
         self
     }
 
     /// Add an agent group
+    #[must_use]
     pub fn with_agent_group(mut self, name: String, group: AgentGroup) -> Self {
         self.agent_groups.insert(name, group);
         self
     }
 
     /// Add a manual routing rule
+    #[must_use]
     pub fn with_routing_rule(mut self, rule: ManualRoutingRule) -> Self {
         self.manual_routing_rules.push(rule);
         self
     }
 
     /// Set primal endpoints
+    #[must_use]
     pub fn with_primal_endpoints(
         mut self,
         nestgate: Option<String>,
@@ -275,6 +286,10 @@ impl RoutingConfig {
     }
 
     /// Validate the configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns a `String` describing the first validation failure.
     pub fn validate(&self) -> Result<(), String> {
         if self.max_concurrent_tasks == 0 {
             return Err("max_concurrent_tasks must be greater than 0".to_string());
@@ -304,6 +319,7 @@ impl RoutingConfig {
 
 impl AgentGroup {
     /// Create a new agent group
+    #[must_use]
     pub fn new(name: String) -> Self {
         Self {
             name,
@@ -318,36 +334,42 @@ impl AgentGroup {
     }
 
     /// Add an agent to the group
+    #[must_use]
     pub fn with_agent(mut self, agent_id: String) -> Self {
         self.agents.push(agent_id);
         self
     }
 
     /// Set group priority
+    #[must_use]
     pub const fn with_priority(mut self, priority: u32) -> Self {
         self.priority = priority;
         self
     }
 
     /// Set selection strategy
+    #[must_use]
     pub const fn with_selection_strategy(mut self, strategy: LoadBalancingStrategy) -> Self {
         self.selection_strategy = strategy;
         self
     }
 
     /// Set maximum concurrent tasks
+    #[must_use]
     pub const fn with_max_concurrent_tasks(mut self, max_tasks: usize) -> Self {
         self.max_concurrent_tasks = Some(max_tasks);
         self
     }
 
     /// Add a required capability
+    #[must_use]
     pub fn with_required_capability(mut self, capability: String) -> Self {
         self.required_capabilities.push(capability);
         self
     }
 
     /// Add a tag
+    #[must_use]
     pub fn with_tag(mut self, key: String, value: String) -> Self {
         self.tags.insert(key, value);
         self
@@ -356,6 +378,7 @@ impl AgentGroup {
 
 impl ManualRoutingRule {
     /// Create a new manual routing rule
+    #[must_use]
     pub const fn new(rule_id: String, condition: RoutingCondition, action: RoutingAction) -> Self {
         Self {
             rule_id,
@@ -367,12 +390,14 @@ impl ManualRoutingRule {
     }
 
     /// Set rule priority
+    #[must_use]
     pub const fn with_priority(mut self, priority: u32) -> Self {
         self.priority = priority;
         self
     }
 
     /// Enable or disable the rule
+    #[must_use]
     pub const fn with_enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
         self

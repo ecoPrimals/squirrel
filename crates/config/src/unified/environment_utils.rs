@@ -70,11 +70,13 @@ pub fn get_environment() -> Environment {
 /// ```ignore
 /// use squirrel_mcp_config::unified::environment_utils::get_env_var;
 ///
-/// // Get port with default
-/// let port: u16 = get_env_var("SQUIRREL_HTTP_PORT", "8080").unwrap();
-///
-/// // Get boolean with default
-/// let enabled: bool = get_env_var("SQUIRREL_TLS_ENABLED", "false").unwrap();
+/// fn load() -> Result<(), String> {
+///     // Get port with default
+///     let _port: u16 = get_env_var("SQUIRREL_HTTP_PORT", "8080")?;
+///     // Get boolean with default
+///     let _enabled: bool = get_env_var("SQUIRREL_TLS_ENABLED", "false")?;
+///     Ok(())
+/// }
 /// ```
 pub fn get_env_var<T>(key: &str, default: &str) -> Result<T, String>
 where

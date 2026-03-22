@@ -46,6 +46,7 @@ pub struct LoadBalancer {
 
 impl LoadBalancer {
     /// Create a new load balancer with the specified strategy
+    #[must_use]
     pub fn new(strategy: LoadBalancingStrategy, max_concurrent: usize) -> Self {
         Self {
             strategy,
@@ -57,6 +58,10 @@ impl LoadBalancer {
     }
 
     /// Select an agent from the available agents using the configured strategy
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if no agent is available or selection fails.
     pub async fn select_agent(&self, agents: Vec<RegisteredAgent>) -> Result<RegisteredAgent> {
         if agents.is_empty() {
             return Err(Error::NoAgentAvailable);

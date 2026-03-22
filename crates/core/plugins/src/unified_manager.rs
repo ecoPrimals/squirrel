@@ -74,6 +74,10 @@ impl PluginEventBus {
     }
 
     /// Publishes an event to a topic. Creates the channel if it does not exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginError`] if publishing fails.
     pub async fn publish(&self, topic: &str, payload: Value) -> Result<()> {
         const CHANNEL_CAP: usize = 32;
         let mut topics = self.topics.write().await;
@@ -88,6 +92,10 @@ impl PluginEventBus {
     }
 
     /// Subscribes to a topic. Creates the channel if it does not exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginError`] if subscription setup fails.
     pub async fn subscribe(&self, topic: &str) -> Result<broadcast::Receiver<EventMessage>> {
         const CHANNEL_CAP: usize = 32;
         let mut topics = self.topics.write().await;
@@ -126,6 +134,10 @@ impl PluginSecurityManager {
     }
 
     /// Checks permissions for a set of requested capabilities.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginError`] when a requested capability is not allowed.
     pub fn check_permissions(&self, requested: &[String]) -> Result<()> {
         for cap in requested {
             if !self.is_allowed(cap) {
@@ -192,6 +204,10 @@ impl UnifiedPluginManager {
     }
 
     /// Loads a plugin. Enforces `max_plugins` and security when enabled.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginError`] if limits are exceeded, security checks fail, or loading fails.
     pub async fn load_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
         let name = plugin.metadata().name.clone();
         if self.plugins.len() >= self.config.max_plugins {
@@ -215,6 +231,10 @@ impl UnifiedPluginManager {
     }
 
     /// Unloads a plugin by name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginError`] if the plugin is not found.
     pub async fn unload_plugin(&self, name: &str) -> Result<()> {
         self.plugins
             .remove(name)
@@ -229,6 +249,10 @@ impl UnifiedPluginManager {
     }
 
     /// Gets a plugin by name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginError`] if the plugin is not loaded.
     pub fn get_plugin(&self, name: &str) -> Result<Arc<dyn Plugin>> {
         self.plugins
             .get(name)
@@ -237,6 +261,10 @@ impl UnifiedPluginManager {
     }
 
     /// Shuts down all plugins.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginError`] if shutdown hooks fail.
     pub async fn shutdown(&self) -> Result<()> {
         for entry in &self.plugins {
             let _ = entry.value().plugin.shutdown().await;

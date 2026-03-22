@@ -22,6 +22,7 @@ use super::types::{CacheMetrics, DiscoveryMetrics, ErrorMetrics, RoutingMetrics}
 /// - `discovery_health` = discovery_success_rate / 100
 /// - `routing_health` = routing_success_rate / 100
 /// - `error_health` = (100 - error_rate) / 100
+#[must_use]
 pub fn calculate_health_score(
     discovery: &DiscoveryMetrics,
     routing: &RoutingMetrics,
@@ -51,6 +52,7 @@ pub fn calculate_health_score(
 /// Where:
 /// - `speed_score` = 1.0 if avg < 10ms, scales down to 0.5 at 100ms
 /// - `cache_score` = cache_hit_rate / 100
+#[must_use]
 pub fn calculate_performance_score(
     discovery: &DiscoveryMetrics,
     cache: &CacheMetrics,
@@ -85,6 +87,7 @@ pub fn calculate_performance_score(
 /// Where:
 /// - `routing_success` = routing_success_rate / 100
 /// - `recovery_success` = recovery_success_rate / 100
+#[must_use]
 pub fn calculate_reliability_score(routing: &RoutingMetrics, errors: &ErrorMetrics) -> f64 {
     let routing_reliability = routing.routing_success_rate / 100.0;
     let recovery_reliability = errors.recovery_success_rate / 100.0;

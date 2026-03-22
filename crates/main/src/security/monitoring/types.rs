@@ -188,6 +188,7 @@ pub struct RequestPattern {
 
 impl SecurityEvent {
     /// Create a new security event
+    #[must_use]
     pub fn new(
         event_type: SecurityEventType,
         source_ip: String,

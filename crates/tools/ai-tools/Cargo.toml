@@ -44,24 +44,23 @@ tracing = { version = "0.1", features = ["log"] }
 openai = { version = "1.1", default-features = false, features = ["rustls"], optional = true }
 
 # CRITICAL FIX: Add missing config dependency
-squirrel-mcp-config = { path = "../../config" }
+squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 
 # IPC client from universal patterns (primal autonomy - no shared external IPC crates!)
-universal-patterns = { path = "../../universal-patterns" }
+universal-patterns = { path = "../../universal-patterns", version = "0.1.0" }
 
 # Universal error system
-universal-error = { path = "../../universal-error" }
+universal-error = { path = "../../universal-error", version = "0.1.0" }
 
 # Universal constants (socket paths, SLOs, ports)
-universal-constants = { path = "../../universal-constants" }
+universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 
 # Web framework for API (OPTIONAL - for HTTP API routes only)
 axum = { version = "0.7", features = ["json"], optional = true }
 tower = { version = "0.4", optional = true }
 tower-http = { version = "0.5", features = ["cors", "trace"], optional = true }
 
-# Configuration
-config = "0.13"
+# Configuration (TOML is ecosystem standard format)
 toml = "0.8"
 
 # Logging

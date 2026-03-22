@@ -658,4 +658,65 @@ mod tests {
         let batch = batch.unwrap();
         assert_eq!(batch, vec![1, 2]);
     }
+
+    #[test]
+    fn test_error_conversion_helpers() {
+        use super::error_conversion;
+        assert!(matches!(
+            error_conversion::fs_error("read", "e"),
+            crate::PluginError::FileSystemError { .. }
+        ));
+        assert!(matches!(
+            error_conversion::config_error("bad"),
+            crate::PluginError::ConfigurationError { .. }
+        ));
+        assert!(matches!(
+            error_conversion::timeout_error("op", 5),
+            crate::PluginError::TimeoutError { .. }
+        ));
+        assert!(matches!(
+            error_conversion::storage_error("get", "e"),
+            crate::PluginError::StorageError { .. }
+        ));
+        assert!(matches!(
+            error_conversion::connection_error("ws://x", "e"),
+            crate::PluginError::ConnectionError { .. }
+        ));
+        assert!(matches!(
+            error_conversion::command_error("cmd", "e"),
+            crate::PluginError::CommandExecutionError { .. }
+        ));
+        assert!(matches!(
+            error_conversion::event_error("ev", "e"),
+            crate::PluginError::EventHandlingError { .. }
+        ));
+        assert!(matches!(
+            error_conversion::lock_error("r", "e"),
+            crate::PluginError::LockError { .. }
+        ));
+    }
+
+    #[test]
+    fn test_string_pool_clear() {
+        use super::performance::StringPool;
+        let mut pool = StringPool::new();
+        pool.get_or_create("k");
+        assert_eq!(pool.size(), 1);
+        pool.clear();
+        assert_eq!(pool.size(), 0);
+    }
+
+    #[test]
+    fn test_batch_processor_finish() {
+        use super::performance::BatchProcessor;
+        let mut bp = BatchProcessor::<i32>::new(5);
+        bp.add(1);
+        let rest = bp.finish();
+        assert_eq!(rest, vec![1]);
+    }
+
+    #[tokio::test]
+    async fn test_sleep_ms_completes() {
+        sleep_ms(1).await;
+    }
 }

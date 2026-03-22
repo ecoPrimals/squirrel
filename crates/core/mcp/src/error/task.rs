@@ -43,6 +43,7 @@ impl TaskError {
     }
 
     /// Create a new timeout error
+    #[must_use]
     pub fn timeout(seconds: u64) -> Self {
         Self::Timeout(seconds.to_string())
     }

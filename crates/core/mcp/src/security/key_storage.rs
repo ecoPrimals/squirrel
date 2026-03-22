@@ -37,6 +37,7 @@ pub struct InMemoryKeyStorage {
 
 impl InMemoryKeyStorage {
     /// Create a new key storage
+    #[must_use]
     pub fn new() -> Self {
         Self {
             keys: Arc::new(RwLock::new(HashMap::new())),

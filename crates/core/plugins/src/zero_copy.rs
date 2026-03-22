@@ -83,6 +83,7 @@ pub struct FromArcParams {
 
 impl ZeroCopyPluginMetadata {
     /// Create new plugin metadata with owned data
+    #[must_use]
     pub fn new(
         id: Uuid,
         name: String,
@@ -111,6 +112,7 @@ impl ZeroCopyPluginMetadata {
     }
 
     /// Create from existing Arc data (zero-copy)
+    #[must_use]
     pub fn from_arc(params: FromArcParams) -> Self {
         Self {
             id: params.id,
@@ -169,31 +171,37 @@ impl ZeroCopyPluginMetadata {
     }
 
     /// Get name as string slice (zero allocation)
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
     /// Get version as string slice (zero allocation)
+    #[must_use]
     pub fn version(&self) -> &str {
         &self.version
     }
 
     /// Get description as string slice (zero allocation)
+    #[must_use]
     pub fn description(&self) -> &str {
         &self.description
     }
 
     /// Get author as string slice (zero allocation)
+    #[must_use]
     pub fn author(&self) -> &str {
         &self.author
     }
 
     /// Check if plugin has capability (zero allocation)
+    #[must_use]
     pub fn has_capability(&self, capability: &str) -> bool {
         self.capabilities.iter().any(|cap| cap == capability)
     }
 
     /// Check if plugin has dependency (zero allocation)
+    #[must_use]
     pub fn has_dependency(&self, dependency: &str) -> bool {
         self.dependencies.iter().any(|dep| dep == dependency)
     }
@@ -251,6 +259,7 @@ pub struct SecuritySettings {
 
 impl ZeroCopyPluginConfig {
     /// Create new plugin configuration
+    #[must_use]
     pub fn new(plugin_id: Uuid) -> Self {
         Self {
             plugin_id,
@@ -279,6 +288,7 @@ impl ZeroCopyPluginConfig {
     }
 
     /// Get configuration value (zero allocation)
+    #[must_use]
     pub fn get_config(&self, key: &str) -> Option<&serde_json::Value> {
         self.config_data.get(key)
     }
@@ -340,6 +350,7 @@ pub struct PluginMetrics {
 
 impl ZeroCopyPluginState {
     /// Create new plugin state
+    #[must_use]
     pub fn new(plugin_id: Uuid, status: PluginStatus) -> Self {
         Self {
             plugin_id,
@@ -371,11 +382,13 @@ impl ZeroCopyPluginState {
     }
 
     /// Get state value (zero allocation)
+    #[must_use]
     pub fn get_state(&self, key: &str) -> Option<&serde_json::Value> {
         self.state_data.get(key)
     }
 
     /// Get metrics reference (zero allocation)
+    #[must_use]
     pub fn metrics(&self) -> &PluginMetrics {
         &self.metrics
     }
@@ -398,16 +411,19 @@ pub struct ZeroCopyPluginEntry {
 
 impl ZeroCopyPluginEntry {
     /// Get the plugin ID
+    #[must_use]
     pub fn id(&self) -> Uuid {
         self.metadata.id
     }
 
     /// Get the plugin name
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.metadata.name
     }
 
     /// Get the plugin path
+    #[must_use]
     pub fn path(&self) -> Option<&Path> {
         self.path.as_deref()
     }
@@ -427,6 +443,7 @@ impl std::fmt::Debug for ZeroCopyPluginEntry {
 
 impl ZeroCopyPluginEntry {
     /// Create new plugin entry
+    #[must_use]
     pub fn new(
         metadata: ZeroCopyPluginMetadata,
         config: ZeroCopyPluginConfig,
@@ -509,6 +526,7 @@ pub struct PluginEvent<'a> {
 
 impl<'a> PluginEvent<'a> {
     /// Create event with borrowed strings (zero-copy)
+    #[must_use]
     pub fn new_borrowed(event_type: &'a str, data: &'a str) -> Self {
         Self {
             event_type: Cow::Borrowed(event_type),
@@ -520,6 +538,7 @@ impl<'a> PluginEvent<'a> {
     }
 
     /// Create event with owned strings
+    #[must_use]
     pub fn new_owned(event_type: String, data: String) -> Self {
         Self {
             event_type: Cow::Owned(event_type),
@@ -531,11 +550,13 @@ impl<'a> PluginEvent<'a> {
     }
 
     /// Get event type (zero allocation)
+    #[must_use]
     pub fn event_type(&self) -> &str {
         &self.event_type
     }
 
     /// Get event data (zero allocation)
+    #[must_use]
     pub fn data(&self) -> &str {
         &self.data
     }
@@ -571,6 +592,7 @@ pub struct RegistryStats {
 
 impl ZeroCopyPluginRegistry {
     /// Create new plugin registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             plugins: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
@@ -581,6 +603,10 @@ impl ZeroCopyPluginRegistry {
     }
 
     /// Register plugin (zero-copy of entry data)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::PluginError`] if the plugin cannot be registered or indexed.
     pub async fn register_plugin(&self, entry: ZeroCopyPluginEntry) -> crate::Result<()> {
         let plugin_id = entry.id();
         let plugin_name = entry.name().to_string();
@@ -708,6 +734,7 @@ pub struct PluginMetadataBuilder {
 
 impl PluginMetadataBuilder {
     /// Create new metadata builder
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }

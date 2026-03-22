@@ -175,6 +175,7 @@ impl PluginManagementAPI {
     }
 
     /// Get all REST API endpoints
+    #[must_use]
     pub fn get_endpoints(&self) -> Vec<WebEndpoint> {
         vec![
             // Plugin management endpoints
@@ -316,6 +317,10 @@ impl PluginManagementAPI {
     }
 
     /// Handle REST API request
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if routing, deserialization, or handler logic fails.
     pub async fn handle_request(&self, request: WebRequest) -> Result<WebResponse> {
         match (request.method, request.path.as_str()) {
             // Plugin management endpoints
@@ -853,11 +858,16 @@ pub struct PluginWebSocketHandler {
 
 impl PluginWebSocketHandler {
     /// Creates a new WebSocket handler backed by the plugin management API.
+    #[must_use]
     pub const fn new(api: Arc<PluginManagementAPI>) -> Self {
         Self { api }
     }
 
     /// Handle WebSocket connection
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the connection cannot be registered.
     pub async fn handle_connection(&self, connection_id: Uuid) -> Result<()> {
         let connection = WebSocketConnection {
             id: connection_id,
@@ -881,6 +891,10 @@ impl PluginWebSocketHandler {
     }
 
     /// Handle WebSocket disconnection
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the connection state cannot be updated.
     pub async fn handle_disconnection(&self, connection_id: Uuid) -> Result<()> {
         self.api
             .websocket_connections

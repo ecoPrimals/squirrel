@@ -115,3 +115,66 @@ impl From<Box<dyn Error + Send + Sync>> for CommandError {
         CommandError::Other(err.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::CommandError;
+    use std::error::Error;
+    use std::io;
+
+    #[test]
+    fn command_error_display_covers_variants() {
+        let cases: Vec<CommandError> = vec![
+            CommandError::InputError("i".into()),
+            CommandError::ValidationError("v".into()),
+            CommandError::ExecutionError("e".into()),
+            CommandError::ResourceError("r".into()),
+            CommandError::PermissionError("p".into()),
+            CommandError::IoError("io".into()),
+            CommandError::Internal("in".into()),
+            CommandError::SerializationError("s".into()),
+            CommandError::RegistryError("reg".into()),
+            CommandError::CommandNotFound("c".into()),
+            CommandError::CommandAlreadyExists("c".into()),
+            CommandError::Hook("h".into()),
+            CommandError::Lock("l".into()),
+            CommandError::Lifecycle("lf".into()),
+            CommandError::ResourceNotFound("rt".into()),
+            CommandError::Allocation("a".into()),
+            CommandError::Other("o".into()),
+        ];
+        for err in cases {
+            assert!(!err.to_string().is_empty());
+            assert!(!format!("{err:?}").is_empty());
+        }
+    }
+
+    #[test]
+    fn from_io_error() {
+        let e: CommandError = io::Error::new(io::ErrorKind::Other, "x").into();
+        assert!(matches!(e, CommandError::IoError(_)));
+    }
+
+    #[test]
+    fn from_serde_json_error() {
+        let e = serde_json::from_str::<serde_json::Value>("{").unwrap_err();
+        let c: CommandError = e.into();
+        assert!(matches!(c, CommandError::SerializationError(_)));
+    }
+
+    #[test]
+    fn from_string_and_str() {
+        let a: CommandError = "hello".to_string().into();
+        assert!(matches!(a, CommandError::Other(_)));
+        let b: CommandError = "hello".into();
+        assert!(matches!(b, CommandError::Other(_)));
+    }
+
+    #[test]
+    fn from_box_error() {
+        let boxed: Box<dyn Error + Send + Sync> =
+            Box::new(io::Error::new(io::ErrorKind::Other, "boxed"));
+        let c: CommandError = boxed.into();
+        assert!(matches!(c, CommandError::Other(_)));
+    }
+}

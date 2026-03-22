@@ -48,6 +48,7 @@ pub struct JwtClaims {
 
 impl JwtClaims {
     /// Build claims for a new token with the given identity and expiration.
+    #[must_use]
     pub fn new(
         user_id: Uuid,
         username: String,
@@ -72,6 +73,10 @@ impl JwtClaims {
     }
 
     /// Convert validated claims into an [`AuthContext`] for downstream authorization.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if claim fields cannot be parsed into IDs or timestamps.
     pub fn to_auth_context(&self) -> Result<AuthContext, AuthError> {
         let user_id = Uuid::parse_str(&self.sub).map_err(|_| AuthError::InvalidToken)?;
 
@@ -106,6 +111,7 @@ pub struct JwtTokenManager {
 
 impl JwtTokenManager {
     /// Create a token manager with the given HMAC secret.
+    #[must_use]
     pub fn new(secret: &[u8]) -> Self {
         let mut validation = Validation::new(Algorithm::HS256);
         validation.set_issuer(&[identity::JWT_ISSUER]);
@@ -121,6 +127,10 @@ impl JwtTokenManager {
     }
 
     /// Encode claims into a signed JWT string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if signing or serialization fails.
     pub fn create_token(&self, claims: &JwtClaims) -> Result<String, AuthError> {
         let header = Header::new(Algorithm::HS256);
 
@@ -130,6 +140,10 @@ impl JwtTokenManager {
     }
 
     /// Verify a JWT string and return the decoded claims.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the token is invalid, expired, or fails validation.
     pub fn verify_token(&self, token: &str) -> Result<JwtClaims, AuthError> {
         let token_data = decode::<JwtClaims>(token, &self.decoding_key, &self.validation).map_err(
             |e| match e.kind() {
@@ -145,6 +159,10 @@ impl JwtTokenManager {
     }
 
     /// Extract the bearer token from an `Authorization` header value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the header is missing `Bearer ` or the token is empty.
     pub fn extract_token_from_header<'a>(
         &self,
         authorization_header: &'a str,

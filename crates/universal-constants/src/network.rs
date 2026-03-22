@@ -28,6 +28,8 @@
 //! - **Fallback Defaults**: Used only when discovery fails (with warnings)
 //! - **Helper Functions**: URL construction and utilities
 
+use crate::config_helpers;
+
 // ============================================================================
 // Runtime Discovery Functions (Use These!)
 // ============================================================================
@@ -117,6 +119,63 @@ pub fn get_bind_address() -> String {
 }
 
 // ============================================================================
+// Squirrel self + peer discovery (PRIMAL_IPC: zero compile-time peer ports)
+// ============================================================================
+
+/// TCP port for **this** Squirrel primal only (`SQUIRREL_PORT`, then `SQUIRREL_SERVER_PORT`).
+///
+/// Other primals must not be resolved here — use [`discover_peer_http_origin`] with capability
+/// ports from [`crate::deployment::ports`] or Unix socket discovery.
+#[must_use]
+pub fn squirrel_primal_port() -> u16 {
+    std::env::var("SQUIRREL_PORT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_else(|| config_helpers::get_port("SQUIRREL_SERVER_PORT", 9010))
+}
+
+/// Host/port pair discovered at runtime (env, registry, or IPC) — not hardcoded per primal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DiscoveredEndpoint {
+    /// Hostname or IP address.
+    pub host: String,
+    /// TCP port (`0` means unknown; resolve via registry/socket before connecting).
+    pub port: u16,
+}
+
+impl DiscoveredEndpoint {
+    /// `http://{host}:{port}` origin (caller should reject `port == 0` if invalid).
+    #[must_use]
+    pub fn http_origin(&self) -> String {
+        format!("http://{}:{}", self.host, self.port)
+    }
+}
+
+/// Resolve a peer HTTP base URL without embedding another primal’s port in source.
+///
+/// Resolution order:
+/// 1. `endpoint_env` (full URL) if set and non-empty
+/// 2. `http://{host}:{port}` with host from `host_env` (fallback `fallback_host`) and port from
+///    `port_env` (fallback `fallback_port`, typically from [`crate::deployment::ports`])
+#[must_use]
+pub fn discover_peer_http_origin(
+    endpoint_env: &str,
+    host_env: &str,
+    port_env: &str,
+    fallback_host: &str,
+    fallback_port: u16,
+) -> String {
+    if let Ok(url) = std::env::var(endpoint_env)
+        && !url.is_empty()
+    {
+        return url;
+    }
+    let host = config_helpers::get_host(host_env, fallback_host);
+    let port = config_helpers::get_port(port_env, fallback_port);
+    format!("http://{host}:{port}")
+}
+
+// ============================================================================
 // Fallback Defaults (Use get_service_port() instead!)
 // ============================================================================
 //
@@ -176,7 +235,9 @@ pub const DEFAULT_METRICS_PORT: u16 = 9090;
 #[deprecated(since = "3.0.0", note = "Use get_service_port(\"discovery\")")]
 pub const DEFAULT_DISCOVERY_PORT: u16 = 8500;
 
-/// Fallback security/MCP port (use `deployment::ports::security_service()` or `deployment::ports::mcp_server()` for env-aware)
+/// Legacy security port constant — prefer [`crate::deployment::ports::security_service`].
+///
+/// Squirrel must not treat this as another primal’s fixed port; capability discovery applies.
 pub const DEFAULT_SECURITY_PORT: u16 = 8443;
 
 /// Legacy gRPC port constant — gRPC fully removed, kept only for config deserialization compat
@@ -510,5 +571,47 @@ mod tests {
     fn test_address_env_var() {
         assert_eq!(super::address_env_var("rhizocrypt"), "RHIZOCRYPT_ADDRESS");
         assert_eq!(super::address_env_var("squirrel"), "SQUIRREL_ADDRESS");
+    }
+
+    #[test]
+    fn test_squirrel_primal_port_env() {
+        temp_env::with_var("SQUIRREL_PORT", Some("7777"), || {
+            assert_eq!(super::squirrel_primal_port(), 7777);
+        });
+    }
+
+    #[test]
+    fn test_squirrel_primal_port_fallback() {
+        temp_env::with_vars_unset(["SQUIRREL_PORT", "SQUIRREL_SERVER_PORT"], || {
+            assert_eq!(super::squirrel_primal_port(), 9010);
+        });
+    }
+
+    #[test]
+    fn test_discover_peer_http_origin_from_env() {
+        temp_env::with_var("PEER_EP", Some("http://registry.example:9"), || {
+            let url = super::discover_peer_http_origin(
+                "PEER_EP",
+                "PEER_HOST",
+                "PEER_PORT",
+                "localhost",
+                8080,
+            );
+            assert_eq!(url, "http://registry.example:9");
+        });
+    }
+
+    #[test]
+    fn test_discover_peer_http_origin_built() {
+        temp_env::with_vars_unset(["PEER2_EP", "PEER2_HOST", "PEER2_PORT"], || {
+            let url = super::discover_peer_http_origin(
+                "PEER2_EP",
+                "PEER2_HOST",
+                "PEER2_PORT",
+                "localhost",
+                8444,
+            );
+            assert_eq!(url, "http://localhost:8444");
+        });
     }
 }

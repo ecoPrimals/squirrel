@@ -417,6 +417,7 @@ impl MCPError {
     }
 
     /// Returns a string representation of the general error category.
+    #[must_use]
     pub const fn category_str(&self) -> &'static str {
         match self {
             Self::Transport(_) => "TRANSPORT",

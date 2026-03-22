@@ -788,6 +788,7 @@ impl PluginConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plugin::Permission;
 
     #[test]
     fn test_default_config() {
@@ -827,10 +828,20 @@ mod tests {
     }
 
     #[test]
-    fn test_capabilities() {
-        let config = PluginConfig::default();
+    fn test_get_setting_wrong_type_returns_error() {
+        let mut config = PluginConfig::default();
+        config
+            .settings
+            .insert("n".to_string(), serde_json::json!(42));
+        let err: Result<Option<String>, _> = config.get_setting("n");
+        assert!(err.is_err());
+    }
 
-        assert!(!config.has_capability("network"));
+    #[test]
+    fn test_capabilities() {
+        let mut config = PluginConfig::default();
+        config.permissions.push(Permission::NetworkAccess);
+        assert!(config.has_capability("network"));
         assert!(!config.has_capability("fs"));
     }
 

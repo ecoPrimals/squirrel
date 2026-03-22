@@ -57,6 +57,10 @@ impl DelegatedJwtClient {
     /// # Dev Mode (local-jwt feature)
     ///
     /// Uses local JWT with HMAC-SHA256 (brings `ring` dependency).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the capability-based JWT service cannot be initialized.
     #[cfg(feature = "delegated-jwt")]
     pub fn new(capability_config: CapabilityJwtConfig) -> AuthResult<Self> {
         info!("🌍 Initializing TRUE PRIMAL JWT client (capability-based discovery!)");
@@ -77,6 +81,10 @@ impl DelegatedJwtClient {
     /// - `JWT_EXPIRY_HOURS`: Token expiry in hours (default: 24)
     ///
     /// **IMPORTANT**: These should be set by capability discovery at startup!
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the client cannot be constructed from the resolved configuration.
     #[cfg(feature = "delegated-jwt")]
     pub fn new_from_env() -> AuthResult<Self> {
         use std::env;
@@ -122,6 +130,10 @@ impl DelegatedJwtClient {
     /// # Returns
     ///
     /// JWT token string in format: `<header>.<claims>.<signature>`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if token creation or delegated signing fails.
     #[cfg(feature = "delegated-jwt")]
     pub async fn create_token(
         &self,
@@ -150,6 +162,10 @@ impl DelegatedJwtClient {
     /// # Returns
     ///
     /// Verified JWT claims
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the token is invalid, expired, or verification fails.
     #[cfg(feature = "delegated-jwt")]
     pub async fn verify_token(&self, token: &str) -> AuthResult<JwtClaims> {
         debug!(
@@ -177,6 +193,10 @@ impl DelegatedJwtClient {
     /// Extract token from Authorization header
     ///
     /// Expected format: `Bearer <token>`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the header is missing `Bearer ` or the token is empty.
     #[cfg(feature = "delegated-jwt")]
     pub fn extract_token_from_header<'a>(
         &self,

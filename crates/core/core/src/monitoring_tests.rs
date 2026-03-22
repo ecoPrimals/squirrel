@@ -1,0 +1,434 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 ecoPrimals Contributors
+
+use super::*;
+use crate::HealthStatus;
+
+/// Minimal provider that always succeeds.
+struct OkProvider(&'static str);
+
+#[async_trait]
+impl MonitoringProvider for OkProvider {
+    fn provider_name(&self) -> &'static str {
+        self.0
+    }
+
+    fn provider_version(&self) -> &'static str {
+        "test"
+    }
+
+    async fn record_event(&self, _: MonitoringEvent) -> crate::Result<()> {
+        Ok(())
+    }
+
+    async fn record_metric(&self, _: Metric) -> crate::Result<()> {
+        Ok(())
+    }
+
+    async fn record_health(&self, _: &str, _: HealthStatus) -> crate::Result<()> {
+        Ok(())
+    }
+
+    async fn record_performance(&self, _: &str, _: PerformanceMetrics) -> crate::Result<()> {
+        Ok(())
+    }
+
+    async fn provider_health(&self) -> crate::Result<HealthStatus> {
+        Ok(HealthStatus::Healthy)
+    }
+
+    async fn provider_capabilities(&self) -> crate::Result<Vec<MonitoringCapability>> {
+        Ok(vec![MonitoringCapability::Metrics])
+    }
+}
+
+/// Provider that errors on every record call (exercises best-effort paths).
+struct FailingProvider;
+
+#[async_trait]
+impl MonitoringProvider for FailingProvider {
+    fn provider_name(&self) -> &'static str {
+        "failing"
+    }
+
+    fn provider_version(&self) -> &'static str {
+        "0"
+    }
+
+    async fn record_event(&self, _: MonitoringEvent) -> crate::Result<()> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn record_metric(&self, _: Metric) -> crate::Result<()> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn record_health(&self, _: &str, _: HealthStatus) -> crate::Result<()> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn record_performance(&self, _: &str, _: PerformanceMetrics) -> crate::Result<()> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn provider_health(&self) -> crate::Result<HealthStatus> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+
+    async fn provider_capabilities(&self) -> crate::Result<Vec<MonitoringCapability>> {
+        Err(crate::Error::Monitoring("e".into()))
+    }
+}
+
+fn base_metric() -> Metric {
+    Metric {
+        name: "m".into(),
+        value: MetricValue::Counter(1),
+        labels: HashMap::new(),
+        timestamp: Utc::now(),
+    }
+}
+
+#[test]
+fn monitoring_config_and_fallback_defaults() {
+    let mc = MonitoringConfig::default();
+    assert!(mc.enabled);
+    assert!(!mc.require_provider);
+    assert!(mc.songbird_config.is_none());
+    assert!(mc.provider_configs.is_empty());
+    let fc = FallbackConfig::default();
+    assert_eq!(fc.log_level, "info");
+    assert!(fc.include_metrics && fc.include_health && fc.include_performance);
+}
+
+#[test]
+fn monitoring_config_roundtrip_serde_without_songbird() {
+    let cfg = MonitoringConfig::default();
+    let json = serde_json::to_string(&cfg).expect("serialize");
+    let back: MonitoringConfig = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(back.enabled, cfg.enabled);
+    assert_eq!(back.require_provider, cfg.require_provider);
+}
+
+#[test]
+fn metric_event_types_serde_roundtrip() {
+    let ts = Utc::now();
+    let ev = MonitoringEvent::ServiceStarted {
+        service: "s".into(),
+        version: "1".into(),
+        timestamp: ts,
+    };
+    let v = serde_json::to_value(&ev).unwrap();
+    let back: MonitoringEvent = serde_json::from_value(v).unwrap();
+    assert!(matches!(back, MonitoringEvent::ServiceStarted { .. }));
+
+    let m = Metric {
+        name: "n".into(),
+        value: MetricValue::Histogram {
+            buckets: vec![0.0, 1.0],
+            counts: vec![1, 2],
+        },
+        labels: [("k".into(), "v".into())].into_iter().collect(),
+        timestamp: ts,
+    };
+    let mv = serde_json::to_value(&m).unwrap();
+    let mb: Metric = serde_json::from_value(mv).unwrap();
+    assert_eq!(mb.name, "n");
+}
+
+#[tokio::test]
+async fn initialize_disabled_short_circuits() {
+    let mut cfg = MonitoringConfig::default();
+    cfg.enabled = false;
+    let svc = MonitoringService::new(cfg);
+    svc.initialize().await.expect("init");
+}
+
+#[tokio::test]
+async fn initialize_require_provider_errors_without_providers() {
+    let mut cfg = MonitoringConfig::default();
+    cfg.require_provider = true;
+    cfg.songbird_config = None;
+    cfg.provider_configs.clear();
+    let svc = MonitoringService::new(cfg);
+    let err = svc.initialize().await.unwrap_err();
+    assert!(
+        matches!(err, crate::Error::Monitoring(ref s) if s.contains("No monitoring")),
+        "{err:?}"
+    );
+}
+
+#[tokio::test]
+async fn initialize_with_songbird_config_adds_provider() {
+    let mut cfg = MonitoringConfig::default();
+    cfg.require_provider = false;
+    cfg.songbird_config = Some(SongbirdConfig {
+        endpoint: "unix:///tmp/sb".into(),
+        service_name: "svc".into(),
+        auth_token: None,
+        batch_size: 10,
+        flush_interval: std::time::Duration::from_secs(1),
+    });
+    let svc = MonitoringService::new(cfg);
+    svc.initialize().await.expect("init");
+    let names = svc.get_providers().await;
+    assert!(names.iter().any(|n| n == "songbird"));
+}
+
+#[tokio::test]
+async fn initialize_unknown_provider_is_skipped_with_warning_path() {
+    let mut cfg = MonitoringConfig::default();
+    cfg.require_provider = false;
+    cfg.provider_configs
+        .insert("not-songbird".into(), serde_json::json!({}));
+    let svc = MonitoringService::new(cfg);
+    svc.initialize().await.expect("init");
+    assert!(svc.get_providers().await.is_empty());
+}
+
+#[tokio::test]
+async fn initialize_provider_configs_songbird_branch() {
+    let mut cfg = MonitoringConfig::default();
+    cfg.songbird_config = None;
+    cfg.provider_configs.insert(
+        "songbird".into(),
+        serde_json::json!({
+            "endpoint": "unix:///x",
+            "service_name": "n",
+            "auth_token": null,
+            "batch_size": 1,
+            "flush_interval": {"secs": 1, "nanos": 0}
+        }),
+    );
+    let svc = MonitoringService::new(cfg);
+    svc.initialize().await.expect("init");
+    assert!(svc.get_providers().await.iter().any(|n| n == "songbird"));
+}
+
+#[tokio::test]
+async fn songbird_provider_new_succeeds_and_unknown_provider_config_skipped() {
+    let res = SongbirdProvider::new(SongbirdConfig {
+        endpoint: "e".into(),
+        service_name: "s".into(),
+        auth_token: None,
+        batch_size: 1,
+        flush_interval: std::time::Duration::from_millis(0),
+    })
+    .await;
+    assert!(res.is_ok());
+    let mut cfg = MonitoringConfig::default();
+    cfg.provider_configs
+        .insert("unknown".into(), serde_json::json!({}));
+    let svc = MonitoringService::new(cfg);
+    svc.initialize().await.expect("no required provider");
+}
+
+#[tokio::test]
+async fn record_paths_with_fallback_logger() {
+    let mut fb = FallbackConfig::default();
+    fb.log_level = "debug".into();
+    let cfg = MonitoringConfig {
+        enabled: true,
+        require_provider: false,
+        songbird_config: None,
+        provider_configs: HashMap::new(),
+        fallback_config: fb,
+    };
+    let svc = MonitoringService::new(cfg);
+    let ts = Utc::now();
+    svc.record_event(MonitoringEvent::ServiceStopped {
+        service: "x".into(),
+        timestamp: ts,
+    })
+    .await
+    .unwrap();
+    svc.record_metric(base_metric()).await.unwrap();
+    svc.record_health("c", HealthStatus::Healthy).await.unwrap();
+    svc.record_performance(
+        "p",
+        PerformanceMetrics {
+            cpu_usage: Some(0.5),
+            memory_usage: None,
+            network_usage: None,
+            response_time: Some(std::time::Duration::from_millis(12)),
+            throughput: None,
+            error_rate: None,
+            queue_length: None,
+            active_connections: None,
+            custom_metrics: HashMap::new(),
+        },
+    )
+    .await
+    .unwrap();
+    let st = svc.get_status().await;
+    assert!(st.fallback_active);
+    assert_eq!(st.provider_count, 0);
+}
+
+#[tokio::test]
+async fn record_with_failing_provider_still_ok() {
+    let svc = MonitoringService::new(MonitoringConfig::default());
+    svc.add_provider(Arc::new(FailingProvider) as Arc<dyn MonitoringProvider>)
+        .await;
+    svc.record_event(MonitoringEvent::Custom {
+        event_type: "t".into(),
+        data: serde_json::json!({}),
+        timestamp: Utc::now(),
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn add_remove_get_providers_and_status() {
+    let svc = MonitoringService::new(MonitoringConfig::default());
+    svc.add_provider(Arc::new(OkProvider("p1")) as Arc<dyn MonitoringProvider>)
+        .await;
+    svc.add_provider(Arc::new(OkProvider("p2")) as Arc<dyn MonitoringProvider>)
+        .await;
+    assert_eq!(svc.get_providers().await.len(), 2);
+    svc.remove_provider("p1").await;
+    assert_eq!(svc.get_providers().await, vec!["p2"]);
+    let st = svc.get_status().await;
+    assert_eq!(st.provider_count, 1);
+    assert!(!st.fallback_active);
+    assert_eq!(st.providers[0].name, "p2");
+}
+
+#[tokio::test]
+async fn songbird_provider_trait_methods() {
+    let p = SongbirdProvider::new(SongbirdConfig {
+        endpoint: "e".into(),
+        service_name: "n".into(),
+        auth_token: Some("t".into()),
+        batch_size: 2,
+        flush_interval: std::time::Duration::from_secs(2),
+    })
+    .await
+    .expect("new");
+    assert_eq!(p.provider_name(), "songbird");
+    assert_eq!(p.provider_version(), "1.0.0");
+    p.record_event(MonitoringEvent::PrimalDiscovered {
+        primal_id: "i".into(),
+        primal_type: "t".into(),
+        endpoint: "ep".into(),
+        timestamp: Utc::now(),
+    })
+    .await
+    .unwrap();
+    p.record_metric(base_metric()).await.unwrap();
+    p.record_health("c", HealthStatus::Degraded).await.unwrap();
+    p.record_performance(
+        "c",
+        PerformanceMetrics {
+            cpu_usage: None,
+            memory_usage: None,
+            network_usage: None,
+            response_time: None,
+            throughput: None,
+            error_rate: None,
+            queue_length: None,
+            active_connections: None,
+            custom_metrics: HashMap::new(),
+        },
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        p.provider_health().await.unwrap(),
+        HealthStatus::Unknown
+    ));
+    let caps = p.provider_capabilities().await.unwrap();
+    assert!(
+        caps.iter()
+            .any(|c| matches!(c, MonitoringCapability::Events))
+    );
+}
+
+#[test]
+fn fallback_logger_branches() {
+    let mut cfg = FallbackConfig::default();
+    cfg.log_level = "info".into();
+    let fb = FallbackLogger::new(cfg);
+    let ts = Utc::now();
+    fb.log_event(&MonitoringEvent::ServiceStarted {
+        service: "s".into(),
+        version: "v".into(),
+        timestamp: ts,
+    });
+    fb.log_event(&MonitoringEvent::TaskCompleted {
+        task_id: "1".into(),
+        execution_time: std::time::Duration::ZERO,
+        success: false,
+        timestamp: ts,
+    });
+    fb.log_event(&MonitoringEvent::ErrorOccurred {
+        error_type: "E".into(),
+        error_message: "m".into(),
+        component: "c".into(),
+        timestamp: ts,
+    });
+    fb.log_metric(&base_metric());
+
+    let mut hcfg = FallbackConfig::default();
+    hcfg.include_health = true;
+    hcfg.log_level = "warn".into();
+    let hf = FallbackLogger::new(hcfg);
+    hf.log_health("x", &HealthStatus::Degraded);
+
+    let mut pcfg = FallbackConfig::default();
+    pcfg.include_performance = true;
+    pcfg.log_level = "info".into();
+    let pf = FallbackLogger::new(pcfg);
+    pf.log_performance(
+        "comp",
+        &PerformanceMetrics {
+            cpu_usage: Some(0.1),
+            memory_usage: Some(0.2),
+            network_usage: None,
+            response_time: Some(std::time::Duration::from_nanos(1)),
+            throughput: None,
+            error_rate: None,
+            queue_length: None,
+            active_connections: None,
+            custom_metrics: HashMap::new(),
+        },
+    );
+
+    let silent = FallbackLogger::new(FallbackConfig {
+        log_level: "off".into(),
+        include_metrics: true,
+        include_health: true,
+        include_performance: true,
+    });
+    silent.log_event(&MonitoringEvent::FederationJoined {
+        federation_id: "f".into(),
+        node_count: 0,
+        timestamp: ts,
+    });
+}
+
+#[tokio::test]
+async fn convenience_record_helpers() {
+    let svc = MonitoringService::new(MonitoringConfig::default());
+    svc.record_service_started("a", "1").await.unwrap();
+    svc.record_task_completed("t", std::time::Duration::ZERO, true)
+        .await
+        .unwrap();
+    svc.record_error("T", "msg", "comp").await.unwrap();
+    svc.record_counter("c", 3, HashMap::new()).await.unwrap();
+    svc.record_gauge("g", 1.5, [("l".into(), "v".into())].into_iter().collect())
+        .await
+        .unwrap();
+}
+
+#[test]
+fn time_frame_and_capability_serde() {
+    let tf = TimeFrame::LastHour;
+    let tfb: TimeFrame = serde_json::from_value(serde_json::to_value(&tf).unwrap()).unwrap();
+    assert!(matches!(tfb, TimeFrame::LastHour));
+    let cap = MonitoringCapability::Custom("x".into());
+    let json = serde_json::to_string(&cap).unwrap();
+    let capb: MonitoringCapability = serde_json::from_str(&json).unwrap();
+    assert!(matches!(capb, MonitoringCapability::Custom(s) if s == "x"));
+}

@@ -511,7 +511,33 @@ impl Default for ResourceUsage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::federation::LinuxVariant;
+    use crate::federation::{
+        CloudProvider, ContainerRuntime, FederationError, LinuxVariant, MacOSVariant,
+        WindowsVariant,
+    };
+
+    fn sample_request(
+        id: Uuid,
+        platform: Platform,
+        language: &str,
+        code: &str,
+    ) -> ExecutionRequest {
+        ExecutionRequest {
+            id,
+            platform,
+            code: code.to_string(),
+            language: language.to_string(),
+            parameters: HashMap::new(),
+            security_context: SecurityContext {
+                user_id: "u".to_string(),
+                permission_level: PermissionLevel::User,
+                allowed_operations: vec![],
+                sandbox_config: SandboxConfig::default(),
+            },
+            resource_limits: ResourceLimits::default(),
+            timeout_seconds: 30,
+        }
+    }
 
     #[tokio::test]
     async fn test_universal_executor_creation() {
@@ -555,5 +581,183 @@ mod tests {
         };
 
         assert!(executor.validate_request(&request).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_unsupported_platform() {
+        let executor = DefaultUniversalExecutor::new();
+        let mut req = sample_request(
+            Uuid::new_v4(),
+            Platform::Cloud(CloudProvider::AWS),
+            "python",
+            "1",
+        );
+        let err = executor.validate_request(&req).unwrap_err();
+        assert!(matches!(err, FederationError::UnsupportedPlatform(_)));
+        req.platform = Platform::Mobile(crate::federation::MobileVariant::Android);
+        let err = executor.validate_request(&req).unwrap_err();
+        assert!(matches!(err, FederationError::UnsupportedPlatform(_)));
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_unsupported_language() {
+        let executor = DefaultUniversalExecutor::new();
+        let mut req = sample_request(
+            Uuid::new_v4(),
+            Platform::Linux(LinuxVariant::Ubuntu),
+            "python",
+            "1",
+        );
+        req.language = "cobol".to_string();
+        let err = executor.validate_request(&req).unwrap_err();
+        assert!(matches!(err, FederationError::UnsupportedLanguage(_)));
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_excessive_memory_limit() {
+        let executor = DefaultUniversalExecutor::new();
+        let mut req = sample_request(
+            Uuid::new_v4(),
+            Platform::Linux(LinuxVariant::Ubuntu),
+            "python",
+            "1",
+        );
+        req.resource_limits.max_memory_bytes = 17 * 1024 * 1024 * 1024;
+        let err = executor.validate_request(&req).unwrap_err();
+        assert!(matches!(err, FederationError::ResourceLimitExceeded(_)));
+    }
+
+    #[tokio::test]
+    async fn test_validate_rejects_excessive_timeout() {
+        let executor = DefaultUniversalExecutor::new();
+        let mut req = sample_request(
+            Uuid::new_v4(),
+            Platform::Linux(LinuxVariant::Ubuntu),
+            "python",
+            "1",
+        );
+        req.timeout_seconds = 3601;
+        let err = executor.validate_request(&req).unwrap_err();
+        assert!(matches!(err, FederationError::ResourceLimitExceeded(_)));
+    }
+
+    #[tokio::test]
+    async fn test_execute_fails_without_registered_platform_executor() {
+        let executor = DefaultUniversalExecutor::new();
+        let req = sample_request(
+            Uuid::new_v4(),
+            Platform::Linux(LinuxVariant::Ubuntu),
+            "python",
+            "print(1)",
+        );
+        let err = executor.execute(req).await.unwrap_err();
+        assert!(matches!(err, FederationError::UnsupportedPlatform(_)));
+    }
+
+    #[tokio::test]
+    async fn test_supported_languages_all_platform_variants() {
+        let executor = DefaultUniversalExecutor::new();
+        assert!(
+            !executor
+                .supported_languages(&Platform::Windows(WindowsVariant::Windows11))
+                .is_empty()
+        );
+        assert!(
+            !executor
+                .supported_languages(&Platform::Container(ContainerRuntime::Docker))
+                .is_empty()
+        );
+        assert!(
+            executor
+                .supported_languages(&Platform::MacOS(MacOSVariant::Sonoma))
+                .is_empty()
+        );
+        assert!(
+            executor
+                .supported_languages(&Platform::Cloud(CloudProvider::GCP))
+                .is_empty()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_cancel_and_status_not_found() {
+        let executor = DefaultUniversalExecutor::new();
+        let id = Uuid::new_v4();
+        assert!(matches!(
+            executor.cancel_execution(id).await,
+            Err(FederationError::ExecutionNotFound(_))
+        ));
+        assert!(matches!(
+            executor.get_execution_status(id).await,
+            Err(FederationError::ExecutionNotFound(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_linux_executor_python_runs() {
+        let executor = DefaultUniversalExecutor::new();
+        executor
+            .register_executor(
+                Platform::Linux(LinuxVariant::Ubuntu),
+                Box::new(LinuxExecutor::new(false)),
+            )
+            .await;
+        let req = sample_request(
+            Uuid::new_v4(),
+            Platform::Linux(LinuxVariant::Ubuntu),
+            "python",
+            "print(42)",
+        );
+        let out = executor.execute(req).await.unwrap();
+        assert!(out.success);
+        assert!(out.stdout.contains("42"));
+    }
+
+    #[tokio::test]
+    async fn test_linux_executor_rust_returns_not_implemented() {
+        let linux = LinuxExecutor::new(false);
+        let req = sample_request(
+            Uuid::new_v4(),
+            Platform::Linux(LinuxVariant::Ubuntu),
+            "rust",
+            "fn main() {}",
+        );
+        let err = linux.execute(req).await.unwrap_err();
+        assert!(matches!(err, FederationError::NotImplemented(_)));
+    }
+
+    #[tokio::test]
+    async fn test_linux_executor_unknown_language() {
+        let linux = LinuxExecutor::new(false);
+        let req = sample_request(
+            Uuid::new_v4(),
+            Platform::Linux(LinuxVariant::Ubuntu),
+            "perl",
+            "1",
+        );
+        let err = linux.execute(req).await.unwrap_err();
+        assert!(matches!(err, FederationError::UnsupportedLanguage(_)));
+    }
+
+    #[tokio::test]
+    async fn test_linux_executor_zero_timeout_reports_timed_out() {
+        let linux = LinuxExecutor::new(false);
+        let mut req = sample_request(
+            Uuid::new_v4(),
+            Platform::Linux(LinuxVariant::Ubuntu),
+            "python",
+            "import time; time.sleep(10)",
+        );
+        req.timeout_seconds = 0;
+        let out = linux.execute(req).await.unwrap();
+        assert!(!out.success);
+        assert_eq!(out.error.as_deref(), Some("Execution timed out"));
+    }
+
+    #[tokio::test]
+    async fn test_platform_executor_box_clone() {
+        let b: Box<dyn PlatformExecutor> = Box::new(LinuxExecutor::new(true));
+        let c = b.clone();
+        assert_eq!(c.platform_info(), Platform::Linux(LinuxVariant::Ubuntu));
     }
 }

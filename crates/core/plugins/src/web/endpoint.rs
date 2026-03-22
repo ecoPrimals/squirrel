@@ -33,6 +33,7 @@ pub struct WebEndpoint {
 
 impl WebEndpoint {
     /// Create a new web endpoint
+    #[must_use]
     pub const fn new(id: Uuid, path: String, method: HttpMethod, description: String) -> Self {
         Self {
             id,
@@ -47,35 +48,41 @@ impl WebEndpoint {
     }
 
     /// Add a required permission to access this endpoint
+    #[must_use]
     pub fn with_permission(mut self, permission: &str) -> Self {
         self.permissions.push(permission.to_string());
         self
     }
 
     /// Make this endpoint public (no authentication required)
+    #[must_use]
     pub const fn make_public(mut self) -> Self {
         self.is_public = true;
         self
     }
 
     /// Make this endpoint admin-only
+    #[must_use]
     pub const fn make_admin(mut self) -> Self {
         self.is_admin = true;
         self
     }
 
     /// Add a tag to this endpoint
+    #[must_use]
     pub fn with_tag(mut self, tag: &str) -> Self {
         self.tags.push(tag.to_string());
         self
     }
 
     /// Check if a specific path and method match this endpoint
+    #[must_use]
     pub fn matches(&self, path: &str, method: HttpMethod) -> bool {
         self.path == path && self.method == method
     }
 
     /// Check if the user has permission to access this endpoint
+    #[must_use]
     pub fn check_permission(&self, user_permissions: &[String], is_admin: bool) -> bool {
         // Public endpoints are accessible to all
         if self.is_public {

@@ -33,6 +33,7 @@ struct AppState {
 
 impl ApiServer {
     /// Create a new API server
+    #[must_use]
     pub const fn new(
         ecosystem_service: Arc<EcosystemService>,
         routing_service: Arc<McpRoutingService>,
@@ -85,6 +86,10 @@ impl ApiServer {
     }
 
     /// Start the API server
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if binding to the address or serving the HTTP stack fails.
     pub async fn start(&self, bind_addr: &str) -> Result<()> {
         let router = self.create_router();
 
@@ -409,6 +414,9 @@ impl IntoResponse for ApiError {
             Error::Configuration(_) => (StatusCode::BAD_REQUEST, "Configuration error"),
             Error::Coordination(_) => (StatusCode::SERVICE_UNAVAILABLE, "Coordination error"),
             Error::Discovery(_) => (StatusCode::SERVICE_UNAVAILABLE, "Discovery error"),
+            Error::CapabilityUnavailable { .. } => {
+                (StatusCode::SERVICE_UNAVAILABLE, "Capability unavailable")
+            }
             Error::Federation(_) => (StatusCode::SERVICE_UNAVAILABLE, "Federation error"),
             Error::Routing(_) => (StatusCode::SERVICE_UNAVAILABLE, "Routing error"),
             Error::Http(_) => (StatusCode::BAD_GATEWAY, "HTTP error"),

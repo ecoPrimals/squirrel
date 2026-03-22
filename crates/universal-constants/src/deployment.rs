@@ -154,12 +154,12 @@ pub mod ports {
 
     /// Squirrel main server port (HTTP API)
     ///
-    /// **Environment**: `SQUIRREL_SERVER_PORT`\
+    /// **Environment**: `SQUIRREL_PORT` (this primal), then `SQUIRREL_SERVER_PORT`\
     /// **Default**: `9010`\
     /// **Usage**: Squirrel HTTP API server (CLI `server` default)
     #[must_use]
     pub fn squirrel_server() -> u16 {
-        config_helpers::get_port("SQUIRREL_SERVER_PORT", 9010)
+        crate::network::squirrel_primal_port()
     }
 
     /// `BiomeOS` UI / frontend port

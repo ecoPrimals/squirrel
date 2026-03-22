@@ -95,30 +95,35 @@ impl Default for AlertThresholds {
 
 impl SecurityMonitoringConfig {
     /// Create a new configuration with custom thresholds
+    #[must_use]
     pub const fn with_thresholds(mut self, thresholds: AlertThresholds) -> Self {
         self.alert_thresholds = thresholds;
         self
     }
 
     /// Set event buffer size
+    #[must_use]
     pub const fn with_buffer_size(mut self, size: usize) -> Self {
         self.event_buffer_size = size;
         self
     }
 
     /// Set event retention period
+    #[must_use]
     pub const fn with_retention_period(mut self, period: Duration) -> Self {
         self.event_retention_period = period;
         self
     }
 
     /// Set behavioral analysis window
+    #[must_use]
     pub const fn with_behavioral_window(mut self, window: Duration) -> Self {
         self.behavioral_window = window;
         self
     }
 
     /// Enable/disable automated response
+    #[must_use]
     pub const fn with_automated_response(mut self, enabled: bool) -> Self {
         self.enable_automated_response = enabled;
         self
@@ -127,6 +132,7 @@ impl SecurityMonitoringConfig {
 
 impl AlertThresholds {
     /// Create aggressive thresholds for high-security environments
+    #[must_use]
     pub const fn strict() -> Self {
         Self {
             failed_auth_per_hour: 5,
@@ -139,6 +145,7 @@ impl AlertThresholds {
     }
 
     /// Create relaxed thresholds for development environments
+    #[must_use]
     pub const fn relaxed() -> Self {
         Self {
             failed_auth_per_hour: 50,

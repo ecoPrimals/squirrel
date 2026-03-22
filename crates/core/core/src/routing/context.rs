@@ -69,6 +69,7 @@ pub struct ContextManager {
 
 impl ContextManager {
     /// Create a new context manager
+    #[must_use]
     pub fn new(storage: Option<ContextStorage>) -> Self {
         Self {
             persistent_contexts: DashMap::new(),
@@ -101,6 +102,10 @@ impl ContextManager {
     }
 
     /// Update persistent context for an agent
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the context cannot be updated.
     pub async fn update_persistent_context(&self, agent_id: &str, data: Value) -> Result<()> {
         let context_id = format!("persistent_{agent_id}");
         let now = Utc::now();
@@ -120,6 +125,10 @@ impl ContextManager {
     }
 
     /// Update shared context
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the shared context does not exist.
     pub async fn update_shared_context(&self, context_id: &str, data: Value) -> Result<()> {
         match self.shared_contexts.get_mut(context_id) {
             Some(mut context) => {
@@ -137,6 +146,10 @@ impl ContextManager {
     }
 
     /// Create a new shared context
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the context cannot be stored.
     pub async fn create_shared_context(
         &self,
         context_id: &str,
@@ -180,6 +193,10 @@ impl ContextManager {
     }
 
     /// Add agent to shared context
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the shared context does not exist.
     pub async fn add_agent_to_shared_context(
         &self,
         context_id: &str,
@@ -201,6 +218,10 @@ impl ContextManager {
     }
 
     /// Remove agent from shared context
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the shared context does not exist.
     pub async fn remove_agent_from_shared_context(
         &self,
         context_id: &str,
@@ -229,6 +250,10 @@ impl ContextManager {
     }
 
     /// Set context value by key
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the context shape is invalid or persistence fails.
     pub async fn set_context_value(&self, agent_id: &str, key: &str, value: Value) -> Result<()> {
         let mut context_data = self
             .get_context(agent_id)
@@ -330,6 +355,10 @@ impl ContextManager {
     }
 
     /// Export all contexts for backup
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if export cannot be assembled.
     pub async fn export_contexts(&self) -> Result<ContextExport> {
         let persistent_contexts: Vec<PersistentContext> = self
             .persistent_contexts
@@ -351,6 +380,10 @@ impl ContextManager {
     }
 
     /// Import contexts from backup
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if import cannot be applied.
     pub async fn import_contexts(&self, export: ContextExport) -> Result<()> {
         // Import persistent contexts
         for context in &export.persistent_contexts {
@@ -374,6 +407,10 @@ impl ContextManager {
     }
 
     /// Apply context requirements from a task
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if required context keys cannot be set or shared context updates fail.
     pub async fn apply_context_requirements(
         &self,
         agent_id: &str,
@@ -402,6 +439,7 @@ impl ContextManager {
     }
 
     /// Get storage backend
+    #[must_use]
     pub const fn get_storage_backend(&self) -> Option<&ContextStorage> {
         self.context_storage.as_ref()
     }

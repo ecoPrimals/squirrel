@@ -60,16 +60,18 @@ pub fn intern(s: &str) -> ArcStr {
         .unwrap_or_else(|| ArcStr::from(s))
 }
 
-/// Create `ArcStr` from owned `String`
+/// Create `ArcStr` from owned `String`.
 ///
 /// This consumes the `String` and converts it to `ArcStr` efficiently.
+#[must_use]
 pub fn from_string(s: String) -> ArcStr {
     ArcStr::from(s)
 }
 
-/// Create `ArcStr` from static string
+/// Create `ArcStr` from static string.
 ///
 /// For compile-time known strings, this is zero-cost.
+#[must_use]
 pub fn from_static(s: &'static str) -> ArcStr {
     ArcStr::from(s)
 }

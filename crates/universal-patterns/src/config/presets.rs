@@ -13,9 +13,19 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use universal_constants::deployment::endpoints;
+use url::Url;
 use uuid::Uuid;
 
 use super::*;
+
+/// Parse URLs from [`endpoints`] builders. They are always valid `http://` URLs; if parsing ever
+/// fails (e.g. corrupted env), fall back to a minimal localhost URL so presets stay constructible.
+fn parse_deployment_endpoint(url: &str) -> Url {
+    let Ok(fallback) = Url::parse("http://127.0.0.1:8444/") else {
+        unreachable!("static fallback URL must parse");
+    };
+    Url::parse(url).unwrap_or(fallback)
+}
 
 impl Default for PrimalConfig {
     fn default() -> Self {
@@ -281,7 +291,8 @@ impl ConfigPresets {
         config.security.audit_logging = true;
         config.orchestration.enabled = true;
         config.orchestration.mode = OrchestrationMode::Managed;
-        config.orchestration.songbird_endpoint = Some(endpoints::service_mesh().parse().unwrap());
+        config.orchestration.songbird_endpoint =
+            Some(parse_deployment_endpoint(&endpoints::service_mesh()));
         config
     }
 
@@ -301,13 +312,15 @@ impl ConfigPresets {
         config.security.auth_method = AuthMethod::Beardog {
             service_id: "primal-production".to_string(),
         };
-        config.security.beardog_endpoint = Some(endpoints::security_service().parse().unwrap());
+        config.security.beardog_endpoint =
+            Some(parse_deployment_endpoint(&endpoints::security_service()));
         config.security.audit_logging = true;
         config.security.encryption.enable_inter_primal = true;
         config.security.encryption.enable_at_rest = true;
         config.orchestration.enabled = true;
         config.orchestration.mode = OrchestrationMode::Managed;
-        config.orchestration.songbird_endpoint = Some(endpoints::service_mesh().parse().unwrap());
+        config.orchestration.songbird_endpoint =
+            Some(parse_deployment_endpoint(&endpoints::service_mesh()));
         config.network.tls = Some(TlsConfig {
             cert_file: PathBuf::from("/etc/ssl/certs/primal.crt"),
             key_file: PathBuf::from("/etc/ssl/private/primal.key"),
@@ -351,7 +364,9 @@ impl ConfigPresets {
         config.security.encryption.enable_inter_primal = true;
         config.security.encryption.enable_at_rest = true;
         config.security.fallback.enable_local_fallback = false;
-        config.network.tls.as_mut().unwrap().require_client_cert = true;
+        if let Some(tls) = config.network.tls.as_mut() {
+            tls.require_client_cert = true;
+        }
         config
     }
 
@@ -376,7 +391,8 @@ impl ConfigPresets {
         config.logging.outputs = vec![LogOutput::Stdout];
         config.logging.format = LogFormat::Json;
         config.orchestration.enabled = true;
-        config.orchestration.songbird_endpoint = Some(endpoints::service_mesh().parse().unwrap());
+        config.orchestration.songbird_endpoint =
+            Some(parse_deployment_endpoint(&endpoints::service_mesh()));
         config.orchestration.service_discovery.enabled = true;
         config.orchestration.service_discovery.method = ServiceDiscoveryMethod::Dns {
             domain: "cluster.local".to_string(),

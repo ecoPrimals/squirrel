@@ -37,6 +37,10 @@ pub struct AuthService {
 
 impl AuthService {
     /// Create a new authentication service with pure capability discovery
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the service cannot be constructed.
     pub async fn new() -> AuthResult<Self> {
         let client = Client::new();
         let session_manager = SessionManager::new();
@@ -168,6 +172,10 @@ impl AuthService {
     }
 
     /// Authenticate user with discovered security capability
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if network I/O, HTTP, JSON parsing, or session storage fails.
     pub async fn authenticate(&self, request: LoginRequest) -> AuthResult<LoginResponse> {
         match &self.auth_provider {
             AuthProvider::SecurityCapability {
@@ -339,6 +347,10 @@ impl AuthService {
     }
 
     /// Validate a session token
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the token is malformed or session lookup fails.
     pub async fn validate_session(&self, session_token: &str) -> AuthResult<Option<AuthContext>> {
         let session_id = Uuid::parse_str(session_token)
             .map_err(|e| AuthError::token_error("parse", e.to_string()))?;
@@ -366,6 +378,10 @@ impl AuthService {
     }
 
     /// Invalidate a session
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the token cannot be parsed or invalidation fails.
     pub async fn logout(&self, session_token: &str) -> AuthResult<bool> {
         let session_id = Uuid::parse_str(session_token)
             .map_err(|e| AuthError::token_error("parse", e.to_string()))?;

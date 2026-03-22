@@ -463,6 +463,7 @@ pub struct FederationLoadBalancer {
 }
 
 impl FederationLoadBalancer {
+    #[must_use]
     pub const fn new(load_metrics: std::sync::Arc<LoadMetrics>) -> Self {
         Self {
             load_metrics,

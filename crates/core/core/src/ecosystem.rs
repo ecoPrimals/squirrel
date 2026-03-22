@@ -63,6 +63,10 @@ struct CoordinationStats {
 
 impl EcosystemService {
     /// Create a new ecosystem service
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the service cannot be constructed.
     pub fn new(config: EcosystemConfig, monitoring: Arc<MonitoringService>) -> Result<Self> {
         let service_id = format!("squirrel-{}", uuid::Uuid::new_v4());
         let node_id =
@@ -89,6 +93,10 @@ impl EcosystemService {
     }
 
     /// Start the ecosystem service
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if coordinated or sovereign startup fails.
     pub async fn start(&self) -> Result<()> {
         tracing::info!("Starting Squirrel MCP ecosystem service");
 
@@ -296,6 +304,7 @@ impl EcosystemService {
     /// 1. `SQUIRREL_MCP_ENDPOINT` (full endpoint)
     /// 2. `SQUIRREL_PORT` (port override)
     /// 3. Default: <http://localhost:8080>
+    #[must_use]
     pub fn get_endpoint(&self) -> String {
         std::env::var("SQUIRREL_MCP_ENDPOINT").unwrap_or_else(|_| {
             let port = std::env::var("SQUIRREL_PORT")
@@ -307,6 +316,7 @@ impl EcosystemService {
     }
 
     /// Get service metadata for registration
+    #[must_use]
     pub fn get_service_metadata(&self) -> HashMap<String, String> {
         let mut metadata = HashMap::new();
         metadata.insert("version".to_string(), SQUIRREL_MCP_VERSION.to_string());
@@ -320,11 +330,13 @@ impl EcosystemService {
     }
 
     /// Get current service status
+    #[must_use]
     pub fn get_status(&self) -> ServiceStatus {
         self.state.status.read().clone()
     }
 
     /// Get discovered primals
+    #[must_use]
     pub fn get_discovered_primals(&self) -> Vec<PrimalEndpoint> {
         self.discovered_primals
             .iter()
@@ -333,6 +345,10 @@ impl EcosystemService {
     }
 
     /// Shutdown the service
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if shutdown steps fail.
     pub async fn shutdown(&self) -> Result<()> {
         tracing::info!("Shutting down ecosystem service");
 

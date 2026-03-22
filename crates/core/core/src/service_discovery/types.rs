@@ -37,6 +37,7 @@ pub struct ServiceDefinition {
 
 impl ServiceDefinition {
     /// Create a new service definition with required fields
+    #[must_use]
     pub fn new(
         id: String,
         name: String,
@@ -58,35 +59,41 @@ impl ServiceDefinition {
     }
 
     /// Add a capability to the service
+    #[must_use]
     pub fn with_capability(mut self, capability: String) -> Self {
         self.capabilities.push(capability);
         self
     }
 
     /// Add multiple capabilities to the service
+    #[must_use]
     pub fn with_capabilities(mut self, capabilities: Vec<String>) -> Self {
         self.capabilities.extend(capabilities);
         self
     }
 
     /// Add metadata to the service
+    #[must_use]
     pub fn with_metadata(mut self, key: String, value: String) -> Self {
         self.metadata.insert(key, value);
         self
     }
 
     /// Set health status
+    #[must_use]
     pub const fn with_health_status(mut self, status: ServiceHealthStatus) -> Self {
         self.health_status = status;
         self
     }
 
     /// Check if service has a specific capability
+    #[must_use]
     pub fn has_capability(&self, capability: &str) -> bool {
         self.capabilities.contains(&capability.to_string())
     }
 
     /// Check if service matches metadata filter
+    #[must_use]
     pub fn matches_metadata(&self, filters: &HashMap<String, String>) -> bool {
         for (key, value) in filters {
             if self.metadata.get(key) != Some(value) {
@@ -97,6 +104,7 @@ impl ServiceDefinition {
     }
 
     /// Get primary endpoint
+    #[must_use]
     pub fn primary_endpoint(&self) -> Option<&ServiceEndpoint> {
         self.endpoints
             .iter()
@@ -105,6 +113,10 @@ impl ServiceDefinition {
     }
 
     /// Validate service definition
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if identifiers, endpoints, or primary flags are invalid.
     pub fn validate(&self) -> CoreResult<()> {
         if self.id.is_empty() {
             return Err(CoreError::InvalidServiceConfig(
@@ -166,6 +178,7 @@ pub enum ServiceType {
 
 impl ServiceType {
     /// Get string representation
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Self::AI => "ai",
@@ -220,6 +233,7 @@ pub struct ServiceEndpoint {
 
 impl ServiceEndpoint {
     /// Create a new service endpoint
+    #[must_use]
     pub const fn new(url: String, protocol: String, port: u16) -> Self {
         Self {
             url,
@@ -233,30 +247,38 @@ impl ServiceEndpoint {
     }
 
     /// Set as primary endpoint
+    #[must_use]
     pub const fn as_primary(mut self) -> Self {
         self.primary = true;
         self
     }
 
     /// Set health check URL
+    #[must_use]
     pub fn with_health_check(mut self, url: String) -> Self {
         self.health_check_url = Some(url);
         self
     }
 
     /// Set weight for load balancing
+    #[must_use]
     pub const fn with_weight(mut self, weight: f32) -> Self {
         self.weight = Some(weight);
         self
     }
 
     /// Add tag
+    #[must_use]
     pub fn with_tag(mut self, tag: String) -> Self {
         self.tags.push(tag);
         self
     }
 
     /// Validate endpoint
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if URL, protocol, or port constraints are violated.
     pub fn validate(&self) -> CoreResult<()> {
         if self.url.is_empty() {
             return Err(CoreError::InvalidServiceConfig(
@@ -295,11 +317,13 @@ pub enum ServiceHealthStatus {
 
 impl ServiceHealthStatus {
     /// Check if service is available
+    #[must_use]
     pub const fn is_available(&self) -> bool {
         matches!(self, Self::Healthy | Self::Unhealthy)
     }
 
     /// Get string representation
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Healthy => "healthy",
@@ -357,41 +381,48 @@ pub enum SortOrder {
 
 impl ServiceQuery {
     /// Create a new empty query
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Filter by service type
+    #[must_use]
     pub fn with_service_type(mut self, service_type: ServiceType) -> Self {
         self.service_type = Some(service_type);
         self
     }
 
     /// Filter by capability
+    #[must_use]
     pub fn with_capability(mut self, capability: String) -> Self {
         self.capabilities.push(capability);
         self
     }
 
     /// Filter by metadata
+    #[must_use]
     pub fn with_metadata(mut self, key: String, value: String) -> Self {
         self.metadata.insert(key, value);
         self
     }
 
     /// Filter by health status
+    #[must_use]
     pub const fn with_health_status(mut self, status: ServiceHealthStatus) -> Self {
         self.health_status = Some(status);
         self
     }
 
     /// Filter by tag
+    #[must_use]
     pub fn with_tag(mut self, tag: String) -> Self {
         self.tags.push(tag);
         self
     }
 
     /// Sort by field
+    #[must_use]
     pub const fn sort_by(mut self, field: SortField, order: SortOrder) -> Self {
         self.sort_field = Some(field);
         self.sort_order = order;
@@ -399,18 +430,21 @@ impl ServiceQuery {
     }
 
     /// Limit results
+    #[must_use]
     pub const fn limit(mut self, limit: usize) -> Self {
         self.limit = Some(limit);
         self
     }
 
     /// Set offset for pagination
+    #[must_use]
     pub const fn offset(mut self, offset: usize) -> Self {
         self.offset = Some(offset);
         self
     }
 
     /// Check if service matches this query
+    #[must_use]
     pub fn matches(&self, service: &ServiceDefinition) -> bool {
         // Service type filter
         if let Some(ref service_type) = self.service_type
@@ -485,6 +519,7 @@ impl ServiceQuery {
     }
 
     /// Apply pagination to services
+    #[must_use]
     pub fn paginate_services(&self, services: Vec<ServiceDefinition>) -> Vec<ServiceDefinition> {
         let start = self.offset.unwrap_or(0);
         let services_slice = services.into_iter().skip(start);
@@ -518,6 +553,7 @@ pub struct ServiceStats {
 
 impl ServiceStats {
     /// Create new service statistics
+    #[must_use]
     pub fn new() -> Self {
         Self {
             total_services: 0,
@@ -557,6 +593,7 @@ impl ServiceStats {
     }
 
     /// Get availability percentage
+    #[must_use]
     pub fn availability_percentage(&self) -> f32 {
         if self.total_services == 0 {
             return 100.0;

@@ -24,6 +24,7 @@ pub struct TaskWatcherManager {
 
 impl TaskWatcherManager {
     /// Create a new `TaskWatcherManager`
+    #[must_use]
     pub fn new() -> Self {
         Self {
             watchers: Arc::new(RwLock::new(HashMap::new())),
@@ -51,6 +52,7 @@ impl TaskWatcherManager {
     }
 
     /// Check if a task update is significant to send to watchers
+    #[must_use]
     pub fn is_significant_update(
         &self,
         old_task: &Task,

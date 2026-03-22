@@ -194,7 +194,7 @@ impl RuleParser {
         &self,
         content: &str,
     ) -> Result<HashMap<String, Value>, RuleParserError> {
-        serde_yml::from_str(content).map_err(|e| RuleParserError::YamlError(e.to_string()))
+        serde_yaml_ng::from_str(content).map_err(|e| RuleParserError::YamlError(e.to_string()))
     }
 
     /// Parse TOML frontmatter
@@ -384,7 +384,7 @@ impl RuleParser {
     /// Returns an error if the conditions cannot be parsed.
     fn parse_conditions(&self, content: &str) -> Result<Vec<RuleCondition>, RuleParserError> {
         // For now, we'll parse conditions as YAML
-        serde_yml::from_str(content)
+        serde_yaml_ng::from_str(content)
             .map_err(|e| RuleParserError::YamlError(format!("Failed to parse conditions: {e}")))
     }
 
@@ -395,7 +395,7 @@ impl RuleParser {
     /// Returns an error if the actions cannot be parsed.
     fn parse_actions(&self, content: &str) -> Result<Vec<RuleAction>, RuleParserError> {
         // For now, we'll parse actions as YAML
-        serde_yml::from_str(content)
+        serde_yaml_ng::from_str(content)
             .map_err(|e| RuleParserError::YamlError(format!("Failed to parse actions: {e}")))
     }
 

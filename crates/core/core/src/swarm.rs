@@ -13,6 +13,7 @@ impl Default for SwarmService {
 }
 
 impl SwarmService {
+    #[must_use]
     pub const fn new() -> Self {
         Self
     }

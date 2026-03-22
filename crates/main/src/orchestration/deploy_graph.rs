@@ -128,6 +128,7 @@ impl DeploymentGraphDef {
     }
 
     /// Return nodes that require a specific capability.
+    #[must_use]
     pub fn nodes_requiring(&self, capability: &str) -> Vec<&GraphNode> {
         self.nodes
             .iter()
@@ -289,6 +290,7 @@ impl NicheDeployGraph {
     }
 
     /// Find nodes providing a specific capability.
+    #[must_use]
     pub fn nodes_with_capability(&self, cap: &str) -> Vec<&NicheGraphNode> {
         self.graph
             .node

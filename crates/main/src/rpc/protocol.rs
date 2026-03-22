@@ -69,6 +69,7 @@ impl IpcProtocol {
         clippy::should_implement_trait,
         reason = "Custom from_str avoids FromStr trait conflict"
     )]
+    #[must_use]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "jsonrpc" | "json-rpc" | "json_rpc" => Some(Self::JsonRpc),
@@ -81,6 +82,7 @@ impl IpcProtocol {
     /// Get all supported protocols
     ///
     /// Returns a list of protocols supported by this build.
+    #[must_use]
     pub fn supported() -> Vec<Self> {
         let mut protocols = vec![Self::JsonRpc];
         #[cfg(feature = "tarpc-rpc")]
@@ -89,11 +91,13 @@ impl IpcProtocol {
     }
 
     /// Check if a protocol is supported
+    #[must_use]
     pub fn is_supported(&self) -> bool {
         Self::supported().contains(self)
     }
 
     /// Get protocol name for negotiation
+    #[must_use]
     pub const fn negotiation_name(&self) -> &'static str {
         match self {
             Self::JsonRpc => "jsonrpc",
@@ -121,6 +125,7 @@ pub struct ProtocolNegotiation {
 
 impl ProtocolNegotiation {
     /// Successful negotiation
+    #[must_use]
     pub fn success(protocol: IpcProtocol, requested: Option<IpcProtocol>) -> Self {
         Self {
             protocol,
@@ -131,6 +136,7 @@ impl ProtocolNegotiation {
     }
 
     /// Failed negotiation (fallback to default)
+    #[must_use]
     pub fn fallback(requested: Option<IpcProtocol>, reason: &str) -> Self {
         Self {
             protocol: IpcProtocol::default(),

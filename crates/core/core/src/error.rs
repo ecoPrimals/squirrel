@@ -48,3 +48,48 @@ impl std::error::Error for CoreError {}
 
 /// Core result type
 pub type CoreResult<T> = std::result::Result<T, CoreError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn core_error_display_covers_all_variants() {
+        let cases = vec![
+            (CoreError::General("g".into()), "General error: g"),
+            (
+                CoreError::ServiceDiscovery("d".into()),
+                "Service discovery error: d",
+            ),
+            (
+                CoreError::Configuration("c".into()),
+                "Configuration error: c",
+            ),
+            (CoreError::Network("n".into()), "Network error: n"),
+            (
+                CoreError::Serialization("s".into()),
+                "Serialization error: s",
+            ),
+            (CoreError::Timeout("t".into()), "Timeout error: t"),
+            (CoreError::NotFound("nf".into()), "Not found: nf"),
+            (CoreError::AlreadyExists("ae".into()), "Already exists: ae"),
+            (
+                CoreError::InvalidServiceConfig("isc".into()),
+                "Invalid service config: isc",
+            ),
+            (
+                CoreError::ServiceNotFound("snf".into()),
+                "Service not found: snf",
+            ),
+        ];
+        for (err, expected) in cases {
+            assert_eq!(err.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn core_error_implements_std_error() {
+        let err: Box<dyn std::error::Error> = Box::new(CoreError::General("e".into()));
+        assert_eq!(err.to_string(), "General error: e");
+    }
+}

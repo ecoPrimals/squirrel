@@ -15,7 +15,7 @@ tokio-util = { version = "0.7.17", features = ["codec"] }
 bytes = "1.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yml = "0.0.12"
+serde_yaml_ng = "0.10"
 toml = "0.8"
 dirs = "5.0"
 uuid = { version = "1.0", features = ["v4"] }
@@ -49,34 +49,34 @@ tokio-serde = { version = "0.8.0", features = ["bincode"], optional = true }
 bincode = { version = "1.3", optional = true }
 
 # Ecosystem integrations - Service Mesh via Capability Discovery
-ecosystem-api = { path = "../ecosystem-api" }
+ecosystem-api = { path = "../ecosystem-api", version = "0.1.0" }
 # NOTE: Service mesh dependencies discovered at runtime via capability registry.
 # No compile-time primal dependencies needed (TRUE PRIMAL architecture).
 # Squirrel knows only itself; other primals are discovered dynamically via Unix sockets.
 
 # Configuration management
-squirrel-mcp-config = { path = "../config" }
+squirrel-mcp-config = { path = "../config", version = "0.1.0" }
 
 # Authentication system (CRITICAL FIX: Missing auth dependency)
-squirrel-mcp-auth = { path = "../core/auth" }
+squirrel-mcp-auth = { path = "../core/auth", version = "0.1.0" }
 
 # Optional local auth crates for development
 
 # Universal patterns
-universal-patterns = { path = "../universal-patterns" }
-universal-constants = { path = "../universal-constants" }
+universal-patterns = { path = "../universal-patterns", version = "0.1.0" }
+universal-constants = { path = "../universal-constants", version = "0.1.0" }
 zeroize.workspace = true
 
 # SDK dependencies
-squirrel-sdk = { path = "../sdk" }
-squirrel-integration = { path = "../integration" }
+squirrel-sdk = { path = "../sdk", version = "1.0.0" }
+squirrel-integration = { path = "../integration", version = "0.1.0" }
 
 # Context management
-squirrel-context = { path = "../core/context" }
+squirrel-context = { path = "../core/context", version = "0.1.0" }
 
 # MCP and AI dependencies
 # Using our own MCP implementation instead of external mcp crate
-squirrel-mcp = { path = "../core/mcp" }
+squirrel-mcp = { path = "../core/mcp", version = "0.1.0" }
 # OpenAI SDK - OPTIONAL in v1.1.0+ (dev-direct-http feature only!)
 # openai REMOVED - Use capability_ai (delegates to Songbird via Unix sockets) instead!
 

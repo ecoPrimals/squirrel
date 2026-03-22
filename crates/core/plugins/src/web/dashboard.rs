@@ -289,6 +289,7 @@ impl PluginDashboard {
     }
 
     /// Get dashboard endpoints
+    #[must_use]
     pub fn get_endpoints(&self) -> Vec<WebEndpoint> {
         vec![
             WebEndpoint::new(
@@ -351,6 +352,7 @@ impl PluginDashboard {
     }
 
     /// Get dashboard web components
+    #[must_use]
     pub fn get_components(&self) -> Vec<WebComponent> {
         vec![
             WebComponent::new(
@@ -387,6 +389,10 @@ impl PluginDashboard {
     }
 
     /// Handle dashboard request
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if routing, deserialization, or handler logic fails.
     pub async fn handle_request(&self, request: WebRequest) -> Result<WebResponse> {
         match (request.method, request.path.as_str()) {
             (HttpMethod::Get, "/api/dashboard/overview") => self.get_dashboard_overview().await,

@@ -20,6 +20,10 @@ pub struct MemoryInfo {
 }
 
 /// Read system memory from /proc/meminfo (Linux).
+///
+/// # Errors
+///
+/// Returns `io::Error` if `/proc/meminfo` cannot be read.
 #[cfg(target_os = "linux")]
 pub fn memory_info() -> Result<MemoryInfo, io::Error> {
     let meminfo = std::fs::read_to_string("/proc/meminfo")?;
@@ -49,12 +53,20 @@ pub fn memory_info() -> Result<MemoryInfo, io::Error> {
 }
 
 /// Non-Linux: return defaults (zeros).
+///
+/// # Errors
+///
+/// This variant always succeeds; the `Result` signature matches the Linux variant.
 #[cfg(not(target_os = "linux"))]
 pub fn memory_info() -> Result<MemoryInfo, io::Error> {
     Ok(MemoryInfo::default())
 }
 
 /// Process RSS in MB from /proc/self/statm (Linux).
+///
+/// # Errors
+///
+/// Returns `io::Error` if `/proc/self/statm` cannot be read.
 #[cfg(target_os = "linux")]
 pub fn process_rss_mb() -> Result<f64, io::Error> {
     let statm = std::fs::read_to_string("/proc/self/statm")?;
@@ -71,6 +83,11 @@ pub fn process_rss_mb() -> Result<f64, io::Error> {
 }
 
 /// CPU count via `std::thread::available_parallelism` or /proc/cpuinfo (Linux).
+///
+/// # Errors
+///
+/// Returns `io::Error` if neither `/proc/cpuinfo` nor `available_parallelism`
+/// succeeds.  Falls back to 1 when all probes fail.
 pub fn cpu_count() -> Result<u32, io::Error> {
     #[cfg(target_os = "linux")]
     {
@@ -88,6 +105,10 @@ pub fn cpu_count() -> Result<u32, io::Error> {
 }
 
 /// System uptime in seconds from /proc/uptime (Linux).
+///
+/// # Errors
+///
+/// Returns `io::Error` if `/proc/uptime` cannot be read.
 #[cfg(target_os = "linux")]
 pub fn uptime_seconds() -> Result<u64, io::Error> {
     let uptime = std::fs::read_to_string("/proc/uptime")?;
@@ -110,6 +131,11 @@ pub fn uptime_seconds() -> Result<u64, io::Error> {
 }
 
 /// Hostname: HOSTNAME env var or gethostname via nix.
+///
+/// # Errors
+///
+/// Returns `io::Error` if neither `$HOSTNAME` nor `gethostname(2)` produce
+/// a non-empty hostname.
 pub fn hostname() -> Result<String, io::Error> {
     if let Ok(h) = std::env::var("HOSTNAME")
         && !h.is_empty()
@@ -131,6 +157,10 @@ pub fn hostname() -> Result<String, io::Error> {
 }
 
 /// System CPU usage % from /proc/stat (Linux). Average since boot.
+///
+/// # Errors
+///
+/// Returns `io::Error` if `/proc/stat` cannot be read.
 #[cfg(target_os = "linux")]
 pub fn system_cpu_usage_percent() -> Result<f64, io::Error> {
     let stat = std::fs::read_to_string("/proc/stat")?;

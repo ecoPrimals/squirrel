@@ -84,6 +84,7 @@ pub struct DiscoveredService {
 
 impl DiscoveredService {
     /// Check if service is still within cache TTL
+    #[must_use]
     pub fn is_fresh(&self, ttl: Duration) -> bool {
         SystemTime::now()
             .duration_since(self.discovered_at)
@@ -92,6 +93,7 @@ impl DiscoveredService {
     }
 
     /// Check if service provides a specific capability
+    #[must_use]
     pub fn has_capability(&self, capability: &str) -> bool {
         self.capabilities
             .iter()

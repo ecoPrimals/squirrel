@@ -26,13 +26,13 @@ libloading = "0.8"
 colored = "2.0"
 prettytable = "0.10"
 # lazy_static removed - evolved to std::sync::LazyLock (stable Rust 1.80+)
-serde_yml = "0.0.12"
+serde_yaml_ng = "0.10"
 directories = "5.0"
 
 # Workspace dependencies
-squirrel-core = { path = "../../core/core" }
-squirrel-interfaces = { path = "../../core/interfaces" }
-squirrel-mcp-config = { path = "../../config" }
+squirrel-core = { path = "../../core/core", version = "0.1.0" }
+squirrel-interfaces = { path = "../../core/interfaces", version = "0.1.0" }
+squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 # HTTP client (OPTIONAL - for HTTP CLI commands)
 # Production uses Unix sockets!
 #
@@ -42,8 +42,8 @@ squirrel-mcp-config = { path = "../../config" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 
 # Plugin system dependencies  
-squirrel-plugins = { path = "../../core/plugins" }
-squirrel-commands = { path = "../../services/commands" }
+squirrel-plugins = { path = "../../core/plugins", version = "0.1.0" }
+squirrel-commands = { path = "../../services/commands", version = "0.1.0" }
 
 [dev-dependencies]
 assert_cmd = "2.0"

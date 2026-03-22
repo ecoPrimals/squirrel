@@ -170,6 +170,7 @@ pub struct ErrorStats {
 
 impl ErrorStats {
     /// Create new empty error stats
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -197,6 +198,7 @@ impl ErrorStats {
 
     /// Returns the percentage of errors that were critical severity.
     #[expect(clippy::cast_precision_loss, reason = "Example percentage calculation")]
+    #[must_use]
     pub fn get_critical_rate(&self) -> f64 {
         if self.total_errors == 0 {
             return 0.0;

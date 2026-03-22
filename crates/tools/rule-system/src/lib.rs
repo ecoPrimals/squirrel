@@ -24,7 +24,7 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::needless_raw_string_hashes)]
-#![cfg_attr(test, allow(clippy::unwrap_used))]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,

@@ -42,6 +42,7 @@ pub struct TarpcRpcServer {
 
 impl TarpcRpcServer {
     /// Create tarpc server that delegates to the given JSON-RPC server
+    #[must_use]
     pub const fn from_jsonrpc(jsonrpc: Arc<super::JsonRpcServer>) -> Self {
         Self { jsonrpc }
     }

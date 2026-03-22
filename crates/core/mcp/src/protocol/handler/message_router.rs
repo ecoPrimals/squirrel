@@ -30,6 +30,7 @@ pub struct MessageRouter {
 
 impl MessageRouter {
     /// Create a new message router
+    #[must_use]
     pub fn new(security: Arc<SecurityManagerImpl>) -> Self {
         Self {
             handlers: Arc::new(RwLock::new(HashMap::new())),

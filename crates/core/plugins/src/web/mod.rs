@@ -192,6 +192,10 @@ impl PluginManagementInterface {
     }
 
     /// Handle management request
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if a delegated dashboard, marketplace, or API handler fails.
     pub async fn handle_management_request(&self, request: WebRequest) -> Result<WebResponse> {
         match request.path.as_str() {
             // Dashboard endpoints

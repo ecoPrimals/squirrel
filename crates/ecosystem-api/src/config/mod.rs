@@ -175,4 +175,81 @@ mod tests {
             },
         );
     }
+
+    #[test]
+    fn test_load_universal_config_invalid_port() {
+        let prefix = "UCFG_BAD_PORT";
+        temp_env::with_vars(
+            [
+                (format!("{prefix}_SERVICE_NAME"), Some("x")),
+                (format!("{prefix}_SERVICE_DESCRIPTION"), Some("d")),
+                (format!("{prefix}_PORT"), Some("not-a-port")),
+                (
+                    format!("{prefix}_SONGBIRD_DISCOVERY_ENDPOINT"),
+                    Some("http://a:1"),
+                ),
+                (
+                    format!("{prefix}_SONGBIRD_REGISTRATION_ENDPOINT"),
+                    Some("http://b:2"),
+                ),
+                (
+                    format!("{prefix}_SONGBIRD_HEALTH_ENDPOINT"),
+                    Some("http://c:3"),
+                ),
+            ],
+            || {
+                let loader = ConfigLoader::new(prefix);
+                let err = loader.load_universal_config().unwrap_err();
+                assert!(
+                    matches!(&err, crate::error::ConfigError::InvalidValue { key, .. } if key == "PORT")
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn test_load_universal_config_invalid_security_level() {
+        let prefix = "UCFG_BAD_SEC";
+        temp_env::with_vars(
+            [
+                (format!("{prefix}_SERVICE_NAME"), Some("x")),
+                (format!("{prefix}_SERVICE_DESCRIPTION"), Some("d")),
+                (format!("{prefix}_SECURITY_LEVEL"), Some("ultra-secret")),
+                (
+                    format!("{prefix}_SONGBIRD_DISCOVERY_ENDPOINT"),
+                    Some("http://a:1"),
+                ),
+                (
+                    format!("{prefix}_SONGBIRD_REGISTRATION_ENDPOINT"),
+                    Some("http://b:2"),
+                ),
+                (
+                    format!("{prefix}_SONGBIRD_HEALTH_ENDPOINT"),
+                    Some("http://c:3"),
+                ),
+            ],
+            || {
+                let loader = ConfigLoader::new(prefix);
+                let err = loader.load_universal_config().unwrap_err();
+                assert!(
+                    matches!(&err, crate::error::ConfigError::InvalidValue { key, .. } if key == "SECURITY_LEVEL")
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn test_config_loader_require_var_missing() {
+        let prefix = "LOADER_REQ_UNSET_9134";
+        let full_var = format!("{prefix}_MYVAR");
+        temp_env::with_var(&full_var, None::<&str>, || {
+            let mut loader = ConfigLoader::new(prefix);
+            loader.require_var("MYVAR");
+            let err = loader.load_universal_config().unwrap_err();
+            assert!(matches!(
+                &err,
+                crate::error::ConfigError::MissingEnvVar(s) if s == &full_var
+            ));
+        });
+    }
 }

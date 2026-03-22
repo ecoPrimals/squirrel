@@ -37,6 +37,7 @@ pub struct WebRequest {
 
 impl WebRequest {
     /// Create a new `WebRequest`
+    #[must_use]
     pub fn new(
         method: HttpMethod,
         path: String,
@@ -59,6 +60,7 @@ impl WebRequest {
     }
 
     /// Extract route parameters from the path based on a route pattern
+    #[must_use]
     pub fn with_route_params(mut self, route_pattern: &str) -> Self {
         let route = Route::new(route_pattern);
         if route.matches(&self.path)
@@ -70,36 +72,46 @@ impl WebRequest {
     }
 
     /// Check if the request has a specific permission
+    #[must_use]
     pub fn has_permission(&self, permission: &str) -> bool {
         self.permissions.contains(&permission.to_string())
     }
 
     /// Get a query parameter
+    #[must_use]
     pub fn query(&self, key: &str) -> Option<&String> {
         self.query_params.get(key)
     }
 
     /// Get a header
+    #[must_use]
     pub fn header(&self, key: &str) -> Option<&String> {
         self.headers.get(&key.to_lowercase())
     }
 
     /// Get a route parameter
+    #[must_use]
     pub fn param(&self, key: &str) -> Option<&String> {
         self.route_params.get(key)
     }
 
     /// Get a route parameter, falling back to a query parameter if not found
+    #[must_use]
     pub fn param_or_query(&self, key: &str) -> Option<&String> {
         self.param(key).or_else(|| self.query(key))
     }
 
     /// Check if the request is authenticated
+    #[must_use]
     pub const fn is_authenticated(&self) -> bool {
         self.user_id.is_some()
     }
 
     /// Parse the body as a specific type
+    ///
+    /// # Errors
+    ///
+    /// Returns [`serde_json::Error`] if the body is missing or cannot be deserialized.
     pub fn parse_body<T>(&self) -> Result<T, serde_json::Error>
     where
         T: for<'de> serde::Deserialize<'de>,
@@ -129,6 +141,7 @@ pub struct WebResponse {
 
 impl WebResponse {
     /// Create a new response with 200 OK status
+    #[must_use]
     pub fn ok(body: Value) -> Self {
         Self {
             status: HttpStatus::Ok,
@@ -138,6 +151,7 @@ impl WebResponse {
     }
 
     /// Create an empty response with 204 No Content status
+    #[must_use]
     pub fn no_content() -> Self {
         Self {
             status: HttpStatus::NoContent,
@@ -147,6 +161,7 @@ impl WebResponse {
     }
 
     /// Create a response with 201 Created status
+    #[must_use]
     pub fn created(body: Value) -> Self {
         Self {
             status: HttpStatus::Created,
@@ -156,6 +171,7 @@ impl WebResponse {
     }
 
     /// Create a response with 400 Bad Request status
+    #[must_use]
     pub fn bad_request(message: &str) -> Self {
         Self {
             status: HttpStatus::BadRequest,
@@ -165,6 +181,7 @@ impl WebResponse {
     }
 
     /// Create a response with 401 Unauthorized status
+    #[must_use]
     pub fn unauthorized(message: &str) -> Self {
         Self {
             status: HttpStatus::Unauthorized,
@@ -174,6 +191,7 @@ impl WebResponse {
     }
 
     /// Create a response with 403 Forbidden status
+    #[must_use]
     pub fn forbidden(message: &str) -> Self {
         Self {
             status: HttpStatus::Forbidden,
@@ -183,6 +201,7 @@ impl WebResponse {
     }
 
     /// Create a response with 404 Not Found status
+    #[must_use]
     pub fn not_found(message: &str) -> Self {
         Self {
             status: HttpStatus::NotFound,
@@ -192,6 +211,7 @@ impl WebResponse {
     }
 
     /// Create a response with 500 Internal Server Error status
+    #[must_use]
     pub fn internal_error(message: &str) -> Self {
         Self {
             status: HttpStatus::InternalServerError,
@@ -201,12 +221,14 @@ impl WebResponse {
     }
 
     /// Add a header to the response
+    #[must_use]
     pub fn with_header(mut self, key: &str, value: &str) -> Self {
         self.headers.insert(key.to_string(), value.to_string());
         self
     }
 
     /// Set JSON content type header
+    #[must_use]
     pub fn with_json_content_type(self) -> Self {
         self.with_header("Content-Type", "application/json")
     }

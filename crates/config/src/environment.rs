@@ -7,6 +7,9 @@ use std::str::FromStr;
 use thiserror::Error;
 use tracing::warn;
 use universal_constants::capabilities;
+use universal_constants::config_helpers;
+use universal_constants::deployment::ports;
+use universal_constants::network::{BIND_ALL_INTERFACES, LOCALHOST_IPV4};
 use universal_constants::timeouts;
 
 /// Environment configuration errors
@@ -128,16 +131,13 @@ impl NetworkConfig {
         // Network configuration with environment-aware defaults
         let host = env::var("MCP_HOST").unwrap_or_else(|_| {
             if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                "0.0.0.0".to_string() // Bind to all interfaces in production
+                BIND_ALL_INTERFACES.to_string() // Bind to all interfaces in production
             } else {
-                "127.0.0.1".to_string() // Localhost for development
+                LOCALHOST_IPV4.to_string() // Localhost for development
             }
         });
 
-        let port = env::var("MCP_PORT")
-            .unwrap_or_else(|_| "8080".to_string())
-            .parse()
-            .unwrap_or(8080);
+        let port = config_helpers::get_port("MCP_PORT", ports::api_gateway());
 
         // Web UI configuration with environment awareness
         // Production: Resolved at runtime via ecosystem registry capability discovery.
@@ -150,7 +150,7 @@ impl NetworkConfig {
                 let port = env::var("WEB_UI_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(3000); // Default Web UI port
+                    .unwrap_or_else(ports::biomeos_ui);
                 format!("http://localhost:{port}")
             }
         });
@@ -161,7 +161,7 @@ impl NetworkConfig {
                 let port = env::var("WEB_UI_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(3000); // Default Web UI port
+                    .unwrap_or_else(ports::biomeos_ui);
                 format!("http://localhost:{port}")
             })
             .split(',')
@@ -315,7 +315,7 @@ impl AIProviderConfig {
                     .or_else(|_| env::var("TOADSTOOL_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(11434); // Default OpenAI-compatible server port
+                    .unwrap_or_else(ports::ollama);
                 format!("http://localhost:{port}")
             });
 
@@ -368,7 +368,9 @@ impl Default for EcosystemConfig {
             let port = std::env::var("NESTGATE_PORT")
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8444); // Default NestGate port
+                .unwrap_or_else(|| {
+                    config_helpers::get_port("STORAGE_SERVICE_PORT", ports::storage_service())
+                });
             format!("http://localhost:{port}")
         });
 
@@ -376,7 +378,9 @@ impl Default for EcosystemConfig {
             let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8443); // Default BearDog security port
+                .unwrap_or_else(|| {
+                    config_helpers::get_port("SECURITY_SERVICE_PORT", ports::security_service())
+                });
             format!("http://localhost:{port}")
         });
 
@@ -384,7 +388,9 @@ impl Default for EcosystemConfig {
             let port = std::env::var("TOADSTOOL_PORT")
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8445); // Default ToadStool port
+                .unwrap_or_else(|| {
+                    config_helpers::get_port("COMPUTE_SERVICE_PORT", ports::compute_service())
+                });
             format!("http://localhost:{port}")
         });
 
@@ -394,7 +400,9 @@ impl Default for EcosystemConfig {
                 let port = std::env::var("BIOMEOS_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8446); // Default BiomeOS service mesh port
+                    .unwrap_or_else(|| {
+                        config_helpers::get_port("SERVICE_MESH_PORT", ports::service_mesh())
+                    });
                 format!("http://localhost:{port}")
             });
 
@@ -425,7 +433,9 @@ impl EcosystemConfig {
                 let port = env::var("NESTGATE_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8444); // Default storage capability port
+                    .unwrap_or_else(|| {
+                        config_helpers::get_port("STORAGE_SERVICE_PORT", ports::storage_service())
+                    });
                 format!("http://localhost:{port}")
             }
         });
@@ -437,7 +447,9 @@ impl EcosystemConfig {
                 let port = env::var("SECURITY_AUTHENTICATION_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8443); // Default security capability port
+                    .unwrap_or_else(|| {
+                        config_helpers::get_port("SECURITY_SERVICE_PORT", ports::security_service())
+                    });
                 format!("http://localhost:{port}")
             }
         });
@@ -449,7 +461,9 @@ impl EcosystemConfig {
                 let port = env::var("TOADSTOOL_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8445); // Default compute capability port
+                    .unwrap_or_else(|| {
+                        config_helpers::get_port("COMPUTE_SERVICE_PORT", ports::compute_service())
+                    });
                 format!("http://localhost:{port}")
             }
         });
@@ -463,7 +477,9 @@ impl EcosystemConfig {
                     let port = env::var("BIOMEOS_PORT")
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
-                        .unwrap_or(8446); // Default service mesh capability port
+                        .unwrap_or_else(|| {
+                            config_helpers::get_port("SERVICE_MESH_PORT", ports::service_mesh())
+                        });
                     format!("http://localhost:{port}")
                 }
             });

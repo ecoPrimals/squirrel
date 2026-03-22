@@ -55,6 +55,7 @@ impl Default for ExampleWebPlugin {
 
 impl ExampleWebPlugin {
     /// Create a new example web plugin
+    #[must_use]
     pub fn new() -> Self {
         let metadata = PluginMetadata {
             id: Uuid::new_v4(),

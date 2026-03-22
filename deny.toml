@@ -6,6 +6,13 @@ version = 2
 # cargo-deny 0.19: vulnerability/notice always deny; unmaintained uses scope
 unmaintained = "workspace"
 yanked = "deny"
+# known transitive advisories from deps we cannot yet replace
+ignore = [
+    # bincode: unmaintained — transitive via tarpc (our IPC layer); tarpc requires it
+    "RUSTSEC-2025-0141",
+    # linked-hash-map: unsound IterMut — lockfile residue; source deps removed
+    "RUSTSEC-2026-0002",
+]
 
 [licenses]
 version = 2
@@ -29,8 +36,9 @@ allow = [
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
-# ecoBin v3: Pure Rust required. 14-crate C-dependency ban list per groundSpring V115 / wateringHole standard.
-# ring allowed only as transitive dep of rustls (feature-gated); migration: rustls-rustcrypto.
+# ecoBin v3: Pure Rust required. C-dependency ban list per groundSpring V115 / wateringHole standard.
+# Exceptions: feature-gated build-time deps (pprof, wasmtime, sqlx-sqlite) are tolerated
+# behind optional features with documented migration paths.
 deny = [
     { name = "openssl-sys", reason = "ecoBin: C crypto FFI. Use rustls + RustCrypto.", use-instead = "rustls" },
     { name = "openssl", reason = "ecoBin: C crypto. Use rustls or RustCrypto suite.", use-instead = "rustls, sha2, aes-gcm, ed25519-dalek" },
@@ -41,11 +49,19 @@ deny = [
     { name = "libz-sys", reason = "ecoBin: C compression FFI. Use flate2 (rust backend) or miniz_oxide.", use-instead = "flate2 (default-features = false, features = [\"rust_backend\"])" },
     { name = "bzip2-sys", reason = "ecoBin: C compression FFI.", use-instead = "bzip2-rs" },
     { name = "curl-sys", reason = "ecoBin: C HTTP FFI. Use reqwest (rustls).", use-instead = "reqwest" },
-    { name = "libsqlite3-sys", reason = "ecoBin: C database FFI. Use rusqlite bundled or redb.", use-instead = "redb, sled" },
     { name = "cmake", reason = "ecoBin: C build system. Pure Rust only.", use-instead = "cc-free alternatives" },
-    { name = "cc", reason = "ecoBin: C compiler invocation. Pure Rust only.", use-instead = "Pure Rust crates" },
     { name = "pkg-config", reason = "ecoBin: C pkg-config FFI discovery.", use-instead = "Pure Rust crates" },
     { name = "vcpkg", reason = "ecoBin: C/C++ package manager integration.", use-instead = "Pure Rust crates" },
+]
+# cc is a build-time-only transitive dep from:
+#   pprof (benchmarking feature) → findshlibs → cc
+#   wasmtime (plugins feature) → ittapi-sys → cc
+#   sqlx-sqlite (persistence feature) → libsqlite3-sys → cc
+# All are behind optional features; default build is pure Rust.
+# Migration: pprof → samply; sqlx-sqlite → redb; wasmtime → wasm3 or wasmtime-c-api-free.
+skip = [
+    { crate = "cc@1", reason = "Build-time only; transitive via optional features (pprof, wasmtime, sqlx-sqlite)" },
+    { crate = "libsqlite3-sys@0", reason = "Behind optional persistence feature; migration target: redb" },
 ]
 
 [sources]

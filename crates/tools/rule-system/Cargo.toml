@@ -23,10 +23,9 @@ glob = "0.3"
 lru.workspace = true
 notify = "5.0"
 toml = "0.7"
-yaml-rust = "0.4"
 regex.workspace = true
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite"], optional = true }
-serde_yml.workspace = true
+serde_yaml_ng.workspace = true
 uuid.workspace = true
 # Internal crate dependencies
 squirrel-context.workspace = true

@@ -67,6 +67,7 @@ pub struct JwtClaims {
 
 impl JwtClaims {
     /// Create new JWT claims
+    #[must_use]
     pub fn new(
         user_id: Uuid,
         username: String,
@@ -91,6 +92,10 @@ impl JwtClaims {
     }
 
     /// Convert JWT claims to `AuthContext`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if claim fields cannot be parsed into IDs or timestamps.
     pub fn to_auth_context(&self) -> Result<AuthContext, AuthError> {
         let user_id = Uuid::parse_str(&self.sub).map_err(|_| AuthError::InvalidToken)?;
 
@@ -182,6 +187,10 @@ impl CapabilityJwtService {
     /// Create new capability-based JWT service
     ///
     /// **IMPORTANT**: Config should come from capability discovery!
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the service cannot be initialized.
     pub fn new(config: CapabilityJwtConfig) -> Result<Self> {
         info!("🌍 Initializing TRUE PRIMAL JWT service (capability-based discovery!)");
         info!(
@@ -200,12 +209,20 @@ impl CapabilityJwtService {
     /// Create from environment (for bootstrapping)
     ///
     /// Reads configuration from environment variables set by capability discovery.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the service cannot be initialized.
     pub fn from_env() -> Result<Self> {
         let config = CapabilityJwtConfig::default();
         Self::new(config)
     }
 
     /// Create JWT token (delegates signing to discovered crypto capability)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if encoding fails or delegated signing returns an error.
     pub async fn create_token(&self, claims: &JwtClaims) -> Result<String, AuthError> {
         debug!(
             "Creating JWT token via crypto capability: user={}, session={}",
@@ -257,6 +274,10 @@ impl CapabilityJwtService {
     }
 
     /// Verify JWT token (delegates verification to discovered crypto capability)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the token is malformed, expired, or verification fails.
     pub async fn verify_token(&self, token: &str) -> Result<JwtClaims, AuthError> {
         debug!(
             "Verifying JWT token via crypto capability: length={}",
@@ -340,6 +361,10 @@ impl CapabilityJwtService {
     /// Extract token from Authorization header
     ///
     /// Expected format: `Bearer <token>`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError`] if the header is missing `Bearer ` or the token is empty.
     pub fn extract_token_from_header<'a>(
         &self,
         authorization_header: &'a str,

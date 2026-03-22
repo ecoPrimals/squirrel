@@ -30,46 +30,55 @@ pub enum HttpMethod {
 
 impl HttpMethod {
     /// Check if the method is GET
+    #[must_use]
     pub fn is_get(&self) -> bool {
         *self == Self::Get
     }
 
     /// Check if the method is POST
+    #[must_use]
     pub fn is_post(&self) -> bool {
         *self == Self::Post
     }
 
     /// Check if the method is PUT
+    #[must_use]
     pub fn is_put(&self) -> bool {
         *self == Self::Put
     }
 
     /// Check if the method is DELETE
+    #[must_use]
     pub fn is_delete(&self) -> bool {
         *self == Self::Delete
     }
 
     /// Check if the method is PATCH
+    #[must_use]
     pub fn is_patch(&self) -> bool {
         *self == Self::Patch
     }
 
     /// Check if the method is OPTIONS
+    #[must_use]
     pub fn is_options(&self) -> bool {
         *self == Self::Options
     }
 
     /// Check if the method is HEAD
+    #[must_use]
     pub fn is_head(&self) -> bool {
         *self == Self::Head
     }
 
     /// Check if the method is safe (doesn't modify resources)
+    #[must_use]
     pub const fn is_safe(&self) -> bool {
         matches!(self, Self::Get | Self::Head | Self::Options)
     }
 
     /// Check if the method is idempotent (can be called multiple times with same effect)
+    #[must_use]
     pub const fn is_idempotent(&self) -> bool {
         matches!(
             self,
@@ -142,26 +151,31 @@ pub enum HttpStatus {
 
 impl HttpStatus {
     /// Get the status code
+    #[must_use]
     pub const fn code(&self) -> u16 {
         *self as u16
     }
 
     /// Check if the status is successful (2xx)
+    #[must_use]
     pub fn is_success(&self) -> bool {
         (200..300).contains(&self.code())
     }
 
     /// Check if the status is an error (4xx or 5xx)
+    #[must_use]
     pub const fn is_error(&self) -> bool {
         self.code() >= 400
     }
 
     /// Check if the status is a client error (4xx)
+    #[must_use]
     pub fn is_client_error(&self) -> bool {
         (400..500).contains(&self.code())
     }
 
     /// Check if the status is a server error (5xx)
+    #[must_use]
     pub const fn is_server_error(&self) -> bool {
         self.code() >= 500
     }

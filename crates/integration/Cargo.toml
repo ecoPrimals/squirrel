@@ -19,8 +19,8 @@ futures.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 # Squirrel crates
-squirrel-core = { path = "../core/core" }
-squirrel-mcp = { path = "../core/mcp" }
+squirrel-core = { path = "../core/core", version = "0.1.0" }
+squirrel-mcp = { path = "../core/mcp", version = "0.1.0" }
 squirrel-ai-tools.workspace = true
 # Logging
 tracing.workspace = true

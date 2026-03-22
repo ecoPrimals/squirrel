@@ -59,6 +59,7 @@ pub struct PluginPerformanceOptimizer {
 
 impl PluginPerformanceOptimizer {
     /// Create a new plugin performance optimizer
+    #[must_use]
     pub fn new(config: PerformanceOptimizerConfig) -> Self {
         let hot_path_cache = Arc::new(HotPathCache::new(config.hot_path_cache.clone()));
         let batch_processor = Arc::new(BatchProcessor::new(config.batch_processing.clone()));
@@ -316,6 +317,10 @@ impl PluginPerformanceOptimizer {
 }
 
 /// Initialize global plugin performance optimizer
+///
+/// # Errors
+///
+/// Returns [`PluginError`] if the global optimizer was already initialized.
 pub fn init_global_optimizer() -> Result<()> {
     let optimizer = PluginPerformanceOptimizer::new(PerformanceOptimizerConfig::production());
     GLOBAL_OPTIMIZER

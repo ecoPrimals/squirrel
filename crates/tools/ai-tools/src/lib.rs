@@ -73,6 +73,9 @@ pub mod capability_http;
 // NO reqwest, NO ring! 100% Pure Rust via ecosystem routing!
 pub mod neural_http;
 
+#[allow(dead_code)]
+mod ipc_routed_providers;
+
 pub mod common;
 pub mod config;
 pub mod error;
@@ -148,9 +151,9 @@ pub mod dispatch {
         pub async fn new(config: DispatcherConfig) -> Result<Self> {
             let router = AIRouter::new(config.router_config.clone());
 
-            // Direct HTTP provider modules (openai, anthropic, gemini) are not yet implemented.
-            // Production delegates to Songbird via Unix sockets. When direct-http is enabled,
-            // register OpenRouter/HuggingFace/etc. manually or use capability-based routing.
+            // Vendor-specific direct HTTP modules are optional; production routes via IPC
+            // (`ipc_routed_providers` / `neural_http`). Register OpenRouter/HuggingFace/etc.
+            // manually when using the provider plugin registry.
 
             Ok(Self { router, config })
         }
@@ -329,34 +332,31 @@ pub mod clients {
     use super::*;
     use std::sync::Arc;
 
-    /// Create a new OpenAI client
-    ///
-    /// Direct HTTP provider not yet implemented; production uses Songbird via Unix sockets.
+    /// Create an OpenAI-compatible client that sends traffic through the ecosystem IPC HTTP proxy.
     #[cfg(feature = "openai")]
-    pub fn openai(_api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
-        Err(Error::UnsupportedProvider(
-            "OpenAI direct HTTP client not yet implemented; use capability-based routing".into(),
-        ))
+    pub fn openai(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
+        ipc_routed_providers::IpcRoutedVendorClient::try_new(
+            api_key,
+            ipc_routed_providers::VendorKind::OpenAI,
+        )
     }
 
-    /// Create a new Anthropic client
-    ///
-    /// Direct HTTP provider not yet implemented; production uses Songbird via Unix sockets.
+    /// Anthropic Messages API via IPC-delegated HTTP (`neural_api.proxy_http`).
     #[cfg(feature = "anthropic")]
-    pub fn anthropic(_api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
-        Err(Error::UnsupportedProvider(
-            "Anthropic direct HTTP client not yet implemented; use capability-based routing".into(),
-        ))
+    pub fn anthropic(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
+        ipc_routed_providers::IpcRoutedVendorClient::try_new(
+            api_key,
+            ipc_routed_providers::VendorKind::Anthropic,
+        )
     }
 
-    /// Create a new Gemini client
-    ///
-    /// Direct HTTP provider not yet implemented; production uses Songbird via Unix sockets.
+    /// Google Gemini `generateContent` via IPC-delegated HTTP.
     #[cfg(feature = "gemini")]
-    pub fn gemini(_api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
-        Err(Error::UnsupportedProvider(
-            "Gemini direct HTTP client not yet implemented; use capability-based routing".into(),
-        ))
+    pub fn gemini(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
+        ipc_routed_providers::IpcRoutedVendorClient::try_new(
+            api_key,
+            ipc_routed_providers::VendorKind::Gemini,
+        )
     }
 }
 

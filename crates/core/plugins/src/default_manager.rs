@@ -7,7 +7,7 @@
 
 use crate::Plugin;
 use crate::dependency_resolver::DependencyResolver;
-use crate::discovery::{DefaultPluginDiscovery, create_placeholder_plugin};
+use crate::discovery::{DefaultPluginDiscovery, create_noop_plugin};
 use crate::errors::{PluginError, Result};
 use crate::metrics::{PluginManagerMetrics, PluginManagerStatus};
 use crate::plugin::PluginMetadata;
@@ -49,6 +49,7 @@ pub struct DefaultPluginManager {
 
 impl DefaultPluginManager {
     /// Create a new default plugin manager
+    #[must_use]
     pub fn new() -> Self {
         Self {
             plugins: Arc::new(RwLock::new(HashMap::new())),
@@ -217,7 +218,7 @@ async fn load_plugins_from_directory<M: PluginRegistry + PluginManagerTrait>(
             continue;
         };
 
-        let plugin = create_placeholder_plugin(metadata);
+        let plugin = create_noop_plugin(metadata);
         let id = plugin.id();
         PluginRegistry::register_plugin(manager, plugin).await?;
         plugin_ids.push(id);
@@ -358,11 +359,11 @@ impl PluginManagerTrait for DefaultPluginManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::discovery::create_placeholder_plugin;
+    use crate::discovery::create_noop_plugin;
     use crate::traits::PluginManagerTrait;
 
     fn make_test_plugin(name: &str) -> Arc<dyn Plugin> {
-        create_placeholder_plugin(PluginMetadata::new(name, "1.0.0", "Test plugin", "Test"))
+        create_noop_plugin(PluginMetadata::new(name, "1.0.0", "Test plugin", "Test"))
     }
 
     #[tokio::test]

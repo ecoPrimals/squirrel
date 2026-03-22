@@ -396,4 +396,39 @@ mod tests {
         assert_eq!(deserialized.prompt, "Hello");
         assert!(deserialized.provider.is_none());
     }
+
+    #[test]
+    fn test_tool_list_response_and_source_serialization() {
+        let response = ToolListResponse {
+            tools: vec![ToolListEntry {
+                name: "science.simulate".to_string(),
+                description: "Run simulation".to_string(),
+                domain: "science".to_string(),
+                source: ToolSource::Remote {
+                    primal: "neuralSpring".to_string(),
+                },
+                input_schema: None,
+            }],
+            total: 1,
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: ToolListResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.total, 1);
+        match &deserialized.tools[0].source {
+            ToolSource::Remote { primal } => assert_eq!(primal, "neuralSpring"),
+            ToolSource::Builtin => panic!("expected Remote"),
+        }
+
+        let builtin = ToolListEntry {
+            name: "system.ping".to_string(),
+            description: "ping".to_string(),
+            domain: "system".to_string(),
+            source: ToolSource::Builtin,
+            input_schema: None,
+        };
+        let j2 = serde_json::to_string(&builtin).unwrap();
+        let b2: ToolListEntry = serde_json::from_str(&j2).unwrap();
+        assert!(matches!(b2.source, ToolSource::Builtin));
+    }
 }

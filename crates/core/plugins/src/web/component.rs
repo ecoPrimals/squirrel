@@ -31,36 +31,43 @@ pub enum ComponentType {
 
 impl ComponentType {
     /// Check if this is a page component
+    #[must_use]
     pub const fn is_page(&self) -> bool {
         matches!(self, Self::Page)
     }
 
     /// Check if this is a partial component
+    #[must_use]
     pub const fn is_partial(&self) -> bool {
         matches!(self, Self::Partial)
     }
 
     /// Check if this is a navigation component
+    #[must_use]
     pub const fn is_navigation(&self) -> bool {
         matches!(self, Self::Navigation)
     }
 
     /// Check if this is a widget component
+    #[must_use]
     pub const fn is_widget(&self) -> bool {
         matches!(self, Self::Widget)
     }
 
     /// Check if this is a modal component
+    #[must_use]
     pub const fn is_modal(&self) -> bool {
         matches!(self, Self::Modal)
     }
 
     /// Check if this is a form component
+    #[must_use]
     pub const fn is_form(&self) -> bool {
         matches!(self, Self::Form)
     }
 
     /// Check if this is a custom component
+    #[must_use]
     pub const fn is_custom(&self) -> bool {
         matches!(self, Self::Custom(_))
     }
@@ -93,6 +100,7 @@ pub struct WebComponent {
 
 impl WebComponent {
     /// Create a new web component
+    #[must_use]
     pub fn new(id: Uuid, name: String, description: String, component_type: ComponentType) -> Self {
         Self {
             id,
@@ -116,36 +124,42 @@ impl WebComponent {
     }
 
     /// Set the route for a page component
+    #[must_use]
     pub fn with_route(mut self, route: &str) -> Self {
         self.route = Some(route.to_string());
         self
     }
 
     /// Set the priority for ordering
+    #[must_use]
     pub const fn with_priority(mut self, priority: i32) -> Self {
         self.priority = priority;
         self
     }
 
     /// Add a required permission
+    #[must_use]
     pub fn with_permission(mut self, permission: &str) -> Self {
         self.permissions.push(permission.to_string());
         self
     }
 
     /// Set the parent for navigation items
+    #[must_use]
     pub fn with_parent(mut self, parent: &str) -> Self {
         self.parent = Some(parent.to_string());
         self
     }
 
     /// Set the icon
+    #[must_use]
     pub fn with_icon(mut self, icon: &str) -> Self {
         self.icon = Some(icon.to_string());
         self
     }
 
     /// Check if user has permission to access this component
+    #[must_use]
     pub fn check_permission(&self, user_permissions: &[String]) -> bool {
         if self.permissions.is_empty() {
             return true;

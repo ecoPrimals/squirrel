@@ -66,6 +66,7 @@ where
 
 impl Frame {
     /// Create a new frame with the given payload
+    #[must_use]
     pub fn new(payload: Vec<u8>) -> Self {
         Self {
             payload: Bytes::from(payload),
@@ -73,6 +74,7 @@ impl Frame {
     }
 
     /// Create a frame from a byte vector
+    #[must_use]
     pub fn from_vec(data: Vec<u8>) -> Self {
         Self {
             payload: Bytes::from(data),
@@ -349,6 +351,7 @@ impl std::fmt::Debug for MessageCodec {
 
 impl MessageCodec {
     /// Creates a new message codec with default frame codec
+    #[must_use]
     pub fn new() -> Self {
         Self {
             frame_codec: Arc::new(DefaultFrameCodec),

@@ -27,6 +27,7 @@ struct CryptoState {
 
 impl DefaultCryptoProvider {
     /// Create a new crypto provider
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _state: Arc::new(CryptoState { initialized: true }),

@@ -340,6 +340,125 @@ mod tests {
         }
     }
 
-    // Additional comprehensive tests continue...
-    // (Remaining tests from original file would be included here)
+    #[tokio::test]
+    async fn test_propose_times_out_when_no_votes() {
+        use std::sync::Arc;
+        use tokio::time::Duration;
+
+        let config = ConsensusConfig {
+            min_nodes: 1,
+            voting_timeout_seconds: 1,
+            ..Default::default()
+        };
+        let node_id = Uuid::new_v4();
+        let manager = Arc::new(DefaultConsensusManager::new(config, node_id));
+
+        let node = FederationNode {
+            id: Uuid::new_v4(),
+            address: "127.0.0.1".to_string(),
+            port: 8080,
+            public_key: "k".to_string(),
+            capabilities: vec![],
+            status: NodeStatus::Active,
+            last_seen: Utc::now(),
+            metadata: std::collections::HashMap::new(),
+        };
+        manager.register_node(node).await;
+
+        let result =
+            tokio::time::timeout(Duration::from_secs(5), manager.propose(b"payload".to_vec()))
+                .await
+                .expect("propose should finish")
+                .expect("propose result");
+
+        assert_eq!(result.status, crate::federation::ConsensusStatus::TimedOut);
+    }
+
+    #[tokio::test]
+    async fn test_propose_completes_after_vote_for_majority() {
+        use std::sync::Arc;
+        use tokio::time::{Duration, sleep};
+
+        let config = ConsensusConfig {
+            min_nodes: 1,
+            voting_timeout_seconds: 30,
+            ..Default::default()
+        };
+        let node_id = Uuid::new_v4();
+        let manager = Arc::new(DefaultConsensusManager::new(config, node_id));
+
+        let node = FederationNode {
+            id: Uuid::new_v4(),
+            address: "127.0.0.1".to_string(),
+            port: 8080,
+            public_key: "k".to_string(),
+            capabilities: vec![],
+            status: NodeStatus::Active,
+            last_seen: Utc::now(),
+            metadata: std::collections::HashMap::new(),
+        };
+        manager.register_node(node).await;
+
+        let mgr = manager.clone();
+        let propose_task = tokio::spawn(async move { mgr.propose(b"value".to_vec()).await });
+
+        sleep(Duration::from_millis(50)).await;
+        let active = manager.get_state().await.expect("state").active_proposals;
+        assert_eq!(active.len(), 1);
+        let proposal_id = active[0];
+
+        manager.vote(proposal_id, Vote::For).await.expect("vote");
+
+        let result = tokio::time::timeout(Duration::from_secs(5), propose_task)
+            .await
+            .expect("join timeout")
+            .expect("task panic")
+            .expect("propose");
+
+        assert_eq!(result.status, crate::federation::ConsensusStatus::Agreed);
+        assert_eq!(result.value, Some(b"value".to_vec()));
+
+        let by_get = manager.get_result(proposal_id).await.expect("get_result");
+        assert_eq!(by_get.proposal_id, proposal_id);
+        assert_eq!(by_get.status, crate::federation::ConsensusStatus::Agreed);
+    }
+
+    #[tokio::test]
+    async fn test_get_result_active_proposal_vote_counts() {
+        let config = ConsensusConfig {
+            min_nodes: 1,
+            voting_timeout_seconds: 30,
+            ..Default::default()
+        };
+        let node_id = Uuid::new_v4();
+        let manager = DefaultConsensusManager::new(config, node_id);
+
+        let proposal_id = Uuid::new_v4();
+        let now = Utc::now();
+        let proposal = ConsensusProposal {
+            id: proposal_id,
+            value: b"x".to_vec(),
+            proposer: node_id,
+            timestamp: now,
+            deadline: now + chrono::Duration::seconds(60),
+            votes: {
+                let mut m = std::collections::HashMap::new();
+                m.insert(Uuid::new_v4(), Vote::For);
+                m.insert(Uuid::new_v4(), Vote::Against);
+                m
+            },
+            status: crate::federation::ConsensusStatus::InProgress,
+            round: 0,
+        };
+
+        {
+            let mut state = manager.state.write().await;
+            state.active_proposals.insert(proposal_id, proposal);
+        }
+
+        let r = manager.get_result(proposal_id).await.expect("get_result");
+        assert_eq!(r.votes_for, 1);
+        assert_eq!(r.votes_against, 1);
+        assert_eq!(r.participating_nodes.len(), 2);
+    }
 }

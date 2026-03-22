@@ -13,6 +13,7 @@ impl Default for CoordinationService {
 }
 
 impl CoordinationService {
+    #[must_use]
     pub const fn new() -> Self {
         Self
     }

@@ -647,4 +647,59 @@ mod tests {
         assert_eq!(config1.custom.get("key1").unwrap(), "value1");
         assert_eq!(config1.custom.get("key2").unwrap(), "value2");
     }
+
+    #[test]
+    fn test_load_from_file_invalid_toml() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("bad.toml");
+        std::fs::write(&path, "not [[ valid").unwrap();
+        let err = CliConfig::load_from_file(&path).unwrap_err();
+        assert!(matches!(err, ConfigError::ParseError(_)));
+    }
+
+    #[test]
+    fn test_get_key_not_found() {
+        let config = CliConfig::default();
+        let err = config.get("no_such_standard_key").unwrap_err();
+        assert!(matches!(err, ConfigError::KeyNotFound(_)));
+    }
+
+    #[test]
+    fn test_set_invalid_mcp_port() {
+        let mut config = CliConfig::default();
+        let err = config.set("mcp_port", "xyz".to_string()).unwrap_err();
+        assert!(matches!(err, ConfigError::PathError(_)));
+    }
+
+    #[test]
+    fn test_set_invalid_bool() {
+        let mut config = CliConfig::default();
+        let err = config.set("verbose", "maybe".to_string()).unwrap_err();
+        assert!(matches!(err, ConfigError::PathError(_)));
+    }
+
+    #[test]
+    fn test_cli_config_serde_roundtrip() {
+        let mut c = CliConfig::default();
+        c.set("custom_key", "v".to_string()).unwrap();
+        let toml = toml::to_string(&c).unwrap();
+        let back: CliConfig = toml::from_str(&toml).unwrap();
+        assert_eq!(back.get("custom_key").unwrap(), "v");
+    }
+
+    #[test]
+    fn test_config_manager_save_errors_without_path() {
+        let mgr = ConfigManager::new();
+        let err = mgr.save(None).unwrap_err();
+        assert!(matches!(err, ConfigError::PathError(_)));
+    }
+
+    #[test]
+    fn test_config_manager_list() {
+        let mut mgr = ConfigManager::with_config(CliConfig::default());
+        mgr.config_mut().set("custom_x", "y".to_string()).unwrap();
+        let m = mgr.list();
+        assert_eq!(m.get("mcp_port").unwrap(), "9000");
+        assert_eq!(m.get("custom_x").unwrap(), "y");
+    }
 }

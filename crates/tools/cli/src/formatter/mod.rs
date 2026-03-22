@@ -24,8 +24,8 @@ impl From<serde_json::Error> for FormatterError {
     }
 }
 
-impl From<serde_yml::Error> for FormatterError {
-    fn from(err: serde_yml::Error) -> Self {
+impl From<serde_yaml_ng::Error> for FormatterError {
+    fn from(err: serde_yaml_ng::Error) -> Self {
         FormatterError::Serialization(err.to_string())
     }
 }
@@ -193,12 +193,12 @@ impl YamlFormatter {
 
     /// Format data into a string
     pub fn format<T: Serialize>(&self, data: T) -> Result<String, FormatterError> {
-        Ok(serde_yml::to_string(&data)?)
+        Ok(serde_yaml_ng::to_string(&data)?)
     }
 
     /// Format an error into a string
     pub fn format_error(&self, error: &dyn std::error::Error) -> String {
-        serde_yml::to_string(&serde_json::json!({
+        serde_yaml_ng::to_string(&serde_json::json!({
             "error": {
                 "message": error.to_string(),
                 "source": error.source().map(|e| e.to_string()),
@@ -212,19 +212,19 @@ impl YamlFormatter {
         let mut table_data = Vec::new();
 
         for row in rows {
-            let mut row_data = serde_yml::Mapping::new();
+            let mut row_data = serde_yaml_ng::Mapping::new();
             for (i, header) in headers.iter().enumerate() {
                 if let Some(value) = row.get(i) {
                     row_data.insert(
-                        serde_yml::Value::String(header.to_string()),
-                        serde_yml::Value::String(value.clone()),
+                        serde_yaml_ng::Value::String(header.to_string()),
+                        serde_yaml_ng::Value::String(value.clone()),
                     );
                 }
             }
-            table_data.push(serde_yml::Value::Mapping(row_data));
+            table_data.push(serde_yaml_ng::Value::Mapping(row_data));
         }
 
-        serde_yml::to_string(&table_data).unwrap_or_default()
+        serde_yaml_ng::to_string(&table_data).unwrap_or_default()
     }
 }
 

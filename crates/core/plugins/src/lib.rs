@@ -55,7 +55,7 @@ pub use default_manager::DefaultPluginManager;
 pub use dependency_resolver::{
     DependencyResolver, EnhancedPluginDependency, ResolutionResult, ResolutionStatistics,
 };
-pub use discovery::{DefaultPluginDiscovery, PluginDiscovery};
+pub use discovery::{DefaultPluginDiscovery, NoOpPlugin, PluginDiscovery, create_noop_plugin};
 pub use errors::{PluginError, Result};
 pub use manager::PluginManager;
 pub use metrics::{PluginManagerMetrics, PluginManagerStatus};

@@ -210,7 +210,7 @@ impl ConfigLoader {
         let config = match path.extension().and_then(|e| e.to_str()) {
             Some("toml") => toml::from_str(&contents)
                 .with_context(|| format!("Failed to parse TOML config: {}", path.display()))?,
-            Some("yaml" | "yml") => serde_yml::from_str(&contents)
+            Some("yaml" | "yml") => serde_yaml_ng::from_str(&contents)
                 .with_context(|| format!("Failed to parse YAML config: {}", path.display()))?,
             Some("json") => serde_json::from_str(&contents)
                 .with_context(|| format!("Failed to parse JSON config: {}", path.display()))?,

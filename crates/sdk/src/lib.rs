@@ -6,6 +6,7 @@
 //!
 //! The Squirrel Plugin SDK provides a comprehensive set of tools and APIs for developing
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! plugins that integrate with the Squirrel MCP (Model Context Protocol) platform.
 //!
 //! ## Features

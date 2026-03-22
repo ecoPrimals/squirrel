@@ -52,6 +52,50 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_default_uses_primal_port_when_endpoint_unset() {
+        temp_env::with_vars(
+            [
+                ("PRIMAL_ENDPOINT", None::<&str>),
+                ("PRIMAL_PORT", Some("9123")),
+            ],
+            || {
+                let e = PrimalEndpoints::default();
+                assert!(e.primary.contains("9123"));
+                assert_eq!(e.health, format!("{}/health", e.primary));
+            },
+        );
+    }
+
+    #[test]
+    fn test_default_prefers_primal_endpoint_over_port() {
+        temp_env::with_vars(
+            [
+                ("PRIMAL_ENDPOINT", Some("http://explicit:7000")),
+                ("PRIMAL_PORT", Some("9999")),
+            ],
+            || {
+                let e = PrimalEndpoints::default();
+                assert_eq!(e.primary, "http://explicit:7000");
+                assert!(e.health.ends_with("/health"));
+            },
+        );
+    }
+
+    #[test]
+    fn test_default_invalid_primal_port_falls_back_to_8080() {
+        temp_env::with_vars(
+            [
+                ("PRIMAL_ENDPOINT", None::<&str>),
+                ("PRIMAL_PORT", Some("not-a-port")),
+            ],
+            || {
+                let e = PrimalEndpoints::default();
+                assert!(e.primary.contains("8080"));
+            },
+        );
+    }
+
+    #[test]
     fn test_primal_endpoints_serde() {
         let endpoints = PrimalEndpoints {
             primary: "http://test:8080".to_string(),

@@ -37,11 +37,11 @@ semver = "1.0"
 dashmap = "5.0"
 
 # CRITICAL FIX: Add missing config dependency
-squirrel-mcp-config = { path = "../../config" }
+squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 
 # Add interfaces dependency for canonical types
-squirrel-interfaces = { path = "../interfaces" }
-universal-constants = { path = "../../universal-constants" }
+squirrel-interfaces = { path = "../interfaces", version = "0.1.0" }
+universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 
 [dev-dependencies]
 tokio-test = "0.4"

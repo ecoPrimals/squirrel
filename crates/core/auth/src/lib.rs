@@ -132,6 +132,10 @@ pub use jwt::JwtTokenManager;
 /// Multi-tier endpoint resolution:
 /// - Security: `SECURITY_SERVICE_ENDPOINT` → `SECURITY_AUTHENTICATION_PORT` → 8443
 /// - MCP: `MCP_ENDPOINT` → `MCP_PORT` → 8444
+///
+/// # Errors
+///
+/// Returns [`AuthError`] if initialization fails.
 pub fn initialize() -> AuthResult<()> {
     // Multi-tier security endpoint resolution
     let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {

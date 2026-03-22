@@ -245,6 +245,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Get marketplace endpoints
+    #[must_use]
     pub fn get_endpoints(&self) -> Vec<WebEndpoint> {
         vec![
             WebEndpoint::new(
@@ -331,6 +332,10 @@ impl PluginMarketplaceClient {
     }
 
     /// Handle marketplace request
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if routing, deserialization, or handler logic fails.
     pub async fn handle_request(&self, request: WebRequest) -> Result<WebResponse> {
         match (request.method, request.path.as_str()) {
             (HttpMethod::Post, "/api/marketplace/search") => {

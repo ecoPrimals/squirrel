@@ -329,6 +329,7 @@ pub enum TimeFrame {
 
 impl MonitoringService {
     /// Create a new monitoring service with configuration
+    #[must_use]
     pub fn new(config: MonitoringConfig) -> Self {
         let fallback_logger = Arc::new(FallbackLogger::new(config.fallback_config.clone()));
 
@@ -340,6 +341,10 @@ impl MonitoringService {
     }
 
     /// Initialize the monitoring service and discover providers
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if a required provider cannot be initialized.
     pub async fn initialize(&self) -> Result<()> {
         if !self.config.enabled {
             tracing::info!("Monitoring service disabled");
@@ -416,6 +421,10 @@ impl MonitoringService {
     }
 
     /// Record a monitoring event
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if recording fails for all providers and fallback handling fails.
     pub async fn record_event(&self, event: MonitoringEvent) -> Result<()> {
         let providers = self.providers.read().clone();
 
@@ -439,6 +448,10 @@ impl MonitoringService {
     }
 
     /// Record a metric
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if recording fails for all providers and fallback handling fails.
     pub async fn record_metric(&self, metric: Metric) -> Result<()> {
         let providers = self.providers.read().clone();
 
@@ -462,6 +475,10 @@ impl MonitoringService {
     }
 
     /// Record health status
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if recording fails for all providers and fallback handling fails.
     pub async fn record_health(&self, component: &str, health: HealthStatus) -> Result<()> {
         let providers = self.providers.read().clone();
 
@@ -485,6 +502,10 @@ impl MonitoringService {
     }
 
     /// Record performance metrics
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if recording fails for all providers and fallback handling fails.
     pub async fn record_performance(
         &self,
         component: &str,
@@ -586,6 +607,10 @@ pub struct SongbirdProvider {
 
 impl SongbirdProvider {
     /// Creates a new Songbird monitoring provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the provider cannot be initialized.
     pub async fn new(config: SongbirdConfig) -> Result<Self> {
         // NOTE: Songbird communication uses Universal Transport abstractions
         // See: crates/universal-patterns/src/transport.rs (UniversalTransport, UniversalListener)
@@ -676,6 +701,7 @@ pub struct FallbackLogger {
 
 impl FallbackLogger {
     /// Creates a new fallback logger with the given config.
+    #[must_use]
     pub const fn new(config: FallbackConfig) -> Self {
         Self { config }
     }
@@ -828,6 +854,10 @@ impl Default for FallbackConfig {
 /// Convenience functions for common monitoring operations
 impl MonitoringService {
     /// Record a service startup event
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the underlying event recording fails.
     pub async fn record_service_started(&self, service: &str, version: &str) -> Result<()> {
         self.record_event(MonitoringEvent::ServiceStarted {
             service: service.to_string(),
@@ -838,6 +868,10 @@ impl MonitoringService {
     }
 
     /// Record a task completion event
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the underlying event recording fails.
     pub async fn record_task_completed(
         &self,
         task_id: &str,
@@ -854,6 +888,10 @@ impl MonitoringService {
     }
 
     /// Record an error event
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the underlying event recording fails.
     pub async fn record_error(
         &self,
         error_type: &str,
@@ -870,6 +908,10 @@ impl MonitoringService {
     }
 
     /// Record a counter metric
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the underlying metric recording fails.
     pub async fn record_counter(
         &self,
         name: &str,
@@ -886,6 +928,10 @@ impl MonitoringService {
     }
 
     /// Record a gauge metric
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the underlying metric recording fails.
     pub async fn record_gauge(
         &self,
         name: &str,
@@ -901,3 +947,7 @@ impl MonitoringService {
         .await
     }
 }
+
+#[cfg(test)]
+#[path = "monitoring_tests.rs"]
+mod monitoring_tests;

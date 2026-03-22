@@ -103,8 +103,8 @@ impl From<serde_json::Error> for RuleError {
     }
 }
 
-impl From<serde_yml::Error> for RuleError {
-    fn from(error: serde_yml::Error) -> Self {
+impl From<serde_yaml_ng::Error> for RuleError {
+    fn from(error: serde_yaml_ng::Error) -> Self {
         RuleError::SerializationError(error.to_string())
     }
 }

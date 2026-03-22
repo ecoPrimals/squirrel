@@ -43,6 +43,7 @@ pub struct CapabilityCryptoProvider {
 
 impl CapabilityCryptoProvider {
     /// Create new capability-based crypto provider
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             endpoint: None,
@@ -151,6 +152,10 @@ impl CapabilityCryptoProvider {
     /// Sign data using discovered crypto provider
     ///
     /// This replaces `BearDogClient::ed25519_sign()`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if endpoint discovery, JSON-RPC, or signature decoding fails.
     pub async fn sign_ed25519(&mut self, data: &[u8]) -> Result<Vec<u8>> {
         let endpoint = self.discover_endpoint().await?;
 
@@ -192,6 +197,10 @@ impl CapabilityCryptoProvider {
     /// Verify signature using discovered crypto provider (with public key bytes)
     ///
     /// This replaces `BearDogClient::ed25519_verify()` when you have the raw public key
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if endpoint discovery, JSON-RPC, or response parsing fails.
     pub async fn verify_ed25519(
         &mut self,
         data: &[u8],
@@ -238,6 +247,10 @@ impl CapabilityCryptoProvider {
     /// Verify signature using `key_id` (provider manages key lookup)
     ///
     /// This is useful for JWT and other scenarios where the provider manages keys
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if endpoint discovery, JSON-RPC, or response parsing fails.
     pub async fn verify_ed25519_with_key_id(
         &mut self,
         data: &[u8],
@@ -347,6 +360,7 @@ impl Default for CapabilityCryptoConfig {
 
 impl CapabilityCryptoProvider {
     /// Create from config (for compatibility with old `BearDogClientConfig`)
+    #[must_use]
     pub fn from_config(config: CapabilityCryptoConfig) -> Self {
         let mut provider = Self::new();
 

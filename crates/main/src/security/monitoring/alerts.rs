@@ -106,6 +106,7 @@ impl SecurityAlert {
     }
 
     /// Add a related event
+    #[must_use]
     pub fn with_event(mut self, event_id: Uuid) -> Self {
         self.related_events.push(event_id);
         self
@@ -167,6 +168,7 @@ pub struct AlertBuilder {
 
 impl AlertBuilder {
     /// Create a new alert builder
+    #[must_use]
     pub fn new(alert_type: AlertType) -> Self {
         Self {
             alert_type,
@@ -181,6 +183,7 @@ impl AlertBuilder {
     }
 
     /// Set severity
+    #[must_use]
     pub const fn severity(mut self, severity: EventSeverity) -> Self {
         self.severity = severity;
         self
@@ -223,6 +226,7 @@ impl AlertBuilder {
     }
 
     /// Build the alert
+    #[must_use]
     pub fn build(self) -> SecurityAlert {
         SecurityAlert {
             alert_id: Uuid::new_v4(),

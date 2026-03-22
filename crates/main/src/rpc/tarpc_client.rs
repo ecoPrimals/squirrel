@@ -130,6 +130,7 @@ impl SquirrelClient {
     }
 
     /// Get the service name
+    #[must_use]
     pub fn service_name(&self) -> &str {
         &self.service_name
     }
@@ -280,6 +281,7 @@ impl SquirrelClientBuilder {
     }
 
     /// Set custom timeout
+    #[must_use]
     pub const fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self

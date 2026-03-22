@@ -15,6 +15,22 @@ use crate::{
 use universal_constants::limits::DEFAULT_MAX_CONNECTIONS;
 use universal_constants::network::{DEFAULT_SQUIRREL_SERVER_PORT, get_service_port};
 
+/// Local federation code path requires a capability that must be discovered on another primal via IPC.
+fn capability_unavailable_federation(capability: &str, operation: &str) -> Error {
+    let hint = format!(
+        "This primal does not embed `{capability}`. Discover a peer that advertises it through the IPC capability registry (e.g. HTTP delegation to a network primal, often via `http.client`). Operation: {operation}"
+    );
+    tracing::warn!(
+        capability = %capability,
+        operation = %operation,
+        "Federation: capability not satisfied locally; use IPC discovery to find a provider"
+    );
+    Error::CapabilityUnavailable {
+        capability: capability.to_string(),
+        hint,
+    }
+}
+
 /// Federation service for managing distributed Squirrel MCP instances
 #[derive(Clone)]
 #[expect(
@@ -100,6 +116,10 @@ pub struct ScalingPolicy {
 
 impl FederationService {
     /// Create a new federation service
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the service cannot be constructed.
     pub fn new(config: FederationConfig) -> Result<Self> {
         let federation_id = format!("fed-{}", uuid::Uuid::new_v4());
 
@@ -150,6 +170,10 @@ impl FederationService {
     }
 
     /// Start the federation service
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if federation initialization fails.
     pub async fn start(&self) -> Result<()> {
         tracing::info!(
             "Starting federation service for node: {}",
@@ -216,26 +240,18 @@ impl FederationService {
     /// Probe a potential federation node
     /// NOTE: Delegates HTTP to Songbird via Unix sockets (TRUE PRIMAL pattern)
     async fn probe_federation_node(&self, endpoint: &str) -> Result<SquirrelInstance> {
-        // Federation probing requires HTTP delegation to Songbird
-        // Pattern: CapabilityHttpClient::discover("http.client").await?
-        Err(Error::Federation(format!(
-            "Federation node probing not yet implemented (requires Songbird HTTP delegation): {endpoint}"
-        )))
+        Err(capability_unavailable_federation(
+            "http.client",
+            &format!("probe_federation_node endpoint={endpoint}"),
+        ))
     }
 
     /// Join an existing federation
     /// NOTE: Delegates HTTP to Songbird via Unix sockets
     async fn join_existing_federation(&self) -> Result<()> {
-        // Federation joining requires HTTP POST delegation to Songbird
-        // Pattern: CapabilityHttpClient::discover("http.client").post(&join_url, &join_request).await
-
-        tracing::info!(
-            "Federation joining not yet implemented (requires Songbird HTTP delegation)"
-        );
-
-        Err(Error::Federation(
-            "Federation joining not yet implemented (requires Songbird HTTP delegation)"
-                .to_string(),
+        Err(capability_unavailable_federation(
+            "http.client",
+            "join_existing_federation",
         ))
     }
 
@@ -255,7 +271,12 @@ impl FederationService {
             }
         }
 
-        leader.ok_or_else(|| Error::Federation("No leader node found".to_string()))
+        leader.ok_or_else(|| {
+            capability_unavailable_federation(
+                "federation:leader",
+                "find_leader_node (no peers registered locally; discover peers via IPC)",
+            )
+        })
     }
 
     /// Start background federation tasks
@@ -545,12 +566,10 @@ impl FederationService {
     /// Stop a specific instance
     /// NOTE: Delegates to Songbird for HTTP shutdown request
     async fn stop_instance(&self, instance: &SquirrelInstance) -> Result<()> {
-        // Instance shutdown requires HTTP POST delegation to Songbird
-        // Pattern: CapabilityHttpClient::discover("http.client").post(&shutdown_url).await
-        Err(Error::Federation(format!(
-            "Instance shutdown not yet implemented (requires Songbird HTTP delegation): {}",
-            instance.endpoint
-        )))
+        Err(capability_unavailable_federation(
+            "http.client",
+            &format!("stop_instance endpoint={}", instance.endpoint),
+        ))
     }
 
     /// Create configuration for a new instance using universal-constants defaults
@@ -650,6 +669,7 @@ impl FederationService {
     }
 
     /// Get federation statistics
+    #[must_use]
     pub fn get_federation_stats(&self) -> FederationStats {
         FederationStats {
             node_id: self.config.node_id.clone(),
@@ -664,6 +684,10 @@ impl FederationService {
     }
 
     /// Shutdown the federation service
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if teardown steps fail.
     pub async fn shutdown(&self) -> Result<()> {
         tracing::info!("Shutting down federation service");
 

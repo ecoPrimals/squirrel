@@ -21,6 +21,7 @@ pub struct Permission {
 }
 
 impl Permission {
+    #[must_use]
     pub const fn new(resource: String, action: String) -> Self {
         Self { resource, action }
     }
@@ -37,6 +38,7 @@ pub struct Role {
 }
 
 impl Role {
+    #[must_use]
     pub fn new(name: String, description: String) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -70,6 +72,7 @@ pub struct BasicRBACManager {
 
 impl BasicRBACManager {
     /// Create a new RBAC manager
+    #[must_use]
     pub fn new() -> Self {
         Self {
             roles: Arc::new(RwLock::new(HashMap::new())),

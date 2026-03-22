@@ -15,7 +15,7 @@ tokio.workspace = true
 async-trait.workspace = true
 
 # Internal dependencies
-universal-constants = { path = "../universal-constants" }
+universal-constants = { path = "../universal-constants", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
@@ -38,14 +38,14 @@ tracing.workspace = true
 
 # Configuration management
 config = "0.14"
-serde_yml = "0.0.12"
+serde_yaml_ng = "0.10"
 dirs = "5.0"
 
 # Ecosystem dependencies
-ecosystem-api = { path = "../ecosystem-api" }
+ecosystem-api = { path = "../ecosystem-api", version = "0.1.0" }
 
 # CRITICAL FIX: Add missing config dependency
-squirrel-mcp-config = { path = "../config" }
+squirrel-mcp-config = { path = "../config", version = "0.1.0" }
 
 # Security: zeroize for sensitive data
 zeroize.workspace = true
@@ -61,6 +61,7 @@ assert_matches = "1.5"
 proptest.workspace = true
 serial_test = "3.0"
 temp-env = "0.3"
+toml = "0.8"
 
 [features]
 # Production default: Pure Rust patterns

@@ -205,7 +205,7 @@ impl BiomeManifestParser {
     pub async fn parse_content(&self, content: &str) -> Result<BiomeManifest, PrimalError> {
         debug!("Parsing biome.yaml manifest content");
 
-        let mut manifest: BiomeManifest = serde_yml::from_str(content)
+        let mut manifest: BiomeManifest = serde_yaml_ng::from_str(content)
             .map_err(|e| PrimalError::ConfigError(format!("Failed to parse YAML: {e}")))?;
 
         if self.config.strict_validation {
@@ -252,7 +252,7 @@ impl BiomeManifestParser {
 
     /// Validates YAML syntax without full manifest parsing.
     pub fn validate_yaml_schema(&self, content: &str) -> Result<(), PrimalError> {
-        let _: serde_yml::Value = serde_yml::from_str(content)
+        let _: serde_yaml_ng::Value = serde_yaml_ng::from_str(content)
             .map_err(|e| PrimalError::ConfigError(format!("Invalid YAML syntax: {e}")))?;
 
         Ok(())
@@ -305,5 +305,68 @@ impl Default for ManifestParserConfig {
 impl Default for BiomeManifestParser {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn parse_content_roundtrips_generated_template() {
+        let template = BiomeManifestParser::generate_template();
+        let yaml = serde_yaml_ng::to_string(&template).expect("serialize template");
+        let parser = BiomeManifestParser::new();
+        let parsed = parser.parse_content(&yaml).await.expect("parse roundtrip");
+        assert_eq!(parsed.metadata.name, template.metadata.name);
+        assert_eq!(parsed.agents.len(), template.agents.len());
+    }
+
+    #[tokio::test]
+    async fn strict_validation_rejects_empty_biome_name() {
+        let mut template = BiomeManifestParser::generate_template();
+        template.metadata.name = String::new();
+        let yaml = serde_yaml_ng::to_string(&template).unwrap();
+        let parser = BiomeManifestParser::new();
+        let err = parser.parse_content(&yaml).await.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Biome name cannot be empty") || msg.contains("empty"),
+            "{msg}"
+        );
+    }
+
+    #[test]
+    fn validate_yaml_schema_accepts_object() {
+        let parser = BiomeManifestParser::new();
+        parser
+            .validate_yaml_schema("key: value\n")
+            .expect("valid yaml");
+    }
+
+    #[test]
+    fn validate_yaml_schema_rejects_invalid() {
+        let parser = BiomeManifestParser::new();
+        assert!(parser.validate_yaml_schema("[").is_err());
+    }
+
+    #[test]
+    fn merge_manifests_overlay_name_wins() {
+        let parser = BiomeManifestParser::new();
+        let mut base = BiomeManifestParser::generate_template();
+        let mut overlay = BiomeManifestParser::generate_template();
+        overlay.metadata.name = "merged-overlay".to_string();
+        base.metadata.name = "base-name".to_string();
+
+        let merged = parser.merge_manifests(base, overlay).unwrap();
+        assert_eq!(merged.metadata.name, "merged-overlay");
+    }
+
+    #[test]
+    fn parser_default_matches_new() {
+        assert_eq!(
+            BiomeManifestParser::default().config.strict_validation,
+            BiomeManifestParser::new().config.strict_validation
+        );
     }
 }

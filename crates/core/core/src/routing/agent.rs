@@ -73,6 +73,7 @@ pub struct HealthCheckConfig {
 
 impl RegisteredAgent {
     /// Create a new registered agent from an agent specification
+    #[must_use]
     pub fn new(spec: AgentSpec) -> Self {
         Self {
             id: spec.id,
@@ -88,11 +89,13 @@ impl RegisteredAgent {
     }
 
     /// Check if the agent has a specific capability
+    #[must_use]
     pub fn has_capability(&self, capability: &str) -> bool {
         self.capabilities.iter().any(|c| c == capability)
     }
 
     /// Check if the agent has all required capabilities
+    #[must_use]
     pub fn has_all_capabilities(&self, required_capabilities: &[String]) -> bool {
         required_capabilities
             .iter()
@@ -100,6 +103,7 @@ impl RegisteredAgent {
     }
 
     /// Get current load as a percentage of max capacity
+    #[must_use]
     pub fn load_percentage(&self) -> f64 {
         let current_load = f64::from(*self.current_load.read());
         let max_capacity = f64::from(self.max_concurrent_tasks);
@@ -111,6 +115,7 @@ impl RegisteredAgent {
     }
 
     /// Check if the agent is available for new tasks
+    #[must_use]
     pub fn is_available(&self) -> bool {
         let health_status = self.health_status.read();
         let current_load = *self.current_load.read();
@@ -122,6 +127,7 @@ impl RegisteredAgent {
     }
 
     /// Check if the agent is healthy
+    #[must_use]
     pub fn is_healthy(&self) -> bool {
         let health_status = self.health_status.read();
         matches!(*health_status, AgentHealthStatus::Healthy)
@@ -161,12 +167,14 @@ impl RegisteredAgent {
     }
 
     /// Get time since last seen
+    #[must_use]
     pub fn time_since_last_seen(&self) -> chrono::Duration {
         let last_seen = *self.last_seen.read();
         Utc::now() - last_seen
     }
 
     /// Get a summary of the agent's current state
+    #[must_use]
     pub fn get_summary(&self) -> AgentSummary {
         AgentSummary {
             id: self.id.clone(),
@@ -213,6 +221,7 @@ pub struct AgentSummary {
 
 impl AgentRegistry {
     /// Create a new agent registry
+    #[must_use]
     pub fn new(health_check_config: HealthCheckConfig) -> Self {
         Self {
             agents: Arc::new(RwLock::new(HashMap::new())),
@@ -221,6 +230,10 @@ impl AgentRegistry {
     }
 
     /// Register a new agent
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if registration fails.
     pub fn register_agent(&self, spec: AgentSpec) -> Result<()> {
         let agent = RegisteredAgent::new(spec);
         let agent_id = agent.id.clone();
@@ -237,6 +250,10 @@ impl AgentRegistry {
     }
 
     /// Unregister an agent
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the agent is not found.
     pub fn unregister_agent(&self, agent_id: &str) -> Result<()> {
         let mut agents = self.agents.write();
         if agents.remove(agent_id).is_some() {
@@ -248,18 +265,21 @@ impl AgentRegistry {
     }
 
     /// Get an agent by ID
+    #[must_use]
     pub fn get_agent(&self, agent_id: &str) -> Option<RegisteredAgent> {
         let agents = self.agents.read();
         agents.get(agent_id).cloned()
     }
 
     /// Get all registered agents
+    #[must_use]
     pub fn get_all_agents(&self) -> Vec<RegisteredAgent> {
         let agents = self.agents.read();
         agents.values().cloned().collect()
     }
 
     /// Get agents with specific capabilities
+    #[must_use]
     pub fn get_agents_with_capabilities(
         &self,
         required_capabilities: &[String],
@@ -273,6 +293,7 @@ impl AgentRegistry {
     }
 
     /// Get available agents (healthy and not at capacity)
+    #[must_use]
     pub fn get_available_agents(&self) -> Vec<RegisteredAgent> {
         let agents = self.agents.read();
         agents
@@ -283,6 +304,7 @@ impl AgentRegistry {
     }
 
     /// Get healthy agents
+    #[must_use]
     pub fn get_healthy_agents(&self) -> Vec<RegisteredAgent> {
         let agents = self.agents.read();
         agents
@@ -293,6 +315,10 @@ impl AgentRegistry {
     }
 
     /// Update agent health status
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the agent is not found.
     pub fn update_agent_health(&self, agent_id: &str, status: AgentHealthStatus) -> Result<()> {
         let agents = self.agents.read();
         if let Some(agent) = agents.get(agent_id) {
@@ -305,6 +331,10 @@ impl AgentRegistry {
     }
 
     /// Update agent response time
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the agent is not found.
     pub fn update_agent_response_time(&self, agent_id: &str, response_time_ms: f64) -> Result<()> {
         let agents = self.agents.read();
         if let Some(agent) = agents.get(agent_id) {
@@ -317,6 +347,10 @@ impl AgentRegistry {
     }
 
     /// Increment agent load
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the agent is not found.
     pub fn increment_agent_load(&self, agent_id: &str) -> Result<()> {
         let agents = self.agents.read();
         if let Some(agent) = agents.get(agent_id) {
@@ -328,6 +362,10 @@ impl AgentRegistry {
     }
 
     /// Decrement agent load
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the agent is not found.
     pub fn decrement_agent_load(&self, agent_id: &str) -> Result<()> {
         let agents = self.agents.read();
         if let Some(agent) = agents.get(agent_id) {
@@ -345,6 +383,7 @@ impl AgentRegistry {
     }
 
     /// Get registry statistics
+    #[must_use]
     pub fn get_statistics(&self) -> AgentRegistryStats {
         let agents = self.agents.read();
         let total_agents = agents.len();
@@ -394,6 +433,7 @@ impl AgentRegistry {
     }
 
     /// Get health check configuration
+    #[must_use]
     pub const fn get_health_check_config(&self) -> &HealthCheckConfig {
         &self.health_check_config
     }
@@ -429,29 +469,34 @@ impl Default for HealthCheckConfig {
 
 impl HealthCheckConfig {
     /// Create a new health check configuration
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set check interval
+    #[must_use]
     pub const fn with_check_interval(mut self, interval: chrono::Duration) -> Self {
         self.check_interval = interval;
         self
     }
 
     /// Set check timeout
+    #[must_use]
     pub const fn with_check_timeout(mut self, timeout: chrono::Duration) -> Self {
         self.check_timeout = timeout;
         self
     }
 
     /// Set failure threshold
+    #[must_use]
     pub const fn with_failure_threshold(mut self, threshold: u32) -> Self {
         self.failure_threshold = threshold;
         self
     }
 
     /// Set success threshold
+    #[must_use]
     pub const fn with_success_threshold(mut self, threshold: u32) -> Self {
         self.success_threshold = threshold;
         self

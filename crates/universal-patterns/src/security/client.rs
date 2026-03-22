@@ -161,7 +161,7 @@ impl UniversalSecurityClient {
         )
         .await;
 
-        if health_check_result.is_ok() && health_check_result.unwrap().is_ok() {
+        if let Ok(Ok(_)) = health_check_result {
             return self.primary.clone();
         }
 

@@ -42,6 +42,7 @@ pub struct SecurityManagerImpl {
 
 impl SecurityManagerImpl {
     /// Create a new security manager
+    #[must_use]
     pub fn new(config: SecurityConfig) -> Self {
         Self {
             config,
@@ -55,31 +56,37 @@ impl SecurityManagerImpl {
     }
 
     /// Get audit service
+    #[must_use]
     pub fn audit_service(&self) -> Arc<DefaultAuditService> {
         self.audit_service.clone()
     }
 
     /// Get crypto provider
+    #[must_use]
     pub fn crypto_provider(&self) -> Arc<DefaultCryptoProvider> {
         self.crypto_provider.clone()
     }
 
     /// Get identity manager
+    #[must_use]
     pub fn identity_manager(&self) -> Arc<DefaultIdentityManager> {
         self.identity_manager.clone()
     }
 
     /// Get key storage
+    #[must_use]
     pub fn key_storage(&self) -> Arc<InMemoryKeyStorage> {
         self.key_storage.clone()
     }
 
     /// Get RBAC manager
+    #[must_use]
     pub fn rbac_manager(&self) -> Arc<BasicRBACManager> {
         self.rbac_manager.clone()
     }
 
     /// Get token manager
+    #[must_use]
     pub fn token_manager(&self) -> Arc<DefaultTokenManager> {
         self.token_manager.clone()
     }
@@ -200,6 +207,7 @@ impl SecurityManagerImpl {
     }
 
     /// Get security configuration
+    #[must_use]
     pub const fn get_config(&self) -> &SecurityConfig {
         &self.config
     }

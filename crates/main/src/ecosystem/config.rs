@@ -104,6 +104,7 @@ impl Default for EcosystemConfig {
 
 impl EcosystemConfig {
     /// Create a new ecosystem configuration with specified values
+    #[must_use]
     pub fn new(service_name: String, service_host: String, service_port: u16) -> Self {
         use uuid::Uuid;
 
@@ -123,6 +124,7 @@ impl EcosystemConfig {
     /// - `SQUIRREL_PORT` (default: 8002)
     /// - `SERVICE_MESH_ENDPOINT` (default: http://localhost:8001)
     /// - `BIOME_ID` (optional)
+    #[must_use]
     pub fn from_env() -> Self {
         Self::default()
     }
@@ -151,11 +153,13 @@ impl EcosystemConfig {
     }
 
     /// Get the full service URL
+    #[must_use]
     pub fn service_url(&self) -> String {
         format!("http://{}:{}", self.service_host, self.service_port)
     }
 
     /// Add metadata entry
+    #[must_use]
     pub fn with_metadata(mut self, key: String, value: String) -> Self {
         self.metadata.insert(key, value);
         self

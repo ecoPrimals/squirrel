@@ -95,11 +95,13 @@ impl User {
     }
 
     /// Check if user has a specific role
+    #[must_use]
     pub fn has_role(&self, role: &str) -> bool {
         self.roles.contains(&role.to_string())
     }
 
     /// Check if user has a specific permission
+    #[must_use]
     pub fn has_permission(&self, permission: &Permission) -> bool {
         self.permissions.iter().any(|p| p.matches(permission))
     }
@@ -140,6 +142,7 @@ impl Permission {
     }
 
     /// Check if this permission matches another permission
+    #[must_use]
     pub fn matches(&self, other: &Self) -> bool {
         self.resource == other.resource && self.action == other.action && self.scope == other.scope
     }
@@ -168,6 +171,7 @@ pub struct AuthContext {
 
 impl AuthContext {
     /// Create a new auth context
+    #[must_use]
     pub fn new(
         user: &User,
         session_id: Uuid,
@@ -187,16 +191,19 @@ impl AuthContext {
     }
 
     /// Check if the session is expired
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         Utc::now() > self.expires_at
     }
 
     /// Check if user has a specific role
+    #[must_use]
     pub fn has_role(&self, role: &str) -> bool {
         self.roles.contains(&role.to_string())
     }
 
     /// Check if user has a specific permission
+    #[must_use]
     pub fn has_permission(&self, permission: &Permission) -> bool {
         self.permissions.iter().any(|p| p.matches(permission))
     }
@@ -255,6 +262,7 @@ pub struct Session {
 
 impl Session {
     /// Create a new session
+    #[must_use]
     pub fn new(user_id: Uuid, duration: Duration, auth_provider: AuthProvider) -> Self {
         let now = Utc::now();
         Self {
@@ -269,6 +277,7 @@ impl Session {
     }
 
     /// Check if session is expired
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         Utc::now() > self.expires_at
     }
@@ -314,6 +323,7 @@ pub struct JwtClaims {
 
 impl JwtClaims {
     /// Creates new JWT claims from user data and expiration.
+    #[must_use]
     pub fn new(
         user_id: Uuid,
         username: String,
@@ -338,6 +348,10 @@ impl JwtClaims {
     }
 
     /// Converts JWT claims into an [`AuthContext`] for authorization checks.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if claim fields cannot be parsed into IDs or timestamps.
     pub fn to_auth_context(&self) -> Result<AuthContext, crate::AuthError> {
         let user_id = Uuid::parse_str(&self.sub).map_err(|_| crate::AuthError::InvalidToken)?;
 

@@ -28,6 +28,7 @@ use crate::universal::{
 };
 use crate::universal_adapter_v2::UniversalAdapterV2;
 use squirrel_mcp_config::EcosystemConfig;
+use universal_constants::capabilities;
 
 /// # Squirrel Primal Provider
 ///
@@ -190,25 +191,41 @@ impl SquirrelPrimalProvider {
             operation_type
         );
 
-        // Discover all available primals dynamically
-        // capability_registry removed - use ecosystem discovery
-        // Type can be anything that has .is_healthy and .display_name fields
-        // FUTURE: [Ecosystem-Integration] Implement primal discovery via ecosystem manager
-        // Tracking: Planned for v0.2.0 - ecosystem integration work
-        // This should query the ecosystem_manager for available primals with their capabilities
-        // and health status. The discovery should be capability-based rather than name-based.
-        let available_primals: Vec<serde_json::Value> = Vec::new();
+        let mut discovered: Vec<serde_json::Value> = Vec::new();
+        for cap in [
+            capabilities::COMPUTE_CAPABILITY,
+            capabilities::ECOSYSTEM_CAPABILITY,
+            capabilities::SERVICE_MESH_CAPABILITY,
+        ] {
+            match self
+                .ecosystem_manager
+                .find_services_by_capability(cap)
+                .await
+            {
+                Ok(services) => {
+                    for s in services {
+                        discovered.push(serde_json::json!({
+                            "capability": cap,
+                            "service_id": s.service_id.as_ref(),
+                            "endpoint": s.endpoint.as_ref(),
+                            "health_endpoint": s.health_endpoint.as_ref(),
+                        }));
+                    }
+                }
+                Err(e) => {
+                    info!(
+                        "Capability discovery for '{}' returned: {} (continuing with other capabilities)",
+                        cap, e
+                    );
+                }
+            }
+        }
 
-        let participating_primals: Vec<String> = available_primals
+        let participating_primals: Vec<String> = discovered
             .iter()
-            .filter(|p| {
-                p.get("is_healthy")
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false)
-            })
-            .filter_map(|p| {
-                p.get("display_name")
-                    .and_then(|v| v.as_str())
+            .filter_map(|v| {
+                v.get("service_id")
+                    .and_then(|x| x.as_str())
                     .map(std::string::ToString::to_string)
             })
             .collect();
@@ -217,12 +234,13 @@ impl SquirrelPrimalProvider {
             "status": "coordinated",
             "operation_type": operation_type,
             "participating_primals": participating_primals,
+            "discovered_via_capabilities": discovered,
             "coordinator": "squirrel",
             "timestamp": chrono::Utc::now().to_rfc3339()
         });
 
         info!(
-            "AI operation coordinated successfully with {} participating primals",
+            "AI operation coordinated with {} service endpoint(s) from IPC capability discovery",
             participating_primals.len()
         );
         Ok(response)
@@ -263,17 +281,31 @@ impl SquirrelPrimalProvider {
     pub async fn discover_ecosystem_services(&self) -> Result<Vec<serde_json::Value>, PrimalError> {
         info!("Discovering ecosystem services via ecosystem manager (capability-based)");
 
-        // Use capability registry for dynamic service discovery
-        // Returns discovered services based on their advertised capabilities
-        // This implementation is intentionally minimal - services are discovered
-        // on-demand when needed, rather than pre-loaded during initialization
-
-        // Pattern: Lazy discovery - query capability_registry when specific
-        // capabilities are needed, rather than maintaining a static list
-        let discovered_services = Vec::new();
+        let mut discovered_services: Vec<serde_json::Value> = Vec::new();
+        for cap in [
+            capabilities::ECOSYSTEM_CAPABILITY,
+            capabilities::SERVICE_MESH_CAPABILITY,
+            capabilities::STORAGE_CAPABILITY,
+            capabilities::COMPUTE_CAPABILITY,
+            capabilities::SECURITY_CAPABILITY,
+        ] {
+            if let Ok(services) = self
+                .ecosystem_manager
+                .find_services_by_capability(cap)
+                .await
+            {
+                for s in services {
+                    discovered_services.push(serde_json::json!({
+                        "capability": cap,
+                        "service_id": s.service_id.as_ref(),
+                        "endpoint": s.endpoint.as_ref(),
+                    }));
+                }
+            }
+        }
 
         info!(
-            "Service discovery configured - {} pre-loaded services (on-demand discovery preferred)",
+            "Ecosystem service discovery (IPC): {} entries from capability queries",
             discovered_services.len()
         );
         Ok(discovered_services)
@@ -297,24 +329,32 @@ impl SquirrelPrimalProvider {
             operation
         );
 
-        // Service mesh discovery removed - use Unix socket delegation
-        // FUTURE: [Service-Mesh-Integration] Implement service mesh coordination via capability discovery
-        // Tracking: Planned for v0.2.0 - service mesh integration work
-        // This should:
-        // 1. Discover service mesh capabilities via ecosystem_manager
-        // 2. Use Unix socket delegation for communication with service mesh (songbird)
-        // 3. Handle coordination requests (routing, load balancing, circuit breaking)
-        // 4. Return proper coordination results with mesh status
-        // Tracked in: service mesh integration work
+        let mesh = self
+            .ecosystem_manager
+            .find_services_by_capability(capabilities::SERVICE_MESH_CAPABILITY)
+            .await
+            .unwrap_or_default();
+
         let response = serde_json::json!({
             "status": "completed",
             "operation": operation,
             "coordinator": "squirrel",
-            "note": "Service mesh coordination via capability discovery (not yet implemented)",
+            "mesh_services_discovered": mesh.len(),
+            "mesh_services": mesh.iter().map(|s| {
+                serde_json::json!({
+                    "service_id": s.service_id.as_ref(),
+                    "endpoint": s.endpoint.as_ref(),
+                    "health_endpoint": s.health_endpoint.as_ref(),
+                })
+            }).collect::<Vec<_>>(),
             "timestamp": chrono::Utc::now().to_rfc3339()
         });
 
-        info!("Service mesh coordination stubbed - awaiting capability discovery implementation");
+        info!(
+            mesh_count = mesh.len(),
+            "Service mesh coordination: endpoints from IPC capability discovery (`{}`)",
+            capabilities::SERVICE_MESH_CAPABILITY
+        );
         Ok(response)
     }
 

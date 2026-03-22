@@ -124,11 +124,13 @@ pub struct ProtocolVersion {
 
 impl ProtocolVersion {
     /// Create a new protocol version
+    #[must_use]
     pub const fn new(major: u16, minor: u16) -> Self {
         Self { major, minor }
     }
 
     /// Returns the version as a string (e.g., "1.0")
+    #[must_use]
     pub fn version_string(&self) -> String {
         format!("{}.{}", self.major, self.minor)
     }
@@ -237,6 +239,7 @@ impl MCPMessage {
     }
 
     /// Extracts the command name from the message payload.
+    #[must_use]
     pub fn command(&self) -> String {
         self.payload.get("command").map_or_else(
             || "unknown".to_string(),

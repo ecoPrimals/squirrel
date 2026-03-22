@@ -22,33 +22,35 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
-/// Minimal no-op plugin for built-in system placeholder (not from discovery)
+/// Built-in default no-op plugin so the registry always has a valid entry before IPC-discovered plugins register.
 #[derive(Debug)]
-struct SystemPlaceholderPlugin {
+struct DefaultPlugin {
     metadata: plugin::PluginMetadata,
 }
 
 #[async_trait]
-impl Plugin for SystemPlaceholderPlugin {
+impl Plugin for DefaultPlugin {
     fn metadata(&self) -> &plugin::PluginMetadata {
         &self.metadata
     }
 
     async fn initialize(&self) -> anyhow::Result<()> {
-        warn!(
+        info!(
+            plugin_id = %self.metadata.id,
             plugin_name = %self.metadata.name,
-            "SystemPlaceholderPlugin: no real plugin loaded; initialize is a no-op"
+            "DefaultPlugin: built-in no-op; optional plugins arrive from other primals via IPC discovery"
         );
         Ok(())
     }
 
     async fn shutdown(&self) -> anyhow::Result<()> {
-        warn!(
+        info!(
+            plugin_id = %self.metadata.id,
             plugin_name = %self.metadata.name,
-            "SystemPlaceholderPlugin: no real plugin loaded; shutdown is a no-op"
+            "DefaultPlugin shutdown (no-op)"
         );
         Ok(())
     }
@@ -78,6 +80,7 @@ pub struct PluginManager {
 
 impl PluginManager {
     /// Create a new plugin manager
+    #[must_use]
     pub fn new() -> Self {
         Self {
             plugins: Arc::new(DashMap::new()),
@@ -89,6 +92,10 @@ impl PluginManager {
     }
 
     /// Initialize the plugin manager
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginError`] if built-in plugin registration fails.
     pub async fn init(&self) -> Result<()> {
         self.register_built_in_plugins().await?;
         debug!("Plugin manager initialized");
@@ -97,20 +104,24 @@ impl PluginManager {
 
     /// Register built-in plugins
     async fn register_built_in_plugins(&self) -> Result<()> {
-        let placeholder_metadata = plugin::PluginMetadata::new(
-            "system-placeholder",
+        let default_metadata = plugin::PluginMetadata::new(
+            "system-default",
             "1.0.0",
-            "System placeholder plugin",
+            "Built-in default no-op plugin (registry bootstrap)",
             "Squirrel System",
         );
-        let placeholder = Arc::new(SystemPlaceholderPlugin {
-            metadata: placeholder_metadata,
+        let default_plugin = Arc::new(DefaultPlugin {
+            metadata: default_metadata,
         });
-        self.register_plugin(placeholder).await?;
+        self.register_plugin(default_plugin).await?;
         Ok(())
     }
 
     /// Register a plugin with metadata, implementation, and optional signature
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginError`] if registration or dependency updates fail.
     pub async fn register_plugin_with_signature(
         &self,
         plugin: Arc<dyn Plugin>,
@@ -251,9 +262,11 @@ impl PluginManagerTrait for PluginManager {
     }
 
     async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>> {
-        // Implementation would use discovery service
-        debug!("Loading plugins from directory: {}", directory);
-        Ok(Vec::new()) // Placeholder
+        debug!(
+            directory = %directory,
+            "load_plugins: no bundled dynamic loader in this build; peer-provided plugins register via IPC capability discovery"
+        );
+        Ok(Vec::new())
     }
 
     async fn initialize_all_plugins(&self) -> Result<()> {
@@ -282,12 +295,12 @@ impl PluginManagerTrait for PluginManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::discovery::create_placeholder_plugin;
+    use crate::discovery::create_noop_plugin;
     use crate::plugin::PluginMetadata;
     use crate::traits::PluginManagerTrait;
 
     fn make_test_plugin(name: &str) -> Arc<dyn Plugin> {
-        create_placeholder_plugin(PluginMetadata::new(name, "1.0.0", "Test plugin", "Test"))
+        create_noop_plugin(PluginMetadata::new(name, "1.0.0", "Test plugin", "Test"))
     }
 
     #[tokio::test]
@@ -303,7 +316,7 @@ mod tests {
         manager.init().await.unwrap();
         let plugins = manager.list_plugins().await.unwrap();
         assert_eq!(plugins.len(), 1);
-        assert_eq!(plugins[0].metadata().name, "system-placeholder");
+        assert_eq!(plugins[0].metadata().name, "system-default");
     }
 
     #[tokio::test]

@@ -169,6 +169,7 @@ impl Default for ServerMetrics {
 
 impl ServerMetrics {
     /// Creates a new server metrics instance with default values.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             requests_handled: 0,
@@ -179,11 +180,13 @@ impl ServerMetrics {
     }
 
     /// Returns the server uptime in seconds.
+    #[must_use]
     pub fn uptime_seconds(&self) -> u64 {
         self.start_time.elapsed().as_secs()
     }
 
     /// Returns the average response time in milliseconds, if any requests were handled.
+    #[must_use]
     pub fn avg_response_time_ms(&self) -> Option<f64> {
         if self.requests_handled > 0 {
             Some(self.total_response_time_ms as f64 / self.requests_handled as f64)
@@ -240,6 +243,7 @@ impl JsonRpcServer {
     }
 
     /// Create a new JSON-RPC server with Universal Transport
+    #[must_use]
     pub fn new(socket_path: String) -> Self {
         Self {
             service_name: "squirrel".to_string(),
@@ -252,6 +256,7 @@ impl JsonRpcServer {
     }
 
     /// Create server with AI router
+    #[must_use]
     pub fn with_ai_router(socket_path: String, ai_router: Arc<crate::api::ai::AiRouter>) -> Self {
         Self {
             service_name: "squirrel".to_string(),

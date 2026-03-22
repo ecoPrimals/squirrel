@@ -184,38 +184,45 @@ pub mod url_builders {
     use universal_constants::network;
 
     /// Build HTTP URL using centralized host configuration
+    #[must_use]
     pub fn localhost_http(port: u16) -> String {
         let host = std::env::var("MCP_HOST").unwrap_or_else(|_| "localhost".to_string());
         format!("http://{host}:{port}")
     }
 
     /// Build WebSocket URL using centralized host configuration
+    #[must_use]
     pub fn localhost_ws(port: u16) -> String {
         let host = std::env::var("MCP_HOST").unwrap_or_else(|_| "localhost".to_string());
         format!("ws://{host}:{port}")
     }
 
     /// Build health check URL
+    #[must_use]
     pub fn health_url(base_url: &str) -> String {
         format!("{}{}", base_url, url_templates::HEALTH_ENDPOINT)
     }
 
     /// Build metrics URL
+    #[must_use]
     pub fn metrics_url(base_url: &str) -> String {
         format!("{}{}", base_url, url_templates::METRICS_ENDPOINT)
     }
 
     /// Build admin URL
+    #[must_use]
     pub fn admin_url(base_url: &str) -> String {
         format!("{}{}", base_url, url_templates::ADMIN_ENDPOINT)
     }
 
     /// Build WebSocket URL
+    #[must_use]
     pub fn ws_url(base_url: &str) -> String {
         format!("{}{}", base_url, url_templates::WS_ENDPOINT)
     }
 
     /// Build default localhost URLs
+    #[must_use]
     pub fn default_localhost_urls() -> (String, String, String, String, String) {
         let http_port = network::get_service_port("http");
         let ws_port = network::get_service_port("websocket");
@@ -227,5 +234,42 @@ pub mod url_builders {
             admin_url(&http_url),
             ws_url(&localhost_ws(ws_port)),
         )
+    }
+}
+
+#[cfg(test)]
+#[allow(deprecated)]
+mod tests {
+    use super::message_sizes;
+    use super::network;
+    use super::protocol;
+    use super::timeouts;
+    use super::url_builders;
+    use super::url_templates;
+
+    #[test]
+    fn network_ports_and_sizes_are_sane() {
+        assert_eq!(network::DEFAULT_WEBSOCKET_PORT, 8080);
+        assert!(network::DEFAULT_MAX_CONNECTIONS > 0);
+        assert_eq!(message_sizes::DEFAULT_CHUNK_SIZE, 4 * 1024);
+        assert_eq!(protocol::DEFAULT_MCP_SUBPROTOCOL, "mcp");
+    }
+
+    #[test]
+    fn timeouts_are_nonzero() {
+        assert!(timeouts::DEFAULT_CONNECTION_TIMEOUT.as_secs() > 0);
+        assert!(timeouts::DEFAULT_REQUEST_TIMEOUT >= timeouts::DEFAULT_CONNECTION_TIMEOUT);
+    }
+
+    #[test]
+    fn url_helpers_build_expected_paths() {
+        assert!(url_builders::health_url("http://h:1").ends_with(url_templates::HEALTH_ENDPOINT));
+        assert!(url_builders::metrics_url("http://h:1").contains("/metrics"));
+        let (http, health, metrics, admin, ws) = url_builders::default_localhost_urls();
+        assert!(health.contains("/health"));
+        assert!(metrics.contains("/metrics"));
+        assert!(admin.contains("/admin"));
+        assert!(ws.starts_with("ws://"));
+        assert!(http.starts_with("http://"));
     }
 }

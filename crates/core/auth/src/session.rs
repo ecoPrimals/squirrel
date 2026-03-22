@@ -28,6 +28,7 @@ pub struct SessionManager {
 
 impl SessionManager {
     /// Create a new session manager
+    #[must_use]
     pub fn new() -> Self {
         Self {
             sessions: RwLock::new(HashMap::new()),
@@ -35,6 +36,10 @@ impl SessionManager {
     }
 
     /// Create a new session
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if the session cannot be stored.
     pub async fn create_session(&self, session: Session) -> AuthResult<()> {
         debug!(
             "Creating session {} for user {}",
@@ -54,6 +59,10 @@ impl SessionManager {
     }
 
     /// Get a session by ID
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if the session store cannot be read.
     pub async fn get_session(&self, session_id: &Uuid) -> AuthResult<Option<Session>> {
         let sessions = self.sessions.read().await;
         let result = if let Some(session) = sessions.get(session_id) {
@@ -71,6 +80,10 @@ impl SessionManager {
     }
 
     /// Update session last accessed time
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if the session store cannot be updated.
     pub async fn touch_session(&self, session_id: &Uuid) -> AuthResult<bool> {
         let mut sessions = self.sessions.write().await;
         let result = sessions.get_mut(session_id).map_or(false, |session| {
@@ -87,6 +100,10 @@ impl SessionManager {
     }
 
     /// Invalidate a session
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if the session store cannot be updated.
     pub async fn invalidate_session(&self, session_id: &Uuid) -> AuthResult<bool> {
         let mut sessions = self.sessions.write().await;
         let result = sessions.get_mut(session_id).map_or(false, |session| {
@@ -99,6 +116,10 @@ impl SessionManager {
     }
 
     /// Get all active sessions for a user
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if the session store cannot be read.
     pub async fn get_user_sessions(&self, user_id: &Uuid) -> AuthResult<Vec<Session>> {
         let sessions = self.sessions.read().await;
         let user_sessions: Vec<Session> = sessions
@@ -114,6 +135,10 @@ impl SessionManager {
     }
 
     /// Invalidate all sessions for a user
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if the session store cannot be updated.
     pub async fn invalidate_user_sessions(&self, user_id: &Uuid) -> AuthResult<usize> {
         let mut sessions = self.sessions.write().await;
         let mut invalidated_count = 0;
@@ -134,6 +159,10 @@ impl SessionManager {
     }
 
     /// Clean up expired sessions
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if cleanup cannot complete.
     pub async fn cleanup_expired_sessions(&self) -> AuthResult<usize> {
         let mut sessions = self.sessions.write().await;
         let result = self.cleanup_expired_sessions_internal(&mut sessions);
@@ -165,6 +194,10 @@ impl SessionManager {
     }
 
     /// Get session statistics
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if statistics cannot be collected.
     pub async fn get_session_stats(&self) -> AuthResult<SessionStats> {
         let sessions = self.sessions.read().await;
 
@@ -199,6 +232,10 @@ impl SessionManager {
     }
 
     /// Extend session expiration time
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::AuthError`] if the session store cannot be updated.
     pub async fn extend_session(
         &self,
         session_id: &Uuid,

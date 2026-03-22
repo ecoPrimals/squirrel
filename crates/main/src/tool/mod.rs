@@ -26,6 +26,7 @@ pub struct ToolManager {
 
 impl ToolManager {
     /// Create a new tool manager with built-in tools pre-registered
+    #[must_use]
     pub fn new() -> Self {
         Self {
             executor: Arc::new(RwLock::new(ToolExecutor::new())),

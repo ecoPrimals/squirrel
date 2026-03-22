@@ -108,6 +108,10 @@ struct RoutingState {
 
 impl McpRoutingService {
     /// Create a new routing service with the given configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the configuration is invalid.
     pub fn new(config: RoutingConfig) -> Result<Self> {
         // Validate configuration
         config.validate().map_err(Error::ConfigurationError)?;
@@ -145,6 +149,10 @@ impl McpRoutingService {
     }
 
     /// Start the routing service
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if startup fails.
     pub async fn start(&self) -> Result<()> {
         info!(
             "Starting MCP routing service with node ID: {}",
@@ -353,11 +361,19 @@ impl McpRoutingService {
     }
 
     /// Register an agent with the routing service
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if registration fails.
     pub async fn register_agent(&self, agent_spec: AgentSpec) -> Result<()> {
         self.agent_registry.register_agent(agent_spec)
     }
 
     /// Queue a task for processing
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the task cannot be queued.
     pub async fn queue_task(&self, task: McpTask, priority: TaskPriority) -> Result<String> {
         let task_id = uuid::Uuid::new_v4().to_string();
         let queued_task = QueuedTask {
@@ -375,6 +391,7 @@ impl McpRoutingService {
     }
 
     /// Get routing statistics
+    #[must_use]
     pub fn get_stats(&self) -> RoutingStats {
         let state = &self.state;
         RoutingStats {
@@ -391,16 +408,19 @@ impl McpRoutingService {
     }
 
     /// Get agent registry
+    #[must_use]
     pub const fn get_agent_registry(&self) -> &Arc<AgentRegistry> {
         &self.agent_registry
     }
 
     /// Get load balancer
+    #[must_use]
     pub const fn get_load_balancer(&self) -> &Arc<LoadBalancer> {
         &self.load_balancer
     }
 
     /// Get context manager
+    #[must_use]
     pub const fn get_context_manager(&self) -> &Arc<ContextManager> {
         &self.context_manager
     }

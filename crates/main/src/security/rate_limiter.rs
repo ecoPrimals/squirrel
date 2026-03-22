@@ -908,4 +908,78 @@ mod tests {
         assert_eq!(ViolationSeverity::High, ViolationSeverity::High);
         assert_ne!(ViolationSeverity::Low, ViolationSeverity::Critical);
     }
+
+    #[tokio::test]
+    async fn test_rate_limit_ban_after_repeated_violations() {
+        let mut config = RateLimitConfig::default();
+        config.whitelist.clear();
+        config.burst_capacity = 1;
+        config.api_requests_per_minute = 1;
+        config.ban_threshold = 3;
+        config.violation_window = Duration::from_secs(3600);
+        config.adaptive_limiting = false;
+
+        let limiter = ProductionRateLimiter::new(config);
+        let ip: IpAddr = "10.0.0.42".parse().unwrap();
+
+        let _ = limiter.check_request(ip, EndpointType::Api, None).await;
+
+        let mut saw_ban = false;
+        for _ in 0..64 {
+            let r = limiter.check_request(ip, EndpointType::Api, None).await;
+            if r.client_banned {
+                assert!(!r.allowed);
+                saw_ban = true;
+                break;
+            }
+        }
+        assert!(
+            saw_ban,
+            "expected client to be banned after repeated violations"
+        );
+
+        let banned = limiter.check_request(ip, EndpointType::Api, None).await;
+        assert!(banned.client_banned);
+        assert!(!banned.allowed);
+    }
+
+    #[tokio::test]
+    async fn test_adaptive_rate_multiplier_high_load() {
+        let config = RateLimitConfig::default();
+        let limiter = ProductionRateLimiter::new(config);
+        limiter.update_system_metrics(0.9, 0.85, 100).await;
+        let stats = limiter.get_statistics().await;
+        assert!((stats.adaptive_rate_multiplier - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn test_adaptive_rate_multiplier_low_load() {
+        let config = RateLimitConfig::default();
+        let limiter = ProductionRateLimiter::new(config);
+        limiter.update_system_metrics(0.1, 0.2, 1).await;
+        let stats = limiter.get_statistics().await;
+        assert!((stats.adaptive_rate_multiplier - 1.2).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn test_health_check_endpoint_uses_lenient_limit() {
+        let mut config = RateLimitConfig::default();
+        config.whitelist.clear();
+        config.burst_capacity = 200;
+        config.api_requests_per_minute = 10;
+        config.adaptive_limiting = false;
+
+        let limiter = ProductionRateLimiter::new(config);
+        let ip: IpAddr = "10.0.0.7".parse().unwrap();
+
+        for _ in 0..25 {
+            let r = limiter
+                .check_request(ip, EndpointType::HealthCheck, None)
+                .await;
+            assert!(
+                r.allowed,
+                "HealthCheck limit is 2x API; should stay within burst for this loop"
+            );
+        }
+    }
 }

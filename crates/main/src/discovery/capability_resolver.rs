@@ -56,6 +56,7 @@ impl CapabilityResolver {
     }
 
     /// Create new capability resolver with service registry
+    #[must_use]
     pub fn with_registry(registry_type: RegistryType, endpoint: String) -> Self {
         Self {
             mdns: Arc::new(MdnsDiscovery::default()),

@@ -111,7 +111,7 @@ pub enum ConfigError {
     Serialization(#[from] serde_json::Error),
     /// YAML serialization/deserialization error
     #[error("YAML error: {0}")]
-    Yaml(#[from] serde_yml::Error),
+    Yaml(#[from] serde_yaml_ng::Error),
     /// URL parsing error
     #[error("URL parse error: {0}")]
     UrlParse(#[from] url::ParseError),
@@ -296,7 +296,7 @@ impl ConfigUtils {
 
     /// Convert configuration to YAML
     pub fn to_yaml(config: &PrimalConfig) -> ConfigResult<String> {
-        Ok(serde_yml::to_string(config)?)
+        Ok(serde_yaml_ng::to_string(config)?)
     }
 
     /// Load configuration from JSON string
@@ -306,7 +306,7 @@ impl ConfigUtils {
 
     /// Load configuration from YAML string
     pub fn from_yaml(yaml: &str) -> ConfigResult<PrimalConfig> {
-        Ok(serde_yml::from_str(yaml)?)
+        Ok(serde_yaml_ng::from_str(yaml)?)
     }
 
     /// Generate a configuration template

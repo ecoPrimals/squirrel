@@ -134,6 +134,10 @@ impl ServiceRegistry {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if validation or discovery registration fails.
     pub async fn register_local_service(&self, service: ServiceDefinition) -> CoreResult<()> {
         // Validate service before registration
         service.validate()?;
@@ -169,6 +173,10 @@ impl ServiceRegistry {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if deregistration fails.
     pub async fn deregister_local_service(&self, service_id: &str) -> CoreResult<()> {
         // Deregister from discovery
         self.discovery.deregister_service(service_id).await?;
@@ -204,6 +212,10 @@ impl ServiceRegistry {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if the discovery backend cannot be updated.
     pub async fn update_local_service_health(
         &self,
         service_id: &str,
@@ -264,6 +276,10 @@ impl ServiceRegistry {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if the heartbeat task cannot be started.
     pub async fn start_heartbeat_loop(&self) -> CoreResult<()> {
         let discovery = self.discovery.clone();
         let local_services = self.local_services.clone();
@@ -313,6 +329,10 @@ impl ServiceRegistry {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if deregistering a service during shutdown fails.
     pub async fn shutdown(&self) -> CoreResult<()> {
         info!("Shutting down service registry");
 
@@ -378,6 +398,7 @@ pub struct RegistryStats {
 
 impl RegistryStats {
     /// Create statistics from a list of services
+    #[must_use]
     pub fn from_services(services: &[ServiceDefinition]) -> Self {
         let total_services = services.len();
         let mut healthy_services = 0;
@@ -410,6 +431,7 @@ impl RegistryStats {
     }
 
     /// Get availability percentage
+    #[must_use]
     pub fn availability_percentage(&self) -> f32 {
         if self.total_services == 0 {
             return 100.0;

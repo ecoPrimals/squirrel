@@ -16,7 +16,19 @@ impl Default for DiscoveryService {
 
 impl DiscoveryService {
     /// Creates a new discovery service.
+    #[must_use]
     pub const fn new() -> Self {
         Self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn discovery_service_new_and_default_are_equivalent() {
+        assert_eq!(std::mem::size_of::<DiscoveryService>(), 0);
+        let _ = (DiscoveryService::new(), DiscoveryService::default());
     }
 }

@@ -7,7 +7,7 @@
 
 use std::env;
 
-/// Get port from environment variable with fallback to default
+/// Get port from environment variable with fallback to default.
 ///
 /// # Examples
 ///
@@ -18,6 +18,7 @@ use std::env;
 /// let port = get_port("PORT", 8080);
 /// assert!(port > 0);
 /// ```
+#[must_use]
 pub fn get_port(env_var: &str, default: u16) -> u16 {
     env::var(env_var)
         .ok()
@@ -25,7 +26,7 @@ pub fn get_port(env_var: &str, default: u16) -> u16 {
         .unwrap_or(default)
 }
 
-/// Get host from environment variable with fallback to default
+/// Get host from environment variable with fallback to default.
 ///
 /// # Examples
 ///
@@ -35,6 +36,7 @@ pub fn get_port(env_var: &str, default: u16) -> u16 {
 /// let host = get_host("HOST", "localhost");
 /// assert!(!host.is_empty());
 /// ```
+#[must_use]
 pub fn get_host(env_var: &str, default: &str) -> String {
     env::var(env_var).unwrap_or_else(|_| default.to_string())
 }
@@ -64,7 +66,7 @@ where
     reader(key).unwrap_or_else(|_| default.to_string())
 }
 
-/// Build URL from environment-driven host and port
+/// Build URL from environment-driven host and port.
 ///
 /// # Examples
 ///
@@ -74,11 +76,12 @@ where
 /// let url = build_url("http", "localhost", 8080, "/api");
 /// assert_eq!(url, "http://localhost:8080/api");
 /// ```
+#[must_use]
 pub fn build_url(scheme: &str, host: &str, port: u16, path: &str) -> String {
     format!("{scheme}://{host}:{port}{path}")
 }
 
-/// Get timeout duration from environment variable in seconds
+/// Get timeout duration from environment variable in seconds.
 ///
 /// # Examples
 ///
@@ -89,6 +92,7 @@ pub fn build_url(scheme: &str, host: &str, port: u16, path: &str) -> String {
 /// let timeout = get_timeout_secs("REQUEST_TIMEOUT", 30);
 /// assert_eq!(timeout, Duration::from_secs(30));
 /// ```
+#[must_use]
 pub fn get_timeout_secs(env_var: &str, default_secs: u64) -> std::time::Duration {
     let secs = env::var(env_var)
         .ok()
@@ -121,12 +125,14 @@ pub struct ServiceConfig {
 }
 
 impl ServiceConfig {
-    /// Create a new service config builder
+    /// Create a new service config builder.
+    #[must_use]
     pub fn builder() -> ServiceConfigBuilder {
         ServiceConfigBuilder::default()
     }
 
-    /// Get the host
+    /// Get the host.
+    #[must_use]
     pub fn host(&self) -> &str {
         &self.host
     }
@@ -143,12 +149,14 @@ impl ServiceConfig {
         std::time::Duration::from_secs(self.timeout_secs)
     }
 
-    /// Build HTTP URL
+    /// Build HTTP URL.
+    #[must_use]
     pub fn http_url(&self, path: &str) -> String {
         build_url("http", &self.host, self.port, path)
     }
 
-    /// Build HTTPS URL
+    /// Build HTTPS URL.
+    #[must_use]
     pub fn https_url(&self, path: &str) -> String {
         build_url("https", &self.host, self.port, path)
     }
@@ -192,7 +200,8 @@ impl ServiceConfigBuilder {
         self
     }
 
-    /// Build the configuration
+    /// Build the configuration, resolving env vars for host, port, and timeout.
+    #[must_use]
     pub fn build(self) -> ServiceConfig {
         let prefix = self.env_prefix.unwrap_or_default();
 

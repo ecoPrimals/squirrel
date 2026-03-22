@@ -74,6 +74,7 @@ impl InMemoryServiceDiscovery {
     ///
     /// let discovery = InMemoryServiceDiscovery::new();
     /// ```
+    #[must_use]
     pub fn new() -> Self {
         Self {
             services: Arc::new(RwLock::new(HashMap::new())),
@@ -95,6 +96,7 @@ impl InMemoryServiceDiscovery {
     ///
     /// let discovery = InMemoryServiceDiscovery::with_heartbeat_timeout(Duration::from_secs(60));
     /// ```
+    #[must_use]
     pub fn with_heartbeat_timeout(timeout: Duration) -> Self {
         Self {
             services: Arc::new(RwLock::new(HashMap::new())),
@@ -130,6 +132,10 @@ impl InMemoryServiceDiscovery {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::CoreError`] if the registry lock cannot be acquired or cleanup fails.
     pub async fn cleanup_expired_services(&self) -> CoreResult<Vec<String>> {
         let mut services = self.services.write().await;
         let mut expired_services = Vec::new();

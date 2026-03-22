@@ -56,6 +56,7 @@ pub struct ToolExecutor {
 
 impl ToolExecutor {
     /// Create a new tool executor with built-in system tools
+    #[must_use]
     pub fn new() -> Self {
         let mut executor = Self {
             available_tools: HashMap::new(),
@@ -105,6 +106,7 @@ impl ToolExecutor {
     }
 
     /// List available tools
+    #[must_use]
     pub fn list_tools(&self) -> Vec<&ToolRegistration> {
         self.available_tools.values().collect()
     }

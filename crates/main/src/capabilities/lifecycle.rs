@@ -99,6 +99,7 @@ pub async fn register_with_biomeos(
 /// Spawn a background heartbeat task that sends `lifecycle.status` every `interval`.
 ///
 /// The task runs until `shutdown_rx` receives a signal.
+#[must_use]
 pub fn spawn_heartbeat(
     biomeos_socket: PathBuf,
     own_socket: String,
@@ -149,6 +150,7 @@ pub fn cleanup_socket(socket_path: &str) {
 /// Install a SIGTERM handler that cleans up the socket and sends shutdown signal.
 ///
 /// Returns a `watch::Sender` that fires when shutdown is requested (Ctrl+C or SIGTERM).
+#[must_use]
 pub fn install_signal_handlers(
     socket_path: String,
 ) -> (watch::Sender<bool>, tokio::task::JoinHandle<()>) {

@@ -228,6 +228,7 @@ impl CoordinationGraph {
     }
 
     /// Get node by primal name
+    #[must_use]
     pub fn get_node(&self, primal_name: &str) -> Option<&GraphNode> {
         self.nodes.iter().find(|n| n.primal_name == primal_name)
     }

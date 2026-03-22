@@ -36,8 +36,8 @@ tracing.workspace = true
 futures = "0.3"
 
 # CRITICAL FIX: Add missing config dependency
-squirrel-mcp-config = { path = "../config" }
-universal-constants = { path = "../universal-constants" }
+squirrel-mcp-config = { path = "../config", version = "0.1.0" }
+universal-constants = { path = "../universal-constants", version = "0.1.0" }
 
 [features]
 # Production default: Unix sockets only (Pure Rust!)

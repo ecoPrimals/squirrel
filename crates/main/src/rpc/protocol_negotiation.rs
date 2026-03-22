@@ -34,11 +34,13 @@ pub struct ProtocolRequest {
 
 impl ProtocolRequest {
     /// Create a new protocol request
+    #[must_use]
     pub const fn new(supported: Vec<IpcProtocol>) -> Self {
         Self { supported }
     }
 
     /// Create a request with all supported protocols
+    #[must_use]
     pub fn all_supported() -> Self {
         Self {
             supported: IpcProtocol::supported(),
@@ -48,6 +50,7 @@ impl ProtocolRequest {
     /// Serialize to wire format
     ///
     /// Format: "PROTOCOLS: jsonrpc,tarpc\n"
+    #[must_use]
     pub fn to_wire(&self) -> String {
         let protocols: Vec<String> = self
             .supported
@@ -90,6 +93,7 @@ pub struct ProtocolResponse {
 
 impl ProtocolResponse {
     /// Create a new protocol response
+    #[must_use]
     pub const fn new(selected: IpcProtocol) -> Self {
         Self { selected }
     }
@@ -97,6 +101,7 @@ impl ProtocolResponse {
     /// Serialize to wire format
     ///
     /// Format: "PROTOCOL: tarpc\n"
+    #[must_use]
     pub fn to_wire(&self) -> String {
         format!("PROTOCOL: {}\n", self.selected.negotiation_name())
     }
@@ -255,6 +260,7 @@ where
 /// # Returns
 ///
 /// Selected protocol
+#[must_use]
 pub fn select_protocol(
     client_supported: &[IpcProtocol],
     server_supported: &[IpcProtocol],
@@ -357,5 +363,62 @@ mod tests {
 
         #[cfg(feature = "tarpc-rpc")]
         assert!(request.supported.contains(&IpcProtocol::Tarpc));
+    }
+
+    #[test]
+    fn test_protocol_request_from_wire_invalid_prefix() {
+        let err = ProtocolRequest::from_wire("NOTPROTOCOLS: jsonrpc\n").unwrap_err();
+        assert!(err.to_string().contains("Invalid protocol request"));
+    }
+
+    #[test]
+    fn test_protocol_request_from_wire_no_valid_protocols() {
+        let err = ProtocolRequest::from_wire("PROTOCOLS: unknown-one,unknown-two\n").unwrap_err();
+        assert!(err.to_string().contains("No valid protocols"));
+    }
+
+    #[test]
+    fn test_protocol_response_from_wire_invalid() {
+        let err = ProtocolResponse::from_wire("STATUS: ok\n").unwrap_err();
+        assert!(err.to_string().contains("Invalid protocol response"));
+    }
+
+    #[tokio::test]
+    async fn test_negotiate_client_server_duplex() {
+        let (mut client, mut server) = tokio::io::duplex(4096);
+
+        let server_supported = IpcProtocol::supported();
+        let server_task =
+            tokio::spawn(async move { negotiate_server(&mut server, server_supported).await });
+
+        let client_task =
+            tokio::spawn(
+                async move { negotiate_client(&mut client, vec![IpcProtocol::JsonRpc]).await },
+            );
+
+        let sel = client_task.await.unwrap().unwrap();
+        assert_eq!(sel, IpcProtocol::JsonRpc);
+
+        let server_sel = server_task.await.unwrap().unwrap();
+        assert_eq!(server_sel, Some(IpcProtocol::JsonRpc));
+    }
+
+    #[tokio::test]
+    async fn test_negotiate_server_non_protocol_line_returns_none() {
+        let (mut client, mut server) = tokio::io::duplex(4096);
+
+        tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            let _ = client.write_all(br#"{"jsonrpc":"2.0"}"#).await;
+            let _ = client.write_all(b"\n").await;
+            let _ = client.flush().await;
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
+        let got = negotiate_server(&mut server, IpcProtocol::supported())
+            .await
+            .unwrap();
+        assert!(got.is_none());
     }
 }

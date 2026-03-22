@@ -57,6 +57,10 @@ impl WebPluginRegistry {
     }
 
     /// Load all web plugins
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the underlying plugin registry cannot be queried.
     pub async fn load_plugins(&self) -> Result<usize> {
         let plugins = self.registry.get_plugins().await?;
         let mut count = 0;
@@ -133,6 +137,10 @@ impl WebPluginRegistry {
     }
 
     /// Find the web plugin that handles the specified endpoint
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if no plugin handles the path and method.
     pub async fn find_plugin_for_endpoint(
         &self,
         path: &str,
@@ -181,6 +189,10 @@ impl WebPluginRegistry {
     }
 
     /// Find the web plugin that handles the specified component
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if no plugin provides the component.
     pub async fn find_plugin_for_component(
         &self,
         component_id: &Uuid,
@@ -210,6 +222,10 @@ impl WebPluginRegistry {
     }
 
     /// Find a plugin for a path, with route parameter extraction support
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if no matching route is found.
     pub async fn find_plugin_for_path(
         &self,
         path: &str,
@@ -249,6 +265,10 @@ impl WebPluginRegistry {
     }
 
     /// Handle a web request
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if no plugin matches or the plugin handler fails.
     pub async fn handle_request(&self, mut request: WebRequest) -> Result<WebResponse> {
         // Try to find exact matching endpoint
         if let Ok(plugin) = self
@@ -281,6 +301,10 @@ impl WebPluginRegistry {
     }
 
     /// Get component markup
+    ///
+    /// # Errors
+    ///
+    /// Returns [`anyhow::Error`] if the component cannot be resolved or rendering fails.
     pub async fn get_component_markup(&self, component_id: Uuid, props: Value) -> Result<String> {
         let plugin = self.find_plugin_for_component(&component_id).await?;
         plugin.get_component_markup(component_id, props).await

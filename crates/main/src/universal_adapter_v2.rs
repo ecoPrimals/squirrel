@@ -262,6 +262,7 @@ impl UniversalAdapterV2 {
     }
 
     /// Get self-knowledge (who am I?)
+    #[must_use]
     pub fn identity(&self) -> &PrimalSelfKnowledge {
         &self.self_knowledge
     }
@@ -300,6 +301,7 @@ impl UniversalAdapterV2 {
 
 impl ProtocolNegotiator {
     /// Create new protocol negotiator with default preferences
+    #[must_use]
     pub fn new() -> Self {
         Self {
             protocol_preference: vec![
@@ -455,16 +457,19 @@ impl UniversalClient {
     }
 
     /// Get the endpoint this client is connected to
+    #[must_use]
     pub fn endpoint(&self) -> &str {
         &self.connection.service.endpoint
     }
 
     /// Get the protocol being used
+    #[must_use]
     pub const fn protocol(&self) -> Protocol {
         self.connection.protocol
     }
 
     /// Get service name
+    #[must_use]
     pub fn service_name(&self) -> &str {
         &self.connection.service.name
     }

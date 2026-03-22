@@ -61,6 +61,7 @@ impl Default for DnssdDiscovery {
 
 impl DnssdDiscovery {
     /// Create a new DNS-SD discovery client
+    #[must_use]
     pub const fn new(domain: String, service_type: String) -> Self {
         Self {
             domain,
@@ -72,6 +73,7 @@ impl DnssdDiscovery {
     }
 
     /// Set custom DNS server
+    #[must_use]
     pub fn with_dns_server(mut self, dns_server: String) -> Self {
         self.dns_server = Some(dns_server);
         self

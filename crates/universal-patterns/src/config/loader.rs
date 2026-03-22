@@ -500,4 +500,58 @@ network:
             assert!(path.exists());
         }
     }
+
+    #[test]
+    fn test_from_file_json_round_trip() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("cfg.json");
+        let original = PrimalConfig::default();
+        std::fs::write(&path, serde_json::to_string_pretty(&original).unwrap()).unwrap();
+
+        let loaded = ConfigLoader::from_file(&path).unwrap();
+        assert_eq!(loaded.info.version, original.info.version);
+    }
+
+    #[test]
+    fn test_from_file_toml_round_trip() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("cfg.toml");
+        let original = PrimalConfig::default();
+        std::fs::write(&path, toml::to_string(&original).unwrap()).unwrap();
+
+        let loaded = ConfigLoader::from_file(&path).unwrap();
+        assert_eq!(loaded.environment.name, original.environment.name);
+    }
+
+    #[test]
+    fn test_validate_file_accepts_valid_config() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("valid.json");
+        let cfg = PrimalConfig::default();
+        std::fs::write(&path, serde_json::to_string(&cfg).unwrap()).unwrap();
+
+        ConfigLoader::validate_file(&path).unwrap();
+    }
+
+    #[test]
+    fn test_load_with_sources_existing_json_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("layer.json");
+        let cfg = PrimalConfig::default();
+        std::fs::write(&path, serde_json::to_string(&cfg).unwrap()).unwrap();
+
+        let loaded = ConfigLoader::load_with_sources(vec![
+            ConfigSource::defaults(),
+            ConfigSource::json_file(&path),
+        ])
+        .unwrap();
+        assert_eq!(loaded.info.name, cfg.info.name);
+    }
+
+    #[test]
+    fn test_auto_load_without_primal_name_invokes_load_path() {
+        temp_env::with_var("PRIMAL_NAME", None::<&str>, || {
+            let _ = ConfigLoader::auto_load();
+        });
+    }
 }

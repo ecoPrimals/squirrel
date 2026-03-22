@@ -44,12 +44,12 @@ tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Ecosystem dependencies
-ecosystem-api = { path = "../../ecosystem-api" }
-squirrel-interfaces = { path = "../interfaces" }
-universal-constants = { path = "../../universal-constants" }
+ecosystem-api = { path = "../../ecosystem-api", version = "0.1.0" }
+squirrel-interfaces = { path = "../interfaces", version = "0.1.0" }
+universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 
 # CRITICAL FIX: Add missing config dependency
-squirrel-mcp-config = { path = "../../config" }
+squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 
 [[bin]]
 name = "squirrel-mcp-server"

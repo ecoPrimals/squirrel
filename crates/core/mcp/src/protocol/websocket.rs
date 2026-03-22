@@ -109,6 +109,7 @@ pub struct WebSocketTransport {
 
 impl WebSocketTransport {
     /// Create new WebSocket transport
+    #[must_use]
     pub const fn new(connection: ConnectionInfo, config: WebSocketConfig) -> Self {
         Self { connection, config }
     }
@@ -144,6 +145,7 @@ pub struct WebSocketServer {
 
 impl WebSocketServer {
     /// Create new WebSocket server
+    #[must_use]
     pub fn new(config: WebSocketConfig) -> Self {
         let (event_sender, _) = broadcast::channel(1000);
 
@@ -353,6 +355,7 @@ impl WebSocketServer {
     }
 
     /// Get active connections
+    #[must_use]
     pub fn get_connections(&self) -> Vec<ConnectionInfo> {
         self.connections
             .iter()
@@ -361,6 +364,7 @@ impl WebSocketServer {
     }
 
     /// Subscribe to server events
+    #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<ServerEvent> {
         self.event_sender.subscribe()
     }
@@ -381,6 +385,7 @@ pub struct WebSocketClient {
 
 impl WebSocketClient {
     /// Create new WebSocket client
+    #[must_use]
     pub fn new(config: WebSocketConfig) -> Self {
         Self {
             config,

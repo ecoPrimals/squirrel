@@ -98,6 +98,7 @@ impl Default for BenchmarkConfig {
 
 impl BenchmarkConfig {
     /// Create a production benchmark config with longer durations for real perf measurement.
+    #[must_use]
     pub fn production() -> Self {
         Self {
             name: "production_benchmark".to_string(),

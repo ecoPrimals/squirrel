@@ -81,6 +81,7 @@ impl Default for InputValidationConfig {
 
 impl InputValidationConfig {
     /// Create a relaxed configuration for development
+    #[must_use]
     pub fn relaxed() -> Self {
         Self {
             max_string_length: 5000,
@@ -91,6 +92,7 @@ impl InputValidationConfig {
     }
 
     /// Create a strict configuration for high-security environments
+    #[must_use]
     pub fn strict() -> Self {
         Self {
             max_string_length: 500,
@@ -125,6 +127,7 @@ pub struct ValidationResult {
 
 impl ValidationResult {
     /// Create a successful validation result
+    #[must_use]
     pub const fn valid(sanitized_input: String) -> Self {
         Self {
             is_valid: true,
@@ -135,6 +138,7 @@ impl ValidationResult {
     }
 
     /// Create an invalid validation result
+    #[must_use]
     pub const fn invalid(violations: Vec<SecurityViolation>, risk_level: RiskLevel) -> Self {
         Self {
             is_valid: false,
@@ -145,11 +149,13 @@ impl ValidationResult {
     }
 
     /// Check if result has critical violations
+    #[must_use]
     pub fn has_critical_violations(&self) -> bool {
         self.risk_level == RiskLevel::Critical
     }
 
     /// Get the highest risk level from violations
+    #[must_use]
     pub fn calculate_risk_level(&self) -> RiskLevel {
         self.violations
             .iter()
