@@ -47,13 +47,13 @@ impl JsonRpcServer {
             let announced = super::types::AnnouncedPrimal {
                 primal: Arc::from(primal.as_str()),
                 socket_path: Arc::from(socket_path.as_str()),
-                capabilities: capabilities.clone(),
-                tools: tools.clone(),
+                capabilities,
+                tools,
                 announced_at: chrono::Utc::now(),
             };
 
             let mut registry = self.announced_tools.write().await;
-            for tool_name in &tools {
+            for tool_name in &announced.tools {
                 info!(
                     "Registered remote tool '{}' -> {} at {}",
                     tool_name, primal, socket_path
@@ -163,5 +163,28 @@ impl JsonRpcServer {
         });
 
         Ok(response)
+    }
+}
+
+#[cfg(test)]
+mod direct_tests {
+    use crate::rpc::JsonRpcServer;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn announce_with_primal_socket_and_tools_counts_tools() {
+        let server = JsonRpcServer::new("/tmp/cap-announce.sock".to_string());
+        let params = Some(json!({
+            "capabilities": ["ai.inference"],
+            "primal": "peer-a",
+            "socket_path": "/tmp/peer-a.sock",
+            "tools": ["a.tool", "b.tool"]
+        }));
+        let v = server.handle_announce_capabilities(params).await.unwrap();
+        assert_eq!(
+            v.get("tools_registered")
+                .and_then(serde_json::Value::as_u64),
+            Some(2)
+        );
     }
 }

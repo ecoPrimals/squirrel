@@ -358,3 +358,127 @@ impl ToolManager {
             .collect())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::MCPError;
+    use crate::error::tool::ToolError;
+
+    fn sample_tool(id: &str) -> Tool {
+        let mut meta = HashMap::new();
+        meta.insert("k".to_string(), "v".to_string());
+        let mut perms = HashSet::new();
+        perms.insert("read".to_string());
+        Tool {
+            id: id.to_string(),
+            name: format!("{id}-name"),
+            version: "1.0.0".to_string(),
+            description: "d".to_string(),
+            capabilities: vec![Capability {
+                name: "cap1".to_string(),
+                description: "c".to_string(),
+                parameters: vec![Parameter {
+                    name: "p".to_string(),
+                    type_: ParameterType::String,
+                    description: "pd".to_string(),
+                    required: true,
+                    default_value: Some(serde_json::json!("x")),
+                }],
+                return_type: ReturnType {
+                    type_: ParameterType::String,
+                    description: "out".to_string(),
+                },
+                required_permissions: perms,
+            }],
+            security_level: SecurityLevel::Low,
+            metadata: meta,
+        }
+    }
+
+    #[test]
+    fn tool_capability_serde_roundtrip() {
+        let t = sample_tool("t1");
+        let json = serde_json::to_string(&t).unwrap();
+        let t2: Tool = serde_json::from_str(&json).unwrap();
+        assert_eq!(t2.id, t.id);
+        assert_eq!(t2.capabilities.len(), 1);
+        assert!(matches!(
+            t2.capabilities[0].parameters[0].type_,
+            ParameterType::String
+        ));
+    }
+
+    #[test]
+    fn security_level_roundtrip() {
+        let s = serde_json::to_string(&SecurityLevel::Critical).unwrap();
+        let v: SecurityLevel = serde_json::from_str(&s).unwrap();
+        assert_eq!(v, SecurityLevel::Critical);
+    }
+
+    #[tokio::test]
+    async fn register_find_unregister_and_validation_errors() {
+        let mgr = ToolManager::new();
+        let mut bad = sample_tool("");
+        bad.id = String::new();
+        let err = mgr.register_tool(bad).await.unwrap_err();
+        assert!(matches!(
+            err.downcast_ref::<MCPError>(),
+            Some(MCPError::Tool(ToolError::ValidationFailed(_)))
+        ));
+
+        let good = sample_tool("tool-a");
+        mgr.register_tool(good).await.unwrap();
+
+        let found = mgr.get_tool("tool-a").await.unwrap().unwrap();
+        assert_eq!(found.name, "tool-a-name");
+
+        let by_cap = mgr.find_tools_by_capability("cap1").await.unwrap();
+        assert!(by_cap.contains("tool-a"));
+
+        mgr.validate_capability("tool-a", "cap1").await.unwrap();
+        let v_err = mgr.validate_capability("tool-a", "missing").await;
+        assert!(v_err.is_err());
+
+        mgr.unregister_tool("tool-a").await.unwrap();
+        let missing = mgr.unregister_tool("tool-a").await;
+        assert!(missing.is_err());
+
+        let not_found = mgr.get_tool("tool-a").await.unwrap();
+        assert!(not_found.is_none());
+    }
+
+    #[tokio::test]
+    async fn tool_state_updates_and_usage_error_threshold() {
+        let mgr = ToolManager::new();
+        mgr.register_tool(sample_tool("u1")).await.unwrap();
+
+        mgr.update_tool_state("u1", ToolStatus::Inactive)
+            .await
+            .unwrap();
+        let st = mgr.get_tool_state("u1").await.unwrap().unwrap();
+        assert_eq!(st.status, ToolStatus::Inactive);
+
+        let bad = mgr.update_tool_state("nope", ToolStatus::Active).await;
+        assert!(bad.is_err());
+
+        mgr.increment_usage("u1").await.unwrap();
+        let st = mgr.get_tool_state("u1").await.unwrap().unwrap();
+        assert_eq!(st.usage_count, 1);
+
+        for _ in 0..11 {
+            mgr.increment_error("u1").await.unwrap();
+        }
+        let st = mgr.get_tool_state("u1").await.unwrap().unwrap();
+        assert_eq!(st.status, ToolStatus::Error);
+
+        let low = mgr
+            .get_tools_by_security_level(SecurityLevel::Low)
+            .await
+            .unwrap();
+        assert_eq!(low.len(), 1);
+
+        let active = mgr.get_active_tools().await.unwrap();
+        assert!(active.is_empty());
+    }
+}

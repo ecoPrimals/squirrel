@@ -485,4 +485,62 @@ mod tests {
 
         assert_eq!(adapter.timeout, Duration::from_secs(30));
     }
+
+    #[test]
+    fn test_avg_latency_external_primal() {
+        let metadata = ProviderMetadata {
+            primal_id: "cloud".to_string(),
+            name: "Cloud".to_string(),
+            is_local: Some(false),
+            quality: None,
+            cost: None,
+            max_tokens: None,
+            additional: HashMap::new(),
+        };
+        let adapter = UniversalAiAdapter::from_discovery(
+            "ai:text-generation",
+            PathBuf::from("/tmp/x.sock"),
+            metadata,
+        );
+        assert_eq!(adapter.avg_latency_ms(), 2000);
+        assert!(!adapter.is_local());
+    }
+
+    #[test]
+    fn test_is_local_defaults_true_when_unspecified() {
+        let metadata = ProviderMetadata {
+            primal_id: "p".to_string(),
+            name: "P".to_string(),
+            is_local: None,
+            quality: None,
+            cost: None,
+            max_tokens: None,
+            additional: HashMap::new(),
+        };
+        let adapter = UniversalAiAdapter::from_discovery(
+            "ai:text-generation",
+            PathBuf::from("/tmp/y.sock"),
+            metadata,
+        );
+        assert!(adapter.is_local());
+    }
+
+    #[tokio::test]
+    async fn test_is_available_false_when_socket_missing() {
+        let metadata = ProviderMetadata {
+            primal_id: "p".to_string(),
+            name: "P".to_string(),
+            is_local: Some(true),
+            quality: None,
+            cost: None,
+            max_tokens: None,
+            additional: HashMap::new(),
+        };
+        let adapter = UniversalAiAdapter::from_discovery(
+            "ai:text-generation",
+            PathBuf::from("/nonexistent/path/health.sock"),
+            metadata,
+        );
+        assert!(!adapter.is_available().await);
+    }
 }

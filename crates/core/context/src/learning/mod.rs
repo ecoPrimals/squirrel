@@ -49,9 +49,17 @@ mod tests;
 #[cfg(test)]
 mod adaptive_tests;
 #[cfg(test)]
+mod engine_tests;
+#[cfg(test)]
+mod experience_tests;
+#[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
 mod manager_tests;
+#[cfg(test)]
+mod metrics_tests;
+#[cfg(test)]
+mod policy_tests;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

@@ -247,14 +247,14 @@ impl EncryptionKeyManager for DefaultEncryptionKeyManager {
         let mut key = Vec::new();
         let password_bytes = password.as_bytes();
 
-        for i in 0..32 {
+        for i in 0_u8..32 {
             let mut byte = 0u8;
             for (j, &p_byte) in password_bytes.iter().enumerate() {
                 let salt_byte = salt[j % salt.len()];
                 byte = byte
                     .wrapping_add(p_byte)
                     .wrapping_add(salt_byte)
-                    .wrapping_add(i as u8);
+                    .wrapping_add(i);
             }
             key.push(byte);
         }

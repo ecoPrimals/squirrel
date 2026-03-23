@@ -84,7 +84,7 @@ impl SecurePluginLoader {
     }
 
     /// Validate a plugin before loading
-    pub async fn validate_plugin(
+    pub fn validate_plugin(
         &self,
         plugin_path: &Path,
         metadata: &PluginMetadata,
@@ -119,7 +119,7 @@ impl SecurePluginLoader {
 
         // Verify signature if enabled
         let signature_valid = if self.verify_signatures {
-            self.verify_plugin_signature(plugin_path, &checksum).await?
+            self.verify_plugin_signature(plugin_path, &checksum)?
         } else {
             warn!("⚠️ Signature verification disabled");
             true
@@ -137,13 +137,13 @@ impl SecurePluginLoader {
     }
 
     /// Securely load a plugin (replaces unsafe loading)
-    pub async fn load_plugin_secure(
+    pub fn load_plugin_secure(
         &self,
         plugin_path: &Path,
         metadata: &PluginMetadata,
     ) -> Result<Arc<dyn Plugin>, PluginSecurityError> {
         // First validate the plugin
-        let validation = self.validate_plugin(plugin_path, metadata).await?;
+        let validation = self.validate_plugin(plugin_path, metadata)?;
 
         if !validation.is_valid {
             return Err(PluginSecurityError::ValidationFailed(format!(
@@ -192,7 +192,7 @@ impl SecurePluginLoader {
     }
 
     /// Verify plugin signature (placeholder - integrate with actual security system)
-    async fn verify_plugin_signature(
+    fn verify_plugin_signature(
         &self,
         plugin_path: &Path,
         checksum: &str,

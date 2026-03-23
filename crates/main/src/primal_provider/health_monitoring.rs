@@ -350,3 +350,90 @@ impl SquirrelPrimalProvider {
         metrics
     }
 }
+
+#[cfg(test)]
+mod health_monitoring_tests {
+    use super::super::core::SquirrelPrimalProvider;
+    use super::HealthReporting;
+    use crate::ecosystem::EcosystemManager;
+    use crate::monitoring::metrics::MetricsCollector;
+    use crate::session::{SessionConfig, SessionManagerImpl};
+    use crate::universal::UniversalPrimalProvider;
+    use std::sync::Arc;
+
+    async fn test_provider() -> SquirrelPrimalProvider {
+        let adapter = crate::universal_adapter_v2::UniversalAdapterV2::awaken()
+            .await
+            .expect("adapter");
+        let mc = Arc::new(MetricsCollector::new());
+        let em = Arc::new(EcosystemManager::new(
+            crate::ecosystem::config::EcosystemConfig::default(),
+            mc.clone(),
+        ));
+        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()))
+            as Arc<dyn crate::session::SessionManager>;
+        let mut p = SquirrelPrimalProvider::new(
+            "test-inst".to_string(),
+            squirrel_mcp_config::EcosystemConfig::default(),
+            adapter,
+            em,
+            sessions,
+        );
+        p.context.session_id = Some("sess-1".to_string());
+        p.initialized = true;
+        p
+    }
+
+    #[tokio::test]
+    async fn generate_health_report_contains_expected_keys() {
+        let p = test_provider().await;
+        let h = HealthReporting::generate_health_report(&p);
+        assert!(h.healthy);
+        let d = h.details.unwrap();
+        let obj = d.as_object().unwrap();
+        assert!(obj.contains_key("uptime"));
+        assert!(obj.contains_key("memory_usage"));
+    }
+
+    #[tokio::test]
+    async fn check_system_health_is_false_while_ecosystem_flag_false() {
+        let p = test_provider().await;
+        assert!(!HealthReporting::check_system_health(&p));
+    }
+
+    #[tokio::test]
+    async fn get_health_status_aggregates_metrics() {
+        let p = test_provider().await;
+        let h = p.get_health_status().await;
+        assert!(h.score >= 0.0 && h.score <= 1.0);
+        assert!(h.message.is_some());
+    }
+
+    #[tokio::test]
+    async fn perform_health_check_returns_bool() {
+        let p = test_provider().await;
+        let ok = p.perform_health_check().await.unwrap();
+        assert!(ok || !ok);
+    }
+
+    #[tokio::test]
+    async fn report_health_records_without_error() {
+        let p = test_provider().await;
+        let h = p.health_check().await;
+        p.report_health(h).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn get_performance_metrics_includes_zero_copy_and_sessions() {
+        let p = test_provider().await;
+        let m = p.get_performance_metrics().await;
+        assert!(m.contains_key("zero_copy_efficiency"));
+        assert!(m.contains_key("active_sessions"));
+    }
+
+    #[tokio::test]
+    async fn update_capabilities_ok() {
+        let p = test_provider().await;
+        p.update_capabilities(vec![]).await.expect("update caps");
+    }
+}

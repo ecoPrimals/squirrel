@@ -87,4 +87,4 @@ cargo test
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+AGPL-3.0-only — part of the ecoPrimals [scyBorg](../../LICENSE) triple-copyleft framework.

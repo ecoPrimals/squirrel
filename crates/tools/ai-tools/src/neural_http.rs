@@ -187,6 +187,7 @@ impl NeuralHttpClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_request_building() {
@@ -203,9 +204,68 @@ mod tests {
     }
 
     #[test]
+    fn test_http_request_response_serde_roundtrip() {
+        let req = HttpRequest {
+            method: "GET".to_string(),
+            url: "https://x".to_string(),
+            headers: vec![("a".to_string(), "b".to_string())],
+            body: None,
+        };
+        let j = serde_json::to_string(&req).unwrap();
+        let back: HttpRequest = serde_json::from_str(&j).unwrap();
+        assert_eq!(back.method, "GET");
+
+        let res = HttpResponse {
+            status: 201,
+            headers: vec![("X-Foo".to_string(), "bar".to_string())],
+            body: "{}".to_string(),
+        };
+        let j2 = serde_json::to_string(&res).unwrap();
+        let back2: HttpResponse = serde_json::from_str(&j2).unwrap();
+        assert_eq!(back2.status, 201);
+    }
+
+    #[test]
+    fn test_http_response_from_ipc() {
+        let inner = universal_patterns::ipc_client::HttpResponse {
+            status: 418,
+            headers: HashMap::from([("h".to_string(), "v".to_string())]),
+            body: "teapot".to_string(),
+        };
+        let outer: HttpResponse = inner.into();
+        assert_eq!(outer.status, 418);
+        assert_eq!(outer.body, "teapot");
+        assert!(outer.headers.iter().any(|(k, _)| k == "h"));
+    }
+
+    #[test]
     fn test_client_discovery_graceful() {
         // Should not panic — returns Err if socket not found
         let result = NeuralHttpClient::discover("nonexistent-test");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_neural_client_new_accepts_path() {
+        let _ = NeuralHttpClient::new("/tmp/neural-http-test-no-such.sock");
+    }
+
+    #[tokio::test]
+    async fn request_rejects_invalid_json_body_before_ipc() {
+        let client = NeuralHttpClient::new("/tmp/neural-http-test-no-such.sock");
+        let err = client
+            .request(HttpRequest {
+                method: "POST".to_string(),
+                url: "https://example.com".to_string(),
+                headers: vec![],
+                body: Some("not-json".to_string()),
+            })
+            .await
+            .unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("parse") || msg.contains("json") || msg.contains("JSON"),
+            "unexpected error: {msg}"
+        );
     }
 }

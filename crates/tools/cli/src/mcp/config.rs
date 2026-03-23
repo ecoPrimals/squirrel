@@ -316,4 +316,51 @@ mod tests {
             format!("{}:{}", DEFAULT_DEV_HOST, DEFAULT_MCP_PORT)
         );
     }
+
+    #[test]
+    fn serde_roundtrip_server_and_client_config() {
+        let s = MCPServerConfig::default();
+        let json = serde_json::to_string(&s).expect("ser");
+        let back: MCPServerConfig = serde_json::from_str(&json).expect("de");
+        assert_eq!(back.port, s.port);
+        assert_eq!(back.host, s.host);
+        assert_eq!(back.environment, s.environment);
+
+        let c = MCPClientConfig::default();
+        let json = serde_json::to_string(&c).expect("ser c");
+        let back: MCPClientConfig = serde_json::from_str(&json).expect("de c");
+        assert_eq!(back.port, c.port);
+        assert_eq!(back.max_retries, c.max_retries);
+    }
+
+    #[test]
+    fn server_validate_unspecified_host_in_non_prod_fails() {
+        let mut c = MCPServerConfig::default();
+        c.host = DEFAULT_PROD_HOST.to_string();
+        c.environment = "development".to_string();
+        assert!(c.validate().is_err());
+    }
+
+    #[test]
+    fn server_validate_empty_host_fails() {
+        let mut c = MCPServerConfig::default();
+        c.host = String::new();
+        assert!(c.validate().is_err());
+    }
+
+    #[test]
+    fn client_validate_max_retries_and_timeouts() {
+        let mut c = MCPClientConfig::default();
+        c.max_retries = 11;
+        assert!(c.validate().is_err());
+        c.max_retries = 10;
+        c.connect_timeout = Duration::from_secs(0);
+        assert!(c.validate().is_err());
+    }
+
+    #[test]
+    fn from_env_smoke_reads_defaults_without_panic() {
+        let _ = MCPServerConfig::from_env();
+        let _ = MCPClientConfig::from_env();
+    }
 }

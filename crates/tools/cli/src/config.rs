@@ -702,4 +702,67 @@ mod tests {
         assert_eq!(m.get("mcp_port").unwrap(), "9000");
         assert_eq!(m.get("custom_x").unwrap(), "y");
     }
+
+    #[test]
+    fn cli_config_new_matches_default() {
+        assert_eq!(CliConfig::new().log_level, CliConfig::default().log_level);
+    }
+
+    #[test]
+    fn from_env_with_no_matching_vars_returns_ok() {
+        let cfg = CliConfig::from_env("___CLI_TEST_NO_MATCH___").expect("from_env");
+        assert_eq!(cfg.log_level, "info");
+    }
+
+    #[test]
+    fn merge_skips_empty_log_level_but_merges_port() {
+        let mut base = CliConfig {
+            log_level: "warn".to_string(),
+            ..CliConfig::default()
+        };
+        let other = CliConfig {
+            log_level: String::new(),
+            mcp_port: 9002,
+            ..CliConfig::default()
+        };
+        base.merge(other);
+        assert_eq!(base.log_level, "warn");
+        assert_eq!(base.mcp_port, 9002);
+    }
+
+    #[test]
+    fn config_manager_import_export_file() -> Result<(), Box<dyn Error>> {
+        let dir = tempdir()?;
+        let src = dir.path().join("source.toml");
+        let dst = dir.path().join("export.toml");
+        let mut file_cfg = CliConfig::default();
+        file_cfg.set("region", "us-west".to_string())?;
+        file_cfg.save_to_file(&src)?;
+        let mut mgr = ConfigManager::with_config(CliConfig::default());
+        mgr.import(src)?;
+        assert_eq!(mgr.get("region")?, "us-west");
+        mgr.export(dst.clone())?;
+        let round = CliConfig::load_from_file(&dst)?;
+        assert_eq!(round.get("region")?, "us-west");
+        Ok(())
+    }
+
+    #[test]
+    fn config_manager_save_with_explicit_path() -> Result<(), Box<dyn Error>> {
+        let dir = tempdir()?;
+        let path = dir.path().join("out.toml");
+        let mut mgr = ConfigManager::with_config(CliConfig::default());
+        mgr.config_mut().set("log_level", "trace".to_string())?;
+        mgr.save(Some(path.clone()))?;
+        let loaded = CliConfig::load_from_file(&path)?;
+        assert_eq!(loaded.log_level, "trace");
+        Ok(())
+    }
+
+    #[test]
+    fn load_from_file_missing_returns_read_error() {
+        let err =
+            CliConfig::load_from_file("/nonexistent/path/that/does/not/exist.toml").unwrap_err();
+        assert!(matches!(err, ConfigError::ReadError(_)));
+    }
 }

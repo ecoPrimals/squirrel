@@ -99,6 +99,96 @@ impl RulePluginManager {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rules::ContextPlugin;
+    use crate::rules::DummyPluginManager;
+    use crate::rules::RuleError;
+    use serde_json::json;
+
+    #[derive(Debug)]
+    struct TrueEvaluator;
+
+    #[async_trait]
+    impl ConditionEvaluator for TrueEvaluator {
+        async fn evaluate(
+            &self,
+            _params: &serde_json::Value,
+            _context: &serde_json::Value,
+        ) -> Result<bool> {
+            Ok(true)
+        }
+    }
+
+    #[derive(Debug)]
+    struct EchoActionExecutor;
+
+    #[async_trait]
+    impl ActionExecutor for EchoActionExecutor {
+        async fn execute(
+            &self,
+            _params: &serde_json::Value,
+            context: &serde_json::Value,
+        ) -> Result<serde_json::Value> {
+            Ok(context.clone())
+        }
+    }
+
+    #[tokio::test]
+    async fn register_and_get_condition_evaluator() {
+        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        mgr.register_condition_evaluator("ce1", TrueEvaluator).await;
+        let ev = mgr.get_condition_evaluator("ce1").await.unwrap();
+        assert!(ev.evaluate(&json!({}), &json!({})).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn get_condition_evaluator_missing_errors() {
+        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let err = mgr.get_condition_evaluator("nope").await.unwrap_err();
+        assert!(matches!(err, RuleError::PluginNotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn register_and_get_action_executor() {
+        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        mgr.register_action_executor("ae1", EchoActionExecutor)
+            .await;
+        let ex = mgr.get_action_executor("ae1").await.unwrap();
+        let v = ex.execute(&json!({}), &json!({"k": 1})).await.unwrap();
+        assert_eq!(v["k"], 1);
+    }
+
+    #[tokio::test]
+    async fn get_action_executor_missing_errors() {
+        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let err = mgr.get_action_executor("missing").await.unwrap_err();
+        assert!(matches!(err, RuleError::PluginNotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn core_plugin_manager_accessor() {
+        let dummy: Arc<dyn ContextPlugin> = Arc::new(DummyPluginManager::default());
+        let mgr = RulePluginManager::new(Arc::clone(&dummy));
+        assert!(Arc::ptr_eq(mgr.core_plugin_manager(), &dummy));
+    }
+
+    #[tokio::test]
+    async fn get_transformation_forwards_plugin_error() {
+        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let err = mgr.get_transformation("any").await.unwrap_err();
+        assert!(matches!(err, RuleError::PluginError(_)));
+    }
+
+    #[tokio::test]
+    async fn get_adapter_forwards_plugin_error() {
+        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let err = mgr.get_adapter("any").await.unwrap_err();
+        assert!(matches!(err, RuleError::PluginError(_)));
+    }
+}
+
 /// Custom condition evaluator trait
 #[async_trait]
 pub trait ConditionEvaluator: Send + Sync + Debug {

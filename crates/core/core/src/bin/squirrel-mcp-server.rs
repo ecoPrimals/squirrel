@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
     // Initialize monitoring service first (delegates to Songbird when available)
     info!("Initializing universal monitoring service...");
     let monitoring_service = Arc::new(MonitoringService::new(config.monitoring));
-    monitoring_service.initialize().await?;
+    monitoring_service.initialize()?;
     info!("✅ Monitoring service initialized with delegation to external providers");
 
     // Initialize core services

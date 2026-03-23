@@ -150,3 +150,26 @@ impl JsonRpcServer {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::rpc::JsonRpcServer;
+    use crate::rpc::jsonrpc_server::error_codes;
+
+    #[tokio::test]
+    async fn context_update_missing_id_errors() {
+        let server = JsonRpcServer::new("/tmp/sq-ctx-missing-id.sock".to_string());
+        let err = server
+            .handle_context_update(Some(serde_json::json!({ "data": {} })))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn context_summarize_missing_params_errors() {
+        let server = JsonRpcServer::new("/tmp/sq-ctx-sum-no-params.sock".to_string());
+        let err = server.handle_context_summarize(None).await.unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+    }
+}

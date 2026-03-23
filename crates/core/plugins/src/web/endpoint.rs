@@ -105,3 +105,83 @@ impl WebEndpoint {
             .any(|p| user_permissions.contains(p))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::web::http::HttpMethod;
+    use uuid::Uuid;
+
+    #[test]
+    fn web_endpoint_builder_and_matches() {
+        let id = Uuid::new_v4();
+        let ep = WebEndpoint::new(
+            id,
+            "/api/foo".to_string(),
+            HttpMethod::Get,
+            "desc".to_string(),
+        )
+        .with_permission("read")
+        .with_tag("t")
+        .make_public()
+        .make_admin();
+
+        assert_eq!(ep.path, "/api/foo");
+        assert_eq!(ep.method, HttpMethod::Get);
+        assert_eq!(ep.permissions, vec!["read"]);
+        assert!(ep.is_public);
+        assert!(ep.is_admin);
+        assert_eq!(ep.tags, vec!["t"]);
+        assert!(ep.matches("/api/foo", HttpMethod::Get));
+        assert!(!ep.matches("/api/bar", HttpMethod::Get));
+        assert!(!ep.matches("/api/foo", HttpMethod::Post));
+    }
+
+    #[test]
+    fn web_endpoint_check_permission() {
+        let id = Uuid::nil();
+        let public = WebEndpoint::new(id, "/p".to_string(), HttpMethod::Get, "x".to_string())
+            .make_public()
+            .with_permission("never_used"); // public wins first
+
+        assert!(public.check_permission(&[], false));
+
+        let admin_only = WebEndpoint::new(
+            Uuid::new_v4(),
+            "/a".to_string(),
+            HttpMethod::Post,
+            "x".to_string(),
+        )
+        .make_admin();
+
+        assert!(!admin_only.check_permission(&[], false));
+        assert!(admin_only.check_permission(&[], true));
+
+        let needs_perm = WebEndpoint::new(
+            Uuid::new_v4(),
+            "/r".to_string(),
+            HttpMethod::Get,
+            "x".to_string(),
+        )
+        .with_permission("plugin.read");
+
+        assert!(!needs_perm.check_permission(&[], false));
+        assert!(needs_perm.check_permission(&["plugin.read".to_string()], false));
+    }
+
+    #[test]
+    fn web_endpoint_serde_roundtrip() {
+        let ep = WebEndpoint::new(
+            Uuid::new_v4(),
+            "/z".to_string(),
+            HttpMethod::Patch,
+            "d".to_string(),
+        )
+        .with_tag("z");
+        let json = serde_json::to_string(&ep).unwrap();
+        let back: WebEndpoint = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.path, ep.path);
+        assert_eq!(back.method, ep.method);
+        assert_eq!(back.tags, ep.tags);
+    }
+}

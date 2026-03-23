@@ -658,4 +658,98 @@ mod tests {
         manager.add_hook("error_hook", Box::new(hook)).unwrap();
         assert!(manager.execute_hooks().is_err());
     }
+
+    #[test]
+    fn hook_registry_register_execute_and_context() {
+        let mut reg = HookRegistry::new();
+        reg.register("a".into(), || Ok(())).unwrap();
+        assert!(reg.register("a".into(), || Ok(())).is_err());
+        reg.set_context_data("k", "v").unwrap();
+        assert_eq!(reg.get_context_data("k").unwrap(), Some("v".into()));
+        assert!(reg.get_context_data("missing").unwrap().is_none());
+        reg.execute_hooks().unwrap();
+    }
+
+    #[test]
+    fn hook_registry_execute_propagates_error() {
+        let mut reg = HookRegistry::new();
+        reg.register("x".into(), || {
+            Err(CommandError::ValidationError("bad".into()))
+        })
+        .unwrap();
+        assert!(reg.execute_hooks().is_err());
+    }
+
+    #[test]
+    fn logging_and_metrics_hooks_run() {
+        let cmd = TestCommand;
+        LoggingHook::default().execute(&cmd).unwrap();
+        MetricsHook::default().execute(&cmd).unwrap();
+    }
+
+    #[test]
+    fn timing_hook_two_phases() {
+        let cmd = TestCommand;
+        let hook = TimingHook::new();
+        hook.execute(&cmd).unwrap();
+        hook.execute(&cmd).unwrap();
+    }
+
+    #[test]
+    fn hook_manager_duplicate_name_errors() {
+        let mut m = HookManager::new();
+        m.add_hook("x", Box::new(|| Ok(()))).unwrap();
+        assert!(
+            m.add_hook("x", Box::new(|| Ok(())))
+                .unwrap_err()
+                .to_string()
+                .contains("already exists")
+        );
+    }
+
+    #[test]
+    fn lifecycle_validation_hooks_run_on_validation_stage() {
+        let cmd = TestCommand;
+        let stages = [
+            LifecycleStage::Registration,
+            LifecycleStage::Initialization,
+            LifecycleStage::Validation,
+            LifecycleStage::PreExecution,
+            LifecycleStage::PreValidation,
+            LifecycleStage::Execution,
+            LifecycleStage::PostExecution,
+            LifecycleStage::PostValidation,
+            LifecycleStage::Completion,
+            LifecycleStage::Cleanup,
+            LifecycleStage::ErrorHandling,
+        ];
+        let arg_hook = ArgumentValidationHook::default();
+        let env_hook = EnvironmentValidationHook::default();
+        let res_hook = ResourceValidationHook::default();
+        for s in stages {
+            arg_hook.on_stage(&s, &cmd).unwrap();
+            env_hook.on_stage(&s, &cmd).unwrap();
+            res_hook.on_stage(&s, &cmd).unwrap();
+        }
+        let _b: Box<dyn LifecycleHook> = arg_hook.clone_box();
+    }
+
+    #[test]
+    fn history_hook_records_success_and_failure() {
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("hist.json");
+        let history = Arc::new(CommandHistory::with_options(50, &path).unwrap());
+        let hook = HistoryHook::new(Arc::clone(&history));
+
+        let cmd = TestCommand;
+        assert_eq!(hook.name(), "history_hook");
+        hook.post_process(&cmd, &[], &Ok("ok".into())).unwrap();
+        hook.post_process(&cmd, &[], &Err(CommandError::ValidationError("e".into())))
+            .unwrap();
+
+        let boxed = create_history_hook(history);
+        assert_eq!(boxed.name(), "history_hook");
+    }
 }

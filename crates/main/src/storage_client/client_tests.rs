@@ -6,10 +6,18 @@
 #[cfg(test)]
 mod tests {
     use super::super::client::UniversalStorageClient;
+    use super::super::providers::StorageProvider;
     use super::super::types::{DataClassification, StorageClientConfig};
     use crate::universal::PrimalContext;
-    use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
+    use crate::universal::messages::{PrimalResponse, ResponseStatus};
+    use crate::universal_primal_ecosystem::{
+        DiscoveredService, ServiceHealth, UniversalPrimalEcosystem,
+    };
+    use base64::{Engine as _, engine::general_purpose};
+    use chrono::Utc;
+    use std::collections::HashMap;
     use std::sync::Arc;
+    use uuid::Uuid;
 
     fn test_context() -> PrimalContext {
         PrimalContext::default()
@@ -184,5 +192,190 @@ mod tests {
         assert!(!recommendations.is_empty());
         assert!(recommendations[0].get("category").is_some());
         assert!(recommendations[0].get("severity").is_some());
+    }
+
+    #[test]
+    fn test_apply_ai_storage_routing_skips_preferred_capability_on_delete() {
+        let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
+        let config = StorageClientConfig::default();
+        let client = UniversalStorageClient::new(ecosystem, config, test_context());
+        let mut request = serde_json::json!({"operation": "delete", "file_size": 1000u64});
+        client
+            .apply_ai_storage_routing(&mut request)
+            .expect("apply routing");
+        assert!(request.get("preferred_capability").is_none());
+    }
+
+    #[test]
+    fn test_apply_ai_storage_routing_backup_sets_strategy() {
+        let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
+        let config = StorageClientConfig::default();
+        let client = UniversalStorageClient::new(ecosystem, config, test_context());
+        let mut request = serde_json::json!({"operation": "backup", "file_size": 100u64});
+        client
+            .apply_ai_storage_routing(&mut request)
+            .expect("apply routing");
+        assert_eq!(request["storage_strategy"], "high_performance");
+        assert!(request.get("preferred_capability").is_some());
+    }
+
+    #[test]
+    fn test_optimize_storage_request_delete_branch() {
+        let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
+        let config = StorageClientConfig::default();
+        let client = UniversalStorageClient::new(ecosystem, config, test_context());
+        let mut request = serde_json::json!({"operation": "delete", "file_size": 2_000_000u64});
+        let result = client.optimize_storage_request(&mut request).unwrap();
+        assert!(result.get("optimizations_applied").is_some());
+    }
+
+    #[test]
+    fn test_update_ai_storage_metadata_compression_branch() {
+        let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
+        let config = StorageClientConfig::default();
+        let mut client = UniversalStorageClient::new(ecosystem, config, test_context());
+        let patterns = vec![serde_json::json!({
+            "pattern_type": "upload",
+            "compression_ratio": 0.25,
+            "file_size": 4096u64
+        })];
+        client.update_ai_storage_metadata(&patterns).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_store_succeeds_with_provider_and_default_response() {
+        let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
+        let primal = universal_patterns::registry::DiscoveredPrimal {
+            id: "st-a".to_string(),
+            instance_id: "st-inst".to_string(),
+            primal_type: universal_patterns::traits::PrimalType::Storage,
+            capabilities: vec![],
+            endpoint: "unix:///tmp/st.sock".to_string(),
+            health: universal_patterns::traits::PrimalHealth::Healthy,
+            context: universal_patterns::traits::PrimalContext::default(),
+            port_info: None,
+        };
+        let provider = StorageProvider::from_discovered_primal(&primal);
+        let client = UniversalStorageClient::new(
+            Arc::clone(&ecosystem),
+            StorageClientConfig::default(),
+            test_context(),
+        );
+        client.test_only_insert_provider(provider);
+        let r = client
+            .store("k", vec![1, 2, 3], DataClassification::Internal)
+            .await
+            .expect("store");
+        assert!(r.success);
+    }
+
+    #[tokio::test]
+    async fn test_execute_operation_failure_degrades_provider_health() {
+        let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
+        ecosystem
+            .test_only_set_next_primal_response(PrimalResponse {
+                request_id: Uuid::new_v4(),
+                response_id: Uuid::new_v4(),
+                status: ResponseStatus::Error,
+                success: false,
+                data: None,
+                payload: serde_json::json!({}),
+                timestamp: Utc::now(),
+                processing_time_ms: Some(200),
+                duration: None,
+                error: Some("e".to_string()),
+                error_message: Some("write failed".to_string()),
+                metadata: HashMap::new(),
+            })
+            .await;
+        let primal = universal_patterns::registry::DiscoveredPrimal {
+            id: "st-b".to_string(),
+            instance_id: "st-inst-b".to_string(),
+            primal_type: universal_patterns::traits::PrimalType::Storage,
+            capabilities: vec![],
+            endpoint: "unix:///tmp/st2.sock".to_string(),
+            health: universal_patterns::traits::PrimalHealth::Healthy,
+            context: universal_patterns::traits::PrimalContext::default(),
+            port_info: None,
+        };
+        let provider = StorageProvider::from_discovered_primal(&primal);
+        let client = UniversalStorageClient::new(
+            Arc::clone(&ecosystem),
+            StorageClientConfig::default(),
+            test_context(),
+        );
+        client.test_only_insert_provider(provider);
+        let r = client.retrieve("key").await.expect("retrieve");
+        assert!(!r.success);
+        assert!(r.error.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_process_response_decodes_base64_on_success() {
+        let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
+        let encoded = general_purpose::STANDARD.encode(b"blob-data");
+        ecosystem
+            .test_only_set_next_primal_response(PrimalResponse {
+                request_id: Uuid::new_v4(),
+                response_id: Uuid::new_v4(),
+                status: ResponseStatus::Success,
+                success: true,
+                data: Some(serde_json::json!({ "data": encoded })),
+                payload: serde_json::json!({}),
+                timestamp: Utc::now(),
+                processing_time_ms: Some(10),
+                duration: None,
+                error: None,
+                error_message: None,
+                metadata: HashMap::new(),
+            })
+            .await;
+        let primal = universal_patterns::registry::DiscoveredPrimal {
+            id: "st-c".to_string(),
+            instance_id: "st-inst-c".to_string(),
+            primal_type: universal_patterns::traits::PrimalType::Storage,
+            capabilities: vec![],
+            endpoint: "unix:///tmp/st3.sock".to_string(),
+            health: universal_patterns::traits::PrimalHealth::Healthy,
+            context: universal_patterns::traits::PrimalContext::default(),
+            port_info: None,
+        };
+        let client = UniversalStorageClient::new(
+            Arc::clone(&ecosystem),
+            StorageClientConfig::default(),
+            test_context(),
+        );
+        client.test_only_insert_provider(StorageProvider::from_discovered_primal(&primal));
+        let r = client.retrieve("k").await.expect("retrieve");
+        assert_eq!(r.data.as_deref(), Some(b"blob-data".as_slice()));
+    }
+
+    #[tokio::test]
+    async fn test_discover_storage_providers_via_initialize() {
+        let ecosystem = Arc::new(UniversalPrimalEcosystem::new(test_context()));
+        let svc = DiscoveredService {
+            service_id: "svc-st".to_string(),
+            instance_id: "inst-st".to_string(),
+            endpoint: "unix:///tmp/st.sock".to_string(),
+            capabilities: vec![
+                "object-storage".to_string(),
+                "storage-capability".to_string(),
+            ],
+            health: ServiceHealth::Healthy,
+            discovered_at: Utc::now(),
+            last_health_check: Some(Utc::now()),
+        };
+        ecosystem.test_only_register_service(svc).await;
+        let client = UniversalStorageClient::new(
+            Arc::clone(&ecosystem),
+            StorageClientConfig::default(),
+            test_context(),
+        );
+        client.initialize().await.expect("init");
+        let r = client
+            .delete("k")
+            .await
+            .expect("delete with discovered provider");
+        assert!(r.success);
     }
 }

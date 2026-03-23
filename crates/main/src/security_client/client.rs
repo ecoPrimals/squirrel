@@ -580,4 +580,11 @@ impl UniversalSecurityClient {
         debug!("AI metadata updated successfully");
         Ok(())
     }
+
+    /// Insert a provider for unit tests (bypasses discovery).
+    #[cfg(test)]
+    pub fn test_only_insert_provider(&self, provider: SecurityProvider) {
+        self.providers
+            .insert(provider.provider_id.clone(), provider);
+    }
 }

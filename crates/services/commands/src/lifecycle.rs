@@ -157,10 +157,138 @@ impl Default for CommandLifecycle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::CommandResult;
+    use std::sync::Arc;
+
+    #[derive(Debug)]
+    struct TestCommand;
+
+    impl crate::Command for TestCommand {
+        fn name(&self) -> &str {
+            "test_cmd"
+        }
+
+        fn description(&self) -> &str {
+            "test"
+        }
+
+        fn execute(&self, _args: &[String]) -> CommandResult<String> {
+            Ok("ok".into())
+        }
+
+        fn parser(&self) -> clap::Command {
+            clap::Command::new("test_cmd")
+        }
+
+        fn clone_box(&self) -> Box<dyn crate::Command> {
+            Box::new(TestCommand)
+        }
+    }
 
     #[test]
     fn test_lifecycle_stages() {
         let stage = LifecycleStage::PreExecution;
         assert_eq!(stage, LifecycleStage::PreExecution);
+    }
+
+    #[derive(Debug)]
+    struct StageRecordingHook {
+        name: &'static str,
+        seen: std::sync::Arc<std::sync::Mutex<Vec<LifecycleStage>>>,
+    }
+
+    impl LifecycleHook for StageRecordingHook {
+        fn name(&self) -> &'static str {
+            self.name
+        }
+
+        fn stages(&self) -> Vec<LifecycleStage> {
+            vec![
+                LifecycleStage::Registration,
+                LifecycleStage::Initialization,
+                LifecycleStage::Validation,
+            ]
+        }
+
+        fn on_stage(
+            &self,
+            stage: &LifecycleStage,
+            _command: &dyn Command,
+        ) -> Result<(), CommandError> {
+            self.seen.lock().unwrap().push(*stage);
+            Ok(())
+        }
+
+        fn clone_box(&self) -> Box<dyn LifecycleHook> {
+            Box::new(StageRecordingHook {
+                name: self.name,
+                seen: Arc::clone(&self.seen),
+            })
+        }
+    }
+
+    #[test]
+    fn command_lifecycle_executes_all_hook_stages() {
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let hook = StageRecordingHook {
+            name: "rec",
+            seen: Arc::clone(&seen),
+        };
+        let lifecycle = CommandLifecycle::new();
+        lifecycle.add_hook(Box::new(hook)).unwrap();
+        assert_eq!(lifecycle.hooks(), 1);
+
+        let cmd = TestCommand;
+        for s in [
+            LifecycleStage::Registration,
+            LifecycleStage::Initialization,
+            LifecycleStage::Validation,
+        ] {
+            lifecycle.execute_stage(s, &cmd).unwrap();
+        }
+
+        let got = seen.lock().unwrap().clone();
+        assert_eq!(got.len(), 3);
+        assert_eq!(got[0], LifecycleStage::Registration);
+    }
+
+    #[test]
+    fn command_lifecycle_propagates_hook_error() {
+        #[derive(Debug)]
+        struct FailOnValidation;
+
+        impl LifecycleHook for FailOnValidation {
+            fn name(&self) -> &'static str {
+                "fail"
+            }
+
+            fn stages(&self) -> Vec<LifecycleStage> {
+                vec![LifecycleStage::Validation]
+            }
+
+            fn on_stage(
+                &self,
+                stage: &LifecycleStage,
+                _command: &dyn Command,
+            ) -> Result<(), CommandError> {
+                if *stage == LifecycleStage::Validation {
+                    return Err(CommandError::Lifecycle("no".into()));
+                }
+                Ok(())
+            }
+
+            fn clone_box(&self) -> Box<dyn LifecycleHook> {
+                Box::new(FailOnValidation)
+            }
+        }
+
+        let lifecycle = CommandLifecycle::new();
+        lifecycle.add_hook(Box::new(FailOnValidation)).unwrap();
+        let cmd = TestCommand;
+        assert!(
+            lifecycle
+                .execute_stage(LifecycleStage::Validation, &cmd)
+                .is_err()
+        );
     }
 }

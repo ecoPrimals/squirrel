@@ -281,10 +281,141 @@ fn test_conflict_resolution_strategy_serde() {
         ConflictResolutionStrategy::KeepOldest,
         ConflictResolutionStrategy::Merge,
         ConflictResolutionStrategy::Manual,
+        ConflictResolutionStrategy::VectorClock,
+        ConflictResolutionStrategy::Consensus,
     ];
     for s in strategies {
         let json = serde_json::to_string(&s).unwrap();
         let decoded: ConflictResolutionStrategy = serde_json::from_str(&json).unwrap();
         assert!(std::mem::discriminant(&s) == std::mem::discriminant(&decoded));
     }
+}
+
+#[tokio::test]
+async fn partition_detected_then_heartbeat_recover_flow() {
+    let mut mgr = SyncManager::new();
+    let partition = PartitionInfo {
+        detected_at: SystemTime::now(),
+        affected_peers: vec!["peer-a".to_string()],
+        partition_duration: Duration::from_secs(1),
+        recovery_strategy: PartitionRecoveryStrategy::WaitForHealing,
+    };
+    let msg = SyncMessage::new(
+        SyncOperation::PartitionDetected(partition),
+        "src".to_string(),
+    );
+    mgr.process_message_with_retry(msg).await.unwrap();
+    assert_eq!(mgr.get_status(), SyncStatus::Partitioned);
+
+    let hb = SyncMessage::new(
+        SyncOperation::Heartbeat {
+            node_id: "peer-a".to_string(),
+            timestamp: SystemTime::now(),
+        },
+        "peer-a".to_string(),
+    );
+    mgr.process_message_with_retry(hb).await.unwrap();
+    assert_eq!(mgr.get_status(), SyncStatus::Healthy);
+}
+
+#[tokio::test]
+async fn snapshot_delete_and_full_sync_request_branches_succeed() {
+    let mut mgr = SyncManager::new();
+    let m1 = SyncMessage::new(
+        SyncOperation::SnapshotDelete("snap-1".to_string()),
+        "n".to_string(),
+    );
+    assert!(mgr.process_message_with_retry(m1).await.unwrap().success);
+    let m2 = SyncMessage::new(
+        SyncOperation::FullSyncRequest {
+            requesting_node: "r".to_string(),
+        },
+        "n".to_string(),
+    );
+    assert!(mgr.process_message_with_retry(m2).await.unwrap().success);
+}
+
+#[tokio::test]
+async fn conflict_auto_resolve_keep_latest() {
+    let mut mgr = SyncManager::with_config(SyncConfig {
+        auto_resolve_conflicts: true,
+        ..Default::default()
+    });
+    let now = SystemTime::now();
+    let earlier = now - Duration::from_secs(10);
+    let s_old = make_state("sid", 1, earlier);
+    let s_new = make_state("sid", 1, now);
+    let conflict = ConflictInfo {
+        state_id: "sid".to_string(),
+        conflicting_versions: vec![s_old, s_new],
+        resolution_strategy: ConflictResolutionStrategy::KeepLatest,
+        detected_at: now,
+        involved_nodes: vec![],
+    };
+    let msg = SyncMessage::new(SyncOperation::Conflict(conflict), "node".to_string());
+    mgr.process_message_with_retry(msg).await.unwrap();
+}
+
+#[tokio::test]
+async fn conflict_auto_resolve_manual_strategy_warns_without_resolve() {
+    let mut mgr = SyncManager::with_config(SyncConfig {
+        auto_resolve_conflicts: true,
+        ..Default::default()
+    });
+    let now = SystemTime::now();
+    let conflict = ConflictInfo {
+        state_id: "sid".to_string(),
+        conflicting_versions: vec![make_state("sid", 1, now)],
+        resolution_strategy: ConflictResolutionStrategy::Manual,
+        detected_at: now,
+        involved_nodes: vec![],
+    };
+    let msg = SyncMessage::new(SyncOperation::Conflict(conflict), "node".to_string());
+    mgr.process_message_with_retry(msg).await.unwrap();
+}
+
+#[tokio::test]
+async fn detect_partitions_marks_stale_peer() {
+    let mut mgr = SyncManager::new();
+    let old = SystemTime::now() - Duration::from_secs(10_000);
+    let hb = SyncMessage::new(
+        SyncOperation::Heartbeat {
+            node_id: "stale".to_string(),
+            timestamp: old,
+        },
+        "stale".to_string(),
+    );
+    mgr.process_message_with_retry(hb).await.unwrap();
+    mgr.detect_partitions().await.unwrap();
+    assert_eq!(mgr.get_status(), SyncStatus::Partitioned);
+}
+
+#[tokio::test]
+async fn resolve_conflict_equal_version_uses_last_modified() {
+    let mgr = SyncManager::new();
+    let older = SystemTime::UNIX_EPOCH;
+    let newer = SystemTime::now();
+    let a = make_state("s", 5, older);
+    let b = make_state("s", 5, newer);
+    let r = mgr.resolve_conflict(&a, &b);
+    assert_eq!(r.last_modified, newer);
+}
+
+#[tokio::test]
+async fn retry_failed_operations_empty_ok() {
+    let mut mgr = SyncManager::new();
+    mgr.retry_failed_operations().await.unwrap();
+}
+
+#[tokio::test]
+async fn partition_recovered_operation() {
+    let mut mgr = SyncManager::new();
+    let msg = SyncMessage::new(
+        SyncOperation::PartitionRecovered {
+            recovered_at: SystemTime::now(),
+            affected_peers: vec!["p1".into()],
+        },
+        "src".into(),
+    );
+    mgr.process_message_with_retry(msg).await.unwrap();
 }

@@ -60,22 +60,20 @@ impl<T, E: fmt::Display> OrExit<T> for Result<T, E> {
 
 impl<T> OrExit<T> for Option<T> {
     fn or_exit(self, context: &str) -> T {
-        match self {
-            Some(v) => v,
-            None => {
-                eprintln!("fatal: {context}: value was None");
-                process::exit(exit_codes::ERROR);
-            }
+        if let Some(v) = self {
+            v
+        } else {
+            eprintln!("fatal: {context}: value was None");
+            process::exit(exit_codes::ERROR);
         }
     }
 
     fn or_exit_code(self, context: &str, code: i32) -> T {
-        match self {
-            Some(v) => v,
-            None => {
-                eprintln!("fatal: {context}: value was None");
-                process::exit(code);
-            }
+        if let Some(v) = self {
+            v
+        } else {
+            eprintln!("fatal: {context}: value was None");
+            process::exit(code);
         }
     }
 }

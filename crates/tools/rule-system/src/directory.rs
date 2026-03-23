@@ -400,3 +400,172 @@ pub trait FileWatcher: Send + Sync {
     /// Get all watched directories
     async fn get_watched_directories(&self) -> Vec<PathBuf>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::RuleSourceMetadata;
+
+    #[test]
+    fn rule_directory_config_default_and_serde() {
+        let c = RuleDirectoryConfig::default();
+        assert_eq!(c.default_extension, "mdc");
+        assert_eq!(c.recursion_depth, -1);
+        let json = serde_json::to_string(&c).unwrap();
+        let back: RuleDirectoryConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.root_directory, c.root_directory);
+    }
+
+    #[tokio::test]
+    async fn initialize_creates_root_and_default_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = RuleDirectoryConfig {
+            root_directory: dir.path().to_path_buf(),
+            ..RuleDirectoryConfig::default()
+        };
+        let mgr = RuleDirectoryManager::new(cfg);
+        mgr.initialize().await.unwrap();
+        assert!(dir.path().exists());
+        let files = mgr.get_all_rule_files().await.unwrap();
+        assert!(files.is_empty());
+    }
+
+    #[tokio::test]
+    async fn add_source_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let mgr = RuleDirectoryManager::new(RuleDirectoryConfig {
+            root_directory: dir.path().to_path_buf(),
+            ..Default::default()
+        });
+        mgr.initialize().await.unwrap();
+
+        let other = tempfile::tempdir().unwrap();
+        mgr.add_source(
+            "s1",
+            RuleSourceMetadata {
+                directory: other.path().to_path_buf(),
+                pattern: "*.mdc".to_string(),
+                watch: false,
+            },
+        )
+        .await
+        .unwrap();
+
+        let err = mgr
+            .add_source(
+                "s1",
+                RuleSourceMetadata {
+                    directory: other.path().to_path_buf(),
+                    pattern: "*.mdc".to_string(),
+                    watch: false,
+                },
+            )
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("already exists"));
+
+        let missing = dir.path().join("nope");
+        let err = mgr
+            .add_source(
+                "bad",
+                RuleSourceMetadata {
+                    directory: missing.clone(),
+                    pattern: "*.mdc".to_string(),
+                    watch: false,
+                },
+            )
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Directory") || err.to_string().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn create_list_delete_rule_files_and_categories() {
+        let dir = tempfile::tempdir().unwrap();
+        let mgr = RuleDirectoryManager::new(RuleDirectoryConfig {
+            root_directory: dir.path().to_path_buf(),
+            ..Default::default()
+        });
+        mgr.initialize().await.unwrap();
+
+        let p = mgr
+            .create_rule_file("alpha", None::<&str>, "body")
+            .await
+            .unwrap();
+        assert!(p.exists());
+
+        let p2 = mgr
+            .create_rule_file("beta", Some("cat"), "c")
+            .await
+            .unwrap();
+        assert!(p2.exists());
+
+        assert!(mgr.rule_file_exists("alpha", None::<&str>).await.unwrap());
+        assert!(mgr.rule_file_exists("beta", Some("cat")).await.unwrap());
+
+        let cats = mgr.get_categories().await.unwrap();
+        assert!(cats.contains(&"cat".to_string()));
+
+        let all = mgr.get_all_rule_files().await.unwrap();
+        assert!(all.len() >= 2);
+
+        mgr.delete_rule_file("alpha", None::<&str>).await.unwrap();
+        assert!(!mgr.rule_file_exists("alpha", None::<&str>).await.unwrap());
+
+        let err = mgr
+            .delete_rule_file("nope", None::<&str>)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("not found") || err.to_string().contains("File"));
+    }
+
+    #[tokio::test]
+    async fn get_source_rule_files_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let mgr = RuleDirectoryManager::new(RuleDirectoryConfig {
+            root_directory: dir.path().to_path_buf(),
+            ..Default::default()
+        });
+        mgr.initialize().await.unwrap();
+        let err = mgr.get_source_rule_files("missing").await.unwrap_err();
+        assert!(err.to_string().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn config_get_and_update() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut cfg = RuleDirectoryConfig::default();
+        cfg.root_directory = dir.path().to_path_buf();
+        let mgr = RuleDirectoryManager::new(cfg);
+        mgr.update_config(RuleDirectoryConfig {
+            watch_for_changes: false,
+            root_directory: dir.path().to_path_buf(),
+            ..RuleDirectoryConfig::default()
+        })
+        .await;
+        let g = mgr.get_config().await;
+        assert!(!g.watch_for_changes);
+    }
+
+    #[tokio::test]
+    async fn factory_and_helpers() {
+        let _ = RuleDirectoryManagerFactory::default();
+        let m = RuleDirectoryManagerFactory::create_manager();
+        assert_eq!(
+            m.get_config().await.root_directory,
+            RuleDirectoryConfig::default().root_directory
+        );
+
+        let tmp = tempfile::tempdir().unwrap();
+        let m2 = create_rule_directory_manager_with_root_dir(tmp.path());
+        assert_eq!(m2.get_config().await.root_directory, tmp.path());
+
+        let m3 = create_rule_directory_manager_with_config(RuleDirectoryConfig {
+            root_directory: tmp.path().to_path_buf(),
+            ..Default::default()
+        });
+        assert_eq!(m3.get_config().await.root_directory, tmp.path());
+
+        let _ = create_rule_directory_manager();
+    }
+}

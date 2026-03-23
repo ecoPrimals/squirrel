@@ -618,4 +618,157 @@ mod tests {
         assert!(!dirs.is_empty());
         assert!(dirs.contains(&PathBuf::from("/tmp")));
     }
+
+    #[test]
+    fn discovery_error_display() {
+        let e = DiscoveryError::CapabilityNotFound("cap.x".to_string());
+        assert!(format!("{e}").contains("cap.x"));
+        let e2 = DiscoveryError::ProbeFailed("read".to_string());
+        assert!(format!("{e2}").contains("read"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn discover_capability_returns_env_provider_without_probe() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("fake.sock");
+        std::fs::File::create(&path).expect("touch");
+        temp_env::with_var(
+            "CRYPTO_SIGNING_PROVIDER_SOCKET",
+            Some(path.to_str().expect("utf8")),
+            || {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("rt")
+                    .block_on(async {
+                        let p = discover_capability("crypto.signing")
+                            .await
+                            .expect("discovered");
+                        assert_eq!(p.socket, path);
+                        assert!(p.discovered_via.starts_with("env:"));
+                    });
+            },
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn get_socket_directories_respects_socket_scan_dir_override() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        temp_env::with_var(
+            "SOCKET_SCAN_DIR",
+            Some(dir.path().to_str().expect("utf8")),
+            || {
+                let dirs = get_socket_directories();
+                assert_eq!(dirs.first().map(|p| p.as_path()), Some(dir.path()));
+            },
+        );
+    }
+
+    #[tokio::test]
+    async fn probe_socket_success_parses_capabilities() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock_path = dir.path().join("cap.sock");
+        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+        let cap_name = "probe.test.cap";
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let mut stream = stream;
+            let mut line = String::new();
+            let mut reader = BufReader::new(&mut stream);
+            reader.read_line(&mut line).await.expect("read");
+            let resp = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": "1",
+                "result": {
+                    "capabilities": [cap_name],
+                    "metadata": { "k": "v" }
+                }
+            });
+            let mut out = serde_json::to_string(&resp).unwrap();
+            out.push('\n');
+            stream.write_all(out.as_bytes()).await.expect("write");
+            stream.flush().await.expect("flush");
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+
+        let p = probe_socket(&sock_path).await.expect("probe");
+        assert!(p.capabilities.contains(&cap_name.to_string()));
+        assert_eq!(p.discovered_via, "probe");
+        assert_eq!(p.metadata.get("k").map(String::as_str), Some("v"));
+    }
+
+    #[tokio::test]
+    async fn probe_socket_jsonrpc_error_returns_probe_failed() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock_path = dir.path().join("err.sock");
+        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let mut stream = stream;
+            let mut line = String::new();
+            let mut reader = BufReader::new(&mut stream);
+            reader.read_line(&mut line).await.expect("read");
+            let resp = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "error": { "code": -32601, "message": "nope" }
+            });
+            let mut out = serde_json::to_string(&resp).unwrap();
+            out.push('\n');
+            stream.write_all(out.as_bytes()).await.expect("write");
+            stream.flush().await.expect("flush");
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+
+        let err = probe_socket(&sock_path).await.unwrap_err();
+        match err {
+            DiscoveryError::ProbeFailed(m) => assert!(m.contains("Method not supported")),
+            _ => panic!("expected ProbeFailed, got {err:?}"),
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn discover_capability_not_found_without_env_or_registry() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        temp_env::with_vars(
+            [
+                ("SOCKET_SCAN_DIR", Some(dir.path().to_str().expect("utf8"))),
+                ("NEURAL_API_SOCKET", None::<&str>),
+                ("CAPABILITY_REGISTRY_SOCKET", None::<&str>),
+            ],
+            || {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("rt")
+                    .block_on(async {
+                        let err =
+                            discover_capability("zzzz.nonexistent.capability.discovery.test.99999")
+                                .await
+                                .expect_err("expected not found");
+                        match err {
+                            DiscoveryError::CapabilityNotFound(c) => {
+                                assert!(c.contains("zzzz.nonexistent"));
+                            }
+                            _ => panic!("unexpected {err:?}"),
+                        }
+                    });
+            },
+        );
+    }
+
+    #[tokio::test]
+    async fn discover_all_capabilities_returns_ok_map() {
+        let map = discover_all_capabilities().await.expect("ok");
+        let _ = map.len();
+    }
 }

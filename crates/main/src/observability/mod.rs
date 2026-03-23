@@ -401,3 +401,56 @@ pub mod utils {
         metadata
     }
 }
+
+#[cfg(test)]
+mod observability_more_tests {
+    use super::utils;
+    use super::{CorrelationId, OperationContext, OperationResult, PerformanceMetrics};
+    use std::collections::HashMap;
+    use std::time::Duration;
+
+    #[test]
+    fn utils_metadata_helpers_cover_paths() {
+        let m1 = utils::service_call_metadata("svc", "/rpc", "POST");
+        assert_eq!(m1.get("method"), Some(&"POST".to_string()));
+        let m2 = utils::api_operation_metadata("get", "ctx", None);
+        assert!(!m2.contains_key("api_version"));
+        let m3 = utils::api_operation_metadata("get", "ctx", Some("2"));
+        assert_eq!(m3.get("api_version"), Some(&"2".to_string()));
+        let m4 = utils::database_operation_metadata("select", "users", "read");
+        assert_eq!(m4.get("query_type"), Some(&"read".to_string()));
+    }
+
+    #[test]
+    fn operation_context_with_metadata_map_merges() {
+        let mut m = HashMap::new();
+        m.insert("a".to_string(), "b".to_string());
+        let ctx = OperationContext::new("op").with_metadata_map(m);
+        assert_eq!(ctx.metadata.get("a"), Some(&"b".to_string()));
+    }
+
+    #[test]
+    fn operation_result_accessors() {
+        let mut pm = PerformanceMetrics::new();
+        pm.mark_success(Duration::from_nanos(100));
+        let res = OperationResult {
+            correlation_id: CorrelationId::from_string("c"),
+            operation: "x".to_string(),
+            metrics: pm,
+            metadata: HashMap::new(),
+        };
+        assert!(res.is_success());
+        assert_eq!(res.duration(), Duration::from_nanos(100));
+        assert!(res.error_info().is_none());
+    }
+
+    #[test]
+    fn operation_context_logging_smoke() {
+        let ctx = OperationContext::new("logged").with_metadata("k", "v");
+        ctx.log_start();
+        ctx.log_attempt(1, 3);
+        ctx.log_retry(2, Duration::from_millis(1), "backoff");
+        ctx.log_success();
+        ctx.log_failure("failed");
+    }
+}

@@ -330,3 +330,100 @@ pub fn init_global_optimizer() -> Result<()> {
     info!("🚀 Plugin performance optimizer initialized with production settings");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::performance_optimizer::config::PerformanceOptimizerConfig;
+    use crate::zero_copy::{ZeroCopyPluginConfig, ZeroCopyPluginEntry, ZeroCopyPluginMetadata};
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn optimized_plugin_lookup_miss_then_hit() {
+        let opt = PluginPerformanceOptimizer::new(PerformanceOptimizerConfig::development());
+        let registry = crate::zero_copy::ZeroCopyPluginRegistry::new();
+        let id = Uuid::new_v4();
+        let mut meta = ZeroCopyPluginMetadata::new(
+            id,
+            "plugin-a".into(),
+            "1".into(),
+            "d".into(),
+            "auth".into(),
+        );
+        meta.capabilities = std::sync::Arc::new(vec!["cap.test".into()]);
+        let entry = ZeroCopyPluginEntry::new(meta, ZeroCopyPluginConfig::new(id), None);
+        registry.register_plugin(entry).await.unwrap();
+
+        let first = opt
+            .optimized_plugin_lookup("plugin-a", &registry)
+            .await
+            .expect("lookup");
+        assert_eq!(first.id(), id);
+
+        let second = opt
+            .optimized_plugin_lookup("plugin-a", &registry)
+            .await
+            .expect("cached");
+        assert_eq!(second.id(), id);
+    }
+
+    #[tokio::test]
+    async fn optimized_capability_query_populates_cache() {
+        let opt = PluginPerformanceOptimizer::new(PerformanceOptimizerConfig::development());
+        let registry = crate::zero_copy::ZeroCopyPluginRegistry::new();
+        let id = Uuid::new_v4();
+        let mut meta =
+            ZeroCopyPluginMetadata::new(id, "p".into(), "1".into(), "d".into(), "a".into());
+        meta.capabilities = std::sync::Arc::new(vec!["search.cap".into()]);
+        let entry = ZeroCopyPluginEntry::new(meta, ZeroCopyPluginConfig::new(id), None);
+        registry.register_plugin(entry).await.unwrap();
+
+        let r1 = opt
+            .optimized_capability_query("search.cap", &registry)
+            .await;
+        assert_eq!(r1.len(), 1);
+        let r2 = opt
+            .optimized_capability_query("search.cap", &registry)
+            .await;
+        assert_eq!(r2.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn batch_load_plugins_single_vs_batch_paths() {
+        let opt = PluginPerformanceOptimizer::new(PerformanceOptimizerConfig::development());
+        let id = Uuid::new_v4();
+        let meta =
+            ZeroCopyPluginMetadata::new(id, "solo".into(), "1".into(), "d".into(), "a".into());
+        let e = Arc::new(ZeroCopyPluginEntry::new(
+            meta,
+            ZeroCopyPluginConfig::new(id),
+            None,
+        ));
+        let empty = opt.batch_load_plugins(vec![e.clone()]).await;
+        assert!(empty.is_empty());
+
+        let id2 = Uuid::new_v4();
+        let m2 = ZeroCopyPluginMetadata::new(id2, "a".into(), "1".into(), "d".into(), "a".into());
+        let e2 = Arc::new(ZeroCopyPluginEntry::new(
+            m2,
+            ZeroCopyPluginConfig::new(id2),
+            None,
+        ));
+        let batch = opt.batch_load_plugins(vec![e, e2]).await;
+        assert!(batch.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_optimization_metrics_smoke() {
+        let opt = PluginPerformanceOptimizer::new(PerformanceOptimizerConfig::development());
+        let m = opt.get_optimization_metrics().await;
+        assert!(m.cache_efficiency >= 0.0 && m.cache_efficiency <= 1.0);
+    }
+
+    #[tokio::test]
+    async fn enable_predictive_loading_no_panic_when_disabled() {
+        let opt = PluginPerformanceOptimizer::new(PerformanceOptimizerConfig::development());
+        let registry = crate::zero_copy::ZeroCopyPluginRegistry::new();
+        opt.enable_predictive_loading(&registry).await;
+    }
+}

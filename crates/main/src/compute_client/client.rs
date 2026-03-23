@@ -481,3 +481,165 @@ impl Default for ComputeSecurityRequirements {
         }
     }
 }
+
+#[cfg(test)]
+impl UniversalComputeClient {
+    /// Insert a compute provider directly (unit tests only; avoids live discovery).
+    pub(crate) fn test_only_insert_provider(&self, provider: super::providers::ComputeProvider) {
+        self.providers
+            .insert(provider.provider_id.clone(), provider);
+    }
+}
+
+#[cfg(test)]
+mod compute_client_tests {
+    use super::*;
+    use crate::compute_client::providers::ComputeProvider;
+    use crate::compute_client::types::{
+        AIComputeContext, ComputeOperation, ComputePayload, ComputePriority, ResourceRequirements,
+        UniversalComputeRequest, WorkloadCharacteristics,
+    };
+    use crate::universal::PrimalContext;
+    use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    fn sample_provider(id: &str) -> ComputeProvider {
+        ComputeProvider::from_discovered_primal(&universal_patterns::registry::DiscoveredPrimal {
+            id: id.to_string(),
+            instance_id: id.to_string(),
+            primal_type: universal_patterns::traits::PrimalType::Coordinator,
+            capabilities: vec![],
+            endpoint: "unix:///tmp/compute.sock".to_string(),
+            health: universal_patterns::traits::PrimalHealth::Healthy,
+            context: universal_patterns::traits::PrimalContext::default(),
+            port_info: None,
+        })
+    }
+
+    fn minimal_request() -> UniversalComputeRequest {
+        UniversalComputeRequest {
+            request_id: Uuid::new_v4(),
+            operation: ComputeOperation::Execute {
+                language: "python".to_string(),
+                entrypoint: "main".to_string(),
+            },
+            payload: ComputePayload {
+                code: Some("print(1)".to_string()),
+                input_data: None,
+                environment: HashMap::new(),
+                dependencies: Vec::new(),
+                parameters: HashMap::new(),
+            },
+            resources: ResourceRequirements {
+                cpu_cores: 0,
+                memory_gb: 0,
+                gpu_units: None,
+                storage_gb: 1,
+                max_execution_time: Duration::from_secs(0),
+                network_bandwidth_mbps: None,
+            },
+            security: ComputeSecurityRequirements::default(),
+            ai_context: AIComputeContext {
+                workload_characteristics: WorkloadCharacteristics {
+                    cpu_intensity: 0.9,
+                    memory_intensity: 0.1,
+                    io_intensity: 0.2,
+                    gpu_requirement: 0.0,
+                    parallelizability: 0.5,
+                },
+                priority: ComputePriority::Normal,
+                deadline: None,
+                cost_performance_preference: CostPerformancePreference::Balanced,
+            },
+            metadata: HashMap::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn initialize_runs_without_network() {
+        let eco = Arc::new(UniversalPrimalEcosystem::new(PrimalContext::default()));
+        let client = UniversalComputeClient::new(
+            eco,
+            ComputeClientConfig::default(),
+            PrimalContext::default(),
+        );
+        client.initialize().await.unwrap();
+        assert!(client.get_compute_config().max_retries <= 10);
+    }
+
+    #[tokio::test]
+    async fn execute_operation_errors_when_no_providers() {
+        let eco = Arc::new(UniversalPrimalEcosystem::new(PrimalContext::default()));
+        let client = UniversalComputeClient::new(
+            eco,
+            ComputeClientConfig::default(),
+            PrimalContext::default(),
+        );
+        let err = client
+            .execute_operation(minimal_request())
+            .await
+            .unwrap_err();
+        assert!(matches!(err, PrimalError::ResourceNotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn execute_operation_applies_defaults_and_succeeds_with_stub_ecosystem() {
+        let eco = Arc::new(UniversalPrimalEcosystem::new(PrimalContext::default()));
+        let client = UniversalComputeClient::new(
+            eco,
+            ComputeClientConfig::default(),
+            PrimalContext::default(),
+        );
+        let mut p = sample_provider("prov-1");
+        p.health.queue_length = 1;
+        client.test_only_insert_provider(p);
+
+        let mut req = minimal_request();
+        client.apply_configuration_defaults(&mut req);
+        assert!(req.resources.cpu_cores > 0);
+        assert!(req.resources.memory_gb > 0);
+        assert!(req.resources.max_execution_time.as_secs() > 0);
+
+        let resp = client.execute_operation(req).await.unwrap();
+        assert!(resp.success);
+        assert_eq!(resp.provider_id, "prov-1");
+    }
+
+    #[tokio::test]
+    async fn execute_code_builds_request() {
+        let eco = Arc::new(UniversalPrimalEcosystem::new(PrimalContext::default()));
+        let client = UniversalComputeClient::new(
+            eco,
+            ComputeClientConfig::default(),
+            PrimalContext::default(),
+        );
+        client.test_only_insert_provider(sample_provider("prov-3"));
+        let r = client
+            .execute_code("python", "x=1".to_string(), ComputePriority::High)
+            .await
+            .unwrap();
+        assert!(r.success);
+    }
+
+    #[test]
+    fn workload_to_resource_utilization_from_trait() {
+        let w = WorkloadCharacteristics {
+            cpu_intensity: 0.7,
+            memory_intensity: 0.3,
+            io_intensity: 0.4,
+            gpu_requirement: 0.2,
+            parallelizability: 0.5,
+        };
+        let u: ResourceUtilization = w.into();
+        assert!((u.cpu_utilization - 0.7).abs() < 1e-6);
+        assert_eq!(u.gpu_utilization, Some(0.2));
+    }
+
+    #[test]
+    fn compute_security_requirements_default_impl() {
+        let d = ComputeSecurityRequirements::default();
+        assert!(matches!(d.encryption_requirements.data_at_rest, true));
+    }
+}

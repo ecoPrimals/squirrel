@@ -7,6 +7,7 @@
 mod tests {
     use crate::actions::ActionExecutor;
     use crate::directory::{RuleDirectoryConfig, RuleDirectoryManager};
+    use crate::error::{RuleManagerError, RuleSystemError};
     use crate::evaluator::RuleEvaluator;
     use crate::manager::RuleManager;
     use crate::models::{Rule, RuleAction, RuleCondition};
@@ -349,5 +350,127 @@ mod tests {
 
         let result = manager.add_rule(rule).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn add_rule_fails_when_dependency_missing() {
+        let manager = test_manager();
+        let rule = Rule::new("needs-parent")
+            .with_name("Needs parent")
+            .with_pattern("ctx.*")
+            .with_dependency("nonexistent-rule")
+            .with_condition(RuleCondition::Exists {
+                path: "data".to_string(),
+            })
+            .with_action(RuleAction::ModifyContext {
+                path: "out".to_string(),
+                value: json!(1),
+            });
+        let err = manager.add_rule(rule).await.expect_err("missing dep");
+        assert!(matches!(
+            err,
+            RuleSystemError::ManagerError(RuleManagerError::DependencyError(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn remove_rule_fails_when_depended_upon() {
+        let manager = test_manager();
+        let base = Rule::new("base-rule")
+            .with_name("Base")
+            .with_pattern("ctx.*")
+            .with_condition(RuleCondition::Exists {
+                path: "x".to_string(),
+            })
+            .with_action(RuleAction::ModifyContext {
+                path: "o".to_string(),
+                value: json!(true),
+            });
+        let dependent = Rule::new("dependent-rule")
+            .with_name("Dep")
+            .with_pattern("ctx.*")
+            .with_dependency("base-rule")
+            .with_condition(RuleCondition::Exists {
+                path: "y".to_string(),
+            })
+            .with_action(RuleAction::ModifyContext {
+                path: "z".to_string(),
+                value: json!(null),
+            });
+        manager.add_rule(base).await.unwrap();
+        manager.add_rule(dependent).await.unwrap();
+        let err = manager.remove_rule("base-rule").await.expect_err("blocked");
+        assert!(matches!(
+            err,
+            RuleSystemError::ManagerError(RuleManagerError::DependencyError(msg))
+                if msg.contains("depended")
+        ));
+    }
+
+    #[tokio::test]
+    async fn activate_rule_fails_for_unknown_id() {
+        let manager = test_manager();
+        let err = manager
+            .activate_rule("no-such-rule")
+            .await
+            .expect_err("missing");
+        assert!(matches!(
+            err,
+            RuleSystemError::ManagerError(RuleManagerError::RuleNotFound(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn update_rule_rejects_circular_dependency() {
+        let manager = test_manager();
+        let a = Rule::new("rule-a")
+            .with_name("A")
+            .with_pattern("ctx.*")
+            .with_condition(RuleCondition::Exists {
+                path: "p".to_string(),
+            })
+            .with_action(RuleAction::ModifyContext {
+                path: "q".to_string(),
+                value: json!(0),
+            });
+        let b = Rule::new("rule-b")
+            .with_name("B")
+            .with_pattern("ctx.*")
+            .with_dependency("rule-a")
+            .with_condition(RuleCondition::Exists {
+                path: "p".to_string(),
+            })
+            .with_action(RuleAction::ModifyContext {
+                path: "q".to_string(),
+                value: json!(1),
+            });
+        manager.add_rule(a).await.unwrap();
+        manager.add_rule(b).await.unwrap();
+
+        let a_dep_b = Rule::new("rule-a")
+            .with_name("A2")
+            .with_pattern("ctx.*")
+            .with_dependency("rule-b")
+            .with_condition(RuleCondition::Exists {
+                path: "p".to_string(),
+            })
+            .with_action(RuleAction::ModifyContext {
+                path: "q".to_string(),
+                value: json!(3),
+            });
+        let err = manager.update_rule(a_dep_b).await.expect_err("circular");
+        assert!(matches!(
+            err,
+            RuleSystemError::ManagerError(RuleManagerError::DependencyError(msg))
+                if msg.contains("Circular")
+        ));
+    }
+
+    #[tokio::test]
+    async fn initialize_clears_and_reloads_cache() {
+        let manager = test_manager();
+        manager.initialize().await.expect("init");
+        let stats = manager.get_statistics().await.expect("stats");
+        assert_eq!(stats.dependency_cache_size, stats.total_rules);
     }
 }

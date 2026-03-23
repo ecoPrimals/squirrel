@@ -206,19 +206,15 @@ impl EndpointResolver {
 
         // 3. Apply resolution strategy
         let endpoint = match self.strategy {
-            ResolutionStrategy::PreferSocket => self
-                .try_unix_socket(name)
-                .or_else(|| self.try_network(name))
+            ResolutionStrategy::PreferSocket => Self::try_unix_socket(name)
+                .or_else(|| Self::try_network(name))
                 .unwrap_or_else(|| self.fallback_endpoint(name)),
-            ResolutionStrategy::PreferNetwork => self
-                .try_network(name)
-                .or_else(|| self.try_unix_socket(name))
+            ResolutionStrategy::PreferNetwork => Self::try_network(name)
+                .or_else(|| Self::try_unix_socket(name))
                 .unwrap_or_else(|| self.fallback_endpoint(name)),
-            ResolutionStrategy::SocketOnly => self
-                .try_unix_socket(name)
+            ResolutionStrategy::SocketOnly => Self::try_unix_socket(name)
                 .ok_or_else(|| format!("Unix socket not found for '{}'", name))?,
-            ResolutionStrategy::NetworkOnly => self
-                .try_network(name)
+            ResolutionStrategy::NetworkOnly => Self::try_network(name)
                 .ok_or_else(|| format!("Network endpoint not found for '{}'", name))?,
         };
 
@@ -230,7 +226,7 @@ impl EndpointResolver {
     ///
     /// Follows biomeOS socket standardization:
     /// `/run/user/<uid>/biomeos/<primal>.sock`
-    fn try_unix_socket(&self, name: &str) -> Option<Endpoint> {
+    fn try_unix_socket(name: &str) -> Option<Endpoint> {
         // First check environment variable for socket path
         let socket_env = format!("{}_SOCKET", name.to_uppercase());
         if let Ok(socket_path) = std::env::var(&socket_env) {
@@ -288,7 +284,7 @@ impl EndpointResolver {
     /// Checks:
     /// 1. Service mesh discovery (query mesh)
     /// 2. Default network ports by service type
-    fn try_network(&self, name: &str) -> Option<Endpoint> {
+    fn try_network(name: &str) -> Option<Endpoint> {
         // Check for explicit port environment variable
         let port_env = format!("{}_PORT", name.to_uppercase());
         if let Ok(port_str) = std::env::var(&port_env)

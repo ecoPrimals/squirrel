@@ -53,7 +53,8 @@ pub const CAPABILITIES: &[&str] = &[
     "ai.complete",
     "ai.chat",
     "ai.list_providers",
-    // Capability routing
+    // Capability routing (capabilities.list is canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1)
+    "capabilities.list",
     "capability.announce",
     "capability.discover",
     "capability.list",
@@ -94,7 +95,7 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("list_providers", "ai.list_providers"),
     ("announce", "capability.announce"),
     ("discover", "capability.discover"),
-    ("list_capabilities", "capability.list"),
+    ("list_capabilities", "capabilities.list"),
     ("health", "system.health"),
     ("status", "system.status"),
     ("metrics", "system.metrics"),
@@ -210,6 +211,7 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("ai.complete", 500, true),
     ("ai.chat", 800, true),
     ("ai.list_providers", 1, false),
+    ("capabilities.list", 1, false),
     ("capability.announce", 2, false),
     ("capability.discover", 1, false),
     ("capability.list", 1, false),
@@ -242,6 +244,7 @@ pub fn operation_dependencies() -> serde_json::Value {
         "ai.complete": ["prompt"],
         "ai.chat": ["prompt"],
         "ai.list_providers": [],
+        "capabilities.list": [],
         "capability.announce": ["capabilities", "primal"],
         "capability.discover": [],
         "capability.list": [],
@@ -275,6 +278,7 @@ pub fn cost_estimates_json() -> serde_json::Value {
         "ai.complete":           { "latency_ms": 500, "cpu": "low",    "memory_bytes": 8192,  "gpu_beneficial": true },
         "ai.chat":               { "latency_ms": 800, "cpu": "low",    "memory_bytes": 16384, "gpu_beneficial": true },
         "ai.list_providers":     { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
+        "capabilities.list":     { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "capability.announce":   { "latency_ms": 2,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
         "capability.discover":   { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
         "capability.list":       { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 512,   "gpu_beneficial": false },
@@ -307,6 +311,7 @@ pub fn semantic_mappings_json() -> serde_json::Value {
         "list_providers": "ai.list_providers",
         "announce":       "capability.announce",
         "discover":       "capability.discover",
+        "list_capabilities": "capabilities.list",
         "health":         "system.health",
         "status":         "system.status",
         "metrics":        "system.metrics",
@@ -472,5 +477,51 @@ mod tests {
             missing_from_niche.is_empty(),
             "capability_registry.toml has methods not in niche::CAPABILITIES: {missing_from_niche:?}"
         );
+    }
+
+    #[test]
+    fn semantic_mappings_json_matches_semantic_mappings_table() {
+        let json = semantic_mappings_json();
+        let map = json.as_object().expect("object");
+        for (short, expected) in SEMANTIC_MAPPINGS {
+            assert_eq!(
+                map.get(*short).and_then(|v| v.as_str()),
+                Some(*expected),
+                "short key {short} should map to {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn feature_gates_are_non_empty_descriptions() {
+        for (gate, desc) in FEATURE_GATES {
+            assert!(!gate.is_empty());
+            assert!(!desc.is_empty());
+        }
+    }
+
+    #[test]
+    fn cost_estimates_json_has_latency_and_gpu_keys() {
+        let costs = cost_estimates_json();
+        let map = costs.as_object().expect("object");
+        let q = map.get("ai.query").expect("ai.query");
+        let obj = q.as_object().expect("inner object");
+        assert!(obj.contains_key("latency_ms"));
+        assert!(obj.contains_key("gpu_beneficial"));
+    }
+
+    #[test]
+    fn consumed_capabilities_include_compute_and_storage() {
+        let joined = CONSUMED_CAPABILITIES.join(" ");
+        assert!(joined.contains("compute.execute"));
+        assert!(joined.contains("storage.get"));
+    }
+
+    #[test]
+    fn dependencies_name_beardog_and_songbird_required() {
+        let beardog = DEPENDENCIES.iter().find(|(id, _, _)| *id == "beardog");
+        let songbird = DEPENDENCIES.iter().find(|(id, _, _)| *id == "songbird");
+        assert_eq!(beardog.map(|(_, r, _)| *r), Some(true));
+        assert_eq!(songbird.map(|(_, r, _)| *r), Some(true));
     }
 }

@@ -16,18 +16,18 @@
 // Allow deprecated items during plugin system migration to squirrel_interfaces
 #![allow(deprecated)]
 #![allow(clippy::missing_docs_in_private_items)]
-#![allow(clippy::cast_precision_loss)] // Intentional for metrics/percentages
-#![allow(clippy::cast_possible_truncation)] // Intentional for frame lengths
-#![allow(clippy::unused_self)] // Trait impls need self for interface compatibility
-#![allow(clippy::unnecessary_wraps)] // Result wrapper for trait/API consistency
-#![allow(clippy::too_many_lines)] // Complex API handlers
-#![allow(clippy::option_if_let_else)] // Style preference
-#![allow(clippy::redundant_closure_call)] // unwrap_or with closure
-#![allow(clippy::return_self_not_must_use)] // Builder pattern
-#![allow(clippy::significant_drop_tightening)] // Lock guards - explicit drop in hot paths
-#![allow(clippy::unused_async)] // Trait/interface requires async
-#![allow(clippy::cast_possible_wrap)] // Intentional for marketplace pagination
-#![allow(clippy::match_same_arms)] // Intentional grouping in match
+#![allow(
+    clippy::significant_drop_tightening,
+    clippy::unused_self,
+    clippy::unused_async,
+    clippy::option_if_let_else,
+    clippy::cast_precision_loss,
+    clippy::match_same_arms,
+    clippy::unnecessary_wraps,
+    clippy::cast_possible_wrap,
+    clippy::cast_possible_truncation,
+    clippy::too_many_lines
+)]
 
 mod default_manager;
 mod dependency_resolver;

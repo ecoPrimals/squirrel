@@ -339,7 +339,7 @@ pub struct ConsensusResult {
 }
 
 /// Consensus status
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 pub enum ConsensusStatus {
     /// Consensus reached
     Agreed,
@@ -355,7 +355,7 @@ pub enum ConsensusStatus {
 }
 
 /// Vote type
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Vote {
     /// Vote in favor
     For,

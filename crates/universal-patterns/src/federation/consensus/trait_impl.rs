@@ -29,7 +29,8 @@ impl ConsensusManager for DefaultConsensusManager {
 
         let proposal_id = Uuid::new_v4();
         let now = Utc::now();
-        let deadline = now + chrono::Duration::seconds(self.config.voting_timeout_seconds as i64);
+        let secs = i64::try_from(self.config.voting_timeout_seconds).unwrap_or(i64::MAX);
+        let deadline = now + chrono::Duration::seconds(secs);
 
         let proposal = ConsensusProposal {
             id: proposal_id,
@@ -64,7 +65,7 @@ impl ConsensusManager for DefaultConsensusManager {
 
         loop {
             tokio::select! {
-                _ = &mut timeout => {
+                () = &mut timeout => {
                     // Timeout - mark as failed
                     let mut state = self.state.write().await;
                     if let Some(mut proposal) = state.active_proposals.remove(&proposal_id) {
@@ -83,7 +84,7 @@ impl ConsensusManager for DefaultConsensusManager {
                         return Ok(result);
                     }
                 }
-                _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => {
+                () = tokio::time::sleep(std::time::Duration::from_millis(100)) => {
                     // Check if consensus reached
                     let state = self.state.read().await;
                     if let Some(result) = state.completed_proposals.iter()
@@ -135,7 +136,7 @@ impl ConsensusManager for DefaultConsensusManager {
 
             return Ok(ConsensusResult {
                 proposal_id,
-                status: proposal.status.clone(),
+                status: proposal.status,
                 value: Some(proposal.value.clone()),
                 votes_for: votes_for as u32,
                 votes_against: votes_against as u32,

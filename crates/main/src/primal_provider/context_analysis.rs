@@ -332,3 +332,82 @@ impl SquirrelPrimalProvider {
         }
     }
 }
+
+#[cfg(test)]
+mod context_analysis_tests {
+    use super::super::core::SquirrelPrimalProvider;
+    use super::ContextAnalysis;
+    use crate::ecosystem::EcosystemManager;
+    use crate::monitoring::metrics::MetricsCollector;
+    use crate::session::{SessionConfig, SessionManagerImpl};
+    use std::sync::Arc;
+
+    async fn test_provider() -> SquirrelPrimalProvider {
+        let adapter = crate::universal_adapter_v2::UniversalAdapterV2::awaken()
+            .await
+            .expect("adapter");
+        let mc = Arc::new(MetricsCollector::new());
+        let em = Arc::new(EcosystemManager::new(
+            crate::ecosystem::config::EcosystemConfig::default(),
+            mc,
+        ));
+        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()))
+            as Arc<dyn crate::session::SessionManager>;
+        SquirrelPrimalProvider::new(
+            "ca-test".to_string(),
+            squirrel_mcp_config::EcosystemConfig::default(),
+            adapter,
+            em,
+            sessions,
+        )
+    }
+
+    #[test]
+    fn sentiment_positive_negative_neutral() {
+        let p = ContextAnalysis::analyze_sentiment("This is good but bad");
+        assert!(["positive", "negative", "neutral"].contains(&p.sentiment.as_str()));
+        let n = ContextAnalysis::analyze_sentiment("hello world");
+        assert_eq!(n.sentiment, "neutral");
+    }
+
+    #[test]
+    fn intent_and_topic_and_entities() {
+        let i = ContextAnalysis::classify_intent("please help me find how to create");
+        assert!(!i.intent.is_empty());
+        let t = ContextAnalysis::detect_topic("programming and code");
+        assert_eq!(t.topic, "programming");
+        let e = ContextAnalysis::extract_entities("Email test@example.com and 42");
+        assert!(e.iter().any(|x| x.entity_type == "email"));
+    }
+
+    #[tokio::test]
+    async fn handle_request_variants_and_errors() {
+        let p = test_provider().await;
+        let full = p
+            .handle_context_analysis_request(serde_json::json!({
+                "text": "what is the good data science",
+                "analysis_type": "full"
+            }))
+            .await
+            .unwrap();
+        assert_eq!(
+            full.get("analysis_type").and_then(|v| v.as_str()),
+            Some("full")
+        );
+
+        let err = p
+            .handle_context_analysis_request(serde_json::json!({}))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, crate::error::PrimalError::ValidationError(_)));
+
+        let bad = p
+            .handle_context_analysis_request(serde_json::json!({
+                "text": "x",
+                "analysis_type": "unknown"
+            }))
+            .await
+            .unwrap_err();
+        assert!(matches!(bad, crate::error::PrimalError::ValidationError(_)));
+    }
+}

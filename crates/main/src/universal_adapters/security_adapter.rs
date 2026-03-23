@@ -326,3 +326,205 @@ pub async fn register_beardog_service(
     info!("✅ BearDog security service successfully registered with universal registry");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::universal_adapters::registry::InMemoryServiceRegistry;
+    use crate::universal_adapters::{
+        IntegrationPreferences, ResourceSpec, ServiceCategory, ServiceEndpoint, ServiceHealth,
+        ServiceMetadata, UniversalServiceRegistration,
+    };
+
+    fn test_security_registration() -> UniversalServiceRegistration {
+        UniversalServiceRegistration {
+            service_id: uuid::Uuid::new_v4(),
+            metadata: ServiceMetadata {
+                name: "Test Security".to_string(),
+                category: ServiceCategory::Security {
+                    domains: vec!["enterprise".to_string()],
+                },
+                version: "1.0.0".to_string(),
+                description: "Test".to_string(),
+                maintainer: "test".to_string(),
+                protocols: vec!["https".to_string()],
+            },
+            capabilities: vec![ServiceCapability::Security {
+                functions: vec![
+                    "authentication".to_string(),
+                    "authorization".to_string(),
+                    "session_management".to_string(),
+                ],
+                compliance: vec!["enterprise".to_string()],
+                trust_levels: vec!["high".to_string()],
+            }],
+            endpoints: vec![ServiceEndpoint {
+                name: "primary".to_string(),
+                url: "https://sec.test".to_string(),
+                protocol: "https".to_string(),
+                port: Some(443),
+                path: None,
+            }],
+            resources: ResourceSpec {
+                cpu_cores: Some(2),
+                memory_gb: Some(4),
+                storage_gb: Some(50),
+                network_bandwidth: Some(500),
+                custom_resources: HashMap::new(),
+            },
+            integration: IntegrationPreferences {
+                preferred_protocols: vec!["https".to_string()],
+                retry_policy: "simple".to_string(),
+                timeout_seconds: 30,
+                load_balancing_weight: 10,
+            },
+            extensions: HashMap::new(),
+            registration_timestamp: chrono::Utc::now(),
+            service_version: "1.0.0".to_string(),
+            instance_id: "inst-sec".to_string(),
+            priority: 10,
+        }
+    }
+
+    async fn registry_with_security() -> Arc<dyn UniversalServiceRegistry> {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        reg.register_service(test_security_registration())
+            .await
+            .expect("register");
+        reg
+    }
+
+    #[tokio::test]
+    async fn new_adapter_get_current_none() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalSecurityAdapter::new(reg);
+        assert!(adapter.get_current_security_service().is_none());
+    }
+
+    #[tokio::test]
+    async fn coordinate_security_happy_path() {
+        let reg = registry_with_security().await;
+        let mut adapter = UniversalSecurityAdapter::new(reg);
+        let params = HashMap::from([("k".to_string(), serde_json::json!(1))]);
+        let v = adapter
+            .coordinate_security("token_validate", params)
+            .await
+            .expect("coord");
+        assert_eq!(v["status"], "success");
+        assert_eq!(v["operation"], "token_validate");
+    }
+
+    #[tokio::test]
+    async fn authenticate_universal_returns_session_id() {
+        let reg = registry_with_security().await;
+        let mut adapter = UniversalSecurityAdapter::new(reg);
+        let sid = adapter
+            .authenticate_universal("user-42")
+            .await
+            .expect("session");
+        assert!(sid.contains("test security") || sid.contains("user-42") || !sid.is_empty());
+        assert!(sid.contains('_'));
+    }
+
+    #[tokio::test]
+    async fn authorize_universal_errors_without_authorized_field() {
+        let reg = registry_with_security().await;
+        let mut adapter = UniversalSecurityAdapter::new(reg);
+        let err = adapter
+            .authorize_universal("sess", "read")
+            .await
+            .unwrap_err();
+        assert!(matches!(err, PrimalError::SecurityError(_)));
+    }
+
+    #[tokio::test]
+    async fn rediscover_security_services() {
+        let reg = registry_with_security().await;
+        let mut adapter = UniversalSecurityAdapter::new(reg);
+        adapter
+            .coordinate_security("ping", HashMap::new())
+            .await
+            .unwrap();
+        adapter
+            .rediscover_security_services()
+            .await
+            .expect("redisc");
+        assert!(adapter.get_current_security_service().is_some());
+    }
+
+    #[tokio::test]
+    async fn discovery_fails_empty_registry() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let mut adapter = UniversalSecurityAdapter::new(reg);
+        let err = adapter
+            .coordinate_security("auth", HashMap::new())
+            .await
+            .unwrap_err();
+        assert!(matches!(err, PrimalError::ServiceDiscoveryError(_)));
+    }
+
+    #[tokio::test]
+    async fn get_security_capabilities() {
+        let reg = registry_with_security().await;
+        let adapter = UniversalSecurityAdapter::new(reg);
+        let caps = adapter.get_security_capabilities().await.expect("caps");
+        assert!(caps.contains(&"authentication".to_string()));
+    }
+
+    #[tokio::test]
+    async fn is_healthy_true() {
+        let reg = registry_with_security().await;
+        let adapter = UniversalSecurityAdapter::new(reg);
+        assert!(adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn is_healthy_false_empty() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalSecurityAdapter::new(reg);
+        assert!(!adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn is_healthy_false_unhealthy() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let reg_data = test_security_registration();
+        let sid = reg_data.service_id.to_string();
+        reg.register_service(reg_data).await.unwrap();
+        reg.update_service_health(
+            &sid,
+            ServiceHealth {
+                healthy: false,
+                message: None,
+                metrics: HashMap::new(),
+            },
+        )
+        .await
+        .unwrap();
+        let mut adapter = UniversalSecurityAdapter::new(reg);
+        adapter
+            .coordinate_security("x", HashMap::new())
+            .await
+            .unwrap();
+        assert!(!adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn register_beardog_and_serde_roundtrip() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        register_beardog_service(reg.clone()).await.expect("reg");
+        let services = reg.list_all_services().await.expect("list");
+        assert_eq!(services.len(), 1);
+        let json = serde_json::to_string(&services[0].capabilities).expect("ser");
+        let caps: Vec<ServiceCapability> = serde_json::from_str(&json).expect("de");
+        assert!(!caps.is_empty());
+    }
+
+    #[test]
+    fn security_registration_serde_roundtrip() {
+        let r = test_security_registration();
+        let s = serde_json::to_string(&r).expect("json");
+        let back: UniversalServiceRegistration = serde_json::from_str(&s).expect("back");
+        assert_eq!(r.service_id, back.service_id);
+    }
+}

@@ -302,6 +302,8 @@ impl SquirrelClientBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rpc::tarpc_service::{AnnounceCapabilitiesParams, QueryAiParams, QueryAiResult};
+    use std::sync::Arc;
 
     #[test]
     fn test_client_builder() {
@@ -315,5 +317,192 @@ mod tests {
     fn test_default_timeout() {
         let builder = SquirrelClientBuilder::new("test");
         assert_eq!(builder.timeout, Duration::from_secs(30));
+    }
+
+    #[test]
+    fn query_ai_params_bincode_roundtrip() {
+        let params = QueryAiParams {
+            prompt: "hello".to_string(),
+            model: Some(Arc::from("gpt-test")),
+            max_tokens: Some(256),
+            temperature: Some(0.7),
+        };
+        let bytes = bincode::serialize(&params).expect("bincode serialize");
+        let back: QueryAiParams = bincode::deserialize(&bytes).expect("bincode deserialize");
+        assert_eq!(back.prompt, "hello");
+        assert_eq!(back.model.as_ref().map(|m| m.as_ref()), Some("gpt-test"));
+        assert_eq!(back.max_tokens, Some(256));
+        assert_eq!(back.temperature, Some(0.7));
+    }
+
+    #[test]
+    fn announce_capabilities_params_bincode_roundtrip() {
+        let params = AnnounceCapabilitiesParams {
+            capabilities: vec!["cap.a".to_string()],
+            primal: Some("p1".to_string()),
+            socket_path: Some("/tmp/s".to_string()),
+            tools: Some(vec!["t1".to_string()]),
+            sub_federations: Some(vec!["sub".to_string()]),
+            genetic_families: None,
+        };
+        let bytes = bincode::serialize(&params).expect("bincode");
+        let back: AnnounceCapabilitiesParams = bincode::deserialize(&bytes).expect("de");
+        assert_eq!(back.capabilities, params.capabilities);
+        assert_eq!(back.primal, params.primal);
+        assert_eq!(back.socket_path, params.socket_path);
+    }
+
+    #[test]
+    fn query_ai_result_bincode_roundtrip() {
+        let res = QueryAiResult {
+            response: "r".to_string(),
+            provider: Arc::from("prov"),
+            model: Arc::from("mod"),
+            tokens_used: Some(10),
+            latency_ms: 5,
+            success: true,
+        };
+        let bytes = bincode::serialize(&res).expect("bincode");
+        let back: QueryAiResult = bincode::deserialize(&bytes).expect("de");
+        assert_eq!(back.response, "r");
+        assert_eq!(back.provider.as_ref(), "prov");
+        assert_eq!(back.latency_ms, 5);
+        assert!(back.success);
+    }
+
+    #[test]
+    fn capability_announce_params_shape_matches_client_usage() {
+        let params = AnnounceCapabilitiesParams {
+            capabilities: vec!["x".to_string()],
+            primal: Some("primal".to_string()),
+            socket_path: None,
+            tools: None,
+            sub_federations: None,
+            genetic_families: None,
+        };
+        assert_eq!(params.capabilities.len(), 1);
+        assert_eq!(params.primal.as_deref(), Some("primal"));
+    }
+
+    #[test]
+    fn client_builder_chaining_preserves_service_name() {
+        let b = SquirrelClientBuilder::new("my-svc").timeout(std::time::Duration::from_secs(99));
+        assert_eq!(b.service_name, "my-svc");
+        assert_eq!(b.timeout, std::time::Duration::from_secs(99));
+    }
+
+    #[tokio::test]
+    async fn connect_fails_when_service_not_discoverable() {
+        let err = SquirrelClient::connect("nonexistent-squirrel-service-xyz-999")
+            .await
+            .err()
+            .expect("discovery should fail");
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("discover") || msg.contains("Failed") || msg.contains("connect"),
+            "unexpected error: {msg}"
+        );
+    }
+
+    #[test]
+    fn result_types_bincode_roundtrip() {
+        use crate::rpc::tarpc_service::{
+            CapabilityDiscoverResult, DiscoveryPeersResult, HealthCheckResult,
+            LifecycleRegisterResult, LifecycleStatusResult, PeerInfo, PingResult,
+            SystemMetricsResult, ToolExecuteResult, ToolListEntry, ToolListResult, ToolSource,
+        };
+        use std::collections::HashMap;
+
+        let ping = PingResult {
+            pong: true,
+            timestamp: "t".to_string(),
+            version: "v".to_string(),
+        };
+        let b = bincode::serialize(&ping).unwrap();
+        let back: PingResult = bincode::deserialize(&b).unwrap();
+        assert!(back.pong);
+
+        let health = HealthCheckResult {
+            status: "ok".to_string(),
+            version: "1".to_string(),
+            uptime_seconds: 3,
+            active_providers: 1,
+            requests_processed: 2,
+            avg_response_time_ms: Some(1.5),
+        };
+        let b = bincode::serialize(&health).unwrap();
+        let _: HealthCheckResult = bincode::deserialize(&b).unwrap();
+
+        let m = SystemMetricsResult {
+            requests_handled: 1,
+            errors: 0,
+            uptime_seconds: 2,
+            avg_response_time_ms: None,
+            success_rate: 0.99,
+        };
+        let b = bincode::serialize(&m).unwrap();
+        let _: SystemMetricsResult = bincode::deserialize(&b).unwrap();
+
+        let cap = CapabilityDiscoverResult {
+            primal: "sq".to_string(),
+            capabilities: vec!["a".to_string()],
+            version: "0".to_string(),
+            metadata: HashMap::from([("k".to_string(), "v".to_string())]),
+        };
+        let b = bincode::serialize(&cap).unwrap();
+        let _: CapabilityDiscoverResult = bincode::deserialize(&b).unwrap();
+
+        let peers = DiscoveryPeersResult {
+            peers: vec![PeerInfo {
+                id: "i".to_string(),
+                socket: "/s".to_string(),
+                capabilities: vec!["c".to_string()],
+                discovered_via: "x".to_string(),
+            }],
+            total: 1,
+            discovery_method: "d".to_string(),
+        };
+        let b = bincode::serialize(&peers).unwrap();
+        let _: DiscoveryPeersResult = bincode::deserialize(&b).unwrap();
+
+        let te = ToolExecuteResult {
+            tool: "t".to_string(),
+            success: true,
+            output: "o".to_string(),
+            error: None,
+            timestamp: "ts".to_string(),
+        };
+        let b = bincode::serialize(&te).unwrap();
+        let _: ToolExecuteResult = bincode::deserialize(&b).unwrap();
+
+        let tl = ToolListResult {
+            tools: vec![ToolListEntry {
+                name: "n".to_string(),
+                description: "d".to_string(),
+                domain: "dom".to_string(),
+                source: ToolSource::Remote {
+                    primal: "p".to_string(),
+                },
+                input_schema: None,
+            }],
+            total: 1,
+        };
+        let b = bincode::serialize(&tl).unwrap();
+        let _: ToolListResult = bincode::deserialize(&b).unwrap();
+
+        let lr = LifecycleRegisterResult {
+            success: true,
+            message: "m".to_string(),
+        };
+        let b = bincode::serialize(&lr).unwrap();
+        let _: LifecycleRegisterResult = bincode::deserialize(&b).unwrap();
+
+        let ls = LifecycleStatusResult {
+            status: "s".to_string(),
+            version: "v".to_string(),
+            uptime_seconds: 0,
+        };
+        let b = bincode::serialize(&ls).unwrap();
+        let _: LifecycleStatusResult = bincode::deserialize(&b).unwrap();
     }
 }

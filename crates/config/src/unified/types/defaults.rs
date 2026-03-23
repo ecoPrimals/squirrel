@@ -5,7 +5,7 @@
 
 use std::path::PathBuf;
 
-use super::definitions::ServiceRegistryType;
+use super::service::ServiceRegistryType;
 use universal_constants::network::{get_bind_address, get_service_port};
 
 // Default value functions

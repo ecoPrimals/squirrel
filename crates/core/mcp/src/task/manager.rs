@@ -156,15 +156,38 @@ impl TaskManager {
 
     /// Assign a task to an agent.
     pub async fn assign_task(&self, task_id: &str, agent_id: &str) -> Result<Task> {
-        let mut tasks = self.tasks.write().await;
+        // Release any `tasks` lock before awaiting `check_prerequisites`, which takes a read lock
+        // on the same map (would deadlock if we held the write lock across the await).
+        let task_snapshot = {
+            let tasks = self.tasks.read().await;
+            tasks
+                .get(task_id)
+                .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
+                .clone()
+        };
 
-        // Get the task
+        if task_snapshot.status_code != TaskStatus::Pending
+            && task_snapshot.status_code != TaskStatus::Waiting
+        {
+            return Err(Error::InvalidState(format!(
+                "Task {} is in state {:?} and cannot be assigned",
+                task_id, task_snapshot.status_code
+            )));
+        }
+
+        let prerequisites_met = self.check_prerequisites(&task_snapshot).await?;
+        if !prerequisites_met {
+            return Err(Error::InvalidState(format!(
+                "Prerequisites for task {task_id} are not all met"
+            )));
+        }
+
+        let mut tasks = self.tasks.write().await;
         let mut task = tasks
             .get_mut(task_id)
             .ok_or_else(|| Error::NotFound(format!("Task with ID {task_id} not found")))?
             .clone();
 
-        // Check if the task is in a valid state to be assigned
         if task.status_code != TaskStatus::Pending && task.status_code != TaskStatus::Waiting {
             return Err(Error::InvalidState(format!(
                 "Task {} is in state {:?} and cannot be assigned",
@@ -172,25 +195,14 @@ impl TaskManager {
             )));
         }
 
-        // Check if all prerequisites are met
-        let prerequisites_met = self.check_prerequisites(&task).await?;
-        if !prerequisites_met {
-            return Err(Error::InvalidState(format!(
-                "Prerequisites for task {task_id} are not all met"
-            )));
-        }
-
-        // Update the task
         task.mark_running(agent_id);
 
-        // Update the agent task mapping
         let mut agent_tasks = self.agent_tasks.write().await;
         let tasks_set = agent_tasks
             .entry(agent_id.to_string())
             .or_insert_with(HashSet::new);
         tasks_set.insert(Arc::clone(&task.id));
 
-        // Update the task in the map
         tasks.insert(Arc::clone(&task.id), task.clone());
 
         Ok(task)
@@ -554,5 +566,124 @@ mod tests {
         let pid = p.id.as_ref().to_string();
         let pe = mgr.update_task_progress(&pid, 1.0, "x").await.unwrap_err();
         assert!(pe.to_string().contains("progress"));
+    }
+
+    #[tokio::test]
+    async fn context_and_agent_indexes_update_on_create_and_task_moves() {
+        let mgr = TaskManager::new();
+        let t = Task::new("c", "with ctx").with_context("ctx-a");
+        let created = mgr.create_task(t).await.unwrap();
+        let ctx_tasks = mgr.get_context_tasks("ctx-a").await.unwrap();
+        assert_eq!(ctx_tasks.len(), 1);
+
+        let mut moved = mgr.get_task(created.id.as_ref()).await.unwrap();
+        moved.context_id = Some("ctx-b".into());
+        mgr.update_task(moved).await.unwrap();
+        assert!(mgr.get_context_tasks("ctx-a").await.unwrap().is_empty());
+        assert_eq!(mgr.get_context_tasks("ctx-b").await.unwrap().len(), 1);
+
+        let t2 = Task::new("agented", "x");
+        let c2 = mgr.create_task(t2).await.unwrap();
+        mgr.assign_task(c2.id.as_ref(), "agent-1").await.unwrap();
+        assert_eq!(mgr.get_agent_tasks("agent-1").await.unwrap().len(), 1);
+
+        let mut reassigned = mgr.get_task(c2.id.as_ref()).await.unwrap();
+        assert!(
+            mgr.assign_task(reassigned.id.as_ref(), "agent-2")
+                .await
+                .is_err()
+        );
+        reassigned.status_code = TaskStatus::Pending;
+        reassigned.agent_id = None;
+        mgr.update_task(reassigned).await.unwrap();
+        mgr.assign_task(c2.id.as_ref(), "agent-2").await.unwrap();
+        assert!(mgr.get_agent_tasks("agent-1").await.unwrap().is_empty());
+        assert_eq!(mgr.get_agent_tasks("agent-2").await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn prerequisites_block_assign_until_complete_then_dependent_unblocks() {
+        let mgr = TaskManager::new();
+        let pre = Task::new("pre", "first");
+        let pre_created = mgr.create_task(pre).await.unwrap();
+        let pre_id = pre_created.id.as_ref().to_string();
+
+        let mut dep = Task::new("dep", "after pre");
+        dep.prerequisites = vec![pre_id.clone()];
+        dep.status_code = TaskStatus::Waiting;
+        let dep_created = mgr.create_task(dep).await.unwrap();
+
+        let err = mgr
+            .assign_task(dep_created.id.as_ref(), "a")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Prerequisites"));
+
+        mgr.assign_task(&pre_id, "a").await.unwrap();
+        mgr.complete_task(&pre_id, None).await.unwrap();
+
+        let dep_after = mgr.get_task(dep_created.id.as_ref()).await.unwrap();
+        assert_eq!(dep_after.status_code, TaskStatus::Pending);
+        assert!(mgr.check_prerequisites(&dep_after).await.unwrap());
+        assert!(
+            mgr.find_assignable_tasks()
+                .await
+                .unwrap()
+                .iter()
+                .any(|t| t.id.as_ref() == dep_created.id.as_ref())
+        );
+    }
+
+    #[tokio::test]
+    async fn get_tasks_by_status_and_fail_task() {
+        let mgr = TaskManager::new();
+        let t = Task::new("f", "fail me");
+        let c = mgr.create_task(t).await.unwrap();
+        let id = c.id.as_ref().to_string();
+        mgr.fail_task(&id, "boom").await.unwrap();
+        let failed = mgr.get_tasks_by_status(TaskStatus::Failed).await.unwrap();
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].id.as_ref(), id);
+    }
+
+    #[tokio::test]
+    async fn complete_and_cancel_invalid_states() {
+        let mgr = TaskManager::new();
+        let t = Task::new("p", "pending");
+        let c = mgr.create_task(t).await.unwrap();
+        let id = c.id.as_ref().to_string();
+
+        let ce = mgr.complete_task(&id, None).await.unwrap_err();
+        assert!(ce.to_string().contains("cannot be completed"));
+
+        mgr.assign_task(&id, "ag").await.unwrap();
+        mgr.cancel_task(&id, "stop").await.unwrap();
+
+        let t2 = Task::new("p2", "run to done");
+        let c2 = mgr.create_task(t2).await.unwrap();
+        let id2 = c2.id.as_ref().to_string();
+        mgr.assign_task(&id2, "ag2").await.unwrap();
+        mgr.complete_task(&id2, None).await.unwrap();
+        let ce3 = mgr.cancel_task(&id2, "late").await.unwrap_err();
+        assert!(ce3.to_string().contains("terminal"));
+    }
+
+    #[tokio::test]
+    async fn check_prerequisites_missing_prereq_task_returns_false() {
+        let mgr = TaskManager::new();
+        let mut t = Task::new("x", "y");
+        t.prerequisites = vec!["nonexistent".into()];
+        assert!(!mgr.check_prerequisites(&t).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn list_tasks_with_agent_and_without() {
+        let mgr = TaskManager::new();
+        let a = mgr.create_task(Task::new("a", "")).await.unwrap();
+        mgr.assign_task(a.id.as_ref(), "z").await.unwrap();
+        let list_z = mgr.list_tasks(Some("z")).await.unwrap();
+        assert_eq!(list_z.len(), 1);
+        let all = mgr.list_tasks(None).await.unwrap();
+        assert_eq!(all.len(), 1);
     }
 }

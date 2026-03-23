@@ -257,4 +257,119 @@ mod error_path_tests {
 
         assert!(result.is_err());
     }
+
+    #[test]
+    fn primal_error_invalid_input_remote_and_endpoint() {
+        assert!(
+            PrimalError::InvalidInput("i".into())
+                .to_string()
+                .contains("i")
+        );
+        assert!(
+            PrimalError::RemoteError("r".into())
+                .to_string()
+                .contains("r")
+        );
+        assert!(
+            PrimalError::InvalidEndpoint("ep".into())
+                .to_string()
+                .contains("ep")
+        );
+    }
+
+    #[test]
+    fn primal_error_not_implemented_and_not_supported() {
+        assert!(
+            PrimalError::NotImplemented("n".into())
+                .to_string()
+                .contains("n")
+        );
+        assert!(
+            PrimalError::NotSupported("s".into())
+                .to_string()
+                .contains("s")
+        );
+    }
+
+    #[test]
+    fn primal_error_invalid_response_and_parsing() {
+        assert!(
+            PrimalError::InvalidResponse("bad".into())
+                .to_string()
+                .contains("bad")
+        );
+        assert!(
+            PrimalError::ParsingError("p".into())
+                .to_string()
+                .contains("p")
+        );
+    }
+
+    #[test]
+    fn primal_error_config_error_variants_distinct() {
+        let a = PrimalError::Configuration("a".into());
+        let b = PrimalError::ConfigurationError("b".into());
+        let c = PrimalError::ConfigError("c".into());
+        assert_ne!(a.to_string(), b.to_string());
+        assert_ne!(b.to_string(), c.to_string());
+    }
+
+    #[test]
+    fn primal_error_compute_storage_and_internal() {
+        assert!(
+            PrimalError::ComputeError("c".into())
+                .to_string()
+                .contains("c")
+        );
+        assert!(
+            PrimalError::StorageError("s".into())
+                .to_string()
+                .contains("s")
+        );
+        assert!(PrimalError::Internal("i".into()).to_string().contains("i"));
+    }
+
+    #[test]
+    fn primal_error_registry_and_operation_variants() {
+        assert!(PrimalError::Registry("r".into()).to_string().contains("r"));
+        assert!(
+            PrimalError::OperationFailed("o".into())
+                .to_string()
+                .contains("o")
+        );
+        assert!(
+            PrimalError::OperationNotSupported("x".into())
+                .to_string()
+                .contains("x")
+        );
+    }
+
+    #[test]
+    fn primal_error_resource_not_found_variants() {
+        assert!(
+            PrimalError::ResourceNotFound("a".into())
+                .to_string()
+                .contains("a")
+        );
+        assert!(
+            PrimalError::NotFoundError("b".into())
+                .to_string()
+                .contains("b")
+        );
+        assert!(
+            PrimalError::ResourceError("c".into())
+                .to_string()
+                .contains("c")
+        );
+    }
+
+    #[test]
+    fn primal_error_serialization_and_general() {
+        assert!(
+            PrimalError::SerializationError("s".into())
+                .to_string()
+                .contains("s")
+        );
+        assert!(PrimalError::General("g".into()).to_string().contains("g"));
+    }
 }

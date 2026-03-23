@@ -9,6 +9,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.21] - 2026-03-23
+
+Coverage push and zero-copy evolution: 22 parallel test waves, 5 production bugs
+discovered and fixed through testing, zero-copy improvements across hot paths.
+6,717 tests passing, 86.8% line coverage, zero clippy warnings.
+
+### Added
+
+- **889 new tests** across all workspace crates — MCP security, context learning,
+  services, SDK, AI tools, CLI, RPC handlers, universal adapters, biomeos integration,
+  primal providers, transport, rule system, plugin web
+- **Test infrastructure helpers** — `test_only_register_service`,
+  `test_only_insert_provider`, `test_only_set_next_primal_response` for isolated testing
+
+### Changed
+
+- **`MetricType` / `ConsensusStatus`** — made `Copy` (eliminates clone overhead)
+- **Consensus messaging** — `mem::take` replaces payload clone in vote handling
+- **`Arc::clone(&state)`** clarity across federation and RPC modules
+- **Collector clones** — redundant `String` clones removed in metric registration
+
+### Fixed
+
+- **`task/manager.rs` deadlock** — `assign_task` held write lock across async
+  prerequisite check; resolved via snapshot-check-relock pattern
+- **`web/api.rs` route shadowing** — `/api/plugins/health` and `/metrics` were
+  shadowed by generic plugin-details route; now matched first
+- **`handlers_tool.rs` hijacking** — spring tools could intercept built-in
+  `system.health`; built-ins now resolve before spring routing
+- **`resource_manager/core.rs`** — `get_usage_stats` now reports live background
+  task count instead of stale ticker value
+- **`dispatch.rs` flaky test** — HashMap iteration order non-determinism under
+  llvm-cov instrumentation; fixed by registering providers sequentially
+
+### Metrics
+
+| Metric | alpha.20 | alpha.21 |
+|--------|----------|----------|
+| Tests | 5,828 | 6,717 |
+| Coverage | 74.8% | 86.8% |
+| Production bugs found | — | 5 |
+| Files >1000 lines | 0 | 0 |
+
+## [0.1.0-alpha.20] - 2026-03-23
+
+Deep debt resolution, semantic compliance, and lint tightening sprint:
+`capabilities.list` canonical method, smart refactoring, suppression cleanup.
+5,828 tests passing, zero clippy warnings.
+
+### Added
+
+- **`capabilities.list`** canonical method per SEMANTIC_METHOD_NAMING_STANDARD v2.1;
+  `capability.list` retained as alias; 24 exposed methods (was 23)
+- **51 new tests** — core monitoring, universal messages/context/helpers, security
+  rate_limiter, ecosystem types, error paths, niche JSON validation
+
+### Changed
+
+- **`definitions.rs` smart refactor** — 1121→585 lines by extracting `service.rs`
+  and `definitions_tests.rs`
+- **`#[allow]` tightening** — removed crate-level suppressions from `ecosystem-api`
+  and `squirrel-core`; reduced others significantly
+- **Dead code cleanup** — all `#[allow(dead_code)]` evolved to documented `reason`
+  strings; unused parse functions gated behind `#[cfg(test)]`
+
+### Fixed
+
+- **Flaky llvm-cov tests** — `test_config_validate_security_*` hardened with explicit
+  port values
+- **Semantic consistency** — `semantic_mappings_json()` missing `list_capabilities →
+  capabilities.list` entry corrected
+
+## [0.1.0-alpha.18] - 2026-03-23
+
+Deep debt resolution and compliance sprint: full audit execution across all identified
+issues from the comprehensive codebase review.
+
+### Added
+
+- **Coverage wave 1** — new test suites for config types, auth, MCP security/token,
+  routing balancer, protocol websocket, enhanced session
+- **`#[must_use]`** and `# Errors` doc sections on additional public APIs
+
+### Changed
+
+- **`base64` 0.21→0.22** — unified across workspace; legacy `base64::encode` → `Engine::encode`
+- **`web/api.rs`** — 977→859 lines by extracting 8 DTO types into `api_types.rs`
+- **ai-tools lint tightening** — 10 blanket clippy allows removed, 67 auto-fixes
+- **Orphan code cleanup** — 18 dead files removed across 3 crates
+
 ## [0.1.0-alpha.17] - 2026-03-22
 
 Deep audit, documentation, and coverage sprint: all clippy errors fixed, 400+ doc

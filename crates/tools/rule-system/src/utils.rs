@@ -296,3 +296,94 @@ pub fn match_pattern(pattern: &str, text: &str) -> bool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use serde_json::json;
+
+    #[test]
+    fn create_rule_template_contains_fields() {
+        let t = create_rule_template("rid", "RName", "cat");
+        assert!(t.contains("rid"));
+        assert!(t.contains("RName"));
+        assert!(t.contains("cat"));
+    }
+
+    #[test]
+    fn extract_value_by_path_nested_and_index() {
+        let data = json!({
+            "a": { "b": 2 },
+            "items": [ { "x": 1 }, { "x": 9 } ]
+        });
+        assert_eq!(extract_value_by_path(&data, "a.b"), Some(json!(2)));
+        assert_eq!(extract_value_by_path(&data, "items[1].x"), Some(json!(9)));
+        assert!(extract_value_by_path(&data, "a.missing").is_none());
+    }
+
+    #[test]
+    fn set_value_by_path_creates_intermediate() {
+        let mut v = json!({});
+        assert!(set_value_by_path(&mut v, "a.b.c", json!(42)));
+        assert_eq!(extract_value_by_path(&v, "a.b.c"), Some(json!(42)));
+
+        let mut arr = json!({});
+        assert!(set_value_by_path(&mut arr, "list[0].name", json!("first")));
+        assert_eq!(
+            extract_value_by_path(&arr, "list[0].name"),
+            Some(json!("first"))
+        );
+    }
+
+    #[test]
+    fn timestamps_roundtrip() {
+        let now = Utc::now();
+        let s = format_timestamp(now);
+        let back = parse_timestamp(&s).unwrap();
+        assert_eq!(now.timestamp(), back.timestamp());
+    }
+
+    #[test]
+    fn rule_map_sort_filter_match() {
+        let mut r1 = Rule::new("a").with_priority(20).with_category("c1");
+        r1.patterns.push("ctx.*".to_string());
+        let r2 = Rule::new("b").with_priority(10).with_category("c2");
+
+        let map = create_rule_map(&[r1.clone(), r2.clone()]);
+        assert_eq!(map.len(), 2);
+
+        let mut rules = vec![r1.clone(), r2.clone()];
+        sort_rules_by_priority(&mut rules);
+        assert_eq!(rules[0].id, "b");
+
+        let c1 = filter_rules_by_category(&[r1.clone(), r2.clone()], "c1");
+        assert_eq!(c1.len(), 1);
+
+        assert!(rule_matches_context(&r1, "ctx.foo"));
+        let pat = filter_rules_by_pattern(&[r1.clone(), r2], "ctx.foo");
+        assert_eq!(pat.len(), 1);
+    }
+
+    #[test]
+    fn match_pattern_variants() {
+        assert!(match_pattern("hello*", "helloWorld"));
+        assert!(match_pattern("a?c", "abc"));
+        assert!(!match_pattern("a?c", "abbc"));
+    }
+
+    #[tokio::test]
+    async fn create_and_serialize_rule_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = create_rule_file(dir.path(), "rid", "---\nid: rid\n---\n")
+            .await
+            .unwrap();
+        assert!(path.exists());
+
+        let rule = Rule::new("x").with_name("n").with_category("c");
+        let yaml = serialize_rule_to_yaml(&rule).unwrap();
+        assert!(yaml.contains("x"));
+        let json = serialize_rule_to_json(&rule).unwrap();
+        assert!(json.contains("x"));
+    }
+}

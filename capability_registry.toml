@@ -96,11 +96,18 @@ description = "Report own capabilities for socket scanning"
 [capabilities.capability_discover.input_schema]
 type = "object"
 
-[capabilities.capability_list]
+[capabilities.capabilities_list]
+method = "capabilities.list"
+domain = "capability.discovery"
+description = "List per-method cost/dependency detail for PathwayLearner scheduling (canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1)"
+[capabilities.capabilities_list.input_schema]
+type = "object"
+
+[capabilities.capability_list_alias]
 method = "capability.list"
 domain = "capability.discovery"
-description = "List per-method cost/dependency detail for PathwayLearner scheduling"
-[capabilities.capability_list.input_schema]
+description = "Alias for capabilities.list — retained for ecosystem backward compatibility"
+[capabilities.capability_list_alias.input_schema]
 type = "object"
 
 # --- Health probes (PRIMAL_IPC_PROTOCOL v3.0) ---

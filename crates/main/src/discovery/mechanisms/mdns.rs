@@ -24,6 +24,7 @@
 use crate::discovery::mechanisms::socket_registry::discover_from_socket_registry;
 use crate::discovery::types::{DiscoveredService, DiscoveryResult};
 use std::collections::HashMap;
+#[cfg(test)]
 use std::net::IpAddr;
 use std::time::Duration;
 use tracing::{debug, info, warn};
@@ -31,10 +32,10 @@ use tracing::{debug, info, warn};
 /// mDNS discovery client
 #[derive(Debug, Clone)]
 pub struct MdnsDiscovery {
-    #[allow(dead_code)] // Reserved for real mDNS implementation
+    #[allow(dead_code, reason = "Reserved for real mDNS implementation")]
     service_type: String,
 
-    #[allow(dead_code)] // Reserved for real mDNS implementation
+    #[allow(dead_code, reason = "Reserved for real mDNS implementation")]
     timeout: Duration,
 
     /// Enable/disable mDNS
@@ -145,7 +146,7 @@ impl MdnsDiscovery {
     /// Parse service information from mDNS response
     ///
     /// Helper function to convert mDNS data to DiscoveredService.
-    #[allow(dead_code)] // Reserved for real mDNS implementation; tests exercise the parser
+    #[cfg(test)]
     fn parse_mdns_response(
         name: String,
         address: IpAddr,

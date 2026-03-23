@@ -75,3 +75,57 @@ impl Default for DefaultAuditService {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn audit_event_serde_round_trip() {
+        let e = AuditEvent {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            event_type: "test".to_string(),
+            user_id: None,
+            resource_id: Some(String::new()),
+            action: "a".to_string(),
+            status: "ok".to_string(),
+            message: "m".to_string(),
+        };
+        let json = serde_json::to_string(&e).unwrap();
+        let back: AuditEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, e.id);
+        assert_eq!(back.event_type, e.event_type);
+        assert_eq!(back.resource_id, e.resource_id);
+        assert_eq!(back.status, e.status);
+    }
+
+    #[tokio::test]
+    async fn audit_service_lifecycle() {
+        let s = DefaultAuditService::new();
+        let _ = DefaultAuditService::default();
+        let dbg = format!("{s:?}");
+        assert!(dbg.contains("DefaultAuditService"));
+
+        assert!(s.get_events().await.is_empty());
+
+        let ev = AuditEvent {
+            id: Uuid::nil(),
+            timestamp: Utc::now(),
+            event_type: "e".to_string(),
+            user_id: Some("u".to_string()),
+            resource_id: None,
+            action: "act".to_string(),
+            status: "success".to_string(),
+            message: "".to_string(),
+        };
+        s.log_event(ev.clone()).await;
+        let events = s.get_events().await;
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].id, ev.id);
+
+        s.clear_events().await;
+        assert!(s.get_events().await.is_empty());
+    }
+}

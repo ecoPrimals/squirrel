@@ -238,3 +238,177 @@ impl Clone for SecurityManagerImpl {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+    use crate::error::MCPError;
+
+    fn quiet_config() -> SecurityConfig {
+        let mut c = SecurityConfig::default();
+        c.enable_audit = false;
+        c.enable_rbac = false;
+        c.enable_encryption = false;
+        c
+    }
+
+    #[tokio::test]
+    async fn new_default_clone_and_accessors() {
+        let m = SecurityManagerImpl::new(quiet_config());
+        let dbg = format!("{m:?}");
+        assert!(dbg.contains("SecurityManagerImpl"));
+
+        assert!(m.audit_service().get_events().await.is_empty());
+        let _ = m.crypto_provider();
+        let _ = m.identity_manager();
+        let _ = m.key_storage();
+        let _ = m.rbac_manager();
+        let _ = m.token_manager();
+
+        let c = SecurityManagerImpl::default();
+        assert!(c.get_config().enable_audit);
+
+        let cloned = m.clone();
+        assert_eq!(
+            cloned.get_config().enable_audit,
+            m.get_config().enable_audit
+        );
+    }
+
+    #[test]
+    fn initialize_and_update_config() {
+        let mut m = SecurityManagerImpl::new(quiet_config());
+        assert!(m.initialize().is_ok());
+        let mut next = quiet_config();
+        next.enable_audit = true;
+        assert!(m.update_config(next).is_ok());
+        assert!(m.get_config().enable_audit);
+    }
+
+    #[tokio::test]
+    async fn authenticate_audit_paths() {
+        let mut cfg = quiet_config();
+        cfg.enable_audit = true;
+        let m = SecurityManagerImpl::new(cfg);
+        let id = m
+            .identity_manager()
+            .create_identity("bob".to_string(), None)
+            .await
+            .unwrap();
+
+        let ok = m.authenticate("bob", "pw").await.unwrap();
+        assert_eq!(ok.unwrap().id, id.id);
+        let events = m.audit_service().get_events().await;
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].status, "success");
+
+        m.audit_service().clear_events().await;
+        let fail = m.authenticate("nobody", "pw").await.unwrap();
+        assert!(fail.is_none());
+        let events = m.audit_service().get_events().await;
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].status, "failure");
+    }
+
+    #[tokio::test]
+    async fn authenticate_skips_audit_when_disabled() {
+        let m = SecurityManagerImpl::new(quiet_config());
+        m.identity_manager()
+            .create_identity("c".to_string(), None)
+            .await
+            .unwrap();
+        m.authenticate("c", "x").await.unwrap().unwrap();
+        assert!(m.audit_service().get_events().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn check_permission_rbac_disabled_always_ok() {
+        let m = SecurityManagerImpl::new(quiet_config());
+        let p = Permission::new("r".to_string(), "a".to_string());
+        assert!(m.check_permission("not-a-uuid", &p).await.is_ok());
+        assert!(
+            m.check_permission_by_id(&Uuid::new_v4(), "r", "a")
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn check_permission_rbac_denied_and_granted() {
+        let mut cfg = quiet_config();
+        cfg.enable_rbac = true;
+        cfg.enable_audit = false;
+        let m = SecurityManagerImpl::new(cfg);
+
+        let user = Uuid::new_v4();
+        let role = m
+            .rbac_manager()
+            .create_role("role".to_string(), "".to_string())
+            .await
+            .unwrap();
+        m.rbac_manager()
+            .add_permission_to_role(
+                &role.id,
+                Permission::new("res".to_string(), "act".to_string()),
+            )
+            .await
+            .unwrap();
+        m.rbac_manager()
+            .assign_role_to_user(&user, &role.id, &Uuid::new_v4())
+            .await
+            .unwrap();
+
+        assert!(m.check_permission_by_id(&user, "res", "act").await.unwrap());
+
+        let err = m
+            .check_permission(
+                &user.to_string(),
+                &Permission::new("x".to_string(), "y".to_string()),
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(err, MCPError::Authorization(_)));
+
+        assert!(
+            m.check_permission(
+                &user.to_string(),
+                &Permission::new("res".to_string(), "act".to_string())
+            )
+            .await
+            .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn check_permission_by_id_audit_when_enabled() {
+        let mut cfg = quiet_config();
+        cfg.enable_rbac = true;
+        cfg.enable_audit = true;
+        let m = SecurityManagerImpl::new(cfg);
+        let id = Uuid::new_v4();
+        m.check_permission_by_id(&id, "any", "op").await.unwrap();
+        let events = m.audit_service().get_events().await;
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].status, "denied");
+    }
+
+    #[test]
+    fn encrypt_decrypt_pass_through_when_disabled() {
+        let m = SecurityManagerImpl::new(quiet_config());
+        let data = [7_u8, 8, 9];
+        assert_eq!(m.encrypt(&data).unwrap(), data);
+        assert_eq!(m.decrypt(&data).unwrap(), data);
+    }
+
+    #[test]
+    fn encrypt_decrypt_round_trip_when_enabled() {
+        let mut cfg = quiet_config();
+        cfg.enable_encryption = true;
+        let m = SecurityManagerImpl::new(cfg);
+        let plain = b"secret payload";
+        let ct = m.encrypt(plain).unwrap();
+        assert_ne!(ct.as_slice(), plain);
+        assert_eq!(m.decrypt(&ct).unwrap(), plain);
+    }
+}

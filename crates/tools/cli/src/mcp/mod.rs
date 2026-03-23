@@ -831,4 +831,116 @@ mod tests {
 
         println!("test_multiple_subscribers_mock completed successfully");
     }
+
+    #[test]
+    fn module_type_aliases_and_reexports() {
+        let mut subs: SubscriptionMap = std::collections::HashMap::new();
+        subs.insert(
+            "t".to_string(),
+            vec![Box::new(|_msg| Ok(())) as McpCallbackFn],
+        );
+        assert_eq!(subs.len(), 1);
+
+        let _ = MCPClient::new("127.0.0.1".to_string(), 65000);
+        let _ = MCPServer::new(Some("127.0.0.1"), Some(65001));
+    }
+
+    #[test]
+    fn mcp_message_roundtrip_for_coordinator_payloads() {
+        let req = MCPMessage::new_request(
+            "coord-1".to_string(),
+            "registry.execute".to_string(),
+            Some(json!({ "args": ["a", "b"] })),
+        );
+        let s = req.to_json().expect("to_json");
+        let back = MCPMessage::from_json(&s).expect("from_json");
+        assert_eq!(back.command, "registry.execute");
+        assert_eq!(back.message_type, MCPMessageType::Request);
+    }
+
+    /// Mock server maps command execution failure to an MCP error response.
+    #[test]
+    fn mock_server_command_execution_error() {
+        struct FailingCommand;
+
+        impl Command for FailingCommand {
+            fn name(&self) -> &str {
+                "fail_cmd"
+            }
+
+            fn description(&self) -> &str {
+                "always fails"
+            }
+
+            fn execute(&self, _args: &[String]) -> Result<String, CommandError> {
+                Err(CommandError::ExecutionError("boom".to_string()))
+            }
+
+            fn parser(&self) -> ClapCommand {
+                ClapCommand::new("fail_cmd")
+            }
+
+            fn clone_box(&self) -> Box<dyn Command> {
+                Box::new(FailingCommand)
+            }
+        }
+
+        let registry = Arc::new(crate::commands::registry::CommandRegistry::new());
+        registry
+            .register("fail_cmd", Arc::new(FailingCommand))
+            .expect("register");
+        let mock = MockMCPServer::new(registry);
+        let resp = mock.execute_command("fail_cmd", Some(json!({ "args": [] })));
+        assert_eq!(resp.message_type, MCPMessageType::Error);
+        assert!(resp.error.as_ref().unwrap().contains("boom"));
+    }
+
+    /// Publishing to a topic with no subscribers is a no-op (routing coordinator path).
+    #[tokio::test]
+    async fn subscription_mock_publish_no_subscribers_ok() {
+        struct MockSubscriptionServer {
+            subscribers: SubscriptionMap,
+        }
+
+        impl MockSubscriptionServer {
+            fn new() -> Self {
+                Self {
+                    subscribers: std::collections::HashMap::new(),
+                }
+            }
+
+            fn publish(
+                &self,
+                topic: &str,
+                payload: Option<serde_json::Value>,
+            ) -> Result<(), String> {
+                if let Some(subscribers) = self.subscribers.get(topic) {
+                    let message = MCPMessage {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        message_type: MCPMessageType::Notification,
+                        command: topic.to_string(),
+                        payload,
+                        error: None,
+                    };
+                    for subscriber in subscribers {
+                        subscriber(message.clone())
+                            .map_err(|e| format!("Subscriber error: {e}"))?;
+                    }
+                }
+                Ok(())
+            }
+        }
+
+        let server = MockSubscriptionServer::new();
+        assert!(server.publish("empty_topic", Some(json!({}))).is_ok());
+    }
+
+    #[test]
+    fn mock_server_unknown_command_error_shape() {
+        let registry = Arc::new(crate::commands::registry::CommandRegistry::new());
+        let mock = MockMCPServer::new(registry);
+        let resp = mock.execute_command("missing", None);
+        assert_eq!(resp.message_type, MCPMessageType::Error);
+        assert!(resp.error.unwrap().contains("Unknown"));
+    }
 }

@@ -9,7 +9,10 @@
 //! - `theme`: Theme and layout types
 //! - `display`: Display implementations and conversions
 
-#![allow(dead_code)] // Many types defined for future use
+#![allow(
+    dead_code,
+    reason = "Visualization type system expanded for planned UI features"
+)]
 
 pub mod config;
 pub mod core;

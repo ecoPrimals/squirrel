@@ -177,7 +177,8 @@ impl RetryPolicy {
         if attempt == 0 {
             return Duration::ZERO;
         }
-        let base = self.initial_backoff.as_secs_f64() * self.multiplier.powi(attempt as i32 - 1);
+        let base =
+            self.initial_backoff.as_secs_f64() * self.multiplier.powf(f64::from(attempt - 1));
         let capped = base.min(self.max_backoff.as_secs_f64());
         Duration::from_secs_f64(capped)
     }

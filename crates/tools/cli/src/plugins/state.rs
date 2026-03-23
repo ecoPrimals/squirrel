@@ -49,6 +49,7 @@ impl PluginState {
     ///
     /// * `true` if the transition is valid
     /// * `false` otherwise
+    #[allow(clippy::unnested_or_patterns)] // Tuple transitions read clearly as listed pairs
     pub fn is_valid_transition(from: PluginState, to: PluginState) -> bool {
         matches!(
             (from, to),
@@ -83,4 +84,55 @@ static PLUGIN_MANAGER: LazyLock<Arc<Mutex<PluginManager>>> =
 /// Get the global plugin manager instance
 pub fn get_plugin_manager() -> Arc<Mutex<PluginManager>> {
     Arc::clone(&PLUGIN_MANAGER)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn plugin_state_display_and_transitions() {
+        assert_eq!(PluginState::Created.to_string(), "Created");
+        assert_eq!(PluginState::Initialized.to_string(), "Initialized");
+        assert_eq!(PluginState::Started.to_string(), "Started");
+        assert_eq!(PluginState::Stopped.to_string(), "Stopped");
+        assert_eq!(PluginState::Cleaned.to_string(), "Cleaned");
+        assert_eq!(PluginState::Disposed.to_string(), "Disposed");
+
+        assert!(PluginState::is_valid_transition(
+            PluginState::Created,
+            PluginState::Initialized
+        ));
+        assert!(PluginState::is_valid_transition(
+            PluginState::Initialized,
+            PluginState::Started
+        ));
+        assert!(PluginState::is_valid_transition(
+            PluginState::Started,
+            PluginState::Stopped
+        ));
+        assert!(!PluginState::is_valid_transition(
+            PluginState::Created,
+            PluginState::Started
+        ));
+        assert!(!PluginState::is_valid_transition(
+            PluginState::Disposed,
+            PluginState::Created
+        ));
+    }
+
+    #[test]
+    fn plugin_state_debug_clone_eq() {
+        let s = PluginState::Initialized;
+        let c = s;
+        assert_eq!(s, c);
+        let _ = format!("{s:?}");
+    }
+
+    #[test]
+    fn global_manager_singleton() {
+        let a = get_plugin_manager();
+        let b = get_plugin_manager();
+        assert!(Arc::ptr_eq(&a, &b));
+    }
 }

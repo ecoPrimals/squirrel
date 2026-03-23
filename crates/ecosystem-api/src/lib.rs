@@ -38,13 +38,6 @@
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]
-#![allow(
-    clippy::use_self,
-    clippy::missing_const_for_fn,
-    clippy::missing_errors_doc,
-    clippy::struct_excessive_bools
-)]
-
 #[cfg(feature = "http-api")]
 pub mod client;
 pub mod config;
@@ -68,6 +61,10 @@ pub const ECOSYSTEM_API_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// This function sets up logging and validates the API configuration.
 /// It should be called once at application startup.
+///
+/// # Errors
+///
+/// Returns an error if initialization fails (currently always succeeds).
 #[must_use = "initialization errors should be handled"]
 pub fn init() -> Result<(), EcosystemError> {
     tracing::info!("Initializing Ecosystem API v{}", ECOSYSTEM_API_VERSION);

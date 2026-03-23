@@ -24,8 +24,8 @@ impl FallbackLogger {
     pub fn log_event(&self, event: &MonitoringEvent) {
         match self.config.log_level.as_str() {
             "debug" => tracing::debug!("📊 Event: {:?}", event),
-            "info" => tracing::info!("📊 Event: {}", self.format_event(event)),
-            "warn" => tracing::warn!("📊 Event: {}", self.format_event(event)),
+            "info" => tracing::info!("📊 Event: {}", Self::format_event(event)),
+            "warn" => tracing::warn!("📊 Event: {}", Self::format_event(event)),
             _ => {}
         }
     }
@@ -63,14 +63,14 @@ impl FallbackLogger {
                 "info" => tracing::info!(
                     "⚡ Performance: {} = {}",
                     component,
-                    self.format_performance(metrics)
+                    Self::format_performance(metrics)
                 ),
                 _ => {}
             }
         }
     }
 
-    fn format_event(&self, event: &MonitoringEvent) -> String {
+    fn format_event(event: &MonitoringEvent) -> String {
         match event {
             MonitoringEvent::ServiceStarted { service, .. } => {
                 format!("Service {service} started")
@@ -98,7 +98,7 @@ impl FallbackLogger {
         }
     }
 
-    fn format_performance(&self, metrics: &PerformanceMetrics) -> String {
+    fn format_performance(metrics: &PerformanceMetrics) -> String {
         let mut parts = Vec::new();
 
         if let Some(cpu) = metrics.cpu_usage {
@@ -112,5 +112,167 @@ impl FallbackLogger {
         }
 
         parts.join(", ")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FallbackLogger;
+    use crate::HealthStatus;
+    use crate::monitoring::config::FallbackConfig;
+    use crate::monitoring::types::{Metric, MetricValue, MonitoringEvent, PerformanceMetrics};
+    use chrono::Utc;
+
+    fn logger(cfg: FallbackConfig) -> FallbackLogger {
+        FallbackLogger::new(cfg)
+    }
+
+    #[test]
+    fn log_event_respects_level_and_formats_variants() {
+        let l = logger(FallbackConfig {
+            log_level: "debug".to_string(),
+            include_metrics: true,
+            include_health: true,
+            include_performance: true,
+        });
+        l.log_event(&MonitoringEvent::ServiceStarted {
+            service: "s".to_string(),
+            version: "1".to_string(),
+            timestamp: Utc::now(),
+        });
+        l.log_event(&MonitoringEvent::TaskCompleted {
+            task_id: "t".to_string(),
+            execution_time: std::time::Duration::from_millis(1),
+            success: true,
+            timestamp: Utc::now(),
+        });
+        l.log_event(&MonitoringEvent::TaskCompleted {
+            task_id: "t2".to_string(),
+            execution_time: std::time::Duration::from_millis(1),
+            success: false,
+            timestamp: Utc::now(),
+        });
+        l.log_event(&MonitoringEvent::ErrorOccurred {
+            error_type: "E".to_string(),
+            error_message: "m".to_string(),
+            component: "c".to_string(),
+            timestamp: Utc::now(),
+        });
+        l.log_event(&MonitoringEvent::Custom {
+            event_type: "custom".to_string(),
+            data: serde_json::json!({}),
+            timestamp: Utc::now(),
+        });
+
+        let l_info = logger(FallbackConfig {
+            log_level: "info".to_string(),
+            include_metrics: true,
+            include_health: true,
+            include_performance: true,
+        });
+        l_info.log_event(&MonitoringEvent::ServiceStopped {
+            service: "x".to_string(),
+            timestamp: Utc::now(),
+        });
+
+        let l_warn = logger(FallbackConfig {
+            log_level: "warn".to_string(),
+            include_metrics: true,
+            include_health: true,
+            include_performance: true,
+        });
+        l_warn.log_event(&MonitoringEvent::ServiceStarted {
+            service: "y".to_string(),
+            version: "0".to_string(),
+            timestamp: Utc::now(),
+        });
+
+        let l_silent = logger(FallbackConfig {
+            log_level: "error".to_string(),
+            include_metrics: true,
+            include_health: true,
+            include_performance: true,
+        });
+        l_silent.log_event(&MonitoringEvent::ServiceStarted {
+            service: "z".to_string(),
+            version: "0".to_string(),
+            timestamp: Utc::now(),
+        });
+    }
+
+    #[test]
+    fn log_metric_branches() {
+        let m = Metric {
+            name: "n".to_string(),
+            value: MetricValue::Gauge(1.0),
+            labels: std::collections::HashMap::new(),
+            timestamp: Utc::now(),
+        };
+        let on = logger(FallbackConfig {
+            log_level: "debug".to_string(),
+            include_metrics: true,
+            include_health: true,
+            include_performance: true,
+        });
+        on.log_metric(&m);
+
+        let off = logger(FallbackConfig {
+            log_level: "debug".to_string(),
+            include_metrics: false,
+            include_health: true,
+            include_performance: true,
+        });
+        off.log_metric(&m);
+    }
+
+    #[test]
+    fn log_health_and_performance_branches() {
+        let base = FallbackConfig {
+            log_level: "info".to_string(),
+            include_metrics: true,
+            include_health: true,
+            include_performance: true,
+        };
+        let l = logger(base.clone());
+        l.log_health("c", &HealthStatus::Healthy);
+
+        let lw = logger(FallbackConfig {
+            log_level: "warn".to_string(),
+            ..base.clone()
+        });
+        lw.log_health("c", &HealthStatus::Degraded);
+
+        let no_health = logger(FallbackConfig {
+            include_health: false,
+            ..base.clone()
+        });
+        no_health.log_health("c", &HealthStatus::Unhealthy);
+
+        let perf = PerformanceMetrics {
+            cpu_usage: Some(0.5),
+            memory_usage: Some(0.25),
+            network_usage: None,
+            response_time: Some(std::time::Duration::from_millis(12)),
+            throughput: None,
+            error_rate: None,
+            queue_length: None,
+            active_connections: None,
+            custom_metrics: std::collections::HashMap::new(),
+        };
+        let l = logger(base.clone());
+        l.log_performance("cpu", &perf);
+
+        let no_perf = logger(FallbackConfig {
+            include_performance: false,
+            ..base
+        });
+        no_perf.log_performance("cpu", &perf);
+    }
+
+    #[test]
+    fn fallback_config_default() {
+        let d = FallbackConfig::default();
+        assert_eq!(d.log_level, "info");
+        assert!(d.include_metrics);
     }
 }

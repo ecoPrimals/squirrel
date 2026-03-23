@@ -390,15 +390,14 @@ impl FederationNetwork {
 
         tokio::spawn(async move {
             while *running.read().await {
-                let health_check = NetworkMessage::HealthCheck {
-                    node_id,
-                    timestamp: Utc::now(),
-                };
-
                 let conn_map = connections.read().await;
                 for (peer_id, connection) in conn_map.iter() {
+                    let health_check = NetworkMessage::HealthCheck {
+                        node_id,
+                        timestamp: Utc::now(),
+                    };
                     if connection
-                        .send_message(*peer_id, health_check.clone())
+                        .send_message(*peer_id, health_check)
                         .await
                         .is_err()
                     {

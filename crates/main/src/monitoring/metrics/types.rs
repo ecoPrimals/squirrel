@@ -22,6 +22,21 @@ pub struct MetricDefinition {
     pub source: String,
 }
 
+impl MetricDefinition {
+    /// Snapshot this definition as API-facing [`MetricInfo`].
+    #[must_use]
+    pub(crate) fn to_metric_info(&self) -> MetricInfo {
+        MetricInfo {
+            name: self.name.clone(),
+            description: self.description.clone(),
+            labels: self.labels.clone(),
+            unit: self.unit.clone(),
+            source: self.source.clone(),
+            metric_type: self.metric_type,
+        }
+    }
+}
+
 /// Metric value with labels
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricValue {

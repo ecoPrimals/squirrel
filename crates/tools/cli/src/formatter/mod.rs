@@ -31,7 +31,7 @@ impl From<serde_yaml_ng::Error> for FormatterError {
 }
 
 /// Output format options
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputFormat {
     /// Plain text output format
     Text,
@@ -326,5 +326,96 @@ mod tests {
         assert!(result.contains("Value"));
         assert!(result.contains("test"));
         assert!(result.contains("42"));
+    }
+
+    #[derive(Serialize, Debug)]
+    struct EmptyStruct;
+
+    #[test]
+    fn factory_create_all_formats_and_unknown_string() {
+        use OutputFormat::*;
+        let _ = Factory::create(Text);
+        let _ = Factory::create(Json);
+        let _ = Factory::create(Yaml);
+        let _ = Factory::create(Table);
+        assert!(Factory::create_formatter("TEXT").is_ok());
+        assert!(Factory::create_formatter("Yml").is_ok());
+        assert!(
+            Factory::create_formatter("unknown")
+                .unwrap_err()
+                .to_string()
+                .to_lowercase()
+                .contains("unknown")
+        );
+    }
+
+    #[test]
+    fn text_json_yaml_format_empty_and_special_strings() {
+        let t = TextFormatter::default();
+        let empty = EmptyStruct;
+        let s = t.format(empty).expect("fmt");
+        assert!(!s.is_empty());
+
+        let j = JsonFormatter::default();
+        let long = "x".repeat(5000);
+        let row = vec![long.clone(), "\"\n\t\r".to_string()];
+        let tab = j.format_table(&["a", "b"], &[row]);
+        assert!(tab.contains(&long));
+
+        let y = YamlFormatter::default();
+        let tab2 = y.format_table(&[], &[]);
+        assert!(tab2.contains("[]") || tab2.is_empty() || tab2.contains('-'));
+    }
+
+    #[test]
+    fn format_error_json_yaml_and_formatter_enum() {
+        use std::error::Error;
+        #[derive(Debug)]
+        struct Inner(&'static str);
+        impl std::fmt::Display for Inner {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+        impl Error for Inner {}
+
+        #[derive(Debug)]
+        struct Wrap(Inner);
+        impl std::fmt::Display for Wrap {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "wrap: {}", self.0)
+            }
+        }
+        impl Error for Wrap {
+            fn source(&self) -> Option<&(dyn Error + 'static)> {
+                Some(&self.0)
+            }
+        }
+
+        let e = Wrap(Inner("bad"));
+        let jf = JsonFormatter::new();
+        let jerr = jf.format_error(&e);
+        assert!(jerr.contains("bad") || jerr.contains("wrap"));
+
+        let yf = YamlFormatter::new();
+        let yerr = yf.format_error(&e);
+        assert!(yerr.contains("bad") || yerr.contains("error"));
+
+        let fmt_enum = Formatter::Json(JsonFormatter::new());
+        let _ = fmt_enum.format_error(&e);
+    }
+
+    #[test]
+    fn formatter_error_from_json() {
+        let err = serde_json::from_str::<i32>("not-a-number").unwrap_err();
+        let fe: FormatterError = err.into();
+        assert!(fe.to_string().contains("Serialization"));
+    }
+
+    #[test]
+    fn output_format_copy_eq() {
+        let a = OutputFormat::Json;
+        let b = a;
+        assert_eq!(a, b);
     }
 }

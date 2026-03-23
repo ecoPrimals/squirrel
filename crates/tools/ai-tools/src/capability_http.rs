@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability-Based HTTP Client (TRUE PRIMAL!)
-#![allow(dead_code)] // HTTP capability client awaiting activation
+#![allow(
+    dead_code,
+    reason = "HTTP capability client module awaiting activation"
+)]
 //!
 //! **Philosophy**: Deploy like an infant - knows nothing, discovers everything!
 //! - Squirrel doesn't know which primal provides http.client
@@ -373,5 +376,98 @@ mod tests {
             path.contains("http") || path.contains("network"),
             "Should reference generic capability, got: {path}"
         );
+    }
+
+    #[test]
+    fn test_http_request_response_serde() {
+        let req = HttpRequest {
+            method: "PUT".to_string(),
+            url: "https://api/x".to_string(),
+            headers: vec![("X".to_string(), "Y".to_string())],
+            body: Some("\"json\"".to_string()),
+        };
+        let j = serde_json::to_string(&req).unwrap();
+        let back: HttpRequest = serde_json::from_str(&j).unwrap();
+        assert_eq!(back.method, "PUT");
+
+        let res = HttpResponse {
+            status: 404,
+            headers: vec![],
+            body: "nf".to_string(),
+        };
+        let j2 = serde_json::to_string(&res).unwrap();
+        let back2: HttpResponse = serde_json::from_str(&j2).unwrap();
+        assert_eq!(back2.status, 404);
+    }
+
+    #[test]
+    fn test_http_client_new_logs_and_returns_ok() {
+        let cfg = HttpClientConfig {
+            socket_path: "/tmp/cap-http-unit.sock".into(),
+            timeout_secs: 5,
+            max_retries: 1,
+            retry_delay_ms: 1,
+        };
+        let c = HttpClient::new(cfg);
+        assert!(c.is_ok());
+    }
+
+    #[tokio::test]
+    async fn post_json_adds_content_type_and_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("http.sock");
+        let sock_clone = sock.clone();
+
+        let server = tokio::spawn(async move {
+            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let (read_half, mut write_half) = stream.into_split();
+            let mut line = String::new();
+            let mut reader = BufReader::new(read_half);
+            reader.read_line(&mut line).await.unwrap();
+            let v: serde_json::Value = serde_json::from_str(line.trim()).unwrap();
+            assert_eq!(v["method"], "http.request");
+            let params = v["params"].as_object().unwrap();
+            let headers = params["headers"].as_array().unwrap();
+            assert!(
+                headers
+                    .iter()
+                    .any(|h| h[0] == "Content-Type" && h[1] == "application/json")
+            );
+
+            let body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": v["id"],
+                "result": {
+                    "status": 200,
+                    "headers": [["X-Test", "1"]],
+                    "body": "done"
+                }
+            });
+            write_half
+                .write_all(body.to_string().as_bytes())
+                .await
+                .unwrap();
+            write_half.write_all(b"\n").await.unwrap();
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
+        let client = HttpClient::new(HttpClientConfig {
+            socket_path: sock,
+            timeout_secs: 5,
+            max_retries: 1,
+            retry_delay_ms: 1,
+        })
+        .unwrap();
+
+        let resp = client
+            .post_json("https://example.com", vec![], r#"{"a":1}"#)
+            .await
+            .unwrap();
+        assert_eq!(resp.status, 200);
+        assert_eq!(resp.body, "done");
+        server.await.unwrap();
     }
 }

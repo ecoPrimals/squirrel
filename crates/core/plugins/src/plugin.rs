@@ -191,3 +191,71 @@ pub trait WebPluginExt: Plugin {
 }
 
 // Re-export the CommandsPlugin trait from interfaces for convenience
+
+#[cfg(test)]
+mod tests {
+    #![allow(deprecated)]
+
+    use super::*;
+    use uuid::Uuid;
+
+    #[test]
+    fn plugin_metadata_new_default_with_capability_dependency() {
+        let m = PluginMetadata::new("n", "1.0.0", "d", "a")
+            .with_capability("web")
+            .with_dependency(Uuid::nil());
+        assert_eq!(m.name, "n");
+        assert_eq!(m.capabilities, vec!["web"]);
+        assert_eq!(m.dependencies.len(), 1);
+
+        let def = PluginMetadata::default();
+        assert_eq!(def.name, "Default Plugin");
+        assert!(def.capabilities.is_empty());
+    }
+
+    #[test]
+    fn plugin_metadata_serde_roundtrip() {
+        let m = PluginMetadata::new("x", "0.1.0", "desc", "auth");
+        let j = serde_json::to_string(&m).unwrap();
+        let back: PluginMetadata = serde_json::from_str(&j).unwrap();
+        assert_eq!(back.name, m.name);
+        assert_eq!(back.id, m.id);
+    }
+
+    #[test]
+    fn plugin_status_display_default() {
+        assert_eq!(PluginStatus::Registered.to_string(), "registered");
+        assert_eq!(PluginStatus::Initialized.to_string(), "initialized");
+        assert_eq!(PluginStatus::Unloaded.to_string(), "unloaded");
+        assert_eq!(PluginStatus::Failed.to_string(), "failed");
+        assert_eq!(PluginStatus::default(), PluginStatus::Registered);
+        assert_eq!(PluginStatus::new(), PluginStatus::Registered);
+    }
+
+    #[test]
+    fn plugin_status_serde_roundtrip() {
+        for s in [
+            PluginStatus::Registered,
+            PluginStatus::Initialized,
+            PluginStatus::Unloaded,
+            PluginStatus::Failed,
+        ] {
+            let j = serde_json::to_string(&s).unwrap();
+            let back: PluginStatus = serde_json::from_str(&j).unwrap();
+            assert_eq!(back, s);
+        }
+    }
+
+    #[test]
+    fn legacy_web_endpoint_serde_roundtrip() {
+        let e = WebEndpoint {
+            path: "/a".to_string(),
+            method: "GET".to_string(),
+            permissions: vec!["p".to_string()],
+        };
+        let j = serde_json::to_string(&e).unwrap();
+        let back: WebEndpoint = serde_json::from_str(&j).unwrap();
+        assert_eq!(back.path, e.path);
+        assert_eq!(back.method, e.method);
+    }
+}

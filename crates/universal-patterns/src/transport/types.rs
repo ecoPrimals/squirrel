@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core types and enums for universal transport abstraction
-#![allow(dead_code)] // Transport types used at runtime for discovery
+#![allow(
+    dead_code,
+    reason = "Transport and discovery types used via serde/runtime wiring"
+)]
 
 use bytes::Bytes;
 use std::path::PathBuf;

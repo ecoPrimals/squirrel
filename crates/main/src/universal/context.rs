@@ -154,3 +154,62 @@ pub fn create_default_security_context(user_id: &str) -> UniversalSecurityContex
         permissions: vec![],
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn security_level_display_covers_all_variants() {
+        let levels = [
+            SecurityLevel::Basic,
+            SecurityLevel::Standard,
+            SecurityLevel::Public,
+            SecurityLevel::Enhanced,
+            SecurityLevel::Advanced,
+            SecurityLevel::High,
+            SecurityLevel::Critical,
+            SecurityLevel::Administrative,
+            SecurityLevel::Internal,
+            SecurityLevel::Maximum,
+            SecurityLevel::Custom("x".into()),
+        ];
+        for level in levels {
+            let s = level.to_string();
+            assert!(!s.is_empty());
+        }
+    }
+
+    #[test]
+    fn create_default_context_and_security() {
+        let c = create_default_context("u", "d");
+        assert_eq!(c.user_id, "u");
+        assert_eq!(c.device_id, "d");
+        let s = create_default_security_context("alice");
+        assert_eq!(s.user_id, "alice");
+    }
+
+    #[test]
+    fn primal_context_and_network_location_serde() {
+        let mut c = create_default_context("a", "b");
+        c.network_location = NetworkLocation {
+            region: "r".into(),
+            data_center: Some("dc".into()),
+            availability_zone: None,
+            ip_address: None,
+            subnet: None,
+            network_id: None,
+            geo_location: None,
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: PrimalContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.network_location.region, "r");
+    }
+
+    #[test]
+    fn universal_security_context_default() {
+        let d = UniversalSecurityContext::default();
+        assert_eq!(d.user_id, "anonymous");
+        assert!(d.permissions.is_empty());
+    }
+}

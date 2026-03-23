@@ -174,3 +174,112 @@ impl From<&str> for TransportError {
         Self::ConnectionError(msg.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::MCPError;
+    use crate::protocol::types::MCPMessage;
+    use std::io;
+
+    #[test]
+    fn transport_error_display_variants() {
+        let samples = [
+            TransportError::connection_failed("cf"),
+            TransportError::connection_closed("cc"),
+            TransportError::timeout("t"),
+            TransportError::IoError("io".into()),
+            TransportError::protocol_error("pe"),
+            TransportError::invalid_frame("if"),
+            TransportError::security_error("se"),
+            TransportError::SerializationError("ser".into()),
+            TransportError::ConfigurationError("ce".into()),
+            TransportError::UnsupportedOperation("uo".into()),
+            TransportError::SendError("sd".into()),
+            TransportError::RemoteError("re".into()),
+            TransportError::ConnectionError("cerr".into()),
+            TransportError::read_error("rd"),
+            TransportError::write_error("wr"),
+            TransportError::framing_error("fr"),
+        ];
+        for e in samples {
+            let s = e.to_string();
+            assert!(!s.is_empty(), "{e:?}");
+        }
+    }
+
+    #[test]
+    fn from_io_error_kinds() {
+        let map = [
+            (
+                io::Error::new(io::ErrorKind::ConnectionRefused, "x"),
+                "Connection failed",
+            ),
+            (
+                io::Error::new(io::ErrorKind::ConnectionReset, "x"),
+                "Connection closed",
+            ),
+            (io::Error::new(io::ErrorKind::TimedOut, "x"), "Timeout"),
+            (
+                io::Error::new(io::ErrorKind::InvalidData, "x"),
+                "Invalid frame",
+            ),
+            (
+                io::Error::new(io::ErrorKind::InvalidInput, "x"),
+                "Protocol error",
+            ),
+            (io::Error::new(io::ErrorKind::Other, "x"), "I/O error"),
+        ];
+        for (io_err, prefix) in map {
+            let te: TransportError = io_err.into();
+            assert!(te.to_string().starts_with(prefix), "{te}");
+        }
+    }
+
+    #[tokio::test]
+    async fn from_send_error_mcp_message() {
+        let (tx, rx) = tokio::sync::mpsc::channel::<MCPMessage>(1);
+        drop(rx);
+        let err = tx
+            .send(MCPMessage::default())
+            .await
+            .expect_err("receiver dropped");
+        let te: TransportError = err.into();
+        assert!(te.to_string().contains("Send error"));
+    }
+
+    #[test]
+    fn from_serde_json_error() {
+        let je = serde_json::from_str::<serde_json::Value>("not valid json").unwrap_err();
+        let te: TransportError = je.into();
+        assert!(matches!(te, TransportError::SerializationError(_)));
+    }
+
+    #[test]
+    fn from_mcp_error_transport_round_trip() {
+        let inner = TransportError::timeout("inner");
+        let wrapped = MCPError::Transport(inner.clone());
+        let te: TransportError = wrapped.into();
+        assert!(matches!(te, TransportError::Timeout(_)));
+        if let TransportError::Timeout(msg) = te {
+            assert_eq!(msg, "inner");
+        } else {
+            panic!("expected Timeout");
+        }
+    }
+
+    #[test]
+    fn from_mcp_error_non_transport_maps_to_protocol() {
+        let e = MCPError::General("g".into());
+        let te: TransportError = e.into();
+        assert!(matches!(te, TransportError::ProtocolError(_)));
+    }
+
+    #[test]
+    fn from_string_and_str() {
+        let te: TransportError = String::from("hello").into();
+        assert!(matches!(te, TransportError::ConnectionError(s) if s == "hello"));
+        let te2: TransportError = "slice".into();
+        assert!(matches!(te2, TransportError::ConnectionError(s) if s == "slice"));
+    }
+}

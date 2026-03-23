@@ -892,3 +892,96 @@ async fn test_integration_status_variants() {
         assert!(!debug_str.is_empty());
     }
 }
+
+#[tokio::test]
+async fn test_learning_integration_rl_disabled_episode_and_reward_unavailable() {
+    let mut config = test_helpers::create_test_learning_config();
+    config.enable_reinforcement_learning = false;
+    let config = Arc::new(config);
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("integration with RL off should still construct");
+    assert!(integration.trigger_learning_episode("ctx").await.is_err());
+    assert!(
+        integration
+            .calculate_reward("ctx", serde_json::json!({}))
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn test_learning_integration_setter_hooks_keep_running() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let mut integration = LearningIntegration::new(config)
+        .await
+        .expect("create integration");
+    integration.set_context_manager(Arc::new(crate::manager::ContextManager::new()));
+    integration.set_rule_manager(Arc::new(crate::rules::RuleManager::new("./rules")));
+    let _ = integration.get_state().await;
+}
+
+#[tokio::test]
+async fn test_learning_integration_initial_state_when_rl_disabled() {
+    let mut config = test_helpers::create_test_learning_config();
+    config.enable_reinforcement_learning = false;
+    let config = Arc::new(config);
+    let integration = LearningIntegration::new(config)
+        .await
+        .expect("constructs without RL components");
+    let state = integration.get_state().await;
+    assert!(matches!(
+        state.status,
+        super::integration::IntegrationStatus::Initializing
+    ));
+}
+
+#[tokio::test]
+async fn test_learning_integration_feedback_trigger_episode_then_reward_updates_stats() {
+    let config = Arc::new(test_helpers::create_full_test_config());
+    let integration = LearningIntegration::new(config).await.expect("integration");
+    let before = integration.get_stats().await;
+    let eid = integration
+        .trigger_learning_episode("ctx-feedback")
+        .await
+        .expect("episode");
+    assert!(!eid.is_empty());
+    let reward = integration
+        .calculate_reward("ctx-feedback", serde_json::json!({"op": "sync"}))
+        .await
+        .expect("reward");
+    assert!(reward.is_finite());
+    let after = integration.get_stats().await;
+    assert!(after.learning_episodes >= before.learning_episodes + 1);
+    assert!(after.total_operations >= before.total_operations + 1);
+}
+
+#[tokio::test]
+async fn test_learning_integration_config_serde_roundtrip() {
+    let cfg = super::integration::LearningIntegrationConfig::default();
+    let json = serde_json::to_string(&cfg).expect("ser");
+    let back: super::integration::LearningIntegrationConfig =
+        serde_json::from_str(&json).expect("de");
+    assert_eq!(back.update_interval, std::time::Duration::from_secs(30));
+    assert_eq!(
+        back.trigger_thresholds.min_context_changes,
+        cfg.trigger_thresholds.min_context_changes
+    );
+}
+
+#[tokio::test]
+async fn test_learning_integration_start_runs_background_sync_tick() {
+    let mut cfg = test_helpers::create_full_test_config();
+    cfg.learning_update_interval = std::time::Duration::from_millis(30);
+    let config = Arc::new(cfg);
+    let integration = LearningIntegration::new(config).await.expect("integration");
+    integration.initialize().await.expect("init");
+    integration.start().await.expect("start");
+    tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    integration.stop().await.expect("stop");
+    let state = integration.get_state().await;
+    assert!(matches!(
+        state.status,
+        super::integration::IntegrationStatus::Stopped
+    ));
+}

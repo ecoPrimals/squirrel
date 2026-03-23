@@ -56,19 +56,22 @@ impl JsonRpcServer {
                 .await;
         }
 
-        // Check spring tool routing table (mcp.tools.list discovery)
-        let spring_discovery = super::spring_tools::SpringToolDiscovery::new();
-        let routing_table = spring_discovery.build_routing_table().await;
-        if let Some(socket_path) = routing_table.get(tool_name) {
-            info!("Routing tool '{}' to spring at {}", tool_name, socket_path);
-            return self
-                .forward_tool_to_remote(tool_name, &args, socket_path.as_ref())
-                .await;
+        let executor = crate::tool::ToolExecutor::new();
+
+        // Prefer local built-ins over spring routing (springs may advertise overlapping names).
+        if !executor.available_tools.contains_key(tool_name) {
+            // Check spring tool routing table (mcp.tools.list discovery)
+            let spring_discovery = super::spring_tools::SpringToolDiscovery::new();
+            let routing_table = spring_discovery.build_routing_table().await;
+            if let Some(socket_path) = routing_table.get(tool_name) {
+                info!("Routing tool '{}' to spring at {}", tool_name, socket_path);
+                return self
+                    .forward_tool_to_remote(tool_name, &args, socket_path.as_ref())
+                    .await;
+            }
         }
 
         info!("Executing local tool: {tool_name}");
-
-        let executor = crate::tool::ToolExecutor::new();
         let args_str = serde_json::to_string(&args).map_err(|e| JsonRpcError {
             code: error_codes::INVALID_PARAMS,
             message: format!("Invalid tool args: {e}"),
@@ -257,5 +260,85 @@ impl JsonRpcServer {
             message: format!("Serialization error: {e}"),
             data: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::rpc::JsonRpcServer;
+    use crate::rpc::jsonrpc_server::error_codes;
+
+    #[tokio::test]
+    async fn execute_tool_rejects_missing_params() {
+        let server = JsonRpcServer::new("/tmp/sq-tool-missing-params.sock".to_string());
+        let err = server.handle_execute_tool(None).await.unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn execute_tool_rejects_missing_tool_name() {
+        let server = JsonRpcServer::new("/tmp/sq-tool-missing-tool.sock".to_string());
+        let err = server
+            .handle_execute_tool(Some(serde_json::json!({ "args": {} })))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn execute_tool_local_system_health_builds_response() {
+        let server = JsonRpcServer::new("/tmp/sq-tool-health.sock".to_string());
+        let params = Some(serde_json::json!({
+            "tool": "system.health",
+            "args": {}
+        }));
+        let v = server.handle_execute_tool(params).await.unwrap();
+        assert_eq!(v.get("success"), Some(&serde_json::json!(true)));
+        assert!(v.get("output").and_then(|o| o.as_str()).is_some());
+    }
+
+    #[tokio::test]
+    async fn execute_tool_unknown_tool_returns_failure_in_payload() {
+        let server = JsonRpcServer::new("/tmp/sq-tool-unknown.sock".to_string());
+        let params = Some(serde_json::json!({
+            "tool": "not.a.registered.tool",
+            "args": {}
+        }));
+        let v = server.handle_execute_tool(params).await.unwrap();
+        assert_eq!(v.get("success"), Some(&serde_json::json!(false)));
+    }
+
+    #[tokio::test]
+    async fn list_tools_returns_non_empty() {
+        let server = JsonRpcServer::new("/tmp/sq-tool-list.sock".to_string());
+        let v = server.handle_list_tools().await.unwrap();
+        let tools = v.get("tools").and_then(|t| t.as_array());
+        assert!(tools.is_some_and(|a| !a.is_empty()));
+        assert!(v.get("total").and_then(|n| n.as_u64()).unwrap_or(0) > 0);
+    }
+
+    #[tokio::test]
+    async fn execute_tool_omitted_args_defaults_to_empty_object() {
+        let server = JsonRpcServer::new("/tmp/sq-tool-no-args.sock".to_string());
+        let params = Some(serde_json::json!({
+            "tool": "system.health"
+        }));
+        let v = server.handle_execute_tool(params).await.unwrap();
+        assert_eq!(v.get("success"), Some(&serde_json::json!(true)));
+    }
+
+    #[tokio::test]
+    async fn forward_tool_to_remote_missing_socket_errors() {
+        let server = JsonRpcServer::new("/tmp/sq-tool-fwd.sock".to_string());
+        let err = server
+            .forward_tool_to_remote(
+                "any.tool",
+                &serde_json::json!({}),
+                "/nonexistent/path/does-not-exist.sock",
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, error_codes::INTERNAL_ERROR);
+        assert!(err.message.contains("Failed to connect"));
     }
 }

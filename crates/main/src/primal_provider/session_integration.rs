@@ -164,3 +164,90 @@ impl SquirrelPrimalProvider {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::primal_provider::SquirrelPrimalProvider;
+    use crate::universal_adapter_v2::UniversalAdapterV2;
+
+    async fn provider() -> SquirrelPrimalProvider {
+        let adapter = UniversalAdapterV2::awaken().await.expect("adapter");
+        let mc = std::sync::Arc::new(crate::monitoring::metrics::MetricsCollector::new());
+        let em = std::sync::Arc::new(crate::ecosystem::EcosystemManager::new(
+            crate::ecosystem::config::EcosystemConfig::default(),
+            mc,
+        ));
+        let sessions = std::sync::Arc::new(crate::session::SessionManagerImpl::new(
+            crate::session::SessionConfig::default(),
+        )) as std::sync::Arc<dyn crate::session::SessionManager>;
+        SquirrelPrimalProvider::new(
+            "sess-test".to_string(),
+            squirrel_mcp_config::EcosystemConfig::default(),
+            adapter,
+            em,
+            sessions,
+        )
+    }
+
+    #[tokio::test]
+    async fn create_get_update_delete_session_roundtrip() {
+        let p = provider().await;
+        let created = p
+            .create_session(serde_json::json!({ "user_id": "u1" }))
+            .await
+            .expect("create");
+        let sid = created["session_id"].as_str().expect("sid");
+        assert_eq!(created["user_id"], "u1");
+
+        let meta = p
+            .get_session(serde_json::json!({ "session_id": sid }))
+            .await
+            .expect("get");
+        assert_eq!(meta["session_id"], sid);
+
+        let updated = p
+            .update_session(serde_json::json!({
+                "session_id": sid,
+                "metadata": { "k": "v" }
+            }))
+            .await
+            .expect("update");
+        assert_eq!(updated["status"], "updated");
+
+        let deleted = p
+            .delete_session(serde_json::json!({ "session_id": sid }))
+            .await
+            .expect("delete");
+        assert_eq!(deleted["status"], "deleted");
+    }
+
+    #[tokio::test]
+    async fn validation_errors_missing_fields() {
+        let p = provider().await;
+        let e = p.create_session(serde_json::json!({})).await.unwrap_err();
+        assert!(matches!(e, crate::error::PrimalError::ValidationError(_)));
+
+        let e2 = p.get_session(serde_json::json!({})).await.unwrap_err();
+        assert!(matches!(e2, crate::error::PrimalError::ValidationError(_)));
+    }
+
+    #[tokio::test]
+    async fn list_user_sessions() {
+        let p = provider().await;
+        let created = p
+            .create_session(serde_json::json!({ "user_id": "u2" }))
+            .await
+            .unwrap();
+        let sid = created["session_id"].as_str().unwrap();
+
+        let listed = p
+            .list_user_sessions(serde_json::json!({
+                "user_id": "u2",
+                "session_ids": [sid]
+            }))
+            .await
+            .expect("list");
+        assert_eq!(listed["user_id"], "u2");
+        assert_eq!(listed["total_count"], 1);
+    }
+}

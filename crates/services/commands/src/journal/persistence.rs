@@ -154,3 +154,57 @@ impl JournalPersistence for InMemoryJournalPersistence {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::journal::entry::{JournalEntry, JournalEntryState};
+    use tempfile::tempdir;
+
+    #[test]
+    fn file_journal_missing_file_loads_empty() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("nj.json");
+        let p = FileJournalPersistence::new(&path);
+        assert!(p.load_entries().unwrap().is_empty());
+    }
+
+    #[test]
+    fn file_journal_save_load_update_delete_roundtrip() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("j.json");
+        let p = FileJournalPersistence::new(&path);
+
+        let mut e1 = JournalEntry::new("echo", vec!["a".into()]);
+        p.save_entry(&e1).unwrap();
+        let loaded = p.load_entries().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].command_name, "echo");
+
+        e1.state = JournalEntryState::Completed;
+        p.save_entry(&e1).unwrap();
+        assert_eq!(
+            p.load_entries().unwrap()[0].state,
+            JournalEntryState::Completed
+        );
+
+        p.delete_entry(&e1.id).unwrap();
+        assert!(p.load_entries().unwrap().is_empty());
+    }
+
+    #[test]
+    fn in_memory_journal_roundtrip() {
+        let p = InMemoryJournalPersistence::new();
+        let e = JournalEntry::new("ls", vec![]);
+        let id = e.id.clone();
+        p.save_entry(&e).unwrap();
+        assert_eq!(p.load_entries().unwrap().len(), 1);
+        p.delete_entry(&id).unwrap();
+        assert!(p.load_entries().unwrap().is_empty());
+    }
+
+    #[test]
+    fn in_memory_default_matches_new() {
+        let _ = InMemoryJournalPersistence::default();
+    }
+}

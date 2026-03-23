@@ -403,4 +403,61 @@ mod tests {
         let _metrics = system.get_metrics().await;
         let _rx = system.subscribe_to_events();
     }
+
+    #[test]
+    fn visualization_system_config_serde_roundtrip() {
+        let cfg = VisualizationSystemConfig::default();
+        let json = serde_json::to_string(&cfg).expect("ser");
+        let back: VisualizationSystemConfig = serde_json::from_str(&json).expect("de");
+        assert_eq!(back.web_port, cfg.web_port);
+        assert_eq!(back.max_history, cfg.max_history);
+        assert_eq!(back.enable_metrics, cfg.enable_metrics);
+    }
+
+    #[test]
+    fn visualization_event_type_all_variants_serialize() {
+        let types = [
+            VisualizationEventType::StateChanged,
+            VisualizationEventType::RuleApplied,
+            VisualizationEventType::VisualizationCreated,
+            VisualizationEventType::VisualizationUpdated,
+            VisualizationEventType::InteractiveSessionStarted,
+            VisualizationEventType::InteractiveSessionEnded,
+            VisualizationEventType::MetricsUpdated,
+            VisualizationEventType::WebServerStarted,
+            VisualizationEventType::WebServerStopped,
+        ];
+        for t in types {
+            let json = serde_json::to_string(&t).expect("ser");
+            let back: VisualizationEventType = serde_json::from_str(&json).expect("de");
+            assert_eq!(std::mem::discriminant(&t), std::mem::discriminant(&back));
+        }
+    }
+
+    #[test]
+    fn visualization_event_full_roundtrip() {
+        let ev = VisualizationEvent {
+            event_type: VisualizationEventType::MetricsUpdated,
+            timestamp: Utc::now(),
+            data: json!({"k": 1}),
+        };
+        let s = serde_json::to_string(&ev).expect("ser");
+        let back: VisualizationEvent = serde_json::from_str(&s).expect("de");
+        assert!(matches!(
+            back.event_type,
+            VisualizationEventType::MetricsUpdated
+        ));
+    }
+
+    #[tokio::test]
+    async fn visualization_start_stop_without_web() {
+        let config = VisualizationSystemConfig {
+            enable_web: false,
+            enable_metrics: true,
+            ..Default::default()
+        };
+        let system = VisualizationSystem::new(config).await.expect("create");
+        system.start().await.expect("start");
+        system.stop().await.expect("stop");
+    }
 }

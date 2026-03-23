@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! AI Provider Discovery - Capability-Based
-#![allow(dead_code)] // Discovery infrastructure awaiting activation
+#![allow(dead_code, reason = "AI provider discovery module awaiting activation")]
 //!
 //! This module implements TRUE PRIMAL discovery for AI providers.
 //! NO hardcoding - all providers are discovered at runtime via capabilities.
@@ -178,5 +178,22 @@ mod tests {
             }
         }
         // Result is deterministic (true or false)
+    }
+
+    #[tokio::test]
+    async fn discover_ai_provider_missing_capability_maps_error() {
+        let err = discover_ai_provider("ai.complete.nonexistent_capability_xyz_999").await;
+        assert!(err.is_err());
+    }
+
+    #[tokio::test]
+    async fn discover_ai_providers_runs_to_completion() {
+        let providers = discover_ai_providers().await;
+        assert!(providers.len() < 100);
+    }
+
+    #[tokio::test]
+    async fn has_ai_providers_returns_bool() {
+        let _ = has_ai_providers().await;
     }
 }

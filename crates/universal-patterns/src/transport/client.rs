@@ -200,9 +200,8 @@ impl UniversalTransport {
         if let Some(preferred) = config.preferred_transport {
             if config.enable_fallback {
                 return vec![preferred, TransportType::Tcp];
-            } else {
-                return vec![preferred];
             }
+            return vec![preferred];
         }
 
         // Platform-appropriate hierarchy
@@ -857,5 +856,30 @@ mod tests {
 
         config.enable_fallback = true;
         assert!(config.enable_fallback);
+    }
+
+    #[test]
+    fn test_discover_tcp_endpoint_reads_discovery_file() {
+        use crate::transport::discovery::discover_tcp_endpoint;
+        use crate::transport::types::IpcEndpoint;
+        let name = format!("ut-transport-{}", std::process::id());
+        let path = std::path::PathBuf::from("/tmp").join(format!("{name}-ipc-port"));
+        std::fs::write(&path, "tcp:127.0.0.1:65533\n").unwrap();
+        let ep = discover_tcp_endpoint(&name).expect("tcp discovery");
+        match ep {
+            IpcEndpoint::TcpLocal(addr) => assert_eq!(addr.port(), 65533),
+            #[cfg(unix)]
+            IpcEndpoint::UnixSocket(_) => panic!("expected tcp from file"),
+            #[cfg(windows)]
+            IpcEndpoint::NamedPipe(_) => panic!("expected tcp from file"),
+        }
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_discover_ipc_endpoint_delegates() {
+        let name = format!("ut-no-socket-{}", std::process::id());
+        let r = UniversalTransport::discover_ipc_endpoint(&name);
+        assert!(r.is_err());
     }
 }

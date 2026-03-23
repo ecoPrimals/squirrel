@@ -48,3 +48,44 @@ impl fmt::Display for ClientError {
 }
 
 impl Error for ClientError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn client_error_display_all_variants() {
+        let cases = vec![
+            (
+                ClientError::NotConnected("a".into()),
+                "Client not connected: a",
+            ),
+            (ClientError::Timeout("b".into()), "Timeout: b"),
+            (
+                ClientError::ResponseChannelClosed("c".into()),
+                "Response channel closed: c",
+            ),
+            (
+                ClientError::SerializationError("d".into()),
+                "Serialization error: d",
+            ),
+            (
+                ClientError::ConnectionFailed("e".into()),
+                "Connection failed: e",
+            ),
+            (
+                ClientError::InvalidMessage("f".into()),
+                "Invalid message: f",
+            ),
+            (
+                ClientError::AlreadyConnected("g".into()),
+                "Already connected: g",
+            ),
+            (ClientError::RemoteError("h".into()), "Remote error: h"),
+        ];
+        for (err, want) in cases {
+            assert_eq!(err.to_string(), want);
+            assert!(std::error::Error::source(&err).is_none());
+        }
+    }
+}

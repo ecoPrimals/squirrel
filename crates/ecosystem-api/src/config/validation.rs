@@ -12,6 +12,10 @@ pub struct ConfigValidator;
 
 impl ConfigValidator {
     /// Validate universal configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when any subsection of the configuration is invalid.
     pub fn validate_universal_config(config: &UniversalConfig) -> Result<(), ConfigError> {
         Self::validate_service_config(&config.service)?;
         Self::validate_songbird_config(&config.songbird)?;

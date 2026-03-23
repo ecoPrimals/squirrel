@@ -678,3 +678,215 @@ impl Experience for RLExperience {
         self.priority = priority;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::engine::{RLAction, RLExperience, RLState};
+    use super::*;
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    fn sample_exp(id: &str, reward: f64, priority: f64) -> RLExperience {
+        let ts = Utc::now();
+        RLExperience {
+            id: id.to_string(),
+            state: RLState {
+                id: Uuid::new_v4().to_string(),
+                context_id: "ctx".to_string(),
+                features: vec![1.0, 2.0, 3.0],
+                metadata: None,
+                timestamp: ts,
+            },
+            action: RLAction {
+                id: Uuid::new_v4().to_string(),
+                action_type: "act".to_string(),
+                parameters: serde_json::Value::Null,
+                confidence: 0.8,
+                expected_reward: 1.0,
+            },
+            reward,
+            next_state: None,
+            done: false,
+            timestamp: ts,
+            priority,
+        }
+    }
+
+    #[test]
+    fn sampling_strategy_serde_roundtrip_all_variants() {
+        let strategies = vec![
+            SamplingStrategy::Uniform,
+            SamplingStrategy::Prioritized(PrioritizedConfig::default()),
+            SamplingStrategy::Temporal(TemporalConfig::default()),
+            SamplingStrategy::Balanced(BalancedConfig::default()),
+        ];
+        for s in strategies {
+            let json = serde_json::to_string(&s).expect("serialize strategy");
+            let back: SamplingStrategy = serde_json::from_str(&json).expect("deserialize");
+            match (s, back) {
+                (SamplingStrategy::Uniform, SamplingStrategy::Uniform) => {}
+                (SamplingStrategy::Prioritized(a), SamplingStrategy::Prioritized(b)) => {
+                    assert!((a.alpha - b.alpha).abs() < f64::EPSILON);
+                }
+                (SamplingStrategy::Temporal(a), SamplingStrategy::Temporal(b)) => {
+                    assert!((a.decay_factor - b.decay_factor).abs() < f64::EPSILON);
+                }
+                (SamplingStrategy::Balanced(a), SamplingStrategy::Balanced(b)) => {
+                    assert!((a.recent_ratio - b.recent_ratio).abs() < f64::EPSILON);
+                }
+                _ => panic!("variant mismatch after roundtrip"),
+            }
+        }
+    }
+
+    #[test]
+    fn experience_stats_and_priority_serde_roundtrip() {
+        let stats = ExperienceStats {
+            total_experiences: 1,
+            current_size: 2,
+            utilization: 0.5,
+            average_priority: 0.3,
+            samples_drawn: 4,
+            average_reward: 0.1,
+            success_rate: 0.8,
+            oldest_experience_age: 12.0,
+            last_update: Utc::now(),
+        };
+        let json = serde_json::to_string(&stats).expect("stats serde");
+        let back: ExperienceStats = serde_json::from_str(&json).expect("stats de");
+        assert_eq!(back.current_size, stats.current_size);
+        assert!((back.utilization - stats.utilization).abs() < 1e-9);
+
+        let prio = ExperiencePriority {
+            experience_id: "e1".to_string(),
+            priority: 2.0,
+            td_error: 0.25,
+            last_update: Utc::now(),
+        };
+        let pj = serde_json::to_string(&prio).expect("prio ser");
+        let prio2: ExperiencePriority = serde_json::from_str(&pj).expect("prio de");
+        assert_eq!(prio2.experience_id, "e1");
+        assert!((prio2.td_error - 0.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn experience_batch_serde_metadata_none() {
+        let batch = ExperienceBatch {
+            experiences: vec![],
+            weights: vec![],
+            indices: vec![],
+            metadata: None,
+        };
+        let json = serde_json::to_string(&batch).expect("batch");
+        let back: ExperienceBatch = serde_json::from_str(&json).expect("batch de");
+        assert!(back.metadata.is_none());
+    }
+
+    #[test]
+    fn buffer_get_out_of_bounds() {
+        let mut b = ExperienceBuffer::new(4);
+        b.add(sample_exp("a", 1.0, 1.0));
+        assert!(b.get(0).is_some());
+        assert!(b.get(99).is_none());
+    }
+
+    #[test]
+    fn buffer_sample_uniform_caps_at_size() {
+        let mut b = ExperienceBuffer::new(100);
+        b.add(sample_exp("only", 1.0, 1.0));
+        let s = b.sample_uniform(50);
+        assert_eq!(s.len(), 1);
+    }
+
+    #[test]
+    fn buffer_is_full_false_until_capacity() {
+        let mut b = ExperienceBuffer::new(3);
+        b.add(sample_exp("1", 0.0, 1.0));
+        assert!(!b.is_full());
+        b.add(sample_exp("2", 0.0, 1.0));
+        b.add(sample_exp("3", 0.0, 1.0));
+        assert!(b.is_full());
+    }
+
+    #[tokio::test]
+    async fn replay_empty_buffer_leaves_default_averages() {
+        let replay = ExperienceReplay::new(10);
+        let stats = replay.get_stats().await;
+        assert_eq!(stats.current_size, 0);
+        assert_eq!(stats.utilization, 0.0);
+    }
+
+    #[tokio::test]
+    async fn replay_update_priorities_ignores_oob_index() {
+        let replay = ExperienceReplay::new(10);
+        replay
+            .add_experience(sample_exp("x", 1.0, 1.0))
+            .await
+            .expect("add");
+        replay
+            .update_priorities(vec![999], vec![99.0])
+            .await
+            .expect("update");
+        let all = replay.get_all_experiences().await;
+        assert!((all[0].priority - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn replay_uniform_batch_larger_than_buffer() {
+        let replay = ExperienceReplay::new(100);
+        for i in 0..3 {
+            replay
+                .add_experience(sample_exp(&format!("e{i}"), 1.0, 1.0))
+                .await
+                .expect("add");
+        }
+        let batch = replay.sample_batch(100).await.expect("sample");
+        assert_eq!(batch.experiences.len(), 3);
+        assert_eq!(batch.weights.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn replay_prioritized_normalizes_weights_when_positive() {
+        let cfg = PrioritizedConfig::default();
+        let replay =
+            ExperienceReplay::with_sampling_strategy(50, SamplingStrategy::Prioritized(cfg));
+        for i in 0..20 {
+            replay
+                .add_experience(sample_exp(&format!("e{i}"), 1.0, (i as f64) * 0.01 + 0.1))
+                .await
+                .expect("add");
+        }
+        let batch = replay.sample_batch(8).await.expect("sample");
+        assert_eq!(batch.experiences.len(), 8);
+        if !batch.weights.is_empty() {
+            let mx = batch
+                .weights
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max);
+            assert!((mx - 1.0).abs() < 1e-9 || mx <= 1.0 + 1e-9);
+        }
+    }
+
+    #[tokio::test]
+    async fn experience_trait_timestamp_and_id() {
+        let ts = Utc::now();
+        let mut e = sample_exp("tid", 0.5, 2.0);
+        e.timestamp = ts;
+        let exp: &dyn Experience = &e;
+        assert_eq!(exp.id(), "tid");
+        assert_eq!(exp.timestamp(), ts);
+        assert!((exp.priority() - 2.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn config_defaults_match_documented() {
+        let p = PrioritizedConfig::default();
+        assert!((p.beta_annealing_rate - 0.001).abs() < f64::EPSILON);
+        assert!((p.epsilon - 1e-6).abs() < 1e-9);
+        let t = TemporalConfig::default();
+        assert!(t.min_probability > 0.0);
+        let b = BalancedConfig::default();
+        assert!(b.recent_threshold >= 0.0 && b.recent_threshold <= 1.0);
+    }
+}

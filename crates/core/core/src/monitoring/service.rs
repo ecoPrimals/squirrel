@@ -42,7 +42,7 @@ impl MonitoringService {
     /// # Errors
     ///
     /// Returns [`Error`] if a required provider cannot be initialized.
-    pub async fn initialize(&self) -> Result<()> {
+    pub fn initialize(&self) -> Result<()> {
         if !self.config.enabled {
             tracing::info!("Monitoring service disabled");
             return Ok(());
@@ -52,9 +52,9 @@ impl MonitoringService {
 
         // Try to initialize Songbird provider if configured
         if let Some(ref songbird_config) = self.config.songbird_config {
-            match self.try_initialize_songbird(songbird_config).await {
+            match Self::try_initialize_songbird(songbird_config) {
                 Ok(provider) => {
-                    self.add_provider(provider).await;
+                    self.add_provider(provider);
                     tracing::info!("✅ Songbird monitoring provider initialized");
                 }
                 Err(e) => {
@@ -68,12 +68,9 @@ impl MonitoringService {
 
         // Try to initialize other configured providers
         for (provider_name, provider_config) in &self.config.provider_configs {
-            match self
-                .try_initialize_provider(provider_name, provider_config)
-                .await
-            {
+            match Self::try_initialize_provider(provider_name, provider_config) {
                 Ok(provider) => {
-                    self.add_provider(provider).await;
+                    self.add_provider(provider);
                     tracing::info!("✅ {} monitoring provider initialized", provider_name);
                 }
                 Err(e) => {
@@ -106,12 +103,12 @@ impl MonitoringService {
     }
 
     /// Add a monitoring provider
-    pub async fn add_provider(&self, provider: Arc<dyn MonitoringProvider>) {
+    pub fn add_provider(&self, provider: Arc<dyn MonitoringProvider>) {
         self.providers.write().push(provider);
     }
 
     /// Remove a monitoring provider
-    pub async fn remove_provider(&self, provider_name: &str) {
+    pub fn remove_provider(&self, provider_name: &str) {
         self.providers
             .write()
             .retain(|p| p.provider_name() != provider_name);
@@ -233,7 +230,8 @@ impl MonitoringService {
     }
 
     /// Get available monitoring providers
-    pub async fn get_providers(&self) -> Vec<String> {
+    #[must_use]
+    pub fn get_providers(&self) -> Vec<String> {
         self.providers
             .read()
             .iter()
@@ -270,24 +268,20 @@ impl MonitoringService {
     }
 
     /// Try to initialize Songbird provider
-    async fn try_initialize_songbird(
-        &self,
-        config: &SongbirdConfig,
-    ) -> Result<Arc<dyn MonitoringProvider>> {
-        let provider = Arc::new(SongbirdProvider::new(config.clone()).await?);
+    fn try_initialize_songbird(config: &SongbirdConfig) -> Result<Arc<dyn MonitoringProvider>> {
+        let provider = Arc::new(SongbirdProvider::new(config.clone())?);
         Ok(provider)
     }
 
     /// Try to initialize a generic provider
-    async fn try_initialize_provider(
-        &self,
+    fn try_initialize_provider(
         name: &str,
         config: &serde_json::Value,
     ) -> Result<Arc<dyn MonitoringProvider>> {
         match name {
             "songbird" => {
                 let songbird_config: SongbirdConfig = serde_json::from_value(config.clone())?;
-                self.try_initialize_songbird(&songbird_config).await
+                Self::try_initialize_songbird(&songbird_config)
             }
             _ => Err(Error::Monitoring(format!("Unknown provider: {name}"))),
         }

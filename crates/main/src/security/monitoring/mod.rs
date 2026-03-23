@@ -793,4 +793,80 @@ mod tests {
         let system = SecurityMonitoringSystem::new(config);
         assert_eq!(system.estimated_shutdown_time(), Duration::from_secs(10));
     }
+
+    #[tokio::test]
+    async fn test_start_noop_when_real_time_disabled() {
+        let config = SecurityMonitoringConfig {
+            enable_real_time_monitoring: false,
+            ..Default::default()
+        };
+        let system = SecurityMonitoringSystem::new(config);
+        assert!(system.start().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_failed_auth_event_generates_alert_after_start() {
+        let config = SecurityMonitoringConfig {
+            enable_behavioral_analysis: false,
+            ..Default::default()
+        };
+        let system = SecurityMonitoringSystem::new(config);
+        system.start().await.expect("start");
+
+        let event = SecurityEvent::new(
+            SecurityEventType::Authentication {
+                success: false,
+                user_id: None,
+                method: "password".to_string(),
+            },
+            "10.0.0.1".to_string(),
+            EventSeverity::Warning,
+            "auth".to_string(),
+            CorrelationId::new(),
+        );
+        system.record_event(event).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let alerts = system.get_active_alerts().await;
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].alert_type, AlertType::BruteForceAttempt);
+    }
+
+    #[tokio::test]
+    async fn test_critical_input_validation_event_generates_alert() {
+        let config = SecurityMonitoringConfig {
+            enable_behavioral_analysis: false,
+            ..Default::default()
+        };
+        let system = SecurityMonitoringSystem::new(config);
+        system.start().await.expect("start");
+
+        let event = SecurityEvent::new(
+            SecurityEventType::InputValidationViolation {
+                client_ip: "192.168.0.1".to_string(),
+                violation_type: "injection".to_string(),
+                risk_level: "Critical".to_string(),
+            },
+            "192.168.0.1".to_string(),
+            EventSeverity::High,
+            "validator".to_string(),
+            CorrelationId::new(),
+        );
+        system.record_event(event).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let alerts = system.get_active_alerts().await;
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].alert_type, AlertType::InputValidationAbuse);
+    }
+
+    #[tokio::test]
+    async fn test_is_shutdown_complete_tracks_flag() {
+        let config = SecurityMonitoringConfig::default();
+        let system = SecurityMonitoringSystem::new(config);
+        assert!(!system.is_shutdown_complete().await);
+        system
+            .shutdown(ShutdownPhase::CleanupResources)
+            .await
+            .unwrap();
+        assert!(system.is_shutdown_complete().await);
+    }
 }

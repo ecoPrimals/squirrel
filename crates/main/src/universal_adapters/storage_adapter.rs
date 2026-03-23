@@ -416,3 +416,245 @@ pub async fn register_nestgate_service(
     info!("✅ NestGate storage service successfully registered with universal registry");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::universal_adapters::registry::InMemoryServiceRegistry;
+    use crate::universal_adapters::{
+        IntegrationPreferences, ResourceSpec, ServiceCategory, ServiceEndpoint, ServiceHealth,
+        ServiceMetadata, UniversalServiceRegistration,
+    };
+
+    fn test_storage_registration() -> UniversalServiceRegistration {
+        UniversalServiceRegistration {
+            service_id: uuid::Uuid::new_v4(),
+            metadata: ServiceMetadata {
+                name: "Test Storage".to_string(),
+                category: ServiceCategory::Storage {
+                    types: vec!["distributed".to_string()],
+                },
+                version: "1.0.0".to_string(),
+                description: "Test".to_string(),
+                maintainer: "test".to_string(),
+                protocols: vec!["https".to_string()],
+            },
+            capabilities: vec![ServiceCapability::DataManagement {
+                operations: vec![
+                    "store".to_string(),
+                    "retrieve".to_string(),
+                    "backup".to_string(),
+                    "compress".to_string(),
+                ],
+                consistency: "strong".to_string(),
+                durability: "replicated".to_string(),
+            }],
+            endpoints: vec![ServiceEndpoint {
+                name: "primary".to_string(),
+                url: "https://storage.test".to_string(),
+                protocol: "https".to_string(),
+                port: Some(443),
+                path: None,
+            }],
+            resources: ResourceSpec {
+                cpu_cores: Some(4),
+                memory_gb: Some(16),
+                storage_gb: Some(500),
+                network_bandwidth: Some(2000),
+                custom_resources: HashMap::new(),
+            },
+            integration: IntegrationPreferences {
+                preferred_protocols: vec!["https".to_string()],
+                retry_policy: "simple".to_string(),
+                timeout_seconds: 120,
+                load_balancing_weight: 12,
+            },
+            extensions: HashMap::new(),
+            registration_timestamp: chrono::Utc::now(),
+            service_version: "1.0.0".to_string(),
+            instance_id: "inst-storage".to_string(),
+            priority: 12,
+        }
+    }
+
+    async fn registry_with_storage() -> Arc<dyn UniversalServiceRegistry> {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        reg.register_service(test_storage_registration())
+            .await
+            .expect("register");
+        reg
+    }
+
+    #[tokio::test]
+    async fn new_adapter_get_current_none() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalStorageAdapter::new(reg);
+        assert!(adapter.get_current_storage_service().is_none());
+    }
+
+    #[tokio::test]
+    async fn coordinate_storage_store_retrieve_backup_default() {
+        let reg = registry_with_storage().await;
+        let mut adapter = UniversalStorageAdapter::new(reg);
+        let store = adapter
+            .coordinate_storage("store", serde_json::json!({ "k": 1 }))
+            .await
+            .expect("store");
+        assert_eq!(store["status"], "stored");
+        assert!(store.get("storage_id").is_some());
+
+        let ret = adapter
+            .coordinate_storage("retrieve", serde_json::json!({}))
+            .await
+            .expect("retrieve");
+        assert_eq!(ret["status"], "retrieved");
+
+        let bak = adapter
+            .coordinate_storage("backup", serde_json::json!({}))
+            .await
+            .expect("backup");
+        assert_eq!(bak["status"], "backed_up");
+
+        let other = adapter
+            .coordinate_storage("list", serde_json::json!({}))
+            .await
+            .expect("other");
+        assert_eq!(other["status"], "completed");
+    }
+
+    #[tokio::test]
+    async fn store_ai_context_returns_storage_id() {
+        let reg = registry_with_storage().await;
+        let mut adapter = UniversalStorageAdapter::new(reg);
+        let id = adapter
+            .store_ai_context("ctx-1", serde_json::json!({ "x": 1 }))
+            .await
+            .expect("id");
+        assert!(!id.is_empty());
+    }
+
+    #[tokio::test]
+    async fn retrieve_ai_context_errors_no_context_data() {
+        let reg = registry_with_storage().await;
+        let mut adapter = UniversalStorageAdapter::new(reg);
+        let err = adapter.retrieve_ai_context("sid-1").await.unwrap_err();
+        assert!(matches!(err, PrimalError::StorageError(_)));
+    }
+
+    #[tokio::test]
+    async fn backup_ai_data_returns_backup_id() {
+        let reg = registry_with_storage().await;
+        let mut adapter = UniversalStorageAdapter::new(reg);
+        let id = adapter.backup_ai_data("set-a").await.expect("backup id");
+        assert!(!id.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_storage_metrics_errors_without_service() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalStorageAdapter::new(reg);
+        let err = adapter.get_storage_metrics().await.unwrap_err();
+        assert!(matches!(err, PrimalError::StorageError(_)));
+    }
+
+    #[tokio::test]
+    async fn get_storage_metrics_ok() {
+        let reg = registry_with_storage().await;
+        let mut adapter = UniversalStorageAdapter::new(reg);
+        adapter
+            .coordinate_storage("store", serde_json::json!({}))
+            .await
+            .unwrap();
+        let m = adapter.get_storage_metrics().await.expect("metrics");
+        assert_eq!(m["storage_service"], "Test Storage");
+    }
+
+    #[tokio::test]
+    async fn get_storage_capabilities() {
+        let reg = registry_with_storage().await;
+        let adapter = UniversalStorageAdapter::new(reg);
+        let caps = adapter.get_storage_capabilities().await.expect("caps");
+        assert!(caps.contains(&"store".to_string()));
+        assert!(caps.contains(&"retrieve".to_string()));
+    }
+
+    #[tokio::test]
+    async fn rediscover_storage_services() {
+        let reg = registry_with_storage().await;
+        let mut adapter = UniversalStorageAdapter::new(reg);
+        adapter
+            .coordinate_storage("store", serde_json::json!({}))
+            .await
+            .unwrap();
+        adapter.rediscover_storage_services().await.expect("redisc");
+        assert!(adapter.get_current_storage_service().is_some());
+    }
+
+    #[tokio::test]
+    async fn discovery_fails_empty_registry() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let mut adapter = UniversalStorageAdapter::new(reg);
+        let err = adapter
+            .coordinate_storage("store", serde_json::json!({}))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, PrimalError::ServiceDiscoveryError(_)));
+    }
+
+    #[tokio::test]
+    async fn is_healthy_true() {
+        let reg = registry_with_storage().await;
+        let adapter = UniversalStorageAdapter::new(reg);
+        assert!(adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn is_healthy_false_empty() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalStorageAdapter::new(reg);
+        assert!(!adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn is_healthy_false_unhealthy_service() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let reg_data = test_storage_registration();
+        let sid = reg_data.service_id.to_string();
+        reg.register_service(reg_data).await.unwrap();
+        reg.update_service_health(
+            &sid,
+            ServiceHealth {
+                healthy: false,
+                message: None,
+                metrics: HashMap::new(),
+            },
+        )
+        .await
+        .unwrap();
+        let mut adapter = UniversalStorageAdapter::new(reg);
+        adapter
+            .coordinate_storage("store", serde_json::json!({}))
+            .await
+            .unwrap();
+        assert!(!adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn register_nestgate_and_serde_roundtrip() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        register_nestgate_service(reg.clone()).await.expect("reg");
+        let services = reg.list_all_services().await.expect("list");
+        assert_eq!(services.len(), 1);
+        let json = serde_json::to_string(&services[0].capabilities).expect("ser");
+        let caps: Vec<ServiceCapability> = serde_json::from_str(&json).expect("de");
+        assert!(!caps.is_empty());
+    }
+
+    #[test]
+    fn storage_registration_serde_roundtrip() {
+        let r = test_storage_registration();
+        let s = serde_json::to_string(&r).expect("json");
+        let back: UniversalServiceRegistration = serde_json::from_str(&s).expect("back");
+        assert_eq!(r.service_id, back.service_id);
+    }
+}

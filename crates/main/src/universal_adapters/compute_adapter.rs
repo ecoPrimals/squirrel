@@ -484,3 +484,291 @@ pub async fn register_toadstool_service(
     info!("✅ ToadStool compute service successfully registered with universal registry");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::universal_adapters::registry::InMemoryServiceRegistry;
+    use crate::universal_adapters::{
+        IntegrationPreferences, ResourceSpec, ServiceCategory, ServiceEndpoint, ServiceHealth,
+        ServiceMetadata, UniversalServiceRegistration,
+    };
+
+    fn test_compute_registration() -> UniversalServiceRegistration {
+        UniversalServiceRegistration {
+            service_id: uuid::Uuid::new_v4(),
+            metadata: ServiceMetadata {
+                name: "Test Compute Service".to_string(),
+                category: ServiceCategory::Compute {
+                    specialties: vec!["ai_workload".to_string()],
+                },
+                version: "1.0.0".to_string(),
+                description: "Test".to_string(),
+                maintainer: "test".to_string(),
+                protocols: vec!["https".to_string()],
+            },
+            capabilities: vec![ServiceCapability::Computation {
+                types: vec![
+                    "container".to_string(),
+                    "serverless".to_string(),
+                    "batch".to_string(),
+                    "ai_workload".to_string(),
+                ],
+                resources: HashMap::from([
+                    ("cpu_cores".to_string(), serde_json::json!(4)),
+                    ("memory_gb".to_string(), serde_json::json!(8)),
+                    ("scaling".to_string(), serde_json::json!(true)),
+                ]),
+                constraints: vec!["auto_scaling".to_string(), "monitoring".to_string()],
+            }],
+            endpoints: vec![ServiceEndpoint {
+                name: "primary".to_string(),
+                url: "https://compute.test".to_string(),
+                protocol: "https".to_string(),
+                port: Some(443),
+                path: Some("/api".to_string()),
+            }],
+            resources: ResourceSpec {
+                cpu_cores: Some(4),
+                memory_gb: Some(8),
+                storage_gb: Some(100),
+                network_bandwidth: Some(1000),
+                custom_resources: HashMap::new(),
+            },
+            integration: IntegrationPreferences {
+                preferred_protocols: vec!["https".to_string()],
+                retry_policy: "simple".to_string(),
+                timeout_seconds: 30,
+                load_balancing_weight: 10,
+            },
+            extensions: HashMap::new(),
+            registration_timestamp: chrono::Utc::now(),
+            service_version: "1.0.0".to_string(),
+            instance_id: "inst-compute".to_string(),
+            priority: 10,
+        }
+    }
+
+    async fn registry_with_compute() -> Arc<dyn UniversalServiceRegistry> {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        reg.register_service(test_compute_registration())
+            .await
+            .expect("register compute");
+        reg
+    }
+
+    #[tokio::test]
+    async fn new_adapter_and_get_current_none_before_discovery() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalComputeAdapter::new(reg);
+        assert!(adapter.get_current_compute_service().is_none());
+    }
+
+    #[tokio::test]
+    async fn coordinate_computation_execute_scale_monitor_and_default() {
+        let reg = registry_with_compute().await;
+        let mut adapter = UniversalComputeAdapter::new(reg);
+
+        let exec = adapter
+            .coordinate_computation("execute", serde_json::json!({ "x": 1 }))
+            .await
+            .expect("execute");
+        assert_eq!(exec["status"], "completed");
+        assert!(exec.get("execution_id").is_some());
+
+        let scale = adapter
+            .coordinate_computation("scale", serde_json::json!({}))
+            .await
+            .expect("scale");
+        assert_eq!(scale["status"], "scaled");
+        assert!(scale.get("scaling_id").is_some());
+
+        let mon = adapter
+            .coordinate_computation("monitor", serde_json::json!({}))
+            .await
+            .expect("monitor");
+        assert_eq!(mon["status"], "monitoring");
+
+        let custom = adapter
+            .coordinate_computation("custom_op", serde_json::json!({}))
+            .await
+            .expect("custom");
+        assert_eq!(custom["status"], "completed");
+        assert_eq!(custom["operation"], "custom_op");
+    }
+
+    #[tokio::test]
+    async fn execute_ai_workload_returns_execution_id() {
+        let reg = registry_with_compute().await;
+        let mut adapter = UniversalComputeAdapter::new(reg);
+        let mut params = HashMap::new();
+        params.insert("k".to_string(), serde_json::json!(1));
+        let id = adapter
+            .execute_ai_workload("inference", params)
+            .await
+            .expect("exec id");
+        assert!(!id.is_empty());
+    }
+
+    #[tokio::test]
+    async fn scale_and_monitor_helpers() {
+        let reg = registry_with_compute().await;
+        let mut adapter = UniversalComputeAdapter::new(reg);
+        let scale = adapter
+            .scale_compute_resources("up", 2)
+            .await
+            .expect("scale");
+        assert_eq!(scale["scaling_action"], "up");
+        let mon = adapter.monitor_compute_performance().await.expect("mon");
+        assert_eq!(mon["status"], "monitoring");
+    }
+
+    #[tokio::test]
+    async fn get_current_after_coordinate() {
+        let reg = registry_with_compute().await;
+        let mut adapter = UniversalComputeAdapter::new(reg);
+        adapter
+            .coordinate_computation("execute", serde_json::json!({}))
+            .await
+            .unwrap();
+        let info = adapter
+            .get_current_compute_service()
+            .expect("preferred service");
+        let dbg = format!("{info:?}");
+        assert!(dbg.contains("Test Compute Service") || dbg.contains("service_id"));
+    }
+
+    #[tokio::test]
+    async fn rediscover_compute_services() {
+        let reg = registry_with_compute().await;
+        let mut adapter = UniversalComputeAdapter::new(reg);
+        adapter
+            .coordinate_computation("execute", serde_json::json!({}))
+            .await
+            .unwrap();
+        adapter
+            .rediscover_compute_services()
+            .await
+            .expect("rediscover");
+        assert!(adapter.get_current_compute_service().is_some());
+    }
+
+    #[tokio::test]
+    async fn discovery_fails_empty_registry() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let mut adapter = UniversalComputeAdapter::new(reg);
+        let err = adapter
+            .coordinate_computation("execute", serde_json::json!({}))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, PrimalError::ServiceDiscoveryError(_)));
+    }
+
+    #[tokio::test]
+    async fn submit_batch_job_errors_no_job_id() {
+        let reg = registry_with_compute().await;
+        let mut adapter = UniversalComputeAdapter::new(reg);
+        let err = adapter
+            .submit_batch_job(serde_json::json!({}))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, PrimalError::ComputeError(_)));
+    }
+
+    #[tokio::test]
+    async fn get_resource_availability_errors_without_service() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalComputeAdapter::new(reg);
+        let err = adapter.get_resource_availability().await.unwrap_err();
+        assert!(matches!(err, PrimalError::ComputeError(_)));
+    }
+
+    #[tokio::test]
+    async fn get_resource_availability_ok_with_service() {
+        let reg = registry_with_compute().await;
+        let mut adapter = UniversalComputeAdapter::new(reg);
+        adapter
+            .coordinate_computation("execute", serde_json::json!({}))
+            .await
+            .unwrap();
+        let j = adapter
+            .get_resource_availability()
+            .await
+            .expect("resources");
+        assert_eq!(j["compute_service"], "Test Compute Service");
+        assert!(j["resources"]["cpu_cores_available"].is_number());
+    }
+
+    #[tokio::test]
+    async fn get_compute_capabilities_deduplicates() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let mut r1 = test_compute_registration();
+        let mut r2 = test_compute_registration();
+        r1.metadata.name = "C1".to_string();
+        r2.metadata.name = "C2".to_string();
+        reg.register_service(r1).await.unwrap();
+        reg.register_service(r2).await.unwrap();
+        let adapter = UniversalComputeAdapter::new(reg);
+        let caps = adapter.get_compute_capabilities().await.expect("caps");
+        assert!(caps.contains(&"batch".to_string()));
+        assert!(caps.contains(&"ai_workload".to_string()));
+    }
+
+    #[tokio::test]
+    async fn is_healthy_false_when_marked_unhealthy_in_registry() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let reg_data = test_compute_registration();
+        let sid = reg_data.service_id.to_string();
+        reg.register_service(reg_data).await.unwrap();
+        reg.update_service_health(
+            &sid,
+            ServiceHealth {
+                healthy: false,
+                message: None,
+                metrics: HashMap::new(),
+            },
+        )
+        .await
+        .unwrap();
+        let mut adapter = UniversalComputeAdapter::new(reg);
+        adapter
+            .coordinate_computation("execute", serde_json::json!({}))
+            .await
+            .expect("coord");
+        assert!(!adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn is_healthy_auto_discover_true() {
+        let reg = registry_with_compute().await;
+        let adapter = UniversalComputeAdapter::new(reg);
+        assert!(adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn is_healthy_auto_discover_false_empty() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalComputeAdapter::new(reg);
+        assert!(!adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn register_toadstool_and_serde_roundtrip() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        register_toadstool_service(reg.clone()).await.expect("reg");
+        let services = reg.list_all_services().await.expect("list");
+        assert_eq!(services.len(), 1);
+        let json = serde_json::to_string(&services[0].capabilities).expect("ser cap");
+        let caps: Vec<ServiceCapability> = serde_json::from_str(&json).expect("de cap");
+        assert!(!caps.is_empty());
+    }
+
+    #[test]
+    fn compute_registration_serde_roundtrip() {
+        let r = test_compute_registration();
+        let s = serde_json::to_string(&r).expect("to json");
+        let back: UniversalServiceRegistration = serde_json::from_str(&s).expect("from json");
+        assert_eq!(r.service_id, back.service_id);
+        assert_eq!(r.metadata.name, back.metadata.name);
+    }
+}

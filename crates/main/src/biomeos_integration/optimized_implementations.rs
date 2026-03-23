@@ -454,3 +454,110 @@ pub async fn process_intelligence_request(
 
     Ok(response)
 }
+
+#[cfg(test)]
+mod optimized_impl_tests {
+    use super::*;
+    use crate::optimization::zero_copy::message_utils::ZeroCopyMessage;
+    use std::sync::Arc;
+
+    #[test]
+    fn optimized_service_registration_default_and_registration_shape() {
+        let mut reg = OptimizedServiceRegistration::default();
+        let svc = reg.create_ecosystem_service_registration(
+            "unit-test",
+            Some("biome-x"),
+            &["mcp", "ai"],
+            Some(vec!["dep1".to_string()]),
+            Some(HashMap::from([("k".to_string(), "v".to_string())])),
+        );
+        assert!(svc.service_id.as_ref().contains("squirrel-unit-test"));
+        assert_eq!(svc.capabilities.core.len(), 2);
+        assert_eq!(svc.dependencies, vec!["dep1".to_string()]);
+        let snap = reg.get_metrics();
+        assert!(snap.total_operations > 0);
+    }
+
+    #[test]
+    fn optimized_message_processor_analysis_and_intelligence_paths() {
+        let mut proc = OptimizedMessageProcessor::default();
+        let r1 = proc
+            .process_intelligence_request("r1", "analysis", &serde_json::json!({}))
+            .unwrap();
+        assert_eq!(r1.intelligence_type, "analysis");
+        let r2 = proc
+            .process_intelligence_request("r2", "other", &serde_json::json!({}))
+            .unwrap();
+        assert_eq!(r2.intelligence_type, "other");
+        assert!(proc.get_metrics().total_operations >= 2);
+    }
+
+    #[test]
+    fn optimized_context_state_session_cache_and_remove() {
+        let mut state = OptimizedContextState::new();
+        let meta = HashMap::from([("role".to_string(), "test".to_string())]);
+        let s = state.create_session("sid".to_string(), "user", meta.clone());
+        assert_eq!(s.session_id, "sid");
+        assert_eq!(state.get_active_sessions().len(), 1);
+        let ctx = ContextData {
+            id: "c1".to_string(),
+            data: serde_json::json!({"x": 1}),
+            timestamp: chrono::Utc::now(),
+        };
+        state.cache_context_data("ck".to_string(), ctx);
+        assert!(state.get_cached_context_data("ck").is_some());
+        assert!(state.remove_session("sid").is_some());
+        assert!(state.get_active_sessions().is_empty());
+    }
+
+    #[test]
+    fn register_with_ecosystem_builds_expected_fields() {
+        let r = register_with_ecosystem(
+            "svc-a",
+            EcosystemPrimalType::Squirrel,
+            "http://127.0.0.1:9000",
+            &["cap1"],
+            None,
+            None,
+            None,
+        );
+        assert!(r.endpoints.primary.contains("9000"));
+        assert_eq!(r.primal_type, EcosystemPrimalType::Squirrel);
+    }
+
+    #[tokio::test]
+    async fn process_intelligence_request_async_variants() {
+        let v = process_intelligence_request("id", "pattern_recognition", serde_json::json!({}))
+            .await
+            .unwrap();
+        assert!(v.result.get("patterns").is_some());
+        let v2 = process_intelligence_request("id2", "unknown", serde_json::json!({}))
+            .await
+            .unwrap();
+        assert!(v2.result.get("error").is_some());
+    }
+
+    #[test]
+    fn session_context_and_context_data_clone_debug() {
+        let sc = SessionContext {
+            session_id: "s".to_string(),
+            user_id: "u".to_string(),
+            created_at: chrono::Utc::now(),
+            last_activity: chrono::Utc::now(),
+            metadata: HashMap::new(),
+            context_data: HashMap::new(),
+        };
+        let _ = format!("{sc:?}");
+        let c = sc.clone();
+        assert_eq!(c.session_id, "s");
+    }
+
+    #[test]
+    fn message_cache_round_trip() {
+        let mut proc = OptimizedMessageProcessor::new();
+        let msg = ZeroCopyMessage::new(Arc::from("t"), Arc::from("hello"));
+        proc.cache_message("k", msg);
+        let cached = proc.get_cached_message("k").unwrap();
+        assert_eq!(cached.get_content(), "hello");
+    }
+}

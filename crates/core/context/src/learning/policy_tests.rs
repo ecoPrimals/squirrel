@@ -352,6 +352,68 @@ fn create_test_rl_state() -> RLState {
     }
 }
 
+#[tokio::test]
+async fn test_predict_truncates_oversized_state_features() {
+    let config = PolicyNetworkConfig {
+        input_size: 4,
+        hidden_layers: vec![6],
+        output_size: 3,
+        activation_function: "relu".to_string(),
+        optimizer: "adam".to_string(),
+        dropout_rate: 0.0,
+    };
+    let network = PolicyNetwork::new(config)
+        .await
+        .expect("Should create network");
+    let state = RLState {
+        id: "big".to_string(),
+        context_id: "ctx".to_string(),
+        features: vec![1.0; 40],
+        metadata: None,
+        timestamp: Utc::now(),
+    };
+    let action = network.predict(&state).await.expect("predict");
+    assert_eq!(action.action_probabilities.len(), 3);
+}
+
+#[tokio::test]
+async fn test_save_weights_fails_when_parent_is_file() {
+    let config = test_helpers::create_test_policy_config();
+    let network = PolicyNetwork::new(config)
+        .await
+        .expect("Should create network");
+    let tmp = tempfile::NamedTempFile::new().expect("temp file");
+    let bad_path = tmp.path().join("nested/weights.json");
+    let result = network
+        .save_weights(bad_path.to_str().expect("utf8 path"))
+        .await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_evaluate_mixed_confidence_counts_accuracy() {
+    let config = PolicyNetworkConfig {
+        input_size: 4,
+        hidden_layers: vec![4],
+        output_size: 2,
+        activation_function: "relu".to_string(),
+        optimizer: "adam".to_string(),
+        dropout_rate: 0.0,
+    };
+    let network = PolicyNetwork::new(config).await.expect("new");
+    let states: Vec<RLState> = (0..5)
+        .map(|i| RLState {
+            id: format!("s{i}"),
+            context_id: "c".to_string(),
+            features: vec![i as f64 * 0.1; 4],
+            metadata: None,
+            timestamp: Utc::now(),
+        })
+        .collect();
+    let acc = network.evaluate(&states).await.expect("eval");
+    assert!((0.0..=1.0).contains(&acc));
+}
+
 fn create_test_rl_experience() -> super::engine::RLExperience {
     use super::engine::{RLAction, RLState};
 

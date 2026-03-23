@@ -95,7 +95,7 @@ pub struct CustomMetricDefinition {
 }
 
 /// Metric type enumeration
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MetricType {
     /// Monotonically increasing counter
     Counter,

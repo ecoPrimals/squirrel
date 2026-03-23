@@ -581,6 +581,7 @@ pub enum ServiceStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
     use std::time::Duration;
 
     #[test]
@@ -697,5 +698,178 @@ mod tests {
         let _ = ServiceStatus::Unknown;
         let _ = ServiceStatus::Healthy;
         let _ = ServiceStatus::Degraded;
+    }
+
+    #[test]
+    fn intern_registry_string_covers_capability_and_fallback_branches() {
+        use universal_constants::capabilities;
+
+        assert_eq!(intern_registry_string("storage").as_ref(), "storage");
+        assert_eq!(intern_registry_string("compute").as_ref(), "compute");
+        assert_eq!(intern_registry_string("security").as_ref(), "security");
+        assert_eq!(intern_registry_string("discovery").as_ref(), "discovery");
+        assert_eq!(intern_registry_string("active").as_ref(), "active");
+        assert_eq!(intern_registry_string("inactive").as_ref(), "inactive");
+        assert_eq!(intern_registry_string("error").as_ref(), "error");
+        assert_eq!(
+            intern_registry_string(capabilities::COMPUTE_CAPABILITY).as_ref(),
+            capabilities::COMPUTE_CAPABILITY
+        );
+        let custom = intern_registry_string("unique-custom-id-xyz");
+        assert_eq!(custom.as_ref(), "unique-custom-id-xyz");
+    }
+
+    #[test]
+    fn discovered_service_serde_roundtrip() {
+        let s = DiscoveredService::new(
+            "svc-serde",
+            EcosystemPrimalType::Squirrel,
+            "unix:///tmp/x.sock",
+            "unix:///tmp/x.sock",
+            "2.0",
+            vec!["storage"],
+            HashMap::from([("region", "eu")]),
+        );
+        let json = serde_json::to_string(&s).expect("ser");
+        let back: DiscoveredService = serde_json::from_str(&json).expect("de");
+        assert_eq!(back.service_id.as_ref(), "svc-serde");
+        assert_eq!(back.get_metadata("region").map(|v| v.as_ref()), Some("eu"));
+    }
+
+    #[test]
+    fn primal_api_response_with_error_roundtrip() {
+        let rid = Arc::from("r1");
+        let resp = PrimalApiResponse::new(
+            Arc::clone(&rid),
+            false,
+            None,
+            Some("failed"),
+            HashMap::from([("x-trace", "t1")]),
+            Duration::from_millis(1),
+        );
+        let json = serde_json::to_string(&resp).expect("ser");
+        let back: PrimalApiResponse = serde_json::from_str(&json).expect("de");
+        assert!(!back.success);
+        assert_eq!(back.error.as_ref().map(|e| e.as_ref()), Some("failed"));
+    }
+
+    #[test]
+    fn ecosystem_status_serde_roundtrip() {
+        let st = EcosystemStatus {
+            overall_health: 0.75,
+            primal_statuses: vec![],
+            registered_services: 2,
+            active_coordinations: 1,
+            last_full_sync: Some(Utc::now()),
+            discovery_cache_size: 3,
+        };
+        let v = serde_json::to_value(&st).unwrap();
+        let back: EcosystemStatus = serde_json::from_value(v).unwrap();
+        assert!((back.overall_health - 0.75).abs() < f64::EPSILON);
+        assert_eq!(back.discovery_cache_size, 3);
+    }
+
+    #[test]
+    fn registry_state_default_is_empty() {
+        let rs = RegistryState::default();
+        assert!(rs.registered_services.is_empty());
+        assert!(rs.service_discovery_cache.is_empty());
+        assert_eq!(rs.registration_attempts, 0);
+    }
+
+    #[test]
+    fn ecosystem_registry_event_debug_smoke() {
+        let ev = EcosystemRegistryEvent::ServiceDiscovered {
+            service_id: Arc::from("s1"),
+            primal_type: EcosystemPrimalType::Squirrel,
+            endpoint: Arc::from("unix:///a"),
+            capabilities: vec![Arc::from("compute")],
+        };
+        let s = format!("{ev:?}");
+        assert!(s.contains("ServiceDiscovered"));
+    }
+
+    #[test]
+    fn service_status_all_variants_serde() {
+        for st in [
+            ServiceStatus::Discovering,
+            ServiceStatus::Registering,
+            ServiceStatus::Recovering,
+            ServiceStatus::Offline,
+            ServiceStatus::Unhealthy,
+        ] {
+            let j = serde_json::to_string(&st).unwrap();
+            let _: ServiceStatus = serde_json::from_str(&j).unwrap();
+        }
+    }
+
+    #[test]
+    fn intern_registry_string_additional_branches() {
+        assert_eq!(
+            intern_registry_string("ai_coordination").as_ref(),
+            "ai_coordination"
+        );
+        assert_eq!(intern_registry_string("network").as_ref(), "network");
+        assert_eq!(intern_registry_string("songbird").as_ref(), "songbird");
+        assert_eq!(intern_registry_string("nestgate").as_ref(), "nestgate");
+    }
+
+    #[test]
+    fn ecosystem_registry_event_variants_debug() {
+        let ev = EcosystemRegistryEvent::ServiceRegistered {
+            service_id: Arc::from("s1"),
+            primal_type: EcosystemPrimalType::Songbird,
+            endpoint: Arc::from("unix:///a"),
+        };
+        assert!(format!("{ev:?}").contains("ServiceRegistered"));
+        let ev2 = EcosystemRegistryEvent::ServiceError {
+            service_id: Arc::from("s2"),
+            error: Arc::from("e"),
+            timestamp: Utc::now(),
+        };
+        assert!(format!("{ev2:?}").contains("ServiceError"));
+        let ev3 = EcosystemRegistryEvent::ServiceHealthChanged {
+            service_id: Arc::from("s3"),
+            primal_type: EcosystemPrimalType::Squirrel,
+            old_status: ServiceHealthStatus::Unknown,
+            new_status: ServiceHealthStatus::Healthy,
+        };
+        assert!(format!("{ev3:?}").contains("ServiceHealthChanged"));
+        let ev4 = EcosystemRegistryEvent::ServiceOffline {
+            service_id: Arc::from("s4"),
+            primal_type: EcosystemPrimalType::BearDog,
+            reason: Arc::from("shutdown"),
+        };
+        assert!(format!("{ev4:?}").contains("ServiceOffline"));
+    }
+
+    #[test]
+    fn health_check_result_debug() {
+        let h = HealthCheckResult {
+            status: ServiceHealthStatus::Degraded,
+            processing_time: Duration::from_millis(5),
+            error: Some("x".to_string()),
+        };
+        let s = format!("{h:?}");
+        assert!(s.contains("Degraded"));
+    }
+
+    #[test]
+    fn primal_status_roundtrip() {
+        let ps = PrimalStatus {
+            primal_type: EcosystemPrimalType::Squirrel,
+            status: ServiceStatus::Healthy,
+            endpoint: "e".to_string(),
+            version: "1".to_string(),
+            capabilities: vec!["c".to_string()],
+            health_score: 0.9,
+            response_time: Duration::from_millis(1),
+            last_seen: Utc::now(),
+            error_count: 0,
+            coordination_features: vec![],
+        };
+        let j = serde_json::to_value(&ps).unwrap();
+        let back: PrimalStatus = serde_json::from_value(j).unwrap();
+        assert_eq!(back.endpoint, "e");
     }
 }

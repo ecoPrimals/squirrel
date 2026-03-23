@@ -4,7 +4,7 @@
 //! JSON schemas for PrimalPulse tools
 //!
 //! Defines input/output schemas for dynamic tool registration
-#![allow(dead_code)] // Schema functions used by dynamic tool registration
+#![allow(dead_code, reason = "Tool schema helpers for dynamic registration")]
 
 use serde_json::{Value, json};
 

@@ -755,3 +755,96 @@ mod plugin_integration {
         assert!(plugin_manager.is_some());
     }
 }
+
+/// Error paths and edge cases for `adapter` without full plugin wiring.
+mod adapter_error_paths {
+    use serde_json::json;
+
+    use crate::{ContextAdapter, ContextAdapterConfig, ContextState};
+
+    #[tokio::test]
+    async fn transform_unknown_id_without_plugin_manager_errors() {
+        let cfg = ContextAdapterConfig {
+            enable_plugins: true,
+            ..ContextAdapterConfig::default()
+        };
+        let adapter = ContextAdapter::new(cfg);
+        let err = adapter
+            .transform_data("missing.transform", json!({ "x": 1 }))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Transformation not found"));
+    }
+
+    #[tokio::test]
+    async fn convert_unknown_adapter_without_plugin_manager_errors() {
+        let cfg = ContextAdapterConfig {
+            enable_plugins: true,
+            ..ContextAdapterConfig::default()
+        };
+        let adapter = ContextAdapter::new(cfg);
+        let err = adapter
+            .convert_data("missing.adapter", json!({}))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Adapter not found"));
+    }
+
+    #[tokio::test]
+    async fn validate_data_rejects_non_object_schema_or_data() {
+        let adapter = ContextAdapter::default();
+        let err = adapter
+            .validate_data(&json!("schema"), &json!({}))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Validation failed"));
+    }
+
+    #[tokio::test]
+    async fn validate_data_required_key_missing_returns_false() {
+        let adapter = ContextAdapter::default();
+        let schema = json!({
+            "name": { "required": true }
+        });
+        let data = json!({});
+        assert!(!adapter.validate_data(&schema, &data).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn create_context_respects_max_contexts_cap() {
+        let cfg = ContextAdapterConfig {
+            max_contexts: 1,
+            ..ContextAdapterConfig::default()
+        };
+        let adapter = ContextAdapter::new(cfg);
+        adapter
+            .create_context("first".to_string(), json!({}))
+            .await
+            .unwrap();
+        let err = adapter
+            .create_context("second".to_string(), json!({}))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Maximum number of contexts"));
+    }
+
+    #[tokio::test]
+    async fn get_transformations_empty_when_no_plugins_loaded() {
+        let adapter = ContextAdapter::default();
+        let ids = adapter.get_transformations().await.unwrap();
+        assert!(ids.is_empty());
+    }
+
+    #[test]
+    fn context_state_builder_chaining() {
+        let st = ContextState::new("id-1")
+            .with_data("k", "v")
+            .with_metadata("m", "x")
+            .with_version(3)
+            .with_synchronized(true);
+        assert_eq!(st.id, "id-1");
+        assert_eq!(st.data.get("k").map(String::as_str), Some("v"));
+        assert_eq!(st.version, 3);
+        assert!(st.synchronized);
+    }
+}

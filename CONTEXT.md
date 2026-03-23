@@ -20,7 +20,7 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 | Scale | ~**425k** lines (repo total; approximate) |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
 | Code license | **AGPL-3.0-only** (workspace `license`; see License section for full public framing) |
-| Version | **v0.1.0-alpha.19** (workspace); status **pre-alpha** |
+| Version | **v0.1.0-alpha.21** (workspace); status **pre-alpha** |
 
 ## Capabilities (domains)
 
@@ -72,10 +72,10 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **5,777** tests passing, 0 failures.
+- **6,717** tests passing, 0 failures.
 - **Chaos** and integration tests (e.g. under `crates/main/tests/chaos`).
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
-- **Coverage** ~**74.6%** line coverage with **90%** as stated target (re-verify with `just coverage`).
+- **Coverage** ~**86.8%** line coverage with **90%** as stated target (re-verify with `just coverage`).
 
 ## What this does NOT do
 

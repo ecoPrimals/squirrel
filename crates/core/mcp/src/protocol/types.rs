@@ -376,7 +376,95 @@ mod tests {
         // Add more default tests for protocol types here if needed
     }
 
-    // Add other tests specific to protocol types here...
+    #[test]
+    fn message_type_display_and_from_str() {
+        for (mt, s) in [
+            (MessageType::Command, "command"),
+            (MessageType::Response, "RESPONSE"),
+            (MessageType::Event, "Event"),
+            (MessageType::Error, "error"),
+            (MessageType::Setup, "setup"),
+            (MessageType::Heartbeat, "heartbeat"),
+            (MessageType::Sync, "sync"),
+            (MessageType::Unknown, "unknown"),
+        ] {
+            assert_eq!(mt.to_string(), format!("{mt:?}").replace('"', ""));
+            let parsed: MessageType = s.parse().expect("parse");
+            assert_eq!(parsed, mt);
+        }
+        assert!("nope".parse::<MessageType>().is_err());
+    }
+
+    #[test]
+    fn message_id_prefix_and_empty() {
+        let empty = MessageId(String::new());
+        assert!(empty.is_empty());
+        let p = MessageId::with_prefix("pre");
+        assert!(p.0.starts_with("pre-"));
+        assert!(!p.is_empty());
+    }
+
+    #[test]
+    fn mcp_message_command_extraction() {
+        let m = MCPMessage::new(
+            MessageType::Command,
+            serde_json::json!({ "command": "ping" }),
+        );
+        assert_eq!(m.command(), "ping");
+
+        let m2 = MCPMessage::new(MessageType::Command, serde_json::json!({}));
+        assert_eq!(m2.command(), "unknown");
+
+        let m3 = MCPMessage::new(MessageType::Command, serde_json::json!({ "command": 42 }));
+        assert_eq!(m3.command(), "unknown");
+    }
+
+    #[test]
+    fn mcp_message_with_details_round_trip() {
+        let id = MessageId("fixed-id".into());
+        let ts = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let msg = MCPMessage::with_details(
+            id.clone(),
+            MessageType::Response,
+            serde_json::json!({ "a": 1 }),
+            Some(serde_json::json!({ "meta": true })),
+            SecurityMetadata {
+                version: "1".into(),
+                timestamp: std::time::UNIX_EPOCH,
+            },
+            ts,
+            ProtocolVersion::new(2, 3),
+            Some("trace".into()),
+        );
+        let json = serde_json::to_string(&msg).expect("ser");
+        let back: MCPMessage = serde_json::from_str(&json).expect("de");
+        assert_eq!(back.id.0, "fixed-id");
+        assert_eq!(back.version.major, 2);
+        assert_eq!(back.trace_id.as_deref(), Some("trace"));
+    }
+
+    #[test]
+    fn header_serde_round_trip() {
+        let h = Header {
+            id: MessageId("h1".into()),
+            message_type: MessageType::Event,
+            timestamp: chrono::DateTime::parse_from_rfc3339("2021-06-15T12:00:00Z")
+                .unwrap()
+                .with_timezone(&chrono::Utc),
+            version: ProtocolVersion::new(1, 2),
+            security: SecurityMetadata {
+                version: "1.0".into(),
+                timestamp: std::time::UNIX_EPOCH,
+            },
+            metadata: Some(serde_json::json!({ "k": "v" })),
+        };
+        let json = serde_json::to_string(&h).unwrap();
+        let back: Header = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id.0, "h1");
+        assert_eq!(back.message_type, MessageType::Event);
+    }
 }
 
 // Other protocol-related types will go here.

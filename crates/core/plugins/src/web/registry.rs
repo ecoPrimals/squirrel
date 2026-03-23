@@ -121,16 +121,15 @@ impl WebPluginRegistry {
         let mut web_plugins: Vec<Arc<dyn WebPlugin>> = Vec::new();
 
         for plugin in plugins {
-            if self.try_get_web_plugin(&plugin).is_some()
-                && let Some(_ex_plugin) = plugin
-                    .as_any()
-                    .downcast_ref::<Box<dyn crate::web::WebPlugin>>()
+            if plugin
+                .as_any()
+                .downcast_ref::<crate::web::ExampleWebPlugin>()
+                .is_some()
             {
-                // Create a new arc with the same instance
-                let example_plugin = Arc::new(crate::web::ExampleWebPlugin::new());
+                let meta = plugin.metadata().clone();
+                let example_plugin = Arc::new(crate::web::ExampleWebPlugin::with_metadata(meta));
                 web_plugins.push(example_plugin as Arc<dyn WebPlugin>);
             }
-            // Add other specific types here as needed
         }
 
         web_plugins
@@ -332,5 +331,159 @@ impl WebPluginRegistry {
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::DefaultPluginManager;
+    use crate::plugin::Plugin;
+    use crate::plugin::PluginMetadata;
+    use crate::web::example::EXAMPLE_COMPONENT_ID;
+    use crate::web::{ExampleWebPlugin, HttpMethod, WebRequest};
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn load_plugins_registers_endpoints_and_components() {
+        let manager = Arc::new(DefaultPluginManager::new());
+        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
+        let web = WebPluginRegistry::new(registry);
+
+        let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
+        manager.register_plugin(plugin).await.unwrap();
+
+        let n = web.load_plugins().await.unwrap();
+        assert_eq!(n, 1);
+        let eps = web.get_endpoints().await;
+        assert!(!eps.is_empty());
+        let comps = web.get_components().await;
+        assert!(!comps.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_plugin_for_endpoint_and_handle_get_examples() {
+        let manager = Arc::new(DefaultPluginManager::new());
+        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
+        let web = WebPluginRegistry::new(registry);
+
+        let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
+        manager.register_plugin(plugin).await.unwrap();
+        web.load_plugins().await.unwrap();
+
+        let p = web
+            .find_plugin_for_endpoint("/api/examples", HttpMethod::Get)
+            .await
+            .unwrap();
+        let req = WebRequest {
+            method: HttpMethod::Get,
+            path: "/api/examples".to_string(),
+            query_params: HashMap::new(),
+            headers: HashMap::new(),
+            body: None,
+            user_id: None,
+            permissions: vec![],
+            route_params: HashMap::new(),
+        };
+        let res = p.handle_request(req).await.unwrap();
+        assert_eq!(res.status, crate::web::HttpStatus::Ok);
+    }
+
+    #[tokio::test]
+    async fn endpoint_not_found_wrong_method() {
+        let manager = Arc::new(DefaultPluginManager::new());
+        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
+        let web = WebPluginRegistry::new(registry);
+
+        let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
+        manager.register_plugin(plugin).await.unwrap();
+        web.load_plugins().await.unwrap();
+
+        let res = web
+            .find_plugin_for_endpoint("/api/examples", HttpMethod::Delete)
+            .await;
+        match res {
+            Err(e) => {
+                let s = e.to_string();
+                assert!(s.contains("/api/examples") || s.contains("Endpoint"));
+            }
+            Ok(_) => panic!("expected endpoint method mismatch error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn component_not_found_error() {
+        let manager = Arc::new(DefaultPluginManager::new());
+        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
+        let web = WebPluginRegistry::new(registry);
+
+        let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
+        manager.register_plugin(plugin).await.unwrap();
+        web.load_plugins().await.unwrap();
+
+        let missing = Uuid::new_v4();
+        let res = web.find_plugin_for_component(&missing).await;
+        match res {
+            Err(e) => {
+                let t = e.to_string();
+                assert!(t.contains("Component") || t.contains("not found"));
+            }
+            Ok(_) => panic!("expected component not found"),
+        }
+    }
+
+    #[test]
+    fn web_plugin_error_display() {
+        let e = WebPluginError::EndpointNotFound("/p".to_string(), "GET".to_string());
+        let t = e.to_string();
+        assert!(t.contains("/p"));
+        let c = WebPluginError::ComponentNotFound("c1".to_string());
+        assert!(c.to_string().contains("c1"));
+    }
+
+    #[tokio::test]
+    async fn handle_request_not_found_without_plugins() {
+        let manager = Arc::new(DefaultPluginManager::new());
+        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
+        let web = WebPluginRegistry::new(registry);
+
+        let req = WebRequest {
+            method: HttpMethod::Get,
+            path: "/nope".to_string(),
+            query_params: HashMap::new(),
+            headers: HashMap::new(),
+            body: None,
+            user_id: None,
+            permissions: vec![],
+            route_params: HashMap::new(),
+        };
+        let err = web.handle_request(req).await.unwrap_err();
+        assert!(err.to_string().contains("nope") || err.to_string().contains("Endpoint"));
+    }
+
+    #[tokio::test]
+    async fn get_component_markup_example_nil() {
+        let manager = Arc::new(DefaultPluginManager::new());
+        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
+        let web = WebPluginRegistry::new(registry);
+
+        let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
+        manager.register_plugin(plugin).await.unwrap();
+        web.load_plugins().await.unwrap();
+
+        let html = web
+            .get_component_markup(EXAMPLE_COMPONENT_ID, serde_json::json!({}))
+            .await
+            .unwrap();
+        assert!(!html.is_empty());
+    }
+
+    #[tokio::test]
+    async fn plugin_metadata_roundtrip_for_registry_flow() {
+        let mut meta = PluginMetadata::new("n", "1.0.0", "d", "a");
+        meta.capabilities = vec!["web".to_string()];
+        let ex = ExampleWebPlugin::with_metadata(meta);
+        assert!(ex.metadata().capabilities.contains(&"web".to_string()));
     }
 }

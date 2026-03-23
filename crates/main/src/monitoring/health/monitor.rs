@@ -239,3 +239,87 @@ impl HealthMonitor {
         self.max_history_size = size;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::PrimalError;
+    use crate::monitoring::health::types::MonitoringHealthCheckConfig;
+
+    fn sample_config() -> MonitoringHealthCheckConfig {
+        MonitoringHealthCheckConfig {
+            interval: Duration::from_secs(10),
+            timeout: Duration::from_secs(2),
+            failure_threshold: 2,
+            success_threshold: 1,
+            grace_period: Duration::from_secs(5),
+        }
+    }
+
+    #[tokio::test]
+    async fn default_and_register_component() {
+        let m = HealthMonitor::default();
+
+        m.register_component("db", sample_config())
+            .await
+            .expect("register");
+
+        let h = m.get_component_health("db").await.expect("get");
+        assert_eq!(h.name, "db");
+        assert!(matches!(h.state, HealthState::Unknown));
+        assert_eq!(h.message, "Component registered");
+    }
+
+    #[tokio::test]
+    async fn check_component_updates_health_and_summary() {
+        let m = HealthMonitor::new();
+        m.register_component("api", sample_config()).await.unwrap();
+        m.check_component_health("api").await.unwrap();
+
+        let h = m.get_component_health("api").await.unwrap();
+        assert!(matches!(h.state, HealthState::Healthy));
+        assert_eq!(h.check_count, 1);
+        assert_eq!(h.consecutive_successes, 1);
+        assert_eq!(h.consecutive_failures, 0);
+
+        let summary = m.get_health_summary().await.unwrap();
+        assert_eq!(summary.get("api"), Some(&HealthState::Healthy));
+    }
+
+    #[tokio::test]
+    async fn system_health_empty_unknown_before_check() {
+        let m = HealthMonitor::new();
+        assert_eq!(m.get_system_health().await.unwrap(), HealthState::Unknown);
+
+        m.register_component("a", sample_config()).await.unwrap();
+        // Before any check, components are Unknown → aggregated Warning
+        assert_eq!(m.get_system_health().await.unwrap(), HealthState::Warning);
+
+        m.check_all_components().await.unwrap();
+        assert_eq!(m.get_system_health().await.unwrap(), HealthState::Healthy);
+    }
+
+    #[tokio::test]
+    async fn get_component_health_not_found() {
+        let m = HealthMonitor::new();
+        let err = m.get_component_health("nope").await.unwrap_err();
+        assert!(matches!(err, PrimalError::NotFoundError(_)));
+    }
+
+    #[tokio::test]
+    async fn health_history_snapshot_and_trim() {
+        let mut m = HealthMonitor::new();
+        m.set_max_history_size(2);
+        m.register_component("c1", sample_config()).await.unwrap();
+        m.check_all_components().await.unwrap();
+        m.check_all_components().await.unwrap();
+        m.check_all_components().await.unwrap();
+
+        let hist = m.get_health_history().await;
+        assert!(hist.len() <= 2);
+        assert!(!hist.is_empty());
+
+        m.clear_health_history().await;
+        assert!(m.get_health_history().await.is_empty());
+    }
+}

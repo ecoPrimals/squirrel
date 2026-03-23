@@ -576,3 +576,106 @@ impl PolicyNetwork {
         &self.config
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::PolicyNetworkConfig;
+    use super::super::engine::RLState;
+    use super::*;
+    use chrono::Utc;
+
+    #[tokio::test]
+    async fn encode_state_equal_features_leaves_values_unchanged() {
+        let config = PolicyNetworkConfig {
+            input_size: 4,
+            hidden_layers: vec![4],
+            output_size: 2,
+            activation_function: "relu".to_string(),
+            optimizer: "adam".to_string(),
+            dropout_rate: 0.0,
+        };
+        let net = PolicyNetwork::new(config).await.expect("new");
+        let state = RLState {
+            id: "s".to_string(),
+            context_id: "c".to_string(),
+            features: vec![5.0, 5.0, 5.0, 5.0],
+            metadata: None,
+            timestamp: Utc::now(),
+        };
+        let action = net.predict(&state).await.expect("predict");
+        assert_eq!(action.action_probabilities.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn evaluate_empty_states_returns_zero_accuracy() {
+        let config = PolicyNetworkConfig {
+            input_size: 2,
+            hidden_layers: vec![2],
+            output_size: 2,
+            activation_function: "relu".to_string(),
+            optimizer: "adam".to_string(),
+            dropout_rate: 0.0,
+        };
+        let net = PolicyNetwork::new(config).await.expect("new");
+        let acc = net.evaluate(&[]).await.expect("eval");
+        assert!((acc - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn load_weights_succeeds_without_file() {
+        let config = PolicyNetworkConfig::default();
+        let net = PolicyNetwork::new(config).await.expect("new");
+        net.load_weights("/nonexistent/path/weights.json")
+            .await
+            .expect("load is stubbed ok");
+    }
+
+    #[tokio::test]
+    async fn update_weights_skips_mismatched_layer_indices() {
+        let config = PolicyNetworkConfig {
+            input_size: 2,
+            hidden_layers: vec![2],
+            output_size: 2,
+            activation_function: "relu".to_string(),
+            optimizer: "adam".to_string(),
+            dropout_rate: 0.0,
+        };
+        let net = PolicyNetwork::new(config).await.expect("new");
+        // Wrong number of layers — should not panic
+        let bad_grads: Vec<Vec<Vec<f64>>> = vec![];
+        net.update_weights(&bad_grads).await.expect("update");
+    }
+
+    #[tokio::test]
+    async fn softmax_and_forward_produce_normalized_probabilities() {
+        let config = PolicyNetworkConfig {
+            input_size: 3,
+            hidden_layers: vec![4],
+            output_size: 3,
+            activation_function: "relu".to_string(),
+            optimizer: "adam".to_string(),
+            dropout_rate: 0.0,
+        };
+        let net = PolicyNetwork::new(config).await.expect("new");
+        let input = vec![0.1, 0.2, 0.3];
+        let out = net.forward(&input).await.expect("forward");
+        let sum: f64 = out.action_probabilities.iter().sum();
+        assert!((sum - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn policy_metrics_serde_roundtrip() {
+        let m = PolicyMetrics {
+            total_predictions: 3,
+            average_confidence: 0.4,
+            correct_predictions: 2,
+            prediction_accuracy: 0.66,
+            average_prediction_time: 0.001,
+            network_complexity: 10.0,
+            last_evaluation: Utc::now(),
+        };
+        let json = serde_json::to_string(&m).expect("ser");
+        let back: PolicyMetrics = serde_json::from_str(&json).expect("de");
+        assert_eq!(back.total_predictions, 3);
+    }
+}

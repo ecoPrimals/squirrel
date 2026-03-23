@@ -147,7 +147,7 @@ async fn initialize_disabled_short_circuits() {
         ..MonitoringConfig::default()
     };
     let svc = MonitoringService::new(cfg);
-    svc.initialize().await.expect("init");
+    svc.initialize().expect("init");
 }
 
 #[tokio::test]
@@ -158,7 +158,7 @@ async fn initialize_require_provider_errors_without_providers() {
         ..MonitoringConfig::default()
     };
     let svc = MonitoringService::new(cfg);
-    let err = svc.initialize().await.unwrap_err();
+    let err = svc.initialize().unwrap_err();
     assert!(
         matches!(err, crate::Error::Monitoring(ref s) if s.contains("No monitoring")),
         "{err:?}"
@@ -179,8 +179,8 @@ async fn initialize_with_songbird_config_adds_provider() {
         ..MonitoringConfig::default()
     };
     let svc = MonitoringService::new(cfg);
-    svc.initialize().await.expect("init");
-    let names = svc.get_providers().await;
+    svc.initialize().expect("init");
+    let names = svc.get_providers();
     assert!(names.iter().any(|n| n == "songbird"));
 }
 
@@ -192,8 +192,8 @@ async fn initialize_unknown_provider_is_skipped_with_warning_path() {
         ..MonitoringConfig::default()
     };
     let svc = MonitoringService::new(cfg);
-    svc.initialize().await.expect("init");
-    assert!(svc.get_providers().await.is_empty());
+    svc.initialize().expect("init");
+    assert!(svc.get_providers().is_empty());
 }
 
 #[tokio::test]
@@ -214,8 +214,8 @@ async fn initialize_provider_configs_songbird_branch() {
         ..MonitoringConfig::default()
     };
     let svc = MonitoringService::new(cfg);
-    svc.initialize().await.expect("init");
-    assert!(svc.get_providers().await.iter().any(|n| n == "songbird"));
+    svc.initialize().expect("init");
+    assert!(svc.get_providers().iter().any(|n| n == "songbird"));
 }
 
 #[tokio::test]
@@ -226,15 +226,14 @@ async fn songbird_provider_new_succeeds_and_unknown_provider_config_skipped() {
         auth_token: None,
         batch_size: 1,
         flush_interval: std::time::Duration::from_millis(0),
-    })
-    .await;
+    });
     assert!(res.is_ok());
     let cfg = MonitoringConfig {
         provider_configs: std::iter::once(("unknown".into(), serde_json::json!({}))).collect(),
         ..MonitoringConfig::default()
     };
     let svc = MonitoringService::new(cfg);
-    svc.initialize().await.expect("no required provider");
+    svc.initialize().expect("no required provider");
 }
 
 #[tokio::test]
@@ -283,8 +282,7 @@ async fn record_paths_with_fallback_logger() {
 #[tokio::test]
 async fn record_with_failing_provider_still_ok() {
     let svc = MonitoringService::new(MonitoringConfig::default());
-    svc.add_provider(Arc::new(FailingProvider) as Arc<dyn MonitoringProvider>)
-        .await;
+    svc.add_provider(Arc::new(FailingProvider) as Arc<dyn MonitoringProvider>);
     svc.record_event(MonitoringEvent::Custom {
         event_type: "t".into(),
         data: serde_json::json!({}),
@@ -297,13 +295,11 @@ async fn record_with_failing_provider_still_ok() {
 #[tokio::test]
 async fn add_remove_get_providers_and_status() {
     let svc = MonitoringService::new(MonitoringConfig::default());
-    svc.add_provider(Arc::new(OkProvider("p1")) as Arc<dyn MonitoringProvider>)
-        .await;
-    svc.add_provider(Arc::new(OkProvider("p2")) as Arc<dyn MonitoringProvider>)
-        .await;
-    assert_eq!(svc.get_providers().await.len(), 2);
-    svc.remove_provider("p1").await;
-    assert_eq!(svc.get_providers().await, vec!["p2"]);
+    svc.add_provider(Arc::new(OkProvider("p1")) as Arc<dyn MonitoringProvider>);
+    svc.add_provider(Arc::new(OkProvider("p2")) as Arc<dyn MonitoringProvider>);
+    assert_eq!(svc.get_providers().len(), 2);
+    svc.remove_provider("p1");
+    assert_eq!(svc.get_providers(), vec!["p2"]);
     let st = svc.get_status().await;
     assert_eq!(st.provider_count, 1);
     assert!(!st.fallback_active);
@@ -319,7 +315,6 @@ async fn songbird_provider_trait_methods() {
         batch_size: 2,
         flush_interval: std::time::Duration::from_secs(2),
     })
-    .await
     .expect("new");
     assert_eq!(p.provider_name(), "songbird");
     assert_eq!(p.provider_version(), "1.0.0");
@@ -357,6 +352,101 @@ async fn songbird_provider_trait_methods() {
     assert!(
         caps.iter()
             .any(|c| matches!(c, MonitoringCapability::Events))
+    );
+}
+
+#[test]
+fn fallback_logger_debug_branches_cover_metrics_health_performance() {
+    let fb = FallbackLogger::new(FallbackConfig {
+        log_level: "debug".into(),
+        include_metrics: true,
+        include_health: true,
+        include_performance: true,
+        ..FallbackConfig::default()
+    });
+    let ts = Utc::now();
+    fb.log_metric(&base_metric());
+    fb.log_health("c", &HealthStatus::Healthy);
+    fb.log_performance(
+        "p",
+        &PerformanceMetrics {
+            cpu_usage: None,
+            memory_usage: None,
+            network_usage: None,
+            response_time: None,
+            throughput: None,
+            error_rate: None,
+            queue_length: None,
+            active_connections: None,
+            custom_metrics: HashMap::new(),
+        },
+    );
+    fb.log_event(&MonitoringEvent::Custom {
+        event_type: "t".into(),
+        data: serde_json::json!({}),
+        timestamp: ts,
+    });
+}
+
+#[test]
+fn fallback_logger_task_completed_success_and_service_stopped_info() {
+    let fb = FallbackLogger::new(FallbackConfig {
+        log_level: "info".into(),
+        ..FallbackConfig::default()
+    });
+    let ts = Utc::now();
+    fb.log_event(&MonitoringEvent::TaskCompleted {
+        task_id: "ok".into(),
+        execution_time: std::time::Duration::from_millis(1),
+        success: true,
+        timestamp: ts,
+    });
+    fb.log_event(&MonitoringEvent::ServiceStopped {
+        service: "svc".into(),
+        timestamp: ts,
+    });
+}
+
+#[test]
+fn fallback_logger_warn_health_healthy_skips_warn_branch() {
+    let fb = FallbackLogger::new(FallbackConfig {
+        log_level: "warn".into(),
+        include_health: true,
+        ..FallbackConfig::default()
+    });
+    fb.log_health("c", &HealthStatus::Healthy);
+}
+
+#[test]
+fn fallback_logger_warn_health_unhealthy_triggers_warn() {
+    let fb = FallbackLogger::new(FallbackConfig {
+        log_level: "warn".into(),
+        include_health: true,
+        ..FallbackConfig::default()
+    });
+    fb.log_health("c", &HealthStatus::Unhealthy);
+}
+
+#[test]
+fn fallback_logger_performance_empty_parts_join() {
+    let fb = FallbackLogger::new(FallbackConfig {
+        log_level: "info".into(),
+        include_performance: true,
+        ..FallbackConfig::default()
+    });
+    fb.log_performance(
+        "c",
+        &PerformanceMetrics {
+            cpu_usage: None,
+            memory_usage: None,
+            network_usage: None,
+            response_time: None,
+            throughput: None,
+            error_rate: None,
+            queue_length: None,
+            active_connections: None,
+            custom_metrics: HashMap::new(),
+        },
     );
 }
 
@@ -453,4 +543,60 @@ fn time_frame_and_capability_serde() {
     let json = serde_json::to_string(&cap).unwrap();
     let capb: MonitoringCapability = serde_json::from_str(&json).unwrap();
     assert!(matches!(capb, MonitoringCapability::Custom(s) if s == "x"));
+}
+
+#[tokio::test]
+async fn monitoring_provider_default_query_health_and_metrics() {
+    let p = OkProvider("default-queries");
+    assert!(p.query_health("any").await.unwrap().is_none());
+    let m = p.query_metrics("any", TimeFrame::LastWeek).await.unwrap();
+    assert!(m.is_empty());
+}
+
+#[test]
+fn monitoring_status_and_provider_status_serde() {
+    let st = MonitoringStatus {
+        enabled: true,
+        provider_count: 1,
+        providers: vec![ProviderStatus {
+            name: "n".into(),
+            version: "1".into(),
+            health: HealthStatus::Healthy,
+            capabilities: vec![MonitoringCapability::Events],
+        }],
+        fallback_active: false,
+    };
+    let v = serde_json::to_value(&st).unwrap();
+    let back: MonitoringStatus = serde_json::from_value(v).unwrap();
+    assert!(back.enabled);
+    assert_eq!(back.providers.len(), 1);
+}
+
+#[test]
+fn time_frame_custom_serde_roundtrip() {
+    let from = Utc::now();
+    let to = from + chrono::Duration::hours(1);
+    let tf = TimeFrame::Custom { from, to };
+    let v = serde_json::to_value(&tf).unwrap();
+    let back: TimeFrame = serde_json::from_value(v).unwrap();
+    assert!(matches!(back, TimeFrame::Custom { .. }));
+}
+
+#[test]
+fn performance_metrics_serde_preserves_optional_fields() {
+    let m = PerformanceMetrics {
+        cpu_usage: Some(0.25),
+        memory_usage: Some(0.5),
+        network_usage: Some(0.1),
+        response_time: Some(std::time::Duration::from_millis(30)),
+        throughput: Some(100.0),
+        error_rate: Some(0.01),
+        queue_length: Some(3),
+        active_connections: Some(10),
+        custom_metrics: std::iter::once(("k".into(), 1.0)).collect(),
+    };
+    let json = serde_json::to_string(&m).unwrap();
+    let back: PerformanceMetrics = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.cpu_usage, m.cpu_usage);
+    assert_eq!(back.custom_metrics.get("k").copied(), Some(1.0));
 }

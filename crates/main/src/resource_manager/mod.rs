@@ -127,4 +127,23 @@ mod tests {
         let metrics = manager.get_cleanup_metrics().await;
         assert!(metrics.is_empty());
     }
+
+    #[tokio::test]
+    async fn test_start_background_tasks_short_intervals_run_cleanup_cycles() {
+        let config = ResourceManagerConfig {
+            enable_auto_cleanup: true,
+            connection_cleanup_interval: std::time::Duration::from_millis(30),
+            memory_cleanup_interval: std::time::Duration::from_millis(30),
+            health_check_interval: std::time::Duration::from_millis(30),
+            max_memory_threshold: 0,
+            ..Default::default()
+        };
+        let manager = ResourceManager::new(config);
+        manager.start_background_tasks().await.expect("start");
+        tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+        let metrics = manager.get_cleanup_metrics().await;
+        assert!(metrics.contains_key("connection_cleanup"));
+        assert!(metrics.contains_key("memory_cleanup"));
+        assert_eq!(manager.active_operations(), 0);
+    }
 }

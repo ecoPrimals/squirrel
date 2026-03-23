@@ -307,4 +307,74 @@ mod tests {
         assert!(!super::ENV_DOCS.is_empty());
         assert!(super::ENV_DOCS.contains("LOCAL_AI_ENDPOINT"));
     }
+
+    #[test]
+    fn mcp_server_endpoint_uses_env() {
+        temp_env::with_var("MCP_SERVER_ENDPOINT", Some("grpc://custom:9"), || {
+            assert_eq!(DefaultEndpoints::mcp_server_endpoint(), "grpc://custom:9");
+        });
+    }
+
+    #[test]
+    fn ai_service_host_falls_back() {
+        temp_env::with_vars_unset(["AI_SERVICE_HOST", "MCP_HOST"], || {
+            assert_eq!(DefaultEndpoints::ai_service_host(), "localhost");
+        });
+        temp_env::with_var("MCP_HOST", Some("mcp.example"), || {
+            assert_eq!(DefaultEndpoints::ai_service_host(), "mcp.example");
+        });
+    }
+
+    #[test]
+    fn dev_server_host_default_uses_localhost_constant() {
+        temp_env::with_vars_unset(["DEV_SERVER_HOST"], || {
+            let h = DefaultEndpoints::dev_server_host();
+            assert!(!h.is_empty());
+        });
+    }
+
+    #[test]
+    fn websocket_url_uses_mcp_server_port() {
+        temp_env::with_vars_unset(["MCP_SERVER_URL"], || {
+            temp_env::with_var("MCP_SERVER_PORT", Some("7777"), || {
+                let u = DefaultEndpoints::websocket_server_url();
+                assert!(u.contains("7777"), "got {u}");
+            });
+        });
+    }
+
+    #[test]
+    fn security_service_endpoint_respects_full_url() {
+        temp_env::with_var(
+            "SECURITY_SERVICE_ENDPOINT",
+            Some("https://sec.example/full"),
+            || {
+                assert_eq!(
+                    DefaultEndpoints::security_service_endpoint(),
+                    "https://sec.example/full"
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn songbird_endpoint_respects_service_mesh_endpoint() {
+        temp_env::with_var("SERVICE_MESH_ENDPOINT", Some("http://mesh:1"), || {
+            assert_eq!(DefaultEndpoints::songbird_endpoint(), "http://mesh:1");
+        });
+    }
+
+    #[test]
+    fn toadstool_endpoint_respects_full_url() {
+        temp_env::with_var("TOADSTOOL_ENDPOINT", Some("http://toad:2"), || {
+            assert_eq!(DefaultEndpoints::toadstool_endpoint(), "http://toad:2");
+        });
+    }
+
+    #[test]
+    fn cli_mcp_host_prefers_cli_env() {
+        temp_env::with_var("CLI_MCP_HOST", Some("cli-host"), || {
+            assert_eq!(DefaultEndpoints::cli_mcp_host(), "cli-host");
+        });
+    }
 }

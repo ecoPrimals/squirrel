@@ -6,7 +6,10 @@
 //! Action handlers use `&self` for future state access and consistent API.
 
 #![allow(clippy::unused_self)]
-#![allow(dead_code)] // Action types used during rule evaluation
+#![allow(
+    dead_code,
+    reason = "Rule action types used during evaluation and kept for executor API"
+)]
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;

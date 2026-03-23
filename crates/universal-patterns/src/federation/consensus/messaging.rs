@@ -11,6 +11,7 @@ use super::types::{
     ConsensusManagerState, ConsensusMessage, ConsensusNodeState, ConsensusProposal,
 };
 use chrono::Utc;
+use std::mem;
 use std::sync::Arc;
 use tokio::sync::{RwLock, mpsc};
 use uuid::Uuid;
@@ -83,11 +84,11 @@ pub(super) async fn handle_vote(
 
     if let Some(proposal) = state.active_proposals.get_mut(&proposal_id) {
         // Record the vote
-        proposal.votes.insert(voter, vote.clone());
+        proposal.votes.insert(voter, vote);
     }
 
     // Update participation stats
-    let stats = state
+    let voter_stats = state
         .participation_stats
         .entry(voter)
         .or_insert(ParticipationStats {
@@ -98,16 +99,17 @@ pub(super) async fn handle_vote(
             participation_rate: 0.0,
         });
 
-    stats.total_proposals += 1;
+    voter_stats.total_proposals += 1;
     match vote {
-        Vote::For => stats.votes_for += 1,
-        Vote::Against => stats.votes_against += 1,
-        Vote::Abstain => stats.abstentions += 1,
+        Vote::For => voter_stats.votes_for += 1,
+        Vote::Against => voter_stats.votes_against += 1,
+        Vote::Abstain => voter_stats.abstentions += 1,
     }
 
     // Update participation rate
-    let total_votes = stats.votes_for + stats.votes_against + stats.abstentions;
-    stats.participation_rate = total_votes as f64 / stats.total_proposals as f64;
+    let total_votes = voter_stats.votes_for + voter_stats.votes_against + voter_stats.abstentions;
+    voter_stats.participation_rate =
+        f64::from(total_votes) / f64::from(voter_stats.total_proposals);
 
     // Check if consensus is reached
     if let Some(proposal) = state.active_proposals.get_mut(&proposal_id) {
@@ -134,11 +136,11 @@ pub(super) async fn handle_vote(
         if proposal.status != ConsensusStatus::InProgress {
             let result = ConsensusResult {
                 proposal_id: proposal.id,
-                status: proposal.status.clone(),
-                value: Some(proposal.value.clone()),
+                status: proposal.status,
+                value: Some(mem::take(&mut proposal.value)),
                 votes_for: votes_for as u32,
                 votes_against: votes_against as u32,
-                participating_nodes: proposal.votes.keys().cloned().collect(),
+                participating_nodes: proposal.votes.keys().copied().collect(),
             };
 
             state.completed_proposals.push(result);

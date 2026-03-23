@@ -5,7 +5,6 @@
 #![allow(
     clippy::unused_async,
     clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
     clippy::must_use_candidate,
     clippy::missing_const_for_fn,
     clippy::doc_markdown,
@@ -13,34 +12,14 @@
     clippy::use_self,
     clippy::redundant_closure_for_method_calls,
     clippy::needless_pass_by_value,
-    clippy::module_name_repetitions,
-    clippy::struct_excessive_bools,
     clippy::return_self_not_must_use,
-    clippy::too_many_lines,
     clippy::match_same_arms,
-    clippy::needless_continue,
-    clippy::enum_glob_use,
-    clippy::doc_comment_double_space_linebreaks,
     clippy::significant_drop_tightening,
     clippy::cast_possible_truncation,
-    clippy::cast_lossless,
-    clippy::unnecessary_wraps,
     clippy::derive_partial_eq_without_eq,
-    clippy::redundant_clone,
     clippy::option_if_let_else,
-    clippy::ignored_unit_patterns,
-    clippy::cloned_instead_of_copied,
-    clippy::cast_sign_loss,
-    clippy::default_trait_access,
     clippy::wildcard_imports,
-    clippy::cast_possible_wrap,
-    clippy::unnested_or_patterns,
-    clippy::similar_names,
-    clippy::redundant_else,
-    clippy::single_match_else,
-    clippy::unused_self,
-    clippy::or_fun_call,
-    clippy::unwrap_in_result
+    clippy::cloned_instead_of_copied
 )]
 
 //! # Universal Patterns Framework

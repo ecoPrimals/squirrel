@@ -632,6 +632,8 @@ impl WasmPlugin for BasePlugin {
 mod tests {
     use super::super::manager::{PluginManager, utils};
     use super::*;
+    use crate::config::PluginConfig;
+    use crate::mcp::McpCapabilities;
 
     #[test]
     fn test_plugin_creation() {
@@ -834,5 +836,26 @@ mod tests {
     fn test_plugin_utils_create_default_context() {
         let ctx = utils::create_default_context("my-plugin".to_string());
         assert_eq!(ctx.plugin_id, "my-plugin");
+    }
+
+    #[test]
+    fn runtime_context_stores_mcp_capabilities() {
+        let ctx = RuntimeContext {
+            plugin_id: "pid".to_string(),
+            config: PluginConfig::default(),
+            capabilities: PluginCapabilities::none(),
+            mcp_capabilities: McpCapabilities::default(),
+        };
+        assert_eq!(ctx.plugin_id, "pid");
+    }
+
+    #[test]
+    fn wasm_plugin_trait_stats_capabilities_and_events_no_js() {
+        let p = BasePlugin::new("stats".to_string(), "1.0.0".to_string());
+        let s = WasmPlugin::get_stats(&p);
+        assert_eq!(s.commands_executed, 0);
+        let caps = WasmPlugin::get_capabilities(&p);
+        assert!(caps.commands.is_empty());
+        assert!(WasmPlugin::handle_event(&p, wasm_bindgen::JsValue::NULL).is_ok());
     }
 }

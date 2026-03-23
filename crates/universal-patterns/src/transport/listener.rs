@@ -172,9 +172,8 @@ impl UniversalListener {
         if let Some(preferred) = config.preferred_transport {
             if config.enable_fallback {
                 return vec![preferred, TransportType::Tcp];
-            } else {
-                return vec![preferred];
             }
+            return vec![preferred];
         }
 
         // Platform-appropriate hierarchy (same as client)

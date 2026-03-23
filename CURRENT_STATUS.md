@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 23, 2026
-**Version**: 0.1.0-alpha.19
+**Version**: 0.1.0-alpha.21
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 5,777 passing / 0 failures across 21 workspace members |
+| Tests | 6,717 passing / 0 failures across 21 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
@@ -18,13 +18,13 @@
 | Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all crate entry points |
 | Pure Rust | 100% default features (zero C deps); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
-| Coverage | 74.6% line coverage via `cargo-llvm-cov` (target: 90%) |
+| Coverage | 86.8% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 21 workspace members |
-| Files >1000 lines | 0 (max: 859 — web/api.rs; types extracted to api_types.rs) |
+| Files >1000 lines | 0 (max: 965 — learning/manager_tests.rs; definitions.rs refactored 1121→585+service.rs) |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | redis | 1.0.5 (upgraded from 0.23) |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
-| Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted |
+| Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
 | TODO/FIXME in code | 0 (documented `STUB` comments only in performance optimizer batch/optimizer — Phase 2 deferred; swarm, coordination, and crypto are production implementations) |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
 
@@ -35,7 +35,7 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 | Domain | Methods |
 |--------|---------|
 | AI | `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat` |
-| Capability | `capability.announce`, `capability.discover`, **`capability.list`** |
+| Capability | **`capabilities.list`** (canonical), `capability.announce`, `capability.discover`, `capability.list` (alias) |
 | Context | `context.create`, `context.update`, `context.summarize` |
 | System | `system.health`, `system.status`, `system.metrics`, `system.ping` |
 | Health | `health.liveness`, `health.readiness` (PRIMAL_IPC_PROTOCOL v3.0) |
@@ -62,7 +62,7 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 | Constant | What |
 |----------|------|
-| `CAPABILITIES` | 23 exposed methods (ai, capability, system, discovery, tool, context, lifecycle, graph) |
+| `CAPABILITIES` | 24 exposed methods (ai, capabilities, capability, system, discovery, tool, context, lifecycle, graph) |
 | `CONSUMED_CAPABILITIES` | 32 external capabilities from BearDog, Songbird, ToadStool, NestGate, domain springs, rhizoCrypt, sweetGrass, primalSpring |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
 | `DEPENDENCIES` | 6 primals (beardog, songbird required; toadstool, nestgate, primalspring, petaltongue optional) |
@@ -71,7 +71,7 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 `capability.discover` response includes `cost_estimates`, `operation_dependencies`, and `consumed_capabilities`.
 
-`capability.list` returns per-method cost/dependency detail for PathwayLearner scheduling,
+`capabilities.list` (canonical) / `capability.list` (alias) returns per-method cost/dependency detail for PathwayLearner scheduling,
 plus a flat `capabilities` array, `domains` list, and `locality` (local/external) for
 ecosystem-consensus introspection (absorbed from sweetGrass/rhizoCrypt).
 
@@ -245,16 +245,45 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked, 14-crate ecoBin C-dep ban |
-| cargo-llvm-cov | 74.6% line coverage (target: 90%) |
+| cargo-llvm-cov | 86.8% line coverage (target: 90%) |
 | proptest | Round-trip + wire-format fuzz + IPC fuzz for all JSON-RPC types (23 properties) + Unix socket IPC tests |
 | rust-toolchain | `rust-toolchain.toml` — pinned stable + clippy + rustfmt + llvm-tools-preview |
 
 ## Known Issues
 
-1. Coverage at 74.6% — gap to 90% target; incremental expansion underway
+1. Coverage at 86.8% — remaining ~3.2% gap to 90% is primarily untestable binary entry points and WASM-dependent SDK paths
 2. Performance optimizer `batch_processor` / `optimizer` stubs remain deferred to Phase 2 (swarm coordination, coordination service, and crypto are now production implementations, not stubs)
 
 ## Changes Since Last Handoff (March 23, 2026)
+
+### alpha.21 Sprint (Coverage Push & Zero-Copy Evolution)
+
+- **Coverage 74.8% → 86.8%**: 12 percentage point increase via 22 targeted test waves across all workspace crates
+- **Test count 5,828 → 6,717**: +889 new tests covering MCP security, context learning, services, SDK, AI tools, CLI, RPC handlers, universal adapters, biomeos integration, primal providers, transport, and more
+- **Zero-copy evolution**: `MetricType`/`ConsensusStatus` made `Copy`; `Arc::clone` clarity; `mem::take` replaces payload clone in consensus messaging; redundant clones removed from collector, federation, RPC handlers
+- **Production bug fixes discovered via tests**:
+  - `task/manager.rs`: deadlock in `assign_task` — write lock held across async prerequisite check now resolved via snapshot-check-relock pattern
+  - `web/api.rs`: `/api/plugins/health` and `/metrics` were shadowed by generic plugin-details route
+  - `handlers_tool.rs`: spring tools were hijacking built-in `system.health`; built-ins now resolve first
+  - `resource_manager/core.rs`: `get_usage_stats` now reports live background task count
+  - `dispatch.rs`: flaky test from HashMap iteration order under llvm-cov instrumentation
+- **Clippy**: CLEAN — `pedantic + nursery + deny(warnings)` on full workspace; zero warnings
+- **Files**: All <1000 lines
+
+### alpha.20 Sprint (Deep Debt Resolution, Semantic Compliance & Lint Tightening)
+
+- **`capabilities.list` canonical**: Added per SEMANTIC_METHOD_NAMING_STANDARD v2.1; `capability.list` retained as required alias; niche self-knowledge, capability registry TOML, cost estimates, operation dependencies all updated; 24 exposed methods (was 23)
+- **definitions.rs smart refactor**: 1121→585 lines by extracting `service.rs` (service mesh, load balancing, circuit breaker, database types) and `definitions_tests.rs`; zero files >1000 lines
+- **Flaky llvm-cov tests fixed**: `test_config_validate_security_*` hardened with explicit port values to resist coverage-instrumentation variance
+- **#[allow] suppression tightening**: Removed crate-level `#![allow(...)]` from `ecosystem-api` and `squirrel-core` entirely; reduced `universal-patterns` from ~40 to 16 allows; reduced `squirrel-cli` to 21 targeted allows; removed `items_after_test_module` from `ai-tools`
+- **Dead code cleanup**: All `#[allow(dead_code)]` without `reason` evolved to documented `reason` strings; unused parse functions gated behind `#[cfg(test)]`; `PluginManifest::to_metadata` exercised via new test
+- **Production unwrap audit**: All 5 hotspot files confirmed test-only unwrap/expect; zero production panics
+- **Coverage wave 3**: +51 new tests across core/monitoring, main/alerts, universal messages/context/helpers, security rate_limiter, ecosystem types/registration, error paths, niche JSON validation
+- **Test count**: 5,777→5,828 (+51 tests)
+- **Coverage**: 74.6%→74.8% line coverage
+- **Semantic consistency fix**: `semantic_mappings_json()` missing `list_capabilities → capabilities.list` entry corrected
+- **Clippy**: CLEAN — `pedantic + nursery + deny(warnings)` on workspace; zero warnings
+- **Files**: 1,293 `.rs` files, 427K total lines, max file 965 lines
 
 ### alpha.19 Sprint (Coverage, Refactoring & Dependency Modernization)
 

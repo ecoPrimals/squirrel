@@ -104,14 +104,20 @@ pub trait WebPluginExtV2: PluginV2 {
 
 /// Helper struct to adapt `PluginV2` to Plugin for backward compatibility
 #[derive(Debug)]
-#[allow(dead_code)] // PluginV2 adaptation; used in tests
+#[allow(
+    dead_code,
+    reason = "PluginV2 adapter; used only from unit tests in non-test library builds"
+)]
 pub struct PluginWrapper<T: PluginV2> {
     inner: T,
 }
 
 impl<T: PluginV2> PluginWrapper<T> {
     /// Create a new `PluginWrapper` with the given `PluginV2` implementation
-    #[allow(dead_code)] // PluginV2 adaptation; used in tests
+    #[allow(
+        dead_code,
+        reason = "PluginV2 adapter; used only from unit tests in non-test library builds"
+    )]
     pub const fn new(inner: T) -> Self {
         Self { inner }
     }
@@ -137,7 +143,10 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
 }
 
 /// Helper function to adapt a `PluginV2` to Plugin (used in tests)
-#[allow(dead_code)] // PluginV2 adaptation; used in tests
+#[allow(
+    dead_code,
+    reason = "PluginV2 adapter; used only from unit tests in non-test library builds"
+)]
 pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
     Arc::new(PluginWrapper::new(plugin))
 }

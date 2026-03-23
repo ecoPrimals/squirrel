@@ -444,20 +444,14 @@ impl ConfigValidator {
 
     /// Validate log output
     fn validate_log_output(output: &LogOutput) -> Result<(), ConfigError> {
-        match output {
-            LogOutput::File { path } => {
-                if let Some(parent) = path.parent()
-                    && !parent.exists()
-                {
-                    return Err(ConfigError::Invalid(format!(
-                        "Log file directory not found: {}",
-                        parent.display()
-                    )));
-                }
-            }
-            _ => {
-                // No validation needed for other output types
-            }
+        if let LogOutput::File { path } = output
+            && let Some(parent) = path.parent()
+            && !parent.exists()
+        {
+            return Err(ConfigError::Invalid(format!(
+                "Log file directory not found: {}",
+                parent.display()
+            )));
         }
         Ok(())
     }
@@ -553,22 +547,15 @@ impl ConfigValidator {
         }
 
         // If encryption is enabled, validate that appropriate key management is configured
-        if config.security.encryption.enable_inter_primal
-            || config.security.encryption.enable_at_rest
+        if (config.security.encryption.enable_inter_primal
+            || config.security.encryption.enable_at_rest)
+            && let KeyManagement::Environment { var_name } =
+                &config.security.encryption.key_management
+            && std::env::var(var_name).is_err()
         {
-            // Validate that key management is properly configured
-            match &config.security.encryption.key_management {
-                KeyManagement::Environment { var_name } => {
-                    if std::env::var(var_name).is_err() {
-                        return Err(ConfigError::Invalid(format!(
-                            "Environment variable '{var_name}' is not set for encryption key"
-                        )));
-                    }
-                }
-                _ => {
-                    // Other key management types are validated elsewhere
-                }
-            }
+            return Err(ConfigError::Invalid(format!(
+                "Environment variable '{var_name}' is not set for encryption key"
+            )));
         }
 
         Ok(())

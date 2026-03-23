@@ -73,3 +73,34 @@ impl Default for RateLimitConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rate_limit_config_default_values() {
+        let c = RateLimitConfig::default();
+        assert_eq!(c.api_requests_per_minute, 100);
+        assert_eq!(c.auth_requests_per_minute, 10);
+        assert_eq!(c.compute_requests_per_minute, 20);
+        assert_eq!(c.burst_capacity, 150);
+        assert_eq!(c.ban_duration, Duration::from_secs(300));
+        assert_eq!(c.ban_threshold, 5);
+        assert_eq!(c.violation_window, Duration::from_secs(60));
+        assert!(c.adaptive_limiting);
+        assert!(
+            c.whitelist.iter().any(|ip| ip.is_loopback()),
+            "expected loopback in whitelist"
+        );
+    }
+
+    #[test]
+    fn rate_limit_config_serde_roundtrip() {
+        let c = RateLimitConfig::default();
+        let json = serde_json::to_string(&c).unwrap();
+        let back: RateLimitConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.api_requests_per_minute, c.api_requests_per_minute);
+        assert_eq!(back.whitelist.len(), c.whitelist.len());
+    }
+}

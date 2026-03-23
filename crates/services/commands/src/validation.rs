@@ -906,4 +906,97 @@ mod tests {
         let command = TestCommand;
         assert!(rule.validate(&command, &context).is_err());
     }
+
+    #[derive(Debug, Clone)]
+    struct EmptyNameCommand;
+
+    impl Command for EmptyNameCommand {
+        fn name(&self) -> &'static str {
+            ""
+        }
+
+        fn description(&self) -> &'static str {
+            "desc"
+        }
+
+        fn parser(&self) -> clap::Command {
+            clap::Command::new("")
+        }
+
+        fn execute(&self, _args: &[String]) -> CommandResult<String> {
+            Ok(String::new())
+        }
+
+        fn clone_box(&self) -> Box<dyn Command> {
+            Box::new(self.clone())
+        }
+    }
+
+    #[test]
+    fn test_command_validator_rejects_empty_name() {
+        let validator = CommandValidator::new();
+        let cmd = EmptyNameCommand;
+        assert!(validator.validate(&cmd).is_err());
+    }
+
+    #[test]
+    fn test_command_validator_rejects_invalid_name_chars() {
+        let validator = CommandValidator::new();
+        #[derive(Debug, Clone)]
+        struct BadCharCommand;
+        impl Command for BadCharCommand {
+            fn name(&self) -> &'static str {
+                "bad name!"
+            }
+            fn description(&self) -> &'static str {
+                "d"
+            }
+            fn parser(&self) -> clap::Command {
+                clap::Command::new("bad")
+            }
+            fn execute(&self, _args: &[String]) -> CommandResult<String> {
+                Ok(String::new())
+            }
+            fn clone_box(&self) -> Box<dyn Command> {
+                Box::new(self.clone())
+            }
+        }
+        assert!(validator.validate(&BadCharCommand).is_err());
+    }
+
+    #[test]
+    fn test_argument_pattern_skips_missing_argument() {
+        let mut patterns = HashMap::new();
+        patterns.insert("opt".to_string(), r"^\d+$".to_string());
+        let rule = ArgumentPatternRule::new(patterns);
+        let context = ValidationContext::new();
+        let command = TestCommand;
+        assert!(rule.validate(&command, &context).is_ok());
+    }
+
+    #[test]
+    fn test_argument_pattern_invalid_regex_in_map() {
+        let mut patterns = HashMap::new();
+        patterns.insert("x".to_string(), r"(".to_string());
+        let rule = ArgumentPatternRule::new(patterns);
+        let mut context = ValidationContext::new();
+        context.arguments.insert("x".to_string(), "1".to_string());
+        let command = TestCommand;
+        assert!(rule.validate(&command, &context).is_err());
+    }
+
+    #[test]
+    fn test_validation_context_get_missing() {
+        let ctx = ValidationContext::new();
+        assert_eq!(ctx.get("nope").unwrap(), None);
+    }
+
+    #[test]
+    fn test_validation_error_display() {
+        let err = ValidationError {
+            rule_name: "r".to_string(),
+            message: "m".to_string(),
+        };
+        assert_eq!(err.to_string(), "r: m");
+    }
 }

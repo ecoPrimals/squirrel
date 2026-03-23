@@ -429,3 +429,235 @@ pub async fn register_songbird_service(
     info!("✅ Songbird orchestration service successfully registered with universal registry");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::universal_adapters::registry::InMemoryServiceRegistry;
+    use crate::universal_adapters::{
+        IntegrationPreferences, ResourceSpec, ServiceCategory, ServiceEndpoint, ServiceHealth,
+        ServiceMetadata, UniversalServiceRegistration,
+    };
+
+    fn test_orchestration_registration() -> UniversalServiceRegistration {
+        UniversalServiceRegistration {
+            service_id: uuid::Uuid::new_v4(),
+            metadata: ServiceMetadata {
+                name: "Test Orchestration".to_string(),
+                category: ServiceCategory::Orchestration {
+                    scopes: vec!["service_mesh".to_string()],
+                },
+                version: "1.0.0".to_string(),
+                description: "Test".to_string(),
+                maintainer: "test".to_string(),
+                protocols: vec!["https".to_string()],
+            },
+            capabilities: vec![ServiceCapability::Coordination {
+                patterns: vec![
+                    "service_discovery".to_string(),
+                    "load_balancing".to_string(),
+                    "workflow_coordination".to_string(),
+                    "service_mesh".to_string(),
+                ],
+                consistency: "eventual".to_string(),
+                fault_tolerance: "high".to_string(),
+            }],
+            endpoints: vec![ServiceEndpoint {
+                name: "primary".to_string(),
+                url: "https://orch.test".to_string(),
+                protocol: "https".to_string(),
+                port: Some(443),
+                path: None,
+            }],
+            resources: ResourceSpec {
+                cpu_cores: Some(4),
+                memory_gb: Some(8),
+                storage_gb: Some(100),
+                network_bandwidth: Some(1000),
+                custom_resources: HashMap::new(),
+            },
+            integration: IntegrationPreferences {
+                preferred_protocols: vec!["https".to_string()],
+                retry_policy: "simple".to_string(),
+                timeout_seconds: 60,
+                load_balancing_weight: 15,
+            },
+            extensions: HashMap::new(),
+            registration_timestamp: chrono::Utc::now(),
+            service_version: "1.0.0".to_string(),
+            instance_id: "inst-orch".to_string(),
+            priority: 15,
+        }
+    }
+
+    async fn registry_with_orchestration() -> Arc<dyn UniversalServiceRegistry> {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        reg.register_service(test_orchestration_registration())
+            .await
+            .expect("register");
+        reg
+    }
+
+    #[tokio::test]
+    async fn new_adapter_get_current_none() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalOrchestrationAdapter::new(reg);
+        assert!(adapter.get_current_orchestration_service().is_none());
+    }
+
+    #[tokio::test]
+    async fn coordinate_ai_workflow_happy_path() {
+        let reg = registry_with_orchestration().await;
+        let mut adapter = UniversalOrchestrationAdapter::new(reg);
+        let v = adapter
+            .coordinate_ai_workflow("pipeline", vec!["a".to_string(), "b".to_string()])
+            .await
+            .expect("coord");
+        assert_eq!(v["status"], "coordinated");
+        assert_eq!(v["workflow_type"], "pipeline");
+        assert!(v.get("workflow_id").is_some());
+    }
+
+    #[tokio::test]
+    async fn discover_services_universal_dedupes() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let mut r1 = test_orchestration_registration();
+        r1.metadata.name = "O1".to_string();
+        let mut r2 = test_orchestration_registration();
+        r2.metadata.name = "O2".to_string();
+        reg.register_service(r1).await.unwrap();
+        reg.register_service(r2).await.unwrap();
+        let mut adapter = UniversalOrchestrationAdapter::new(reg);
+        let list = adapter
+            .discover_services_universal(vec![
+                "Orchestration".to_string(),
+                "Orchestration".to_string(),
+            ])
+            .await
+            .expect("discover");
+        assert!(list.len() >= 1);
+    }
+
+    #[tokio::test]
+    async fn request_load_balancing_and_mesh_status() {
+        let reg = registry_with_orchestration().await;
+        let mut adapter = UniversalOrchestrationAdapter::new(reg);
+        let lb = adapter
+            .request_load_balancing(vec!["s1".to_string(), "s2".to_string()], "round_robin")
+            .await
+            .expect("lb");
+        assert_eq!(lb["strategy"], "round_robin");
+        let mesh = adapter.get_service_mesh_status().await.expect("mesh");
+        assert_eq!(mesh["service_mesh"]["status"], "active");
+    }
+
+    #[tokio::test]
+    async fn request_load_balancing_empty_targets() {
+        let reg = registry_with_orchestration().await;
+        let mut adapter = UniversalOrchestrationAdapter::new(reg);
+        let lb = adapter
+            .request_load_balancing(vec![], "least_conn")
+            .await
+            .expect("lb");
+        assert!(lb["routing_table"].is_array());
+    }
+
+    #[tokio::test]
+    async fn rediscover_orchestration_services() {
+        let reg = registry_with_orchestration().await;
+        let mut adapter = UniversalOrchestrationAdapter::new(reg);
+        adapter.coordinate_ai_workflow("w", vec![]).await.unwrap();
+        adapter
+            .rediscover_orchestration_services()
+            .await
+            .expect("rediscover");
+        assert!(adapter.get_current_orchestration_service().is_some());
+    }
+
+    #[tokio::test]
+    async fn discovery_fails_empty_registry() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let mut adapter = UniversalOrchestrationAdapter::new(reg);
+        let err = adapter
+            .coordinate_ai_workflow("w", vec![])
+            .await
+            .unwrap_err();
+        assert!(matches!(err, PrimalError::ServiceDiscoveryError(_)));
+    }
+
+    #[tokio::test]
+    async fn discover_services_universal_unknown_category_empty() {
+        let reg = registry_with_orchestration().await;
+        let mut adapter = UniversalOrchestrationAdapter::new(reg);
+        let empty = adapter
+            .discover_services_universal(vec!["nonexistent_category_xyz".to_string()])
+            .await
+            .expect("ok");
+        assert!(empty.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_orchestration_capabilities() {
+        let reg = registry_with_orchestration().await;
+        let adapter = UniversalOrchestrationAdapter::new(reg);
+        let caps = adapter
+            .get_orchestration_capabilities()
+            .await
+            .expect("caps");
+        assert!(caps.contains(&"service_mesh".to_string()));
+    }
+
+    #[tokio::test]
+    async fn is_healthy_true_with_registered() {
+        let reg = registry_with_orchestration().await;
+        let adapter = UniversalOrchestrationAdapter::new(reg);
+        assert!(adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn is_healthy_false_empty_registry() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let adapter = UniversalOrchestrationAdapter::new(reg);
+        assert!(!adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn is_healthy_false_when_unhealthy_after_coord() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        let reg_data = test_orchestration_registration();
+        let sid = reg_data.service_id.to_string();
+        reg.register_service(reg_data).await.unwrap();
+        reg.update_service_health(
+            &sid,
+            ServiceHealth {
+                healthy: false,
+                message: None,
+                metrics: HashMap::new(),
+            },
+        )
+        .await
+        .unwrap();
+        let mut adapter = UniversalOrchestrationAdapter::new(reg);
+        adapter.coordinate_ai_workflow("w", vec![]).await.unwrap();
+        assert!(!adapter.is_healthy().await);
+    }
+
+    #[tokio::test]
+    async fn register_songbird_and_serde_roundtrip() {
+        let reg = Arc::new(InMemoryServiceRegistry::new());
+        register_songbird_service(reg.clone()).await.expect("reg");
+        let services = reg.list_all_services().await.expect("list");
+        assert_eq!(services.len(), 1);
+        let json = serde_json::to_string(&services[0].capabilities).expect("ser");
+        let caps: Vec<ServiceCapability> = serde_json::from_str(&json).expect("de");
+        assert!(!caps.is_empty());
+    }
+
+    #[test]
+    fn orchestration_registration_serde_roundtrip() {
+        let r = test_orchestration_registration();
+        let s = serde_json::to_string(&r).expect("json");
+        let back: UniversalServiceRegistration = serde_json::from_str(&s).expect("back");
+        assert_eq!(r.service_id, back.service_id);
+    }
+}

@@ -277,3 +277,198 @@ impl Default for BasicRBACManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn permission_new_and_debug() {
+        let p = Permission::new("workflow".to_string(), "Read".to_string());
+        assert_eq!(p.resource, "workflow");
+        assert_eq!(p.action, "Read");
+        let dbg = format!("{p:?}");
+        assert!(dbg.contains("workflow"));
+    }
+
+    #[test]
+    fn permission_serde_round_trip() {
+        let p = Permission::new("".to_string(), "Write".to_string());
+        let json = serde_json::to_string(&p).unwrap();
+        let back: Permission = serde_json::from_str(&json).unwrap();
+        assert_eq!(p, back);
+    }
+
+    #[test]
+    fn role_new_serde_round_trip() {
+        let mut role = Role::new("admin".to_string(), "desc".to_string());
+        role.permissions
+            .insert(Permission::new("r".to_string(), "a".to_string()));
+        let id = role.id;
+        let json = serde_json::to_string(&role).unwrap();
+        let back: Role = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, id);
+        assert_eq!(back.name, "admin");
+        assert_eq!(back.description, "desc");
+        assert_eq!(back.permissions, role.permissions);
+        assert!(back.parent_roles.is_empty());
+    }
+
+    #[test]
+    fn user_role_assignment_serde_round_trip() {
+        let a = UserRoleAssignment {
+            user_id: Uuid::nil(),
+            role_id: Uuid::max(),
+            granted_by: Uuid::new_v4(),
+            granted_at: chrono::Utc::now(),
+        };
+        let json = serde_json::to_string(&a).unwrap();
+        let back: UserRoleAssignment = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.user_id, a.user_id);
+        assert_eq!(back.role_id, a.role_id);
+        assert_eq!(back.granted_by, a.granted_by);
+        assert_eq!(back.granted_at, a.granted_at);
+    }
+
+    #[tokio::test]
+    async fn basic_rbac_manager_new_default_and_role_crud() {
+        let m = BasicRBACManager::new();
+        assert_eq!(format!("{m:?}").len() > 0, true);
+        let d = BasicRBACManager::default();
+        let role = d
+            .create_role("r1".to_string(), "d1".to_string())
+            .await
+            .unwrap();
+        assert_eq!(role.name, "r1");
+        let fetched = d.get_role(&role.id).await.unwrap().unwrap();
+        assert_eq!(fetched.id, role.id);
+        assert_eq!(d.get_role_by_name("r1").await.unwrap().unwrap().id, role.id);
+        assert!(d.get_role(&Uuid::new_v4()).await.unwrap().is_none());
+        assert!(d.get_role_by_name("nope").await.unwrap().is_none());
+
+        let mut updated = fetched.clone();
+        updated.description = "updated".to_string();
+        d.update_role(updated.clone()).await.unwrap();
+        assert_eq!(
+            d.get_role(&role.id).await.unwrap().unwrap().description,
+            "updated"
+        );
+
+        d.delete_role(&role.id).await.unwrap();
+        assert!(d.get_role(&role.id).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn add_remove_permission_and_missing_role_noop() {
+        let m = BasicRBACManager::new();
+        let role = m
+            .create_role("x".to_string(), "".to_string())
+            .await
+            .unwrap();
+        let perm = Permission::new("res".to_string(), "act".to_string());
+        m.add_permission_to_role(&role.id, perm.clone())
+            .await
+            .unwrap();
+        let r = m.get_role(&role.id).await.unwrap().unwrap();
+        assert!(r.permissions.contains(&perm));
+
+        let bogus = Uuid::new_v4();
+        m.add_permission_to_role(&bogus, Permission::new("a".to_string(), "b".to_string()))
+            .await
+            .unwrap();
+
+        m.remove_permission_from_role(&role.id, &perm)
+            .await
+            .unwrap();
+        assert!(
+            !m.get_role(&role.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .permissions
+                .contains(&perm)
+        );
+
+        m.remove_permission_from_role(&bogus, &perm).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn assign_roles_and_check_permission_direct() {
+        let m = BasicRBACManager::new();
+        let role = m
+            .create_role("editor".to_string(), "".to_string())
+            .await
+            .unwrap();
+        let perm = Permission::new("doc".to_string(), "edit".to_string());
+        m.add_permission_to_role(&role.id, perm.clone())
+            .await
+            .unwrap();
+
+        let user = Uuid::new_v4();
+        let admin = Uuid::new_v4();
+        assert!(m.get_user_roles(&user).await.unwrap().is_empty());
+
+        m.assign_role_to_user(&user, &role.id, &admin)
+            .await
+            .unwrap();
+        assert!(m.get_user_roles(&user).await.unwrap().contains(&role.id));
+
+        assert!(m.check_permission(&user, "doc", "edit").await.unwrap());
+        assert!(!m.check_permission(&user, "doc", "read").await.unwrap());
+        assert!(
+            !m.check_permission(&Uuid::new_v4(), "doc", "edit")
+                .await
+                .unwrap()
+        );
+
+        m.remove_role_from_user(&user, &role.id).await.unwrap();
+        assert!(!m.check_permission(&user, "doc", "edit").await.unwrap());
+        m.remove_role_from_user(&user, &role.id).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn check_permission_inherited_via_parent_role() {
+        let m = BasicRBACManager::new();
+        let parent = m
+            .create_role("parent".to_string(), "".to_string())
+            .await
+            .unwrap();
+        let perm = Permission::new("api".to_string(), "invoke".to_string());
+        m.add_permission_to_role(&parent.id, perm).await.unwrap();
+
+        let mut child = m
+            .create_role("child".to_string(), "".to_string())
+            .await
+            .unwrap();
+        child.parent_roles.insert(parent.id);
+        m.update_role(child.clone()).await.unwrap();
+
+        let user = Uuid::new_v4();
+        m.assign_role_to_user(&user, &child.id, &Uuid::new_v4())
+            .await
+            .unwrap();
+
+        assert!(m.check_permission(&user, "api", "invoke").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn get_all_roles_and_user_assignments() {
+        let m = BasicRBACManager::new();
+        let u = Uuid::new_v4();
+        let r = m
+            .create_role("a".to_string(), "".to_string())
+            .await
+            .unwrap();
+        m.assign_role_to_user(&u, &r.id, &Uuid::new_v4())
+            .await
+            .unwrap();
+
+        let all = m.get_all_roles().await.unwrap();
+        assert_eq!(all.len(), 1);
+        let assigns = m.get_user_role_assignments(&u).await.unwrap();
+        assert_eq!(assigns.len(), 1);
+        assert_eq!(assigns[0].user_id, u);
+        assert_eq!(assigns[0].role_id, r.id);
+    }
+}

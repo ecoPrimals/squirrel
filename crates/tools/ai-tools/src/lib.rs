@@ -10,13 +10,8 @@
 #![warn(missing_docs)]
 // Allow deprecated items during error type migration to universal-error crate
 #![allow(deprecated)]
-// NOTE: items_after_test_module warnings - move implementations before test modules when refactoring
-// This is a structural issue affecting ~140 locations in this crate. Allowing temporarily while
-// we prioritize more critical issues (error handling, hardcoding elimination).
-// Will be fixed in systematic refactoring pass.
 // Structural lints requiring manual refactoring — tracked for future sprints.
 #![allow(
-    clippy::items_after_test_module,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::unused_async,
@@ -446,5 +441,141 @@ pub mod workflows {
             .next()
             .and_then(|choice| choice.content)
             .unwrap_or_default())
+    }
+}
+
+#[cfg(test)]
+mod lib_dispatch_tests {
+    use std::sync::Arc;
+
+    use crate::common::capability::{AITask, SecurityRequirements, TaskType};
+    use crate::common::{ChatRequest, MockAIClient};
+    use crate::dispatch::{DispatcherBuilder, DispatcherConfig};
+    use crate::router::{RequestContext, RoutingStrategy};
+
+    #[test]
+    fn dispatcher_config_default_populates_models_and_flags() {
+        let c = DispatcherConfig::default();
+        assert!(c.default_models.contains_key("text_generation"));
+        assert!(c.prefer_local_for_sensitive);
+        assert!(!c.prefer_api_for_complex);
+    }
+
+    #[test]
+    fn routing_strategy_serde_roundtrip() {
+        let s = RoutingStrategy::LowestCost;
+        let json = serde_json::to_string(&s).expect("serialize strategy");
+        let back: RoutingStrategy = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(s, back);
+    }
+
+    #[tokio::test]
+    async fn dispatcher_builder_builds_dispatcher_with_empty_registry() {
+        let d = DispatcherBuilder::default()
+            .with_api_key("openai", "sk-test")
+            .with_routing_strategy(RoutingStrategy::LowestLatency)
+            .prefer_local_for_sensitive(false)
+            .prefer_api_for_complex(true)
+            .build()
+            .await
+            .expect("dispatcher should construct without network providers");
+        assert_eq!(d.router().get_provider_count(), 0);
+        assert!(
+            d.list_all_available_models()
+                .await
+                .expect("list models should succeed with empty registry")
+                .is_empty()
+        );
+    }
+
+    #[tokio::test]
+    async fn dispatcher_registers_provider_and_processes_chat() {
+        let d = DispatcherBuilder::new()
+            .with_routing_strategy(RoutingStrategy::FirstMatch)
+            .build()
+            .await
+            .expect("build");
+        d.router()
+            .register_provider("mock", Arc::new(MockAIClient::new().with_latency(0)))
+            .expect("register");
+
+        let task = AITask {
+            task_type: TaskType::TextGeneration,
+            required_model_type: None,
+            min_context_size: None,
+            requires_streaming: false,
+            requires_function_calling: false,
+            requires_tool_use: false,
+            security_requirements: SecurityRequirements::default(),
+            complexity_score: None,
+            priority: 50,
+        };
+        let resp = d
+            .process_request(ChatRequest::new().add_user("hello"), task)
+            .await
+            .expect("chat");
+        assert!(!resp.choices.is_empty());
+    }
+
+    #[tokio::test]
+    async fn dispatcher_stream_and_model_preference_paths() {
+        let d = DispatcherBuilder::new().build().await.expect("build");
+        d.router()
+            .register_provider("mock", Arc::new(MockAIClient::new().with_latency(0)))
+            .expect("register");
+
+        let task = AITask::default();
+        let _ = d
+            .process_stream_request(ChatRequest::new().add_user("hi"), task.clone())
+            .await
+            .expect("stream");
+
+        let _ = d
+            .process_with_model_preference(
+                ChatRequest::new().add_user("x"),
+                task,
+                Some("mock".to_string()),
+                None,
+            )
+            .await
+            .expect("preference");
+    }
+
+    #[tokio::test]
+    async fn workflows_dev_and_production_dispatchers_build() {
+        let dev = crate::workflows::create_dev_dispatcher()
+            .await
+            .expect("dev");
+        assert_eq!(
+            dev.router().get_routing_strategy(),
+            RoutingStrategy::BestFit
+        );
+
+        let prod = crate::workflows::create_production_dispatcher(
+            Some("k1".to_string()),
+            Some("k2".to_string()),
+        )
+        .await
+        .expect("prod");
+        assert!(prod.router().is_remote_routing_enabled());
+    }
+
+    #[tokio::test]
+    async fn workflows_generate_text_with_registered_provider() {
+        let d = DispatcherBuilder::new().build().await.expect("build");
+        d.router()
+            .register_provider("mock", Arc::new(MockAIClient::new().with_latency(0)))
+            .expect("register");
+        let text = crate::workflows::generate_text(&d, "hello world", false)
+            .await
+            .expect("text");
+        assert!(!text.is_empty());
+    }
+
+    #[test]
+    fn request_context_new_for_integration() {
+        let t = AITask::default();
+        let ctx = RequestContext::new(t.clone());
+        assert_eq!(ctx.task.task_type, t.task_type);
     }
 }

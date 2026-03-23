@@ -51,3 +51,55 @@ pub struct EcosystemServiceRegistration {
     pub metadata: std::collections::HashMap<String, String>,
     pub registered_at: chrono::DateTime<chrono::Utc>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ecosystem::types::{
+        EcosystemPrimalType, HealthCheckConfig, ResourceSpec, SecurityConfig, ServiceCapabilities,
+        ServiceEndpoints,
+    };
+
+    fn minimal_registration() -> EcosystemServiceRegistration {
+        EcosystemServiceRegistration {
+            service_id: Arc::from("svc-test"),
+            primal_type: EcosystemPrimalType::Squirrel,
+            name: "Squirrel".into(),
+            description: "test".into(),
+            biome_id: None,
+            version: "0.0.1".into(),
+            capabilities: ServiceCapabilities::default(),
+            endpoints: ServiceEndpoints {
+                primary: "unix:///tmp/x.sock".into(),
+                secondary: vec![],
+                health: None,
+            },
+            dependencies: vec![],
+            tags: vec!["t".into()],
+            primal_provider: None,
+            health_check: HealthCheckConfig::default(),
+            security_config: SecurityConfig::default(),
+            resource_requirements: ResourceSpec::default(),
+            metadata: std::collections::HashMap::new(),
+            registered_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn ecosystem_service_registration_serde_roundtrip() {
+        let reg = minimal_registration();
+        let json = serde_json::to_string(&reg).unwrap();
+        let back: EcosystemServiceRegistration = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.service_id.as_ref(), "svc-test");
+        assert_eq!(back.primal_type, EcosystemPrimalType::Squirrel);
+        assert_eq!(back.endpoints.primary, reg.endpoints.primary);
+    }
+
+    #[test]
+    fn ecosystem_service_registration_arc_str_field() {
+        let mut reg = minimal_registration();
+        reg.service_id = Arc::from("other-id");
+        let v = serde_json::to_value(&reg).unwrap();
+        assert_eq!(v["service_id"], serde_json::json!("other-id"));
+    }
+}

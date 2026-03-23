@@ -63,14 +63,20 @@ impl Default for SecurityMonitoringStats {
 /// Statistics collector for security monitoring
 ///
 /// Thread-safe statistics collection and calculation.
-#[allow(dead_code)] // Reserved for security monitoring dashboard
+#[allow(
+    dead_code,
+    reason = "Reserved for security monitoring dashboard wiring; exercised in unit tests"
+)]
 pub struct StatsCollector {
     stats: Arc<RwLock<SecurityMonitoringStats>>,
     start_time: Instant,
     last_calculation: Arc<RwLock<Instant>>,
 }
 
-#[allow(dead_code)] // Reserved for security monitoring dashboard
+#[allow(
+    dead_code,
+    reason = "Reserved for security monitoring dashboard wiring; exercised in unit tests"
+)]
 impl StatsCollector {
     /// Create a new statistics collector
     pub fn new() -> Self {

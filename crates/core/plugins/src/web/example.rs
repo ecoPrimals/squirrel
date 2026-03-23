@@ -77,6 +77,18 @@ impl ExampleWebPlugin {
         }
     }
 
+    /// Create an example web plugin with explicit metadata (registry / tests).
+    #[must_use]
+    pub fn with_metadata(metadata: PluginMetadata) -> Self {
+        let status = RwLock::new(PluginStatus::Registered);
+        let data = RwLock::new(HashMap::new());
+        Self {
+            metadata,
+            status,
+            data,
+        }
+    }
+
     /// Generate example endpoints
     fn generate_endpoints(&self) -> Vec<WebEndpoint> {
         // The test expects 5 endpoints, so we'll generate exactly 5
@@ -511,5 +523,210 @@ impl LegacyWebPluginTrait for ExampleWebPlugin {
         } else {
             Err(anyhow::anyhow!("Invalid component ID format"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::web::adapter::LegacyWebPluginTrait;
+    use crate::web::{WebPlugin, WebRequest};
+    use serde_json::json;
+
+    fn example_req(
+        method: HttpMethod,
+        path: &str,
+        body: Option<serde_json::Value>,
+        route_params: HashMap<String, String>,
+    ) -> WebRequest {
+        WebRequest {
+            method,
+            path: path.to_string(),
+            query_params: HashMap::new(),
+            headers: HashMap::new(),
+            body,
+            user_id: None,
+            permissions: vec![],
+            route_params,
+        }
+    }
+
+    #[tokio::test]
+    async fn example_plugin_default_new_and_metadata() {
+        let a = ExampleWebPlugin::new();
+        let b = ExampleWebPlugin::default();
+        assert_eq!(a.metadata().name, "example-web-plugin");
+        assert_eq!(b.metadata().name, "example-web-plugin");
+        assert!(a.metadata().capabilities.contains(&"web".to_string()));
+        assert!(WebPlugin::has_web_capability(&a));
+    }
+
+    #[tokio::test]
+    async fn lifecycle_initialize_shutdown() {
+        let p = ExampleWebPlugin::new();
+        assert_eq!(*p.status.read().await, PluginStatus::Registered);
+        p.initialize().await.unwrap();
+        assert_eq!(*p.status.read().await, PluginStatus::Initialized);
+        assert_eq!(p.data.read().await.len(), 2);
+        p.shutdown().await.unwrap();
+        assert_eq!(*p.status.read().await, PluginStatus::Unloaded);
+    }
+
+    #[tokio::test]
+    async fn web_endpoints_and_components() {
+        let p = ExampleWebPlugin::new();
+        let eps = WebPlugin::get_endpoints(&p);
+        assert_eq!(eps.len(), 5);
+        assert!(
+            eps.iter()
+                .any(|e| e.path == "/api/examples" && e.method == HttpMethod::Get)
+        );
+
+        let comps = WebPlugin::get_components(&p);
+        assert!(comps.iter().any(|c| c.id == EXAMPLE_COMPONENT_ID));
+        assert!(WebPlugin::supports_component(&p, &EXAMPLE_COMPONENT_ID));
+    }
+
+    #[tokio::test]
+    async fn handle_request_crud_and_not_found() {
+        let p = ExampleWebPlugin::new();
+        p.initialize().await.unwrap();
+
+        let list = WebPlugin::handle_request(
+            &p,
+            example_req(HttpMethod::Get, "/api/examples", None, HashMap::new()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(list.status, HttpStatus::Ok);
+        assert_eq!(list.body.as_ref().unwrap()["count"], 2);
+
+        let one = WebPlugin::handle_request(
+            &p,
+            example_req(HttpMethod::Get, "/api/examples/x", None, {
+                let mut m = HashMap::new();
+                m.insert("id".to_string(), "example1".to_string());
+                m
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(one.status, HttpStatus::Ok);
+        assert_eq!(one.body.as_ref().unwrap()["id"], "example1");
+
+        let missing = WebPlugin::handle_request(
+            &p,
+            example_req(HttpMethod::Get, "/api/examples/x", None, {
+                let mut m = HashMap::new();
+                m.insert("id".to_string(), "nope".to_string());
+                m
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(missing.status, HttpStatus::NotFound);
+
+        let create = WebPlugin::handle_request(
+            &p,
+            example_req(
+                HttpMethod::Post,
+                "/api/examples",
+                Some(json!({"id": "custom", "name": "C"})),
+                HashMap::new(),
+            ),
+        )
+        .await
+        .unwrap();
+        assert_eq!(create.status, HttpStatus::Created);
+
+        let upd = WebPlugin::handle_request(
+            &p,
+            example_req(
+                HttpMethod::Put,
+                "/api/examples/x",
+                Some(json!({"id": "example1", "name": "U"})),
+                {
+                    let mut m = HashMap::new();
+                    m.insert("id".to_string(), "example1".to_string());
+                    m
+                },
+            ),
+        )
+        .await
+        .unwrap();
+        assert_eq!(upd.status, HttpStatus::Ok);
+
+        let del = WebPlugin::handle_request(
+            &p,
+            example_req(HttpMethod::Delete, "/api/examples/x", None, {
+                let mut m = HashMap::new();
+                m.insert("id".to_string(), "custom".to_string());
+                m
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(del.status, HttpStatus::NoContent);
+
+        let nf = WebPlugin::handle_request(
+            &p,
+            example_req(HttpMethod::Get, "/api/unknown", None, HashMap::new()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(nf.status, HttpStatus::NotFound);
+    }
+
+    #[tokio::test]
+    async fn get_component_markup_ok_and_err() {
+        let p = ExampleWebPlugin::new();
+        let markup = WebPlugin::get_component_markup(&p, EXAMPLE_COMPONENT_ID, json!({"a": 1}))
+            .await
+            .unwrap();
+        assert!(markup.contains("Example Page"));
+        assert!(markup.contains("\"a\": 1"));
+
+        let err = WebPlugin::get_component_markup(&p, Uuid::new_v4(), json!({})).await;
+        assert!(err.is_err());
+    }
+
+    #[tokio::test]
+    async fn legacy_trait_converts_endpoints_and_handles_request() {
+        let p = ExampleWebPlugin::new();
+        p.initialize().await.unwrap();
+
+        let legacy_eps = LegacyWebPluginTrait::get_endpoints(&p);
+        assert!(!legacy_eps.is_empty());
+        assert!(legacy_eps.iter().any(|e| e.path == "/api/examples"));
+
+        let body = LegacyWebPluginTrait::handle_request(&p, "/api/examples", "GET", json!({}))
+            .await
+            .unwrap();
+        assert!(body.get("count").is_some());
+
+        let comps = LegacyWebPluginTrait::get_components(&p);
+        assert!(comps.iter().any(|c| c.name == "Example Page"));
+
+        let bad = LegacyWebPluginTrait::get_component_markup(&p, "not-a-uuid", json!({})).await;
+        assert!(bad.is_err());
+
+        let ok = LegacyWebPluginTrait::get_component_markup(
+            &p,
+            &EXAMPLE_COMPONENT_ID.to_string(),
+            json!({}),
+        )
+        .await;
+        assert!(ok.is_ok());
+    }
+
+    #[tokio::test]
+    async fn create_example_requires_body_error_path() {
+        let p = ExampleWebPlugin::new();
+        let err = WebPlugin::handle_request(
+            &p,
+            example_req(HttpMethod::Post, "/api/examples", None, HashMap::new()),
+        )
+        .await;
+        assert!(err.is_err());
     }
 }

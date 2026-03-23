@@ -8,7 +8,31 @@ mod tests {
     use super::super::*;
     use crate::ecosystem::config::EcosystemConfig;
     use crate::monitoring::metrics::MetricsCollector;
+    use crate::primal_provider::SquirrelPrimalProvider;
+    use crate::session::{SessionConfig, SessionManagerImpl};
+    use crate::universal::PrimalCapability;
+    use crate::universal_adapter_v2::UniversalAdapterV2;
+    use squirrel_mcp_config::EcosystemConfig as McpEcosystemConfig;
+    use std::collections::HashMap;
     use std::sync::Arc;
+
+    async fn test_primal_provider() -> SquirrelPrimalProvider {
+        let adapter = UniversalAdapterV2::awaken().await.expect("adapter");
+        let mc = Arc::new(MetricsCollector::new());
+        let em = Arc::new(EcosystemManager::new(
+            EcosystemConfig::default(),
+            Arc::clone(&mc),
+        ));
+        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()))
+            as Arc<dyn crate::session::SessionManager>;
+        SquirrelPrimalProvider::new(
+            "mgr-test".to_string(),
+            McpEcosystemConfig::default(),
+            adapter,
+            em,
+            sessions,
+        )
+    }
 
     fn create_test_manager() -> EcosystemManager {
         let config = EcosystemConfig::default();
@@ -192,5 +216,224 @@ mod tests {
         let config = EcosystemConfig::from_env();
         assert!(!config.service_id.is_empty());
         assert!(!config.service_name.is_empty());
+    }
+
+    #[tokio::test]
+    async fn shutdown_sets_status_to_shutdown() {
+        let manager = create_test_manager();
+        manager.shutdown().await.unwrap();
+        let st = manager.get_manager_status().await;
+        assert_eq!(st.status, "shutdown");
+    }
+
+    #[tokio::test]
+    async fn update_health_status_recomputes_score() {
+        let manager = create_test_manager();
+        manager
+            .update_health_status(
+                "rpc",
+                crate::ecosystem::ComponentHealth {
+                    status: "healthy".to_string(),
+                    last_check: chrono::Utc::now(),
+                    error: None,
+                    metadata: std::collections::HashMap::new(),
+                },
+            )
+            .await
+            .unwrap();
+        let st = manager.get_manager_status().await;
+        assert!((st.health_status.health_score - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn discover_services_returns_empty_vec() {
+        let manager = create_test_manager();
+        let s = manager.discover_services().await.unwrap();
+        assert!(s.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_services_by_type_deprecated_is_err() {
+        let manager = create_test_manager();
+        let e = manager
+            .find_services_by_type(crate::ecosystem::EcosystemPrimalType::Squirrel)
+            .await
+            .unwrap_err();
+        assert!(matches!(e, crate::error::PrimalError::Configuration(_)));
+    }
+
+    #[tokio::test]
+    async fn call_primal_api_deprecated_is_err() {
+        use crate::ecosystem::EcosystemPrimalType;
+        use crate::ecosystem::registry::PrimalApiRequest;
+        use std::time::Duration;
+
+        let manager = create_test_manager();
+        let req = PrimalApiRequest::new(
+            "req-1",
+            EcosystemPrimalType::Squirrel,
+            EcosystemPrimalType::Squirrel,
+            "noop",
+            serde_json::json!({}),
+            std::collections::HashMap::new(),
+            Duration::from_secs(2),
+        );
+        let e = manager.call_primal_api(req).await.unwrap_err();
+        assert!(matches!(e, crate::error::PrimalError::Configuration(_)));
+    }
+
+    #[tokio::test]
+    async fn complete_coordination_ok() {
+        let manager = create_test_manager();
+        manager
+            .complete_coordination("coord_test", true)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticate_universal_returns_session_id() {
+        let manager = create_test_manager();
+        let mut creds = std::collections::HashMap::new();
+        creds.insert("user_id".to_string(), "u1".to_string());
+        let sid = manager.authenticate_universal(creds).await.unwrap();
+        assert!(sid.starts_with("beardog_session_"));
+    }
+
+    #[tokio::test]
+    async fn deregister_from_service_mesh_ok() {
+        let manager = create_test_manager();
+        manager.deregister_from_service_mesh().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn register_squirrel_service_updates_registrations() {
+        let provider = test_primal_provider().await;
+        let manager = create_test_manager();
+        manager.register_squirrel_service(&provider).await.unwrap();
+        let st = manager.get_manager_status().await;
+        assert_eq!(st.active_registrations.len(), 1);
+        assert!(st.last_registration.is_some());
+    }
+
+    #[tokio::test]
+    async fn register_with_service_mesh_updates_registrations() {
+        let provider = test_primal_provider().await;
+        let manager = create_test_manager();
+        manager.register_with_service_mesh(&provider).await.unwrap();
+        let st = manager.get_manager_status().await;
+        assert_eq!(st.active_registrations.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn start_coordination_fails_when_no_capability_providers() {
+        let manager = create_test_manager();
+        let err = manager
+            .start_coordination_by_capabilities(vec!["nonexistent.capability.xyz"], HashMap::new())
+            .await
+            .unwrap_err();
+        assert!(matches!(err, crate::error::PrimalError::Configuration(_)));
+    }
+
+    #[tokio::test]
+    async fn update_health_status_degraded_and_unknown_affect_score() {
+        let manager = create_test_manager();
+        manager
+            .update_health_status(
+                "a",
+                crate::ecosystem::ComponentHealth {
+                    status: "healthy".to_string(),
+                    last_check: chrono::Utc::now(),
+                    error: None,
+                    metadata: HashMap::new(),
+                },
+            )
+            .await
+            .unwrap();
+        manager
+            .update_health_status(
+                "b",
+                crate::ecosystem::ComponentHealth {
+                    status: "degraded".to_string(),
+                    last_check: chrono::Utc::now(),
+                    error: None,
+                    metadata: HashMap::new(),
+                },
+            )
+            .await
+            .unwrap();
+        manager
+            .update_health_status(
+                "c",
+                crate::ecosystem::ComponentHealth {
+                    status: "failed".to_string(),
+                    last_check: chrono::Utc::now(),
+                    error: Some("e".to_string()),
+                    metadata: HashMap::new(),
+                },
+            )
+            .await
+            .unwrap();
+        let st = manager.get_manager_status().await;
+        let expected = (1.0 + 0.5 + 0.0) / 3.0;
+        assert!((st.health_status.health_score - expected).abs() < 1e-9);
+    }
+
+    #[tokio::test]
+    async fn get_discovered_primals_universal_runs() {
+        let manager = create_test_manager();
+        let primals = manager.get_discovered_primals_universal().await;
+        let _ = primals.len();
+    }
+
+    #[tokio::test]
+    async fn find_primals_by_capability_universal_runs() {
+        let manager = create_test_manager();
+        let cap = PrimalCapability::Authentication {
+            methods: vec!["oauth".to_string()],
+        };
+        let _ = manager.find_primals_by_capability_universal(&cap).await;
+    }
+
+    #[tokio::test]
+    async fn match_capabilities_universal_runs() {
+        let manager = create_test_manager();
+        let req = crate::universal_primal_ecosystem::CapabilityRequest {
+            required_capabilities: vec!["test-cap".to_string()],
+            optional_capabilities: vec![],
+            context: crate::universal::PrimalContext::default(),
+            metadata: HashMap::new(),
+        };
+        let _ = manager.match_capabilities_universal(&req).await;
+    }
+
+    #[tokio::test]
+    async fn store_data_universal_errors_without_storage_service() {
+        let mut manager = create_test_manager();
+        manager.initialize().await.unwrap();
+        assert!(
+            manager
+                .store_data_universal("k", &[1, 2, 3], HashMap::new())
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn authenticate_universal_accepts_username_key() {
+        let manager = create_test_manager();
+        let mut creds = HashMap::new();
+        creds.insert("username".to_string(), "alice".to_string());
+        let sid = manager.authenticate_universal(creds).await.unwrap();
+        assert!(sid.starts_with("beardog_session_"));
+    }
+
+    #[tokio::test]
+    async fn get_manager_status_after_registration() {
+        let provider = test_primal_provider().await;
+        let manager = create_test_manager();
+        manager.register_squirrel_service(&provider).await.unwrap();
+        let st = manager.get_manager_status().await;
+        assert_eq!(st.status, "initializing");
     }
 }

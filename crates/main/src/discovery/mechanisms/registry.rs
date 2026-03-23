@@ -368,7 +368,7 @@ impl RegistryDiscovery {
     /// Parse registry response into DiscoveredService
     ///
     /// Helper to convert registry-specific format to standardized format.
-    #[allow(dead_code)] // Reserved for registry discovery integration
+    #[cfg(test)]
     fn parse_registry_entry(
         service_id: &str,
         service_name: &str,

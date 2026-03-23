@@ -9,6 +9,7 @@
 mod defaults;
 mod definitions;
 mod impls;
+mod service;
 
 pub use definitions::{
     AiProvidersConfig, CircuitBreakerConfig, DatabaseBackend, DatabaseConfig, FeatureFlags,

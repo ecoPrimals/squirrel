@@ -114,3 +114,66 @@ impl AlertManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::monitoring::metrics::MetricsCollector;
+    use chrono::Utc;
+
+    fn sample_alert(id: &str) -> Alert {
+        Alert {
+            id: id.to_string(),
+            name: "n".to_string(),
+            message: "m".to_string(),
+            severity: AlertSeverity::High,
+            timestamp: Utc::now(),
+            status: AlertStatus::Active,
+        }
+    }
+
+    #[tokio::test]
+    async fn alert_manager_default_equals_new() {
+        let a = AlertManager::default();
+        let b = AlertManager::new();
+        let ea = a.get_active_alerts().await.unwrap();
+        let eb = b.get_active_alerts().await.unwrap();
+        assert_eq!(ea.len(), eb.len());
+    }
+
+    #[tokio::test]
+    async fn create_get_resolve_alert_roundtrip() {
+        let mgr = AlertManager::new();
+        mgr.evaluate_alerts(&MetricsCollector::default())
+            .await
+            .unwrap();
+        mgr.create_alert(sample_alert("a1")).await.unwrap();
+        let active = mgr.get_active_alerts().await.unwrap();
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].id, "a1");
+        mgr.resolve_alert("a1").await.unwrap();
+        assert!(mgr.get_active_alerts().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resolve_unknown_alert_is_ok() {
+        let mgr = AlertManager::new();
+        mgr.resolve_alert("missing").await.unwrap();
+    }
+
+    #[test]
+    fn alert_severity_status_serde_roundtrip() {
+        let a = Alert {
+            id: "i".into(),
+            name: "n".into(),
+            message: "m".into(),
+            severity: AlertSeverity::Info,
+            timestamp: Utc::now(),
+            status: AlertStatus::Acknowledged,
+        };
+        let json = serde_json::to_string(&a).unwrap();
+        let back: Alert = serde_json::from_str(&json).unwrap();
+        assert!(matches!(back.severity, AlertSeverity::Info));
+        assert!(matches!(back.status, AlertStatus::Acknowledged));
+    }
+}

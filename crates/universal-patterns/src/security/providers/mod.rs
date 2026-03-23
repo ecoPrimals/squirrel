@@ -9,7 +9,10 @@
 //! Instead of hardcoding specific provider names, we define what capabilities
 //! security services should provide and how they integrate universally.
 
-#![allow(dead_code)] // Public API types for capability-based security — used by external consumers
+#![allow(
+    dead_code,
+    reason = "Public capability-based security API surface for external consumers"
+)]
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -241,8 +244,8 @@ pub struct SecurityResponse {
 
 impl SecurityResponse {
     /// Create a successful security response
-    pub fn success(request_id: String, message: String) -> Result<Self, SecurityError> {
-        Ok(Self {
+    pub fn success(request_id: String, message: String) -> Self {
+        Self {
             request_id,
             status: SecurityResponseStatus::Success,
             data: serde_json::json!({"message": message}),
@@ -250,12 +253,12 @@ impl SecurityResponse {
             processing_time_ms: 0,
             timestamp: Utc::now(),
             security_context: None,
-        })
+        }
     }
 
     /// Create a failed security response
-    pub fn failed(request_id: String, reason: String) -> Result<Self, SecurityError> {
-        Ok(Self {
+    pub fn failed(request_id: String, reason: String) -> Self {
+        Self {
             request_id,
             status: SecurityResponseStatus::Failed { reason },
             data: serde_json::Value::Null,
@@ -263,7 +266,7 @@ impl SecurityResponse {
             processing_time_ms: 0,
             timestamp: Utc::now(),
             security_context: None,
-        })
+        }
     }
 }
 
@@ -383,7 +386,10 @@ impl UniversalSecurityRegistry {
 
 /// Check if two security capabilities match
 pub fn capabilities_match(required: &SecurityCapability, provided: &SecurityCapability) -> bool {
-    use SecurityCapability::*;
+    use SecurityCapability::{
+        Authentication, Authorization, Compliance, Cryptography, DataProtection, Identity,
+        ThreatDetection,
+    };
 
     match (required, provided) {
         (
@@ -398,16 +404,16 @@ pub fn capabilities_match(required: &SecurityCapability, provided: &SecurityCapa
         ) => req_methods.iter().any(|req| prov_methods.contains(req)),
         (
             Authorization {
-                rbac: req_rbac,
-                abac: req_abac,
+                rbac: rbac_mandatory,
+                abac: abac_mandatory,
                 ..
             },
             Authorization {
-                rbac: prov_rbac,
-                abac: prov_abac,
+                rbac: rbac_available,
+                abac: abac_available,
                 ..
             },
-        ) => (!req_rbac || *prov_rbac) && (!req_abac || *prov_abac),
+        ) => (!rbac_mandatory || *rbac_available) && (!abac_mandatory || *abac_available),
         (
             Cryptography {
                 algorithms: req_algs,
@@ -526,10 +532,10 @@ impl UniversalSecurityService for BeardogSecurityProvider {
         request: SecurityRequest,
     ) -> Result<SecurityResponse, SecurityError> {
         // Implementation would make actual requests to Beardog service
-        SecurityResponse::success(
+        Ok(SecurityResponse::success(
             request.request_id,
             "Beardog operation completed".to_string(),
-        )
+        ))
     }
 
     async fn health_check(&self) -> Result<SecurityHealth, SecurityError> {
@@ -550,7 +556,7 @@ impl UniversalSecurityService for BeardogSecurityProvider {
     }
 }
 
-/// Local Security Provider Implementation  
+/// Local Security Provider Implementation\
 /// Provides basic local security capabilities for fallback scenarios
 pub struct LocalSecurityProvider {
     config: SecurityServiceConfig,
@@ -610,7 +616,10 @@ impl UniversalSecurityService for LocalSecurityProvider {
         request: SecurityRequest,
     ) -> Result<SecurityResponse, SecurityError> {
         // Local implementation - simplified operations
-        SecurityResponse::success(request.request_id, "Local operation completed".to_string())
+        Ok(SecurityResponse::success(
+            request.request_id,
+            "Local operation completed".to_string(),
+        ))
     }
 
     async fn health_check(&self) -> Result<SecurityHealth, SecurityError> {

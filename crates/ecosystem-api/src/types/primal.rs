@@ -27,29 +27,29 @@ pub enum PrimalType {
 impl PrimalType {
     /// Get string representation (for serialization/backward compatibility)
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            PrimalType::ToadStool => "toadstool",
-            PrimalType::Songbird => "songbird",
-            PrimalType::BearDog => "beardog",
-            PrimalType::NestGate => "nestgate",
-            PrimalType::Squirrel => "squirrel",
-            PrimalType::BiomeOS => "biomeos",
-            PrimalType::Any => "any",
+            Self::ToadStool => "toadstool",
+            Self::Songbird => "songbird",
+            Self::BearDog => "beardog",
+            Self::NestGate => "nestgate",
+            Self::Squirrel => "squirrel",
+            Self::BiomeOS => "biomeos",
+            Self::Any => "any",
         }
     }
 
     /// Get capability for discovery (use when discovering OTHER primals by capability)
     #[must_use]
-    pub fn capability(&self) -> &'static str {
+    pub const fn capability(&self) -> &'static str {
         match self {
-            PrimalType::ToadStool => "compute",
-            PrimalType::Songbird => "service-mesh",
-            PrimalType::BearDog => "security",
-            PrimalType::NestGate => "storage",
-            PrimalType::Squirrel => "squirrel",
-            PrimalType::BiomeOS => "ecosystem",
-            PrimalType::Any => "any",
+            Self::ToadStool => "compute",
+            Self::Songbird => "service-mesh",
+            Self::BearDog => "security",
+            Self::NestGate => "storage",
+            Self::Squirrel => "squirrel",
+            Self::BiomeOS => "ecosystem",
+            Self::Any => "any",
         }
     }
 }
@@ -212,4 +212,119 @@ pub struct PrimalDependency {
     pub required: bool,
     /// Minimum version requirement
     pub min_version: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn primal_type_as_str_and_capability() {
+        let cases = [
+            (PrimalType::ToadStool, "toadstool", "compute"),
+            (PrimalType::Songbird, "songbird", "service-mesh"),
+            (PrimalType::BearDog, "beardog", "security"),
+            (PrimalType::NestGate, "nestgate", "storage"),
+            (PrimalType::Squirrel, "squirrel", "squirrel"),
+            (PrimalType::BiomeOS, "biomeos", "ecosystem"),
+            (PrimalType::Any, "any", "any"),
+        ];
+        for (t, s, cap) in cases {
+            assert_eq!(t.as_str(), s);
+            assert_eq!(t.capability(), cap);
+        }
+    }
+
+    #[test]
+    fn primal_capability_serde_roundtrip_samples() {
+        let samples = vec![
+            PrimalCapability::ContainerRuntime {
+                orchestrators: vec!["k8s".into()],
+            },
+            PrimalCapability::ServerlessExecution {
+                languages: vec!["rust".into()],
+            },
+            PrimalCapability::GpuAcceleration { cuda_support: true },
+            PrimalCapability::NativeExecution {
+                architectures: vec!["aarch64".into()],
+            },
+            PrimalCapability::WasmExecution {
+                wasi_support: false,
+            },
+            PrimalCapability::Authentication {
+                methods: vec!["jwt".into()],
+            },
+            PrimalCapability::Encryption {
+                algorithms: vec!["aes".into()],
+            },
+            PrimalCapability::KeyManagement { hsm_support: false },
+            PrimalCapability::ThreatDetection { ml_enabled: true },
+            PrimalCapability::Compliance {
+                frameworks: vec!["soc2".into()],
+            },
+            PrimalCapability::FileSystem { supports_zfs: true },
+            PrimalCapability::ObjectStorage {
+                backends: vec!["s3".into()],
+            },
+            PrimalCapability::DataReplication {
+                consistency: "strong".into(),
+            },
+            PrimalCapability::VolumeManagement {
+                protocols: vec!["nfs".into()],
+            },
+            PrimalCapability::BackupRestore { incremental: false },
+            PrimalCapability::ServiceDiscovery {
+                protocols: vec!["mdns".into()],
+            },
+            PrimalCapability::NetworkRouting {
+                protocols: vec!["tcp".into()],
+            },
+            PrimalCapability::LoadBalancing {
+                algorithms: vec!["rr".into()],
+            },
+            PrimalCapability::CircuitBreaking { enabled: true },
+            PrimalCapability::ModelInference {
+                models: vec!["m".into()],
+            },
+            PrimalCapability::AgentFramework { mcp_support: true },
+            PrimalCapability::MachineLearning {
+                training_support: false,
+            },
+            PrimalCapability::NaturalLanguage {
+                languages: vec!["en".into()],
+            },
+            PrimalCapability::Orchestration {
+                primals: vec!["p".into()],
+            },
+            PrimalCapability::Manifests {
+                formats: vec!["yaml".into()],
+            },
+            PrimalCapability::Deployment {
+                strategies: vec!["bluegreen".into()],
+            },
+            PrimalCapability::Monitoring {
+                metrics: vec!["cpu".into()],
+            },
+        ];
+        for cap in samples {
+            let json = serde_json::to_string(&cap).unwrap();
+            let back: PrimalCapability = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, cap);
+        }
+    }
+
+    #[test]
+    fn primal_dependency_serde() {
+        let d = PrimalDependency {
+            primal_type: PrimalType::Any,
+            name: "dep".into(),
+            capabilities: vec!["a".into()],
+            required: true,
+            min_version: Some("1.0.0".into()),
+        };
+        let json = serde_json::to_string(&d).unwrap();
+        let back: PrimalDependency = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.name, "dep");
+        assert!(back.required);
+    }
 }

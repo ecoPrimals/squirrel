@@ -611,19 +611,34 @@ pub mod utils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wasm_bindgen_test::*;
+    use serde::{Serialize, Serializer};
+    use serde_json::json;
 
     #[test]
     fn test_http_method_conversion() {
         assert_eq!(HttpMethod::Get.as_str(), "GET");
         assert_eq!(HttpMethod::from_str("POST").unwrap(), HttpMethod::Post);
+        assert_eq!(HttpMethod::from_str("get").unwrap(), HttpMethod::Get);
+        assert_eq!(HttpMethod::from_str("patch").unwrap(), HttpMethod::Patch);
         assert!(HttpMethod::from_str("invalid").is_err());
+        assert_eq!(HttpMethod::parse_method("DELETE"), Some(HttpMethod::Delete));
+        assert_eq!(HttpMethod::Options.as_str(), "OPTIONS");
+        assert_eq!(HttpMethod::Head.as_str(), "HEAD");
+    }
+
+    #[test]
+    fn test_http_method_serde_roundtrip() {
+        let m = HttpMethod::Put;
+        let s = serde_json::to_string(&m).unwrap();
+        let back: HttpMethod = serde_json::from_str(&s).unwrap();
+        assert_eq!(m, back);
     }
 
     #[test]
     fn test_http_request_builder() {
         let request = HttpRequest::new("https://example.com".to_string(), HttpMethod::Get)
             .header("Authorization".to_string(), "Bearer token".to_string())
+            .body("raw".to_string())
             .timeout(5000);
 
         assert_eq!(request.url, "https://example.com");
@@ -633,6 +648,8 @@ mod tests {
             Some(&"Bearer token".to_string())
         );
         assert_eq!(request.timeout_ms, Some(5000));
+        assert_eq!(request.body.as_deref(), Some("raw"));
+        assert!(request.follow_redirects);
     }
 
     #[test]
@@ -659,10 +676,41 @@ mod tests {
         );
     }
 
-    #[wasm_bindgen_test]
-    fn test_http_client_creation() {
-        let client = HttpClient::new();
+    #[test]
+    fn test_http_request_json_serialization_error() {
+        struct FailSer;
+
+        impl Serialize for FailSer {
+            fn serialize<S: Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+                Err(serde::ser::Error::custom("fail"))
+            }
+        }
+
+        let err = HttpRequest::new("https://example.com".to_string(), HttpMethod::Post)
+            .json(&FailSer)
+            .unwrap_err();
+        assert!(matches!(err, PluginError::SerializationError { .. }));
+    }
+
+    #[test]
+    fn test_http_client_default_and_headers() {
+        let _: HttpClient = HttpClient::default();
+        let mut client = HttpClient::new();
         assert!(client.default_headers.is_empty());
+        client.set_default_header("X-Test".to_string(), "1".to_string());
+        assert_eq!(client.default_headers.get("X-Test"), Some(&"1".to_string()));
+    }
+
+    #[test]
+    fn test_request_builder_chain() {
+        let client = HttpClient::new();
+        let rb = client.request_builder("https://x".to_string(), HttpMethod::Put);
+        let _built = rb
+            .header("h", "v")
+            .body("{}")
+            .timeout(100)
+            .json(&json!({"a": 1}))
+            .unwrap();
     }
 
     #[test]
@@ -673,17 +721,54 @@ mod tests {
             value: i32,
         }
 
+        let mut headers = HashMap::new();
+        headers.insert("X-Custom".to_string(), "v".to_string());
+
         let response = HttpResponse {
             status: 200,
             status_text: "OK".to_string(),
-            headers: HashMap::new(),
+            headers,
             body: r#"{"name": "test", "value": 42}"#.to_string(),
             ok: true,
             url: "https://example.com".to_string(),
         };
 
+        assert!(response.is_success());
+        assert_eq!(response.text(), response.body);
+        assert_eq!(response.get_header("X-Custom"), Some(&"v".to_string()));
+
         let data: TestData = response.json().unwrap();
         assert_eq!(data.name, "test");
         assert_eq!(data.value, 42);
+    }
+
+    #[test]
+    fn test_http_response_json_invalid() {
+        let response = HttpResponse {
+            status: 500,
+            status_text: "Err".to_string(),
+            headers: HashMap::new(),
+            body: "not json".to_string(),
+            ok: false,
+            url: "u".to_string(),
+        };
+        assert!(!response.is_success());
+        let err = response.json::<serde_json::Value>().unwrap_err();
+        assert!(matches!(err, PluginError::SerializationError { .. }));
+    }
+
+    #[test]
+    fn test_http_response_serde_roundtrip() {
+        let r = HttpResponse {
+            status: 404,
+            status_text: "Nope".to_string(),
+            headers: HashMap::new(),
+            body: "".to_string(),
+            ok: false,
+            url: "https://z".to_string(),
+        };
+        let s = serde_json::to_string(&r).unwrap();
+        let back: HttpResponse = serde_json::from_str(&s).unwrap();
+        assert_eq!(r.status, back.status);
     }
 }

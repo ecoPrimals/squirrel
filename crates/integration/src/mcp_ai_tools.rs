@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP AI Tools Adapter
-#![allow(dead_code)] // Integration adapter awaiting activation
+#![allow(
+    dead_code,
+    reason = "MCP AI tools integration adapter awaiting activation"
+)]
 //!
 //! This module provides an adapter for the MCP AI tools.
 
@@ -456,4 +459,215 @@ pub fn create_mcp_ai_tools_adapter_with_config(
     config: McpAiToolsConfig,
 ) -> Result<McpAiToolsAdapter> {
     McpAiToolsAdapter::new(mcp, config)
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(deprecated)] // squirrel_ai_tools::AIError variants deprecated during universal_error migration
+
+    use super::*;
+    use async_trait::async_trait;
+    use squirrel_ai_tools::common::capability::AICapabilities;
+    use squirrel_ai_tools::error::{Error as AiError, Result as AiResult};
+    use squirrel_ai_tools::router::types::{NodeId, RemoteAIRequest, RemoteAIResponseStream};
+    use std::collections::HashMap;
+
+    struct MockMcp;
+
+    #[async_trait]
+    impl MCPInterface for MockMcp {
+        async fn send_request(
+            &self,
+            _node_id: &NodeId,
+            _request: RemoteAIRequest,
+        ) -> AiResult<squirrel_ai_tools::router::types::RemoteAIResponse> {
+            Err(AiError::Network("mock".to_string()))
+        }
+
+        async fn stream_request(
+            &self,
+            _node_id: &NodeId,
+            _request: RemoteAIRequest,
+        ) -> AiResult<RemoteAIResponseStream> {
+            Err(AiError::Network("mock stream".to_string()))
+        }
+
+        async fn discover_capabilities(
+            &self,
+        ) -> AiResult<HashMap<NodeId, HashMap<String, AICapabilities>>> {
+            Ok(HashMap::new())
+        }
+    }
+
+    #[test]
+    fn provider_settings_defaults_and_builders() {
+        let p = ProviderSettings::default_openai()
+            .with_parameter("k".to_string(), serde_json::json!(1))
+            .with_models(vec!["m1".to_string()]);
+        assert_eq!(p.id, "openai");
+        assert_eq!(p.models, vec!["m1".to_string()]);
+        assert!(p.config.contains_key("k"));
+    }
+
+    #[test]
+    fn provider_settings_serde_roundtrip() {
+        let p = ProviderSettings {
+            id: "x".to_string(),
+            name: "n".to_string(),
+            config: [("a".to_string(), "b".to_string())].into_iter().collect(),
+            models: vec!["m".to_string()],
+        };
+        let j = serde_json::to_string(&p).unwrap();
+        let p2: ProviderSettings = serde_json::from_str(&j).unwrap();
+        assert_eq!(p2.id, p.id);
+    }
+
+    #[test]
+    fn provider_registry_register_get_list_errors() {
+        let mut r = ProviderRegistry::new();
+        r.register_provider("a", ProviderSettings::default_openai())
+            .unwrap();
+        assert_eq!(r.get_provider("a").unwrap().id, "openai");
+        assert!(r.list_providers().contains(&"a".to_string()));
+        assert!(r.get_provider("missing").is_err());
+        assert!(r.get_provider_capabilities("a").is_none());
+    }
+
+    #[test]
+    fn mcp_ai_tools_config_builder_and_serde() {
+        let c = McpAiToolsConfig::default()
+            .with_timeout(1234)
+            .with_streaming(false)
+            .with_default_ollama_endpoint("http://127.0.0.1:1".to_string())
+            .with_provider("p1".to_string(), ProviderSettings::default_openai());
+        assert_eq!(c.timeout_ms, 1234);
+        assert!(!c.streaming);
+        let j = serde_json::to_string(&c).unwrap();
+        let c2: McpAiToolsConfig = serde_json::from_str(&j).unwrap();
+        assert_eq!(c2.timeout_ms, c.timeout_ms);
+        assert_eq!(c2.default_ollama_endpoint, c.default_ollama_endpoint);
+    }
+
+    #[tokio::test]
+    async fn adapter_factory_and_provider_surface() {
+        let mcp = Arc::new(MockMcp);
+        let adapter = create_mcp_ai_tools_adapter(mcp).unwrap();
+        assert!(adapter.list_providers().is_empty());
+
+        let mut cfg = McpAiToolsConfig::default();
+        cfg = cfg.with_provider("openai".to_string(), ProviderSettings::default_openai());
+        let mcp2 = Arc::new(MockMcp);
+        let adapter2 = McpAiToolsAdapter::new(mcp2, cfg).unwrap();
+        assert!(adapter2.list_providers().contains(&"openai".to_string()));
+        assert!(adapter2.get_provider_capabilities("openai").is_none());
+        let _ = adapter2.create_chat_request();
+    }
+
+    #[tokio::test]
+    async fn send_chat_unknown_provider_errors() {
+        let mcp = Arc::new(MockMcp);
+        let mut cfg = McpAiToolsConfig::default();
+        cfg = cfg.with_provider("openai".to_string(), ProviderSettings::default_openai());
+        let adapter = McpAiToolsAdapter::new(mcp, cfg).unwrap();
+        let req = adapter.create_chat_request();
+        let err = adapter.send_chat_request("unknown", req).await.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Provider not found") || msg.contains("Unknown provider"),
+            "unexpected error: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn streaming_and_generate_response_errors() {
+        let mcp = Arc::new(MockMcp);
+        let adapter = create_mcp_ai_tools_adapter(mcp).unwrap();
+        let req = adapter.create_chat_request();
+        let e1 = match adapter
+            .send_streaming_chat_request("openai", req.clone())
+            .await
+        {
+            Err(e) => e,
+            Ok(_) => panic!("expected streaming to be unimplemented"),
+        };
+        assert!(e1.to_string().contains("Streaming") || e1.to_string().contains("not yet"));
+
+        let e2 = match adapter
+            .generate_response("c1", Some("m".to_string()), None, None)
+            .await
+        {
+            Err(e) => e,
+            Ok(_) => panic!("expected generate_response to be unimplemented"),
+        };
+        assert!(e2.to_string().contains("not yet implemented"));
+    }
+
+    #[tokio::test]
+    async fn send_chat_registry_key_mismatches_known_provider_id() {
+        let mcp = Arc::new(MockMcp);
+        let mut cfg = McpAiToolsConfig::default();
+        cfg = cfg.with_provider(
+            "local".to_string(),
+            ProviderSettings {
+                id: "custom-vendor".to_string(),
+                name: "Custom".to_string(),
+                config: HashMap::new(),
+                models: vec![],
+            },
+        );
+        let adapter = McpAiToolsAdapter::new(mcp, cfg).unwrap();
+        let req = adapter.create_chat_request();
+        let err = adapter
+            .send_chat_request("local", req)
+            .await
+            .expect_err("unknown provider branch");
+        assert!(err.to_string().contains("Unknown provider"));
+    }
+
+    #[tokio::test]
+    async fn create_mcp_ai_tools_adapter_with_config_registers_providers() {
+        let mcp = Arc::new(MockMcp);
+        let cfg = McpAiToolsConfig::default()
+            .with_provider("p9".to_string(), ProviderSettings::default_openai());
+        let adapter = create_mcp_ai_tools_adapter_with_config(mcp, cfg).unwrap();
+        assert!(adapter.list_providers().contains(&"p9".to_string()));
+    }
+
+    #[test]
+    fn adapter_debug_format_is_stable_enough_for_observability() {
+        let mcp = Arc::new(MockMcp);
+        let adapter = create_mcp_ai_tools_adapter(mcp).unwrap();
+        let s = format!("{adapter:?}");
+        assert!(s.contains("McpAiToolsAdapter"));
+        assert!(s.contains("timeout_ms"));
+    }
+
+    #[test]
+    fn mcp_ai_tools_config_default_has_expected_baseline() {
+        let c = McpAiToolsConfig::default();
+        assert_eq!(c.timeout_ms, 30_000);
+        assert!(c.streaming);
+        assert!(
+            c.default_ollama_endpoint.contains("localhost")
+                || c.default_ollama_endpoint.contains("127.0.0.1")
+                || c.default_ollama_endpoint.starts_with("http"),
+            "endpoint: {}",
+            c.default_ollama_endpoint
+        );
+    }
+
+    #[tokio::test]
+    async fn streaming_error_message_mentions_batch_alternative() {
+        let mcp = Arc::new(MockMcp);
+        let adapter = create_mcp_ai_tools_adapter(mcp).unwrap();
+        let req = adapter.create_chat_request();
+        let Err(e) = adapter.send_streaming_chat_request("any", req).await else {
+            panic!("expected streaming to be unimplemented");
+        };
+        let msg = e.to_string();
+        assert!(
+            msg.contains("send_chat_request") || msg.contains("batch"),
+            "unexpected: {msg}"
+        );
+    }
 }

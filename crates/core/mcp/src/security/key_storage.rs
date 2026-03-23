@@ -149,3 +149,108 @@ impl Default for InMemoryKeyStorage {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+    use chrono::{Duration, Utc};
+
+    #[test]
+    fn stored_key_serde_round_trip() {
+        let k = StoredKey {
+            id: Uuid::new_v4(),
+            name: "".to_string(),
+            key_type: "signing".to_string(),
+            data: vec![],
+            created_at: Utc::now(),
+            expires_at: None,
+            active: true,
+        };
+        let json = serde_json::to_string(&k).unwrap();
+        let back: StoredKey = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, k.id);
+        assert_eq!(back.name, k.name);
+        assert_eq!(back.data, k.data);
+        assert_eq!(back.active, k.active);
+    }
+
+    #[tokio::test]
+    async fn new_default_store_get_update_delete_list() {
+        let s = InMemoryKeyStorage::new();
+        let _ = InMemoryKeyStorage::default();
+
+        let id = s
+            .store_key("k1".to_string(), "type".to_string(), vec![1, 2, 3], None)
+            .await
+            .unwrap();
+
+        assert_eq!(s.get_key(&id).await.unwrap().unwrap().name, "k1");
+        assert_eq!(s.get_key_by_name("k1").await.unwrap().unwrap().id, id);
+        assert!(s.get_key(&Uuid::new_v4()).await.unwrap().is_none());
+        assert!(s.get_key_by_name("missing").await.unwrap().is_none());
+
+        let mut rec = s.get_key(&id).await.unwrap().unwrap();
+        rec.name = "renamed".to_string();
+        s.update_key(rec).await.unwrap();
+        assert_eq!(s.get_key_by_name("renamed").await.unwrap().unwrap().id, id);
+
+        let keys = s.list_keys().await.unwrap();
+        assert_eq!(keys.len(), 1);
+
+        let mut inactive = s.get_key(&id).await.unwrap().unwrap();
+        inactive.active = false;
+        s.update_key(inactive).await.unwrap();
+        assert!(s.list_keys().await.unwrap().is_empty());
+
+        s.delete_key(&id).await.unwrap();
+        assert!(s.get_key(&id).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn is_key_expired_missing_and_future() {
+        let s = InMemoryKeyStorage::new();
+        assert!(s.is_key_expired(&Uuid::new_v4()).await.unwrap());
+
+        let id = s
+            .store_key(
+                "e".to_string(),
+                "t".to_string(),
+                vec![],
+                Some(Utc::now() + Duration::hours(24)),
+            )
+            .await
+            .unwrap();
+        assert!(!s.is_key_expired(&id).await.unwrap());
+
+        let mut k = s.get_key(&id).await.unwrap().unwrap();
+        k.expires_at = Some(Utc::now() - Duration::hours(1));
+        s.update_key(k).await.unwrap();
+        assert!(s.is_key_expired(&id).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn cleanup_expired_keys() {
+        let s = InMemoryKeyStorage::new();
+        let past = Utc::now() - Duration::minutes(1);
+        let _ = s
+            .store_key("gone".to_string(), "t".to_string(), vec![], Some(past))
+            .await
+            .unwrap();
+        let future = Utc::now() + Duration::hours(1);
+        let keep = s
+            .store_key("stay".to_string(), "t".to_string(), vec![], Some(future))
+            .await
+            .unwrap();
+        let no_exp = s
+            .store_key("forever".to_string(), "t".to_string(), vec![], None)
+            .await
+            .unwrap();
+
+        let removed = s.cleanup_expired_keys().await.unwrap();
+        assert_eq!(removed, 1);
+        assert!(s.get_key_by_name("gone").await.unwrap().is_none());
+        assert!(s.get_key(&keep).await.unwrap().is_some());
+        assert!(s.get_key(&no_exp).await.unwrap().is_some());
+    }
+}

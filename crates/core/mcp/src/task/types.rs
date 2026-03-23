@@ -474,6 +474,119 @@ impl From<AgentType> for i32 {
 }
 
 #[cfg(test)]
+mod unit_tests {
+    use super::*;
+    use chrono::Utc;
+    use std::collections::HashMap;
+
+    #[test]
+    fn task_status_i32_round_trip() {
+        for code in [0i32, 1, 2, 3, 4, 5, 99, -1, 100] {
+            let st: TaskStatus = code.into();
+            let back: i32 = st.into();
+            let st2: TaskStatus = back.into();
+            assert_eq!(st, st2);
+        }
+    }
+
+    #[test]
+    fn task_priority_i32_mappings() {
+        assert_eq!(i32::from(TaskPriority::Unspecified), -1);
+        assert_eq!(i32::from(TaskPriority::Normal), 1);
+        let p: TaskPriority = 99i32.into();
+        assert_eq!(p, TaskPriority::Unspecified);
+    }
+
+    #[test]
+    fn agent_type_i32_round_trip() {
+        for v in 0i32..=8 {
+            let a: AgentType = v.into();
+            let back: i32 = a.into();
+            let a2: AgentType = back.into();
+            assert_eq!(a, a2);
+        }
+    }
+
+    #[test]
+    fn task_builder_chain_and_state_transitions() {
+        let deadline = Utc::now() + chrono::Duration::hours(1);
+        let mut input = HashMap::new();
+        input.insert("k".into(), "v".into());
+        let mut meta = HashMap::new();
+        meta.insert("m".into(), "1".into());
+
+        let mut task = Task::new("n", "d")
+            .with_priority(TaskPriority::High)
+            .with_agent_type(AgentType::AI)
+            .with_context("ctx1")
+            .with_input_data(input.clone())
+            .with_metadata(meta.clone())
+            .with_prerequisite("pre1")
+            .with_deadline(deadline)
+            .watchable();
+
+        assert!(task.is_pending());
+        assert!(task.watchable);
+        assert_eq!(task.context_id.as_deref(), Some("ctx1"));
+        assert_eq!(task.prerequisites, vec!["pre1"]);
+
+        task.mark_running("agent-1");
+        assert!(task.is_running());
+        assert_eq!(task.agent_id.as_deref(), Some("agent-1"));
+
+        task.update_progress(50.0, Some("half".into()));
+        assert!((task.progress - 50.0).abs() < f32::EPSILON);
+
+        task.mark_completed(Some(HashMap::from([("out".into(), "ok".into())])));
+        assert!(task.is_completed());
+        assert!(task.is_finished());
+        assert!(!task.is_overdue());
+
+        let mut t2 = Task::new("f", "");
+        t2.status_code = TaskStatus::Failed;
+        t2.retry_count = 0;
+        t2.max_retries = 2;
+        assert!(t2.can_retry());
+        assert!(t2.retry());
+        assert!(t2.is_pending());
+        assert_eq!(t2.retry_count, 1);
+
+        let mut t3 = Task::new("c", "");
+        t3.status_code = TaskStatus::Running;
+        t3.deadline = Some(Utc::now() - chrono::Duration::hours(1));
+        assert!(t3.is_overdue());
+
+        let mut t4 = Task::new("x", "");
+        t4.status_code = TaskStatus::Failed;
+        t4.max_retries = 0;
+        assert!(!t4.retry());
+
+        let mut t5 = Task::new("y", "");
+        t5.mark_failed("boom");
+        assert!(t5.is_failed());
+
+        let mut t6 = Task::new("z", "");
+        t6.mark_cancelled("nope");
+        assert!(t6.is_cancelled());
+
+        task.set_max_retries(5);
+        assert_eq!(task.max_retries, 5);
+    }
+
+    #[test]
+    fn task_serde_round_trip_full() {
+        let mut t = Task::new("name", "desc");
+        t.status_code = TaskStatus::Waiting;
+        t.progress = 12.5;
+        t.error_message = Some("e".into());
+        let json = serde_json::to_string(&t).expect("ser");
+        let back: Task = serde_json::from_str(&json).expect("de");
+        assert_eq!(back.name.as_ref(), "name");
+        assert_eq!(back.status_code, TaskStatus::Waiting);
+    }
+}
+
+#[cfg(test)]
 mod proptest_tests {
     use super::*;
     use proptest::prelude::*;

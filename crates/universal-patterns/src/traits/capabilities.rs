@@ -155,6 +155,7 @@ pub enum PrimalCapability {
 }
 
 impl Hash for PrimalCapability {
+    #[allow(clippy::too_many_lines)] // Exhaustive match on capability variants
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             PrimalCapability::Authentication { methods } => {

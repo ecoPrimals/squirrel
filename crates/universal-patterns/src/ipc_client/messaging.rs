@@ -74,7 +74,9 @@ impl IpcClient {
             let code = error
                 .get("code")
                 .and_then(Value::as_i64)
-                .unwrap_or(IpcClientError::INTERNAL_ERROR as i64) as i32;
+                .map_or(IpcClientError::INTERNAL_ERROR, |c| {
+                    i32::try_from(c).unwrap_or(IpcClientError::INTERNAL_ERROR)
+                });
             let message = error
                 .get("message")
                 .and_then(Value::as_str)

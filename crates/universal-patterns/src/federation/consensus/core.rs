@@ -30,23 +30,25 @@ pub struct DefaultConsensusManager {
 
 impl DefaultConsensusManager {
     /// Create a new consensus manager
+    #[must_use]
     pub fn new(config: ConsensusConfig, node_id: Uuid) -> Self {
         let (message_tx, message_rx) = mpsc::unbounded_channel();
 
         let state = Arc::new(RwLock::new(ConsensusManagerState::new()));
 
         let config_clone = config.clone();
+        let state_bg = state.clone();
 
         let manager = Self {
             config,
             node_id,
-            state: state.clone(),
+            state,
             message_tx,
             nodes: Arc::new(RwLock::new(HashMap::new())),
         };
 
         // Start message processing task
-        let state_clone = state.clone();
+        let state_clone = state_bg;
         let node_id_clone = node_id;
         tokio::spawn(async move {
             process_messages(state_clone, config_clone, node_id_clone, message_rx).await;

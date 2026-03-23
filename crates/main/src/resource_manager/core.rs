@@ -383,7 +383,9 @@ impl ResourceManager {
 
     /// Get current resource usage statistics
     pub async fn get_usage_stats(&self) -> ResourceUsageStats {
-        self.usage_stats.read().await.clone()
+        let mut s = self.usage_stats.read().await.clone();
+        s.background_tasks = self.background_tasks.lock().await.len();
+        s
     }
 
     /// Get count of active operations (for graceful shutdown)

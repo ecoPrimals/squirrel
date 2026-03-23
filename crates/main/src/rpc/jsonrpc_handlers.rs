@@ -694,4 +694,74 @@ mod tests {
             Some(true)
         );
     }
+
+    /// `capability.discover` appends AI capability names when the AI router has providers.
+    #[tokio::test]
+    async fn test_handle_discover_capabilities_adds_ai_methods_with_router() {
+        use crate::api::ai::AiRouter;
+        use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
+        use crate::api::ai::types::{
+            ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
+            TextGenerationResponse,
+        };
+        use async_trait::async_trait;
+        use std::sync::Arc;
+
+        struct OneTextProvider;
+
+        #[async_trait]
+        impl AiProviderAdapter for OneTextProvider {
+            fn provider_id(&self) -> &str {
+                "test-provider"
+            }
+            fn provider_name(&self) -> &str {
+                "Test"
+            }
+            fn is_local(&self) -> bool {
+                true
+            }
+            fn cost_per_unit(&self) -> Option<f64> {
+                None
+            }
+            fn avg_latency_ms(&self) -> u64 {
+                0
+            }
+            fn quality_tier(&self) -> QualityTier {
+                QualityTier::Standard
+            }
+            fn supports_text_generation(&self) -> bool {
+                true
+            }
+            fn supports_image_generation(&self) -> bool {
+                false
+            }
+            async fn generate_text(
+                &self,
+                _request: TextGenerationRequest,
+            ) -> Result<TextGenerationResponse, crate::error::PrimalError> {
+                unreachable!("not called by discover")
+            }
+            async fn generate_image(
+                &self,
+                _request: ImageGenerationRequest,
+            ) -> Result<ImageGenerationResponse, crate::error::PrimalError> {
+                unreachable!("not called by discover")
+            }
+        }
+
+        let server = JsonRpcServer::with_ai_router(
+            "/tmp/jsonrpc-discover-ai.sock".to_string(),
+            Arc::new(AiRouter::from_adapters_for_test(vec![Arc::new(
+                OneTextProvider,
+            )])),
+        );
+        let v = server.handle_discover_capabilities().await.unwrap();
+        let arr = v
+            .get("capabilities")
+            .and_then(serde_json::Value::as_array)
+            .expect("capabilities array");
+        let strs: Vec<&str> = arr.iter().filter_map(|x| x.as_str()).collect();
+        assert!(strs.contains(&"ai.inference"));
+        assert!(strs.contains(&"ai.text_generation"));
+    }
 }

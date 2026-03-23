@@ -389,37 +389,37 @@ pub enum ResourceError {
 // Implement From conversions for common error types
 impl From<ConfigError> for UniversalError {
     fn from(err: ConfigError) -> Self {
-        UniversalError::Configuration(err.to_string())
+        Self::Configuration(err.to_string())
     }
 }
 
 impl From<ServiceMeshError> for UniversalError {
     fn from(err: ServiceMeshError) -> Self {
-        UniversalError::ServiceMesh(err.to_string())
+        Self::ServiceMesh(err.to_string())
     }
 }
 
 impl From<HealthError> for UniversalError {
     fn from(err: HealthError) -> Self {
-        UniversalError::HealthCheck(err.to_string())
+        Self::HealthCheck(err.to_string())
     }
 }
 
 impl From<CapabilityError> for UniversalError {
     fn from(err: CapabilityError) -> Self {
-        UniversalError::Capability(err.to_string())
+        Self::Capability(err.to_string())
     }
 }
 
 impl From<ContextError> for UniversalError {
     fn from(err: ContextError) -> Self {
-        UniversalError::Context(err.to_string())
+        Self::Context(err.to_string())
     }
 }
 
 impl From<ResourceError> for UniversalError {
     fn from(err: ResourceError) -> Self {
-        UniversalError::Resource(err.to_string())
+        Self::Resource(err.to_string())
     }
 }
 
@@ -427,7 +427,7 @@ impl From<ResourceError> for UniversalError {
 #[cfg(feature = "http-client")]
 impl From<reqwest::Error> for UniversalError {
     fn from(err: reqwest::Error) -> Self {
-        UniversalError::Network(err.to_string())
+        Self::Network(err.to_string())
     }
 }
 
@@ -454,31 +454,31 @@ impl From<reqwest::Error> for HealthError {
 
 impl From<serde_json::Error> for UniversalError {
     fn from(err: serde_json::Error) -> Self {
-        UniversalError::Serialization(err.to_string())
+        Self::Serialization(err.to_string())
     }
 }
 
 impl From<std::io::Error> for UniversalError {
     fn from(err: std::io::Error) -> Self {
-        UniversalError::Io(err.to_string())
+        Self::Io(err.to_string())
     }
 }
 
 impl From<url::ParseError> for UniversalError {
     fn from(err: url::ParseError) -> Self {
-        UniversalError::Network(err.to_string())
+        Self::Network(err.to_string())
     }
 }
 
 impl From<std::env::VarError> for UniversalError {
     fn from(err: std::env::VarError) -> Self {
-        UniversalError::Configuration(err.to_string())
+        Self::Configuration(err.to_string())
     }
 }
 
 impl From<anyhow::Error> for UniversalError {
     fn from(err: anyhow::Error) -> Self {
-        UniversalError::Internal(err.to_string())
+        Self::Internal(err.to_string())
     }
 }
 

@@ -77,3 +77,44 @@ async fn test_get_performance_metrics() {
     let metrics = optimized_ops::get_performance_metrics().await;
     assert!(metrics.cache_efficiency >= 0.0 && metrics.cache_efficiency <= 1.0);
 }
+
+#[tokio::test]
+async fn hot_path_cache_plugin_and_capability_inserts() {
+    use std::sync::Arc;
+    use std::time::{Duration, SystemTime};
+
+    use uuid::Uuid;
+
+    use super::config::HotPathCacheConfig;
+    use super::hot_path_cache::HotPathCache;
+    use super::types::{CachedCapabilityQuery, CachedPluginLookup};
+
+    let cfg = HotPathCacheConfig {
+        max_cached_operations: 10,
+        cache_ttl: Duration::from_secs(60),
+        min_access_count: 0,
+        enable_warming: false,
+    };
+    let cache = HotPathCache::new(cfg);
+    let pid = Uuid::new_v4();
+    let lookup = CachedPluginLookup {
+        plugin_id: Some(pid),
+        cached_at: SystemTime::now(),
+        access_count: std::sync::atomic::AtomicU64::new(0),
+        hit_rate: 1.0,
+    };
+    cache.cache_plugin_lookup("lookup:key".into(), lookup).await;
+    assert!(cache.get_plugin_lookup("lookup:key").await.is_some());
+
+    let cq = CachedCapabilityQuery {
+        matching_plugins: Arc::new(vec![pid]),
+        cached_at: SystemTime::now(),
+        access_count: std::sync::atomic::AtomicU64::new(0),
+        query_time: Duration::from_millis(2),
+    };
+    cache.cache_capability_query("cap:key".into(), cq).await;
+    assert!(cache.get_capability_query("cap:key").await.is_some());
+
+    let _ = cache.get_statistics().await;
+    cache.start_cache_warming().await;
+}

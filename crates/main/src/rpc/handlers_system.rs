@@ -184,3 +184,32 @@ impl JsonRpcServer {
         }))
     }
 }
+
+#[cfg(test)]
+mod direct_tests {
+    use crate::rpc::JsonRpcServer;
+
+    #[tokio::test]
+    async fn health_readiness_json_shape() {
+        let server = JsonRpcServer::new("/tmp/sys-readiness.sock".to_string());
+        let v = server.handle_health_readiness().await.unwrap();
+        assert_eq!(
+            v.get("ready").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert!(
+            v.get("checks").and_then(|c| c.get("capability_registry"))
+                == Some(&serde_json::json!(true))
+        );
+    }
+
+    #[tokio::test]
+    async fn health_liveness_json_shape() {
+        let server = JsonRpcServer::new("/tmp/sys-live.sock".to_string());
+        let v = server.handle_health_liveness().await.unwrap();
+        assert_eq!(
+            v.get("alive").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+    }
+}

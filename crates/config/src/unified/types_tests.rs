@@ -110,7 +110,15 @@ fn test_config_validate_security_disabled() {
     let mut config = SquirrelUnifiedConfig::default();
     config.security.enabled = false;
     config.security.require_authentication = false;
-    assert!(config.validate().is_ok());
+    // Ensure ports are valid and distinct (Default may vary under instrumentation)
+    config.network.http_port = 8080;
+    config.network.websocket_port = 8081;
+    config.monitoring.prometheus_port = 9090;
+    assert!(
+        config.validate().is_ok(),
+        "validation errors: {:?}",
+        config.validate().unwrap_err()
+    );
 }
 
 #[test]
@@ -120,7 +128,15 @@ fn test_config_validate_security_enabled_no_auth() {
     config.security.require_authentication = false;
     config.security.jwt_secret = None;
     config.security.api_keys = vec![];
-    assert!(config.validate().is_ok());
+    // Ensure ports are valid and distinct (Default may vary under instrumentation)
+    config.network.http_port = 8080;
+    config.network.websocket_port = 8081;
+    config.monitoring.prometheus_port = 9090;
+    assert!(
+        config.validate().is_ok(),
+        "validation errors: {:?}",
+        config.validate().unwrap_err()
+    );
 }
 
 #[test]

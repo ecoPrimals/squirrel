@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // AI routing and provider selection modules
-#![allow(dead_code)] // AI API surface reserved for planned consumer integration
+#![allow(
+    dead_code,
+    reason = "AI API modules reserved for planned consumer integration"
+)]
 
 pub mod action_registry;
 pub mod adapter; // Universal AI adapter (vendor-agnostic)

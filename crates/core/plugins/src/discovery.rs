@@ -75,7 +75,6 @@ impl PluginManifest {
     /// Convert to plugin metadata (used by tests and testing feature)
     #[must_use]
     #[cfg(any(test, feature = "testing"))]
-    #[allow(dead_code)] // Reserved for tests and testing feature
     #[expect(
         deprecated,
         reason = "backward compat: PluginMetadata during migration"
@@ -297,7 +296,10 @@ impl DefaultPluginDiscovery {
 
 /// Default plugin loader implementation (kept for trait impl / future use)
 #[derive(Debug, Copy, Clone)]
-#[allow(dead_code)] // PluginLoader impl; used in tests
+#[allow(
+    dead_code,
+    reason = "Default PluginLoader impl; referenced only from unit tests in non-test library builds"
+)]
 pub struct DefaultPluginLoader;
 
 #[async_trait]
@@ -358,6 +360,24 @@ mod tests {
         assert_eq!(manifest.name, "minimal");
         assert!(manifest.dependencies.is_empty());
         assert!(manifest.capabilities.is_empty());
+    }
+
+    #[test]
+    fn test_plugin_manifest_to_metadata() {
+        let json = r#"{
+            "name": "meta-test",
+            "version": "1.0.0",
+            "description": "d",
+            "author": "a",
+            "entry_point": "lib.so",
+            "plugin_type": "native",
+            "dependencies": [],
+            "capabilities": ["cap-a"]
+        }"#;
+        let manifest: PluginManifest = serde_json::from_str(json).unwrap();
+        let metadata = manifest.to_metadata();
+        assert_eq!(metadata.name, "meta-test");
+        assert_eq!(metadata.version, "1.0.0");
     }
 
     #[tokio::test]

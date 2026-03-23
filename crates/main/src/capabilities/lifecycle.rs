@@ -261,4 +261,83 @@ mod tests {
         // Just verify it creates without panicking
         let _ = tx.send(true);
     }
+
+    #[tokio::test]
+    async fn register_with_biomeos_success() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock_path = dir.path().join("biome.sock");
+        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept");
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let mut reader = BufReader::new(&mut stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.expect("read");
+            let resp = serde_json::json!({"jsonrpc":"2.0","result":{},"id":1});
+            let mut body = serde_json::to_string(&resp).unwrap();
+            body.push('\n');
+            stream.write_all(body.as_bytes()).await.expect("write");
+        });
+
+        let ok = register_with_biomeos(&sock_path, "/tmp/own.sock", &["cap.a", "cap.b"]).await;
+        server.await.expect("join server task");
+        assert!(ok);
+    }
+
+    #[tokio::test]
+    async fn register_with_biomeos_jsonrpc_error_returns_false() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock_path = dir.path().join("biome2.sock");
+        let listener = tokio::net::UnixListener::bind(&sock_path).expect("bind");
+
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept");
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let mut reader = BufReader::new(&mut stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.expect("read");
+            let resp = serde_json::json!({
+                "jsonrpc": "2.0",
+                "error": {"code": -32000, "message": "rejected"},
+                "id": 1
+            });
+            let mut body = serde_json::to_string(&resp).unwrap();
+            body.push('\n');
+            stream.write_all(body.as_bytes()).await.expect("write");
+        });
+
+        let ok = register_with_biomeos(&sock_path, "/x", &[]).await;
+        server.await.expect("server");
+        assert!(!ok);
+    }
+
+    #[tokio::test]
+    async fn send_jsonrpc_public_connection_refused() {
+        let p = std::path::Path::new("/tmp/nonexistent_squirrel_lifecycle_sock_99999.sock");
+        let req = serde_json::json!({"jsonrpc":"2.0","method":"ping","id":1});
+        let err = send_jsonrpc_public(p, &req).await;
+        assert!(err.is_err());
+    }
+
+    #[tokio::test]
+    async fn heartbeat_stops_after_shutdown_signal() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock = dir.path().join("hb_bio.sock");
+        let _listener = tokio::net::UnixListener::bind(&sock).expect("bind");
+
+        let (tx, rx) = watch::channel(false);
+        let handle = spawn_heartbeat(
+            sock,
+            "/ignored.sock".to_string(),
+            std::time::Duration::from_millis(40),
+            rx,
+        );
+
+        tx.send(true).expect("shutdown");
+        tokio::time::timeout(std::time::Duration::from_secs(3), handle)
+            .await
+            .expect("timeout")
+            .expect("join");
+    }
 }

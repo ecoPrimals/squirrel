@@ -538,3 +538,160 @@ pub fn parse_rule_content(content: &str) -> Result<Rule, RuleParserError> {
     let parser = RuleParser::default();
     parser.parse_rule(content)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const YAML_RULE: &str = r#"---
+id: "pm-yaml"
+name: "YAML Frontmatter"
+patterns:
+  - "ctx.*"
+---
+
+## Conditions
+
+- type: Exists
+  config:
+    path: "x"
+
+## Actions
+
+- type: ModifyContext
+  config:
+    path: "y"
+    value: true
+"#;
+
+    #[test]
+    fn parse_frontmatter_yaml_roundtrip() {
+        let parser = RuleParser::default();
+        let (fm, body) = parser.parse_frontmatter(YAML_RULE).expect("fm");
+        assert_eq!(fm.get("id").and_then(|v| v.as_str()), Some("pm-yaml"));
+        assert!(body.contains("## Conditions"));
+    }
+
+    #[test]
+    fn parse_frontmatter_toml() {
+        let content = r#"+++
+id = "pm-toml"
+name = "Toml FM"
+patterns = ["ctx.*"]
++++
+
+## Conditions
+
+- type: Exists
+  config:
+    path: "x"
+
+## Actions
+
+- type: ModifyContext
+  config:
+    path: "y"
+    value: 1
+"#;
+        let parser = RuleParser::default();
+        let rule = parser.parse_rule(content).expect("parse toml fm");
+        assert_eq!(rule.id, "pm-toml");
+        assert_eq!(rule.patterns, vec!["ctx.*"]);
+    }
+
+    #[test]
+    fn parse_frontmatter_json() {
+        let content = r#";;;
+{
+  "id": "pm-json",
+  "name": "Json FM",
+  "patterns": ["ctx.*"]
+}
+;;;
+
+## Conditions
+
+- type: Exists
+  config:
+    path: "x"
+
+## Actions
+
+- type: ModifyContext
+  config:
+    path: "y"
+    value: true
+"#;
+        let parser = RuleParser::default();
+        let rule = parser.parse_rule(content).expect("parse json fm");
+        assert_eq!(rule.id, "pm-json");
+    }
+
+    #[test]
+    fn invalid_frontmatter_errors() {
+        let parser = RuleParser::default();
+        let err = parser
+            .parse_frontmatter("no front matter here")
+            .unwrap_err();
+        assert!(matches!(err, RuleParserError::InvalidFrontmatter(_)));
+    }
+
+    #[test]
+    fn parse_rule_skips_validation_when_disabled() {
+        let mut cfg = ParserConfig::default();
+        cfg.validate = false;
+        let parser = RuleParser::new(cfg);
+        let minimal = r#"---
+id: "noval"
+name: ""
+patterns: []
+---
+
+## Conditions
+
+## Actions
+"#;
+        let rule = parser.parse_rule(minimal).expect("parse");
+        assert_eq!(rule.id, "noval");
+    }
+
+    #[test]
+    fn parse_rule_fails_when_conditions_or_actions_missing() {
+        let parser = RuleParser::default();
+        let bad = r#"---
+id: "x"
+name: "n"
+patterns: ["*"]
+---
+
+## Conditions
+
+## Actions
+"#;
+        assert!(parser.parse_rule(bad).is_err());
+    }
+
+    #[test]
+    fn parse_rule_fails_when_name_missing() {
+        let parser = RuleParser::default();
+        let bad = r#"---
+id: "only-id"
+patterns: ["*"]
+---
+
+## Conditions
+
+- type: Exists
+  config:
+    path: "p"
+
+## Actions
+
+- type: ModifyContext
+  config:
+    path: "a"
+    value: 1
+"#;
+        assert!(parser.parse_rule(bad).is_err());
+    }
+}

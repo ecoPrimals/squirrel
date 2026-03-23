@@ -517,5 +517,234 @@ mod tests {
         assert!(json.contains("\"content\":\"Hello!\""));
     }
 
+    #[test]
+    fn test_chat_message_constructors_and_roundtrip() {
+        let sys = ChatMessage::system("sys");
+        assert_eq!(sys.role, "system");
+        assert_eq!(sys.content, "sys");
+        let user = ChatMessage::user("u");
+        assert_eq!(user.role, "user");
+        let asst = ChatMessage::assistant("a");
+        assert_eq!(asst.role, "assistant");
+
+        let msg = ChatMessage::user("payload");
+        let json = serde_json::to_string(&msg).unwrap();
+        let back: ChatMessage = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.content, "payload");
+    }
+
+    #[test]
+    fn test_chat_response_and_usage_serde_roundtrip() {
+        let resp = ChatResponse {
+            content: "out".to_string(),
+            model: "m".to_string(),
+            finish_reason: Some("stop".to_string()),
+            usage: Some(Usage {
+                prompt_tokens: 1,
+                completion_tokens: 2,
+                total_tokens: 3,
+            }),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let back: ChatResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.content, "out");
+        assert_eq!(back.usage.as_ref().unwrap().total_tokens, 3);
+    }
+
+    #[test]
+    fn test_chat_options_default() {
+        let o = ChatOptions::default();
+        assert!(o.temperature.is_none());
+        assert!(o.max_tokens.is_none());
+        assert!(o.stream.is_none());
+        assert!(o.top_p.is_none());
+    }
+
+    #[test]
+    fn test_ai_client_config_default_socket() {
+        temp_env::with_vars_unset(["AI_CAPABILITY_SOCKET"], || {
+            let c = AiClientConfig::default();
+            assert_eq!(c.timeout_secs, 30);
+            assert_eq!(c.max_retries, 3);
+            assert!(c.socket_path.to_string_lossy().contains("provider"));
+        });
+    }
+
+    /// JSON-RPC envelope the client expects: inner `result` wraps a `result` object for chat.
+    #[tokio::test]
+    async fn chat_completion_happy_path_over_unix_socket() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("ai.sock");
+        let sock_clone = sock.clone();
+
+        let server = tokio::spawn(async move {
+            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let (read_half, mut write_half) = stream.into_split();
+            let mut line = String::new();
+            let mut reader = BufReader::new(read_half);
+            reader.read_line(&mut line).await.unwrap();
+            let body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {
+                    "result": {
+                        "content": "hello-cap",
+                        "model": "gpt-test",
+                        "finish_reason": "stop",
+                        "usage": { "prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3 }
+                    }
+                }
+            });
+            write_half
+                .write_all(body.to_string().as_bytes())
+                .await
+                .unwrap();
+            write_half.write_all(b"\n").await.unwrap();
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
+        let config = AiClientConfig {
+            socket_path: sock,
+            timeout_secs: 5,
+            max_retries: 1,
+            retry_delay_ms: 1,
+        };
+        let client = AiClient::new(config).unwrap();
+        let out = client
+            .chat_completion(
+                "gpt-test",
+                vec![ChatMessage::user("hi")],
+                Some(ChatOptions {
+                    temperature: Some(0.5),
+                    max_tokens: Some(10),
+                    stream: Some(false),
+                    top_p: None,
+                }),
+            )
+            .await
+            .unwrap();
+        assert_eq!(out.content, "hello-cap");
+        assert_eq!(out.model, "gpt-test");
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn create_embedding_over_unix_socket() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("emb.sock");
+        let sock_clone = sock.clone();
+        let server = tokio::spawn(async move {
+            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let (read_half, mut write_half) = stream.into_split();
+            let mut line = String::new();
+            let mut reader = BufReader::new(read_half);
+            reader.read_line(&mut line).await.unwrap();
+            let body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {
+                    "result": { "embedding": [0.25, -1.0, 0.0] }
+                }
+            });
+            write_half
+                .write_all(body.to_string().as_bytes())
+                .await
+                .unwrap();
+            write_half.write_all(b"\n").await.unwrap();
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        let client = AiClient::new(AiClientConfig {
+            socket_path: sock,
+            timeout_secs: 5,
+            max_retries: 1,
+            retry_delay_ms: 1,
+        })
+        .unwrap();
+        let emb = client.create_embedding("emb", "text").await.unwrap();
+        assert_eq!(emb.len(), 3);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn text_generation_over_unix_socket() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("tg.sock");
+        let sock_clone = sock.clone();
+        let server = tokio::spawn(async move {
+            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let (read_half, mut write_half) = stream.into_split();
+            let mut line = String::new();
+            let mut reader = BufReader::new(read_half);
+            reader.read_line(&mut line).await.unwrap();
+            let body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": { "result": { "text": "generated" } }
+            });
+            write_half
+                .write_all(body.to_string().as_bytes())
+                .await
+                .unwrap();
+            write_half.write_all(b"\n").await.unwrap();
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        let client = AiClient::new(AiClientConfig {
+            socket_path: sock,
+            timeout_secs: 5,
+            max_retries: 1,
+            retry_delay_ms: 1,
+        })
+        .unwrap();
+        let text = client.text_generation("m", "p", Some(16)).await.unwrap();
+        assert_eq!(text, "generated");
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn json_rpc_error_from_provider() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("err.sock");
+        let sock_clone = sock.clone();
+        let server = tokio::spawn(async move {
+            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
+            for _ in 0..3 {
+                let (stream, _) = listener.accept().await.unwrap();
+                use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+                let (read_half, mut write_half) = stream.into_split();
+                let mut line = String::new();
+                let mut reader = BufReader::new(read_half);
+                reader.read_line(&mut line).await.unwrap();
+                let body = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "error": { "code": -1, "message": "capability down" }
+                });
+                write_half
+                    .write_all(body.to_string().as_bytes())
+                    .await
+                    .unwrap();
+                write_half.write_all(b"\n").await.unwrap();
+            }
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        let client = AiClient::new(AiClientConfig {
+            socket_path: sock,
+            timeout_secs: 5,
+            max_retries: 3,
+            retry_delay_ms: 1,
+        })
+        .unwrap();
+        let err = client.text_generation("m", "p", None).await.unwrap_err();
+        assert!(err.to_string().contains("capability down"));
+        server.await.unwrap();
+    }
+
     // Integration tests (require AI capability provider running) are in integration tests
 }

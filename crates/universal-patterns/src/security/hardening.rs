@@ -24,6 +24,7 @@ use tracing::{debug, error, info, warn};
 
 /// Security hardening configuration
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)] // Independent feature toggles; grouping would obscure intent
 pub struct SecurityHardeningConfig {
     /// Enable production panic handler
     pub enable_panic_handler: bool,
@@ -276,9 +277,9 @@ impl SecurityHardening {
 
                     // Create security incident
                     let incident = SecurityIncident::ApplicationPanic {
-                        message: panic_message.clone(),
-                        location: location.clone(),
-                        thread: thread_name.clone(),
+                        message: panic_message,
+                        location,
+                        thread: thread_name,
                         timestamp: Utc::now(),
                     };
 
@@ -410,15 +411,19 @@ impl SecurityHardening {
             let empty_attempts = vec![];
             let ip_attempts = auth_attempts.get(ip_address).unwrap_or(&empty_attempts);
 
-            let failed_count = ip_attempts
-                .iter()
-                .filter(|attempt| !attempt.success && attempt.timestamp > one_hour_ago)
-                .count() as u32;
+            let failed_count = u32::try_from(
+                ip_attempts
+                    .iter()
+                    .filter(|attempt| !attempt.success && attempt.timestamp > one_hour_ago)
+                    .count(),
+            )
+            .unwrap_or(u32::MAX);
 
             // Lock account if too many failures
             if failed_count >= self.config.max_auth_attempts_per_minute * 3 {
-                let lockout_duration =
-                    Duration::from_secs(self.config.account_lockout_duration_minutes as u64 * 60);
+                let lockout_duration = Duration::from_secs(
+                    u64::from(self.config.account_lockout_duration_minutes) * 60,
+                );
 
                 let mut locked_accounts = self.locked_accounts.write().await;
                 locked_accounts.insert(

@@ -536,7 +536,6 @@ impl FsProxy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wasm_bindgen_test::*;
 
     #[test]
     fn test_file_content_text() {
@@ -545,38 +544,208 @@ mod tests {
         assert_eq!(content.as_text().unwrap(), "Hello World");
         assert_eq!(content.as_binary(), b"Hello World");
         assert_eq!(content.size(), 11);
+        assert_eq!(content.len(), 11);
+        assert!(!content.is_empty());
         assert!(content.is_text());
+        assert_eq!(content.as_text_ref().unwrap(), "Hello World");
+        assert_eq!(content.as_text_lossy(), "Hello World");
+    }
+
+    #[test]
+    fn test_file_content_binary_valid_utf8() {
+        let content = FileContent::Binary(b"hi".to_vec());
+        assert!(!content.is_text());
+        assert_eq!(content.as_text().unwrap(), "hi");
+        assert_eq!(content.as_text_ref().unwrap(), "hi");
+        assert_eq!(content.as_text_lossy(), "hi");
+    }
+
+    #[test]
+    fn test_file_content_binary_invalid_utf8() {
+        let bad = vec![0xff, 0xfe, 0xfd];
+        let content = FileContent::Binary(bad.clone());
+        assert!(content.as_text().is_err());
+        assert!(content.as_text_ref().is_err());
+        assert!(!content.as_text_lossy().is_empty());
+    }
+
+    #[test]
+    fn test_file_content_empty() {
+        let t = FileContent::Text(String::new());
+        assert!(t.is_empty());
+        let b = FileContent::Binary(vec![]);
+        assert!(b.is_empty());
     }
 
     #[test]
     fn test_path_utilities() {
         assert_eq!(utils::get_file_extension("test.txt"), Some("txt"));
         assert_eq!(utils::get_file_name("/path/to/file.txt"), "file.txt");
+        assert_eq!(utils::get_file_name("single"), "single");
         assert_eq!(utils::get_directory("/path/to/file.txt"), "/path/to");
+        assert_eq!(utils::get_directory("relative"), ".");
         assert_eq!(utils::join_path("/path", "file.txt"), "/path/file.txt");
+        assert_eq!(utils::join_path("/path/", "file.txt"), "/path/file.txt");
         assert_eq!(utils::normalize_path("/path/../file.txt"), "/file.txt");
+        assert_eq!(utils::normalize_path("//a/./b/../c"), "/a/c");
+        assert_eq!(utils::normalize_path(".."), "/");
         assert!(utils::is_safe_path("file.txt"));
         assert!(!utils::is_safe_path("../file.txt"));
+        assert!(!utils::is_safe_path("/abs"));
     }
 
     #[test]
     fn test_mime_types() {
-        assert_eq!(utils::get_mime_type("txt"), "text/plain");
-        assert_eq!(utils::get_mime_type("json"), "application/json");
-        assert_eq!(utils::get_mime_type("png"), "image/png");
+        assert_eq!(utils::get_mime_type("TXT"), "text/plain");
+        assert_eq!(utils::get_mime_type("htm"), "text/html");
+        assert_eq!(utils::get_mime_type("jpeg"), "image/jpeg");
+        assert_eq!(utils::get_mime_type("svg"), "image/svg+xml");
         assert_eq!(utils::get_mime_type("unknown"), "application/octet-stream");
     }
 
     #[test]
     fn test_file_size_formatting() {
+        assert_eq!(utils::format_file_size(0), "0 B");
         assert_eq!(utils::format_file_size(512), "512 B");
         assert_eq!(utils::format_file_size(1536), "1.5 KB");
         assert_eq!(utils::format_file_size(1_048_576), "1.0 MB");
+        assert_eq!(utils::format_file_size(5 * 1024_u64.pow(4)), "5.0 TB");
     }
 
-    #[wasm_bindgen_test]
-    fn test_file_system_creation() {
-        let _fs = FileSystem::new();
-        // FileSystem is successfully created (no panic)
+    #[test]
+    fn test_file_metadata_serde_roundtrip() {
+        let meta = FileMetadata {
+            name: "a.txt".to_string(),
+            size: 10,
+            file_type: "text/plain".to_string(),
+            last_modified: 1,
+            is_directory: false,
+            permissions: Some("rw".to_string()),
+        };
+        let json = serde_json::to_string(&meta).unwrap();
+        let back: FileMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(meta.name, back.name);
+        assert_eq!(meta.permissions, back.permissions);
+    }
+
+    #[test]
+    fn test_directory_entry_serde_roundtrip() {
+        let entry = DirectoryEntry {
+            name: "n".to_string(),
+            path: "/p/n".to_string(),
+            metadata: FileMetadata {
+                name: "n".to_string(),
+                size: 0,
+                file_type: "x".to_string(),
+                last_modified: 0,
+                is_directory: true,
+                permissions: None,
+            },
+        };
+        let v = serde_json::to_value(&entry).unwrap();
+        let back: DirectoryEntry = serde_json::from_value(v).unwrap();
+        assert_eq!(entry.path, back.path);
+    }
+
+    #[test]
+    fn test_file_info_and_permissions_serde() {
+        let info = FileInfo {
+            path: "/a".to_string(),
+            name: "a".to_string(),
+            size: 3,
+            created: "t0".to_string(),
+            modified: "t1".to_string(),
+            is_directory: false,
+            mime_type: "text/plain".to_string(),
+            permissions: FilePermissions::ReadWrite,
+        };
+        let s = serde_json::to_string(&info).unwrap();
+        let back: FileInfo = serde_json::from_str(&s).unwrap();
+        assert!(matches!(back.permissions, FilePermissions::ReadWrite));
+    }
+
+    #[test]
+    fn test_fs_proxy_new() {
+        let p = FsProxy::new("https://fs.example/".to_string());
+        assert_eq!(p.base_url, "https://fs.example/");
+    }
+
+    #[test]
+    fn test_filesystem_default_and_new() {
+        let fs = FileSystem::new();
+        let _: FileSystem = FileSystem::default();
+        assert_eq!(format!("{:?}", fs), "FileSystem");
+    }
+
+    #[tokio::test]
+    async fn test_filesystem_read_text_and_bytes() {
+        let fs = FileSystem::new();
+        let txt = fs.read_text("readme.txt".to_string()).await.unwrap();
+        assert_eq!(txt, "Hello World");
+        let bytes = fs.read_bytes("blob.bin".to_string()).await.unwrap();
+        assert_eq!(bytes, b"Hello World");
+    }
+
+    #[tokio::test]
+    async fn test_filesystem_write_and_ops() {
+        let fs = FileSystem::new();
+        fs.write_text("out.txt".to_string(), "x".to_string())
+            .await
+            .unwrap();
+        fs.write_bytes("out.bin".to_string(), vec![1, 2])
+            .await
+            .unwrap();
+        assert!(fs.exists("any".to_string()).await.unwrap());
+        fs.create_directory("d".to_string()).await.unwrap();
+        fs.delete("d".to_string()).await.unwrap();
+        fs.copy("a".to_string(), "b".to_string()).await.unwrap();
+        fs.move_file("a".to_string(), "b".to_string())
+            .await
+            .unwrap();
+    }
+
+    /// `metadata` / `list_directory` use `serde_wasm_bindgen::to_value`, which requires wasm.
+    #[cfg(target_arch = "wasm32")]
+    #[tokio::test]
+    async fn test_filesystem_metadata_and_list_wasm() {
+        let fs = FileSystem::new();
+        let meta = fs.metadata("x.txt".to_string()).await.unwrap();
+        let parsed: FileMetadata = serde_wasm_bindgen::from_value(meta).unwrap();
+        assert_eq!(parsed.file_type, "text/plain");
+        let list = fs.list_directory("/".to_string()).await.unwrap();
+        let entries: Vec<DirectoryEntry> = serde_wasm_bindgen::from_value(list).unwrap();
+        assert!(entries.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_file_upload_handler() {
+        let h = FileUploadHandler::new();
+        let _: FileUploadHandler = FileUploadHandler::default();
+        let id = h
+            .upload_file(
+                b"data",
+                "f.bin".to_string(),
+                "application/octet-stream".to_string(),
+            )
+            .await
+            .unwrap();
+        assert!(id.starts_with("upload_"));
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[test]
+    fn test_create_download_url_without_window_errors() {
+        let r = create_download_url(b"x", "text/plain");
+        assert!(r.is_err());
+        match r {
+            Err(crate::error::PluginError::JsError { message }) => {
+                assert!(
+                    message.contains("window")
+                        || message.contains("Failed")
+                        || message.contains("not implemented")
+                );
+            }
+            _ => panic!("expected JsError"),
+        }
     }
 }

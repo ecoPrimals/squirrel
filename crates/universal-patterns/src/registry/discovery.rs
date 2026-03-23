@@ -7,6 +7,7 @@
 //! No knowledge of specific primals (Songbird, BearDog, etc.)
 //! Only discovers via capabilities.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::net::UnixStream;
@@ -152,7 +153,7 @@ impl PrimalDiscovery {
                                         geo_location: None,
                                     },
                                     security_level: crate::traits::SecurityLevel::Standard,
-                                    metadata: Default::default(),
+                                    metadata: HashMap::default(),
                                 },
                                 port_info: None, // Unix sockets don't use ports
                             });

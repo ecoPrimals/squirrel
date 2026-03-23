@@ -25,7 +25,7 @@ impl ConfigLoader {
 
         // Determine file format from extension
         let format = match path.extension().and_then(|ext| ext.to_str()) {
-            Some("yaml") | Some("yml") => FileFormat::Yaml,
+            Some("yaml" | "yml") => FileFormat::Yaml,
             Some("json") => FileFormat::Json,
             Some("toml") => FileFormat::Toml,
             _ => {
@@ -207,7 +207,7 @@ impl ConfigLoader {
 
         // Try to parse the file
         let format = match path.extension().and_then(|ext| ext.to_str()) {
-            Some("yaml") | Some("yml") => FileFormat::Yaml,
+            Some("yaml" | "yml") => FileFormat::Yaml,
             Some("json") => FileFormat::Json,
             Some("toml") => FileFormat::Toml,
             _ => {

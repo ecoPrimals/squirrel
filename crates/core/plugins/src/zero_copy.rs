@@ -931,4 +931,82 @@ mod tests {
         assert_eq!(event_owned.event_type(), "owned-event");
         assert_eq!(event_owned.data(), "owned-data");
     }
+
+    #[test]
+    fn from_arc_params_and_metadata_accessors() {
+        let id = Uuid::new_v4();
+        let params = FromArcParams {
+            id,
+            name: Arc::from("n"),
+            version: Arc::from("v"),
+            description: Arc::from("d"),
+            author: Arc::from("a"),
+            dependencies: Arc::new(vec!["d1".to_string()]),
+            capabilities: Arc::new(vec!["c1".to_string()]),
+            tags: Arc::new(vec!["t1".to_string()]),
+            custom_metadata: Arc::new(
+                std::iter::once(("k".to_string(), "v".to_string())).collect(),
+            ),
+        };
+        let m = ZeroCopyPluginMetadata::from_arc(params);
+        assert!(m.has_capability("c1"));
+        assert!(m.has_dependency("d1"));
+        assert_eq!(m.get_custom_metadata("k"), Some("v"));
+    }
+
+    #[tokio::test]
+    async fn registry_capability_index_and_miss_stats() {
+        let reg = ZeroCopyPluginRegistry::new();
+        let meta = PluginMetadataBuilder::new()
+            .name("indexed".to_string())
+            .capability("unique-cap".to_string())
+            .build();
+        let entry = ZeroCopyPluginEntry::new(
+            meta.clone(),
+            ZeroCopyPluginConfig::new(meta.id),
+            Some(std::path::PathBuf::from("/tmp/plugin")),
+        );
+        reg.register_plugin(entry).await.expect("register");
+        let by_cap = reg.find_plugins_by_capability("unique-cap").await;
+        assert_eq!(by_cap.len(), 1);
+        assert_eq!(by_cap[0].path(), Some(std::path::Path::new("/tmp/plugin")));
+        let _ = reg.get_plugin(Uuid::new_v4()).await;
+        let s = reg.stats().await;
+        assert!(s.registry_misses >= 1);
+    }
+
+    #[test]
+    fn zero_copy_plugin_state_apply_and_builder() {
+        let mut st =
+            ZeroCopyPluginState::new(Uuid::new_v4(), crate::types::PluginStatus::Registered);
+        st.apply_status(
+            crate::types::PluginStatus::Running,
+            Some("start".to_string()),
+        );
+        assert_eq!(st.status, crate::types::PluginStatus::Running);
+        let st2 = ZeroCopyPluginState::new(Uuid::new_v4(), crate::types::PluginStatus::Registered)
+            .with_status(crate::types::PluginStatus::Stopped, None);
+        assert_eq!(st2.status, crate::types::PluginStatus::Stopped);
+    }
+
+    #[test]
+    fn zero_copy_plugin_config_getters() {
+        use std::collections::HashMap;
+        let mut cfg = ZeroCopyPluginConfig::new(Uuid::new_v4());
+        let mut data = HashMap::new();
+        data.insert("key".to_string(), serde_json::json!({"x": 1}));
+        cfg.config_data = Arc::new(data);
+        let mut env = HashMap::new();
+        env.insert("VAR".to_string(), "val".to_string());
+        cfg.environment = Arc::new(env);
+        assert!(cfg.get_config("key").is_some());
+        assert_eq!(cfg.get_env("VAR"), Some("val"));
+    }
+
+    #[test]
+    fn zero_copy_plugin_metadata_macro_expands() {
+        let m = crate::zero_copy_plugin_metadata!("plug", "0.1.0", "desc", "auth");
+        assert_eq!(m.name(), "plug");
+        assert_eq!(m.version(), "0.1.0");
+    }
 }

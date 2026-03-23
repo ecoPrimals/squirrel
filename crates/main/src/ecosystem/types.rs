@@ -430,4 +430,35 @@ mod tests {
         assert_eq!(deserialized.max_cpu, Some(8));
         assert_eq!(deserialized.storage_gb, Some(100));
     }
+
+    // --- EcosystemPrimalType (deprecated but still used in registration) ---
+
+    #[test]
+    fn ecosystem_primal_type_from_str_accepts_case_insensitive() {
+        assert_eq!(
+            "Songbird".parse::<EcosystemPrimalType>().unwrap(),
+            EcosystemPrimalType::Songbird
+        );
+        assert_eq!(
+            "NESTGATE".parse::<EcosystemPrimalType>().unwrap(),
+            EcosystemPrimalType::NestGate
+        );
+    }
+
+    #[test]
+    fn ecosystem_primal_type_from_str_rejects_unknown() {
+        assert!("unknown".parse::<EcosystemPrimalType>().is_err());
+    }
+
+    #[test]
+    fn ecosystem_primal_type_display_and_capability() {
+        let t = EcosystemPrimalType::Squirrel;
+        assert_eq!(t.to_string(), "squirrel");
+        assert!(!t.capability().is_empty());
+    }
+
+    #[test]
+    fn ecosystem_primal_type_env_name() {
+        assert_eq!(EcosystemPrimalType::BearDog.env_name(), "BEARDOG");
+    }
 }

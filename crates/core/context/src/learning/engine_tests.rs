@@ -931,3 +931,84 @@ async fn test_update_q_values_with_next_state() {
     let result = engine.update_q_values(&experience).await;
     assert!(result.is_ok(), "Should handle transition with next state");
 }
+
+#[tokio::test]
+async fn test_dqn_train_network_runs_after_batch_size_reached() {
+    let mut config = test_helpers::create_test_learning_config();
+    config.batch_size = 8;
+    // Avoid target network update while `training_steps` write lock is held (would deadlock).
+    config.target_update_frequency = 10_000;
+    let system_config = Arc::new(config);
+    let engine = LearningEngine::new(system_config).await.expect("engine");
+    engine.initialize().await.expect("init");
+    let initial_steps = engine.get_metrics().await.total_steps;
+    for i in 0..12 {
+        let experience = RLExperience {
+            id: format!("exp_{i}"),
+            state: RLState {
+                id: format!("s{i}"),
+                features: vec![i as f64],
+                context_id: "ctx".to_string(),
+                timestamp: chrono::Utc::now(),
+                metadata: None,
+            },
+            action: RLAction {
+                id: format!("a{i}"),
+                action_type: "modify_context".to_string(),
+                parameters: serde_json::json!({}),
+                confidence: 0.5,
+                expected_reward: 0.0,
+            },
+            reward: 1.0,
+            next_state: None,
+            done: true,
+            timestamp: chrono::Utc::now(),
+            priority: 1.0,
+        };
+        engine.update_q_values(&experience).await.expect("update");
+    }
+    let after = engine.get_metrics().await;
+    assert!(
+        after.total_steps > initial_steps,
+        "training should increment metrics.total_steps"
+    );
+    assert!(after.training_time > 0.0);
+}
+
+#[tokio::test]
+async fn test_engine_reward_processing_accumulates_in_buffer() {
+    let system_config = Arc::new(test_helpers::create_test_learning_config());
+    let engine = LearningEngine::new(system_config).await.expect("engine");
+    engine.initialize().await.expect("init");
+    let exp = RLExperience {
+        id: "r1".to_string(),
+        state: RLState {
+            id: "s1".to_string(),
+            features: vec![0.5],
+            context_id: "ctx".to_string(),
+            timestamp: chrono::Utc::now(),
+            metadata: None,
+        },
+        action: RLAction {
+            id: "a1".to_string(),
+            action_type: "step".to_string(),
+            parameters: serde_json::json!({}),
+            confidence: 0.5,
+            expected_reward: 0.0,
+        },
+        reward: -1.5,
+        next_state: Some(RLState {
+            id: "s2".to_string(),
+            features: vec![0.6],
+            context_id: "ctx".to_string(),
+            timestamp: chrono::Utc::now(),
+            metadata: None,
+        }),
+        done: false,
+        timestamp: chrono::Utc::now(),
+        priority: 1.0,
+    };
+    let before = engine.get_experience_buffer_size().await;
+    engine.update_q_values(&exp).await.expect("update");
+    assert_eq!(engine.get_experience_buffer_size().await, before + 1);
+}

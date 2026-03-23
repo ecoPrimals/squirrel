@@ -393,4 +393,243 @@ mod tests {
         let err: PluginError = tx.send(1).unwrap_err().into();
         assert!(matches!(err, PluginError::CommunicationError { .. }));
     }
+
+    #[cfg(target_arch = "wasm32")]
+    #[test]
+    fn test_plugin_error_to_js_value_and_from_jsvalue() {
+        use wasm_bindgen::JsValue;
+
+        let e = PluginError::UnknownCommand {
+            command: "c".into(),
+        };
+        let js = e.to_js_value();
+        assert!(!format!("{js:?}").is_empty());
+        let pe: PluginError = JsValue::from_str("x").into();
+        assert!(matches!(pe, PluginError::JsError { .. }));
+        let js2: JsValue = PluginError::NetworkError {
+            operation: "o".into(),
+            message: "m".into(),
+        }
+        .into();
+        assert!(!format!("{js2:?}").is_empty());
+    }
+
+    #[test]
+    fn test_error_code_all_variants() {
+        let cases: Vec<PluginError> = vec![
+            PluginError::MissingParameter {
+                parameter: "p".into(),
+            },
+            PluginError::InvalidParameter {
+                name: "n".into(),
+                reason: "r".into(),
+            },
+            PluginError::PermissionDenied {
+                operation: "o".into(),
+                reason: "r".into(),
+            },
+            PluginError::FileSystemError {
+                operation: "o".into(),
+                message: "m".into(),
+            },
+            PluginError::McpError {
+                message: "m".into(),
+            },
+            PluginError::ConfigurationError {
+                message: "m".into(),
+            },
+            PluginError::QuotaExceeded {
+                resource: "r".into(),
+                message: "m".into(),
+            },
+            PluginError::PluginNotFound {
+                plugin_id: "p".into(),
+            },
+            PluginError::DependencyError {
+                dependency: "d".into(),
+                message: "m".into(),
+            },
+            PluginError::VersionIncompatible {
+                required: "1".into(),
+                found: "2".into(),
+            },
+            PluginError::InvalidVersion {
+                version: "v".into(),
+                reason: "r".into(),
+            },
+            PluginError::SecurityViolation {
+                violation: "v".into(),
+            },
+            PluginError::ExecutionError {
+                context: "c".into(),
+                message: "m".into(),
+            },
+            PluginError::Unknown {
+                message: "m".into(),
+            },
+            PluginError::HttpError {
+                status: 400,
+                message: "m".into(),
+            },
+            PluginError::ValidationError {
+                field: "f".into(),
+                message: "m".into(),
+            },
+            PluginError::ConnectionError {
+                endpoint: "e".into(),
+                message: "m".into(),
+            },
+            PluginError::AuthenticationError {
+                message: "m".into(),
+            },
+            PluginError::AuthorizationError {
+                resource: "r".into(),
+                message: "m".into(),
+            },
+            PluginError::RateLimitError {
+                resource: "r".into(),
+                retry_after: 1,
+            },
+            PluginError::LifecycleError {
+                state: "s".into(),
+                target_state: "t".into(),
+                message: "m".into(),
+            },
+            PluginError::CommandExecutionError {
+                command: "c".into(),
+                message: "m".into(),
+            },
+            PluginError::EventHandlingError {
+                event_type: "e".into(),
+                message: "m".into(),
+            },
+            PluginError::ContextError {
+                context: "c".into(),
+                message: "m".into(),
+            },
+            PluginError::StorageError {
+                operation: "o".into(),
+                message: "m".into(),
+            },
+            PluginError::CacheError {
+                operation: "o".into(),
+                message: "m".into(),
+            },
+            PluginError::ResourceNotFound {
+                resource: "r".into(),
+            },
+            PluginError::ResourceAlreadyExists {
+                resource: "r".into(),
+            },
+            PluginError::PermanentFailure {
+                operation: "o".into(),
+                message: "m".into(),
+            },
+            PluginError::ExternalServiceError {
+                service: "s".into(),
+                message: "m".into(),
+            },
+            PluginError::NotImplemented {
+                feature: "f".into(),
+            },
+            PluginError::NotSupported {
+                feature: "f".into(),
+            },
+            PluginError::Deprecated {
+                feature: "f".into(),
+                alternative: "a".into(),
+            },
+        ];
+        for err in cases {
+            let _ = err.error_code();
+            let _ = err.to_string();
+        }
+    }
+
+    #[test]
+    fn test_with_source_chaining() {
+        let inner = PluginError::TimeoutError {
+            operation: "a".into(),
+            seconds: 1,
+        };
+        let enhanced = inner.with_context(ErrorContext::new("op1"));
+        let outer = PluginError::InternalError {
+            message: "outer".into(),
+        }
+        .with_source(enhanced);
+        assert!(outer.source.is_some());
+    }
+
+    #[test]
+    fn test_from_utf8_errors() {
+        let err: PluginError = String::from_utf8(vec![0xff]).unwrap_err().into();
+        assert!(matches!(err, PluginError::SerializationError { .. }));
+        let bad_utf8 = vec![0xff_u8, 0xfe, 0xfd];
+        let err2: PluginError = std::str::from_utf8(&bad_utf8).unwrap_err().into();
+        assert!(matches!(err2, PluginError::SerializationError { .. }));
+    }
+
+    #[test]
+    fn test_from_system_time_error() {
+        let err: PluginError = std::time::SystemTime::UNIX_EPOCH
+            .duration_since(std::time::SystemTime::now())
+            .unwrap_err()
+            .into();
+        assert!(matches!(err, PluginError::InternalError { .. }));
+    }
+
+    #[test]
+    fn test_from_try_send_errors() {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<i32>(0);
+        let err: PluginError = tx.try_send(1).unwrap_err().into();
+        assert!(matches!(err, PluginError::ResourceLimitExceeded { .. }));
+        drop(rx);
+        let err2: PluginError = tx.try_send(1).unwrap_err().into();
+        assert!(matches!(err2, PluginError::CommunicationError { .. }));
+    }
+
+    #[test]
+    fn test_from_boxed_error() {
+        let b: Box<dyn std::error::Error + Send + Sync> =
+            Box::new(std::io::Error::new(std::io::ErrorKind::Other, "e"));
+        let err: PluginError = b.into();
+        assert!(matches!(err, PluginError::InternalError { .. }));
+
+        let b2: Box<dyn std::error::Error> =
+            Box::new(std::io::Error::new(std::io::ErrorKind::Other, "e"));
+        let err2: PluginError = b2.into();
+        assert!(matches!(err2, PluginError::InternalError { .. }));
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[test]
+    fn test_from_serde_wasm_bindgen_error() {
+        use wasm_bindgen::JsValue;
+
+        let e: serde_wasm_bindgen::Error =
+            serde_wasm_bindgen::from_value::<i32>(JsValue::NULL).unwrap_err();
+        let err: PluginError = e.into();
+        assert!(matches!(err, PluginError::SerializationError { .. }));
+    }
+
+    #[test]
+    fn test_from_poison_errors() {
+        let m = std::sync::Mutex::new(());
+        let _ = std::panic::catch_unwind(|| {
+            let _g = m.lock().unwrap();
+            panic!("poison mutex");
+        });
+        let err: PluginError = m.lock().unwrap_err().into();
+        assert!(matches!(err, PluginError::LockError { .. }));
+
+        let rw = std::sync::RwLock::new(());
+        let _ = std::panic::catch_unwind(|| {
+            let _g = rw.write().unwrap();
+            panic!("poison rw");
+        });
+        let err_r: PluginError = rw.read().unwrap_err().into();
+        assert!(matches!(err_r, PluginError::LockError { .. }));
+        let err_w: PluginError = rw.write().unwrap_err().into();
+        assert!(matches!(err_w, PluginError::LockError { .. }));
+    }
 }

@@ -520,4 +520,70 @@ mod tests {
     fn test_message_codec_default() {
         let _ = MessageCodec::default();
     }
+
+    #[test]
+    fn frame_read_truncated_payload_errors() {
+        let mut buf: Vec<u8> = 100u32.to_be_bytes().to_vec();
+        buf.extend_from_slice(&[1u8, 2, 3]);
+        let mut cursor = Cursor::new(buf);
+        let err = Frame::read_from(&mut cursor).expect_err("truncated");
+        assert!(err.to_string().contains("payload") || err.to_string().contains("Failed"));
+    }
+
+    #[test]
+    fn frame_read_incomplete_large_declared_payload_errors() {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&(MAX_FRAME_SIZE as u32).to_be_bytes());
+        buf.extend_from_slice(&[0u8; 32]);
+        let mut cursor = Cursor::new(buf);
+        let err = Frame::read_from(&mut cursor).expect_err("incomplete large frame");
+        assert!(err.to_string().contains("payload") || err.to_string().contains("Failed"));
+    }
+
+    #[test]
+    fn frame_serde_roundtrip_preserves_payload() {
+        let frame = Frame::new(vec![1, 2, 3, 4]);
+        let json = serde_json::to_string(&frame).expect("ser");
+        let back: Frame = serde_json::from_str(&json).expect("de");
+        assert_eq!(back.payload.as_ref(), &[1, 2, 3, 4]);
+    }
+
+    #[tokio::test]
+    async fn async_frame_reader_writer_duplex_roundtrip() {
+        let (client, server) = tokio::io::duplex(64 * 1024);
+        let mut reader = AsyncFrameReader::new(client);
+        let mut writer = AsyncFrameWriter::new(server);
+        let frame = Frame::new(b"hello-async".to_vec());
+        writer.write_frame(&frame).await.expect("w");
+        writer.flush().await.expect("flush");
+        let read = reader.read_frame().await.expect("r");
+        assert_eq!(read.payload.as_ref(), b"hello-async");
+    }
+
+    #[tokio::test]
+    async fn frame_transport_read_write_flush() {
+        let (r, w) = tokio::io::duplex(4096);
+        let mut transport = FrameTransport::new(r, w, DefaultFrameCodec);
+        let f = Frame::new(vec![9, 9]);
+        transport.write_frame(&f).await.expect("wf");
+        transport.flush().await.expect("fl");
+        let got = transport.read_frame().await.expect("rf");
+        assert_eq!(got.payload.as_ref(), &[9, 9]);
+    }
+
+    #[test]
+    fn message_codec_decode_invalid_json_in_payload() {
+        let codec = MessageCodec::new();
+        let frame = Frame::new(br"{ not json".to_vec());
+        let err = codec.decode_message(&frame).expect_err("bad json");
+        let s = err.to_string();
+        assert!(s.contains("deserialize") || s.contains("Failed"));
+    }
+
+    #[test]
+    fn message_codec_with_custom_frame_codec() {
+        use std::sync::Arc;
+        let codec = MessageCodec::with_frame_codec(Arc::new(DefaultFrameCodec));
+        let _ = format!("{codec:?}");
+    }
 }

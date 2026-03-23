@@ -180,3 +180,84 @@ impl HttpStatus {
         self.code() >= 500
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn http_method_display() {
+        assert_eq!(HttpMethod::Get.to_string(), "GET");
+        assert_eq!(HttpMethod::Post.to_string(), "POST");
+        assert_eq!(HttpMethod::Put.to_string(), "PUT");
+        assert_eq!(HttpMethod::Delete.to_string(), "DELETE");
+        assert_eq!(HttpMethod::Patch.to_string(), "PATCH");
+        assert_eq!(HttpMethod::Options.to_string(), "OPTIONS");
+        assert_eq!(HttpMethod::Head.to_string(), "HEAD");
+    }
+
+    #[test]
+    fn http_method_from_str_case_insensitive() {
+        assert_eq!("get".parse::<HttpMethod>().unwrap(), HttpMethod::Get);
+        assert_eq!("POST".parse::<HttpMethod>().unwrap(), HttpMethod::Post);
+        assert!(HttpMethod::from_str("UNKNOWN").is_err());
+    }
+
+    #[test]
+    fn http_method_predicates() {
+        assert!(HttpMethod::Get.is_get());
+        assert!(HttpMethod::Post.is_post());
+        assert!(HttpMethod::Put.is_put());
+        assert!(HttpMethod::Delete.is_delete());
+        assert!(HttpMethod::Patch.is_patch());
+        assert!(HttpMethod::Options.is_options());
+        assert!(HttpMethod::Head.is_head());
+        assert!(HttpMethod::Get.is_safe());
+        assert!(HttpMethod::Head.is_safe());
+        assert!(HttpMethod::Options.is_safe());
+        assert!(!HttpMethod::Post.is_safe());
+        assert!(HttpMethod::Put.is_idempotent());
+        assert!(HttpMethod::Delete.is_idempotent());
+        assert!(!HttpMethod::Post.is_idempotent());
+    }
+
+    #[test]
+    fn http_method_serde_roundtrip() {
+        let methods = [
+            HttpMethod::Get,
+            HttpMethod::Post,
+            HttpMethod::Put,
+            HttpMethod::Delete,
+            HttpMethod::Patch,
+            HttpMethod::Options,
+            HttpMethod::Head,
+        ];
+        for m in methods {
+            let j = serde_json::to_string(&m).unwrap();
+            let back: HttpMethod = serde_json::from_str(&j).unwrap();
+            assert_eq!(back, m);
+        }
+    }
+
+    #[test]
+    fn http_status_helpers_and_serde() {
+        assert!(HttpStatus::Ok.is_success());
+        assert!(!HttpStatus::Ok.is_error());
+        assert!(!HttpStatus::Ok.is_client_error());
+        assert!(!HttpStatus::Ok.is_server_error());
+
+        assert!(HttpStatus::NotFound.is_error());
+        assert!(HttpStatus::NotFound.is_client_error());
+        assert!(!HttpStatus::NotFound.is_success());
+
+        assert!(HttpStatus::InternalServerError.is_error());
+        assert!(HttpStatus::InternalServerError.is_server_error());
+        assert!(!HttpStatus::InternalServerError.is_client_error());
+
+        let s = HttpStatus::Created;
+        let j = serde_json::to_string(&s).unwrap();
+        let back: HttpStatus = serde_json::from_str(&j).unwrap();
+        assert_eq!(back, s);
+        assert_eq!(back.code(), 201);
+    }
+}

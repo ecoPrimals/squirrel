@@ -113,8 +113,7 @@ fn test_security_response_success() {
     let request_id = "test-request-123".to_string();
     let message = "Operation completed successfully".to_string();
 
-    let response = SecurityResponse::success(request_id.clone(), message.clone())
-        .expect("Should create successful response");
+    let response = SecurityResponse::success(request_id.clone(), message.clone());
 
     assert_eq!(response.request_id, request_id);
     assert!(matches!(response.status, SecurityResponseStatus::Success));
@@ -127,8 +126,7 @@ fn test_security_response_failed() {
     let request_id = "test-request-456".to_string();
     let reason = "Authentication failed".to_string();
 
-    let response = SecurityResponse::failed(request_id.clone(), reason.clone())
-        .expect("Should create failed response");
+    let response = SecurityResponse::failed(request_id.clone(), reason.clone());
 
     assert_eq!(response.request_id, request_id);
     assert!(matches!(

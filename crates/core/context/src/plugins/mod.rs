@@ -148,3 +148,197 @@ pub async fn create_default_plugin_manager() -> Result<Arc<ContextPluginManager>
 
     Ok(manager)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ContextPluginManager;
+    use crate::ContextError;
+    use async_trait::async_trait;
+    use serde_json::{Value, json};
+    use squirrel_interfaces::context::{
+        AdapterMetadata, ContextAdapterPlugin, ContextPlugin, ContextTransformation,
+    };
+    use squirrel_interfaces::plugins::{Plugin, PluginMetadata};
+    use std::sync::Arc;
+
+    #[derive(Debug)]
+    struct MetaPlugin {
+        meta: PluginMetadata,
+        transforms: Vec<Arc<dyn ContextTransformation>>,
+        adapters: Vec<Arc<dyn ContextAdapterPlugin>>,
+    }
+
+    #[derive(Debug)]
+    struct IdTransform {
+        id: &'static str,
+    }
+
+    #[async_trait]
+    impl ContextTransformation for IdTransform {
+        fn get_id(&self) -> &str {
+            self.id
+        }
+
+        fn get_name(&self) -> &str {
+            "n"
+        }
+
+        fn get_description(&self) -> &str {
+            "d"
+        }
+
+        async fn transform(
+            &self,
+            data: Value,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            Ok(json!({ "wrapped": data }))
+        }
+    }
+
+    #[derive(Debug)]
+    struct StaticAdapter {
+        plugin_meta: PluginMetadata,
+        adapter_meta: AdapterMetadata,
+    }
+
+    #[async_trait]
+    impl Plugin for StaticAdapter {
+        fn metadata(&self) -> &PluginMetadata {
+            &self.plugin_meta
+        }
+    }
+
+    #[async_trait]
+    impl ContextAdapterPlugin for StaticAdapter {
+        async fn get_metadata(&self) -> AdapterMetadata {
+            self.adapter_meta.clone()
+        }
+
+        async fn convert(
+            &self,
+            data: Value,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            Ok(data)
+        }
+    }
+
+    #[async_trait]
+    impl Plugin for MetaPlugin {
+        fn metadata(&self) -> &PluginMetadata {
+            &self.meta
+        }
+    }
+
+    #[async_trait]
+    impl ContextPlugin for MetaPlugin {
+        async fn get_transformations(&self) -> Vec<Arc<dyn ContextTransformation>> {
+            self.transforms.clone()
+        }
+
+        async fn get_adapters(&self) -> Vec<Arc<dyn ContextAdapterPlugin>> {
+            self.adapters.clone()
+        }
+    }
+
+    fn sample_plugin_with_transform() -> Box<dyn ContextPlugin> {
+        let meta = PluginMetadata::new("p.test", "1.0.0", "d", "a");
+        Box::new(MetaPlugin {
+            meta,
+            transforms: vec![Arc::new(IdTransform { id: "tid" })],
+            adapters: vec![],
+        })
+    }
+
+    fn sample_plugin_with_adapter() -> Box<dyn ContextPlugin> {
+        let plugin_meta = PluginMetadata::new("p.adapt", "1.0.0", "d", "a");
+        let adapter_meta = AdapterMetadata {
+            id: "aid".to_string(),
+            name: "Adapter".to_string(),
+            description: "desc".to_string(),
+            source_format: "a".to_string(),
+            target_format: "b".to_string(),
+        };
+        let adapter = Arc::new(StaticAdapter {
+            plugin_meta: plugin_meta.clone(),
+            adapter_meta: adapter_meta.clone(),
+        });
+        Box::new(MetaPlugin {
+            meta: plugin_meta,
+            transforms: vec![],
+            adapters: vec![adapter],
+        })
+    }
+
+    #[tokio::test]
+    async fn register_plugin_registers_transformations_and_adapters() {
+        let mgr = ContextPluginManager::new();
+        mgr.register_plugin(sample_plugin_with_transform())
+            .await
+            .unwrap();
+        let t = mgr.get_transformations().await;
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].get_id(), "tid");
+    }
+
+    #[tokio::test]
+    async fn transform_happy_path() {
+        let mgr = ContextPluginManager::new();
+        mgr.register_plugin(sample_plugin_with_transform())
+            .await
+            .unwrap();
+        let out = mgr.transform("tid", json!({"x": 1})).await.unwrap();
+        assert_eq!(out["wrapped"]["x"], 1);
+    }
+
+    #[tokio::test]
+    async fn transform_unknown_id_errors() {
+        let mgr = ContextPluginManager::new();
+        mgr.register_plugin(sample_plugin_with_transform())
+            .await
+            .unwrap();
+        let err = mgr.transform("missing", json!({})).await.unwrap_err();
+        assert!(matches!(err, ContextError::TransformationNotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn get_adapter_and_metadata() {
+        let mgr = ContextPluginManager::new();
+        mgr.register_plugin(sample_plugin_with_adapter())
+            .await
+            .unwrap();
+        let a = mgr.get_adapter("aid").await.expect("adapter");
+        let meta = mgr.get_adapter_metadata("aid").await.unwrap();
+        assert_eq!(meta.id, "aid");
+        assert_eq!(a.get_metadata().await.id, "aid");
+    }
+
+    #[tokio::test]
+    async fn get_adapter_metadata_missing_errors() {
+        let mgr = ContextPluginManager::new();
+        let err = mgr.get_adapter_metadata("nope").await.unwrap_err();
+        assert!(matches!(err, ContextError::AdapterNotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn load_plugins_from_path_ok() {
+        let mgr = ContextPluginManager::new();
+        mgr.load_plugins_from_path("/nonexistent/for/placeholder")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn default_matches_new() {
+        let _ = ContextPluginManager::default();
+    }
+
+    #[tokio::test]
+    async fn get_adapters_map() {
+        let mgr = ContextPluginManager::new();
+        mgr.register_plugin(sample_plugin_with_adapter())
+            .await
+            .unwrap();
+        let map = mgr.get_adapters().await;
+        assert!(map.contains_key("aid"));
+    }
+}

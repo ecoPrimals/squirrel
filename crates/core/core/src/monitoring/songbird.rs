@@ -39,7 +39,7 @@ impl SongbirdProvider {
     ///
     /// Returns [`crate::Error`] only on unrecoverable initialisation failures
     /// (none today — discovery failure is non-fatal).
-    pub async fn new(config: SongbirdConfig) -> Result<Self> {
+    pub fn new(config: SongbirdConfig) -> Result<Self> {
         let ipc = match IpcClient::discover("monitoring") {
             Ok(client) => {
                 tracing::info!(

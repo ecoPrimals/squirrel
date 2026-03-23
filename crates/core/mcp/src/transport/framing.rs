@@ -376,4 +376,83 @@ mod tests {
 
         assert_eq!(read_frame.payload.as_ref(), frame.payload.as_ref());
     }
+
+    #[tokio::test]
+    async fn frame_reader_eof_with_leftover_bytes_errors() {
+        let data: Vec<u8> = vec![0, 0, 0, 5, 1, 2]; // length 5 but only 2 payload bytes
+        let mut reader = FrameReader::new(std::io::Cursor::new(data));
+        let err = reader.read_frame().await.expect_err("incomplete");
+        assert!(format!("{err:?}").contains("Invalid") || err.to_string().contains("frame"));
+    }
+
+    #[tokio::test]
+    async fn frame_reader_rejects_oversized_length_prefix() {
+        use universal_constants::limits;
+        let len: u32 = (limits::MAX_TRANSPORT_FRAME_SIZE as u64 + 1)
+            .try_into()
+            .expect("fits u32 for test");
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&len.to_be_bytes());
+        let mut reader = FrameReader::new(std::io::Cursor::new(buf));
+        let err = reader.read_frame().await.expect_err("too large");
+        assert!(err.to_string().contains("large") || err.to_string().contains("Frame"));
+    }
+
+    #[tokio::test]
+    async fn frame_writer_rejects_oversized_payload() {
+        use universal_constants::limits;
+        let mut w = FrameWriter::new(tokio::io::sink());
+        let frame = Frame {
+            payload: bytes::Bytes::from(vec![0u8; limits::MAX_TRANSPORT_FRAME_SIZE + 1]),
+        };
+        let err = w.write_frame(&frame).await.expect_err("size");
+        assert!(err.to_string().contains("large") || err.to_string().contains("Frame"));
+    }
+
+    #[test]
+    fn framing_message_codec_decode_needs_full_header() {
+        let mut codec = FramingMessageCodec::new();
+        let mut buf = bytes::BytesMut::from(&[1u8, 2u8][..]);
+        assert!(codec.decode(&mut buf).unwrap().is_none());
+    }
+
+    #[test]
+    fn framing_message_codec_decode_invalid_json_errors() {
+        let mut codec = FramingMessageCodec::new();
+        let mut buf = bytes::BytesMut::new();
+        let bad_payload = br#"{"not":"mcp""#.to_vec();
+        buf.put_u32(bad_payload.len() as u32);
+        buf.put_slice(&bad_payload);
+        let err = codec.decode(&mut buf).expect_err("bad json");
+        assert!(matches!(err, TransportError::SerializationError(_)));
+    }
+
+    #[test]
+    fn framing_message_codec_decode_oversized_length() {
+        let mut codec = FramingMessageCodec::new();
+        let mut buf = bytes::BytesMut::new();
+        use universal_constants::limits;
+        buf.put_u32((limits::MAX_TRANSPORT_FRAME_SIZE as u32).saturating_add(1));
+        let err = codec.decode(&mut buf).expect_err("large");
+        assert!(matches!(err, TransportError::InvalidFrame(_)));
+    }
+
+    #[test]
+    fn framing_message_codec_decode_eof_leaves_bytes() {
+        let mut codec = FramingMessageCodec::new();
+        let mut buf = bytes::BytesMut::from(&[1u8, 2u8, 3u8][..]);
+        let err = codec.decode_eof(&mut buf).expect_err("leftover");
+        assert!(matches!(err, TransportError::InvalidFrame(_)));
+    }
+
+    #[test]
+    fn framing_message_codec_encode_message_too_large() {
+        let mut codec = FramingMessageCodec::new();
+        use universal_constants::limits;
+        let big = serde_json::Value::String("x".repeat(limits::MAX_TRANSPORT_FRAME_SIZE + 1));
+        let msg = MCPMessage::new(MessageType::Command, big);
+        let mut dst = bytes::BytesMut::new();
+        let err = Encoder::encode(&mut codec, msg, &mut dst).expect_err("too big");
+        assert!(matches!(err, TransportError::InvalidFrame(_)));
+    }
 }

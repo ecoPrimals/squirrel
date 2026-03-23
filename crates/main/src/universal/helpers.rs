@@ -108,4 +108,73 @@ mod tests {
 
         assert!(!validate_capability_compatibility(&provided, &required));
     }
+
+    #[test]
+    fn data_storage_compatibility_requires_sufficient_size() {
+        let ok = validate_capability_compatibility(
+            &PrimalCapability::DataStorage {
+                storage_type: "obj".into(),
+                max_size_bytes: 200,
+            },
+            &PrimalCapability::DataStorage {
+                storage_type: "obj".into(),
+                max_size_bytes: 100,
+            },
+        );
+        assert!(ok);
+        let bad = validate_capability_compatibility(
+            &PrimalCapability::DataStorage {
+                storage_type: "obj".into(),
+                max_size_bytes: 50,
+            },
+            &PrimalCapability::DataStorage {
+                storage_type: "obj".into(),
+                max_size_bytes: 100,
+            },
+        );
+        assert!(!bad);
+    }
+
+    #[test]
+    fn rate_limiting_compatibility_requires_higher_or_equal_rate() {
+        assert!(validate_capability_compatibility(
+            &PrimalCapability::RateLimiting {
+                max_requests_per_second: 100,
+            },
+            &PrimalCapability::RateLimiting {
+                max_requests_per_second: 50,
+            },
+        ));
+        assert!(!validate_capability_compatibility(
+            &PrimalCapability::RateLimiting {
+                max_requests_per_second: 10,
+            },
+            &PrimalCapability::RateLimiting {
+                max_requests_per_second: 50,
+            },
+        ));
+    }
+
+    #[test]
+    fn same_discriminant_matches_for_simple_variants() {
+        assert!(validate_capability_compatibility(
+            &PrimalCapability::ServiceDiscovery,
+            &PrimalCapability::ServiceDiscovery,
+        ));
+        assert!(!validate_capability_compatibility(
+            &PrimalCapability::ServiceDiscovery,
+            &PrimalCapability::LoadBalancing,
+        ));
+    }
+
+    #[test]
+    fn model_inference_requires_all_models() {
+        let p = PrimalCapability::ModelInference {
+            models: vec!["a".into()],
+        };
+        let r = PrimalCapability::ModelInference {
+            models: vec!["a".into(), "b".into()],
+        };
+        assert!(!validate_capability_compatibility(&p, &r));
+    }
 }

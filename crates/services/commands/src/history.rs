@@ -798,4 +798,69 @@ mod tests {
             assert_eq!(entries[1].command, "cmd1");
         }
     }
+
+    #[test]
+    fn test_get_last_zero_returns_empty() {
+        let dir = tempdir().unwrap();
+        let history_file = dir.path().join("h.json");
+        let history = CommandHistory::with_options(10, &history_file).unwrap();
+        history
+            .add("a".to_string(), vec![], true, None, None)
+            .unwrap();
+        assert!(history.get_last(0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_search_no_matches_returns_empty() {
+        let dir = tempdir().unwrap();
+        let history_file = dir.path().join("h.json");
+        let history = CommandHistory::with_options(10, &history_file).unwrap();
+        history
+            .add("ls".to_string(), vec![], true, None, None)
+            .unwrap();
+        assert!(history.search("zzznomatch").unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_history_entry_formatted_contains_command() {
+        let e = HistoryEntry::new("echo".to_string(), vec!["hi".to_string()], true, None, None);
+        let s = e.formatted();
+        assert!(s.contains("echo"));
+        assert!(s.contains("hi"));
+    }
+
+    #[test]
+    fn test_load_ndjson_fallback_when_array_invalid() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("mixed.json");
+        let line = serde_json::to_string(&HistoryEntry::new(
+            "c1".to_string(),
+            vec![],
+            true,
+            None,
+            None,
+        ))
+        .expect("serialize entry");
+        fs::write(&path, format!("not-a-json-array\n{line}\n")).unwrap();
+        let history = CommandHistory::with_options(10, &path).unwrap();
+        let entries = history.get_last(10).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].command, "c1");
+        let ts = entries[0].timestamp;
+        let removed = history.cleanup_older_than(ts + 1).unwrap();
+        assert_eq!(removed, 1);
+    }
+
+    #[test]
+    fn test_add_respects_max_size_in_memory() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("cap.json");
+        let history = CommandHistory::with_options(3, &path).unwrap();
+        for i in 0..10 {
+            history
+                .add(format!("cmd{i}"), vec![], true, None, None)
+                .unwrap();
+        }
+        assert_eq!(history.get_last(100).unwrap().len(), 3);
+    }
 }

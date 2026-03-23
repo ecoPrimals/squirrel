@@ -178,7 +178,6 @@ pub fn write_tcp_discovery_file(service_name: &str, addr: &std::net::SocketAddr)
             }
             Err(e) => {
                 tracing::debug!("   Could not write to {}: {}", discovery_file, e);
-                continue;
             }
         }
     }

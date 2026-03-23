@@ -560,4 +560,196 @@ mod tests {
         assert!(ErrorSeverity::High.should_alert());
         assert!(!ErrorSeverity::Low.requires_immediate_attention());
     }
+
+    #[test]
+    fn production_error_display_all_constructors() {
+        let cases: Vec<(ProductionError, &'static str)> = vec![
+            (
+                ProductionError::configuration("c"),
+                "Configuration error: c",
+            ),
+            (
+                ProductionError::configuration_field("bad", "field_x", Some("exp"), Some("act")),
+                "Configuration error: bad",
+            ),
+            (ProductionError::network("n"), "Network error: n"),
+            (
+                ProductionError::network_endpoint("e", "http://x", Some(503), Some(5)),
+                "Network error: e",
+            ),
+            (ProductionError::protocol("p", true), "Protocol error: p"),
+            (
+                ProductionError::ServiceUnavailable {
+                    service: "svc".into(),
+                    message: "m".into(),
+                    retry_after: Some(10),
+                    fallback_available: true,
+                },
+                "Service unavailable: svc - m",
+            ),
+            (ProductionError::database("d", false), "Database error: d"),
+            (
+                ProductionError::authentication("a", true, vec!["read".into()]),
+                "Authentication error: a",
+            ),
+            (
+                ProductionError::resource_exhausted("cpu", "hot", Some(9), Some(10)),
+                "Resource exhausted: cpu - hot",
+            ),
+            (
+                ProductionError::concurrency("c", "lock", false),
+                "Concurrency error: c",
+            ),
+            (
+                ProductionError::serialization("s", "json", false),
+                "Serialization error: s",
+            ),
+            (
+                ProductionError::timeout("t", "op", 1000, false),
+                "Timeout error: t",
+            ),
+            (
+                ProductionError::not_found("nf", "res", Some(String::from("try"))),
+                "Not found: nf",
+            ),
+            (
+                ProductionError::execution("ex", "cmd", true),
+                "Execution failed: ex",
+            ),
+        ];
+        for (err, prefix) in cases {
+            let s = err.to_string();
+            assert!(
+                s.starts_with(prefix),
+                "got {s:?}, expected prefix {prefix:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn production_error_serde_round_trip() {
+        let samples = vec![
+            ProductionError::configuration("cfg"),
+            ProductionError::network_endpoint("n", "e", None, None),
+            ProductionError::protocol("p", true),
+            ProductionError::authentication("auth", false, vec![]),
+        ];
+        for err in samples {
+            let json = serde_json::to_string(&err).expect("serialize");
+            let back: ProductionError = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(format!("{err}"), format!("{back}"));
+        }
+    }
+
+    #[test]
+    fn is_recoverable_and_retry_delay_and_severity_branches() {
+        let net = ProductionError::Network {
+            message: "m".into(),
+            endpoint: None,
+            status_code: None,
+            retry_after: Some(3),
+        };
+        assert!(net.is_recoverable());
+        assert_eq!(net.retry_delay_ms(), Some(3));
+
+        let net_no = ProductionError::network("x");
+        assert!(!net_no.is_recoverable());
+        assert_eq!(net_no.retry_delay_ms(), None);
+
+        let su = ProductionError::service_unavailable("s", "m", true);
+        assert_eq!(su.severity(), ErrorSeverity::Medium);
+        assert!(!su.is_recoverable());
+
+        let su_high = ProductionError::ServiceUnavailable {
+            service: "s".into(),
+            message: "m".into(),
+            retry_after: Some(1),
+            fallback_available: false,
+        };
+        assert_eq!(su_high.severity(), ErrorSeverity::High);
+        assert!(su_high.is_recoverable());
+
+        let db_ok = ProductionError::Database {
+            message: "m".into(),
+            query: None,
+            connection_available: true,
+            retry_possible: false,
+        };
+        assert_eq!(db_ok.severity(), ErrorSeverity::Medium);
+
+        let db_bad = ProductionError::Database {
+            message: "m".into(),
+            query: None,
+            connection_available: false,
+            retry_possible: true,
+        };
+        assert_eq!(db_bad.severity(), ErrorSeverity::High);
+
+        let conc = ProductionError::concurrency("c", "r", true);
+        assert_eq!(conc.retry_delay_ms(), Some(100));
+
+        let tout = ProductionError::timeout("t", "o", 1, true);
+        assert_eq!(tout.retry_delay_ms(), Some(1000));
+
+        let ser = ProductionError::serialization("e", "t", true);
+        assert!(ser.is_recoverable());
+    }
+
+    #[test]
+    fn safe_operation_execute_and_combinators() {
+        let ok = SafeOperation::execute(|| Ok::<i32, ProductionError>(7));
+        assert_eq!(ok.unwrap_or(0), 7);
+        let ok2 = SafeOperation::execute(|| Ok::<i32, ProductionError>(7));
+        assert!(matches!(ok2.result(), Ok(7)));
+
+        let err_op: SafeOperation<i32> =
+            SafeOperation::execute(|| Err(ProductionError::configuration("bad")));
+        assert_eq!(err_op.unwrap_or(99), 99);
+
+        let err_else: SafeOperation<i32> =
+            SafeOperation::execute(|| Err(ProductionError::configuration("bad")));
+        assert_eq!(
+            err_else.unwrap_or_else(|e| e.to_string().len() as i32),
+            "Configuration error: bad".len() as i32
+        );
+
+        let err_log: SafeOperation<i32> =
+            SafeOperation::execute(|| Err(ProductionError::configuration("bad")));
+        let def = err_log.log_error_and_default("ctx");
+        assert_eq!(def, 0i32);
+
+        let err_ret: SafeOperation<i32> =
+            SafeOperation::execute(|| Err(ProductionError::configuration("bad")));
+        let def2 = err_ret.log_error_and_return("ctx", 42);
+        assert_eq!(def2, 42);
+    }
+
+    #[test]
+    fn into_production_error_json_io() {
+        let json_err = serde_json::from_str::<serde_json::Value>("not-json").unwrap_err();
+        let p = json_err.into_production_error();
+        assert!(matches!(p, ProductionError::Serialization { .. }));
+
+        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "io");
+        let p2 = io_err.into_production_error();
+        assert!(matches!(p2, ProductionError::Network { .. }));
+    }
+
+    #[tokio::test]
+    async fn into_production_error_elapsed() {
+        let elapsed = tokio::time::timeout(std::time::Duration::ZERO, std::future::pending::<()>())
+            .await
+            .expect_err("should time out");
+        let p = elapsed.into_production_error();
+        assert!(matches!(p, ProductionError::Timeout { .. }));
+    }
+
+    #[test]
+    fn safe_operation_macro_expands() {
+        let op = crate::safe_operation!(Ok::<i32, ProductionError>(3));
+        assert!(matches!(op.result(), Ok(3)));
+        let v: i32 =
+            crate::safe_operation_with_context!(Err(ProductionError::configuration("x")), "ctx");
+        assert_eq!(v, 0);
+    }
 }

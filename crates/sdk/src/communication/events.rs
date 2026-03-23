@@ -465,4 +465,122 @@ mod tests {
             Some(&serde_json::json!("high"))
         );
     }
+
+    #[test]
+    fn test_event_with_source_and_accessors() {
+        let e = Event::with_source(
+            "e.t".to_string(),
+            serde_json::json!({"a": 1}),
+            "src1".to_string(),
+        );
+        assert_eq!(e.get_source(), "src1");
+        assert_eq!(e.get_type(), "e.t");
+        assert_eq!(e.get_data(), &serde_json::json!({"a": 1}));
+        assert!(e.get_timestamp().is_ok());
+        assert!(e.get_metadata().is_empty());
+    }
+
+    #[test]
+    fn test_event_serde_roundtrip() {
+        let e = Event::new("t".to_string(), serde_json::json!({}));
+        let s = serde_json::to_string(&e).unwrap();
+        let back: Event = serde_json::from_str(&s).unwrap();
+        assert_eq!(back.event_type, e.event_type);
+    }
+
+    #[test]
+    fn test_event_types_constants() {
+        use super::event_types;
+        assert!(!event_types::PLUGIN_INITIALIZED.is_empty());
+        assert!(!event_types::CUSTOM_EVENT.is_empty());
+    }
+
+    #[test]
+    fn test_event_bus_global() {
+        let _ = EventBus::global();
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_async_and_unsubscribe_async() {
+        let bus = EventBus::new();
+        let (listener, _received) = TestListener::new();
+        let id = bus
+            .subscribe_async("async.evt", Box::new(listener))
+            .await
+            .unwrap();
+        assert_eq!(bus.get_listener_count("async.evt"), 1);
+        let mut types = bus.list_event_types();
+        types.sort();
+        assert!(types.contains(&"async.evt".to_string()));
+
+        bus.unsubscribe_async("async.evt", &id).await.unwrap();
+        assert_eq!(bus.get_listener_count("async.evt"), 0);
+        assert!(bus.unsubscribe_async("async.evt", "nope").await.is_err());
+        assert!(bus.unsubscribe_async("missing", &id).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_publish_listener_error_is_logged() {
+        #[derive(Debug)]
+        struct FailListener;
+
+        impl EventListener for FailListener {
+            fn handle_event(
+                &self,
+                _event: Event,
+            ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+                async move {
+                    Err(PluginError::InternalError {
+                        message: "fail".into(),
+                    })
+                }
+                .boxed()
+            }
+        }
+
+        let bus = EventBus::new();
+        bus.subscribe("fail.evt", Box::new(FailListener)).unwrap();
+        let ev = Event::new("fail.evt".to_string(), serde_json::json!({}));
+        bus.publish(ev).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_counting_listener_like_simple_listener() {
+        #[derive(Debug)]
+        struct CountingListener {
+            n: Arc<TokioMutex<u32>>,
+        }
+
+        impl EventListener for CountingListener {
+            fn handle_event(
+                &self,
+                _event: Event,
+            ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
+                let n = self.n.clone();
+                async move {
+                    *n.lock().await += 1;
+                    Ok(())
+                }
+                .boxed()
+            }
+        }
+
+        let n = Arc::new(TokioMutex::new(0u32));
+        let bus = EventBus::new();
+        bus.subscribe("s.e", Box::new(CountingListener { n: n.clone() }))
+            .unwrap();
+        bus.publish(Event::new("s.e".to_string(), serde_json::json!({})))
+            .await
+            .unwrap();
+        assert_eq!(*n.lock().await, 1);
+    }
+
+    #[tokio::test]
+    async fn test_listener_count_and_empty_publish() {
+        let bus = EventBus::new();
+        assert_eq!(bus.get_listener_count("none"), 0);
+        bus.publish(Event::new("none".to_string(), serde_json::json!({})))
+            .await
+            .unwrap();
+    }
 }

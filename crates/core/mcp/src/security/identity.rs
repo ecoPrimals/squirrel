@@ -126,3 +126,101 @@ impl Default for DefaultIdentityManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn user_identity_serde_round_trip() {
+        let i = UserIdentity {
+            id: Uuid::new_v4(),
+            username: "u".to_string(),
+            email: None,
+            roles: vec![],
+            created_at: chrono::Utc::now(),
+            last_login: None,
+            active: false,
+        };
+        let json = serde_json::to_string(&i).unwrap();
+        let back: UserIdentity = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, i.id);
+        assert_eq!(back.username, i.username);
+        assert_eq!(back.email, i.email);
+        assert_eq!(back.active, i.active);
+    }
+
+    #[tokio::test]
+    async fn create_get_update_delete_authenticate_record_login() {
+        let m = DefaultIdentityManager::new();
+        let _ = DefaultIdentityManager::default();
+
+        let id = m
+            .create_identity("alice".to_string(), Some("a@b.c".to_string()))
+            .await
+            .unwrap();
+        assert_eq!(id.username, "alice");
+        assert_eq!(id.roles, vec!["user".to_string()]);
+        assert!(id.active);
+
+        let empty = m.create_identity(String::new(), None).await.unwrap();
+        assert_eq!(empty.username, "");
+
+        assert_eq!(
+            m.get_identity(&id.id).await.unwrap().unwrap().username,
+            "alice"
+        );
+        assert!(m.get_identity(&Uuid::new_v4()).await.unwrap().is_none());
+
+        assert_eq!(
+            m.get_identity_by_username("alice")
+                .await
+                .unwrap()
+                .unwrap()
+                .id,
+            id.id
+        );
+        assert!(
+            m.get_identity_by_username("nobody")
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        let mut upd = m.get_identity(&id.id).await.unwrap().unwrap();
+        upd.email = Some("new@x.y".to_string());
+        m.update_identity(upd).await.unwrap();
+        assert_eq!(
+            m.get_identity(&id.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .email
+                .as_deref(),
+            Some("new@x.y")
+        );
+
+        assert_eq!(
+            m.authenticate("alice", "any").await.unwrap().unwrap().id,
+            id.id
+        );
+        assert!(m.authenticate("unknown", "pw").await.unwrap().is_none());
+
+        m.record_login(&id.id).await.unwrap();
+        assert!(
+            m.get_identity(&id.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .last_login
+                .is_some()
+        );
+
+        m.record_login(&Uuid::new_v4()).await.unwrap();
+
+        m.delete_identity(&id.id).await.unwrap();
+        assert!(m.get_identity(&id.id).await.unwrap().is_none());
+        assert!(m.authenticate("alice", "x").await.unwrap().is_none());
+    }
+}

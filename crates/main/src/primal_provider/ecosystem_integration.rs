@@ -304,3 +304,103 @@ impl SquirrelPrimalProvider {
         EcosystemIntegration::create_service_registration(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ecosystem::EcosystemPrimalType;
+    use crate::universal::{EcosystemRequest, PrimalContext, SecurityLevel};
+    use crate::universal_adapter_v2::UniversalAdapterV2;
+
+    async fn provider() -> SquirrelPrimalProvider {
+        let adapter = UniversalAdapterV2::awaken().await.expect("adapter");
+        let mc = std::sync::Arc::new(crate::monitoring::metrics::MetricsCollector::new());
+        let em = std::sync::Arc::new(crate::ecosystem::EcosystemManager::new(
+            crate::ecosystem::config::EcosystemConfig::default(),
+            mc,
+        ));
+        let sessions = std::sync::Arc::new(crate::session::SessionManagerImpl::new(
+            crate::session::SessionConfig::default(),
+        )) as std::sync::Arc<dyn crate::session::SessionManager>;
+        SquirrelPrimalProvider::new(
+            "eco-test".to_string(),
+            squirrel_mcp_config::EcosystemConfig::default(),
+            adapter,
+            em,
+            sessions,
+        )
+    }
+
+    #[test]
+    fn create_service_registration_shape() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("rt");
+        rt.block_on(async {
+            let p = provider().await;
+            let reg = EcosystemIntegration::create_service_registration(&p);
+            assert!(reg.service_id.as_ref().contains("eco-test"));
+            assert_eq!(reg.primal_type, EcosystemPrimalType::Squirrel);
+            assert_eq!(reg.endpoints.primary, "http://0.0.0.0:8080");
+            assert!(reg.endpoints.health.as_ref().unwrap().ends_with("/health"));
+            assert!(reg.capabilities.core.iter().any(|c| c == "ai_coordination"));
+        });
+    }
+
+    #[tokio::test]
+    async fn can_serve_context_and_dynamic_port() {
+        let p = provider().await;
+        let mut ctx = PrimalContext::default();
+        ctx.security_level = SecurityLevel::Public;
+        assert!(!p.can_serve_context(&ctx));
+        ctx.security_level = SecurityLevel::Standard;
+        assert!(p.can_serve_context(&ctx));
+
+        let dpi = p.dynamic_port_info().expect("dpi");
+        assert_eq!(dpi.port, 8080);
+        assert_eq!(dpi.port_type, crate::universal::PortType::Http);
+    }
+
+    #[tokio::test]
+    async fn ecosystem_lifecycle_and_mesh() {
+        let mut p = provider().await;
+        p.initialize_ecosystem().await.expect("init");
+        let mesh = p.get_service_mesh_status();
+        assert!(mesh.connected);
+        assert_eq!(mesh.mesh_health, "healthy");
+
+        let sid = p
+            .register_with_service_mesh("http://mesh.example")
+            .await
+            .expect("reg");
+        assert!(sid.contains("eco-test"));
+
+        p.shutdown_ecosystem().await.expect("shutdown");
+    }
+
+    #[tokio::test]
+    async fn handle_ecosystem_request_ok() {
+        let p = provider().await;
+        let rid = uuid::Uuid::new_v4();
+        let req = EcosystemRequest {
+            request_id: rid,
+            source_service: "a".to_string(),
+            target_service: "b".to_string(),
+            operation: "test".to_string(),
+            payload: serde_json::json!({}),
+            security_context: Default::default(),
+            timestamp: chrono::Utc::now(),
+        };
+        let res = p.handle_ecosystem_request(req).await.expect("resp");
+        assert!(res.success);
+        assert_eq!(res.request_id, rid);
+        assert_eq!(res.status, crate::universal::ResponseStatus::Success);
+    }
+
+    #[tokio::test]
+    async fn deregister_from_service_mesh() {
+        let mut p = provider().await;
+        p.deregister_from_service_mesh().await.expect("dereg");
+    }
+}

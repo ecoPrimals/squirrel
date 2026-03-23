@@ -428,6 +428,110 @@ async fn test_experience_stats_success_rate() {
     assert!((stats.success_rate - 0.5).abs() < 0.01);
 }
 
+#[tokio::test]
+async fn test_replay_add_experiences_empty_batch() {
+    let replay = ExperienceReplay::new(10);
+    replay.add_experiences(vec![]).await.expect("empty add");
+    assert_eq!(replay.size().await, 0);
+}
+
+#[tokio::test]
+async fn test_replay_update_priorities_valid_index() {
+    let replay = ExperienceReplay::new(10);
+    replay
+        .add_experience(create_test_experience("a"))
+        .await
+        .expect("add");
+    replay
+        .add_experience(create_test_experience("b"))
+        .await
+        .expect("add");
+    replay
+        .update_priorities(vec![0], vec![42.0])
+        .await
+        .expect("update");
+    let all = replay.get_all_experiences().await;
+    assert!((all[0].priority - 42.0).abs() < f64::EPSILON);
+    assert!((all[1].priority - 1.0).abs() < f64::EPSILON);
+}
+
+#[tokio::test]
+async fn test_replay_clear_resets_stats_fields() {
+    let replay = ExperienceReplay::new(100);
+    replay
+        .add_experience(create_test_experience("x"))
+        .await
+        .expect("add");
+    let before = replay.get_stats().await;
+    assert_eq!(before.current_size, 1);
+    replay.clear().await.expect("clear");
+    let after = replay.get_stats().await;
+    assert_eq!(after.current_size, 0);
+    assert!((after.utilization - 0.0).abs() < f64::EPSILON);
+}
+
+#[tokio::test]
+async fn test_replay_temporal_prefers_recent_by_weight() {
+    let cfg = TemporalConfig {
+        decay_factor: 0.5,
+        min_probability: 0.01,
+    };
+    let replay = ExperienceReplay::with_sampling_strategy(50, SamplingStrategy::Temporal(cfg));
+    let mut old = create_test_experience("old");
+    old.timestamp = chrono::Utc::now() - chrono::Duration::hours(48);
+    let mut recent = create_test_experience("recent");
+    recent.timestamp = chrono::Utc::now();
+    replay.add_experience(old).await.expect("add");
+    replay.add_experience(recent).await.expect("add");
+    let batch = replay.sample_batch(20).await.expect("sample");
+    assert!(!batch.experiences.is_empty());
+    assert!(batch.metadata.is_some());
+}
+
+#[tokio::test]
+async fn test_replay_balanced_with_few_experiences() {
+    let cfg = BalancedConfig {
+        recent_ratio: 0.5,
+        recent_threshold: 0.5,
+    };
+    let replay = ExperienceReplay::with_sampling_strategy(20, SamplingStrategy::Balanced(cfg));
+    for i in 0..4 {
+        replay
+            .add_experience(create_test_experience(&format!("e{i}")))
+            .await
+            .expect("add");
+    }
+    let batch = replay.sample_batch(4).await.expect("sample");
+    assert!(!batch.experiences.is_empty());
+}
+
+#[test]
+fn test_buffer_circular_replacement_order() {
+    let mut b = ExperienceBuffer::new(3);
+    for i in 0..3 {
+        b.add(create_test_experience(&format!("e{i}")));
+    }
+    b.add(create_test_experience("newest"));
+    let all = b.get_all();
+    assert_eq!(all.len(), 3);
+    assert!(all.iter().any(|e| e.id == "newest"));
+}
+
+#[tokio::test]
+async fn test_replay_stats_track_average_priority_and_age() {
+    let replay = ExperienceReplay::new(50);
+    let mut a = create_test_experience("a");
+    a.priority = 2.0;
+    a.timestamp = chrono::Utc::now() - chrono::Duration::hours(1);
+    replay.add_experience(a).await.expect("add");
+    let mut b = create_test_experience("b");
+    b.priority = 4.0;
+    replay.add_experience(b).await.expect("add");
+    let stats = replay.get_stats().await;
+    assert!((stats.average_priority - 3.0).abs() < 0.01);
+    assert!(stats.oldest_experience_age >= 0.0);
+}
+
 // Helper function to create test experiences
 fn create_test_experience(id: &str) -> RLExperience {
     use super::engine::{RLAction, RLState};

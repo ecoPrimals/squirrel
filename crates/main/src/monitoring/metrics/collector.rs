@@ -95,8 +95,9 @@ impl MetricsCollector {
         &self,
         definition: CustomMetricDefinition,
     ) -> Result<(), PrimalError> {
+        let name = definition.name;
         let metric_def = MetricDefinition {
-            name: definition.name.clone(),
+            name: name.clone(),
             metric_type: definition.metric_type,
             description: definition.description,
             labels: definition.labels,
@@ -104,8 +105,8 @@ impl MetricsCollector {
             source: definition.source,
         };
 
-        self.metrics.insert(definition.name.clone(), metric_def);
-        info!("Registered custom metric: {}", definition.name);
+        info!("Registered custom metric: {}", metric_def.name);
+        self.metrics.insert(name, metric_def);
 
         Ok(())
     }
@@ -122,7 +123,7 @@ impl MetricsCollector {
                 value,
                 labels,
                 timestamp: Utc::now(),
-                metric_type: metric_def.metric_type.clone(),
+                metric_type: metric_def.metric_type,
             };
 
             self.values.insert(name.to_string(), metric_value);
@@ -172,14 +173,7 @@ impl MetricsCollector {
     /// Get metric definition and metadata
     pub async fn get_metric_info(&self, metric_name: &str) -> Result<MetricInfo, PrimalError> {
         if let Some(definition) = self.metrics.get(metric_name) {
-            Ok(MetricInfo {
-                name: definition.name.clone(),
-                description: definition.description.clone(),
-                labels: definition.labels.clone(),
-                unit: definition.unit.clone(),
-                source: definition.source.clone(),
-                metric_type: definition.metric_type.clone(),
-            })
+            Ok(definition.to_metric_info())
         } else {
             Err(PrimalError::NotFoundError(format!(
                 "Metric '{metric_name}' not found"
@@ -192,14 +186,7 @@ impl MetricsCollector {
         let mut metric_infos = Vec::new();
         for entry in self.metrics.iter() {
             let definition = entry.value();
-            metric_infos.push(MetricInfo {
-                name: definition.name.clone(),
-                description: definition.description.clone(),
-                labels: definition.labels.clone(),
-                unit: definition.unit.clone(),
-                source: definition.source.clone(),
-                metric_type: definition.metric_type.clone(),
-            });
+            metric_infos.push(definition.to_metric_info());
         }
 
         Ok(metric_infos)
@@ -214,14 +201,7 @@ impl MetricsCollector {
         for entry in self.metrics.iter() {
             let definition = entry.value();
             if definition.source == source {
-                filtered_metrics.push(MetricInfo {
-                    name: definition.name.clone(),
-                    description: definition.description.clone(),
-                    labels: definition.labels.clone(),
-                    unit: definition.unit.clone(),
-                    source: definition.source.clone(),
-                    metric_type: definition.metric_type.clone(),
-                });
+                filtered_metrics.push(definition.to_metric_info());
             }
         }
 
@@ -234,14 +214,7 @@ impl MetricsCollector {
         for entry in self.metrics.iter() {
             let definition = entry.value();
             if definition.unit == unit {
-                filtered_metrics.push(MetricInfo {
-                    name: definition.name.clone(),
-                    description: definition.description.clone(),
-                    labels: definition.labels.clone(),
-                    unit: definition.unit.clone(),
-                    source: definition.source.clone(),
-                    metric_type: definition.metric_type.clone(),
-                });
+                filtered_metrics.push(definition.to_metric_info());
             }
         }
 

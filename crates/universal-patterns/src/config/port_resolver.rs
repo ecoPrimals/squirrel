@@ -138,7 +138,7 @@ impl PortResolver {
         }
 
         // 3. Universal constants (last resort)
-        self.resolve_port_from_constants(service)
+        Self::resolve_port_from_constants(service)
     }
 
     /// Resolve host with proper fallback chain
@@ -196,7 +196,7 @@ impl PortResolver {
     }
 
     /// Resolve port from universal constants
-    fn resolve_port_from_constants(&self, service: &str) -> Result<u16> {
+    fn resolve_port_from_constants(service: &str) -> Result<u16> {
         let port = match service {
             "http" => network::get_service_port("http"),
             "https" | "security" => network::get_service_port("security"), // HTTPS/security services

@@ -11,6 +11,10 @@ use super::primal::UniversalPrimalProvider;
 /// Primal factory trait for creating primal instances
 pub trait PrimalFactory: Send + Sync {
     /// Create a new primal instance
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the primal cannot be constructed from the given configuration.
     fn create_primal(
         &self,
         config: UniversalConfig,
@@ -20,15 +24,27 @@ pub trait PrimalFactory: Send + Sync {
 /// Configuration trait for universal configuration management
 pub trait ConfigProvider: Send + Sync {
     /// Load configuration from environment
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when environment values are missing or invalid.
     fn load_from_environment(&self) -> UniversalResult<UniversalConfig>;
 
     /// Validate configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the configuration fails validation checks.
     fn validate(&self, config: &UniversalConfig) -> UniversalResult<()>;
 
     /// Get configuration value
     fn get_value(&self, key: &str) -> Option<String>;
 
     /// Set configuration value
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the value cannot be persisted or applied.
     fn set_value(&self, key: &str, value: String) -> UniversalResult<()>;
 }
 
@@ -148,6 +164,7 @@ pub struct ResourceConfig {
 
 /// Feature flags
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)] // Independent toggles for runtime features
 pub struct FeatureFlags {
     /// Development mode
     pub development_mode: bool,

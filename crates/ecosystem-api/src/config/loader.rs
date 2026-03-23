@@ -34,6 +34,10 @@ impl ConfigLoader {
     }
 
     /// Load universal configuration from environment
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when required variables are missing or any section fails to parse.
     pub fn load_universal_config(&self) -> Result<UniversalConfig, ConfigError> {
         self.validate_required_vars()?;
         let service = self.load_service_config()?;

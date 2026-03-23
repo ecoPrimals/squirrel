@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP Adapter for AI Router
-#![allow(dead_code)] // MCP adapter awaiting activation
+#![allow(dead_code, reason = "MCP adapter module awaiting activation")]
 //!
 //! This module provides an adapter between the AIRouter and MCP for
 //! remote AI capabilities.

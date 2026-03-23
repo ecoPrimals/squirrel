@@ -217,3 +217,68 @@ pub fn create_error_response(request_id: Uuid, error_message: &str) -> Ecosystem
         metadata: HashMap::new(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::universal::context::{create_default_context, create_default_security_context};
+
+    #[test]
+    fn primal_request_new_builder_and_timeout() {
+        let ctx = create_default_context("u", "d");
+        let req = PrimalRequest::new("src", "cap", "op", Value::String("p".into()), ctx)
+            .with_metadata("k", "v")
+            .with_timeout(60_000);
+        assert_eq!(req.source_primal, "src");
+        assert_eq!(req.metadata.get("k").map(String::as_str), Some("v"));
+        assert_eq!(req.timeout_ms, Some(60_000));
+        assert!(!req.is_timed_out());
+    }
+
+    #[test]
+    fn primal_request_timed_out_after_elapsed() {
+        let ctx = create_default_context("u", "d");
+        let mut req = PrimalRequest::new("s", "c", "o", Value::Null, ctx).with_timeout(0);
+        req.timestamp = Utc::now() - chrono::Duration::milliseconds(2);
+        assert!(req.is_timed_out());
+    }
+
+    #[test]
+    fn ecosystem_request_and_response_helpers() {
+        let sec = create_default_security_context("user");
+        let req = create_ecosystem_request("a", "b", "op", Value::Bool(true), sec);
+        let ok = create_success_response(req.request_id, Value::Number(1.into()));
+        assert!(ok.success);
+        assert_eq!(ok.status, ResponseStatus::Success);
+        let err = create_error_response(req.request_id, "e");
+        assert!(!err.success);
+        assert_eq!(err.status, ResponseStatus::Error);
+    }
+
+    #[test]
+    fn primal_and_ecosystem_message_serde() {
+        let ctx = create_default_context("u", "d");
+        let pr = PrimalRequest::new("s", "c", "o", Value::Null, ctx);
+        let pj = serde_json::to_string(&pr).unwrap();
+        let _: PrimalRequest = serde_json::from_str(&pj).unwrap();
+
+        let sec = create_default_security_context("u");
+        let er = create_ecosystem_request("x", "y", "z", Value::Null, sec);
+        let ej = serde_json::to_string(&er).unwrap();
+        let _: EcosystemRequest = serde_json::from_str(&ej).unwrap();
+    }
+
+    #[test]
+    fn response_status_all_variants_roundtrip() {
+        for status in [
+            ResponseStatus::Success,
+            ResponseStatus::Error,
+            ResponseStatus::Timeout,
+            ResponseStatus::NotFound,
+        ] {
+            let v = serde_json::to_value(&status).unwrap();
+            let back: ResponseStatus = serde_json::from_value(v).unwrap();
+            assert_eq!(back, status);
+        }
+    }
+}

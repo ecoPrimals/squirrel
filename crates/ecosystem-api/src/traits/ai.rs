@@ -77,7 +77,7 @@ pub struct ProviderHealth {
 impl ProviderHealth {
     /// Check if the provider is healthy
     #[must_use]
-    pub fn is_healthy(&self) -> bool {
+    pub const fn is_healthy(&self) -> bool {
         self.healthy
     }
 }
