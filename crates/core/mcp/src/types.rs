@@ -283,3 +283,111 @@ pub struct EventMessage {
     /// Event data payload
     pub data: serde_json::Value,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        CommandRequestMessage, CommandResponseMessage, CompressionFormat, EncryptionFormat,
+        EventMessage, MessageMetadata, ResponseStatus,
+    };
+    use crate::protocol::types::MessageId;
+
+    #[test]
+    fn compression_format_roundtrip_display_default() {
+        let variants = [
+            CompressionFormat::None,
+            CompressionFormat::Gzip,
+            CompressionFormat::Lz4,
+            CompressionFormat::Zstd,
+            CompressionFormat::Custom(9),
+        ];
+        for v in variants {
+            let s = format!("{v}");
+            assert!(!s.is_empty());
+            let json = serde_json::to_string(&v).unwrap();
+            let back: CompressionFormat = serde_json::from_str(&json).unwrap();
+            assert_eq!(v, back);
+            let c2 = v;
+            assert_eq!(v, c2);
+        }
+        assert_eq!(CompressionFormat::default(), CompressionFormat::None);
+    }
+
+    #[test]
+    fn encryption_format_roundtrip_display_default() {
+        let variants = [
+            EncryptionFormat::None,
+            EncryptionFormat::Aes256Gcm,
+            EncryptionFormat::ChaCha20Poly1305,
+            EncryptionFormat::Rsa,
+            EncryptionFormat::Custom(3),
+        ];
+        for v in variants {
+            let _ = format!("{v}");
+            let json = serde_json::to_string(&v).unwrap();
+            let back: EncryptionFormat = serde_json::from_str(&json).unwrap();
+            assert_eq!(v, back);
+        }
+        assert_eq!(EncryptionFormat::default(), EncryptionFormat::None);
+    }
+
+    #[test]
+    fn message_metadata_default_and_serde() {
+        let m = MessageMetadata::default();
+        let json = serde_json::to_string(&m).unwrap();
+        let back: MessageMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.timestamp, m.timestamp);
+        let _ = format!("{m:?}");
+        let c = m.clone();
+        assert_eq!(c.source, m.source);
+    }
+
+    #[test]
+    fn response_status_variants_and_serde() {
+        for s in [
+            ResponseStatus::Success,
+            ResponseStatus::Error,
+            ResponseStatus::Pending,
+        ] {
+            let json = serde_json::to_string(&s).unwrap();
+            let back: ResponseStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(s, back);
+            let _ = format!("{s:?}");
+        }
+        assert_eq!(ResponseStatus::default(), ResponseStatus::Success);
+    }
+
+    #[test]
+    fn command_request_response_and_event_messages_serde() {
+        let mid = MessageId("m1".into());
+        let req = CommandRequestMessage {
+            id: mid.clone(),
+            command: "cmd".into(),
+            args: Some(serde_json::json!({"a": 1})),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let r2: CommandRequestMessage = serde_json::from_str(&json).unwrap();
+        assert_eq!(r2.command, req.command);
+
+        let resp = CommandResponseMessage {
+            id: MessageId("r1".into()),
+            command_id: mid,
+            status: "ok".into(),
+            result: Some(serde_json::json!({})),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let r2: CommandResponseMessage = serde_json::from_str(&json).unwrap();
+        assert_eq!(r2.status, resp.status);
+
+        let ev = EventMessage {
+            id: MessageId("e1".into()),
+            event_type: "evt".into(),
+            data: serde_json::json!({"x": true}),
+        };
+        let json = serde_json::to_string(&ev).unwrap();
+        let e2: EventMessage = serde_json::from_str(&json).unwrap();
+        assert_eq!(e2.event_type, ev.event_type);
+        let _ = format!("{ev:?}");
+        assert_eq!(ev.clone().id, ev.id);
+    }
+}

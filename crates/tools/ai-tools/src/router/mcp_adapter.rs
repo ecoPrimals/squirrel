@@ -162,7 +162,7 @@ impl MCPInterface for MCPAdapter {
         Ok(RemoteAIResponse {
             response_id: uuid::Uuid::new_v4(),
             request_id: request.request_id,
-            provider_id: request.provider_id.clone(),
+            provider_id: request.provider_id,
             chat_response: ChatResponse {
                 id: uuid::Uuid::new_v4().to_string(),
                 model: "remote".to_string(),

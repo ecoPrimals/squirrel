@@ -32,7 +32,7 @@ impl DefaultEndpoints {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(ports::ollama);
-                format!("http://{}:{}", host, port)
+                format!("http://{host}:{port}")
             })
     }
 
@@ -99,7 +99,7 @@ impl DefaultEndpoints {
                 .ok()
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or_else(|| get_service_port("websocket"));
-            format!("ws://{}:{port}", LOCALHOST_IPV4)
+            format!("ws://{LOCALHOST_IPV4}:{port}")
         })
     }
 
@@ -122,7 +122,7 @@ impl DefaultEndpoints {
                     .unwrap_or_else(|| {
                         config_helpers::get_port("SECURITY_SERVICE_PORT", ports::security_service())
                     });
-                format!("http://{}:{}", host, port)
+                format!("http://{host}:{port}")
             })
     }
 
@@ -147,7 +147,7 @@ impl DefaultEndpoints {
                     .unwrap_or_else(|| {
                         config_helpers::get_port("SERVICE_MESH_PORT", ports::service_mesh())
                     });
-                format!("http://{}:{}", host, port)
+                format!("http://{host}:{port}")
             })
     }
 
@@ -161,7 +161,7 @@ impl DefaultEndpoints {
         env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
             let host = config_helpers::get_host("TOADSTOOL_HOST", "localhost");
             let port = config_helpers::get_port("TOADSTOOL_PORT", ports::compute_service());
-            format!("http://{}:{}", host, port)
+            format!("http://{host}:{port}")
         })
     }
 
@@ -173,7 +173,7 @@ impl DefaultEndpoints {
 
     /// Build endpoint URL with host and port
     pub fn build_endpoint(host: &str, port: u16, scheme: &str) -> String {
-        format!("{}://{}:{}", scheme, host, port)
+        format!("{scheme}://{host}:{port}")
     }
 
     /// Build health endpoint URL
@@ -193,7 +193,7 @@ impl DefaultEndpoints {
 }
 
 /// Environment variable documentation
-pub const ENV_DOCS: &str = r#"
+pub const ENV_DOCS: &str = r"
 Environment Variables for AI Tools Configuration:
 
 AI Services (Vendor-Agnostic):
@@ -233,7 +233,7 @@ Network:
 
 Note: Security services use capability-based discovery. The endpoints above are fallbacks.
 Services should discover security capabilities through the universal service registry.
-"#;
+";
 
 #[cfg(test)]
 mod tests {

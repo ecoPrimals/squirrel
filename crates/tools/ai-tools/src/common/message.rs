@@ -29,11 +29,11 @@ pub enum MessageRole {
 impl fmt::Display for MessageRole {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MessageRole::System => write!(f, "system"),
-            MessageRole::User => write!(f, "user"),
-            MessageRole::Assistant => write!(f, "assistant"),
-            MessageRole::Tool => write!(f, "tool"),
-            MessageRole::Function => write!(f, "function"),
+            Self::System => write!(f, "system"),
+            Self::User => write!(f, "user"),
+            Self::Assistant => write!(f, "assistant"),
+            Self::Tool => write!(f, "tool"),
+            Self::Function => write!(f, "function"),
         }
     }
 }

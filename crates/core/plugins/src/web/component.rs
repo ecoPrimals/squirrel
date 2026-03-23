@@ -169,3 +169,55 @@ impl WebComponent {
             .any(|p| user_permissions.contains(p))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ComponentType, WebComponent};
+    use serde_json::json;
+    use uuid::Uuid;
+
+    #[test]
+    fn component_type_variants_and_predicates() {
+        let page = ComponentType::Page;
+        assert!(page.is_page());
+        let partial = ComponentType::Partial;
+        assert!(partial.is_partial());
+        let nav = ComponentType::Navigation;
+        assert!(nav.is_navigation());
+        let widget = ComponentType::Widget;
+        assert!(widget.is_widget());
+        let modal = ComponentType::Modal;
+        assert!(modal.is_modal());
+        let form = ComponentType::Form;
+        assert!(form.is_form());
+        let custom = ComponentType::Custom("x".into());
+        assert!(custom.is_custom());
+        for variant in [page, partial, nav, widget, modal, form, custom] {
+            let d = format!("{variant:?}");
+            assert!(!d.is_empty());
+            let c2 = variant.clone();
+            assert_eq!(variant, c2);
+        }
+    }
+
+    #[test]
+    fn web_component_builder_and_permission_check() {
+        let id = Uuid::new_v4();
+        let c = WebComponent::new(id, "n".into(), "d".into(), ComponentType::Page)
+            .with_property("k", json!(1))
+            .with_route("/r")
+            .with_priority(3)
+            .with_permission("p1")
+            .with_parent("nav")
+            .with_icon("ico");
+        assert!(!c.check_permission(&[]));
+        assert!(!c.check_permission(&["other".into()]));
+        assert!(c.check_permission(&["p1".into()]));
+        let open = WebComponent::new(id, "n2".into(), "d".into(), ComponentType::Widget);
+        assert!(open.check_permission(&[]));
+        let json = serde_json::to_string(&c).unwrap();
+        let back: WebComponent = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.name, c.name);
+        assert_eq!(back.priority, 3);
+    }
+}

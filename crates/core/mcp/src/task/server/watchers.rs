@@ -125,3 +125,76 @@ impl Default for TaskWatcherManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::task::types::{Task, TaskStatus};
+
+    #[test]
+    fn task_watcher_manager_new_default_debug() {
+        let m = TaskWatcherManager::new();
+        let d = TaskWatcherManager::default();
+        let s = format!("{m:?}");
+        assert!(s.contains("TaskWatcherManager"));
+        let s2 = format!("{d:?}");
+        assert!(s2.contains("TaskWatcherManager"));
+    }
+
+    #[test]
+    fn is_significant_update_status_change_is_true() {
+        let mgr = TaskWatcherManager::new();
+        let a = Task::new("a", "d");
+        let mut b = a.clone();
+        b.status_code = TaskStatus::Running;
+        assert!(mgr.is_significant_update(&a, &b, false));
+    }
+
+    #[test]
+    fn is_significant_update_large_progress_delta_is_true() {
+        let mgr = TaskWatcherManager::new();
+        let a = Task::new("a", "d");
+        let mut b = a.clone();
+        b.progress = 10.0;
+        assert!(mgr.is_significant_update(&a, &b, false));
+    }
+
+    #[test]
+    fn is_significant_update_status_message_change_is_true() {
+        let mgr = TaskWatcherManager::new();
+        let a = Task::new("a", "d");
+        let mut b = a.clone();
+        b.status_message = Some("msg".into());
+        assert!(mgr.is_significant_update(&a, &b, false));
+    }
+
+    #[test]
+    fn is_significant_update_no_change_is_false() {
+        let mgr = TaskWatcherManager::new();
+        let a = Task::new("a", "d");
+        let b = a.clone();
+        assert!(!mgr.is_significant_update(&a, &b, false));
+    }
+
+    #[tokio::test]
+    async fn register_broadcast_clean_and_unregister_watcher() {
+        let mgr = TaskWatcherManager::new();
+        let task = Task::new("n", "d");
+        let id = task.id.as_ref().to_string();
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(4);
+        let tx_for_unregister = tx.clone();
+        mgr.register_watcher(&id, tx).await;
+        mgr.broadcast_task_update(task.clone()).await;
+        assert_eq!(rx.recv().await, Some(format!("Task {id} updated")));
+
+        mgr.unregister_watcher(&id, &tx_for_unregister).await;
+        let mut t2 = Task::new("n2", "d");
+        t2.id = task.id.clone();
+        mgr.broadcast_task_update(t2).await;
+        drop(tx_for_unregister);
+        assert!(rx.recv().await.is_none());
+
+        drop(rx);
+        mgr.clean_watchers(&id).await;
+    }
+}

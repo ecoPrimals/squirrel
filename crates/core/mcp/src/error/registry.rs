@@ -45,3 +45,75 @@ impl RegistryError {
         Self::RegistrationFailed(msg.into())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // SPDX-License-Identifier: AGPL-3.0-only
+    // Inline tests follow the pattern used in `context.rs` and `severity.rs`.
+
+    use super::RegistryError;
+    use std::fmt::Write as _;
+
+    #[test]
+    fn registry_error_display_service_not_found() {
+        let err = RegistryError::ServiceNotFound("svc".into());
+        assert!(err.to_string().contains("not found"));
+        assert!(err.to_string().contains("svc"));
+    }
+
+    #[test]
+    fn registry_error_display_service_already_registered() {
+        let err = RegistryError::ServiceAlreadyRegistered("dup".into());
+        assert!(err.to_string().contains("already registered"));
+    }
+
+    #[test]
+    fn registry_error_display_registration_failed() {
+        let err = RegistryError::RegistrationFailed("why".into());
+        assert!(err.to_string().contains("Registration failed"));
+    }
+
+    #[test]
+    fn registry_error_display_corruption_detected() {
+        let err = RegistryError::CorruptionDetected("idx".into());
+        assert!(err.to_string().contains("corruption"));
+    }
+
+    #[test]
+    fn registry_error_display_access_denied() {
+        let err = RegistryError::AccessDenied("nope".into());
+        assert!(err.to_string().contains("denied"));
+    }
+
+    #[test]
+    fn registry_error_debug_all_variants() {
+        let cases = [
+            RegistryError::ServiceNotFound("a".into()),
+            RegistryError::ServiceAlreadyRegistered("b".into()),
+            RegistryError::RegistrationFailed("c".into()),
+            RegistryError::CorruptionDetected("d".into()),
+            RegistryError::AccessDenied("e".into()),
+        ];
+        for e in cases {
+            let mut buf = String::new();
+            write!(&mut buf, "{e:?}").expect("format");
+            assert!(!buf.is_empty());
+        }
+    }
+
+    #[test]
+    fn registry_error_helpers_match_constructors() {
+        assert!(matches!(
+            RegistryError::service_not_found("x"),
+            RegistryError::ServiceNotFound(s) if s == "x"
+        ));
+        assert!(matches!(
+            RegistryError::service_already_registered("y"),
+            RegistryError::ServiceAlreadyRegistered(s) if s == "y"
+        ));
+        assert!(matches!(
+            RegistryError::registration_failed("z"),
+            RegistryError::RegistrationFailed(s) if s == "z"
+        ));
+    }
+}

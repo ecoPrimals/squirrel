@@ -49,3 +49,71 @@ impl From<&str> for ContextError {
         Self::General(message.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // SPDX-License-Identifier: AGPL-3.0-only
+    // Inline tests follow the pattern used in `context.rs` and `severity.rs`.
+
+    use super::ContextError;
+    use std::fmt::Write as _;
+    use uuid::Uuid;
+
+    #[test]
+    fn context_error_display_not_found() {
+        let id = Uuid::nil();
+        let err = ContextError::NotFound(id);
+        let s = err.to_string();
+        assert!(s.contains("Context not found"));
+        assert!(s.contains(&id.to_string()));
+    }
+
+    #[test]
+    fn context_error_display_validation_error() {
+        let err = ContextError::ValidationError("bad".into());
+        assert!(err.to_string().contains("validation"));
+        assert!(err.to_string().contains("bad"));
+    }
+
+    #[test]
+    fn context_error_display_sync_error() {
+        let err = ContextError::SyncError("sync".into());
+        assert!(err.to_string().contains("sync"));
+    }
+
+    #[test]
+    fn context_error_display_general() {
+        let err = ContextError::General("msg".into());
+        assert!(err.to_string().contains("Context error"));
+        assert!(err.to_string().contains("msg"));
+    }
+
+    #[test]
+    fn context_error_debug_all_variants() {
+        let id = Uuid::nil();
+        let cases = [
+            ContextError::NotFound(id),
+            ContextError::ValidationError("v".into()),
+            ContextError::SyncError("s".into()),
+            ContextError::General("g".into()),
+        ];
+        for e in cases {
+            let mut buf = String::new();
+            write!(&mut buf, "{e:?}").expect("format");
+            assert!(!buf.is_empty());
+        }
+    }
+
+    #[test]
+    fn context_error_from_string() {
+        let err: ContextError = "hello".to_string().into();
+        assert!(matches!(err, ContextError::General(ref s) if s == "hello"));
+        assert!(err.to_string().contains("hello"));
+    }
+
+    #[test]
+    fn context_error_from_str_slice() {
+        let err: ContextError = "slice".into();
+        assert!(matches!(err, ContextError::General(ref s) if s == "slice"));
+    }
+}

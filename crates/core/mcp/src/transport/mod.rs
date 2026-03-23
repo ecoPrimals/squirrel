@@ -83,3 +83,22 @@ impl Transport for SimpleTransport {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{SimpleTransport, Transport};
+    use crate::protocol::MCPMessage;
+
+    #[tokio::test]
+    async fn simple_transport_exercises_trait_methods() {
+        let mut t = SimpleTransport;
+        t.connect().await.unwrap();
+        assert!(t.is_connected().await);
+        let m = t.get_metadata().await;
+        assert_eq!(m.connection_id, "simple");
+        t.send_message(MCPMessage::default()).await.unwrap();
+        let _msg = t.receive_message().await.unwrap();
+        t.send_raw(b"bytes").await.unwrap();
+        t.disconnect().await.unwrap();
+    }
+}

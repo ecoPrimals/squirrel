@@ -47,6 +47,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 ecosystem-api = { path = "../../ecosystem-api", version = "0.1.0" }
 squirrel-interfaces = { path = "../interfaces", version = "0.1.0" }
 universal-constants = { path = "../../universal-constants", version = "0.1.0" }
+universal-patterns = { path = "../../universal-patterns", version = "0.1.0" }
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config", version = "0.1.0" }

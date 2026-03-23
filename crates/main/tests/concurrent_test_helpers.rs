@@ -403,6 +403,10 @@ pub struct TestTimeoutError;
 ///
 /// All tasks start simultaneously (via barrier) to maximize
 /// concurrency and catch race conditions.
+///
+/// # Panics
+///
+/// Panics if any spawned task panics.
 pub async fn run_concurrent<F, Fut, T>(n: usize, f: F) -> Vec<T>
 where
     F: Fn(usize) -> Fut + Send + Sync + Clone + 'static,
@@ -434,6 +438,10 @@ where
 ///
 /// This is useful for catching race conditions and verifying
 /// thread safety.
+///
+/// # Panics
+///
+/// Panics if the semaphore is closed (should not happen under normal usage).
 ///
 /// # Errors
 ///

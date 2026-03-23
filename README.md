@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 5,775 passing | **Edition**: 2024 | **Rust**: 1.94+ | **Coverage**: 73%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 5,777 passing | **Edition**: 2024 | **Rust**: 1.94+ | **Coverage**: 74.6%
 
 ---
 
@@ -74,7 +74,7 @@ Fallback: `/run/user/<uid>/biomeos/squirrel.sock` or `/tmp/squirrel.sock`.
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   5,775 tests passing
+Fitness:   5,777 tests passing
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -133,7 +133,7 @@ squirrel/
 
 ## Code Standards
 
-- `#![forbid(unsafe_code)]` unconditional on all 22 crate roots
+- `#![forbid(unsafe_code)]` unconditional on all 21 crate roots
 - `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code (test-only `cfg_attr` allows)
 - `#![warn(missing_docs)]` on all library crates
 - `cargo clippy` with `pedantic` + `nursery` lints — zero errors on `--all-features --all-targets`
@@ -141,7 +141,7 @@ squirrel/
 - Pure Rust: zero C dependencies in default build (ecoBin v3.0 compliant — `sysinfo` removed)
 - All source files under 1,000 lines
 - SPDX `AGPL-3.0-only` license header on all 1,287 `.rs` files
-- Edition 2024 across all 22 workspace crates
+- Edition 2024 across all 21 workspace crates
 - `tracing` for structured logging (no `println!` in production code)
 - Typed errors via `thiserror`; `.context()` on all key error paths
 - Zero-copy patterns: `Arc<str>`, `bytes::Bytes`, `Cow<str>` on hot paths

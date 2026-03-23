@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: March 22, 2026
-**Version**: 0.1.0-alpha.17
+**Last Updated**: March 23, 2026
+**Version**: 0.1.0-alpha.19
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 5,775 passing / 0 failures across 21 workspace members |
+| Tests | 5,777 passing / 0 failures across 21 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
 | Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
@@ -18,9 +18,9 @@
 | Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all crate entry points |
 | Pure Rust | 100% default features (zero C deps); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
-| Coverage | 73% line coverage via `cargo-llvm-cov` (target: 90%) |
+| Coverage | 74.6% line coverage via `cargo-llvm-cov` (target: 90%) |
 | Crates | 21 workspace members |
-| Files >1000 lines | 0 (max: 977 — web/api.rs) |
+| Files >1000 lines | 0 (max: 859 — web/api.rs; types extracted to api_types.rs) |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | redis | 1.0.5 (upgraded from 0.23) |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
@@ -245,16 +245,41 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked, 14-crate ecoBin C-dep ban |
-| cargo-llvm-cov | 73% line coverage (target: 90%) |
+| cargo-llvm-cov | 74.6% line coverage (target: 90%) |
 | proptest | Round-trip + wire-format fuzz + IPC fuzz for all JSON-RPC types (23 properties) + Unix socket IPC tests |
 | rust-toolchain | `rust-toolchain.toml` — pinned stable + clippy + rustfmt + llvm-tools-preview |
 
 ## Known Issues
 
-1. Coverage at 73% — gap to 90% target; incremental expansion underway
+1. Coverage at 74.6% — gap to 90% target; incremental expansion underway
 2. Performance optimizer `batch_processor` / `optimizer` stubs remain deferred to Phase 2 (swarm coordination, coordination service, and crypto are now production implementations, not stubs)
 
-## Changes Since Last Handoff (March 22, 2026)
+## Changes Since Last Handoff (March 23, 2026)
+
+### alpha.19 Sprint (Coverage, Refactoring & Dependency Modernization)
+
+- **base64 0.21→0.22**: Unified across workspace (`squirrel-mcp`, `squirrel` main, workspace root); fixed 1 legacy `base64::encode` call → `Engine::encode`; `squirrel-mcp-auth` was already 0.22
+- **web/api.rs smart refactor**: 977→859 lines by extracting 8 DTO types (`PluginInfo`, `EndpointInfo`, `PluginInstallRequest`, etc.) into `web/api_types.rs` (131 lines); re-exported from `web/mod.rs` for backward compatibility
+- **ai-tools lib.rs tightened**: Removed 10 blanket clippy suppressions (`unused_imports`, `uninlined_format_args`, `use_self`, `redundant_closure_for_method_calls`, `redundant_else`, `manual_string_new`, `redundant_clone`, `assigning_clones`, `cloned_instead_of_copied`, `needless_raw_string_hashes`); 67 auto-fixes applied across 11 files
+- **Coverage wave 2**: New test suites for `config/unified/types/definitions.rs` (30 tests), `core/auth/auth.rs`, `mcp/security/token.rs` (18 tests), `core/routing/balancer.rs` (18 tests), `mcp/protocol/websocket.rs` (15 tests), `mcp/enhanced/session.rs`
+- **Test count**: 5,729→5,777 (+48 tests)
+- **Coverage**: 74.3%→74.6% line coverage
+- **Clippy fixes**: `missing_panics_doc` in `concurrent_test_helpers.rs`, `too_many_lines` + `redundant_clone` in config definitions tests
+- **Dependency analysis**: `rand 0.8→0.9` (23 files, moderate effort — deferred for focused PR); `mockall 0.11→latest` (1 file, trivial — deferred); documented upgrade paths
+
+### alpha.18 Sprint (Deep Debt Resolution & Compliance Sprint)
+
+- **Clippy blocker fixed**: `ipc_routed_providers.rs` dead code gated behind `#[cfg(any(feature = "openai", feature = "anthropic", feature = "gemini"))]` — clippy now CLEAN on all features/targets
+- **llvm-cov fixed**: `test_write_and_discover_tcp_endpoint` stabilised with deterministic temp directory + unique service names — coverage now measurable
+- **Coverage**: 73% → 74.3% via new test suites for MCP error types (6 files), task server (7 files), plugin types (5 files), transport types (3 files)
+- **License files**: Added `LICENSE-ORC` and `LICENSE-CC-BY-SA` per scyBorg triple-copyleft standard (matches Songbird, biomeOS)
+- **CONTRIBUTING.md**: Created per PUBLIC_SURFACE_STANDARD
+- **Rate limiter whitelist**: Evolved from hardcoded `127.0.0.1`/`::1` to env-configurable via `SQUIRREL_RATE_LIMIT_WHITELIST`
+- **Plugin loader paths**: Evolved from hardcoded directories to env-configurable via `SQUIRREL_PLUGIN_DIRS`
+- **SongbirdProvider → IPC-wired**: Evolved from stub to real IPC discovery via `universal-patterns::IpcClient`; gracefully degrades to tracing when monitoring socket unavailable
+- **Workspace dep cleanup**: Removed dead `lazy_static` and `once_cell` from workspace `Cargo.toml` (already evolved to `std::sync::LazyLock` in prior sprints)
+- **squirrel-core**: Added `universal-patterns` dependency for IPC monitoring integration
+- **Clippy fixes**: Fixed `uninlined_format_args`, `redundant_clone`, `single_char_pattern`, `strict_f64_comparison`, `similar_names` in new test code
 
 ### alpha.17 Sprint (Alpha.17 Audit Sprint)
 

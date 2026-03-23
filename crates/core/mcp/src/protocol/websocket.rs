@@ -574,3 +574,242 @@ impl WebSocketClient {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::types::{MCPMessage, MessageType};
+    use crate::transport::frame::{Frame, MessageCodec};
+
+    #[test]
+    fn websocket_config_default_matches_expected_shape() {
+        let cfg = WebSocketConfig::default();
+        assert_eq!(cfg.bind_address, "127.0.0.1");
+        assert_eq!(cfg.port, 8080);
+        assert_eq!(cfg.timeout_seconds, 30);
+        assert_eq!(cfg.max_connections, 100);
+        assert_eq!(cfg.buffer_size, 1024);
+        assert_eq!(cfg.connection_timeout, std::time::Duration::from_secs(30));
+    }
+
+    #[test]
+    fn connection_state_roundtrips_through_serde() {
+        for state in [
+            ConnectionState::Connecting,
+            ConnectionState::Connected,
+            ConnectionState::Disconnecting,
+            ConnectionState::Disconnected,
+            ConnectionState::Failed,
+        ] {
+            let json = serde_json::to_string(&state).expect("serialize");
+            let back: ConnectionState = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(back, state);
+        }
+    }
+
+    #[test]
+    fn connection_state_variants_are_distinct() {
+        let states = [
+            ConnectionState::Connecting,
+            ConnectionState::Connected,
+            ConnectionState::Disconnecting,
+            ConnectionState::Disconnected,
+            ConnectionState::Failed,
+        ];
+        for (i, a) in states.iter().enumerate() {
+            for (j, b) in states.iter().enumerate() {
+                if i == j {
+                    assert_eq!(a, b);
+                } else {
+                    assert_ne!(a, b);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn connection_info_message_counters_can_be_updated() {
+        let mut info = ConnectionInfo {
+            id: "c1".to_string(),
+            remote_address: "127.0.0.1:1".to_string(),
+            state: ConnectionState::Connected,
+            connected_at: Instant::now(),
+            last_message_at: None,
+            message_count: 0,
+            last_ping: None,
+            last_pong: None,
+            bytes_sent: 0,
+            bytes_received: 0,
+            messages_sent: 0,
+            messages_received: 0,
+        };
+        info.message_count += 1;
+        info.messages_sent += 2;
+        info.messages_received += 3;
+        info.bytes_sent += 10;
+        info.bytes_received += 20;
+        assert_eq!(info.message_count, 1);
+        assert_eq!(info.messages_sent, 2);
+        assert_eq!(info.messages_received, 3);
+        assert_eq!(info.bytes_sent, 10);
+        assert_eq!(info.bytes_received, 20);
+    }
+
+    #[test]
+    fn websocket_transport_new_preserves_connection_and_config() {
+        let conn = ConnectionInfo {
+            id: "id-a".to_string(),
+            remote_address: "10.0.0.1:9000".to_string(),
+            state: ConnectionState::Connecting,
+            connected_at: Instant::now(),
+            last_message_at: None,
+            message_count: 0,
+            last_ping: None,
+            last_pong: None,
+            bytes_sent: 0,
+            bytes_received: 0,
+            messages_sent: 0,
+            messages_received: 0,
+        };
+        let cfg = WebSocketConfig {
+            port: 9999,
+            ..WebSocketConfig::default()
+        };
+        let transport = WebSocketTransport::new(conn.clone(), cfg);
+        assert_eq!(transport.connection.id, conn.id);
+        assert_eq!(transport.connection.state, ConnectionState::Connecting);
+        assert_eq!(transport.config.port, 9999);
+    }
+
+    #[test]
+    fn message_codec_encode_decode_roundtrip_preserves_payload() {
+        let codec = MessageCodec::new();
+        let original = MCPMessage::new(MessageType::Command, serde_json::json!({"k": 42}));
+        let frame = codec.encode_message(&original).expect("encode");
+        let back = codec.decode_message(&frame).expect("decode");
+        assert_eq!(back.type_, original.type_);
+        assert_eq!(back.payload, original.payload);
+    }
+
+    #[test]
+    fn message_codec_decode_rejects_non_utf8_frame_payload() {
+        let codec = MessageCodec::new();
+        let frame = Frame::new(vec![0xFF, 0xFE, 0xFD]);
+        let err = codec
+            .decode_message(&frame)
+            .expect_err("expected utf-8 error");
+        match err {
+            MCPError::Transport(e) => {
+                assert!(
+                    e.to_string().contains("UTF-8") || e.to_string().contains("utf-8"),
+                    "unexpected transport message: {e}"
+                );
+            }
+            other => panic!("expected transport error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn frame_json_matches_websocket_text_wire_format() {
+        let codec = MessageCodec::new();
+        let msg = MCPMessage::new(MessageType::Event, serde_json::json!({"ping": true}));
+        let frame = codec.encode_message(&msg).expect("encode");
+        let json = serde_json::to_string(&frame).expect("frame json");
+        let parsed: Frame = serde_json::from_str(&json).expect("parse frame");
+        let round = codec.decode_message(&parsed).expect("decode");
+        assert_eq!(round.type_, msg.type_);
+        assert_eq!(round.payload, msg.payload);
+    }
+
+    #[test]
+    fn server_event_variants_carry_connection_and_message_payloads() {
+        match ServerEvent::ClientConnected("c1".to_string()) {
+            ServerEvent::ClientConnected(id) => assert_eq!(id, "c1"),
+            _ => panic!("expected ClientConnected"),
+        }
+        match ServerEvent::ClientDisconnected("c2".to_string()) {
+            ServerEvent::ClientDisconnected(id) => assert_eq!(id, "c2"),
+            _ => panic!("expected ClientDisconnected"),
+        }
+        let msg = MCPMessage::new(MessageType::Response, serde_json::json!({"ok": true}));
+        match ServerEvent::MessageReceived("c3".to_string(), msg.clone()) {
+            ServerEvent::MessageReceived(id, m) => {
+                assert_eq!(id, "c3");
+                assert_eq!(m.type_, msg.type_);
+                assert_eq!(m.payload, msg.payload);
+            }
+            _ => panic!("expected MessageReceived"),
+        }
+        match ServerEvent::ConnectionError("c4".to_string(), "boom".to_string()) {
+            ServerEvent::ConnectionError(id, err) => {
+                assert_eq!(id, "c4");
+                assert_eq!(err, "boom");
+            }
+            _ => panic!("expected ConnectionError"),
+        }
+    }
+
+    #[test]
+    fn websocket_server_new_has_no_connections_and_subscribe_succeeds() {
+        let server = WebSocketServer::new(WebSocketConfig::default());
+        assert_eq!(server.get_connections().len(), 0);
+        let _rx = server.subscribe();
+    }
+
+    #[tokio::test]
+    async fn websocket_server_send_to_client_unknown_id_returns_transport_error() {
+        let server = WebSocketServer::new(WebSocketConfig::default());
+        let msg = MCPMessage::new(MessageType::Command, serde_json::json!({}));
+        let err = server
+            .send_to_client("missing-client", msg)
+            .await
+            .expect_err("expected missing client");
+        match err {
+            MCPError::Transport(e) => {
+                let s = e.to_string();
+                assert!(
+                    s.contains("missing-client") || s.contains("not found"),
+                    "unexpected message: {s}"
+                );
+            }
+            other => panic!("expected transport error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn websocket_client_send_without_connection_fails() {
+        let client = WebSocketClient::new(WebSocketConfig::default());
+        let msg = MCPMessage::new(MessageType::Command, serde_json::json!({}));
+        let err = client.send(msg).await.expect_err("expected not connected");
+        match err {
+            MCPError::Transport(e) => assert_eq!(e.to_string(), "Connection error: Not connected"),
+            other => panic!("expected transport error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn websocket_client_request_without_connection_fails_before_timeout() {
+        let client = WebSocketClient::new(WebSocketConfig::default());
+        let msg = MCPMessage::new(MessageType::Command, serde_json::json!({}));
+        let err = client
+            .request(msg)
+            .await
+            .expect_err("expected not connected");
+        match err {
+            MCPError::Transport(e) => assert_eq!(e.to_string(), "Connection error: Not connected"),
+            other => panic!("expected transport error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn websocket_client_get_connection_info_none_before_connect() {
+        let client = WebSocketClient::new(WebSocketConfig::default());
+        assert!(client.get_connection_info().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn websocket_client_disconnect_without_connect_succeeds() {
+        let client = WebSocketClient::new(WebSocketConfig::default());
+        client.disconnect().await.expect("disconnect");
+    }
+}

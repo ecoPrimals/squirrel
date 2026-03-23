@@ -38,26 +38,38 @@ pub struct RateLimitConfig {
     pub whitelist: Vec<IpAddr>,
 }
 
+impl RateLimitConfig {
+    /// Parse whitelist from `SQUIRREL_RATE_LIMIT_WHITELIST` (comma-separated IPs),
+    /// falling back to loopback addresses when the variable is absent.
+    fn default_whitelist() -> Vec<IpAddr> {
+        if let Ok(env_val) = std::env::var("SQUIRREL_RATE_LIMIT_WHITELIST") {
+            return env_val
+                .split(',')
+                .filter_map(|s| s.trim().parse::<IpAddr>().ok())
+                .collect();
+        }
+        [
+            "127.0.0.1".parse::<IpAddr>().ok(),
+            "::1".parse::<IpAddr>().ok(),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+}
+
 impl Default for RateLimitConfig {
     fn default() -> Self {
-        // SAFETY: These IP addresses are valid and hardcoded.
-        // If parsing fails (which is impossible for these constants),
-        // we'll use a safe default empty whitelist.
-        let whitelist = vec!["127.0.0.1".parse().ok(), "::1".parse().ok()]
-            .into_iter()
-            .flatten()
-            .collect();
-
         Self {
             api_requests_per_minute: 100,
             auth_requests_per_minute: 10,
             compute_requests_per_minute: 20,
             burst_capacity: 150,
-            ban_duration: Duration::from_secs(300), // 5 minutes
+            ban_duration: Duration::from_secs(300),
             ban_threshold: 5,
             violation_window: Duration::from_secs(60),
             adaptive_limiting: true,
-            whitelist,
+            whitelist: Self::default_whitelist(),
         }
     }
 }

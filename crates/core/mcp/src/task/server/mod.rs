@@ -48,3 +48,12 @@ pub use mock::{MockCommand, MockCommandRegistry};
 // Re-export commonly used items from the crate
 pub use crate::task::manager::TaskManager;
 pub use crate::task::types::{AgentType, Task, TaskPriority, TaskStatus};
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn production_registry_and_watcher_manager_construct() {
+        let _reg = crate::task::server::ProductionCommandRegistry::new();
+        let _wm = crate::task::server::TaskWatcherManager::new();
+    }
+}

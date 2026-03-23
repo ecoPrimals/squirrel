@@ -94,26 +94,26 @@ pub enum AIError {
 impl fmt::Display for AIError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AIError::Configuration(msg) => write!(f, "Configuration error: {msg}"),
-            AIError::Network(msg) => write!(f, "Network error: {msg}"),
-            AIError::Http(msg) => write!(f, "HTTP error: {msg}"),
-            AIError::Provider(msg) => write!(f, "Provider error: {msg}"),
-            AIError::Model(msg) => write!(f, "Model error: {msg}"),
-            AIError::Parse(msg) => write!(f, "Parse error: {msg}"),
-            AIError::RateLimit(msg) => write!(f, "Rate limit error: {msg}"),
-            AIError::Streaming(msg) => write!(f, "Streaming error: {msg}"),
-            AIError::Runtime(msg) => write!(f, "Runtime error: {msg}"),
-            AIError::InvalidResponse(msg) => write!(f, "Invalid response: {msg}"),
-            AIError::ApiError(msg) => write!(f, "API error: {msg}"),
-            AIError::Authentication(msg) => write!(f, "Authentication error: {msg}"),
-            AIError::Timeout(msg) => write!(f, "Timeout error: {msg}"),
-            AIError::Validation(msg) => write!(f, "Validation error: {msg}"),
-            AIError::InvalidRequest(msg) => write!(f, "Invalid request: {msg}"),
-            AIError::NetworkError(msg) => write!(f, "Network error: {msg}"),
-            AIError::ParseError(msg) => write!(f, "Parse error: {msg}"),
-            AIError::UnsupportedProvider(msg) => write!(f, "Unsupported provider: {msg}"),
-            AIError::Generic(msg) => write!(f, "Error: {msg}"),
-            AIError::Parsing(msg) => write!(f, "Parsing error: {msg}"),
+            Self::Configuration(msg) => write!(f, "Configuration error: {msg}"),
+            Self::Network(msg) => write!(f, "Network error: {msg}"),
+            Self::Http(msg) => write!(f, "HTTP error: {msg}"),
+            Self::Provider(msg) => write!(f, "Provider error: {msg}"),
+            Self::Model(msg) => write!(f, "Model error: {msg}"),
+            Self::Parse(msg) => write!(f, "Parse error: {msg}"),
+            Self::RateLimit(msg) => write!(f, "Rate limit error: {msg}"),
+            Self::Streaming(msg) => write!(f, "Streaming error: {msg}"),
+            Self::Runtime(msg) => write!(f, "Runtime error: {msg}"),
+            Self::InvalidResponse(msg) => write!(f, "Invalid response: {msg}"),
+            Self::ApiError(msg) => write!(f, "API error: {msg}"),
+            Self::Authentication(msg) => write!(f, "Authentication error: {msg}"),
+            Self::Timeout(msg) => write!(f, "Timeout error: {msg}"),
+            Self::Validation(msg) => write!(f, "Validation error: {msg}"),
+            Self::InvalidRequest(msg) => write!(f, "Invalid request: {msg}"),
+            Self::NetworkError(msg) => write!(f, "Network error: {msg}"),
+            Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
+            Self::UnsupportedProvider(msg) => write!(f, "Unsupported provider: {msg}"),
+            Self::Generic(msg) => write!(f, "Error: {msg}"),
+            Self::Parsing(msg) => write!(f, "Parsing error: {msg}"),
         }
     }
 }
@@ -125,19 +125,19 @@ impl std::error::Error for AIError {}
 
 impl From<serde_json::Error> for AIError {
     fn from(err: serde_json::Error) -> Self {
-        AIError::Parse(err.to_string())
+        Self::Parse(err.to_string())
     }
 }
 
 impl From<std::io::Error> for AIError {
     fn from(err: std::io::Error) -> Self {
-        AIError::Network(err.to_string())
+        Self::Network(err.to_string())
     }
 }
 
 impl From<tokio::time::error::Elapsed> for AIError {
     fn from(err: tokio::time::error::Elapsed) -> Self {
-        AIError::Timeout(err.to_string())
+        Self::Timeout(err.to_string())
     }
 }
 
@@ -147,20 +147,20 @@ impl From<universal_error::tools::AIToolsError> for AIError {
     fn from(err: universal_error::tools::AIToolsError) -> Self {
         use universal_error::tools::AIToolsError;
         match err {
-            AIToolsError::Provider(s) => AIError::Provider(s),
-            AIToolsError::Router(s) => AIError::Provider(s),
-            AIToolsError::Local(s) => AIError::Provider(s),
-            AIToolsError::ModelNotFound(s) => AIError::Model(s),
-            AIToolsError::RateLimitExceeded(s) => AIError::RateLimit(s),
-            AIToolsError::InvalidResponse(s) => AIError::InvalidResponse(s),
-            AIToolsError::Network(s) => AIError::NetworkError(s),
-            AIToolsError::Api(s) => AIError::ApiError(s),
-            AIToolsError::Configuration(s) => AIError::Configuration(s),
-            AIToolsError::Parse(s) => AIError::ParseError(s),
-            AIToolsError::UnsupportedProvider(s) => AIError::UnsupportedProvider(s),
-            AIToolsError::InvalidRequest(s) => AIError::InvalidRequest(s),
-            AIToolsError::Authentication(s) => AIError::Authentication(s),
-            _ => AIError::Provider("unknown variant".to_string()),
+            AIToolsError::Provider(s) => Self::Provider(s),
+            AIToolsError::Router(s) => Self::Provider(s),
+            AIToolsError::Local(s) => Self::Provider(s),
+            AIToolsError::ModelNotFound(s) => Self::Model(s),
+            AIToolsError::RateLimitExceeded(s) => Self::RateLimit(s),
+            AIToolsError::InvalidResponse(s) => Self::InvalidResponse(s),
+            AIToolsError::Network(s) => Self::NetworkError(s),
+            AIToolsError::Api(s) => Self::ApiError(s),
+            AIToolsError::Configuration(s) => Self::Configuration(s),
+            AIToolsError::Parse(s) => Self::ParseError(s),
+            AIToolsError::UnsupportedProvider(s) => Self::UnsupportedProvider(s),
+            AIToolsError::InvalidRequest(s) => Self::InvalidRequest(s),
+            AIToolsError::Authentication(s) => Self::Authentication(s),
+            _ => Self::Provider("unknown variant".to_string()),
         }
     }
 }
@@ -303,7 +303,7 @@ mod tests {
 
         for (unified_err, check) in cases {
             let ai_err: AIError = unified_err.into();
-            assert!(check(&ai_err), "Failed for variant: {:?}", ai_err);
+            assert!(check(&ai_err), "Failed for variant: {ai_err:?}");
         }
     }
 
@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn test_debug_format() {
         let error = AIError::Configuration("test".into());
-        let debug = format!("{:?}", error);
+        let debug = format!("{error:?}");
         assert!(debug.contains("Configuration"));
     }
 }

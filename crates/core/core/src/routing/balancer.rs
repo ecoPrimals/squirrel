@@ -388,3 +388,257 @@ impl Default for LoadBalancer {
         Self::new(LoadBalancingStrategy::Adaptive, 100)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::routing::agent::RegisteredAgent;
+    use crate::routing::config::LoadBalancingStrategy;
+    use crate::{AgentSpec, Error};
+    use chrono::Utc;
+    use std::collections::HashMap;
+
+    fn agent_with_spec(id: &str, caps: Vec<String>) -> RegisteredAgent {
+        RegisteredAgent::new(AgentSpec {
+            id: id.to_string(),
+            endpoint: "http://localhost".to_string(),
+            capabilities: caps,
+            weight: None,
+            max_concurrent_tasks: 10,
+            metadata: HashMap::new(),
+        })
+    }
+
+    #[test]
+    fn new_sets_strategy_and_semaphore_capacity() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::RoundRobin, 7);
+        assert!(matches!(
+            lb.get_strategy(),
+            LoadBalancingStrategy::RoundRobin
+        ));
+        assert_eq!(lb.available_permits(), 7);
+    }
+
+    #[test]
+    fn default_uses_adaptive_and_hundred_permits() {
+        let lb = LoadBalancer::default();
+        assert!(matches!(lb.get_strategy(), LoadBalancingStrategy::Adaptive));
+        assert_eq!(lb.available_permits(), 100);
+    }
+
+    #[tokio::test]
+    async fn select_agent_empty_returns_no_agent_available() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::RoundRobin, 1);
+        let err = lb.select_agent(vec![]).await.expect_err("empty");
+        assert!(matches!(err, Error::NoAgentAvailable));
+    }
+
+    #[tokio::test]
+    async fn round_robin_rotates_single_backend_repeatedly() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::RoundRobin, 4);
+        let a = agent_with_spec("only", vec![]);
+        for _ in 0..3 {
+            let picked = lb.select_agent(vec![a.clone()]).await.expect("pick");
+            assert_eq!(picked.id, "only");
+        }
+    }
+
+    #[tokio::test]
+    async fn round_robin_cycles_two_agents() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::RoundRobin, 4);
+        let a = agent_with_spec("a", vec![]);
+        let b = agent_with_spec("b", vec![]);
+        let agents = vec![a, b];
+        let id1 = lb.select_agent(agents.clone()).await.expect("p1").id;
+        let id2 = lb.select_agent(agents.clone()).await.expect("p2").id;
+        let id3 = lb.select_agent(agents.clone()).await.expect("p3").id;
+        assert_ne!(id1, id2);
+        assert_eq!(id1, id3);
+    }
+
+    #[tokio::test]
+    async fn least_connections_prefers_lower_load() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::LeastConnections, 2);
+        let low = agent_with_spec("low", vec![]);
+        let high = agent_with_spec("high", vec![]);
+        *high.current_load.write() = 9;
+        *low.current_load.write() = 1;
+
+        let picked = lb
+            .select_agent(vec![high, low.clone()])
+            .await
+            .expect("pick");
+        assert_eq!(picked.id, "low");
+    }
+
+    #[tokio::test]
+    async fn weighted_round_robin_errors_when_all_weights_zero() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::WeightedRoundRobin, 2);
+        lb.set_agent_weight("x", 0.0).await;
+        lb.set_agent_weight("y", 0.0).await;
+        let a = agent_with_spec("x", vec![]);
+        let b = agent_with_spec("y", vec![]);
+        let err = lb.select_agent(vec![a, b]).await.expect_err("weights");
+        assert!(matches!(err, Error::NoAgentAvailable));
+    }
+
+    #[tokio::test]
+    async fn weighted_round_robin_selects_with_default_weight_one() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::WeightedRoundRobin, 2);
+        let a = agent_with_spec("w1", vec![]);
+        let b = agent_with_spec("w2", vec![]);
+        let picked = lb.select_agent(vec![a, b]).await.expect("weighted pick");
+        assert!(picked.id == "w1" || picked.id == "w2");
+    }
+
+    #[tokio::test]
+    async fn response_time_based_prefers_faster_agent() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::ResponseTimeBased, 2);
+        let fast = agent_with_spec("fast", vec![]);
+        let slow = agent_with_spec("slow", vec![]);
+        *fast.average_response_time.write() = 10.0;
+        *slow.average_response_time.write() = 500.0;
+
+        let picked = lb
+            .select_agent(vec![slow, fast.clone()])
+            .await
+            .expect("pick");
+        assert_eq!(picked.id, "fast");
+    }
+
+    #[tokio::test]
+    async fn capability_based_prefers_more_capabilities() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::CapabilityBased, 2);
+        let small = agent_with_spec("small", vec!["a".to_string()]);
+        let big = agent_with_spec(
+            "big",
+            vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        );
+
+        let picked = lb.select_agent(vec![small, big]).await.expect("pick");
+        assert_eq!(picked.id, "big");
+    }
+
+    #[tokio::test]
+    async fn adaptive_prefers_lower_load_when_other_equal() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::Adaptive, 2);
+        let idle = agent_with_spec("idle", vec![]);
+        let busy = agent_with_spec("busy", vec![]);
+        *idle.current_load.write() = 0;
+        *busy.current_load.write() = 8;
+
+        let picked = lb
+            .select_agent(vec![busy, idle.clone()])
+            .await
+            .expect("pick");
+        assert_eq!(picked.id, "idle");
+    }
+
+    #[tokio::test]
+    async fn set_and_get_agent_weight_round_trip() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::WeightedRoundRobin, 1);
+        lb.set_agent_weight("agent-a", 2.5).await;
+        let weights = lb.get_agent_weights().await;
+        let w = weights.get("agent-a").copied().expect("weight");
+        assert!((w - 2.5_f64).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn update_performance_metrics_and_history() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::Adaptive, 2);
+        let m = PerformanceMetric {
+            timestamp: Utc::now(),
+            response_time: chrono::Duration::milliseconds(12),
+            success: true,
+            load: 3,
+        };
+        lb.update_performance_metrics("agent-1", m).await;
+        let hist = lb.get_agent_performance_history("agent-1").await;
+        assert_eq!(hist.len(), 1);
+        assert_eq!(hist[0].load, 3);
+    }
+
+    #[tokio::test]
+    async fn get_agent_performance_stats_computes_averages() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::Adaptive, 2);
+        for (ms, ok) in [(100_i64, true), (200, true), (300, false)] {
+            lb.update_performance_metrics(
+                "stats-agent",
+                PerformanceMetric {
+                    timestamp: Utc::now(),
+                    response_time: chrono::Duration::milliseconds(ms),
+                    success: ok,
+                    load: 2,
+                },
+            )
+            .await;
+        }
+        let stats = lb
+            .get_agent_performance_stats("stats-agent")
+            .await
+            .expect("stats");
+        assert_eq!(stats.total_requests, 3);
+        assert_eq!(stats.successful_requests, 2);
+        let expected_rate = 2.0_f64 / 3.0_f64;
+        assert!((stats.success_rate - expected_rate).abs() < 1e-12);
+        let expected_avg_ms = 200.0_f64;
+        assert!((stats.avg_response_time_ms - expected_avg_ms).abs() < f64::EPSILON);
+        let expected_avg_load = 2.0_f64;
+        assert!((stats.avg_load - expected_avg_load).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn clear_agent_performance_history_removes_series() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::Adaptive, 1);
+        lb.update_performance_metrics(
+            "gone",
+            PerformanceMetric {
+                timestamp: Utc::now(),
+                response_time: chrono::Duration::milliseconds(1),
+                success: true,
+                load: 0,
+            },
+        )
+        .await;
+        lb.clear_agent_performance_history("gone").await;
+        assert!(lb.get_agent_performance_history("gone").await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn clear_all_performance_history_empties_store() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::Adaptive, 1);
+        lb.update_performance_metrics(
+            "a",
+            PerformanceMetric {
+                timestamp: Utc::now(),
+                response_time: chrono::Duration::milliseconds(1),
+                success: true,
+                load: 0,
+            },
+        )
+        .await;
+        lb.clear_all_performance_history().await;
+        assert!(lb.get_agent_performance_history("a").await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn update_strategy_changes_reported_strategy() {
+        let mut lb = LoadBalancer::new(LoadBalancingStrategy::RoundRobin, 1);
+        lb.update_strategy(LoadBalancingStrategy::LeastConnections)
+            .await;
+        assert!(matches!(
+            lb.get_strategy(),
+            LoadBalancingStrategy::LeastConnections
+        ));
+    }
+
+    #[tokio::test]
+    async fn acquire_permit_reduces_available_until_drop() {
+        let lb = LoadBalancer::new(LoadBalancingStrategy::RoundRobin, 2);
+        assert_eq!(lb.available_permits(), 2);
+        let permit = lb.acquire_permit().await;
+        assert_eq!(lb.available_permits(), 1);
+        drop(permit);
+        assert_eq!(lb.available_permits(), 2);
+    }
+}

@@ -463,3 +463,105 @@ impl Default for LocalCommandRegistry {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::task::manager::TaskManager;
+    use crate::task::server::mock::MockCommand;
+    use crate::task::server::service::{TaskServerConfig, TaskServiceImpl};
+    use serde_json::json;
+
+    #[test]
+    fn command_stats_default_clone_debug() {
+        let a = CommandStats::default();
+        let b = a.clone();
+        assert_eq!(a.total_executions, b.total_executions);
+        let s = format!("{a:?}");
+        assert!(s.contains("CommandStats"));
+    }
+
+    #[test]
+    fn production_command_registry_register_list_execute_help_and_stats() {
+        let reg = ProductionCommandRegistry::new();
+        reg.register_command(Box::new(MockCommand::new("echo", "echo args")))
+            .unwrap();
+        let names = reg.list_commands().unwrap();
+        assert!(names.contains(&"echo".to_string()));
+        let out = reg.execute_command("echo", &[String::from("x")]).unwrap();
+        assert!(out.contains("echo"));
+        let help = reg.get_command_help("echo").unwrap();
+        assert!(help.contains("echo"));
+        let stats = reg.get_command_stats("echo").expect("stats");
+        assert!(stats.total_executions >= 1);
+        assert!(stats.successful_executions >= 1);
+    }
+
+    #[test]
+    fn production_command_registry_execute_unknown_command_returns_not_found() {
+        let reg = ProductionCommandRegistry::new();
+        let err = reg.execute_command("no_such_cmd", &[]).unwrap_err();
+        assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn production_command_registry_get_help_unknown_returns_not_found() {
+        let reg = ProductionCommandRegistry::new();
+        let err = reg.get_command_help("missing").unwrap_err();
+        assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn json_params_to_string_vec_accepts_array_of_primitives() {
+        let v = json!(["a", 1, true]);
+        let got = json_params_to_string_vec(&v).unwrap();
+        assert_eq!(got, vec!["a", "1", "true"]);
+    }
+
+    #[test]
+    fn json_params_to_string_vec_rejects_non_array() {
+        let err = json_params_to_string_vec(&json!({"k": "v"})).unwrap_err();
+        assert!(err.contains("array"));
+    }
+
+    #[test]
+    fn json_params_to_string_vec_rejects_unsupported_element() {
+        let err = json_params_to_string_vec(&json!([[]])).unwrap_err();
+        assert!(err.contains("Unsupported"));
+    }
+
+    #[test]
+    fn local_command_registry_new_default_and_empty() {
+        let mut reg = LocalCommandRegistry::new();
+        assert!(reg.command_names().is_empty());
+        assert!(reg.get("nope").is_none());
+        let reg2 = LocalCommandRegistry::default();
+        assert!(reg2.command_names().is_empty());
+    }
+
+    #[test]
+    fn help_command_parser_name_and_execute_general_help() {
+        let h = HelpCommand;
+        assert_eq!(h.parser().get_name(), "help");
+        let out = h.execute(&[]).unwrap();
+        assert!(out.contains("Available commands"));
+    }
+
+    #[tokio::test]
+    async fn task_service_impl_validators_and_command_wrappers() {
+        let tm = Arc::new(tokio::sync::Mutex::new(TaskManager::new()));
+        let svc = TaskServiceImpl::new(tm, TaskServerConfig::default());
+        assert!(TaskServiceImpl::validate_task_id("").is_err());
+        assert!(TaskServiceImpl::validate_task_id("tid").is_ok());
+        assert!(TaskServiceImpl::validate_agent_id("").is_err());
+        assert!(TaskServiceImpl::validate_agent_id("aid").is_ok());
+        let cmds = svc.list_available_commands().unwrap();
+        assert!(cmds.iter().any(|c| c == "help"));
+        let help = svc.get_command_help("help").unwrap();
+        assert!(!help.is_empty());
+        let exec = svc
+            .execute_command("help", HashMap::new())
+            .expect("execute");
+        assert!(exec.contains("Available commands"));
+    }
+}

@@ -131,3 +131,49 @@ impl Default for MockCommandRegistry {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::task::server::types::SimpleCommand;
+
+    #[test]
+    fn mock_command_implements_simple_command_execute_parser_help_clone_box() {
+        let cmd = MockCommand::new("alpha", "beta");
+        let sc: &dyn SimpleCommand = &cmd;
+        assert_eq!(sc.name(), "alpha");
+        assert_eq!(sc.description(), "beta");
+        assert!(sc.execute(&[String::from("z")]).unwrap().contains("alpha"));
+        assert_eq!(sc.parser().get_name(), "mock_command");
+        assert!(sc.help().contains("alpha"));
+        let boxed = sc.clone_box();
+        assert_eq!(boxed.name(), "alpha");
+    }
+
+    #[test]
+    fn mock_command_debug_and_assoc_clone_box() {
+        let c = MockCommand::new("x", "y");
+        let dbg = format!("{c:?}");
+        assert!(dbg.contains("MockCommand"));
+        let b = MockCommand::clone_box(&c);
+        assert_eq!(b.execute(&[]).unwrap(), c.execute(&[]).unwrap());
+    }
+
+    #[test]
+    fn mock_command_registry_register_list_get_help_and_errors() {
+        let mut reg = MockCommandRegistry::new();
+        reg.register(MockCommand::new("one", "first")).unwrap();
+        let names = reg.command_names();
+        assert!(names.contains(&"one".to_string()));
+        let listed = reg.list_commands();
+        assert!(listed.iter().any(|(n, _)| n == "one"));
+        assert_eq!(reg.get("one").unwrap().name(), "one");
+        assert_eq!(
+            reg.get_help("one").unwrap(),
+            MockCommand::new("one", "first").help()
+        );
+        assert!(reg.get_help("nope").is_err());
+        let empty = MockCommandRegistry::default();
+        assert!(empty.command_names().is_empty());
+    }
+}

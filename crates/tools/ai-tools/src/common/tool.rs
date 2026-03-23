@@ -145,7 +145,7 @@ pub struct PropertySchema {
 
     /// Items schema (for array types)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub items: Option<Box<PropertySchema>>,
+    pub items: Option<Box<Self>>,
 
     /// Enum values (for enum types)
     #[serde(rename = "enum", skip_serializing_if = "Option::is_none")]
@@ -153,7 +153,7 @@ pub struct PropertySchema {
 
     /// Properties (for object types)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub properties: Option<HashMap<String, PropertySchema>>,
+    pub properties: Option<HashMap<String, Self>>,
 
     /// Required properties (for object types)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -210,7 +210,7 @@ impl PropertySchema {
     }
 
     /// Create a new array property
-    pub fn array(description: impl Into<String>, item_schema: PropertySchema) -> Self {
+    pub fn array(description: impl Into<String>, item_schema: Self) -> Self {
         Self {
             schema_type: "array".to_string(),
             description: Some(description.into()),

@@ -284,7 +284,7 @@ impl HttpClient {
 
         // Parse JSON-RPC response
         let rpc_response: JsonRpcResponse = serde_json::from_str(&response_line)
-            .with_context(|| format!("Failed to parse response: {}", response_line))?;
+            .with_context(|| format!("Failed to parse response: {response_line}"))?;
 
         // Check for errors
         if let Some(error) = rpc_response.error {
@@ -371,8 +371,7 @@ mod tests {
         // Should contain generic capability reference
         assert!(
             path.contains("http") || path.contains("network"),
-            "Should reference generic capability, got: {}",
-            path
+            "Should reference generic capability, got: {path}"
         );
     }
 }

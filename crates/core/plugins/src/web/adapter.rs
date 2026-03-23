@@ -371,3 +371,318 @@ pub struct LegacyWebComponent {
     /// Component properties
     pub properties: serde_json::Value,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        LegacyWebComponent, LegacyWebPluginAdapter, LegacyWebPluginTrait, NewWebPluginAdapter,
+    };
+    use crate::plugin::{Plugin, PluginMetadata, WebEndpoint as LegacyEndpoint};
+    use crate::web::http::{HttpMethod, HttpStatus};
+    use crate::web::{
+        ComponentType, ExampleWebPlugin, WebComponent, WebEndpoint, WebPlugin, WebRequest,
+    };
+    use anyhow::Result;
+    use async_trait::async_trait;
+    use serde_json::{Value, json};
+    use std::any::Any;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use uuid::Uuid;
+
+    fn sample_metadata() -> PluginMetadata {
+        PluginMetadata::new("t", "1.0", "d", "a")
+    }
+
+    #[derive(Debug)]
+    struct StubLegacy {
+        metadata: PluginMetadata,
+    }
+
+    impl StubLegacy {
+        fn new() -> Self {
+            Self {
+                metadata: sample_metadata(),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Plugin for StubLegacy {
+        fn metadata(&self) -> &PluginMetadata {
+            &self.metadata
+        }
+
+        async fn initialize(&self) -> Result<()> {
+            Ok(())
+        }
+
+        async fn shutdown(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[async_trait]
+    impl LegacyWebPluginTrait for StubLegacy {
+        fn get_endpoints(&self) -> Vec<LegacyEndpoint> {
+            vec![
+                LegacyEndpoint {
+                    path: "/a".into(),
+                    method: "POST".into(),
+                    permissions: vec!["a".into(), "b".into()],
+                },
+                LegacyEndpoint {
+                    path: "/b".into(),
+                    method: "PUT".into(),
+                    permissions: vec![],
+                },
+                LegacyEndpoint {
+                    path: "/c".into(),
+                    method: "DELETE".into(),
+                    permissions: vec![],
+                },
+                LegacyEndpoint {
+                    path: "/d".into(),
+                    method: "PATCH".into(),
+                    permissions: vec![],
+                },
+                LegacyEndpoint {
+                    path: "/e".into(),
+                    method: "OPTIONS".into(),
+                    permissions: vec![],
+                },
+                LegacyEndpoint {
+                    path: "/f".into(),
+                    method: "HEAD".into(),
+                    permissions: vec![],
+                },
+                LegacyEndpoint {
+                    path: "/g".into(),
+                    method: "UNKNOWN".into(),
+                    permissions: vec![],
+                },
+            ]
+        }
+
+        async fn handle_request(&self, path: &str, method: &str, body: Value) -> Result<Value> {
+            Ok(json!({"path": path, "method": method, "body": body}))
+        }
+
+        fn get_components(&self) -> Vec<LegacyWebComponent> {
+            vec![LegacyWebComponent {
+                id: "not-uuid".into(),
+                name: "n".into(),
+                description: "d".into(),
+                component_type: "PAGE".into(),
+                properties: json!({"k": "v"}),
+            }]
+        }
+
+        async fn get_component_markup(&self, component_id: &str, props: Value) -> Result<String> {
+            Ok(format!("{component_id}:{props}"))
+        }
+    }
+
+    #[derive(Debug)]
+    struct FailingLegacy {
+        metadata: PluginMetadata,
+    }
+
+    #[async_trait]
+    impl Plugin for FailingLegacy {
+        fn metadata(&self) -> &PluginMetadata {
+            &self.metadata
+        }
+
+        async fn initialize(&self) -> Result<()> {
+            Ok(())
+        }
+
+        async fn shutdown(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[async_trait]
+    impl LegacyWebPluginTrait for FailingLegacy {
+        fn get_endpoints(&self) -> Vec<LegacyEndpoint> {
+            vec![]
+        }
+
+        async fn handle_request(&self, _path: &str, _method: &str, _body: Value) -> Result<Value> {
+            Err(anyhow::anyhow!("legacy failed"))
+        }
+
+        fn get_components(&self) -> Vec<LegacyWebComponent> {
+            vec![]
+        }
+
+        async fn get_component_markup(&self, _component_id: &str, _props: Value) -> Result<String> {
+            Ok(String::new())
+        }
+    }
+
+    #[test]
+    fn legacy_web_component_serde_debug_clone() {
+        let c = LegacyWebComponent {
+            id: "i".into(),
+            name: "n".into(),
+            description: "d".into(),
+            component_type: "widget".into(),
+            properties: json!({}),
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: LegacyWebComponent = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, c.id);
+        let _ = format!("{c:?}");
+        assert_eq!(c.clone().name, c.name);
+    }
+
+    #[test]
+    fn legacy_adapter_converts_endpoints_and_components() {
+        let inner = Arc::new(StubLegacy::new());
+        let adapter = LegacyWebPluginAdapter::new(inner);
+        let legacy_ep = LegacyEndpoint {
+            path: "/x".into(),
+            method: "get".into(),
+            permissions: vec!["p".into()],
+        };
+        let new_ep = adapter.convert_legacy_endpoint(&legacy_ep);
+        assert_eq!(new_ep.path, "/x");
+        assert!(new_ep.permissions.iter().any(|perm| perm.contains('p')));
+
+        for t in [
+            "page",
+            "partial",
+            "navigation",
+            "widget",
+            "modal",
+            "form",
+            "other",
+        ] {
+            let lc = LegacyWebComponent {
+                id: Uuid::new_v4().to_string(),
+                name: "n".into(),
+                description: "d".into(),
+                component_type: t.into(),
+                properties: json!({"a": 1}),
+            };
+            let wc = adapter.convert_legacy_component(&lc);
+            assert_eq!(wc.name, "n");
+        }
+        let _ = format!("{adapter:?}");
+    }
+
+    #[tokio::test]
+    async fn legacy_adapter_web_plugin_post_root_created_and_error_response() {
+        let inner = Arc::new(StubLegacy::new());
+        let adapter = LegacyWebPluginAdapter::new(inner);
+        let req = WebRequest {
+            method: HttpMethod::Post,
+            path: "/".into(),
+            query_params: HashMap::new(),
+            headers: HashMap::new(),
+            body: Some(json!({})),
+            user_id: None,
+            permissions: vec![],
+            route_params: HashMap::new(),
+        };
+        let res = WebPlugin::handle_request(&adapter, req).await.unwrap();
+        assert_eq!(res.status, HttpStatus::Created);
+
+        let fail = LegacyWebPluginAdapter::new(Arc::new(FailingLegacy {
+            metadata: sample_metadata(),
+        }));
+        let error_req = WebRequest {
+            method: HttpMethod::Get,
+            path: "/z".into(),
+            query_params: HashMap::new(),
+            headers: HashMap::new(),
+            body: None,
+            user_id: None,
+            permissions: vec![],
+            route_params: HashMap::new(),
+        };
+        let fail_res = WebPlugin::handle_request(&fail, error_req).await.unwrap();
+        assert_eq!(fail_res.status, HttpStatus::InternalServerError);
+
+        let eps = WebPlugin::get_endpoints(&adapter);
+        assert!(!eps.is_empty());
+        let comps = WebPlugin::get_components(&adapter);
+        assert!(!comps.is_empty());
+        let markup = WebPlugin::get_component_markup(&adapter, Uuid::new_v4(), json!({}))
+            .await
+            .unwrap();
+        assert!(markup.contains("div"));
+    }
+
+    #[test]
+    fn new_adapter_converts_modern_endpoint_and_component() {
+        let inner = Arc::new(ExampleWebPlugin::new());
+        let adapter = NewWebPluginAdapter::new(inner);
+        let id = Uuid::new_v4();
+        let we = WebEndpoint::new(id, "/p".into(), HttpMethod::Get, "d".into());
+        let leg = adapter.convert_new_endpoint(&we);
+        assert_eq!(leg.path, "/p");
+        assert_eq!(leg.method, "GET");
+
+        let mut wc = WebComponent::new(
+            id,
+            "n".into(),
+            "d".into(),
+            ComponentType::Custom("my".into()),
+        );
+        wc = wc.with_property("k", json!(true));
+        let lc = adapter.convert_new_component(&wc);
+        assert_eq!(lc.component_type, "my");
+        let _ = format!("{adapter:?}");
+    }
+
+    #[tokio::test]
+    async fn new_adapter_post_api_new_returns_created() {
+        let inner = Arc::new(ExampleWebPlugin::new());
+        let adapter = NewWebPluginAdapter::new(inner);
+        let req = WebRequest {
+            method: HttpMethod::Post,
+            path: "/api/new".into(),
+            query_params: HashMap::new(),
+            headers: HashMap::new(),
+            body: None,
+            user_id: None,
+            permissions: vec![],
+            route_params: HashMap::new(),
+        };
+        let res = WebPlugin::handle_request(&adapter, req).await.unwrap();
+        assert_eq!(res.status, HttpStatus::Created);
+        let markup = WebPlugin::get_component_markup(&adapter, Uuid::new_v4(), json!({}))
+            .await
+            .unwrap();
+        assert!(markup.contains("New Component"));
+    }
+
+    #[tokio::test]
+    async fn new_adapter_delegates_get_to_inner() {
+        let inner = Arc::new(ExampleWebPlugin::new());
+        let adapter = NewWebPluginAdapter::new(inner);
+        let req = WebRequest {
+            method: HttpMethod::Get,
+            path: "/api/examples".into(),
+            query_params: HashMap::new(),
+            headers: HashMap::new(),
+            body: None,
+            user_id: None,
+            permissions: vec![],
+            route_params: HashMap::new(),
+        };
+        let res = WebPlugin::handle_request(&adapter, req).await.unwrap();
+        assert_eq!(res.status, HttpStatus::Ok);
+    }
+}

@@ -41,6 +41,7 @@
 // Public submodules
 pub mod adapter;
 pub mod api;
+pub mod api_types;
 pub mod component;
 pub mod dashboard;
 pub mod endpoint;
@@ -53,7 +54,11 @@ pub mod routing;
 
 // Re-exports for easier usage
 pub use adapter::{LegacyWebPluginAdapter, NewWebPluginAdapter};
-pub use api::{PluginManagementAPI, PluginWebSocketHandler, WebSocketMessage};
+pub use api::{PluginManagementAPI, PluginWebSocketHandler};
+pub use api_types::{
+    EndpointInfo, PluginConfigurationRequest, PluginExecutionRequest, PluginInfo,
+    PluginInstallRequest, PluginMarketplaceEntry, PluginSearchRequest, WebSocketMessage,
+};
 pub use component::{ComponentType, WebComponent};
 pub use dashboard::{DashboardConfig, DashboardOverview, PluginDashboard};
 pub use endpoint::WebEndpoint;

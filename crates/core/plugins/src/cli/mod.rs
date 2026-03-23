@@ -65,3 +65,111 @@ pub trait CliPlugin: Plugin {
         self.metadata().capabilities.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{CliCommand, CliCommandMetadata, CliPlugin};
+    use crate::Plugin;
+    use crate::Result as PluginResult;
+    use crate::plugin::PluginMetadata;
+    use async_trait::async_trait;
+    use std::any::Any;
+    use std::collections::HashMap;
+
+    struct TestCliPlugin {
+        metadata: PluginMetadata,
+    }
+
+    impl TestCliPlugin {
+        fn new() -> Self {
+            let mut m = PluginMetadata::new("cli", "1.0", "d", "a");
+            m.capabilities = vec!["cap-a".into(), "cap-b".into()];
+            Self { metadata: m }
+        }
+    }
+
+    #[async_trait]
+    impl Plugin for TestCliPlugin {
+        fn metadata(&self) -> &PluginMetadata {
+            &self.metadata
+        }
+
+        async fn initialize(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        async fn shutdown(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[async_trait]
+    impl CliPlugin for TestCliPlugin {
+        fn get_commands(&self) -> Vec<CliCommandMetadata> {
+            vec![CliCommandMetadata {
+                name: "list".into(),
+                description: "list things".into(),
+                usage: "list [opts]".into(),
+                examples: vec!["list -a".into()],
+                permissions: vec!["read".into()],
+            }]
+        }
+
+        async fn execute_command(&self, command: &str, args: Vec<String>) -> PluginResult<String> {
+            Ok(format!("ran {command} {args:?}"))
+        }
+
+        fn get_command_help(&self, command: &str) -> Option<String> {
+            (command == "list").then(|| "help for list".into())
+        }
+    }
+
+    #[test]
+    fn cli_command_serializes_and_clones() {
+        let c = CliCommand {
+            name: "install".into(),
+            description: "install plugin".into(),
+            usage: "install <id>".into(),
+            parameters: HashMap::from([("force".into(), "bool".into())]),
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: CliCommand = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.name, c.name);
+        let cloned = c.clone();
+        assert_eq!(format!("{cloned:?}"), format!("{c:?}"));
+    }
+
+    #[test]
+    fn cli_command_metadata_clones_and_debugs() {
+        let m = CliCommandMetadata {
+            name: "n".into(),
+            description: "d".into(),
+            usage: "u".into(),
+            examples: vec!["e".into()],
+            permissions: vec!["p".into()],
+        };
+        let _ = format!("{m:?}");
+        assert_eq!(m.clone().name, m.name);
+    }
+
+    #[test]
+    fn cli_plugin_supports_command_and_capabilities() {
+        let p = TestCliPlugin::new();
+        assert!(p.supports_command("list"));
+        assert!(!p.supports_command("missing"));
+        assert_eq!(p.get_capabilities(), vec!["cap-a", "cap-b"]);
+    }
+
+    #[tokio::test]
+    async fn cli_plugin_execute_and_help() {
+        let p = TestCliPlugin::new();
+        let out = p.execute_command("list", vec!["a".into()]).await.unwrap();
+        assert!(out.contains("list"));
+        assert_eq!(p.get_command_help("list"), Some("help for list".into()));
+        assert!(p.get_command_help("other").is_none());
+    }
+}

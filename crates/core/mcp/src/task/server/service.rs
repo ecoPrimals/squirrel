@@ -61,3 +61,38 @@ impl Clone for TaskServiceImpl {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::task::manager::TaskManager;
+
+    #[test]
+    fn task_server_config_default_clone_debug() {
+        let a = TaskServerConfig::default();
+        let b = a.clone();
+        assert_eq!(a.max_concurrent_tasks, b.max_concurrent_tasks);
+        assert_eq!(a.task_timeout_seconds, b.task_timeout_seconds);
+        assert_eq!(a.enable_metrics, b.enable_metrics);
+        let s = format!("{a:?}");
+        assert!(s.contains("TaskServerConfig"));
+    }
+
+    #[test]
+    fn task_service_impl_new_and_create_server_and_clone_share_manager() {
+        let tm = Arc::new(Mutex::new(TaskManager::new()));
+        let cfg = TaskServerConfig {
+            max_concurrent_tasks: 7,
+            task_timeout_seconds: 42,
+            enable_metrics: false,
+        };
+        let svc = TaskServiceImpl::new(Arc::clone(&tm), cfg);
+        let svc2 = TaskServiceImpl::create_server(Arc::clone(&tm));
+        let cloned = svc.clone();
+        assert!(Arc::ptr_eq(&svc.task_manager, &cloned.task_manager));
+        assert!(Arc::ptr_eq(&svc.task_manager, &svc2.task_manager));
+        assert_eq!(svc.config.max_concurrent_tasks, 7);
+        let dbg = format!("{svc:?}");
+        assert!(dbg.contains("TaskServiceImpl"));
+    }
+}

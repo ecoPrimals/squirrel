@@ -178,7 +178,7 @@ impl ModelRegistry {
     }
 
     /// Set the global model registry
-    pub fn set_global(registry: ModelRegistry) {
+    pub fn set_global(registry: Self) {
         match GLOBAL_REGISTRY.write() {
             Ok(mut global_registry) => {
                 *global_registry = registry;
@@ -198,7 +198,7 @@ impl ModelRegistry {
         self.models.get(provider_id).and_then(|models| {
             models
                 .get(model_id)
-                .map(|capabilities| capabilities.to_ai_capabilities())
+                .map(ModelCapabilities::to_ai_capabilities)
         })
     }
 

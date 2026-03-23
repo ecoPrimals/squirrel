@@ -208,7 +208,7 @@ impl ModelRegistry {
     }
 
     /// Set the global model registry instance
-    pub fn set_global(registry: ModelRegistry) {
+    pub fn set_global(registry: Self) {
         match GLOBAL_REGISTRY.write() {
             Ok(mut global_registry) => {
                 *global_registry = registry;
@@ -223,7 +223,7 @@ impl ModelRegistry {
     /// Update the global model registry
     pub fn update_global<F>(f: F)
     where
-        F: FnOnce(&mut ModelRegistry),
+        F: FnOnce(&mut Self),
     {
         match GLOBAL_REGISTRY.write() {
             Ok(mut registry) => {
@@ -365,7 +365,7 @@ impl ModelRegistry {
         self.models.get(provider_id).and_then(|models| {
             models
                 .get(model_id)
-                .map(|capabilities| capabilities.to_ai_capabilities())
+                .map(ModelCapabilities::to_ai_capabilities)
         })
     }
 
@@ -618,8 +618,10 @@ impl ModelCapabilities {
         capabilities
             .resource_requirements
             .requires_specific_hardware = self.resources.requires_specific_hardware;
-        capabilities.resource_requirements.hardware_requirements =
-            self.resources.hardware_requirements.clone();
+        capabilities
+            .resource_requirements
+            .hardware_requirements
+            .clone_from(&self.resources.hardware_requirements);
 
         // Set cost metrics
         let cost_metrics = CostMetrics {

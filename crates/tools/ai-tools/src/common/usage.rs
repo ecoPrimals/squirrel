@@ -42,7 +42,7 @@ impl UsageInfo {
     }
 
     /// Combine with another usage info
-    pub fn combine(&self, other: &UsageInfo) -> Self {
+    pub fn combine(&self, other: &Self) -> Self {
         let estimated_cost_usd = match (self.estimated_cost_usd, other.estimated_cost_usd) {
             (Some(a), Some(b)) => Some(a + b),
             (Some(a), None) => Some(a),

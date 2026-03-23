@@ -5044,7 +5044,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.21.7",
+ "base64 0.22.1",
  "bincode",
  "bytes",
  "chrono",
@@ -5280,6 +5280,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "universal-constants",
+ "universal-patterns",
  "url",
  "uuid",
 ]
@@ -5344,7 +5345,7 @@ dependencies = [
  "async-trait",
  "axum 0.6.20",
  "axum-extra",
- "base64 0.21.7",
+ "base64 0.22.1",
  "bincode",
  "blake3",
  "bytes",

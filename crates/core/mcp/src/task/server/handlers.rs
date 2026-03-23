@@ -425,3 +425,207 @@ impl TaskServiceImpl {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::task::manager::TaskManager;
+    use crate::task::server::service::TaskServiceImpl;
+    use serde_json::json;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    fn create_task_params(name: &str) -> serde_json::Value {
+        json!({
+            "name": name,
+            "description": "desc",
+            "priority": 1,
+            "input_data": serde_json::to_vec(&json!({"k": "v"})).unwrap(),
+            "metadata": [],
+            "prerequisite_task_ids": [],
+            "context_id": "",
+            "agent_id": "",
+            "agent_type": 0
+        })
+    }
+
+    fn svc() -> TaskServiceImpl {
+        TaskServiceImpl::create_server(Arc::new(Mutex::new(TaskManager::new())))
+    }
+
+    #[tokio::test]
+    async fn handle_json_rpc_missing_method_returns_invalid_argument() {
+        let svc = svc();
+        let err = svc
+            .handle_json_rpc_request(json!({"jsonrpc": "2.0", "id": 1}))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("method") || err.to_string().contains("Missing"));
+    }
+
+    #[tokio::test]
+    async fn handle_json_rpc_unknown_method_returns_invalid_argument() {
+        let svc = svc();
+        let err = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "not_a_real_method",
+                "params": null
+            }))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Unknown"));
+    }
+
+    #[tokio::test]
+    async fn handle_create_task_invalid_params_returns_mcp_error() {
+        let svc = svc();
+        let err = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "create_task",
+                "params": "not-an-object"
+            }))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Invalid create_task params"));
+    }
+
+    #[tokio::test]
+    #[allow(clippy::too_many_lines)]
+    async fn task_json_rpc_create_get_list_update_assign_progress_complete_and_cancel() {
+        let svc = svc();
+        let created = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "create_task",
+                "params": create_task_params("lifecycle")
+            }))
+            .await
+            .unwrap();
+        let r = created["result"].clone();
+        assert_eq!(r["success"], true);
+        let task_id = r["task_id"].as_str().unwrap().to_string();
+
+        let got = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "get_task",
+                "params": { "task_id": task_id }
+            }))
+            .await
+            .unwrap();
+        assert_eq!(got["result"]["success"], true);
+        assert!(got["result"]["task"].is_object());
+
+        let listed = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "list_tasks",
+                "params": {
+                    "status": 0,
+                    "agent_id": "",
+                    "agent_type": 0,
+                    "context_id": "",
+                    "limit": 100,
+                    "offset": 0
+                }
+            }))
+            .await
+            .unwrap();
+        assert_eq!(listed["result"]["success"], true);
+        assert!(listed["result"]["total_count"].as_i64().unwrap() >= 1);
+
+        let updated = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "update_task",
+                "params": {
+                    "task_id": task_id,
+                    "name": "lifecycle2",
+                    "description": "d2",
+                    "priority": 2,
+                    "input_data": [],
+                    "metadata": []
+                }
+            }))
+            .await
+            .unwrap();
+        assert_eq!(updated["result"]["success"], true);
+
+        let assigned = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "assign_task",
+                "params": { "task_id": task_id, "agent_id": "agent-1", "agent_type": 0 }
+            }))
+            .await
+            .unwrap();
+        assert_eq!(assigned["result"]["success"], true);
+
+        let prog = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "report_progress",
+                "params": {
+                    "task_id": task_id,
+                    "progress_percent": 50,
+                    "progress_message": "half",
+                    "interim_results": []
+                }
+            }))
+            .await
+            .unwrap();
+        assert_eq!(prog["result"]["success"], true);
+
+        let done = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "complete_task",
+                "params": { "task_id": task_id, "output_data": [], "metadata": [] }
+            }))
+            .await
+            .unwrap();
+        assert_eq!(done["result"]["success"], true);
+
+        let t2 = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 8,
+                "method": "create_task",
+                "params": create_task_params("to-cancel")
+            }))
+            .await
+            .unwrap();
+        let id2 = t2["result"]["task_id"].as_str().unwrap();
+        let cancelled = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 9,
+                "method": "cancel_task",
+                "params": { "task_id": id2, "reason": "test" }
+            }))
+            .await
+            .unwrap();
+        assert_eq!(cancelled["result"]["success"], true);
+
+        let missing = svc
+            .handle_json_rpc_request(json!({
+                "jsonrpc": "2.0",
+                "id": 10,
+                "method": "get_task",
+                "params": { "task_id": "00000000-0000-0000-0000-000000000000" }
+            }))
+            .await
+            .unwrap();
+        assert_eq!(missing["result"]["success"], false);
+    }
+}

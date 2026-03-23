@@ -30,7 +30,7 @@ dashmap = "5.5"
 parking_lot = "0.12"
 # HTTP framework REMOVED - Squirrel uses Unix sockets + JSON-RPC + tarpc
 # All external HTTP is proxied via ecosystem capability routing (own IPC client)
-base64 = "0.21"
+base64 = "0.22"
 rand = "0.8"
 futures = "0.3"
 # lazy_static removed - evolved to std::sync::LazyLock (stable Rust 1.80+)

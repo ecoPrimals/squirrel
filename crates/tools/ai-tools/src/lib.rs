@@ -14,8 +14,8 @@
 // This is a structural issue affecting ~140 locations in this crate. Allowing temporarily while
 // we prioritize more critical issues (error handling, hardcoding elimination).
 // Will be fixed in systematic refactoring pass.
+// Structural lints requiring manual refactoring — tracked for future sprints.
 #![allow(
-    unused_imports,
     clippy::items_after_test_module,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
@@ -23,18 +23,13 @@
     clippy::must_use_candidate,
     clippy::missing_const_for_fn,
     clippy::doc_markdown,
-    clippy::uninlined_format_args,
-    clippy::use_self,
-    clippy::redundant_closure_for_method_calls,
     clippy::needless_pass_by_value,
     clippy::module_name_repetitions,
-    clippy::redundant_else,
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::significant_drop_tightening,
     clippy::option_if_let_else,
     clippy::single_match_else,
-    clippy::manual_string_new,
     clippy::or_fun_call,
     clippy::return_self_not_must_use,
     clippy::derive_partial_eq_without_eq,
@@ -46,17 +41,13 @@
     clippy::cast_lossless,
     clippy::unused_self,
     clippy::too_many_lines,
-    clippy::redundant_clone,
     clippy::suboptimal_flops,
     clippy::too_long_first_doc_paragraph,
     clippy::useless_let_if_seq,
     clippy::unnecessary_literal_bound,
     clippy::ignored_unit_patterns,
-    clippy::assigning_clones,
     clippy::branches_sharing_code,
-    clippy::cloned_instead_of_copied,
-    clippy::unreadable_literal,
-    clippy::needless_raw_string_hashes
+    clippy::unreadable_literal
 )]
 
 // Capability-based AI client (TRUE PRIMAL!)
@@ -73,6 +64,7 @@ pub mod capability_http;
 // NO reqwest, NO ring! 100% Pure Rust via ecosystem routing!
 pub mod neural_http;
 
+#[cfg(any(feature = "openai", feature = "anthropic", feature = "gemini"))]
 mod ipc_routed_providers;
 
 pub mod common;
@@ -328,8 +320,6 @@ pub mod dispatch {
 
 /// Client factory functions for easy instantiation
 pub mod clients {
-    use super::*;
-    use std::sync::Arc;
 
     /// Create an OpenAI-compatible client that sends traffic through the ecosystem IPC HTTP proxy.
     #[cfg(feature = "openai")]

@@ -484,3 +484,75 @@ impl Default for TaskManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::task::types::{Task, TaskStatus};
+
+    #[tokio::test]
+    async fn create_get_update_list_and_duplicate_id_error() {
+        let mgr = TaskManager::new();
+        let t = Task::new("job", "do work");
+        let created = mgr.create_task(t.clone()).await.unwrap();
+        assert_eq!(created.name.as_ref(), "job");
+        let got = mgr.get_task(created.id.as_ref()).await.unwrap();
+        assert_eq!(got.id, created.id);
+
+        let mut upd = got.clone();
+        upd.description = "updated".into();
+        mgr.update_task(upd).await.unwrap();
+
+        let all = mgr.list_tasks(None).await.unwrap();
+        assert_eq!(all.len(), 1);
+
+        let mut dup = Task::new("x", "y");
+        dup.id = Arc::clone(&created.id);
+        let err = mgr.create_task(dup).await.unwrap_err();
+        assert!(err.to_string().contains("already exists"));
+    }
+
+    #[tokio::test]
+    async fn assign_progress_complete_lifecycle() {
+        let mgr = TaskManager::new();
+        let t = Task::new("run", "go");
+        let created = mgr.create_task(t).await.unwrap();
+        let id = created.id.as_ref().to_string();
+        mgr.assign_task(&id, "agent-a").await.unwrap();
+        mgr.update_task_progress(&id, 33.0, "third").await.unwrap();
+        mgr.complete_task(&id, None).await.unwrap();
+        let done = mgr.get_task(&id).await.unwrap();
+        assert_eq!(done.status_code, TaskStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn cancel_pending_task_and_get_not_found() {
+        let mgr = TaskManager::new();
+        let t = Task::new("c", "cancel me");
+        let created = mgr.create_task(t).await.unwrap();
+        let id = created.id.as_ref();
+        mgr.cancel_task(id, "because").await.unwrap();
+        let cancelled = mgr.get_task(id).await.unwrap();
+        assert_eq!(cancelled.status_code, TaskStatus::Cancelled);
+
+        let err = mgr.get_task("missing-id").await.unwrap_err();
+        assert!(err.to_string().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn assign_invalid_state_and_progress_wrong_state_return_errors() {
+        let mgr = TaskManager::new();
+        let t = Task::new("e", "err");
+        let created = mgr.create_task(t).await.unwrap();
+        let id = created.id.as_ref().to_string();
+        mgr.assign_task(&id, "a1").await.unwrap();
+        let e2 = mgr.assign_task(&id, "a2").await.unwrap_err();
+        assert!(e2.to_string().contains("cannot be assigned"));
+
+        let pending = Task::new("p", "p");
+        let p = mgr.create_task(pending).await.unwrap();
+        let pid = p.id.as_ref().to_string();
+        let pe = mgr.update_task_progress(&pid, 1.0, "x").await.unwrap_err();
+        assert!(pe.to_string().contains("progress"));
+    }
+}

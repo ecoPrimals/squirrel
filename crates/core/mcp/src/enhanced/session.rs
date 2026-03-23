@@ -6,41 +6,41 @@
 //! Advanced session management with persistent context, intelligent session
 //! restoration, and multi-client support.
 
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::{RwLock, Mutex};
-use tokio::time::{interval, Instant};
-use tracing::{info, error, warn, debug, instrument};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use tokio::sync::{Mutex, RwLock};
+use tokio::time::{Instant, interval};
+use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
 
+use super::{ClientInfo, MCPContext, MCPEvent, SessionConfig, UserPreferences};
 use crate::error::{Result, types::MCPError};
 use crate::protocol::types::MCPMessage;
-use super::{SessionConfig, MCPEvent, ClientInfo, UserPreferences, MCPContext};
 
 /// Enhanced Session Manager - Advanced session orchestration
 #[derive(Debug)]
 pub struct EnhancedSessionManager {
     /// Configuration
     config: Arc<SessionConfig>,
-    
+
     /// Active sessions
     active_sessions: Arc<RwLock<HashMap<String, Arc<MCPSession>>>>,
-    
+
     /// Session storage
     storage: Arc<dyn SessionStorage>,
-    
+
     /// Context manager
     context_manager: Arc<ContextManager>,
-    
+
     /// Session monitor
     monitor: Arc<SessionMonitor>,
-    
+
     /// Cleanup manager
     cleanup_manager: Arc<CleanupManager>,
-    
+
     /// Metrics
     metrics: Arc<Mutex<SessionMetrics>>,
 }
@@ -50,28 +50,28 @@ pub struct EnhancedSessionManager {
 pub struct MCPSession {
     /// Session ID
     pub session_id: String,
-    
+
     /// Client information
     pub client_info: ClientInfo,
-    
+
     /// Session context
     pub context: MCPContext,
-    
+
     /// Session state
     pub state: SessionState,
-    
+
     /// Created timestamp
     pub created_at: chrono::DateTime<chrono::Utc>,
-    
+
     /// Last activity timestamp
     pub last_activity: chrono::DateTime<chrono::Utc>,
-    
+
     /// Session metadata
     pub metadata: HashMap<String, serde_json::Value>,
-    
+
     /// Configuration
     pub config: SessionConfiguration,
-    
+
     /// Statistics
     pub stats: SessionStatistics,
 }
@@ -80,16 +80,16 @@ pub struct MCPSession {
 pub struct SessionConfiguration {
     /// Auto-save enabled
     pub auto_save: bool,
-    
+
     /// Auto-save interval (seconds)
     pub auto_save_interval: u64,
-    
+
     /// Context history limit
     pub context_limit: usize,
-    
+
     /// Idle timeout (seconds)
     pub idle_timeout: u64,
-    
+
     /// Persistence settings
     pub persistence: PersistenceConfig,
 }
@@ -98,13 +98,13 @@ pub struct SessionConfiguration {
 pub struct PersistenceConfig {
     /// Enable persistence
     pub enabled: bool,
-    
+
     /// Storage backend
     pub backend: StorageBackend,
-    
+
     /// Compression enabled
     pub compression: bool,
-    
+
     /// Encryption enabled
     pub encryption: bool,
 }
@@ -121,19 +121,19 @@ pub enum StorageBackend {
 pub struct SessionStatistics {
     /// Total messages
     pub total_messages: u64,
-    
+
     /// Tool executions
     pub tool_executions: u64,
-    
+
     /// AI interactions
     pub ai_interactions: u64,
-    
+
     /// Context switches
     pub context_switches: u64,
-    
+
     /// Session duration (seconds)
     pub duration_seconds: u64,
-    
+
     /// Data transferred (bytes)
     pub data_transferred: u64,
 }
@@ -154,23 +154,21 @@ impl EnhancedSessionManager {
     #[instrument]
     pub async fn new(config: SessionConfig) -> Result<Self> {
         info!("Initializing Enhanced Session Manager");
-        
+
         let config = Arc::new(config);
-        
+
         // Initialize storage
-        let storage: Arc<dyn SessionStorage> = Arc::new(
-            MemorySessionStorage::new().await?
-        );
-        
+        let storage: Arc<dyn SessionStorage> = Arc::new(MemorySessionStorage::new().await?);
+
         // Initialize context manager
         let context_manager = Arc::new(ContextManager::new(config.clone()).await?);
-        
+
         // Initialize monitor
         let monitor = Arc::new(SessionMonitor::new(config.clone()).await?);
-        
+
         // Initialize cleanup manager
         let cleanup_manager = Arc::new(CleanupManager::new(config.clone()).await?);
-        
+
         let manager = Self {
             config: config.clone(),
             active_sessions: Arc::new(RwLock::new(HashMap::new())),
@@ -180,57 +178,57 @@ impl EnhancedSessionManager {
             cleanup_manager,
             metrics: Arc::new(Mutex::new(SessionMetrics::default())),
         };
-        
+
         info!("Enhanced Session Manager initialized successfully");
         Ok(manager)
     }
-    
+
     /// Start the session manager
     #[instrument(skip(self))]
     pub async fn start(&self) -> Result<()> {
         info!("Starting Enhanced Session Manager");
-        
+
         // Start monitor
         self.monitor.start().await?;
-        
+
         // Start cleanup manager
         self.cleanup_manager.start().await?;
-        
+
         // Start context manager
         self.context_manager.start().await?;
-        
+
         // Start periodic tasks
         self.start_periodic_tasks().await?;
-        
+
         info!("Enhanced Session Manager started successfully");
         Ok(())
     }
-    
+
     /// Stop the session manager
     #[instrument(skip(self))]
     pub async fn stop(&self) -> Result<()> {
         info!("Stopping Enhanced Session Manager");
-        
+
         // Save all active sessions
         self.save_all_sessions().await?;
-        
+
         // Stop components
         self.cleanup_manager.stop().await?;
         self.monitor.stop().await?;
         self.context_manager.stop().await?;
-        
+
         info!("Enhanced Session Manager stopped successfully");
         Ok(())
     }
-    
+
     /// Create a new session
     #[instrument(skip(self, client_info))]
     pub async fn create_session(&self, client_info: ClientInfo) -> Result<MCPSession> {
         debug!("Creating new session for client: {}", client_info.id);
-        
+
         // Check session limits
         self.check_session_limits().await?;
-        
+
         // Create session
         let session = MCPSession {
             session_id: Uuid::new_v4().to_string(),
@@ -243,36 +241,38 @@ impl EnhancedSessionManager {
             config: SessionConfiguration::default(),
             stats: SessionStatistics::default(),
         };
-        
+
         // Store session
         let session_arc = Arc::new(session.clone());
         {
             let mut sessions = self.active_sessions.write().await;
             sessions.insert(session.session_id.clone(), session_arc.clone());
         }
-        
+
         // Initialize context
-        self.context_manager.initialize_context(&session.session_id).await?;
-        
+        self.context_manager
+            .initialize_context(&session.session_id)
+            .await?;
+
         // Start monitoring
         self.monitor.start_monitoring(&session.session_id).await?;
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.lock().await;
             metrics.total_sessions += 1;
             metrics.active_sessions += 1;
         }
-        
+
         info!("Created session: {}", session.session_id);
         Ok(session)
     }
-    
+
     /// Get session by ID
     #[instrument(skip(self))]
     pub async fn get_session(&self, session_id: &str) -> Result<Arc<MCPSession>> {
         debug!("Getting session: {}", session_id);
-        
+
         // Check active sessions first
         {
             let sessions = self.active_sessions.read().await;
@@ -280,100 +280,108 @@ impl EnhancedSessionManager {
                 return Ok(session.clone());
             }
         }
-        
+
         // Try to restore from storage
         if let Some(session) = self.storage.load_session(session_id).await? {
             return self.restore_session(session).await;
         }
-        
-        Err(MCPError::NotFound(format!("Session not found: {}", session_id)))
+
+        Err(MCPError::NotFound(format!(
+            "Session not found: {}",
+            session_id
+        )))
     }
-    
+
     /// Update session activity
     #[instrument(skip(self))]
     pub async fn update_activity(&self, session_id: &str) -> Result<()> {
         debug!("Updating activity for session: {}", session_id);
-        
+
         let mut sessions = self.active_sessions.write().await;
         if let Some(session) = sessions.get_mut(session_id) {
             let mut session_mut = Arc::make_mut(session);
             session_mut.last_activity = chrono::Utc::now();
             session_mut.state = SessionState::Active;
-            
+
             // Update metrics
             {
                 let mut metrics = self.metrics.lock().await;
                 metrics.total_activity_updates += 1;
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Add message to session context
     #[instrument(skip(self, message))]
     pub async fn add_message(&self, session_id: &str, message: MCPMessage) -> Result<()> {
         debug!("Adding message to session: {}", session_id);
-        
+
         // Update context
-        self.context_manager.add_message(session_id, message).await?;
-        
+        self.context_manager
+            .add_message(session_id, message)
+            .await?;
+
         // Update session statistics
         self.update_session_stats(session_id, |stats| {
             stats.total_messages += 1;
-        }).await?;
-        
+        })
+        .await?;
+
         // Update activity
         self.update_activity(session_id).await?;
-        
+
         Ok(())
     }
-    
+
     /// Get session context
     #[instrument(skip(self))]
     pub async fn get_context(&self, session_id: &str) -> Result<MCPContext> {
         debug!("Getting context for session: {}", session_id);
-        
+
         let context = self.context_manager.get_context(session_id).await?;
         Ok(context)
     }
-    
+
     /// Save session
     #[instrument(skip(self))]
     pub async fn save_session(&self, session_id: &str) -> Result<()> {
         debug!("Saving session: {}", session_id);
-        
+
         let session = self.get_session(session_id).await?;
         self.storage.save_session(session.as_ref()).await?;
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.lock().await;
             metrics.sessions_saved += 1;
         }
-        
+
         Ok(())
     }
-    
+
     /// Restore session
     #[instrument(skip(self, session))]
     async fn restore_session(&self, session: MCPSession) -> Result<Arc<MCPSession>> {
         debug!("Restoring session: {}", session.session_id);
-        
+
         // Update state
         let mut restored_session = session.clone();
         restored_session.state = SessionState::Restoring;
-        
+
         // Store in active sessions
         let session_arc = Arc::new(restored_session);
         {
             let mut sessions = self.active_sessions.write().await;
             sessions.insert(session.session_id.clone(), session_arc.clone());
         }
-        
+
         // Restore context
-        self.context_manager.restore_context(&session.session_id, &session.context).await?;
-        
+        self.context_manager
+            .restore_context(&session.session_id, &session.context)
+            .await?;
+
         // Update state to active
         {
             let mut sessions = self.active_sessions.write().await;
@@ -383,26 +391,26 @@ impl EnhancedSessionManager {
                 session_mut.last_activity = chrono::Utc::now();
             }
         }
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.lock().await;
             metrics.sessions_restored += 1;
             metrics.active_sessions += 1;
         }
-        
+
         info!("Restored session: {}", session.session_id);
         Ok(session_arc)
     }
-    
+
     /// Terminate session
     #[instrument(skip(self))]
     pub async fn terminate_session(&self, session_id: &str) -> Result<()> {
         info!("Terminating session: {}", session_id);
-        
+
         // Save session before termination
         self.save_session(session_id).await?;
-        
+
         // Update state
         {
             let mut sessions = self.active_sessions.write().await;
@@ -411,30 +419,30 @@ impl EnhancedSessionManager {
                 session_mut.state = SessionState::Terminating;
             }
         }
-        
+
         // Stop monitoring
         self.monitor.stop_monitoring(session_id).await?;
-        
+
         // Clean up context
         self.context_manager.cleanup_context(session_id).await?;
-        
+
         // Remove from active sessions
         {
             let mut sessions = self.active_sessions.write().await;
             sessions.remove(session_id);
         }
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.lock().await;
             metrics.sessions_terminated += 1;
             metrics.active_sessions = metrics.active_sessions.saturating_sub(1);
         }
-        
+
         info!("Terminated session: {}", session_id);
         Ok(())
     }
-    
+
     /// List active sessions
     #[instrument(skip(self))]
     pub async fn list_active_sessions(&self) -> Result<Vec<String>> {
@@ -442,35 +450,37 @@ impl EnhancedSessionManager {
         let session_ids: Vec<String> = sessions.keys().cloned().collect();
         Ok(session_ids)
     }
-    
+
     /// Get session metrics
     pub async fn get_metrics(&self) -> SessionMetrics {
         let metrics = self.metrics.lock().await;
         metrics.clone()
     }
-    
+
     // Private methods
-    
+
     async fn check_session_limits(&self) -> Result<()> {
         let sessions = self.active_sessions.read().await;
         if sessions.len() >= self.config.max_sessions {
-            return Err(MCPError::ResourceLimitExceeded("Maximum sessions reached".to_string()));
+            return Err(MCPError::ResourceLimitExceeded(
+                "Maximum sessions reached".to_string(),
+            ));
         }
         Ok(())
     }
-    
+
     async fn start_periodic_tasks(&self) -> Result<()> {
         // Start auto-save task
         let active_sessions = self.active_sessions.clone();
         let storage = self.storage.clone();
         let config = self.config.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(config.auto_save_interval));
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let sessions = active_sessions.read().await;
                 for session in sessions.values() {
                     if let Err(e) = storage.save_session(session.as_ref()).await {
@@ -479,22 +489,22 @@ impl EnhancedSessionManager {
                 }
             }
         });
-        
+
         Ok(())
     }
-    
+
     async fn save_all_sessions(&self) -> Result<()> {
         let sessions = self.active_sessions.read().await;
-        
+
         for session in sessions.values() {
             if let Err(e) = self.storage.save_session(session.as_ref()).await {
                 error!("Failed to save session {}: {}", session.session_id, e);
             }
         }
-        
+
         Ok(())
     }
-    
+
     async fn update_session_stats<F>(&self, session_id: &str, updater: F) -> Result<()>
     where
         F: FnOnce(&mut SessionStatistics),
@@ -538,18 +548,18 @@ impl SessionStorage for MemorySessionStorage {
         sessions.insert(session.session_id.clone(), session.clone());
         Ok(())
     }
-    
+
     async fn load_session(&self, session_id: &str) -> Result<Option<MCPSession>> {
         let sessions = self.sessions.read().await;
         Ok(sessions.get(session_id).cloned())
     }
-    
+
     async fn delete_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.write().await;
         sessions.remove(session_id);
         Ok(())
     }
-    
+
     async fn list_sessions(&self) -> Result<Vec<String>> {
         let sessions = self.sessions.read().await;
         Ok(sessions.keys().cloned().collect())
@@ -569,29 +579,29 @@ impl ContextManager {
             contexts: Arc::new(RwLock::new(HashMap::new())),
         })
     }
-    
+
     pub async fn start(&self) -> Result<()> {
         Ok(())
     }
-    
+
     pub async fn initialize_context(&self, session_id: &str) -> Result<()> {
         let mut contexts = self.contexts.write().await;
         contexts.insert(session_id.to_string(), MCPContext::new());
         Ok(())
     }
-    
+
     pub async fn get_context(&self, session_id: &str) -> Result<MCPContext> {
         let contexts = self.contexts.read().await;
-        contexts.get(session_id)
-            .cloned()
-            .ok_or_else(|| MCPError::NotFound(format!("Context not found for session: {}", session_id)))
+        contexts.get(session_id).cloned().ok_or_else(|| {
+            MCPError::NotFound(format!("Context not found for session: {}", session_id))
+        })
     }
-    
+
     pub async fn add_message(&self, session_id: &str, message: MCPMessage) -> Result<()> {
         let mut contexts = self.contexts.write().await;
         if let Some(context) = contexts.get_mut(session_id) {
             context.conversation_history.push(message);
-            
+
             // Trim history if it exceeds the limit
             if context.conversation_history.len() > self.config.context_history_limit {
                 context.conversation_history.remove(0);
@@ -599,13 +609,13 @@ impl ContextManager {
         }
         Ok(())
     }
-    
+
     pub async fn restore_context(&self, session_id: &str, context: &MCPContext) -> Result<()> {
         let mut contexts = self.contexts.write().await;
         contexts.insert(session_id.to_string(), context.clone());
         Ok(())
     }
-    
+
     pub async fn cleanup_context(&self, session_id: &str) -> Result<()> {
         let mut contexts = self.contexts.write().await;
         contexts.remove(session_id);
@@ -622,15 +632,15 @@ impl SessionMonitor {
     pub async fn new(config: Arc<SessionConfig>) -> Result<Self> {
         Ok(Self { config })
     }
-    
+
     pub async fn start(&self) -> Result<()> {
         Ok(())
     }
-    
+
     pub async fn start_monitoring(&self, _session_id: &str) -> Result<()> {
         Ok(())
     }
-    
+
     pub async fn stop_monitoring(&self, _session_id: &str) -> Result<()> {
         Ok(())
     }
@@ -645,11 +655,11 @@ impl CleanupManager {
     pub async fn new(config: Arc<SessionConfig>) -> Result<Self> {
         Ok(Self { config })
     }
-    
+
     pub async fn start(&self) -> Result<()> {
         Ok(())
     }
-    
+
     pub async fn stop(&self) -> Result<()> {
         Ok(())
     }
@@ -711,4 +721,214 @@ impl Default for SessionStatistics {
             data_transferred: 0,
         }
     }
-} 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    #[test]
+    fn session_configuration_default_matches_documented_idle_timeout() {
+        let cfg = SessionConfiguration::default();
+        assert_eq!(cfg.auto_save, true);
+        assert_eq!(cfg.auto_save_interval, 30);
+        assert_eq!(cfg.context_limit, 1000);
+        assert_eq!(cfg.idle_timeout, 3600);
+        assert_eq!(cfg.persistence.enabled, true);
+        assert_eq!(cfg.persistence.compression, false);
+        assert_eq!(cfg.persistence.encryption, false);
+        match &cfg.persistence.backend {
+            StorageBackend::Memory => {}
+            other => panic!("expected Memory backend, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn session_statistics_default_is_all_zero() {
+        let stats = SessionStatistics::default();
+        assert_eq!(stats.total_messages, 0);
+        assert_eq!(stats.tool_executions, 0);
+        assert_eq!(stats.ai_interactions, 0);
+        assert_eq!(stats.context_switches, 0);
+        assert_eq!(stats.duration_seconds, 0);
+        assert_eq!(stats.data_transferred, 0);
+    }
+
+    #[test]
+    fn session_metrics_default_and_updates_track_totals() {
+        let mut m = SessionMetrics::default();
+        assert_eq!(m.total_sessions, 0);
+        assert_eq!(m.active_sessions, 0);
+        m.total_sessions = 3;
+        m.active_sessions = 2;
+        m.sessions_saved = 1;
+        m.sessions_restored = 4;
+        m.sessions_terminated = 1;
+        m.total_activity_updates = 10;
+        m.average_session_duration = 99;
+        assert_eq!(m.total_sessions, 3);
+        assert_eq!(m.active_sessions, 2);
+        assert_eq!(m.sessions_saved, 1);
+        assert_eq!(m.sessions_restored, 4);
+        assert_eq!(m.sessions_terminated, 1);
+        assert_eq!(m.total_activity_updates, 10);
+        assert_eq!(m.average_session_duration, 99);
+    }
+
+    #[test]
+    fn session_state_variants_are_exhaustive_and_distinct() {
+        let states = [
+            SessionState::Initializing,
+            SessionState::Active,
+            SessionState::Idle,
+            SessionState::Suspended,
+            SessionState::Restoring,
+            SessionState::Terminating,
+            SessionState::Terminated,
+        ];
+        for (i, a) in states.iter().enumerate() {
+            for (j, b) in states.iter().enumerate() {
+                if i == j {
+                    assert_eq!(a, b);
+                } else {
+                    assert_ne!(a, b);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn session_state_serde_roundtrip_preserves_variant() {
+        for state in [
+            SessionState::Initializing,
+            SessionState::Active,
+            SessionState::Idle,
+            SessionState::Suspended,
+            SessionState::Restoring,
+            SessionState::Terminating,
+            SessionState::Terminated,
+        ] {
+            let json = serde_json::to_string(&state).expect("serialize SessionState");
+            let back: SessionState = serde_json::from_str(&json).expect("deserialize SessionState");
+            assert_eq!(back, state);
+        }
+    }
+
+    #[test]
+    fn session_configuration_serde_roundtrip_preserves_fields() {
+        let cfg = SessionConfiguration {
+            auto_save: false,
+            auto_save_interval: 120,
+            context_limit: 42,
+            idle_timeout: 60,
+            persistence: PersistenceConfig {
+                enabled: false,
+                backend: StorageBackend::FileSystem {
+                    path: "/tmp/sessions".to_string(),
+                },
+                compression: true,
+                encryption: true,
+            },
+        };
+        let json = serde_json::to_string(&cfg).expect("serialize SessionConfiguration");
+        let back: SessionConfiguration = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.auto_save, cfg.auto_save);
+        assert_eq!(back.auto_save_interval, cfg.auto_save_interval);
+        assert_eq!(back.context_limit, cfg.context_limit);
+        assert_eq!(back.idle_timeout, cfg.idle_timeout);
+        assert_eq!(back.persistence.enabled, cfg.persistence.enabled);
+        assert_eq!(back.persistence.compression, cfg.persistence.compression);
+        assert_eq!(back.persistence.encryption, cfg.persistence.encryption);
+        match (&back.persistence.backend, &cfg.persistence.backend) {
+            (StorageBackend::FileSystem { path: p1 }, StorageBackend::FileSystem { path: p2 }) => {
+                assert_eq!(p1, p2)
+            }
+            _ => panic!("backend mismatch after roundtrip"),
+        }
+    }
+
+    #[test]
+    fn session_statistics_serde_roundtrip_preserves_counts() {
+        let stats = SessionStatistics {
+            total_messages: 9,
+            tool_executions: 2,
+            ai_interactions: 3,
+            context_switches: 1,
+            duration_seconds: 500,
+            data_transferred: 1024,
+        };
+        let json = serde_json::to_string(&stats).expect("serialize SessionStatistics");
+        let back: SessionStatistics = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.total_messages, stats.total_messages);
+        assert_eq!(back.tool_executions, stats.tool_executions);
+        assert_eq!(back.ai_interactions, stats.ai_interactions);
+        assert_eq!(back.context_switches, stats.context_switches);
+        assert_eq!(back.duration_seconds, stats.duration_seconds);
+        assert_eq!(back.data_transferred, stats.data_transferred);
+    }
+
+    #[test]
+    fn storage_backend_redis_variant_roundtrips_through_serde() {
+        let backend = StorageBackend::Redis {
+            url: "redis://127.0.0.1:6379".to_string(),
+        };
+        let json = serde_json::to_string(&backend).expect("serialize");
+        let back: StorageBackend = serde_json::from_str(&json).expect("deserialize");
+        match (back, backend) {
+            (StorageBackend::Redis { url: u1 }, StorageBackend::Redis { url: u2 }) => {
+                assert_eq!(u1, u2)
+            }
+            _ => panic!("expected Redis variant"),
+        }
+    }
+
+    #[tokio::test]
+    async fn memory_session_storage_new_starts_empty() {
+        let storage = MemorySessionStorage::new()
+            .await
+            .expect("construct storage");
+        let ids = storage.list_sessions().await.expect("list sessions");
+        assert_eq!(ids, Vec::<String>::new());
+    }
+
+    #[tokio::test]
+    async fn memory_session_storage_load_unknown_returns_none() {
+        let storage = MemorySessionStorage::new()
+            .await
+            .expect("construct storage");
+        let loaded = storage.load_session("no-such-session").await.expect("load");
+        assert_eq!(loaded, None);
+    }
+
+    #[tokio::test]
+    async fn memory_session_storage_delete_unknown_is_ok() {
+        let storage = MemorySessionStorage::new()
+            .await
+            .expect("construct storage");
+        storage
+            .delete_session("missing")
+            .await
+            .expect("delete should not error");
+    }
+
+    #[tokio::test]
+    async fn memory_session_storage_concurrent_list_sessions_sees_consistent_snapshot() {
+        let storage = Arc::new(
+            MemorySessionStorage::new()
+                .await
+                .expect("construct storage"),
+        );
+        let mut tasks = Vec::new();
+        for _ in 0..32 {
+            let s = storage.clone();
+            tasks.push(tokio::spawn(async move {
+                s.list_sessions().await.expect("list")
+            }));
+        }
+        for task in tasks {
+            let got = task.await.expect("task join");
+            assert_eq!(got, Vec::<String>::new());
+        }
+    }
+}

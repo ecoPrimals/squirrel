@@ -134,3 +134,218 @@ impl From<&str> for ProtocolError {
 //         ProtocolError::WireFormatError(error.to_string())
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    // SPDX-License-Identifier: AGPL-3.0-only
+    // Inline tests follow the pattern used in `context.rs` and `severity.rs`.
+
+    use super::ProtocolError;
+    use std::fmt::Write as _;
+
+    #[test]
+    fn protocol_error_display_invalid_version() {
+        let err = ProtocolError::InvalidVersion("v".into());
+        assert!(err.to_string().contains("version"));
+    }
+
+    #[test]
+    fn protocol_error_display_invalid_state() {
+        let err = ProtocolError::InvalidState("s".into());
+        assert!(err.to_string().contains("state"));
+    }
+
+    #[test]
+    fn protocol_error_display_invalid_format() {
+        let err = ProtocolError::InvalidFormat("fmt".into());
+        assert!(err.to_string().contains("format"));
+    }
+
+    #[test]
+    fn protocol_error_display_negotiation_failed() {
+        let err = ProtocolError::NegotiationFailed("n".into());
+        assert!(err.to_string().contains("negotiation"));
+    }
+
+    #[test]
+    fn protocol_error_display_handshake_failed() {
+        let err = ProtocolError::HandshakeFailed("h".into());
+        assert!(err.to_string().contains("handshake"));
+    }
+
+    #[test]
+    fn protocol_error_display_sync_failed() {
+        let err = ProtocolError::SyncFailed("sync".into());
+        assert!(err.to_string().contains("synchronization"));
+    }
+
+    #[test]
+    fn protocol_error_display_unsupported_capability() {
+        let err = ProtocolError::UnsupportedCapability("cap".into());
+        assert!(err.to_string().contains("capability"));
+    }
+
+    #[test]
+    fn protocol_error_display_configuration_error() {
+        let err = ProtocolError::ConfigurationError("cfg".into());
+        assert!(err.to_string().contains("configuration"));
+    }
+
+    #[test]
+    fn protocol_error_display_protocol_already_initialized() {
+        let err = ProtocolError::ProtocolAlreadyInitialized;
+        assert!(err.to_string().contains("already initialized"));
+    }
+
+    #[test]
+    fn protocol_error_display_protocol_not_initialized() {
+        let err = ProtocolError::ProtocolNotInitialized;
+        assert!(err.to_string().contains("not initialized"));
+    }
+
+    #[test]
+    fn protocol_error_display_protocol_not_ready() {
+        let err = ProtocolError::ProtocolNotReady;
+        assert!(err.to_string().contains("not ready"));
+    }
+
+    #[test]
+    fn protocol_error_display_state_serialization() {
+        let err = ProtocolError::StateSerialization("ser".into());
+        assert!(err.to_string().contains("serialize"));
+    }
+
+    #[test]
+    fn protocol_error_display_state_deserialization() {
+        let err = ProtocolError::StateDeserialization("de".into());
+        assert!(err.to_string().contains("deserialize"));
+    }
+
+    #[test]
+    fn protocol_error_display_handler_already_exists() {
+        let err = ProtocolError::HandlerAlreadyExists("m".into());
+        assert!(err.to_string().contains("already exists"));
+    }
+
+    #[test]
+    fn protocol_error_display_handler_not_found() {
+        let err = ProtocolError::HandlerNotFound("m".into());
+        assert!(err.to_string().contains("No handler"));
+    }
+
+    #[test]
+    fn protocol_error_display_invalid_payload() {
+        let err = ProtocolError::InvalidPayload("p".into());
+        assert!(err.to_string().contains("payload"));
+    }
+
+    #[test]
+    fn protocol_error_display_message_too_large() {
+        let err = ProtocolError::MessageTooLarge("big".into());
+        assert!(err.to_string().contains("large"));
+    }
+
+    #[test]
+    fn protocol_error_display_invalid_timestamp() {
+        let err = ProtocolError::InvalidTimestamp("ts".into());
+        assert!(err.to_string().contains("timestamp"));
+    }
+
+    #[test]
+    fn protocol_error_display_message_timeout() {
+        let err = ProtocolError::MessageTimeout("to".into());
+        assert!(err.to_string().contains("timeout"));
+    }
+
+    #[test]
+    fn protocol_error_display_invalid_security_metadata() {
+        let err = ProtocolError::InvalidSecurityMetadata("sec".into());
+        assert!(err.to_string().contains("security"));
+    }
+
+    #[test]
+    fn protocol_error_display_validation_failed() {
+        let err = ProtocolError::ValidationFailed("val".into());
+        assert!(err.to_string().contains("validation"));
+    }
+
+    #[test]
+    fn protocol_error_display_recovery_failed() {
+        let err = ProtocolError::RecoveryFailed("rec".into());
+        assert!(err.to_string().contains("Recovery"));
+    }
+
+    #[test]
+    fn protocol_error_display_wire() {
+        let err = ProtocolError::Wire("w".into());
+        assert!(err.to_string().contains("Wire"));
+    }
+
+    #[test]
+    fn protocol_error_display_remote_error() {
+        let err = ProtocolError::RemoteError("peer".into());
+        assert!(err.to_string().contains("Remote"));
+    }
+
+    #[test]
+    fn protocol_error_display_serialization_error() {
+        let err = ProtocolError::SerializationError("ser".into());
+        assert!(err.to_string().contains("Serialization"));
+    }
+
+    #[test]
+    fn protocol_error_display_deserialization_error() {
+        let err = ProtocolError::DeserializationError("de".into());
+        assert!(err.to_string().contains("Deserialization"));
+    }
+
+    #[test]
+    fn protocol_error_debug_all_variants() {
+        let cases: Vec<ProtocolError> = vec![
+            ProtocolError::InvalidVersion("a".into()),
+            ProtocolError::InvalidState("b".into()),
+            ProtocolError::InvalidFormat("c".into()),
+            ProtocolError::NegotiationFailed("d".into()),
+            ProtocolError::HandshakeFailed("e".into()),
+            ProtocolError::SyncFailed("f".into()),
+            ProtocolError::UnsupportedCapability("g".into()),
+            ProtocolError::ConfigurationError("h".into()),
+            ProtocolError::ProtocolAlreadyInitialized,
+            ProtocolError::ProtocolNotInitialized,
+            ProtocolError::ProtocolNotReady,
+            ProtocolError::StateSerialization("i".into()),
+            ProtocolError::StateDeserialization("j".into()),
+            ProtocolError::HandlerAlreadyExists("k".into()),
+            ProtocolError::HandlerNotFound("l".into()),
+            ProtocolError::InvalidPayload("m".into()),
+            ProtocolError::MessageTooLarge("n".into()),
+            ProtocolError::InvalidTimestamp("o".into()),
+            ProtocolError::MessageTimeout("p".into()),
+            ProtocolError::InvalidSecurityMetadata("q".into()),
+            ProtocolError::ValidationFailed("r".into()),
+            ProtocolError::RecoveryFailed("s".into()),
+            ProtocolError::Wire("t".into()),
+            ProtocolError::RemoteError("u".into()),
+            ProtocolError::SerializationError("v".into()),
+            ProtocolError::DeserializationError("w".into()),
+        ];
+        assert_eq!(cases.len(), 26);
+        for e in cases {
+            let mut buf = String::new();
+            write!(&mut buf, "{e:?}").expect("format");
+            assert!(!buf.is_empty());
+        }
+    }
+
+    #[test]
+    fn protocol_error_from_string() {
+        let err: ProtocolError = "oops".to_string().into();
+        assert!(matches!(err, ProtocolError::InvalidFormat(s) if s == "oops"));
+    }
+
+    #[test]
+    fn protocol_error_from_str_slice() {
+        let err: ProtocolError = "slice".into();
+        assert!(matches!(err, ProtocolError::InvalidFormat(s) if s == "slice"));
+    }
+}

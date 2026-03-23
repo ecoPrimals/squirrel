@@ -291,32 +291,39 @@ mod tests {
     // --- write_tcp_discovery_file + discover roundtrip ---
     #[test]
     fn test_write_and_discover_tcp_endpoint() {
-        let service_name = "test-discovery-roundtrip";
+        let tmp = tempfile::tempdir().expect("create temp dir for discovery roundtrip");
+        let tmp_path = tmp.path().to_string_lossy().to_string();
+
+        let service_name = &format!("test-discovery-roundtrip-{}", std::process::id());
         let addr: std::net::SocketAddr = "127.0.0.1:54321".parse().unwrap();
 
-        // Write discovery file
-        let write_result = write_tcp_discovery_file(service_name, &addr);
-        assert!(write_result.is_ok(), "Failed to write discovery file");
+        temp_env::with_vars(
+            [
+                ("XDG_RUNTIME_DIR", Some(tmp_path.as_str())),
+                ("HOME", Some(tmp_path.as_str())),
+            ],
+            || {
+                let write_result = write_tcp_discovery_file(service_name, &addr);
+                assert!(write_result.is_ok(), "Failed to write discovery file");
 
-        // Discover it
-        let discover_result = discover_tcp_endpoint(service_name);
-        assert!(discover_result.is_ok(), "Failed to discover endpoint");
+                let discover_result = discover_tcp_endpoint(service_name);
+                assert!(discover_result.is_ok(), "Failed to discover endpoint");
 
-        let endpoint = discover_result.unwrap();
-        match endpoint {
-            IpcEndpoint::TcpLocal(discovered_addr) => {
-                assert_eq!(discovered_addr, addr);
-            }
-            #[cfg(unix)]
-            other @ IpcEndpoint::UnixSocket(_) => panic!("Expected TcpLocal, got {:?}", other),
-            #[cfg(windows)]
-            other @ IpcEndpoint::NamedPipe(_) => panic!("Expected TcpLocal, got {:?}", other),
-        }
-
-        // Clean up - remove discovery files
-        let candidates = get_tcp_discovery_file_candidates(service_name);
-        for path in candidates {
-            let _ = std::fs::remove_file(path);
-        }
+                let endpoint = discover_result.unwrap();
+                match endpoint {
+                    IpcEndpoint::TcpLocal(discovered_addr) => {
+                        assert_eq!(discovered_addr, addr);
+                    }
+                    #[cfg(unix)]
+                    other @ IpcEndpoint::UnixSocket(_) => {
+                        panic!("Expected TcpLocal, got {other:?}")
+                    }
+                    #[cfg(windows)]
+                    other @ IpcEndpoint::NamedPipe(_) => {
+                        panic!("Expected TcpLocal, got {other:?}")
+                    }
+                }
+            },
+        );
     }
 }
