@@ -477,7 +477,7 @@ async fn test_metric_type_preservation() {
     for (i, metric_type) in metric_types.iter().enumerate() {
         let metric_def = CustomMetricDefinition {
             name: format!("type_test_{i}"),
-            metric_type: metric_type.clone(),
+            metric_type: *metric_type,
             description: "Type test".to_string(),
             labels: vec![],
             unit: "count".to_string(),

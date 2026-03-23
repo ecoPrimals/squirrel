@@ -661,7 +661,10 @@ mod tests {
             Some(dir.path().to_str().expect("utf8")),
             || {
                 let dirs = get_socket_directories();
-                assert_eq!(dirs.first().map(|p| p.as_path()), Some(dir.path()));
+                assert_eq!(
+                    dirs.first().map(std::path::PathBuf::as_path),
+                    Some(dir.path())
+                );
             },
         );
     }

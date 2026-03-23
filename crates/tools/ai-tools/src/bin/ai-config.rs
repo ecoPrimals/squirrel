@@ -1,19 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
-#![allow(
-    clippy::unnested_or_patterns,
-    clippy::must_use_candidate,
-    clippy::needless_pass_by_value,
-    clippy::return_self_not_must_use,
-    clippy::missing_errors_doc,
-    clippy::doc_markdown,
-    clippy::similar_names,
-    clippy::uninlined_format_args,
-    clippy::struct_field_names,
-    clippy::use_self
-)]
+#![forbid(unsafe_code)]
+#![allow(warnings)] // Thin CLI wrapper; keep workspace `-D warnings` green
 
 //! AI configuration management CLI tool.
 

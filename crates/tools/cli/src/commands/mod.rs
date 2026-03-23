@@ -39,6 +39,8 @@ pub fn register_commands() -> Result<()> {
 
 /// Command adapter module
 pub mod adapter {
+    #![allow(clippy::wildcard_imports)]
+
     use super::*;
 
     /// Command adapter trait

@@ -368,7 +368,7 @@ mod health_monitoring_tests {
         let mc = Arc::new(MetricsCollector::new());
         let em = Arc::new(EcosystemManager::new(
             crate::ecosystem::config::EcosystemConfig::default(),
-            mc.clone(),
+            mc,
         ));
         let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()))
             as Arc<dyn crate::session::SessionManager>;
@@ -412,8 +412,7 @@ mod health_monitoring_tests {
     #[tokio::test]
     async fn perform_health_check_returns_bool() {
         let p = test_provider().await;
-        let ok = p.perform_health_check().await.unwrap();
-        assert!(ok || !ok);
+        let _ok: bool = p.perform_health_check().await.unwrap();
     }
 
     #[tokio::test]

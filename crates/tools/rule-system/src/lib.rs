@@ -1,10 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+#![warn(clippy::missing_docs_in_private_items)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![expect(
+    clippy::missing_errors_doc,
+    clippy::significant_drop_tightening,
+    clippy::option_if_let_else,
+    clippy::use_self,
+    clippy::missing_const_for_fn,
+    reason = "Progressive lint tightening for rule-system crate"
+)]
+
 //! Rule System for Squirrel
 //!
 //! This crate provides a rule system for the Squirrel Context Management System,
-#![forbid(unsafe_code)]
 //! allowing for the definition, parsing, evaluation, and application of rules to context data.
 //!
 //! # Overview
@@ -18,21 +32,6 @@
 //! - **Rule Manager**: Management interface for rules with dependency resolution
 //! - **Rule Evaluator**: Engine for evaluating rules against context data
 //! - **Rule Actions**: System for executing actions based on rule evaluations
-
-#![warn(missing_docs)]
-#![warn(clippy::missing_docs_in_private_items)]
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::needless_raw_string_hashes)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![allow(
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::significant_drop_tightening,
-    clippy::option_if_let_else,
-    clippy::use_self,
-    clippy::missing_const_for_fn
-)]
 
 pub mod actions;
 pub mod directory;

@@ -2,7 +2,10 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Command registry for managing and executing commands
-#![allow(clippy::type_complexity)] // Complex handler types are inherent to the command pattern
+#![expect(
+    clippy::type_complexity,
+    reason = "Complex handler types are inherent to the command pattern"
+)]
 //!
 //! This module provides the core types and interfaces for the command system.
 

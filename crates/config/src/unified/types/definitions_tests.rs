@@ -346,7 +346,7 @@ fn ai_providers_config_serializes_roundtrip() {
         },
     );
     let cfg = AiProvidersConfig {
-        default_endpoint: "".to_string(),
+        default_endpoint: String::new(),
         providers,
         enable_local: false,
         enable_cloud: false,

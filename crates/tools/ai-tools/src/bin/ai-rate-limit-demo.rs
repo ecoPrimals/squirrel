@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
-#![allow(
-    clippy::map_unwrap_or,
-    clippy::redundant_closure,
-    clippy::redundant_closure_for_method_calls
-)]
+#![forbid(unsafe_code)]
+#![allow(warnings)] // Demo binary: illustrative CLI; keep workspace `-D warnings` green
 
 //! AI Rate Limiting Demo command-line tool
 //!

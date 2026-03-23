@@ -4,8 +4,11 @@ version.workspace = true
 edition.workspace = true
 license = "AGPL-3.0-only"
 authors.workspace = true
-
-
+description = "Command handlers and orchestration for Squirrel"
+repository = "https://github.com/ecoPrimals/squirrel"
+readme = "README.md"
+keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
+categories = ["development-tools"]
 
 [dependencies]
 # Workspace crates

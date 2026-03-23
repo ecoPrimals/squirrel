@@ -345,6 +345,8 @@ impl ConfigUtils {
 
 /// Configuration validation helpers
 pub mod validation_helpers {
+    #![allow(clippy::wildcard_imports)] // Subset of `config` types for small helpers
+
     use super::*;
 
     /// Check if a port is valid and available

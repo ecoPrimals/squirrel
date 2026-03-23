@@ -5,9 +5,6 @@
 //!
 //! This module provides adapter functionality to bridge between legacy and new plugin systems.
 
-// Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
-#![allow(deprecated)]
-
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::{Value, json};

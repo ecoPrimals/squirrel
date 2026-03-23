@@ -90,7 +90,7 @@ mod tests {
         assert_eq!(c.violation_window, Duration::from_secs(60));
         assert!(c.adaptive_limiting);
         assert!(
-            c.whitelist.iter().any(|ip| ip.is_loopback()),
+            c.whitelist.iter().any(std::net::IpAddr::is_loopback),
             "expected loopback in whitelist"
         );
     }

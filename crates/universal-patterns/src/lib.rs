@@ -2,7 +2,8 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
+#![forbid(unsafe_code)]
+#![expect(
     clippy::unused_async,
     clippy::missing_errors_doc,
     clippy::must_use_candidate,
@@ -18,8 +19,8 @@
     clippy::cast_possible_truncation,
     clippy::derive_partial_eq_without_eq,
     clippy::option_if_let_else,
-    clippy::wildcard_imports,
-    clippy::cloned_instead_of_copied
+    clippy::cloned_instead_of_copied,
+    reason = "Large pattern library; progressive lint and doc tightening"
 )]
 
 //! # Universal Patterns Framework
@@ -65,7 +66,6 @@
 //! # }
 //! ```
 
-#![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]

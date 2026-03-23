@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license = "AGPL-3.0-only"
 description = "Context adapter components for Squirrel"
+repository = "https://github.com/ecoPrimals/squirrel"
+readme = "README.md"
+keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
+categories = ["development-tools"]
 
 [lints]
 workspace = true

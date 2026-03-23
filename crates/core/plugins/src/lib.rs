@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Plugin system for Squirrel
-//!
-//! This module provides a comprehensive plugin system with support for:
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
+
+//! Plugin system for Squirrel
+//!
+//! This module provides a comprehensive plugin system with support for:
 //! - Plugin loading and management
 //! - Security validation and sandboxing
 //! - Dependency resolution
@@ -14,9 +15,11 @@
 //! - State management
 
 // Allow deprecated items during plugin system migration to squirrel_interfaces
-#![allow(deprecated)]
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(
+#![expect(
+    deprecated,
+    reason = "Deprecated plugin API during migration to squirrel_interfaces"
+)]
+#![expect(
     clippy::significant_drop_tightening,
     clippy::unused_self,
     clippy::unused_async,
@@ -26,7 +29,8 @@
     clippy::unnecessary_wraps,
     clippy::cast_possible_wrap,
     clippy::cast_possible_truncation,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    reason = "Progressive lint tightening; plugin crate refactor pending"
 )]
 
 mod default_manager;

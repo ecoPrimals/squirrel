@@ -68,7 +68,7 @@ fn test_metric_type_serialization() {
 #[test]
 fn test_metric_type_clone() {
     let original = MetricType::Histogram;
-    let cloned = original.clone();
+    let cloned = original;
 
     assert_eq!(original, cloned);
 }

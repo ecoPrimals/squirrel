@@ -145,7 +145,7 @@ mod tests {
         };
 
         let auth_result = AuthResult {
-            principal: principal.clone(),
+            principal,
             token: "test-token".to_string(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
             permissions: vec!["read".to_string(), "write".to_string()],
@@ -245,7 +245,7 @@ mod tests {
         let health = SecurityHealth::healthy(std::time::Duration::from_millis(10));
         assert!(health.is_recent(std::time::Duration::from_secs(60)));
 
-        let mut old_health = health.clone();
+        let mut old_health = health;
         old_health.last_check = chrono::Utc::now() - chrono::Duration::hours(2);
         assert!(!old_health.is_recent(std::time::Duration::from_secs(60)));
     }
@@ -286,7 +286,7 @@ mod tests {
             service_id: "test-service".to_string(),
         };
 
-        let request = AuthRequest::new("test-service".to_string(), credentials.clone());
+        let request = AuthRequest::new("test-service".to_string(), credentials);
         assert_eq!(request.service_id, "test-service");
         assert!(matches!(request.credentials, Credentials::Test { .. }));
     }
@@ -305,7 +305,7 @@ mod tests {
 
         let request = AuthorizationRequest::new(
             "test-service".to_string(),
-            principal.clone(),
+            principal,
             "read".to_string(),
             "resource123".to_string(),
         );
@@ -360,7 +360,7 @@ mod tests {
         let request = AuditLogRequest::new(
             "test-service".to_string(),
             "authenticate".to_string(),
-            context.clone(),
+            context,
         );
 
         assert_eq!(request.service_id, "test-service");

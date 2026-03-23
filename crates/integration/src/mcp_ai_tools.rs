@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP AI Tools Adapter
-#![allow(
+#![expect(
     dead_code,
     reason = "MCP AI tools integration adapter awaiting activation"
 )]
@@ -514,7 +514,7 @@ mod tests {
         let p = ProviderSettings {
             id: "x".to_string(),
             name: "n".to_string(),
-            config: [("a".to_string(), "b".to_string())].into_iter().collect(),
+            config: std::iter::once(("a".to_string(), "b".to_string())).collect(),
             models: vec!["m".to_string()],
         };
         let j = serde_json::to_string(&p).unwrap();
@@ -583,21 +583,19 @@ mod tests {
         let mcp = Arc::new(MockMcp);
         let adapter = create_mcp_ai_tools_adapter(mcp).unwrap();
         let req = adapter.create_chat_request();
-        let e1 = match adapter
+        let Err(e1) = adapter
             .send_streaming_chat_request("openai", req.clone())
             .await
-        {
-            Err(e) => e,
-            Ok(_) => panic!("expected streaming to be unimplemented"),
+        else {
+            panic!("expected streaming to be unimplemented");
         };
         assert!(e1.to_string().contains("Streaming") || e1.to_string().contains("not yet"));
 
-        let e2 = match adapter
+        let Err(e2) = adapter
             .generate_response("c1", Some("m".to_string()), None, None)
             .await
-        {
-            Err(e) => e,
-            Ok(_) => panic!("expected generate_response to be unimplemented"),
+        else {
+            panic!("expected generate_response to be unimplemented");
         };
         assert!(e2.to_string().contains("not yet implemented"));
     }

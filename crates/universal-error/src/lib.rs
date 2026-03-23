@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Universal Error System for Squirrel
-//!
-//! This crate provides a unified error handling system that extends the excellent
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
-#![allow(
+#![expect(
     clippy::doc_markdown,
     clippy::use_self,
     clippy::unnested_or_patterns,
     clippy::match_same_arms,
-    clippy::must_use_candidate,
     clippy::missing_const_for_fn,
-    clippy::uninlined_format_args
+    reason = "Progressive lint tightening; error crate ergonomics first"
 )]
+
+//! Universal Error System for Squirrel
+//!
+//! This crate provides a unified error handling system that extends the excellent
 //! MCP error architecture to the entire Squirrel codebase. It re-exports the
 //! world-class MCP error system (validated Phase 3E) and adds domain error modules
 //! for SDK, Tools, and Integration components following the same patterns.

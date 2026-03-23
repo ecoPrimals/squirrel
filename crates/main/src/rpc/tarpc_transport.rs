@@ -121,6 +121,7 @@ impl Sink<Bytes> for TarpcTransportAdapter {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
     use universal_patterns::transport::{InProcessTransport, UniversalTransport};
@@ -145,5 +146,13 @@ mod tests {
         // Verify the value is reasonable
         assert!(max_len > 0);
         assert!(max_len <= 64 * 1024 * 1024); // Reasonable upper bound
+    }
+
+    #[test]
+    fn with_max_frame_length_constructor_builds_adapter() {
+        let (client, _server) = InProcessTransport::pair();
+        let transport = UniversalTransport::InProcess(client);
+        let adapter = TarpcTransportAdapter::with_max_frame_length(transport, 8192);
+        let _ = adapter;
     }
 }

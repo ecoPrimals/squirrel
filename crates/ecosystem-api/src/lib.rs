@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+
 //! Ecosystem API - Shared types and traits for ecoPrimals ecosystem integration
 //!
 //! This crate provides the standardized API types and traits that all primals
@@ -33,7 +35,6 @@
 //! // See the trait definition for complete requirements
 //! ```
 
-#![forbid(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]

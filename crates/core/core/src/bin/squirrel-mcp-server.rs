@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+
 //! Squirrel MCP Server - Universal Swarm MCP Agent System
 //!
 //! This binary starts the Squirrel MCP server for multi-MCP coordination,
 //! ecosystem participation, and federation.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "Server bootstrap and demo paths; unwrap/expect after validation"
+)]
 use std::sync::Arc;
 use tokio::signal;
 use tracing::{error, info, warn};
@@ -150,10 +156,6 @@ async fn main() -> Result<()> {
 
     if let Err(e) = federation_service.shutdown().await {
         warn!("Federation service shutdown error: {}", e);
-        //     }
-        // Routing service does not require explicit shutdown
-        // if let Err(e) = routing_service.shutdown().await {
-        warn!("Routing service shutdown error: {}", e);
     }
 
     if let Err(e) = ecosystem_service.shutdown().await {

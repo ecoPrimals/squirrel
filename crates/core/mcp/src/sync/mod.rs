@@ -44,13 +44,11 @@ pub struct ContextChange;
 use crate::context_manager::Context;
 use crate::monitoring::MCPMonitor;
 use crate::persistence::{MCPPersistence, PersistenceConfig, PersistentState};
-// use crate::sync::state::{StateSyncManager, StateChange, StateOperation}; // OLD
 use crate::sync::state::{StateChange, StateSyncManager};
-// Import StateOperation but give it an alias to avoid confusion with the re-export
 use crate::sync::state::StateOperation as InternalStateOperation;
 use crate::MCPError;
 use crate::sync::json_rpc_types::{ProtoContextChange, ProtoOperationType, SyncRequest, SyncResponse};
-use chrono::{DateTime, Utc, TimeZone}; // Import TimeZone trait
+use chrono::{DateTime, Utc, TimeZone};
 use serde::{Deserialize, Serialize};
 use crate::error::{Result, MCPError};
 use std::fmt::Debug;

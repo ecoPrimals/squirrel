@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(clippy::option_if_let_else)]
-#![allow(clippy::unnecessary_map_or)]
-#![allow(clippy::unused_self)]
-#![allow(clippy::unnecessary_wraps)]
+#![forbid(unsafe_code)]
+#![expect(
+    clippy::option_if_let_else,
+    clippy::unnecessary_map_or,
+    clippy::unused_self,
+    clippy::unnecessary_wraps,
+    reason = "Auth subsystem; progressive style and documentation tightening"
+)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![warn(missing_docs)]
 //! Squirrel Authentication & Security System
 //!
 //! Modern authentication system leveraging capability-based discovery and ecosystem integration.
-#![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![warn(missing_docs)]
+//!
 //! This completely replaces the severely outdated legacy auth code with a clean, modern architecture.
 //!
 //! ## TRUE ecoBin Architecture (v1.3.0) via Capability Discovery

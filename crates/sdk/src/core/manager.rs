@@ -289,7 +289,7 @@ mod tests {
 
         let err = mgr.register_plugin(
             "p1".to_string(),
-            Box::new(MockPlugin::new("p1", PluginStatus::Active, fail.clone())),
+            Box::new(MockPlugin::new("p1", PluginStatus::Active, fail)),
         );
         assert!(matches!(err, Err(PluginError::PluginAlreadyExists { .. })));
     }
@@ -300,11 +300,7 @@ mod tests {
         let fail = Arc::new(AtomicBool::new(false));
         mgr.register_plugin(
             "u".to_string(),
-            Box::new(MockPlugin::new(
-                "u",
-                PluginStatus::Uninitialized,
-                fail.clone(),
-            )),
+            Box::new(MockPlugin::new("u", PluginStatus::Uninitialized, fail)),
         )
         .unwrap();
         let mut mgr = mgr;
@@ -318,7 +314,7 @@ mod tests {
         let fail = Arc::new(AtomicBool::new(false));
         mgr.register_plugin(
             "a".to_string(),
-            Box::new(MockPlugin::new("a", PluginStatus::Active, fail.clone())),
+            Box::new(MockPlugin::new("a", PluginStatus::Active, fail)),
         )
         .unwrap();
         let mut mgr = mgr;

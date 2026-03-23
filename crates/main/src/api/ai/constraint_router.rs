@@ -377,7 +377,7 @@ mod tests {
             .map(|p| p.provider_id().to_string());
         assert_eq!(picked.as_deref(), Some("l"));
 
-        let picked2 = select_provider_with_constraints(&[remote.clone()], &c, "text")
+        let picked2 = select_provider_with_constraints(std::slice::from_ref(&remote), &c, "text")
             .map(|p| p.provider_id().to_string());
         assert_eq!(picked2.as_deref(), Some("r"));
     }

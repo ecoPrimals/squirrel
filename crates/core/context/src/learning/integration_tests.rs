@@ -952,8 +952,8 @@ async fn test_learning_integration_feedback_trigger_episode_then_reward_updates_
         .expect("reward");
     assert!(reward.is_finite());
     let after = integration.get_stats().await;
-    assert!(after.learning_episodes >= before.learning_episodes + 1);
-    assert!(after.total_operations >= before.total_operations + 1);
+    assert!(after.learning_episodes > before.learning_episodes);
+    assert!(after.total_operations > before.total_operations);
 }
 
 #[tokio::test]

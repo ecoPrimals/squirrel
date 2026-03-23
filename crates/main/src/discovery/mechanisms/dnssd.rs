@@ -40,7 +40,7 @@ pub struct DnssdDiscovery {
     /// DNS server address (optional, defaults to system resolver)
     dns_server: Option<String>,
 
-    #[allow(dead_code, reason = "Reserved for real DNS-SD implementation")]
+    #[expect(dead_code, reason = "Reserved for real DNS-SD implementation")]
     timeout: Duration,
 
     /// Enable/disable DNS-SD

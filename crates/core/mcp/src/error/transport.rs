@@ -228,7 +228,7 @@ mod tests {
                 io::Error::new(io::ErrorKind::InvalidInput, "x"),
                 "Protocol error",
             ),
-            (io::Error::new(io::ErrorKind::Other, "x"), "I/O error"),
+            (io::Error::other("x"), "I/O error"),
         ];
         for (io_err, prefix) in map {
             let te: TransportError = io_err.into();
@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn from_mcp_error_transport_round_trip() {
         let inner = TransportError::timeout("inner");
-        let wrapped = MCPError::Transport(inner.clone());
+        let wrapped = MCPError::Transport(inner);
         let te: TransportError = wrapped.into();
         assert!(matches!(te, TransportError::Timeout(_)));
         if let TransportError::Timeout(msg) = te {

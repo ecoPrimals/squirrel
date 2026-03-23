@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
+
 //! Adapter Pattern Demonstration
 //!
 //! This example demonstrates the adapter pattern by showing three different adapters:

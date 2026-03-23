@@ -5,6 +5,10 @@ edition = "2024"
 authors = ["ecoPrimals Contributors"]
 license = "AGPL-3.0-only"
 description = "Squirrel Universal AI Primal - Main coordination primal"
+repository = "https://github.com/ecoPrimals/squirrel"
+readme = "README.md"
+keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
+categories = ["development-tools"]
 
 [dependencies]
 # CLI framework for UniBin architecture

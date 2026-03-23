@@ -2,8 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use thiserror::Error;
-// Commented out missing module:
-// use crate::protocol::adapter_wire::WireFormatError;
 
 /// Errors related to the MCP protocol
 ///
@@ -127,13 +125,6 @@ impl From<&str> for ProtocolError {
         Self::InvalidFormat(msg.to_string())
     }
 }
-
-// Comment out implementation for missing type
-// impl From<WireFormatError> for ProtocolError {
-//     fn from(error: WireFormatError) -> Self {
-//         ProtocolError::WireFormatError(error.to_string())
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

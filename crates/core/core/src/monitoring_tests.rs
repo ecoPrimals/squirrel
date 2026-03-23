@@ -362,7 +362,6 @@ fn fallback_logger_debug_branches_cover_metrics_health_performance() {
         include_metrics: true,
         include_health: true,
         include_performance: true,
-        ..FallbackConfig::default()
     });
     let ts = Utc::now();
     fb.log_metric(&base_metric());

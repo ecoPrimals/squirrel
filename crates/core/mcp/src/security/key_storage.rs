@@ -160,7 +160,7 @@ mod tests {
     fn stored_key_serde_round_trip() {
         let k = StoredKey {
             id: Uuid::new_v4(),
-            name: "".to_string(),
+            name: String::new(),
             key_type: "signing".to_string(),
             data: vec![],
             created_at: Utc::now(),

@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn permission_serde_round_trip() {
-        let p = Permission::new("".to_string(), "Write".to_string());
+        let p = Permission::new(String::new(), "Write".to_string());
         let json = serde_json::to_string(&p).unwrap();
         let back: Permission = serde_json::from_str(&json).unwrap();
         assert_eq!(p, back);
@@ -334,7 +334,7 @@ mod tests {
     #[tokio::test]
     async fn basic_rbac_manager_new_default_and_role_crud() {
         let m = BasicRBACManager::new();
-        assert_eq!(format!("{m:?}").len() > 0, true);
+        assert!(!format!("{m:?}").is_empty());
         let d = BasicRBACManager::default();
         let role = d
             .create_role("r1".to_string(), "d1".to_string())
@@ -362,10 +362,7 @@ mod tests {
     #[tokio::test]
     async fn add_remove_permission_and_missing_role_noop() {
         let m = BasicRBACManager::new();
-        let role = m
-            .create_role("x".to_string(), "".to_string())
-            .await
-            .unwrap();
+        let role = m.create_role("x".to_string(), String::new()).await.unwrap();
         let perm = Permission::new("res".to_string(), "act".to_string());
         m.add_permission_to_role(&role.id, perm.clone())
             .await
@@ -397,7 +394,7 @@ mod tests {
     async fn assign_roles_and_check_permission_direct() {
         let m = BasicRBACManager::new();
         let role = m
-            .create_role("editor".to_string(), "".to_string())
+            .create_role("editor".to_string(), String::new())
             .await
             .unwrap();
         let perm = Permission::new("doc".to_string(), "edit".to_string());
@@ -431,14 +428,14 @@ mod tests {
     async fn check_permission_inherited_via_parent_role() {
         let m = BasicRBACManager::new();
         let parent = m
-            .create_role("parent".to_string(), "".to_string())
+            .create_role("parent".to_string(), String::new())
             .await
             .unwrap();
         let perm = Permission::new("api".to_string(), "invoke".to_string());
         m.add_permission_to_role(&parent.id, perm).await.unwrap();
 
         let mut child = m
-            .create_role("child".to_string(), "".to_string())
+            .create_role("child".to_string(), String::new())
             .await
             .unwrap();
         child.parent_roles.insert(parent.id);
@@ -456,10 +453,7 @@ mod tests {
     async fn get_all_roles_and_user_assignments() {
         let m = BasicRBACManager::new();
         let u = Uuid::new_v4();
-        let r = m
-            .create_role("a".to_string(), "".to_string())
-            .await
-            .unwrap();
+        let r = m.create_role("a".to_string(), String::new()).await.unwrap();
         m.assign_role_to_user(&u, &r.id, &Uuid::new_v4())
             .await
             .unwrap();

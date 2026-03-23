@@ -9,6 +9,8 @@
 //! TRUE PRIMAL: Endpoints use capability-based discovery via `universal_constants::deployment`.
 //! Set env vars (SERVICE_MESH_HOST, SECURITY_SERVICE_HOST, etc.) for staging/production.
 
+#![allow(clippy::wildcard_imports)] // Parent `config` re-exports; preset tables stay readable
+
 use chrono::Utc;
 use std::collections::HashMap;
 use std::path::PathBuf;

@@ -2,7 +2,6 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! AI Provider Discovery - Capability-Based
-#![allow(dead_code, reason = "AI provider discovery module awaiting activation")]
 //!
 //! This module implements TRUE PRIMAL discovery for AI providers.
 //! NO hardcoding - all providers are discovered at runtime via capabilities.

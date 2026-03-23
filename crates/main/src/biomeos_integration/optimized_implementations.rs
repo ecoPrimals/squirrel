@@ -496,7 +496,7 @@ mod optimized_impl_tests {
     fn optimized_context_state_session_cache_and_remove() {
         let mut state = OptimizedContextState::new();
         let meta = HashMap::from([("role".to_string(), "test".to_string())]);
-        let s = state.create_session("sid".to_string(), "user", meta.clone());
+        let s = state.create_session("sid".to_string(), "user", meta);
         assert_eq!(s.session_id, "sid");
         assert_eq!(state.get_active_sessions().len(), 1);
         let ctx = ContextData {
@@ -548,7 +548,7 @@ mod optimized_impl_tests {
             context_data: HashMap::new(),
         };
         let _ = format!("{sc:?}");
-        let c = sc.clone();
+        let c = sc;
         assert_eq!(c.session_id, "s");
     }
 

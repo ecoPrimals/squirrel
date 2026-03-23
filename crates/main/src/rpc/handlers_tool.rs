@@ -314,7 +314,12 @@ mod tests {
         let v = server.handle_list_tools().await.unwrap();
         let tools = v.get("tools").and_then(|t| t.as_array());
         assert!(tools.is_some_and(|a| !a.is_empty()));
-        assert!(v.get("total").and_then(|n| n.as_u64()).unwrap_or(0) > 0);
+        assert!(
+            v.get("total")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0)
+                > 0
+        );
     }
 
     #[tokio::test]

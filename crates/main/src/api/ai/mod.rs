@@ -2,10 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // AI routing and provider selection modules
-#![allow(
-    dead_code,
-    reason = "AI API modules reserved for planned consumer integration"
-)]
+#![allow(dead_code)] // AI API modules reserved for planned consumer integration
 
 pub mod action_registry;
 pub mod adapter; // Universal AI adapter (vendor-agnostic)
@@ -20,9 +17,6 @@ pub mod router;
 pub mod selector;
 pub mod types;
 pub mod universal; // Universal AI interface (vendor-agnostic)
-
-#[cfg(test)]
-mod router_tests;
 
 // Re-export main router for tarpc_server
 pub use router::AiRouter;

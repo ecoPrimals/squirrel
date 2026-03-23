@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.22] - 2026-03-23
+
+Deep debt resolution, lint pedantry, and cross-ecosystem absorption sprint.
+Smart refactoring of 19 files over 1000 lines, `#[allow]` → `#[expect(reason)]`
+migration, `#![forbid(unsafe_code)]` workspace-wide, Cargo metadata complete,
+zero-copy clone audit, clippy cargo/nursery fully clean. 6,720 tests, 86.0%
+coverage, all quality gates green.
+
+### Added
+
+- **28 new tests** targeting low-coverage files (AI routing, IPC, RPC handlers,
+  capabilities, compute providers, transport, Songbird registration)
+- **Cargo metadata** on all 22 crates (repository, readme, keywords, categories,
+  description) — zero `clippy::cargo` warnings
+- **`crates/integration/README.md`** for integration crate documentation
+
+### Changed
+
+- **`#![forbid(unsafe_code)]`** applied to all lib.rs, main.rs, and bin/*.rs
+  workspace-wide (previously only select crate roots)
+- **19 files >1000 lines smart-refactored** — extracted types, handlers, and
+  tests into submodules with re-exports for backward compatibility:
+  - `web/api.rs` (1266→183+endpoints+handlers+websocket+tests)
+  - `universal_primal_ecosystem/mod.rs` (1221→461+cache+discovery+ipc+tests)
+  - `primal_provider/core.rs` (1166→684+universal_trait+tests)
+  - `jsonrpc_server.rs`, `tarpc_server.rs`, `dispatch.rs`, `server.rs`,
+    `manager.rs`, `client.rs`, `registry.rs`, `marketplace.rs`, `dashboard.rs`,
+    `router.rs`, `zero_copy.rs`, `validation.rs`, `engine_tests.rs`,
+    `context_state.rs`, `agent_deployment.rs`, `jsonrpc_handlers.rs`
+- **`#[allow]` → `#[expect(reason)]`** migrated across 59 files; dead
+  suppressions caught and removed; unfulfilled expectations cleaned
+- **`unnecessary_literal_bound`** — `&str` → `&'static str` on mock provider
+  methods returning string literals
+- **Zero-copy clone audit** — removed per-RPC String clone in MCP task client,
+  auth provider discovery uses move-not-clone, `Arc::clone()` for intent clarity
+- **Config test hardening** — pinned all timeout values to resist env var
+  pollution from parallel test runs under llvm-cov
+
+### Fixed
+
+- **Unfulfilled `#[expect]`** in auth, context, mcp, plugins, universal-patterns,
+  interfaces, config, ecosystem-integration — dead lints cleaned
+- **`manual_string_new`** — 26 instances of `"".to_string()` → `String::new()`
+- **`strict_f32_comparison`** — 52 float comparisons in tests guarded
+- **`redundant_clone`** — 15 unnecessary `.clone()` calls removed
+- **`items_after_test_module`** — `ConditionEvaluator`/`ActionExecutor` moved
+  above test module in `rules/plugin.rs`
+
 ## [0.1.0-alpha.21] - 2026-03-23
 
 Coverage push and zero-copy evolution: 22 parallel test waves, 5 production bugs

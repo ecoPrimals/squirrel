@@ -58,11 +58,11 @@ mod tests {
     struct TestCommand;
 
     impl Command for TestCommand {
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "test_command"
         }
 
-        fn description(&self) -> &str {
+        fn description(&self) -> &'static str {
             "Test command for MCP registry integration"
         }
 
@@ -175,7 +175,7 @@ mod tests {
         // Skip network test completely and go straight to mock test
         // This ensures we complete within 5 seconds
         display_progress("Starting mock-based test");
-        run_mock_test().await;
+        run_mock_test();
 
         display_progress("Mock-based test completed");
         println!("✅ Test completed successfully using mock implementation");
@@ -305,7 +305,7 @@ mod tests {
     }
 
     // Mock-based implementation of the test
-    async fn run_mock_test() {
+    fn run_mock_test() {
         println!("Running mock-based test");
 
         // Create a command registry
@@ -417,6 +417,7 @@ mod tests {
     }
 
     // Common test logic shared between network and mock tests
+    #[allow(clippy::too_many_lines)]
     async fn run_command_tests(client: MCPClient) -> Result<(), String> {
         // Execute the test command through MCP
         println!("Sending command 'test_command' with args...");
@@ -864,11 +865,11 @@ mod tests {
         struct FailingCommand;
 
         impl Command for FailingCommand {
-            fn name(&self) -> &str {
+            fn name(&self) -> &'static str {
                 "fail_cmd"
             }
 
-            fn description(&self) -> &str {
+            fn description(&self) -> &'static str {
                 "always fails"
             }
 

@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 description = "Squirrel ecosystem integration with Songbird and Toadstool"
 license = "AGPL-3.0-only"
+repository = "https://github.com/ecoPrimals/squirrel"
+readme = "README.md"
+keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
+categories = ["development-tools"]
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }

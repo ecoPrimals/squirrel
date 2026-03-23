@@ -179,11 +179,11 @@ mod tests {
             self.id
         }
 
-        fn get_name(&self) -> &str {
+        fn get_name(&self) -> &'static str {
             "n"
         }
 
-        fn get_description(&self) -> &str {
+        fn get_description(&self) -> &'static str {
             "d"
         }
 

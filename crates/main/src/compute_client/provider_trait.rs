@@ -285,6 +285,7 @@ async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<dyn 
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -369,5 +370,56 @@ mod tests {
         let workload_id = provider.execute_workload(spec).await.unwrap();
         let status = provider.get_workload_status(workload_id).await.unwrap();
         assert_eq!(status.status, WorkloadStatus::Running);
+    }
+
+    #[test]
+    fn auto_detect_unknown_provider_type_from_env_errors() {
+        temp_env::with_var("COMPUTE_PROVIDER_TYPE", Some("quantum-hypervisor"), || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("rt");
+            let Err(e) = rt.block_on(auto_detect_compute_provider()) else {
+                panic!("expected err")
+            };
+            match e {
+                ComputeProviderError::NotAvailable(msg) => {
+                    assert!(msg.contains("Unknown provider type"));
+                }
+                ref other => panic!("unexpected {other:?}"),
+            }
+        });
+    }
+
+    #[test]
+    fn auto_detect_prefers_env_over_files() {
+        temp_env::with_var("COMPUTE_PROVIDER_TYPE", Some("LOCAL"), || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("rt");
+            let Err(e) = rt.block_on(auto_detect_compute_provider()) else {
+                panic!("expected err")
+            };
+            assert!(matches!(e, ComputeProviderError::NotAvailable(_)));
+        });
+    }
+
+    #[tokio::test]
+    async fn mock_metadata_includes_provider_key() {
+        let provider = MockComputeProvider {
+            name: "meta-test".to_string(),
+        };
+        let m = provider.metadata();
+        assert_eq!(m.get("provider").map(String::as_str), Some("meta-test"));
+    }
+
+    #[tokio::test]
+    async fn test_get_available_resources_default_impl() {
+        let provider = MockComputeProvider {
+            name: "res-test".to_string(),
+        };
+        let r = provider.get_available_resources().await.unwrap();
+        assert_eq!(r.cpu_cores, u32::MAX);
     }
 }

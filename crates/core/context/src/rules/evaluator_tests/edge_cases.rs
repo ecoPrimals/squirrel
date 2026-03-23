@@ -282,7 +282,7 @@ async fn test_empty_path() {
     let context = json!({"value": 42});
 
     let condition = RuleCondition::Exists {
-        path: "".to_string(),
+        path: String::new(),
     };
 
     let result = evaluator.evaluate_condition(&condition, &context).await;

@@ -29,8 +29,6 @@ pub struct ContextManager {
     validations: Arc<RwLock<HashMap<String, ContextValidation>>>,
     /// Validation engine
     validation_engine: ValidationEngine,
-    // Synchronization engine for distributed context operations
-    // sync: Option<Arc<MCPSync>>,
 }
 
 impl ContextManager {
@@ -41,12 +39,6 @@ impl ContextManager {
     /// and state management.
     #[instrument]
     pub async fn new() -> Self {
-        // let sync_config = SyncConfig::default();
-        // let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
-        // let monitor = Arc::new(MCPMonitor::new().await.unwrap_or_default());
-        // let state_manager = Arc::new(StateSyncManager::new());
-        // let sync = Arc::new(MCPSync::new(sync_config, persistence, monitor, state_manager));
-
         let validations = Arc::new(RwLock::new(HashMap::new()));
         let validation_engine = ValidationEngine::new(Arc::clone(&validations));
 
@@ -55,7 +47,6 @@ impl ContextManager {
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations,
             validation_engine,
-            // sync: Some(sync),
         }
     }
 
@@ -88,18 +79,6 @@ impl ContextManager {
         // Store context
         let mut contexts = self.contexts.write().await;
         contexts.insert(context_id, context.clone());
-
-        // Record change for sync
-        // if let Err(e) = self
-        //     .sync
-        //     .as_ref()
-        //     .unwrap()
-        //     .record_context_change(&context, StateOperation::Create)
-        //     .await
-        // {
-        //     error!("Failed to record context change: {}", e);
-        //     return Err(MCPError::Context(ContextError::SyncError(e.to_string())));
-        // }
 
         info!(context_id = %context_id, "Context created");
         Ok(context_id)
@@ -148,18 +127,6 @@ impl ContextManager {
         // Clone for sync operation
         let updated_context = context.clone();
 
-        // Record change for sync
-        // if let Err(e) = self
-        //     .sync
-        //     .as_ref()
-        //     .unwrap()
-        //     .record_context_change(&updated_context, StateOperation::Update)
-        //     .await
-        // {
-        //     error!("Failed to record context change: {}", e);
-        //     return Err(MCPError::Context(ContextError::SyncError(e.to_string())));
-        // }
-
         info!(context_id = %id, "Context updated");
         Ok(())
     }
@@ -191,18 +158,6 @@ impl ContextManager {
 
         // Remove any children that this context was a parent of
         hierarchy.remove(&id);
-
-        // Record change for sync
-        // if let Err(e) = self
-        //     .sync
-        //     .as_ref()
-        //     .unwrap()
-        //     .record_context_change(&context, StateOperation::Delete)
-        //     .await
-        // {
-        //     error!("Failed to record context deletion: {}", e);
-        //     return Err(MCPError::Context(ContextError::SyncError(e.to_string())));
-        // }
 
         info!(context_id = %id, "Context deleted");
         Ok(())
@@ -320,7 +275,6 @@ impl Default for ContextManager {
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations,
             validation_engine,
-            // sync: Some(sync),
         }
     }
 }

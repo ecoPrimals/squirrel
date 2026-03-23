@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::expect_used))]
+
 //! Adapter Pattern Implementation and Tests
 //!
 //! This crate demonstrates the adapter pattern in Rust with a command-based
@@ -10,10 +13,16 @@
 //! 2. MCP Adapter - Adapter with authentication and authorization
 //! 3. Plugin Adapter - Adapter for plugin system integration
 
-#![forbid(unsafe_code)]
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![expect(
+    clippy::unwrap_used,
+    reason = "Adapter pattern tests; unwrap/expect for test clarity"
+)]
 #![warn(missing_docs)]
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#![expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "Adapter pattern test crate; doc lints deferred"
+)]
 
 mod auth;
 mod commands;

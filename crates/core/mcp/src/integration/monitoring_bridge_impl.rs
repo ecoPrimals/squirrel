@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(unused_variables)]
+#![expect(
+    unused_variables,
+    reason = "Bridge stubs reserve parameters for future monitoring wiring"
+)]
 
 // MCP Resilience Health Monitoring Bridge Implementation
 //
@@ -268,13 +271,6 @@ impl HealthMonitoringBridge {
         
         // Create a function that will be called when an alert is triggered
         let recovery_clone = recovery_strategy.clone();
-        
-        // NOTE: In a real implementation, we would define and register an alert handler
-        // The pattern would look something like this:
-        // let _alert_handler = move |alert: Alert| {
-        //     // Process the alert and trigger recovery
-        // };
-        // alert_manager.register_handler(_alert_handler);
         
         // Register configuration for a health status alert
         let alert_config = AlertConfiguration {

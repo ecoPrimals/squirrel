@@ -238,13 +238,17 @@ mod tests {
 
         let lw = logger(FallbackConfig {
             log_level: "warn".to_string(),
-            ..base.clone()
+            include_metrics: base.include_metrics,
+            include_health: base.include_health,
+            include_performance: base.include_performance,
         });
         lw.log_health("c", &HealthStatus::Degraded);
 
         let no_health = logger(FallbackConfig {
+            log_level: base.log_level.clone(),
+            include_metrics: base.include_metrics,
             include_health: false,
-            ..base.clone()
+            include_performance: base.include_performance,
         });
         no_health.log_health("c", &HealthStatus::Unhealthy);
 

@@ -9,9 +9,36 @@
 //! discovery at runtime.
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::super::ai_inference::{AIInferenceRequest, AIProviderSelection};
+    use crate::ecosystem::EcosystemManager;
+    use crate::error::PrimalError;
+    use crate::monitoring::metrics::MetricsCollector;
+    use crate::primal_provider::core::SquirrelPrimalProvider;
+    use crate::session::{SessionConfig, SessionManagerImpl};
     use std::collections::HashMap;
+    use std::sync::Arc;
+
+    async fn test_provider() -> SquirrelPrimalProvider {
+        let adapter = crate::universal_adapter_v2::UniversalAdapterV2::awaken()
+            .await
+            .expect("adapter");
+        let mc = Arc::new(MetricsCollector::new());
+        let em = Arc::new(EcosystemManager::new(
+            crate::ecosystem::config::EcosystemConfig::default(),
+            mc,
+        ));
+        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()))
+            as Arc<dyn crate::session::SessionManager>;
+        SquirrelPrimalProvider::new(
+            "ai-inf-test".to_string(),
+            squirrel_mcp_config::EcosystemConfig::default(),
+            adapter,
+            em,
+            sessions,
+        )
+    }
 
     // Helper to create a basic AI inference request
     fn create_test_request(task_type: &str, model: Option<String>) -> AIInferenceRequest {
@@ -179,5 +206,58 @@ mod tests {
         assert_eq!(cloned.task_type, request.task_type);
         assert_eq!(cloned.model, request.model);
         assert_eq!(cloned.messages.len(), request.messages.len());
+    }
+
+    #[test]
+    fn select_provider_local_task_reads_ai_default_provider_env() {
+        temp_env::with_var("AI_DEFAULT_PROVIDER", Some("from-env"), || {
+            let request = create_test_request("local", None);
+            let provider = AIProviderSelection::select_provider(&request).unwrap();
+            assert_eq!(provider, "from-env");
+        });
+    }
+
+    #[tokio::test]
+    async fn handle_ai_inference_request_parses_and_returns_json() {
+        let p = test_provider().await;
+        let v = serde_json::json!({
+            "task_type": "chat",
+            "messages": [{"role": "user", "content": "hello world"}],
+            "model": null,
+            "parameters": {}
+        });
+        let out = p.handle_ai_inference_request(v).await.expect("inference");
+        assert_eq!(
+            out.get("content").and_then(|x| x.as_str()),
+            Some("Response to: hello world")
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_ai_inference_invalid_payload_errors() {
+        let p = test_provider().await;
+        let err = p
+            .handle_ai_inference_request(serde_json::json!("not-object"))
+            .await
+            .expect_err("bad payload");
+        assert!(matches!(err, PrimalError::ValidationError(_)));
+    }
+
+    #[tokio::test]
+    async fn handle_ai_inference_uses_fallback_when_no_user_message() {
+        let p = test_provider().await;
+        let v = serde_json::json!({
+            "task_type": "chat",
+            "messages": [{"role": "system", "content": "only system"}],
+            "model": null,
+            "parameters": {}
+        });
+        let out = p.handle_ai_inference_request(v).await.expect("ok");
+        assert!(
+            out.get("content")
+                .and_then(|x| x.as_str())
+                .unwrap()
+                .contains("No user message found")
+        );
     }
 }

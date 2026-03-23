@@ -24,7 +24,10 @@ use tracing::{debug, error, info, warn};
 
 /// Security hardening configuration
 #[derive(Debug, Clone)]
-#[allow(clippy::struct_excessive_bools)] // Independent feature toggles; grouping would obscure intent
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Independent feature toggles; grouping would obscure intent"
+)]
 pub struct SecurityHardeningConfig {
     /// Enable production panic handler
     pub enable_panic_handler: bool,

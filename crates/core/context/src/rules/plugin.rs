@@ -99,6 +99,20 @@ impl RulePluginManager {
     }
 }
 
+/// Custom condition evaluator trait
+#[async_trait]
+pub trait ConditionEvaluator: Send + Sync + Debug {
+    /// Evaluate a custom condition
+    async fn evaluate(&self, params: &Value, context: &Value) -> Result<bool>;
+}
+
+/// Custom action executor trait
+#[async_trait]
+pub trait ActionExecutor: Send + Sync + Debug {
+    /// Execute a custom action
+    async fn execute(&self, params: &Value, context: &Value) -> Result<Value>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,18 +201,4 @@ mod tests {
         let err = mgr.get_adapter("any").await.unwrap_err();
         assert!(matches!(err, RuleError::PluginError(_)));
     }
-}
-
-/// Custom condition evaluator trait
-#[async_trait]
-pub trait ConditionEvaluator: Send + Sync + Debug {
-    /// Evaluate a custom condition
-    async fn evaluate(&self, params: &Value, context: &Value) -> Result<bool>;
-}
-
-/// Custom action executor trait
-#[async_trait]
-pub trait ActionExecutor: Send + Sync + Debug {
-    /// Execute a custom action
-    async fn execute(&self, params: &Value, context: &Value) -> Result<Value>;
 }

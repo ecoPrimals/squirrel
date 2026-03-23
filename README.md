@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,717 passing | **Edition**: 2024 | **Rust**: 1.94+ | **Coverage**: 86.8%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,720 passing | **Edition**: 2024 | **Rust**: 1.94+ | **Coverage**: 86.0%
 
 ---
 
@@ -74,7 +74,7 @@ Fallback: `/run/user/<uid>/biomeos/squirrel.sock` or `/tmp/squirrel.sock`.
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   6,717 tests passing
+Fitness:   6,720 tests passing
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -133,10 +133,11 @@ squirrel/
 
 ## Code Standards
 
-- `#![forbid(unsafe_code)]` unconditional on all 21 crate roots
+- `#![forbid(unsafe_code)]` unconditional on all 22 crate lib.rs, main.rs, and bin/*.rs files
 - `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code (test-only `cfg_attr` allows)
 - `#![warn(missing_docs)]` on all library crates
-- `cargo clippy` with `pedantic` + `nursery` lints — zero errors on `--all-features --all-targets`
+- `cargo clippy` with `pedantic` + `nursery` + `cargo` lints — zero errors under `-D warnings`
+- `#[expect(reason)]` over `#[allow]` — dead suppressions caught automatically
 - `cargo fmt` — zero formatting violations
 - Pure Rust: zero C dependencies in default build (ecoBin v3.0 compliant — `sysinfo` removed)
 - All source files under 1,000 lines

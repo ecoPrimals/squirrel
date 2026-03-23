@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core types and enums for universal transport abstraction
-#![allow(
+#![expect(
     dead_code,
     reason = "Transport and discovery types used via serde/runtime wiring"
 )]
@@ -326,8 +326,8 @@ mod tests {
 
         // Receive all messages in order
         for i in 0..5 {
-            let received = receiver.try_recv().unwrap();
-            assert_eq!(received.as_deref(), Some([i, i + 1, i + 2].as_slice()));
+            let msg = receiver.try_recv().unwrap();
+            assert_eq!(msg.as_deref(), Some([i, i + 1, i + 2].as_slice()));
         }
 
         // Channel should be empty now
@@ -339,12 +339,14 @@ mod tests {
         let (client, mut server) = InProcessTransport::pair();
 
         // Send a large message
-        let large_message: Vec<u8> = (0..10000).map(|i| (i % 256) as u8).collect();
+        let large_message: Vec<u8> = (0..10000)
+            .map(|i| u8::try_from(i % 256).expect("mod 256 fits u8"))
+            .collect();
         assert!(client.send(large_message.clone()).is_ok());
 
         // Receive the large message
-        let received = server.try_recv().unwrap();
-        assert_eq!(received.as_deref(), Some(large_message.as_slice()));
+        let msg = server.try_recv().unwrap();
+        assert_eq!(msg.as_deref(), Some(large_message.as_slice()));
     }
 
     #[test]

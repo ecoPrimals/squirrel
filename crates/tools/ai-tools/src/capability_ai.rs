@@ -473,6 +473,8 @@ struct JsonRpcError {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::items_after_statements)]
+
     use super::*;
 
     #[test]

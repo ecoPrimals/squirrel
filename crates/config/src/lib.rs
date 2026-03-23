@@ -2,26 +2,23 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
+#![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![warn(missing_docs)]
+#![expect(
     clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
     clippy::must_use_candidate,
     clippy::missing_const_for_fn,
     clippy::doc_markdown,
     clippy::uninlined_format_args,
-    clippy::redundant_closure_for_method_calls,
-    clippy::assigning_clones,
     clippy::struct_excessive_bools,
-    clippy::manual_string_new,
-    clippy::needless_pass_by_value
+    clippy::needless_pass_by_value,
+    reason = "Progressive documentation and style tightening for config crate"
 )]
 
 //! Configuration system for Squirrel MCP
 //!
 //! This crate provides a unified configuration system supporting:
-#![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![warn(missing_docs)]
 //! - Environment variable overrides
 //! - TOML/JSON/YAML file configuration
 //! - Comprehensive defaults and validation

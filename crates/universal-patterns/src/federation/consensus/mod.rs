@@ -133,7 +133,7 @@ mod tests {
             let node = FederationNode {
                 id: Uuid::new_v4(),
                 address: format!("127.0.0.{}", i),
-                port: 8080 + i as u16,
+                port: 8080 + u16::try_from(i).expect("test loop index fits u16"),
                 public_key: format!("key_{}", i),
                 capabilities: vec!["consensus".to_string()],
                 status: NodeStatus::Active,
@@ -188,7 +188,7 @@ mod tests {
             let node = FederationNode {
                 id: Uuid::new_v4(),
                 address: format!("127.0.0.{}", i),
-                port: 8080 + i as u16,
+                port: 8080 + u16::try_from(i).expect("test loop index fits u16"),
                 public_key: format!("key_{}", i),
                 capabilities: vec!["consensus".to_string()],
                 status: NodeStatus::Active,

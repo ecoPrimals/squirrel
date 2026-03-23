@@ -9,8 +9,6 @@
 use clap;
 use tokio::sync::mpsc;
 
-// use crate::generated::mcp_task::WatchTaskResponse;
-
 /// Alternative type for task updates that doesn't depend on protobuf
 pub type TaskUpdateSender = mpsc::Sender<String>;
 

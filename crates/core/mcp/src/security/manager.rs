@@ -246,11 +246,12 @@ mod tests {
     use crate::error::MCPError;
 
     fn quiet_config() -> SecurityConfig {
-        let mut c = SecurityConfig::default();
-        c.enable_audit = false;
-        c.enable_rbac = false;
-        c.enable_encryption = false;
-        c
+        SecurityConfig {
+            enable_audit: false,
+            enable_rbac: false,
+            enable_encryption: false,
+            ..Default::default()
+        }
     }
 
     #[tokio::test]
@@ -344,7 +345,7 @@ mod tests {
         let user = Uuid::new_v4();
         let role = m
             .rbac_manager()
-            .create_role("role".to_string(), "".to_string())
+            .create_role("role".to_string(), String::new())
             .await
             .unwrap();
         m.rbac_manager()

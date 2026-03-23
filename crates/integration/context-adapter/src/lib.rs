@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+#![expect(
+    clippy::missing_const_for_fn,
+    clippy::significant_drop_tightening,
+    reason = "Context adapter patterns; const/drop tightening deferred"
+)]
+
 //! Context adapter for Squirrel
 //!
 //! This crate provides adapters for interfacing with the context subsystem,
-#![forbid(unsafe_code)]
-#![allow(clippy::missing_const_for_fn, clippy::significant_drop_tightening)]
 //! including context management, persistence, and synchronization.
 //!
 //! ## Plugin Support
@@ -45,7 +50,6 @@
 #![warn(clippy::missing_docs_in_private_items)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::needless_raw_string_hashes)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
 /// Context adapter implementation

@@ -733,7 +733,10 @@ mod tests {
         let json = serde_json::to_string(&s).expect("ser");
         let back: DiscoveredService = serde_json::from_str(&json).expect("de");
         assert_eq!(back.service_id.as_ref(), "svc-serde");
-        assert_eq!(back.get_metadata("region").map(|v| v.as_ref()), Some("eu"));
+        assert_eq!(
+            back.get_metadata("region").map(std::convert::AsRef::as_ref),
+            Some("eu")
+        );
     }
 
     #[test]
@@ -750,7 +753,10 @@ mod tests {
         let json = serde_json::to_string(&resp).expect("ser");
         let back: PrimalApiResponse = serde_json::from_str(&json).expect("de");
         assert!(!back.success);
-        assert_eq!(back.error.as_ref().map(|e| e.as_ref()), Some("failed"));
+        assert_eq!(
+            back.error.as_ref().map(std::convert::AsRef::as_ref),
+            Some("failed")
+        );
     }
 
     #[test]

@@ -327,11 +327,11 @@ mod tests {
             &self.id
         }
 
-        fn get_name(&self) -> &str {
+        fn get_name(&self) -> &'static str {
             "passthrough"
         }
 
-        fn get_description(&self) -> &str {
+        fn get_description(&self) -> &'static str {
             "test"
         }
 
@@ -377,7 +377,7 @@ mod tests {
         Rule {
             id: "rule-1".to_string(),
             name: "Rule".to_string(),
-            description: "".to_string(),
+            description: String::new(),
             version: "1".to_string(),
             category: "c".to_string(),
             priority: 1,

@@ -2,20 +2,21 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+
 //! Machine Context Protocol (MCP) Implementation
 //!
 //! This crate provides a complete implementation of the Machine Context Protocol,
 //! including message types, transport layers, and utility functions.
 
-#![forbid(unsafe_code)]
 #![warn(missing_docs)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![allow(
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)
+)]
+#![expect(
     // Docs WIP — clippy docs tracked for completion (missing_docs enforced via warn above)
     clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    // Edition 2024 stabilisation noise
-    async_fn_in_trait,
     // Genuine domain naming
     clippy::doc_markdown,
     // Numeric casts in protocol handling — audited per-site
@@ -26,6 +27,7 @@
     clippy::option_if_let_else,
     clippy::significant_drop_tightening,
     clippy::similar_names,
+    reason = "Large MCP crate; progressive documentation and refactor"
 )]
 
 pub mod constants;

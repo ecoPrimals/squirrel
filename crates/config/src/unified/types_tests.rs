@@ -110,10 +110,14 @@ fn test_config_validate_security_disabled() {
     let mut config = SquirrelUnifiedConfig::default();
     config.security.enabled = false;
     config.security.require_authentication = false;
-    // Ensure ports are valid and distinct (Default may vary under instrumentation)
+    // Pin all values that validation checks — env vars from parallel tests can pollute defaults
     config.network.http_port = 8080;
     config.network.websocket_port = 8081;
     config.monitoring.prometheus_port = 9090;
+    config.timeouts.health_check_timeout_secs = 5;
+    config.timeouts.connection_timeout_secs = 30;
+    config.timeouts.request_timeout_secs = 60;
+    config.timeouts.session_timeout_secs = 3600;
     assert!(
         config.validate().is_ok(),
         "validation errors: {:?}",
@@ -128,10 +132,14 @@ fn test_config_validate_security_enabled_no_auth() {
     config.security.require_authentication = false;
     config.security.jwt_secret = None;
     config.security.api_keys = vec![];
-    // Ensure ports are valid and distinct (Default may vary under instrumentation)
+    // Pin all values that validation checks — env vars from parallel tests can pollute defaults
     config.network.http_port = 8080;
     config.network.websocket_port = 8081;
     config.monitoring.prometheus_port = 9090;
+    config.timeouts.health_check_timeout_secs = 5;
+    config.timeouts.connection_timeout_secs = 30;
+    config.timeouts.request_timeout_secs = 60;
+    config.timeouts.session_timeout_secs = 3600;
     assert!(
         config.validate().is_ok(),
         "validation errors: {:?}",

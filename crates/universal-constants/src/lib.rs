@@ -2,12 +2,13 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Universal Constants for Squirrel MCP System
-//!
-//! This crate provides a **single source of truth** for all constants used throughout
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
+
+//! Universal Constants for Squirrel MCP System
+//!
+//! This crate provides a **single source of truth** for all constants used throughout
 //! the Squirrel Universal AI Primal system. It consolidates previously scattered constants
 //! from multiple locations into one well-organized, type-safe, and maintainable location.
 //!

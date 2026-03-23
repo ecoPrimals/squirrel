@@ -389,7 +389,7 @@ mod tests {
             target_service: "b".to_string(),
             operation: "test".to_string(),
             payload: serde_json::json!({}),
-            security_context: Default::default(),
+            security_context: crate::universal::UniversalSecurityContext::default(),
             timestamp: chrono::Utc::now(),
         };
         let res = p.handle_ecosystem_request(req).await.expect("resp");

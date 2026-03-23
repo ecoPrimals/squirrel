@@ -640,6 +640,6 @@ mod compute_client_tests {
     #[test]
     fn compute_security_requirements_default_impl() {
         let d = ComputeSecurityRequirements::default();
-        assert!(matches!(d.encryption_requirements.data_at_rest, true));
+        assert!(d.encryption_requirements.data_at_rest);
     }
 }

@@ -330,7 +330,10 @@ mod tests {
         let bytes = bincode::serialize(&params).expect("bincode serialize");
         let back: QueryAiParams = bincode::deserialize(&bytes).expect("bincode deserialize");
         assert_eq!(back.prompt, "hello");
-        assert_eq!(back.model.as_ref().map(|m| m.as_ref()), Some("gpt-test"));
+        assert_eq!(
+            back.model.as_ref().map(std::convert::AsRef::as_ref),
+            Some("gpt-test")
+        );
         assert_eq!(back.max_tokens, Some(256));
         assert_eq!(back.temperature, Some(0.7));
     }

@@ -9,6 +9,8 @@
 //! - Command line arguments
 //! - Multiple sources with precedence
 
+#![allow(clippy::wildcard_imports)] // Parent `config` re-exports; wildcard keeps loader terse
+
 use super::*;
 use config::{Config, Environment, File, FileFormat};
 use dirs::config_dir;

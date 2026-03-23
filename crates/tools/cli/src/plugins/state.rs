@@ -49,7 +49,10 @@ impl PluginState {
     ///
     /// * `true` if the transition is valid
     /// * `false` otherwise
-    #[allow(clippy::unnested_or_patterns)] // Tuple transitions read clearly as listed pairs
+    #[expect(
+        clippy::unnested_or_patterns,
+        reason = "Tuple transitions read clearly as listed pairs"
+    )]
     pub fn is_valid_transition(from: PluginState, to: PluginState) -> bool {
         matches!(
             (from, to),

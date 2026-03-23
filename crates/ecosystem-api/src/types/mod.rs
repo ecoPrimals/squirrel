@@ -24,7 +24,10 @@ mod security;
 mod service_mesh;
 
 #[cfg(test)]
-#[allow(clippy::module_inception)]
+#[expect(
+    clippy::module_inception,
+    reason = "Nested `types` module groups generated and hand-written type definitions"
+)]
 mod tests;
 
 // Re-export all types for backward compatibility

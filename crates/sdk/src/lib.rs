@@ -2,11 +2,12 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+
 //! # Squirrel Plugin SDK
 //!
 //! The Squirrel Plugin SDK provides a comprehensive set of tools and APIs for developing
-#![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! plugins that integrate with the Squirrel MCP (Model Context Protocol) platform.
 //!
 //! ## Features
@@ -24,8 +25,10 @@
 //! use squirrel_sdk::prelude::*;
 //! use wasm_bindgen::prelude::*;
 
-#![allow(deprecated)] // SDK migration to universal-error in progress; expect() unfulfilled at lib level
-#![allow(clippy::wildcard_imports)] // Test modules use use super::*; progressive lint tightening
+#![expect(
+    deprecated,
+    reason = "SDK migration to universal-error in progress; legacy API surface still referenced"
+)]
 #![expect(
     clippy::unused_self,
     clippy::unnecessary_wraps,

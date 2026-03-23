@@ -87,7 +87,7 @@ impl AuthService {
             Ok(capability_info) => {
                 info!("Security capability discovered: {:?}", capability_info);
                 AuthProvider::SecurityCapability {
-                    endpoint: security_endpoint.clone(),
+                    endpoint: security_endpoint,
                     discovery_method: "universal_adapter_discovery".to_string(),
                     capability_info,
                 }
@@ -183,14 +183,8 @@ impl AuthService {
                 capability_info,
                 ..
             } => {
-                let endpoint_clone = endpoint.clone();
-                let capability_clone = capability_info.clone();
-                self.authenticate_with_security_capability(
-                    request,
-                    &endpoint_clone,
-                    &capability_clone,
-                )
-                .await
+                self.authenticate_with_security_capability(request, endpoint, capability_info)
+                    .await
             }
             AuthProvider::Standalone => self.authenticate_standalone(request).await,
             AuthProvider::Development => self.authenticate_development(request).await,

@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-// use crate::generated::mcp_task::WatchTaskResponse;
 use super::types::TaskUpdateSender;
 use crate::task::types::Task;
 
@@ -34,11 +33,6 @@ impl TaskWatcherManager {
     /// Broadcasts a task update to all registered watchers
     pub async fn broadcast_task_update(&self, task: Task) {
         let watchers = self.watchers.read().await;
-
-        // Create the update message
-        // let update = WatchTaskResponse {
-        //     task: Some(task.into()),
-        // };
 
         // Send to all watchers for this task
         if let Some(task_watchers) = watchers.get(task.id.as_ref()) {

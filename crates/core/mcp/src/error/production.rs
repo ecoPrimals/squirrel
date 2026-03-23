@@ -730,7 +730,7 @@ mod tests {
         let p = json_err.into_production_error();
         assert!(matches!(p, ProductionError::Serialization { .. }));
 
-        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "io");
+        let io_err = std::io::Error::other("io");
         let p2 = io_err.into_production_error();
         assert!(matches!(p2, ProductionError::Network { .. }));
     }

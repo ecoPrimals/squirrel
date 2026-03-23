@@ -3,7 +3,10 @@
 
 // NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
 // The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
-#![allow(deprecated)]
+#![expect(
+    deprecated,
+    reason = "Uses deprecated plugin::PluginMetadata until interfaces crate stabilizes (see module note)"
+)]
 
 //! Plugin manager
 //!

@@ -203,7 +203,7 @@ pub struct ExperienceBatch {
 
 /// Experience priority for prioritized replay (reserved for future prioritized experience replay)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[expect(dead_code, reason = "planned feature not yet wired")]
+#[allow(dead_code)] // Reserved for prioritized replay wiring
 pub struct ExperiencePriority {
     /// Experience ID
     pub experience_id: String,
@@ -862,7 +862,7 @@ mod tests {
             let mx = batch
                 .weights
                 .iter()
-                .cloned()
+                .copied()
                 .fold(f64::NEG_INFINITY, f64::max);
             assert!((mx - 1.0).abs() < 1e-9 || mx <= 1.0 + 1e-9);
         }

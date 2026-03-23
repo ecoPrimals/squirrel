@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![warn(missing_docs)]
+
 //! Compatibility module for legacy `squirrel_core` references
 //!
 //! This module re-exports types from `squirrel_context` for backward compatibility.
 
-#![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![warn(missing_docs)]
 // Core modules for Squirrel MCP ecosystem coordination
 /// HTTP API surface for Squirrel MCP when the `http-api` feature is enabled.
 #[cfg(feature = "http-api")]

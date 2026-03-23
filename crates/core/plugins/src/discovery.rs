@@ -19,7 +19,10 @@
 //!   [`PluginError::LoadError`] with discovery hints (other primals expose plugins via IPC).
 
 // Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
-#![allow(deprecated)]
+#![expect(
+    deprecated,
+    reason = "Backward compatibility: uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces"
+)]
 
 use std::path::Path;
 use std::sync::Arc;
@@ -39,10 +42,7 @@ use crate::plugin::{Plugin, PluginMetadata};
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
-#[allow(
-    dead_code,
-    reason = "Serde-populated manifest schema; fields read in tests and to_metadata (testing feature)"
-)]
+#[allow(dead_code)] // Serde schema + tests; fields consumed by loaders and manifest I/O
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -296,10 +296,7 @@ impl DefaultPluginDiscovery {
 
 /// Default plugin loader implementation (kept for trait impl / future use)
 #[derive(Debug, Copy, Clone)]
-#[allow(
-    dead_code,
-    reason = "Default PluginLoader impl; referenced only from unit tests in non-test library builds"
-)]
+#[allow(dead_code)] // Trait surface; constructed in tests / IPC-backed deployments
 pub struct DefaultPluginLoader;
 
 #[async_trait]

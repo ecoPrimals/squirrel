@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
+#![forbid(unsafe_code)]
+#![expect(
     clippy::unused_self,
     clippy::unused_async,
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
-    clippy::used_underscore_binding
+    clippy::used_underscore_binding,
+    reason = "MCP demo binary; illustrative code with relaxed lints"
 )]
 //! Squirrel MCP demo binary — configuration-based routing and primal coordination showcase.
 

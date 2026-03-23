@@ -5,7 +5,10 @@
 //!
 //! Methods use `&self` for future extensibility and consistent API
 
-#![allow(clippy::unused_self)]
+#![expect(
+    clippy::unused_self,
+    reason = "Parser methods use &self for consistent API and future extensibility"
+)]
 
 use regex::Regex;
 use serde_json::Value;
@@ -638,9 +641,10 @@ patterns = ["ctx.*"]
 
     #[test]
     fn parse_rule_skips_validation_when_disabled() {
-        let mut cfg = ParserConfig::default();
-        cfg.validate = false;
-        let parser = RuleParser::new(cfg);
+        let parser = RuleParser::new(ParserConfig {
+            validate: false,
+            ..Default::default()
+        });
         let minimal = r#"---
 id: "noval"
 name: ""

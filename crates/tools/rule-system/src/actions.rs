@@ -5,8 +5,11 @@
 //!
 //! Action handlers use `&self` for future state access and consistent API.
 
-#![allow(clippy::unused_self)]
-#![allow(
+#![expect(
+    clippy::unused_self,
+    reason = "Action handlers use &self for consistent API and future state access"
+)]
+#![expect(
     dead_code,
     reason = "Rule action types used during evaluation and kept for executor API"
 )]

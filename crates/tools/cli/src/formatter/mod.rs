@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-use colored::*;
+use colored::Colorize;
 use prettytable::{Cell, Row, Table};
 use serde::Serialize;
 use thiserror::Error;
@@ -351,18 +351,18 @@ mod tests {
 
     #[test]
     fn text_json_yaml_format_empty_and_special_strings() {
-        let t = TextFormatter::default();
+        let t = TextFormatter;
         let empty = EmptyStruct;
         let s = t.format(empty).expect("fmt");
         assert!(!s.is_empty());
 
-        let j = JsonFormatter::default();
+        let j = JsonFormatter;
         let long = "x".repeat(5000);
         let row = vec![long.clone(), "\"\n\t\r".to_string()];
         let tab = j.format_table(&["a", "b"], &[row]);
         assert!(tab.contains(&long));
 
-        let y = YamlFormatter::default();
+        let y = YamlFormatter;
         let tab2 = y.format_table(&[], &[]);
         assert!(tab2.contains("[]") || tab2.is_empty() || tab2.contains('-'));
     }

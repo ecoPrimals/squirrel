@@ -335,26 +335,35 @@ mod tests {
 
     #[test]
     fn server_validate_unspecified_host_in_non_prod_fails() {
-        let mut c = MCPServerConfig::default();
-        c.host = DEFAULT_PROD_HOST.to_string();
-        c.environment = "development".to_string();
+        let c = MCPServerConfig {
+            host: DEFAULT_PROD_HOST.to_string(),
+            environment: "development".to_string(),
+            ..Default::default()
+        };
         assert!(c.validate().is_err());
     }
 
     #[test]
     fn server_validate_empty_host_fails() {
-        let mut c = MCPServerConfig::default();
-        c.host = String::new();
+        let c = MCPServerConfig {
+            host: String::new(),
+            ..Default::default()
+        };
         assert!(c.validate().is_err());
     }
 
     #[test]
     fn client_validate_max_retries_and_timeouts() {
-        let mut c = MCPClientConfig::default();
-        c.max_retries = 11;
+        let c = MCPClientConfig {
+            max_retries: 11,
+            ..Default::default()
+        };
         assert!(c.validate().is_err());
-        c.max_retries = 10;
-        c.connect_timeout = Duration::from_secs(0);
+        let c = MCPClientConfig {
+            max_retries: 10,
+            connect_timeout: Duration::from_secs(0),
+            ..Default::default()
+        };
         assert!(c.validate().is_err());
     }
 

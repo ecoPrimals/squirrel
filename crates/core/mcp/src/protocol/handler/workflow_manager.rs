@@ -545,8 +545,10 @@ mod tests {
     use std::sync::Arc;
 
     fn test_security() -> Arc<SecurityManagerImpl> {
-        let mut cfg = SecurityConfig::default();
-        cfg.enable_rbac = false;
+        let cfg = SecurityConfig {
+            enable_rbac: false,
+            ..Default::default()
+        };
         Arc::new(SecurityManagerImpl::new(cfg))
     }
 
@@ -614,7 +616,7 @@ mod tests {
         let task = Task {
             id: "t1".into(),
             title: "task".into(),
-            description: "".into(),
+            description: String::new(),
             assignee: "alice".into(),
             status: TaskStatus::Todo,
             priority: Priority::Medium,
@@ -703,7 +705,7 @@ mod tests {
         let task = Task {
             id: "tx".into(),
             title: "t".into(),
-            description: "".into(),
+            description: String::new(),
             assignee: "a".into(),
             status: TaskStatus::Todo,
             priority: Priority::Low,
@@ -754,7 +756,7 @@ mod tests {
         let task = Task {
             id: "t-m1".into(),
             title: "t1".into(),
-            description: "".into(),
+            description: String::new(),
             assignee: "a".into(),
             status: TaskStatus::Todo,
             priority: Priority::Low,
@@ -771,7 +773,7 @@ mod tests {
         let review = ReviewRequest {
             id: "rev-m1".into(),
             title: "rev".into(),
-            description: "".into(),
+            description: String::new(),
             reviewer: "r".into(),
             severity: ReviewSeverity::Info,
             doc_type: DocType::API,

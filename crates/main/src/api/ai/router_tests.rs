@@ -1,203 +1,224 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Tests for AI router
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use super::router::AiRouter;
-use super::types::{ActionRequirements, ImageGenerationRequest, TextGenerationRequest};
+use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
+use crate::api::ai::constraints::RoutingConstraint;
+use crate::api::ai::router::AiRouter;
+use crate::api::ai::types::{
+    GeneratedImage, ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
+    TextGenerationResponse,
+};
+use crate::error::PrimalError;
+use async_trait::async_trait;
+use serde_json::json;
+use std::sync::Arc;
 
-#[tokio::test]
-async fn test_router_new_with_discovery() {
-    // Test router creation with discovery
-    let result = AiRouter::new_with_discovery(None).await;
+/// Minimal adapter: text generation only (for routing tests).
+struct MockTextAdapter {
+    id: &'static str,
+    name: &'static str,
+}
 
-    // Router should be created successfully even if no providers are found
-    // (it will be empty but valid)
-    assert!(result.is_ok());
+#[async_trait]
+impl AiProviderAdapter for MockTextAdapter {
+    fn provider_id(&self) -> &str {
+        self.id
+    }
+
+    fn provider_name(&self) -> &str {
+        self.name
+    }
+
+    fn is_local(&self) -> bool {
+        true
+    }
+
+    fn cost_per_unit(&self) -> Option<f64> {
+        Some(0.0)
+    }
+
+    fn avg_latency_ms(&self) -> u64 {
+        10
+    }
+
+    fn quality_tier(&self) -> QualityTier {
+        QualityTier::Standard
+    }
+
+    fn supports_text_generation(&self) -> bool {
+        true
+    }
+
+    fn supports_image_generation(&self) -> bool {
+        false
+    }
+
+    async fn generate_text(
+        &self,
+        request: TextGenerationRequest,
+    ) -> Result<TextGenerationResponse, PrimalError> {
+        Ok(TextGenerationResponse {
+            text: format!("echo:{}", request.prompt),
+            provider_id: self.id.to_string(),
+            model: request.model.unwrap_or_else(|| "mock".to_string()),
+            usage: None,
+            cost_usd: None,
+            latency_ms: 1,
+        })
+    }
+
+    async fn generate_image(
+        &self,
+        _request: ImageGenerationRequest,
+    ) -> Result<ImageGenerationResponse, PrimalError> {
+        Err(PrimalError::OperationFailed("mock: no image".to_string()))
+    }
+}
+
+/// Image-only adapter (no text generation).
+struct MockImageOnlyAdapter {
+    id: &'static str,
+}
+
+#[async_trait]
+impl AiProviderAdapter for MockImageOnlyAdapter {
+    fn provider_id(&self) -> &str {
+        self.id
+    }
+
+    fn provider_name(&self) -> &'static str {
+        "ImageOnly"
+    }
+
+    fn is_local(&self) -> bool {
+        true
+    }
+
+    fn cost_per_unit(&self) -> Option<f64> {
+        Some(0.01)
+    }
+
+    fn avg_latency_ms(&self) -> u64 {
+        20
+    }
+
+    fn quality_tier(&self) -> QualityTier {
+        QualityTier::Standard
+    }
+
+    fn supports_text_generation(&self) -> bool {
+        false
+    }
+
+    fn supports_image_generation(&self) -> bool {
+        true
+    }
+
+    async fn generate_text(
+        &self,
+        _request: TextGenerationRequest,
+    ) -> Result<TextGenerationResponse, PrimalError> {
+        Err(PrimalError::OperationFailed("no text".to_string()))
+    }
+
+    async fn generate_image(
+        &self,
+        _request: ImageGenerationRequest,
+    ) -> Result<ImageGenerationResponse, PrimalError> {
+        Ok(ImageGenerationResponse {
+            images: vec![GeneratedImage {
+                url: None,
+                data: None,
+                mime_type: "image/png".to_string(),
+                width: 1,
+                height: 1,
+            }],
+            provider_id: self.id.to_string(),
+            cost_usd: None,
+            latency_ms: 1,
+        })
+    }
 }
 
 #[tokio::test]
-async fn test_router_provider_count() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    // Verify we can get provider count without panicking
-    let _ = router.provider_count().await;
+async fn provider_count_reflects_injected_adapters() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
+        id: "mock-text",
+        name: "Mock",
+    })]);
+    assert_eq!(router.provider_count().await, 1);
 }
 
 #[tokio::test]
-async fn test_router_list_providers() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    // List providers should return a vector (may be empty)
-    let providers = router.list_providers().await;
-
-    // Should match provider count
-    let count = router.provider_count().await;
-    assert_eq!(providers.len(), count);
-}
-
-#[test]
-fn test_generate_text_no_providers() {
-    temp_env::with_vars_unset(["ANTHROPIC_API_KEY", "OPENAI_API_KEY"], || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-            let request = TextGenerationRequest {
-                prompt: "Hello, world!".to_string(),
-                system: None,
-                max_tokens: 100,
-                temperature: 0.7,
-                model: None,
-                constraints: vec![],
-                params: std::collections::HashMap::new(),
-            };
-
-            let result = router.generate_text(request, None).await;
-            assert!(result.is_err());
-        });
-    });
-}
-
-#[test]
-fn test_generate_image_no_providers() {
-    temp_env::with_vars_unset(["OPENAI_API_KEY", "HUGGINGFACE_API_KEY"], || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-            let request = ImageGenerationRequest {
-                prompt: "A beautiful sunset".to_string(),
-                negative_prompt: None,
-                size: "512x512".to_string(),
-                n: 1,
-                quality_preference: None,
-                constraints: vec![],
-                params: std::collections::HashMap::new(),
-            };
-
-            let result = router.generate_image(request, None).await;
-            assert!(result.is_err());
-        });
-    });
-}
-
-#[tokio::test]
-async fn test_router_with_action_requirements() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    let requirements = ActionRequirements {
-        quality: Some("high".to_string()),
-        cost_preference: Some("balanced".to_string()),
-        max_latency_ms: Some(5000),
-        privacy_level: Some("private".to_string()),
-        preferred_provider: None,
-    };
-
-    let request = TextGenerationRequest {
-        prompt: "Test with requirements".to_string(),
+async fn generate_text_routes_to_mock_and_returns_echo() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
+        id: "mock-text",
+        name: "Mock",
+    })]);
+    let req = TextGenerationRequest {
+        prompt: "hello".to_string(),
         system: None,
-        max_tokens: 50,
+        max_tokens: 64,
+        temperature: 0.5,
+        model: None,
+        constraints: vec![],
+        params: std::collections::HashMap::new(),
+    };
+    let out = router.generate_text(req, None).await.unwrap();
+    assert_eq!(out.text, "echo:hello");
+    assert_eq!(out.provider_id, "mock-text");
+}
+
+#[tokio::test]
+async fn generate_text_errors_when_no_providers() {
+    let router = AiRouter::default();
+    let req = TextGenerationRequest {
+        prompt: "x".to_string(),
+        system: None,
+        max_tokens: 32,
         temperature: 0.7,
         model: None,
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-
-    // Should handle requirements even if it fails due to no providers
-    let result = router.generate_text(request, Some(requirements)).await;
-
-    // Will fail due to no providers, but should not panic
-    assert!(result.is_err());
+    let err = router.generate_text(req, None).await.unwrap_err();
+    assert!(matches!(err, crate::error::PrimalError::OperationFailed(_)));
 }
 
 #[tokio::test]
-async fn test_provider_info_structure() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-    let providers = router.list_providers().await;
-
-    // Each provider info should have valid structure
-    for provider in providers {
-        // Provider ID should not be empty
-        assert!(!provider.provider_id.is_empty());
-
-        // Provider name should not be empty
-        assert!(!provider.provider_name.is_empty());
-
-        // Capabilities should be present
-        assert!(!provider.capabilities.is_empty());
-    }
+async fn list_providers_merges_without_duplicates() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
+        id: "only",
+        name: "Only",
+    })]);
+    let listed = router.list_providers().await;
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].provider_id, "only");
 }
 
-#[tokio::test]
-async fn test_concurrent_provider_access() {
-    let router = std::sync::Arc::new(AiRouter::new_with_discovery(None).await.unwrap());
-
-    // Spawn multiple tasks accessing provider count concurrently
-    let mut handles = vec![];
-
-    for _ in 0..10 {
-        let router_clone = router.clone();
-        handles.push(tokio::spawn(
-            async move { router_clone.provider_count().await },
-        ));
-    }
-
-    // All tasks should complete successfully
-    for handle in handles {
-        let result = handle.await;
-        assert!(result.is_ok());
-    }
-}
-
-#[tokio::test]
-async fn test_concurrent_provider_list() {
-    let router = std::sync::Arc::new(AiRouter::new_with_discovery(None).await.unwrap());
-
-    // Spawn multiple tasks listing providers concurrently
-    let mut handles = vec![];
-
-    for _ in 0..10 {
-        let router_clone = router.clone();
-        handles.push(tokio::spawn(
-            async move { router_clone.list_providers().await },
-        ));
-    }
-
-    // All tasks should complete successfully
-    for handle in handles {
-        let result = handle.await;
-        assert!(result.is_ok());
-    }
-}
-
-#[tokio::test]
-async fn test_text_generation_request_validation() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    // Test with empty prompt
-    let request = TextGenerationRequest {
-        prompt: String::new(),
-        system: None,
+#[test]
+fn text_generation_request_serde_round_trip() {
+    let req = TextGenerationRequest {
+        prompt: "p".to_string(),
+        system: Some("sys".to_string()),
         max_tokens: 100,
-        temperature: 0.7,
-        model: None,
+        temperature: 0.2,
+        model: Some("m".to_string()),
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-
-    // Should handle empty prompt gracefully
-    let result = router.generate_text(request, None).await;
-    assert!(result.is_err()); // Will fail due to no providers, but shouldn't panic
+    let v = serde_json::to_value(&req).unwrap();
+    let back: TextGenerationRequest = serde_json::from_value(v).unwrap();
+    assert_eq!(back.prompt, "p");
+    assert_eq!(back.model.as_deref(), Some("m"));
 }
 
-#[tokio::test]
-async fn test_image_generation_request_validation() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    // Test with empty prompt
-    let request = ImageGenerationRequest {
-        prompt: String::new(),
+#[test]
+fn image_generation_request_serde_round_trip() {
+    let req = ImageGenerationRequest {
+        prompt: "a cat".to_string(),
         negative_prompt: None,
         size: "512x512".to_string(),
         n: 1,
@@ -205,239 +226,237 @@ async fn test_image_generation_request_validation() {
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-
-    // Should handle empty prompt gracefully
-    let result = router.generate_image(request, None).await;
-    assert!(result.is_err()); // Will fail due to no providers, but shouldn't panic
+    let j = json!({"prompt":"a cat","size":"512x512","n":1});
+    let parsed: ImageGenerationRequest = serde_json::from_value(j).unwrap();
+    assert_eq!(parsed.prompt, req.prompt);
 }
 
 #[tokio::test]
-async fn test_router_initialization_timeout() {
-    // The router has a 10-second timeout for initialization
-    // This test verifies it doesn't hang indefinitely
-    let start = std::time::Instant::now();
-
-    let _router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    let elapsed = start.elapsed();
-
-    // Should complete within a reasonable time
-    // Router may try multiple adapters (each with 5s timeout), so allow up to 30s
-    assert!(
-        elapsed.as_secs() < 30,
-        "Initialization took {} seconds",
-        elapsed.as_secs()
-    );
-}
-
-#[tokio::test]
-async fn test_action_requirements_defaults() {
-    let requirements = ActionRequirements::default();
-
-    // Default values should be set
-    assert_eq!(requirements.quality, Some("medium".to_string()));
-    assert_eq!(requirements.cost_preference, Some("balanced".to_string()));
-}
-
-#[tokio::test]
-async fn test_action_requirements_with_privacy() {
-    let requirements = ActionRequirements {
-        quality: Some("high".to_string()),
-        cost_preference: Some("premium".to_string()),
-        max_latency_ms: Some(3000),
-        privacy_level: Some("local".to_string()),
-        preferred_provider: Some("local-llm".to_string()),
-    };
-
-    // Requirements should be valid
-    assert_eq!(requirements.privacy_level, Some("local".to_string()));
-    assert_eq!(
-        requirements.preferred_provider,
-        Some("local-llm".to_string())
-    );
-}
-
-#[tokio::test]
-async fn test_router_handles_service_mesh_none() {
-    // Test that passing None for service mesh client works
-    let result = AiRouter::new_with_discovery(None).await;
-    assert!(result.is_ok());
-}
-
-#[tokio::test]
-async fn test_multiple_router_instances() {
-    // Create multiple router instances
-    let router1 = AiRouter::new_with_discovery(None).await.unwrap();
-    let router2 = AiRouter::new_with_discovery(None).await.unwrap();
-
-    // Both should be independently functional
-    let count1 = router1.provider_count().await;
-    let count2 = router2.provider_count().await;
-
-    // Counts should be the same (same environment)
-    assert_eq!(count1, count2);
-}
-
-#[tokio::test]
-async fn test_provider_capabilities_not_empty() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-    let providers = router.list_providers().await;
-
-    // If any providers exist, they should have capabilities
-    for provider in providers {
-        assert!(
-            !provider.capabilities.is_empty(),
-            "Provider {} has no capabilities",
-            provider.provider_id
-        );
-    }
-}
-
-#[tokio::test]
-async fn test_text_generation_with_system_message() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    let request = TextGenerationRequest {
-        prompt: "Test prompt with system message".to_string(),
-        system: Some("You are a helpful assistant".to_string()),
-        max_tokens: 200,
-        temperature: 0.8,
-        model: Some("test-model".to_string()),
-        constraints: vec![],
-        params: std::collections::HashMap::new(),
-    };
-
-    // Should handle system message gracefully
-    let result = router.generate_text(request, None).await;
-    assert!(result.is_err()); // Will fail due to no providers
-}
-
-#[tokio::test]
-async fn test_image_generation_with_negative_prompt() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    let request = ImageGenerationRequest {
-        prompt: "A beautiful landscape".to_string(),
-        negative_prompt: Some("ugly, blurry".to_string()),
-        size: "1024x1024".to_string(),
-        n: 2,
-        quality_preference: Some("high".to_string()),
-        constraints: vec![],
-        params: std::collections::HashMap::new(),
-    };
-
-    // Should handle negative prompt gracefully
-    let result = router.generate_image(request, None).await;
-    assert!(result.is_err()); // Will fail due to no providers
-}
-
-#[tokio::test]
-async fn test_text_generation_with_params() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    let mut params = std::collections::HashMap::new();
-    params.insert("custom_param".to_string(), serde_json::json!("value"));
-    params.insert("another_param".to_string(), serde_json::json!(42));
-
-    let request = TextGenerationRequest {
-        prompt: "Test with custom params".to_string(),
+async fn generate_text_errors_when_only_image_adapter_present() {
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(MockImageOnlyAdapter { id: "img-only" })]);
+    let req = TextGenerationRequest {
+        prompt: "x".to_string(),
         system: None,
-        max_tokens: 100,
+        max_tokens: 32,
         temperature: 0.7,
         model: None,
         constraints: vec![],
-        params,
+        params: std::collections::HashMap::new(),
     };
-
-    // Should handle custom params gracefully
-    let result = router.generate_text(request, None).await;
-    assert!(result.is_err()); // Will fail due to no providers
+    let err = router.generate_text(req, None).await.unwrap_err();
+    assert!(matches!(err, PrimalError::OperationFailed(msg) if msg.contains("text")));
 }
 
 #[tokio::test]
-async fn test_image_generation_multiple_images() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    let request = ImageGenerationRequest {
-        prompt: "Test generating multiple images".to_string(),
+async fn generate_image_errors_when_no_image_providers() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
+        id: "text-only",
+        name: "Text",
+    })]);
+    let req = ImageGenerationRequest {
+        prompt: "a cat".to_string(),
         negative_prompt: None,
-        size: "512x512".to_string(),
-        n: 4, // Request multiple images
+        size: "256x256".to_string(),
+        n: 1,
         quality_preference: None,
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-
-    // Should handle multiple image request gracefully
-    let result = router.generate_image(request, None).await;
-    assert!(result.is_err()); // Will fail due to no providers
+    let err = router.generate_image(req, None).await.unwrap_err();
+    assert!(matches!(err, PrimalError::OperationFailed(_)));
 }
 
 #[tokio::test]
-async fn test_text_generation_high_temperature() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    let request = TextGenerationRequest {
-        prompt: "Creative writing prompt".to_string(),
+async fn generate_text_with_constraints_uses_constraint_router() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
+        id: "mock-text",
+        name: "Mock",
+    })]);
+    let req = TextGenerationRequest {
+        prompt: "hello".to_string(),
         system: None,
-        max_tokens: 500,
-        temperature: 1.5, // High temperature for creativity
+        max_tokens: 64,
+        temperature: 0.5,
         model: None,
+        constraints: vec![RoutingConstraint::RequireProvider("mock-text".to_string())],
+        params: std::collections::HashMap::new(),
+    };
+    let out = router.generate_text(req, None).await.unwrap();
+    assert_eq!(out.provider_id, "mock-text");
+}
+
+#[tokio::test]
+async fn get_text_generation_providers_filters_non_text() {
+    let router = AiRouter::from_adapters_for_test(vec![
+        Arc::new(MockTextAdapter { id: "t", name: "T" }) as Arc<dyn AiProviderAdapter>,
+        Arc::new(MockImageOnlyAdapter { id: "i" }) as Arc<dyn AiProviderAdapter>,
+    ]);
+    let infos = router.get_text_generation_providers().await.unwrap();
+    assert_eq!(infos.len(), 1);
+    assert_eq!(infos[0].provider_id, "t");
+}
+
+/// Cheaper (higher score) image provider that always fails generation — triggers fallback path.
+struct MockFailingImageAdapter {
+    id: &'static str,
+}
+
+#[async_trait]
+impl AiProviderAdapter for MockFailingImageAdapter {
+    fn provider_id(&self) -> &str {
+        self.id
+    }
+
+    fn provider_name(&self) -> &'static str {
+        "FailImg"
+    }
+
+    fn is_local(&self) -> bool {
+        true
+    }
+
+    fn cost_per_unit(&self) -> Option<f64> {
+        Some(0.0)
+    }
+
+    fn avg_latency_ms(&self) -> u64 {
+        5
+    }
+
+    fn quality_tier(&self) -> QualityTier {
+        QualityTier::Standard
+    }
+
+    fn supports_text_generation(&self) -> bool {
+        false
+    }
+
+    fn supports_image_generation(&self) -> bool {
+        true
+    }
+
+    async fn generate_text(
+        &self,
+        _request: TextGenerationRequest,
+    ) -> Result<TextGenerationResponse, PrimalError> {
+        Err(PrimalError::OperationFailed("no text".to_string()))
+    }
+
+    async fn generate_image(
+        &self,
+        _request: ImageGenerationRequest,
+    ) -> Result<ImageGenerationResponse, PrimalError> {
+        Err(PrimalError::OperationFailed(
+            "primary image provider failed".to_string(),
+        ))
+    }
+}
+
+/// Higher-cost fallback image provider that succeeds.
+struct MockFallbackImageAdapter {
+    id: &'static str,
+}
+
+#[async_trait]
+impl AiProviderAdapter for MockFallbackImageAdapter {
+    fn provider_id(&self) -> &str {
+        self.id
+    }
+
+    fn provider_name(&self) -> &'static str {
+        "OkImg"
+    }
+
+    fn is_local(&self) -> bool {
+        true
+    }
+
+    fn cost_per_unit(&self) -> Option<f64> {
+        Some(0.05)
+    }
+
+    fn avg_latency_ms(&self) -> u64 {
+        30
+    }
+
+    fn quality_tier(&self) -> QualityTier {
+        QualityTier::Standard
+    }
+
+    fn supports_text_generation(&self) -> bool {
+        false
+    }
+
+    fn supports_image_generation(&self) -> bool {
+        true
+    }
+
+    async fn generate_text(
+        &self,
+        _request: TextGenerationRequest,
+    ) -> Result<TextGenerationResponse, PrimalError> {
+        Err(PrimalError::OperationFailed("no text".to_string()))
+    }
+
+    async fn generate_image(
+        &self,
+        _request: ImageGenerationRequest,
+    ) -> Result<ImageGenerationResponse, PrimalError> {
+        Ok(ImageGenerationResponse {
+            images: vec![GeneratedImage {
+                url: None,
+                data: None,
+                mime_type: "image/png".to_string(),
+                width: 2,
+                height: 2,
+            }],
+            provider_id: self.id.to_string(),
+            cost_usd: None,
+            latency_ms: 2,
+        })
+    }
+}
+
+#[tokio::test]
+async fn generate_image_retries_with_fallback_provider() {
+    let router = AiRouter::from_adapters_for_test(vec![
+        Arc::new(MockFailingImageAdapter { id: "img-fail" }) as Arc<dyn AiProviderAdapter>,
+        Arc::new(MockFallbackImageAdapter { id: "img-ok" }) as Arc<dyn AiProviderAdapter>,
+    ]);
+    let req = ImageGenerationRequest {
+        prompt: "sunset".to_string(),
+        negative_prompt: None,
+        size: "256x256".to_string(),
+        n: 1,
+        quality_preference: None,
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-
-    // Should handle high temperature gracefully
-    let result = router.generate_text(request, None).await;
-    assert!(result.is_err()); // Will fail due to no providers
+    let out = router.generate_image(req, None).await.unwrap();
+    assert_eq!(out.provider_id, "img-ok");
+    assert_eq!(out.images.len(), 1);
 }
 
 #[tokio::test]
-async fn test_text_generation_low_temperature() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    let request = TextGenerationRequest {
-        prompt: "Factual query".to_string(),
-        system: None,
-        max_tokens: 100,
-        temperature: 0.1, // Low temperature for deterministic output
-        model: None,
+async fn generate_image_success_without_retry() {
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(MockImageOnlyAdapter { id: "img-one" })]);
+    let req = ImageGenerationRequest {
+        prompt: "x".to_string(),
+        negative_prompt: None,
+        size: "128x128".to_string(),
+        n: 1,
+        quality_preference: None,
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-
-    // Should handle low temperature gracefully
-    let result = router.generate_text(request, None).await;
-    assert!(result.is_err()); // Will fail due to no providers
+    let out = router.generate_image(req, None).await.unwrap();
+    assert_eq!(out.provider_id, "img-one");
 }
 
 #[tokio::test]
-async fn test_provider_count_is_consistent() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    // Get count multiple times
-    let count1 = router.provider_count().await;
-    let count2 = router.provider_count().await;
-    let count3 = router.provider_count().await;
-
-    // Should be consistent across calls
-    assert_eq!(count1, count2);
-    assert_eq!(count2, count3);
-}
-
-#[tokio::test]
-async fn test_provider_list_is_consistent() {
-    let router = AiRouter::new_with_discovery(None).await.unwrap();
-
-    // Get list multiple times
-    let list1 = router.list_providers().await;
-    let list2 = router.list_providers().await;
-
-    // Should be consistent across calls
-    assert_eq!(list1.len(), list2.len());
-
-    // Provider IDs should match
-    let ids1: Vec<_> = list1.iter().map(|p| &p.provider_id).collect();
-    let ids2: Vec<_> = list2.iter().map(|p| &p.provider_id).collect();
-    assert_eq!(ids1, ids2);
+async fn router_default_has_no_providers() {
+    let r = AiRouter::default();
+    assert_eq!(r.provider_count().await, 0);
 }

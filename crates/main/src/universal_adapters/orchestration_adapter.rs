@@ -535,7 +535,7 @@ mod tests {
             ])
             .await
             .expect("discover");
-        assert!(list.len() >= 1);
+        assert!(!list.is_empty());
     }
 
     #[tokio::test]

@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 23, 2026
-**Version**: 0.1.0-alpha.21
+**Version**: 0.1.0-alpha.22
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,23 +10,26 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 6,717 passing / 0 failures across 21 workspace members |
+| Tests | 6,720 passing / 0 failures across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
-| Clippy | CLEAN — `pedantic + nursery + deny(unwrap/expect)` on `--all-features --all-targets`; zero warnings |
-| Docs | All crates `#![warn(missing_docs)]`; `doc_markdown` clean |
+| Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
+| Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
-| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in all crate entry points |
+| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in **all** crate `lib.rs`, `main.rs`, and `bin/*.rs` files workspace-wide |
 | Pure Rust | 100% default features (zero C deps); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
-| Coverage | 86.8% line coverage via `cargo-llvm-cov` (target: 90%) |
-| Crates | 21 workspace members |
-| Files >1000 lines | 0 (max: 965 — learning/manager_tests.rs; definitions.rs refactored 1121→585+service.rs) |
+| Coverage | 86.0% line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is IPC/network code requiring real socket connections and binary entry points |
+| Crates | 22 workspace members |
+| Files >1000 lines | 0 (max: 987 — learning/integration_tests.rs); all 19 previously >1000-line files smart-refactored |
+| `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
+| Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
-| redis | 1.0.5 (upgraded from 0.23) |
+| cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
 | Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
 | TODO/FIXME in code | 0 (documented `STUB` comments only in performance optimizer batch/optimizer — Phase 2 deferred; swarm, coordination, and crypto are production implementations) |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
+| Zero-copy | Hot-path clones audited; `Arc::clone()` for intent clarity; `mem::take` for payload moves; `String` → borrow in MCP task client |
 
 ## JSON-RPC Methods
 
@@ -245,16 +248,30 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked, 14-crate ecoBin C-dep ban |
-| cargo-llvm-cov | 86.8% line coverage (target: 90%) |
+| cargo-llvm-cov | 86.0% line coverage (target: 90%) |
 | proptest | Round-trip + wire-format fuzz + IPC fuzz for all JSON-RPC types (23 properties) + Unix socket IPC tests |
 | rust-toolchain | `rust-toolchain.toml` — pinned stable + clippy + rustfmt + llvm-tools-preview |
 
 ## Known Issues
 
-1. Coverage at 86.8% — remaining ~3.2% gap to 90% is primarily untestable binary entry points and WASM-dependent SDK paths
+1. Coverage at 86.0% — remaining ~4% gap to 90% is primarily IPC/network code, binary entry points, and WASM-dependent SDK paths
 2. Performance optimizer `batch_processor` / `optimizer` stubs remain deferred to Phase 2 (swarm coordination, coordination service, and crypto are now production implementations, not stubs)
 
 ## Changes Since Last Handoff (March 23, 2026)
+
+### alpha.22 Sprint (Deep Debt Resolution, Lint Pedantry & Cross-Ecosystem Absorption)
+
+- **`#![forbid(unsafe_code)]` workspace-wide**: Applied to all `lib.rs`, `main.rs`, and `bin/*.rs` files across the entire workspace (previously only in select crate roots)
+- **19 files >1000 lines smart-refactored**: Extracted types, handlers, and tests into submodules with re-exports for backward compatibility. Examples: `web/api.rs` (1266→183+endpoints+handlers+websocket+tests), `universal_primal_ecosystem/mod.rs` (1221→461+cache+discovery+ipc+tests), `primal_provider/core.rs` (1166→684+universal_trait+tests), all RPC servers, plugin managers, CLI modules, AI tools
+- **`#[allow]` → `#[expect(reason)]` migration**: 59 files migrated; dead suppressions caught and removed; crate-level lint policies consolidated; unfulfilled expectations cleaned across auth, context, mcp, plugins, universal-patterns, interfaces, config, ecosystem-integration
+- **Cargo metadata complete**: All 22 crates now have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings
+- **Clippy nursery/pedantic full clean**: Fixed `unnecessary_literal_bound` (→ `&'static str`), `manual_let_else`, `manual_string_new`, `strict_f32_comparison`, `redundant_clone`, `items_after_test_module`, and all unfulfilled lint expectations
+- **Zero-copy clone audit**: Removed unnecessary clones in MCP task client (per-RPC String→borrow), auth provider discovery (move instead of clone), consensus messaging (`Arc::clone` for clarity), biomeOS context state (single-clone session IDs)
+- **Config test hardening**: Pinned all timeout values in validation tests to resist env var pollution from parallel test runs under llvm-cov
+- **Test count**: 6,717→6,720 (+28 targeted tests for AI routing, IPC, RPC handlers, capabilities, compute providers, transport)
+- **Coverage**: 86.0% line coverage (86.6% region coverage) — remaining gap is IPC/network code and binary entry points
+- **Files**: 1,318 `.rs` files, 445K total lines, max file 987 lines (all under 1000)
+- **Quality gates**: `fmt` ✓, `clippy -D warnings` ✓, `doc` ✓, `deny` ✓, `test` ✓ (6,720/0)
 
 ### alpha.21 Sprint (Coverage Push & Zero-Copy Evolution)
 

@@ -146,7 +146,7 @@ async fn test_policy_network_evaluate() {
         .await
         .expect("Should evaluate");
 
-    assert!(accuracy >= 0.0 && accuracy <= 1.0);
+    assert!((0.0..=1.0).contains(&accuracy));
 }
 
 #[tokio::test]

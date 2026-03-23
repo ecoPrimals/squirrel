@@ -5,6 +5,10 @@ edition = "2024"
 authors = ["Squirrel Team"]
 description = "Universal error system for Squirrel - extends the excellent MCP error architecture"
 license = "AGPL-3.0-only"
+repository = "https://github.com/ecoPrimals/squirrel"
+readme = "README.md"
+keywords = ["ecoprimals", "ai", "mcp", "json-rpc"]
+categories = ["development-tools"]
 
 [dependencies]
 # For error definitions

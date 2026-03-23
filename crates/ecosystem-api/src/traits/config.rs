@@ -164,7 +164,10 @@ pub struct ResourceConfig {
 
 /// Feature flags
 #[derive(Debug, Clone)]
-#[allow(clippy::struct_excessive_bools)] // Independent toggles for runtime features
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Independent toggles for runtime features"
+)]
 pub struct FeatureFlags {
     /// Development mode
     pub development_mode: bool,

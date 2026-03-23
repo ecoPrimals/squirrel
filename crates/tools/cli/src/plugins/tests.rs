@@ -91,7 +91,7 @@ impl PluginManagerTester {
     }
 
     /// Test plugin execution
-    pub async fn test_plugin_execution(&mut self) -> Result<(), PluginError> {
+    pub async fn test_plugin_execution(&self) -> Result<(), PluginError> {
         // Test plugin execution functionality
         let plugin = TestPlugin::new("test-plugin".to_string(), "1.0.0".to_string());
 
@@ -137,7 +137,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_plugin_manager_tester() {
-        let mut tester = PluginManagerTester::new();
+        let tester = PluginManagerTester::new();
         tester.test_plugin_loading().unwrap();
         tester.test_plugin_security().unwrap();
         tester.test_plugin_execution().await.unwrap();

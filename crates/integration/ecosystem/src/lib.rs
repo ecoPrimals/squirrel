@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::missing_docs_in_private_items)]
+#![forbid(unsafe_code)]
+
 //! Squirrel Ecosystem Integration
 //!
 //! This crate provides integration points with the broader ecoPrimals ecosystem.
@@ -27,7 +28,6 @@
 //! - `ServiceRegistration` and `EcosystemIntegration` types
 //! - `register_mcp_services()`: Register Squirrel MCP with service mesh
 //! - Future: Songbird client, `ToadStool` client (when those crates exist)
-#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};

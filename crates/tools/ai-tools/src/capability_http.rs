@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability-Based HTTP Client (TRUE PRIMAL!)
-#![allow(
+#![expect(
     dead_code,
     reason = "HTTP capability client module awaiting activation"
 )]
@@ -347,6 +347,8 @@ impl HttpClient {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::items_after_statements)]
+
     use super::*;
 
     #[test]

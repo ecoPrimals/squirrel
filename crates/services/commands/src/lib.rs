@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+
 //! Squirrel Commands Service
 #![expect(dead_code, reason = "Command service awaiting full wiring")]
 #![expect(
@@ -36,7 +38,6 @@
 )]
 //!
 //! Core command processing functionality for the Squirrel MCP ecosystem.
-#![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 //! This service handles basic command execution and validation.

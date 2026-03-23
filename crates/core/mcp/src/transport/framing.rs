@@ -341,6 +341,7 @@ impl Encoder<MCPMessage> for FramingMessageCodec {
 mod tests {
     use super::*;
     use crate::protocol::types::MessageType;
+    use universal_constants::limits;
 
     #[tokio::test]
     async fn test_frame_round_trip() {
@@ -431,7 +432,6 @@ mod tests {
     fn framing_message_codec_decode_oversized_length() {
         let mut codec = FramingMessageCodec::new();
         let mut buf = bytes::BytesMut::new();
-        use universal_constants::limits;
         buf.put_u32((limits::MAX_TRANSPORT_FRAME_SIZE as u32).saturating_add(1));
         let err = codec.decode(&mut buf).expect_err("large");
         assert!(matches!(err, TransportError::InvalidFrame(_)));
@@ -448,7 +448,6 @@ mod tests {
     #[test]
     fn framing_message_codec_encode_message_too_large() {
         let mut codec = FramingMessageCodec::new();
-        use universal_constants::limits;
         let big = serde_json::Value::String("x".repeat(limits::MAX_TRANSPORT_FRAME_SIZE + 1));
         let msg = MCPMessage::new(MessageType::Command, big);
         let mut dst = bytes::BytesMut::new();

@@ -5,7 +5,10 @@
 //!
 //! Evaluator methods use `&self` for consistency and future state access.
 
-#![allow(clippy::unused_self)]
+#![expect(
+    clippy::unused_self,
+    reason = "Evaluator methods use &self for consistency and future state access"
+)]
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;

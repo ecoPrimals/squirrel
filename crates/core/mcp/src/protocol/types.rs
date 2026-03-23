@@ -11,9 +11,6 @@ use std::time::SystemTime;
 use tokio_tungstenite::tungstenite::Message;
 use uuid; // Needed for MessageId
 
-// Remove the security import since SecurityMetadata is defined in this file
-// use crate::security::types::SecurityMetadata;
-
 /// Message type for MCP communications.
 ///
 /// This enumeration defines the different types of messages that can be
@@ -215,7 +212,10 @@ impl MCPMessage {
     ///
     /// ... (doc comment) ...
     #[must_use]
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Full MCP message constructor mirrors protocol fields"
+    )]
     pub const fn with_details(
         id: MessageId,
         type_: MessageType,
@@ -426,7 +426,7 @@ mod tests {
             .unwrap()
             .with_timezone(&chrono::Utc);
         let msg = MCPMessage::with_details(
-            id.clone(),
+            id,
             MessageType::Response,
             serde_json::json!({ "a": 1 }),
             Some(serde_json::json!({ "meta": true })),

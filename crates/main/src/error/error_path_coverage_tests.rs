@@ -263,12 +263,12 @@ mod error_path_tests {
         assert!(
             PrimalError::InvalidInput("i".into())
                 .to_string()
-                .contains("i")
+                .contains('i')
         );
         assert!(
             PrimalError::RemoteError("r".into())
                 .to_string()
-                .contains("r")
+                .contains('r')
         );
         assert!(
             PrimalError::InvalidEndpoint("ep".into())
@@ -282,12 +282,12 @@ mod error_path_tests {
         assert!(
             PrimalError::NotImplemented("n".into())
                 .to_string()
-                .contains("n")
+                .contains('n')
         );
         assert!(
             PrimalError::NotSupported("s".into())
                 .to_string()
-                .contains("s")
+                .contains('s')
         );
     }
 
@@ -301,7 +301,7 @@ mod error_path_tests {
         assert!(
             PrimalError::ParsingError("p".into())
                 .to_string()
-                .contains("p")
+                .contains('p')
         );
     }
 
@@ -319,28 +319,28 @@ mod error_path_tests {
         assert!(
             PrimalError::ComputeError("c".into())
                 .to_string()
-                .contains("c")
+                .contains('c')
         );
         assert!(
             PrimalError::StorageError("s".into())
                 .to_string()
-                .contains("s")
+                .contains('s')
         );
-        assert!(PrimalError::Internal("i".into()).to_string().contains("i"));
+        assert!(PrimalError::Internal("i".into()).to_string().contains('i'));
     }
 
     #[test]
     fn primal_error_registry_and_operation_variants() {
-        assert!(PrimalError::Registry("r".into()).to_string().contains("r"));
+        assert!(PrimalError::Registry("r".into()).to_string().contains('r'));
         assert!(
             PrimalError::OperationFailed("o".into())
                 .to_string()
-                .contains("o")
+                .contains('o')
         );
         assert!(
             PrimalError::OperationNotSupported("x".into())
                 .to_string()
-                .contains("x")
+                .contains('x')
         );
     }
 
@@ -349,17 +349,17 @@ mod error_path_tests {
         assert!(
             PrimalError::ResourceNotFound("a".into())
                 .to_string()
-                .contains("a")
+                .contains('a')
         );
         assert!(
             PrimalError::NotFoundError("b".into())
                 .to_string()
-                .contains("b")
+                .contains('b')
         );
         assert!(
             PrimalError::ResourceError("c".into())
                 .to_string()
-                .contains("c")
+                .contains('c')
         );
     }
 
@@ -368,8 +368,8 @@ mod error_path_tests {
         assert!(
             PrimalError::SerializationError("s".into())
                 .to_string()
-                .contains("s")
+                .contains('s')
         );
-        assert!(PrimalError::General("g".into()).to_string().contains("g"));
+        assert!(PrimalError::General("g".into()).to_string().contains('g'));
     }
 }

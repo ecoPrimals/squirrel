@@ -534,9 +534,10 @@ mod tests {
     #[tokio::test]
     async fn config_get_and_update() {
         let dir = tempfile::tempdir().unwrap();
-        let mut cfg = RuleDirectoryConfig::default();
-        cfg.root_directory = dir.path().to_path_buf();
-        let mgr = RuleDirectoryManager::new(cfg);
+        let mgr = RuleDirectoryManager::new(RuleDirectoryConfig {
+            root_directory: dir.path().to_path_buf(),
+            ..Default::default()
+        });
         mgr.update_config(RuleDirectoryConfig {
             watch_for_changes: false,
             root_directory: dir.path().to_path_buf(),
@@ -549,7 +550,7 @@ mod tests {
 
     #[tokio::test]
     async fn factory_and_helpers() {
-        let _ = RuleDirectoryManagerFactory::default();
+        let _ = RuleDirectoryManagerFactory;
         let m = RuleDirectoryManagerFactory::create_manager();
         assert_eq!(
             m.get_config().await.root_directory,

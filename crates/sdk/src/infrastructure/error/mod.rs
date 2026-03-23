@@ -220,6 +220,8 @@ pub type ConfigResult<T> = std::result::Result<T, PluginError>;
 
 /// Error handling utilities
 pub mod utils {
+    #![allow(clippy::wildcard_imports)]
+
     use super::*;
 
     /// Check if an error is recoverable

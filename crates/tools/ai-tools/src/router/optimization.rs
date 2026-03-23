@@ -594,7 +594,7 @@ mod tests {
     #[test]
     fn test_provider_scorer_new_and_default() {
         let _ = ProviderScorer::new();
-        let _ = ProviderScorer::default();
+        let _ = ProviderScorer;
     }
 
     #[test]
@@ -851,7 +851,7 @@ mod tests {
         let mut task = base_task();
         task.requires_streaming = true;
         task.security_requirements.contains_sensitive_data = true;
-        let ctx_penalized = RequestContext::new(task.clone()).with_routing_hint(RoutingHint {
+        let ctx_penalized = RequestContext::new(task).with_routing_hint(RoutingHint {
             preferred_provider: None,
             preferred_model: Some("special".to_string()),
             allow_remote: None,

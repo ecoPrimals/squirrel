@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Context Management Module
-//!
-//! This module provides context management functionality for the application.
-
 #![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)
+)]
 #![warn(missing_docs)]
-#![allow(
+#![expect(
     clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::missing_docs_in_private_items,
     clippy::unused_async,
     clippy::significant_drop_tightening,
     clippy::use_self,
@@ -38,20 +35,22 @@
     clippy::redundant_closure_for_method_calls,
     clippy::unnecessary_wraps,
     clippy::unused_self,
-    clippy::manual_string_new,
     clippy::needless_pass_by_value,
     clippy::map_unwrap_or,
-    clippy::if_not_else,
     clippy::imprecise_flops,
-    clippy::used_underscore_binding,
     clippy::single_match_else,
     clippy::implicit_clone,
     clippy::match_same_arms,
     clippy::manual_midpoint,
     clippy::too_many_lines,
     clippy::default_trait_access,
-    clippy::significant_drop_in_scrutinee
+    clippy::significant_drop_in_scrutinee,
+    reason = "Large context crate; progressive lint and documentation tightening"
 )]
+
+//! Context Management Module
+//!
+//! This module provides context management functionality for the application.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

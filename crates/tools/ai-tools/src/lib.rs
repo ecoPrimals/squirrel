@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! AI Tools for Squirrel MCP
-//!
-//! This crate provides AI provider integrations and routing capabilities.
-
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 // Allow deprecated items during error type migration to universal-error crate
-#![allow(deprecated)]
+#![expect(
+    deprecated,
+    reason = "Error type migration to universal-error crate in progress"
+)]
+
+//! AI Tools for Squirrel MCP
+//!
+//! This crate provides AI provider integrations and routing capabilities.
+
 // Structural lints requiring manual refactoring — tracked for future sprints.
-#![allow(
+#![expect(
     clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
     clippy::unused_async,
     clippy::must_use_candidate,
     clippy::missing_const_for_fn,
@@ -25,13 +28,11 @@
     clippy::significant_drop_tightening,
     clippy::option_if_let_else,
     clippy::single_match_else,
-    clippy::or_fun_call,
     clippy::return_self_not_must_use,
     clippy::derive_partial_eq_without_eq,
     clippy::struct_excessive_bools,
     clippy::match_same_arms,
     clippy::cast_precision_loss,
-    clippy::wildcard_imports,
     clippy::unnecessary_wraps,
     clippy::cast_lossless,
     clippy::unused_self,
@@ -41,8 +42,8 @@
     clippy::useless_let_if_seq,
     clippy::unnecessary_literal_bound,
     clippy::ignored_unit_patterns,
-    clippy::branches_sharing_code,
-    clippy::unreadable_literal
+    clippy::unreadable_literal,
+    reason = "Large AI tools crate; progressive refactor and documentation"
 )]
 
 // Capability-based AI client (TRUE PRIMAL!)
@@ -77,7 +78,7 @@ pub use error::{Error, Result};
 
 /// Multi-model dispatch system for seamless AI model integration
 pub mod dispatch {
-    use super::*;
+    use super::{ChatRequest, ChatResponse, Result};
     use crate::common::ChatResponseStream;
     use crate::common::capability::AITask;
     use crate::router::RoutingStrategy;
@@ -346,7 +347,7 @@ pub mod clients {
 
 /// Convenience functions for common workflows
 pub mod workflows {
-    use super::*;
+    use super::{ChatRequest, Result};
     use crate::common::capability::{AITask, SecurityLevel, SecurityRequirements, TaskType};
     use crate::dispatch::{DispatcherBuilder, MultiModelDispatcher};
     use crate::router::RoutingStrategy;

@@ -415,6 +415,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)] // Exhaustive variant coverage table
     fn test_error_code_all_variants() {
         let cases: Vec<PluginError> = vec![
             PluginError::MissingParameter {
@@ -590,13 +591,11 @@ mod tests {
 
     #[test]
     fn test_from_boxed_error() {
-        let b: Box<dyn std::error::Error + Send + Sync> =
-            Box::new(std::io::Error::new(std::io::ErrorKind::Other, "e"));
+        let b: Box<dyn std::error::Error + Send + Sync> = Box::new(std::io::Error::other("e"));
         let err: PluginError = b.into();
         assert!(matches!(err, PluginError::InternalError { .. }));
 
-        let b2: Box<dyn std::error::Error> =
-            Box::new(std::io::Error::new(std::io::ErrorKind::Other, "e"));
+        let b2: Box<dyn std::error::Error> = Box::new(std::io::Error::other("e"));
         let err2: PluginError = b2.into();
         assert!(matches!(err2, PluginError::InternalError { .. }));
     }

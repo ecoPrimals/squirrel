@@ -563,7 +563,7 @@ mod tests {
     #[test]
     fn test_file_content_binary_invalid_utf8() {
         let bad = vec![0xff, 0xfe, 0xfd];
-        let content = FileContent::Binary(bad.clone());
+        let content = FileContent::Binary(bad);
         assert!(content.as_text().is_err());
         assert!(content.as_text_ref().is_err());
         assert!(!content.as_text_lossy().is_empty());

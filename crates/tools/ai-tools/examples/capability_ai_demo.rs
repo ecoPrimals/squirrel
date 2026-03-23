@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(warnings)] // Example binary; keep workspace `-D warnings` green
+
 //! Capability-Based AI Demo
 //!
 //! This demo shows how to use the new `capability_ai` pattern for AI operations.

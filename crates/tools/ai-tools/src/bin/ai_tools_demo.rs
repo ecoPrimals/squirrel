@@ -1,16 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_lossless,
-    clippy::cast_precision_loss,
-    clippy::missing_const_for_fn,
-    clippy::or_fun_call,
-    clippy::items_after_statements,
-    clippy::doc_markdown
-)]
+#![forbid(unsafe_code)]
+#![allow(warnings)] // Interactive demo binary; keep workspace `-D warnings` green
 
 //! AI Tools Multi-Model Dispatch Demo
 //!
@@ -40,7 +32,7 @@ struct Cli {
     #[arg(short, long)]
     verbose: bool,
 
-    /// OpenAI API key
+    /// `OpenAI` API key
     #[arg(long)]
     openai_api_key: Option<String>,
 
@@ -303,15 +295,12 @@ async fn test_multi_model_workflow(
 
     println!("\n=== Multi-Model Workflow Results ===");
     for (i, response) in results.iter().enumerate() {
-        println!(
-            "Response {}: {}",
-            i + 1,
-            response
-                .choices
-                .first()
-                .and_then(|c| c.content.as_ref())
-                .unwrap_or(&"No response".to_string())
-        );
+        let text = response
+            .choices
+            .first()
+            .and_then(|c| c.content.as_deref())
+            .unwrap_or("No response");
+        println!("Response {}: {}", i + 1, text);
         println!("---");
     }
     println!("Total time taken: {duration:?}");
@@ -362,14 +351,12 @@ async fn test_local_models(dispatcher: &MultiModelDispatcher) -> Result<()> {
     match dispatcher.process_request(request, task).await {
         Ok(response) => {
             println!("\n=== Local Model Test Result ===");
-            println!(
-                "Response: {}",
-                response
-                    .choices
-                    .first()
-                    .and_then(|c| c.content.as_ref())
-                    .unwrap_or(&"No response".to_string())
-            );
+            let text = response
+                .choices
+                .first()
+                .and_then(|c| c.content.as_deref())
+                .unwrap_or("No response");
+            println!("Response: {text}");
             println!("===============================\n");
         }
         Err(e) => {
@@ -431,8 +418,16 @@ async fn benchmark_models(
             }
 
             if !times.is_empty() {
-                let avg_time = times.iter().sum::<std::time::Duration>() / times.len() as u32;
-                let success_rate = (success_count as f64) / (count as f64) * 100.0;
+                let n = u32::try_from(times.len()).unwrap_or(1);
+                let avg_time = times.iter().sum::<std::time::Duration>() / n.max(1);
+                #[allow(
+                    clippy::cast_lossless,
+                    clippy::cast_precision_loss,
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss
+                )]
+                let success_rate =
+                    f64::from(success_count as u32) / f64::from(count as u32) * 100.0;
 
                 results.insert(
                     format!("{provider}/{model}"),
@@ -479,7 +474,7 @@ fn create_chat_request(prompt: String, model: Option<String>) -> ChatRequest {
     }
 }
 
-fn create_text_generation_task(sensitive: bool) -> AITask {
+const fn create_text_generation_task(sensitive: bool) -> AITask {
     AITask {
         task_type: TaskType::TextGeneration,
         required_model_type: None,

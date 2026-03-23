@@ -9,10 +9,7 @@
 //! Instead of hardcoding specific provider names, we define what capabilities
 //! security services should provide and how they integrate universally.
 
-#![allow(
-    dead_code,
-    reason = "Public capability-based security API surface for external consumers"
-)]
+#![allow(dead_code)] // Public capability surface for external consumers
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};

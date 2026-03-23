@@ -28,33 +28,33 @@ pub(super) async fn process_messages(
     while let Some(message) = message_rx.recv().await {
         match message {
             ConsensusMessage::Propose { proposal } => {
-                handle_propose(state.clone(), proposal).await;
+                handle_propose(Arc::clone(&state), proposal).await;
             }
             ConsensusMessage::Vote {
                 proposal_id,
                 vote,
                 voter,
             } => {
-                handle_vote(state.clone(), proposal_id, vote, voter).await;
+                handle_vote(Arc::clone(&state), proposal_id, vote, voter).await;
             }
             ConsensusMessage::Heartbeat { leader, term } => {
-                handle_heartbeat(state.clone(), leader, term).await;
+                handle_heartbeat(Arc::clone(&state), leader, term).await;
             }
             ConsensusMessage::RequestVote { candidate, term } => {
-                handle_request_vote(state.clone(), candidate, term).await;
+                handle_request_vote(Arc::clone(&state), candidate, term).await;
             }
             ConsensusMessage::VoteResponse {
                 voter,
                 term,
                 granted,
             } => {
-                handle_vote_response(state.clone(), voter, term, granted).await;
+                handle_vote_response(Arc::clone(&state), voter, term, granted).await;
             }
             ConsensusMessage::ResultNotification {
                 proposal_id,
                 result,
             } => {
-                handle_result_notification(state.clone(), proposal_id, result).await;
+                handle_result_notification(Arc::clone(&state), proposal_id, result).await;
             }
         }
     }
@@ -282,9 +282,9 @@ mod tests {
         handle_vote(state.clone(), proposal_id, Vote::For, voter).await;
 
         let s = state.read().await;
-        let stats = s.participation_stats.get(&voter).unwrap();
-        assert_eq!(stats.votes_for, 1);
-        assert_eq!(stats.total_proposals, 1);
+        let participation = s.participation_stats.get(&voter).unwrap();
+        assert_eq!(participation.votes_for, 1);
+        assert_eq!(participation.total_proposals, 1);
     }
 
     #[tokio::test]
@@ -296,8 +296,8 @@ mod tests {
         handle_vote(state.clone(), proposal_id, Vote::Against, voter).await;
 
         let s = state.read().await;
-        let stats = s.participation_stats.get(&voter).unwrap();
-        assert_eq!(stats.votes_against, 1);
+        let participation = s.participation_stats.get(&voter).unwrap();
+        assert_eq!(participation.votes_against, 1);
     }
 
     #[tokio::test]
@@ -309,8 +309,8 @@ mod tests {
         handle_vote(state.clone(), proposal_id, Vote::Abstain, voter).await;
 
         let s = state.read().await;
-        let stats = s.participation_stats.get(&voter).unwrap();
-        assert_eq!(stats.abstentions, 1);
+        let participation = s.participation_stats.get(&voter).unwrap();
+        assert_eq!(participation.abstentions, 1);
     }
 
     #[tokio::test]
@@ -418,7 +418,7 @@ mod tests {
             let result = ConsensusResult {
                 proposal_id,
                 status: ConsensusStatus::Agreed,
-                value: Some(vec![i as u8]),
+                value: Some(vec![u8::try_from(i).expect("test index fits u8")]),
                 votes_for: 1,
                 votes_against: 0,
                 participating_nodes: vec![],

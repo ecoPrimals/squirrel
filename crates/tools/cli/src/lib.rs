@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Squirrel CLI library
-//!
-//! This crate provides the command-line interface components for the Squirrel platform.
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
+
+//! Squirrel CLI library
+//!
+//! This crate provides the command-line interface components for the Squirrel platform.
 //! It includes commands, formatters, and configuration management.
 
-#![allow(
-    clippy::missing_docs_in_private_items,
+#![expect(
     clippy::uninlined_format_args,
     clippy::missing_errors_doc,
     clippy::use_self,
@@ -27,10 +27,10 @@
     clippy::return_self_not_must_use,
     clippy::needless_pass_by_value,
     clippy::map_unwrap_or,
-    clippy::wildcard_imports,
     clippy::match_same_arms,
     clippy::from_iter_instead_of_collect,
-    clippy::cloned_instead_of_copied
+    clippy::cloned_instead_of_copied,
+    reason = "CLI crate; progressive lint tightening"
 )]
 
 /// Output formatter for CLI commands

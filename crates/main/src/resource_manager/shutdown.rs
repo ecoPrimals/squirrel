@@ -53,16 +53,7 @@ impl ShutdownHandler for ResourceManager {
 
                 Ok(())
             }
-            ShutdownPhase::CloseConnections => {
-                // Cleanup all connection pools
-                // connection_pools removed - Unix sockets don't need pooling
-                // let pools = self.connection_pools.read().await;
-                // for (pool_name, pool) in pools.iter() {
-                //     pool.shutdown().await;
-                //     info!("Connection pool '{}' shutdown completed", pool_name);
-                // }
-                Ok(())
-            }
+            ShutdownPhase::CloseConnections => Ok(()),
             ShutdownPhase::CleanupResources => {
                 // Signal background tasks to shutdown
                 {
@@ -105,9 +96,7 @@ impl ShutdownHandler for ResourceManager {
             }
             ShutdownPhase::FinalCleanup => {
                 // Clear all remaining data structures
-                {
-                    // connection_pools removed - Unix sockets don't need pooling
-                }
+                {}
 
                 {
                     let mut metrics = self.cleanup_metrics.write().await;
@@ -186,11 +175,6 @@ mod tests {
         manager
             .register_connection_pool("test-pool".to_string(), ())
             .await;
-
-        // connection_pools removed - Unix sockets don't need pooling
-        // let pools = manager.connection_pools.read().await;
-        // assert_eq!(pools.len(), 1);
-        // assert!(pools.contains_key("test-pool"));
     }
 
     #[tokio::test]
@@ -374,9 +358,6 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify cleanup cleared data
-        // connection_pools removed - Unix sockets don't need pooling
-        // let pools = manager.connection_pools.read().await;
-        // assert_eq!(pools.len(), 0);
 
         let metrics = manager.cleanup_metrics.read().await;
         assert_eq!(metrics.len(), 0);
@@ -409,9 +390,6 @@ mod tests {
         }
 
         // Verify final state
-        // connection_pools removed - Unix sockets don't need pooling
-        // let pools = manager.connection_pools.read().await;
-        // assert_eq!(pools.len(), 0);
     }
 
     #[test]

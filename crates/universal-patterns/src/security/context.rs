@@ -566,9 +566,9 @@ mod proptest_tests {
         fn security_context_round_trip_serde(principal in principal_strategy(), token in any::<String>()) {
             let original = SecurityContext {
                 principal: principal.clone(),
-                token: token.clone(),
+                token,
                 expires_at: Utc::now() + chrono::Duration::hours(1),
-                permissions: principal.permissions.clone(),
+                permissions: principal.permissions,
                 metadata: HashMap::new(),
             };
             let json = serde_json::to_string(&original).unwrap();

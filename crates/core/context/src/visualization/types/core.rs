@@ -3,6 +3,8 @@
 
 //! Core visualization types and structures
 
+#![allow(dead_code)] // Reserved visualization schema; constructed by future renderers
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

@@ -382,8 +382,8 @@ mod tests {
 
         let rule = Rule::new("x").with_name("n").with_category("c");
         let yaml = serialize_rule_to_yaml(&rule).unwrap();
-        assert!(yaml.contains("x"));
+        assert!(yaml.contains('x'));
         let json = serialize_rule_to_json(&rule).unwrap();
-        assert!(json.contains("x"));
+        assert!(json.contains('x'));
     }
 }

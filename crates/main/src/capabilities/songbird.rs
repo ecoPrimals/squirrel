@@ -135,8 +135,74 @@ pub fn start_heartbeat_loop(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn register_returns_true_on_jsonrpc_success() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock = dir.path().join("songbird_reg.sock");
+        let listener = tokio::net::UnixListener::bind(&sock).expect("bind");
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept");
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let mut reader = BufReader::new(&mut stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.ok();
+            let resp = serde_json::json!({"jsonrpc":"2.0","result":true,"id":1});
+            let mut body = serde_json::to_string(&resp).unwrap();
+            body.push('\n');
+            stream.write_all(body.as_bytes()).await.ok();
+        });
+        let ok = register(&sock, "/tmp/own-squirrel.sock").await;
+        server.await.ok();
+        assert!(ok);
+    }
+
+    #[tokio::test]
+    async fn register_returns_false_on_jsonrpc_error_field() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock = dir.path().join("songbird_rej.sock");
+        let listener = tokio::net::UnixListener::bind(&sock).expect("bind");
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept");
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            let mut reader = BufReader::new(&mut stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.ok();
+            let resp = serde_json::json!({
+                "jsonrpc": "2.0",
+                "error": {"code": -32000, "message": "no"},
+                "id": 1
+            });
+            let mut body = serde_json::to_string(&resp).unwrap();
+            body.push('\n');
+            stream.write_all(body.as_bytes()).await.ok();
+        });
+        let ok = register(&sock, "/x.sock").await;
+        server.await.ok();
+        assert!(!ok);
+    }
+
+    #[tokio::test]
+    async fn heartbeat_loop_stops_on_shutdown() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sock = dir.path().join("songbird_hb.sock");
+        let _listener = tokio::net::UnixListener::bind(&sock).expect("bind");
+        let (tx, rx) = watch::channel(false);
+        let handle = start_heartbeat_loop(
+            sock,
+            "/ignored.sock".to_string(),
+            std::time::Duration::from_millis(30),
+            rx,
+        );
+        tx.send(true).expect("shutdown");
+        tokio::time::timeout(std::time::Duration::from_secs(3), handle)
+            .await
+            .expect("timeout")
+            .expect("join");
+    }
 
     #[test]
     fn discover_socket_env_override() {

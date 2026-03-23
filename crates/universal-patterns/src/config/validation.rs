@@ -6,6 +6,8 @@
 //! This module provides validation logic to ensure that configurations
 //! are correct, complete, and compatible with the target environment.
 
+#![allow(clippy::wildcard_imports)] // Parent `config` re-exports; validation stays aligned with types
+
 use super::*;
 use std::net::IpAddr;
 

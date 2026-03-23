@@ -39,10 +39,7 @@ pub enum PluginType {
 
 /// Plugin state enumeration (reserved for plugin state management system)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(
-    dead_code,
-    reason = "Reserved plugin lifecycle API; serde roundtrip in crate tests only"
-)]
+#[allow(dead_code)] // Lifecycle API; serde roundtrip in tests
 pub enum PluginState {
     /// Plugin is loaded and ready
     Loaded,
@@ -58,10 +55,7 @@ pub enum PluginState {
 
 /// Plugin data format enumeration (reserved for plugin data serialization system)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(
-    dead_code,
-    reason = "Reserved serialization format API; serde roundtrip in crate tests only"
-)]
+#[allow(dead_code)] // Serialization format API; serde roundtrip in tests
 pub enum PluginDataFormat {
     /// JSON format
     Json,

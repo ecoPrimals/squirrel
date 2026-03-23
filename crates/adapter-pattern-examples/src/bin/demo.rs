@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
 #![allow(clippy::unwrap_used, clippy::expect_used)]
+
 //! Adapter Pattern Demo
 //!
 //! This demo showcases the adapter pattern implementations including registry,

@@ -366,7 +366,7 @@ mod tests {
 
     #[test]
     fn test_builder_default_impl() {
-        let builder: UniversalConfigBuilder = Default::default();
+        let builder = UniversalConfigBuilder::default();
         let config = builder.build();
 
         // Should behave the same as new()

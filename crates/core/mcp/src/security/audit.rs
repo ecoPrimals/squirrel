@@ -118,7 +118,7 @@ mod tests {
             resource_id: None,
             action: "act".to_string(),
             status: "success".to_string(),
-            message: "".to_string(),
+            message: String::new(),
         };
         s.log_event(ev.clone()).await;
         let events = s.get_events().await;

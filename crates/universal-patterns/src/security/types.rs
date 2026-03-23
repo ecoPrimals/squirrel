@@ -424,7 +424,7 @@ mod tests {
             service_id: "test-service".to_string(),
         };
 
-        let request = AuthRequest::new("test-service".to_string(), credentials.clone());
+        let request = AuthRequest::new("test-service".to_string(), credentials);
         assert_eq!(request.service_id, "test-service");
         assert!(matches!(request.credentials, Credentials::Test { .. }));
     }
@@ -442,7 +442,7 @@ mod tests {
 
         let request = AuthorizationRequest::new(
             "test-service".to_string(),
-            principal.clone(),
+            principal,
             "read".to_string(),
             "resource123".to_string(),
         );
@@ -493,7 +493,7 @@ mod tests {
         let request = AuditLogRequest::new(
             "test-service".to_string(),
             "authenticate".to_string(),
-            context.clone(),
+            context,
         );
 
         assert_eq!(request.service_id, "test-service");

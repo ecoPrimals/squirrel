@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
-#![allow(
+#![forbid(unsafe_code)]
+#![expect(
     clippy::needless_continue,
     clippy::if_not_else,
     clippy::uninlined_format_args,
-    clippy::redundant_closure_for_method_calls
+    clippy::redundant_closure_for_method_calls,
+    reason = "REPL-style shell; style lints deferred"
 )]
 
 //! Main executable for the Squirrel CLI.

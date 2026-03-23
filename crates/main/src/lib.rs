@@ -2,6 +2,8 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
+#![forbid(unsafe_code)]
+
 //! Squirrel Universal AI Primal
 //!
 //! A universal AI coordination primal that implements the standardized ecosystem
@@ -10,7 +12,6 @@
 //! This primal follows the universal adapter patterns defined by the ecosystem registry
 //! and implements the `EcosystemServiceRegistration` standard for seamless integration.
 
-#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
@@ -22,13 +23,16 @@
         clippy::expect_used,
         clippy::float_cmp,
         clippy::unreadable_literal,
+        clippy::field_reassign_with_default,
+        clippy::many_single_char_names,
+        clippy::needless_pass_by_value,
+        clippy::default_trait_access,
     )
 )]
 // Progressive lint tightening — categorized by remediation type.
 //
 // ARCHITECTURAL: These require trait/API redesign, not simple code edits.
 // Each will be resolved as the module is refactored.
-#![allow(clippy::missing_panics_doc)] // Progressive lint tightening; many test helpers
 #![expect(
     // Docs WIP — tracked for completion
     missing_docs,
