@@ -14,6 +14,47 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 
 #[test]
+fn normalize_method_strips_squirrel_prefix() {
+    assert_eq!(
+        super::normalize_method("squirrel.system.health"),
+        "system.health"
+    );
+}
+
+#[test]
+fn normalize_method_strips_mcp_prefix() {
+    assert_eq!(
+        super::normalize_method("mcp.system.health"),
+        "system.health"
+    );
+}
+
+#[test]
+fn normalize_method_leaves_unprefixed_methods() {
+    assert_eq!(super::normalize_method("system.health"), "system.health");
+    assert_eq!(super::normalize_method("identity.get"), "identity.get");
+}
+
+#[tokio::test]
+async fn routing_squirrel_prefixed_system_health() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-norm-health.sock".to_string());
+    let req = r#"{"jsonrpc":"2.0","method":"squirrel.system.health","id":1}"#;
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
+    assert_eq!(
+        v.pointer("/result/status").and_then(Value::as_str),
+        Some("ready")
+    );
+    assert_eq!(
+        v.pointer("/result/tier").and_then(Value::as_str),
+        Some("ready")
+    );
+}
+
+#[test]
 fn test_jsonrpc_request_serialization() {
     let request = JsonRpcRequest {
         jsonrpc: Arc::from("2.0"),
@@ -470,6 +511,86 @@ async fn unknown_method_not_found() {
             .and_then(Value::as_i64)
             .map(|c| c as i32),
         Some(error_codes::METHOD_NOT_FOUND)
+    );
+}
+
+#[tokio::test]
+async fn missing_method_invalid_request() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-missing-method.sock".to_string());
+    let req = r#"{"jsonrpc":"2.0","id":1}"#;
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
+    assert_eq!(
+        v.pointer("/error/code")
+            .and_then(Value::as_i64)
+            .map(|c| c as i32),
+        Some(error_codes::INVALID_REQUEST)
+    );
+}
+
+#[tokio::test]
+async fn empty_method_invalid_request() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-empty-method.sock".to_string());
+    let req = r#"{"jsonrpc":"2.0","method":"","id":1}"#;
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
+    assert_eq!(
+        v.pointer("/error/code")
+            .and_then(Value::as_i64)
+            .map(|c| c as i32),
+        Some(error_codes::INVALID_REQUEST)
+    );
+}
+
+#[tokio::test]
+async fn params_primitive_invalid_params() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-bad-params.sock".to_string());
+    let req = r#"{"jsonrpc":"2.0","method":"system.ping","params":"nope","id":1}"#;
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
+    assert_eq!(
+        v.pointer("/error/code")
+            .and_then(Value::as_i64)
+            .map(|c| c as i32),
+        Some(error_codes::INVALID_PARAMS)
+    );
+}
+
+#[tokio::test]
+async fn single_notification_returns_no_body() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-single-notify.sock".to_string());
+    let req = r#"{"jsonrpc":"2.0","method":"system.ping"}"#;
+    let out = server.handle_request_or_batch(req).await;
+    assert!(out.is_none());
+}
+
+#[tokio::test]
+async fn system_health_tier_becomes_healthy_after_prior_rpc() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-health-tier.sock".to_string());
+    let ping = r#"{"jsonrpc":"2.0","method":"system.ping","id":1}"#;
+    server.handle_request_or_batch(ping).await.expect("ping");
+    let health = r#"{"jsonrpc":"2.0","method":"system.health","id":2}"#;
+    let raw = server
+        .handle_request_or_batch(health)
+        .await
+        .expect("health");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
+    assert_eq!(
+        v.pointer("/result/tier").and_then(Value::as_str),
+        Some("healthy")
+    );
+    assert_eq!(
+        v.pointer("/result/status").and_then(Value::as_str),
+        Some("healthy")
     );
 }
 

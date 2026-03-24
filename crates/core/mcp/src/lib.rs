@@ -12,7 +12,12 @@
 #![warn(missing_docs)]
 #![cfg_attr(
     test,
-    allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::float_cmp,
+        clippy::uninlined_format_args
+    )
 )]
 #![allow(
     // Docs WIP — clippy docs tracked for completion (missing_docs enforced via warn above)
@@ -31,6 +36,7 @@
 
 pub mod constants;
 pub mod error;
+pub mod logging;
 pub mod protocol;
 pub mod security;
 pub mod transport;
@@ -39,6 +45,9 @@ pub mod utils;
 
 // Task management (JSON-RPC over Unix socket)
 pub mod task;
+
+/// Resilience framework (retries, circuit breakers, bulkheads, etc.)
+pub mod resilience;
 
 // Re-export commonly used types
 pub use error::{MCPError, Result};

@@ -9,6 +9,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.25] - 2026-03-24
+
+Ecosystem absorption and modern idiomatic Rust evolution: `identity.get` handler,
+`normalize_method()`, health tiering, JSON-RPC 2.0 strictness, cast safety lints,
+`Arc<Box<dyn>>` → `Arc<dyn>`, env-configurable retry policy, MCP resilience cleanup.
+7,065 tests passing, zero clippy warnings, all quality gates green.
+
+### Added
+
+- **`identity.get` handler** — primal self-knowledge per CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
+  (id, domain, version, transport, protocol, license, JWT issuer/audience)
+- **`normalize_method()`** — strips `squirrel.` and `mcp.` prefixes for ecosystem backward
+  compatibility (BearDog v0.9.0, barraCuda v0.3.7 pattern)
+- **`HealthTier` enum** — `alive`/`ready`/`healthy` with extended `HealthCheckResponse` fields
+- **`StandardRetryPolicy::from_env()`** — primal→ecosystem→default chain (`SQUIRREL_RETRY_*` →
+  `IPC_RETRY_*` → defaults) per SweetGrass pattern
+- **Cast safety lints** — `cast_possible_truncation`, `cast_sign_loss`, `cast_precision_loss`
+  added to workspace clippy
+- **JSON-RPC error codes** — `SERVER_ERROR_MIN`/`SERVER_ERROR_MAX` constants (-32099 to -32000)
+- **Tests** — identity.get, normalize_method (3), health tiering (3), JSON-RPC validation (5),
+  retry from_env (5)
+
+### Changed
+
+- **`system.health`** returns tiered `HealthTier` — alive (process running), ready (providers
+  initialized), healthy (fully operational with served requests)
+- **JSON-RPC 2.0 strictness** — validates `method` (present, non-empty string), `params`
+  (object/array only), proper single-request notification handling (no response body)
+- **`Arc<Box<dyn>>` → `Arc<dyn>`** — eliminated double indirection in circuit_breaker and
+  plugin registry per rhizoCrypt pattern
+- **MCP resilience** — `pub mod resilience` exposed in lib.rs; `RetryFuture<T>` type alias,
+  proper `Default` impls, `const fn`, `#[must_use]`, integer jitter, `std::io::Error::other()`
+- **Capability registry** — 24 → 25 methods (added `identity.get`, domain `identity.self`)
+- **Niche self-knowledge** — updated for `identity.get` in CAPABILITIES, SEMANTIC_MAPPINGS,
+  COST_ESTIMATES, operation_dependencies
+- **SQUIRREL_LEVERAGE_GUIDE.md** — alpha.11 → alpha.25; added identity.get, graph.parse,
+  graph.validate; `capabilities.list` canonical; normalize_method, health tiering, JSON-RPC
+  strictness documented
+
+### Metrics
+
+| Metric | alpha.24 | alpha.25 |
+|--------|----------|----------|
+| Tests | 7,035 | 7,065 |
+| Exposed capabilities | 24 | 25 |
+| Cast safety lints | 0 | 3 warns |
+| `Arc<Box<dyn>>` | 2 files | 0 |
+
+## [0.1.0-alpha.24] - 2026-03-24
+
+Comprehensive debt resolution and sovereignty evolution: zero `.unwrap()` workspace-wide,
+zero `panic!()`, `Box<dyn Error>` → typed errors, sovereignty evolution (SongbirdClient →
+ServiceMeshHttpClient), port centralization, mock isolation, `#[allow]` → `#[expect]`,
+smart refactoring, clone reduction, license alignment (AGPL-3.0-or-later).
+
+### Changed
+
+- **Zero `.unwrap()`** workspace-wide — ~5,600 eliminated across 551 files
+- **Zero `panic!()`** workspace-wide — 137 replaced with `unreachable!()` or assertions
+- **`Box<dyn Error>` → typed errors** — ~15 production APIs across 6 crates
+- **Sovereignty evolution** — `SongbirdClient` → `ServiceMeshHttpClient`, capability-first
+  env vars with deprecation warnings on primal-specific fallbacks
+- **Port centralization** — hardcoded ports → `get_service_port()` calls
+- **Mock isolation** — gated behind `#[cfg(any(test, feature = "testing"))]`
+- **License** — `AGPL-3.0-only` → `AGPL-3.0-or-later`
+- **Smart refactoring** — `ecosystem.rs` split into coordinator + types; `federation/service.rs`
+  split into swarm + tests
+
 ## [0.1.0-alpha.23] - 2026-03-24
 
 Comprehensive audit, modern idiomatic Rust evolution, and coverage push.

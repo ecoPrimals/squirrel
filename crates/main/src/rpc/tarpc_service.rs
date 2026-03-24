@@ -171,6 +171,18 @@ pub struct CapabilityDiscoverResult {
 /// Health check response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthCheckResult {
+    /// BearDog / discovery standard tier
+    pub tier: super::types::HealthTier,
+
+    /// Process responds to RPC
+    pub alive: bool,
+
+    /// Subsystems initialized
+    pub ready: bool,
+
+    /// Fully operational (metrics path exercised)
+    pub healthy: bool,
+
     /// Status
     pub status: String,
 

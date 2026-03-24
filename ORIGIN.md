@@ -73,7 +73,7 @@ The methodology:
 4. **Physics as fitness function** — for the science primals (hotSpring,
    wetSpring, etc.), validation suites reproduce published results. For
   infrastructure primals like Squirrel, the fitness function is the test suite
-  (5,775 tests), chaos/fault injection, and ecosystem integration.
+  (7,065+ tests), chaos/fault injection, and ecosystem integration.
 
 The Cursor receipt is the evidence for the methodology: the commit history and
 agent invocation log show the evolutionary trajectory.
@@ -99,6 +99,6 @@ workloads that Squirrel coordinates.
 
 ## License
 
-[scyBorg](LICENSE) — AGPL-3.0-only + ORC + CC-BY-SA 4.0.
+[scyBorg](LICENSE) — AGPL-3.0-or-later + ORC + CC-BY-SA 4.0.
 
 Copyright (C) 2026 ecoPrimals Contributors

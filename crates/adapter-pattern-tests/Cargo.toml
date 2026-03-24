@@ -23,6 +23,9 @@ pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 expect_used = "allow"
 unwrap_used = "allow"
+cast_possible_truncation = "warn"
+cast_sign_loss = "warn"
+cast_precision_loss = "warn"
 missing_docs_in_private_items = "allow"
 module_name_repetitions = "allow"
 missing_panics_doc = "allow"

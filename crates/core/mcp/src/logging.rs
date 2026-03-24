@@ -6,10 +6,10 @@
 //! This module provides structured logging functionality for MCP components.
 
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use tracing::{info, warn, error, debug};
+use tracing::{debug, error, info, warn};
 
 /// Log level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -112,7 +112,7 @@ impl Logger {
     ) {
         let message = message.into();
         let entry = LogEntry::new(level, message, self.component.clone(), context);
-        
+
         // Use tracing for actual logging
         match level {
             LogLevel::Trace => debug!("{}", self.format_entry(&entry)),
@@ -140,11 +140,7 @@ impl Logger {
 
         format!(
             "{}[{}][{}] {}{}",
-            timestamp,
-            entry.level,
-            entry.component,
-            entry.message,
-            context
+            timestamp, entry.level, entry.component, entry.message, context
         )
     }
 
@@ -187,7 +183,7 @@ impl Logger {
 /// Initialize the logging system
 ///
 /// # Errors
-/// 
+///
 /// This function will return an error if the logging system cannot be initialized
 pub fn initialize() -> Result<(), Box<dyn std::error::Error>> {
     // This would normally set up the tracing subscriber, but for now just return Ok
@@ -207,7 +203,7 @@ mod tests {
             "test-component",
             Some(json!({"key": "value"})),
         );
-        
+
         let formatted = logger.format_entry(&entry);
         assert!(formatted.contains("[INFO]"));
         assert!(formatted.contains("[test-component]"));
@@ -218,7 +214,7 @@ mod tests {
     #[test]
     fn test_logger_methods() {
         let logger = Logger::new_test();
-        
+
         // These calls should not panic
         logger.debug("Debug message", None);
         logger.info("Info message", Some(json!({"test": true})));
@@ -231,7 +227,7 @@ mod tests {
     fn test_subcomponent_logger() {
         let logger = Logger::new("parent");
         let child_logger = logger.with_subcomponent("child");
-        
+
         assert_eq!(child_logger.component, "parent:child");
     }
-} 
+}

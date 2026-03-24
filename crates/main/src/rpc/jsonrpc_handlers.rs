@@ -6,6 +6,7 @@
 //! Domain handlers are split by semantic domain per wateringHole naming standard:
 //! - `handlers_ai.rs` — `ai.*` methods
 //! - `handlers_capability.rs` — `capability.*` methods
+//! - `handlers_identity.rs` — `identity.*` methods
 //! - `handlers_system.rs` — `system.*`, `discovery.*`, `lifecycle.*` methods
 //! - `handlers_context.rs` — `context.*` methods
 //! - `handlers_tool.rs` — `tool.*` methods

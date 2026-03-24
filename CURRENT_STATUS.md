@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: March 24, 2026
-**Version**: 0.1.0-alpha.24
+**Version**: 0.1.0-alpha.25
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -42,6 +42,7 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 |--------|---------|
 | AI | `ai.query`, `ai.list_providers`, `ai.complete`, `ai.chat` |
 | Capability | **`capabilities.list`** (canonical), `capability.announce`, `capability.discover`, `capability.list` (alias) |
+| Identity | `identity.get` (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0) |
 | Context | `context.create`, `context.update`, `context.summarize` |
 | System | `system.health`, `system.status`, `system.metrics`, `system.ping` |
 | Health | `health.liveness`, `health.readiness` (PRIMAL_IPC_PROTOCOL v3.0) |
@@ -52,8 +53,12 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 
 **JSON-RPC batch support**: Full Section 6 compliance — array of requests → array of responses.
 
-**Legacy aliases removed**: Flat names (`query_ai`, `health`, `ping`, etc.) no longer
-accepted. All clients must use the semantic `{domain}.{verb}` names above.
+**Legacy prefix normalization**: `normalize_method()` strips `squirrel.` and `mcp.` prefixes
+for ecosystem backward compatibility (e.g. `squirrel.system.health` → `system.health`).
+
+**Health tiering**: `system.health` returns `HealthTier` (alive/ready/healthy) per
+CAPABILITY_BASED_DISCOVERY_STANDARD v1.0 — alive (process running), ready (providers
+initialized), healthy (fully operational with served requests).
 
 ## tarpc Service
 
@@ -68,7 +73,7 @@ Follows the groundSpring/wetSpring/airSpring niche pattern:
 
 | Constant | What |
 |----------|------|
-| `CAPABILITIES` | 24 exposed methods (ai, capabilities, capability, system, discovery, tool, context, lifecycle, graph) |
+| `CAPABILITIES` | 25 exposed methods (ai, capabilities, capability, identity, system, health, discovery, tool, context, lifecycle, graph) |
 | `CONSUMED_CAPABILITIES` | 32 external capabilities from BearDog, Songbird, ToadStool, NestGate, domain springs, rhizoCrypt, sweetGrass, primalSpring |
 | `COST_ESTIMATES` | Per-method latency and GPU hints for Pathway Learner scheduling |
 | `DEPENDENCIES` | 6 primals (beardog, songbird required; toadstool, nestgate, primalspring, petaltongue optional) |
@@ -214,7 +219,7 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | ToadStool AI | Auto-discovered via capability-based biomeOS socket scan |
 | Signal Handling | SIGTERM + SIGINT → socket cleanup + graceful shutdown |
 | Health Probes v3.0 | `health.liveness` + `health.readiness` — PRIMAL_IPC_PROTOCOL v3.0 |
-| Circuit Breaker | `CircuitBreaker` + `RetryPolicy` + `ResilientCaller` for IPC resilience |
+| Circuit Breaker | `CircuitBreaker` + `RetryPolicy` + `ResilientCaller` for IPC resilience; `StandardRetryPolicy::from_env()` with primal→ecosystem→default chain |
 | Manifest Discovery | `PrimalManifest` scan at `$XDG_RUNTIME_DIR/ecoPrimals/*.json` — Songbird fallback |
 | OrExit Pattern | `OrExit<T>` trait + centralized `exit_codes` for zero-panic binary entry points |
 | DispatchOutcome | `DispatchOutcome<T>` for protocol vs application error separation |
@@ -263,6 +268,20 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 
 ## Changes Since Last Handoff (March 24, 2026)
+
+### alpha.25 Sprint (Ecosystem Absorption & Modern Idiomatic Rust Evolution)
+
+- **`identity.get` handler**: New JSON-RPC handler returning primal self-knowledge (id, domain, version, transport, protocol, license, JWT issuer/audience) per CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
+- **`normalize_method()`**: Strips `squirrel.` and `mcp.` prefixes for ecosystem backward compatibility (BearDog v0.9.0, barraCuda v0.3.7 pattern)
+- **Health tiering**: `system.health` returns 3-tier `HealthTier` (alive/ready/healthy) — alive (process running), ready (providers initialized), healthy (fully operational with served requests); extends `HealthCheckResponse` with `tier`, `alive`, `ready`, `healthy` booleans
+- **JSON-RPC 2.0 strictness**: Validates `method` field (present, non-empty, string), `params` type (object/array only when present); proper single-request notification handling (no response body); standard error codes defined (-32700 through -32099)
+- **Cast safety lints**: Added `cast_possible_truncation`, `cast_sign_loss`, `cast_precision_loss` to workspace clippy lints — zero violations found
+- **`Arc<Box<dyn>>` → `Arc<dyn>`**: Eliminated double indirection in `circuit_breaker/breaker.rs` and `plugins/registry.rs` per rhizoCrypt pattern
+- **Env-configurable retry**: `StandardRetryPolicy::from_env()` with primal→ecosystem→default chain (`SQUIRREL_RETRY_*` → `IPC_RETRY_*` → defaults) per SweetGrass `RetryPolicy::from_env()` pattern
+- **Capability registry**: 24 → 25 methods (added `identity.get` with domain `identity.self`)
+- **Niche self-knowledge**: Updated `CAPABILITIES`, `SEMANTIC_MAPPINGS`, `COST_ESTIMATES`, `operation_dependencies()` for `identity.get`
+- **Tests**: New tests for identity.get handler, normalize_method (3 cases), health tiering (3 tiers), JSON-RPC validation (5 cases), retry from_env (5 cases)
+- **Quality gates**: `fmt` ✓, `clippy --all-features -D warnings` ✓, `check --all-targets --all-features` ✓
 
 ### alpha.24 Sprint (Comprehensive Debt Resolution & Sovereignty Evolution)
 

@@ -21,13 +21,13 @@ pub trait PluginRegistry: Send + Sync {
     fn unregister(&self, id: &PluginId) -> impl Future<Output = Result<()>> + Send;
     
     /// Get a plugin by ID
-    fn get(&self, id: &PluginId) -> impl Future<Output = Result<Arc<Box<dyn Plugin>>>> + Send;
+    fn get(&self, id: &PluginId) -> impl Future<Output = Result<Arc<dyn Plugin>>> + Send;
     
     /// Check if a plugin is registered
     fn is_registered(&self, id: &PluginId) -> impl Future<Output = bool> + Send;
     
     /// Get all registered plugins
-    fn get_all(&self) -> impl Future<Output = Result<Vec<Arc<Box<dyn Plugin>>>>> + Send;
+    fn get_all(&self) -> impl Future<Output = Result<Vec<Arc<dyn Plugin>>>> + Send;
     
     /// Get metadata for all registered plugins
     fn get_all_metadata(&self) -> impl Future<Output = Result<Vec<PluginMetadata>>> + Send;
@@ -35,7 +35,7 @@ pub trait PluginRegistry: Send + Sync {
 
 /// Default implementation of PluginRegistry
 pub struct DefaultPluginRegistry {
-    plugins: RwLock<HashMap<PluginId, Arc<Box<dyn Plugin>>>>,
+    plugins: RwLock<HashMap<PluginId, Arc<dyn Plugin>>>,
 }
 
 impl DefaultPluginRegistry {
@@ -50,7 +50,7 @@ impl DefaultPluginRegistry {
 impl PluginRegistry for DefaultPluginRegistry {
     fn register(&self, plugin: Box<dyn Plugin>) -> impl Future<Output = Result<()>> + Send {
         let id = plugin.metadata().id.clone();
-        let plugin_arc = Arc::new(plugin);
+        let plugin_arc = Arc::from(plugin);
         
         // Capture self reference for async block
         let plugins_ref = &self.plugins;
@@ -87,7 +87,7 @@ impl PluginRegistry for DefaultPluginRegistry {
         }
     }
     
-    fn get(&self, id: &PluginId) -> impl Future<Output = Result<Arc<Box<dyn Plugin>>>> + Send {
+    fn get(&self, id: &PluginId) -> impl Future<Output = Result<Arc<dyn Plugin>>> + Send {
         let id = id.clone();
         let plugins_ref = &self.plugins;
         
@@ -117,7 +117,7 @@ impl PluginRegistry for DefaultPluginRegistry {
         }
     }
     
-    fn get_all(&self) -> impl Future<Output = Result<Vec<Arc<Box<dyn Plugin>>>>> + Send {
+    fn get_all(&self) -> impl Future<Output = Result<Vec<Arc<dyn Plugin>>>> + Send {
         let plugins_ref = &self.plugins;
         
         async move {

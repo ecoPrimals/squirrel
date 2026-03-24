@@ -47,7 +47,7 @@ pub struct StandardCircuitBreaker {
     /// The name of this circuit breaker
     name: String,
     /// The circuit breaker state machine
-    state: Arc<Box<dyn CircuitBreakerState + Send + Sync>>,
+    state: Arc<dyn CircuitBreakerState + Send + Sync>,
     /// The monitoring client for reporting metrics
     monitoring: Option<Arc<dyn MonitoringClient + Send + Sync>>,
 }
@@ -56,11 +56,12 @@ impl StandardCircuitBreaker {
     /// Create a new StandardCircuitBreaker with the given configuration
     pub fn new(config: BreakerConfig) -> Self {
         let name = config.name.clone();
-        let state = Box::new(StandardBreakerState::new(config.clone()));
-        
+        let state: Arc<dyn CircuitBreakerState + Send + Sync> =
+            Arc::new(StandardBreakerState::new(config.clone()));
+
         Self {
             name,
-            state: Arc::new(state),
+            state,
             monitoring: None,
         }
     }

@@ -8,7 +8,7 @@
 //! - `lifecycle.register`, `lifecycle.status`
 
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer, error_codes};
-use super::types::HealthCheckResponse;
+use super::types::{HealthCheckResponse, HealthTier};
 use serde_json::Value;
 use tracing::{debug, info, warn};
 
@@ -21,15 +21,46 @@ impl JsonRpcServer {
 
         let metrics = self.metrics.read().await;
 
+        let active_providers = if let Some(router) = &self.ai_router {
+            router.provider_count().await
+        } else {
+            0
+        };
+
+        let cap_count = self.capability_registry.method_names().len();
+        let providers_initialized = match &self.ai_router {
+            None => true,
+            Some(_) => active_providers > 0,
+        };
+
+        let alive = true;
+        let ready = cap_count > 0 && providers_initialized;
+        let healthy = ready && metrics.requests_handled > 0;
+
+        let tier = if healthy {
+            HealthTier::Healthy
+        } else if ready {
+            HealthTier::Ready
+        } else {
+            HealthTier::Alive
+        };
+
+        let status = match tier {
+            HealthTier::Healthy => "healthy",
+            HealthTier::Ready => "ready",
+            HealthTier::Alive => "alive",
+        }
+        .to_string();
+
         let response = HealthCheckResponse {
-            status: "healthy".to_string(),
+            tier,
+            alive,
+            ready,
+            healthy,
+            status,
             version: env!("CARGO_PKG_VERSION").to_string(),
             uptime_seconds: metrics.uptime_seconds(),
-            active_providers: if let Some(router) = &self.ai_router {
-                router.provider_count().await
-            } else {
-                0
-            },
+            active_providers,
             requests_processed: metrics.requests_handled,
             avg_response_time_ms: metrics.avg_response_time_ms(),
         };
@@ -187,7 +218,77 @@ impl JsonRpcServer {
 
 #[cfg(test)]
 mod direct_tests {
+    use crate::api::ai::router::AiRouter;
     use crate::rpc::JsonRpcServer;
+    use crate::rpc::types::HealthTier;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn system_health_tier_alive_when_router_has_no_providers() {
+        let router = Arc::new(AiRouter::from_adapters_for_test(vec![]));
+        let server = JsonRpcServer::with_ai_router("/tmp/sys-tier-alive.sock".to_string(), router);
+        let v = server.handle_health().await.expect("should succeed");
+        assert_eq!(
+            v.get("tier").and_then(serde_json::Value::as_str),
+            Some("alive")
+        );
+        assert_eq!(
+            v.get("alive").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            v.get("ready").and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            v.get("healthy").and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+    }
+
+    #[tokio::test]
+    async fn system_health_tier_ready_without_prior_requests() {
+        let server = JsonRpcServer::new("/tmp/sys-tier-ready.sock".to_string());
+        let v = server.handle_health().await.expect("should succeed");
+        assert_eq!(
+            v.get("tier").and_then(serde_json::Value::as_str),
+            Some("ready")
+        );
+        assert_eq!(
+            v.get("alive").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            v.get("ready").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            v.get("healthy").and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+    }
+
+    #[tokio::test]
+    async fn system_health_tier_healthy_after_prior_rpc() {
+        let server = JsonRpcServer::new("/tmp/sys-tier-healthy.sock".to_string());
+        let ping = r#"{"jsonrpc":"2.0","method":"system.ping","id":1}"#;
+        server
+            .handle_request_or_batch(ping)
+            .await
+            .expect("ping response");
+        let v = server.handle_health().await.expect("should succeed");
+        assert_eq!(
+            v.get("tier").and_then(serde_json::Value::as_str),
+            Some("healthy")
+        );
+        assert_eq!(
+            v.get("healthy").and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        let tier_val = v.get("tier").expect("tier field");
+        let parsed: HealthTier = serde_json::from_value(tier_val.clone()).expect("tier enum");
+        assert_eq!(parsed, HealthTier::Healthy);
+    }
 
     #[tokio::test]
     async fn health_readiness_json_shape() {

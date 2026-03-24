@@ -27,8 +27,8 @@ where
 
 use squirrel::rpc::types::{
     AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckRequest,
-    HealthCheckResponse, ListProvidersRequest, ListProvidersResponse, ProviderInfo, QueryAiRequest,
-    QueryAiResponse, ToolListEntry, ToolListResponse, ToolSource,
+    HealthCheckResponse, HealthTier, ListProvidersRequest, ListProvidersResponse, ProviderInfo,
+    QueryAiRequest, QueryAiResponse, ToolListEntry, ToolListResponse, ToolSource,
 };
 
 prop_compose! {
@@ -155,7 +155,11 @@ prop_compose! {
 
 prop_compose! {
     fn arb_health_check_response()(
-        status in prop_oneof!["healthy", "degraded", "unhealthy"],
+        tier in prop_oneof![
+            Just(HealthTier::Alive),
+            Just(HealthTier::Ready),
+            Just(HealthTier::Healthy),
+        ],
         version in "[0-9]+\\.[0-9]+\\.[0-9]+",
         uptime_seconds in 0u64..1_000_000,
         active_providers in 0usize..20,
@@ -163,7 +167,16 @@ prop_compose! {
         // Use integer-backed f64 to avoid JSON float precision loss
         avg_ms_int in proptest::option::of(0u32..10_000),
     ) -> HealthCheckResponse {
+        let (alive, ready, healthy, status) = match tier {
+            HealthTier::Alive => (true, false, false, "alive".to_string()),
+            HealthTier::Ready => (true, true, false, "ready".to_string()),
+            HealthTier::Healthy => (true, true, true, "healthy".to_string()),
+        };
         HealthCheckResponse {
+            tier,
+            alive,
+            ready,
+            healthy,
             status,
             version,
             uptime_seconds,

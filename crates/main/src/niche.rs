@@ -68,6 +68,8 @@ pub const CAPABILITIES: &[&str] = &[
     // Health probes (PRIMAL_IPC_PROTOCOL v3.0)
     "health.liveness",
     "health.readiness",
+    // Identity (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0)
+    "identity.get",
     // Peer discovery
     "discovery.peers",
     // Tool orchestration
@@ -104,6 +106,7 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("ping", "system.ping"),
     ("liveness", "health.liveness"),
     ("readiness", "health.readiness"),
+    ("identity", "identity.get"),
     ("peers", "discovery.peers"),
     ("execute", "tool.execute"),
     ("list", "tool.list"),
@@ -231,6 +234,7 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("system.ping", 1, false),
     ("health.liveness", 1, false),
     ("health.readiness", 2, false),
+    ("identity.get", 1, false),
     ("discovery.peers", 50, false),
     ("tool.execute", 200, false),
     ("tool.list", 1, false),
@@ -264,6 +268,7 @@ pub fn operation_dependencies() -> serde_json::Value {
         "system.ping": [],
         "health.liveness": [],
         "health.readiness": [],
+        "identity.get": [],
         "discovery.peers": [],
         "tool.execute": ["tool", "args"],
         "tool.list": [],
@@ -298,6 +303,7 @@ pub fn cost_estimates_json() -> serde_json::Value {
         "system.ping":           { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 128,   "gpu_beneficial": false },
         "health.liveness":       { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 128,   "gpu_beneficial": false },
         "health.readiness":      { "latency_ms": 2,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
+        "identity.get":          { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
         "discovery.peers":       { "latency_ms": 50,  "cpu": "low",    "memory_bytes": 4096,  "gpu_beneficial": false },
         "tool.execute":          { "latency_ms": 200, "cpu": "medium", "memory_bytes": 16384, "gpu_beneficial": false },
         "tool.list":             { "latency_ms": 1,   "cpu": "low",    "memory_bytes": 256,   "gpu_beneficial": false },
@@ -328,6 +334,7 @@ pub fn semantic_mappings_json() -> serde_json::Value {
         "ping":           "system.ping",
         "liveness":       "health.liveness",
         "readiness":      "health.readiness",
+        "identity":       "identity.get",
         "peers":          "discovery.peers",
         "execute":        "tool.execute",
         "list":           "tool.list",

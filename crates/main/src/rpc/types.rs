@@ -202,10 +202,34 @@ pub enum ToolSource {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HealthCheckRequest {}
 
+/// Health tier per CAPABILITY_BASED_DISCOVERY_STANDARD v1.0 (BearDog v0.9.0+)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HealthTier {
+    /// Process is running and responds to RPC
+    Alive,
+    /// Required subsystems and providers are initialized
+    Ready,
+    /// Fully operational (metrics path exercised)
+    Healthy,
+}
+
 /// Health status information
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HealthCheckResponse {
-    /// Overall status
+    /// Current tier (BearDog / discovery standard)
+    pub tier: HealthTier,
+
+    /// Server process is running and accepting JSON-RPC
+    pub alive: bool,
+
+    /// Capability registry loaded and AI providers initialized when a router is present
+    pub ready: bool,
+
+    /// Ready and at least one prior RPC has been processed (metrics pipeline live)
+    pub healthy: bool,
+
+    /// Overall status (human-readable; mirrors tier: `alive`, `ready`, or `healthy`)
     pub status: String,
 
     /// Squirrel version
@@ -229,7 +253,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_query_ai_request_serialization() {
+    fn test_query_ai_request_serialization() -> std::result::Result<(), Box<dyn std::error::Error>>
+    {
         let request = QueryAiRequest {
             prompt: "Test prompt".to_string(),
             provider: Some("auto".to_string()),
@@ -240,32 +265,39 @@ mod tests {
             stream: Some(false),
         };
 
-        let json = serde_json::to_string(&request).expect("should succeed");
-        let deserialized: QueryAiRequest = serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&request)?;
+        let deserialized: QueryAiRequest = serde_json::from_str(&json)?;
 
         assert_eq!(request.prompt, deserialized.prompt);
         assert_eq!(request.provider, deserialized.provider);
         assert_eq!(request.priority, deserialized.priority);
+        Ok(())
     }
 
     #[test]
-    fn test_list_providers_request_serialization() {
+    fn test_list_providers_request_serialization()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         let request = ListProvidersRequest {
             capability: Some("ai.inference".to_string()),
             include_offline: Some(false),
         };
 
-        let json = serde_json::to_string(&request).expect("should succeed");
-        let deserialized: ListProvidersRequest =
-            serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&request)?;
+        let deserialized: ListProvidersRequest = serde_json::from_str(&json)?;
 
         assert_eq!(request.capability, deserialized.capability);
         assert_eq!(request.include_offline, deserialized.include_offline);
+        Ok(())
     }
 
     #[test]
-    fn test_health_check_response_serialization() {
+    fn test_health_check_response_serialization()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         let response = HealthCheckResponse {
+            tier: HealthTier::Healthy,
+            alive: true,
+            ready: true,
+            healthy: true,
             status: "healthy".to_string(),
             version: "0.1.0".to_string(),
             uptime_seconds: 3600,
@@ -274,16 +306,17 @@ mod tests {
             avg_response_time_ms: Some(150.5),
         };
 
-        let json = serde_json::to_string(&response).expect("should succeed");
-        let deserialized: HealthCheckResponse =
-            serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&response)?;
+        let deserialized: HealthCheckResponse = serde_json::from_str(&json)?;
 
         assert_eq!(response.status, deserialized.status);
         assert_eq!(response.uptime_seconds, deserialized.uptime_seconds);
+        Ok(())
     }
 
     #[test]
-    fn test_query_ai_response_serialization() {
+    fn test_query_ai_response_serialization() -> std::result::Result<(), Box<dyn std::error::Error>>
+    {
         let response = QueryAiResponse {
             response: "Hello, world!".to_string(),
             provider: "openai".to_string(),
@@ -293,15 +326,16 @@ mod tests {
             success: true,
         };
 
-        let json = serde_json::to_string(&response).expect("should succeed");
-        let deserialized: QueryAiResponse = serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&response)?;
+        let deserialized: QueryAiResponse = serde_json::from_str(&json)?;
         assert_eq!(deserialized.response, "Hello, world!");
         assert_eq!(deserialized.provider, "openai");
         assert!(deserialized.success);
+        Ok(())
     }
 
     #[test]
-    fn test_provider_info_serialization() {
+    fn test_provider_info_serialization() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let info = ProviderInfo {
             id: "openai-1".to_string(),
             name: "OpenAI".to_string(),
@@ -312,15 +346,17 @@ mod tests {
             cost_tier: "premium".to_string(),
         };
 
-        let json = serde_json::to_string(&info).expect("should succeed");
-        let deserialized: ProviderInfo = serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&info)?;
+        let deserialized: ProviderInfo = serde_json::from_str(&json)?;
         assert_eq!(deserialized.id, "openai-1");
         assert_eq!(deserialized.models.len(), 2);
         assert!(deserialized.online);
+        Ok(())
     }
 
     #[test]
-    fn test_list_providers_response_serialization() {
+    fn test_list_providers_response_serialization()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         let response = ListProvidersResponse {
             providers: vec![ProviderInfo {
                 id: "test".to_string(),
@@ -334,15 +370,16 @@ mod tests {
             total: 1,
         };
 
-        let json = serde_json::to_string(&response).expect("should succeed");
-        let deserialized: ListProvidersResponse =
-            serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&response)?;
+        let deserialized: ListProvidersResponse = serde_json::from_str(&json)?;
         assert_eq!(deserialized.total, 1);
         assert_eq!(deserialized.providers.len(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_announce_capabilities_request_serialization() {
+    fn test_announce_capabilities_request_serialization()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         let request = AnnounceCapabilitiesRequest {
             capabilities: vec!["ai.inference".to_string(), "ai.embedding".to_string()],
             primal: Some("neuralSpring".to_string()),
@@ -352,16 +389,17 @@ mod tests {
             genetic_families: None,
         };
 
-        let json = serde_json::to_string(&request).expect("should succeed");
-        let deserialized: AnnounceCapabilitiesRequest =
-            serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&request)?;
+        let deserialized: AnnounceCapabilitiesRequest = serde_json::from_str(&json)?;
         assert_eq!(deserialized.capabilities.len(), 2);
         assert!(deserialized.sub_federations.is_some());
         assert!(deserialized.genetic_families.is_none());
+        Ok(())
     }
 
     #[test]
-    fn test_announce_capabilities_response_serialization() {
+    fn test_announce_capabilities_response_serialization()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         let response = AnnounceCapabilitiesResponse {
             success: true,
             message: "Capabilities registered".to_string(),
@@ -369,23 +407,25 @@ mod tests {
             tools_registered: 3,
         };
 
-        let json = serde_json::to_string(&response).expect("should succeed");
-        let deserialized: AnnounceCapabilitiesResponse =
-            serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&response)?;
+        let deserialized: AnnounceCapabilitiesResponse = serde_json::from_str(&json)?;
         assert!(deserialized.success);
         assert!(!deserialized.announced_at.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn test_health_check_request_serialization() {
+    fn test_health_check_request_serialization()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         let request = HealthCheckRequest {};
-        let json = serde_json::to_string(&request).expect("should succeed");
-        let deserialized: HealthCheckRequest = serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&request)?;
+        let deserialized: HealthCheckRequest = serde_json::from_str(&json)?;
         let _ = format!("{deserialized:?}");
+        Ok(())
     }
 
     #[test]
-    fn test_query_ai_request_minimal() {
+    fn test_query_ai_request_minimal() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let request = QueryAiRequest {
             prompt: "Hello".to_string(),
             provider: None,
@@ -396,14 +436,16 @@ mod tests {
             stream: None,
         };
 
-        let json = serde_json::to_string(&request).expect("should succeed");
-        let deserialized: QueryAiRequest = serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&request)?;
+        let deserialized: QueryAiRequest = serde_json::from_str(&json)?;
         assert_eq!(deserialized.prompt, "Hello");
         assert!(deserialized.provider.is_none());
+        Ok(())
     }
 
     #[test]
-    fn test_tool_list_response_and_source_serialization() {
+    fn test_tool_list_response_and_source_serialization()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         let response = ToolListResponse {
             tools: vec![ToolListEntry {
                 name: "science.simulate".to_string(),
@@ -417,12 +459,16 @@ mod tests {
             total: 1,
         };
 
-        let json = serde_json::to_string(&response).expect("should succeed");
-        let deserialized: ToolListResponse = serde_json::from_str(&json).expect("should succeed");
+        let json = serde_json::to_string(&response)?;
+        let deserialized: ToolListResponse = serde_json::from_str(&json)?;
         assert_eq!(deserialized.total, 1);
-        match &deserialized.tools[0].source {
-            ToolSource::Remote { primal } => assert_eq!(primal, "neuralSpring"),
-            ToolSource::Builtin => unreachable!("expected Remote"),
+        assert!(
+            matches!(&deserialized.tools[0].source, ToolSource::Remote { .. }),
+            "expected Remote, got {:?}",
+            deserialized.tools[0].source
+        );
+        if let ToolSource::Remote { primal } = &deserialized.tools[0].source {
+            assert_eq!(primal, "neuralSpring");
         }
 
         let builtin = ToolListEntry {
@@ -432,8 +478,9 @@ mod tests {
             source: ToolSource::Builtin,
             input_schema: None,
         };
-        let j2 = serde_json::to_string(&builtin).expect("should succeed");
-        let b2: ToolListEntry = serde_json::from_str(&j2).expect("should succeed");
+        let j2 = serde_json::to_string(&builtin)?;
+        let b2: ToolListEntry = serde_json::from_str(&j2)?;
         assert!(matches!(b2.source, ToolSource::Builtin));
+        Ok(())
     }
 }

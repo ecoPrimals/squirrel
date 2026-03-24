@@ -126,6 +126,15 @@ description = "Readiness probe — returns ok if ready to accept requests"
 [capabilities.health_readiness.input_schema]
 type = "object"
 
+# --- Identity domain (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0) ---
+
+[capabilities.identity_get]
+method = "identity.get"
+domain = "identity.self"
+description = "Returns primal identity, domain, version, transport, and protocol"
+[capabilities.identity_get.input_schema]
+type = "object"
+
 # --- System domain ---
 
 [capabilities.system_health]

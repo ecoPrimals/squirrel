@@ -26,6 +26,7 @@
 //! - `system.health` - Health check endpoint
 //! - `system.metrics` - Server metrics
 //! - `system.ping` - Connectivity test
+//! - `identity.get` - Primal self-knowledge (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0)
 //! - `discovery.peers` - Peer discovery
 //! - `tool.execute` - Tool execution (local + forwarding to announced primals)
 //! - `tool.list` - List available tools (local + remote announced)
@@ -131,7 +132,24 @@ pub struct JsonRpcError {
     pub data: Option<Value>,
 }
 
-/// JSON-RPC error codes (standard)
+impl std::fmt::Display for JsonRpcError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} (code {})", self.message, self.code)
+    }
+}
+
+impl std::error::Error for JsonRpcError {}
+
+pub(crate) fn normalize_method(method: &str) -> &str {
+    // Strip known legacy prefixes for ecosystem compatibility
+    // Per BearDog v0.9.0, barraCuda v0.3.7 pattern
+    method
+        .strip_prefix("squirrel.")
+        .or_else(|| method.strip_prefix("mcp."))
+        .unwrap_or(method)
+}
+
+/// JSON-RPC error codes (standard + reserved server range)
 pub mod error_codes {
     /// Invalid JSON was received by the server.
     pub const PARSE_ERROR: i32 = -32700;
@@ -143,6 +161,10 @@ pub mod error_codes {
     pub const INVALID_PARAMS: i32 = -32602;
     /// Internal JSON-RPC error.
     pub const INTERNAL_ERROR: i32 = -32603;
+    /// Start of reserved implementation-defined server-error range (-32000..=-32099).
+    pub const SERVER_ERROR_MIN: i32 = -32099;
+    /// End of reserved implementation-defined server-error range.
+    pub const SERVER_ERROR_MAX: i32 = -32000;
 }
 
 /// Server metrics
@@ -604,11 +626,11 @@ impl JsonRpcServer {
             let mut responses = Vec::with_capacity(items.len());
             for item in items {
                 let single = serde_json::to_string(&item).unwrap_or_default();
+                let is_notification = item.as_object().is_some_and(|m| !m.contains_key("id"));
                 let resp = self.handle_single_request(&single).await;
                 // Per spec: notifications (no id) produce no response element
-                let is_notification = item.get("id").is_none();
-                if !is_notification {
-                    responses.push(resp);
+                if !is_notification && let Some(r) = resp {
+                    responses.push(r);
                 }
             }
 
@@ -620,60 +642,33 @@ impl JsonRpcServer {
         }
 
         // Single request
-        let resp = self.handle_single_request(trimmed).await;
-        serde_json::to_string(&resp).ok()
+        match self.handle_single_request(trimmed).await {
+            Some(resp) => serde_json::to_string(&resp).ok(),
+            None => None,
+        }
     }
 
-    /// Handle a single JSON-RPC request (non-batch).
-    async fn handle_single_request(&self, request_str: &str) -> JsonRpcResponse {
-        let start_time = Instant::now();
-
-        let mut request: JsonRpcRequest = match serde_json::from_str(request_str.trim()) {
-            Ok(req) => req,
-            Err(e) => {
-                return JsonRpcResponse {
-                    jsonrpc: Arc::from("2.0"),
-                    result: None,
-                    error: Some(JsonRpcError {
-                        code: error_codes::PARSE_ERROR,
-                        message: format!("Parse error: {e}"),
-                        data: None,
-                    }),
-                    id: Value::Null,
-                };
-            }
-        };
-
-        // Validate JSON-RPC version
-        if request.jsonrpc.as_ref() != "2.0" {
-            return self.error_response(
-                request.id.unwrap_or(Value::Null),
-                error_codes::INVALID_REQUEST,
-                "Invalid JSON-RPC version (must be 2.0)",
-            );
-        }
-
-        let request_id = request.id.take().unwrap_or(Value::Null);
-
-        // Dispatch to method handler with tracing span
-
-        let span =
-            tracing::info_span!("jsonrpc_method", method = %request.method, id = ?request.id);
-        let _enter = span.enter();
-
-        // Method dispatch with semantic naming (wateringHole standard: {domain}.{operation})
-        // Semantic names are preferred; legacy aliases emit deprecation warnings (Phase 2)
-        let result = match request.method.as_ref() {
+    /// Dispatch a validated JSON-RPC method name (after `normalize_method`).
+    pub(crate) async fn dispatch_jsonrpc_method(
+        &self,
+        original_method: &str,
+        params: Option<Value>,
+    ) -> Result<Value, JsonRpcError> {
+        let method = normalize_method(original_method);
+        match method {
             // AI domain — semantic names (preferred)
-            "ai.query" | "ai.complete" | "ai.chat" => self.handle_query_ai(request.params).await,
-            "ai.list_providers" => self.handle_list_providers(request.params).await,
+            "ai.query" | "ai.complete" | "ai.chat" => self.handle_query_ai(params).await,
+            "ai.list_providers" => self.handle_list_providers(params).await,
 
             // Capability domain — semantic names (preferred)
             // `capabilities.list` is canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1;
             // `capability.list` kept as required alias for ecosystem backward compatibility.
-            "capability.announce" => self.handle_announce_capabilities(request.params).await,
+            "capability.announce" => self.handle_announce_capabilities(params).await,
             "capability.discover" => self.handle_discover_capabilities().await,
             "capabilities.list" | "capability.list" => self.handle_capability_list().await,
+
+            // Identity domain — CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
+            "identity.get" => self.handle_identity_get().await,
 
             // System domain — semantic names (preferred)
             "system.health" | "system.status" => self.handle_health().await,
@@ -685,36 +680,153 @@ impl JsonRpcServer {
             "health.readiness" => self.handle_health_readiness().await,
 
             // Discovery domain — semantic names (preferred)
-            "discovery.peers" => self.handle_discover_peers(request.params).await,
+            "discovery.peers" => self.handle_discover_peers(params).await,
 
             // Tool domain — semantic names (preferred)
-            "tool.execute" => self.handle_execute_tool(request.params).await,
+            "tool.execute" => self.handle_execute_tool(params).await,
             "tool.list" => self.handle_list_tools().await,
 
             // Context domain — semantic names (preferred)
-            "context.create" => self.handle_context_create(request.params).await,
-            "context.update" => self.handle_context_update(request.params).await,
-            "context.summarize" => self.handle_context_summarize(request.params).await,
+            "context.create" => self.handle_context_create(params).await,
+            "context.update" => self.handle_context_update(params).await,
+            "context.summarize" => self.handle_context_summarize(params).await,
 
             // Lifecycle domain — biomeOS registration
             "lifecycle.register" => self.handle_lifecycle_register().await,
             "lifecycle.status" => self.handle_lifecycle_status().await,
 
             // Graph domain — primalSpring BYOB coordination
-            "graph.parse" => self.handle_graph_parse(request.params).await,
-            "graph.validate" => self.handle_graph_validate(request.params).await,
+            "graph.parse" => self.handle_graph_parse(params).await,
+            "graph.validate" => self.handle_graph_validate(params).await,
 
             // Method not found
-            _ => Err(self.method_not_found(request.method.as_ref())),
+            _ => Err(self.method_not_found(original_method)),
+        }
+    }
+
+    /// Handle a single JSON-RPC request (non-batch).
+    /// Returns `None` for successful notifications (no response per JSON-RPC 2.0).
+    async fn handle_single_request(&self, request_str: &str) -> Option<JsonRpcResponse> {
+        let start_time = Instant::now();
+
+        let value: Value = match serde_json::from_str(request_str.trim()) {
+            Ok(v) => v,
+            Err(e) => {
+                return Some(JsonRpcResponse {
+                    jsonrpc: Arc::from("2.0"),
+                    result: None,
+                    error: Some(JsonRpcError {
+                        code: error_codes::PARSE_ERROR,
+                        message: format!("Parse error: {e}"),
+                        data: None,
+                    }),
+                    id: Value::Null,
+                });
+            }
         };
 
-        // Update metrics
+        let Some(obj) = value.as_object() else {
+            return Some(self.error_response(
+                Value::Null,
+                error_codes::INVALID_REQUEST,
+                "JSON-RPC request must be a JSON object",
+            ));
+        };
+
+        self.handle_single_request_object(obj, start_time).await
+    }
+
+    async fn handle_single_request_object(
+        &self,
+        obj: &serde_json::Map<String, Value>,
+        start_time: Instant,
+    ) -> Option<JsonRpcResponse> {
+        let is_notification = !obj.contains_key("id");
+
+        if obj.get("jsonrpc").and_then(|v| v.as_str()) != Some("2.0") {
+            if is_notification {
+                return None;
+            }
+            let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+            return Some(self.error_response(
+                req_id,
+                error_codes::INVALID_REQUEST,
+                "Invalid JSON-RPC version (must be 2.0)",
+            ));
+        }
+
+        let method_str: &str = match obj.get("method") {
+            None => {
+                if is_notification {
+                    return None;
+                }
+                let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+                return Some(self.error_response(
+                    req_id,
+                    error_codes::INVALID_REQUEST,
+                    "Missing method",
+                ));
+            }
+            Some(Value::String(s)) if !s.is_empty() => s.as_str(),
+            Some(Value::String(_)) => {
+                if is_notification {
+                    return None;
+                }
+                let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+                return Some(self.error_response(
+                    req_id,
+                    error_codes::INVALID_REQUEST,
+                    "Empty method name",
+                ));
+            }
+            _ => {
+                if is_notification {
+                    return None;
+                }
+                let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+                return Some(self.error_response(
+                    req_id,
+                    error_codes::INVALID_REQUEST,
+                    "Invalid method (must be a non-empty string)",
+                ));
+            }
+        };
+
+        if let Some(p) = obj.get("params")
+            && !p.is_object()
+            && !p.is_array()
+        {
+            if is_notification {
+                return None;
+            }
+            let req_id = obj.get("id").cloned().unwrap_or(Value::Null);
+            return Some(self.error_response(
+                req_id,
+                error_codes::INVALID_PARAMS,
+                "params must be a structured value (object or array)",
+            ));
+        }
+
+        let params = obj.get("params").cloned();
+
+        if is_notification {
+            let _ = self.dispatch_jsonrpc_method(method_str, params).await;
+            return None;
+        }
+
+        let request_id = obj.get("id").cloned().unwrap_or(Value::Null);
+
+        let span = tracing::info_span!("jsonrpc_method", method = method_str, id = ?request_id);
+        let _enter = span.enter();
+
+        let result = self.dispatch_jsonrpc_method(method_str, params).await;
+
         let elapsed_ms = start_time.elapsed().as_millis() as u64;
         let mut metrics = self.metrics.write().await;
         metrics.requests_handled += 1;
         metrics.total_response_time_ms += elapsed_ms;
 
-        match result {
+        Some(match result {
             Ok(value) => JsonRpcResponse {
                 jsonrpc: Arc::from("2.0"),
                 result: Some(value),
@@ -730,7 +842,7 @@ impl JsonRpcServer {
                     id: request_id,
                 }
             }
-        }
+        })
     }
 
     // Handler methods are in jsonrpc_handlers.rs (organized by domain)

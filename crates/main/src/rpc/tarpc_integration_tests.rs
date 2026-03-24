@@ -11,6 +11,7 @@
 
 use super::tarpc_server::TarpcRpcServer;
 use super::tarpc_service::*;
+use super::types::HealthTier;
 use anyhow::Result;
 use std::sync::Arc;
 
@@ -50,6 +51,10 @@ fn test_tarpc_service_types_serialization() -> Result<()> {
 
     // Test HealthCheckResult
     let health = HealthCheckResult {
+        tier: HealthTier::Healthy,
+        alive: true,
+        ready: true,
+        healthy: true,
         status: "healthy".to_string(),
         version: "1.0.0".to_string(),
         uptime_seconds: 100,

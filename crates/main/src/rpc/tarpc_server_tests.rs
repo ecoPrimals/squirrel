@@ -26,7 +26,8 @@ async fn test_tarpc_system_health() {
     let server = TarpcRpcServer::from_jsonrpc(jsonrpc);
     let ctx = context::current();
     let health = server.system_health(ctx).await;
-    assert_eq!(health.status, "healthy");
+    assert_eq!(health.status, "ready");
+    assert_eq!(health.tier, crate::rpc::types::HealthTier::Ready);
     assert_eq!(health.version, env!("CARGO_PKG_VERSION"));
 }
 
@@ -107,6 +108,10 @@ fn json_to_announce_and_health_and_ping() {
     assert_eq!(a.tools_registered, 3);
 
     let health = json!({
+        "tier": "ready",
+        "alive": true,
+        "ready": true,
+        "healthy": false,
         "status": "degraded",
         "version": "v9",
         "uptime_seconds": 100,
@@ -194,13 +199,21 @@ fn json_to_tool_execute_and_list() {
     let t = TarpcRpcServer::json_to_tool_list_result(&list);
     assert_eq!(t.total, 2);
     assert_eq!(t.tools.len(), 2);
-    match &t.tools[0].source {
-        ToolSource::Remote { primal } => assert_eq!(primal, "bird"),
-        ToolSource::Builtin => unreachable!("expected Remote"),
+    assert!(
+        matches!(&t.tools[0].source, ToolSource::Remote { .. }),
+        "expected Remote, got {:?}",
+        t.tools[0].source
+    );
+    if let ToolSource::Remote { primal } = &t.tools[0].source {
+        assert_eq!(primal, "bird");
     }
-    match &t.tools[1].source {
-        ToolSource::Remote { primal } => assert_eq!(primal, "inline"),
-        ToolSource::Builtin => unreachable!("expected Remote from primal key"),
+    assert!(
+        matches!(&t.tools[1].source, ToolSource::Remote { .. }),
+        "expected Remote from primal key, got {:?}",
+        t.tools[1].source
+    );
+    if let ToolSource::Remote { primal } = &t.tools[1].source {
+        assert_eq!(primal, "inline");
     }
 }
 
@@ -309,7 +322,7 @@ async fn tarpc_delegates_ai_aliases_system_metrics_status_and_tools() {
     assert!(m.success_rate <= 1.0);
 
     let h = server.clone().system_status(context::current()).await;
-    assert_eq!(h.status, "healthy");
+    assert_eq!(h.status, "ready");
 
     let disc = server.clone().capability_discover(context::current()).await;
     assert_eq!(disc.primal, "squirrel");

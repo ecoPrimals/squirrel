@@ -163,7 +163,24 @@ impl TarpcRpcServer {
     }
 
     pub(crate) fn json_to_health_result(v: &serde_json::Value) -> HealthCheckResult {
+        let tier = v
+            .get("tier")
+            .and_then(|t| serde_json::from_value::<super::types::HealthTier>(t.clone()).ok())
+            .unwrap_or(super::types::HealthTier::Alive);
         HealthCheckResult {
+            tier,
+            alive: v
+                .get("alive")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
+            ready: v
+                .get("ready")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
+            healthy: v
+                .get("healthy")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
             status: v
                 .get("status")
                 .and_then(|x| x.as_str())
@@ -413,6 +430,10 @@ impl SquirrelRpc for TarpcRpcServer {
         match self.jsonrpc.handle_health().await {
             Ok(v) => Self::json_to_health_result(&v),
             Err(_) => HealthCheckResult {
+                tier: super::types::HealthTier::Alive,
+                alive: false,
+                ready: false,
+                healthy: false,
                 status: "error".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 uptime_seconds: 0,

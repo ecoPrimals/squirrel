@@ -426,6 +426,10 @@ mod tests {
         assert!(back.pong);
 
         let health = HealthCheckResult {
+            tier: crate::rpc::types::HealthTier::Healthy,
+            alive: true,
+            ready: true,
+            healthy: true,
             status: "ok".to_string(),
             version: "1".to_string(),
             uptime_seconds: 3,

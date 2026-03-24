@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![expect(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "Test code: explicit unwrap/expect and local lint noise"
-)]
-
 use super::*;
 use serde_json::json;
+
+type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 fn make_server() -> JsonRpcServer {
     JsonRpcServer::new("/tmp/test.sock".to_string())
@@ -21,12 +17,13 @@ struct TestParams {
 }
 
 #[tokio::test]
-async fn test_parse_params_valid() {
+async fn test_parse_params_valid() -> TestResult {
     let server = make_server();
     let params = Some(json!({"name": "test", "count": 42}));
-    let result: TestParams = server.parse_params(params).expect("should succeed");
+    let result: TestParams = server.parse_params(params)?;
     assert_eq!(result.name, "test");
     assert_eq!(result.count, 42);
+    Ok(())
 }
 
 #[tokio::test]
@@ -66,55 +63,102 @@ async fn test_method_not_found() {
 }
 
 #[tokio::test]
-async fn test_error_response() {
+async fn test_error_response() -> TestResult {
     let server = make_server();
     let response = server.error_response(json!(1), -32000, "Custom error");
     assert_eq!(response.jsonrpc.as_ref(), "2.0");
     assert!(response.result.is_none());
     assert!(response.error.is_some());
-    let err = response.error.expect("should succeed");
+    let err = response
+        .error
+        .expect("error_response should set error when result is none");
     assert_eq!(err.code, -32000);
     assert_eq!(err.message, "Custom error");
     assert_eq!(response.id, json!(1));
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_health() {
+async fn test_handle_identity_get() -> TestResult {
+    use serde_json::Value;
+    use universal_constants::identity;
+
     let server = make_server();
-    let result = server.handle_health().await.expect("should succeed");
-    assert!(result.get("status").and_then(|v| v.as_str()) == Some("healthy"));
+    let result: Value = server.handle_identity_get().await?;
+    assert_eq!(
+        result.get("primal_id").and_then(|v| v.as_str()),
+        Some(identity::PRIMAL_ID)
+    );
+    assert_eq!(
+        result.get("domain").and_then(|v| v.as_str()),
+        Some(identity::PRIMAL_DOMAIN)
+    );
+    assert_eq!(
+        result.get("transport").and_then(|v| v.as_str()),
+        Some("unix-socket")
+    );
+    assert_eq!(
+        result.get("protocol").and_then(|v| v.as_str()),
+        Some("json-rpc-2.0")
+    );
+    assert_eq!(
+        result.get("license").and_then(|v| v.as_str()),
+        Some("AGPL-3.0-or-later")
+    );
+    assert_eq!(
+        result.get("jwt_issuer").and_then(|v| v.as_str()),
+        Some(identity::JWT_ISSUER)
+    );
+    assert_eq!(
+        result.get("jwt_audience").and_then(|v| v.as_str()),
+        Some(identity::JWT_AUDIENCE)
+    );
+    assert_eq!(
+        result.get("version").and_then(|v| v.as_str()),
+        Some(env!("CARGO_PKG_VERSION"))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_handle_health() -> TestResult {
+    let server = make_server();
+    let result = server.handle_health().await?;
+    assert!(result.get("tier").is_some());
+    assert!(result.get("alive").and_then(Value::as_bool) == Some(true));
+    assert!(result.get("status").and_then(Value::as_str) == Some("ready"));
     assert!(result.get("version").is_some());
     assert!(result.get("uptime_seconds").is_some());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_metrics() {
+async fn test_handle_metrics() -> TestResult {
     let server = make_server();
-    let result = server.handle_metrics().await.expect("should succeed");
+    let result = server.handle_metrics().await?;
     assert!(result.get("requests_handled").is_some());
     assert!(result.get("errors").is_some());
     assert!(result.get("uptime_seconds").is_some());
     assert!(result.get("success_rate").is_some());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_ping() {
+async fn test_handle_ping() -> TestResult {
     let server = make_server();
-    let result = server.handle_ping().await.expect("should succeed");
+    let result = server.handle_ping().await?;
     assert_eq!(
         result.get("pong").and_then(serde_json::Value::as_bool),
         Some(true)
     );
     assert!(result.get("timestamp").is_some());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_discover_capabilities() {
+async fn test_handle_discover_capabilities() -> TestResult {
     let server = make_server();
-    let result = server
-        .handle_discover_capabilities()
-        .await
-        .expect("should succeed");
+    let result = server.handle_discover_capabilities().await?;
     assert_eq!(
         result.get("primal").and_then(|v| v.as_str()),
         Some("squirrel")
@@ -144,15 +188,13 @@ async fn test_handle_discover_capabilities() {
             .any(|c| c.as_str() == Some("discovery.register")),
         "consumed_capabilities must include discovery.register"
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_capability_list() {
+async fn test_handle_capability_list() -> TestResult {
     let server = make_server();
-    let result = server
-        .handle_capability_list()
-        .await
-        .expect("should succeed");
+    let result = server.handle_capability_list().await?;
     assert_eq!(
         result.get("primal").and_then(|v| v.as_str()),
         Some("squirrel")
@@ -166,21 +208,19 @@ async fn test_handle_capability_list() {
 
     let ai_query = methods
         .get("ai.query")
-        .expect("should succeed")
+        .expect("ai.query method metadata")
         .as_object()
-        .expect("should succeed");
+        .expect("ai.query should be object");
     assert!(ai_query.contains_key("cost"));
     assert!(ai_query.contains_key("depends_on"));
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_announce_capabilities_valid() {
+async fn test_handle_announce_capabilities_valid() -> TestResult {
     let server = make_server();
     let params = Some(json!({"capabilities": ["ai.inference", "tool.execute"]}));
-    let result = server
-        .handle_announce_capabilities(params)
-        .await
-        .expect("should succeed");
+    let result = server.handle_announce_capabilities(params).await?;
     assert_eq!(
         result.get("success").and_then(serde_json::Value::as_bool),
         Some(true)
@@ -188,11 +228,12 @@ async fn test_handle_announce_capabilities_valid() {
     assert!(
         result
             .get("message")
-            .expect("should succeed")
+            .expect("announce_capabilities message")
             .as_str()
-            .expect("should succeed")
+            .expect("message should be string")
             .contains('2')
     );
+    Ok(())
 }
 
 #[tokio::test]
@@ -204,12 +245,9 @@ async fn test_handle_announce_capabilities_missing_params() {
 }
 
 #[tokio::test]
-async fn test_handle_list_providers_no_router() {
+async fn test_handle_list_providers_no_router() -> TestResult {
     let server = make_server();
-    let result = server
-        .handle_list_providers(None)
-        .await
-        .expect("should succeed");
+    let result = server.handle_list_providers(None).await?;
     assert_eq!(
         result.get("total").and_then(serde_json::Value::as_u64),
         Some(0)
@@ -218,9 +256,10 @@ async fn test_handle_list_providers_no_router() {
         result
             .get("providers")
             .and_then(|v| v.as_array())
-            .expect("should succeed")
+            .expect("providers array")
             .is_empty()
     );
+    Ok(())
 }
 
 #[tokio::test]
@@ -246,29 +285,31 @@ async fn test_handle_query_ai_no_router() {
 }
 
 #[tokio::test]
-async fn test_handle_batch_empty() {
+async fn test_handle_batch_empty() -> TestResult {
     let server = make_server();
     let result = server.handle_request_or_batch("[]").await;
     assert!(result.is_some());
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("empty batch should yield response");
+    let parsed: serde_json::Value = serde_json::from_str(&body)?;
     assert!(parsed.get("error").is_some());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_batch_single() {
+async fn test_handle_batch_single() -> TestResult {
     let server = make_server();
     let batch = r#"[{"jsonrpc":"2.0","method":"system.ping","id":1}]"#;
     let result = server.handle_request_or_batch(batch).await;
     assert!(result.is_some());
-    let parsed: Vec<serde_json::Value> =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("single batch response");
+    let parsed: Vec<serde_json::Value> = serde_json::from_str(&body)?;
     assert_eq!(parsed.len(), 1);
     assert!(parsed[0].get("result").is_some());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_batch_multi() {
+async fn test_handle_batch_multi() -> TestResult {
     let server = make_server();
     let batch = r#"[
         {"jsonrpc":"2.0","method":"system.ping","id":1},
@@ -276,18 +317,16 @@ async fn test_handle_batch_multi() {
     ]"#;
     let result = server.handle_request_or_batch(batch).await;
     assert!(result.is_some());
-    let parsed: Vec<serde_json::Value> =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("multi batch response");
+    let parsed: Vec<serde_json::Value> = serde_json::from_str(&body)?;
     assert_eq!(parsed.len(), 2);
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_lifecycle_register() {
+async fn test_handle_lifecycle_register() -> TestResult {
     let server = make_server();
-    let result = server
-        .handle_lifecycle_register()
-        .await
-        .expect("should succeed");
+    let result = server.handle_lifecycle_register().await?;
     assert_eq!(
         result.get("success").and_then(serde_json::Value::as_bool),
         Some(true)
@@ -296,19 +335,17 @@ async fn test_handle_lifecycle_register() {
         result
             .get("message")
             .and_then(|v| v.as_str())
-            .expect("should succeed")
+            .expect("lifecycle message")
             .contains("squirrel")
     );
     assert!(result.get("version").is_some());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_lifecycle_status() {
+async fn test_handle_lifecycle_status() -> TestResult {
     let server = make_server();
-    let result = server
-        .handle_lifecycle_status()
-        .await
-        .expect("should succeed");
+    let result = server.handle_lifecycle_status().await?;
     assert_eq!(
         result.get("status").and_then(|v| v.as_str()),
         Some("healthy")
@@ -319,15 +356,13 @@ async fn test_handle_lifecycle_status() {
         result.get("service").and_then(|v| v.as_str()),
         Some("squirrel")
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_discover_peers() {
+async fn test_handle_discover_peers() -> TestResult {
     let server = make_server();
-    let result = server
-        .handle_discover_peers(None)
-        .await
-        .expect("should succeed");
+    let result = server.handle_discover_peers(None).await?;
     assert!(result.get("peers").and_then(|v| v.as_array()).is_some());
     assert!(
         result
@@ -339,16 +374,17 @@ async fn test_handle_discover_peers() {
         result.get("discovery_method").and_then(|v| v.as_str()),
         Some("socket_scan")
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_single_request_ping() {
+async fn test_handle_single_request_ping() -> TestResult {
     let server = make_server();
     let req = r#"{"jsonrpc":"2.0","method":"system.ping","id":42}"#;
     let result = server.handle_request_or_batch(req).await;
     assert!(result.is_some());
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("ping response");
+    let parsed: serde_json::Value = serde_json::from_str(&body)?;
     assert_eq!(
         parsed
             .get("result")
@@ -360,15 +396,16 @@ async fn test_handle_single_request_ping() {
         parsed.get("id").and_then(serde_json::Value::as_i64),
         Some(42)
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_parse_error() {
+async fn test_handle_parse_error() -> TestResult {
     let server = make_server();
     let result = server.handle_request_or_batch("not valid json {{{").await;
     assert!(result.is_some());
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("parse error response");
+    let parsed: serde_json::Value = serde_json::from_str(&body)?;
     assert!(parsed.get("error").is_some());
     assert_eq!(
         parsed
@@ -377,16 +414,17 @@ async fn test_handle_parse_error() {
             .and_then(serde_json::Value::as_i64),
         Some(i64::from(error_codes::PARSE_ERROR))
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_invalid_jsonrpc_version() {
+async fn test_handle_invalid_jsonrpc_version() -> TestResult {
     let server = make_server();
     let req = r#"{"jsonrpc":"1.0","method":"system.ping","id":1}"#;
     let result = server.handle_request_or_batch(req).await;
     assert!(result.is_some());
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("invalid jsonrpc version response");
+    let parsed: serde_json::Value = serde_json::from_str(&body)?;
     assert!(parsed.get("error").is_some());
     assert!(
         parsed
@@ -396,10 +434,11 @@ async fn test_handle_invalid_jsonrpc_version() {
             .unwrap_or("")
             .contains("2.0")
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_announce_with_primal_and_socket() {
+async fn test_handle_announce_with_primal_and_socket() -> TestResult {
     let server = make_server();
     let params = Some(json!({
         "capabilities": ["tool.remote"],
@@ -407,10 +446,7 @@ async fn test_handle_announce_with_primal_and_socket() {
         "socket_path": "/tmp/songbird.sock",
         "tools": ["tool.remote"]
     }));
-    let result = server
-        .handle_announce_capabilities(params)
-        .await
-        .expect("should succeed");
+    let result = server.handle_announce_capabilities(params).await?;
     assert_eq!(
         result.get("success").and_then(serde_json::Value::as_bool),
         Some(true)
@@ -421,12 +457,13 @@ async fn test_handle_announce_with_primal_and_socket() {
             .and_then(serde_json::Value::as_u64),
         Some(1)
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_list_tools() {
+async fn test_handle_list_tools() -> TestResult {
     let server = make_server();
-    let result = server.handle_list_tools().await.expect("should succeed");
+    let result = server.handle_list_tools().await?;
     assert!(result.get("tools").and_then(|v| v.as_array()).is_some());
     assert!(
         result
@@ -434,16 +471,14 @@ async fn test_handle_list_tools() {
             .and_then(serde_json::Value::as_u64)
             .is_some()
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_context_create() {
+async fn test_handle_context_create() -> TestResult {
     let server = make_server();
     let params = Some(json!({"session_id": "test-session-123", "metadata": {"key": "value"}}));
-    let result = server
-        .handle_context_create(params)
-        .await
-        .expect("should succeed");
+    let result = server.handle_context_create(params).await?;
     assert!(result.get("id").is_some());
     assert!(result.get("version").is_some());
     assert!(result.get("created_at").is_some());
@@ -454,21 +489,20 @@ async fn test_handle_context_create() {
             .and_then(|v| v.as_str()),
         Some("value")
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_context_create_auto_session_id() {
+async fn test_handle_context_create_auto_session_id() -> TestResult {
     let server = make_server();
-    let result = server
-        .handle_context_create(None)
-        .await
-        .expect("should succeed");
+    let result = server.handle_context_create(None).await?;
     assert!(
         result
             .get("id")
             .and_then(|v| v.as_str())
             .is_some_and(|s| !s.is_empty())
     );
+    Ok(())
 }
 
 #[tokio::test]
@@ -505,26 +539,27 @@ async fn test_handle_execute_tool_missing_tool_param() {
 }
 
 #[tokio::test]
-async fn test_handle_request_context_create() {
+async fn test_handle_request_context_create() -> TestResult {
     let server = make_server();
     let req =
         r#"{"jsonrpc":"2.0","method":"context.create","params":{"session_id":"req-test"},"id":1}"#;
     let result = server.handle_request_or_batch(req).await;
     assert!(result.is_some());
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("context.create response");
+    let parsed: serde_json::Value = serde_json::from_str(&body)?;
     assert!(parsed.get("result").is_some());
     assert!(parsed.get("result").and_then(|r| r.get("id")).is_some());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_request_tool_list() {
+async fn test_handle_request_tool_list() -> TestResult {
     let server = make_server();
     let req = r#"{"jsonrpc":"2.0","method":"tool.list","id":1}"#;
     let result = server.handle_request_or_batch(req).await;
     assert!(result.is_some());
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("tool.list response");
+    let parsed: serde_json::Value = serde_json::from_str(&body)?;
     assert!(parsed.get("result").is_some());
     assert!(
         parsed
@@ -533,28 +568,23 @@ async fn test_handle_request_tool_list() {
             .and_then(|v| v.as_array())
             .is_some()
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_context_update_valid() {
+async fn test_handle_context_update_valid() -> TestResult {
     let server = make_server();
     let create_params =
         Some(json!({"session_id": "update-test-session", "metadata": {"key": "v1"}}));
-    let create_result = server
-        .handle_context_create(create_params)
-        .await
-        .expect("should succeed");
+    let create_result = server.handle_context_create(create_params).await?;
     let ctx_id = create_result
         .get("id")
         .and_then(|v| v.as_str())
-        .expect("should succeed")
+        .expect("context id from create")
         .to_string();
 
     let update_params = Some(json!({"id": ctx_id, "data": {"updated": true}}));
-    let update_result = server
-        .handle_context_update(update_params)
-        .await
-        .expect("should succeed");
+    let update_result = server.handle_context_update(update_params).await?;
     assert_eq!(
         update_result.get("id").and_then(|v| v.as_str()),
         Some(ctx_id.as_str())
@@ -563,30 +593,25 @@ async fn test_handle_context_update_valid() {
         update_result
             .get("version")
             .and_then(serde_json::Value::as_u64)
-            .expect("should succeed")
+            .expect("version after update")
             >= 1
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_context_summarize_valid() {
+async fn test_handle_context_summarize_valid() -> TestResult {
     let server = make_server();
     let create_params = Some(json!({"session_id": "summarize-test-session"}));
-    let create_result = server
-        .handle_context_create(create_params)
-        .await
-        .expect("should succeed");
+    let create_result = server.handle_context_create(create_params).await?;
     let ctx_id = create_result
         .get("id")
         .and_then(|v| v.as_str())
-        .expect("should succeed")
+        .expect("context id from create")
         .to_string();
 
     let summarize_params = Some(json!({"id": ctx_id}));
-    let summarize_result = server
-        .handle_context_summarize(summarize_params)
-        .await
-        .expect("should succeed");
+    let summarize_result = server.handle_context_summarize(summarize_params).await?;
     assert_eq!(
         summarize_result.get("id").and_then(|v| v.as_str()),
         Some(ctx_id.as_str())
@@ -595,19 +620,17 @@ async fn test_handle_context_summarize_valid() {
         summarize_result
             .get("summary")
             .and_then(|v| v.as_str())
-            .expect("should succeed")
+            .expect("summary text")
             .contains("Context")
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_execute_tool_system_health() {
+async fn test_handle_execute_tool_system_health() -> TestResult {
     let server = make_server();
     let params = Some(json!({"tool": "system.health", "args": {}}));
-    let result = server
-        .handle_execute_tool(params)
-        .await
-        .expect("should succeed");
+    let result = server.handle_execute_tool(params).await?;
     assert_eq!(
         result.get("tool").and_then(|v| v.as_str()),
         Some("system.health")
@@ -620,19 +643,17 @@ async fn test_handle_execute_tool_system_health() {
         result
             .get("output")
             .and_then(|v| v.as_str())
-            .expect("should succeed")
+            .expect("tool output")
             .contains("healthy")
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_execute_tool_unknown_tool() {
+async fn test_handle_execute_tool_unknown_tool() -> TestResult {
     let server = make_server();
     let params = Some(json!({"tool": "nonexistent.tool", "args": {}}));
-    let result = server
-        .handle_execute_tool(params)
-        .await
-        .expect("should succeed");
+    let result = server.handle_execute_tool(params).await?;
     assert_eq!(
         result.get("success").and_then(serde_json::Value::as_bool),
         Some(false)
@@ -641,19 +662,20 @@ async fn test_handle_execute_tool_unknown_tool() {
         result
             .get("error")
             .and_then(|v| v.as_str())
-            .expect("should succeed")
+            .expect("error message for unknown tool")
             .contains("not found")
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_handle_request_method_not_found() {
+async fn test_handle_request_method_not_found() -> TestResult {
     let server = make_server();
     let req = r#"{"jsonrpc":"2.0","method":"unknown.method","id":1}"#;
     let result = server.handle_request_or_batch(req).await;
     assert!(result.is_some());
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("method not found response");
+    let parsed: serde_json::Value = serde_json::from_str(&body)?;
     assert!(parsed.get("error").is_some());
     assert_eq!(
         parsed
@@ -662,6 +684,7 @@ async fn test_handle_request_method_not_found() {
             .and_then(serde_json::Value::as_i64),
         Some(i64::from(error_codes::METHOD_NOT_FOUND))
     );
+    Ok(())
 }
 
 #[tokio::test]
@@ -673,13 +696,13 @@ async fn test_handle_batch_notification_no_response() {
 }
 
 #[tokio::test]
-async fn test_handle_request_tool_execute() {
+async fn test_handle_request_tool_execute() -> TestResult {
     let server = make_server();
     let req = r#"{"jsonrpc":"2.0","method":"tool.execute","params":{"tool":"system.health","args":{}},"id":1}"#;
     let result = server.handle_request_or_batch(req).await;
     assert!(result.is_some());
-    let parsed: serde_json::Value =
-        serde_json::from_str(&result.expect("should succeed")).expect("should succeed");
+    let body = result.expect("tool.execute response");
+    let parsed: serde_json::Value = serde_json::from_str(&body)?;
     assert!(parsed.get("result").is_some());
     assert_eq!(
         parsed
@@ -688,11 +711,12 @@ async fn test_handle_request_tool_execute() {
             .and_then(serde_json::Value::as_bool),
         Some(true)
     );
+    Ok(())
 }
 
 /// `capability.discover` appends AI capability names when the AI router has providers.
 #[tokio::test]
-async fn test_handle_discover_capabilities_adds_ai_methods_with_router() {
+async fn test_handle_discover_capabilities_adds_ai_methods_with_router() -> TestResult {
     use crate::api::ai::AiRouter;
     use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
     use crate::api::ai::types::{
@@ -750,10 +774,7 @@ async fn test_handle_discover_capabilities_adds_ai_methods_with_router() {
             OneTextProvider,
         )])),
     );
-    let v = server
-        .handle_discover_capabilities()
-        .await
-        .expect("should succeed");
+    let v = server.handle_discover_capabilities().await?;
     let arr = v
         .get("capabilities")
         .and_then(serde_json::Value::as_array)
@@ -761,11 +782,12 @@ async fn test_handle_discover_capabilities_adds_ai_methods_with_router() {
     let strs: Vec<&str> = arr.iter().filter_map(|x| x.as_str()).collect();
     assert!(strs.contains(&"ai.inference"));
     assert!(strs.contains(&"ai.text_generation"));
+    Ok(())
 }
 
 /// `handle_query_ai` success path when `ai_router` is configured.
 #[tokio::test]
-async fn test_handle_query_ai_with_router_success() {
+async fn test_handle_query_ai_with_router_success() -> TestResult {
     use crate::api::ai::AiRouter;
     use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
     use crate::api::ai::types::{
@@ -850,6 +872,7 @@ async fn test_handle_query_ai_with_router_success() {
         v.get("response").and_then(serde_json::Value::as_str),
         Some("reply:hello")
     );
+    Ok(())
 }
 
 #[tokio::test]
@@ -929,7 +952,7 @@ async fn test_handle_query_ai_router_returns_error() {
 }
 
 #[tokio::test]
-async fn test_handle_list_providers_with_router_non_empty() {
+async fn test_handle_list_providers_with_router_non_empty() -> TestResult {
     use crate::api::ai::AiRouter;
     use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
     use crate::api::ai::types::{
@@ -1007,4 +1030,5 @@ async fn test_handle_list_providers_with_router_non_empty() {
             .and_then(serde_json::Value::as_str),
         Some("high")
     );
+    Ok(())
 }
