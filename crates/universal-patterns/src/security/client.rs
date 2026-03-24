@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal security client
@@ -25,24 +25,25 @@ use super::traits::UniversalSecurityProvider;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust,no_run
+/// use universal_patterns::config::PrimalConfig;
 /// use universal_patterns::security::UniversalSecurityClient;
-/// use universal_patterns::config::SecurityConfig;
 /// use universal_patterns::traits::Credentials;
+/// use universal_patterns::UniversalSecurityProvider;
 ///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let config = SecurityConfig::default();
-/// let client = UniversalSecurityClient::new(config).await?;
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let config = PrimalConfig::default().security.clone();
+///     let client = UniversalSecurityClient::new(config).await?;
 ///
-/// let credentials = Credentials::Test {
-///     username: "user".to_string(),
-///     password: "pass".to_string(),
-/// };
+///     let credentials = Credentials::Test {
+///         service_id: "test-service".to_string(),
+///     };
 ///
-/// let auth_result = client.authenticate(&credentials).await?;
-/// println!("Authenticated user: {}", auth_result.principal.name);
-/// # Ok(())
-/// # }
+///     let auth_result = client.authenticate(&credentials).await?;
+///     println!("Authenticated user: {}", auth_result.principal.name);
+///     Ok(())
+/// }
 /// ```
 pub struct UniversalSecurityClient {
     /// Primary security provider (usually Beardog)
@@ -70,15 +71,16 @@ impl UniversalSecurityClient {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```rust,no_run
+    /// use universal_patterns::config::PrimalConfig;
     /// use universal_patterns::security::UniversalSecurityClient;
-    /// use universal_patterns::config::SecurityConfig;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let config = SecurityConfig::default();
-    /// let client = UniversalSecurityClient::new(config).await?;
-    /// # Ok(())
-    /// # }
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let config = PrimalConfig::default().security.clone();
+    ///     let _client = UniversalSecurityClient::new(config).await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn new(config: SecurityConfig) -> Result<Self, SecurityError> {
         use super::providers::SecurityServiceConfig;

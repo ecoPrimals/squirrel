@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Secure plugin loading and validation
@@ -177,18 +177,13 @@ impl SecurePluginLoader {
         Ok(false)
     }
 
-    /// Calculate secure checksum of plugin file
+    /// Calculate secure checksum of plugin file using blake3 (pure Rust)
     fn calculate_checksum(&self, plugin_path: &Path) -> Result<String, PluginSecurityError> {
-        use sha2::{Digest, Sha256};
-
         let contents = std::fs::read(plugin_path).map_err(|e| {
             PluginSecurityError::ValidationFailed(format!("Cannot read plugin file: {}", e))
         })?;
 
-        let mut hasher = Sha256::new();
-        hasher.update(&contents);
-
-        Ok(format!("{:x}", hasher.finalize()))
+        Ok(blake3::hash(&contents).to_hex().to_string())
     }
 
     /// Verify plugin signature (placeholder - integrate with actual security system)

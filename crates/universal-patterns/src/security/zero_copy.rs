@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Zero-Copy Security Types
@@ -490,6 +490,140 @@ mod tests {
         assert_eq!(creds.username(), "testuser");
         assert_eq!(creds.password(), "testpass");
         assert_eq!(creds.token(), Some("token123"));
+    }
+
+    #[test]
+    fn test_zero_copy_credentials_borrowed_no_token() {
+        let meta = HashMap::from([("k".to_string(), "v".to_string())]);
+        let creds = ZeroCopyCredentials::from_borrowed("u", "p", None, &meta);
+        assert!(creds.token().is_none());
+        assert_eq!(creds.metadata().get("k"), Some(&"v".to_string()));
+    }
+
+    #[test]
+    fn test_zero_copy_credentials_from_owned() {
+        let creds = ZeroCopyCredentials::from_owned(
+            "alice".to_string(),
+            "secret".to_string(),
+            Some("tok".to_string()),
+            HashMap::from([("a".to_string(), "b".to_string())]),
+        );
+        assert_eq!(creds.username(), "alice");
+        assert_eq!(creds.password(), "secret");
+        assert_eq!(creds.token(), Some("tok"));
+        assert_eq!(creds.metadata().get("a"), Some(&"b".to_string()));
+    }
+
+    #[test]
+    fn test_zero_copy_principal_from_arc_and_metadata() {
+        let p = ZeroCopyPrincipal::from_arc(
+            Arc::from("id1"),
+            Arc::from("Alice"),
+            PrincipalType::Service,
+            Arc::new(vec!["r1".to_string()]),
+            Arc::new(vec!["p1".to_string()]),
+            Arc::new(HashMap::from([("region".to_string(), "us".to_string())])),
+        );
+        assert_eq!(p.id(), "id1");
+        assert_eq!(p.name(), "Alice");
+        assert!(p.has_role("r1"));
+        assert!(!p.has_role("other"));
+        assert!(p.has_permission("p1"));
+        assert!(!p.has_permission("missing"));
+        assert_eq!(p.get_metadata("region"), Some("us"));
+        assert!(p.get_metadata("nope").is_none());
+    }
+
+    #[test]
+    fn test_zero_copy_auth_request_and_authz_request() {
+        let creds = ZeroCopyCredentials::from_borrowed("u", "p", None, &HashMap::new());
+        let req_b = ZeroCopyAuthRequest::new_borrowed("svc-a", creds);
+        assert!(req_b.service_id().contains("svc-a"));
+
+        let creds2 = ZeroCopyCredentials::from_borrowed("u2", "p2", None, &HashMap::new());
+        let req_o = ZeroCopyAuthRequest::new_owned("svc-owned".to_string(), creds2);
+        assert_eq!(req_o.service_id(), "svc-owned");
+
+        let principal = Arc::new(ZeroCopyPrincipal::new(
+            "1".into(),
+            "n".into(),
+            PrincipalType::Anonymous,
+            vec![],
+            vec![],
+            HashMap::new(),
+        ));
+        let ctx = Arc::new(HashMap::new());
+        let authz = ZeroCopyAuthzRequest::new_borrowed("svc", principal, "read", "/r", ctx);
+        assert_eq!(authz.service_id.as_ref(), "svc");
+        assert_eq!(authz.action.as_ref(), "read");
+        assert_eq!(authz.resource.as_ref(), "/r");
+    }
+
+    #[test]
+    fn test_zero_copy_auth_result_success_and_failure() {
+        let principal = Arc::new(ZeroCopyPrincipal::new(
+            "u".into(),
+            "n".into(),
+            PrincipalType::User,
+            vec![],
+            vec![],
+            HashMap::new(),
+        ));
+        let ok = ZeroCopyAuthResult::success(
+            principal.clone(),
+            Some(Arc::from("jwt")),
+            HashMap::from([("s".into(), "v".into())]),
+        );
+        assert!(ok.is_success());
+        assert_eq!(ok.principal().map(|p| p.id()), Some("u"));
+        assert_eq!(ok.token(), Some("jwt"));
+        assert!(ok.error().is_none());
+
+        let bad = ZeroCopyAuthResult::failure("nope".into());
+        assert!(!bad.is_success());
+        assert!(bad.principal().is_none());
+        assert!(bad.token().is_none());
+        assert_eq!(bad.error(), Some("nope"));
+    }
+
+    #[test]
+    fn test_principal_cache_default_clear_and_miss_stats() {
+        let cache: PrincipalCache = PrincipalCache::default();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        rt.block_on(async {
+            assert!(cache.get("missing").await.is_none());
+            cache
+                .store(
+                    "a".into(),
+                    Arc::new(ZeroCopyPrincipal::new(
+                        "a".into(),
+                        "n".into(),
+                        PrincipalType::System,
+                        vec![],
+                        vec![],
+                        HashMap::new(),
+                    )),
+                )
+                .await;
+            assert!(cache.get("a").await.is_some());
+            cache.clear().await;
+            assert!(cache.get("a").await.is_none());
+            let s = cache.stats().await;
+            assert!(s.misses >= 1);
+        });
+    }
+
+    #[test]
+    fn test_zero_copy_creds_macro() {
+        let c1 = crate::zero_copy_creds!("a", "b");
+        assert_eq!(c1.username(), "a");
+        assert!(c1.token().is_none());
+
+        let c2 = crate::zero_copy_creds!("x", "y", "z");
+        assert_eq!(c2.token(), Some("z"));
     }
 
     #[test]

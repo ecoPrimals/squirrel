@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Sovereign Data Management for Federation
@@ -166,50 +166,25 @@ impl DefaultEncryptionKeyManager {
 #[async_trait]
 impl EncryptionKeyManager for DefaultEncryptionKeyManager {
     async fn generate_key(&self, algorithm: &str) -> FederationResult<Vec<u8>> {
-        match algorithm {
-            "AES-256-GCM" => {
-                // Generate 32-byte key for AES-256
-                let mut key = vec![0u8; 32];
-                // In a real implementation, use a proper random number generator
-                for (i, byte) in key.iter_mut().enumerate() {
-                    *byte = (i as u8).wrapping_mul(7).wrapping_add(13);
-                }
-                Ok(key)
+        use rand::RngCore;
+
+        let key_len = match algorithm {
+            "AES-256-GCM" | "ChaCha20-Poly1305" => 32,
+            _ => {
+                return Err(FederationError::UnsupportedPlatform(format!(
+                    "Unsupported encryption algorithm: {algorithm}"
+                )));
             }
-            "ChaCha20-Poly1305" => {
-                // Generate 32-byte key for ChaCha20
-                let mut key = vec![0u8; 32];
-                for (i, byte) in key.iter_mut().enumerate() {
-                    *byte = (i as u8).wrapping_mul(11).wrapping_add(17);
-                }
-                Ok(key)
-            }
-            _ => Err(FederationError::UnsupportedPlatform(format!(
-                "Unsupported encryption algorithm: {algorithm}"
-            ))),
-        }
+        };
+
+        let mut key = vec![0u8; key_len];
+        rand::thread_rng().fill_bytes(&mut key);
+        Ok(key)
     }
 
     async fn encrypt(&self, data: &[u8], key: &[u8], algorithm: &str) -> FederationResult<Vec<u8>> {
         match algorithm {
-            "AES-256-GCM" => {
-                // Simplified encryption - in real implementation use proper crypto library
-                let mut encrypted = Vec::new();
-                for (i, &byte) in data.iter().enumerate() {
-                    let key_byte = key[i % key.len()];
-                    encrypted.push(byte ^ key_byte);
-                }
-                Ok(encrypted)
-            }
-            "ChaCha20-Poly1305" => {
-                // Simplified encryption
-                let mut encrypted = Vec::new();
-                for (i, &byte) in data.iter().enumerate() {
-                    let key_byte = key[i % key.len()];
-                    encrypted.push(byte ^ key_byte ^ 0x5A);
-                }
-                Ok(encrypted)
-            }
+            "AES-256-GCM" | "ChaCha20-Poly1305" => Ok(blake3_xor_stream(data, key)),
             _ => Err(FederationError::UnsupportedPlatform(format!(
                 "Unsupported encryption algorithm: {algorithm}"
             ))),
@@ -218,24 +193,7 @@ impl EncryptionKeyManager for DefaultEncryptionKeyManager {
 
     async fn decrypt(&self, data: &[u8], key: &[u8], algorithm: &str) -> FederationResult<Vec<u8>> {
         match algorithm {
-            "AES-256-GCM" => {
-                // Simplified decryption - same as encryption for XOR
-                let mut decrypted = Vec::new();
-                for (i, &byte) in data.iter().enumerate() {
-                    let key_byte = key[i % key.len()];
-                    decrypted.push(byte ^ key_byte);
-                }
-                Ok(decrypted)
-            }
-            "ChaCha20-Poly1305" => {
-                // Simplified decryption
-                let mut decrypted = Vec::new();
-                for (i, &byte) in data.iter().enumerate() {
-                    let key_byte = key[i % key.len()];
-                    decrypted.push(byte ^ key_byte ^ 0x5A);
-                }
-                Ok(decrypted)
-            }
+            "AES-256-GCM" | "ChaCha20-Poly1305" => Ok(blake3_xor_stream(data, key)),
             _ => Err(FederationError::UnsupportedPlatform(format!(
                 "Unsupported encryption algorithm: {algorithm}"
             ))),
@@ -243,24 +201,33 @@ impl EncryptionKeyManager for DefaultEncryptionKeyManager {
     }
 
     async fn derive_key(&self, password: &str, salt: &[u8]) -> FederationResult<Vec<u8>> {
-        // Simplified key derivation - in real implementation use PBKDF2 or similar
-        let mut key = Vec::new();
-        let password_bytes = password.as_bytes();
-
-        for i in 0_u8..32 {
-            let mut byte = 0u8;
-            for (j, &p_byte) in password_bytes.iter().enumerate() {
-                let salt_byte = salt[j % salt.len()];
-                byte = byte
-                    .wrapping_add(p_byte)
-                    .wrapping_add(salt_byte)
-                    .wrapping_add(i);
-            }
-            key.push(byte);
-        }
-
-        Ok(key)
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(password.as_bytes());
+        hasher.update(salt);
+        let hash = hasher.finalize();
+        Ok(hash.as_bytes().to_vec())
     }
+}
+
+/// XOR-based stream cipher using blake3 keyed hash as a keystream generator.
+///
+/// Symmetric: `encrypt(encrypt(data, key), key) == data`.
+/// Not a standard AEAD construction — suitable for data-at-rest confidentiality
+/// within the federation store. For authenticated encryption, swap to
+/// `chacha20poly1305` or `aes-gcm` crates.
+fn blake3_xor_stream(data: &[u8], key: &[u8]) -> Vec<u8> {
+    let derived_key = blake3::derive_key("ecoPrimals sovereign-data encryption v1", key);
+    let mut output_reader = blake3::Hasher::new_keyed(&derived_key)
+        .update(b"keystream")
+        .finalize_xof();
+
+    let mut keystream = vec![0u8; data.len()];
+    output_reader.fill(&mut keystream);
+
+    data.iter()
+        .zip(keystream.iter())
+        .map(|(d, k)| d ^ k)
+        .collect()
 }
 
 /// Default access control manager

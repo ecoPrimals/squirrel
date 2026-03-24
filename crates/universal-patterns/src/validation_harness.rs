@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Validation harness for multi-check binary validation.
@@ -9,13 +9,23 @@
 //!
 //! # Usage
 //!
-//! ```ignore
+//! ```
 //! use universal_patterns::ValidationHarness;
 //!
-//! let mut harness = ValidationHarness::new("squirrel doctor");
-//! harness.check("config", || { validate_config() });
-//! harness.check("socket", || { validate_socket() });
-//! harness.print_summary();
+//! fn validate_config() -> Result<(), String> {
+//!     Ok(())
+//! }
+//!
+//! fn validate_socket() -> Result<(), String> {
+//!     Ok(())
+//! }
+//!
+//! fn main() {
+//!     let mut harness = ValidationHarness::new("squirrel doctor");
+//!     harness.check("config", || validate_config());
+//!     harness.check("socket", || validate_socket());
+//!     println!("{}", harness.summary());
+//! }
 //! ```
 
 use std::fmt;

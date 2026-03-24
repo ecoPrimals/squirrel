@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Tests for security providers module
@@ -709,8 +709,14 @@ async fn test_beardog_provider_get_service_info() {
     assert_eq!(info.name, "Beardog Security Service");
     assert_eq!(info.version, "1.0.0");
     assert!(matches!(info.trust_level, TrustLevel::High));
-    assert!(info.supported_protocols.contains(&"HTTPS".to_string()));
-    assert!(info.supported_protocols.contains(&"gRPC".to_string()));
+    assert!(
+        info.supported_protocols
+            .contains(&"json-rpc-2.0".to_string())
+    );
+    assert!(
+        info.supported_protocols
+            .contains(&"unix-socket".to_string())
+    );
     assert!(!info.compliance_certifications.is_empty());
 }
 

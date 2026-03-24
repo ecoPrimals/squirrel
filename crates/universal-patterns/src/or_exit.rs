@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! `OrExit<T>` — zero-panic binary entry point pattern.
@@ -9,12 +9,20 @@
 //!
 //! # Usage
 //!
-//! ```ignore
+//! ```
 //! use universal_patterns::OrExit;
+//!
+//! fn load_config() -> Result<String, std::io::Error> {
+//!     Ok("config".to_string())
+//! }
+//!
+//! fn bind_socket(_config: &str) -> Result<(), std::io::Error> {
+//!     Ok(())
+//! }
 //!
 //! fn main() {
 //!     let config = load_config().or_exit("loading configuration");
-//!     let socket = bind_socket(&config).or_exit("binding socket");
+//!     bind_socket(&config).or_exit("binding socket");
 //! }
 //! ```
 

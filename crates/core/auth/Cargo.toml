@@ -2,7 +2,7 @@
 name = "squirrel-mcp-auth"
 version = "0.1.0"
 edition = "2024"
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 description = "Authentication and JWT handling for Squirrel MCP"
 repository = "https://github.com/ecoPrimals/squirrel"
 readme = "README.md"

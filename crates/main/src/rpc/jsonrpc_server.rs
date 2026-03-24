@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -660,12 +660,17 @@ impl JsonRpcServer {
             "ai.query" | "ai.complete" | "ai.chat" => self.handle_query_ai(params).await,
             "ai.list_providers" => self.handle_list_providers(params).await,
 
-            // Capability domain — semantic names (preferred)
-            // `capabilities.list` is canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1;
-            // `capability.list` kept as required alias for ecosystem backward compatibility.
-            "capability.announce" => self.handle_announce_capabilities(params).await,
-            "capability.discover" => self.handle_discover_capabilities().await,
-            "capabilities.list" | "capability.list" => self.handle_capability_list().await,
+            // Capabilities domain — SEMANTIC_METHOD_NAMING_STANDARD v2.1
+            // `capabilities.list` canonical; aliases per standard + ecosystem compat.
+            "capabilities.announce" | "capability.announce" => {
+                self.handle_announce_capabilities(params).await
+            }
+            "capabilities.discover" | "capability.discover" => {
+                self.handle_discover_capabilities().await
+            }
+            "capabilities.list" | "capability.list" | "primal.capabilities" => {
+                self.handle_capability_list().await
+            }
 
             // Identity domain — CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
             "identity.get" => self.handle_identity_get().await,
@@ -676,11 +681,11 @@ impl JsonRpcServer {
             "system.ping" => self.handle_ping().await,
 
             // Health domain — PRIMAL_IPC_PROTOCOL v3.0
-            "health.liveness" => self.handle_health_liveness().await,
+            "health.check" | "health.liveness" => self.handle_health_liveness().await,
             "health.readiness" => self.handle_health_readiness().await,
 
             // Discovery domain — semantic names (preferred)
-            "discovery.peers" => self.handle_discover_peers(params).await,
+            "discovery.peers" | "discovery.list" => self.handle_discover_peers(params).await,
 
             // Tool domain — semantic names (preferred)
             "tool.execute" => self.handle_execute_tool(params).await,

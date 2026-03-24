@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! JSON-RPC 2.0 utility helpers shared across domain handler modules.
@@ -73,3 +73,7 @@ impl JsonRpcServer {
 #[cfg(test)]
 #[path = "jsonrpc_handlers_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "jsonrpc_ai_router_tests.rs"]
+mod ai_router_tests;

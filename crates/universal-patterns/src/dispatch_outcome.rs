@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! `DispatchOutcome<T>` — protocol vs application error separation at RPC dispatch.
@@ -10,8 +10,13 @@
 //!
 //! # Usage
 //!
-//! ```ignore
+//! ```
+//! use serde_json::{json, Value};
 //! use universal_patterns::DispatchOutcome;
+//!
+//! fn run_query(_params: Value) -> Result<Value, String> {
+//!     Ok(json!({"answer": 42}))
+//! }
 //!
 //! fn handle_rpc(method: &str, params: Value) -> DispatchOutcome<Value> {
 //!     match method {
@@ -29,6 +34,10 @@
 //!         },
 //!     }
 //! }
+//!
+//! # fn main() {
+//! # let _ = handle_rpc("system.health", json!({}));
+//! # }
 //! ```
 
 use serde::{Deserialize, Serialize};

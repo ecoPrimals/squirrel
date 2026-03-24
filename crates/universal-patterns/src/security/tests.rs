@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security module tests
@@ -479,7 +479,7 @@ mod tests {
             name: "Test User".to_string(),
             principal_type: PrincipalType::User,
             roles: vec![],
-            permissions: vec![],
+            permissions: vec!["read".to_string(), "write".to_string()],
             metadata: HashMap::new(),
         };
 
@@ -487,7 +487,7 @@ mod tests {
             UniversalSecurityProvider::authorize(&provider, &principal, "read", "resource")
                 .await
                 .expect("Authorization failed");
-        assert!(authorized); // Local provider allows all operations
+        assert!(authorized); // Principal has "read" permission
 
         // Test encryption/decryption
         let data = b"test data";

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Configuration management for the universal patterns framework
@@ -33,42 +33,35 @@
 //!
 //! ## Quick Start
 //!
-//! ```ignore,no_run
-//! use universal_patterns::config::{PrimalConfig, ConfigPresets};
+//! ```
+//! use universal_patterns::config::{ConfigPresets, PrimalConfig};
 //!
-//! // Use a preset configuration
-//! let config = ConfigPresets::development();
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let preset = ConfigPresets::development();
+//! preset.validate()?;
 //!
-//! // Or build a custom configuration
-//! let config = PrimalConfig::builder()
+//! let custom = PrimalConfig::builder()
 //!     .name("my-primal")
 //!     .port(8080)
 //!     .environment("production")
-//!     .enable_tls("/path/to/cert", "/path/to/key")
 //!     .build()?;
-//!
-//! // Load from file or environment
-//! let config = PrimalConfig::load()?;
-//!
-//! // Validate configuration
-//! config.validate()?;
+//! custom.validate()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Universal Configuration
 //!
 //! For managing multiple primal instances:
 //!
-//! ```ignore,no_run
-//! use universal_patterns::config::{UniversalPrimalConfig, UniversalConfigPresets};
+//! ```
+//! use universal_patterns::config::{UniversalConfigPresets, UniversalPrimalConfig};
 //!
-//! // Use a preset for multi-instance setup
-//! let config = UniversalConfigPresets::multi_user_prod();
-//!
-//! // Or configure manually
-//! let mut config = UniversalPrimalConfig::default();
+//! let mut config = UniversalConfigPresets::multi_user_prod();
 //! config.enable_auto_scaling(2, 10);
 //! config.enable_failover(3, 5);
-//! config.set_port_range(8000, 9000)?;
+//! config.set_port_range(8000, 9000).expect("valid port range");
+//! # let _: UniversalPrimalConfig = config;
 //! ```
 
 // Core modules

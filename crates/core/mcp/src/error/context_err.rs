@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use thiserror::Error;
@@ -52,7 +52,7 @@ impl From<&str> for ContextError {
 
 #[cfg(test)]
 mod tests {
-    // SPDX-License-Identifier: AGPL-3.0-only
+    // SPDX-License-Identifier: AGPL-3.0-or-later
     // Inline tests follow the pattern used in `context.rs` and `severity.rs`.
 
     use super::ContextError;

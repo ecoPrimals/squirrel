@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security integration module for universal patterns
@@ -22,39 +22,30 @@
 //!
 //! ## Basic Usage
 //!
-//! ```ignore
+//! ```rust,no_run
+//! use universal_patterns::config::PrimalConfig;
 //! use universal_patterns::security::UniversalSecurityClient;
-//! use universal_patterns::config::SecurityConfig;
 //! use universal_patterns::traits::Credentials;
+//! use universal_patterns::UniversalSecurityProvider;
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Create security configuration
-//! let config = SecurityConfig::default();
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let config = PrimalConfig::default().security.clone();
+//!     let client = UniversalSecurityClient::new(config).await?;
 //!
-//! // Create universal security client
-//! let client = UniversalSecurityClient::new(config).await?;
+//!     let credentials = Credentials::Test {
+//!         service_id: "test-service".to_string(),
+//!     };
 //!
-//! // Authenticate user
-//! let credentials = Credentials::Test {
-//!     username: "user".to_string(),
-//!     password: "pass".to_string(),
-//! };
-//!
-//! let auth_result = client.authenticate(&credentials).await?;
-//! println!("Authenticated user: {}", auth_result.principal.name);
-//!
-//! // Authorize action
-//! let authorized = client.authorize(
-//!     &auth_result.principal,
-//!     "read",
-//!     "resource"
-//! ).await?;
-//!
-//! if authorized {
-//!     println!("Access granted!");
+//!     let auth_result = client.authenticate(&credentials).await?;
+//!     let authorized = client
+//!         .authorize(&auth_result.principal, "read", "resource")
+//!         .await?;
+//!     if authorized {
+//!         println!("Access granted!");
+//!     }
+//!     Ok(())
 //! }
-//! # Ok(())
-//! # }
 //! ```
 
 // Internal modules

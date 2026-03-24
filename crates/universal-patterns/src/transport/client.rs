@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal transport client implementation
@@ -123,14 +123,14 @@ impl UniversalTransport {
     ///
     /// # Example
     ///
-    /// ```ignore,no_run
+    /// ```rust,no_run
     /// use universal_patterns::transport::UniversalTransport;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// // Automatic platform detection and connection (isomorphic)
-    /// let transport = UniversalTransport::connect("squirrel", None).await?;
-    /// # Ok(())
-    /// # }
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let _transport = UniversalTransport::connect("squirrel", None).await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn connect(service_name: &str, config: Option<TransportConfig>) -> IoResult<Self> {
         let config = config.unwrap_or_default();
@@ -380,14 +380,13 @@ impl UniversalTransport {
     ///
     /// # Example
     ///
-    /// ```ignore,no_run
+    /// ```rust,no_run
     /// use universal_patterns::transport::UniversalTransport;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// // Discover endpoint (Unix socket OR TCP)
-    /// let endpoint = UniversalTransport::discover_ipc_endpoint("squirrel")?;
-    /// # Ok(())
-    /// # }
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let _endpoint = UniversalTransport::discover_ipc_endpoint("squirrel")?;
+    ///     Ok(())
+    /// }
     /// ```
     pub fn discover_ipc_endpoint(service_name: &str) -> IoResult<IpcEndpoint> {
         crate::transport::discovery::discover_ipc_endpoint(service_name)
@@ -404,14 +403,14 @@ impl UniversalTransport {
     ///
     /// # Example
     ///
-    /// ```ignore,no_run
+    /// ```rust,no_run
     /// use universal_patterns::transport::UniversalTransport;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// // Automatically discovers and connects (Unix OR TCP)
-    /// let transport = UniversalTransport::connect_discovered("squirrel").await?;
-    /// # Ok(())
-    /// # }
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let _transport = UniversalTransport::connect_discovered("squirrel").await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn connect_discovered(service_name: &str) -> IoResult<Self> {
         tracing::info!("🔍 Discovering IPC endpoint for {}...", service_name);

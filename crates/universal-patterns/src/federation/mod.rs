@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Federation Module - Universal Cross-Platform Sovereignty
@@ -596,6 +596,90 @@ mod tests {
         match primal_error {
             PrimalError::NotImplemented(feature) => assert_eq!(feature, "test"),
             _ => unreachable!("Unexpected error type"),
+        }
+    }
+
+    #[test]
+    fn test_node_status_and_encryption_metadata_defaults() {
+        assert_eq!(NodeStatus::default(), NodeStatus::Unknown);
+        let em = EncryptionMetadata::default();
+        assert_eq!(em.algorithm, "AES-256-GCM");
+        assert!(!em.encrypted);
+    }
+
+    #[test]
+    fn test_federation_error_maps_to_primal_error_all_variants() {
+        let id = Uuid::nil();
+        let cases: Vec<(FederationError, fn(PrimalError) -> bool)> = vec![
+            (
+                FederationError::UnsupportedLanguage("lang".into()),
+                |e| matches!(e, PrimalError::NotImplemented(ref s) if s == "lang"),
+            ),
+            (
+                FederationError::ResourceLimitExceeded("lim".into()),
+                |e| matches!(e, PrimalError::Resource(ref s) if s == "lim"),
+            ),
+            (
+                FederationError::ExecutionNotFound(id),
+                |e| matches!(e, PrimalError::NotFound(ref s) if s == "execution:00000000-0000-0000-0000-000000000000"),
+            ),
+            (
+                FederationError::NotImplemented("ni".into()),
+                |e| matches!(e, PrimalError::NotImplemented(ref s) if s == "ni"),
+            ),
+            (
+                FederationError::ConsensusFailure("cf".into()),
+                |e| matches!(e, PrimalError::InternalError(ref s) if s.contains("Consensus failure")),
+            ),
+            (
+                FederationError::NetworkError("net".into()),
+                |e| matches!(e, PrimalError::NetworkError(ref s) if s == "net"),
+            ),
+            (
+                FederationError::SecurityViolation("sv".into()),
+                |e| matches!(e, PrimalError::Security(ref s) if s == "sv"),
+            ),
+            (
+                FederationError::SerializationError("ser".into()),
+                |e| matches!(e, PrimalError::Internal(ref s) if s == "ser"),
+            ),
+            (
+                FederationError::ConfigurationError("cfg".into()),
+                |e| matches!(e, PrimalError::Configuration(ref s) if s == "cfg"),
+            ),
+            (
+                FederationError::TimeoutError("to".into()),
+                |e| matches!(e, PrimalError::Timeout(ref s) if s == "to"),
+            ),
+            (
+                FederationError::InternalError("ie".into()),
+                |e| matches!(e, PrimalError::InternalError(ref s) if s == "ie"),
+            ),
+            (
+                FederationError::AlreadyRunning("ar".into()),
+                |e| matches!(e, PrimalError::AlreadyExists(ref s) if s == "ar"),
+            ),
+            (
+                FederationError::PeerNotFound("peer".into()),
+                |e| matches!(e, PrimalError::NotFound(ref s) if s == "peer"),
+            ),
+            (
+                FederationError::BroadcastFailed("bf".into()),
+                |e| matches!(e, PrimalError::NetworkError(ref s) if s == "bf"),
+            ),
+            (
+                FederationError::ConnectionClosed("cc".into()),
+                |e| matches!(e, PrimalError::NetworkError(ref s) if s == "cc"),
+            ),
+            (
+                FederationError::NoMessagesAvailable("nm".into()),
+                |e| matches!(e, PrimalError::NotFound(ref s) if s == "nm"),
+            ),
+        ];
+
+        for (fed, pred) in cases {
+            let p: PrimalError = fed.into();
+            assert!(pred(p), "unexpected mapping");
         }
     }
 }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security context and health types
@@ -20,11 +20,11 @@ use crate::traits::{AuthResult, Principal};
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use universal_patterns::security::SecurityContext;
-/// use universal_patterns::traits::{AuthResult, Principal, PrincipalType};
+/// ```
 /// use std::collections::HashMap;
-/// use chrono::Utc;
+///
+/// use universal_patterns::security::SecurityContext;
+/// use universal_patterns::traits::{Principal, PrincipalType};
 ///
 /// let principal = Principal {
 ///     id: "user123".to_string(),
@@ -36,7 +36,7 @@ use crate::traits::{AuthResult, Principal};
 /// };
 ///
 /// let context = SecurityContext::from_principal(&principal);
-/// println!("Context for user: {}", context.principal.name);
+/// assert_eq!(context.principal.name, "John Doe");
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityContext {
@@ -162,11 +162,12 @@ impl SecurityContext {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use universal_patterns::security::{SecurityHealth, HealthStatus};
-/// use std::time::Duration;
+/// ```
 /// use std::collections::HashMap;
+/// use std::time::Duration;
+///
 /// use chrono::Utc;
+/// use universal_patterns::security::{HealthStatus, SecurityHealth};
 ///
 /// let health = SecurityHealth {
 ///     status: HealthStatus::Healthy,
@@ -175,7 +176,7 @@ impl SecurityContext {
 ///     details: HashMap::new(),
 /// };
 ///
-/// println!("Security provider is: {:?}", health.status);
+/// assert!(matches!(health.status, HealthStatus::Healthy));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityHealth {

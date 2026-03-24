@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security API types and request/response structures
@@ -19,16 +19,19 @@ use super::context::SecurityContext;
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use universal_patterns::security::types::AuthRequest;
-/// use universal_patterns::traits::Credentials;
+/// ```
 /// use chrono::Utc;
+/// use universal_patterns::security::AuthRequest;
+/// use universal_patterns::traits::Credentials;
 ///
 /// let request = AuthRequest {
 ///     service_id: "my-service".to_string(),
-///     credentials: Credentials::Test { service_id: "test-service".to_string() },
+///     credentials: Credentials::Test {
+///         service_id: "test-service".to_string(),
+///     },
 ///     timestamp: Utc::now(),
 /// };
+/// assert_eq!(request.service_id, "my-service");
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthRequest {

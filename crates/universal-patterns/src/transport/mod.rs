@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Transport Abstraction
@@ -8,31 +8,25 @@
 //!
 //! ## Philosophy: Universal & Agnostic
 //!
-//! Instead of:
-//! ```ignore
-//! #[cfg(unix)]
-//! use_unix_socket();
+//! Instead of platform `cfg` branches in every caller, use one API:
 //!
-//! #[cfg(windows)]
-//! use_named_pipe();
-//!
-//! #[cfg(target_os = "macos")]
-//! use_xpc();
+//! ```text
+//! #[cfg(unix)]   → Unix socket
+//! #[cfg(windows)] → Named pipe
+//! …
 //! ```
 //!
 //! We use:
-//! ```ignore,no_run
-//! use universal_patterns::transport::{UniversalTransport, UniversalListener};
+//! ```rust,no_run
+//! use universal_patterns::transport::{UniversalListener, UniversalTransport};
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Client: Runtime detection, automatic platform selection
-//! let transport = UniversalTransport::connect("service_name", None).await?;
-//!
-//! // Server: Universal bind and accept
-//! let listener = UniversalListener::bind("service_name", None).await?;
-//! let (stream, addr) = listener.accept().await?;
-//! # Ok(())
-//! # }
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let _transport = UniversalTransport::connect("service_name", None).await?;
+//!     let listener = UniversalListener::bind("service_name", None).await?;
+//!     let (_stream, _addr) = listener.accept().await?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ## Transport Hierarchy

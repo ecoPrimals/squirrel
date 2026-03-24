@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Security provider traits
@@ -19,26 +19,46 @@ use super::errors::SecurityError;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust,no_run
 /// use async_trait::async_trait;
-/// use universal_patterns::security::{SecurityProvider, SecurityError};
+/// use universal_patterns::security::{SecurityError, SecurityProvider};
 /// use universal_patterns::traits::{AuthResult, Credentials, Principal};
 ///
 /// struct MySecurityProvider;
 ///
 /// #[async_trait]
 /// impl SecurityProvider for MySecurityProvider {
-///     async fn authenticate(&self, credentials: &Credentials) -> Result<AuthResult, SecurityError> {
-///         // Implementation here
+///     async fn authenticate(
+///         &self,
+///         _credentials: &Credentials,
+///     ) -> Result<AuthResult, SecurityError> {
 ///         todo!()
 ///     }
-///     
-///     async fn authorize(&self, principal: &Principal, action: &str, resource: &str) -> Result<bool, SecurityError> {
-///         // Implementation here
+///
+///     async fn authorize(
+///         &self,
+///         _principal: &Principal,
+///         _action: &str,
+///         _resource: &str,
+///     ) -> Result<bool, SecurityError> {
 ///         todo!()
 ///     }
-///     
-///     // ... other methods
+///
+///     async fn encrypt(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+///         todo!()
+///     }
+///
+///     async fn decrypt(&self, _encrypted_data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+///         todo!()
+///     }
+///
+///     async fn sign(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+///         todo!()
+///     }
+///
+///     async fn verify(&self, _data: &[u8], _signature: &[u8]) -> Result<bool, SecurityError> {
+///         todo!()
+///     }
 /// }
 /// ```
 #[async_trait]
@@ -142,31 +162,56 @@ pub trait SecurityProvider: Send + Sync {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust,no_run
 /// use async_trait::async_trait;
-/// use universal_patterns::security::{UniversalSecurityProvider, SecurityError, SecurityContext, SecurityHealth};
+/// use universal_patterns::security::{
+///     SecurityContext, SecurityError, SecurityHealth, UniversalSecurityProvider,
+/// };
 /// use universal_patterns::traits::{AuthResult, Credentials, Principal};
 ///
 /// struct MyUniversalProvider;
 ///
 /// #[async_trait]
 /// impl UniversalSecurityProvider for MyUniversalProvider {
-///     async fn authenticate(&self, credentials: &Credentials) -> Result<AuthResult, SecurityError> {
-///         // Implementation here
+///     async fn authenticate(
+///         &self,
+///         _credentials: &Credentials,
+///     ) -> Result<AuthResult, SecurityError> {
 ///         todo!()
 ///     }
-///     
-///     async fn audit_log(&self, operation: &str, context: &SecurityContext) -> Result<(), SecurityError> {
-///         // Implementation here
+///
+///     async fn authorize(
+///         &self,
+///         _principal: &Principal,
+///         _action: &str,
+///         _resource: &str,
+///     ) -> Result<bool, SecurityError> {
 ///         todo!()
 ///     }
-///     
+///
+///     async fn encrypt(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+///         todo!()
+///     }
+///
+///     async fn decrypt(&self, _encrypted_data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+///         todo!()
+///     }
+///
+///     async fn sign(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+///         todo!()
+///     }
+///
+///     async fn verify(&self, _data: &[u8], _signature: &[u8]) -> Result<bool, SecurityError> {
+///         todo!()
+///     }
+///
+///     async fn audit_log(&self, _operation: &str, _context: &SecurityContext) -> Result<(), SecurityError> {
+///         todo!()
+///     }
+///
 ///     async fn health_check(&self) -> Result<SecurityHealth, SecurityError> {
-///         // Implementation here
 ///         todo!()
 ///     }
-///     
-///     // ... other methods
 /// }
 /// ```
 #[async_trait]

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP Adapter for AI Router
@@ -6,9 +6,10 @@
 //! This module provides an adapter between the `AIRouter` and MCP for
 //! remote AI capabilities.
 //!
-//! **Phase 2**: Production [`MCPAdapter::send_request`] returns a deterministic local
-//! response until MCP transport is wired; [`MCPAdapter::discover_capabilities`] returns
-//! an empty map outside tests. Test-only injection uses `#[cfg(test)]` helpers on [`MCPAdapter`].
+//! Production [`MCPAdapter::send_request`] returns an error until the adapter is
+//! connected to a live MCP endpoint via capability discovery.
+//! [`MCPAdapter::discover_capabilities`] returns an empty map outside tests.
+//! Test-only injection uses `#[cfg(test)]` helpers on [`MCPAdapter`].
 
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -16,6 +17,7 @@ use std::collections::HashMap;
 use super::{MCPInterface, NodeId, RemoteAIRequest, RemoteAIResponse, RemoteAIResponseStream};
 use crate::Result;
 use crate::common::capability::AICapabilities;
+#[cfg(test)]
 use crate::common::{ChatChoice, ChatResponse, MessageRole, UsageInfo};
 
 /// Configuration for the MCP adapter
@@ -117,7 +119,7 @@ impl MCPInterface for MCPAdapter {
         node_id: &NodeId,
         request: RemoteAIRequest,
     ) -> Result<RemoteAIResponse> {
-        // For testing: return mock response if available
+        let _ = &request;
         #[cfg(test)]
         {
             match self.mock_responses.read() {
@@ -160,29 +162,10 @@ impl MCPInterface for MCPAdapter {
             }
         }
 
-        // Default response when MCP protocol is not yet wired (Phase 2).
-        // In production this is a placeholder until full MCP transport integration.
-        Ok(RemoteAIResponse {
-            response_id: uuid::Uuid::new_v4(),
-            request_id: request.request_id,
-            provider_id: request.provider_id,
-            chat_response: ChatResponse {
-                id: uuid::Uuid::new_v4().to_string(),
-                model: "remote".to_string(),
-                choices: vec![ChatChoice {
-                    index: 0,
-                    role: MessageRole::Assistant,
-                    content: Some(format!("Remote response from node {node_id:?} via MCP")),
-                    finish_reason: Some("stop".to_string()),
-                    tool_calls: None,
-                }],
-                usage: Some(UsageInfo {
-                    prompt_tokens: 10,
-                    completion_tokens: 20,
-                    total_tokens: 30,
-                }),
-            },
-        })
+        Err(crate::error::AIError::Network(format!(
+            "MCP transport not connected for node {node_id:?} — \
+             discover MCP endpoint via capability registry first"
+        )))
     }
 
     async fn stream_request(
@@ -222,34 +205,6 @@ impl MCPInterface for MCPAdapter {
 
         Ok(all_capabilities)
     }
-}
-
-// Phase 2: wire types below to the real MCP JSON-RPC / stream codec when the adapter
-// delegates to `squirrel-mcp` transport instead of local fallbacks.
-#[derive(Debug)]
-#[expect(dead_code, reason = "Phase 2 — MCP wire protocol client/types")]
-struct McpClient;
-
-#[derive(Debug)]
-#[expect(dead_code, reason = "Phase 2 — MCP wire protocol client/types")]
-struct McpRequest {
-    id: String,
-    method: String,
-    params: serde_json::Value,
-}
-
-#[derive(Debug)]
-#[expect(dead_code, reason = "Phase 2 — MCP wire protocol client/types")]
-struct McpResponse {
-    id: String,
-    result: serde_json::Value,
-}
-
-#[derive(Debug)]
-#[expect(dead_code, reason = "Phase 2 — MCP wire protocol client/types")]
-struct McpChunk {
-    id: String,
-    data: serde_json::Value,
 }
 
 #[cfg(test)]
@@ -339,11 +294,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_default_response() {
-        // Create adapter
+    async fn test_unconnected_node_returns_error() {
         let adapter = MCPAdapter::new(MCPAdapterConfig::default());
 
-        // Create request with unknown ID
         let node_id = NodeId("test-node".to_string());
         let remote_request = RemoteAIRequest {
             request_id: uuid::Uuid::new_v4(),
@@ -353,21 +306,12 @@ mod tests {
             task: crate::common::capability::AITask::default(),
         };
 
-        // Send request
-        let result = adapter
-            .send_request(&node_id, remote_request)
-            .await
-            .expect("should succeed");
-
-        // Verify default response contains expected text
-        let content = result.chat_response.choices[0]
-            .content
-            .as_ref()
-            .expect("should succeed");
-
-        // Response format: "Remote response from node NodeId("test-node") via MCP"
-        assert!(content.contains("Remote response from node"));
-        assert!(content.contains("test-node"));
-        assert!(content.contains("via MCP"));
+        let result = adapter.send_request(&node_id, remote_request).await;
+        assert!(
+            result.is_err(),
+            "unconnected MCP node should return an error"
+        );
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(err_msg.contains("MCP transport not connected"));
     }
 }

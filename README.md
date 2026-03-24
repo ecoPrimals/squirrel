@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,065 passing | **Edition**: 2024 | **Rust**: 1.94+ | **Coverage**: 85.4%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,839 passing | **Edition**: 2024 | **Coverage**: 86.5%
 
 ---
 
@@ -74,7 +74,7 @@ Fallback: `/run/user/<uid>/biomeos/squirrel.sock` or `/tmp/squirrel.sock`.
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,065 tests passing
+Fitness:   6,839 tests passing (0 failures, 107 ignored)
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -90,7 +90,7 @@ ecoBin:    Pure Rust — zero C dependencies in default build
 
 ```rust
 let ai_services = ecosystem
-    .find_services_by_capability(PrimalCapability::ModelInference)
+    .find_services_by_capability("ai.inference")
     .await?;
 ```
 
@@ -133,7 +133,7 @@ squirrel/
 
 ## Code Standards
 
-- `#![forbid(unsafe_code)]` unconditional on all 23 crate lib.rs, main.rs, and bin/*.rs files
+- `#![forbid(unsafe_code)]` unconditional on all 22 crate lib.rs, main.rs, and bin/*.rs files
 - `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code (test-only `cfg_attr` allows)
 - `#![warn(missing_docs)]` on all library crates
 - `cargo clippy` with `pedantic` + `nursery` + `cargo` lints — zero errors under `-D warnings`
@@ -141,8 +141,8 @@ squirrel/
 - `cargo fmt` — zero formatting violations
 - Pure Rust: zero C dependencies in default build (ecoBin v3.0 compliant — `sysinfo` removed)
 - All source files under 1,000 lines
-- SPDX `AGPL-3.0-only` license header on all `.rs` files
-- Edition 2024 across all 23 workspace crates
+- SPDX `AGPL-3.0-or-later` license header on all `.rs` files
+- Edition 2024 across all 22 workspace crates
 - `tracing` for structured logging (no `println!` in production code)
 - Typed errors via `thiserror`; `.context()` on all key error paths
 - Zero-copy patterns: `Arc<str>`, `bytes::Bytes`, `Cow<str>` on hot paths

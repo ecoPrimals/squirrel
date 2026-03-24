@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Socket and endpoint discovery logic
@@ -30,14 +30,13 @@ use crate::transport::types::IpcEndpoint;
 ///
 /// # Example
 ///
-/// ```ignore,no_run
-/// use universal_patterns::transport::discovery::discover_ipc_endpoint;
+/// ```rust,no_run
+/// use universal_patterns::transport::discover_ipc_endpoint;
 ///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// // Discover endpoint (Unix socket OR TCP)
-/// let endpoint = discover_ipc_endpoint("squirrel")?;
-/// # Ok(())
-/// # }
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let _endpoint = discover_ipc_endpoint("squirrel")?;
+///     Ok(())
+/// }
 /// ```
 pub fn discover_ipc_endpoint(service_name: &str) -> IoResult<IpcEndpoint> {
     // 1. Try Unix socket first (optimal)

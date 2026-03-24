@@ -3,7 +3,7 @@ name = "universal-patterns"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 description = "Universal patterns for ecosystem integration"
 repository = "https://github.com/ecoPrimals/squirrel"
 readme = "README.md"
@@ -53,6 +53,10 @@ squirrel-mcp-config = { path = "../config", version = "0.1.0" }
 
 # Security: zeroize for sensitive data
 zeroize.workspace = true
+
+# Cryptography: blake3 hashing, rand for key generation
+blake3.workspace = true
+rand.workspace = true
 
 # Zero-copy bytes at IPC/transport boundaries (wateringHole)
 bytes = { version = "1.5", features = ["serde"] }

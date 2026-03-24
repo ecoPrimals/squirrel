@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal listener implementation for server-side transport
@@ -21,22 +21,14 @@ use crate::transport::types::{ListenerConfig, RemoteAddr, TransportType};
 ///
 /// ## Usage
 ///
-/// ```ignore,no_run
+/// ```rust,no_run
 /// use universal_patterns::transport::UniversalListener;
 ///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// // Bind to platform-appropriate transport
-/// let listener = UniversalListener::bind("my_service", None).await?;
-///
-/// // Accept connections
-/// loop {
-///     let (stream, addr) = listener.accept().await?;
-///     tokio::spawn(async move {
-///         // Handle connection
-///     });
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let _listener = UniversalListener::bind("my_service", None).await?;
+///     Ok(())
 /// }
-/// # Ok(())
-/// # }
 /// ```
 #[derive(Debug)]
 pub enum UniversalListener {
@@ -82,14 +74,14 @@ impl UniversalListener {
     ///
     /// # Example
     ///
-    /// ```ignore,no_run
+    /// ```rust,no_run
     /// use universal_patterns::transport::UniversalListener;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// // Automatic platform detection and binding (isomorphic)
-    /// let listener = UniversalListener::bind("squirrel", None).await?;
-    /// # Ok(())
-    /// # }
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let _listener = UniversalListener::bind("squirrel", None).await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn bind(service_name: &str, config: Option<ListenerConfig>) -> IoResult<Self> {
         let config = config.unwrap_or_default();
@@ -313,19 +305,16 @@ impl UniversalListener {
     ///
     /// # Example
     ///
-    /// ```ignore,no_run
+    /// ```rust,no_run
     /// use universal_patterns::transport::UniversalListener;
     ///
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let listener = UniversalListener::bind("my_service", None).await?;
-    ///
-    /// loop {
-    ///     let (stream, addr) = listener.accept().await?;
-    ///     println!("Accepted connection from {:?}", addr);
-    ///     // Handle stream...
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let listener = UniversalListener::bind("my_service", None).await?;
+    ///     let (_stream, addr) = listener.accept().await?;
+    ///     println!("Accepted connection from {addr:?}");
+    ///     Ok(())
     /// }
-    /// # Ok(())
-    /// # }
     /// ```
     pub async fn accept(&self) -> IoResult<(UniversalTransport, RemoteAddr)> {
         match self {
@@ -540,5 +529,35 @@ mod tests {
         let listener = result.expect("should succeed");
         let addr_str = listener.local_addr().expect("should succeed");
         assert!(addr_str.contains(':'));
+    }
+
+    #[tokio::test]
+    async fn test_bind_inprocess_without_fallback_returns_error() {
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::InProcess),
+            enable_fallback: false,
+            ..Default::default()
+        };
+        let result = UniversalListener::bind("inprocess_only", Some(config)).await;
+        assert!(result.is_err());
+    }
+
+    /// In-process is unsupported; with fallback enabled the listener should land on TCP.
+    #[tokio::test]
+    async fn test_bind_inprocess_with_fallback_uses_tcp() {
+        let config = ListenerConfig {
+            preferred_transport: Some(TransportType::InProcess),
+            enable_fallback: true,
+            ..Default::default()
+        };
+        let listener = UniversalListener::bind("inprocess_fallback_tcp", Some(config))
+            .await
+            .expect("fallback bind");
+        assert!(
+            matches!(listener, UniversalListener::Tcp(_)),
+            "expected TCP after InProcess unsupported"
+        );
+        let addr = listener.local_addr().expect("local addr");
+        assert!(!addr.is_empty());
     }
 }

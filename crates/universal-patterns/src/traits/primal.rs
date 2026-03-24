@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core Primal trait definition.
@@ -300,5 +300,31 @@ mod tests {
         let err = primal.restart().await.unwrap_err();
         assert!(matches!(err, PrimalError::Internal(ref m) if m == "start failed on restart"));
         assert_eq!(primal.inner.stop_count, 1);
+    }
+
+    /// Exercise every `Primal` method on the mock so async-trait shims and call paths stay covered.
+    #[tokio::test]
+    async fn test_primal_mock_exercises_full_trait_surface() {
+        let mut primal = MockPrimalForTraitTest::new();
+
+        assert_eq!(primal.info().name, "test");
+        assert_eq!(primal.state().await, PrimalState::Stopped);
+        primal.start().await.expect("start");
+        assert_eq!(primal.state().await, PrimalState::Running);
+
+        let health = primal.health_check().await.expect("health");
+        assert_eq!(health.status, HealthState::Healthy);
+
+        assert_eq!(primal.config().network.port, 8080);
+        primal
+            .update_config(PrimalConfig::default())
+            .await
+            .expect("update_config");
+
+        let m = primal.metrics().await.expect("metrics");
+        assert!(m.is_empty());
+
+        primal.shutdown().await.expect("shutdown");
+        assert_eq!(primal.state().await, PrimalState::Stopped);
     }
 }

@@ -2,7 +2,7 @@
 name = "squirrel-mcp-config"
 version = "0.1.0"
 edition = "2024"
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 description = "Configuration types and loading for Squirrel MCP"
 repository = "https://github.com/ecoPrimals/squirrel"
 readme = "README.md"

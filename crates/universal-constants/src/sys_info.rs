@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 //!
 //! Pure Rust system info (no C deps). Uses /proc on Linux, defaults elsewhere.

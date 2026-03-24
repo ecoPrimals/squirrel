@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 // ! Port Resolution - Zero Hardcoding
@@ -15,22 +15,16 @@
 //!
 //! # Example Usage
 //!
-//! ```ignore
+//! ```rust,no_run
 //! use universal_patterns::config::PortResolver;
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Create resolver (with optional ecosystem manager)
-//! let resolver = PortResolver::new(None);
-//!
-//! // Resolve individual port
-//! let http_port = resolver.resolve_port("http").await?;
-//! println!("HTTP port: {}", http_port);
-//!
-//! // Resolve full endpoint
-//! let metrics_endpoint = resolver.resolve_endpoint("metrics").await?;
-//! println!("Metrics: {}", metrics_endpoint);
-//! # Ok(())
-//! # }
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let resolver = PortResolver::new();
+//!     let _http_port = resolver.resolve_port("http").await?;
+//!     let _metrics_endpoint = resolver.resolve_endpoint("metrics").await?;
+//!     Ok(())
+//! }
 //! ```
 
 use std::sync::Arc;
@@ -112,14 +106,14 @@ impl PortResolver {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```rust,no_run
     /// # use universal_patterns::config::PortResolver;
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let resolver = PortResolver::new();
-    /// let http_port = resolver.resolve_port("http").await?;
-    /// assert_eq!(http_port, 8080); // Default from constants
-    /// # Ok(())
-    /// # }
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let resolver = PortResolver::new();
+    ///     let _http_port = resolver.resolve_port("http").await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn resolve_port(&self, service: &str) -> Result<u16> {
         // 1. Environment variable (highest priority)
@@ -152,14 +146,14 @@ impl PortResolver {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```rust,no_run
     /// # use universal_patterns::config::PortResolver;
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let resolver = PortResolver::new();
-    /// let endpoint = resolver.resolve_endpoint("http").await?;
-    /// assert_eq!(endpoint, "http://localhost:8080");
-    /// # Ok(())
-    /// # }
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let resolver = PortResolver::new();
+    ///     let _endpoint = resolver.resolve_endpoint("http").await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn resolve_endpoint(&self, service: &str) -> Result<String> {
         self.resolve_endpoint_with_scheme(service, "http").await
@@ -169,14 +163,14 @@ impl PortResolver {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```rust,no_run
     /// # use universal_patterns::config::PortResolver;
-    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let resolver = PortResolver::new();
-    /// let endpoint = resolver.resolve_endpoint_with_scheme("api", "https").await?;
-    /// assert_eq!(endpoint, "https://localhost:8080");
-    /// # Ok(())
-    /// # }
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let resolver = PortResolver::new();
+    ///     let _endpoint = resolver.resolve_endpoint_with_scheme("security", "https").await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn resolve_endpoint_with_scheme(
         &self,

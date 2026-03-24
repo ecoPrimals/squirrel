@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Squirrel AI Primal — build automation
 
 set dotenv-load := false
@@ -35,11 +35,11 @@ doc:
 
 # Coverage report (requires cargo-llvm-cov)
 coverage:
-    cargo llvm-cov --workspace --ignore-filename-regex 'target|archive'
+    cargo llvm-cov --workspace --ignore-filename-regex 'target'
 
 # Coverage with HTML report
 coverage-html:
-    cargo llvm-cov --workspace --ignore-filename-regex 'target|archive' --html
+    cargo llvm-cov --workspace --ignore-filename-regex 'target' --html
     @echo "Report: target/llvm-cov/html/index.html"
 
 # Build release binary (UniBin)
@@ -79,5 +79,5 @@ clean:
 
 # Count lines per file (check 1000-line limit)
 line-check:
-    @find . -name "*.rs" -not -path "*/target/*" -not -path "*/archive/*" \
+    @find . -name "*.rs" -not -path "*/target/*" \
         -exec wc -l {} + | sort -rn | head -20

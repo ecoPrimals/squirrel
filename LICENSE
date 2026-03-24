@@ -1,7 +1,7 @@
 Squirrel — AI Coordination Primal
 Copyright (C) 2026 ecoPrimals Contributors
 
-SPDX-License-Identifier: AGPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-or-later
 
 ========================================================================
 scyBorg Triple-Copyleft Licensing Framework
@@ -15,15 +15,15 @@ every derivative work in the ecosystem.
   scyBorg = AGPL-3.0 (code) + ORC (mechanics) + CC-BY-SA 4.0 (creative)
 
 ------------------------------------------------------------------------
-Layer 1: Software — AGPL-3.0-only
+Layer 1: Software — AGPL-3.0-or-later
 ------------------------------------------------------------------------
 
 All source code, binaries, shaders, build scripts, configuration, tests,
 experiments, and tools are licensed under the GNU Affero General Public
-License, version 3 only, as published by the Free Software Foundation.
+License, version 3 or later, as published by the Free Software Foundation.
 
 This means:
-  - Any derivative must also be AGPL-3.0-only
+  - Any derivative must also be AGPL-3.0-or-later
   - Network use triggers the distribution obligation (AGPL Section 13)
   - SaaS wrappers around ecoPrimals code must release their source
 

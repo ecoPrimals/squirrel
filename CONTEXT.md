@@ -16,8 +16,8 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 | Item | Value |
 |------|--------|
 | Language | Rust, **edition 2024** |
-| Workspace | **23** crates (see `Cargo.toml` `members`) |
-| Scale | ~**450k** lines across **1,331** `.rs` files |
+| Workspace | **22** crates (see `Cargo.toml` `members`) |
+| Scale | ~**452k** lines across **1,334** `.rs` files |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
 | Code license | **AGPL-3.0-or-later** (workspace `license`; see License section for full public framing) |
 | Version | **v0.1.0-alpha.25** (workspace); status **pre-alpha** |
@@ -73,11 +73,11 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **7,035** tests passing, 0 failures.
-- **Zero `.unwrap()`** and **zero `panic!()`** in the entire codebase — all error handling is typed.
+- **6,839** tests passing, 0 failures, 107 ignored.
+- **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Chaos** and integration tests (e.g. under `crates/main/tests/chaos`).
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
-- **Coverage** ~**85.4%** line coverage (full `--all-features`) with **90%** as stated target (re-verify with `just coverage`).
+- **Coverage** ~**86.5%** line coverage (default features) with **90%** as stated target (re-verify with `just coverage`).
 
 ## What this does NOT do
 

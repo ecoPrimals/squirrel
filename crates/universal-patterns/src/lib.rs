@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
@@ -50,20 +50,16 @@
 //!
 //! ## Quick Start
 //!
-//! ```ignore,no_run
-//! use universal_patterns::{initialize_primal_system, PrimalContext};
+//! ```rust,no_run
+//! use universal_patterns::{create_development_config, initialize_primal_system, PrimalContext};
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Initialize the universal primal system
-//! let registry = initialize_primal_system(None).await?;
-//!
-//! // Create a request context
-//! let context = PrimalContext::default();
-//!
-//! // The registry is now ready to handle primal requests
-//! println!("Universal primal system initialized successfully");
-//! # Ok(())
-//! # }
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let _registry = initialize_primal_system(Some(create_development_config())).await?;
+//!     let _context = PrimalContext::default();
+//!     println!("Universal primal system initialized successfully");
+//!     Ok(())
+//! }
 //! ```
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
@@ -134,13 +130,14 @@ pub use validation_harness::{CheckOutcome, CheckResult, ValidationHarness};
 ///
 /// # Example
 ///
-/// ```ignore,no_run
-/// use universal_patterns::initialize_primal_system;
+/// ```rust,no_run
+/// use universal_patterns::{create_development_config, initialize_primal_system};
 ///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let registry = initialize_primal_system(None).await?;
-/// # Ok(())
-/// # }
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let _registry = initialize_primal_system(Some(create_development_config())).await?;
+///     Ok(())
+/// }
 /// ```
 #[must_use = "the registry should be used or the error handled"]
 pub async fn initialize_primal_system(
@@ -178,14 +175,15 @@ pub async fn initialize_primal_system(
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
 /// use universal_patterns::{create_primal_context, SecurityLevel};
 ///
 /// let context = create_primal_context(
 ///     "user123".to_string(),
 ///     "device456".to_string(),
-///     SecurityLevel::High
+///     SecurityLevel::High,
 /// );
+/// assert_eq!(context.user_id, "user123");
 /// ```
 pub fn create_primal_context(
     user_id: String,
@@ -211,10 +209,11 @@ pub fn create_primal_context(
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
 /// use universal_patterns::create_development_config;
 ///
 /// let config = create_development_config();
+/// assert!(!config.monitoring.metrics_enabled);
 /// ```
 pub fn create_development_config() -> UniversalPrimalConfig {
     let mut config = UniversalPrimalConfig::default();
@@ -241,10 +240,11 @@ pub fn create_development_config() -> UniversalPrimalConfig {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
 /// use universal_patterns::create_production_config;
 ///
 /// let config = create_production_config();
+/// assert!(config.monitoring.metrics_enabled);
 /// ```
 pub fn create_production_config() -> UniversalPrimalConfig {
     let mut config = UniversalPrimalConfig::default();
@@ -278,10 +278,11 @@ pub fn create_production_config() -> UniversalPrimalConfig {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
 /// use universal_patterns::{create_primal_config, PrimalType};
 ///
 /// let config = create_primal_config(PrimalType::Security, 5);
+/// assert_eq!(config.multi_instance.max_instances_per_type, 5);
 /// ```
 pub fn create_primal_config(
     primal_type: PrimalType,
@@ -344,10 +345,10 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
 /// use universal_patterns::version;
 ///
-/// println!("Universal Patterns Framework v{}", version());
+/// assert!(!version().is_empty());
 /// ```
 pub fn version() -> &'static str {
     VERSION

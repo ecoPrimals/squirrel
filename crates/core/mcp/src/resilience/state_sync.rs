@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
 /// State Synchronization Module
@@ -528,29 +528,79 @@ impl StateSynchronizer {
 
     /// Process a state update received from another node
     ///
+    /// Validates, serializes, and stores state data received from a peer,
+    /// then updates synchronization metrics.
+    ///
     /// # Arguments
-    /// * `_state_type` - The type of state being updated
-    /// * `_state_data` - The new state data
+    /// * `state_type` - The type of state being updated
+    /// * `state_data` - The new state data
     ///
     /// # Errors
-    /// * Returns `StateSyncError::SyncFailed` if the update cannot be processed
+    /// * Returns `StateSyncError::SizeExceeded` if the state exceeds the configured limit
+    /// * Returns `StateSyncError::SerializationError` if the state cannot be serialized
+    /// * Returns `StateSyncError::SyncFailed` if metrics or storage cannot be accessed
     pub async fn process_state_update<T>(
         &self,
-        _state_type: StateType,
-        _state_data: T
+        state_type: StateType,
+        state_data: T
     ) -> Result<(), StateSyncError>
     where
         T: serde::Serialize + Send + 'static,
     {
-        let _start_time = Instant::now();
-        
-        // This is a stub implementation
-        // In a real implementation, we would:
-        // 1. Validate the state data
-        // 2. Update metrics
-        // 3. Store the state data
-        // 4. Notify subscribers
-        
+        let start_time = Instant::now();
+
+        let serialized = serde_json::to_vec(&state_data)
+            .map_err(|e| StateSyncError::SerializationError {
+                message: e.to_string(),
+            })?;
+
+        if serialized.len() > self.config.max_state_size {
+            let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                message: format!("Failed to lock metrics: {e}"),
+                source: None,
+            })?;
+            *metrics.failed_syncs.entry(state_type).or_insert(0) += 1;
+
+            return Err(StateSyncError::SizeExceeded {
+                size: serialized.len(),
+                max_size: self.config.max_state_size,
+            });
+        }
+
+        if self.config.validate_state {
+            serde_json::from_slice::<serde_json::Value>(&serialized)
+                .map_err(|e| StateSyncError::ValidationFailed {
+                    message: format!("State failed round-trip validation: {e}"),
+                })?;
+        }
+
+        {
+            let value: serde_json::Value = serde_json::from_slice(&serialized)
+                .map_err(|e| StateSyncError::SerializationError {
+                    message: format!("Failed to deserialize for storage: {e}"),
+                })?;
+
+            let mut states = self.states.write().map_err(|e| StateSyncError::SyncFailed {
+                message: format!("Failed to write states: {e}"),
+                source: None,
+            })?;
+
+            states.insert(state_type, StateData {
+                data: value,
+                timestamp: start_time,
+            });
+        }
+
+        {
+            let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                message: format!("Failed to lock metrics: {e}"),
+                source: None,
+            })?;
+            *metrics.successful_syncs.entry(state_type).or_insert(0) += 1;
+            metrics.total_bytes_synced += serialized.len();
+            metrics.last_sync_time = Some(start_time);
+        }
+
         Ok(())
     }
 }
@@ -570,7 +620,7 @@ mod tests {
     use serde::Serialize;
     
 
-    #[derive(Serialize, Clone)]
+    #[derive(Serialize, serde::Deserialize, Clone)]
     struct TestState {
         name: String,
         value: u32,
@@ -699,6 +749,57 @@ mod tests {
         assert!(metrics.failed_syncs.is_empty());
     }
     
+    #[tokio::test]
+    async fn test_process_state_update_stores_and_tracks() {
+        let syncer = StateSynchronizer::default();
+        let state = TestState {
+            name: "incoming".to_string(),
+            value: 99,
+            timestamp: 5555,
+        };
+
+        let result = syncer
+            .process_state_update(StateType::Runtime, state)
+            .await;
+        assert!(result.is_ok());
+
+        let metrics = syncer.get_metrics().expect("should succeed");
+        assert_eq!(
+            *metrics.successful_syncs.get(&StateType::Runtime).unwrap_or(&0),
+            1
+        );
+        assert!(metrics.total_bytes_synced > 0);
+
+        let retrieved: TestState = syncer
+            .retrieve_state(StateType::Runtime, "any", None)
+            .await
+            .expect("should retrieve stored state");
+        assert_eq!(retrieved.name, "incoming");
+        assert_eq!(retrieved.value, 99);
+    }
+
+    #[tokio::test]
+    async fn test_process_state_update_rejects_oversized() {
+        let syncer = StateSynchronizer::new(StateSyncConfig {
+            max_state_size: 5,
+            ..StateSyncConfig::default()
+        });
+        let state = TestState {
+            name: "too big".to_string(),
+            value: 1,
+            timestamp: 0,
+        };
+
+        let result = syncer
+            .process_state_update(StateType::Configuration, state)
+            .await;
+        assert!(result.is_err());
+        match result {
+            Err(StateSyncError::SizeExceeded { .. }) => {}
+            _ => unreachable!("Expected SizeExceeded"),
+        }
+    }
+
     #[tokio::test]
     async fn test_reset_metrics() {
         let syncer = StateSynchronizer::default();
