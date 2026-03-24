@@ -64,7 +64,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches);
         assert_eq!(result.rule_id, "test-equals");
@@ -87,7 +87,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(!result.matches);
     }
@@ -107,7 +107,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches);
     }
@@ -127,7 +127,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches);
     }
@@ -148,7 +148,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches); // 30 > 25
     }
@@ -169,7 +169,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches); // 45.5 < 50.0
     }
@@ -190,7 +190,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches);
     }
@@ -222,7 +222,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches);
     }
@@ -251,7 +251,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(!result.matches); // Should fail because age is not > 100
     }
@@ -280,7 +280,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches); // Should succeed because at least one passes
     }
@@ -309,7 +309,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(!result.matches);
     }
@@ -332,7 +332,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches);
     }
@@ -348,7 +348,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches); // Empty conditions should match
     }
@@ -371,14 +371,14 @@ mod tests {
         let result1 = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(result1.matches);
 
         // Second evaluation (should be cached)
         let result2 = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(result2.matches);
         assert_eq!(result1.rule_id, result2.rule_id);
     }
@@ -414,7 +414,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(result.matches);
     }
@@ -436,7 +436,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(!result.matches); // 30 is NOT > 30
     }
@@ -457,7 +457,7 @@ mod tests {
         let result = evaluator
             .evaluate_rule(&rule, "ctx1", &context)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(!result.matches); // Missing path should not match
     }

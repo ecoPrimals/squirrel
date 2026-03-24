@@ -532,111 +532,151 @@ mod tests {
     #[tokio::test]
     async fn learning_performance_and_stats_serde_roundtrip() {
         let p = LearningPerformance::default();
-        let json = serde_json::to_string(&p).unwrap();
-        let back: LearningPerformance = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&p).expect("should succeed");
+        let back: LearningPerformance = serde_json::from_str(&json).expect("should succeed");
         assert!((back.exploration_rate - p.exploration_rate).abs() < f64::EPSILON);
 
         let s = LearningStats::default();
-        let json = serde_json::to_string(&s).unwrap();
-        let _: LearningStats = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&s).expect("should succeed");
+        let _: LearningStats = serde_json::from_str(&json).expect("should succeed");
     }
 
     #[tokio::test]
     async fn lifecycle_initialize_start_stop() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
-        m.initialize().await.unwrap();
-        m.start().await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
+        m.initialize().await.expect("should succeed");
+        m.start().await.expect("should succeed");
         assert_eq!(m.get_history().await.len(), 1);
-        m.stop().await.unwrap();
+        m.stop().await.expect("should succeed");
         assert!(m.get_history().await.len() >= 2);
     }
 
     #[tokio::test]
     async fn update_performance_known_and_custom_keys() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
-        m.initialize().await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
+        m.initialize().await.expect("should succeed");
 
         let mut u = HashMap::new();
         u.insert("learning_rate".to_string(), 0.5);
         u.insert("success_rate".to_string(), 0.9);
         u.insert("custom_xyz".to_string(), 3.0);
-        m.update_performance(u).await.unwrap();
+        m.update_performance(u).await.expect("should succeed");
 
         let p = m.get_performance().await;
         assert!((p.learning_rate - 0.5).abs() < 1e-9);
         assert!((p.success_rate - 0.9).abs() < 1e-9);
-        assert!((m.get_custom_metric("custom_xyz").await.unwrap() - 3.0).abs() < 1e-9);
+        assert!(
+            (m.get_custom_metric("custom_xyz")
+                .await
+                .expect("should succeed")
+                - 3.0)
+                .abs()
+                < 1e-9
+        );
     }
 
     #[tokio::test]
     async fn update_stats_branches_and_custom() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
         let mut u = HashMap::new();
         u.insert("total_episodes".to_string(), 5.0);
         u.insert("policy_updates".to_string(), 2.0);
         u.insert("extra_stat".to_string(), 1.25);
-        m.update_stats(u).await.unwrap();
+        m.update_stats(u).await.expect("should succeed");
         let s = m.get_stats().await;
         assert_eq!(s.total_episodes, 5);
         assert_eq!(s.policy_updates, 2);
-        assert!((m.get_custom_metric("extra_stat").await.unwrap() - 1.25).abs() < 1e-9);
+        assert!(
+            (m.get_custom_metric("extra_stat")
+                .await
+                .expect("should succeed")
+                - 1.25)
+                .abs()
+                < 1e-9
+        );
     }
 
     #[tokio::test]
     async fn record_episode_and_policy_and_rule() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
-        m.record_episode(true, 1.0, 10, 0.5).await.unwrap();
-        m.record_episode(false, 0.0, 3, 0.1).await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
+        m.record_episode(true, 1.0, 10, 0.5)
+            .await
+            .expect("should succeed");
+        m.record_episode(false, 0.0, 3, 0.1)
+            .await
+            .expect("should succeed");
         let s = m.get_stats().await;
         assert_eq!(s.total_episodes, 2);
         assert_eq!(s.successful_episodes, 1);
 
-        m.record_policy_update(0.88, 0.5).await.unwrap();
-        m.record_rule_adaptation("r1", 0.2).await.unwrap();
+        m.record_policy_update(0.88, 0.5)
+            .await
+            .expect("should succeed");
+        m.record_rule_adaptation("r1", 0.2)
+            .await
+            .expect("should succeed");
         assert_eq!(m.get_stats().await.policy_updates, 1);
         assert_eq!(m.get_stats().await.rule_adaptations, 1);
     }
 
     #[tokio::test]
     async fn snapshots_history_clear_and_get_by_id() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
-        let id = m.take_snapshot().await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
+        let id = m.take_snapshot().await.expect("should succeed");
         assert!(m.get_snapshot(&id).await.is_some());
         assert!(m.get_snapshot("missing").await.is_none());
-        m.clear_history().await.unwrap();
+        m.clear_history().await.expect("should succeed");
         assert!(m.get_history().await.is_empty());
     }
 
     #[tokio::test]
     async fn calculate_trends_when_insufficient_history() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
-        let t = m.calculate_trends(10).await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
+        let t = m.calculate_trends(10).await.expect("should succeed");
         assert!(t.is_empty());
     }
 
     #[tokio::test]
     async fn calculate_trends_with_two_windows() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
         for i in 0..25 {
             let mut u = HashMap::new();
             u.insert("success_rate".to_string(), if i < 12 { 0.2 } else { 0.8 });
             u.insert("average_reward".to_string(), if i < 12 { 0.1 } else { 0.9 });
-            m.update_performance(u).await.unwrap();
-            m.take_snapshot().await.unwrap();
+            m.update_performance(u).await.expect("should succeed");
+            m.take_snapshot().await.expect("should succeed");
         }
-        let trends = m.calculate_trends(10).await.unwrap();
+        let trends = m.calculate_trends(10).await.expect("should succeed");
         assert!(trends.contains_key("success_rate_trend"));
         assert!(trends.contains_key("average_reward_trend"));
     }
 
     #[tokio::test]
     async fn generate_report_and_export() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
-        m.initialize().await.unwrap();
-        m.set_custom_metric("k".to_string(), 2.0).await.unwrap();
-        let report = m.generate_report().await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
+        m.initialize().await.expect("should succeed");
+        m.set_custom_metric("k".to_string(), 2.0)
+            .await
+            .expect("should succeed");
+        let report = m.generate_report().await.expect("should succeed");
         assert!(report.get("summary").is_some());
-        let exp = m.export_metrics().await.unwrap();
+        let exp = m.export_metrics().await.expect("should succeed");
         assert!(exp.get("history").is_some());
     }
 
@@ -650,13 +690,15 @@ mod tests {
             custom_metrics: HashMap::from([("a".to_string(), 1.0)]),
         };
         let v = json!(snap);
-        let back: MetricsSnapshot = serde_json::from_value(v).unwrap();
+        let back: MetricsSnapshot = serde_json::from_value(v).expect("should succeed");
         assert_eq!(back.id, "id1");
     }
 
     #[tokio::test]
     async fn update_performance_covers_all_named_fields() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
         let mut u = HashMap::new();
         u.insert("episode_completion_rate".to_string(), 0.25);
         u.insert("training_accuracy".to_string(), 0.9);
@@ -664,7 +706,7 @@ mod tests {
         u.insert("policy_stability".to_string(), 0.88);
         u.insert("exploration_rate".to_string(), 0.3);
         u.insert("average_reward".to_string(), 1.1);
-        m.update_performance(u).await.unwrap();
+        m.update_performance(u).await.expect("should succeed");
         let p = m.get_performance().await;
         assert!((p.episode_completion_rate - 0.25).abs() < 1e-9);
         assert!((p.training_accuracy - 0.9).abs() < 1e-9);
@@ -676,7 +718,9 @@ mod tests {
 
     #[tokio::test]
     async fn update_stats_covers_remaining_counters() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
         let mut u = HashMap::new();
         u.insert("successful_episodes".to_string(), 3.0);
         u.insert("total_actions".to_string(), 30.0);
@@ -686,7 +730,7 @@ mod tests {
         u.insert("average_reward_per_episode".to_string(), 3.0);
         u.insert("rule_adaptations".to_string(), 2.0);
         u.insert("contexts_learned".to_string(), 7.0);
-        m.update_stats(u).await.unwrap();
+        m.update_stats(u).await.expect("should succeed");
         let s = m.get_stats().await;
         assert_eq!(s.successful_episodes, 3);
         assert_eq!(s.total_actions, 30);
@@ -700,21 +744,29 @@ mod tests {
 
     #[tokio::test]
     async fn record_policy_update_clamps_large_loss_for_stability() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
-        m.record_policy_update(0.5, 5.0).await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
+        m.record_policy_update(0.5, 5.0)
+            .await
+            .expect("should succeed");
         let p = m.get_performance().await;
         // Loss > 1 is clamped to 1.0, so stability factor is 0; EMA still yields 0 on first update.
         assert!((p.policy_stability - 0.0).abs() < 1e-9);
         assert!((p.training_accuracy - 0.5).abs() < 1e-9);
-        m.record_policy_update(0.6, 0.25).await.unwrap();
+        m.record_policy_update(0.6, 0.25)
+            .await
+            .expect("should succeed");
         assert!(m.get_performance().await.policy_stability > 0.0);
     }
 
     #[tokio::test]
     async fn snapshot_history_trims_past_1000() {
-        let m = LearningMetrics::new(test_config()).await.unwrap();
+        let m = LearningMetrics::new(test_config())
+            .await
+            .expect("should succeed");
         for _ in 0..1002 {
-            m.take_snapshot().await.unwrap();
+            m.take_snapshot().await.expect("should succeed");
         }
         assert_eq!(m.get_history().await.len(), 1000);
     }

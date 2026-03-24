@@ -481,8 +481,8 @@ mod tests {
     #[test]
     fn test_json_utils() {
         let value = serde_json::json!({"key": "value"});
-        let json_str = JsonUtils::to_string(&value).unwrap();
-        let parsed: serde_json::Value = JsonUtils::from_string(&json_str).unwrap();
+        let json_str = JsonUtils::to_string(&value).expect("should succeed");
+        let parsed: serde_json::Value = JsonUtils::from_string(&json_str).expect("should succeed");
         assert_eq!(value, parsed);
     }
 
@@ -495,7 +495,7 @@ mod tests {
 
     #[test]
     fn test_time_utils() {
-        let duration = TimeUtils::parse_duration("30s").unwrap();
+        let duration = TimeUtils::parse_duration("30s").expect("should succeed");
         assert_eq!(duration, Duration::from_secs(30));
 
         let formatted = TimeUtils::format_duration(Duration::from_secs(90));
@@ -513,7 +513,7 @@ mod tests {
     #[test]
     fn test_encoding_utils() {
         let encoded = EncodingUtils::encode_base64("hello");
-        let decoded = EncodingUtils::decode_base64(&encoded).unwrap();
+        let decoded = EncodingUtils::decode_base64(&encoded).expect("should succeed");
         assert_eq!(decoded, "hello");
     }
 
@@ -523,7 +523,7 @@ mod tests {
         assert!(matches!(err, MCPError::Serialization(_)));
         let o1 = serde_json::json!({"a": 1});
         let o2 = serde_json::json!({"b": 2});
-        let m = JsonUtils::merge_json(&o1, &o2).unwrap();
+        let m = JsonUtils::merge_json(&o1, &o2).expect("should succeed");
         assert_eq!(m["a"], 1);
         assert_eq!(m["b"], 2);
         assert!(!JsonUtils::validate_json("not json"));
@@ -536,15 +536,15 @@ mod tests {
         assert!(TimeUtils::parse_duration("").is_err());
         assert!(TimeUtils::parse_duration("nope").is_err());
         assert_eq!(
-            TimeUtils::parse_duration("100ms").unwrap(),
+            TimeUtils::parse_duration("100ms").expect("should succeed"),
             Duration::from_millis(100)
         );
         assert_eq!(
-            TimeUtils::parse_duration("2m").unwrap(),
+            TimeUtils::parse_duration("2m").expect("should succeed"),
             Duration::from_secs(120)
         );
         assert_eq!(
-            TimeUtils::parse_duration("1h").unwrap(),
+            TimeUtils::parse_duration("1h").expect("should succeed"),
             Duration::from_secs(3600)
         );
         let subsec = TimeUtils::format_duration(Duration::from_millis(500));
@@ -586,13 +586,16 @@ mod tests {
         let s = "a b+c";
         let enc = EncodingUtils::url_encode(s);
         assert!(enc.contains('%'));
-        assert_eq!(EncodingUtils::url_decode(&enc).unwrap(), s);
+        assert_eq!(EncodingUtils::url_decode(&enc).expect("should succeed"), s);
         assert!(EncodingUtils::url_decode("%").is_err());
         assert!(EncodingUtils::hex_decode("gg").is_err());
         assert!(EncodingUtils::hex_decode("a").is_err());
         let bytes = vec![0xde, 0xad];
         let h = EncodingUtils::hex_encode(&bytes);
-        assert_eq!(EncodingUtils::hex_decode(&h).unwrap(), bytes);
+        assert_eq!(
+            EncodingUtils::hex_decode(&h).expect("should succeed"),
+            bytes
+        );
     }
 
     #[test]

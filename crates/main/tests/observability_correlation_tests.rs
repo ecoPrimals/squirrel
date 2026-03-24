@@ -237,7 +237,7 @@ fn test_operation_status_failed_message() {
     if let OperationStatus::Failed(msg) = status {
         assert_eq!(msg, error_msg);
     } else {
-        panic!("Status should be Failed");
+        unreachable!("Status should be Failed");
     }
 }
 
@@ -252,7 +252,7 @@ async fn test_concurrent_correlation_id_creation() {
 
     let mut ids = vec![];
     for handle in handles {
-        ids.push(handle.await.unwrap());
+        ids.push(handle.await.expect("should succeed"));
     }
 
     // All IDs should be unique (check string representations)
@@ -323,7 +323,7 @@ async fn test_correlation_tracker_thread_safety() {
     }
 
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
     assert!(true, "Tracker should be thread-safe");

@@ -152,7 +152,7 @@ fn test_learning_action_type_custom_with_message() {
     if let LearningActionType::Custom(msg) = action {
         assert_eq!(msg, custom_msg);
     } else {
-        panic!("Should be Custom variant");
+        unreachable!("Should be Custom variant");
     }
 }
 
@@ -417,8 +417,8 @@ fn test_learning_action_type_deserialization() {
 #[test]
 fn test_learning_state_roundtrip() {
     let state = LearningState::Evaluating;
-    let serialized = serde_json::to_string(&state).unwrap();
-    let deserialized: LearningState = serde_json::from_str(&serialized).unwrap();
+    let serialized = serde_json::to_string(&state).expect("should succeed");
+    let deserialized: LearningState = serde_json::from_str(&serialized).expect("should succeed");
 
     assert!(matches!(deserialized, LearningState::Evaluating));
 }
@@ -426,8 +426,9 @@ fn test_learning_state_roundtrip() {
 #[test]
 fn test_learning_action_type_roundtrip() {
     let action = LearningActionType::UpdatePolicy;
-    let serialized = serde_json::to_string(&action).unwrap();
-    let deserialized: LearningActionType = serde_json::from_str(&serialized).unwrap();
+    let serialized = serde_json::to_string(&action).expect("should succeed");
+    let deserialized: LearningActionType =
+        serde_json::from_str(&serialized).expect("should succeed");
 
     assert!(matches!(deserialized, LearningActionType::UpdatePolicy));
 }

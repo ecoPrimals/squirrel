@@ -136,8 +136,8 @@ mod tests {
     async fn alert_manager_default_equals_new() {
         let a = AlertManager::default();
         let b = AlertManager::new();
-        let ea = a.get_active_alerts().await.unwrap();
-        let eb = b.get_active_alerts().await.unwrap();
+        let ea = a.get_active_alerts().await.expect("should succeed");
+        let eb = b.get_active_alerts().await.expect("should succeed");
         assert_eq!(ea.len(), eb.len());
     }
 
@@ -146,19 +146,26 @@ mod tests {
         let mgr = AlertManager::new();
         mgr.evaluate_alerts(&MetricsCollector::default())
             .await
-            .unwrap();
-        mgr.create_alert(sample_alert("a1")).await.unwrap();
-        let active = mgr.get_active_alerts().await.unwrap();
+            .expect("should succeed");
+        mgr.create_alert(sample_alert("a1"))
+            .await
+            .expect("should succeed");
+        let active = mgr.get_active_alerts().await.expect("should succeed");
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].id, "a1");
-        mgr.resolve_alert("a1").await.unwrap();
-        assert!(mgr.get_active_alerts().await.unwrap().is_empty());
+        mgr.resolve_alert("a1").await.expect("should succeed");
+        assert!(
+            mgr.get_active_alerts()
+                .await
+                .expect("should succeed")
+                .is_empty()
+        );
     }
 
     #[tokio::test]
     async fn resolve_unknown_alert_is_ok() {
         let mgr = AlertManager::new();
-        mgr.resolve_alert("missing").await.unwrap();
+        mgr.resolve_alert("missing").await.expect("should succeed");
     }
 
     #[test]
@@ -171,8 +178,8 @@ mod tests {
             timestamp: Utc::now(),
             status: AlertStatus::Acknowledged,
         };
-        let json = serde_json::to_string(&a).unwrap();
-        let back: Alert = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&a).expect("should succeed");
+        let back: Alert = serde_json::from_str(&json).expect("should succeed");
         assert!(matches!(back.severity, AlertSeverity::Info));
         assert!(matches!(back.status, AlertStatus::Acknowledged));
     }

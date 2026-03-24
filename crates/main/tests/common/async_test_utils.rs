@@ -416,7 +416,7 @@ mod tests {
         .await;
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 2);
+        assert_eq!(result.expect("should succeed"), 2);
     }
 
     #[tokio::test]

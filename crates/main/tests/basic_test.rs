@@ -42,7 +42,7 @@ fn test_mcp_result_error() {
     assert!(result.is_err());
     match result {
         Err(MCPError::Internal(msg)) => assert_eq!(msg, "test"),
-        _ => panic!("Wrong error type"),
+        _ => unreachable!("Wrong error type"),
     }
 }
 
@@ -74,7 +74,7 @@ fn test_error_pattern_matching() {
     let error = MCPError::Validation("test validation".to_string());
     match error {
         MCPError::Validation(msg) => assert_eq!(msg, "test validation"),
-        _ => panic!("Wrong variant"),
+        _ => unreachable!("Wrong variant"),
     }
 }
 
@@ -91,6 +91,6 @@ fn test_error_clone() {
     let cloned = error.clone();
     match (error, cloned) {
         (MCPError::General(m1), MCPError::General(m2)) => assert_eq!(m1, m2),
-        _ => panic!("Clone failed"),
+        _ => unreachable!("Clone failed"),
     }
 }

@@ -14,11 +14,11 @@ fn assert_serde_json_roundtrip<T>(value: &T)
 where
     T: Serialize + DeserializeOwned + core::fmt::Debug,
 {
-    let json = serde_json::to_string(value).unwrap();
-    let back: T = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(value).expect("should succeed");
+    let back: T = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(
-        serde_json::to_value(value).unwrap(),
-        serde_json::to_value(&back).unwrap(),
+        serde_json::to_value(value).expect("should succeed"),
+        serde_json::to_value(&back).expect("should succeed"),
         "JSON round-trip mismatch for type {}",
         core::any::type_name::<T>()
     );
@@ -226,7 +226,7 @@ fn system_config_constructed_and_serializes_roundtrip() {
 
 #[test]
 fn system_config_deserializes_minimal_json_with_serde_defaults() {
-    let cfg: SystemConfig = serde_json::from_str("{}").unwrap();
+    let cfg: SystemConfig = serde_json::from_str("{}").expect("should succeed");
     assert!(!cfg.instance_id.is_empty());
     let debug = format!("{cfg:?}");
     assert!(debug.contains("instance_id"));
@@ -370,12 +370,14 @@ fn provider_config_preserves_float_setting_within_epsilon() {
         settings,
     };
     assert_serde_json_roundtrip(&cfg);
-    let back: ProviderConfig = serde_json::from_str(&serde_json::to_string(&cfg).unwrap()).unwrap();
+    let back: ProviderConfig =
+        serde_json::from_str(&serde_json::to_string(&cfg).expect("should succeed"))
+            .expect("should succeed");
     let ratio = back
         .settings
         .get("ratio")
         .and_then(serde_json::Value::as_f64)
-        .unwrap();
+        .expect("should succeed");
     assert!((ratio - expected).abs() < f64::EPSILON);
 }
 
@@ -520,9 +522,12 @@ fn squirrel_unified_config_serializes_roundtrip() {
 #[test]
 fn squirrel_unified_config_clone_matches_serde_value() {
     let cfg = sample_squirrel_unified_config();
-    let expected = serde_json::to_value(&cfg).unwrap();
+    let expected = serde_json::to_value(&cfg).expect("should succeed");
     let cfg2 = sample_squirrel_unified_config();
-    assert_eq!(expected, serde_json::to_value(&cfg2).unwrap());
+    assert_eq!(
+        expected,
+        serde_json::to_value(&cfg2).expect("should succeed")
+    );
 }
 
 #[test]

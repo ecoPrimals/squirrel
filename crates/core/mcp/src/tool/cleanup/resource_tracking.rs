@@ -744,7 +744,7 @@ mod tests {
         assert!(result.is_ok());
         
         // Check that the tool has been initialized
-        let usage = tracker.get_usage(tool_id).await.unwrap();
+        let usage = tracker.get_usage(tool_id).await.expect("should succeed");
         assert_eq!(usage.memory_bytes, 0);
         assert_eq!(usage.cpu_time_ms, 0);
         assert!(usage.file_handles.is_empty());

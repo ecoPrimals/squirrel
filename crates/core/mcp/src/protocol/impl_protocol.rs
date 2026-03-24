@@ -312,7 +312,7 @@ impl MCPProtocol for MCPProtocolImpl {
         // Commenting out this code until the proper field can be accessed
         /*
         if message.metadata.is_some() {
-            let metadata = message.metadata.as_ref().unwrap();
+            let metadata = message.metadata.as_ref().expect("metadata when Some");
 
             // Check timestamp if present
             if let Some(timestamp) = metadata.timestamp {

@@ -401,8 +401,8 @@ mod tests {
         let coordinator = PrimalType::Coordinator;
         let custom = PrimalType::Custom("my-primal".to_string());
 
-        let coordinator_json = serde_json::to_string(&coordinator).unwrap();
-        let custom_json = serde_json::to_string(&custom).unwrap();
+        let coordinator_json = serde_json::to_string(&coordinator).expect("should succeed");
+        let custom_json = serde_json::to_string(&custom).expect("should succeed");
 
         assert_eq!(coordinator_json, "\"Coordinator\"");
         assert!(custom_json.contains("my-primal"));
@@ -424,17 +424,17 @@ mod tests {
 
         match token {
             AuthMethod::Token { .. } => {}
-            _ => panic!("Expected Token variant"),
+            _ => unreachable!("Expected Token variant"),
         }
 
         match cert {
             AuthMethod::Certificate { .. } => {}
-            _ => panic!("Expected Certificate variant"),
+            _ => unreachable!("Expected Certificate variant"),
         }
 
         match beardog {
             AuthMethod::Beardog { .. } => {}
-            _ => panic!("Expected Beardog variant"),
+            _ => unreachable!("Expected Beardog variant"),
         }
     }
 
@@ -463,11 +463,11 @@ mod tests {
             CredentialStorage::Beardog
         ));
 
-        let memory_json = serde_json::to_string(&memory).unwrap();
-        let file_json = serde_json::to_string(&file).unwrap();
+        let memory_json = serde_json::to_string(&memory).expect("should succeed");
+        let file_json = serde_json::to_string(&file).expect("should succeed");
 
-        let _: CredentialStorage = serde_json::from_str(&memory_json).unwrap();
-        let _: CredentialStorage = serde_json::from_str(&file_json).unwrap();
+        let _: CredentialStorage = serde_json::from_str(&memory_json).expect("should succeed");
+        let _: CredentialStorage = serde_json::from_str(&file_json).expect("should succeed");
     }
 
     #[test]
@@ -475,11 +475,11 @@ mod tests {
         let aes = EncryptionAlgorithm::Aes256Gcm;
         let chacha = EncryptionAlgorithm::ChaCha20Poly1305;
 
-        let aes_json = serde_json::to_string(&aes).unwrap();
-        let chacha_json = serde_json::to_string(&chacha).unwrap();
+        let aes_json = serde_json::to_string(&aes).expect("should succeed");
+        let chacha_json = serde_json::to_string(&chacha).expect("should succeed");
 
-        let _: EncryptionAlgorithm = serde_json::from_str(&aes_json).unwrap();
-        let _: EncryptionAlgorithm = serde_json::from_str(&chacha_json).unwrap();
+        let _: EncryptionAlgorithm = serde_json::from_str(&aes_json).expect("should succeed");
+        let _: EncryptionAlgorithm = serde_json::from_str(&chacha_json).expect("should succeed");
     }
 
     #[test]
@@ -493,8 +493,8 @@ mod tests {
         };
 
         for variant in [file, beardog, env] {
-            let json = serde_json::to_string(&variant).unwrap();
-            let _: KeyManagement = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&variant).expect("should succeed");
+            let _: KeyManagement = serde_json::from_str(&json).expect("should succeed");
         }
     }
 
@@ -505,8 +505,8 @@ mod tests {
             OrchestrationMode::Managed,
             OrchestrationMode::Hybrid,
         ] {
-            let json = serde_json::to_string(&mode).unwrap();
-            let _: OrchestrationMode = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&mode).expect("should succeed");
+            let _: OrchestrationMode = serde_json::from_str(&json).expect("should succeed");
         }
     }
 
@@ -532,8 +532,8 @@ mod tests {
             },
             LogOutput::Syslog,
         ] {
-            let json = serde_json::to_string(&output).unwrap();
-            let _: LogOutput = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&output).expect("should succeed");
+            let _: LogOutput = serde_json::from_str(&json).expect("should succeed");
         }
     }
 
@@ -546,8 +546,9 @@ mod tests {
             LoadBalancingStrategy::Weighted,
             LoadBalancingStrategy::HealthBased,
         ] {
-            let json = serde_json::to_string(&strategy).unwrap();
-            let deserialized: LoadBalancingStrategy = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&strategy).expect("should succeed");
+            let deserialized: LoadBalancingStrategy =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(strategy, deserialized);
         }
     }
@@ -559,8 +560,8 @@ mod tests {
             PortAllocationStrategy::Random,
             PortAllocationStrategy::LeastRecentlyUsed,
         ] {
-            let json = serde_json::to_string(&strategy).unwrap();
-            let _: PortAllocationStrategy = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&strategy).expect("should succeed");
+            let _: PortAllocationStrategy = serde_json::from_str(&json).expect("should succeed");
         }
     }
 
@@ -575,8 +576,8 @@ mod tests {
             },
             ServiceDiscoveryMethod::Songbird,
         ] {
-            let json = serde_json::to_string(&method).unwrap();
-            let _: ServiceDiscoveryMethod = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&method).expect("should succeed");
+            let _: ServiceDiscoveryMethod = serde_json::from_str(&json).expect("should succeed");
         }
     }
 

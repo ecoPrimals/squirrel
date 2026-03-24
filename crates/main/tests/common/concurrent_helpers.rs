@@ -390,7 +390,7 @@ mod tests {
             ready.signal(); // Signal immediately - no artificial delay
         });
 
-        waiter.wait().await.unwrap();
+        waiter.wait().await.expect("should succeed");
     }
 
     #[tokio::test]
@@ -403,7 +403,7 @@ mod tests {
             setter.set(2); // Immediate next state
         });
 
-        let value = watcher.wait_for(|v| *v == 2).await.unwrap();
+        let value = watcher.wait_for(|v| *v == 2).await.expect("should succeed");
         assert_eq!(value, 2);
     }
 
@@ -427,7 +427,7 @@ mod tests {
         }
 
         for handle in handles {
-            let count = handle.await.unwrap();
+            let count = handle.await.expect("should succeed");
             assert_eq!(count, 3); // All should see 3
         }
     }
@@ -444,7 +444,7 @@ mod tests {
             });
         }
 
-        let mut results = collector.collect(5).await.unwrap();
+        let mut results = collector.collect(5).await.expect("should succeed");
         results.sort();
         assert_eq!(results, vec![0, 1, 2, 3, 4]);
     }
@@ -484,7 +484,7 @@ mod tests {
             async move { *counter.lock().await >= 5 }
         })
         .await
-        .unwrap();
+        .expect("should succeed");
 
         let final_count = *counter.lock().await;
         assert!(final_count >= 5);

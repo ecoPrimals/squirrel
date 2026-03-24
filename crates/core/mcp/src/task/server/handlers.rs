@@ -439,7 +439,7 @@ mod tests {
             "name": name,
             "description": "desc",
             "priority": 1,
-            "input_data": serde_json::to_vec(&json!({"k": "v"})).unwrap(),
+            "input_data": serde_json::to_vec(&json!({"k": "v"})).expect("should succeed"),
             "metadata": [],
             "prerequisite_task_ids": [],
             "context_id": "",
@@ -507,10 +507,10 @@ mod tests {
                 "params": create_task_params("lifecycle")
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         let r = created["result"].clone();
         assert_eq!(r["success"], true);
-        let task_id = r["task_id"].as_str().unwrap().to_string();
+        let task_id = r["task_id"].as_str().expect("should succeed").to_string();
 
         let got = svc
             .handle_json_rpc_request(json!({
@@ -520,7 +520,7 @@ mod tests {
                 "params": { "task_id": task_id }
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(got["result"]["success"], true);
         assert!(got["result"]["task"].is_object());
 
@@ -539,9 +539,14 @@ mod tests {
                 }
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(listed["result"]["success"], true);
-        assert!(listed["result"]["total_count"].as_i64().unwrap() >= 1);
+        assert!(
+            listed["result"]["total_count"]
+                .as_i64()
+                .expect("should succeed")
+                >= 1
+        );
 
         let updated = svc
             .handle_json_rpc_request(json!({
@@ -558,7 +563,7 @@ mod tests {
                 }
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(updated["result"]["success"], true);
 
         let assigned = svc
@@ -569,7 +574,7 @@ mod tests {
                 "params": { "task_id": task_id, "agent_id": "agent-1", "agent_type": 0 }
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(assigned["result"]["success"], true);
 
         let prog = svc
@@ -585,7 +590,7 @@ mod tests {
                 }
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(prog["result"]["success"], true);
 
         let done = svc
@@ -596,7 +601,7 @@ mod tests {
                 "params": { "task_id": task_id, "output_data": [], "metadata": [] }
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(done["result"]["success"], true);
 
         let t2 = svc
@@ -607,8 +612,8 @@ mod tests {
                 "params": create_task_params("to-cancel")
             }))
             .await
-            .unwrap();
-        let id2 = t2["result"]["task_id"].as_str().unwrap();
+            .expect("should succeed");
+        let id2 = t2["result"]["task_id"].as_str().expect("should succeed");
         let cancelled = svc
             .handle_json_rpc_request(json!({
                 "jsonrpc": "2.0",
@@ -617,7 +622,7 @@ mod tests {
                 "params": { "task_id": id2, "reason": "test" }
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(cancelled["result"]["success"], true);
 
         let missing = svc
@@ -628,7 +633,7 @@ mod tests {
                 "params": { "task_id": "00000000-0000-0000-0000-000000000000" }
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(missing["result"]["success"], false);
     }
 }

@@ -220,49 +220,49 @@ mod tests {
 
     #[test]
     fn test_compile_sql_injection_patterns() {
-        let patterns = compile_sql_injection_patterns().unwrap();
+        let patterns = compile_sql_injection_patterns().expect("should succeed");
         assert!(!patterns.is_empty());
         assert_eq!(patterns.len(), 7);
     }
 
     #[test]
     fn test_compile_xss_patterns() {
-        let patterns = compile_xss_patterns().unwrap();
+        let patterns = compile_xss_patterns().expect("should succeed");
         assert!(!patterns.is_empty());
         assert_eq!(patterns.len(), 8);
     }
 
     #[test]
     fn test_compile_command_injection_patterns() {
-        let patterns = compile_command_injection_patterns().unwrap();
+        let patterns = compile_command_injection_patterns().expect("should succeed");
         assert!(!patterns.is_empty());
         assert_eq!(patterns.len(), 8);
     }
 
     #[test]
     fn test_compile_path_traversal_patterns() {
-        let patterns = compile_path_traversal_patterns().unwrap();
+        let patterns = compile_path_traversal_patterns().expect("should succeed");
         assert!(!patterns.is_empty());
         assert_eq!(patterns.len(), 4);
     }
 
     #[test]
     fn test_compile_nosql_injection_patterns() {
-        let patterns = compile_nosql_injection_patterns().unwrap();
+        let patterns = compile_nosql_injection_patterns().expect("should succeed");
         assert!(!patterns.is_empty());
         assert_eq!(patterns.len(), 8);
     }
 
     #[test]
     fn test_compile_suspicious_patterns() {
-        let patterns = compile_suspicious_patterns().unwrap();
+        let patterns = compile_suspicious_patterns().expect("should succeed");
         assert!(!patterns.is_empty());
         assert_eq!(patterns.len(), 2);
     }
 
     #[test]
     fn test_sanitization_patterns_compile() {
-        let patterns = SanitizationPatterns::compile().unwrap();
+        let patterns = SanitizationPatterns::compile().expect("should succeed");
         assert!(
             patterns
                 .script_regex
@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_sql_pattern_detection() {
-        let patterns = compile_sql_injection_patterns().unwrap();
+        let patterns = compile_sql_injection_patterns().expect("should succeed");
         let malicious = "'; DROP TABLE users--";
 
         let detected = patterns.iter().any(|p| p.is_match(malicious));
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_xss_pattern_detection() {
-        let patterns = compile_xss_patterns().unwrap();
+        let patterns = compile_xss_patterns().expect("should succeed");
         let malicious = "<script>alert('xss')</script>";
 
         let detected = patterns.iter().any(|p| p.is_match(malicious));

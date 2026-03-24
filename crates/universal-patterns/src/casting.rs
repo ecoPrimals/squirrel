@@ -137,9 +137,9 @@ mod tests {
 
     #[test]
     fn test_u64_to_i64_success() {
-        assert_eq!(u64_to_i64(0).unwrap(), 0);
-        assert_eq!(u64_to_i64(100).unwrap(), 100);
-        assert_eq!(u64_to_i64(i64::MAX as u64).unwrap(), i64::MAX);
+        assert_eq!(u64_to_i64(0).expect("should succeed"), 0);
+        assert_eq!(u64_to_i64(100).expect("should succeed"), 100);
+        assert_eq!(u64_to_i64(i64::MAX as u64).expect("should succeed"), i64::MAX);
     }
 
     #[test]
@@ -151,9 +151,9 @@ mod tests {
 
     #[test]
     fn test_i64_to_u64_success() {
-        assert_eq!(i64_to_u64(0).unwrap(), 0);
-        assert_eq!(i64_to_u64(100).unwrap(), 100);
-        assert_eq!(i64_to_u64(i64::MAX).unwrap(), i64::MAX as u64);
+        assert_eq!(i64_to_u64(0).expect("should succeed"), 0);
+        assert_eq!(i64_to_u64(100).expect("should succeed"), 100);
+        assert_eq!(i64_to_u64(i64::MAX).expect("should succeed"), i64::MAX as u64);
     }
 
     #[test]

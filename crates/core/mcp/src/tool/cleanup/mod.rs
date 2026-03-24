@@ -156,31 +156,31 @@ mod tests {
     // Test for resource limit warnings
     #[test]
     fn test_resource_limit_warnings() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         rt.block_on(async {
             let _tool = create_test_tool("test-tool", 5);
             let hook = EnhancedResourceCleanupHook::new();
             let tracker = hook.get_tracker();
             
             // Test memory allocation - Normal
-            tracker.track_memory_allocation(1024 * 1024).await.unwrap(); // 1MB
-            let status = tracker.get_current_usage().await.unwrap();
+            tracker.track_memory_allocation(1024 * 1024).await.expect("should succeed"); // 1MB
+            let status = tracker.get_current_usage().await.expect("should succeed");
             assert_eq!(status.memory_bytes, 1024 * 1024);
             
             // Test memory allocation - Warning
-            tracker.track_memory_allocation(2 * 1024 * 1024).await.unwrap(); // Additional 2MB, total 3MB
-            let status = tracker.get_current_usage().await.unwrap();
+            tracker.track_memory_allocation(2 * 1024 * 1024).await.expect("should succeed"); // Additional 2MB, total 3MB
+            let status = tracker.get_current_usage().await.expect("should succeed");
             assert_eq!(status.memory_bytes, 3 * 1024 * 1024);
             
             // Test memory allocation - Critical
-            tracker.track_memory_allocation(1024 * 1024).await.unwrap(); // Additional 1MB, total 4MB
-            let status = tracker.get_current_usage().await.unwrap();
+            tracker.track_memory_allocation(1024 * 1024).await.expect("should succeed"); // Additional 1MB, total 4MB
+            let status = tracker.get_current_usage().await.expect("should succeed");
             assert_eq!(status.memory_bytes, 4 * 1024 * 1024);
             
             // Test file handle allocation
             for i in 1..15 {
-                tracker.track_file_handle_open(&format!("file{}", i)).await.unwrap();
-                let usage = tracker.get_current_usage().await.unwrap();
+                tracker.track_file_handle_open(&format!("file{}", i)).await.expect("should succeed");
+                let usage = tracker.get_current_usage().await.expect("should succeed");
                 
                 assert_eq!(usage.file_handles.len(), i as usize);
             }
@@ -190,18 +190,18 @@ mod tests {
     // Test for resource tracking history
     #[test]
     fn test_resource_tracking_history() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         rt.block_on(async {
             let _tool = create_test_tool("test-tool", 5);
             let hook = EnhancedResourceCleanupHook::new();
             let tracker = hook.get_tracker();
             
             // Track allocations multiple times
-            tracker.track_memory_allocation(1024 * 1024).await.unwrap(); // 1MB
-            tracker.track_memory_allocation(2 * 1024 * 1024).await.unwrap(); // Additional 2MB, total 3MB
+            tracker.track_memory_allocation(1024 * 1024).await.expect("should succeed"); // 1MB
+            tracker.track_memory_allocation(2 * 1024 * 1024).await.expect("should succeed"); // Additional 2MB, total 3MB
             
             // Verify last usage
-            let usage = tracker.get_current_usage().await.unwrap();
+            let usage = tracker.get_current_usage().await.expect("should succeed");
             assert_eq!(usage.memory_bytes, 3 * 1024 * 1024);
         });
     }
@@ -209,7 +209,7 @@ mod tests {
     // Test for composite lifecycle hook with resource tracking
     #[test]
     fn test_composite_lifecycle_hook_with_resource_tracking() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         rt.block_on(async {
             // Create a composite hook with EnhancedResourceCleanupHook
             let composite_hook = CompositeLifecycleHook::new();
@@ -230,32 +230,32 @@ mod tests {
     // Test for resource tracking in error recovery
     #[test]
     fn test_resource_tracking_in_error_recovery() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         rt.block_on(async {
             let hook = EnhancedResourceCleanupHook::new();
             let tool = create_test_tool("test-tool", 5);
             let tracker = hook.get_tracker();
             
             // Allocate some resources
-            tracker.track_memory_allocation(1024 * 1024).await.unwrap();
+            tracker.track_memory_allocation(1024 * 1024).await.expect("should succeed");
             
             // Simulate a resource error (exceeding memory)
             let error = ToolError::ExecutionFailed { 
                 tool_id: "test-tool".to_string(),
                 reason: "Exceeded memory resources".to_string()
             };
-            hook.on_error(&tool.id, &error).await.unwrap();
+            hook.on_error(&tool.id, &error).await.expect("should succeed");
             
             // Verify that resources are still tracked despite the error
-            let usage = tracker.get_current_usage().await.unwrap();
+            let usage = tracker.get_current_usage().await.expect("should succeed");
             assert_eq!(usage.memory_bytes, 1024 * 1024);
             
             // Simulate a non-resource error
             let error = ToolError::ValidationFailed("Invalid parameter".to_string());
-            hook.on_error(&tool.id, &error).await.unwrap();
+            hook.on_error(&tool.id, &error).await.expect("should succeed");
             
             // Verify resources remain tracked
-            let usage = tracker.get_current_usage().await.unwrap();
+            let usage = tracker.get_current_usage().await.expect("should succeed");
             assert_eq!(usage.memory_bytes, 1024 * 1024);
         });
     }

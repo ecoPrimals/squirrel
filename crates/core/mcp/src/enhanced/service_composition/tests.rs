@@ -108,13 +108,13 @@ async fn test_service_composition_engine_creation() {
     let engine = create_test_engine();
     
     // Test basic engine operations
-    let services = engine.list_services().await.unwrap();
+    let services = engine.list_services().await.expect("should succeed");
     assert!(services.is_empty());
     
-    let compositions = engine.list_compositions().await.unwrap();
+    let compositions = engine.list_compositions().await.expect("should succeed");
     assert!(compositions.is_empty());
     
-    let metrics = engine.get_metrics().await.unwrap();
+    let metrics = engine.get_metrics().await.expect("should succeed");
     assert_eq!(metrics.total_compositions, 0);
     assert_eq!(metrics.active_compositions, 0);
 }
@@ -131,17 +131,17 @@ async fn test_service_registration() {
     );
     
     // Register service
-    engine.register_service(service.clone()).await.unwrap();
+    engine.register_service(service.clone()).await.expect("should succeed");
     
     // Verify registration
-    let services = engine.list_services().await.unwrap();
+    let services = engine.list_services().await.expect("should succeed");
     assert_eq!(services.len(), 1);
     assert_eq!(services[0].id, "test-service");
     
     // Check service health
-    let health = engine.get_service_health("test-service").await.unwrap();
+    let health = engine.get_service_health("test-service").await.expect("should succeed");
     assert!(health.is_some());
-    assert_eq!(health.unwrap().status, HealthStatus::Healthy);
+    assert_eq!(health.expect("should succeed").status, HealthStatus::Healthy);
 }
 
 #[tokio::test]
@@ -161,16 +161,16 @@ async fn test_composition_registration() {
     );
     
     // Register composition
-    engine.register_composition(composition.clone()).await.unwrap();
+    engine.register_composition(composition.clone()).await.expect("should succeed");
     
     // Verify registration
-    let compositions = engine.list_compositions().await.unwrap();
+    let compositions = engine.list_compositions().await.expect("should succeed");
     assert_eq!(compositions.len(), 1);
     assert_eq!(compositions[0].id, "test-composition");
     
-    let retrieved = engine.get_composition_status("test-composition").await.unwrap();
+    let retrieved = engine.get_composition_status("test-composition").await.expect("should succeed");
     assert!(retrieved.is_some());
-    assert_eq!(retrieved.unwrap().id, "test-composition");
+    assert_eq!(retrieved.expect("should succeed").id, "test-composition");
 }
 
 #[tokio::test]
@@ -189,11 +189,11 @@ async fn test_sequential_composition_execution() {
         services,
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     // Execute composition
     let request = create_test_request("Test sequential execution");
-    let result = engine.execute_composition("sequential-test", request).await.unwrap();
+    let result = engine.execute_composition("sequential-test", request).await.expect("should succeed");
     
     assert_eq!(result.status, ExecutionStatus::Success);
     assert!(result.execution_time.as_millis() > 0);
@@ -220,12 +220,12 @@ async fn test_parallel_composition_execution() {
         services,
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     // Execute composition and measure execution time
     let start_time = std::time::Instant::now();
     let request = create_test_request("Test parallel execution");
-    let result = engine.execute_composition("parallel-test", request).await.unwrap();
+    let result = engine.execute_composition("parallel-test", request).await.expect("should succeed");
     let execution_time = start_time.elapsed();
     
     assert_eq!(result.status, ExecutionStatus::Success);
@@ -240,7 +240,7 @@ async fn test_parallel_composition_execution() {
         assert!(results.contains_key("service_1"));
         assert!(results.contains_key("service_2"));
     } else {
-        panic!("Expected parallel results to be an object");
+        unreachable!("Expected parallel results to be an object");
     }
 }
 
@@ -260,13 +260,13 @@ async fn test_conditional_composition_execution() {
         services,
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     // Test with condition true (should use first service)
     let mut request = create_test_request("Test conditional execution");
     request.parameters.insert("condition".to_string(), serde_json::Value::Bool(true));
     
-    let result = engine.execute_composition("conditional-test", request).await.unwrap();
+    let result = engine.execute_composition("conditional-test", request).await.expect("should succeed");
     
     assert_eq!(result.status, ExecutionStatus::Success);
     assert!(result.error.is_none());
@@ -275,7 +275,7 @@ async fn test_conditional_composition_execution() {
     let mut request = create_test_request("Test conditional execution");
     request.parameters.insert("condition".to_string(), serde_json::Value::Bool(false));
     
-    let result = engine.execute_composition("conditional-test", request).await.unwrap();
+    let result = engine.execute_composition("conditional-test", request).await.expect("should succeed");
     
     assert_eq!(result.status, ExecutionStatus::Success);
     assert!(result.error.is_none());
@@ -298,10 +298,10 @@ async fn test_pipeline_composition_execution() {
         services,
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     let request = create_test_request("Test pipeline execution");
-    let result = engine.execute_composition("pipeline-test", request).await.unwrap();
+    let result = engine.execute_composition("pipeline-test", request).await.expect("should succeed");
     
     assert_eq!(result.status, ExecutionStatus::Success);
     assert!(result.error.is_none());
@@ -325,14 +325,14 @@ async fn test_composition_cancellation() {
         services,
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     // Cancel composition
     let result = engine.cancel_composition("cancel-test").await;
     assert!(result.is_ok());
     
     // Verify composition was removed from active compositions
-    let status = engine.get_composition_status("cancel-test").await.unwrap();
+    let status = engine.get_composition_status("cancel-test").await.expect("should succeed");
     assert!(status.is_none());
 }
 
@@ -342,11 +342,11 @@ async fn test_composition_error_handling() {
     
     // Register a composition without registering it first (should cause error)
     let request = create_test_request("Test error handling");
-    let result = engine.execute_composition("nonexistent-composition", request).await.unwrap();
+    let result = engine.execute_composition("nonexistent-composition", request).await.expect("should succeed");
     
     assert_eq!(result.status, ExecutionStatus::Failed);
     assert!(result.error.is_some());
-    assert!(result.error.as_ref().unwrap().contains("Composition not found"));
+    assert!(result.error.as_ref().expect("should succeed").contains("Composition not found"));
 }
 
 #[tokio::test]
@@ -368,13 +368,13 @@ async fn test_service_health_monitoring() {
         health.availability = 0.2;
     }
     
-    engine.register_service(service).await.unwrap();
+    engine.register_service(service).await.expect("should succeed");
     
     // Check service health
-    let health = engine.get_service_health("health-test").await.unwrap();
+    let health = engine.get_service_health("health-test").await.expect("should succeed");
     assert!(health.is_some());
     
-    let health = health.unwrap();
+    let health = health.expect("should succeed");
     assert_eq!(health.status, HealthStatus::Unhealthy);
     assert_eq!(health.error_rate, 0.8);
     assert_eq!(health.availability, 0.2);
@@ -395,16 +395,16 @@ async fn test_composition_metrics_collection() {
         services,
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     // Execute composition to generate metrics
     let request = create_test_request("Test metrics collection");
-    let result = engine.execute_composition("metrics-test", request).await.unwrap();
+    let result = engine.execute_composition("metrics-test", request).await.expect("should succeed");
     
     assert_eq!(result.status, ExecutionStatus::Success);
     
     // Check metrics
-    let metrics = engine.get_metrics().await.unwrap();
+    let metrics = engine.get_metrics().await.expect("should succeed");
     assert_eq!(metrics.total_compositions, 1);
     assert!(metrics.completed_compositions >= 1);
     assert!(metrics.avg_execution_time.as_millis() > 0);
@@ -425,7 +425,7 @@ async fn test_concurrent_composition_execution() {
         services,
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     // Execute multiple compositions concurrently
     let mut handles = vec![];
@@ -442,7 +442,7 @@ async fn test_concurrent_composition_execution() {
     // Wait for all executions to complete
     let results: Vec<_> = futures::future::join_all(handles).await
         .into_iter()
-        .map(|r| r.unwrap().unwrap())
+        .map(|r| r.expect("should succeed").expect("should succeed"))
         .collect();
     
     assert_eq!(results.len(), 3);
@@ -452,7 +452,7 @@ async fn test_concurrent_composition_execution() {
         assert_eq!(result.status, ExecutionStatus::Success);
     }
     
-    let metrics = engine.get_metrics().await.unwrap();
+    let metrics = engine.get_metrics().await.expect("should succeed");
     assert!(metrics.completed_compositions >= 3);
 }
 
@@ -467,13 +467,13 @@ async fn test_service_dependency_validation() {
         vec!["testing".to_string()],
     );
     
-    engine.register_service(service).await.unwrap();
+    engine.register_service(service).await.expect("should succeed");
     
     // Test dependency validation
-    let is_valid = engine.validate_dependencies("dependency-test").await.unwrap();
+    let is_valid = engine.validate_dependencies("dependency-test").await.expect("should succeed");
     assert!(is_valid); // Should be true since we have the service registered
     
-    let nonexistent_valid = engine.validate_dependencies("nonexistent-service").await.unwrap();
+    let nonexistent_valid = engine.validate_dependencies("nonexistent-service").await.expect("should succeed");
     assert!(!nonexistent_valid); // Should be false for nonexistent service
 }
 
@@ -482,7 +482,7 @@ async fn test_service_discovery() {
     let engine = create_test_engine();
     
     // Test service discovery (currently returns empty list)
-    let discovered_services = engine.discover_services().await.unwrap();
+    let discovered_services = engine.discover_services().await.expect("should succeed");
     assert!(discovered_services.is_empty()); // Should be empty with current implementation
 }
 
@@ -501,11 +501,11 @@ async fn test_custom_composition_type() {
         services,
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     // Execute custom composition (should fall back to sequential)
     let request = create_test_request("Test custom composition");
-    let result = engine.execute_composition("custom-test", request).await.unwrap();
+    let result = engine.execute_composition("custom-test", request).await.expect("should succeed");
     
     assert_eq!(result.status, ExecutionStatus::Success);
     assert!(result.error.is_none());
@@ -528,10 +528,10 @@ async fn test_composition_timeout_handling() {
     );
     composition.config.timeout = Duration::from_millis(1); // 1ms timeout
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     let request = create_test_request("Test timeout handling");
-    let result = engine.execute_composition("timeout-test", request).await.unwrap();
+    let result = engine.execute_composition("timeout-test", request).await.expect("should succeed");
     
     // Should complete successfully despite short timeout (our test services are fast)
     assert_eq!(result.status, ExecutionStatus::Success);
@@ -549,10 +549,10 @@ async fn test_composition_with_empty_services() {
         vec![], // No services
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     let request = create_test_request("Test empty services");
-    let result = engine.execute_composition("empty-test", request).await.unwrap();
+    let result = engine.execute_composition("empty-test", request).await.expect("should succeed");
     
     // Should succeed with empty result
     assert_eq!(result.status, ExecutionStatus::Success);
@@ -574,10 +574,10 @@ async fn test_service_capability_matching() {
         services,
     );
     
-    engine.register_composition(composition).await.unwrap();
+    engine.register_composition(composition).await.expect("should succeed");
     
     let request = create_test_request("Test capability matching");
-    let result = engine.execute_composition("capability-test", request).await.unwrap();
+    let result = engine.execute_composition("capability-test", request).await.expect("should succeed");
     
     assert_eq!(result.status, ExecutionStatus::Success);
     

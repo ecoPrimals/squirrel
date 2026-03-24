@@ -257,7 +257,7 @@ mod tests {
         
         fn config_mut(&mut self) -> &mut crate::resilience::health::HealthCheckConfig {
             // This is only used for tests, so we panic if called
-            panic!("config_mut not implemented for MockHealthCheck")
+            unreachable!("config_mut not implemented for MockHealthCheck")
         }
     }
     
@@ -324,18 +324,18 @@ mod tests {
         assert_eq!(metrics.len(), 3);
         
         // Check status metric
-        let status_metric = metrics.iter().find(|m| m.name.ends_with(".status")).unwrap();
+        let status_metric = metrics.iter().find(|m| m.name.ends_with(".status")).expect("should succeed");
         assert_eq!(status_metric.metric_type, MetricType::Gauge);
         match status_metric.value {
             MetricValue::Integer(val) => assert_eq!(val, 2), // Warning status value
-            _ => panic!("Expected integer value for status metric"),
+            _ => unreachable!("Expected integer value for status metric"),
         }
         
         // Check other metrics
-        let response_time_metric = metrics.iter().find(|m| m.name.ends_with(".response_time")).unwrap();
+        let response_time_metric = metrics.iter().find(|m| m.name.ends_with(".response_time")).expect("should succeed");
         match response_time_metric.value {
             MetricValue::Float(val) => assert_eq!(val, 123.45),
-            _ => panic!("Expected float value for response_time metric"),
+            _ => unreachable!("Expected float value for response_time metric"),
         }
     }
     
@@ -346,7 +346,7 @@ mod tests {
         let adapter = ResilienceHealthCheckAdapter::new(health_check.clone());
         
         // Check with healthy status
-        let result = adapter.check().await.unwrap();
+        let result = adapter.check().await.expect("should succeed");
         assert!(result.is_healthy);
         
         // Set component to unhealthy and recreate adapter
@@ -354,7 +354,7 @@ mod tests {
         let adapter = ResilienceHealthCheckAdapter::new(health_check);
         
         // Check with unhealthy status
-        let result = adapter.check().await.unwrap();
+        let result = adapter.check().await.expect("should succeed");
         assert!(!result.is_healthy);
         assert_eq!(result.sync_status.consecutive_failures, 3);
     }

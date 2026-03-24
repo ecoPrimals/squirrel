@@ -520,8 +520,8 @@ mod tests {
             config: std::iter::once(("a".to_string(), "b".to_string())).collect(),
             models: vec!["m".to_string()],
         };
-        let j = serde_json::to_string(&p).unwrap();
-        let p2: ProviderSettings = serde_json::from_str(&j).unwrap();
+        let j = serde_json::to_string(&p).expect("should succeed");
+        let p2: ProviderSettings = serde_json::from_str(&j).expect("should succeed");
         assert_eq!(p2.id, p.id);
     }
 
@@ -529,8 +529,8 @@ mod tests {
     fn provider_registry_register_get_list_errors() {
         let mut r = ProviderRegistry::new();
         r.register_provider("a", ProviderSettings::default_openai())
-            .unwrap();
-        assert_eq!(r.get_provider("a").unwrap().id, "openai");
+            .expect("should succeed");
+        assert_eq!(r.get_provider("a").expect("should succeed").id, "openai");
         assert!(r.list_providers().contains(&"a".to_string()));
         assert!(r.get_provider("missing").is_err());
         assert!(r.get_provider_capabilities("a").is_none());
@@ -545,8 +545,8 @@ mod tests {
             .with_provider("p1".to_string(), ProviderSettings::default_openai());
         assert_eq!(c.timeout_ms, 1234);
         assert!(!c.streaming);
-        let j = serde_json::to_string(&c).unwrap();
-        let c2: McpAiToolsConfig = serde_json::from_str(&j).unwrap();
+        let j = serde_json::to_string(&c).expect("should succeed");
+        let c2: McpAiToolsConfig = serde_json::from_str(&j).expect("should succeed");
         assert_eq!(c2.timeout_ms, c.timeout_ms);
         assert_eq!(c2.default_ollama_endpoint, c.default_ollama_endpoint);
     }
@@ -554,13 +554,13 @@ mod tests {
     #[tokio::test]
     async fn adapter_factory_and_provider_surface() {
         let mcp = Arc::new(MockMcp);
-        let adapter = create_mcp_ai_tools_adapter(mcp).unwrap();
+        let adapter = create_mcp_ai_tools_adapter(mcp).expect("should succeed");
         assert!(adapter.list_providers().is_empty());
 
         let mut cfg = McpAiToolsConfig::default();
         cfg = cfg.with_provider("openai".to_string(), ProviderSettings::default_openai());
         let mcp2 = Arc::new(MockMcp);
-        let adapter2 = McpAiToolsAdapter::new(mcp2, cfg).unwrap();
+        let adapter2 = McpAiToolsAdapter::new(mcp2, cfg).expect("should succeed");
         assert!(adapter2.list_providers().contains(&"openai".to_string()));
         assert!(adapter2.get_provider_capabilities("openai").is_none());
         let _ = adapter2.create_chat_request();
@@ -571,7 +571,7 @@ mod tests {
         let mcp = Arc::new(MockMcp);
         let mut cfg = McpAiToolsConfig::default();
         cfg = cfg.with_provider("openai".to_string(), ProviderSettings::default_openai());
-        let adapter = McpAiToolsAdapter::new(mcp, cfg).unwrap();
+        let adapter = McpAiToolsAdapter::new(mcp, cfg).expect("should succeed");
         let req = adapter.create_chat_request();
         let err = adapter.send_chat_request("unknown", req).await.unwrap_err();
         let msg = err.to_string();
@@ -584,13 +584,13 @@ mod tests {
     #[tokio::test]
     async fn streaming_and_generate_response_errors() {
         let mcp = Arc::new(MockMcp);
-        let adapter = create_mcp_ai_tools_adapter(mcp).unwrap();
+        let adapter = create_mcp_ai_tools_adapter(mcp).expect("should succeed");
         let req = adapter.create_chat_request();
         let Err(e1) = adapter
             .send_streaming_chat_request("openai", req.clone())
             .await
         else {
-            panic!("expected streaming to be unimplemented");
+            unreachable!("expected streaming to be unimplemented");
         };
         assert!(e1.to_string().contains("Streaming") || e1.to_string().contains("not yet"));
 
@@ -598,7 +598,7 @@ mod tests {
             .generate_response("c1", Some("m".to_string()), None, None)
             .await
         else {
-            panic!("expected generate_response to be unimplemented");
+            unreachable!("expected generate_response to be unimplemented");
         };
         assert!(e2.to_string().contains("not yet implemented"));
     }
@@ -616,7 +616,7 @@ mod tests {
                 models: vec![],
             },
         );
-        let adapter = McpAiToolsAdapter::new(mcp, cfg).unwrap();
+        let adapter = McpAiToolsAdapter::new(mcp, cfg).expect("should succeed");
         let req = adapter.create_chat_request();
         let err = adapter
             .send_chat_request("local", req)
@@ -630,14 +630,14 @@ mod tests {
         let mcp = Arc::new(MockMcp);
         let cfg = McpAiToolsConfig::default()
             .with_provider("p9".to_string(), ProviderSettings::default_openai());
-        let adapter = create_mcp_ai_tools_adapter_with_config(mcp, cfg).unwrap();
+        let adapter = create_mcp_ai_tools_adapter_with_config(mcp, cfg).expect("should succeed");
         assert!(adapter.list_providers().contains(&"p9".to_string()));
     }
 
     #[test]
     fn adapter_debug_format_is_stable_enough_for_observability() {
         let mcp = Arc::new(MockMcp);
-        let adapter = create_mcp_ai_tools_adapter(mcp).unwrap();
+        let adapter = create_mcp_ai_tools_adapter(mcp).expect("should succeed");
         let s = format!("{adapter:?}");
         assert!(s.contains("McpAiToolsAdapter"));
         assert!(s.contains("timeout_ms"));
@@ -660,10 +660,10 @@ mod tests {
     #[tokio::test]
     async fn streaming_error_message_mentions_batch_alternative() {
         let mcp = Arc::new(MockMcp);
-        let adapter = create_mcp_ai_tools_adapter(mcp).unwrap();
+        let adapter = create_mcp_ai_tools_adapter(mcp).expect("should succeed");
         let req = adapter.create_chat_request();
         let Err(e) = adapter.send_streaming_chat_request("any", req).await else {
-            panic!("expected streaming to be unimplemented");
+            unreachable!("expected streaming to be unimplemented");
         };
         let msg = e.to_string();
         assert!(

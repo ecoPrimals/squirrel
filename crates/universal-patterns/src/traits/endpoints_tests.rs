@@ -101,10 +101,10 @@ mod endpoints_tests {
             custom: String::new(),
         };
 
-        let json = serde_json::to_string(&endpoints).unwrap();
+        let json = serde_json::to_string(&endpoints).expect("should succeed");
         assert!(json.contains("http://test.com"));
 
-        let deserialized: PrimalEndpoints = serde_json::from_str(&json).unwrap();
+        let deserialized: PrimalEndpoints = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(endpoints, deserialized);
     }
 
@@ -162,7 +162,7 @@ mod endpoints_tests {
 
         assert!(http.primary.starts_with("http://"));
         assert!(https.primary.starts_with("https://"));
-        assert!(ws.websocket.as_ref().unwrap().starts_with("wss://"));
+        assert!(ws.websocket.as_ref().expect("should succeed").starts_with("wss://"));
     }
 
     #[test]
@@ -206,6 +206,6 @@ mod endpoints_tests {
 
         assert!(endpoints.primary.contains(":9000"));
         assert!(endpoints.health.contains(":9001"));
-        assert!(endpoints.metrics.as_ref().unwrap().contains(":9002"));
+        assert!(endpoints.metrics.as_ref().expect("should succeed").contains(":9002"));
     }
 }

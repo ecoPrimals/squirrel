@@ -46,8 +46,8 @@ fn api_dtos_serde_roundtrip() {
             permissions: vec![],
         }],
     };
-    let j = serde_json::to_string(&info).unwrap();
-    let back: PluginInfo = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&info).expect("should succeed");
+    let back: PluginInfo = serde_json::from_str(&j).expect("should succeed");
     assert_eq!(back.name, info.name);
 
     let install = PluginInstallRequest {
@@ -55,21 +55,21 @@ fn api_dtos_serde_roundtrip() {
         version: Some("1.0".to_string()),
         configuration: None,
     };
-    let j = serde_json::to_string(&install).unwrap();
-    let _: PluginInstallRequest = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&install).expect("should succeed");
+    let _: PluginInstallRequest = serde_json::from_str(&j).expect("should succeed");
 
     let cfg = PluginConfigurationRequest {
         configuration: std::iter::once(("k".to_string(), json!(1))).collect(),
     };
-    let j = serde_json::to_string(&cfg).unwrap();
-    let _: PluginConfigurationRequest = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&cfg).expect("should succeed");
+    let _: PluginConfigurationRequest = serde_json::from_str(&j).expect("should succeed");
 
     let exec = PluginExecutionRequest {
         command: "cmd".to_string(),
         parameters: std::iter::once(("p".to_string(), json!("v"))).collect(),
     };
-    let j = serde_json::to_string(&exec).unwrap();
-    let _: PluginExecutionRequest = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&exec).expect("should succeed");
+    let _: PluginExecutionRequest = serde_json::from_str(&j).expect("should succeed");
 
     let search = PluginSearchRequest {
         query: Some("q".to_string()),
@@ -79,8 +79,8 @@ fn api_dtos_serde_roundtrip() {
         limit: Some(5),
         offset: Some(0),
     };
-    let j = serde_json::to_string(&search).unwrap();
-    let _: PluginSearchRequest = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&search).expect("should succeed");
+    let _: PluginSearchRequest = serde_json::from_str(&j).expect("should succeed");
 
     let mpe = PluginMarketplaceEntry {
         id: Uuid::new_v4(),
@@ -96,8 +96,8 @@ fn api_dtos_serde_roundtrip() {
         downloads: 1,
         verified: true,
     };
-    let j = serde_json::to_string(&mpe).unwrap();
-    let _: PluginMarketplaceEntry = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&mpe).expect("should succeed");
+    let _: PluginMarketplaceEntry = serde_json::from_str(&j).expect("should succeed");
 
     let ws = WebSocketMessage {
         event_type: "e".to_string(),
@@ -105,8 +105,8 @@ fn api_dtos_serde_roundtrip() {
         data: json!({}),
         timestamp: chrono::Utc::now(),
     };
-    let j = serde_json::to_string(&ws).unwrap();
-    let _: WebSocketMessage = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&ws).expect("should succeed");
+    let _: WebSocketMessage = serde_json::from_str(&j).expect("should succeed");
 }
 
 #[test]
@@ -143,7 +143,10 @@ async fn test_plugin_id_extraction_ok_and_errors() {
 
     let plugin_id = Uuid::new_v4();
     let path = format!("/api/plugins/{plugin_id}");
-    assert_eq!(api.extract_plugin_id(&path).unwrap(), plugin_id);
+    assert_eq!(
+        api.extract_plugin_id(&path).expect("should succeed"),
+        plugin_id
+    );
 
     assert!(api.extract_plugin_id("/api/plugins").is_err());
     assert!(api.extract_plugin_id("/api/plugins/not-a-uuid").is_err());
@@ -154,7 +157,7 @@ async fn extract_search_params_default() {
     let manager = Arc::new(DefaultPluginManager::new());
     let api = PluginManagementAPI::new(manager);
     let r = web_req(HttpMethod::Get, "/api/marketplace/plugins", None);
-    let s = api.extract_search_params(&r).unwrap();
+    let s = api.extract_search_params(&r).expect("should succeed");
     assert_eq!(s.limit, Some(10));
     assert_eq!(s.offset, Some(0));
 }
@@ -167,23 +170,28 @@ async fn handle_list_get_plugins_empty_and_with_example_web() {
     let res = api
         .handle_request(web_req(HttpMethod::Get, "/api/plugins", None))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(res.status, HttpStatus::Ok);
-    assert_eq!(res.body.as_ref().unwrap()["total"], 0);
+    assert_eq!(res.body.as_ref().expect("should succeed")["total"], 0);
 
     let ex = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::Plugin>;
     let ex_id = ex.id();
-    manager.register_plugin(ex).await.unwrap();
+    manager.register_plugin(ex).await.expect("should succeed");
 
     let res = api
         .handle_request(web_req(HttpMethod::Get, "/api/plugins", None))
         .await
-        .unwrap();
-    assert_eq!(res.body.as_ref().unwrap()["total"], 1);
-    let plugins = res.body.as_ref().unwrap()["plugins"].as_array().unwrap();
+        .expect("should succeed");
+    assert_eq!(res.body.as_ref().expect("should succeed")["total"], 1);
+    let plugins = res.body.as_ref().expect("should succeed")["plugins"]
+        .as_array()
+        .expect("should succeed");
     let first = &plugins[0];
-    assert_eq!(first["id"].as_str().unwrap(), ex_id.to_string());
-    let ep_list = first["endpoints"].as_array().unwrap();
+    assert_eq!(
+        first["id"].as_str().expect("should succeed"),
+        ex_id.to_string()
+    );
+    let ep_list = first["endpoints"].as_array().expect("should succeed");
     assert!(!ep_list.is_empty());
 }
 
@@ -193,7 +201,10 @@ async fn handle_get_plugin_details_and_config() {
     let meta = PluginMetadata::new("t", "1.0.0", "d", "a");
     let id = meta.id;
     let plugin = create_noop_plugin(meta);
-    manager.register_plugin(plugin).await.unwrap();
+    manager
+        .register_plugin(plugin)
+        .await
+        .expect("should succeed");
 
     let api = PluginManagementAPI::new(manager);
 
@@ -204,9 +215,9 @@ async fn handle_get_plugin_details_and_config() {
             None,
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(res.status, HttpStatus::Ok);
-    assert_eq!(res.body.as_ref().unwrap()["name"], "t");
+    assert_eq!(res.body.as_ref().expect("should succeed")["name"], "t");
 
     let cfg = api
         .handle_request(web_req(
@@ -215,9 +226,15 @@ async fn handle_get_plugin_details_and_config() {
             None,
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(cfg.status, HttpStatus::Ok);
-    assert!(cfg.body.as_ref().unwrap().get("configuration").is_some());
+    assert!(
+        cfg.body
+            .as_ref()
+            .expect("should succeed")
+            .get("configuration")
+            .is_some()
+    );
 }
 
 #[tokio::test]
@@ -234,9 +251,12 @@ async fn handle_install_post_accepted() {
             })),
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(res.status, HttpStatus::Accepted);
-    assert_eq!(res.body.as_ref().unwrap()["status"], "installing");
+    assert_eq!(
+        res.body.as_ref().expect("should succeed")["status"],
+        "installing"
+    );
 }
 
 #[tokio::test]
@@ -247,9 +267,9 @@ async fn handle_marketplace_search_and_categories() {
     let res = api
         .handle_request(web_req(HttpMethod::Get, "/api/marketplace/plugins", None))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(res.status, HttpStatus::Ok);
-    assert!(res.body.as_ref().unwrap()["plugins"].is_array());
+    assert!(res.body.as_ref().expect("should succeed")["plugins"].is_array());
 
     let cat = api
         .handle_request(web_req(
@@ -258,9 +278,9 @@ async fn handle_marketplace_search_and_categories() {
             None,
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(cat.status, HttpStatus::Ok);
-    assert!(cat.body.as_ref().unwrap()["categories"].is_array());
+    assert!(cat.body.as_ref().expect("should succeed")["categories"].is_array());
 }
 
 #[tokio::test]
@@ -271,16 +291,28 @@ async fn handle_health_and_metrics() {
     let h = api
         .handle_request(web_req(HttpMethod::Get, "/api/plugins/health", None))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(h.status, HttpStatus::Ok);
-    assert!(h.body.as_ref().unwrap().get("healthy_plugins").is_some());
+    assert!(
+        h.body
+            .as_ref()
+            .expect("should succeed")
+            .get("healthy_plugins")
+            .is_some()
+    );
 
     let m = api
         .handle_request(web_req(HttpMethod::Get, "/api/plugins/metrics", None))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(m.status, HttpStatus::Ok);
-    assert!(m.body.as_ref().unwrap().get("api_uptime_seconds").is_some());
+    assert!(
+        m.body
+            .as_ref()
+            .expect("should succeed")
+            .get("api_uptime_seconds")
+            .is_some()
+    );
 }
 
 #[tokio::test]
@@ -290,7 +322,7 @@ async fn handle_not_found() {
     let res = api
         .handle_request(web_req(HttpMethod::Get, "/api/unknown", None))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(res.status, HttpStatus::NotFound);
 }
 
@@ -300,7 +332,10 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
     let meta = PluginMetadata::new("life", "1.0.0", "d", "a");
     let id = meta.id;
     let plugin = create_noop_plugin(meta);
-    manager.register_plugin(plugin).await.unwrap();
+    manager
+        .register_plugin(plugin)
+        .await
+        .expect("should succeed");
 
     let api = PluginManagementAPI::new(manager.clone());
 
@@ -311,7 +346,7 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
             None,
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(un.status, HttpStatus::Ok);
 
     let meta2 = PluginMetadata::new("life2", "1.0.0", "d", "a");
@@ -319,7 +354,7 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
     manager
         .register_plugin(create_noop_plugin(meta2))
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let st = api
         .handle_request(web_req(
@@ -328,7 +363,7 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
             None,
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(st.status, HttpStatus::Ok);
 
     let sp = api
@@ -338,7 +373,7 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
             None,
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(sp.status, HttpStatus::Ok);
 
     let rs = api
@@ -348,7 +383,7 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
             None,
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(rs.status, HttpStatus::Ok);
 
     let put = api
@@ -358,7 +393,7 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
             Some(json!({"configuration": {"k": "v"}})),
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(put.status, HttpStatus::Ok);
 
     let ex = api
@@ -371,9 +406,9 @@ async fn handle_uninstall_start_stop_restart_execute_config() {
             })),
         ))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(ex.status, HttpStatus::Ok);
-    assert_eq!(ex.body.as_ref().unwrap()["command"], "ping");
+    assert_eq!(ex.body.as_ref().expect("should succeed")["command"], "ping");
 }
 
 #[tokio::test]
@@ -406,9 +441,9 @@ async fn websocket_handler_register_and_remove() {
     let api = Arc::new(PluginManagementAPI::new(manager));
     let h = PluginWebSocketHandler::new(api.clone());
     let cid = Uuid::new_v4();
-    h.handle_connection(cid).await.unwrap();
+    h.handle_connection(cid).await.expect("should succeed");
     assert_eq!(api.websocket_connections.read().await.len(), 1);
-    h.handle_disconnection(cid).await.unwrap();
+    h.handle_disconnection(cid).await.expect("should succeed");
     assert_eq!(api.websocket_connections.read().await.len(), 0);
 }
 

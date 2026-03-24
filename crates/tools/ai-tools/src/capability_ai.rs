@@ -518,7 +518,7 @@ mod tests {
     #[test]
     fn test_request_id_increments() {
         let config = AiClientConfig::default();
-        let client = AiClient::new(config).unwrap();
+        let client = AiClient::new(config).expect("should succeed");
 
         let id1 = client.next_request_id();
         let id2 = client.next_request_id();
@@ -536,7 +536,7 @@ mod tests {
             content: "Hello!".to_string(),
         };
 
-        let json = serde_json::to_string(&message).unwrap();
+        let json = serde_json::to_string(&message).expect("should succeed");
         assert!(json.contains("\"role\":\"user\""));
         assert!(json.contains("\"content\":\"Hello!\""));
     }
@@ -552,8 +552,8 @@ mod tests {
         assert_eq!(asst.role, "assistant");
 
         let msg = ChatMessage::user("payload");
-        let json = serde_json::to_string(&msg).unwrap();
-        let back: ChatMessage = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&msg).expect("should succeed");
+        let back: ChatMessage = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.content, "payload");
     }
 
@@ -569,10 +569,10 @@ mod tests {
                 total_tokens: 3,
             }),
         };
-        let json = serde_json::to_string(&resp).unwrap();
-        let back: ChatResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp).expect("should succeed");
+        let back: ChatResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.content, "out");
-        assert_eq!(back.usage.as_ref().unwrap().total_tokens, 3);
+        assert_eq!(back.usage.as_ref().expect("should succeed").total_tokens, 3);
     }
 
     #[test]
@@ -597,18 +597,18 @@ mod tests {
     /// JSON-RPC envelope the client expects: inner `result` wraps a `result` object for chat.
     #[tokio::test]
     async fn chat_completion_happy_path_over_unix_socket() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock = dir.path().join("ai.sock");
         let sock_clone = sock.clone();
 
         let server = tokio::spawn(async move {
-            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
-            let (stream, _) = listener.accept().await.unwrap();
+            let listener = tokio::net::UnixListener::bind(&sock_clone).expect("should succeed");
+            let (stream, _) = listener.accept().await.expect("should succeed");
             use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
             let (read_half, mut write_half) = stream.into_split();
             let mut line = String::new();
             let mut reader = BufReader::new(read_half);
-            reader.read_line(&mut line).await.unwrap();
+            reader.read_line(&mut line).await.expect("should succeed");
             let body = serde_json::json!({
                 "jsonrpc": "2.0",
                 "id": 1,
@@ -624,8 +624,8 @@ mod tests {
             write_half
                 .write_all(body.to_string().as_bytes())
                 .await
-                .unwrap();
-            write_half.write_all(b"\n").await.unwrap();
+                .expect("should succeed");
+            write_half.write_all(b"\n").await.expect("should succeed");
         });
 
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
@@ -636,7 +636,7 @@ mod tests {
             max_retries: 1,
             retry_delay_ms: 1,
         };
-        let client = AiClient::new(config).unwrap();
+        let client = AiClient::new(config).expect("should succeed");
         let out = client
             .chat_completion(
                 "gpt-test",
@@ -649,25 +649,25 @@ mod tests {
                 }),
             )
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(out.content, "hello-cap");
         assert_eq!(out.model, "gpt-test");
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn create_embedding_over_unix_socket() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock = dir.path().join("emb.sock");
         let sock_clone = sock.clone();
         let server = tokio::spawn(async move {
-            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
-            let (stream, _) = listener.accept().await.unwrap();
+            let listener = tokio::net::UnixListener::bind(&sock_clone).expect("should succeed");
+            let (stream, _) = listener.accept().await.expect("should succeed");
             use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
             let (read_half, mut write_half) = stream.into_split();
             let mut line = String::new();
             let mut reader = BufReader::new(read_half);
-            reader.read_line(&mut line).await.unwrap();
+            reader.read_line(&mut line).await.expect("should succeed");
             let body = serde_json::json!({
                 "jsonrpc": "2.0",
                 "id": 1,
@@ -678,8 +678,8 @@ mod tests {
             write_half
                 .write_all(body.to_string().as_bytes())
                 .await
-                .unwrap();
-            write_half.write_all(b"\n").await.unwrap();
+                .expect("should succeed");
+            write_half.write_all(b"\n").await.expect("should succeed");
         });
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         let client = AiClient::new(AiClientConfig {
@@ -688,25 +688,28 @@ mod tests {
             max_retries: 1,
             retry_delay_ms: 1,
         })
-        .unwrap();
-        let emb = client.create_embedding("emb", "text").await.unwrap();
+        .expect("should succeed");
+        let emb = client
+            .create_embedding("emb", "text")
+            .await
+            .expect("should succeed");
         assert_eq!(emb.len(), 3);
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn text_generation_over_unix_socket() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock = dir.path().join("tg.sock");
         let sock_clone = sock.clone();
         let server = tokio::spawn(async move {
-            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
-            let (stream, _) = listener.accept().await.unwrap();
+            let listener = tokio::net::UnixListener::bind(&sock_clone).expect("should succeed");
+            let (stream, _) = listener.accept().await.expect("should succeed");
             use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
             let (read_half, mut write_half) = stream.into_split();
             let mut line = String::new();
             let mut reader = BufReader::new(read_half);
-            reader.read_line(&mut line).await.unwrap();
+            reader.read_line(&mut line).await.expect("should succeed");
             let body = serde_json::json!({
                 "jsonrpc": "2.0",
                 "id": 1,
@@ -715,8 +718,8 @@ mod tests {
             write_half
                 .write_all(body.to_string().as_bytes())
                 .await
-                .unwrap();
-            write_half.write_all(b"\n").await.unwrap();
+                .expect("should succeed");
+            write_half.write_all(b"\n").await.expect("should succeed");
         });
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         let client = AiClient::new(AiClientConfig {
@@ -725,26 +728,29 @@ mod tests {
             max_retries: 1,
             retry_delay_ms: 1,
         })
-        .unwrap();
-        let text = client.text_generation("m", "p", Some(16)).await.unwrap();
+        .expect("should succeed");
+        let text = client
+            .text_generation("m", "p", Some(16))
+            .await
+            .expect("should succeed");
         assert_eq!(text, "generated");
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn json_rpc_error_from_provider() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock = dir.path().join("err.sock");
         let sock_clone = sock.clone();
         let server = tokio::spawn(async move {
-            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
+            let listener = tokio::net::UnixListener::bind(&sock_clone).expect("should succeed");
             for _ in 0..3 {
-                let (stream, _) = listener.accept().await.unwrap();
+                let (stream, _) = listener.accept().await.expect("should succeed");
                 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
                 let (read_half, mut write_half) = stream.into_split();
                 let mut line = String::new();
                 let mut reader = BufReader::new(read_half);
-                reader.read_line(&mut line).await.unwrap();
+                reader.read_line(&mut line).await.expect("should succeed");
                 let body = serde_json::json!({
                     "jsonrpc": "2.0",
                     "id": 1,
@@ -753,8 +759,8 @@ mod tests {
                 write_half
                     .write_all(body.to_string().as_bytes())
                     .await
-                    .unwrap();
-                write_half.write_all(b"\n").await.unwrap();
+                    .expect("should succeed");
+                write_half.write_all(b"\n").await.expect("should succeed");
             }
         });
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
@@ -764,10 +770,10 @@ mod tests {
             max_retries: 3,
             retry_delay_ms: 1,
         })
-        .unwrap();
+        .expect("should succeed");
         let err = client.text_generation("m", "p", None).await.unwrap_err();
         assert!(err.to_string().contains("capability down"));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     // Integration tests (require AI capability provider running) are in integration tests

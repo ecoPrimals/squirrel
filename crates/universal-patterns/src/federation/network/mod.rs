@@ -75,14 +75,14 @@ mod tests {
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
-            address: "127.0.0.1:8080".parse().unwrap(),
+            address: "127.0.0.1:8080".parse().expect("should succeed"),
             status: PeerStatus::Connected,
             last_seen: chrono::Utc::now(),
             capabilities: vec!["test".to_string()],
             reliability: 1.0,
         };
 
-        network.add_peer(peer_info.clone()).await.unwrap();
+        network.add_peer(peer_info.clone()).await.expect("should succeed");
 
         let peers = network.get_peers().await;
         assert_eq!(peers.len(), 1);
@@ -105,17 +105,17 @@ mod tests {
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
-            address: "127.0.0.1:8080".parse().unwrap(),
+            address: "127.0.0.1:8080".parse().expect("should succeed"),
             status: PeerStatus::Connected,
             last_seen: chrono::Utc::now(),
             capabilities: vec!["test".to_string()],
             reliability: 1.0,
         };
 
-        network.add_peer(peer_info.clone()).await.unwrap();
+        network.add_peer(peer_info.clone()).await.expect("should succeed");
         assert_eq!(network.get_peers().await.len(), 1);
 
-        network.remove_peer(peer_info.id).await.unwrap();
+        network.remove_peer(peer_info.id).await.expect("should succeed");
         assert_eq!(network.get_peers().await.len(), 0);
     }
 
@@ -134,10 +134,10 @@ mod tests {
         let network = FederationNetwork::new(config, node_info);
 
         // Start network
-        network.start().await.unwrap();
+        network.start().await.expect("should succeed");
 
         // Stop network
-        network.stop().await.unwrap();
+        network.stop().await.expect("should succeed");
     }
 
     #[tokio::test]
@@ -157,12 +157,12 @@ mod tests {
         connection
             .send_message(peer_id, message.clone())
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let (received_peer_id, received_message) = connection.receive_message().await.unwrap();
+        let (received_peer_id, received_message) = connection.receive_message().await.expect("should succeed");
         assert_eq!(received_peer_id, peer_id);
 
-        connection.close().await.unwrap();
+        connection.close().await.expect("should succeed");
         assert!(!connection.is_connected().await);
     }
 }

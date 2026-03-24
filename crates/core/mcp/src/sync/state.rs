@@ -303,7 +303,7 @@ mod tests {
             .await
             .is_ok());
 
-        let version = manager.get_current_version().await.unwrap();
+        let version = manager.get_current_version().await.expect("should succeed");
         assert_eq!(version, 1);
     }
 
@@ -330,11 +330,11 @@ mod tests {
                 manager
                     .record_change(&context, StateOperation::Create)
                     .await
-                    .unwrap();
+                    .expect("should succeed");
             }
         });
 
-        let change = rx.recv().await.unwrap();
+        let change = rx.recv().await.expect("should succeed");
         assert_eq!(change.context_id, context.id);
         assert_eq!(change.version, 1);
     }

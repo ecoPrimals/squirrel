@@ -304,7 +304,7 @@ mod tests {
 
         let squirrel = cache.get("squirrel");
         assert!(squirrel.is_some());
-        assert_eq!(squirrel.unwrap().as_ref(), "squirrel");
+        assert_eq!(squirrel.expect("should succeed").as_ref(), "squirrel");
     }
 
     #[test]

@@ -373,13 +373,19 @@ mod tests {
             vec!["read".to_string()],
         ));
 
-        manager.load_plugin(plugin.clone()).await.unwrap();
+        manager
+            .load_plugin(plugin.clone())
+            .await
+            .expect("should succeed");
 
         assert_eq!(manager.list_plugins(), vec!["test_plugin"]);
-        let retrieved = manager.get_plugin("test_plugin").unwrap();
+        let retrieved = manager.get_plugin("test_plugin").expect("should succeed");
         assert_eq!(retrieved.metadata().name, "test_plugin");
 
-        manager.unload_plugin("test_plugin").await.unwrap();
+        manager
+            .unload_plugin("test_plugin")
+            .await
+            .expect("should succeed");
         assert!(manager.list_plugins().is_empty());
         assert!(manager.get_plugin("test_plugin").is_err());
     }
@@ -401,9 +407,9 @@ mod tests {
             vec!["network".to_string()],
         ));
 
-        manager.load_plugin(p1).await.unwrap();
-        manager.load_plugin(p2).await.unwrap();
-        manager.load_plugin(p3).await.unwrap();
+        manager.load_plugin(p1).await.expect("should succeed");
+        manager.load_plugin(p2).await.expect("should succeed");
+        manager.load_plugin(p3).await.expect("should succeed");
 
         let mut list = manager.list_plugins();
         list.sort();
@@ -436,8 +442,8 @@ mod tests {
             vec!["read".to_string()],
         ));
 
-        manager.load_plugin(p1).await.unwrap();
-        manager.load_plugin(p2).await.unwrap();
+        manager.load_plugin(p1).await.expect("should succeed");
+        manager.load_plugin(p2).await.expect("should succeed");
 
         let err = manager.load_plugin(p3).await.unwrap_err();
         assert!(matches!(err, PluginError::ConfigurationError(_)));
@@ -457,7 +463,7 @@ mod tests {
             vec!["read".to_string(), "write".to_string()],
         ));
 
-        manager.load_plugin(plugin).await.unwrap();
+        manager.load_plugin(plugin).await.expect("should succeed");
         assert_eq!(manager.list_plugins(), vec!["allowed_plugin"]);
     }
 
@@ -492,7 +498,7 @@ mod tests {
             vec!["filesystem".to_string(), "sudo".to_string()],
         ));
 
-        manager.load_plugin(plugin).await.unwrap();
+        manager.load_plugin(plugin).await.expect("should succeed");
         assert_eq!(manager.list_plugins(), vec!["unsafe_plugin"]);
     }
 
@@ -532,13 +538,13 @@ mod tests {
     async fn test_event_bus_publish_subscribe() {
         let bus = PluginEventBus::new();
 
-        let mut sub = bus.subscribe("events").await.unwrap();
+        let mut sub = bus.subscribe("events").await.expect("should succeed");
 
         bus.publish("events", serde_json::json!({"message": "hello"}))
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let msg = sub.recv().await.unwrap();
+        let msg = sub.recv().await.expect("should succeed");
         assert_eq!(msg.topic, "events");
         assert_eq!(msg.payload, serde_json::json!({"message": "hello"}));
     }
@@ -547,15 +553,15 @@ mod tests {
     async fn test_event_bus_multiple_subscribers() {
         let bus = PluginEventBus::new();
 
-        let mut sub1 = bus.subscribe("topic").await.unwrap();
-        let mut sub2 = bus.subscribe("topic").await.unwrap();
+        let mut sub1 = bus.subscribe("topic").await.expect("should succeed");
+        let mut sub2 = bus.subscribe("topic").await.expect("should succeed");
 
         bus.publish("topic", serde_json::json!({"n": 42}))
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let msg1 = sub1.recv().await.unwrap();
-        let msg2 = sub2.recv().await.unwrap();
+        let msg1 = sub1.recv().await.expect("should succeed");
+        let msg2 = sub2.recv().await.expect("should succeed");
 
         assert_eq!(msg1.payload, serde_json::json!({"n": 42}));
         assert_eq!(msg2.payload, serde_json::json!({"n": 42}));
@@ -565,18 +571,24 @@ mod tests {
     async fn test_event_bus_multiple_topics() {
         let bus = PluginEventBus::new();
 
-        let mut sub_a = bus.subscribe("topic_a").await.unwrap();
-        let mut sub_b = bus.subscribe("topic_b").await.unwrap();
+        let mut sub_a = bus.subscribe("topic_a").await.expect("should succeed");
+        let mut sub_b = bus.subscribe("topic_b").await.expect("should succeed");
 
         bus.publish("topic_a", serde_json::json!("a"))
             .await
-            .unwrap();
+            .expect("should succeed");
         bus.publish("topic_b", serde_json::json!("b"))
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        assert_eq!(sub_a.recv().await.unwrap().payload, serde_json::json!("a"));
-        assert_eq!(sub_b.recv().await.unwrap().payload, serde_json::json!("b"));
+        assert_eq!(
+            sub_a.recv().await.expect("should succeed").payload,
+            serde_json::json!("a")
+        );
+        assert_eq!(
+            sub_b.recv().await.expect("should succeed").payload,
+            serde_json::json!("b")
+        );
     }
 
     #[test]
@@ -594,9 +606,9 @@ mod tests {
             "p1",
             vec!["read".to_string()],
         ));
-        manager.load_plugin(p1).await.unwrap();
+        manager.load_plugin(p1).await.expect("should succeed");
 
-        manager.shutdown().await.unwrap();
+        manager.shutdown().await.expect("should succeed");
 
         assert!(manager.list_plugins().is_empty());
         assert!(manager.get_plugin("p1").is_err());
@@ -605,8 +617,8 @@ mod tests {
     #[tokio::test]
     async fn test_shutdown_idempotent() {
         let manager = UnifiedPluginManager::new(UnifiedManagerConfig::default());
-        manager.shutdown().await.unwrap();
-        manager.shutdown().await.unwrap();
+        manager.shutdown().await.expect("should succeed");
+        manager.shutdown().await.expect("should succeed");
     }
 
     // --- Error paths ---
@@ -625,7 +637,7 @@ mod tests {
         let manager = UnifiedPluginManager::new(UnifiedManagerConfig::default());
 
         let Err(err) = manager.get_plugin("nonexistent") else {
-            panic!("get_plugin should fail for nonexistent plugin")
+            unreachable!("get_plugin should fail for nonexistent plugin")
         };
         assert!(matches!(err, PluginError::PluginNotFound(_)));
         assert!(err.to_string().contains("nonexistent"));
@@ -649,7 +661,7 @@ mod tests {
             vec!["read".to_string()],
         ));
 
-        manager.load_plugin(p1).await.unwrap();
+        manager.load_plugin(p1).await.expect("should succeed");
         let err = manager.load_plugin(p2).await.unwrap_err();
 
         assert!(matches!(err, PluginError::ConfigurationError(_)));

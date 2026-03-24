@@ -93,7 +93,7 @@ mod tests {
         }.boxed()).await;
         
         assert!(result.is_ok(), "Circuit should allow test request in half-open state");
-        assert_eq!(result.unwrap(), 123);
+        assert_eq!(result.expect("should succeed"), 123);
         
         // Run two more successful requests to close the circuit
         for i in 0..2 {
@@ -122,7 +122,7 @@ mod tests {
         }.boxed()).await;
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
+        assert_eq!(result.expect("should succeed"), "success");
     }
     
     #[tokio::test]

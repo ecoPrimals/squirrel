@@ -76,7 +76,7 @@ mod tests {
                 assert!(encryption);
                 assert!(!replication);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -95,7 +95,7 @@ mod tests {
                 assert!(posix_compliance);
                 assert!(!atomic_operations);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -114,7 +114,7 @@ mod tests {
                 assert!(acid_compliance);
                 assert_eq!(query_capabilities.len(), 2);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -133,7 +133,7 @@ mod tests {
                 assert!(ttl_support);
                 assert_eq!(eviction_policies.len(), 2);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -152,7 +152,7 @@ mod tests {
                 assert_eq!(retrieval_time.as_secs(), 3600);
                 assert!(cost_optimization);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -190,7 +190,7 @@ mod tests {
             StorageOperation::Copy { destination } => {
                 assert_eq!(destination, "/backup/file.txt");
             }
-            _ => panic!("Wrong operation type"),
+            _ => unreachable!("Wrong operation type"),
         }
     }
 
@@ -204,7 +204,7 @@ mod tests {
             StorageOperation::Move { destination } => {
                 assert_eq!(destination, "/new/location.txt");
             }
-            _ => panic!("Wrong operation type"),
+            _ => unreachable!("Wrong operation type"),
         }
     }
 
@@ -224,7 +224,7 @@ mod tests {
             StorageOperation::Restore { snapshot_id } => {
                 assert_eq!(snapshot_id, "snap-123");
             }
-            _ => panic!("Wrong operation type"),
+            _ => unreachable!("Wrong operation type"),
         }
     }
 
@@ -331,10 +331,11 @@ mod tests {
             },
         };
 
-        let json = serde_json::to_string(&request).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
         assert!(json.contains("/test.txt"));
 
-        let deserialized: UniversalStorageRequest = serde_json::from_str(&json).unwrap();
+        let deserialized: UniversalStorageRequest =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.object_key, "/test.txt");
         assert!(matches!(deserialized.operation, StorageOperation::Retrieve));
     }
@@ -453,9 +454,10 @@ mod tests {
     #[test]
     fn test_storage_config_serialization() {
         let config = StorageClientConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
 
-        let deserialized: StorageClientConfig = serde_json::from_str(&json).unwrap();
+        let deserialized: StorageClientConfig =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.max_retries, 3);
         assert!(matches!(
             deserialized.data_classification,

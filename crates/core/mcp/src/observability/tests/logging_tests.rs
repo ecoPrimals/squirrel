@@ -76,10 +76,10 @@ fn test_log_record_creation() {
     assert_eq!(record_with_fields.message(), "Log with fields and trace");
     assert_eq!(record_with_fields.level(), LogLevel::Warning);
     assert_eq!(record_with_fields.fields().len(), 2);
-    assert_eq!(record_with_fields.fields().get("user_id").unwrap(), "12345");
-    assert_eq!(record_with_fields.fields().get("request_path").unwrap(), "/api/v1/users");
-    assert_eq!(record_with_fields.trace_id().unwrap(), "trace-abc-123");
-    assert_eq!(record_with_fields.span_id().unwrap(), "span-xyz-789");
+    assert_eq!(record_with_fields.fields().get("user_id").expect("should succeed"), "12345");
+    assert_eq!(record_with_fields.fields().get("request_path").expect("should succeed"), "/api/v1/users");
+    assert_eq!(record_with_fields.trace_id().expect("should succeed"), "trace-abc-123");
+    assert_eq!(record_with_fields.span_id().expect("should succeed"), "span-xyz-789");
 }
 
 /// Test log context creation and field management
@@ -100,15 +100,15 @@ fn test_log_context_creation() {
     
     // Verify fields
     assert_eq!(context_with_fields.fields().len(), 2);
-    assert_eq!(context_with_fields.fields().get("session_id").unwrap(), "session-123");
-    assert_eq!(context_with_fields.fields().get("client_ip").unwrap(), "192.168.1.1");
-    assert_eq!(context_with_fields.trace_id().unwrap(), "trace-456");
-    assert_eq!(context_with_fields.span_id().unwrap(), "span-789");
+    assert_eq!(context_with_fields.fields().get("session_id").expect("should succeed"), "session-123");
+    assert_eq!(context_with_fields.fields().get("client_ip").expect("should succeed"), "192.168.1.1");
+    assert_eq!(context_with_fields.trace_id().expect("should succeed"), "trace-456");
+    assert_eq!(context_with_fields.span_id().expect("should succeed"), "span-789");
     
     // Test cloning
     let cloned_context = context_with_fields.clone();
     assert_eq!(cloned_context.fields().len(), 2);
-    assert_eq!(cloned_context.trace_id().unwrap(), "trace-456");
+    assert_eq!(cloned_context.trace_id().expect("should succeed"), "trace-456");
     
     // Create context by adding fields one by one
     let mut manual_context = LogContext::new();
@@ -143,9 +143,9 @@ fn test_context_nesting() {
     
     // Verify combined fields
     assert_eq!(combined_fields.len(), 3); // tenant_id, environment, request_id
-    assert_eq!(combined_fields.get("tenant_id").unwrap(), "tenant-123");
-    assert_eq!(combined_fields.get("request_id").unwrap(), "req-456");
-    assert_eq!(combined_fields.get("environment").unwrap(), "staging"); // Overridden value
+    assert_eq!(combined_fields.get("tenant_id").expect("should succeed"), "tenant-123");
+    assert_eq!(combined_fields.get("request_id").expect("should succeed"), "req-456");
+    assert_eq!(combined_fields.get("environment").expect("should succeed"), "staging"); // Overridden value
 }
 
 /// Test thread-local context management
@@ -156,36 +156,36 @@ fn test_thread_local_context() {
         .with_field("thread_id", "thread-1")
         .with_trace_id("trace-abc");
     
-    ContextManager::set_context(context).unwrap();
+    ContextManager::set_context(context).expect("should succeed");
     
     // Get the current context
-    let current = ContextManager::current_context().unwrap();
+    let current = ContextManager::current_context().expect("should succeed");
     assert_eq!(current.fields().len(), 1);
-    assert_eq!(current.fields().get("thread_id").unwrap(), "thread-1");
-    assert_eq!(current.trace_id().unwrap(), "trace-abc");
+    assert_eq!(current.fields().get("thread_id").expect("should succeed"), "thread-1");
+    assert_eq!(current.trace_id().expect("should succeed"), "trace-abc");
     
     // Add a field to the context
-    ContextManager::add_field("request_path", "/api/users").unwrap();
+    ContextManager::add_field("request_path", "/api/users").expect("should succeed");
     
     // Verify the field was added
-    let updated = ContextManager::current_context().unwrap();
+    let updated = ContextManager::current_context().expect("should succeed");
     assert_eq!(updated.fields().len(), 2);
-    assert_eq!(updated.fields().get("request_path").unwrap(), "/api/users");
+    assert_eq!(updated.fields().get("request_path").expect("should succeed"), "/api/users");
     
     // Update trace and span IDs
-    ContextManager::set_trace_id("new-trace").unwrap();
-    ContextManager::set_span_id("new-span").unwrap();
+    ContextManager::set_trace_id("new-trace").expect("should succeed");
+    ContextManager::set_span_id("new-span").expect("should succeed");
     
     // Verify updates
-    let with_span = ContextManager::current_context().unwrap();
-    assert_eq!(with_span.trace_id().unwrap(), "new-trace");
-    assert_eq!(with_span.span_id().unwrap(), "new-span");
+    let with_span = ContextManager::current_context().expect("should succeed");
+    assert_eq!(with_span.trace_id().expect("should succeed"), "new-trace");
+    assert_eq!(with_span.span_id().expect("should succeed"), "new-span");
     
     // Clear the context
-    ContextManager::clear_context().unwrap();
+    ContextManager::clear_context().expect("should succeed");
     
     // Verify context is cleared
-    let after_clear = ContextManager::current_context().unwrap();
+    let after_clear = ContextManager::current_context().expect("should succeed");
     assert!(after_clear.fields().is_empty());
     assert!(after_clear.trace_id().is_none());
     assert!(after_clear.span_id().is_none());
@@ -199,7 +199,7 @@ fn test_multi_threaded_context() {
         .with_field("thread", "main")
         .with_trace_id("main-trace");
     
-    ContextManager::set_context(main_context).unwrap();
+    ContextManager::set_context(main_context).expect("should succeed");
     
     // Create a child thread that sets its own context
     let handle = thread::spawn(|| {
@@ -208,24 +208,24 @@ fn test_multi_threaded_context() {
             .with_field("thread", "worker")
             .with_trace_id("worker-trace");
         
-        ContextManager::set_context(thread_context).unwrap();
+        ContextManager::set_context(thread_context).expect("should succeed");
         
         // Verify this thread's context
-        let context = ContextManager::current_context().unwrap();
-        assert_eq!(context.fields().get("thread").unwrap(), "worker");
-        assert_eq!(context.trace_id().unwrap(), "worker-trace");
+        let context = ContextManager::current_context().expect("should succeed");
+        assert_eq!(context.fields().get("thread").expect("should succeed"), "worker");
+        assert_eq!(context.trace_id().expect("should succeed"), "worker-trace");
         
         // Return true to indicate success
         true
     });
     
     // Wait for child thread to complete
-    assert!(handle.join().unwrap());
+    assert!(handle.join().expect("should succeed"));
     
     // Main thread's context should be unchanged
-    let main_after = ContextManager::current_context().unwrap();
-    assert_eq!(main_after.fields().get("thread").unwrap(), "main");
-    assert_eq!(main_after.trace_id().unwrap(), "main-trace");
+    let main_after = ContextManager::current_context().expect("should succeed");
+    assert_eq!(main_after.fields().get("thread").expect("should succeed"), "main");
+    assert_eq!(main_after.trace_id().expect("should succeed"), "main-trace");
 }
 
 /// Test logger initialization and configuration
@@ -257,7 +257,7 @@ fn test_logger_initialization() {
 #[test]
 fn test_log_filtering() {
     let logger = Logger::new();
-    logger.initialize().unwrap();
+    logger.initialize().expect("should succeed");
     
     // Set component-specific log levels
     let mut config = LoggerConfig::default();
@@ -268,7 +268,7 @@ fn test_log_filtering() {
     component_levels.insert("quiet_component".to_string(), LogLevel::Critical); // Only Critical for this component
     config.component_levels = component_levels;
     
-    logger.set_config(config).unwrap();
+    logger.set_config(config).expect("should succeed");
     
     // These should pass filtering
     let warning_default = LogRecord::new("Warning msg", LogLevel::Warning, "default_component");
@@ -297,12 +297,12 @@ fn test_log_filtering() {
 #[test]
 fn test_log_record_handling() {
     let logger = Logger::new();
-    logger.initialize().unwrap();
+    logger.initialize().expect("should succeed");
     
     // Set default log level to Debug so all messages pass
     let mut config = LoggerConfig::default();
     config.default_level = LogLevel::Debug;
-    logger.set_config(config).unwrap();
+    logger.set_config(config).expect("should succeed");
     
     // Create a log context
     let context = LogContext::new()
@@ -337,12 +337,12 @@ fn test_log_record_handling() {
 #[test]
 fn test_convenience_logging_methods() {
     let logger = Logger::new();
-    logger.initialize().unwrap();
+    logger.initialize().expect("should succeed");
     
     // Set default log level to Debug
     let mut config = LoggerConfig::default();
     config.default_level = LogLevel::Debug;
-    logger.set_config(config).unwrap();
+    logger.set_config(config).expect("should succeed");
     
     // Create a context
     let context = LogContext::new().with_field("session", "test-session");
@@ -362,7 +362,7 @@ fn test_convenience_logging_methods() {
 #[test]
 fn test_structured_logging() {
     let logger = Logger::new();
-    logger.initialize().unwrap();
+    logger.initialize().expect("should succeed");
     
     // Create a complex set of fields
     let mut fields = HashMap::new();
@@ -401,13 +401,13 @@ fn test_logging_error_handling() {
     assert!(logger.log(record, None).is_ok()); // This is a design choice - the logger doesn't error even if not initialized
     
     // Initialize the logger
-    logger.initialize().unwrap();
+    logger.initialize().expect("should succeed");
     
     // Test component level configuration
-    logger.set_component_level("test-component", LogLevel::Error).unwrap();
+    logger.set_component_level("test-component", LogLevel::Error).expect("should succeed");
     
     // Test setting default level
-    logger.set_default_level(LogLevel::Warning).unwrap();
+    logger.set_default_level(LogLevel::Warning).expect("should succeed");
     
     // Edge case: Empty component or message
     let empty_component = LogRecord::new("Empty component test", LogLevel::Info, "");
@@ -421,7 +421,7 @@ fn test_logging_error_handling() {
 #[test]
 fn test_logging_output_sinks() {
     let logger = Logger::new();
-    logger.initialize().unwrap();
+    logger.initialize().expect("should succeed");
     
     // In a real implementation, these would go to different sinks based on level
     // But in our test we just verify the methods work
@@ -446,7 +446,7 @@ fn test_logging_output_sinks() {
 #[test]
 fn test_logger_shutdown() {
     let logger = Logger::new();
-    logger.initialize().unwrap();
+    logger.initialize().expect("should succeed");
     
     // Log a message
     assert!(logger.info("Pre-shutdown message", "test", None).is_ok());

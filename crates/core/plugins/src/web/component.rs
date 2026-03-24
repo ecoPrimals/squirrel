@@ -215,8 +215,8 @@ mod tests {
         assert!(c.check_permission(&["p1".into()]));
         let open = WebComponent::new(id, "n2".into(), "d".into(), ComponentType::Widget);
         assert!(open.check_permission(&[]));
-        let json = serde_json::to_string(&c).unwrap();
-        let back: WebComponent = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&c).expect("should succeed");
+        let back: WebComponent = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.name, c.name);
         assert_eq!(back.priority, 3);
     }

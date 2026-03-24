@@ -260,7 +260,7 @@ mod tests {
         let registry = CapabilityRegistry::compiled_defaults();
         let cap = registry.find("ai.query");
         assert!(cap.is_some());
-        assert_eq!(cap.unwrap().domain, "ai.inference");
+        assert_eq!(cap.expect("should succeed").domain, "ai.inference");
     }
 
     #[test]

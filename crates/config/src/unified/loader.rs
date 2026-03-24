@@ -423,7 +423,7 @@ mod tests {
     #[test]
     fn test_config_loader_default() {
         let loader = ConfigLoader::new();
-        let config = loader.build().unwrap();
+        let config = loader.build().expect("should succeed");
         assert!(!config.system.instance_id.is_empty());
     }
 
@@ -447,16 +447,20 @@ mod tests {
     fn test_sources_tracking() {
         let mut cfg_loader = ConfigLoader::new();
         cfg_loader.config.security.enabled = false;
-        let resolved = cfg_loader.validate().unwrap().build_with_sources().unwrap();
+        let resolved = cfg_loader
+            .validate()
+            .expect("should succeed")
+            .build_with_sources()
+            .expect("should succeed");
         assert!(!resolved.sources().is_empty());
         assert!(resolved.has_source("secure_defaults"));
     }
 
     #[test]
     fn test_unsupported_format_error() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let config_path = temp_dir.path().join("config.xyz");
-        fs::write(&config_path, "invalid").unwrap();
+        fs::write(&config_path, "invalid").expect("should succeed");
 
         let result = ConfigLoader::new().with_file_if_exists(&config_path);
         let err = result.expect_err("expected UnsupportedFormat error");
@@ -466,9 +470,9 @@ mod tests {
 
     #[test]
     fn test_invalid_toml_parse_error() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let config_path = temp_dir.path().join("config.toml");
-        fs::write(&config_path, "invalid toml [[[[").unwrap();
+        fs::write(&config_path, "invalid toml [[[[").expect("should succeed");
 
         let result = ConfigLoader::new().with_file_if_exists(&config_path);
         let err = result.expect_err("expected ParseError");
@@ -477,9 +481,9 @@ mod tests {
 
     #[test]
     fn test_invalid_json_parse_error() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let config_path = temp_dir.path().join("config.json");
-        fs::write(&config_path, "{ invalid json }").unwrap();
+        fs::write(&config_path, "{ invalid json }").expect("should succeed");
 
         let result = ConfigLoader::new().with_file_if_exists(&config_path);
         let err = result.expect_err("expected ParseError");
@@ -490,7 +494,11 @@ mod tests {
     fn test_loaded_config_into_config() {
         let mut cfg_loader = ConfigLoader::new();
         cfg_loader.config.security.enabled = false;
-        let resolved = cfg_loader.validate().unwrap().build_with_sources().unwrap();
+        let resolved = cfg_loader
+            .validate()
+            .expect("should succeed")
+            .build_with_sources()
+            .expect("should succeed");
         let config = resolved.into_config();
         assert!(!config.system.instance_id.is_empty());
     }
@@ -498,7 +506,7 @@ mod tests {
     #[test]
     fn test_config_loader_default_impl() {
         let loader = ConfigLoader::default();
-        let config = loader.build().unwrap();
+        let config = loader.build().expect("should succeed");
         assert!(!config.system.instance_id.is_empty());
     }
 
@@ -506,8 +514,8 @@ mod tests {
     fn test_with_platform_detection() {
         let result = ConfigLoader::new().with_platform_detection();
         assert!(result.is_ok());
-        let loader = result.unwrap();
-        let config = loader.build().unwrap();
+        let loader = result.expect("should succeed");
+        let config = loader.build().expect("should succeed");
         assert!(
             !config
                 .system
@@ -532,7 +540,10 @@ mod tests {
         cfg_loader.config.security.enabled = false;
         let result = cfg_loader.with_env_prefix("SQUIRREL_");
         assert!(result.is_ok());
-        let resolved = result.unwrap().build_with_sources().unwrap();
+        let resolved = result
+            .expect("should succeed")
+            .build_with_sources()
+            .expect("should succeed");
         assert!(resolved.has_source("env:"));
     }
 
@@ -540,16 +551,16 @@ mod tests {
     fn test_valid_toml_file_loading() {
         // Use round-trip: default config -> TOML -> load, to ensure format is valid
         let default_config = SquirrelUnifiedConfig::default();
-        let toml_content = toml::to_string(&default_config).unwrap();
+        let toml_content = toml::to_string(&default_config).expect("should succeed");
 
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let config_path = temp_dir.path().join("squirrel.toml");
-        fs::write(&config_path, &toml_content).unwrap();
+        fs::write(&config_path, &toml_content).expect("should succeed");
 
         let result = ConfigLoader::new().with_file_if_exists(&config_path);
         assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result);
-        let loader = result.unwrap();
-        let config = loader.build().unwrap();
+        let loader = result.expect("should succeed");
+        let config = loader.build().expect("should succeed");
         assert_eq!(config.system.environment, default_config.system.environment);
         assert_eq!(config.network.http_port, default_config.network.http_port);
     }
@@ -558,15 +569,18 @@ mod tests {
     fn test_valid_json_file_loading() {
         // Use round-trip: default config -> JSON -> load
         let default_config = SquirrelUnifiedConfig::default();
-        let json_content = serde_json::to_string(&default_config).unwrap();
+        let json_content = serde_json::to_string(&default_config).expect("should succeed");
 
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let config_path = temp_dir.path().join("config.json");
-        fs::write(&config_path, &json_content).unwrap();
+        fs::write(&config_path, &json_content).expect("should succeed");
 
         let result = ConfigLoader::new().with_file_if_exists(&config_path);
         assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result);
-        let config = result.unwrap().build().unwrap();
+        let config = result
+            .expect("should succeed")
+            .build()
+            .expect("should succeed");
         assert_eq!(config.system.environment, default_config.system.environment);
         assert_eq!(config.network.http_port, default_config.network.http_port);
     }
@@ -575,15 +589,18 @@ mod tests {
     fn test_valid_yaml_file_loading() {
         // Use round-trip: default config -> YAML -> load
         let default_config = SquirrelUnifiedConfig::default();
-        let yaml_content = serde_yaml_ng::to_string(&default_config).unwrap();
+        let yaml_content = serde_yaml_ng::to_string(&default_config).expect("should succeed");
 
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let config_path = temp_dir.path().join("config.yaml");
-        fs::write(&config_path, &yaml_content).unwrap();
+        fs::write(&config_path, &yaml_content).expect("should succeed");
 
         let result = ConfigLoader::new().with_file_if_exists(&config_path);
         assert!(result.is_ok(), "Expected Ok but got Err: {:?}", result);
-        let config = result.unwrap().build().unwrap();
+        let config = result
+            .expect("should succeed")
+            .build()
+            .expect("should succeed");
         assert_eq!(config.system.environment, default_config.system.environment);
         assert_eq!(config.network.http_port, default_config.network.http_port);
     }
@@ -630,13 +647,13 @@ mod tests {
                 _ => {}
             }
         }
-        let toml = toml::to_string(&config).unwrap(); // default config always serializes
-        fs::write(path, toml).unwrap(); // test helper: temp dir is writable
+        let toml = toml::to_string(&config).expect("should succeed"); // default config always serializes
+        fs::write(path, toml).expect("should succeed"); // test helper: temp dir is writable
     }
 
     #[test]
     fn test_merge_config_non_overlapping_fields() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let file1 = temp_dir.path().join("a.toml");
         write_valid_config(
             &file1,
@@ -661,10 +678,10 @@ mod tests {
         loader.config.security.enabled = false;
         let loader = loader
             .with_file_if_exists(&file1)
-            .unwrap()
+            .expect("should succeed")
             .with_file_if_exists(&file2)
-            .unwrap();
-        let config = loader.build().unwrap();
+            .expect("should succeed");
+        let config = loader.build().expect("should succeed");
 
         assert_eq!(config.system.instance_id, "instance-from-a");
         assert_eq!(config.system.environment, "staging");
@@ -674,7 +691,7 @@ mod tests {
 
     #[test]
     fn test_merge_config_precedence_later_wins() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let file1 = temp_dir.path().join("first.toml");
         write_valid_config(
             &file1,
@@ -698,10 +715,10 @@ mod tests {
         loader.config.security.enabled = false;
         let loader = loader
             .with_file_if_exists(&file1)
-            .unwrap()
+            .expect("should succeed")
             .with_file_if_exists(&file2)
-            .unwrap();
-        let config = loader.build().unwrap();
+            .expect("should succeed");
+        let config = loader.build().expect("should succeed");
 
         assert_eq!(config.system.instance_id, "second-instance");
         assert_eq!(config.system.environment, "production");
@@ -710,14 +727,16 @@ mod tests {
 
     #[test]
     fn test_merge_config_partial_overrides() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let config_path = temp_dir.path().join("partial.toml");
         write_valid_config(&config_path, &[("network.http_port", "3000")]);
 
         let mut loader = ConfigLoader::new();
         loader.config.security.enabled = false;
-        let loader = loader.with_file_if_exists(&config_path).unwrap();
-        let config = loader.build().unwrap();
+        let loader = loader
+            .with_file_if_exists(&config_path)
+            .expect("should succeed");
+        let config = loader.build().expect("should succeed");
 
         assert_eq!(config.network.http_port, 3000);
         assert!(!config.system.instance_id.is_empty());
@@ -726,14 +745,16 @@ mod tests {
 
     #[test]
     fn test_merge_config_with_default() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let config_path = temp_dir.path().join("override.toml");
         write_valid_config(&config_path, &[("system.log_level", "debug")]);
 
         let mut loader = ConfigLoader::new();
         loader.config.security.enabled = false;
-        let loader = loader.with_file_if_exists(&config_path).unwrap();
-        let config = loader.build().unwrap();
+        let loader = loader
+            .with_file_if_exists(&config_path)
+            .expect("should succeed");
+        let config = loader.build().expect("should succeed");
 
         assert_eq!(config.system.log_level, "debug");
         assert!(!config.security.enabled);
@@ -741,7 +762,7 @@ mod tests {
 
     #[test]
     fn test_config_loader_load_integration() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         write_valid_config(
             temp_dir.path().join("squirrel.toml").as_path(),
             &[
@@ -751,8 +772,8 @@ mod tests {
             ],
         );
 
-        let original_cwd = std::env::current_dir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
+        let original_cwd = std::env::current_dir().expect("should succeed");
+        std::env::set_current_dir(temp_dir.path()).expect("should succeed");
 
         let result = temp_env::with_vars(
             [
@@ -765,7 +786,7 @@ mod tests {
             ConfigLoader::load,
         );
 
-        std::env::set_current_dir(&original_cwd).unwrap();
+        std::env::set_current_dir(&original_cwd).expect("should succeed");
 
         let loaded = result.expect("load should succeed");
         assert!(loaded.has_source("file:"));

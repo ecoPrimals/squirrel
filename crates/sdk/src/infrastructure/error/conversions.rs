@@ -14,13 +14,16 @@ impl PluginError {
         let error_obj = js_sys::Object::new();
 
         // Set error type
-        js_sys::Reflect::set(&error_obj, &"type".into(), &self.error_type().into()).unwrap();
+        js_sys::Reflect::set(&error_obj, &"type".into(), &self.error_type().into())
+            .expect("reflect set error type");
 
         // Set error message
-        js_sys::Reflect::set(&error_obj, &"message".into(), &self.to_string().into()).unwrap();
+        js_sys::Reflect::set(&error_obj, &"message".into(), &self.to_string().into())
+            .expect("reflect set error message");
 
         // Set error code
-        js_sys::Reflect::set(&error_obj, &"code".into(), &self.error_code().into()).unwrap();
+        js_sys::Reflect::set(&error_obj, &"code".into(), &self.error_code().into())
+            .expect("reflect set error code");
 
         // Set error category
         js_sys::Reflect::set(
@@ -28,7 +31,7 @@ impl PluginError {
             &"category".into(),
             &self.category().as_str().into(),
         )
-        .unwrap();
+        .expect("reflect set error category");
 
         // Set error severity
         js_sys::Reflect::set(
@@ -36,7 +39,7 @@ impl PluginError {
             &"severity".into(),
             &self.severity().as_str().into(),
         )
-        .unwrap();
+        .expect("reflect set error severity");
 
         // Set recoverable flag
         js_sys::Reflect::set(
@@ -44,7 +47,7 @@ impl PluginError {
             &"recoverable".into(),
             &self.is_recoverable().into(),
         )
-        .unwrap();
+        .expect("reflect set error recoverable");
 
         error_obj.into()
     }
@@ -615,7 +618,7 @@ mod tests {
     fn test_from_poison_errors() {
         let m = std::sync::Mutex::new(());
         let _ = std::panic::catch_unwind(|| {
-            let _g = m.lock().unwrap();
+            let _g = m.lock().expect("lock poisoned");
             std::panic::resume_unwind(Box::new("intentional mutex poison for test"));
         });
         let err: PluginError = m.lock().unwrap_err().into();
@@ -623,7 +626,7 @@ mod tests {
 
         let rw = std::sync::RwLock::new(());
         let _ = std::panic::catch_unwind(|| {
-            let _g = rw.write().unwrap();
+            let _g = rw.write().expect("lock poisoned");
             std::panic::resume_unwind(Box::new("intentional rwlock poison for test"));
         });
         let err_r: PluginError = rw.read().unwrap_err().into();

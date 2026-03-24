@@ -136,10 +136,10 @@ mod tests {
         use serde_json;
 
         let severity = ErrorSeverity::High;
-        let json = serde_json::to_string(&severity).unwrap();
+        let json = serde_json::to_string(&severity).expect("should succeed");
         assert_eq!(json, "\"High\"");
 
-        let deserialized: ErrorSeverity = serde_json::from_str(&json).unwrap();
+        let deserialized: ErrorSeverity = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, severity);
     }
 
@@ -155,8 +155,8 @@ mod tests {
         ];
 
         for severity in severities {
-            let json = serde_json::to_string(&severity).unwrap();
-            let deserialized: ErrorSeverity = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&severity).expect("should succeed");
+            let deserialized: ErrorSeverity = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, severity);
         }
     }

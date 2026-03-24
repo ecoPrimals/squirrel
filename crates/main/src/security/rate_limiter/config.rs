@@ -98,8 +98,8 @@ mod tests {
     #[test]
     fn rate_limit_config_serde_roundtrip() {
         let c = RateLimitConfig::default();
-        let json = serde_json::to_string(&c).unwrap();
-        let back: RateLimitConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&c).expect("should succeed");
+        let back: RateLimitConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.api_requests_per_minute, c.api_requests_per_minute);
         assert_eq!(back.whitelist.len(), c.whitelist.len());
     }

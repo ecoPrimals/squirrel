@@ -395,7 +395,9 @@ mod tests {
         };
         config.audit_logging = true;
 
-        let client = UniversalSecurityClient::new(config).await.unwrap();
+        let client = UniversalSecurityClient::new(config)
+            .await
+            .expect("should succeed");
         assert!(client.is_fallback_enabled());
     }
 
@@ -409,7 +411,9 @@ mod tests {
         };
         config.fallback.fallback_timeout = 1; // Short timeout to trigger fallback
 
-        let client = UniversalSecurityClient::new(config).await.unwrap();
+        let client = UniversalSecurityClient::new(config)
+            .await
+            .expect("should succeed");
 
         let credentials = Credentials::Test {
             service_id: "test-service".to_string(),
@@ -432,7 +436,9 @@ mod tests {
             service_id: "test-service".to_string(),
         };
 
-        let client = UniversalSecurityClient::new(config).await.unwrap();
+        let client = UniversalSecurityClient::new(config)
+            .await
+            .expect("should succeed");
         let (primary_health, fallback_health) = client.get_providers_health().await;
 
         // Primary may succeed or fail (depends on if server is running)
@@ -444,7 +450,7 @@ mod tests {
 
         // Fallback should always be available (local provider)
         assert!(fallback_health.is_some());
-        assert!(fallback_health.unwrap().is_ok());
+        assert!(fallback_health.expect("should succeed").is_ok());
     }
 
     /// Test local provider functionality

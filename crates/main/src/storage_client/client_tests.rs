@@ -225,7 +225,9 @@ mod tests {
         let config = StorageClientConfig::default();
         let client = UniversalStorageClient::new(ecosystem, config, test_context());
         let mut request = serde_json::json!({"operation": "delete", "file_size": 2_000_000u64});
-        let result = client.optimize_storage_request(&mut request).unwrap();
+        let result = client
+            .optimize_storage_request(&mut request)
+            .expect("should succeed");
         assert!(result.get("optimizations_applied").is_some());
     }
 
@@ -239,7 +241,9 @@ mod tests {
             "compression_ratio": 0.25,
             "file_size": 4096u64
         })];
-        client.update_ai_storage_metadata(&patterns).unwrap();
+        client
+            .update_ai_storage_metadata(&patterns)
+            .expect("should succeed");
     }
 
     #[tokio::test]

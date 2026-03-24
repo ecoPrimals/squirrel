@@ -105,7 +105,10 @@ mod tests {
     #[tokio::test]
     async fn test_tool_manager_execute() {
         let manager = ToolManager::new();
-        let result = manager.execute_tool("system.health", "").await.unwrap();
+        let result = manager
+            .execute_tool("system.health", "")
+            .await
+            .expect("should succeed");
         assert!(result.success);
     }
 
@@ -126,7 +129,10 @@ mod tests {
     #[tokio::test]
     async fn test_tool_manager_execute_unknown() {
         let manager = ToolManager::new();
-        let result = manager.execute_tool("unknown.tool", "").await.unwrap();
+        let result = manager
+            .execute_tool("unknown.tool", "")
+            .await
+            .expect("should succeed");
         assert!(!result.success);
         assert!(result.error.is_some());
     }

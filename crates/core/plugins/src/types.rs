@@ -239,8 +239,8 @@ mod tests {
     fn serde_roundtrip<T: Serialize + for<'de> Deserialize<'de> + PartialEq + std::fmt::Debug>(
         value: &T,
     ) {
-        let json = serde_json::to_string(value).unwrap();
-        let decoded: T = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(value).expect("should succeed");
+        let decoded: T = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(value, &decoded);
     }
 

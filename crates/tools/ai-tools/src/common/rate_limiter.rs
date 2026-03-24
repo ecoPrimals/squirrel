@@ -453,7 +453,7 @@ mod tests {
         // This should succeed
         let result = limiter.execute(async { Ok::<_, Error>(42) }).await;
 
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("should succeed"), 42);
 
         // This should fail (bucket full)
         let result = limiter.execute(async { Ok::<_, Error>(43) }).await;

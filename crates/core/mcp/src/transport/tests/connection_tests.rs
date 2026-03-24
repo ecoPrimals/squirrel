@@ -21,14 +21,14 @@ use crate::test_utils::MockSecurityManager;
 // Helper function to create a TCP socket pair (server and client)
 async fn create_socket_pair() -> (TcpStream, TcpStream) {
     // Create a TCP listener on a random port
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("should succeed");
+    let addr = listener.local_addr().expect("should succeed");
     
     // Connect client to server
-    let client_stream = TcpStream::connect(addr).await.unwrap();
+    let client_stream = TcpStream::connect(addr).await.expect("should succeed");
     
     // Accept connection on server side
-    let (server_stream, _) = listener.accept().await.unwrap();
+    let (server_stream, _) = listener.accept().await.expect("should succeed");
     
     (server_stream, client_stream)
 }
@@ -41,13 +41,13 @@ async fn test_connection_creation() {
     // Create connection
     let connection = Connection::new(
         server_stream,
-        server_stream.peer_addr().unwrap(),
+        server_stream.peer_addr().expect("should succeed"),
     );
     
     // Verify connection properties
     assert!(!connection.id.is_empty());
     assert_eq!(connection.state, ConnectionState::New);
-    assert_eq!(connection.remote_addr, server_stream.peer_addr().unwrap());
+    assert_eq!(connection.remote_addr, server_stream.peer_addr().expect("should succeed"));
     
     // Check timestamps
     let now = chrono::Utc::now();
@@ -63,7 +63,7 @@ async fn test_connection_state_transitions() {
     // Create connection
     let mut connection = Connection::new(
         server_stream,
-        server_stream.peer_addr().unwrap(),
+        server_stream.peer_addr().expect("should succeed"),
     );
     
     // Check initial state
@@ -91,7 +91,7 @@ async fn test_connection_activity_tracking() {
     // Create connection
     let mut connection = Connection::new(
         server_stream,
-        server_stream.peer_addr().unwrap(),
+        server_stream.peer_addr().expect("should succeed"),
     );
     
     // Get initial last_activity time
@@ -127,34 +127,34 @@ async fn test_connection_in_transport() {
     let transport = Arc::new(Transport::with_security_manager(
         config.clone(),
         security_manager.clone()
-    ).await.unwrap());
+    ).await.expect("should succeed"));
     
     // Start transport in background
     let transport_clone = transport.clone();
     let handle = tokio::spawn(async move {
-        transport_clone.start().await.unwrap();
+        transport_clone.start().await.expect("should succeed");
     });
     
     // Wait a bit for transport to start
     tokio::time::sleep(Duration::from_millis(100)).await;
     
     // Get the assigned port
-    let port = transport.get_port().await.unwrap();
+    let port = transport.get_port().await.expect("should succeed");
     
     // Connect multiple clients
-    let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).unwrap();
-    let client1 = TcpStream::connect(addr).await.unwrap();
-    let client2 = TcpStream::connect(addr).await.unwrap();
+    let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).expect("should succeed");
+    let client1 = TcpStream::connect(addr).await.expect("should succeed");
+    let client2 = TcpStream::connect(addr).await.expect("should succeed");
     
     // Wait for connections to be established
     tokio::time::sleep(Duration::from_millis(100)).await;
     
     // Verify connections were created and tracked
-    let active_connections = transport.get_active_connections().await.unwrap();
+    let active_connections = transport.get_active_connections().await.expect("should succeed");
     assert_eq!(active_connections, 2);
     
     // Get connection details
-    let connections = transport.get_connection_states().await.unwrap();
+    let connections = transport.get_connection_states().await.expect("should succeed");
     assert_eq!(connections.len(), 2);
     
     // Verify connection states
@@ -170,12 +170,12 @@ async fn test_connection_in_transport() {
     tokio::time::sleep(Duration::from_millis(200)).await;
     
     // Verify connection count decreased
-    let active_connections = transport.get_active_connections().await.unwrap();
+    let active_connections = transport.get_active_connections().await.expect("should succeed");
     assert_eq!(active_connections, 1);
     
     // Cleanup
     drop(client2);
-    transport.shutdown().await.unwrap();
+    transport.shutdown().await.expect("should succeed");
     handle.abort();
 }
 
@@ -200,39 +200,39 @@ async fn test_connection_idle_timeout() {
     let transport = Arc::new(Transport::with_security_manager(
         config.clone(),
         security_manager.clone()
-    ).await.unwrap());
+    ).await.expect("should succeed"));
     
     // Start transport in background
     let transport_clone = transport.clone();
     let handle = tokio::spawn(async move {
-        transport_clone.start().await.unwrap();
+        transport_clone.start().await.expect("should succeed");
     });
     
     // Wait a bit for transport to start
     tokio::time::sleep(Duration::from_millis(100)).await;
     
     // Get the assigned port
-    let port = transport.get_port().await.unwrap();
+    let port = transport.get_port().await.expect("should succeed");
     
     // Connect client
-    let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).unwrap();
-    let _client = TcpStream::connect(addr).await.unwrap();
+    let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).expect("should succeed");
+    let _client = TcpStream::connect(addr).await.expect("should succeed");
     
     // Wait for connection to be established
     tokio::time::sleep(Duration::from_millis(100)).await;
     
     // Verify connection was created
-    let active_connections = transport.get_active_connections().await.unwrap();
+    let active_connections = transport.get_active_connections().await.expect("should succeed");
     assert_eq!(active_connections, 1);
     
     // Wait for connection to time out (a bit more than the idle timeout)
     tokio::time::sleep(Duration::from_secs(2)).await;
     
     // Verify connection was closed due to idle timeout
-    let active_connections = transport.get_active_connections().await.unwrap();
+    let active_connections = transport.get_active_connections().await.expect("should succeed");
     assert_eq!(active_connections, 0);
     
     // Cleanup
-    transport.shutdown().await.unwrap();
+    transport.shutdown().await.expect("should succeed");
     handle.abort();
 } 

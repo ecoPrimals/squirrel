@@ -180,7 +180,10 @@ mod direct_tests {
             "socket_path": "/tmp/peer-a.sock",
             "tools": ["a.tool", "b.tool"]
         }));
-        let v = server.handle_announce_capabilities(params).await.unwrap();
+        let v = server
+            .handle_announce_capabilities(params)
+            .await
+            .expect("should succeed");
         assert_eq!(
             v.get("tools_registered")
                 .and_then(serde_json::Value::as_u64),

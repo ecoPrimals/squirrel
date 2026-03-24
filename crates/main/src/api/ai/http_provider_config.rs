@@ -161,11 +161,14 @@ mod tests {
     fn test_find_provider_config() {
         let anthropic = find_provider_config("anthropic");
         assert!(anthropic.is_some());
-        assert_eq!(anthropic.unwrap().provider_name, "Anthropic");
+        assert_eq!(
+            anthropic.expect("should succeed").provider_name,
+            "Anthropic"
+        );
 
         let openai = find_provider_config("openai");
         assert!(openai.is_some());
-        assert_eq!(openai.unwrap().provider_name, "OpenAI");
+        assert_eq!(openai.expect("should succeed").provider_name, "OpenAI");
 
         let unknown = find_provider_config("unknown");
         assert!(unknown.is_none());

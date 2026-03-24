@@ -42,7 +42,7 @@ mod tests {
         let node_id = Uuid::new_v4();
         let manager = DefaultConsensusManager::new(config, node_id);
 
-        let state = manager.get_state().await.unwrap();
+        let state = manager.get_state().await.expect("should succeed");
         assert_eq!(state.round, 0);
         assert!(state.active_proposals.is_empty());
     }
@@ -84,7 +84,7 @@ mod tests {
             FederationError::ConsensusFailure(msg) => {
                 assert!(msg.contains("Insufficient nodes"));
             }
-            _ => panic!("Expected ConsensusFailure error"),
+            _ => unreachable!("Expected ConsensusFailure error"),
         }
     }
 
@@ -105,7 +105,7 @@ mod tests {
             FederationError::ExecutionNotFound(id) => {
                 assert_eq!(id, proposal_id);
             }
-            _ => panic!("Expected ExecutionNotFound error"),
+            _ => unreachable!("Expected ExecutionNotFound error"),
         }
     }
 
@@ -115,7 +115,7 @@ mod tests {
         let node_id = Uuid::new_v4();
         let manager = DefaultConsensusManager::new(config, node_id);
 
-        let state = manager.get_state().await.unwrap();
+        let state = manager.get_state().await.expect("should succeed");
         assert_eq!(state.round, 0);
         assert!(state.active_proposals.is_empty());
         assert!(state.recent_results.is_empty());
@@ -285,17 +285,17 @@ mod tests {
         // Ensure they're different
         match vote_for {
             Vote::For => {}
-            _ => panic!("Expected Vote::For"),
+            _ => unreachable!("Expected Vote::For"),
         }
 
         match vote_against {
             Vote::Against => {}
-            _ => panic!("Expected Vote::Against"),
+            _ => unreachable!("Expected Vote::Against"),
         }
 
         match vote_abstain {
             Vote::Abstain => {}
-            _ => panic!("Expected Vote::Abstain"),
+            _ => unreachable!("Expected Vote::Abstain"),
         }
     }
 
@@ -326,17 +326,17 @@ mod tests {
         // Ensure they're distinct
         match follower {
             ConsensusNodeState::Follower => {}
-            _ => panic!("Expected Follower"),
+            _ => unreachable!("Expected Follower"),
         }
 
         match candidate {
             ConsensusNodeState::Candidate => {}
-            _ => panic!("Expected Candidate"),
+            _ => unreachable!("Expected Candidate"),
         }
 
         match leader {
             ConsensusNodeState::Leader => {}
-            _ => panic!("Expected Leader"),
+            _ => unreachable!("Expected Leader"),
         }
     }
 

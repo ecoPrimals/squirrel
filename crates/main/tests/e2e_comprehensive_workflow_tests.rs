@@ -172,7 +172,7 @@ mod tests {
         }
         let mut ids = vec![];
         for handle in handles {
-            ids.push(handle.await.unwrap());
+            ids.push(handle.await.expect("should succeed"));
         }
         // All should be unique
         for i in 0..ids.len() {
@@ -231,7 +231,7 @@ mod tests {
         // All must complete within 10 seconds (no deadlock)
         let result = timeout(Duration::from_secs(10), async {
             for handle in handles {
-                handle.await.unwrap();
+                handle.await.expect("should succeed");
             }
         })
         .await;

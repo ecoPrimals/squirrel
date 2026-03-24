@@ -53,7 +53,7 @@ mod tests {
             handles.push(handle);
         }
         for handle in handles {
-            handle.join().unwrap();
+            handle.join().expect("should succeed");
         }
         let concurrent_duration = start.elapsed();
 

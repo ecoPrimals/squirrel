@@ -163,21 +163,21 @@ impl MockApiConnection {
     }
     
     pub fn connect(&self) {
-        let mut conn = self.connected.lock().unwrap();
+        let mut conn = self.connected.lock().expect("should succeed");
         *conn = true;
     }
     
     pub fn disconnect(&self) {
-        let mut conn = self.connected.lock().unwrap();
+        let mut conn = self.connected.lock().expect("should succeed");
         *conn = false;
     }
     
     pub fn is_connected(&self) -> bool {
-        *self.connected.lock().unwrap()
+        *self.connected.lock().expect("should succeed")
     }
     
     pub fn get_cached_data(&self, key: &str) -> Option<String> {
-        let cache = self.data_cache.lock().unwrap();
+        let cache = self.data_cache.lock().expect("should succeed");
         cache.get(key).cloned()
     }
 }
@@ -208,7 +208,7 @@ pub async fn assert_circuit_tripped(circuit_breaker: &CircuitBreaker) {
 
 /// Assert that an operation counter matches expected value
 pub fn assert_operation_count(counter: &Arc<Mutex<i32>>, expected: i32, context: &str) {
-    let count = *counter.lock().unwrap();
+    let count = *counter.lock().expect("should succeed");
     assert_eq!(count, expected, "{}: Expected {} operations, got {}", context, expected, count);
 }
 

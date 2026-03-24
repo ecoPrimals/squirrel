@@ -338,7 +338,11 @@ mod tests {
         health.add_component("auth".to_string(), ComponentHealth::default());
         health.update_component_status("auth", HealthStatus::Warning);
         assert_eq!(
-            health.component_health.get("auth").unwrap().status,
+            health
+                .component_health
+                .get("auth")
+                .expect("should succeed")
+                .status,
             HealthStatus::Warning
         );
         assert_eq!(health.overall_status, HealthStatus::Warning);

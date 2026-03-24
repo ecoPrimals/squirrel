@@ -79,8 +79,8 @@ mod tests {
                 m
             }),
         };
-        let json = serde_json::to_string(&response).unwrap();
-        let deserialized: PrimalResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&response).expect("should succeed");
+        let deserialized: PrimalResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.request_id, response.request_id);
         assert!(deserialized.success);
         assert!(deserialized.error_message.is_none());
@@ -97,10 +97,13 @@ mod tests {
             error_message: Some("key not found".to_string()),
             metadata: None,
         };
-        let json = serde_json::to_string(&response).unwrap();
-        let deserialized: PrimalResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&response).expect("should succeed");
+        let deserialized: PrimalResponse = serde_json::from_str(&json).expect("should succeed");
         assert!(!deserialized.success);
-        assert_eq!(deserialized.error_message.unwrap(), "key not found");
+        assert_eq!(
+            deserialized.error_message.expect("should succeed"),
+            "key not found"
+        );
     }
 
     #[test]
@@ -120,8 +123,9 @@ mod tests {
             PrimalResponseType::Custom("stream".to_string()),
         ];
         for rt in types {
-            let json = serde_json::to_string(&rt).unwrap();
-            let deserialized: PrimalResponseType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&rt).expect("should succeed");
+            let deserialized: PrimalResponseType =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, rt);
         }
     }

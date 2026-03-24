@@ -366,8 +366,8 @@ mod tests {
     #[test]
     fn test_config_serde_roundtrip() {
         let config = SelfHealingConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: SelfHealingConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: SelfHealingConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(
             deserialized.check_interval_seconds,
             config.check_interval_seconds
@@ -391,7 +391,9 @@ mod tests {
         manager.register_component("test_component");
 
         assert_eq!(manager.component_health.len(), 1);
-        let health = manager.get_component_health("test_component").unwrap();
+        let health = manager
+            .get_component_health("test_component")
+            .expect("should succeed");
         assert_eq!(health.component_id, "test_component");
         assert_eq!(health.status, HealthStatus::Unknown);
         assert_eq!(health.failure_count, 0);
@@ -424,7 +426,9 @@ mod tests {
 
         manager.update_component_health("test", HealthStatus::Healthy, "All good");
 
-        let health = manager.get_component_health("test").unwrap();
+        let health = manager
+            .get_component_health("test")
+            .expect("should succeed");
         assert_eq!(health.status, HealthStatus::Healthy);
         assert_eq!(health.message, "All good");
         assert_eq!(health.failure_count, 0);
@@ -437,7 +441,9 @@ mod tests {
 
         manager.update_component_health("test", HealthStatus::Failed, "Connection lost");
 
-        let health = manager.get_component_health("test").unwrap();
+        let health = manager
+            .get_component_health("test")
+            .expect("should succeed");
         assert_eq!(health.status, HealthStatus::Failed);
         assert_eq!(health.failure_count, 1);
     }
@@ -451,7 +457,9 @@ mod tests {
         manager.update_component_health("test", HealthStatus::Failed, "Fail 2");
         manager.update_component_health("test", HealthStatus::Failed, "Fail 3");
 
-        let health = manager.get_component_health("test").unwrap();
+        let health = manager
+            .get_component_health("test")
+            .expect("should succeed");
         assert_eq!(health.failure_count, 3);
     }
 
@@ -463,13 +471,19 @@ mod tests {
         manager.update_component_health("test", HealthStatus::Failed, "Fail");
         manager.update_component_health("test", HealthStatus::Failed, "Fail");
         assert_eq!(
-            manager.get_component_health("test").unwrap().failure_count,
+            manager
+                .get_component_health("test")
+                .expect("should succeed")
+                .failure_count,
             2
         );
 
         manager.update_component_health("test", HealthStatus::Healthy, "Recovered");
         assert_eq!(
-            manager.get_component_health("test").unwrap().failure_count,
+            manager
+                .get_component_health("test")
+                .expect("should succeed")
+                .failure_count,
             0
         );
     }
@@ -481,13 +495,19 @@ mod tests {
 
         manager.update_component_health("test", HealthStatus::Failed, "Fail");
         assert_eq!(
-            manager.get_component_health("test").unwrap().failure_count,
+            manager
+                .get_component_health("test")
+                .expect("should succeed")
+                .failure_count,
             1
         );
 
         manager.update_component_health("test", HealthStatus::Degraded, "Degraded");
         assert_eq!(
-            manager.get_component_health("test").unwrap().failure_count,
+            manager
+                .get_component_health("test")
+                .expect("should succeed")
+                .failure_count,
             1
         );
     }
@@ -665,16 +685,20 @@ mod tests {
         assert!(result.is_ok());
 
         // All simulated health checks return true → healthy
-        let health = manager.get_component_health("ai_coordinator").unwrap();
+        let health = manager
+            .get_component_health("ai_coordinator")
+            .expect("should succeed");
         assert_eq!(health.status, HealthStatus::Healthy);
 
-        let health = manager.get_component_health("security_adapter").unwrap();
+        let health = manager
+            .get_component_health("security_adapter")
+            .expect("should succeed");
         assert_eq!(health.status, HealthStatus::Healthy);
     }
 
     #[tokio::test]
     async fn test_initialize_self_healing() {
-        let manager = initialize_self_healing().await.unwrap();
+        let manager = initialize_self_healing().await.expect("should succeed");
         assert_eq!(manager.component_health.len(), 5);
         assert!(manager.get_component_health("ai_coordinator").is_some());
         assert!(manager.get_component_health("security_adapter").is_some());
@@ -696,8 +720,8 @@ mod tests {
             HealthStatus::Unknown,
         ];
         for status in statuses {
-            let json = serde_json::to_string(&status).unwrap();
-            let deserialized: HealthStatus = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&status).expect("should succeed");
+            let deserialized: HealthStatus = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, status);
         }
     }
@@ -711,8 +735,8 @@ mod tests {
             message: "All good".to_string(),
             failure_count: 0,
         };
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: ComponentHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: ComponentHealth = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.component_id, "test");
         assert_eq!(deserialized.status, HealthStatus::Healthy);
         assert_eq!(deserialized.failure_count, 0);
@@ -728,8 +752,9 @@ mod tests {
             failed_count: 0,
             last_update: chrono::Utc::now(),
         };
-        let json = serde_json::to_string(&summary).unwrap();
-        let deserialized: SystemHealthSummary = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&summary).expect("should succeed");
+        let deserialized: SystemHealthSummary =
+            serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.overall_healthy);
         assert_eq!(deserialized.total_components, 5);
         assert_eq!(deserialized.healthy_count, 4);
@@ -751,7 +776,9 @@ mod tests {
         manager.update_component_health("test", HealthStatus::Failed, "Fail 3");
 
         // Verify the failure count is tracked
-        let health = manager.get_component_health("test").unwrap();
+        let health = manager
+            .get_component_health("test")
+            .expect("should succeed");
         assert_eq!(health.failure_count, 3);
     }
 
@@ -769,7 +796,9 @@ mod tests {
         manager.update_component_health("test", HealthStatus::Failed, "Fail");
         manager.update_component_health("test", HealthStatus::Failed, "Fail again");
 
-        let health = manager.get_component_health("test").unwrap();
+        let health = manager
+            .get_component_health("test")
+            .expect("should succeed");
         assert_eq!(health.failure_count, 2);
     }
 }

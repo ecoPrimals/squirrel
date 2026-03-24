@@ -259,8 +259,8 @@ mod proptest_tests {
                 agent_id: "agent".to_string(),
                 agent_type: 0,
             };
-            let json = serde_json::to_string(&req).unwrap();
-            let deserialized: CreateTaskRequest = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&req).expect("should succeed");
+            let deserialized: CreateTaskRequest = serde_json::from_str(&json).expect("should succeed");
             prop_assert_eq!(deserialized.name, name);
             prop_assert_eq!(deserialized.description, description);
         }
@@ -290,8 +290,8 @@ mod proptest_tests {
                 progress_message: String::new(),
                 metadata: vec![],
             };
-            let json = serde_json::to_string(&task).unwrap();
-            let deserialized: JsonTask = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&task).expect("should succeed");
+            let deserialized: JsonTask = serde_json::from_str(&json).expect("should succeed");
             prop_assert_eq!(deserialized.id, id);
             prop_assert_eq!(deserialized.name, name);
         }

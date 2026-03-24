@@ -6,11 +6,11 @@ use super::*;
 #[test]
 fn test_environment_from_string() {
     assert_eq!(
-        Environment::from_str("development").unwrap(),
+        Environment::from_str("development").expect("should succeed"),
         Environment::Development
     );
     assert_eq!(
-        Environment::from_str("production").unwrap(),
+        Environment::from_str("production").expect("should succeed"),
         Environment::Production
     );
     assert!(Environment::from_str("invalid").is_err());
@@ -19,16 +19,19 @@ fn test_environment_from_string() {
 #[test]
 fn test_environment_from_str_all_variants() {
     assert_eq!(
-        Environment::from_str("dev").unwrap(),
+        Environment::from_str("dev").expect("should succeed"),
         Environment::Development
     );
-    assert_eq!(Environment::from_str("test").unwrap(), Environment::Testing);
     assert_eq!(
-        Environment::from_str("staging").unwrap(),
+        Environment::from_str("test").expect("should succeed"),
+        Environment::Testing
+    );
+    assert_eq!(
+        Environment::from_str("staging").expect("should succeed"),
         Environment::Staging
     );
     assert_eq!(
-        Environment::from_str("prod").unwrap(),
+        Environment::from_str("prod").expect("should succeed"),
         Environment::Production
     );
 }

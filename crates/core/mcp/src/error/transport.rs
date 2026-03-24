@@ -264,7 +264,7 @@ mod tests {
         if let TransportError::Timeout(msg) = te {
             assert_eq!(msg, "inner");
         } else {
-            panic!("expected Timeout");
+            unreachable!("expected Timeout");
         }
     }
 

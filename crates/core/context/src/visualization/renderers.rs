@@ -198,7 +198,7 @@ mod tests {
         let data = json!({"key": "value", "count": 42});
         let result = renderer.render(&data).await;
         assert!(result.is_ok());
-        let output = result.unwrap();
+        let output = result.expect("should succeed");
         assert!(output.contains("key"));
         assert!(output.contains("value"));
         assert!(output.contains("42"));
@@ -209,7 +209,7 @@ mod tests {
         let renderer = JsonRenderer::new();
         let result = renderer.render(&json!(null)).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "null");
+        assert_eq!(result.expect("should succeed"), "null");
     }
 
     // TerminalRenderer tests
@@ -230,7 +230,7 @@ mod tests {
         let renderer = TerminalRenderer::new();
         let result = renderer.render(&json!(null)).await;
         assert!(result.is_ok());
-        assert!(result.unwrap().contains("null"));
+        assert!(result.expect("should succeed").contains("null"));
     }
 
     #[tokio::test]
@@ -238,7 +238,7 @@ mod tests {
         let renderer = TerminalRenderer::new();
         let result = renderer.render(&json!(true)).await;
         assert!(result.is_ok());
-        assert!(result.unwrap().contains("true"));
+        assert!(result.expect("should succeed").contains("true"));
     }
 
     #[tokio::test]
@@ -246,7 +246,7 @@ mod tests {
         let renderer = TerminalRenderer::new();
         let result = renderer.render(&json!(42)).await;
         assert!(result.is_ok());
-        assert!(result.unwrap().contains("42"));
+        assert!(result.expect("should succeed").contains("42"));
     }
 
     #[tokio::test]
@@ -254,7 +254,7 @@ mod tests {
         let renderer = TerminalRenderer::new();
         let result = renderer.render(&json!("hello")).await;
         assert!(result.is_ok());
-        assert!(result.unwrap().contains("hello"));
+        assert!(result.expect("should succeed").contains("hello"));
     }
 
     #[tokio::test]
@@ -262,7 +262,7 @@ mod tests {
         let renderer = TerminalRenderer::new();
         let result = renderer.render(&json!([1, 2, 3])).await;
         assert!(result.is_ok());
-        let output = result.unwrap();
+        let output = result.expect("should succeed");
         assert!(output.contains("["));
         assert!(output.contains("]"));
         assert!(output.contains("1"));
@@ -274,7 +274,7 @@ mod tests {
         let data = json!({"name": "test", "value": 42});
         let result = renderer.render(&data).await;
         assert!(result.is_ok());
-        let output = result.unwrap();
+        let output = result.expect("should succeed");
         assert!(output.contains("name"));
         assert!(output.contains("test"));
     }
@@ -298,7 +298,7 @@ mod tests {
         let data = json!({"key": "value"});
         let result = renderer.render(&data).await;
         assert!(result.is_ok());
-        let output = result.unwrap();
+        let output = result.expect("should succeed");
         assert!(output.contains("<!DOCTYPE html>"));
         assert!(output.contains("<html>"));
         assert!(output.contains("</html>"));
@@ -324,7 +324,7 @@ mod tests {
         let data = json!({"key": "value"});
         let result = renderer.render(&data).await;
         assert!(result.is_ok());
-        let output = result.unwrap();
+        let output = result.expect("should succeed");
         assert!(output.contains("# Visualization Data"));
         assert!(output.contains("```json"));
         assert!(output.contains("key"));

@@ -2,9 +2,8 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![expect(
-    clippy::unwrap_used,
     clippy::expect_used,
-    reason = "Test code: explicit unwrap/expect and local lint noise"
+    reason = "Test code: explicit expect and local lint noise"
 )]
 //! Property-based round-trip tests for serialization invariants.
 //!
@@ -346,8 +345,8 @@ prop_compose! {
 proptest! {
     #[test]
     fn jsonrpc_request_is_valid_json(req in arb_jsonrpc_request()) {
-        let json_str = serde_json::to_string(&req).unwrap();
-        let decoded: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        let json_str = serde_json::to_string(&req).expect("should succeed");
+        let decoded: serde_json::Value = serde_json::from_str(&json_str).expect("should succeed");
         assert_eq!(decoded["jsonrpc"], "2.0");
         assert!(decoded["method"].is_string());
         assert!(decoded["id"].is_number());
@@ -355,8 +354,8 @@ proptest! {
 
     #[test]
     fn jsonrpc_success_response_roundtrip(resp in arb_jsonrpc_success_response()) {
-        let json_str = serde_json::to_string(&resp).unwrap();
-        let decoded: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        let json_str = serde_json::to_string(&resp).expect("should succeed");
+        let decoded: serde_json::Value = serde_json::from_str(&json_str).expect("should succeed");
         assert_eq!(decoded["jsonrpc"], "2.0");
         assert!(decoded["result"].is_object());
         assert!(decoded.get("error").is_none());
@@ -364,7 +363,7 @@ proptest! {
 
     #[test]
     fn jsonrpc_error_response_extractable(resp in arb_jsonrpc_error_response()) {
-        let err = extract_rpc_error(&resp).unwrap();
+        let err = extract_rpc_error(&resp).expect("should succeed");
         assert!(err.code != 0);
         assert!(!err.message.is_empty());
     }
@@ -386,7 +385,7 @@ proptest! {
 
     #[test]
     fn jsonrpc_error_code_in_reserved_range(resp in arb_jsonrpc_error_response()) {
-        let err = extract_rpc_error(&resp).unwrap();
+        let err = extract_rpc_error(&resp).expect("should succeed");
         // All generated codes should be either standard or server range
         assert!(
             err.code <= -32000,

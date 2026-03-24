@@ -485,12 +485,14 @@ mod tests {
     fn production_command_registry_register_list_execute_help_and_stats() {
         let reg = ProductionCommandRegistry::new();
         reg.register_command(Box::new(MockCommand::new("echo", "echo args")))
-            .unwrap();
-        let names = reg.list_commands().unwrap();
+            .expect("should succeed");
+        let names = reg.list_commands().expect("should succeed");
         assert!(names.contains(&"echo".to_string()));
-        let out = reg.execute_command("echo", &[String::from("x")]).unwrap();
+        let out = reg
+            .execute_command("echo", &[String::from("x")])
+            .expect("should succeed");
         assert!(out.contains("echo"));
-        let help = reg.get_command_help("echo").unwrap();
+        let help = reg.get_command_help("echo").expect("should succeed");
         assert!(help.contains("echo"));
         let stats = reg.get_command_stats("echo").expect("stats");
         assert!(stats.total_executions >= 1);
@@ -514,7 +516,7 @@ mod tests {
     #[test]
     fn json_params_to_string_vec_accepts_array_of_primitives() {
         let v = json!(["a", 1, true]);
-        let got = json_params_to_string_vec(&v).unwrap();
+        let got = json_params_to_string_vec(&v).expect("should succeed");
         assert_eq!(got, vec!["a", "1", "true"]);
     }
 
@@ -543,7 +545,7 @@ mod tests {
     fn help_command_parser_name_and_execute_general_help() {
         let h = HelpCommand;
         assert_eq!(h.parser().get_name(), "help");
-        let out = h.execute(&[]).unwrap();
+        let out = h.execute(&[]).expect("should succeed");
         assert!(out.contains("Available commands"));
     }
 
@@ -555,9 +557,9 @@ mod tests {
         assert!(TaskServiceImpl::validate_task_id("tid").is_ok());
         assert!(TaskServiceImpl::validate_agent_id("").is_err());
         assert!(TaskServiceImpl::validate_agent_id("aid").is_ok());
-        let cmds = svc.list_available_commands().unwrap();
+        let cmds = svc.list_available_commands().expect("should succeed");
         assert!(cmds.iter().any(|c| c == "help"));
-        let help = svc.get_command_help("help").unwrap();
+        let help = svc.get_command_help("help").expect("should succeed");
         assert!(!help.is_empty());
         let exec = svc
             .execute_command("help", HashMap::new())

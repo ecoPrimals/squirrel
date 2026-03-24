@@ -69,15 +69,15 @@ storage = false
 
     #[tokio::test]
     async fn test_load_plugins_from_empty_directory() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let manager = DefaultPluginManager::new();
 
         let result = manager
-            .load_plugins(temp_dir.path().to_str().unwrap())
+            .load_plugins(temp_dir.path().to_str().expect("should succeed"))
             .await;
 
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         assert_eq!(plugin_ids.len(), 0);
     }
 
@@ -89,149 +89,155 @@ storage = false
 
         // Should return Ok with empty vec (graceful handling)
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 0);
+        assert_eq!(result.expect("should succeed").len(), 0);
     }
 
     #[tokio::test]
     async fn test_load_single_plugin_toml() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let plugin_dir = temp_dir.path().join("test-plugin");
-        fs::create_dir(&plugin_dir).unwrap();
+        fs::create_dir(&plugin_dir).expect("should succeed");
 
-        create_test_manifest_toml(&plugin_dir, "test-plugin", "1.0.0").unwrap();
+        create_test_manifest_toml(&plugin_dir, "test-plugin", "1.0.0").expect("should succeed");
 
         let manager = DefaultPluginManager::new();
         let result = manager
-            .load_plugins(temp_dir.path().to_str().unwrap())
+            .load_plugins(temp_dir.path().to_str().expect("should succeed"))
             .await;
 
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         assert_eq!(plugin_ids.len(), 1);
     }
 
     #[tokio::test]
     async fn test_load_single_plugin_json() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let plugin_dir = temp_dir.path().join("test-plugin-json");
-        fs::create_dir(&plugin_dir).unwrap();
+        fs::create_dir(&plugin_dir).expect("should succeed");
 
-        create_test_manifest_json(&plugin_dir, "test-plugin-json", "2.0.0").unwrap();
+        create_test_manifest_json(&plugin_dir, "test-plugin-json", "2.0.0")
+            .expect("should succeed");
 
         let manager = DefaultPluginManager::new();
         let result = manager
-            .load_plugins(temp_dir.path().to_str().unwrap())
+            .load_plugins(temp_dir.path().to_str().expect("should succeed"))
             .await;
 
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         assert_eq!(plugin_ids.len(), 1);
     }
 
     #[tokio::test]
     async fn test_load_multiple_plugins() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
 
         // Create multiple plugin directories
         for i in 1..=5 {
             let plugin_dir = temp_dir.path().join(format!("plugin-{i}"));
-            fs::create_dir(&plugin_dir).unwrap();
+            fs::create_dir(&plugin_dir).expect("should succeed");
 
             if i % 2 == 0 {
-                create_test_manifest_toml(&plugin_dir, &format!("plugin-{i}"), "1.0.0").unwrap();
+                create_test_manifest_toml(&plugin_dir, &format!("plugin-{i}"), "1.0.0")
+                    .expect("should succeed");
             } else {
-                create_test_manifest_json(&plugin_dir, &format!("plugin-{i}"), "1.0.0").unwrap();
+                create_test_manifest_json(&plugin_dir, &format!("plugin-{i}"), "1.0.0")
+                    .expect("should succeed");
             }
         }
 
         let manager = DefaultPluginManager::new();
         let result = manager
-            .load_plugins(temp_dir.path().to_str().unwrap())
+            .load_plugins(temp_dir.path().to_str().expect("should succeed"))
             .await;
 
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         assert_eq!(plugin_ids.len(), 5);
     }
 
     #[tokio::test]
     async fn test_load_plugins_with_invalid_manifest() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let plugin_dir = temp_dir.path().join("invalid-plugin");
-        fs::create_dir(&plugin_dir).unwrap();
+        fs::create_dir(&plugin_dir).expect("should succeed");
 
         // Create invalid TOML
-        fs::write(plugin_dir.join("plugin.toml"), "invalid toml content {{{").unwrap();
+        fs::write(plugin_dir.join("plugin.toml"), "invalid toml content {{{")
+            .expect("should succeed");
 
         let manager = DefaultPluginManager::new();
         let result = manager
-            .load_plugins(temp_dir.path().to_str().unwrap())
+            .load_plugins(temp_dir.path().to_str().expect("should succeed"))
             .await;
 
         // Should succeed but skip invalid plugins (logged as warnings)
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         assert_eq!(plugin_ids.len(), 0);
     }
 
     #[tokio::test]
     async fn test_load_plugins_mixed_valid_invalid() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
 
         // Valid plugin 1
         let plugin_dir_1 = temp_dir.path().join("valid-plugin-1");
-        fs::create_dir(&plugin_dir_1).unwrap();
-        create_test_manifest_toml(&plugin_dir_1, "valid-1", "1.0.0").unwrap();
+        fs::create_dir(&plugin_dir_1).expect("should succeed");
+        create_test_manifest_toml(&plugin_dir_1, "valid-1", "1.0.0").expect("should succeed");
 
         // Invalid plugin
         let plugin_dir_2 = temp_dir.path().join("invalid-plugin");
-        fs::create_dir(&plugin_dir_2).unwrap();
-        fs::write(plugin_dir_2.join("plugin.toml"), "bad content").unwrap();
+        fs::create_dir(&plugin_dir_2).expect("should succeed");
+        fs::write(plugin_dir_2.join("plugin.toml"), "bad content").expect("should succeed");
 
         // Valid plugin 2
         let plugin_dir_3 = temp_dir.path().join("valid-plugin-2");
-        fs::create_dir(&plugin_dir_3).unwrap();
-        create_test_manifest_json(&plugin_dir_3, "valid-2", "2.0.0").unwrap();
+        fs::create_dir(&plugin_dir_3).expect("should succeed");
+        create_test_manifest_json(&plugin_dir_3, "valid-2", "2.0.0").expect("should succeed");
 
         let manager = DefaultPluginManager::new();
         let result = manager
-            .load_plugins(temp_dir.path().to_str().unwrap())
+            .load_plugins(temp_dir.path().to_str().expect("should succeed"))
             .await;
 
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         // Should load 2 valid plugins, skip 1 invalid
         assert_eq!(plugin_ids.len(), 2);
     }
 
     #[tokio::test]
     async fn test_load_plugins_no_manifest() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let plugin_dir = temp_dir.path().join("no-manifest-plugin");
-        fs::create_dir(&plugin_dir).unwrap();
+        fs::create_dir(&plugin_dir).expect("should succeed");
 
         // Create directory but no manifest
-        fs::write(plugin_dir.join("readme.txt"), "No manifest here").unwrap();
+        fs::write(plugin_dir.join("readme.txt"), "No manifest here").expect("should succeed");
 
         let manager = DefaultPluginManager::new();
         let result = manager
-            .load_plugins(temp_dir.path().to_str().unwrap())
+            .load_plugins(temp_dir.path().to_str().expect("should succeed"))
             .await;
 
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         // Should skip directories without manifests
         assert_eq!(plugin_ids.len(), 0);
     }
 
     #[tokio::test]
     async fn test_load_plugins_directory_is_file() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let file_path = temp_dir.path().join("not-a-directory.txt");
-        fs::write(&file_path, "This is a file").unwrap();
+        fs::write(&file_path, "This is a file").expect("should succeed");
 
         let manager = DefaultPluginManager::new();
-        let result = manager.load_plugins(file_path.to_str().unwrap()).await;
+        let result = manager
+            .load_plugins(file_path.to_str().expect("should succeed"))
+            .await;
 
         // Should return error since it's not a directory
         assert!(result.is_err());
@@ -239,18 +245,19 @@ storage = false
 
     #[tokio::test]
     async fn test_load_plugins_verify_registration() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let plugin_dir = temp_dir.path().join("registered-plugin");
-        fs::create_dir(&plugin_dir).unwrap();
-        create_test_manifest_toml(&plugin_dir, "registered-plugin", "1.0.0").unwrap();
+        fs::create_dir(&plugin_dir).expect("should succeed");
+        create_test_manifest_toml(&plugin_dir, "registered-plugin", "1.0.0")
+            .expect("should succeed");
 
         let manager = DefaultPluginManager::new();
         let result = manager
-            .load_plugins(temp_dir.path().to_str().unwrap())
+            .load_plugins(temp_dir.path().to_str().expect("should succeed"))
             .await;
 
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         assert_eq!(plugin_ids.len(), 1);
 
         // Verify plugin is actually registered
@@ -261,42 +268,49 @@ storage = false
 
     #[tokio::test]
     async fn test_load_plugins_nested_directories() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
 
         // Create nested structure
         let plugin_dir = temp_dir.path().join("parent").join("child");
-        fs::create_dir_all(&plugin_dir).unwrap();
-        create_test_manifest_toml(&plugin_dir, "nested-plugin", "1.0.0").unwrap();
+        fs::create_dir_all(&plugin_dir).expect("should succeed");
+        create_test_manifest_toml(&plugin_dir, "nested-plugin", "1.0.0").expect("should succeed");
 
         let manager = DefaultPluginManager::new();
 
         // Load from parent - should not recurse into subdirectories
         let result = manager
-            .load_plugins(temp_dir.path().join("parent").to_str().unwrap())
+            .load_plugins(
+                temp_dir
+                    .path()
+                    .join("parent")
+                    .to_str()
+                    .expect("should succeed"),
+            )
             .await;
 
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         // Should find the plugin in child directory
         assert_eq!(plugin_ids.len(), 1);
     }
 
     #[tokio::test]
     async fn test_load_plugins_special_characters_in_name() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let plugin_dir = temp_dir.path().join("special-plugin");
-        fs::create_dir(&plugin_dir).unwrap();
+        fs::create_dir(&plugin_dir).expect("should succeed");
 
         // Plugin with special characters
-        create_test_manifest_toml(&plugin_dir, "plugin-with-special_chars.v2", "1.0.0").unwrap();
+        create_test_manifest_toml(&plugin_dir, "plugin-with-special_chars.v2", "1.0.0")
+            .expect("should succeed");
 
         let manager = DefaultPluginManager::new();
         let result = manager
-            .load_plugins(temp_dir.path().to_str().unwrap())
+            .load_plugins(temp_dir.path().to_str().expect("should succeed"))
             .await;
 
         assert!(result.is_ok());
-        let plugin_ids = result.unwrap();
+        let plugin_ids = result.expect("should succeed");
         assert_eq!(plugin_ids.len(), 1);
     }
 }

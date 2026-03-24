@@ -630,7 +630,7 @@ mod tests {
         adapter
             .coordinate_computation("execute", serde_json::json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         let info = adapter
             .get_current_compute_service()
             .expect("preferred service");
@@ -645,7 +645,7 @@ mod tests {
         adapter
             .coordinate_computation("execute", serde_json::json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         adapter
             .rediscover_compute_services()
             .await
@@ -690,7 +690,7 @@ mod tests {
         adapter
             .coordinate_computation("execute", serde_json::json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         let j = adapter
             .get_resource_availability()
             .await
@@ -706,8 +706,8 @@ mod tests {
         let mut r2 = test_compute_registration();
         r1.metadata.name = "C1".to_string();
         r2.metadata.name = "C2".to_string();
-        reg.register_service(r1).await.unwrap();
-        reg.register_service(r2).await.unwrap();
+        reg.register_service(r1).await.expect("should succeed");
+        reg.register_service(r2).await.expect("should succeed");
         let adapter = UniversalComputeAdapter::new(reg);
         let caps = adapter.get_compute_capabilities().await.expect("caps");
         assert!(caps.contains(&"batch".to_string()));
@@ -719,7 +719,9 @@ mod tests {
         let reg = Arc::new(InMemoryServiceRegistry::new());
         let reg_data = test_compute_registration();
         let sid = reg_data.service_id.to_string();
-        reg.register_service(reg_data).await.unwrap();
+        reg.register_service(reg_data)
+            .await
+            .expect("should succeed");
         reg.update_service_health(
             &sid,
             ServiceHealth {
@@ -729,7 +731,7 @@ mod tests {
             },
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         let mut adapter = UniversalComputeAdapter::new(reg);
         adapter
             .coordinate_computation("execute", serde_json::json!({}))

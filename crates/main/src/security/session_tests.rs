@@ -102,8 +102,8 @@ fn test_security_session_serialization() {
     let session =
         SecuritySession::authenticated("test-session".to_string(), "test-user".to_string());
 
-    let json = serde_json::to_string(&session).unwrap();
-    let deserialized: SecuritySession = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&session).expect("should succeed");
+    let deserialized: SecuritySession = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(session.session_id, deserialized.session_id);
     assert_eq!(session.user_id, deserialized.user_id);
@@ -223,7 +223,10 @@ fn test_security_session_complex_session_data() {
 
     assert_eq!(session.session_data.len(), 2);
 
-    let prefs = session.session_data.get("preferences").unwrap();
+    let prefs = session
+        .session_data
+        .get("preferences")
+        .expect("should succeed");
     assert!(prefs.is_object());
 }
 
@@ -292,8 +295,8 @@ fn test_security_session_json_round_trip() {
         .with_authorization_level(AuthorizationLevel::Admin)
         .with_session_data("test_data".to_string(), json!({"key": "value"}));
 
-    let json_str = serde_json::to_string(&original).unwrap();
-    let restored: SecuritySession = serde_json::from_str(&json_str).unwrap();
+    let json_str = serde_json::to_string(&original).expect("should succeed");
+    let restored: SecuritySession = serde_json::from_str(&json_str).expect("should succeed");
 
     assert_eq!(original.session_id, restored.session_id);
     assert_eq!(original.user_id, restored.user_id);

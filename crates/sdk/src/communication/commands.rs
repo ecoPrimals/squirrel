@@ -407,7 +407,7 @@ mod tests {
         registry
             .register_handler(command.clone(), TestHandler)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let commands = registry.list_commands();
         assert_eq!(commands.len(), 1);
@@ -437,7 +437,7 @@ mod tests {
         registry
             .register_handler(command, TestHandler)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let params = serde_json::json!({"name": "test"});
         let context = CommandContext::new();
@@ -445,7 +445,7 @@ mod tests {
         let result = registry
             .execute_command("test_command", params.clone(), context)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(result.success);
         assert_eq!(result.data, params);
     }

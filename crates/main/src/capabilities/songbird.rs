@@ -136,9 +136,8 @@ pub fn start_heartbeat_loop(
 
 #[cfg(test)]
 #[expect(
-    clippy::unwrap_used,
     clippy::expect_used,
-    reason = "Invariant or startup failure: unwrap/expect after validation"
+    reason = "Invariant or startup failure: expect after validation"
 )]
 mod tests {
     use super::*;
@@ -155,7 +154,7 @@ mod tests {
             let mut line = String::new();
             reader.read_line(&mut line).await.ok();
             let resp = serde_json::json!({"jsonrpc":"2.0","result":true,"id":1});
-            let mut body = serde_json::to_string(&resp).unwrap();
+            let mut body = serde_json::to_string(&resp).expect("jsonrpc response");
             body.push('\n');
             stream.write_all(body.as_bytes()).await.ok();
         });
@@ -180,7 +179,7 @@ mod tests {
                 "error": {"code": -32000, "message": "no"},
                 "id": 1
             });
-            let mut body = serde_json::to_string(&resp).unwrap();
+            let mut body = serde_json::to_string(&resp).expect("jsonrpc response");
             body.push('\n');
             stream.write_all(body.as_bytes()).await.ok();
         });

@@ -39,7 +39,7 @@ mod tests {
         }).await;
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
+        assert_eq!(result.expect("should succeed"), "success");
         
         // Check metrics
         let metrics = breaker.metrics().await;
@@ -276,7 +276,7 @@ mod tests {
             .await;
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
+        assert_eq!(result.expect("should succeed"), "success");
         
         // Test try_execute with failure
         let result: Result<&'static str, anyhow::Error> = breaker

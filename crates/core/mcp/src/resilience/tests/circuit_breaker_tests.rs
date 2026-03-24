@@ -302,7 +302,7 @@ async fn test_circuit_breaker_open_circuit() {
     
     match result {
         Err(ResilienceError::CircuitOpen(_)) => (), // Expected
-        _ => panic!("Expected CircuitOpen error"),
+        _ => unreachable!("Expected CircuitOpen error"),
     }
 }
 
@@ -364,7 +364,7 @@ async fn test_circuit_breaker_half_open() {
     }).await.map_err(|e| ResilienceError::from(e));
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), TestInt(42));
+    assert_eq!(result.expect("should succeed"), TestInt(42));
     
     // Should transition back to closed after success
     assert_eq!(circuit_breaker.state().await, BreakerState::Closed);

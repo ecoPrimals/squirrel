@@ -461,8 +461,8 @@ mod tests {
             ProviderConfig::new("openai".to_string()).with_api_key("sk-test".to_string()),
         );
 
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: AIToolsConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: AIToolsConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.default_provider, config.default_provider);
         assert_eq!(deserialized.request_timeout, config.request_timeout);
         assert!(deserialized.get_provider("openai").is_some());
@@ -475,8 +475,8 @@ mod tests {
             .with_base_url("https://api.anthropic.com".to_string())
             .with_default_model("claude-3-opus".to_string());
 
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: ProviderConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: ProviderConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.provider_type, "anthropic");
         assert_eq!(deserialized.api_key.as_deref(), Some("key-123"));
         assert_eq!(
@@ -503,7 +503,7 @@ mod tests {
             "OLLAMA_URL",
         ];
         temp_env::with_vars_unset(AI_ENV_VARS, || {
-            let config = AIToolsConfig::from_env().unwrap();
+            let config = AIToolsConfig::from_env().expect("should succeed");
             assert_eq!(config.default_provider, "openai");
             assert_eq!(config.request_timeout, 30);
             assert_eq!(config.max_retries, 3);

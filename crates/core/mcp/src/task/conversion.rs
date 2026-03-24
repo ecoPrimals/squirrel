@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_json_task_to_task_with_json_data() {
-        let input_data = serde_json::to_vec(&HashMap::from([("a", "b")])).unwrap();
+        let input_data = serde_json::to_vec(&HashMap::from([("a", "b")])).expect("should succeed");
         let json = JsonTask {
             id: "id".to_string(),
             name: "name".to_string(),

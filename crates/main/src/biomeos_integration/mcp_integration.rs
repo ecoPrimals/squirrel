@@ -657,15 +657,15 @@ mod tests {
         let session_id = integration
             .create_coordination_session(participants.clone(), "test_coordination".to_string())
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!session_id.is_empty());
 
         let session = integration
             .get_coordination_session(&session_id)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(session.is_some());
-        assert_eq!(session.unwrap().participants, participants);
+        assert_eq!(session.expect("should succeed").participants, participants);
     }
 
     #[tokio::test]
@@ -681,7 +681,7 @@ mod tests {
         let response = integration
             .handle_coordination_request(request)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(response.coordination_id, "test-coord-001");
         assert_eq!(response.status, "planned");
         assert!(!response.coordination_plan.is_empty());

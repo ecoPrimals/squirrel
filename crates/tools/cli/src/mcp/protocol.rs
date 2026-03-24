@@ -275,8 +275,8 @@ mod tests {
             Some(json!({"arg": "value"})),
         );
 
-        let json = message.to_json().unwrap();
-        let parsed = MCPMessage::from_json(&json).unwrap();
+        let json = message.to_json().expect("should succeed");
+        let parsed = MCPMessage::from_json(&json).expect("should succeed");
 
         assert_eq!(parsed.id, message.id);
         assert_eq!(parsed.message_type, message.message_type);
@@ -293,8 +293,8 @@ mod tests {
             "Error message".to_string(),
         );
 
-        let json = message.to_json().unwrap();
-        let parsed = MCPMessage::from_json(&json).unwrap();
+        let json = message.to_json().expect("should succeed");
+        let parsed = MCPMessage::from_json(&json).expect("should succeed");
 
         assert_eq!(parsed.id, message.id);
         assert_eq!(parsed.message_type, message.message_type);

@@ -305,7 +305,7 @@ mod tests {
         temp_env::with_vars_unset(
             ["SECURITY_SERVICE_ENDPOINT", "SECURITY_AUTHENTICATION_PORT"],
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
                     let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
                         .await
@@ -322,7 +322,7 @@ mod tests {
             "SECURITY_SERVICE_ENDPOINT",
             Some("https://secure.test"),
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
                     let endpoint = BeardogSecurityCoordinator::discover_security_endpoint()
                         .await
@@ -339,7 +339,7 @@ mod tests {
             "SECURITY_SERVICE_ENDPOINT",
             Some("http://test:9999"),
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
                     let coord = BeardogSecurityCoordinator::with_capability_discovery()
                         .await
@@ -410,7 +410,7 @@ mod tests {
 
         // Insert a context
         {
-            let mut sessions = coord.sessions.write().unwrap();
+            let mut sessions = coord.sessions.write().expect("should succeed");
             sessions.insert(
                 "session-1".to_string(),
                 SecurityContext::new("test", "user1"),

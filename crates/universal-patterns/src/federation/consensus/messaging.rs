@@ -282,7 +282,7 @@ mod tests {
         handle_vote(state.clone(), proposal_id, Vote::For, voter).await;
 
         let s = state.read().await;
-        let participation = s.participation_stats.get(&voter).unwrap();
+        let participation = s.participation_stats.get(&voter).expect("should succeed");
         assert_eq!(participation.votes_for, 1);
         assert_eq!(participation.total_proposals, 1);
     }
@@ -296,7 +296,7 @@ mod tests {
         handle_vote(state.clone(), proposal_id, Vote::Against, voter).await;
 
         let s = state.read().await;
-        let participation = s.participation_stats.get(&voter).unwrap();
+        let participation = s.participation_stats.get(&voter).expect("should succeed");
         assert_eq!(participation.votes_against, 1);
     }
 
@@ -309,7 +309,7 @@ mod tests {
         handle_vote(state.clone(), proposal_id, Vote::Abstain, voter).await;
 
         let s = state.read().await;
-        let participation = s.participation_stats.get(&voter).unwrap();
+        let participation = s.participation_stats.get(&voter).expect("should succeed");
         assert_eq!(participation.abstentions, 1);
     }
 
@@ -450,12 +450,12 @@ mod tests {
         tx.send(ConsensusMessage::Propose {
             proposal: proposal.clone(),
         })
-        .unwrap();
+        .expect("should succeed");
         tx.send(ConsensusMessage::Heartbeat {
             leader: node_id,
             term: 1,
         })
-        .unwrap();
+        .expect("should succeed");
 
         // Drop sender so the receiver loop ends
         drop(tx);

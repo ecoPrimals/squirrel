@@ -429,7 +429,7 @@ mod tests {
     #[test]
     fn test_health_status_serialization() {
         let status = HealthStatus::Ok;
-        let json = serde_json::to_string(&status).unwrap();
+        let json = serde_json::to_string(&status).expect("should succeed");
         assert!(json.contains("Ok") || json.contains("\"ok\""));
     }
 
@@ -458,7 +458,7 @@ mod tests {
             recommendations: vec![],
         };
 
-        let json = serde_json::to_string(&report).unwrap();
+        let json = serde_json::to_string(&report).expect("should succeed");
         assert!(json.contains("1.2.0"));
         // Status might be "Ok" or "ok" depending on serialization
         assert!(json.to_lowercase().contains("ok"));
@@ -643,7 +643,7 @@ mod tests {
             recommendations: vec![],
         };
 
-        let json = serde_json::to_string(&report).unwrap();
+        let json = serde_json::to_string(&report).expect("should succeed");
         assert!(json.contains("1.2.0"));
         assert!(json.contains("Test"));
     }

@@ -335,8 +335,8 @@ mod tests {
             MessageRole::Function,
         ];
         for role in roles {
-            let json = serde_json::to_string(&role).unwrap();
-            let deserialized: MessageRole = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&role).expect("should succeed");
+            let deserialized: MessageRole = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, role);
         }
     }
@@ -408,7 +408,7 @@ mod tests {
         );
         let req = ChatRequest::new().with_tools(vec![tool]);
         assert!(req.tools.is_some());
-        assert_eq!(req.tools.unwrap().len(), 1);
+        assert_eq!(req.tools.expect("should succeed").len(), 1);
     }
 
     #[test]
@@ -418,8 +418,8 @@ mod tests {
             .add_system("System message")
             .add_user("User message");
 
-        let json = serde_json::to_string(&req).unwrap();
-        let deserialized: ChatRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("should succeed");
+        let deserialized: ChatRequest = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.model.as_deref(), Some("gpt-4"));
         assert_eq!(deserialized.messages.len(), 2);
     }
@@ -443,12 +443,12 @@ mod tests {
             model: "gpt-4".to_string(),
             id: "resp-1".to_string(),
         };
-        let json = serde_json::to_string(&resp).unwrap();
-        let deserialized: ChatResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp).expect("should succeed");
+        let deserialized: ChatResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.choices.len(), 1);
         assert_eq!(deserialized.model, "gpt-4");
         assert!(deserialized.usage.is_some());
-        assert_eq!(deserialized.usage.unwrap().total_tokens, 15);
+        assert_eq!(deserialized.usage.expect("should succeed").total_tokens, 15);
     }
 
     // --- ToolCall tests ---
@@ -459,8 +459,8 @@ mod tests {
             name: "search".to_string(),
             arguments: serde_json::json!({"query": "test"}),
         };
-        let json = serde_json::to_string(&tc).unwrap();
-        let deserialized: ToolCall = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&tc).expect("should succeed");
+        let deserialized: ToolCall = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.id, "tc-1");
         assert_eq!(deserialized.name, "search");
     }
@@ -487,7 +487,7 @@ mod tests {
         );
         assert_eq!(tool.name, "calculator");
         assert!(tool.function.is_some());
-        let func = tool.function.unwrap();
+        let func = tool.function.expect("should succeed");
         assert_eq!(func.name, "calculator");
         assert_eq!(func.description, "Do math");
     }
@@ -499,8 +499,8 @@ mod tests {
             "A test tool".to_string(),
             serde_json::json!({"type": "object"}),
         );
-        let json = serde_json::to_string(&tool).unwrap();
-        let deserialized: Tool = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&tool).expect("should succeed");
+        let deserialized: Tool = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.name, "test");
     }
 
@@ -514,8 +514,8 @@ mod tests {
             ToolChoice::Specific("search".to_string()),
         ];
         for choice in choices {
-            let json = serde_json::to_string(&choice).unwrap();
-            let _deserialized: ToolChoice = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&choice).expect("should succeed");
+            let _deserialized: ToolChoice = serde_json::from_str(&json).expect("should succeed");
         }
     }
 
@@ -537,8 +537,8 @@ mod tests {
                 finish_reason: None,
             }],
         };
-        let json = serde_json::to_string(&chunk).unwrap();
-        let deserialized: ChatResponseChunk = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&chunk).expect("should succeed");
+        let deserialized: ChatResponseChunk = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.id, "chunk-1");
         assert_eq!(deserialized.choices.len(), 1);
     }
@@ -551,8 +551,8 @@ mod tests {
             completion_tokens: 50,
             total_tokens: 150,
         };
-        let json = serde_json::to_string(&usage).unwrap();
-        let deserialized: UsageInfo = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&usage).expect("should succeed");
+        let deserialized: UsageInfo = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.prompt_tokens, 100);
         assert_eq!(deserialized.completion_tokens, 50);
         assert_eq!(deserialized.total_tokens, 150);

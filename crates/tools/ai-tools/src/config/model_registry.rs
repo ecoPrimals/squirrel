@@ -523,7 +523,7 @@ mod tests {
         let caps = registry.get_model_capabilities("openai", "gpt-4");
         assert!(caps.is_some());
 
-        let caps = caps.unwrap();
+        let caps = caps.expect("should succeed");
         assert!(caps.supports_streaming);
         assert!(caps.supports_function_calling);
     }
@@ -647,8 +647,8 @@ mod tests {
         let mut registry = ModelRegistry::default();
         registry.register_model(sample_model_capabilities("gpt-4", "openai"));
 
-        let json = serde_json::to_string(&registry).unwrap();
-        let deserialized: ModelRegistry = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&registry).expect("should succeed");
+        let deserialized: ModelRegistry = serde_json::from_str(&json).expect("should succeed");
         assert!(
             deserialized
                 .get_model_capabilities("openai", "gpt-4")
@@ -659,8 +659,8 @@ mod tests {
     #[test]
     fn test_model_capabilities_serde() {
         let model = sample_model_capabilities("gpt-4", "openai");
-        let json = serde_json::to_string(&model).unwrap();
-        let deserialized: ModelCapabilities = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&model).expect("should succeed");
+        let deserialized: ModelCapabilities = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.name, "gpt-4");
         assert_eq!(deserialized.provider_id, "openai");
         assert_eq!(deserialized.priority, 80);
@@ -700,7 +700,7 @@ mod tests {
     fn test_model_registry_instance() {
         let instance = ModelRegistry::instance();
         {
-            let guard = instance.read().unwrap();
+            let guard = instance.read().expect("should succeed");
             // Default instance should have empty models
             assert!(guard.models.is_empty() || !guard.models.is_empty()); // Just verify it's accessible
             drop(guard);
@@ -743,8 +743,8 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let path = temp_dir.join("test_model_registry.json");
 
-        registry.save_to_file(&path).unwrap();
-        let loaded = ModelRegistry::from_file(&path).unwrap();
+        registry.save_to_file(&path).expect("should succeed");
+        let loaded = ModelRegistry::from_file(&path).expect("should succeed");
         assert!(loaded.get_model_capabilities("openai", "gpt-4").is_some());
 
         // Clean up

@@ -103,8 +103,8 @@ mod tests {
             system: None,
         };
 
-        let json = serde_json::to_string(&request).unwrap();
-        let deserialized: InferenceRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
+        let deserialized: InferenceRequest = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.prompt, "Hello, world!");
         assert_eq!(deserialized.model, Some("gpt-4".to_string()));

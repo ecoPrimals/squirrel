@@ -406,7 +406,7 @@ mod tests {
         }];
         let req = UniversalAiRequest::from_messages(messages);
         assert!(req.messages.is_some());
-        assert_eq!(req.messages.as_ref().unwrap().len(), 1);
+        assert_eq!(req.messages.as_ref().expect("should succeed").len(), 1);
     }
 
     #[test]
@@ -417,8 +417,8 @@ mod tests {
             MessageRole::Assistant,
         ];
         for role in roles {
-            let json = serde_json::to_string(&role).unwrap();
-            let _: MessageRole = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&role).expect("should succeed");
+            let _: MessageRole = serde_json::from_str(&json).expect("should succeed");
         }
     }
 
@@ -430,8 +430,8 @@ mod tests {
             ProviderType::Custom,
         ];
         for t in types {
-            let json = serde_json::to_string(&t).unwrap();
-            let _: ProviderType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&t).expect("should succeed");
+            let _: ProviderType = serde_json::from_str(&json).expect("should succeed");
         }
     }
 
@@ -444,8 +444,8 @@ mod tests {
             CostTier::High,
         ];
         for t in tiers {
-            let json = serde_json::to_string(&t).unwrap();
-            let _: CostTier = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&t).expect("should succeed");
+            let _: CostTier = serde_json::from_str(&json).expect("should succeed");
         }
     }
 

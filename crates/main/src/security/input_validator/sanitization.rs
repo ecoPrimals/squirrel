@@ -316,7 +316,7 @@ mod tests {
     }
 
     fn create_test_patterns() -> SanitizationPatterns {
-        SanitizationPatterns::compile().unwrap()
+        SanitizationPatterns::compile().expect("should succeed")
     }
 
     #[test]

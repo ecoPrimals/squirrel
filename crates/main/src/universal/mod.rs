@@ -134,6 +134,9 @@ mod tests {
         assert_eq!(error_response.request_id, request.request_id);
         assert_eq!(error_response.status, ResponseStatus::Error);
         assert!(!error_response.success);
-        assert_eq!(error_response.error_message.unwrap(), "Test error message");
+        assert_eq!(
+            error_response.error_message.expect("should succeed"),
+            "Test error message"
+        );
     }
 }

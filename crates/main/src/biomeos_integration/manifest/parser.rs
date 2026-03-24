@@ -326,7 +326,7 @@ mod tests {
     async fn strict_validation_rejects_empty_biome_name() {
         let mut template = BiomeManifestParser::generate_template();
         template.metadata.name = String::new();
-        let yaml = serde_yaml_ng::to_string(&template).unwrap();
+        let yaml = serde_yaml_ng::to_string(&template).expect("should succeed");
         let parser = BiomeManifestParser::new();
         let err = parser.parse_content(&yaml).await.unwrap_err();
         let msg = err.to_string();
@@ -358,7 +358,9 @@ mod tests {
         overlay.metadata.name = "merged-overlay".to_string();
         base.metadata.name = "base-name".to_string();
 
-        let merged = parser.merge_manifests(base, overlay).unwrap();
+        let merged = parser
+            .merge_manifests(base, overlay)
+            .expect("should succeed");
         assert_eq!(merged.metadata.name, "merged-overlay");
     }
 

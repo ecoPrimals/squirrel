@@ -379,8 +379,8 @@ mod tests {
         let result = temp_env::with_var("OPENAI_API_KEY", None::<&str>, OpenAiAdapter::new);
         assert!(result.is_err());
 
-        let adapter =
-            temp_env::with_var("OPENAI_API_KEY", Some("test-key"), OpenAiAdapter::new).unwrap();
+        let adapter = temp_env::with_var("OPENAI_API_KEY", Some("test-key"), OpenAiAdapter::new)
+            .expect("should succeed");
         assert_eq!(adapter.provider_id(), "openai");
         assert_eq!(adapter.provider_name(), "OpenAI (GPT)");
         assert!(!adapter.is_local());
@@ -427,7 +427,7 @@ mod tests {
         let adapter = temp_env::with_var("OPENAI_API_KEY", Some("test-key-qt"), || {
             OpenAiAdapter::new()
         })
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(adapter.quality_tier(), QualityTier::Premium);
         assert_eq!(adapter.avg_latency_ms(), 1500);
         assert!(adapter.cost_per_unit().is_some());
@@ -438,7 +438,7 @@ mod tests {
         let adapter = temp_env::with_var("OPENAI_API_KEY", Some("test-key-dm"), || {
             OpenAiAdapter::new()
         })
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(adapter.default_model, "gpt-4");
     }
 }

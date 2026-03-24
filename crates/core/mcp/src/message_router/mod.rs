@@ -598,9 +598,9 @@ mod tests {
         let result = router.route_message(&message).await;
         assert!(result.is_ok());
         
-        let received_response = result.unwrap();
+        let received_response = result.expect("should succeed");
         assert!(received_response.is_some());
-        assert_eq!(received_response.unwrap().content, "response content");
+        assert_eq!(received_response.expect("should succeed").content, "response content");
     }
     
     #[tokio::test]
@@ -646,11 +646,11 @@ mod tests {
         let result = router.route_message(&message).await;
         assert!(result.is_ok());
         
-        let received_response = result.unwrap();
+        let received_response = result.expect("should succeed");
         assert!(received_response.is_some());
         
         // Should get the high priority handler's response
-        assert_eq!(received_response.unwrap().content, "high priority");
+        assert_eq!(received_response.expect("should succeed").content, "high priority");
         
         // High priority handler should have been called, but not the low priority one
         assert_eq!(high_priority_handler.get_call_count(), 1);
@@ -689,12 +689,12 @@ mod tests {
         // Register handlers
         match router.register_handler(low_priority_handler.clone()).await {
             Ok(_) => println!("Low priority handler registered successfully"),
-            Err(e) => panic!("Failed to register low priority handler: {}", e),
+            Err(e) => unreachable!("Failed to register low priority handler: {}", e),
         }
         
         match router.register_handler(high_priority_handler.clone()).await {
             Ok(_) => println!("High priority handler registered successfully"),
-            Err(e) => panic!("Failed to register high priority handler: {}", e),
+            Err(e) => unreachable!("Failed to register high priority handler: {}", e),
         }
         
         // Verify both handlers are registered
@@ -721,11 +721,11 @@ mod tests {
         }
         assert!(result.is_ok(), "Expected route_message to return Ok, got: {:?}", result);
         
-        let received_response = result.unwrap();
+        let received_response = result.expect("should succeed");
         assert!(received_response.is_some(), "Expected a response from a handler");
         
         // Should still get the high priority handler's response
-        let response_content = received_response.unwrap().content;
+        let response_content = received_response.expect("should succeed").content;
         println!("Response content: {}", response_content);
         assert_eq!(response_content, "high priority", "Expected high priority response");
         
@@ -785,9 +785,9 @@ mod tests {
         let result1 = MessageHandler::handle_message(&composite, message1).await;
         assert!(result1.is_ok());
         
-        let response1 = result1.unwrap();
+        let response1 = result1.expect("should succeed");
         assert!(response1.is_some());
-        assert_eq!(response1.unwrap().content, "handler1 response");
+        assert_eq!(response1.expect("should succeed").content, "handler1 response");
         
         // Test notification message
         let message2 = MessageBuilder::new()
@@ -801,9 +801,9 @@ mod tests {
         let result2 = MessageHandler::handle_message(&composite, message2).await;
         assert!(result2.is_ok());
         
-        let response2 = result2.unwrap();
+        let response2 = result2.expect("should succeed");
         assert!(response2.is_some());
-        assert_eq!(response2.unwrap().content, "handler2 response");
+        assert_eq!(response2.expect("should succeed").content, "handler2 response");
         
         // Test unknown message type (but still valid in the system)
         let message3 = MessageBuilder::new()
@@ -817,7 +817,7 @@ mod tests {
         let result3 = MessageHandler::handle_message(&composite, message3).await;
         assert!(result3.is_ok());
         
-        let response3 = result3.unwrap();
+        let response3 = result3.expect("should succeed");
         assert!(response3.is_none());
     }
 } 

@@ -708,7 +708,7 @@ mod tests {
                     "unexpected transport message: {e}"
                 );
             }
-            other => panic!("expected transport error, got {other:?}"),
+            other => unreachable!("expected transport error, got {other:?}"),
         }
     }
 
@@ -728,11 +728,11 @@ mod tests {
     fn server_event_variants_carry_connection_and_message_payloads() {
         match ServerEvent::ClientConnected("c1".to_string()) {
             ServerEvent::ClientConnected(id) => assert_eq!(id, "c1"),
-            _ => panic!("expected ClientConnected"),
+            _ => unreachable!("expected ClientConnected"),
         }
         match ServerEvent::ClientDisconnected("c2".to_string()) {
             ServerEvent::ClientDisconnected(id) => assert_eq!(id, "c2"),
-            _ => panic!("expected ClientDisconnected"),
+            _ => unreachable!("expected ClientDisconnected"),
         }
         let msg = MCPMessage::new(MessageType::Response, serde_json::json!({"ok": true}));
         match ServerEvent::MessageReceived("c3".to_string(), msg.clone()) {
@@ -741,14 +741,14 @@ mod tests {
                 assert_eq!(m.type_, msg.type_);
                 assert_eq!(m.payload, msg.payload);
             }
-            _ => panic!("expected MessageReceived"),
+            _ => unreachable!("expected MessageReceived"),
         }
         match ServerEvent::ConnectionError("c4".to_string(), "boom".to_string()) {
             ServerEvent::ConnectionError(id, err) => {
                 assert_eq!(id, "c4");
                 assert_eq!(err, "boom");
             }
-            _ => panic!("expected ConnectionError"),
+            _ => unreachable!("expected ConnectionError"),
         }
     }
 
@@ -775,7 +775,7 @@ mod tests {
                     "unexpected message: {s}"
                 );
             }
-            other => panic!("expected transport error, got {other:?}"),
+            other => unreachable!("expected transport error, got {other:?}"),
         }
     }
 
@@ -786,7 +786,7 @@ mod tests {
         let err = client.send(msg).await.expect_err("expected not connected");
         match err {
             MCPError::Transport(e) => assert_eq!(e.to_string(), "Connection error: Not connected"),
-            other => panic!("expected transport error, got {other:?}"),
+            other => unreachable!("expected transport error, got {other:?}"),
         }
     }
 
@@ -800,7 +800,7 @@ mod tests {
             .expect_err("expected not connected");
         match err {
             MCPError::Transport(e) => assert_eq!(e.to_string(), "Connection error: Not connected"),
-            other => panic!("expected transport error, got {other:?}"),
+            other => unreachable!("expected transport error, got {other:?}"),
         }
     }
 

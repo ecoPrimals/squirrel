@@ -664,9 +664,15 @@ mod tests {
         let plugin_c = Arc::new(MockPlugin::new("plugin-c", "1.0.0"));
 
         // Register plugins
-        resolver.register_plugin(plugin_a.clone()).unwrap();
-        resolver.register_plugin(plugin_b.clone()).unwrap();
-        resolver.register_plugin(plugin_c.clone()).unwrap();
+        resolver
+            .register_plugin(plugin_a.clone())
+            .expect("should succeed");
+        resolver
+            .register_plugin(plugin_b.clone())
+            .expect("should succeed");
+        resolver
+            .register_plugin(plugin_c.clone())
+            .expect("should succeed");
 
         // Set up dependencies: C -> B -> A
         let dep_a_to_b = EnhancedPluginDependency {
@@ -689,13 +695,13 @@ mod tests {
 
         resolver
             .register_enhanced_dependencies(plugin_a.metadata().id, vec![dep_a_to_b])
-            .unwrap();
+            .expect("should succeed");
         resolver
             .register_enhanced_dependencies(plugin_b.metadata().id, vec![dep_b_to_c])
-            .unwrap();
+            .expect("should succeed");
 
         // Resolve dependencies
-        let result = resolver.resolve_dependencies().unwrap();
+        let result = resolver.resolve_dependencies().expect("should succeed");
 
         // Verify order: C should come before B, B before A
         assert_eq!(result.initialization_order.len(), 3);
@@ -730,8 +736,12 @@ mod tests {
         let plugin_a = Arc::new(MockPlugin::new("plugin-a", "1.0.0"));
         let plugin_b = Arc::new(MockPlugin::new("plugin-b", "1.0.0"));
 
-        resolver.register_plugin(plugin_a.clone()).unwrap();
-        resolver.register_plugin(plugin_b.clone()).unwrap();
+        resolver
+            .register_plugin(plugin_a.clone())
+            .expect("should succeed");
+        resolver
+            .register_plugin(plugin_b.clone())
+            .expect("should succeed");
 
         // Create circular dependency: A -> B, B -> A
         let dep_a_to_b = EnhancedPluginDependency {
@@ -754,14 +764,20 @@ mod tests {
 
         resolver
             .register_enhanced_dependencies(plugin_a.metadata().id, vec![dep_a_to_b])
-            .unwrap();
+            .expect("should succeed");
         resolver
             .register_enhanced_dependencies(plugin_b.metadata().id, vec![dep_b_to_a])
-            .unwrap();
+            .expect("should succeed");
 
         // Resolution should detect the circular dependency
         let result = resolver.resolve_dependencies();
-        assert!(result.is_err() || !result.unwrap().circular_dependencies.is_empty());
+        assert!(
+            result.is_err()
+                || !result
+                    .expect("should succeed")
+                    .circular_dependencies
+                    .is_empty()
+        );
     }
 
     #[test]
@@ -771,8 +787,12 @@ mod tests {
         let plugin_a = Arc::new(MockPlugin::new("plugin-a", "1.0.0"));
         let plugin_b = Arc::new(MockPlugin::new("plugin-b", "2.0.0")); // Different version
 
-        resolver.register_plugin(plugin_a.clone()).unwrap();
-        resolver.register_plugin(plugin_b.clone()).unwrap();
+        resolver
+            .register_plugin(plugin_a.clone())
+            .expect("should succeed");
+        resolver
+            .register_plugin(plugin_b.clone())
+            .expect("should succeed");
 
         // A requires B version ^1.0.0, but B is 2.0.0
         let dep_conflicting = EnhancedPluginDependency {
@@ -786,9 +806,9 @@ mod tests {
 
         resolver
             .register_enhanced_dependencies(plugin_a.metadata().id, vec![dep_conflicting])
-            .unwrap();
+            .expect("should succeed");
 
-        let result = resolver.resolve_dependencies().unwrap();
+        let result = resolver.resolve_dependencies().expect("should succeed");
         assert!(!result.version_conflicts.is_empty());
     }
 }

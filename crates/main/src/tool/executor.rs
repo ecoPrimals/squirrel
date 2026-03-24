@@ -292,7 +292,10 @@ mod tests {
     #[tokio::test]
     async fn test_execute_health() {
         let executor = ToolExecutor::new();
-        let result = executor.execute_tool("system.health", "").await.unwrap();
+        let result = executor
+            .execute_tool("system.health", "")
+            .await
+            .expect("should succeed");
         assert!(result.success);
         assert!(result.output.contains("healthy"));
     }
@@ -300,7 +303,10 @@ mod tests {
     #[tokio::test]
     async fn test_execute_system_info() {
         let executor = ToolExecutor::new();
-        let result = executor.execute_tool("system.info", "").await.unwrap();
+        let result = executor
+            .execute_tool("system.info", "")
+            .await
+            .expect("should succeed");
         assert!(result.success);
         assert!(result.output.contains("version"));
         assert!(result.output.contains("primal"));
@@ -309,7 +315,10 @@ mod tests {
     #[tokio::test]
     async fn test_execute_discovery_peers() {
         let executor = ToolExecutor::new();
-        let result = executor.execute_tool("discovery.peers", "").await.unwrap();
+        let result = executor
+            .execute_tool("discovery.peers", "")
+            .await
+            .expect("should succeed");
         assert!(result.output.contains("peers"));
     }
 
@@ -319,17 +328,20 @@ mod tests {
         let result = executor
             .execute_tool("discovery.capabilities", "")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(result.output.contains("capabilities"));
     }
 
     #[tokio::test]
     async fn test_execute_unknown_tool() {
         let executor = ToolExecutor::new();
-        let result = executor.execute_tool("nonexistent.tool", "").await.unwrap();
+        let result = executor
+            .execute_tool("nonexistent.tool", "")
+            .await
+            .expect("should succeed");
         assert!(!result.success);
         assert!(result.error.is_some());
-        assert!(result.error.unwrap().contains("not found"));
+        assert!(result.error.expect("should succeed").contains("not found"));
     }
 
     #[test]
@@ -347,8 +359,8 @@ mod tests {
             output: "ok".to_string(),
             error: None,
         };
-        let json = serde_json::to_string(&result).unwrap();
-        let _: ToolExecutionResult = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&result).expect("should succeed");
+        let _: ToolExecutionResult = serde_json::from_str(&json).expect("should succeed");
     }
 
     #[test]
@@ -366,7 +378,10 @@ mod tests {
             domain: Arc::from("external"),
             builtin: false,
         });
-        let result = executor.execute_tool("external.foo", "args").await.unwrap();
+        let result = executor
+            .execute_tool("external.foo", "args")
+            .await
+            .expect("should succeed");
         assert!(result.success);
         assert!(result.output.contains("external dispatch"));
     }

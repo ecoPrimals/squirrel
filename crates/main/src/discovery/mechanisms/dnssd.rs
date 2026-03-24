@@ -241,7 +241,7 @@ mod tests {
         let result = dnssd.discover_by_capability("ai").await;
         assert!(result.is_ok());
         // Graceful fallback returns empty vec
-        assert_eq!(result.unwrap().len(), 0);
+        assert_eq!(result.expect("should succeed").len(), 0);
     }
 
     #[tokio::test]
@@ -285,7 +285,7 @@ mod tests {
 
         let result = dnssd.discover_by_capability("ai").await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 0);
+        assert_eq!(result.expect("should succeed").len(), 0);
     }
 
     #[test]

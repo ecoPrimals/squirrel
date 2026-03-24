@@ -308,8 +308,8 @@ mod tests {
             },
         ];
         for cap in samples {
-            let json = serde_json::to_string(&cap).unwrap();
-            let back: PrimalCapability = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&cap).expect("should succeed");
+            let back: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(back, cap);
         }
     }
@@ -323,8 +323,8 @@ mod tests {
             required: true,
             min_version: Some("1.0.0".into()),
         };
-        let json = serde_json::to_string(&d).unwrap();
-        let back: PrimalDependency = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&d).expect("should succeed");
+        let back: PrimalDependency = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.name, "dep");
         assert!(back.required);
     }

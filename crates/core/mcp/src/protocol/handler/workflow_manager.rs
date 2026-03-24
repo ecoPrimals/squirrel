@@ -578,7 +578,10 @@ mod tests {
             .await
             .expect("status");
         assert_eq!(
-            mgr.get_workflow("wf1", token).await.unwrap().status,
+            mgr.get_workflow("wf1", token)
+                .await
+                .expect("should succeed")
+                .status,
             WorkflowStatus::Paused
         );
 
@@ -650,7 +653,9 @@ mod tests {
             .insert("last_updated".into(), chrono::Utc::now().to_rfc3339());
         wf.metadata
             .insert("priority".into(), format!("{:?}", Priority::High));
-        mgr.create_workflow(wf, token).await.unwrap();
+        mgr.create_workflow(wf, token)
+            .await
+            .expect("should succeed");
 
         let filter = WorkflowFilter {
             status: Some(WorkflowStatus::Active),
@@ -659,22 +664,34 @@ mod tests {
             assignee: Some("alice".into()),
             priority: Some(Priority::High),
         };
-        let list = mgr.filter_workflows(&filter, token).await.unwrap();
+        let list = mgr
+            .filter_workflows(&filter, token)
+            .await
+            .expect("should succeed");
         assert_eq!(list.len(), 1);
 
-        let metrics = mgr.get_workflow_metrics("wf2", token).await.unwrap();
+        let metrics = mgr
+            .get_workflow_metrics("wf2", token)
+            .await
+            .expect("should succeed");
         assert_eq!(metrics.completion_rate, 0.0);
 
         mgr.update_workflow_status("wf2", WorkflowStatus::Completed, token)
             .await
-            .unwrap();
-        let m2 = mgr.get_workflow_metrics("wf2", token).await.unwrap();
+            .expect("should succeed");
+        let m2 = mgr
+            .get_workflow_metrics("wf2", token)
+            .await
+            .expect("should succeed");
         assert_eq!(m2.completion_rate, 100.0);
 
         mgr.update_workflow_status("wf2", WorkflowStatus::Failed, token)
             .await
-            .unwrap();
-        let m3 = mgr.get_workflow_metrics("wf2", token).await.unwrap();
+            .expect("should succeed");
+        let m3 = mgr
+            .get_workflow_metrics("wf2", token)
+            .await
+            .expect("should succeed");
         assert_eq!(m3.completion_rate, 0.0);
     }
 
@@ -684,10 +701,10 @@ mod tests {
         let token = "tok";
         mgr.create_workflow(sample_workflow("a"), token)
             .await
-            .unwrap();
+            .expect("should succeed");
         mgr.create_workflow(sample_workflow("b"), token)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let msg = TeamMessage {
             id: "bm".into(),
@@ -700,7 +717,7 @@ mod tests {
         };
         mgr.broadcast_team_message(msg, vec!["a".into(), "b".into()], token)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let task = Task {
             id: "tx".into(),
@@ -714,7 +731,9 @@ mod tests {
             updated_at: chrono::Utc::now(),
             metadata: HashMap::new(),
         };
-        mgr.create_task("a", task, token).await.unwrap();
+        mgr.create_task("a", task, token)
+            .await
+            .expect("should succeed");
         assert!(
             mgr.update_task_status("a", "nope", TaskStatus::Completed, token)
                 .await
@@ -749,9 +768,11 @@ mod tests {
         };
         wf.metadata.insert(
             "transition_seed".into(),
-            serde_json::to_string(&tr).unwrap(),
+            serde_json::to_string(&tr).expect("should succeed"),
         );
-        mgr.create_workflow(wf, token).await.unwrap();
+        mgr.create_workflow(wf, token)
+            .await
+            .expect("should succeed");
 
         let task = Task {
             id: "t-m1".into(),
@@ -765,10 +786,12 @@ mod tests {
             updated_at: chrono::Utc::now(),
             metadata: HashMap::new(),
         };
-        mgr.create_task("wf-m", task, token).await.unwrap();
+        mgr.create_task("wf-m", task, token)
+            .await
+            .expect("should succeed");
         mgr.update_task_status("wf-m", "t-m1", TaskStatus::Completed, token)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let review = ReviewRequest {
             id: "rev-m1".into(),
@@ -780,7 +803,9 @@ mod tests {
             priority: Priority::Low,
             security_level: SecurityLevel::Low,
         };
-        mgr.create_review(review, token).await.unwrap();
+        mgr.create_review(review, token)
+            .await
+            .expect("should succeed");
         let msg = TeamMessage {
             id: "mrev".into(),
             type_: TeamMessageType::Review,
@@ -790,9 +815,14 @@ mod tests {
             security_level: SecurityLevel::Low,
             metadata: HashMap::new(),
         };
-        mgr.send_message("wf-m", msg, token).await.unwrap();
+        mgr.send_message("wf-m", msg, token)
+            .await
+            .expect("should succeed");
 
-        let metrics = mgr.get_workflow_metrics("wf-m", token).await.unwrap();
+        let metrics = mgr
+            .get_workflow_metrics("wf-m", token)
+            .await
+            .expect("should succeed");
         assert_eq!(metrics.state_transitions.len(), 1);
         assert!(metrics.review_count >= 1);
         assert!(metrics.completion_rate >= 0.0);

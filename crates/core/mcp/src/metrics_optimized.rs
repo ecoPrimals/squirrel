@@ -288,15 +288,15 @@ mod tests {
         let collector = OptimizedMetricsCollector::new();
         
         // First increment - will allocate
-        collector.increment_counter("test_metric", 1).unwrap();
+        collector.increment_counter("test_metric", 1).expect("should succeed");
         
         // Subsequent increments - zero allocation
         for _ in 0..1000 {
-            collector.increment_counter("test_metric", 1).unwrap();
+            collector.increment_counter("test_metric", 1).expect("should succeed");
         }
         
         // Verify final value
-        assert_eq!(collector.get_counter("test_metric").unwrap().unwrap(), 1001);
+        assert_eq!(collector.get_counter("test_metric").expect("should succeed").expect("should succeed"), 1001);
     }
 
     #[test]
@@ -304,11 +304,11 @@ mod tests {
         let collector = OptimizedMetricsCollector::new();
         
         // These should use pre-allocated Arc<str> instances
-        collector.increment_counter("request_count", 1).unwrap();
-        collector.increment_counter("error_count", 1).unwrap();
-        collector.increment_counter("latency_p99", 1).unwrap();
+        collector.increment_counter("request_count", 1).expect("should succeed");
+        collector.increment_counter("error_count", 1).expect("should succeed");
+        collector.increment_counter("latency_p99", 1).expect("should succeed");
         
-        let performance = collector.get_performance().unwrap();
+        let performance = collector.get_performance().expect("should succeed");
         assert!(performance.total_operations > 0);
     }
 
@@ -318,11 +318,11 @@ mod tests {
         
         // Perform operations
         for i in 0..100 {
-            collector.increment_counter("request_count", 1).unwrap();
-            collector.set_gauge(&format!("dynamic_metric_{}", i), i as f64).unwrap();
+            collector.increment_counter("request_count", 1).expect("should succeed");
+            collector.set_gauge(&format!("dynamic_metric_{}", i), i as f64).expect("should succeed");
         }
         
-        let performance = collector.get_performance().unwrap();
+        let performance = collector.get_performance().expect("should succeed");
         assert!(performance.zero_allocation_operations > 0);
         assert!(performance.cache_hits > 0);
         assert_eq!(performance.total_operations, 200); // 100 counters + 100 gauges
@@ -334,11 +334,11 @@ mod tests {
         
         // Add the same metric name multiple times
         for _ in 0..1000 {
-            collector.increment_counter("repeated_metric", 1).unwrap();
+            collector.increment_counter("repeated_metric", 1).expect("should succeed");
         }
         
         // Only first operation should miss cache
-        let performance = collector.get_performance().unwrap();
+        let performance = collector.get_performance().expect("should succeed");
         assert_eq!(performance.cache_misses, 1); // Only first increment
         assert_eq!(performance.cache_hits, 999); // All subsequent increments
     }

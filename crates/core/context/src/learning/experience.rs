@@ -734,7 +734,7 @@ mod tests {
                 (SamplingStrategy::Balanced(a), SamplingStrategy::Balanced(b)) => {
                     assert!((a.recent_ratio - b.recent_ratio).abs() < f64::EPSILON);
                 }
-                _ => panic!("variant mismatch after roundtrip"),
+                _ => unreachable!("variant mismatch after roundtrip"),
             }
         }
     }

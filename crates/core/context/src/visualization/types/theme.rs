@@ -198,8 +198,8 @@ mod tests {
     #[test]
     fn test_theme_serde_roundtrip() {
         let theme = VisualizationTheme::default();
-        let json = serde_json::to_string(&theme).unwrap();
-        let deserialized: VisualizationTheme = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&theme).expect("should succeed");
+        let deserialized: VisualizationTheme = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.primary_color, theme.primary_color);
         assert_eq!(deserialized.font_size, theme.font_size);
         assert_eq!(deserialized.dark_mode, theme.dark_mode);
@@ -209,8 +209,9 @@ mod tests {
     #[test]
     fn test_layout_serde_roundtrip() {
         let layout = VisualizationLayout::default();
-        let json = serde_json::to_string(&layout).unwrap();
-        let deserialized: VisualizationLayout = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&layout).expect("should succeed");
+        let deserialized: VisualizationLayout =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.width, layout.width);
         assert_eq!(deserialized.height, layout.height);
         assert_eq!(deserialized.responsive, layout.responsive);
@@ -224,8 +225,8 @@ mod tests {
             bottom: 50,
             left: 60,
         };
-        let json = serde_json::to_string(&margin).unwrap();
-        let deserialized: MarginConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&margin).expect("should succeed");
+        let deserialized: MarginConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.top, 30);
         assert_eq!(deserialized.right, 40);
         assert_eq!(deserialized.bottom, 50);
@@ -240,8 +241,8 @@ mod tests {
             bottom: 25,
             left: 35,
         };
-        let json = serde_json::to_string(&padding).unwrap();
-        let deserialized: PaddingConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&padding).expect("should succeed");
+        let deserialized: PaddingConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.top, 5);
         assert_eq!(deserialized.right, 15);
         assert_eq!(deserialized.bottom, 25);

@@ -481,8 +481,8 @@ mod tests {
     #[test]
     fn test_error_severity_serde() {
         let severity = ErrorSeverity::High;
-        let json = serde_json::to_string(&severity).unwrap();
-        let deserialized: ErrorSeverity = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&severity).expect("should succeed");
+        let deserialized: ErrorSeverity = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, severity);
     }
 
@@ -503,8 +503,8 @@ mod tests {
     #[test]
     fn test_error_category_serde() {
         let category = ErrorCategory::Network;
-        let json = serde_json::to_string(&category).unwrap();
-        let deserialized: ErrorCategory = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&category).expect("should succeed");
+        let deserialized: ErrorCategory = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, category);
     }
 

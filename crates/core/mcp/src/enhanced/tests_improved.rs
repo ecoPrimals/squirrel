@@ -160,7 +160,7 @@ mod error_handling_tests {
                         // Also acceptable
                     }
                     _ => {
-                        panic!("Unexpected error type: {:?}", e);
+                        unreachable!("Unexpected error type: {:?}", e);
                     }
                 }
             }
@@ -484,8 +484,8 @@ mod security_tests {
         assert!(session1.is_ok());
         assert!(session2.is_ok());
         
-        let session1_id = session1.unwrap();
-        let session2_id = session2.unwrap();
+        let session1_id = session1.expect("should succeed");
+        let session2_id = session2.expect("should succeed");
         
         // Session IDs should be different
         assert_ne!(session1_id, session2_id);

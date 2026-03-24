@@ -544,7 +544,7 @@ patterns:
             "Should parse valid rule file: {:?}",
             result.err()
         );
-        let rule = result.unwrap();
+        let rule = result.expect("parse succeeds");
         assert_eq!(rule.id, "parse-file-test");
         assert_eq!(rule.name, "Parse File Test");
     }
@@ -584,7 +584,7 @@ patterns:
                     "Error should mention frontmatter"
                 );
             }
-            _ => panic!("Expected ParseError"),
+            _ => unreachable!("Expected ParseError"),
         }
     }
 
@@ -594,7 +594,7 @@ patterns:
         let result = FrontmatterParser::parse_yaml_frontmatter(valid_yaml);
 
         assert!(result.is_ok());
-        let value = result.unwrap();
+        let value = result.expect("yaml frontmatter parses");
         assert_eq!(value.get("id").and_then(|v| v.as_str()), Some("test"));
         assert_eq!(value.get("name").and_then(|v| v.as_str()), Some("Test"));
     }
@@ -748,7 +748,7 @@ patterns:
 
         let result = RuleParser::parse_string(content);
         assert!(result.is_ok(), "{:?}", result.err());
-        let rule = result.unwrap();
+        let rule = result.expect("parse succeeds");
         assert_eq!(rule.conditions.len(), 5);
     }
 
@@ -805,7 +805,7 @@ patterns:
 
         let result = RuleParser::parse_string(content);
         assert!(result.is_ok(), "{:?}", result.err());
-        let rule = result.unwrap();
+        let rule = result.expect("parse succeeds");
         assert_eq!(rule.actions.len(), 8);
     }
 

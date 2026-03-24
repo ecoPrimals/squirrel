@@ -32,7 +32,7 @@ fn test_sql_injection_detection() {
         strict_mode: true, // Use strict mode for clearer detection
         ..Default::default()
     };
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     // Test obvious SQL injection patterns
     let malicious_inputs = vec![
@@ -54,7 +54,7 @@ fn test_sql_injection_detection() {
 #[test]
 fn test_xss_detection() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let xss_inputs = vec![
         "<script>alert('xss')</script>",
@@ -80,7 +80,7 @@ fn test_xss_detection() {
 #[test]
 fn test_command_injection_detection() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let command_injections = vec![
         "test; rm -rf /",
@@ -106,7 +106,7 @@ fn test_command_injection_detection() {
 #[test]
 fn test_path_traversal_detection() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let path_traversals = vec![
         "../../../etc/passwd",
@@ -131,7 +131,7 @@ fn test_path_traversal_detection() {
 #[test]
 fn test_nosql_injection_detection() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let nosql_injections = vec![
         r#"{"$ne": null}"#,
@@ -160,7 +160,7 @@ fn test_length_validation() {
         strict_mode: true,   // Use strict mode to ensure rejection
         ..Default::default()
     };
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let long_input = "a".repeat(100);
     let result = validator.validate_input(&long_input, InputType::Text, None);
@@ -182,7 +182,7 @@ fn test_html_sanitization() {
     };
     config.allowed_html_tags.insert("b".to_string());
     config.allowed_html_tags.insert("i".to_string());
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let input = "<b>Bold</b><script>alert('xss')</script><i>Italic</i>";
     let result = validator.validate_input(input, InputType::Html, None);
@@ -192,14 +192,14 @@ fn test_html_sanitization() {
         assert!(sanitized.contains("<b>"), "Should keep allowed <b> tags");
         assert!(sanitized.contains("<i>"), "Should keep allowed <i> tags");
     } else {
-        panic!("Should provide sanitized input in non-strict mode");
+        unreachable!("Should provide sanitized input in non-strict mode");
     }
 }
 
 #[test]
 fn test_safe_inputs_pass_validation() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let safe_inputs = vec![
         ("hello world", InputType::Text),
@@ -221,7 +221,7 @@ fn test_safe_inputs_pass_validation() {
 fn test_strict_mode_behavior() {
     let mut config = InputValidationConfig::default();
     config.strict_mode = true;
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let suspicious_input = "<script>alert('test')</script>";
     let result = validator.validate_input(suspicious_input, InputType::Html, None);
@@ -240,7 +240,7 @@ fn test_strict_mode_behavior() {
 fn test_non_strict_mode_sanitization() {
     let mut config = InputValidationConfig::default();
     config.strict_mode = false;
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let suspicious_input = "<script>alert('test')</script>Hello";
     let result = validator.validate_input(suspicious_input, InputType::Html, None);
@@ -249,14 +249,14 @@ fn test_non_strict_mode_sanitization() {
         result.sanitized_input.is_some(),
         "Non-strict mode should provide sanitized input"
     );
-    let sanitized = result.sanitized_input.unwrap();
+    let sanitized = result.sanitized_input.expect("should succeed");
     assert!(!sanitized.contains("script"), "Should sanitize script tags");
 }
 
 #[test]
 fn test_url_sanitization() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let malicious_urls = vec![
         "javascript:alert('xss')",
@@ -284,7 +284,7 @@ fn test_url_sanitization() {
 fn test_email_sanitization() {
     let mut config = InputValidationConfig::default();
     config.strict_mode = false;
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let input = "user<script>@example.com";
     let result = validator.validate_input(input, InputType::Email, None);
@@ -300,7 +300,7 @@ fn test_email_sanitization() {
 fn test_control_character_removal() {
     let mut config = InputValidationConfig::default();
     config.strict_mode = false;
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let input = "Hello\x1FWorld!";
     let result = validator.validate_input(input, InputType::Text, None);
@@ -310,7 +310,7 @@ fn test_control_character_removal() {
         result.sanitized_input.is_some(),
         "Should provide sanitized output"
     );
-    let sanitized = result.sanitized_input.unwrap();
+    let sanitized = result.sanitized_input.expect("should succeed");
 
     // Should preserve valid content
     assert!(sanitized.contains("Hello"), "Should keep valid text");
@@ -321,7 +321,7 @@ fn test_control_character_removal() {
 fn test_null_byte_handling() {
     let mut config = InputValidationConfig::default();
     config.strict_mode = false;
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let input = "Before\x00After";
     let result = validator.validate_input(input, InputType::Text, None);
@@ -342,7 +342,7 @@ fn test_custom_allowed_html_tags() {
     config.strict_mode = false;
     config.allowed_html_tags = HashSet::new();
     config.allowed_html_tags.insert("custom".to_string());
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let input = "<custom>Allowed</custom><script>Not allowed</script>";
     let result = validator.validate_input(input, InputType::Html, None);
@@ -356,7 +356,7 @@ fn test_custom_allowed_html_tags() {
 #[test]
 fn test_multiple_violation_types() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     // Input with both SQL injection and XSS
     let input = "'; DROP TABLE users; <script>alert('xss')</script>--";
@@ -385,7 +385,7 @@ fn test_multiple_violation_types() {
 #[test]
 fn test_risk_level_escalation() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     // Low risk: just a bit too long
     let long_input = "a".repeat(1100);
@@ -431,7 +431,7 @@ fn test_path_sanitization() {
     let mut config = InputValidationConfig::default();
     config.strict_mode = false;
     config.enable_path_traversal_detection = true;
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let malicious_path = "../../../etc/passwd";
     let result = validator.validate_input(malicious_path, InputType::FilePath, None);
@@ -455,7 +455,7 @@ fn test_path_sanitization() {
 #[test]
 fn test_empty_input_handling() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let result = validator.validate_input("", InputType::Text, None);
     assert!(result.is_valid, "Empty input should be valid");
@@ -468,7 +468,7 @@ fn test_empty_input_handling() {
 #[test]
 fn test_whitespace_only_input() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let result = validator.validate_input("   \t\n  ", InputType::Text, None);
     assert!(result.is_valid, "Whitespace-only input should be valid");
@@ -477,7 +477,7 @@ fn test_whitespace_only_input() {
 #[test]
 fn test_unicode_handling() {
     let config = InputValidationConfig::default();
-    let validator = ProductionInputValidator::new(config).unwrap();
+    let validator = ProductionInputValidator::new(config).expect("should succeed");
 
     let unicode_input = "Hello 世界 مرحبا שלום";
     let result = validator.validate_input(unicode_input, InputType::Text, None);

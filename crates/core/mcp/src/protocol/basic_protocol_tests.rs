@@ -65,7 +65,7 @@ mod tests {
         
         match result {
             Err(MCPError::Protocol(_)) => {}, // Expected
-            _ => panic!("Expected Protocol error"),
+            _ => unreachable!("Expected Protocol error"),
         }
     }
 

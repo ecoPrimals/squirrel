@@ -520,7 +520,7 @@ mod tests {
             accept_result
         );
 
-        let (_transport, remote_addr) = accept_result.unwrap();
+        let (_transport, remote_addr) = accept_result.expect("should succeed");
         assert!(matches!(remote_addr, RemoteAddr::Tcp(_)));
 
         // Clean up - connect_handle may have failed if we parsed addr wrong, that's ok
@@ -537,8 +537,8 @@ mod tests {
         let result = UniversalListener::bind("test_tcp_bind", Some(config)).await;
         assert!(result.is_ok());
 
-        let listener = result.unwrap();
-        let addr_str = listener.local_addr().unwrap();
+        let listener = result.expect("should succeed");
+        let addr_str = listener.local_addr().expect("should succeed");
         assert!(addr_str.contains(':'));
     }
 }

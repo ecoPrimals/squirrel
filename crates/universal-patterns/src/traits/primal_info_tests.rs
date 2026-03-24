@@ -86,13 +86,13 @@ mod primal_type_tests {
     #[test]
     fn test_primal_type_serialization() {
         let primal_type = PrimalType::Security;
-        let serialized = serde_json::to_string(&primal_type).unwrap();
-        let deserialized: PrimalType = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&primal_type).expect("should succeed");
+        let deserialized: PrimalType = serde_json::from_str(&serialized).expect("should succeed");
         assert_eq!(primal_type, deserialized);
 
         let custom = PrimalType::Custom("SerTest".to_string());
-        let custom_serialized = serde_json::to_string(&custom).unwrap();
-        let custom_deserialized: PrimalType = serde_json::from_str(&custom_serialized).unwrap();
+        let custom_serialized = serde_json::to_string(&custom).expect("should succeed");
+        let custom_deserialized: PrimalType = serde_json::from_str(&custom_serialized).expect("should succeed");
         assert_eq!(custom, custom_deserialized);
     }
 
@@ -191,13 +191,13 @@ mod primal_state_tests {
     #[test]
     fn test_primal_state_serialization() {
         let state = PrimalState::Running;
-        let serialized = serde_json::to_string(&state).unwrap();
-        let deserialized: PrimalState = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&state).expect("should succeed");
+        let deserialized: PrimalState = serde_json::from_str(&serialized).expect("should succeed");
         assert_eq!(state, deserialized);
 
         let error_state = PrimalState::Error("Serialization test".to_string());
-        let error_serialized = serde_json::to_string(&error_state).unwrap();
-        let error_deserialized: PrimalState = serde_json::from_str(&error_serialized).unwrap();
+        let error_serialized = serde_json::to_string(&error_state).expect("should succeed");
+        let error_deserialized: PrimalState = serde_json::from_str(&error_serialized).expect("should succeed");
         assert_eq!(error_state, error_deserialized);
     }
 
@@ -301,8 +301,8 @@ mod primal_info_tests {
     #[test]
     fn test_primal_info_serialization() {
         let info = create_test_primal_info("serialize-test");
-        let serialized = serde_json::to_string(&info).unwrap();
-        let deserialized: PrimalInfo = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&info).expect("should succeed");
+        let deserialized: PrimalInfo = serde_json::from_str(&serialized).expect("should succeed");
 
         assert_eq!(info.name, deserialized.name);
         assert_eq!(info.version, deserialized.version);
@@ -416,8 +416,8 @@ mod primal_info_tests {
         assert!(info.tags[0].contains("🔖"));
 
         // Test serialization with special characters
-        let serialized = serde_json::to_string(&info).unwrap();
-        let deserialized: PrimalInfo = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&info).expect("should succeed");
+        let deserialized: PrimalInfo = serde_json::from_str(&serialized).expect("should succeed");
         assert_eq!(info.name, deserialized.name);
     }
 }

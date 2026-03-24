@@ -201,8 +201,8 @@ mod tests {
             network_id: None,
             geo_location: None,
         };
-        let json = serde_json::to_string(&c).unwrap();
-        let back: PrimalContext = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&c).expect("should succeed");
+        let back: PrimalContext = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.network_location.region, "r");
     }
 

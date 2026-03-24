@@ -80,19 +80,21 @@ mod tests {
         });
 
         assert_eq!(
-            validation::validate_required_string(&params, "name").unwrap(),
+            validation::validate_required_string(&params, "name").expect("should succeed"),
             "test"
         );
-        let count = validation::validate_required_number(&params, "count").unwrap();
+        let count = validation::validate_required_number(&params, "count").expect("should succeed");
         assert!((count - 42.0).abs() < f64::EPSILON);
-        assert!(validation::validate_boolean(&params, "enabled", false).unwrap());
+        assert!(validation::validate_boolean(&params, "enabled", false).expect("should succeed"));
         assert_eq!(
-            validation::validate_array(&params, "items").unwrap().len(),
+            validation::validate_array(&params, "items")
+                .expect("should succeed")
+                .len(),
             3
         );
         assert_eq!(
             validation::validate_object(&params, "config")
-                .unwrap()
+                .expect("should succeed")
                 .len(),
             1
         );
@@ -151,7 +153,12 @@ mod tests {
 
         assert!(chained_enhanced.source.is_some());
         assert_eq!(
-            chained_enhanced.source.as_ref().unwrap().error.error_type(),
+            chained_enhanced
+                .source
+                .as_ref()
+                .expect("should succeed")
+                .error
+                .error_type(),
             "NetworkError"
         );
     }

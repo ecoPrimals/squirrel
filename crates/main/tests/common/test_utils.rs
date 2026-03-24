@@ -162,7 +162,7 @@ mod tests {
         })
         .await;
 
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("should succeed"), 42);
     }
 
     #[tokio::test]
@@ -220,7 +220,7 @@ mod tests {
         })
         .await;
 
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("should succeed"), 42);
         assert_eq!(attempt.load(Ordering::SeqCst), 3);
     }
 
@@ -235,7 +235,7 @@ mod tests {
         ];
 
         let results = run_concurrent(operations, 5).await;
-        assert_eq!(results.unwrap(), vec![1, 2, 3]);
+        assert_eq!(results.expect("should succeed"), vec![1, 2, 3]);
     }
 }
 
@@ -255,7 +255,7 @@ mod tests {
 /// #[tokio::test]
 /// async fn test_ecosystem_discovery() {
 ///     let manager = create_test_ecosystem_manager().await;
-///     let services = manager.discover_capability("storage").await.unwrap();
+///     let services = manager.discover_capability("storage").await.expect("should succeed");
 ///     assert!(services.is_empty()); // No services registered yet
 /// }
 /// ```

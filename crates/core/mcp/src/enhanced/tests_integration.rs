@@ -99,7 +99,7 @@ mod protocol_integration_tests {
             params: Some(serde_json::json!({"message": "hello world"})),
         };
 
-        let response = service.handle_request(&request).await.unwrap();
+        let response = service.handle_request(&request).await.expect("should succeed");
 
         assert_eq!(response.id, request.id);
         assert_eq!(response.result, request.params);
@@ -123,7 +123,7 @@ mod protocol_integration_tests {
             MCPError::MethodNotFound(method) => {
                 assert_eq!(method, "unknown_method");
             }
-            _ => panic!("Expected MethodNotFound error"),
+            _ => unreachable!("Expected MethodNotFound error"),
         }
     }
 
@@ -149,7 +149,7 @@ mod protocol_integration_tests {
 
         // Wait for all requests to complete
         for handle in handles {
-            let response = handle.await.unwrap().unwrap();
+            let response = handle.await.expect("should succeed").expect("should succeed");
             assert!(response.error.is_none());
             assert!(response.result.is_some());
         }
@@ -182,18 +182,18 @@ mod service_composition_integration_tests {
         let service1 = create_test_service_config("service1", 8081).await;
         let service2 = create_test_service_config("service2", 8082).await;
 
-        composition.add_service(service1.clone()).await.unwrap();
-        composition.add_service(service2.clone()).await.unwrap();
+        composition.add_service(service1.clone()).await.expect("should succeed");
+        composition.add_service(service2.clone()).await.expect("should succeed");
 
         // Verify services are registered
-        let services = composition.list_services().await.unwrap();
+        let services = composition.list_services().await.expect("should succeed");
         assert_eq!(services.len(), 2);
         assert!(services.contains(&service1.name));
         assert!(services.contains(&service2.name));
 
         // Remove a service
-        composition.remove_service(&service1.name).await.unwrap();
-        let services = composition.list_services().await.unwrap();
+        composition.remove_service(&service1.name).await.expect("should succeed");
+        let services = composition.list_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
         assert!(!services.contains(&service1.name));
         assert!(services.contains(&service2.name));
@@ -220,21 +220,21 @@ mod service_composition_integration_tests {
             retry_policy: None,
         };
 
-        composition.add_service(web_service).await.unwrap();
-        composition.add_service(db_service).await.unwrap();
+        composition.add_service(web_service).await.expect("should succeed");
+        composition.add_service(db_service).await.expect("should succeed");
 
         // Test capability-based service discovery
         let web_services = composition
             .discover_services_by_capability("web")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(web_services.len(), 1);
         assert_eq!(web_services[0], "web_service");
 
         let db_services = composition
             .discover_services_by_capability("database")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(db_services.len(), 1);
         assert_eq!(db_services[0], "db_service");
 
@@ -242,7 +242,7 @@ mod service_composition_integration_tests {
         let route_target = composition
             .route_request("database", &serde_json::json!({"query": "SELECT * FROM users"}))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(route_target, "db_service");
     }
 }
@@ -291,10 +291,10 @@ mod workflow_integration_tests {
         };
 
         // Register workflow
-        engine.register_workflow(workflow.clone()).await.unwrap();
+        engine.register_workflow(workflow.clone()).await.expect("should succeed");
 
         // Verify workflow registration
-        let registered_workflows = engine.list_workflows().await.unwrap();
+        let registered_workflows = engine.list_workflows().await.expect("should succeed");
         assert!(registered_workflows.contains(&workflow.id));
 
         // Execute workflow (would normally interact with real services)
@@ -302,7 +302,7 @@ mod workflow_integration_tests {
         let execution_plan = engine
             .create_execution_plan(&workflow.id)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(execution_plan.len(), 3);
         assert_eq!(execution_plan[0].dependencies.len(), 0); // step1 has no deps
@@ -348,19 +348,19 @@ mod workflow_integration_tests {
             ],
         };
 
-        engine.register_workflow(workflow_with_failure.clone()).await.unwrap();
+        engine.register_workflow(workflow_with_failure.clone()).await.expect("should succeed");
 
         // Test error propagation and recovery mechanisms
         let execution_plan = engine
             .create_execution_plan(&workflow_with_failure.id)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Verify that recovery step can handle failure from previous step
         let recovery_step = execution_plan
             .iter()
             .find(|step| step.id == "recovery_step")
-            .unwrap();
+            .expect("should succeed");
 
         assert!(recovery_step.dependencies.contains(&"failure_step".to_string()));
         assert!(recovery_step.input.to_string().contains("${failure_step.error}"));
@@ -410,13 +410,13 @@ mod transport_integration_tests {
         let message = MCPMessage::Request(request.clone());
 
         // Test serialization
-        let serialized = serde_json::to_string(&message).unwrap();
+        let serialized = serde_json::to_string(&message).expect("should succeed");
         assert!(serialized.contains("test_method"));
         assert!(serialized.contains("value1"));
         assert!(serialized.contains("42"));
 
         // Test deserialization
-        let deserialized: MCPMessage = serde_json::from_str(&serialized).unwrap();
+        let deserialized: MCPMessage = serde_json::from_str(&serialized).expect("should succeed");
         
         match deserialized {
             MCPMessage::Request(deserialized_request) => {
@@ -424,7 +424,7 @@ mod transport_integration_tests {
                 assert_eq!(deserialized_request.method, request.method);
                 assert_eq!(deserialized_request.params, request.params);
             }
-            _ => panic!("Expected Request message"),
+            _ => unreachable!("Expected Request message"),
         }
     }
 }
@@ -459,7 +459,7 @@ mod performance_integration_tests {
         // Wait for all requests
         let mut success_count = 0;
         for handle in handles {
-            if handle.await.unwrap().is_ok() {
+            if handle.await.expect("should succeed").is_ok() {
                 success_count += 1;
             }
         }
@@ -496,7 +496,7 @@ mod performance_integration_tests {
                 })),
             };
 
-            let response = service.handle_request(&request).await.unwrap();
+            let response = service.handle_request(&request).await.expect("should succeed");
             
             // Verify response contains the data
             assert!(response.result.is_some());
@@ -561,7 +561,7 @@ mod reliability_integration_tests {
         
         assert!(result.is_ok(), "Request should complete within timeout");
         
-        let response = result.unwrap().unwrap();
+        let response = result.expect("should succeed").expect("should succeed");
         assert_eq!(response.id, request.id);
     }
 } 

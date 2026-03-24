@@ -479,16 +479,16 @@ mod tests {
             metadata: None,
         };
 
-        manager.register_state("state1".to_string(), state1).await.unwrap();
-        manager.register_state("state2".to_string(), state2).await.unwrap();
+        manager.register_state("state1".to_string(), state1).await.expect("should succeed");
+        manager.register_state("state2".to_string(), state2).await.expect("should succeed");
         manager.register_transition(StateTransition {
             from_state: "state1".to_string(),
             to_state: "state2".to_string(),
             conditions: vec![],
             validation_rules: vec![],
-        }).await.unwrap();
+        }).await.expect("should succeed");
 
-        manager.transition_state("state1", "state2", None).await.unwrap();
+        manager.transition_state("state1", "state2", None).await.expect("should succeed");
         let history = manager.get_history().await;
         assert_eq!(history.len(), 1);
     }

@@ -501,7 +501,7 @@ mod tests {
         let config = create_test_config();
         let orchestrator = SecurityOrchestrator::new(config).await;
         assert!(orchestrator.is_ok());
-        let orchestrator = orchestrator.unwrap();
+        let orchestrator = orchestrator.expect("should succeed");
         let stats = orchestrator.get_security_statistics().await;
         assert_eq!(stats.total_tracked_ips, 0);
         assert_eq!(stats.active_security_responses, 0);
@@ -510,10 +510,12 @@ mod tests {
     #[tokio::test]
     async fn test_security_check_allowed_request() {
         let config = create_test_config();
-        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        let orchestrator = SecurityOrchestrator::new(config)
+            .await
+            .expect("should succeed");
 
         let request = SecurityCheckRequest {
-            client_ip: "127.0.0.1".parse().unwrap(),
+            client_ip: "127.0.0.1".parse().expect("should succeed"),
             user_agent: Some("test-agent".to_string()),
             endpoint: "/api/test".to_string(),
             endpoint_type: EndpointType::Api,
@@ -535,10 +537,12 @@ mod tests {
     #[tokio::test]
     async fn test_security_check_with_valid_input() {
         let config = create_test_config();
-        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        let orchestrator = SecurityOrchestrator::new(config)
+            .await
+            .expect("should succeed");
 
         let request = SecurityCheckRequest {
-            client_ip: "127.0.0.1".parse().unwrap(),
+            client_ip: "127.0.0.1".parse().expect("should succeed"),
             user_agent: None,
             endpoint: "/api/test".to_string(),
             endpoint_type: EndpointType::Api,
@@ -562,10 +566,12 @@ mod tests {
     #[tokio::test]
     async fn test_security_check_with_invalid_input() {
         let config = create_test_config();
-        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        let orchestrator = SecurityOrchestrator::new(config)
+            .await
+            .expect("should succeed");
 
         let request = SecurityCheckRequest {
-            client_ip: "127.0.0.1".parse().unwrap(),
+            client_ip: "127.0.0.1".parse().expect("should succeed"),
             user_agent: None,
             endpoint: "/api/test".to_string(),
             endpoint_type: EndpointType::Api,
@@ -594,9 +600,11 @@ mod tests {
         config.security_monitoring.enable_real_time_monitoring = false;
         config.response_thresholds.temp_block_threshold = 3;
         config.response_thresholds.admin_alert_threshold = 2;
-        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        let orchestrator = SecurityOrchestrator::new(config)
+            .await
+            .expect("should succeed");
 
-        let client_ip: IpAddr = "192.168.1.100".parse().unwrap();
+        let client_ip: IpAddr = "192.168.1.100".parse().expect("should succeed");
 
         for _ in 0..3 {
             let request = SecurityCheckRequest {
@@ -629,9 +637,11 @@ mod tests {
         config.response_thresholds.temp_block_threshold = 2;
         config.response_thresholds.admin_alert_threshold = 2;
         config.enable_automated_response = true;
-        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        let orchestrator = SecurityOrchestrator::new(config)
+            .await
+            .expect("should succeed");
 
-        let client_ip: IpAddr = "192.168.1.101".parse().unwrap();
+        let client_ip: IpAddr = "192.168.1.101".parse().expect("should succeed");
 
         for _ in 0..3 {
             let request = SecurityCheckRequest {
@@ -660,10 +670,12 @@ mod tests {
     #[tokio::test]
     async fn test_empty_input_data() {
         let config = create_test_config();
-        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        let orchestrator = SecurityOrchestrator::new(config)
+            .await
+            .expect("should succeed");
 
         let request = SecurityCheckRequest {
-            client_ip: "127.0.0.1".parse().unwrap(),
+            client_ip: "127.0.0.1".parse().expect("should succeed"),
             user_agent: None,
             endpoint: "/api/test".to_string(),
             endpoint_type: EndpointType::Api,
@@ -707,14 +719,18 @@ mod tests {
     #[tokio::test]
     async fn test_orchestrator_shutdown_component_name() {
         let config = create_test_config();
-        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        let orchestrator = SecurityOrchestrator::new(config)
+            .await
+            .expect("should succeed");
         assert_eq!(orchestrator.component_name(), "security_orchestrator");
     }
 
     #[tokio::test]
     async fn test_orchestrator_shutdown_phases() {
         let config = create_test_config();
-        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        let orchestrator = SecurityOrchestrator::new(config)
+            .await
+            .expect("should succeed");
 
         assert!(
             orchestrator
@@ -757,13 +773,15 @@ mod tests {
     #[tokio::test]
     async fn test_security_check_with_metadata() {
         let config = create_test_config();
-        let orchestrator = SecurityOrchestrator::new(config).await.unwrap();
+        let orchestrator = SecurityOrchestrator::new(config)
+            .await
+            .expect("should succeed");
 
         let mut metadata = HashMap::new();
         metadata.insert("source".to_string(), "test".to_string());
 
         let request = SecurityCheckRequest {
-            client_ip: "127.0.0.1".parse().unwrap(),
+            client_ip: "127.0.0.1".parse().expect("should succeed"),
             user_agent: Some("test-agent".to_string()),
             endpoint: "/api/test".to_string(),
             endpoint_type: EndpointType::Authentication,

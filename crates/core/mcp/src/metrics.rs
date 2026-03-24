@@ -708,14 +708,14 @@ mod tests {
         
         // Directly insert into the timers collection
         {
-            let mut timers = collector.timers.write().unwrap();
+            let mut timers = collector.timers.write().expect("should succeed");
             timers.insert("test_timer".to_string(), vec![millis]);
         }
         
         // Now verify the value was recorded properly
         let timer_values = collector.get_timer("test_timer");
         assert!(timer_values.is_some(), "Timer values should be recorded");
-        assert!(!timer_values.unwrap().is_empty(), "Timer values should not be empty");
+        assert!(!timer_values.expect("should succeed").is_empty(), "Timer values should not be empty");
     }
     
     #[test]

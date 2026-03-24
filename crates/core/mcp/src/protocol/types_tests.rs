@@ -54,32 +54,32 @@ mod tests {
     #[test]
     fn test_message_type_from_str() {
         assert_eq!(
-            MessageType::from_str("command").unwrap(),
+            MessageType::from_str("command").expect("should succeed"),
             MessageType::Command
         );
         assert_eq!(
-            MessageType::from_str("Command").unwrap(),
+            MessageType::from_str("Command").expect("should succeed"),
             MessageType::Command
         );
         assert_eq!(
-            MessageType::from_str("COMMAND").unwrap(),
+            MessageType::from_str("COMMAND").expect("should succeed"),
             MessageType::Command
         );
 
         assert_eq!(
-            MessageType::from_str("response").unwrap(),
+            MessageType::from_str("response").expect("should succeed"),
             MessageType::Response
         );
-        assert_eq!(MessageType::from_str("event").unwrap(), MessageType::Event);
-        assert_eq!(MessageType::from_str("error").unwrap(), MessageType::Error);
-        assert_eq!(MessageType::from_str("setup").unwrap(), MessageType::Setup);
+        assert_eq!(MessageType::from_str("event").expect("should succeed"), MessageType::Event);
+        assert_eq!(MessageType::from_str("error").expect("should succeed"), MessageType::Error);
+        assert_eq!(MessageType::from_str("setup").expect("should succeed"), MessageType::Setup);
         assert_eq!(
-            MessageType::from_str("heartbeat").unwrap(),
+            MessageType::from_str("heartbeat").expect("should succeed"),
             MessageType::Heartbeat
         );
-        assert_eq!(MessageType::from_str("sync").unwrap(), MessageType::Sync);
+        assert_eq!(MessageType::from_str("sync").expect("should succeed"), MessageType::Sync);
         assert_eq!(
-            MessageType::from_str("unknown").unwrap(),
+            MessageType::from_str("unknown").expect("should succeed"),
             MessageType::Unknown
         );
     }
@@ -94,10 +94,10 @@ mod tests {
     #[test]
     fn test_message_type_serialization() {
         let msg_type = MessageType::Command;
-        let json = serde_json::to_string(&msg_type).unwrap();
+        let json = serde_json::to_string(&msg_type).expect("should succeed");
         assert!(json.contains("Command"));
 
-        let deserialized: MessageType = serde_json::from_str(&json).unwrap();
+        let deserialized: MessageType = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, MessageType::Command);
     }
 
@@ -171,9 +171,9 @@ mod tests {
     #[test]
     fn test_message_id_serialization() {
         let id = MessageId("test-id-123".to_string());
-        let json = serde_json::to_string(&id).unwrap();
+        let json = serde_json::to_string(&id).expect("should succeed");
 
-        let deserialized: MessageId = serde_json::from_str(&json).unwrap();
+        let deserialized: MessageId = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(id, deserialized);
     }
 
@@ -221,9 +221,9 @@ mod tests {
     #[test]
     fn test_protocol_version_serialization() {
         let version = ProtocolVersion::new(1, 5);
-        let json = serde_json::to_string(&version).unwrap();
+        let json = serde_json::to_string(&version).expect("should succeed");
 
-        let deserialized: ProtocolVersion = serde_json::from_str(&json).unwrap();
+        let deserialized: ProtocolVersion = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(version, deserialized);
     }
 
@@ -346,8 +346,8 @@ mod tests {
         let payload = json!({"test": "data"});
         let msg = MCPMessage::new(MessageType::Response, payload);
 
-        let json = serde_json::to_string(&msg).unwrap();
-        let deserialized: MCPMessage = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&msg).expect("should succeed");
+        let deserialized: MCPMessage = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(msg.id, deserialized.id);
         assert_eq!(msg.type_, deserialized.type_);
@@ -387,9 +387,9 @@ mod tests {
     #[test]
     fn test_security_metadata_serialization() {
         let security = SecurityMetadata::default();
-        let json = serde_json::to_string(&security).unwrap();
+        let json = serde_json::to_string(&security).expect("should succeed");
 
-        let deserialized: SecurityMetadata = serde_json::from_str(&json).unwrap();
+        let deserialized: SecurityMetadata = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(security, deserialized);
     }
 
@@ -410,10 +410,10 @@ mod tests {
         let msg = MCPMessage::new(MessageType::Command, payload.clone());
 
         // Serialize
-        let json = serde_json::to_string(&msg).unwrap();
+        let json = serde_json::to_string(&msg).expect("should succeed");
 
         // Deserialize
-        let recovered: MCPMessage = serde_json::from_str(&json).unwrap();
+        let recovered: MCPMessage = serde_json::from_str(&json).expect("should succeed");
 
         // Verify all fields match
         assert_eq!(recovered.id, msg.id);

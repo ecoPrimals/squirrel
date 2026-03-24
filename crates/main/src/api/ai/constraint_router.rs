@@ -540,8 +540,8 @@ mod tests {
     #[test]
     fn routing_constraint_serde_roundtrip() {
         let c = RoutingConstraint::RequireProvider("p".to_string());
-        let json = serde_json::to_string(&c).unwrap();
-        let back: RoutingConstraint = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&c).expect("should succeed");
+        let back: RoutingConstraint = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back, c);
     }
 }

@@ -70,11 +70,11 @@ mod tests {
         };
 
         // Create
-        let id = manager.create_context(context.clone()).await.unwrap();
+        let id = manager.create_context(context.clone()).await.expect("should succeed");
         assert_eq!(id, context.id);
 
         // Get
-        let retrieved = manager.get_context(id).await.unwrap();
+        let retrieved = manager.get_context(id).await.expect("should succeed");
         assert_eq!(retrieved.id, context.id);
 
         // Update
@@ -85,7 +85,7 @@ mod tests {
             .is_ok());
 
         // Verify update
-        let updated = manager.get_context(id).await.unwrap();
+        let updated = manager.get_context(id).await.expect("should succeed");
         assert_eq!(updated.data, new_data);
 
         // Delete
@@ -129,7 +129,7 @@ mod tests {
         assert!(manager.create_context(child).await.is_ok());
 
         // Get children
-        let children = manager.get_child_contexts(parent_id).await.unwrap();
+        let children = manager.get_child_contexts(parent_id).await.expect("should succeed");
         assert_eq!(children.len(), 1);
         assert_eq!(children[0].id, child_id);
     }
@@ -191,10 +191,10 @@ mod tests {
 
         let result = manager.create_context(context.clone()).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), context.id);
+        assert_eq!(result.expect("should succeed"), context.id);
 
         // Verify context was stored
-        let retrieved = manager.get_context(context.id).await.unwrap();
+        let retrieved = manager.get_context(context.id).await.expect("should succeed");
         assert_eq!(retrieved.id, context.id);
         assert_eq!(retrieved.name, context.name);
         assert_eq!(retrieved.data, context.data);
@@ -206,14 +206,14 @@ mod tests {
         
         // Create parent context
         let parent = create_test_context("parent", serde_json::json!({}), None);
-        let parent_id = manager.create_context(parent).await.unwrap();
+        let parent_id = manager.create_context(parent).await.expect("should succeed");
 
         // Create child context
         let child = create_test_context("child", serde_json::json!({}), Some(parent_id));
-        let child_id = manager.create_context(child.clone()).await.unwrap();
+        let child_id = manager.create_context(child.clone()).await.expect("should succeed");
 
         // Verify hierarchy was updated
-        let children = manager.get_child_contexts(parent_id).await.unwrap();
+        let children = manager.get_child_contexts(parent_id).await.expect("should succeed");
         assert_eq!(children.len(), 1);
         assert_eq!(children[0].id, child_id);
     }
@@ -258,9 +258,9 @@ mod tests {
     async fn test_get_context_success() {
         let manager = create_test_manager();
         let context = create_test_context("test", serde_json::json!({"key": "value"}), None);
-        let context_id = manager.create_context(context.clone()).await.unwrap();
+        let context_id = manager.create_context(context.clone()).await.expect("should succeed");
 
-        let retrieved = manager.get_context(context_id).await.unwrap();
+        let retrieved = manager.get_context(context_id).await.expect("should succeed");
         assert_eq!(retrieved.id, context.id);
         assert_eq!(retrieved.name, context.name);
         assert_eq!(retrieved.data, context.data);
@@ -285,14 +285,14 @@ mod tests {
     async fn test_update_context_success() {
         let manager = create_test_manager();
         let context = create_test_context("test", serde_json::json!({"key": "old_value"}), None);
-        let context_id = manager.create_context(context).await.unwrap();
+        let context_id = manager.create_context(context).await.expect("should succeed");
 
         let new_data = serde_json::json!({"key": "new_value", "extra": "field"});
         let result = manager.update_context(context_id, new_data.clone(), None).await;
         assert!(result.is_ok());
 
         // Verify update
-        let updated = manager.get_context(context_id).await.unwrap();
+        let updated = manager.get_context(context_id).await.expect("should succeed");
         assert_eq!(updated.data, new_data);
         assert!(updated.updated_at > updated.created_at);
     }
@@ -301,7 +301,7 @@ mod tests {
     async fn test_update_context_with_metadata() {
         let manager = create_test_manager();
         let context = create_test_context("test", serde_json::json!({"key": "value"}), None);
-        let context_id = manager.create_context(context).await.unwrap();
+        let context_id = manager.create_context(context).await.expect("should succeed");
 
         let new_data = serde_json::json!({"key": "updated"});
         let new_metadata = Some(serde_json::json!({"version": 2, "updated_by": "test"}));
@@ -309,7 +309,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify update
-        let updated = manager.get_context(context_id).await.unwrap();
+        let updated = manager.get_context(context_id).await.expect("should succeed");
         assert_eq!(updated.data, new_data);
         assert_eq!(updated.metadata, new_metadata);
     }
@@ -334,7 +334,7 @@ mod tests {
     async fn test_delete_context_success() {
         let manager = create_test_manager();
         let context = create_test_context("test", serde_json::json!({}), None);
-        let context_id = manager.create_context(context).await.unwrap();
+        let context_id = manager.create_context(context).await.expect("should succeed");
 
         // Verify context exists
         assert!(manager.get_context(context_id).await.is_ok());
@@ -366,16 +366,16 @@ mod tests {
         
         // Create parent
         let parent = create_test_context("parent", serde_json::json!({}), None);
-        let parent_id = manager.create_context(parent).await.unwrap();
+        let parent_id = manager.create_context(parent).await.expect("should succeed");
 
         // Create children
         let child1 = create_test_context("child1", serde_json::json!({}), Some(parent_id));
         let child2 = create_test_context("child2", serde_json::json!({}), Some(parent_id));
-        let child1_id = manager.create_context(child1).await.unwrap();
-        let child2_id = manager.create_context(child2).await.unwrap();
+        let child1_id = manager.create_context(child1).await.expect("should succeed");
+        let child2_id = manager.create_context(child2).await.expect("should succeed");
 
         // Verify children exist
-        let children = manager.get_child_contexts(parent_id).await.unwrap();
+        let children = manager.get_child_contexts(parent_id).await.expect("should succeed");
         assert_eq!(children.len(), 2);
 
         // Delete parent
@@ -533,9 +533,9 @@ mod tests {
     async fn test_get_child_contexts_empty() {
         let manager = create_test_manager();
         let parent = create_test_context("parent", serde_json::json!({}), None);
-        let parent_id = manager.create_context(parent).await.unwrap();
+        let parent_id = manager.create_context(parent).await.expect("should succeed");
 
-        let children = manager.get_child_contexts(parent_id).await.unwrap();
+        let children = manager.get_child_contexts(parent_id).await.expect("should succeed");
         assert!(children.is_empty());
     }
 }

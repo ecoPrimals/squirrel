@@ -310,7 +310,7 @@ mod tests {
             "Version command should execute successfully"
         );
         assert!(
-            version_result.unwrap().contains("Version"),
+            version_result.expect("should succeed").contains("Version"),
             "Version command should return version info"
         );
 
@@ -342,7 +342,7 @@ mod tests {
             "Echo command should execute successfully"
         );
         assert_eq!(
-            echo_result.unwrap(),
+            echo_result.expect("should succeed"),
             "Echo: hello world",
             "Echo command should return input"
         );
@@ -510,7 +510,7 @@ mod tests {
             "Custom command should execute successfully"
         );
         assert_eq!(
-            custom_result.unwrap(),
+            custom_result.expect("should succeed"),
             "Custom command executed",
             "Custom command should return expected output"
         );

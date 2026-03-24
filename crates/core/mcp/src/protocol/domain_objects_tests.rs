@@ -57,12 +57,12 @@ mod tests {
         // Assume MCPMessage has a to_wire_message method from its own impl or DomainObject
         let wire_msg_result = msg.to_wire_message(WireProtocolVersion::default()).await;
         assert!(wire_msg_result.is_ok());
-        let wire_msg = wire_msg_result.unwrap();
+        let wire_msg = wire_msg_result.expect("should succeed");
 
         let json_result: std::result::Result<Value, _> = serde_json::from_slice(&wire_msg.data);
         assert!(json_result.is_ok());
-        let json_val = json_result.unwrap();
-        println!("Serialized MCPMessage from wire: {}", serde_json::to_string_pretty(&json_val).unwrap());
+        let json_val = json_result.expect("should succeed");
+        println!("Serialized MCPMessage from wire: {}", serde_json::to_string_pretty(&json_val).expect("should succeed"));
 
         // Basic checks on the serialized JSON Value
         assert_eq!(json_val["id"], "msg-test-serialize");
@@ -104,7 +104,7 @@ mod tests {
             eprintln!("Deserialization failed: {}", e); 
         }
         assert!(msg_result.is_ok());
-        let msg = msg_result.unwrap();
+        let msg = msg_result.expect("should succeed");
 
         assert_eq!(msg.id.0, "msg-test-deserialize");
         assert_eq!(msg.type_, MessageType::Command);
@@ -131,7 +131,7 @@ mod tests {
         });
         
         // Create the wire message
-        let wire_msg = WireMessage::from_json(WireProtocolVersion::V1_0, wire_payload).unwrap();
+        let wire_msg = WireMessage::from_json(WireProtocolVersion::V1_0, wire_payload).expect("should succeed");
 
         // Deserialize from WireMessage
         let deserialized_msg_result = MCPMessage::from_wire_message(&wire_msg).await;
@@ -139,7 +139,7 @@ mod tests {
              eprintln!("Wire deserialization failed: {}", e); 
         }
         assert!(deserialized_msg_result.is_ok());
-        let deserialized_msg = deserialized_msg_result.unwrap();
+        let deserialized_msg = deserialized_msg_result.expect("should succeed");
 
         // Compare relevant fields (timestamp might differ slightly)
         assert_eq!(original_msg.id, deserialized_msg.id);
@@ -165,7 +165,7 @@ mod tests {
         });
         
         // Create the wire message
-        let wire_msg = WireMessage::from_json(WireProtocolVersion::V1_0, wire_payload).unwrap();
+        let wire_msg = WireMessage::from_json(WireProtocolVersion::V1_0, wire_payload).expect("should succeed");
         
         // Use the async DomainObject trait method
         let deserialized_result = MCPMessage::from_wire_message(&wire_msg).await; 
@@ -173,7 +173,7 @@ mod tests {
             eprintln!("Domain object serialization failed: {}", e); 
         }
         assert!(deserialized_result.is_ok());
-        let deserialized_msg = deserialized_result.unwrap();
+        let deserialized_msg = deserialized_result.expect("should succeed");
 
         assert_eq!(msg.id, deserialized_msg.id);
         assert_eq!(msg.type_, deserialized_msg.type_);

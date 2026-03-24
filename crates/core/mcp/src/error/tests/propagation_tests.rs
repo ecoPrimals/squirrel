@@ -33,7 +33,7 @@ mod tests {
         assert!(result.is_err());
         match result {
             Err(MCPError::Protocol(_)) => {}
-            _ => panic!("Error should propagate correctly"),
+            _ => unreachable!("Error should propagate correctly"),
         }
     }
 
@@ -265,7 +265,7 @@ mod tests {
             RecoveryState::Recovering, // Recovery initiated
             RecoveryState::Healthy,    // Recovery successful
         ];
-        let final_state = transitions.last().unwrap();
+        let final_state = transitions.last().expect("should succeed");
 
         // Assert
         assert_eq!(*final_state, RecoveryState::Healthy);

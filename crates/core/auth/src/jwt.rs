@@ -202,8 +202,8 @@ mod tests {
             expires_at,
         );
 
-        let token = token_manager.create_token(&claims).unwrap();
-        let verified_claims = token_manager.verify_token(&token).unwrap();
+        let token = token_manager.create_token(&claims).expect("should succeed");
+        let verified_claims = token_manager.verify_token(&token).expect("should succeed");
 
         assert_eq!(claims.sub, verified_claims.sub);
         assert_eq!(claims.username, verified_claims.username);
@@ -228,7 +228,7 @@ mod tests {
             expires_at,
         );
 
-        let token = token_manager.create_token(&claims).unwrap();
+        let token = token_manager.create_token(&claims).expect("should succeed");
         let result = token_manager.verify_token(&token);
 
         assert!(matches!(result, Err(AuthError::TokenExpired)));
@@ -240,7 +240,9 @@ mod tests {
         let token_manager = JwtTokenManager::new(secret);
 
         let header = "Bearer abc123def456";
-        let token = token_manager.extract_token_from_header(header).unwrap();
+        let token = token_manager
+            .extract_token_from_header(header)
+            .expect("should succeed");
         assert_eq!(token, "abc123def456");
 
         let invalid_header = "abc123def456";

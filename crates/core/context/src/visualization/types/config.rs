@@ -204,8 +204,9 @@ mod tests {
     #[test]
     fn test_visualization_config_serde_roundtrip() {
         let config = VisualizationConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: VisualizationConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: VisualizationConfig =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.format, config.format);
         assert_eq!(deserialized.interactive, config.interactive);
     }
@@ -213,8 +214,8 @@ mod tests {
     #[test]
     fn test_grid_config_serde_roundtrip() {
         let config = GridConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: GridConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: GridConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.enabled, config.enabled);
         assert_eq!(deserialized.color, config.color);
         assert_eq!(deserialized.line_width, config.line_width);
@@ -223,8 +224,8 @@ mod tests {
     #[test]
     fn test_animation_config_serde_roundtrip() {
         let config = AnimationConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: AnimationConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: AnimationConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.enabled, config.enabled);
         assert_eq!(deserialized.duration, config.duration);
         assert_eq!(deserialized.easing, config.easing);
@@ -252,8 +253,9 @@ mod tests {
             .insert("key".to_string(), serde_json::json!("value"));
         assert_eq!(config.custom_options.len(), 1);
 
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: VisualizationConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: VisualizationConfig =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.custom_options.len(), 1);
     }
 }

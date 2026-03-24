@@ -153,7 +153,7 @@ mod tests {
         }
 
         for handle in handles {
-            handle.await.unwrap();
+            handle.await.expect("should succeed");
         }
     }
 
@@ -190,7 +190,7 @@ mod tests {
         let result = initialize_ecosystem_integration(config, metrics).await;
         assert!(result.is_ok());
 
-        let manager = result.unwrap();
+        let manager = result.expect("should succeed");
         let status = manager.status.read().await;
         assert_eq!(status.status, "initialized");
     }
@@ -221,7 +221,7 @@ mod tests {
     #[tokio::test]
     async fn shutdown_sets_status_to_shutdown() {
         let manager = create_test_manager();
-        manager.shutdown().await.unwrap();
+        manager.shutdown().await.expect("should succeed");
         let st = manager.get_manager_status().await;
         assert_eq!(st.status, "shutdown");
     }
@@ -240,7 +240,7 @@ mod tests {
                 },
             )
             .await
-            .unwrap();
+            .expect("should succeed");
         let st = manager.get_manager_status().await;
         assert!((st.health_status.health_score - 1.0).abs() < f64::EPSILON);
     }
@@ -248,7 +248,7 @@ mod tests {
     #[tokio::test]
     async fn discover_services_returns_empty_vec() {
         let manager = create_test_manager();
-        let s = manager.discover_services().await.unwrap();
+        let s = manager.discover_services().await.expect("should succeed");
         assert!(s.is_empty());
     }
 
@@ -288,7 +288,7 @@ mod tests {
         manager
             .complete_coordination("coord_test", true)
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 
     #[tokio::test]
@@ -296,21 +296,30 @@ mod tests {
         let manager = create_test_manager();
         let mut creds = std::collections::HashMap::new();
         creds.insert("user_id".to_string(), "u1".to_string());
-        let sid = manager.authenticate_universal(creds).await.unwrap();
+        let sid = manager
+            .authenticate_universal(creds)
+            .await
+            .expect("should succeed");
         assert!(sid.starts_with("beardog_session_"));
     }
 
     #[tokio::test]
     async fn deregister_from_service_mesh_ok() {
         let manager = create_test_manager();
-        manager.deregister_from_service_mesh().await.unwrap();
+        manager
+            .deregister_from_service_mesh()
+            .await
+            .expect("should succeed");
     }
 
     #[tokio::test]
     async fn register_squirrel_service_updates_registrations() {
         let provider = test_primal_provider().await;
         let manager = create_test_manager();
-        manager.register_squirrel_service(&provider).await.unwrap();
+        manager
+            .register_squirrel_service(&provider)
+            .await
+            .expect("should succeed");
         let st = manager.get_manager_status().await;
         assert_eq!(st.active_registrations.len(), 1);
         assert!(st.last_registration.is_some());
@@ -320,7 +329,10 @@ mod tests {
     async fn register_with_service_mesh_updates_registrations() {
         let provider = test_primal_provider().await;
         let manager = create_test_manager();
-        manager.register_with_service_mesh(&provider).await.unwrap();
+        manager
+            .register_with_service_mesh(&provider)
+            .await
+            .expect("should succeed");
         let st = manager.get_manager_status().await;
         assert_eq!(st.active_registrations.len(), 1);
     }
@@ -349,7 +361,7 @@ mod tests {
                 },
             )
             .await
-            .unwrap();
+            .expect("should succeed");
         manager
             .update_health_status(
                 "b",
@@ -361,7 +373,7 @@ mod tests {
                 },
             )
             .await
-            .unwrap();
+            .expect("should succeed");
         manager
             .update_health_status(
                 "c",
@@ -373,7 +385,7 @@ mod tests {
                 },
             )
             .await
-            .unwrap();
+            .expect("should succeed");
         let st = manager.get_manager_status().await;
         let expected = (1.0 + 0.5 + 0.0) / 3.0;
         assert!((st.health_status.health_score - expected).abs() < 1e-9);
@@ -410,7 +422,7 @@ mod tests {
     #[tokio::test]
     async fn store_data_universal_errors_without_storage_service() {
         let mut manager = create_test_manager();
-        manager.initialize().await.unwrap();
+        manager.initialize().await.expect("should succeed");
         assert!(
             manager
                 .store_data_universal("k", &[1, 2, 3], HashMap::new())
@@ -424,7 +436,10 @@ mod tests {
         let manager = create_test_manager();
         let mut creds = HashMap::new();
         creds.insert("username".to_string(), "alice".to_string());
-        let sid = manager.authenticate_universal(creds).await.unwrap();
+        let sid = manager
+            .authenticate_universal(creds)
+            .await
+            .expect("should succeed");
         assert!(sid.starts_with("beardog_session_"));
     }
 
@@ -432,7 +447,10 @@ mod tests {
     async fn get_manager_status_after_registration() {
         let provider = test_primal_provider().await;
         let manager = create_test_manager();
-        manager.register_squirrel_service(&provider).await.unwrap();
+        manager
+            .register_squirrel_service(&provider)
+            .await
+            .expect("should succeed");
         let st = manager.get_manager_status().await;
         assert_eq!(st.status, "initializing");
     }

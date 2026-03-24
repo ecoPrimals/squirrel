@@ -37,7 +37,7 @@ async fn test_uninitialized_error() {
             // Log the error for debugging
             println!("Expected error for uninitialized sync: {:?}", e);
         }
-        Ok(_) => panic!("Expected error but operation succeeded"),
+        Ok(_) => unreachable!("Expected error but operation succeeded"),
     }
 }
 

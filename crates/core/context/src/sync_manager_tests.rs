@@ -118,11 +118,11 @@ async fn test_sync_manager_broadcast_event() {
     // Verify event was received
     let received = rx.recv().await;
     assert!(received.is_some());
-    match received.unwrap() {
+    match received.expect("should succeed") {
         SyncEvent::Started { operation_id, .. } => {
             assert_eq!(operation_id, "op-123");
         }
-        _ => panic!("Wrong event type"),
+        _ => unreachable!("Wrong event type"),
     }
 }
 
@@ -190,7 +190,7 @@ async fn test_sync_manager_process_heartbeat() {
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    let sync_result = result.unwrap();
+    let sync_result = result.expect("should succeed");
     assert!(sync_result.success);
 }
 
@@ -213,7 +213,7 @@ async fn test_sync_manager_process_state_update() {
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    let sync_result = result.unwrap();
+    let sync_result = result.expect("should succeed");
     assert!(sync_result.success);
 }
 
@@ -243,7 +243,7 @@ async fn test_sync_manager_process_snapshot_create() {
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    let sync_result = result.unwrap();
+    let sync_result = result.expect("should succeed");
     assert!(sync_result.success);
 }
 
@@ -261,12 +261,12 @@ async fn test_sync_manager_process_expired_message() {
     // Set message timestamp to far in the past
     message.timestamp = SystemTime::now()
         .checked_sub(Duration::from_secs(400))
-        .unwrap();
+        .expect("should succeed");
 
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    let sync_result = result.unwrap();
+    let sync_result = result.expect("should succeed");
     assert!(!sync_result.success);
     assert!(sync_result.message.contains("expired"));
 }
@@ -289,7 +289,7 @@ async fn test_sync_manager_process_queue_full() {
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    let sync_result = result.unwrap();
+    let sync_result = result.expect("should succeed");
     assert!(!sync_result.success);
     assert!(sync_result.message.contains("Queue full"));
 }
@@ -323,7 +323,7 @@ async fn test_sync_manager_retry_failed_operations_empty() {
     let mut manager = SyncManager::new();
     let result = manager.retry_failed_operations().await;
     assert!(result.is_ok());
-    let results = result.unwrap();
+    let results = result.expect("should succeed");
     assert_eq!(results.len(), 0);
 }
 
@@ -407,7 +407,7 @@ async fn test_sync_manager_process_conflict_resolution() {
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    let sync_result = result.unwrap();
+    let sync_result = result.expect("should succeed");
     assert!(sync_result.success);
 }
 
@@ -427,7 +427,7 @@ async fn test_sync_manager_process_partition_detected() {
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    let sync_result = result.unwrap();
+    let sync_result = result.expect("should succeed");
     assert!(sync_result.success);
 }
 
@@ -444,7 +444,7 @@ async fn test_sync_manager_process_partition_recovered() {
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    let sync_result = result.unwrap();
+    let sync_result = result.expect("should succeed");
     assert!(sync_result.success);
 }
 
@@ -463,7 +463,7 @@ async fn test_sync_manager_message_priority() {
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    assert!(result.unwrap().success);
+    assert!(result.expect("should succeed").success);
 }
 
 #[tokio::test]
@@ -481,7 +481,7 @@ async fn test_sync_manager_message_with_retries() {
     let result = manager.process_message(message).await;
 
     assert!(result.is_ok());
-    let sync_result = result.unwrap();
+    let sync_result = result.expect("should succeed");
     // The result includes the retry count from the message
     assert!(sync_result.retry_count >= 0); // May be 0 or preserve the count
 }
@@ -513,8 +513,8 @@ async fn test_sync_manager_concurrent_operations() {
     assert!(result2.is_ok());
 
     // Both operations processed successfully
-    assert!(result1.unwrap().success);
-    assert!(result2.unwrap().success);
+    assert!(result1.expect("should succeed").success);
+    assert!(result2.expect("should succeed").success);
 }
 
 #[tokio::test]

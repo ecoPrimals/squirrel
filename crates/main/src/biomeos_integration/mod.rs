@@ -597,7 +597,7 @@ primals: {}
 "#;
         let result = integration.parse_manifest_content(yaml).await;
         assert!(result.is_ok());
-        let manifest = result.unwrap();
+        let manifest = result.expect("parse manifest");
         assert_eq!(manifest.metadata.name, "parsed-biome");
         assert_eq!(manifest.metadata.version, "2.0.0");
     }
@@ -622,7 +622,7 @@ primals: {}
         let manifest = integration.generate_manifest_template();
         let result = integration.deploy_agents_from_manifest(&manifest).await;
         assert!(result.is_ok());
-        let deployed = result.unwrap();
+        let deployed = result.expect("deploy agents");
         let _ = deployed.len(); // usize is always >= 0
     }
 
@@ -631,7 +631,7 @@ primals: {}
         let integration = SquirrelBiomeOSIntegration::new("migrate-test".to_string());
         let result = integration.migrate_to_optimized().await;
         assert!(result.is_ok());
-        let optimized = result.unwrap();
+        let optimized = result.expect("migrate optimized");
         assert_eq!(optimized.biome_id, "migration-squirrel");
     }
 

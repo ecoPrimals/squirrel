@@ -154,13 +154,13 @@ async fn test_workflow_engine_creation() {
     let engine = create_test_engine().await;
     
     // Test basic engine operations
-    let definitions = engine.list_workflow_definitions().await.unwrap();
+    let definitions = engine.list_workflow_definitions().await.expect("should succeed");
     assert!(definitions.is_empty());
     
-    let active_workflows = engine.list_active_workflows().await.unwrap();
+    let active_workflows = engine.list_active_workflows().await.expect("should succeed");
     assert!(active_workflows.is_empty());
     
-    let metrics = engine.get_metrics().await.unwrap();
+    let metrics = engine.get_metrics().await.expect("should succeed");
     assert_eq!(metrics.total_workflows, 0);
     assert_eq!(metrics.active_workflows, 0);
 }
@@ -177,16 +177,16 @@ async fn test_workflow_registration() {
     );
     
     // Register workflow
-    engine.register_workflow(workflow.clone()).await.unwrap();
+    engine.register_workflow(workflow.clone()).await.expect("should succeed");
     
     // Verify registration
-    let definitions = engine.list_workflow_definitions().await.unwrap();
+    let definitions = engine.list_workflow_definitions().await.expect("should succeed");
     assert_eq!(definitions.len(), 1);
     assert_eq!(definitions[0].id, "test-workflow");
     
-    let retrieved = engine.get_workflow_definition("test-workflow").await.unwrap();
+    let retrieved = engine.get_workflow_definition("test-workflow").await.expect("should succeed");
     assert!(retrieved.is_some());
-    assert_eq!(retrieved.unwrap().id, "test-workflow");
+    assert_eq!(retrieved.expect("should succeed").id, "test-workflow");
 }
 
 #[tokio::test]
@@ -225,18 +225,18 @@ async fn test_workflow_sequential_execution() {
         ExecutionStrategy::Sequential,
     );
     
-    engine.register_workflow(workflow).await.unwrap();
+    engine.register_workflow(workflow).await.expect("should succeed");
     
     // Execute workflow
     let mut parameters = HashMap::new();
     parameters.insert("input".to_string(), serde_json::Value::String("hello world".to_string()));
     
-    let instance = engine.execute_workflow("sequential-test", parameters).await.unwrap();
+    let instance = engine.execute_workflow("sequential-test", parameters).await.expect("should succeed");
     
     // Wait for execution to complete
     let completed_instance = timeout(Duration::from_secs(10), async {
         loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.unwrap() {
+            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
                 match status.state {
                     WorkflowState::Completed | WorkflowState::Failed => break status,
                     _ => {
@@ -307,16 +307,16 @@ async fn test_workflow_parallel_execution() {
         ExecutionStrategy::Parallel,
     );
     
-    engine.register_workflow(workflow).await.unwrap();
+    engine.register_workflow(workflow).await.expect("should succeed");
     
     // Execute workflow and measure time
     let start_time = std::time::Instant::now();
-    let instance = engine.execute_workflow("parallel-test", HashMap::new()).await.unwrap();
+    let instance = engine.execute_workflow("parallel-test", HashMap::new()).await.expect("should succeed");
     
     // Wait for completion
     let completed_instance = timeout(Duration::from_secs(5), async {
         loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.unwrap() {
+            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
                 match status.state {
                     WorkflowState::Completed | WorkflowState::Failed => break status,
                     _ => {
@@ -369,17 +369,17 @@ async fn test_workflow_condition_step() {
         ExecutionStrategy::Sequential,
     );
     
-    engine.register_workflow(workflow).await.unwrap();
+    engine.register_workflow(workflow).await.expect("should succeed");
     
     // Test with condition true
     let mut parameters = HashMap::new();
     parameters.insert("should_process".to_string(), serde_json::Value::Bool(true));
     
-    let instance = engine.execute_workflow("condition-test", parameters).await.unwrap();
+    let instance = engine.execute_workflow("condition-test", parameters).await.expect("should succeed");
     
     let completed_instance = timeout(Duration::from_secs(5), async {
         loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.unwrap() {
+            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
                 match status.state {
                     WorkflowState::Completed | WorkflowState::Failed => break status,
                     _ => {
@@ -424,13 +424,13 @@ async fn test_workflow_notification_step() {
         ExecutionStrategy::Sequential,
     );
     
-    engine.register_workflow(workflow).await.unwrap();
+    engine.register_workflow(workflow).await.expect("should succeed");
     
-    let instance = engine.execute_workflow("notification-test", HashMap::new()).await.unwrap();
+    let instance = engine.execute_workflow("notification-test", HashMap::new()).await.expect("should succeed");
     
     let completed_instance = timeout(Duration::from_secs(5), async {
         loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.unwrap() {
+            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
                 match status.state {
                     WorkflowState::Completed | WorkflowState::Failed => break status,
                     _ => {
@@ -478,19 +478,19 @@ async fn test_workflow_cancellation() {
         ExecutionStrategy::Sequential,
     );
     
-    engine.register_workflow(workflow).await.unwrap();
+    engine.register_workflow(workflow).await.expect("should succeed");
     
     // Start workflow
-    let instance = engine.execute_workflow("cancel-test", HashMap::new()).await.unwrap();
+    let instance = engine.execute_workflow("cancel-test", HashMap::new()).await.expect("should succeed");
     
     // Wait a bit for workflow to start
     tokio::time::sleep(Duration::from_millis(100)).await;
     
     // Cancel workflow
-    engine.cancel_workflow(&instance.id).await.unwrap();
+    engine.cancel_workflow(&instance.id).await.expect("should succeed");
     
     // Verify workflow was cancelled
-    let status = engine.get_workflow_status(&instance.id).await.unwrap();
+    let status = engine.get_workflow_status(&instance.id).await.expect("should succeed");
     assert!(status.is_none(), "Workflow should be removed from active workflows after cancellation");
 }
 
@@ -515,17 +515,17 @@ async fn test_workflow_error_handling() {
         ExecutionStrategy::Sequential,
     );
     
-    engine.register_workflow(workflow).await.unwrap();
+    engine.register_workflow(workflow).await.expect("should succeed");
     
-    let instance = engine.execute_workflow("error-test", HashMap::new()).await.unwrap();
+    let instance = engine.execute_workflow("error-test", HashMap::new()).await.expect("should succeed");
     
     // Wait for workflow to fail
     let failed_instance = timeout(Duration::from_secs(5), async {
         loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.unwrap() {
+            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
                 match status.state {
                     WorkflowState::Failed => break status,
-                    WorkflowState::Completed => panic!("Workflow should have failed"),
+                    WorkflowState::Completed => unreachable!("Workflow should have failed"),
                     _ => {
                         tokio::time::sleep(Duration::from_millis(10)).await;
                         continue;
@@ -563,15 +563,15 @@ async fn test_workflow_metrics_collection() {
         ExecutionStrategy::Sequential,
     );
     
-    engine.register_workflow(workflow).await.unwrap();
+    engine.register_workflow(workflow).await.expect("should succeed");
     
     // Execute workflow
-    let instance = engine.execute_workflow("metrics-test", HashMap::new()).await.unwrap();
+    let instance = engine.execute_workflow("metrics-test", HashMap::new()).await.expect("should succeed");
     
     // Wait for completion
     timeout(Duration::from_secs(5), async {
         loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.unwrap() {
+            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
                 match status.state {
                     WorkflowState::Completed | WorkflowState::Failed => break,
                     _ => {
@@ -585,7 +585,7 @@ async fn test_workflow_metrics_collection() {
     }).await.expect("Workflow should complete");
     
     // Check metrics
-    let metrics = engine.get_metrics().await.unwrap();
+    let metrics = engine.get_metrics().await.expect("should succeed");
     assert_eq!(metrics.total_workflows, 1);
     assert_eq!(metrics.completed_workflows, 1);
     assert!(metrics.avg_execution_time.as_millis() > 0);
@@ -614,7 +614,7 @@ async fn test_concurrent_workflow_execution() {
         ExecutionStrategy::Sequential,
     );
     
-    engine.register_workflow(workflow).await.unwrap();
+    engine.register_workflow(workflow).await.expect("should succeed");
     
     // Execute multiple workflows concurrently
     let mut handles = vec![];
@@ -631,7 +631,7 @@ async fn test_concurrent_workflow_execution() {
     // Wait for all workflows to start
     let instances: Vec<_> = futures::future::join_all(handles).await
         .into_iter()
-        .map(|r| r.unwrap().unwrap())
+        .map(|r| r.expect("should succeed").expect("should succeed"))
         .collect();
     
     assert_eq!(instances.len(), 5);
@@ -639,7 +639,7 @@ async fn test_concurrent_workflow_execution() {
     // Wait for all to complete
     timeout(Duration::from_secs(10), async {
         loop {
-            let active = engine.list_active_workflows().await.unwrap();
+            let active = engine.list_active_workflows().await.expect("should succeed");
             if active.is_empty() {
                 break;
             }
@@ -647,7 +647,7 @@ async fn test_concurrent_workflow_execution() {
         }
     }).await.expect("All workflows should complete");
     
-    let metrics = engine.get_metrics().await.unwrap();
+    let metrics = engine.get_metrics().await.expect("should succeed");
     assert_eq!(metrics.completed_workflows, 5);
 }
 
@@ -688,19 +688,19 @@ async fn test_workflow_data_processing_chain() {
         ExecutionStrategy::Sequential,
     );
     
-    engine.register_workflow(workflow).await.unwrap();
+    engine.register_workflow(workflow).await.expect("should succeed");
     
     let mut parameters = HashMap::new();
     parameters.insert("text".to_string(), serde_json::Value::String("hello world".to_string()));
     
-    let instance = engine.execute_workflow("data-chain-test", parameters).await.unwrap();
+    let instance = engine.execute_workflow("data-chain-test", parameters).await.expect("should succeed");
     
     let completed_instance = timeout(Duration::from_secs(5), async {
         loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.unwrap() {
+            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
                 match status.state {
                     WorkflowState::Completed => break status,
-                    WorkflowState::Failed => panic!("Workflow should not fail"),
+                    WorkflowState::Failed => unreachable!("Workflow should not fail"),
                     _ => {
                         tokio::time::sleep(Duration::from_millis(10)).await;
                         continue;
@@ -807,32 +807,32 @@ async fn test_condition_evaluation_operators() {
     let mut context = create_execution_test_context();
     
     // Test equality
-    context.set_variable("status", serde_json::json!("active")).unwrap();
-    let result = engine.evaluate_condition("status == \"active\"", &context).await.unwrap();
+    context.set_variable("status", serde_json::json!("active")).expect("should succeed");
+    let result = engine.evaluate_condition("status == \"active\"", &context).await.expect("should succeed");
     assert!(result);
     
     // Test inequality
-    let result = engine.evaluate_condition("status != \"inactive\"", &context).await.unwrap();
+    let result = engine.evaluate_condition("status != \"inactive\"", &context).await.expect("should succeed");
     assert!(result);
     
     // Test numeric comparison
-    context.set_variable("count", serde_json::json!(10)).unwrap();
-    let result = engine.evaluate_condition("count > 5", &context).await.unwrap();
+    context.set_variable("count", serde_json::json!(10)).expect("should succeed");
+    let result = engine.evaluate_condition("count > 5", &context).await.expect("should succeed");
     assert!(result);
     
-    let result = engine.evaluate_condition("count < 15", &context).await.unwrap();
+    let result = engine.evaluate_condition("count < 15", &context).await.expect("should succeed");
     assert!(result);
     
     // Test contains
-    context.set_variable("message", serde_json::json!("Hello, world!")).unwrap();
-    let result = engine.evaluate_condition("message contains \"world\"", &context).await.unwrap();
+    context.set_variable("message", serde_json::json!("Hello, world!")).expect("should succeed");
+    let result = engine.evaluate_condition("message contains \"world\"", &context).await.expect("should succeed");
     assert!(result);
     
     // Test exists
-    let result = engine.evaluate_condition("exists message", &context).await.unwrap();
+    let result = engine.evaluate_condition("exists message", &context).await.expect("should succeed");
     assert!(result);
     
-    let result = engine.evaluate_condition("exists nonexistent", &context).await.unwrap();
+    let result = engine.evaluate_condition("exists nonexistent", &context).await.expect("should succeed");
     assert!(!result);
 }
 
@@ -853,19 +853,19 @@ async fn test_execution_context_variable_management() {
     let mut context = create_execution_test_context();
     
     // Test setting variables
-    context.set_variable("test_var", serde_json::json!("test_value")).unwrap();
+    context.set_variable("test_var", serde_json::json!("test_value")).expect("should succeed");
     
     // Test getting variables
     let value = context.get_variable("test_var");
     assert!(value.is_some());
-    assert_eq!(value.unwrap(), &serde_json::json!("test_value"));
+    assert_eq!(value.expect("should succeed"), &serde_json::json!("test_value"));
     
     // Test missing variable
     let missing = context.get_variable("nonexistent");
     assert!(missing.is_none());
     
     // Test overwriting variable
-    context.set_variable("test_var", serde_json::json!("new_value")).unwrap();
+    context.set_variable("test_var", serde_json::json!("new_value")).expect("should succeed");
     let updated = context.get_variable("test_var");
-    assert_eq!(updated.unwrap(), &serde_json::json!("new_value"));
+    assert_eq!(updated.expect("should succeed"), &serde_json::json!("new_value"));
 }

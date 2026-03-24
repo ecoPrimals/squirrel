@@ -357,7 +357,7 @@ mod tests {
         manager
             .initialize_tool(tool_id, base_limits.clone(), max_limits.clone())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Simulate resource usage over time
         for i in 0..5 {
@@ -371,12 +371,12 @@ mod tests {
             manager
                 .record_usage(tool_id, ResourceType::Memory, &usage)
                 .await
-                .unwrap();
+                .expect("should succeed");
 
             manager
                 .record_usage(tool_id, ResourceType::CpuTime, &usage)
                 .await
-                .unwrap();
+                .expect("should succeed");
 
             sleep(TokioDuration::from_millis(100)).await;
         }
@@ -385,15 +385,15 @@ mod tests {
         let memory_prediction = manager
             .predict_usage(tool_id, ResourceType::Memory)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(memory_prediction > 100_000_000.0);
 
         // Check limit adjustments
-        let new_limits = manager.adjust_limits(tool_id).await.unwrap();
+        let new_limits = manager.adjust_limits(tool_id).await.expect("should succeed");
         assert!(new_limits.max_memory_bytes >= base_limits.max_memory_bytes);
         assert!(new_limits.max_memory_bytes <= max_limits.max_memory_bytes);
 
         // Cleanup
-        manager.cleanup_tool(tool_id).await.unwrap();
+        manager.cleanup_tool(tool_id).await.expect("should succeed");
     }
 } 

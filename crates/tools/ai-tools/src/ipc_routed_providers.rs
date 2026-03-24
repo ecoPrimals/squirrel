@@ -538,7 +538,7 @@ mod tests {
             "choices": [{"message": {"content": "hi"}, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5}
         }"#;
-        let r = parse_openai_chat_response(body).unwrap();
+        let r = parse_openai_chat_response(body).expect("should succeed");
         assert_eq!(r.id, "chatcmpl-1");
         assert_eq!(r.model, "gpt-4o-mini");
         assert_eq!(r.choices[0].content.as_deref(), Some("hi"));
@@ -563,7 +563,7 @@ mod tests {
             "stop_reason": "end_turn",
             "usage": {"input_tokens": 10, "output_tokens": 20}
         }"#;
-        let r = parse_anthropic_chat_response(body).unwrap();
+        let r = parse_anthropic_chat_response(body).expect("should succeed");
         assert_eq!(r.choices[0].content.as_deref(), Some("hello"));
         assert_eq!(r.choices[0].finish_reason.as_deref(), Some("end_turn"));
         let u = r.usage.expect("usage");
@@ -575,7 +575,7 @@ mod tests {
     #[test]
     fn parse_gemini_response_concatenates_parts() {
         let body = r#"{"candidates":[{"content":{"parts":[{"text":"a"},{"text":"b"}]}}]}"#;
-        let r = parse_gemini_chat_response(body, "gemini-1.5-flash").unwrap();
+        let r = parse_gemini_chat_response(body, "gemini-1.5-flash").expect("should succeed");
         assert_eq!(r.choices[0].content.as_deref(), Some("ab"));
         assert_eq!(r.model, "gemini-1.5-flash");
     }
@@ -593,7 +593,7 @@ mod tests {
             parameters: None,
             tools: None,
         };
-        let out = client.chat_openai(req).await.unwrap();
+        let out = client.chat_openai(req).await.expect("should succeed");
         assert_eq!(out.choices[0].content.as_deref(), Some("ok"));
     }
 
@@ -615,7 +615,7 @@ mod tests {
             parameters: None,
             tools: None,
         };
-        let out = client.chat_anthropic(req).await.unwrap();
+        let out = client.chat_anthropic(req).await.expect("should succeed");
         assert_eq!(out.choices[0].content.as_deref(), Some("y"));
     }
 
@@ -631,7 +631,7 @@ mod tests {
             parameters: None,
             tools: None,
         };
-        let out = client.chat_gemini(req).await.unwrap();
+        let out = client.chat_gemini(req).await.expect("should succeed");
         assert_eq!(out.choices[0].content.as_deref(), Some("g"));
     }
 
@@ -641,7 +641,7 @@ mod tests {
         mock.push_get(r#"{"data":[{"id":"gpt-4"},{"id":"ada"}]}"#)
             .await;
         let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::OpenAI);
-        let models = client.list_models().await.unwrap();
+        let models = client.list_models().await.expect("should succeed");
         assert_eq!(models, vec!["gpt-4".to_string(), "ada".to_string()]);
     }
 
@@ -649,7 +649,7 @@ mod tests {
     async fn list_models_anthropic_returns_default_only() {
         let mock = Arc::new(MockNeuralHttp::new());
         let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::Anthropic);
-        let models = client.list_models().await.unwrap();
+        let models = client.list_models().await.expect("should succeed");
         assert_eq!(models.len(), 1);
         assert!(models[0].contains("claude"));
     }

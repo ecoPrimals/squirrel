@@ -142,7 +142,10 @@ async fn test_timeout_error_handling() {
     // Test operation that completes within timeout
     let result = timeout(Duration::from_millis(100), slow_operation(50)).await;
     assert!(result.is_ok(), "Fast operation should complete");
-    assert!(result.unwrap().is_ok(), "Fast operation should succeed");
+    assert!(
+        result.expect("should succeed").is_ok(),
+        "Fast operation should succeed"
+    );
 
     // Test operation that times out
     let result = timeout(Duration::from_millis(50), slow_operation(100)).await;
@@ -224,7 +227,7 @@ async fn test_concurrent_error_handling() {
     let mut failed_tasks = 0;
 
     for handle in handles {
-        match handle.await.unwrap() {
+        match handle.await.expect("should succeed") {
             Ok(()) => successful_tasks += 1,
             Err(_) => failed_tasks += 1,
         }

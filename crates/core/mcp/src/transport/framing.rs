@@ -354,8 +354,8 @@ mod tests {
         );
 
         let codec = FramingMessageCodec::new();
-        let frame = codec.encode_message(&message).unwrap();
-        let decoded = codec.decode_message(&frame).unwrap();
+        let frame = codec.encode_message(&message).expect("should succeed");
+        let decoded = codec.decode_message(&frame).expect("should succeed");
 
         assert_eq!(decoded.type_, message.type_);
         assert_eq!(decoded.id, message.id);
@@ -372,8 +372,12 @@ mod tests {
         let mut writer = FrameWriter::new(a);
         let mut reader = FrameReader::new(b);
 
-        writer.write_frame(&frame).await.unwrap();
-        let read_frame = reader.read_frame().await.unwrap().unwrap();
+        writer.write_frame(&frame).await.expect("should succeed");
+        let read_frame = reader
+            .read_frame()
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
 
         assert_eq!(read_frame.payload.as_ref(), frame.payload.as_ref());
     }
@@ -414,7 +418,7 @@ mod tests {
     fn framing_message_codec_decode_needs_full_header() {
         let mut codec = FramingMessageCodec::new();
         let mut buf = bytes::BytesMut::from(&[1u8, 2u8][..]);
-        assert!(codec.decode(&mut buf).unwrap().is_none());
+        assert!(codec.decode(&mut buf).expect("should succeed").is_none());
     }
 
     #[test]

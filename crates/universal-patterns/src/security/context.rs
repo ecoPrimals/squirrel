@@ -480,8 +480,8 @@ mod tests {
             metadata: HashMap::new(),
         };
         let context = SecurityContext::from_principal(&principal);
-        let json = serde_json::to_string(&context).unwrap();
-        let deserialized: SecurityContext = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&context).expect("should succeed");
+        let deserialized: SecurityContext = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.principal.id, "user");
         assert!(deserialized.has_permission("read"));
     }
@@ -506,8 +506,8 @@ mod tests {
     #[test]
     fn test_security_health_serde() {
         let health = SecurityHealth::healthy(Duration::from_millis(100));
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: SecurityHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: SecurityHealth = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.is_healthy());
     }
 
@@ -525,8 +525,8 @@ mod tests {
             HealthStatus::Unhealthy,
             HealthStatus::Unknown,
         ] {
-            let json = serde_json::to_string(&status).unwrap();
-            let deserialized: HealthStatus = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&status).expect("should succeed");
+            let deserialized: HealthStatus = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, status);
         }
     }
@@ -571,8 +571,8 @@ mod proptest_tests {
                 permissions: principal.permissions,
                 metadata: HashMap::new(),
             };
-            let json = serde_json::to_string(&original).unwrap();
-            let deserialized: SecurityContext = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&original).expect("should succeed");
+            let deserialized: SecurityContext = serde_json::from_str(&json).expect("should succeed");
             prop_assert_eq!(original.principal.id, deserialized.principal.id);
             prop_assert_eq!(original.principal.name, deserialized.principal.name);
             prop_assert_eq!(original.token, deserialized.token);

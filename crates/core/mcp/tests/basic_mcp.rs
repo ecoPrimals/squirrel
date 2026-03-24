@@ -70,12 +70,12 @@ mod basic_mcp_impl {
         assert!(json_result.is_ok());
 
         // Test message deserialization
-        let json_str = json_result.unwrap();
+        let json_str = json_result.expect("should succeed");
         let deserialized: Result<MCPMessage, _> = serde_json::from_str(&json_str);
         assert!(deserialized.is_ok());
 
         // Test that the deserialized message has the same ID
-        let deserialized_message = deserialized.unwrap();
+        let deserialized_message = deserialized.expect("should succeed");
         assert_eq!(message.id.0, deserialized_message.id.0);
     }
 
@@ -143,7 +143,8 @@ mod basic_mcp_impl {
         let json_str = JsonUtils::to_string(&test_data);
         assert!(json_str.is_ok());
 
-        let parsed: Result<serde_json::Value, _> = JsonUtils::from_string(&json_str.unwrap());
+        let parsed: Result<serde_json::Value, _> =
+            JsonUtils::from_string(&json_str.expect("should succeed"));
         assert!(parsed.is_ok());
 
         // Test string utilities

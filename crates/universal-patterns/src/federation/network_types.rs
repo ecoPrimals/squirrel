@@ -228,8 +228,8 @@ mod tests {
             NetworkProtocol::Custom("custom".to_string()),
         ];
         for p in protocols {
-            let json = serde_json::to_string(&p).unwrap();
-            let decoded: NetworkProtocol = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&p).expect("should succeed");
+            let decoded: NetworkProtocol = serde_json::from_str(&json).expect("should succeed");
             assert!(std::mem::discriminant(&p) == std::mem::discriminant(&decoded));
         }
     }
@@ -257,8 +257,8 @@ mod tests {
             PeerStatus::Error("timeout".to_string()),
         ];
         for s in statuses {
-            let json = serde_json::to_string(&s).unwrap();
-            let decoded: PeerStatus = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&s).expect("should succeed");
+            let decoded: PeerStatus = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(s, decoded);
         }
     }
@@ -273,8 +273,8 @@ mod tests {
             DataOperation::Sync,
         ];
         for op in ops {
-            let json = serde_json::to_string(&op).unwrap();
-            let decoded: DataOperation = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&op).expect("should succeed");
+            let decoded: DataOperation = serde_json::from_str(&json).expect("should succeed");
             assert!(std::mem::discriminant(&op) == std::mem::discriminant(&decoded));
         }
     }

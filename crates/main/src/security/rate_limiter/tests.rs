@@ -78,7 +78,7 @@ async fn test_production_rate_limiter_check_request_success() {
     let config = RateLimitConfig::default();
     let limiter = ProductionRateLimiter::new(config);
 
-    let ip: IpAddr = "192.168.1.100".parse().unwrap();
+    let ip: IpAddr = "192.168.1.100".parse().expect("should succeed");
 
     let result = limiter.check_request(ip, EndpointType::Api, None).await;
 
@@ -90,7 +90,7 @@ async fn test_production_rate_limiter_check_request_whitelist() {
     let config = RateLimitConfig::default();
     let limiter = ProductionRateLimiter::new(config);
 
-    let ip: IpAddr = "127.0.0.1".parse().unwrap(); // localhost, in whitelist
+    let ip: IpAddr = "127.0.0.1".parse().expect("should succeed"); // localhost, in whitelist
 
     let result = limiter.check_request(ip, EndpointType::Api, None).await;
 
@@ -103,7 +103,7 @@ async fn test_production_rate_limiter_different_endpoint_types() {
     let config = RateLimitConfig::default();
     let limiter = ProductionRateLimiter::new(config);
 
-    let ip: IpAddr = "192.168.1.100".parse().unwrap();
+    let ip: IpAddr = "192.168.1.100".parse().expect("should succeed");
 
     // Test API request
     let api_result = limiter.check_request(ip, EndpointType::Api, None).await;
@@ -137,7 +137,7 @@ async fn test_production_rate_limiter_cleanup_expired_data() {
     let config = RateLimitConfig::default();
     let limiter = ProductionRateLimiter::new(config);
 
-    let ip: IpAddr = "192.168.1.100".parse().unwrap();
+    let ip: IpAddr = "192.168.1.100".parse().expect("should succeed");
 
     // Make a request to create client info
     limiter.check_request(ip, EndpointType::Api, None).await;
@@ -154,8 +154,8 @@ async fn test_production_rate_limiter_multiple_clients() {
     let config = RateLimitConfig::default();
     let limiter = ProductionRateLimiter::new(config);
 
-    let ip1: IpAddr = "192.168.1.100".parse().unwrap();
-    let ip2: IpAddr = "192.168.1.101".parse().unwrap();
+    let ip1: IpAddr = "192.168.1.100".parse().expect("should succeed");
+    let ip2: IpAddr = "192.168.1.101".parse().expect("should succeed");
 
     // Make requests from different IPs
     limiter.check_request(ip1, EndpointType::Api, None).await;
@@ -187,7 +187,7 @@ async fn test_production_rate_limiter_with_user_agent() {
     let config = RateLimitConfig::default();
     let limiter = ProductionRateLimiter::new(config);
 
-    let ip: IpAddr = "192.168.1.100".parse().unwrap();
+    let ip: IpAddr = "192.168.1.100".parse().expect("should succeed");
     let user_agent = Some("TestClient/1.0");
 
     let result = limiter
@@ -226,7 +226,7 @@ async fn test_rate_limit_ban_after_repeated_violations() {
     config.adaptive_limiting = false;
 
     let limiter = ProductionRateLimiter::new(config);
-    let ip: IpAddr = "10.0.0.42".parse().unwrap();
+    let ip: IpAddr = "10.0.0.42".parse().expect("should succeed");
 
     let _ = limiter.check_request(ip, EndpointType::Api, None).await;
 
@@ -276,7 +276,7 @@ async fn test_health_check_endpoint_uses_lenient_limit() {
     config.adaptive_limiting = false;
 
     let limiter = ProductionRateLimiter::new(config);
-    let ip: IpAddr = "10.0.0.7".parse().unwrap();
+    let ip: IpAddr = "10.0.0.7".parse().expect("should succeed");
 
     for _ in 0..25 {
         let r = limiter

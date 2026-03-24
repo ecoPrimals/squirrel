@@ -294,12 +294,13 @@ mod tests {
 
     #[test]
     fn test_protocol_request_parse() {
-        let request = ProtocolRequest::from_wire("PROTOCOLS: jsonrpc\n").unwrap();
+        let request = ProtocolRequest::from_wire("PROTOCOLS: jsonrpc\n").expect("should succeed");
         assert_eq!(request.supported, vec![IpcProtocol::JsonRpc]);
 
         #[cfg(feature = "tarpc-rpc")]
         {
-            let request = ProtocolRequest::from_wire("PROTOCOLS: tarpc,jsonrpc\n").unwrap();
+            let request =
+                ProtocolRequest::from_wire("PROTOCOLS: tarpc,jsonrpc\n").expect("should succeed");
             assert_eq!(
                 request.supported,
                 vec![IpcProtocol::Tarpc, IpcProtocol::JsonRpc]
@@ -321,12 +322,13 @@ mod tests {
 
     #[test]
     fn test_protocol_response_parse() {
-        let response = ProtocolResponse::from_wire("PROTOCOL: jsonrpc\n").unwrap();
+        let response = ProtocolResponse::from_wire("PROTOCOL: jsonrpc\n").expect("should succeed");
         assert_eq!(response.selected, IpcProtocol::JsonRpc);
 
         #[cfg(feature = "tarpc-rpc")]
         {
-            let response = ProtocolResponse::from_wire("PROTOCOL: tarpc\n").unwrap();
+            let response =
+                ProtocolResponse::from_wire("PROTOCOL: tarpc\n").expect("should succeed");
             assert_eq!(response.selected, IpcProtocol::Tarpc);
         }
     }
@@ -396,10 +398,16 @@ mod tests {
                 async move { negotiate_client(&mut client, vec![IpcProtocol::JsonRpc]).await },
             );
 
-        let sel = client_task.await.unwrap().unwrap();
+        let sel = client_task
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
         assert_eq!(sel, IpcProtocol::JsonRpc);
 
-        let server_sel = server_task.await.unwrap().unwrap();
+        let server_sel = server_task
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
         assert_eq!(server_sel, Some(IpcProtocol::JsonRpc));
     }
 
@@ -418,7 +426,7 @@ mod tests {
 
         let got = negotiate_server(&mut server, IpcProtocol::supported())
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(got.is_none());
     }
 }

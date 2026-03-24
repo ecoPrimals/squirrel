@@ -26,8 +26,8 @@ fn test_monitoring_config_default() {
 #[test]
 fn test_monitoring_config_serialization() {
     let config = MonitoringConfig::default();
-    let json = serde_json::to_string(&config).unwrap();
-    let deserialized: MonitoringConfig = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&config).expect("should succeed");
+    let deserialized: MonitoringConfig = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(config.enable_prometheus, deserialized.enable_prometheus);
     assert_eq!(config.max_metrics_history, deserialized.max_metrics_history);
@@ -59,8 +59,8 @@ fn test_metric_type_equality() {
 #[test]
 fn test_metric_type_serialization() {
     let metric_type = MetricType::Counter;
-    let json = serde_json::to_string(&metric_type).unwrap();
-    let deserialized: MetricType = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&metric_type).expect("should succeed");
+    let deserialized: MetricType = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(metric_type, deserialized);
 }
@@ -104,8 +104,8 @@ fn test_custom_metric_definition_serialization() {
         source: "test".to_string(),
     };
 
-    let json = serde_json::to_string(&metric).unwrap();
-    let deserialized: CustomMetricDefinition = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&metric).expect("should succeed");
+    let deserialized: CustomMetricDefinition = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(metric.name, deserialized.name);
     assert_eq!(metric.metric_type, deserialized.metric_type);
@@ -135,8 +135,8 @@ fn test_comparison_operator_variants() {
 #[test]
 fn test_comparison_operator_serialization() {
     let op = ComparisonOperator::GreaterThan;
-    let json = serde_json::to_string(&op).unwrap();
-    let deserialized: ComparisonOperator = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&op).expect("should succeed");
+    let deserialized: ComparisonOperator = serde_json::from_str(&json).expect("should succeed");
 
     assert!(matches!(deserialized, ComparisonOperator::GreaterThan));
 }
@@ -163,8 +163,8 @@ fn test_alert_severity_variants() {
 #[test]
 fn test_alert_severity_serialization() {
     let severity = AlertSeverity::Critical;
-    let json = serde_json::to_string(&severity).unwrap();
-    let deserialized: AlertSeverity = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&severity).expect("should succeed");
+    let deserialized: AlertSeverity = serde_json::from_str(&json).expect("should succeed");
 
     assert!(matches!(deserialized, AlertSeverity::Critical));
 }
@@ -204,8 +204,8 @@ fn test_alert_rule_serialization() {
         for_duration: Duration::from_secs(30),
     };
 
-    let json = serde_json::to_string(&rule).unwrap();
-    let deserialized: AlertRule = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&rule).expect("should succeed");
+    let deserialized: AlertRule = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(rule.name, deserialized.name);
     assert_eq!(rule.threshold, deserialized.threshold);
@@ -237,8 +237,8 @@ fn test_health_state_equality() {
 #[test]
 fn test_health_state_serialization() {
     let state = HealthState::Healthy;
-    let json = serde_json::to_string(&state).unwrap();
-    let deserialized: HealthState = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&state).expect("should succeed");
+    let deserialized: HealthState = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(state, deserialized);
 }
@@ -280,8 +280,8 @@ fn test_performance_summary_custom() {
 #[test]
 fn test_performance_summary_serialization() {
     let summary = PerformanceSummary::default();
-    let json = serde_json::to_string(&summary).unwrap();
-    let deserialized: PerformanceSummary = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&summary).expect("should succeed");
+    let deserialized: PerformanceSummary = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(summary.cpu_usage, deserialized.cpu_usage);
     assert_eq!(summary.error_rate, deserialized.error_rate);
@@ -319,8 +319,8 @@ fn test_component_status_serialization() {
         status_message: "Test message".to_string(),
     };
 
-    let json = serde_json::to_string(&status).unwrap();
-    let deserialized: ComponentStatus = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&status).expect("should succeed");
+    let deserialized: ComponentStatus = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(status.name, deserialized.name);
     assert_eq!(status.health, deserialized.health);
@@ -372,8 +372,8 @@ fn test_system_status_serialization() {
         components: HashMap::new(),
     };
 
-    let json = serde_json::to_string(&status).unwrap();
-    let deserialized: SystemStatus = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&status).expect("should succeed");
+    let deserialized: SystemStatus = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(status.health, deserialized.health);
     assert_eq!(status.active_alerts, deserialized.active_alerts);

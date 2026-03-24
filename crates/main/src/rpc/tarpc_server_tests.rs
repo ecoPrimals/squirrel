@@ -196,11 +196,11 @@ fn json_to_tool_execute_and_list() {
     assert_eq!(t.tools.len(), 2);
     match &t.tools[0].source {
         ToolSource::Remote { primal } => assert_eq!(primal, "bird"),
-        ToolSource::Builtin => panic!("expected Remote"),
+        ToolSource::Builtin => unreachable!("expected Remote"),
     }
     match &t.tools[1].source {
         ToolSource::Remote { primal } => assert_eq!(primal, "inline"),
-        ToolSource::Builtin => panic!("expected Remote from primal key"),
+        ToolSource::Builtin => unreachable!("expected Remote from primal key"),
     }
 }
 

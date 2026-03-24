@@ -35,7 +35,7 @@ async fn test_repository_management() {
         metadata: HashMap::new(),
     };
 
-    let response = client.add_repository(repo).await.unwrap();
+    let response = client.add_repository(repo).await.expect("should succeed");
     assert_eq!(response.status, HttpStatus::Created);
 }
 
@@ -58,7 +58,10 @@ async fn test_plugin_search() {
         per_page: Some(10),
     };
 
-    let response = client.search_plugins(criteria).await.unwrap();
+    let response = client
+        .search_plugins(criteria)
+        .await
+        .expect("should succeed");
     assert_eq!(response.status, HttpStatus::Ok);
 }
 
@@ -80,7 +83,7 @@ async fn handle_request_search_and_cache_hit() {
         page: Some(1),
         per_page: Some(5),
     };
-    let body = serde_json::to_value(&criteria).unwrap();
+    let body = serde_json::to_value(&criteria).expect("should succeed");
     let req = WebRequest {
         method: HttpMethod::Post,
         path: "/api/marketplace/search".to_string(),
@@ -91,7 +94,7 @@ async fn handle_request_search_and_cache_hit() {
         permissions: vec![],
         route_params: HashMap::new(),
     };
-    let r1 = client.handle_request(req).await.unwrap();
+    let r1 = client.handle_request(req).await.expect("should succeed");
     assert_eq!(r1.status, HttpStatus::Ok);
     let req2 = WebRequest {
         method: HttpMethod::Post,
@@ -103,7 +106,7 @@ async fn handle_request_search_and_cache_hit() {
         permissions: vec![],
         route_params: HashMap::new(),
     };
-    let r2 = client.handle_request(req2).await.unwrap();
+    let r2 = client.handle_request(req2).await.expect("should succeed");
     assert_eq!(r2.status, HttpStatus::Ok);
 }
 
@@ -121,7 +124,7 @@ async fn handle_request_not_found() {
         permissions: vec![],
         route_params: HashMap::new(),
     };
-    let res = client.handle_request(req).await.unwrap();
+    let res = client.handle_request(req).await.expect("should succeed");
     assert_eq!(res.status, HttpStatus::NotFound);
 }
 
@@ -142,7 +145,7 @@ async fn handle_request_featured_trending_repositories_install() {
             route_params: HashMap::new(),
         })
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(f.status, HttpStatus::Ok);
 
     let t = client
@@ -157,7 +160,7 @@ async fn handle_request_featured_trending_repositories_install() {
             route_params: HashMap::new(),
         })
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(t.status, HttpStatus::Ok);
 
     let list = client
@@ -172,7 +175,7 @@ async fn handle_request_featured_trending_repositories_install() {
             route_params: HashMap::new(),
         })
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(list.status, HttpStatus::Ok);
 
     let pid = Uuid::new_v4();
@@ -188,7 +191,7 @@ async fn handle_request_featured_trending_repositories_install() {
             route_params: HashMap::new(),
         })
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(inst.status, HttpStatus::Accepted);
 
     let installs = client
@@ -203,7 +206,7 @@ async fn handle_request_featured_trending_repositories_install() {
             route_params: HashMap::new(),
         })
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(installs.status, HttpStatus::Ok);
 }
 
@@ -213,10 +216,18 @@ async fn extract_uuid_and_cancel_paths() {
     let client = PluginMarketplaceClient::new(manager);
     let id = Uuid::new_v4();
     let p = format!("/api/marketplace/repositories/{id}");
-    assert_eq!(client.extract_uuid_from_path(&p).unwrap(), id);
+    assert_eq!(
+        client.extract_uuid_from_path(&p).expect("should succeed"),
+        id
+    );
 
     let cancel_path = format!("/api/marketplace/installations/{id}/cancel");
-    assert_eq!(client.extract_uuid_from_path(&cancel_path).unwrap(), id);
+    assert_eq!(
+        client
+            .extract_uuid_from_path(&cancel_path)
+            .expect("should succeed"),
+        id
+    );
     assert!(client.extract_uuid_from_path("/bad").is_err());
 }
 
@@ -267,7 +278,9 @@ async fn process_search_sorts_and_pagination() {
         page: Some(1),
         per_page: Some(1),
     };
-    let out = client.process_search_results(plugins, &crit).unwrap();
+    let out = client
+        .process_search_results(plugins, &crit)
+        .expect("should succeed");
     assert_eq!(out.total, 2);
     assert_eq!(out.plugins.len(), 1);
     assert_eq!(out.total_pages, 2);
@@ -287,12 +300,12 @@ fn marketplace_types_serde_roundtrip() {
         }),
         metadata: HashMap::new(),
     };
-    let j = serde_json::to_string(&repo).unwrap();
-    let r2: PluginRepository = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&repo).expect("should succeed");
+    let r2: PluginRepository = serde_json::from_str(&j).expect("should succeed");
     assert_eq!(r2.name, repo.name);
 
     let st = InstallationStatusType::Verifying;
-    let s = serde_json::to_string(&st).unwrap();
-    let st2: InstallationStatusType = serde_json::from_str(&s).unwrap();
+    let s = serde_json::to_string(&st).expect("should succeed");
+    let st2: InstallationStatusType = serde_json::from_str(&s).expect("should succeed");
     assert!(matches!(st2, InstallationStatusType::Verifying));
 }

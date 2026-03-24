@@ -98,9 +98,9 @@ async fn test_retry_mechanism_exhaustion() {
             crate::resilience::retry::RetryError::MaxAttemptsExceeded { attempts, .. } => {
                 assert_eq!(attempts, 3);
             },
-            _ => panic!("Expected MaxAttemptsExceeded error"),
+            _ => unreachable!("Expected MaxAttemptsExceeded error"),
         },
-        _ => panic!("Expected error"),
+        _ => unreachable!("Expected error"),
     }
     
     // Check metrics

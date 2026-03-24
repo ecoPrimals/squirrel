@@ -86,7 +86,10 @@ async fn test_sync_manager_process_heartbeat() {
         },
         "node-1".to_string(),
     );
-    let result = manager.process_message_with_retry(msg).await.unwrap();
+    let result = manager
+        .process_message_with_retry(msg)
+        .await
+        .expect("should succeed");
     assert!(result.success);
     let stats = manager.get_statistics();
     assert_eq!(stats.connected_peers, 1);
@@ -97,7 +100,10 @@ async fn test_sync_manager_process_state_update() {
     let mut manager = SyncManager::new();
     let state = make_state("s1", 1, SystemTime::now());
     let msg = SyncMessage::new(SyncOperation::StateUpdate(state), "node-1".to_string());
-    let result = manager.process_message_with_retry(msg).await.unwrap();
+    let result = manager
+        .process_message_with_retry(msg)
+        .await
+        .expect("should succeed");
     assert!(result.success);
 }
 
@@ -150,7 +156,10 @@ async fn test_sync_manager_process_expired_message() {
         ..Default::default()
     };
     manager.update_config(config);
-    let result = manager.process_message_with_retry(msg).await.unwrap();
+    let result = manager
+        .process_message_with_retry(msg)
+        .await
+        .expect("should succeed");
     assert!(!result.success);
     assert!(result.message.contains("expired") || result.message.contains("Expired"));
 }
@@ -165,8 +174,11 @@ async fn test_sync_manager_broadcast_event() {
         timestamp: SystemTime::now(),
         source: "test".to_string(),
     };
-    manager.broadcast_event(event.clone()).await.unwrap();
-    let received = rx.recv().await.unwrap();
+    manager
+        .broadcast_event(event.clone())
+        .await
+        .expect("should succeed");
+    let received = rx.recv().await.expect("should succeed");
     match (&received, &event) {
         (
             SyncEvent::StateUpdated { version: v1, .. },
@@ -174,7 +186,7 @@ async fn test_sync_manager_broadcast_event() {
         ) => {
             assert_eq!(v1, v2);
         }
-        _ => panic!("Event mismatch"),
+        _ => unreachable!("Event mismatch"),
     }
 }
 
@@ -268,8 +280,9 @@ fn test_partition_recovery_strategy_serde() {
         PartitionRecoveryStrategy::FailoverToBackup,
     ];
     for s in strategies {
-        let json = serde_json::to_string(&s).unwrap();
-        let decoded: PartitionRecoveryStrategy = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&s).expect("should succeed");
+        let decoded: PartitionRecoveryStrategy =
+            serde_json::from_str(&json).expect("should succeed");
         assert!(std::mem::discriminant(&s) == std::mem::discriminant(&decoded));
     }
 }
@@ -285,8 +298,9 @@ fn test_conflict_resolution_strategy_serde() {
         ConflictResolutionStrategy::Consensus,
     ];
     for s in strategies {
-        let json = serde_json::to_string(&s).unwrap();
-        let decoded: ConflictResolutionStrategy = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&s).expect("should succeed");
+        let decoded: ConflictResolutionStrategy =
+            serde_json::from_str(&json).expect("should succeed");
         assert!(std::mem::discriminant(&s) == std::mem::discriminant(&decoded));
     }
 }
@@ -304,7 +318,9 @@ async fn partition_detected_then_heartbeat_recover_flow() {
         SyncOperation::PartitionDetected(partition),
         "src".to_string(),
     );
-    mgr.process_message_with_retry(msg).await.unwrap();
+    mgr.process_message_with_retry(msg)
+        .await
+        .expect("should succeed");
     assert_eq!(mgr.get_status(), SyncStatus::Partitioned);
 
     let hb = SyncMessage::new(
@@ -314,7 +330,9 @@ async fn partition_detected_then_heartbeat_recover_flow() {
         },
         "peer-a".to_string(),
     );
-    mgr.process_message_with_retry(hb).await.unwrap();
+    mgr.process_message_with_retry(hb)
+        .await
+        .expect("should succeed");
     assert_eq!(mgr.get_status(), SyncStatus::Healthy);
 }
 
@@ -325,14 +343,24 @@ async fn snapshot_delete_and_full_sync_request_branches_succeed() {
         SyncOperation::SnapshotDelete("snap-1".to_string()),
         "n".to_string(),
     );
-    assert!(mgr.process_message_with_retry(m1).await.unwrap().success);
+    assert!(
+        mgr.process_message_with_retry(m1)
+            .await
+            .expect("should succeed")
+            .success
+    );
     let m2 = SyncMessage::new(
         SyncOperation::FullSyncRequest {
             requesting_node: "r".to_string(),
         },
         "n".to_string(),
     );
-    assert!(mgr.process_message_with_retry(m2).await.unwrap().success);
+    assert!(
+        mgr.process_message_with_retry(m2)
+            .await
+            .expect("should succeed")
+            .success
+    );
 }
 
 #[tokio::test]
@@ -353,7 +381,9 @@ async fn conflict_auto_resolve_keep_latest() {
         involved_nodes: vec![],
     };
     let msg = SyncMessage::new(SyncOperation::Conflict(conflict), "node".to_string());
-    mgr.process_message_with_retry(msg).await.unwrap();
+    mgr.process_message_with_retry(msg)
+        .await
+        .expect("should succeed");
 }
 
 #[tokio::test]
@@ -371,7 +401,9 @@ async fn conflict_auto_resolve_manual_strategy_warns_without_resolve() {
         involved_nodes: vec![],
     };
     let msg = SyncMessage::new(SyncOperation::Conflict(conflict), "node".to_string());
-    mgr.process_message_with_retry(msg).await.unwrap();
+    mgr.process_message_with_retry(msg)
+        .await
+        .expect("should succeed");
 }
 
 #[tokio::test]
@@ -385,8 +417,10 @@ async fn detect_partitions_marks_stale_peer() {
         },
         "stale".to_string(),
     );
-    mgr.process_message_with_retry(hb).await.unwrap();
-    mgr.detect_partitions().await.unwrap();
+    mgr.process_message_with_retry(hb)
+        .await
+        .expect("should succeed");
+    mgr.detect_partitions().await.expect("should succeed");
     assert_eq!(mgr.get_status(), SyncStatus::Partitioned);
 }
 
@@ -404,7 +438,7 @@ async fn resolve_conflict_equal_version_uses_last_modified() {
 #[tokio::test]
 async fn retry_failed_operations_empty_ok() {
     let mut mgr = SyncManager::new();
-    mgr.retry_failed_operations().await.unwrap();
+    mgr.retry_failed_operations().await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -417,5 +451,7 @@ async fn partition_recovered_operation() {
         },
         "src".into(),
     );
-    mgr.process_message_with_retry(msg).await.unwrap();
+    mgr.process_message_with_retry(msg)
+        .await
+        .expect("should succeed");
 }

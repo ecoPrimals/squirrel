@@ -330,7 +330,7 @@ mod mod_tests {
                 assert_eq!(name, "user_input");
                 assert_eq!(reason, "bad input");
             }
-            _ => panic!("Expected InvalidParameter"),
+            _ => unreachable!("Expected InvalidParameter"),
         }
     }
 
@@ -339,7 +339,7 @@ mod mod_tests {
         let err = PluginError::system_error("crash");
         match err {
             PluginError::InternalError { message } => assert_eq!(message, "crash"),
-            _ => panic!("Expected InternalError"),
+            _ => unreachable!("Expected InternalError"),
         }
     }
 
@@ -351,7 +351,7 @@ mod mod_tests {
                 assert_eq!(operation, "fetch");
                 assert_eq!(message, "timeout");
             }
-            _ => panic!("Expected NetworkError"),
+            _ => unreachable!("Expected NetworkError"),
         }
     }
 
@@ -360,7 +360,7 @@ mod mod_tests {
         let err = PluginError::config_error("bad config");
         match err {
             PluginError::ConfigurationError { message } => assert_eq!(message, "bad config"),
-            _ => panic!("Expected ConfigurationError"),
+            _ => unreachable!("Expected ConfigurationError"),
         }
     }
 
@@ -372,7 +372,7 @@ mod mod_tests {
                 assert_eq!(operation, "write");
                 assert_eq!(reason, "read only");
             }
-            _ => panic!("Expected PermissionDenied"),
+            _ => unreachable!("Expected PermissionDenied"),
         }
     }
 
@@ -381,7 +381,7 @@ mod mod_tests {
         let err = PluginError::resource_error("config.json", "not found");
         match err {
             PluginError::ResourceNotFound { resource } => assert_eq!(resource, "config.json"),
-            _ => panic!("Expected ResourceNotFound"),
+            _ => unreachable!("Expected ResourceNotFound"),
         }
     }
 
@@ -393,7 +393,7 @@ mod mod_tests {
                 assert_eq!(operation, "api_call");
                 assert_eq!(message, "service busy");
             }
-            _ => panic!("Expected TemporaryFailure"),
+            _ => unreachable!("Expected TemporaryFailure"),
         }
     }
 
@@ -405,7 +405,7 @@ mod mod_tests {
                 assert_eq!(field, "email");
                 assert_eq!(message, "invalid format");
             }
-            _ => panic!("Expected ValidationError"),
+            _ => unreachable!("Expected ValidationError"),
         }
     }
 

@@ -73,7 +73,7 @@ fn test_feature_extraction_method_serialization() {
 
     match deserialized {
         FeatureExtractionMethod::Statistical => {}
-        _ => panic!("Deserialization failed"),
+        _ => unreachable!("Deserialization failed"),
     }
 }
 
@@ -684,7 +684,7 @@ fn test_feature_extraction_method_custom() {
 
     match deserialized {
         FeatureExtractionMethod::Custom(name) => assert_eq!(name, "my_extractor"),
-        _ => panic!("Expected Custom variant"),
+        _ => unreachable!("Expected Custom variant"),
     }
 }
 
@@ -851,7 +851,7 @@ async fn test_manager_session_tracks_multiple_episodes() {
 
     let session = manager.get_current_session().await;
     assert!(session.is_some());
-    let session = session.unwrap();
+    let session = session.expect("should succeed");
     assert!(session.episodes.len() >= 2);
 }
 

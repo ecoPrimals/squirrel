@@ -421,8 +421,8 @@ mod tests {
             timestamp: "t".to_string(),
             version: "v".to_string(),
         };
-        let b = bincode::serialize(&ping).unwrap();
-        let back: PingResult = bincode::deserialize(&b).unwrap();
+        let b = bincode::serialize(&ping).expect("should succeed");
+        let back: PingResult = bincode::deserialize(&b).expect("should succeed");
         assert!(back.pong);
 
         let health = HealthCheckResult {
@@ -433,8 +433,8 @@ mod tests {
             requests_processed: 2,
             avg_response_time_ms: Some(1.5),
         };
-        let b = bincode::serialize(&health).unwrap();
-        let _: HealthCheckResult = bincode::deserialize(&b).unwrap();
+        let b = bincode::serialize(&health).expect("should succeed");
+        let _: HealthCheckResult = bincode::deserialize(&b).expect("should succeed");
 
         let m = SystemMetricsResult {
             requests_handled: 1,
@@ -443,8 +443,8 @@ mod tests {
             avg_response_time_ms: None,
             success_rate: 0.99,
         };
-        let b = bincode::serialize(&m).unwrap();
-        let _: SystemMetricsResult = bincode::deserialize(&b).unwrap();
+        let b = bincode::serialize(&m).expect("should succeed");
+        let _: SystemMetricsResult = bincode::deserialize(&b).expect("should succeed");
 
         let cap = CapabilityDiscoverResult {
             primal: "sq".to_string(),
@@ -452,8 +452,8 @@ mod tests {
             version: "0".to_string(),
             metadata: HashMap::from([("k".to_string(), "v".to_string())]),
         };
-        let b = bincode::serialize(&cap).unwrap();
-        let _: CapabilityDiscoverResult = bincode::deserialize(&b).unwrap();
+        let b = bincode::serialize(&cap).expect("should succeed");
+        let _: CapabilityDiscoverResult = bincode::deserialize(&b).expect("should succeed");
 
         let peers = DiscoveryPeersResult {
             peers: vec![PeerInfo {
@@ -465,8 +465,8 @@ mod tests {
             total: 1,
             discovery_method: "d".to_string(),
         };
-        let b = bincode::serialize(&peers).unwrap();
-        let _: DiscoveryPeersResult = bincode::deserialize(&b).unwrap();
+        let b = bincode::serialize(&peers).expect("should succeed");
+        let _: DiscoveryPeersResult = bincode::deserialize(&b).expect("should succeed");
 
         let te = ToolExecuteResult {
             tool: "t".to_string(),
@@ -475,8 +475,8 @@ mod tests {
             error: None,
             timestamp: "ts".to_string(),
         };
-        let b = bincode::serialize(&te).unwrap();
-        let _: ToolExecuteResult = bincode::deserialize(&b).unwrap();
+        let b = bincode::serialize(&te).expect("should succeed");
+        let _: ToolExecuteResult = bincode::deserialize(&b).expect("should succeed");
 
         let tl = ToolListResult {
             tools: vec![ToolListEntry {
@@ -490,22 +490,22 @@ mod tests {
             }],
             total: 1,
         };
-        let b = bincode::serialize(&tl).unwrap();
-        let _: ToolListResult = bincode::deserialize(&b).unwrap();
+        let b = bincode::serialize(&tl).expect("should succeed");
+        let _: ToolListResult = bincode::deserialize(&b).expect("should succeed");
 
         let lr = LifecycleRegisterResult {
             success: true,
             message: "m".to_string(),
         };
-        let b = bincode::serialize(&lr).unwrap();
-        let _: LifecycleRegisterResult = bincode::deserialize(&b).unwrap();
+        let b = bincode::serialize(&lr).expect("should succeed");
+        let _: LifecycleRegisterResult = bincode::deserialize(&b).expect("should succeed");
 
         let ls = LifecycleStatusResult {
             status: "s".to_string(),
             version: "v".to_string(),
             uptime_seconds: 0,
         };
-        let b = bincode::serialize(&ls).unwrap();
-        let _: LifecycleStatusResult = bincode::deserialize(&b).unwrap();
+        let b = bincode::serialize(&ls).expect("should succeed");
+        let _: LifecycleStatusResult = bincode::deserialize(&b).expect("should succeed");
     }
 }

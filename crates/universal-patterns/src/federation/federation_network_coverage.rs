@@ -90,7 +90,7 @@ mod network_error_tests {
             NetworkProtocol::Custom(name) => {
                 assert_eq!(name, "my-protocol");
             }
-            _ => panic!("Expected Custom protocol"),
+            _ => unreachable!("Expected Custom protocol"),
         }
     }
 
@@ -204,7 +204,7 @@ mod network_error_tests {
                 assert_eq!(node_info.name, "test");
                 assert_eq!(node_id, node_info.id);
             }
-            _ => panic!("Expected Discovery message"),
+            _ => unreachable!("Expected Discovery message"),
         }
     }
 
@@ -236,7 +236,7 @@ mod network_error_tests {
                 assert_eq!(node_info.name, "responder");
                 assert_eq!(resp_peers.len(), 1);
             }
-            _ => panic!("Expected DiscoveryResponse message"),
+            _ => unreachable!("Expected DiscoveryResponse message"),
         }
     }
 
@@ -263,7 +263,7 @@ mod network_error_tests {
                 assert_eq!(pid, proposal_id);
                 assert!(vote);
             }
-            _ => panic!("Expected ConsensusVote message"),
+            _ => unreachable!("Expected ConsensusVote message"),
         }
     }
 
@@ -289,7 +289,7 @@ mod network_error_tests {
                 assert_eq!(msg_data, data);
                 assert_eq!(msg_checksum, checksum);
             }
-            _ => panic!("Expected DataSync message"),
+            _ => unreachable!("Expected DataSync message"),
         }
     }
 
@@ -305,7 +305,7 @@ mod network_error_tests {
             NetworkMessage::HealthCheck { node_id: nid, .. } => {
                 assert_eq!(nid, node_id);
             }
-            _ => panic!("Expected HealthCheck message"),
+            _ => unreachable!("Expected HealthCheck message"),
         }
     }
 
@@ -334,7 +334,7 @@ mod network_error_tests {
                 assert_eq!(msg_sender, sender);
                 assert!(recipient.is_none());
             }
-            _ => panic!("Expected Federation message"),
+            _ => unreachable!("Expected Federation message"),
         }
     }
 
@@ -359,7 +359,7 @@ mod network_error_tests {
             } => {
                 assert_eq!(msg_recipient, Some(recipient));
             }
-            _ => panic!("Expected Federation message"),
+            _ => unreachable!("Expected Federation message"),
         }
     }
 
@@ -396,7 +396,7 @@ mod network_error_tests {
             super::super::FederationError::AlreadyRunning(_) => {
                 // Expected error
             }
-            _ => panic!("Expected AlreadyRunning error"),
+            _ => unreachable!("Expected AlreadyRunning error"),
         }
 
         // Cleanup

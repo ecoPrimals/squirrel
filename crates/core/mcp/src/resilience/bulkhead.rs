@@ -503,7 +503,7 @@ mod tests {
         }
         
         // First operation should eventually complete
-        let _ = handle1.await.unwrap();
+        let _ = handle1.await.expect("should succeed");
     }
     
     #[tokio::test]
@@ -554,7 +554,7 @@ mod tests {
                 );
                 println!("Operation 2 correctly rejected: {:?}", err);
             },
-            Ok(_) => panic!("Second operation should have been rejected"),
+            Ok(_) => unreachable!("Second operation should have been rejected"),
         }
         
         // The first operation should eventually complete or timeout

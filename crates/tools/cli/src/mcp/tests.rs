@@ -316,10 +316,10 @@ fn run_mock_test() {
         "Mock test: Response is missing payload"
     );
 
-    let payload = response.payload.unwrap();
+    let payload = response.payload.expect("should succeed");
     println!(
         "Mock test payload: {}",
-        serde_json::to_string_pretty(&payload).unwrap()
+        serde_json::to_string_pretty(&payload).expect("should succeed")
     );
 
     if let Some(result) = payload.get("result") {
@@ -385,7 +385,10 @@ fn run_mock_test() {
         "Mock test: Error response should contain error message"
     );
     assert!(
-        response.error.unwrap().contains("Unknown command"),
+        response
+            .error
+            .expect("should succeed")
+            .contains("Unknown command"),
         "Mock test: Error should mention unknown command"
     );
 
@@ -439,7 +442,7 @@ async fn run_command_tests(client: MCPClient) -> Result<(), String> {
     // Debug payload
     println!(
         "Payload: {}",
-        serde_json::to_string_pretty(&payload).unwrap()
+        serde_json::to_string_pretty(&payload).expect("should succeed")
     );
 
     // Check payload structure with more flexible approach
@@ -456,7 +459,7 @@ async fn run_command_tests(client: MCPClient) -> Result<(), String> {
     } else {
         // Try a different approach to find the output
         // Sometimes the result structure might differ
-        let payload_str = serde_json::to_string(&payload).unwrap();
+        let payload_str = serde_json::to_string(&payload).expect("should succeed");
         assert!(
             payload_str.contains("Test command executed with args:"),
             "Payload should contain execution message"
@@ -502,7 +505,7 @@ async fn run_command_tests(client: MCPClient) -> Result<(), String> {
     let payload = response.payload.expect("Response missing payload");
     println!(
         "No args payload: {}",
-        serde_json::to_string_pretty(&payload).unwrap()
+        serde_json::to_string_pretty(&payload).expect("should succeed")
     );
 
     if let Some(result) = payload.get("result") {
@@ -522,7 +525,7 @@ async fn run_command_tests(client: MCPClient) -> Result<(), String> {
         );
     } else {
         // Alternative verification
-        let payload_str = serde_json::to_string(&payload).unwrap();
+        let payload_str = serde_json::to_string(&payload).expect("should succeed");
         assert!(
             payload_str.contains("Test command executed"),
             "Payload should contain execution message"
@@ -565,7 +568,7 @@ async fn run_command_tests(client: MCPClient) -> Result<(), String> {
         "Error response should contain error message"
     );
 
-    let error_msg = response.error.unwrap();
+    let error_msg = response.error.expect("should succeed");
     println!("Error message: {}", error_msg);
     assert!(
         error_msg.contains("Unknown command")
@@ -665,7 +668,7 @@ async fn test_subscription_system_mock() {
         "Notification should have the correct topic"
     );
     assert_eq!(
-        notification.payload.as_ref().unwrap(),
+        notification.payload.as_ref().expect("should succeed"),
         &test_payload,
         "Notification should have the correct payload"
     );
@@ -785,13 +788,13 @@ async fn test_multiple_subscribers_mock() {
 
     // Check that notifications were received by both subscribers
     assert_eq!(
-        notification1.payload.as_ref().unwrap(),
+        notification1.payload.as_ref().expect("should succeed"),
         &test_payload,
         "Subscriber 1 should receive the correct payload"
     );
 
     assert_eq!(
-        notification2.payload.as_ref().unwrap(),
+        notification2.payload.as_ref().expect("should succeed"),
         &test_payload,
         "Subscriber 2 should receive the correct payload"
     );
@@ -859,7 +862,12 @@ fn mock_server_command_execution_error() {
     let mock = MockMCPServer::new(registry);
     let resp = mock.execute_command("fail_cmd", Some(json!({ "args": [] })));
     assert_eq!(resp.message_type, MCPMessageType::Error);
-    assert!(resp.error.as_ref().unwrap().contains("boom"));
+    assert!(
+        resp.error
+            .as_ref()
+            .expect("should succeed")
+            .contains("boom")
+    );
 }
 
 /// Publishing to a topic with no subscribers is a no-op (routing coordinator path).
@@ -903,5 +911,5 @@ fn mock_server_unknown_command_error_shape() {
     let mock = MockMCPServer::new(registry);
     let resp = mock.execute_command("missing", None);
     assert_eq!(resp.message_type, MCPMessageType::Error);
-    assert!(resp.error.unwrap().contains("Unknown"));
+    assert!(resp.error.expect("should succeed").contains("Unknown"));
 }

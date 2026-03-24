@@ -454,7 +454,7 @@ mod tests {
         };
         let result = auth(&provider, &creds).await;
         assert!(result.is_ok());
-        let auth_result = result.unwrap();
+        let auth_result = result.expect("should succeed");
         assert_eq!(auth_result.principal.name, "admin");
         assert_eq!(auth_result.token, "test-token");
         assert!(auth_result.permissions.contains(&"read".to_string()));
@@ -484,7 +484,7 @@ mod tests {
         };
         let result = authz(&provider, &principal, "read", "/data").await;
         assert!(result.is_ok());
-        assert!(result.unwrap());
+        assert!(result.expect("should succeed"));
     }
 
     #[tokio::test]
@@ -500,7 +500,7 @@ mod tests {
         };
         let result = authz(&provider, &principal, "delete", "/data").await;
         assert!(result.is_ok());
-        assert!(!result.unwrap());
+        assert!(!result.expect("should succeed"));
     }
 
     #[tokio::test]
@@ -508,10 +508,10 @@ mod tests {
         let provider = TestSecurityProvider;
         let original = b"Hello, World!";
 
-        let encrypted = enc(&provider, original).await.unwrap();
+        let encrypted = enc(&provider, original).await.expect("should succeed");
         assert_ne!(encrypted, original);
 
-        let decrypted = dec(&provider, &encrypted).await.unwrap();
+        let decrypted = dec(&provider, &encrypted).await.expect("should succeed");
         assert_eq!(decrypted, original);
     }
 
@@ -520,8 +520,10 @@ mod tests {
         let provider = TestSecurityProvider;
         let data = b"Sign this data";
 
-        let signature = sig(&provider, data).await.unwrap();
-        let is_valid = ver(&provider, data, &signature).await.unwrap();
+        let signature = sig(&provider, data).await.expect("should succeed");
+        let is_valid = ver(&provider, data, &signature)
+            .await
+            .expect("should succeed");
         assert!(is_valid);
     }
 
@@ -530,7 +532,7 @@ mod tests {
         let provider = TestSecurityProvider;
         let data = b"Sign this data";
 
-        let is_valid = ver(&provider, data, b"bad").await.unwrap();
+        let is_valid = ver(&provider, data, b"bad").await.expect("should succeed");
         assert!(!is_valid);
     }
 
@@ -539,7 +541,7 @@ mod tests {
         let provider = TestSecurityProvider;
         let health = UniversalSecurityProvider::health_check(&provider)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(matches!(
             health.status,
             super::super::context::HealthStatus::Healthy
@@ -553,8 +555,11 @@ mod tests {
         let provider_ref: &dyn SecurityProvider = &provider;
 
         let data = b"test data";
-        let encrypted = provider_ref.encrypt(data).await.unwrap();
-        let decrypted = provider_ref.decrypt(&encrypted).await.unwrap();
+        let encrypted = provider_ref.encrypt(data).await.expect("should succeed");
+        let decrypted = provider_ref
+            .decrypt(&encrypted)
+            .await
+            .expect("should succeed");
         assert_eq!(decrypted, data);
     }
 

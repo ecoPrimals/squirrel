@@ -522,16 +522,19 @@ mod tests {
     async fn create_get_update_list_and_duplicate_id_error() {
         let mgr = TaskManager::new();
         let t = Task::new("job", "do work");
-        let created = mgr.create_task(t.clone()).await.unwrap();
+        let created = mgr.create_task(t.clone()).await.expect("should succeed");
         assert_eq!(created.name.as_ref(), "job");
-        let got = mgr.get_task(created.id.as_ref()).await.unwrap();
+        let got = mgr
+            .get_task(created.id.as_ref())
+            .await
+            .expect("should succeed");
         assert_eq!(got.id, created.id);
 
         let mut upd = got.clone();
         upd.description = "updated".into();
-        mgr.update_task(upd).await.unwrap();
+        mgr.update_task(upd).await.expect("should succeed");
 
-        let all = mgr.list_tasks(None).await.unwrap();
+        let all = mgr.list_tasks(None).await.expect("should succeed");
         assert_eq!(all.len(), 1);
 
         let mut dup = Task::new("x", "y");
@@ -544,12 +547,16 @@ mod tests {
     async fn assign_progress_complete_lifecycle() {
         let mgr = TaskManager::new();
         let t = Task::new("run", "go");
-        let created = mgr.create_task(t).await.unwrap();
+        let created = mgr.create_task(t).await.expect("should succeed");
         let id = created.id.as_ref().to_string();
-        mgr.assign_task(&id, "agent-a").await.unwrap();
-        mgr.update_task_progress(&id, 33.0, "third").await.unwrap();
-        mgr.complete_task(&id, None).await.unwrap();
-        let done = mgr.get_task(&id).await.unwrap();
+        mgr.assign_task(&id, "agent-a")
+            .await
+            .expect("should succeed");
+        mgr.update_task_progress(&id, 33.0, "third")
+            .await
+            .expect("should succeed");
+        mgr.complete_task(&id, None).await.expect("should succeed");
+        let done = mgr.get_task(&id).await.expect("should succeed");
         assert_eq!(done.status_code, TaskStatus::Completed);
     }
 
@@ -557,10 +564,12 @@ mod tests {
     async fn cancel_pending_task_and_get_not_found() {
         let mgr = TaskManager::new();
         let t = Task::new("c", "cancel me");
-        let created = mgr.create_task(t).await.unwrap();
+        let created = mgr.create_task(t).await.expect("should succeed");
         let id = created.id.as_ref();
-        mgr.cancel_task(id, "because").await.unwrap();
-        let cancelled = mgr.get_task(id).await.unwrap();
+        mgr.cancel_task(id, "because")
+            .await
+            .expect("should succeed");
+        let cancelled = mgr.get_task(id).await.expect("should succeed");
         assert_eq!(cancelled.status_code, TaskStatus::Cancelled);
 
         let err = mgr.get_task("missing-id").await.unwrap_err();
@@ -571,14 +580,14 @@ mod tests {
     async fn assign_invalid_state_and_progress_wrong_state_return_errors() {
         let mgr = TaskManager::new();
         let t = Task::new("e", "err");
-        let created = mgr.create_task(t).await.unwrap();
+        let created = mgr.create_task(t).await.expect("should succeed");
         let id = created.id.as_ref().to_string();
-        mgr.assign_task(&id, "a1").await.unwrap();
+        mgr.assign_task(&id, "a1").await.expect("should succeed");
         let e2 = mgr.assign_task(&id, "a2").await.unwrap_err();
         assert!(e2.to_string().contains("cannot be assigned"));
 
         let pending = Task::new("p", "p");
-        let p = mgr.create_task(pending).await.unwrap();
+        let p = mgr.create_task(pending).await.expect("should succeed");
         let pid = p.id.as_ref().to_string();
         let pe = mgr.update_task_progress(&pid, 1.0, "x").await.unwrap_err();
         assert!(pe.to_string().contains("progress"));
@@ -588,22 +597,47 @@ mod tests {
     async fn context_and_agent_indexes_update_on_create_and_task_moves() {
         let mgr = TaskManager::new();
         let t = Task::new("c", "with ctx").with_context("ctx-a");
-        let created = mgr.create_task(t).await.unwrap();
-        let ctx_tasks = mgr.get_context_tasks("ctx-a").await.unwrap();
+        let created = mgr.create_task(t).await.expect("should succeed");
+        let ctx_tasks = mgr
+            .get_context_tasks("ctx-a")
+            .await
+            .expect("should succeed");
         assert_eq!(ctx_tasks.len(), 1);
 
-        let mut moved = mgr.get_task(created.id.as_ref()).await.unwrap();
+        let mut moved = mgr
+            .get_task(created.id.as_ref())
+            .await
+            .expect("should succeed");
         moved.context_id = Some("ctx-b".into());
-        mgr.update_task(moved).await.unwrap();
-        assert!(mgr.get_context_tasks("ctx-a").await.unwrap().is_empty());
-        assert_eq!(mgr.get_context_tasks("ctx-b").await.unwrap().len(), 1);
+        mgr.update_task(moved).await.expect("should succeed");
+        assert!(
+            mgr.get_context_tasks("ctx-a")
+                .await
+                .expect("should succeed")
+                .is_empty()
+        );
+        assert_eq!(
+            mgr.get_context_tasks("ctx-b")
+                .await
+                .expect("should succeed")
+                .len(),
+            1
+        );
 
         let t2 = Task::new("agented", "x");
-        let c2 = mgr.create_task(t2).await.unwrap();
-        mgr.assign_task(c2.id.as_ref(), "agent-1").await.unwrap();
-        assert_eq!(mgr.get_agent_tasks("agent-1").await.unwrap().len(), 1);
+        let c2 = mgr.create_task(t2).await.expect("should succeed");
+        mgr.assign_task(c2.id.as_ref(), "agent-1")
+            .await
+            .expect("should succeed");
+        assert_eq!(
+            mgr.get_agent_tasks("agent-1")
+                .await
+                .expect("should succeed")
+                .len(),
+            1
+        );
 
-        let mut reassigned = mgr.get_task(c2.id.as_ref()).await.unwrap();
+        let mut reassigned = mgr.get_task(c2.id.as_ref()).await.expect("should succeed");
         assert!(
             mgr.assign_task(reassigned.id.as_ref(), "agent-2")
                 .await
@@ -611,23 +645,36 @@ mod tests {
         );
         reassigned.status_code = TaskStatus::Pending;
         reassigned.agent_id = None;
-        mgr.update_task(reassigned).await.unwrap();
-        mgr.assign_task(c2.id.as_ref(), "agent-2").await.unwrap();
-        assert!(mgr.get_agent_tasks("agent-1").await.unwrap().is_empty());
-        assert_eq!(mgr.get_agent_tasks("agent-2").await.unwrap().len(), 1);
+        mgr.update_task(reassigned).await.expect("should succeed");
+        mgr.assign_task(c2.id.as_ref(), "agent-2")
+            .await
+            .expect("should succeed");
+        assert!(
+            mgr.get_agent_tasks("agent-1")
+                .await
+                .expect("should succeed")
+                .is_empty()
+        );
+        assert_eq!(
+            mgr.get_agent_tasks("agent-2")
+                .await
+                .expect("should succeed")
+                .len(),
+            1
+        );
     }
 
     #[tokio::test]
     async fn prerequisites_block_assign_until_complete_then_dependent_unblocks() {
         let mgr = TaskManager::new();
         let pre = Task::new("pre", "first");
-        let pre_created = mgr.create_task(pre).await.unwrap();
+        let pre_created = mgr.create_task(pre).await.expect("should succeed");
         let pre_id = pre_created.id.as_ref().to_string();
 
         let mut dep = Task::new("dep", "after pre");
         dep.prerequisites = vec![pre_id.clone()];
         dep.status_code = TaskStatus::Waiting;
-        let dep_created = mgr.create_task(dep).await.unwrap();
+        let dep_created = mgr.create_task(dep).await.expect("should succeed");
 
         let err = mgr
             .assign_task(dep_created.id.as_ref(), "a")
@@ -635,16 +682,25 @@ mod tests {
             .unwrap_err();
         assert!(err.to_string().contains("Prerequisites"));
 
-        mgr.assign_task(&pre_id, "a").await.unwrap();
-        mgr.complete_task(&pre_id, None).await.unwrap();
+        mgr.assign_task(&pre_id, "a").await.expect("should succeed");
+        mgr.complete_task(&pre_id, None)
+            .await
+            .expect("should succeed");
 
-        let dep_after = mgr.get_task(dep_created.id.as_ref()).await.unwrap();
+        let dep_after = mgr
+            .get_task(dep_created.id.as_ref())
+            .await
+            .expect("should succeed");
         assert_eq!(dep_after.status_code, TaskStatus::Pending);
-        assert!(mgr.check_prerequisites(&dep_after).await.unwrap());
+        assert!(
+            mgr.check_prerequisites(&dep_after)
+                .await
+                .expect("should succeed")
+        );
         assert!(
             mgr.find_assignable_tasks()
                 .await
-                .unwrap()
+                .expect("should succeed")
                 .iter()
                 .any(|t| t.id.as_ref() == dep_created.id.as_ref())
         );
@@ -654,10 +710,13 @@ mod tests {
     async fn get_tasks_by_status_and_fail_task() {
         let mgr = TaskManager::new();
         let t = Task::new("f", "fail me");
-        let c = mgr.create_task(t).await.unwrap();
+        let c = mgr.create_task(t).await.expect("should succeed");
         let id = c.id.as_ref().to_string();
-        mgr.fail_task(&id, "boom").await.unwrap();
-        let failed = mgr.get_tasks_by_status(TaskStatus::Failed).await.unwrap();
+        mgr.fail_task(&id, "boom").await.expect("should succeed");
+        let failed = mgr
+            .get_tasks_by_status(TaskStatus::Failed)
+            .await
+            .expect("should succeed");
         assert_eq!(failed.len(), 1);
         assert_eq!(failed[0].id.as_ref(), id);
     }
@@ -666,20 +725,20 @@ mod tests {
     async fn complete_and_cancel_invalid_states() {
         let mgr = TaskManager::new();
         let t = Task::new("p", "pending");
-        let c = mgr.create_task(t).await.unwrap();
+        let c = mgr.create_task(t).await.expect("should succeed");
         let id = c.id.as_ref().to_string();
 
         let ce = mgr.complete_task(&id, None).await.unwrap_err();
         assert!(ce.to_string().contains("cannot be completed"));
 
-        mgr.assign_task(&id, "ag").await.unwrap();
-        mgr.cancel_task(&id, "stop").await.unwrap();
+        mgr.assign_task(&id, "ag").await.expect("should succeed");
+        mgr.cancel_task(&id, "stop").await.expect("should succeed");
 
         let t2 = Task::new("p2", "run to done");
-        let c2 = mgr.create_task(t2).await.unwrap();
+        let c2 = mgr.create_task(t2).await.expect("should succeed");
         let id2 = c2.id.as_ref().to_string();
-        mgr.assign_task(&id2, "ag2").await.unwrap();
-        mgr.complete_task(&id2, None).await.unwrap();
+        mgr.assign_task(&id2, "ag2").await.expect("should succeed");
+        mgr.complete_task(&id2, None).await.expect("should succeed");
         let ce3 = mgr.cancel_task(&id2, "late").await.unwrap_err();
         assert!(ce3.to_string().contains("terminal"));
     }
@@ -689,17 +748,22 @@ mod tests {
         let mgr = TaskManager::new();
         let mut t = Task::new("x", "y");
         t.prerequisites = vec!["nonexistent".into()];
-        assert!(!mgr.check_prerequisites(&t).await.unwrap());
+        assert!(!mgr.check_prerequisites(&t).await.expect("should succeed"));
     }
 
     #[tokio::test]
     async fn list_tasks_with_agent_and_without() {
         let mgr = TaskManager::new();
-        let a = mgr.create_task(Task::new("a", "")).await.unwrap();
-        mgr.assign_task(a.id.as_ref(), "z").await.unwrap();
-        let list_z = mgr.list_tasks(Some("z")).await.unwrap();
+        let a = mgr
+            .create_task(Task::new("a", ""))
+            .await
+            .expect("should succeed");
+        mgr.assign_task(a.id.as_ref(), "z")
+            .await
+            .expect("should succeed");
+        let list_z = mgr.list_tasks(Some("z")).await.expect("should succeed");
         assert_eq!(list_z.len(), 1);
-        let all = mgr.list_tasks(None).await.unwrap();
+        let all = mgr.list_tasks(None).await.expect("should succeed");
         assert_eq!(all.len(), 1);
     }
 }

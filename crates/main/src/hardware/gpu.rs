@@ -748,8 +748,8 @@ mod tests {
             power_draw_watts: Some(350),
             efficiency_tokens_per_watt: Some(0.23),
         };
-        let json = serde_json::to_string(&gpu).unwrap();
-        let deserialized: GpuInfo = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&gpu).expect("should succeed");
+        let deserialized: GpuInfo = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.model, "RTX 3090");
         assert_eq!(deserialized.vram_total_gb, 24);
     }
@@ -761,8 +761,9 @@ mod tests {
             total_vram_gb: 0,
             ai_acceleration: false,
         };
-        let json = serde_json::to_string(&caps).unwrap();
-        let deserialized: LocalGpuCapabilities = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&caps).expect("should succeed");
+        let deserialized: LocalGpuCapabilities =
+            serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.gpus.is_empty());
         assert!(!deserialized.ai_acceleration);
     }

@@ -281,7 +281,7 @@ mod tests {
         let adapter = adapter::CommandAdapter::new();
         let result = adapter.execute("test", &[]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Command executed");
+        assert_eq!(result.expect("should succeed"), "Command executed");
     }
 
     // adapter::registry tests

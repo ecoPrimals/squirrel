@@ -240,8 +240,8 @@ mod tests {
             stream: Some(false),
         };
 
-        let json = serde_json::to_string(&request).unwrap();
-        let deserialized: QueryAiRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
+        let deserialized: QueryAiRequest = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(request.prompt, deserialized.prompt);
         assert_eq!(request.provider, deserialized.provider);
@@ -255,8 +255,9 @@ mod tests {
             include_offline: Some(false),
         };
 
-        let json = serde_json::to_string(&request).unwrap();
-        let deserialized: ListProvidersRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
+        let deserialized: ListProvidersRequest =
+            serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(request.capability, deserialized.capability);
         assert_eq!(request.include_offline, deserialized.include_offline);
@@ -273,8 +274,9 @@ mod tests {
             avg_response_time_ms: Some(150.5),
         };
 
-        let json = serde_json::to_string(&response).unwrap();
-        let deserialized: HealthCheckResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&response).expect("should succeed");
+        let deserialized: HealthCheckResponse =
+            serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(response.status, deserialized.status);
         assert_eq!(response.uptime_seconds, deserialized.uptime_seconds);
@@ -291,8 +293,8 @@ mod tests {
             success: true,
         };
 
-        let json = serde_json::to_string(&response).unwrap();
-        let deserialized: QueryAiResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&response).expect("should succeed");
+        let deserialized: QueryAiResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.response, "Hello, world!");
         assert_eq!(deserialized.provider, "openai");
         assert!(deserialized.success);
@@ -310,8 +312,8 @@ mod tests {
             cost_tier: "premium".to_string(),
         };
 
-        let json = serde_json::to_string(&info).unwrap();
-        let deserialized: ProviderInfo = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&info).expect("should succeed");
+        let deserialized: ProviderInfo = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.id, "openai-1");
         assert_eq!(deserialized.models.len(), 2);
         assert!(deserialized.online);
@@ -332,8 +334,9 @@ mod tests {
             total: 1,
         };
 
-        let json = serde_json::to_string(&response).unwrap();
-        let deserialized: ListProvidersResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&response).expect("should succeed");
+        let deserialized: ListProvidersResponse =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.total, 1);
         assert_eq!(deserialized.providers.len(), 1);
     }
@@ -349,8 +352,9 @@ mod tests {
             genetic_families: None,
         };
 
-        let json = serde_json::to_string(&request).unwrap();
-        let deserialized: AnnounceCapabilitiesRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
+        let deserialized: AnnounceCapabilitiesRequest =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.capabilities.len(), 2);
         assert!(deserialized.sub_federations.is_some());
         assert!(deserialized.genetic_families.is_none());
@@ -365,8 +369,9 @@ mod tests {
             tools_registered: 3,
         };
 
-        let json = serde_json::to_string(&response).unwrap();
-        let deserialized: AnnounceCapabilitiesResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&response).expect("should succeed");
+        let deserialized: AnnounceCapabilitiesResponse =
+            serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.success);
         assert!(!deserialized.announced_at.is_empty());
     }
@@ -374,8 +379,8 @@ mod tests {
     #[test]
     fn test_health_check_request_serialization() {
         let request = HealthCheckRequest {};
-        let json = serde_json::to_string(&request).unwrap();
-        let deserialized: HealthCheckRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
+        let deserialized: HealthCheckRequest = serde_json::from_str(&json).expect("should succeed");
         let _ = format!("{deserialized:?}");
     }
 
@@ -391,8 +396,8 @@ mod tests {
             stream: None,
         };
 
-        let json = serde_json::to_string(&request).unwrap();
-        let deserialized: QueryAiRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
+        let deserialized: QueryAiRequest = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.prompt, "Hello");
         assert!(deserialized.provider.is_none());
     }
@@ -412,12 +417,12 @@ mod tests {
             total: 1,
         };
 
-        let json = serde_json::to_string(&response).unwrap();
-        let deserialized: ToolListResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&response).expect("should succeed");
+        let deserialized: ToolListResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.total, 1);
         match &deserialized.tools[0].source {
             ToolSource::Remote { primal } => assert_eq!(primal, "neuralSpring"),
-            ToolSource::Builtin => panic!("expected Remote"),
+            ToolSource::Builtin => unreachable!("expected Remote"),
         }
 
         let builtin = ToolListEntry {
@@ -427,8 +432,8 @@ mod tests {
             source: ToolSource::Builtin,
             input_schema: None,
         };
-        let j2 = serde_json::to_string(&builtin).unwrap();
-        let b2: ToolListEntry = serde_json::from_str(&j2).unwrap();
+        let j2 = serde_json::to_string(&builtin).expect("should succeed");
+        let b2: ToolListEntry = serde_json::from_str(&j2).expect("should succeed");
         assert!(matches!(b2.source, ToolSource::Builtin));
     }
 }

@@ -243,7 +243,7 @@ fn test_error_pattern_matching() {
             RuleError::NotFound(_) => { /* expected */ }
             RuleError::AlreadyExists(_) => { /* expected */ }
             RuleError::ValidationError(_) => { /* expected */ }
-            _ => panic!("Unexpected error variant"),
+            _ => unreachable!("Unexpected error variant"),
         }
     }
 }

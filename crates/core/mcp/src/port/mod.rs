@@ -594,19 +594,19 @@ mod tests {
         let mut port = MCPPort::new(config);
         
         // Port should not be listening initially
-        assert!(!port.is_listening().await.unwrap());
+        assert!(!port.is_listening().await.expect("should succeed"));
         
         // Start the port
-        port.start().await.unwrap();
+        port.start().await.expect("should succeed");
         
         // Port should be listening now
-        assert!(port.is_listening().await.unwrap());
+        assert!(port.is_listening().await.expect("should succeed"));
         
         // Stop the port
-        port.stop().await.unwrap();
+        port.stop().await.expect("should succeed");
         
         // Port should not be listening anymore
-        assert!(!port.is_listening().await.unwrap());
+        assert!(!port.is_listening().await.expect("should succeed"));
     }
     
     #[tokio::test]
@@ -623,9 +623,9 @@ mod tests {
             buffer_size: 16384,
         };
         
-        port.update_config(new_config.clone()).await.unwrap();
+        port.update_config(new_config.clone()).await.expect("should succeed");
         
-        let current_config = port.get_config().await.unwrap();
+        let current_config = port.get_config().await.expect("should succeed");
         assert_eq!(current_config.port, 9999);
         assert_eq!(current_config.bind_address, "0.0.0.0");
         assert_eq!(current_config.max_connections, 200);

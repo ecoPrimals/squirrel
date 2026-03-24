@@ -99,8 +99,9 @@ fn test_primal_type_deserialization() {
 #[test]
 fn test_primal_type_roundtrip() {
     let primal = EcosystemPrimalType::Squirrel;
-    let serialized = serde_json::to_string(&primal).unwrap();
-    let deserialized: EcosystemPrimalType = serde_json::from_str(&serialized).unwrap();
+    let serialized = serde_json::to_string(&primal).expect("should succeed");
+    let deserialized: EcosystemPrimalType =
+        serde_json::from_str(&serialized).expect("should succeed");
 
     assert_eq!(primal, deserialized);
 }

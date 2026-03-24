@@ -355,12 +355,12 @@ mod tests {
         };
         
         // Initialize the framework
-        let framework = ObservabilityFramework::new_with_config(config).await.unwrap();
+        let framework = ObservabilityFramework::new_with_config(config).await.expect("should succeed");
         
         // Run the example usage
-        example_usage().await.unwrap();
+        example_usage().await.expect("should succeed");
         
         // Initialize example component
-        initialize_example_component(&framework).unwrap();
+        initialize_example_component(&framework).expect("should succeed");
     }
 } 

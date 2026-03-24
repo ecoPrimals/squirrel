@@ -169,7 +169,7 @@ mod tests {
                 let loader = ConfigLoader::new(prefix);
                 let config = loader.load_universal_config();
                 assert!(config.is_ok());
-                let config = config.unwrap();
+                let config = config.expect("should succeed");
                 assert_eq!(config.service.name, "test-svc");
                 assert_eq!(config.songbird.discovery_endpoint, "http://disc:8001");
             },

@@ -577,18 +577,24 @@ mod tests {
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
-            address: "127.0.0.1:8080".parse().unwrap(),
+            address: "127.0.0.1:8080".parse().expect("should succeed"),
             last_seen: Utc::now(),
             status: PeerStatus::Connected,
             latency: Some(Duration::from_millis(50)),
         };
 
-        network.add_peer(peer_info.clone()).await.unwrap();
+        network
+            .add_peer(peer_info.clone())
+            .await
+            .expect("should succeed");
 
         let stats = network.get_stats().await;
         assert_eq!(stats.peer_count, 1);
 
-        network.remove_peer(peer_info.id).await.unwrap();
+        network
+            .remove_peer(peer_info.id)
+            .await
+            .expect("should succeed");
 
         let stats = network.get_stats().await;
         assert_eq!(stats.peer_count, 0);
@@ -601,7 +607,7 @@ mod tests {
         network
             .register_handler("test".to_string(), move |_msg| Ok(()))
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let handlers = network.message_handlers.read().await;
         assert!(handlers.contains_key("test"));
@@ -626,7 +632,7 @@ mod tests {
     #[tokio::test]
     async fn test_start_already_running() {
         let network = make_network();
-        network.start().await.unwrap();
+        network.start().await.expect("should succeed");
 
         let result = network.start().await;
         assert!(result.is_err());
@@ -635,23 +641,23 @@ mod tests {
             FederationError::AlreadyRunning(_)
         ));
 
-        network.stop().await.unwrap();
+        network.stop().await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn test_stop_clears_running() {
         let network = make_network();
-        network.start().await.unwrap();
+        network.start().await.expect("should succeed");
         assert!(*network.running.read().await);
 
-        network.stop().await.unwrap();
+        network.stop().await.expect("should succeed");
         assert!(!*network.running.read().await);
     }
 
     #[tokio::test]
     async fn test_broadcast_empty_peers_succeeds() {
         let network = make_network();
-        network.start().await.unwrap();
+        network.start().await.expect("should succeed");
 
         let msg = NetworkMessage::HealthCheck {
             node_id: network.node_id,
@@ -660,18 +666,18 @@ mod tests {
         let result = network.broadcast(msg).await;
         assert!(result.is_ok());
 
-        network.stop().await.unwrap();
+        network.stop().await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn test_discover_peers() {
         let network = make_network();
-        network.start().await.unwrap();
+        network.start().await.expect("should succeed");
 
-        let peers = network.discover_peers().await.unwrap();
+        let peers = network.discover_peers().await.expect("should succeed");
         assert!(peers.is_empty());
 
-        network.stop().await.unwrap();
+        network.stop().await.expect("should succeed");
     }
 
     #[tokio::test]
@@ -683,9 +689,11 @@ mod tests {
             node_id: peer_id,
             timestamp: Utc::now(),
         };
-        conn.send_message(peer_id, msg.clone()).await.unwrap();
+        conn.send_message(peer_id, msg.clone())
+            .await
+            .expect("should succeed");
 
-        let (received_peer, received_msg) = conn.receive_message().await.unwrap();
+        let (received_peer, received_msg) = conn.receive_message().await.expect("should succeed");
         assert_eq!(received_peer, peer_id);
         assert!(matches!(received_msg, NetworkMessage::HealthCheck { .. }));
     }
@@ -705,7 +713,7 @@ mod tests {
     async fn test_mock_connection_send_when_disconnected_fails() {
         let peer_id = Uuid::new_v4();
         let conn = MockNetworkConnection::new(peer_id);
-        conn.close().await.unwrap();
+        conn.close().await.expect("should succeed");
 
         let msg = NetworkMessage::HealthCheck {
             node_id: peer_id,
@@ -723,7 +731,7 @@ mod tests {
     async fn test_mock_connection_is_connected() {
         let conn = MockNetworkConnection::new(Uuid::new_v4());
         assert!(conn.is_connected().await);
-        conn.close().await.unwrap();
+        conn.close().await.expect("should succeed");
         assert!(!conn.is_connected().await);
     }
 
@@ -733,8 +741,8 @@ mod tests {
             node_id: Uuid::new_v4(),
             node_info: make_node_info(),
         };
-        let json = serde_json::to_string(&msg).unwrap();
-        let _: NetworkMessage = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&msg).expect("should succeed");
+        let _: NetworkMessage = serde_json::from_str(&json).expect("should succeed");
     }
 
     #[tokio::test]
@@ -743,13 +751,13 @@ mod tests {
         network
             .add_peer(PeerInfo {
                 id: Uuid::new_v4(),
-                address: "127.0.0.1:8080".parse().unwrap(),
+                address: "127.0.0.1:8080".parse().expect("should succeed"),
                 last_seen: Utc::now(),
                 status: PeerStatus::Connected,
                 latency: None,
             })
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let stats = network.get_stats().await;
         assert_eq!(stats.peer_count, 1);
@@ -766,7 +774,9 @@ mod tests {
             handles.push(tokio::spawn(async move {
                 let peer_info = PeerInfo {
                     id: Uuid::new_v4(),
-                    address: format!("127.0.0.1:{}", 8080 + i).parse().unwrap(),
+                    address: format!("127.0.0.1:{}", 8080 + i)
+                        .parse()
+                        .expect("should succeed"),
                     last_seen: Utc::now(),
                     status: PeerStatus::Connected,
                     latency: None,
@@ -776,7 +786,7 @@ mod tests {
         }
 
         for handle in handles {
-            assert!(handle.await.unwrap().is_ok());
+            assert!(handle.await.expect("should succeed").is_ok());
         }
 
         let stats = network.get_stats().await;
@@ -815,14 +825,14 @@ mod proptest_tests {
             node_info in node_info_strategy(),
         ) {
             let msg = NetworkMessage::Discovery { node_id, node_info };
-            let json = serde_json::to_string(&msg).unwrap();
-            let deserialized: NetworkMessage = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&msg).expect("should succeed");
+            let deserialized: NetworkMessage = serde_json::from_str(&json).expect("should succeed");
             if let (NetworkMessage::Discovery { node_id: a, node_info: ai }, NetworkMessage::Discovery { node_id: b, node_info: bi }) = (&msg, &deserialized) {
                 prop_assert_eq!(a, b);
                 prop_assert_eq!(ai.id, bi.id);
                 prop_assert_eq!(&ai.name, &bi.name);
             } else {
-                prop_assert!(false, "variant mismatch");
+                return Err(proptest::test_runner::TestCaseError::reject("variant mismatch"));
             }
         }
 
@@ -838,15 +848,15 @@ mod proptest_tests {
                 sender,
                 recipient: None,
             };
-            let json = serde_json::to_string(&msg).unwrap();
-            let deserialized: NetworkMessage = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&msg).expect("should succeed");
+            let deserialized: NetworkMessage = serde_json::from_str(&json).expect("should succeed");
             if let NetworkMessage::Federation { message_type, payload: p, sender: s, recipient } = deserialized {
                 prop_assert_eq!(message_type, msg_type);
                 prop_assert_eq!(p, payload);
                 prop_assert_eq!(s, sender);
                 prop_assert_eq!(recipient, None);
             } else {
-                prop_assert!(false, "variant mismatch");
+                return Err(proptest::test_runner::TestCaseError::reject("variant mismatch"));
             }
         }
 
@@ -856,12 +866,12 @@ mod proptest_tests {
                 node_id,
                 timestamp: Utc::now(),
             };
-            let json = serde_json::to_string(&msg).unwrap();
-            let deserialized: NetworkMessage = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&msg).expect("should succeed");
+            let deserialized: NetworkMessage = serde_json::from_str(&json).expect("should succeed");
             if let NetworkMessage::HealthCheck { node_id: n, .. } = deserialized {
                 prop_assert_eq!(n, node_id);
             } else {
-                prop_assert!(false, "variant mismatch");
+                return Err(proptest::test_runner::TestCaseError::reject("variant mismatch"));
             }
         }
     }

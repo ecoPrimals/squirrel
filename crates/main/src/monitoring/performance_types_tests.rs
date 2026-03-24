@@ -67,8 +67,8 @@ mod tests {
             trend: TrendDirection::Degrading,
         };
 
-        let json = serde_json::to_string(&metric).unwrap();
-        let deserialized: PerformanceMetric = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&metric).expect("should succeed");
+        let deserialized: PerformanceMetric = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.name, "memory_usage");
         assert_eq!(deserialized.current_value, 60.0);
@@ -105,8 +105,9 @@ mod tests {
             active_connections: 100,
         };
 
-        let json = serde_json::to_string(&utilization).unwrap();
-        let deserialized: ResourceUtilization = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&utilization).expect("should succeed");
+        let deserialized: ResourceUtilization =
+            serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.cpu_percent, 40.0);
         assert_eq!(deserialized.active_threads, 50);
@@ -142,8 +143,9 @@ mod tests {
             description: "Test baseline".to_string(),
         };
 
-        let json = serde_json::to_string(&baseline).unwrap();
-        let deserialized: PerformanceBaseline = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&baseline).expect("should succeed");
+        let deserialized: PerformanceBaseline =
+            serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.name, "test_baseline");
         assert!(deserialized.values.contains_key("latency"));
@@ -215,8 +217,9 @@ mod tests {
             },
         };
 
-        let json = serde_json::to_string(&snapshot).unwrap();
-        let deserialized: PerformanceSnapshot = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&snapshot).expect("should succeed");
+        let deserialized: PerformanceSnapshot =
+            serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.summary.cpu_usage, 30.0);
         assert_eq!(deserialized.resource_utilization.active_threads, 25);
@@ -246,8 +249,9 @@ mod tests {
             direction: ThresholdDirection::Below,
         };
 
-        let json = serde_json::to_string(&threshold).unwrap();
-        let deserialized: PerformanceThreshold = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&threshold).expect("should succeed");
+        let deserialized: PerformanceThreshold =
+            serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.name, "disk_low");
         assert!(matches!(deserialized.direction, ThresholdDirection::Below));
@@ -291,8 +295,8 @@ mod tests {
     #[test]
     fn test_performance_config_serialization() {
         let config = PerformanceConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: PerformanceConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: PerformanceConfig = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.max_history_size, 1000);
         assert_eq!(deserialized.sampling_window.as_secs(), 60);

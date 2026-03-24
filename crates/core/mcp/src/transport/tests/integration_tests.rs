@@ -67,7 +67,7 @@ impl IntegrationTestEnvironment {
             config.clone(),
             security_manager.clone(),
             protocol.clone()
-        ).await.unwrap());
+        ).await.expect("should succeed"));
         
         Self {
             transport,
@@ -78,7 +78,7 @@ impl IntegrationTestEnvironment {
     }
     
     async fn get_port(&self) -> u16 {
-        self.transport.get_port().await.unwrap()
+        self.transport.get_port().await.expect("should succeed")
     }
 }
 
@@ -89,12 +89,12 @@ async fn test_transport_protocol_integration() {
     
     // Register command handler on protocol
     let handler = Box::new(TestCommandHandler::new("integration test response"));
-    env.protocol.register_handler(MessageType::Command, handler).await.unwrap();
+    env.protocol.register_handler(MessageType::Command, handler).await.expect("should succeed");
     
     // Start transport in background
     let transport_clone = env.transport.clone();
     let handle = tokio::spawn(async move {
-        transport_clone.start().await.unwrap();
+        transport_clone.start().await.expect("should succeed");
     });
     
     // Wait a bit for transport to start
@@ -104,8 +104,8 @@ async fn test_transport_protocol_integration() {
     let port = env.get_port().await;
     
     // Connect client
-    let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).unwrap();
-    let mut stream = TcpStream::connect(addr).await.unwrap();
+    let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).expect("should succeed");
+    let mut stream = TcpStream::connect(addr).await.expect("should succeed");
     
     // Create test message
     let message_id = MessageId(format!("test-{}", uuid::Uuid::new_v4()));
@@ -113,7 +113,7 @@ async fn test_transport_protocol_integration() {
         protocol_version: "1.0".to_string(),
         id: message_id.clone(),
         message_type: MessageType::Command,
-        payload: serde_json::to_vec(&json!({"test": "integration"})).unwrap(),
+        payload: serde_json::to_vec(&json!({"test": "integration"})).expect("should succeed"),
         metadata: MessageMetadata::default(),
     };
     
@@ -125,23 +125,23 @@ async fn test_transport_protocol_integration() {
     let mut writer = FrameWriter::new(write_half);
     
     // Encode and send message
-    let frame = codec.encode_message(&test_message).await.unwrap();
-    writer.write_frame(frame).await.unwrap();
+    let frame = codec.encode_message(&test_message).await.expect("should succeed");
+    writer.write_frame(frame).await.expect("should succeed");
     
     // Wait for response
-    let response_frame = reader.read_frame().await.unwrap().unwrap();
-    let response: MCPMessage = codec.decode_message(response_frame).await.unwrap();
+    let response_frame = reader.read_frame().await.expect("should succeed").expect("should succeed");
+    let response: MCPMessage = codec.decode_message(response_frame).await.expect("should succeed");
     
     // Verify response
     assert_eq!(response.message_type, MessageType::CommandResponse);
     assert_eq!(response.id, message_id);
     
     // Decode response payload
-    let response_data: serde_json::Value = serde_json::from_slice(&response.payload).unwrap();
+    let response_data: serde_json::Value = serde_json::from_slice(&response.payload).expect("should succeed");
     assert_eq!(response_data["response"], "integration test response");
     
     // Cleanup
-    env.transport.shutdown().await.unwrap();
+    env.transport.shutdown().await.expect("should succeed");
     handle.abort();
 }
 
@@ -154,7 +154,7 @@ async fn test_transport_security_protocol_integration() {
         token_validity: 3600,
         max_auth_attempts: 3,
     };
-    let security_manager = Arc::new(SecurityManager::new(security_config).unwrap());
+    let security_manager = Arc::new(SecurityManager::new(security_config).expect("should succeed"));
     
     // Create protocol
     let protocol_config = ProtocolConfig::default();
@@ -163,7 +163,7 @@ async fn test_transport_security_protocol_integration() {
     
     // Register command handler on protocol
     let handler = Box::new(TestCommandHandler::new("secure integration test"));
-    protocol.register_handler(MessageType::Command, handler).await.unwrap();
+    protocol.register_handler(MessageType::Command, handler).await.expect("should succeed");
     
     // Create transport config with security
     let config = TransportConfig {
@@ -182,23 +182,23 @@ async fn test_transport_security_protocol_integration() {
         config.clone(),
         security_manager.clone(),
         protocol.clone()
-    ).await.unwrap());
+    ).await.expect("should succeed"));
     
     // Start transport in background
     let transport_clone = transport.clone();
     let handle = tokio::spawn(async move {
-        transport_clone.start().await.unwrap();
+        transport_clone.start().await.expect("should succeed");
     });
     
     // Wait a bit for transport to start
     tokio::time::sleep(Duration::from_millis(100)).await;
     
     // Get the assigned port
-    let port = transport.get_port().await.unwrap();
+    let port = transport.get_port().await.expect("should succeed");
     
     // Connect client
-    let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).unwrap();
-    let mut stream = TcpStream::connect(addr).await.unwrap();
+    let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).expect("should succeed");
+    let mut stream = TcpStream::connect(addr).await.expect("should succeed");
     
     // Setup codec for communication
     use crate::mcp::transport::frame::{Frame, MessageCodec, FrameReader, FrameWriter};
@@ -208,8 +208,8 @@ async fn test_transport_security_protocol_integration() {
     let mut writer = FrameWriter::new(write_half);
     
     // Perform handshake
-    let handshake_frame = reader.read_frame().await.unwrap().unwrap();
-    let handshake = codec.decode_message(handshake_frame).await.unwrap();
+    let handshake_frame = reader.read_frame().await.expect("should succeed").expect("should succeed");
+    let handshake = codec.decode_message(handshake_frame).await.expect("should succeed");
     assert_eq!(handshake.message_type, MessageType::Handshake);
     
     // Send handshake response
@@ -219,8 +219,8 @@ async fn test_transport_security_protocol_integration() {
         SecurityLevel::Standard,
         Vec::new(),
     );
-    let frame = codec.encode_message(&response).await.unwrap();
-    writer.write_frame(frame).await.unwrap();
+    let frame = codec.encode_message(&response).await.expect("should succeed");
+    writer.write_frame(frame).await.expect("should succeed");
     
     // Authenticate
     let credentials = Credentials {
@@ -233,15 +233,15 @@ async fn test_transport_security_protocol_integration() {
         MessageType::AuthRequest,
         ProtocolVersion::new(1, 0),
         SecurityLevel::Standard,
-        serde_json::to_vec(&credentials).unwrap(),
+        serde_json::to_vec(&credentials).expect("should succeed"),
     );
     
-    let frame = codec.encode_message(&auth_request).await.unwrap();
-    writer.write_frame(frame).await.unwrap();
+    let frame = codec.encode_message(&auth_request).await.expect("should succeed");
+    writer.write_frame(frame).await.expect("should succeed");
     
     // Receive auth response
-    let auth_frame = reader.read_frame().await.unwrap().unwrap();
-    let auth_response = codec.decode_message(auth_frame).await.unwrap();
+    let auth_frame = reader.read_frame().await.expect("should succeed").expect("should succeed");
+    let auth_response = codec.decode_message(auth_frame).await.expect("should succeed");
     assert_eq!(auth_response.message_type, MessageType::AuthResponse);
     
     // Now send a secure command
@@ -250,7 +250,7 @@ async fn test_transport_security_protocol_integration() {
         protocol_version: "1.0".to_string(),
         id: message_id.clone(),
         message_type: MessageType::Command,
-        payload: serde_json::to_vec(&json!({"test": "secure"})).unwrap(),
+        payload: serde_json::to_vec(&json!({"test": "secure"})).expect("should succeed"),
         metadata: MessageMetadata {
             security_level: SecurityLevel::Standard,
             session_id: Some("test-session".to_string()),
@@ -258,12 +258,12 @@ async fn test_transport_security_protocol_integration() {
         },
     };
     
-    let frame = codec.encode_message(&secure_message).await.unwrap();
-    writer.write_frame(frame).await.unwrap();
+    let frame = codec.encode_message(&secure_message).await.expect("should succeed");
+    writer.write_frame(frame).await.expect("should succeed");
     
     // Receive response
-    let response_frame = reader.read_frame().await.unwrap().unwrap();
-    let response = codec.decode_message(response_frame).await.unwrap();
+    let response_frame = reader.read_frame().await.expect("should succeed").expect("should succeed");
+    let response = codec.decode_message(response_frame).await.expect("should succeed");
     
     // Verify secure response
     assert_eq!(response.message_type, MessageType::CommandResponse);
@@ -271,11 +271,11 @@ async fn test_transport_security_protocol_integration() {
     assert_eq!(response.metadata.security_level, SecurityLevel::Standard);
     
     // Decode response payload
-    let response_data: serde_json::Value = serde_json::from_slice(&response.payload).unwrap();
+    let response_data: serde_json::Value = serde_json::from_slice(&response.payload).expect("should succeed");
     assert_eq!(response_data["response"], "secure integration test");
     
     // Cleanup
-    transport.shutdown().await.unwrap();
+    transport.shutdown().await.expect("should succeed");
     handle.abort();
 }
 
@@ -308,7 +308,7 @@ impl crate::mcp::protocol::CommandHandler for TestCommandHandler {
             protocol_version: message.protocol_version.clone(),
             message_id: message.id.0.clone(),
             status: ResponseStatus::Success,
-            payload: serde_json::to_vec(&response_payload).unwrap(),
+            payload: serde_json::to_vec(&response_payload).expect("should succeed"),
             error_message: None,
             metadata: message.metadata.clone(),
         })

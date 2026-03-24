@@ -494,7 +494,7 @@ mod tests {
             RoutingConstraint::MaxCost(0.01),
             ConstraintSource::Team("eng".to_string()),
         );
-        assert!((set.max_cost().unwrap() - 0.01).abs() < f64::EPSILON);
+        assert!((set.max_cost().expect("should succeed") - 0.01).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -541,8 +541,8 @@ mod tests {
             },
         ];
         for c in &constraints {
-            let json = serde_json::to_string(c).unwrap();
-            let deser: RoutingConstraint = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(c).expect("should succeed");
+            let deser: RoutingConstraint = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(*c, deser, "Failed roundtrip for: {c:?}");
         }
     }
@@ -560,8 +560,8 @@ mod tests {
             ConstraintSource::Compliance("GDPR".to_string()),
         ];
         for s in &sources {
-            let json = serde_json::to_string(s).unwrap();
-            let deser: ConstraintSource = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(s).expect("should succeed");
+            let deser: ConstraintSource = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(*s, deser, "Failed roundtrip for: {s:?}");
         }
     }

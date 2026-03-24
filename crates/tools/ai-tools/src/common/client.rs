@@ -375,7 +375,10 @@ mod tests {
             metadata,
         };
         assert_eq!(result.metadata.len(), 2);
-        assert_eq!(result.metadata.get("version").unwrap(), "1.0.0");
+        assert_eq!(
+            result.metadata.get("version").expect("should succeed"),
+            "1.0.0"
+        );
     }
 
     #[test]

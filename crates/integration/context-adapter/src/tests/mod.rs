@@ -35,7 +35,7 @@ async fn test_adapter_initialization() {
     let adapter = ContextAdapter::default();
 
     // Verify adapter state
-    let initial_config = adapter.get_config().await.unwrap();
+    let initial_config = adapter.get_config().await.expect("should succeed");
     assert_eq!(initial_config.max_contexts, 1000);
 
     // Test context operations
@@ -49,7 +49,7 @@ async fn test_adapter_initialization() {
     assert!(create_result.is_ok());
 
     // Verify context was created
-    let contexts = adapter.list_contexts().await.unwrap();
+    let contexts = adapter.list_contexts().await.expect("should succeed");
     assert_eq!(contexts.len(), 1);
 }
 
@@ -67,7 +67,7 @@ async fn test_adapter_with_config() {
     let adapter = ContextAdapter::new(config.clone());
 
     // Check config is applied
-    let retrieved_config = adapter.get_config().await.unwrap();
+    let retrieved_config = adapter.get_config().await.expect("should succeed");
     assert_eq!(retrieved_config.max_contexts, config.max_contexts);
     assert_eq!(retrieved_config.ttl_seconds, config.ttl_seconds);
     assert_eq!(
@@ -92,10 +92,13 @@ async fn test_state_operations() {
     adapter
         .create_context(context_id.to_string(), test_state.clone())
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Get state by retrieving the context
-    let context = adapter.get_context(context_id).await.unwrap();
+    let context = adapter
+        .get_context(context_id)
+        .await
+        .expect("should succeed");
     assert_eq!(context.data, test_state);
 
     // Update state
@@ -107,10 +110,13 @@ async fn test_state_operations() {
     adapter
         .update_context(context_id, updated_state.clone())
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Verify state was updated
-    let updated_context = adapter.get_context(context_id).await.unwrap();
+    let updated_context = adapter
+        .get_context(context_id)
+        .await
+        .expect("should succeed");
     assert_eq!(updated_context.data, updated_state);
 }
 
@@ -122,34 +128,46 @@ async fn test_multiple_contexts() {
     adapter
         .create_context("context1".to_string(), json!({"id": 1}))
         .await
-        .unwrap();
+        .expect("should succeed");
     adapter
         .create_context("context2".to_string(), json!({"id": 2}))
         .await
-        .unwrap();
+        .expect("should succeed");
     adapter
         .create_context("context3".to_string(), json!({"id": 3}))
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Verify all contexts were created
-    let contexts = adapter.list_contexts().await.unwrap();
+    let contexts = adapter.list_contexts().await.expect("should succeed");
     assert_eq!(contexts.len(), 3);
 
     // Verify context retrieval
-    let ctx1 = adapter.get_context("context1").await.unwrap();
-    let ctx2 = adapter.get_context("context2").await.unwrap();
-    let ctx3 = adapter.get_context("context3").await.unwrap();
+    let ctx1 = adapter
+        .get_context("context1")
+        .await
+        .expect("should succeed");
+    let ctx2 = adapter
+        .get_context("context2")
+        .await
+        .expect("should succeed");
+    let ctx3 = adapter
+        .get_context("context3")
+        .await
+        .expect("should succeed");
 
     assert_eq!(ctx1.data, json!({"id": 1}));
     assert_eq!(ctx2.data, json!({"id": 2}));
     assert_eq!(ctx3.data, json!({"id": 3}));
 
     // Delete a context
-    adapter.delete_context("context2").await.unwrap();
+    adapter
+        .delete_context("context2")
+        .await
+        .expect("should succeed");
 
     // Verify context was deleted
-    let remaining_contexts = adapter.list_contexts().await.unwrap();
+    let remaining_contexts = adapter.list_contexts().await.expect("should succeed");
     assert_eq!(remaining_contexts.len(), 2);
     assert!(adapter.get_context("context2").await.is_err());
 }
@@ -177,16 +195,22 @@ async fn test_thread_safety() {
     });
 
     // Wait for both operations to complete
-    let _ = handle1.await.unwrap();
-    let _ = handle2.await.unwrap();
+    let _ = handle1.await.expect("should succeed");
+    let _ = handle2.await.expect("should succeed");
 
     // Verify both contexts were created successfully
-    let contexts = adapter.list_contexts().await.unwrap();
+    let contexts = adapter.list_contexts().await.expect("should succeed");
     assert_eq!(contexts.len(), 2);
 
     // Verify we can retrieve both contexts
-    let ctx1 = adapter.get_context("thread1").await.unwrap();
-    let ctx2 = adapter.get_context("thread2").await.unwrap();
+    let ctx1 = adapter
+        .get_context("thread1")
+        .await
+        .expect("should succeed");
+    let ctx2 = adapter
+        .get_context("thread2")
+        .await
+        .expect("should succeed");
 
     assert_eq!(ctx1.data, json!({"source": "thread1"}));
     assert_eq!(ctx2.data, json!({"source": "thread2"}));
@@ -196,7 +220,7 @@ async fn test_thread_safety() {
 async fn test_context_adapter_creation() {
     // Test default creation
     let adapter = ContextAdapter::default();
-    let config = adapter.get_config().await.unwrap();
+    let config = adapter.get_config().await.expect("should succeed");
     assert_eq!(config.max_contexts, 1000);
 
     // Test with custom config
@@ -207,7 +231,7 @@ async fn test_context_adapter_creation() {
         enable_plugins: true,
     };
     let adapter = ContextAdapter::new(custom_config.clone());
-    let adapter_config = adapter.get_config().await.unwrap();
+    let adapter_config = adapter.get_config().await.expect("should succeed");
     assert_eq!(adapter_config.max_contexts, 500);
     assert_eq!(adapter_config.ttl_seconds, 1800);
     assert!(!adapter_config.enable_auto_cleanup);
@@ -218,7 +242,7 @@ async fn test_context_adapter_creation() {
 async fn test_context_adapter_factory() {
     // Test factory with default config
     let adapter = ContextAdapterFactory::create_adapter();
-    let config = adapter.get_config().await.unwrap();
+    let config = adapter.get_config().await.expect("should succeed");
     assert_eq!(config.max_contexts, 1000);
 
     // Test factory with custom config
@@ -229,7 +253,7 @@ async fn test_context_adapter_factory() {
         enable_plugins: true,
     };
     let adapter = ContextAdapterFactory::create_adapter_with_config(custom_config.clone());
-    let adapter_config = adapter.get_config().await.unwrap();
+    let adapter_config = adapter.get_config().await.expect("should succeed");
     assert_eq!(adapter_config.max_contexts, 200);
     assert_eq!(adapter_config.ttl_seconds, 900);
     assert!(adapter_config.enable_auto_cleanup);
@@ -239,8 +263,8 @@ async fn test_context_adapter_factory() {
     let adapter1 = create_context_adapter();
     let adapter2 = create_context_adapter_with_config(custom_config);
 
-    let config1 = adapter1.get_config().await.unwrap();
-    let config2 = adapter2.get_config().await.unwrap();
+    let config1 = adapter1.get_config().await.expect("should succeed");
+    let config2 = adapter2.get_config().await.expect("should succeed");
 
     assert_eq!(config1.max_contexts, 1000);
     assert_eq!(config2.max_contexts, 200);
@@ -264,7 +288,10 @@ async fn test_context_operations() {
     assert!(result.is_ok());
 
     // Test get context
-    let context = adapter.get_context(context_id).await.unwrap();
+    let context = adapter
+        .get_context(context_id)
+        .await
+        .expect("should succeed");
     assert_eq!(context.id, context_id);
     assert_eq!(context.data, data);
 
@@ -279,11 +306,14 @@ async fn test_context_operations() {
         .await;
     assert!(update_result.is_ok());
 
-    let updated_context = adapter.get_context(context_id).await.unwrap();
+    let updated_context = adapter
+        .get_context(context_id)
+        .await
+        .expect("should succeed");
     assert_eq!(updated_context.data, updated_data);
 
     // Test list contexts
-    let contexts = adapter.list_contexts().await.unwrap();
+    let contexts = adapter.list_contexts().await.expect("should succeed");
     assert_eq!(contexts.len(), 1);
     assert_eq!(contexts[0].id, context_id);
 
@@ -291,7 +321,7 @@ async fn test_context_operations() {
     let delete_result = adapter.delete_context(context_id).await;
     assert!(delete_result.is_ok());
 
-    let list_after_delete = adapter.list_contexts().await.unwrap();
+    let list_after_delete = adapter.list_contexts().await.expect("should succeed");
     assert_eq!(list_after_delete.len(), 0);
 
     // Test getting non-existent context
@@ -305,7 +335,7 @@ async fn test_configuration_update() {
     let adapter = create_context_adapter();
 
     // Verify default config
-    let default_config = adapter.get_config().await.unwrap();
+    let default_config = adapter.get_config().await.expect("should succeed");
     assert!(default_config.max_contexts > 0);
 
     // Create a new config
@@ -317,10 +347,13 @@ async fn test_configuration_update() {
     };
 
     // Update the config
-    adapter.update_config(config.clone()).await.unwrap();
+    adapter
+        .update_config(config.clone())
+        .await
+        .expect("should succeed");
 
     // Retrieve the updated config
-    let retrieved_config = adapter.get_config().await.unwrap();
+    let retrieved_config = adapter.get_config().await.expect("should succeed");
 
     // Verify config values match
     assert_eq!(retrieved_config.max_contexts, config.max_contexts);
@@ -350,23 +383,32 @@ async fn test_cleanup_expired_contexts() {
     adapter
         .create_context("context1".to_string(), json!({"test": 1}))
         .await
-        .unwrap();
+        .expect("should succeed");
     adapter
         .create_context("context2".to_string(), json!({"test": 2}))
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Verify contexts exist
-    assert_eq!(adapter.list_contexts().await.unwrap().len(), 2);
+    assert_eq!(
+        adapter.list_contexts().await.expect("should succeed").len(),
+        2
+    );
 
     // Wait for TTL to expire
     sleep(Duration::from_secs(3)).await; // Wait 3 seconds to ensure expiry
 
     // Run cleanup
-    adapter.cleanup_expired_contexts().await.unwrap();
+    adapter
+        .cleanup_expired_contexts()
+        .await
+        .expect("should succeed");
 
     // Contexts should be removed
-    assert_eq!(adapter.list_contexts().await.unwrap().len(), 0);
+    assert_eq!(
+        adapter.list_contexts().await.expect("should succeed").len(),
+        0
+    );
 }
 
 #[test]
@@ -383,7 +425,7 @@ async fn test_context_adapter_config() {
     let adapter = create_context_adapter_with_config(config.clone());
 
     // Get the config back
-    let retrieved_config = adapter.get_config().await.unwrap();
+    let retrieved_config = adapter.get_config().await.expect("should succeed");
 
     // Verify config values match
     assert_eq!(retrieved_config.max_contexts, config.max_contexts);
@@ -574,7 +616,10 @@ mod plugin_integration {
         let plugin_manager = Arc::new(ContextPluginManager::new());
         let mock_plugin = Box::new(MockContextPlugin::new());
 
-        plugin_manager.register_plugin(mock_plugin).await.unwrap();
+        plugin_manager
+            .register_plugin(mock_plugin)
+            .await
+            .expect("should succeed");
 
         let config = ContextAdapterConfig {
             max_contexts: 100,
@@ -584,7 +629,7 @@ mod plugin_integration {
         };
 
         let adapter = create_context_adapter_with_plugins(config, plugin_manager);
-        adapter.initialize_plugins().await.unwrap();
+        adapter.initialize_plugins().await.expect("should succeed");
 
         adapter
     }
@@ -603,10 +648,13 @@ mod plugin_integration {
         adapter
             .create_context(context_id.to_string(), context_data.clone())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Verify the context was created
-        let retrieved = adapter.get_context(context_id).await.unwrap();
+        let retrieved = adapter
+            .get_context(context_id)
+            .await
+            .expect("should succeed");
         assert_eq!(retrieved.id, context_id);
         assert_eq!(retrieved.data, context_data);
     }
@@ -625,7 +673,7 @@ mod plugin_integration {
         let result = adapter
             .transform_data("test.transform", input_data.clone())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Verify the transformation
         assert_eq!(result["key"], "value");
@@ -648,7 +696,7 @@ mod plugin_integration {
         let result = adapter
             .convert_data("test.adapter", input_data.clone())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Verify the conversion
         assert_eq!(result["key"], "value");
@@ -662,7 +710,7 @@ mod plugin_integration {
         let adapter = create_test_adapter().await;
 
         // Get all transformations
-        let transformations = adapter.get_transformations().await.unwrap();
+        let transformations = adapter.get_transformations().await.expect("should succeed");
 
         // Verify the transformations
         assert_eq!(transformations.len(), 1);
@@ -674,7 +722,7 @@ mod plugin_integration {
         let adapter = create_test_adapter().await;
 
         // Get all adapters
-        let adapters = adapter.get_adapters().await.unwrap();
+        let adapters = adapter.get_adapters().await.expect("should succeed");
 
         // Verify the adapters
         assert_eq!(adapters.len(), 1);
@@ -725,10 +773,13 @@ mod plugin_integration {
             enable_plugins: false,
         };
 
-        adapter.update_config(new_config.clone()).await.unwrap();
+        adapter
+            .update_config(new_config.clone())
+            .await
+            .expect("should succeed");
 
         // Verify the configuration was updated
-        let retrieved_config = adapter.get_config().await.unwrap();
+        let retrieved_config = adapter.get_config().await.expect("should succeed");
         assert_eq!(retrieved_config.max_contexts, 200);
         assert_eq!(retrieved_config.ttl_seconds, 7200);
         assert!(!retrieved_config.enable_auto_cleanup);
@@ -807,7 +858,12 @@ mod adapter_error_paths {
             "name": { "required": true }
         });
         let data = json!({});
-        assert!(!adapter.validate_data(&schema, &data).await.unwrap());
+        assert!(
+            !adapter
+                .validate_data(&schema, &data)
+                .await
+                .expect("should succeed")
+        );
     }
 
     #[tokio::test]
@@ -820,7 +876,7 @@ mod adapter_error_paths {
         adapter
             .create_context("first".to_string(), json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         let err = adapter
             .create_context("second".to_string(), json!({}))
             .await
@@ -831,7 +887,7 @@ mod adapter_error_paths {
     #[tokio::test]
     async fn get_transformations_empty_when_no_plugins_loaded() {
         let adapter = ContextAdapter::default();
-        let ids = adapter.get_transformations().await.unwrap();
+        let ids = adapter.get_transformations().await.expect("should succeed");
         assert!(ids.is_empty());
     }
 

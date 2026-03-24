@@ -597,7 +597,7 @@ mod tests {
         assert!(result.is_ok());
         
         // Check metrics
-        let metrics = syncer.get_metrics().unwrap();
+        let metrics = syncer.get_metrics().expect("should succeed");
         assert_eq!(*metrics.successful_syncs.get(&StateType::Configuration).unwrap_or(&0), 1);
         assert!(metrics.failed_syncs.is_empty());
         assert!(metrics.total_bytes_synced > 0);
@@ -633,11 +633,11 @@ mod tests {
                 assert!(size > 10);
                 assert_eq!(max_size, 10);
             },
-            _ => panic!("Expected SizeExceeded error"),
+            _ => unreachable!("Expected SizeExceeded error"),
         }
         
         // Check metrics
-        let metrics = syncer.get_metrics().unwrap();
+        let metrics = syncer.get_metrics().expect("should succeed");
         assert_eq!(*metrics.failed_syncs.get(&StateType::Runtime).unwrap_or(&0), 1);
         assert!(metrics.successful_syncs.is_empty());
     }
@@ -692,7 +692,7 @@ mod tests {
         assert!(result3.is_ok());
         
         // Check metrics
-        let metrics = syncer.get_metrics().unwrap();
+        let metrics = syncer.get_metrics().expect("should succeed");
         assert_eq!(*metrics.successful_syncs.get(&StateType::Configuration).unwrap_or(&0), 1);
         assert_eq!(*metrics.successful_syncs.get(&StateType::Runtime).unwrap_or(&0), 1);
         assert_eq!(*metrics.successful_syncs.get(&StateType::Recovery).unwrap_or(&0), 1);
@@ -718,15 +718,15 @@ mod tests {
         ).await;
         
         // Verify metrics are updated
-        let metrics1 = syncer.get_metrics().unwrap();
+        let metrics1 = syncer.get_metrics().expect("should succeed");
         assert!(!metrics1.successful_syncs.is_empty());
         assert!(metrics1.total_bytes_synced > 0);
         
         // Reset metrics
-        syncer.reset_metrics().unwrap();
+        syncer.reset_metrics().expect("should succeed");
         
         // Verify metrics are reset
-        let metrics2 = syncer.get_metrics().unwrap();
+        let metrics2 = syncer.get_metrics().expect("should succeed");
         assert!(metrics2.successful_syncs.is_empty());
         assert_eq!(metrics2.total_bytes_synced, 0);
     }

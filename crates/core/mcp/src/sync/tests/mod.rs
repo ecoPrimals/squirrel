@@ -58,7 +58,7 @@ async fn create_test_mcp_sync() -> (
     // ARRANGE: Create dependencies with DI pattern
     let config = create_test_config();
     let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
-    let monitor = Arc::new(MCPMonitor::new().await.unwrap());
+    let monitor = Arc::new(MCPMonitor::new().await.expect("should succeed"));
     let state_manager = Arc::new(StateSyncManager::new());
 
     // Create and initialize sync instance

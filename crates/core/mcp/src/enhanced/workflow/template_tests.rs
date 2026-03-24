@@ -15,7 +15,7 @@ async fn test_template_engine_creation() {
     let config = TemplateEngineConfig::default();
     let engine = WorkflowTemplateEngine::new(config);
     
-    let templates = engine.list_templates(None).await.unwrap();
+    let templates = engine.list_templates(None).await.expect("should succeed");
     assert_eq!(templates.len(), 0);
 }
 
@@ -44,9 +44,9 @@ async fn test_register_template() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
-    let templates = engine.list_templates(None).await.unwrap();
+    let templates = engine.list_templates(None).await.expect("should succeed");
     assert_eq!(templates.len(), 1);
     assert_eq!(templates[0].id, "template-1");
 }
@@ -76,11 +76,11 @@ async fn test_get_template() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
-    let retrieved = engine.get_template("template-2").await.unwrap();
+    let retrieved = engine.get_template("template-2").await.expect("should succeed");
     assert!(retrieved.is_some());
-    assert_eq!(retrieved.unwrap().name, "Test Template 2");
+    assert_eq!(retrieved.expect("should succeed").name, "Test Template 2");
 }
 
 #[tokio::test]
@@ -108,11 +108,11 @@ async fn test_delete_template() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
-    assert_eq!(engine.list_templates(None).await.unwrap().len(), 1);
+    engine.register_template(template).await.expect("should succeed");
+    assert_eq!(engine.list_templates(None).await.expect("should succeed").len(), 1);
     
-    engine.delete_template("template-3").await.unwrap();
-    assert_eq!(engine.list_templates(None).await.unwrap().len(), 0);
+    engine.delete_template("template-3").await.expect("should succeed");
+    assert_eq!(engine.list_templates(None).await.expect("should succeed").len(), 0);
 }
 
 #[tokio::test]
@@ -140,10 +140,10 @@ async fn test_instantiate_template_basic() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
     let parameters = HashMap::new();
-    let workflow = engine.instantiate_template("template-4", parameters).await.unwrap();
+    let workflow = engine.instantiate_template("template-4", parameters).await.expect("should succeed");
     
     assert_ne!(workflow.id, "template-workflow-4"); // Should have new ID
     assert_eq!(workflow.name, "Basic Workflow");
@@ -183,7 +183,7 @@ async fn test_parameter_validation_required() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
     // Missing required parameter should fail
     let parameters = HashMap::new();
@@ -225,7 +225,7 @@ async fn test_parameter_validation_type_string() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
     // Valid string parameter
     let mut parameters = HashMap::new();
@@ -278,7 +278,7 @@ async fn test_parameter_validation_type_number() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
     // Valid number within range
     let mut parameters = HashMap::new();
@@ -346,11 +346,11 @@ async fn test_parameter_substitution_simple() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
     let mut parameters = HashMap::new();
     parameters.insert("name".to_string(), serde_json::json!("Alice"));
-    let workflow = engine.instantiate_template("template-8", parameters).await.unwrap();
+    let workflow = engine.instantiate_template("template-8", parameters).await.expect("should succeed");
     
     assert_eq!(workflow.steps[0].name, "Greet Alice");
     assert_eq!(workflow.steps[0].description, "Say hello to Alice");
@@ -422,13 +422,13 @@ async fn test_parameter_substitution_multiple() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
     let mut parameters = HashMap::new();
     parameters.insert("resource".to_string(), serde_json::json!("document.pdf"));
     parameters.insert("user".to_string(), serde_json::json!("user123"));
     parameters.insert("count".to_string(), serde_json::json!(42));
-    let workflow = engine.instantiate_template("template-9", parameters).await.unwrap();
+    let workflow = engine.instantiate_template("template-9", parameters).await.expect("should succeed");
     
     assert_eq!(workflow.steps[0].name, "Process document.pdf for user123");
     assert_eq!(workflow.steps[0].config["resource"], "document.pdf");
@@ -474,7 +474,7 @@ async fn test_parameter_validation_string_length() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
     // Valid string within length range
     let mut parameters = HashMap::new();
@@ -532,7 +532,7 @@ async fn test_parameter_validation_pattern() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
     // Valid pattern
     let mut parameters = HashMap::new();
@@ -588,19 +588,19 @@ async fn test_list_templates_with_tags() {
             updated_at: chrono::Utc::now(),
         };
         
-        engine.register_template(template).await.unwrap();
+        engine.register_template(template).await.expect("should succeed");
     }
     
     // List all templates
-    let all_templates = engine.list_templates(None).await.unwrap();
+    let all_templates = engine.list_templates(None).await.expect("should succeed");
     assert_eq!(all_templates.len(), 3);
     
     // List templates with "production" tag
-    let prod_templates = engine.list_templates(Some(vec!["production".to_string()])).await.unwrap();
+    let prod_templates = engine.list_templates(Some(vec!["production".to_string()])).await.expect("should succeed");
     assert_eq!(prod_templates.len(), 2);
     
     // List templates with "development" tag
-    let dev_templates = engine.list_templates(Some(vec!["development".to_string()])).await.unwrap();
+    let dev_templates = engine.list_templates(Some(vec!["development".to_string()])).await.expect("should succeed");
     assert_eq!(dev_templates.len(), 1);
 }
 
@@ -642,7 +642,7 @@ async fn test_parameter_validation_array() {
         updated_at: chrono::Utc::now(),
     };
     
-    engine.register_template(template).await.unwrap();
+    engine.register_template(template).await.expect("should succeed");
     
     // Valid array within size range
     let mut parameters = HashMap::new();

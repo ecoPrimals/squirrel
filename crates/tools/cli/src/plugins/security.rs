@@ -441,7 +441,10 @@ mod tests {
         let stub = SecurePluginStub::new(metadata);
         let result = stub.execute(&["arg1".to_string()]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Secure plugin stub executed");
+        assert_eq!(
+            result.expect("should succeed"),
+            "Secure plugin stub executed"
+        );
     }
 
     #[tokio::test]

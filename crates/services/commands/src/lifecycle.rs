@@ -215,7 +215,7 @@ mod tests {
             stage: &LifecycleStage,
             _command: &dyn Command,
         ) -> Result<(), CommandError> {
-            self.seen.lock().unwrap().push(*stage);
+            self.seen.lock().expect("should succeed").push(*stage);
             Ok(())
         }
 
@@ -235,7 +235,7 @@ mod tests {
             seen: Arc::clone(&seen),
         };
         let lifecycle = CommandLifecycle::new();
-        lifecycle.add_hook(Box::new(hook)).unwrap();
+        lifecycle.add_hook(Box::new(hook)).expect("should succeed");
         assert_eq!(lifecycle.hooks(), 1);
 
         let cmd = TestCommand;
@@ -244,10 +244,10 @@ mod tests {
             LifecycleStage::Initialization,
             LifecycleStage::Validation,
         ] {
-            lifecycle.execute_stage(s, &cmd).unwrap();
+            lifecycle.execute_stage(s, &cmd).expect("should succeed");
         }
 
-        let got = seen.lock().unwrap().clone();
+        let got = seen.lock().expect("should succeed").clone();
         assert_eq!(got.len(), 3);
         assert_eq!(got[0], LifecycleStage::Registration);
     }
@@ -283,7 +283,9 @@ mod tests {
         }
 
         let lifecycle = CommandLifecycle::new();
-        lifecycle.add_hook(Box::new(FailOnValidation)).unwrap();
+        lifecycle
+            .add_hook(Box::new(FailOnValidation))
+            .expect("should succeed");
         let cmd = TestCommand;
         assert!(
             lifecycle

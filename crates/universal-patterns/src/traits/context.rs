@@ -104,8 +104,8 @@ mod tests {
                 m
             },
         };
-        let json = serde_json::to_string(&ctx).unwrap();
-        let deserialized: PrimalContext = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&ctx).expect("should succeed");
+        let deserialized: PrimalContext = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.user_id, "user1");
         assert_eq!(deserialized.device_id, "device1");
         assert_eq!(
@@ -113,7 +113,10 @@ mod tests {
             Some("10.0.0.0/24".to_string())
         );
         assert_eq!(deserialized.security_level, SecurityLevel::High);
-        assert_eq!(deserialized.metadata.get("env").unwrap(), "production");
+        assert_eq!(
+            deserialized.metadata.get("env").expect("should succeed"),
+            "production"
+        );
     }
 
     #[test]
@@ -143,10 +146,13 @@ mod tests {
             network_id: Some("home-net".to_string()),
             geo_location: Some("EU-West".to_string()),
         };
-        let json = serde_json::to_string(&loc).unwrap();
-        let deserialized: NetworkLocation = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&loc).expect("should succeed");
+        let deserialized: NetworkLocation = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.ip_address, "192.168.1.1");
-        assert_eq!(deserialized.subnet.unwrap(), "192.168.1.0/24");
+        assert_eq!(
+            deserialized.subnet.expect("should succeed"),
+            "192.168.1.0/24"
+        );
     }
 
     #[test]
@@ -157,8 +163,8 @@ mod tests {
             SecurityLevel::High,
             SecurityLevel::Maximum,
         ] {
-            let json = serde_json::to_string(&level).unwrap();
-            let deserialized: SecurityLevel = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&level).expect("should succeed");
+            let deserialized: SecurityLevel = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, level);
         }
     }

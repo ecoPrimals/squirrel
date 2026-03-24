@@ -39,7 +39,7 @@ async fn test_benchmark_execution() {
         .await;
 
     assert!(result.is_ok());
-    let benchmark_result = result.unwrap();
+    let benchmark_result = result.expect("should succeed");
     assert_eq!(benchmark_result.operation_name, "test_operation");
     assert!(benchmark_result.ops_per_second > 0.0);
 }
@@ -69,7 +69,10 @@ async fn test_benchmark_report_generation() {
 #[tokio::test]
 async fn test_benchmark_ai_intelligence() {
     let suite = BenchmarkSuite::new("test_ai");
-    let results = suite.benchmark_ai_intelligence().await.unwrap();
+    let results = suite
+        .benchmark_ai_intelligence()
+        .await
+        .expect("should succeed");
     assert_eq!(results.len(), 4);
     assert!(results.iter().all(|r| r.success_rate >= 0.0));
 }
@@ -77,21 +80,30 @@ async fn test_benchmark_ai_intelligence() {
 #[tokio::test]
 async fn test_benchmark_orchestration() {
     let suite = BenchmarkSuite::new("test_orch");
-    let results = suite.benchmark_orchestration().await.unwrap();
+    let results = suite
+        .benchmark_orchestration()
+        .await
+        .expect("should succeed");
     assert_eq!(results.len(), 4);
 }
 
 #[tokio::test]
 async fn test_benchmark_mcp_protocol() {
     let suite = BenchmarkSuite::new("test_mcp");
-    let results = suite.benchmark_mcp_protocol().await.unwrap();
+    let results = suite
+        .benchmark_mcp_protocol()
+        .await
+        .expect("should succeed");
     assert_eq!(results.len(), 4);
 }
 
 #[tokio::test]
 async fn test_run_complete_benchmark_suite() {
     let suite = BenchmarkSuite::new("test_complete");
-    let report = suite.run_complete_benchmark_suite().await.unwrap();
+    let report = suite
+        .run_complete_benchmark_suite()
+        .await
+        .expect("should succeed");
     assert!(report.total_benchmarks >= 20);
     assert!(!report.results.is_empty());
 }
@@ -99,7 +111,10 @@ async fn test_run_complete_benchmark_suite() {
 #[tokio::test]
 async fn test_benchmark_suite_report_summary() {
     let suite = BenchmarkSuite::new("test_summary");
-    let _ = suite.benchmark_ai_intelligence().await.unwrap();
+    let _ = suite
+        .benchmark_ai_intelligence()
+        .await
+        .expect("should succeed");
     let results = suite.get_results().await;
     let report = BenchmarkSuiteReport {
         suite_id: "test_summary_123".to_string(),
@@ -116,14 +131,17 @@ async fn test_benchmark_suite_report_summary() {
 
 #[tokio::test]
 async fn test_initialize_benchmarking() {
-    let suite = initialize_benchmarking().await.unwrap();
-    let _ = suite.benchmark_ai_intelligence().await.unwrap();
+    let suite = initialize_benchmarking().await.expect("should succeed");
+    let _ = suite
+        .benchmark_ai_intelligence()
+        .await
+        .expect("should succeed");
     assert!(!suite.get_results().await.is_empty());
 }
 
 #[tokio::test]
 async fn test_run_ecosystem_benchmarks() {
-    let report = run_ecosystem_benchmarks().await.unwrap();
+    let report = run_ecosystem_benchmarks().await.expect("should succeed");
     assert!(!report.results.is_empty());
     assert!(report.total_benchmarks >= 20);
 }
@@ -131,7 +149,10 @@ async fn test_run_ecosystem_benchmarks() {
 #[tokio::test]
 async fn test_clear_results() {
     let suite = BenchmarkSuite::new("test_clear");
-    let _ = suite.benchmark_ai_intelligence().await.unwrap();
+    let _ = suite
+        .benchmark_ai_intelligence()
+        .await
+        .expect("should succeed");
     assert!(!suite.get_results().await.is_empty());
     suite.clear_results().await;
     assert!(suite.get_results().await.is_empty());
@@ -153,8 +174,8 @@ async fn test_benchmark_result_serde() {
         metadata: HashMap::new(),
         provenance: universal_patterns::provenance::Provenance::auto(),
     };
-    let json = serde_json::to_string(&result).unwrap();
-    let _: BenchmarkResult = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&result).expect("should succeed");
+    let _: BenchmarkResult = serde_json::from_str(&json).expect("should succeed");
 }
 
 #[tokio::test]

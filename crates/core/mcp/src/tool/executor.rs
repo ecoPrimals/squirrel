@@ -320,7 +320,7 @@ mod tests {
             assert_eq!(capability, "echo");
             assert_eq!(tool_id, "test-tool");
         } else {
-            panic!("Expected CapabilityNotFound error, got: {:?}", result);
+            unreachable!("Expected CapabilityNotFound error, got: {:?}", result);
         }
 
         // Test the custom handler
@@ -342,11 +342,11 @@ mod tests {
         let result = executor.execute(context).await;
         assert!(result.is_ok(), "Execution failed: {:?}", result);
 
-        let execution_result = result.unwrap();
+        let execution_result = result.expect("should succeed");
         assert_eq!(execution_result.status, ExecutionStatus::Success);
         assert!(execution_result.output.is_some());
         assert_eq!(
-            execution_result.output.as_ref().unwrap()["processed_value"],
+            execution_result.output.as_ref().expect("should succeed")["processed_value"],
             json!("Processed: 42")
         );
 
@@ -371,7 +371,7 @@ mod tests {
             assert_eq!(capability, "echo");
             assert_eq!(tool_id, "test-tool");
         } else {
-            panic!("Expected CapabilityNotFound error, got: {:?}", result);
+            unreachable!("Expected CapabilityNotFound error, got: {:?}", result);
         }
     }
 
@@ -401,7 +401,7 @@ mod tests {
         let result = executor.execute(context).await;
         assert!(result.is_ok(), "Remote execution failed: {:?}", result);
 
-        let execution_result = result.unwrap();
+        let execution_result = result.expect("should succeed");
         assert_eq!(execution_result.status, ExecutionStatus::Failure);
         assert!(execution_result.output.is_none());
         assert!(execution_result.error_message.is_some());
@@ -427,7 +427,7 @@ mod tests {
         let result = executor.execute(context).await;
         assert!(result.is_ok(), "Remote execution failed: {:?}", result);
 
-        let execution_result = result.unwrap();
+        let execution_result = result.expect("should succeed");
         assert_eq!(execution_result.status, ExecutionStatus::Failure);
         assert!(execution_result.output.is_none());
         assert!(execution_result.error_message.is_some());
@@ -456,7 +456,7 @@ mod tests {
             "Remote execution result should be created even for errors"
         );
 
-        let execution_result = result.unwrap();
+        let execution_result = result.expect("should succeed");
         assert_eq!(execution_result.status, ExecutionStatus::Failure);
         assert!(execution_result.output.is_none());
         assert!(execution_result.error_message.is_some());

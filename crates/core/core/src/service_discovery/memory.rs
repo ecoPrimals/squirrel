@@ -388,11 +388,17 @@ mod tests {
             )],
         );
 
-        discovery.register_service(service.clone()).await.unwrap();
+        discovery
+            .register_service(service.clone())
+            .await
+            .expect("should succeed");
 
-        let retrieved = discovery.get_service("test-service").await.unwrap();
+        let retrieved = discovery
+            .get_service("test-service")
+            .await
+            .expect("should succeed");
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().id, "test-service");
+        assert_eq!(retrieved.expect("should succeed").id, "test-service");
     }
 
     #[tokio::test]
@@ -409,10 +415,19 @@ mod tests {
             )],
         );
 
-        discovery.register_service(service).await.unwrap();
-        discovery.deregister_service("test-service").await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
+        discovery
+            .deregister_service("test-service")
+            .await
+            .expect("should succeed");
 
-        let retrieved = discovery.get_service("test-service").await.unwrap();
+        let retrieved = discovery
+            .get_service("test-service")
+            .await
+            .expect("should succeed");
         assert!(retrieved.is_none());
     }
 
@@ -430,10 +445,19 @@ mod tests {
             )],
         );
 
-        discovery.register_service(service).await.unwrap();
-        discovery.heartbeat("test-service").await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
+        discovery
+            .heartbeat("test-service")
+            .await
+            .expect("should succeed");
 
-        let retrieved = discovery.get_service("test-service").await.unwrap();
+        let retrieved = discovery
+            .get_service("test-service")
+            .await
+            .expect("should succeed");
         assert!(retrieved.is_some());
     }
 
@@ -452,12 +476,18 @@ mod tests {
             )],
         );
 
-        discovery.register_service(service).await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         // Wait for service to expire
         tokio::time::sleep(Duration::from_millis(200)).await;
 
-        let retrieved = discovery.get_service("test-service").await.unwrap();
+        let retrieved = discovery
+            .get_service("test-service")
+            .await
+            .expect("should succeed");
         assert!(retrieved.is_none());
     }
 
@@ -476,12 +506,18 @@ mod tests {
             )],
         );
 
-        discovery.register_service(service).await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         // Wait for service to expire
         tokio::time::sleep(Duration::from_millis(200)).await;
 
-        let expired = discovery.cleanup_expired_services().await.unwrap();
+        let expired = discovery
+            .cleanup_expired_services()
+            .await
+            .expect("should succeed");
         assert_eq!(expired.len(), 1);
         assert_eq!(expired[0], "test-service");
     }
@@ -510,13 +546,19 @@ mod tests {
             )],
         );
 
-        discovery.register_service(ai_service).await.unwrap();
-        discovery.register_service(compute_service).await.unwrap();
+        discovery
+            .register_service(ai_service)
+            .await
+            .expect("should succeed");
+        discovery
+            .register_service(compute_service)
+            .await
+            .expect("should succeed");
 
         let ai_services = discovery
             .get_services_by_type(ServiceType::AI)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(ai_services.len(), 1);
         assert_eq!(ai_services[0].id, "ai-service");
     }
@@ -536,9 +578,15 @@ mod tests {
         )
         .with_capability("chat".to_string());
 
-        discovery.register_service(service).await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
-        let chat_services = discovery.get_services_by_capability("chat").await.unwrap();
+        let chat_services = discovery
+            .get_services_by_capability("chat")
+            .await
+            .expect("should succeed");
         assert_eq!(chat_services.len(), 1);
         assert_eq!(chat_services[0].id, "test-service");
     }
@@ -568,10 +616,16 @@ mod tests {
         )
         .with_health_status(ServiceHealthStatus::Unhealthy);
 
-        discovery.register_service(service1).await.unwrap();
-        discovery.register_service(service2).await.unwrap();
+        discovery
+            .register_service(service1)
+            .await
+            .expect("should succeed");
+        discovery
+            .register_service(service2)
+            .await
+            .expect("should succeed");
 
-        let stats = discovery.get_service_stats().await.unwrap();
+        let stats = discovery.get_service_stats().await.expect("should succeed");
         assert_eq!(stats.total_services, 2);
         assert_eq!(stats.healthy_services, 1);
         assert_eq!(stats.unhealthy_services, 1);

@@ -52,7 +52,7 @@ impl PluginAdapter {
         reason = "Async trait method; required for future implementations"
     )]
     pub async fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
-        let mut adapter = self.adapter.write().unwrap();
+        let mut adapter = self.adapter.write().expect("should succeed");
         adapter.register(command.name(), command.clone())
     }
 
@@ -62,7 +62,7 @@ impl PluginAdapter {
         reason = "Async trait method; required for future implementations"
     )]
     pub async fn get_commands(&self) -> CommandResult<Vec<String>> {
-        let adapter = self.adapter.read().unwrap();
+        let adapter = self.adapter.read().expect("should succeed");
         adapter.list_commands()
     }
 }
@@ -70,17 +70,17 @@ impl PluginAdapter {
 #[async_trait]
 impl CommandAdapter for PluginAdapter {
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        let adapter = self.adapter.read().unwrap();
+        let adapter = self.adapter.read().expect("should succeed");
         adapter.execute(command, args)
     }
 
     async fn get_help(&self, command: &str) -> CommandResult<String> {
-        let adapter = self.adapter.read().unwrap();
+        let adapter = self.adapter.read().expect("should succeed");
         adapter.get_help(command)
     }
 
     async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        let adapter = self.adapter.read().unwrap();
+        let adapter = self.adapter.read().expect("should succeed");
         adapter.list_commands()
     }
 }
@@ -181,9 +181,9 @@ mod tests {
     async fn test_plugin_adapter_register_and_get_commands() {
         let adapter = PluginAdapter::new();
         let cmd = Arc::new(TestCommand::new("test-cmd", "Test", "result"));
-        adapter.register_command(cmd).await.unwrap();
+        adapter.register_command(cmd).await.expect("should succeed");
 
-        let cmds = adapter.get_commands().await.unwrap();
+        let cmds = adapter.get_commands().await.expect("should succeed");
         assert_eq!(cmds.len(), 1);
         assert_eq!(cmds[0], "test-cmd");
     }
@@ -192,18 +192,18 @@ mod tests {
     async fn test_plugin_adapter_command_adapter_execute() {
         let adapter = PluginAdapter::new();
         let cmd = Arc::new(TestCommand::new("test", "Test", "output"));
-        adapter.register_command(cmd).await.unwrap();
+        adapter.register_command(cmd).await.expect("should succeed");
 
         let result = <PluginAdapter as CommandAdapter>::execute(&adapter, "test", vec![]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "output");
+        assert_eq!(result.expect("should succeed"), "output");
     }
 
     #[tokio::test]
     async fn test_plugin_adapter_command_adapter_execute_with_args() {
         let adapter = PluginAdapter::new();
         let cmd = Arc::new(TestCommand::new("echo", "Echo", "Echo"));
-        adapter.register_command(cmd).await.unwrap();
+        adapter.register_command(cmd).await.expect("should succeed");
 
         let result = <PluginAdapter as CommandAdapter>::execute(
             &adapter,
@@ -212,18 +212,18 @@ mod tests {
         )
         .await;
         assert!(result.is_ok());
-        assert!(result.unwrap().contains('x'));
+        assert!(result.expect("should succeed").contains('x'));
     }
 
     #[tokio::test]
     async fn test_plugin_adapter_command_adapter_get_help() {
         let adapter = PluginAdapter::new();
         let cmd = Arc::new(TestCommand::new("help-cmd", "Help description", "help"));
-        adapter.register_command(cmd).await.unwrap();
+        adapter.register_command(cmd).await.expect("should succeed");
 
         let help = <PluginAdapter as CommandAdapter>::get_help(&adapter, "help-cmd")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(help, "help-cmd: Help description");
     }
 
@@ -238,44 +238,44 @@ mod tests {
     async fn test_mock_adapter_registry() {
         let mut registry = RegistryAdapter::new();
         let cmd = Arc::new(TestCommand::new("mock-cmd", "Mock", "mock result"));
-        registry.register("mock-cmd", cmd).unwrap();
+        registry.register("mock-cmd", cmd).expect("should succeed");
 
         let result = <RegistryAdapter as MockAdapter>::execute(&registry, "mock-cmd", vec![]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "mock result");
+        assert_eq!(result.expect("should succeed"), "mock result");
     }
 
     #[tokio::test]
     async fn test_mock_adapter_mcp() {
         let adapter = McpAdapter::new();
         let cmd = Arc::new(TestCommand::new("mcp-cmd", "MCP", "mcp result"));
-        adapter.register_command(cmd).await.unwrap();
+        adapter.register_command(cmd).await.expect("should succeed");
 
         let result = <McpAdapter as MockAdapter>::execute(&adapter, "mcp-cmd", vec![]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "mcp result");
+        assert_eq!(result.expect("should succeed"), "mcp result");
     }
 
     #[tokio::test]
     async fn test_mock_adapter_plugin() {
         let adapter = PluginAdapter::new();
         let cmd = Arc::new(TestCommand::new("plugin-mock", "Plugin", "plugin result"));
-        adapter.register_command(cmd).await.unwrap();
+        adapter.register_command(cmd).await.expect("should succeed");
 
         let result = <PluginAdapter as MockAdapter>::execute(&adapter, "plugin-mock", vec![]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "plugin result");
+        assert_eq!(result.expect("should succeed"), "plugin result");
     }
 
     #[tokio::test]
     async fn test_test_polymorphic_adapter() {
         let mut registry = RegistryAdapter::new();
         let cmd = Arc::new(TestCommand::new("poly", "Poly", "polymorphic"));
-        registry.register("poly", cmd).unwrap();
+        registry.register("poly", cmd).expect("should succeed");
 
         let result = test_polymorphic_adapter(&registry, "poly", vec![]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "polymorphic");
+        assert_eq!(result.expect("should succeed"), "polymorphic");
     }
 
     #[tokio::test]

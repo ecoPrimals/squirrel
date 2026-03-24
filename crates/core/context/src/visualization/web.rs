@@ -64,7 +64,9 @@ mod tests {
     async fn test_web_visualization_server_start_stop() {
         let config = Arc::new(VisualizationSystemConfig::default());
         let (tx, _rx) = broadcast::channel(16);
-        let server = WebVisualizationServer::new(config, tx).await.unwrap();
+        let server = WebVisualizationServer::new(config, tx)
+            .await
+            .expect("should succeed");
         assert!(server.start().await.is_ok());
         assert!(server.stop().await.is_ok());
     }

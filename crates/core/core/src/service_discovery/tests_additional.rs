@@ -29,26 +29,26 @@ async fn test_service_lifecycle_complete() {
         )],
     );
 
-    discovery.register_service(service.clone()).await.unwrap();
+    discovery.register_service(service.clone()).await.expect("should succeed");
 
     // Verify registered
-    let found = discovery.get_service("lifecycle-test").await.unwrap();
+    let found = discovery.get_service("lifecycle-test").await.expect("should succeed");
     assert!(found.is_some());
 
     // Update heartbeat
     discovery
         .update_service_heartbeat("lifecycle-test")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Deregister
     discovery
         .deregister_service("lifecycle-test")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Verify removed
-    let found = discovery.get_service("lifecycle-test").await.unwrap();
+    let found = discovery.get_service("lifecycle-test").await.expect("should succeed");
     assert!(found.is_none());
 }
 
@@ -67,10 +67,10 @@ async fn test_multiple_services_same_type() {
                 8080 + i,
             )],
         );
-        discovery.register_service(service).await.unwrap();
+        discovery.register_service(service).await.expect("should succeed");
     }
 
-    let services = discovery.get_active_services().await.unwrap();
+    let services = discovery.get_active_services().await.expect("should succeed");
     assert_eq!(services.len(), 5);
 }
 
@@ -97,18 +97,18 @@ async fn test_capability_based_filtering() {
     )
     .with_capability("vision".to_string());
 
-    discovery.register_service(service1).await.unwrap();
-    discovery.register_service(service2).await.unwrap();
+    discovery.register_service(service1).await.expect("should succeed");
+    discovery.register_service(service2).await.expect("should succeed");
 
     // Find chat service
-    let chat_service = client.find_service_by_capability("chat").await.unwrap();
+    let chat_service = client.find_service_by_capability("chat").await.expect("should succeed");
     assert!(chat_service.is_some());
-    assert_eq!(chat_service.unwrap().id, "chat-1");
+    assert_eq!(chat_service.expect("should succeed").id, "chat-1");
 
     // Find vision service
-    let vision_service = client.find_service_by_capability("vision").await.unwrap();
+    let vision_service = client.find_service_by_capability("vision").await.expect("should succeed");
     assert!(vision_service.is_some());
-    assert_eq!(vision_service.unwrap().id, "vision-1");
+    assert_eq!(vision_service.expect("should succeed").id, "vision-1");
 }
 
 #[tokio::test]
@@ -124,15 +124,15 @@ async fn test_service_metadata() {
     .with_metadata("region".to_string(), "us-east-1".to_string())
     .with_metadata("version".to_string(), "1.0.0".to_string());
 
-    discovery.register_service(service).await.unwrap();
+    discovery.register_service(service).await.expect("should succeed");
 
     let found = discovery
         .get_service("metadata-test")
         .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(found.metadata.get("region").unwrap(), "us-east-1");
-    assert_eq!(found.metadata.get("version").unwrap(), "1.0.0");
+        .expect("should succeed")
+        .expect("should succeed");
+    assert_eq!(found.metadata.get("region").expect("should succeed"), "us-east-1");
+    assert_eq!(found.metadata.get("version").expect("should succeed"), "1.0.0");
 }
 
 #[tokio::test]
@@ -153,7 +153,7 @@ async fn test_service_query_complex() {
         )
         .with_capability(if i % 3 == 0 { "advanced" } else { "basic" }.to_string());
 
-        discovery.register_service(service).await.unwrap();
+        discovery.register_service(service).await.expect("should succeed");
     }
 
     // Query AI services with advanced capability
@@ -163,7 +163,7 @@ async fn test_service_query_complex() {
         .with_health_status(ServiceHealthStatus::Healthy)
         .limit(5);
 
-    let results = discovery.discover_services(query).await.unwrap();
+    let results = discovery.discover_services(query).await.expect("should succeed");
     assert!(results.len() > 0);
 
     // Verify all results are AI and have advanced capability
@@ -185,13 +185,13 @@ async fn test_service_registry_heartbeat() {
         vec![],
     );
 
-    registry.register_local_service(service).await.unwrap();
+    registry.register_local_service(service).await.expect("should succeed");
 
     // Send manual heartbeat
-    registry.send_heartbeats().await.unwrap();
+    registry.send_heartbeats().await.expect("should succeed");
 
     // Verify service is still healthy
-    let found = discovery.get_service("heartbeat-test").await.unwrap();
+    let found = discovery.get_service("heartbeat-test").await.expect("should succeed");
     assert!(found.is_some());
 }
 
@@ -208,7 +208,7 @@ async fn test_service_deregistration_cascade() {
             ServiceType::AI,
             vec![],
         );
-        registry.register_local_service(service).await.unwrap();
+        registry.register_local_service(service).await.expect("should succeed");
     }
 
     assert_eq!(registry.get_local_services().await.len(), 3);
@@ -217,11 +217,11 @@ async fn test_service_deregistration_cascade() {
     registry
         .deregister_local_service("cascade-1")
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(registry.get_local_services().await.len(), 2);
 
     // Deregister all
-    registry.deregister_all_services().await.unwrap();
+    registry.deregister_all_services().await.expect("should succeed");
     assert_eq!(registry.get_local_services().await.len(), 0);
 }
 
@@ -248,13 +248,13 @@ async fn test_service_endpoint_validation() {
         vec![endpoint1, endpoint2],
     );
 
-    discovery.register_service(service).await.unwrap();
+    discovery.register_service(service).await.expect("should succeed");
 
     let found = discovery
         .get_service("multi-endpoint")
         .await
-        .unwrap()
-        .unwrap();
+        .expect("should succeed")
+        .expect("should succeed");
     assert_eq!(found.endpoints.len(), 2);
 }
 
@@ -269,16 +269,16 @@ async fn test_service_type_custom() {
         vec![],
     );
 
-    discovery.register_service(service).await.unwrap();
+    discovery.register_service(service).await.expect("should succeed");
 
     let found = discovery
         .get_service("custom-service")
         .await
-        .unwrap()
-        .unwrap();
+        .expect("should succeed")
+        .expect("should succeed");
     match found.service_type {
         ServiceType::Custom(name) => assert_eq!(name, "analytics"),
-        _ => panic!("Expected custom service type"),
+        _ => unreachable!("Expected custom service type"),
     }
 }
 
@@ -295,10 +295,10 @@ async fn test_service_stats() {
             service_type,
             vec![],
         );
-        discovery.register_service(service).await.unwrap();
+        discovery.register_service(service).await.expect("should succeed");
     }
 
-    let stats = client.get_service_stats().await.unwrap();
+    let stats = client.get_service_stats().await.expect("should succeed");
     assert!(stats.total_services >= 3);
 }
 
@@ -316,16 +316,16 @@ async fn test_concurrent_registration() {
                 ServiceType::AI,
                 vec![],
             );
-            disc.register_service(service).await.unwrap();
+            disc.register_service(service).await.expect("should succeed");
         });
         handles.push(handle);
     }
 
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
-    let services = discovery.get_active_services().await.unwrap();
+    let services = discovery.get_active_services().await.expect("should succeed");
     assert_eq!(services.len(), 10);
 }
 
@@ -341,7 +341,7 @@ async fn test_service_query_limit() {
             ServiceType::AI,
             vec![],
         );
-        discovery.register_service(service).await.unwrap();
+        discovery.register_service(service).await.expect("should succeed");
     }
 
     // Query with limit of 5
@@ -349,7 +349,7 @@ async fn test_service_query_limit() {
         .with_service_type(ServiceType::AI)
         .limit(5);
 
-    let results = discovery.discover_services(query).await.unwrap();
+    let results = discovery.discover_services(query).await.expect("should succeed");
     assert_eq!(results.len(), 5);
 }
 
@@ -364,14 +364,14 @@ async fn test_service_update_health_status() {
         vec![],
     );
 
-    discovery.register_service(service).await.unwrap();
+    discovery.register_service(service).await.expect("should succeed");
 
     // Update heartbeat (marks as healthy)
     discovery
         .update_service_heartbeat("health-test")
         .await
-        .unwrap();
+        .expect("should succeed");
 
-    let found = discovery.get_service("health-test").await.unwrap().unwrap();
+    let found = discovery.get_service("health-test").await.expect("should succeed").expect("should succeed");
     assert_eq!(found.health_status, ServiceHealthStatus::Healthy);
 }

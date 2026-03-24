@@ -39,24 +39,24 @@ impl MockMetricsCollector {
     
     /// Get the count of recorded metrics
     pub fn recorded_count(&self) -> usize {
-        let metrics = self.metrics.lock().unwrap();
+        let metrics = self.metrics.lock().expect("should succeed");
         metrics.len()
     }
     
     /// Get all recorded metrics
     pub fn get_all_metrics(&self) -> Vec<Metric> {
-        self.metrics.lock().unwrap().clone()
+        self.metrics.lock().expect("should succeed").clone()
     }
     
     /// Register a metric
     pub fn register_metric(&self, metric: Metric) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.metrics.lock().unwrap().push(metric);
+        self.metrics.lock().expect("should succeed").push(metric);
         Ok(())
     }
     
     /// Get a metric by name
     pub fn get_metric(&self, name: &str) -> Option<Metric> {
-        self.metrics.lock().unwrap()
+        self.metrics.lock().expect("should succeed")
             .iter()
             .find(|m| m.name == name)
             .cloned()
@@ -78,13 +78,13 @@ impl MockAlertManager {
     
     /// Get the count of alerts
     pub fn alert_count(&self) -> usize {
-        let alerts = self.alerts.lock().unwrap();
+        let alerts = self.alerts.lock().expect("should succeed");
         alerts.len()
     }
     
     /// Get all alerts
     pub fn get_all_alerts(&self) -> Vec<Alert> {
-        self.alerts.lock().unwrap().clone()
+        self.alerts.lock().expect("should succeed").clone()
     }
     
     /// Register an alert configuration
@@ -101,13 +101,13 @@ impl MockAlertManager {
             acknowledged_by: None,
             acknowledged_at: None,
         };
-        self.alerts.lock().unwrap().push(alert);
+        self.alerts.lock().expect("should succeed").push(alert);
         Ok(())
     }
     
     /// Get an alert by ID
     pub fn get_alert(&self, id: &str) -> Option<Alert> {
-        self.alerts.lock().unwrap()
+        self.alerts.lock().expect("should succeed")
             .iter()
             .find(|a| a.id == id)
             .cloned()
@@ -115,7 +115,7 @@ impl MockAlertManager {
     
     /// Update an alert
     pub fn update_alert(&self, alert: Alert) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut alerts = self.alerts.lock().unwrap();
+        let mut alerts = self.alerts.lock().expect("should succeed");
         if let Some(idx) = alerts.iter().position(|a| a.id == alert.id) {
             alerts[idx] = alert;
         }
@@ -202,13 +202,13 @@ impl MockRecoveryStrategy {
     
     /// Get the last component that was recovered
     pub fn last_component_id(&self) -> Option<String> {
-        let component = self.last_component.lock().unwrap();
+        let component = self.last_component.lock().expect("should succeed");
         component.clone()
     }
     
     /// Get the last severity that was handled
     pub fn last_severity(&self) -> Option<FailureSeverity> {
-        let severity = self.last_severity.lock().unwrap();
+        let severity = self.last_severity.lock().expect("should succeed");
         *severity
     }
     
@@ -220,10 +220,10 @@ impl MockRecoveryStrategy {
         // Record failure info
         self.recovery_count.fetch_add(1, Ordering::SeqCst);
         
-        let mut component = self.last_component.lock().unwrap();
+        let mut component = self.last_component.lock().expect("should succeed");
         *component = Some(failure_info.context.clone());
         
-        let mut severity = self.last_severity.lock().unwrap();
+        let mut severity = self.last_severity.lock().expect("should succeed");
         *severity = Some(failure_info.severity);
         
         // Call recovery action
@@ -311,7 +311,7 @@ mod tests {
         
         // Create a simple health check and register it with the health monitor
         let health_check = MockHealthCheck::new("test-component", HealthStatus::Healthy);
-        health_monitor.register(health_check.clone()).unwrap();
+        health_monitor.register(health_check.clone()).expect("should succeed");
         
         // Now create an Arc for the bridge
         let resilience_monitor = Arc::new(health_monitor);
@@ -330,7 +330,7 @@ mod tests {
         // Check the health status - this is async
         let status = resilience_monitor.check_component("test-component").await;
         assert!(status.is_some());
-        assert_eq!(status.unwrap().status, HealthStatus::Healthy);
+        assert_eq!(status.expect("should succeed").status, HealthStatus::Healthy);
         
         // Verify that the bridge can start and stop without errors
         let start_result = bridge.start().await;

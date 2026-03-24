@@ -339,8 +339,8 @@ mod tests {
         let err = ValidationError::RequiredField {
             field: "name".into(),
         };
-        let json = serde_json::to_string(&err).unwrap();
-        let deserialized: ValidationError = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&err).expect("should succeed");
+        let deserialized: ValidationError = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.to_string().contains("name"));
     }
 
@@ -352,7 +352,7 @@ mod tests {
         let pe: PluginError = ve.into();
         match pe {
             PluginError::MissingParameter { parameter } => assert_eq!(parameter, "name"),
-            _ => panic!("Expected MissingParameter"),
+            _ => unreachable!("Expected MissingParameter"),
         }
     }
 
@@ -368,7 +368,7 @@ mod tests {
                 assert_eq!(name, "age");
                 assert_eq!(reason, "negative");
             }
-            _ => panic!("Expected InvalidParameter"),
+            _ => unreachable!("Expected InvalidParameter"),
         }
     }
 
@@ -386,7 +386,7 @@ mod tests {
                 assert!(reason.contains("expected ISO"));
                 assert!(reason.contains("got US"));
             }
-            _ => panic!("Expected InvalidParameter"),
+            _ => unreachable!("Expected InvalidParameter"),
         }
     }
 
@@ -407,7 +407,7 @@ mod tests {
                     reason.contains("0-100") || (reason.contains('0') && reason.contains("100"))
                 );
             }
-            _ => panic!("Expected InvalidParameter"),
+            _ => unreachable!("Expected InvalidParameter"),
         }
     }
 
@@ -415,7 +415,7 @@ mod tests {
     fn test_validate_required_string_ok() {
         let params = sample_params();
         let result = validate_required_string(&params, "name");
-        assert_eq!(result.unwrap(), "test");
+        assert_eq!(result.expect("should succeed"), "test");
     }
 
     #[test]
@@ -428,21 +428,21 @@ mod tests {
     fn test_validate_optional_string_present() {
         let params = sample_params();
         let result = validate_optional_string(&params, "name");
-        assert_eq!(result.unwrap(), Some("test".to_string()));
+        assert_eq!(result.expect("should succeed"), Some("test".to_string()));
     }
 
     #[test]
     fn test_validate_optional_string_missing() {
         let params = sample_params();
         let result = validate_optional_string(&params, "nonexistent");
-        assert_eq!(result.unwrap(), None);
+        assert_eq!(result.expect("should succeed"), None);
     }
 
     #[test]
     fn test_validate_optional_string_null() {
         let params = sample_params();
         let result = validate_optional_string(&params, "nullable");
-        assert_eq!(result.unwrap(), None);
+        assert_eq!(result.expect("should succeed"), None);
     }
 
     #[test]
@@ -454,7 +454,7 @@ mod tests {
     #[test]
     fn test_validate_required_number_ok() {
         let params = sample_params();
-        let result = validate_required_number(&params, "count").unwrap();
+        let result = validate_required_number(&params, "count").expect("should succeed");
         assert!((result - 42.0).abs() < f64::EPSILON);
     }
 
@@ -467,20 +467,20 @@ mod tests {
     #[test]
     fn test_validate_boolean_present() {
         let params = sample_params();
-        assert!(validate_boolean(&params, "enabled", false).unwrap());
+        assert!(validate_boolean(&params, "enabled", false).expect("should succeed"));
     }
 
     #[test]
     fn test_validate_boolean_missing_uses_default() {
         let params = sample_params();
-        assert!(validate_boolean(&params, "nonexistent", true).unwrap());
-        assert!(!validate_boolean(&params, "nonexistent", false).unwrap());
+        assert!(validate_boolean(&params, "nonexistent", true).expect("should succeed"));
+        assert!(!validate_boolean(&params, "nonexistent", false).expect("should succeed"));
     }
 
     #[test]
     fn test_validate_array_ok() {
         let params = sample_params();
-        let arr = validate_array(&params, "items").unwrap();
+        let arr = validate_array(&params, "items").expect("should succeed");
         assert_eq!(arr.len(), 3);
     }
 
@@ -493,7 +493,7 @@ mod tests {
     #[test]
     fn test_validate_object_ok() {
         let params = sample_params();
-        let obj = validate_object(&params, "config").unwrap();
+        let obj = validate_object(&params, "config").expect("should succeed");
         assert_eq!(obj.len(), 1);
         assert_eq!(obj["key"], serde_json::json!("value"));
     }
@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn test_validate_enum_value_ok() {
         let result = validate_enum_value("red", "color", &["red", "green", "blue"]);
-        assert_eq!(result.unwrap(), "red");
+        assert_eq!(result.expect("should succeed"), "red");
     }
 
     #[test]
@@ -579,7 +579,7 @@ mod tests {
     #[test]
     fn test_validate_non_empty_string_ok() {
         assert_eq!(
-            validate_non_empty_string("hello", "field").unwrap(),
+            validate_non_empty_string("hello", "field").expect("should succeed"),
             "hello"
         );
     }

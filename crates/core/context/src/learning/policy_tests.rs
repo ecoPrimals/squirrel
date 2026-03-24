@@ -174,7 +174,9 @@ async fn test_policy_network_save_weights() {
 
     let dir = std::env::temp_dir();
     let path = dir.join("test_policy_weights.json");
-    let result = network.save_weights(path.to_str().unwrap()).await;
+    let result = network
+        .save_weights(path.to_str().expect("should succeed"))
+        .await;
 
     // Save should succeed or fail gracefully
     assert!(result.is_ok() || result.is_err());
@@ -190,7 +192,9 @@ async fn test_policy_network_load_weights() {
 
     let dir = std::env::temp_dir();
     let path = dir.join("test_policy_weights.json");
-    let result = network.load_weights(path.to_str().unwrap()).await;
+    let result = network
+        .load_weights(path.to_str().expect("should succeed"))
+        .await;
 
     // Load should succeed or fail gracefully
     assert!(result.is_ok() || result.is_err());

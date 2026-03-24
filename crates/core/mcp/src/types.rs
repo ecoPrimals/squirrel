@@ -304,8 +304,8 @@ mod tests {
         for v in variants {
             let s = format!("{v}");
             assert!(!s.is_empty());
-            let json = serde_json::to_string(&v).unwrap();
-            let back: CompressionFormat = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&v).expect("should succeed");
+            let back: CompressionFormat = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(v, back);
             let c2 = v;
             assert_eq!(v, c2);
@@ -324,8 +324,8 @@ mod tests {
         ];
         for v in variants {
             let _ = format!("{v}");
-            let json = serde_json::to_string(&v).unwrap();
-            let back: EncryptionFormat = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&v).expect("should succeed");
+            let back: EncryptionFormat = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(v, back);
         }
         assert_eq!(EncryptionFormat::default(), EncryptionFormat::None);
@@ -334,8 +334,8 @@ mod tests {
     #[test]
     fn message_metadata_default_and_serde() {
         let m = MessageMetadata::default();
-        let json = serde_json::to_string(&m).unwrap();
-        let back: MessageMetadata = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&m).expect("should succeed");
+        let back: MessageMetadata = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.timestamp, m.timestamp);
         let _ = format!("{m:?}");
         let c = m.clone();
@@ -349,8 +349,8 @@ mod tests {
             ResponseStatus::Error,
             ResponseStatus::Pending,
         ] {
-            let json = serde_json::to_string(&s).unwrap();
-            let back: ResponseStatus = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&s).expect("should succeed");
+            let back: ResponseStatus = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(s, back);
             let _ = format!("{s:?}");
         }
@@ -365,8 +365,8 @@ mod tests {
             command: "cmd".into(),
             args: Some(serde_json::json!({"a": 1})),
         };
-        let json = serde_json::to_string(&req).unwrap();
-        let r2: CommandRequestMessage = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("should succeed");
+        let r2: CommandRequestMessage = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(r2.command, req.command);
 
         let resp = CommandResponseMessage {
@@ -375,8 +375,8 @@ mod tests {
             status: "ok".into(),
             result: Some(serde_json::json!({})),
         };
-        let json = serde_json::to_string(&resp).unwrap();
-        let r2: CommandResponseMessage = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp).expect("should succeed");
+        let r2: CommandResponseMessage = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(r2.status, resp.status);
 
         let ev = EventMessage {
@@ -384,8 +384,8 @@ mod tests {
             event_type: "evt".into(),
             data: serde_json::json!({"x": true}),
         };
-        let json = serde_json::to_string(&ev).unwrap();
-        let e2: EventMessage = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&ev).expect("should succeed");
+        let e2: EventMessage = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(e2.event_type, ev.event_type);
         let _ = format!("{ev:?}");
         assert_eq!(ev.clone().id, ev.id);

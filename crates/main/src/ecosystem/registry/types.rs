@@ -770,8 +770,8 @@ mod tests {
             last_full_sync: Some(Utc::now()),
             discovery_cache_size: 3,
         };
-        let v = serde_json::to_value(&st).unwrap();
-        let back: EcosystemStatus = serde_json::from_value(v).unwrap();
+        let v = serde_json::to_value(&st).expect("should succeed");
+        let back: EcosystemStatus = serde_json::from_value(v).expect("should succeed");
         assert!((back.overall_health - 0.75).abs() < f64::EPSILON);
         assert_eq!(back.discovery_cache_size, 3);
     }
@@ -805,8 +805,8 @@ mod tests {
             ServiceStatus::Offline,
             ServiceStatus::Unhealthy,
         ] {
-            let j = serde_json::to_string(&st).unwrap();
-            let _: ServiceStatus = serde_json::from_str(&j).unwrap();
+            let j = serde_json::to_string(&st).expect("should succeed");
+            let _: ServiceStatus = serde_json::from_str(&j).expect("should succeed");
         }
     }
 
@@ -875,8 +875,8 @@ mod tests {
             error_count: 0,
             coordination_features: vec![],
         };
-        let j = serde_json::to_value(&ps).unwrap();
-        let back: PrimalStatus = serde_json::from_value(j).unwrap();
+        let j = serde_json::to_value(&ps).expect("should succeed");
+        let back: PrimalStatus = serde_json::from_value(j).expect("should succeed");
         assert_eq!(back.endpoint, "e");
     }
 }

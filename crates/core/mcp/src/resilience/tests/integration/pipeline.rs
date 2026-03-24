@@ -17,7 +17,7 @@ async fn test_full_resilience_pipeline() {
     
     let api_data_cache = Arc::new(Mutex::new(HashMap::new()));
     {
-        let mut cache = api_data_cache.lock().unwrap();
+        let mut cache = api_data_cache.lock().expect("should succeed");
         cache.insert("test_data".to_string(), 42);
     }
     
@@ -55,7 +55,7 @@ async fn test_pipeline_data_transformation() {
     
     // Initialize processing state
     {
-        let mut state = processing_state.lock().unwrap();
+        let mut state = processing_state.lock().expect("should succeed");
         state.insert("raw_data".to_string(), "input,data,values".to_string());
         state.insert("processed_data".to_string(), String::new());
     }
@@ -71,7 +71,7 @@ async fn test_pipeline_data_transformation() {
         create_test_failure_info(FailureSeverity::Minor, "ingestion"),
         move || {
             let state_clone = state1.clone();
-            let state = state_clone.lock().unwrap();
+            let state = state_clone.lock().expect("should succeed");
             
             if let Some(raw_data) = state.get("raw_data") {
                 Ok(TestString(format!("ingested:{}", raw_data)))
@@ -86,7 +86,7 @@ async fn test_pipeline_data_transformation() {
     ).await;
     
     assert!(ingestion_result.is_ok());
-    let ingested_data = ingestion_result.unwrap().0;
+    let ingested_data = ingestion_result.expect("should succeed").0;
     assert!(ingested_data.starts_with("ingested:"));
     
     // Stage 2: Data processing
@@ -106,7 +106,7 @@ async fn test_pipeline_data_transformation() {
         move || {
             // Fallback: return cached processed data
             let state_clone = state2.clone();
-            let state = state_clone.lock().unwrap();
+            let state = state_clone.lock().expect("should succeed");
             
             if let Some(cached) = state.get("processed_data") {
                 if !cached.is_empty() {
@@ -121,7 +121,7 @@ async fn test_pipeline_data_transformation() {
     ).await;
     
     assert!(processing_result.is_ok());
-    let processed_data = processing_result.unwrap().0;
+    let processed_data = processing_result.expect("should succeed").0;
     assert!(processed_data.starts_with("processed:"));
 }
 
@@ -149,7 +149,7 @@ async fn test_pipeline_multiple_failures() {
         create_test_failure_info(FailureSeverity::Moderate, "stage1"),
         move || {
             let counter_clone = fail_counter.clone();
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
             // Always fail
@@ -157,7 +157,7 @@ async fn test_pipeline_multiple_failures() {
         },
         move || {
             let counter_clone = rec_counter.clone();
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
             // Recovery provides fallback
@@ -167,11 +167,11 @@ async fn test_pipeline_multiple_failures() {
     
     // Should succeed via recovery
     assert!(stage1_result.is_ok());
-    assert_eq!(stage1_result.unwrap().0, "stage1_recovery_result".to_string());
+    assert_eq!(stage1_result.expect("should succeed").0, "stage1_recovery_result".to_string());
     
     // Verify failure and recovery attempts
     assert!(
-        *failure_counter.lock().unwrap() >= 2, 
+        *failure_counter.lock().expect("should succeed") >= 2, 
         "Expected at least 2 failure attempts due to retries"
     );
     assert_operation_count(&recovery_counter, 1, "Recovery attempts");
@@ -198,7 +198,7 @@ async fn test_pipeline_conditional_processing() {
         create_test_failure_info(FailureSeverity::Minor, "conditional"),
         move || {
             let state_clone = state.clone();
-            let condition = *state_clone.lock().unwrap();
+            let condition = *state_clone.lock().expect("should succeed");
             
             if condition {
                 Ok(TestString("condition_met".to_string()))
@@ -213,10 +213,10 @@ async fn test_pipeline_conditional_processing() {
     ).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().0, "condition_met".to_string());
+    assert_eq!(result.expect("should succeed").0, "condition_met".to_string());
     
     // Change condition and test again
-    *condition_state.lock().unwrap() = false;
+    *condition_state.lock().expect("should succeed") = false;
     
     let state2 = condition_state.clone();
     let result2 = with_complete_resilience(
@@ -228,7 +228,7 @@ async fn test_pipeline_conditional_processing() {
         create_test_failure_info(FailureSeverity::Minor, "conditional2"),
         move || {
             let state_clone = state2.clone();
-            let condition = *state_clone.lock().unwrap();
+            let condition = *state_clone.lock().expect("should succeed");
             
             if condition {
                 Ok(TestString("condition_met_2".to_string()))
@@ -244,7 +244,7 @@ async fn test_pipeline_conditional_processing() {
     
     // Should succeed via recovery since condition is false
     assert!(result2.is_ok());
-    assert_eq!(result2.unwrap().0, "condition_recovery_2".to_string());
+    assert_eq!(result2.expect("should succeed").0, "condition_recovery_2".to_string());
 }
 
 /// Test pipeline with resource management
@@ -259,7 +259,7 @@ async fn test_pipeline_resource_management() {
     
     // Initialize resource pool
     {
-        let mut pool = resource_pool.lock().unwrap();
+        let mut pool = resource_pool.lock().expect("should succeed");
         pool.insert("db_connection".to_string(), true);
         pool.insert("cache_connection".to_string(), true);
         pool.insert("queue_connection".to_string(), false); // Unavailable
@@ -276,7 +276,7 @@ async fn test_pipeline_resource_management() {
         create_test_failure_info(FailureSeverity::Minor, "resources"),
         move || {
             let pool_clone = pool1.clone();
-            let pool = pool_clone.lock().unwrap();
+            let pool = pool_clone.lock().expect("should succeed");
             
             // Try to acquire a database connection
             if let Some(&available) = pool.get("db_connection") {
@@ -292,7 +292,7 @@ async fn test_pipeline_resource_management() {
         move || {
             // Fallback: use cache connection
             let pool_clone = resource_pool.clone();
-            let pool = pool_clone.lock().unwrap();
+            let pool = pool_clone.lock().expect("should succeed");
             
             if let Some(&available) = pool.get("cache_connection") {
                 if available {
@@ -307,7 +307,7 @@ async fn test_pipeline_resource_management() {
     ).await;
     
     assert!(resource_result.is_ok());
-    let resource_response = resource_result.unwrap().0;
+    let resource_response = resource_result.expect("should succeed").0;
     assert!(resource_response.contains("resource_acquired:"));
 }
 
@@ -341,7 +341,7 @@ async fn test_simplified_multi_stage_pipeline() {
     ).await;
     
     assert!(stage1_result.is_ok());
-    pipeline_result = stage1_result.unwrap().0;
+    pipeline_result = stage1_result.expect("should succeed").0;
     
     // Stage 2: Processing
     let stage2_input = pipeline_result.clone();
@@ -362,7 +362,7 @@ async fn test_simplified_multi_stage_pipeline() {
     ).await;
     
     assert!(stage2_result.is_ok());
-    pipeline_result = stage2_result.unwrap().0;
+    pipeline_result = stage2_result.expect("should succeed").0;
     
     // Stage 3: Output
     let stage3_input = pipeline_result.clone();
@@ -383,7 +383,7 @@ async fn test_simplified_multi_stage_pipeline() {
     ).await;
     
     assert!(stage3_result.is_ok());
-    let final_result = stage3_result.unwrap().0;
+    let final_result = stage3_result.expect("should succeed").0;
     
     // Verify complete pipeline execution
     assert_eq!(final_result, "start_ingested_processed_output");

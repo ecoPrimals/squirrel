@@ -160,8 +160,8 @@ async fn test_ai_router_concurrent_access() {
 
     let handle2 = tokio::spawn(async move { router_clone.list_providers() });
 
-    let result1 = handle1.await.unwrap();
-    let result2 = handle2.await.unwrap();
+    let result1 = handle1.await.expect("should succeed");
+    let result2 = handle2.await.expect("should succeed");
 
     // Both should succeed
     assert!(result1.len() >= 0);

@@ -244,8 +244,9 @@ mod tests {
             SecurityCapability::SecurityAnalytics,
         ];
         for cap in capabilities {
-            let json = serde_json::to_string(&cap).unwrap();
-            let deserialized: SecurityCapability = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&cap).expect("should succeed");
+            let deserialized: SecurityCapability =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, cap);
         }
     }
@@ -261,8 +262,8 @@ mod tests {
             SecurityLevel::Critical,
         ];
         for level in levels {
-            let json = serde_json::to_string(&level).unwrap();
-            let deserialized: SecurityLevel = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&level).expect("should succeed");
+            let deserialized: SecurityLevel = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, level);
         }
     }
@@ -279,8 +280,9 @@ mod tests {
             AuthorizationLevel::System,
         ];
         for level in levels {
-            let json = serde_json::to_string(&level).unwrap();
-            let deserialized: AuthorizationLevel = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&level).expect("should succeed");
+            let deserialized: AuthorizationLevel =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, level);
         }
     }
@@ -316,15 +318,21 @@ mod tests {
 
         assert_eq!(ctx.user_id.as_deref(), Some("user-123"));
         assert_eq!(ctx.session_id.as_deref(), Some("sess-456"));
-        assert_eq!(ctx.client_info.get("ip").unwrap(), "127.0.0.1");
-        assert_eq!(ctx.environment.get("env").unwrap(), "production");
+        assert_eq!(
+            ctx.client_info.get("ip").expect("should succeed"),
+            "127.0.0.1"
+        );
+        assert_eq!(
+            ctx.environment.get("env").expect("should succeed"),
+            "production"
+        );
     }
 
     #[test]
     fn test_security_context_serde_roundtrip() {
         let ctx = SecurityContext::new("delete", "record").with_user_id("admin".to_string());
-        let json = serde_json::to_string(&ctx).unwrap();
-        let deserialized: SecurityContext = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&ctx).expect("should succeed");
+        let deserialized: SecurityContext = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.operation, "delete");
         assert_eq!(deserialized.resource, "record");
         assert_eq!(deserialized.user_id.as_deref(), Some("admin"));
@@ -341,8 +349,9 @@ mod tests {
             priority: 1,
             enabled: true,
         };
-        let json = serde_json::to_string(&handler).unwrap();
-        let deserialized: AuthenticationHandler = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&handler).expect("should succeed");
+        let deserialized: AuthenticationHandler =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.name, "jwt_handler");
         assert_eq!(deserialized.priority, 1);
         assert!(deserialized.enabled);
@@ -363,9 +372,10 @@ mod tests {
             SecurityRequestType::TokenValidation,
         ];
         for rt in types {
-            let json = serde_json::to_string(&rt).unwrap();
-            let deserialized: SecurityRequestType = serde_json::from_str(&json).unwrap();
-            let json2 = serde_json::to_string(&deserialized).unwrap();
+            let json = serde_json::to_string(&rt).expect("should succeed");
+            let deserialized: SecurityRequestType =
+                serde_json::from_str(&json).expect("should succeed");
+            let json2 = serde_json::to_string(&deserialized).expect("should succeed");
             assert_eq!(json, json2);
         }
     }
@@ -382,8 +392,8 @@ mod tests {
             context: SecurityContext::new("login", "auth_service"),
             timestamp: chrono::Utc::now(),
         };
-        let json = serde_json::to_string(&request).unwrap();
-        let deserialized: SecurityRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
+        let deserialized: SecurityRequest = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.request_id, "req-001");
     }
 
@@ -403,9 +413,10 @@ mod tests {
             },
         ];
         for status in statuses {
-            let json = serde_json::to_string(&status).unwrap();
-            let deserialized: SecurityResponseStatus = serde_json::from_str(&json).unwrap();
-            let json2 = serde_json::to_string(&deserialized).unwrap();
+            let json = serde_json::to_string(&status).expect("should succeed");
+            let deserialized: SecurityResponseStatus =
+                serde_json::from_str(&json).expect("should succeed");
+            let json2 = serde_json::to_string(&deserialized).expect("should succeed");
             assert_eq!(json, json2);
         }
     }
@@ -422,8 +433,8 @@ mod tests {
             processing_time: Duration::from_millis(42),
             timestamp: chrono::Utc::now(),
         };
-        let json = serde_json::to_string(&response).unwrap();
-        let deserialized: SecurityResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&response).expect("should succeed");
+        let deserialized: SecurityResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.request_id, "req-001");
     }
 }

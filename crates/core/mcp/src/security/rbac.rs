@@ -279,7 +279,6 @@ impl Default for BasicRBACManager {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 mod tests {
     use super::*;
 
@@ -295,8 +294,8 @@ mod tests {
     #[test]
     fn permission_serde_round_trip() {
         let p = Permission::new(String::new(), "Write".to_string());
-        let json = serde_json::to_string(&p).unwrap();
-        let back: Permission = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&p).expect("permission serializes");
+        let back: Permission = serde_json::from_str(&json).expect("permission deserializes");
         assert_eq!(p, back);
     }
 
@@ -306,8 +305,8 @@ mod tests {
         role.permissions
             .insert(Permission::new("r".to_string(), "a".to_string()));
         let id = role.id;
-        let json = serde_json::to_string(&role).unwrap();
-        let back: Role = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&role).expect("role serializes");
+        let back: Role = serde_json::from_str(&json).expect("role deserializes");
         assert_eq!(back.id, id);
         assert_eq!(back.name, "admin");
         assert_eq!(back.description, "desc");
@@ -323,8 +322,9 @@ mod tests {
             granted_by: Uuid::new_v4(),
             granted_at: chrono::Utc::now(),
         };
-        let json = serde_json::to_string(&a).unwrap();
-        let back: UserRoleAssignment = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&a).expect("assignment serializes");
+        let back: UserRoleAssignment =
+            serde_json::from_str(&json).expect("assignment deserializes");
         assert_eq!(back.user_id, a.user_id);
         assert_eq!(back.role_id, a.role_id);
         assert_eq!(back.granted_by, a.granted_by);
@@ -339,55 +339,89 @@ mod tests {
         let role = d
             .create_role("r1".to_string(), "d1".to_string())
             .await
-            .unwrap();
+            .expect("create_role");
         assert_eq!(role.name, "r1");
-        let fetched = d.get_role(&role.id).await.unwrap().unwrap();
+        let fetched = d
+            .get_role(&role.id)
+            .await
+            .expect("get_role")
+            .expect("role exists");
         assert_eq!(fetched.id, role.id);
-        assert_eq!(d.get_role_by_name("r1").await.unwrap().unwrap().id, role.id);
-        assert!(d.get_role(&Uuid::new_v4()).await.unwrap().is_none());
-        assert!(d.get_role_by_name("nope").await.unwrap().is_none());
+        assert_eq!(
+            d.get_role_by_name("r1")
+                .await
+                .expect("get_role_by_name")
+                .expect("role by name")
+                .id,
+            role.id
+        );
+        assert!(
+            d.get_role(&Uuid::new_v4())
+                .await
+                .expect("get_role")
+                .is_none()
+        );
+        assert!(
+            d.get_role_by_name("nope")
+                .await
+                .expect("get_role_by_name")
+                .is_none()
+        );
 
         let mut updated = fetched.clone();
         updated.description = "updated".to_string();
-        d.update_role(updated.clone()).await.unwrap();
+        d.update_role(updated.clone()).await.expect("update_role");
         assert_eq!(
-            d.get_role(&role.id).await.unwrap().unwrap().description,
+            d.get_role(&role.id)
+                .await
+                .expect("get_role")
+                .expect("role exists")
+                .description,
             "updated"
         );
 
-        d.delete_role(&role.id).await.unwrap();
-        assert!(d.get_role(&role.id).await.unwrap().is_none());
+        d.delete_role(&role.id).await.expect("delete_role");
+        assert!(d.get_role(&role.id).await.expect("get_role").is_none());
     }
 
     #[tokio::test]
     async fn add_remove_permission_and_missing_role_noop() {
         let m = BasicRBACManager::new();
-        let role = m.create_role("x".to_string(), String::new()).await.unwrap();
+        let role = m
+            .create_role("x".to_string(), String::new())
+            .await
+            .expect("create_role");
         let perm = Permission::new("res".to_string(), "act".to_string());
         m.add_permission_to_role(&role.id, perm.clone())
             .await
-            .unwrap();
-        let r = m.get_role(&role.id).await.unwrap().unwrap();
+            .expect("add_permission_to_role");
+        let r = m
+            .get_role(&role.id)
+            .await
+            .expect("get_role")
+            .expect("role exists");
         assert!(r.permissions.contains(&perm));
 
         let bogus = Uuid::new_v4();
         m.add_permission_to_role(&bogus, Permission::new("a".to_string(), "b".to_string()))
             .await
-            .unwrap();
+            .expect("add_permission noop for missing role");
 
         m.remove_permission_from_role(&role.id, &perm)
             .await
-            .unwrap();
+            .expect("remove_permission_from_role");
         assert!(
             !m.get_role(&role.id)
                 .await
-                .unwrap()
-                .unwrap()
+                .expect("get_role")
+                .expect("role exists")
                 .permissions
                 .contains(&perm)
         );
 
-        m.remove_permission_from_role(&bogus, &perm).await.unwrap();
+        m.remove_permission_from_role(&bogus, &perm)
+            .await
+            .expect("remove_permission noop");
     }
 
     #[tokio::test]
@@ -396,32 +430,58 @@ mod tests {
         let role = m
             .create_role("editor".to_string(), String::new())
             .await
-            .unwrap();
+            .expect("create_role");
         let perm = Permission::new("doc".to_string(), "edit".to_string());
         m.add_permission_to_role(&role.id, perm.clone())
             .await
-            .unwrap();
+            .expect("add_permission_to_role");
 
         let user = Uuid::new_v4();
         let admin = Uuid::new_v4();
-        assert!(m.get_user_roles(&user).await.unwrap().is_empty());
+        assert!(
+            m.get_user_roles(&user)
+                .await
+                .expect("get_user_roles")
+                .is_empty()
+        );
 
         m.assign_role_to_user(&user, &role.id, &admin)
             .await
-            .unwrap();
-        assert!(m.get_user_roles(&user).await.unwrap().contains(&role.id));
+            .expect("assign_role_to_user");
+        assert!(
+            m.get_user_roles(&user)
+                .await
+                .expect("get_user_roles")
+                .contains(&role.id)
+        );
 
-        assert!(m.check_permission(&user, "doc", "edit").await.unwrap());
-        assert!(!m.check_permission(&user, "doc", "read").await.unwrap());
+        assert!(
+            m.check_permission(&user, "doc", "edit")
+                .await
+                .expect("check_permission")
+        );
+        assert!(
+            !m.check_permission(&user, "doc", "read")
+                .await
+                .expect("check_permission")
+        );
         assert!(
             !m.check_permission(&Uuid::new_v4(), "doc", "edit")
                 .await
-                .unwrap()
+                .expect("check_permission")
         );
 
-        m.remove_role_from_user(&user, &role.id).await.unwrap();
-        assert!(!m.check_permission(&user, "doc", "edit").await.unwrap());
-        m.remove_role_from_user(&user, &role.id).await.unwrap();
+        m.remove_role_from_user(&user, &role.id)
+            .await
+            .expect("remove_role_from_user");
+        assert!(
+            !m.check_permission(&user, "doc", "edit")
+                .await
+                .expect("check_permission")
+        );
+        m.remove_role_from_user(&user, &role.id)
+            .await
+            .expect("remove_role_from_user idempotent");
     }
 
     #[tokio::test]
@@ -430,37 +490,49 @@ mod tests {
         let parent = m
             .create_role("parent".to_string(), String::new())
             .await
-            .unwrap();
+            .expect("create_role");
         let perm = Permission::new("api".to_string(), "invoke".to_string());
-        m.add_permission_to_role(&parent.id, perm).await.unwrap();
+        m.add_permission_to_role(&parent.id, perm)
+            .await
+            .expect("add_permission_to_role");
 
         let mut child = m
             .create_role("child".to_string(), String::new())
             .await
-            .unwrap();
+            .expect("create_role");
         child.parent_roles.insert(parent.id);
-        m.update_role(child.clone()).await.unwrap();
+        m.update_role(child.clone()).await.expect("update_role");
 
         let user = Uuid::new_v4();
         m.assign_role_to_user(&user, &child.id, &Uuid::new_v4())
             .await
-            .unwrap();
+            .expect("assign_role_to_user");
 
-        assert!(m.check_permission(&user, "api", "invoke").await.unwrap());
+        assert!(
+            m.check_permission(&user, "api", "invoke")
+                .await
+                .expect("check_permission")
+        );
     }
 
     #[tokio::test]
     async fn get_all_roles_and_user_assignments() {
         let m = BasicRBACManager::new();
         let u = Uuid::new_v4();
-        let r = m.create_role("a".to_string(), String::new()).await.unwrap();
+        let r = m
+            .create_role("a".to_string(), String::new())
+            .await
+            .expect("create_role");
         m.assign_role_to_user(&u, &r.id, &Uuid::new_v4())
             .await
-            .unwrap();
+            .expect("assign_role_to_user");
 
-        let all = m.get_all_roles().await.unwrap();
+        let all = m.get_all_roles().await.expect("get_all_roles");
         assert_eq!(all.len(), 1);
-        let assigns = m.get_user_role_assignments(&u).await.unwrap();
+        let assigns = m
+            .get_user_role_assignments(&u)
+            .await
+            .expect("get_user_role_assignments");
         assert_eq!(assigns.len(), 1);
         assert_eq!(assigns[0].user_id, u);
         assert_eq!(assigns[0].role_id, r.id);

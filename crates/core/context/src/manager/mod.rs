@@ -301,7 +301,7 @@ mod tests {
         };
         assert!(!config.enable_plugins);
         assert!(config.plugin_paths.is_some());
-        assert_eq!(config.plugin_paths.unwrap().len(), 1);
+        assert_eq!(config.plugin_paths.expect("should succeed").len(), 1);
     }
 
     #[test]
@@ -337,9 +337,9 @@ mod tests {
     async fn test_context_manager_initialize_idempotent() {
         use squirrel_interfaces::context::ContextManager as InterfaceContextManager;
         let manager = ContextManager::new();
-        manager.initialize().await.unwrap();
+        manager.initialize().await.expect("should succeed");
         // Second init should succeed (no-op)
-        manager.initialize().await.unwrap();
+        manager.initialize().await.expect("should succeed");
     }
 
     #[tokio::test]
@@ -353,7 +353,7 @@ mod tests {
     async fn test_context_manager_get_plugin_manager_after_init() {
         use squirrel_interfaces::context::ContextManager as InterfaceContextManager;
         let manager = ContextManager::new();
-        manager.initialize().await.unwrap();
+        manager.initialize().await.expect("should succeed");
         let pm = manager.get_plugin_manager().await;
         assert!(pm.is_some());
     }
@@ -366,7 +366,7 @@ mod tests {
             plugin_paths: None,
         };
         let manager = ContextManager::with_config(config);
-        manager.initialize().await.unwrap();
+        manager.initialize().await.expect("should succeed");
         let pm = manager.get_plugin_manager().await;
         assert!(pm.is_none());
     }
@@ -382,7 +382,10 @@ mod tests {
     #[tokio::test]
     async fn test_context_manager_get_context_state() {
         let manager = ContextManager::new();
-        let state = manager.get_context_state("test-id").await.unwrap();
+        let state = manager
+            .get_context_state("test-id")
+            .await
+            .expect("should succeed");
         assert_eq!(state.id, "test-id");
         assert_eq!(state.version, 1);
     }

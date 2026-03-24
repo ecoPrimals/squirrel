@@ -352,9 +352,12 @@ mod tests {
         let web = WebPluginRegistry::new(registry);
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
-        manager.register_plugin(plugin).await.unwrap();
+        manager
+            .register_plugin(plugin)
+            .await
+            .expect("should succeed");
 
-        let n = web.load_plugins().await.unwrap();
+        let n = web.load_plugins().await.expect("should succeed");
         assert_eq!(n, 1);
         let eps = web.get_endpoints().await;
         assert!(!eps.is_empty());
@@ -369,13 +372,16 @@ mod tests {
         let web = WebPluginRegistry::new(registry);
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
-        manager.register_plugin(plugin).await.unwrap();
-        web.load_plugins().await.unwrap();
+        manager
+            .register_plugin(plugin)
+            .await
+            .expect("should succeed");
+        web.load_plugins().await.expect("should succeed");
 
         let p = web
             .find_plugin_for_endpoint("/api/examples", HttpMethod::Get)
             .await
-            .unwrap();
+            .expect("should succeed");
         let req = WebRequest {
             method: HttpMethod::Get,
             path: "/api/examples".to_string(),
@@ -386,7 +392,7 @@ mod tests {
             permissions: vec![],
             route_params: HashMap::new(),
         };
-        let res = p.handle_request(req).await.unwrap();
+        let res = p.handle_request(req).await.expect("should succeed");
         assert_eq!(res.status, crate::web::HttpStatus::Ok);
     }
 
@@ -397,8 +403,11 @@ mod tests {
         let web = WebPluginRegistry::new(registry);
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
-        manager.register_plugin(plugin).await.unwrap();
-        web.load_plugins().await.unwrap();
+        manager
+            .register_plugin(plugin)
+            .await
+            .expect("should succeed");
+        web.load_plugins().await.expect("should succeed");
 
         let res = web
             .find_plugin_for_endpoint("/api/examples", HttpMethod::Delete)
@@ -408,7 +417,7 @@ mod tests {
                 let s = e.to_string();
                 assert!(s.contains("/api/examples") || s.contains("Endpoint"));
             }
-            Ok(_) => panic!("expected endpoint method mismatch error"),
+            Ok(_) => unreachable!("expected endpoint method mismatch error"),
         }
     }
 
@@ -419,8 +428,11 @@ mod tests {
         let web = WebPluginRegistry::new(registry);
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
-        manager.register_plugin(plugin).await.unwrap();
-        web.load_plugins().await.unwrap();
+        manager
+            .register_plugin(plugin)
+            .await
+            .expect("should succeed");
+        web.load_plugins().await.expect("should succeed");
 
         let missing = Uuid::new_v4();
         let res = web.find_plugin_for_component(&missing).await;
@@ -429,7 +441,7 @@ mod tests {
                 let t = e.to_string();
                 assert!(t.contains("Component") || t.contains("not found"));
             }
-            Ok(_) => panic!("expected component not found"),
+            Ok(_) => unreachable!("expected component not found"),
         }
     }
 
@@ -469,13 +481,16 @@ mod tests {
         let web = WebPluginRegistry::new(registry);
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
-        manager.register_plugin(plugin).await.unwrap();
-        web.load_plugins().await.unwrap();
+        manager
+            .register_plugin(plugin)
+            .await
+            .expect("should succeed");
+        web.load_plugins().await.expect("should succeed");
 
         let html = web
             .get_component_markup(EXAMPLE_COMPONENT_ID, serde_json::json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!html.is_empty());
     }
 

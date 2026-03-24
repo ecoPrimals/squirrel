@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn squirrel_ai_niche_structural_validation() {
         let toml_str = include_str!("../../../../graphs/squirrel_ai_niche.toml");
-        let graph = NicheDeployGraph::from_toml(toml_str).unwrap();
+        let graph = NicheDeployGraph::from_toml(toml_str).expect("should succeed");
         let issues = graph.structural_issues();
         assert!(
             issues.is_empty(),
@@ -490,7 +490,7 @@ mod tests {
     #[test]
     fn ai_continuous_tick_structural_validation() {
         let toml_str = include_str!("../../../../graphs/ai_continuous_tick.toml");
-        let graph = NicheDeployGraph::from_toml(toml_str).unwrap();
+        let graph = NicheDeployGraph::from_toml(toml_str).expect("should succeed");
         let issues = graph.structural_issues();
         assert!(
             issues.is_empty(),
@@ -501,7 +501,7 @@ mod tests {
     #[test]
     fn niche_graph_required_count() {
         let toml_str = include_str!("../../../../graphs/squirrel_ai_niche.toml");
-        let graph = NicheDeployGraph::from_toml(toml_str).unwrap();
+        let graph = NicheDeployGraph::from_toml(toml_str).expect("should succeed");
         assert!(
             graph.required_count() >= 2,
             "at least Tower Atomic (beardog + songbird) must be required"
@@ -511,7 +511,7 @@ mod tests {
     #[test]
     fn niche_graph_nodes_with_capability() {
         let toml_str = include_str!("../../../../graphs/squirrel_ai_niche.toml");
-        let graph = NicheDeployGraph::from_toml(toml_str).unwrap();
+        let graph = NicheDeployGraph::from_toml(toml_str).expect("should succeed");
         let ai_nodes = graph.nodes_with_capability("ai.query");
         assert_eq!(ai_nodes.len(), 1);
         assert_eq!(ai_nodes[0].name, "squirrel");
@@ -562,7 +562,7 @@ mod tests {
     #[test]
     fn niche_graph_json_roundtrip() {
         let toml_str = include_str!("../../../../graphs/squirrel_ai_niche.toml");
-        let graph = NicheDeployGraph::from_toml(toml_str).unwrap();
+        let graph = NicheDeployGraph::from_toml(toml_str).expect("should succeed");
         let json = serde_json::to_string(&graph).expect("test: serialize");
         let decoded: NicheDeployGraph = serde_json::from_str(&json).expect("test: deserialize");
         assert_eq!(graph, decoded);

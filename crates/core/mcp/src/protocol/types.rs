@@ -423,7 +423,7 @@ mod tests {
     fn mcp_message_with_details_round_trip() {
         let id = MessageId("fixed-id".into());
         let ts = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z")
-            .unwrap()
+            .expect("should succeed")
             .with_timezone(&chrono::Utc);
         let msg = MCPMessage::with_details(
             id,
@@ -451,7 +451,7 @@ mod tests {
             id: MessageId("h1".into()),
             message_type: MessageType::Event,
             timestamp: chrono::DateTime::parse_from_rfc3339("2021-06-15T12:00:00Z")
-                .unwrap()
+                .expect("should succeed")
                 .with_timezone(&chrono::Utc),
             version: ProtocolVersion::new(1, 2),
             security: SecurityMetadata {
@@ -460,8 +460,8 @@ mod tests {
             },
             metadata: Some(serde_json::json!({ "k": "v" })),
         };
-        let json = serde_json::to_string(&h).unwrap();
-        let back: Header = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&h).expect("should succeed");
+        let back: Header = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.id.0, "h1");
         assert_eq!(back.message_type, MessageType::Event);
     }

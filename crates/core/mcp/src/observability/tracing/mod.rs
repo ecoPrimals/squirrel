@@ -43,14 +43,14 @@
 //!
 //! // Add attributes and events
 //! {
-//!     let mut span_guard = span.lock().unwrap();
+//!     let mut span_guard = span.lock().expect("example");
 //!     span_guard.add_attribute("key", "value");
 //!     span_guard.add_event("event_name", HashMap::new());
 //! }
 //!
 //! // End the span
 //! {
-//!     let span_guard = span.lock().unwrap();
+//!     let span_guard = span.lock().expect("example");
 //!     span_guard.end();
 //! }
 //! ```

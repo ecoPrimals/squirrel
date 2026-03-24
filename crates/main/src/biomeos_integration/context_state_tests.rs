@@ -26,7 +26,7 @@ async fn test_session_context_creation() {
             "test_context".to_string(),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(context_state.active_sessions.contains_key(&session_id));
     assert_eq!(context_state.get_active_sessions(), 1);
@@ -43,14 +43,20 @@ async fn test_context_state_request_handling() {
         query: None,
     };
 
-    let response = context_state.handle_state_request(request).await.unwrap();
+    let response = context_state
+        .handle_state_request(request)
+        .await
+        .expect("should succeed");
     assert_eq!(response.session_id, "test-session");
 }
 
 #[tokio::test]
 async fn test_context_search() {
     let context_state = ContextState::new();
-    let search_results = context_state.search_context_data("test").await.unwrap();
+    let search_results = context_state
+        .search_context_data("test")
+        .await
+        .expect("should succeed");
     assert!(search_results.is_empty()); // No contexts to search initially
 }
 
@@ -64,9 +70,9 @@ fn context_state_default_matches_new() {
 #[tokio::test]
 async fn initialize_manage_shutdown_lifecycle() {
     let mut cs = ContextState::new();
-    cs.initialize().await.unwrap();
-    cs.manage_ecosystem_context().await.unwrap();
-    cs.shutdown().await.unwrap();
+    cs.initialize().await.expect("should succeed");
+    cs.manage_ecosystem_context().await.expect("should succeed");
+    cs.shutdown().await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -81,8 +87,8 @@ async fn health_check_with_session_ok() {
     let mut cs = ContextState::new();
     cs.create_session_context("s1".to_string(), None, "t".to_string())
         .await
-        .unwrap();
-    cs.health_check().await.unwrap();
+        .expect("should succeed");
+    cs.health_check().await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -90,18 +96,29 @@ async fn update_session_and_search_analyze() {
     let mut cs = ContextState::new();
     cs.create_session_context("s2".to_string(), None, "workflow".to_string())
         .await
-        .unwrap();
+        .expect("should succeed");
     let mut upd = HashMap::new();
     upd.insert("k".to_string(), serde_json::json!(1));
-    cs.update_session_context("s2", upd).await.unwrap();
+    cs.update_session_context("s2", upd)
+        .await
+        .expect("should succeed");
 
-    let hits = cs.search_context_data("workflow").await.unwrap();
+    let hits = cs
+        .search_context_data("workflow")
+        .await
+        .expect("should succeed");
     assert!(!hits.is_empty());
 
-    let combined = cs.search_and_analyze("workflow").await.unwrap();
+    let combined = cs
+        .search_and_analyze("workflow")
+        .await
+        .expect("should succeed");
     assert_eq!(combined.len(), hits.len());
 
-    let recs = cs.get_session_recommendations("s2").await.unwrap();
+    let recs = cs
+        .get_session_recommendations("s2")
+        .await
+        .expect("should succeed");
     assert!(recs.iter().any(|r| r.contains("linking")));
 }
 
@@ -115,7 +132,7 @@ async fn analyze_session_not_found() {
 #[tokio::test]
 async fn get_context_analytics_empty_map_when_no_sessions() {
     let cs = ContextState::new();
-    let m = cs.get_context_analytics().await.unwrap();
+    let m = cs.get_context_analytics().await.expect("should succeed");
     assert!(m.is_empty());
 }
 
@@ -132,8 +149,8 @@ fn serde_roundtrip_session_context() {
         tags: vec!["t1".to_string()],
         related_sessions: vec![],
     };
-    let json = serde_json::to_string(&sc).unwrap();
-    let back: SessionContext = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&sc).expect("should succeed");
+    let back: SessionContext = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(back.session_id, sc.session_id);
 }
 
@@ -145,8 +162,8 @@ fn serde_roundtrip_search_result_and_context_analysis() {
         relevance_score: 0.5,
         context_snippet: "x".to_string(),
     };
-    let s = serde_json::to_string(&sr).unwrap();
-    let sr2: SearchResult = serde_json::from_str(&s).unwrap();
+    let s = serde_json::to_string(&sr).expect("should succeed");
+    let sr2: SearchResult = serde_json::from_str(&s).expect("should succeed");
     assert_eq!(sr2.relevance_score, 0.5);
 
     let ca = ContextAnalysis {
@@ -156,8 +173,8 @@ fn serde_roundtrip_search_result_and_context_analysis() {
         recency_score: 0.5,
         relationship_strength: 0.0,
     };
-    let caj = serde_json::to_string(&ca).unwrap();
-    let ca2: ContextAnalysis = serde_json::from_str(&caj).unwrap();
+    let caj = serde_json::to_string(&ca).expect("should succeed");
+    let ca2: ContextAnalysis = serde_json::from_str(&caj).expect("should succeed");
     assert!((ca2.recency_score - 0.5).abs() < f64::EPSILON);
 }
 
@@ -189,7 +206,7 @@ fn serde_roundtrip_persistent_context_and_policies() {
             time_based_access: vec![],
         },
     };
-    let j = serde_json::to_string(&pc).unwrap();
-    let pc2: PersistentContext = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&pc).expect("should succeed");
+    let pc2: PersistentContext = serde_json::from_str(&j).expect("should succeed");
     assert_eq!(pc2.context_name, "MyCtx");
 }

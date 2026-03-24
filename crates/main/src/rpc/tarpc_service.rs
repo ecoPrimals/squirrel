@@ -569,8 +569,9 @@ mod tests {
             temperature: Some(0.7),
         };
 
-        let serialized = serde_json::to_string(&params).unwrap();
-        let deserialized: QueryAiParams = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&params).expect("should succeed");
+        let deserialized: QueryAiParams =
+            serde_json::from_str(&serialized).expect("should succeed");
 
         assert_eq!(params.prompt, deserialized.prompt);
         assert_eq!(params.model, deserialized.model);
@@ -588,8 +589,8 @@ mod tests {
             cost_tier: Arc::from("free"),
         };
 
-        let serialized = serde_json::to_string(&info).unwrap();
-        let deserialized: ProviderInfo = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&info).expect("should succeed");
+        let deserialized: ProviderInfo = serde_json::from_str(&serialized).expect("should succeed");
 
         assert_eq!(info.id, deserialized.id);
         assert_eq!(info.online, deserialized.online);

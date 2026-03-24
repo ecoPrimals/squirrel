@@ -546,17 +546,17 @@ mod tests {
     #[tokio::test]
     async fn test_auth_capability_trait() {
         let auth: &dyn AuthenticationCapability = &MockAuthService;
-        let token = auth.authenticate("user", "pass").await.unwrap();
+        let token = auth.authenticate("user", "pass").await.expect("should succeed");
         assert_eq!(token, "mock-token");
 
-        let claims = auth.validate_token(&token).await.unwrap();
+        let claims = auth.validate_token(&token).await.expect("should succeed");
         assert_eq!(claims.user_id, "test-user");
     }
 
     #[tokio::test]
     async fn test_auth_refresh_and_revoke() {
         let auth: &dyn AuthenticationCapability = &MockAuthService;
-        let refreshed = auth.refresh_token("old-token").await.unwrap();
+        let refreshed = auth.refresh_token("old-token").await.expect("should succeed");
         assert_eq!(refreshed, "refreshed-token");
 
         assert!(auth.revoke_token("any-token").await.is_ok());
@@ -570,8 +570,8 @@ mod tests {
             permissions: vec!["admin".to_string(), "read".to_string()],
             issuer: "test-authority".to_string(),
         };
-        let json = serde_json::to_string(&claims).unwrap();
-        let deser: TokenClaims = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&claims).expect("should succeed");
+        let deser: TokenClaims = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.user_id, "alice");
         assert_eq!(deser.permissions.len(), 2);
     }
@@ -587,8 +587,8 @@ mod tests {
                 capabilities: vec!["text-generation".to_string()],
             },
         };
-        let json = serde_json::to_string(&handle).unwrap();
-        let deser: ModelHandle = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&handle).expect("should succeed");
+        let deser: ModelHandle = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.id, "model-123");
         assert_eq!(deser.metadata.parameters, 7_000_000_000);
     }
@@ -600,8 +600,8 @@ mod tests {
             tokens: 3,
             latency_ms: 42,
         };
-        let json = serde_json::to_string(&result).unwrap();
-        let deser: InferenceResult = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&result).expect("should succeed");
+        let deser: InferenceResult = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.tokens, 3);
         assert_eq!(deser.latency_ms, 42);
     }
@@ -618,8 +618,8 @@ mod tests {
                 available_gb: 16.5,
             }],
         };
-        let json = serde_json::to_string(&info).unwrap();
-        let deser: VramInfo = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&info).expect("should succeed");
+        let deser: VramInfo = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.gpus.len(), 1);
         assert!((deser.available_gb - 16.5).abs() < f32::EPSILON);
     }
@@ -636,8 +636,8 @@ mod tests {
                 m
             },
         };
-        let json = serde_json::to_string(&reg).unwrap();
-        let deser: ServiceRegistration = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&reg).expect("should succeed");
+        let deser: ServiceRegistration = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.capabilities.len(), 2);
     }
 
@@ -650,8 +650,8 @@ mod tests {
             endpoint: "http://localhost:9090".to_string(),
             healthy: true,
         };
-        let json = serde_json::to_string(&info).unwrap();
-        let deser: ServiceInfo = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&info).expect("should succeed");
+        let deser: ServiceInfo = serde_json::from_str(&json).expect("should succeed");
         assert!(deser.healthy);
         assert_eq!(deser.id, "svc-123");
     }

@@ -223,12 +223,27 @@ mod tests {
     #[test]
     fn test_resolve_port_from_constants() {
         temp_env::with_vars_unset(["HTTP_PORT", "WEBSOCKET_PORT", "METRICS_PORT"], || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = PortResolver::new();
-                assert_eq!(resolver.resolve_port("http").await.unwrap(), 8081);
-                assert_eq!(resolver.resolve_port("websocket").await.unwrap(), 8080);
-                assert_eq!(resolver.resolve_port("metrics").await.unwrap(), 9090);
+                assert_eq!(
+                    resolver.resolve_port("http").await.expect("should succeed"),
+                    8081
+                );
+                assert_eq!(
+                    resolver
+                        .resolve_port("websocket")
+                        .await
+                        .expect("should succeed"),
+                    8080
+                );
+                assert_eq!(
+                    resolver
+                        .resolve_port("metrics")
+                        .await
+                        .expect("should succeed"),
+                    9090
+                );
             });
         });
     }
@@ -236,10 +251,13 @@ mod tests {
     #[test]
     fn test_resolve_port_from_env() {
         temp_env::with_var("TEST_PORT", Some("7777"), || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = PortResolver::new();
-                assert_eq!(resolver.resolve_port("test").await.unwrap(), 7777);
+                assert_eq!(
+                    resolver.resolve_port("test").await.expect("should succeed"),
+                    7777
+                );
             });
         });
     }
@@ -247,10 +265,13 @@ mod tests {
     #[test]
     fn test_resolve_endpoint() {
         temp_env::with_vars_unset(["HTTP_ENDPOINT", "HTTP_PORT", "BIND_ADDRESS"], || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = PortResolver::new();
-                let endpoint = resolver.resolve_endpoint("http").await.unwrap();
+                let endpoint = resolver
+                    .resolve_endpoint("http")
+                    .await
+                    .expect("should succeed");
                 assert_eq!(endpoint, "http://localhost:8081");
             });
         });
@@ -259,13 +280,13 @@ mod tests {
     #[test]
     fn test_resolve_endpoint_with_scheme() {
         temp_env::with_var_unset("SECURITY_ENDPOINT", || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = PortResolver::new();
                 let endpoint = resolver
                     .resolve_endpoint_with_scheme("security", "https")
                     .await
-                    .unwrap();
+                    .expect("should succeed");
                 assert_eq!(endpoint, "https://localhost:8083");
             });
         });
@@ -274,10 +295,13 @@ mod tests {
     #[test]
     fn test_resolve_endpoint_from_env() {
         temp_env::with_var("API_ENDPOINT", Some("https://api.example.com"), || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = PortResolver::new();
-                let endpoint = resolver.resolve_endpoint("api").await.unwrap();
+                let endpoint = resolver
+                    .resolve_endpoint("api")
+                    .await
+                    .expect("should succeed");
                 assert_eq!(endpoint, "https://api.example.com");
             });
         });
@@ -293,21 +317,21 @@ mod tests {
             Err(PortResolutionError::UnknownService(s)) => {
                 assert_eq!(s, "unknown_service_xyz");
             }
-            _ => panic!("Expected UnknownService error"),
+            _ => unreachable!("Expected UnknownService error"),
         }
     }
 
     #[test]
     fn test_invalid_port_env() {
         temp_env::with_var("BADPORT_PORT", Some("not_a_number"), || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = PortResolver::new();
                 let result = resolver.resolve_port("badport").await;
                 assert!(result.is_err());
                 match result {
                     Err(PortResolutionError::InvalidPort(_)) => {}
-                    _ => panic!("Expected InvalidPort error"),
+                    _ => unreachable!("Expected InvalidPort error"),
                 }
             });
         });
@@ -340,7 +364,7 @@ mod tests {
         let discovery = Arc::new(MockDiscovery { services });
         let resolver = PortResolver::with_discovery(discovery);
 
-        let port = resolver.resolve_port("api").await.unwrap();
+        let port = resolver.resolve_port("api").await.expect("should succeed");
         assert_eq!(port, 9999);
     }
 
@@ -348,23 +372,35 @@ mod tests {
     #[serial_test::serial]
     fn test_fallback_chain() {
         temp_env::with_var_unset("HTTP_PORT", || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             let default_port = rt.block_on(async {
                 let resolver = PortResolver::new();
-                resolver.resolve_port("http").await.unwrap()
+                resolver.resolve_port("http").await.expect("should succeed")
             });
 
             // Nested: set HTTP_PORT and verify override, then unset and verify fallback
             temp_env::with_var("HTTP_PORT", Some("7070"), || {
                 rt.block_on(async {
                     let resolver2 = PortResolver::new();
-                    assert_eq!(resolver2.resolve_port("http").await.unwrap(), 7070);
+                    assert_eq!(
+                        resolver2
+                            .resolve_port("http")
+                            .await
+                            .expect("should succeed"),
+                        7070
+                    );
                 });
             });
 
             rt.block_on(async {
                 let resolver3 = PortResolver::new();
-                assert_eq!(resolver3.resolve_port("http").await.unwrap(), default_port);
+                assert_eq!(
+                    resolver3
+                        .resolve_port("http")
+                        .await
+                        .expect("should succeed"),
+                    default_port
+                );
             });
         });
     }

@@ -402,7 +402,7 @@ mod tests {
         let adapter = temp_env::with_var("ANTHROPIC_API_KEY", Some("test-key"), || {
             AnthropicAdapter::new()
         })
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(adapter.provider_id(), "anthropic");
         assert_eq!(adapter.provider_name(), "Anthropic (Claude)");
         assert!(!adapter.is_local());
@@ -452,7 +452,7 @@ mod tests {
         let adapter = temp_env::with_var("ANTHROPIC_API_KEY", Some("test-key-qt"), || {
             AnthropicAdapter::new()
         })
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(adapter.quality_tier(), QualityTier::Premium);
         assert_eq!(adapter.avg_latency_ms(), 2000);
         assert!(adapter.cost_per_unit().is_some());
@@ -467,7 +467,7 @@ mod tests {
             ],
             AnthropicAdapter::new,
         )
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(adapter.default_model, "claude-3-haiku-20240307");
     }
 
@@ -480,7 +480,7 @@ mod tests {
             ],
             AnthropicAdapter::new,
         )
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(adapter.default_model, "claude-3-opus");
     }
 }

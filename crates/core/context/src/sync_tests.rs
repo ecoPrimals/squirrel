@@ -212,7 +212,7 @@ mod tests {
         assert!(message.checksum.is_none());
 
         message.checksum = Some("abc123".to_string());
-        assert_eq!(message.checksum.unwrap(), "abc123");
+        assert_eq!(message.checksum.expect("should succeed"), "abc123");
     }
 
     #[test]
@@ -228,11 +228,11 @@ mod tests {
         let config = SyncConfig::default();
 
         // Test that config can be serialized
-        let serialized = serde_json::to_string(&config).unwrap();
+        let serialized = serde_json::to_string(&config).expect("should succeed");
         assert!(!serialized.is_empty());
 
         // Test that it can be deserialized
-        let deserialized: SyncConfig = serde_json::from_str(&serialized).unwrap();
+        let deserialized: SyncConfig = serde_json::from_str(&serialized).expect("should succeed");
         assert_eq!(
             deserialized.sync_timeout_seconds,
             config.sync_timeout_seconds
@@ -250,11 +250,12 @@ mod tests {
         };
 
         // Test serialization
-        let serialized = serde_json::to_string(&partition).unwrap();
+        let serialized = serde_json::to_string(&partition).expect("should succeed");
         assert!(!serialized.is_empty());
 
         // Test deserialization
-        let deserialized: PartitionInfo = serde_json::from_str(&serialized).unwrap();
+        let deserialized: PartitionInfo =
+            serde_json::from_str(&serialized).expect("should succeed");
         assert_eq!(deserialized.affected_peers.len(), 1);
         assert_eq!(deserialized.partition_duration.as_secs(), 60);
     }
@@ -266,12 +267,12 @@ mod tests {
         let message = SyncMessage::new(operation, "node-1".to_string());
 
         // Test serialization
-        let serialized = serde_json::to_string(&message).unwrap();
+        let serialized = serde_json::to_string(&message).expect("should succeed");
         assert!(!serialized.is_empty());
         assert!(serialized.contains("node-1"));
 
         // Test deserialization
-        let deserialized: SyncMessage = serde_json::from_str(&serialized).unwrap();
+        let deserialized: SyncMessage = serde_json::from_str(&serialized).expect("should succeed");
         assert_eq!(deserialized.source, "node-1");
         assert_eq!(deserialized.retry_count, 0);
     }

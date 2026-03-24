@@ -287,9 +287,8 @@ async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<dyn 
 
 #[cfg(test)]
 #[expect(
-    clippy::unwrap_used,
     clippy::expect_used,
-    reason = "Invariant or startup failure: unwrap/expect after validation"
+    reason = "Invariant or startup failure: expect after validation"
 )]
 mod tests {
     use super::*;
@@ -345,7 +344,7 @@ mod tests {
         assert_eq!(provider.provider_name(), "test");
         assert!(provider.health_check().await);
 
-        let capabilities = provider.get_capabilities().await.unwrap();
+        let capabilities = provider.get_capabilities().await.expect("should succeed");
         assert_eq!(capabilities.len(), 0);
     }
 
@@ -372,8 +371,14 @@ mod tests {
             labels: HashMap::new(),
         };
 
-        let workload_id = provider.execute_workload(spec).await.unwrap();
-        let status = provider.get_workload_status(workload_id).await.unwrap();
+        let workload_id = provider
+            .execute_workload(spec)
+            .await
+            .expect("should succeed");
+        let status = provider
+            .get_workload_status(workload_id)
+            .await
+            .expect("should succeed");
         assert_eq!(status.status, WorkloadStatus::Running);
     }
 
@@ -384,14 +389,16 @@ mod tests {
                 .enable_all()
                 .build()
                 .expect("rt");
-            let Err(e) = rt.block_on(auto_detect_compute_provider()) else {
-                panic!("expected err")
+            let result = rt.block_on(auto_detect_compute_provider());
+            assert!(result.is_err(), "expected err");
+            let Err(e) = result else {
+                unreachable!("expected err");
             };
             match e {
                 ComputeProviderError::NotAvailable(msg) => {
                     assert!(msg.contains("Unknown provider type"));
                 }
-                ref other => panic!("unexpected {other:?}"),
+                ref other => unreachable!("unexpected {other:?}"),
             }
         });
     }
@@ -403,8 +410,10 @@ mod tests {
                 .enable_all()
                 .build()
                 .expect("rt");
-            let Err(e) = rt.block_on(auto_detect_compute_provider()) else {
-                panic!("expected err")
+            let result = rt.block_on(auto_detect_compute_provider());
+            assert!(result.is_err(), "expected err");
+            let Err(e) = result else {
+                unreachable!("expected err");
             };
             assert!(matches!(e, ComputeProviderError::NotAvailable(_)));
         });
@@ -424,7 +433,10 @@ mod tests {
         let provider = MockComputeProvider {
             name: "res-test".to_string(),
         };
-        let r = provider.get_available_resources().await.unwrap();
+        let r = provider
+            .get_available_resources()
+            .await
+            .expect("should succeed");
         assert_eq!(r.cpu_cores, u32::MAX);
     }
 }

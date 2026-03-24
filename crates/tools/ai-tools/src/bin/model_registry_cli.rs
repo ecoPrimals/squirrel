@@ -233,7 +233,9 @@ fn main() {
                     println!("  No models found");
                 } else {
                     for model_id in models {
-                        let model = registry.get_model(provider_id, &model_id).unwrap();
+                        let model = registry
+                            .get_model(provider_id, &model_id)
+                            .expect("model in registry");
                         println!("  {model_id}");
                         println!(
                             "    Version: {}",
@@ -321,7 +323,8 @@ fn main() {
                 }
                 None => {
                     // Output to stdout
-                    let json = serde_json::to_string_pretty(&registry).unwrap();
+                    let json =
+                        serde_json::to_string_pretty(&registry).expect("registry serializes");
                     println!("{json}");
                 }
             }

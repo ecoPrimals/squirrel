@@ -291,7 +291,7 @@ mod provider_trait_tests {
         let response = provider.handle_primal_request(request).await;
         assert!(response.is_ok());
 
-        let response = response.unwrap();
+        let response = response.expect("should succeed");
         assert!(response.success);
         assert_eq!(response.response_type, PrimalResponseType::Authentication);
     }
@@ -330,7 +330,7 @@ mod provider_trait_tests {
     async fn test_initialize_twice_fails() {
         let mut provider = MockProvider::new("test", PrimalType::Security);
 
-        provider.initialize(serde_json::json!({})).await.unwrap();
+        provider.initialize(serde_json::json!({})).await.expect("should succeed");
 
         let result = provider.initialize(serde_json::json!({})).await;
         assert!(result.is_err());
@@ -351,7 +351,7 @@ mod provider_trait_tests {
     async fn test_shutdown_twice_fails() {
         let mut provider = MockProvider::new("test", PrimalType::Security);
 
-        provider.shutdown().await.unwrap();
+        provider.shutdown().await.expect("should succeed");
 
         let result = provider.shutdown().await;
         assert!(result.is_err());
@@ -403,7 +403,7 @@ mod provider_trait_tests {
         let port_info = provider.dynamic_port_info();
 
         assert!(port_info.is_some());
-        let port_info = port_info.unwrap();
+        let port_info = port_info.expect("should succeed");
         assert_eq!(port_info.assigned_port, 8080);
         assert_eq!(port_info.port_type, PortType::Http);
         assert_eq!(port_info.status, PortStatus::Active);
@@ -425,7 +425,7 @@ mod provider_trait_tests {
         let mut provider = MockProvider::new("test", PrimalType::Security);
 
         // Initialize
-        provider.initialize(serde_json::json!({})).await.unwrap();
+        provider.initialize(serde_json::json!({})).await.expect("should succeed");
         assert!(provider.initialized);
 
         // Health check
@@ -446,7 +446,7 @@ mod provider_trait_tests {
         assert!(response.is_ok());
 
         // Shutdown
-        provider.shutdown().await.unwrap();
+        provider.shutdown().await.expect("should succeed");
         assert!(provider.shutdown);
     }
 

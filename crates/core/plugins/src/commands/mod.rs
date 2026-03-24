@@ -242,18 +242,18 @@ mod tests {
         let result = plugin
             .execute_command("hello", serde_json::json!({ "name": "test" }))
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(
-            result.get("message").unwrap().as_str().unwrap(),
+            result.get("message").expect("should succeed").as_str().expect("should succeed"),
             "Hello, test!"
         );
 
         let result = plugin
             .execute_command("echo", serde_json::json!({ "value": 42 }))
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        assert_eq!(result.get("value").unwrap().as_i64().unwrap(), 42);
+        assert_eq!(result.get("value").expect("should succeed").as_i64().expect("should succeed"), 42);
     }
 }

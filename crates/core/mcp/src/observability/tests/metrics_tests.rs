@@ -16,7 +16,7 @@ use crate::observability::ObservabilityResult;
 #[test]
 fn test_counter_basic_operations() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Create a counter
     let counter = registry.create_counter(
@@ -24,31 +24,31 @@ fn test_counter_basic_operations() {
         "Test counter description",
         None,
         HashMap::new()
-    ).unwrap();
+    ).expect("should succeed");
     
     // Initial value should be 0
-    assert_eq!(counter.value().unwrap(), 0);
+    assert_eq!(counter.value().expect("should succeed"), 0);
     
     // Increment by 1
-    counter.inc_one().unwrap();
-    assert_eq!(counter.value().unwrap(), 1);
+    counter.inc_one().expect("should succeed");
+    assert_eq!(counter.value().expect("should succeed"), 1);
     
     // Increment by a specific amount
-    counter.inc(5).unwrap();
-    assert_eq!(counter.value().unwrap(), 6);
+    counter.inc(5).expect("should succeed");
+    assert_eq!(counter.value().expect("should succeed"), 6);
     
     // Multiple increments
-    counter.inc_one().unwrap();
-    counter.inc_one().unwrap();
-    counter.inc(2).unwrap();
-    assert_eq!(counter.value().unwrap(), 10);
+    counter.inc_one().expect("should succeed");
+    counter.inc_one().expect("should succeed");
+    counter.inc(2).expect("should succeed");
+    assert_eq!(counter.value().expect("should succeed"), 10);
 }
 
 /// Test counters with labels
 #[test]
 fn test_counter_with_labels() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Create counters with different labels
     let mut labels1 = HashMap::new();
@@ -62,28 +62,28 @@ fn test_counter_with_labels() {
         "Count of requests",
         None,
         labels1
-    ).unwrap();
+    ).expect("should succeed");
     
     let counter2 = registry.create_counter(
         "request_count",
         "Count of requests",
         None,
         labels2
-    ).unwrap();
+    ).expect("should succeed");
     
     // Increment each counter differently
-    counter1.inc(10).unwrap();
-    counter2.inc(5).unwrap();
+    counter1.inc(10).expect("should succeed");
+    counter2.inc(5).expect("should succeed");
     
     // Values should be independent
-    assert_eq!(counter1.value().unwrap(), 10);
-    assert_eq!(counter2.value().unwrap(), 5);
+    assert_eq!(counter1.value().expect("should succeed"), 10);
+    assert_eq!(counter2.value().expect("should succeed"), 5);
     
     // Check metric properties
     assert_eq!(counter1.metric().name(), "request_count");
     assert_eq!(counter1.metric().description(), "Count of requests");
-    assert_eq!(counter1.metric().unit().unwrap(), "requests");
-    assert_eq!(counter1.metric().labels().get("service").unwrap(), "api");
+    assert_eq!(counter1.metric().unit().expect("should succeed"), "requests");
+    assert_eq!(counter1.metric().labels().get("service").expect("should succeed"), "api");
 }
 
 /// Test counter retrieval
@@ -97,14 +97,14 @@ fn test_counter_retrieval() {
         "Test counter for retrieval",
         None,
         HashMap::new()
-    ).unwrap();
+    ).expect("should succeed");
     
     // Retrieve the counter
-    let retrieved_counter = registry.get_counter("retrieval_counter").unwrap();
+    let retrieved_counter = registry.get_counter("retrieval_counter").expect("should succeed");
     assert!(retrieved_counter.is_some());
     
     // Try to get a non-existent counter
-    let non_existent = registry.get_counter("non_existent").unwrap();
+    let non_existent = registry.get_counter("non_existent").expect("should succeed");
     assert!(non_existent.is_none());
 }
 
@@ -112,7 +112,7 @@ fn test_counter_retrieval() {
 #[test]
 fn test_gauge_basic_operations() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Create a gauge
     let gauge = registry.create_gauge(
@@ -120,29 +120,29 @@ fn test_gauge_basic_operations() {
         "Test gauge description",
         None,
         HashMap::new()
-    ).unwrap();
+    ).expect("should succeed");
     
     // Initial value should be 0
-    assert!((gauge.value().unwrap() - 0.0).abs() < f64::EPSILON);
+    assert!((gauge.value().expect("should succeed") - 0.0).abs() < f64::EPSILON);
     
     // Set to a specific value
-    gauge.set(3.14).unwrap();
-    assert!((gauge.value().unwrap() - 3.14).abs() < f64::EPSILON);
+    gauge.set(3.14).expect("should succeed");
+    assert!((gauge.value().expect("should succeed") - 3.14).abs() < f64::EPSILON);
     
     // Increment by amount
-    gauge.inc(1.0).unwrap();
-    assert!((gauge.value().unwrap() - 4.14).abs() < f64::EPSILON);
+    gauge.inc(1.0).expect("should succeed");
+    assert!((gauge.value().expect("should succeed") - 4.14).abs() < f64::EPSILON);
     
     // Decrement by amount
-    gauge.dec(2.0).unwrap();
-    assert!((gauge.value().unwrap() - 2.14).abs() < f64::EPSILON);
+    gauge.dec(2.0).expect("should succeed");
+    assert!((gauge.value().expect("should succeed") - 2.14).abs() < f64::EPSILON);
 }
 
 /// Test gauge with negative values
 #[test]
 fn test_gauge_negative_values() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Create a gauge
     let gauge = registry.create_gauge(
@@ -150,19 +150,19 @@ fn test_gauge_negative_values() {
         "Gauge that can go negative",
         None,
         HashMap::new()
-    ).unwrap();
+    ).expect("should succeed");
     
     // Set to a positive value
-    gauge.set(10.0).unwrap();
-    assert!((gauge.value().unwrap() - 10.0).abs() < f64::EPSILON);
+    gauge.set(10.0).expect("should succeed");
+    assert!((gauge.value().expect("should succeed") - 10.0).abs() < f64::EPSILON);
     
     // Decrement below zero
-    gauge.dec(15.0).unwrap();
-    assert!((gauge.value().unwrap() - (-5.0)).abs() < f64::EPSILON);
+    gauge.dec(15.0).expect("should succeed");
+    assert!((gauge.value().expect("should succeed") - (-5.0)).abs() < f64::EPSILON);
     
     // Increment back to positive
-    gauge.inc(7.5).unwrap();
-    assert!((gauge.value().unwrap() - 2.5).abs() < f64::EPSILON);
+    gauge.inc(7.5).expect("should succeed");
+    assert!((gauge.value().expect("should succeed") - 2.5).abs() < f64::EPSILON);
 }
 
 /// Test gauge retrieval
@@ -176,14 +176,14 @@ fn test_gauge_retrieval() {
         "Test gauge for retrieval",
         None,
         HashMap::new(),
-    ).unwrap();
+    ).expect("should succeed");
     
     // Retrieve the gauge
-    let retrieved_gauge = registry.get_gauge("retrieval_gauge").unwrap();
+    let retrieved_gauge = registry.get_gauge("retrieval_gauge").expect("should succeed");
     assert!(retrieved_gauge.is_some());
     
     // Try to get a non-existent gauge
-    let non_existent = registry.get_gauge("non_existent").unwrap();
+    let non_existent = registry.get_gauge("non_existent").expect("should succeed");
     assert!(non_existent.is_none());
 }
 
@@ -191,7 +191,7 @@ fn test_gauge_retrieval() {
 #[test]
 fn test_histogram_basic_operations() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Create a histogram with specific buckets
     let buckets = vec![1.0, 5.0, 10.0, 50.0, 100.0, 500.0, 1000.0];
@@ -201,29 +201,29 @@ fn test_histogram_basic_operations() {
         None,
         HashMap::new(),
         buckets
-    ).unwrap();
+    ).expect("should succeed");
     
     // Observe some values
-    histogram.observe(3.0).unwrap();    // Falls in the 1.0-5.0 bucket
-    histogram.observe(7.5).unwrap();    // Falls in the 5.0-10.0 bucket
-    histogram.observe(100.0).unwrap();  // Falls in the 100.0-500.0 bucket
-    histogram.observe(1.5).unwrap();    // Falls in the 1.0-5.0 bucket
-    histogram.observe(0.5).unwrap();    // Falls in the 0.0-1.0 bucket
+    histogram.observe(3.0).expect("should succeed");    // Falls in the 1.0-5.0 bucket
+    histogram.observe(7.5).expect("should succeed");    // Falls in the 5.0-10.0 bucket
+    histogram.observe(100.0).expect("should succeed");  // Falls in the 100.0-500.0 bucket
+    histogram.observe(1.5).expect("should succeed");    // Falls in the 1.0-5.0 bucket
+    histogram.observe(0.5).expect("should succeed");    // Falls in the 0.0-1.0 bucket
     
     // Check count and sum
-    assert_eq!(histogram.count().unwrap(), 5);
-    assert!((histogram.sum().unwrap() - 112.5).abs() < f64::EPSILON);
+    assert_eq!(histogram.count().expect("should succeed"), 5);
+    assert!((histogram.sum().expect("should succeed") - 112.5).abs() < f64::EPSILON);
     
     // Check buckets
-    let buckets = histogram.buckets().unwrap();
+    let buckets = histogram.buckets().expect("should succeed");
     
     // Verify bucket counts
     // We can't be sure of the exact order, so we need to find each bucket by bound
-    let bucket_1 = buckets.iter().find(|b| (b.upper_bound - 1.0).abs() < f64::EPSILON).unwrap();
-    let bucket_5 = buckets.iter().find(|b| (b.upper_bound - 5.0).abs() < f64::EPSILON).unwrap();
-    let bucket_10 = buckets.iter().find(|b| (b.upper_bound - 10.0).abs() < f64::EPSILON).unwrap();
-    let bucket_100 = buckets.iter().find(|b| (b.upper_bound - 100.0).abs() < f64::EPSILON).unwrap();
-    let bucket_500 = buckets.iter().find(|b| (b.upper_bound - 500.0).abs() < f64::EPSILON).unwrap();
+    let bucket_1 = buckets.iter().find(|b| (b.upper_bound - 1.0).abs() < f64::EPSILON).expect("should succeed");
+    let bucket_5 = buckets.iter().find(|b| (b.upper_bound - 5.0).abs() < f64::EPSILON).expect("should succeed");
+    let bucket_10 = buckets.iter().find(|b| (b.upper_bound - 10.0).abs() < f64::EPSILON).expect("should succeed");
+    let bucket_100 = buckets.iter().find(|b| (b.upper_bound - 100.0).abs() < f64::EPSILON).expect("should succeed");
+    let bucket_500 = buckets.iter().find(|b| (b.upper_bound - 500.0).abs() < f64::EPSILON).expect("should succeed");
     
     assert_eq!(bucket_1.count, 1);   // 0.5
     assert_eq!(bucket_5.count, 2);   // 1.5, 3.0
@@ -236,7 +236,7 @@ fn test_histogram_basic_operations() {
 #[test]
 fn test_histogram_extreme_values() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Create a histogram with specific buckets
     let buckets = vec![10.0, 100.0, 1000.0];
@@ -246,17 +246,17 @@ fn test_histogram_extreme_values() {
         None,
         HashMap::new(),
         buckets
-    ).unwrap();
+    ).expect("should succeed");
     
     // Observe an extreme value (beyond all buckets)
-    histogram.observe(5000.0).unwrap();
+    histogram.observe(5000.0).expect("should succeed");
     
     // Check count and sum
-    assert_eq!(histogram.count().unwrap(), 1);
-    assert!((histogram.sum().unwrap() - 5000.0).abs() < f64::EPSILON);
+    assert_eq!(histogram.count().expect("should succeed"), 1);
+    assert!((histogram.sum().expect("should succeed") - 5000.0).abs() < f64::EPSILON);
     
     // All defined buckets should have count 0
-    let buckets = histogram.buckets().unwrap();
+    let buckets = histogram.buckets().expect("should succeed");
     for bucket in buckets {
         // The observation is higher than all bucket upper bounds
         if bucket.upper_bound <= 1000.0 {
@@ -280,14 +280,14 @@ fn test_histogram_retrieval() {
         None,
         HashMap::new(),
         vec![0.1, 1.0, 10.0, 100.0], // bucket boundaries
-    ).unwrap();
+    ).expect("should succeed");
     
     // Retrieve the histogram
-    let retrieved_histogram = registry.get_histogram("retrieval_histogram").unwrap();
+    let retrieved_histogram = registry.get_histogram("retrieval_histogram").expect("should succeed");
     assert!(retrieved_histogram.is_some());
     
     // Try to get a non-existent histogram
-    let non_existent = registry.get_histogram("non_existent").unwrap();
+    let non_existent = registry.get_histogram("non_existent").expect("should succeed");
     assert!(non_existent.is_none());
 }
 
@@ -295,12 +295,12 @@ fn test_histogram_retrieval() {
 #[test]
 fn test_metric_namespaces() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Set a namespace for the registry
-    let mut config = registry.get_config().unwrap();
+    let mut config = registry.get_config().expect("should succeed");
     config.namespace = Some("app".to_string());
-    registry.set_config(&config).unwrap();
+    registry.set_config(&config).expect("should succeed");
     
     // Create metrics with and without namespaces
     let counter1 = registry.create_counter(
@@ -308,7 +308,7 @@ fn test_metric_namespaces() {
         "Counter without additional namespace",
         None,
         HashMap::new()
-    ).unwrap();
+    ).expect("should succeed");
     
     let counter2 = registry.create_counter_with_namespace(
         "api",
@@ -316,15 +316,15 @@ fn test_metric_namespaces() {
         "Counter with additional namespace",
         None,
         HashMap::new()
-    ).unwrap();
+    ).expect("should succeed");
     
     // Check that names are correctly namespaced
     assert_eq!(counter1.metric().name(), "app_counter1");
     assert_eq!(counter2.metric().name(), "app_api_counter2");
     
     // Make sure we can retrieve the counters with their full names
-    let retrieved1 = registry.get_counter("app_counter1").unwrap();
-    let retrieved2 = registry.get_counter("app_api_counter2").unwrap();
+    let retrieved1 = registry.get_counter("app_counter1").expect("should succeed");
+    let retrieved2 = registry.get_counter("app_api_counter2").expect("should succeed");
     
     assert!(retrieved1.is_some());
     assert!(retrieved2.is_some());
@@ -334,7 +334,7 @@ fn test_metric_namespaces() {
 #[test]
 fn test_metrics_error_handling() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Try to create a counter with an empty name
     let result = registry.create_counter(
@@ -362,7 +362,7 @@ fn test_metrics_error_handling() {
 #[test]
 fn test_metric_label_validation() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Valid labels
     let mut valid_labels = HashMap::new();
@@ -407,7 +407,7 @@ fn test_metric_label_validation() {
 #[test]
 fn test_metric_concurrency() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Create a counter
     let counter = registry.create_counter(
@@ -415,7 +415,7 @@ fn test_metric_concurrency() {
         "Counter for concurrency testing",
         None,
         HashMap::new()
-    ).unwrap();
+    ).expect("should succeed");
     
     // Create a gauge
     let gauge = registry.create_gauge(
@@ -423,7 +423,7 @@ fn test_metric_concurrency() {
         "Gauge for concurrency testing",
         None,
         HashMap::new()
-    ).unwrap();
+    ).expect("should succeed");
     
     // Create a histogram
     let histogram = registry.create_histogram(
@@ -432,7 +432,7 @@ fn test_metric_concurrency() {
         None,
         HashMap::new(),
         vec![1.0, 10.0, 100.0]
-    ).unwrap();
+    ).expect("should succeed");
     
     // Test concurrency with 10 threads
     let num_threads = 10;
@@ -446,9 +446,9 @@ fn test_metric_concurrency() {
         
         let handle = thread::spawn(move || {
             for j in 0..num_iterations {
-                counter_clone.inc_one().unwrap();
-                gauge_clone.inc(0.1).unwrap();
-                histogram_clone.observe((i * j) as f64).unwrap();
+                counter_clone.inc_one().expect("should succeed");
+                gauge_clone.inc(0.1).expect("should succeed");
+                histogram_clone.observe((i * j) as f64).expect("should succeed");
             }
         });
         
@@ -457,33 +457,33 @@ fn test_metric_concurrency() {
     
     // Wait for all threads to complete
     for handle in handles {
-        handle.join().unwrap();
+        handle.join().expect("should succeed");
     }
     
     // Verify final values
-    assert_eq!(counter.value().unwrap(), (num_threads * num_iterations) as u64);
-    assert!((gauge.value().unwrap() - (num_threads * num_iterations) as f64 * 0.1).abs() < f64::EPSILON);
-    assert_eq!(histogram.count().unwrap(), (num_threads * num_iterations) as u64);
+    assert_eq!(counter.value().expect("should succeed"), (num_threads * num_iterations) as u64);
+    assert!((gauge.value().expect("should succeed") - (num_threads * num_iterations) as f64 * 0.1).abs() < f64::EPSILON);
+    assert_eq!(histogram.count().expect("should succeed"), (num_threads * num_iterations) as u64);
 }
 
 /// Test registry enumeration of metrics
 #[test]
 fn test_registry_enumeration() {
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Create metrics of different types
-    registry.create_counter("test_counter", "A test counter", None, HashMap::new()).unwrap();
-    registry.create_gauge("test_gauge", "A test gauge", None, HashMap::new()).unwrap();
-    registry.create_histogram("test_histogram", "A test histogram", None, HashMap::new(), vec![1.0, 10.0, 100.0]).unwrap();
+    registry.create_counter("test_counter", "A test counter", None, HashMap::new()).expect("should succeed");
+    registry.create_gauge("test_gauge", "A test gauge", None, HashMap::new()).expect("should succeed");
+    registry.create_histogram("test_histogram", "A test histogram", None, HashMap::new(), vec![1.0, 10.0, 100.0]).expect("should succeed");
     
     // Get all metrics in the registry
-    let all_metrics = registry.list_metrics().unwrap();
+    let all_metrics = registry.list_metrics().expect("should succeed");
     
     // Count metrics by type (simplified version - just count the metrics we know we created)
-    let counter_count = registry.counter_names().unwrap().len();
-    let gauge_count = registry.gauge_names().unwrap().len();
-    let histogram_count = registry.histogram_names().unwrap().len();
+    let counter_count = registry.counter_names().expect("should succeed").len();
+    let gauge_count = registry.gauge_names().expect("should succeed").len();
+    let histogram_count = registry.histogram_names().expect("should succeed").len();
     
     // We should have created at least one of each type
     assert!(counter_count >= 1, "Should have at least 1 counter");
@@ -496,7 +496,7 @@ fn test_registry_enumeration() {
 fn test_registry_lifecycle() {
     // Create and initialize registry
     let registry = MetricsRegistry::new();
-    registry.initialize().unwrap();
+    registry.initialize().expect("should succeed");
     
     // Create a counter
     let counter = registry.create_counter(
@@ -504,13 +504,13 @@ fn test_registry_lifecycle() {
         "Counter for lifecycle testing",
         None,
         HashMap::new()
-    ).unwrap();
+    ).expect("should succeed");
     
-    counter.inc(5).unwrap();
-    assert_eq!(counter.value().unwrap(), 5);
+    counter.inc(5).expect("should succeed");
+    assert_eq!(counter.value().expect("should succeed"), 5);
     
     // Shutdown the registry
-    registry.shutdown().unwrap();
+    registry.shutdown().expect("should succeed");
     
     // Creating new metrics after shutdown should fail
     let result = registry.create_counter(

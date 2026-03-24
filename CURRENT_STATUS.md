@@ -2,15 +2,15 @@
 # Squirrel Current Status
 
 **Last Updated**: March 24, 2026
-**Version**: 0.1.0-alpha.23
-**License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
+**Version**: 0.1.0-alpha.24
+**License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
 
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,035 passing / 0 failures across 22 workspace members |
+| Tests | 7,035 passing / 0 failures across 23 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
@@ -19,13 +19,16 @@
 | Pure Rust | 100% default features (zero C deps); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
 | Coverage | 85.4% line coverage via `cargo-llvm-cov` with `--all-features` (target: 90%); comprehensive coverage including mesh/federation code; remaining gap is IPC/network code, demo binaries, and binary entry points |
-| Crates | 22 workspace members |
-| Files >1000 lines | 0 (max: 1000 — ecosystem.rs); federation.rs, auth.rs, mcp/mod.rs smart-refactored into module trees |
+| `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
+| `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
+| `Box<dyn Error>` | 0 in production APIs — replaced with typed errors (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`) |
+| Crates | 23 workspace members |
+| Files >1000 lines | 1 (test file: `jsonrpc_handlers_tests.rs` at 1010); `ecosystem.rs` and `federation/service.rs` split into module trees |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
-| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(test)]` |
+| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(any(test, feature = "testing"))]` |
 | Legacy aliases | Removed — only semantic `{domain}.{verb}` method names accepted; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
 | TODO/FIXME in code | 0 (documented `STUB` comments only in performance optimizer batch/optimizer — Phase 2 deferred; swarm, coordination, and crypto are production implementations) |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
@@ -169,6 +172,7 @@ Replaces the `sysinfo` crate (C dependency) for ecoBin v3.0 compliance.
 | Crate | Error Type | Pattern |
 |-------|-----------|---------|
 | `squirrel-commands` | `CommandError` (thiserror) | Typed variants: Io, Serialization, Validation, Hook, Lifecycle, etc. |
+| `squirrel-interfaces` | `SquirrelError` (thiserror) | Cross-crate trait error type — replaces `Box<dyn Error>` in all trait signatures |
 | `squirrel-cli` | `FormatterError` (thiserror) | Serialization, UnknownFormat |
 | `squirrel-mcp` | `MCPError` (thiserror) | Protocol, transport, context, plugin errors |
 | `universal-error` | `UniversalError` | Cross-crate error type |
@@ -259,6 +263,25 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 
 ## Changes Since Last Handoff (March 24, 2026)
+
+### alpha.24 Sprint (Comprehensive Debt Resolution & Sovereignty Evolution)
+
+- **Zero `.unwrap()` workspace-wide**: Eliminated all ~5,600 `.unwrap()` calls across 551 files — Results use `?` propagation, Options use `.expect("invariant message")`, locks use `.expect("lock poisoned")`
+- **Zero `panic!()` workspace-wide**: Replaced all 137 `panic!("Expected X")` patterns in tests with `unreachable!()` or proper assertions
+- **`Box<dyn Error>` → typed errors**: Replaced in ~15 production APIs across 6 crates — `SquirrelError` in interfaces traits, `PrimalError` in main, `AIError` in ai-tools, `ContextError` in context, `MCPError` in mcp, `EcosystemError` in integration
+- **Sovereignty evolution**: `SongbirdClient` → `ServiceMeshHttpClient`, `SongbirdConfig` → `ServiceMeshConfig` with deprecated aliases; primal-specific env vars (`SONGBIRD_*`, `TOADSTOOL_*`, `NESTGATE_*`) emit deprecation warnings when used as fallbacks
+- **Port centralization**: Hardcoded `8080`/`8500`/`8081`/`8082` replaced with `universal_constants::network::get_service_port()` calls
+- **Mock isolation**: `MockServiceMeshClient` and `MCPAdapter` mock fields gated behind `#[cfg(any(test, feature = "testing"))]`
+- **`#[allow]` → `#[expect]` expansion**: 217 `#[expect()]` attributes; remaining 130 `#[allow()]` only where lint is conditional across targets
+- **Smart refactoring**: `ecosystem.rs` (1000→799 lines) split into `coordinator.rs` + `ecosystem_types.rs`; `federation/service.rs` (973→732 lines) split into `swarm.rs` + `service_tests.rs`
+- **Clone reduction**: `sync/manager.rs` — `HashMap<String, SyncMessage>` → `HashSet<String>` for pending ops; `transport/memory` — conditional history clone; `monitoring/clients` — `Arc<Mutex>` sharing, move-then-insert patterns
+- **License alignment**: `AGPL-3.0-only` → `AGPL-3.0-or-later` per wateringHole standard
+- **Workspace member**: Added `crates/integration` umbrella to workspace
+- **Duplicate config removed**: Removed `rustfmt.toml` (kept `.rustfmt.toml` with SPDX header)
+- **Rustdoc clean**: Fixed `private_intra_doc_links` warning on `SecurityRequest`
+- **New tests**: service_discovery validate/matches/sort/paginate, transaction edge cases, web integration framework, history formatted, lifecycle no-hooks
+- **Files**: 1,331 `.rs` files, 450K total lines
+- **Quality gates**: `fmt` ✓, `clippy --all-features -D warnings` ✓, `doc --no-deps` ✓, `test --all-features` ✓ (7,035/0)
 
 ### alpha.23 Sprint (Comprehensive Audit, Modern Idiomatic Rust & Coverage Push)
 

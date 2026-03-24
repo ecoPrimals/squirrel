@@ -74,8 +74,8 @@ fn test_service_info_serde() {
         health_status: "healthy".to_string(),
         metadata: std::collections::HashMap::new(),
     };
-    let json = serde_json::to_string(&info).unwrap();
-    let deserialized: ServiceInfo = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&info).expect("should succeed");
+    let deserialized: ServiceInfo = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(deserialized.id, "svc-1");
     assert_eq!(deserialized.name, "test-service");
     assert_eq!(deserialized.endpoint, "http://localhost:8080");

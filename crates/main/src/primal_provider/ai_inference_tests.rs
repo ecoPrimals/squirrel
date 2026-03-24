@@ -10,9 +10,8 @@
 
 #[cfg(test)]
 #[expect(
-    clippy::unwrap_used,
     clippy::expect_used,
-    reason = "Test code: explicit unwrap/expect and local lint noise"
+    reason = "Test code: explicit expect and local lint noise"
 )]
 mod tests {
     use super::super::ai_inference::{AIInferenceRequest, AIProviderSelection};
@@ -59,7 +58,7 @@ mod tests {
         // When a model is specified, provider selection returns "auto"
         // and lets the AI router resolve the model to a discovered provider
         let request = create_test_request("chat", Some("gpt-4".to_string()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
+        let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
         assert_eq!(provider, "auto");
     }
 
@@ -74,7 +73,7 @@ mod tests {
             "custom-model",
         ] {
             let request = create_test_request("chat", Some(model.to_string()));
-            let provider = AIProviderSelection::select_provider(&request).unwrap();
+            let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
             assert_eq!(provider, "auto", "Model '{model}' should return 'auto'");
         }
     }
@@ -83,14 +82,14 @@ mod tests {
     fn test_provider_selection_no_model_returns_auto() {
         // Without a model, provider selection uses env or defaults to "auto"
         let request = create_test_request("chat", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
+        let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
         assert_eq!(provider, "auto");
     }
 
     #[test]
     fn test_provider_selection_text_generation_task() {
         let request = create_test_request("text_generation", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
+        let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
         assert_eq!(provider, "auto");
     }
 
@@ -99,28 +98,28 @@ mod tests {
         // "local" task type prefers local providers, but still returns "auto"
         // unless AI_DEFAULT_PROVIDER is set
         let request = create_test_request("local", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
+        let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
         assert_eq!(provider, "auto");
     }
 
     #[test]
     fn test_provider_selection_private_task() {
         let request = create_test_request("private", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
+        let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
         assert_eq!(provider, "auto");
     }
 
     #[test]
     fn test_provider_selection_unknown_task_defaults() {
         let request = create_test_request("unknown_task_type", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
+        let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
         assert_eq!(provider, "auto");
     }
 
     #[test]
     fn test_provider_selection_empty_task_defaults() {
         let request = create_test_request("", None);
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
+        let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
         assert_eq!(provider, "auto");
     }
 
@@ -179,7 +178,7 @@ mod tests {
         let json = serde_json::to_string(&request);
         assert!(json.is_ok(), "Request should be serializable");
 
-        let json_str = json.unwrap();
+        let json_str = json.expect("should succeed");
         let deserialized: Result<AIInferenceRequest, _> = serde_json::from_str(&json_str);
         assert!(deserialized.is_ok(), "Request should be deserializable");
     }
@@ -189,8 +188,8 @@ mod tests {
         let request = create_test_request("chat", Some("gpt-4".to_string()));
 
         // Should return consistent results
-        let provider1 = AIProviderSelection::select_provider(&request).unwrap();
-        let provider2 = AIProviderSelection::select_provider(&request).unwrap();
+        let provider1 = AIProviderSelection::select_provider(&request).expect("should succeed");
+        let provider2 = AIProviderSelection::select_provider(&request).expect("should succeed");
 
         assert_eq!(provider1, provider2);
     }
@@ -198,7 +197,7 @@ mod tests {
     #[test]
     fn test_provider_selection_empty_model_returns_auto() {
         let request = create_test_request("chat", Some(String::new()));
-        let provider = AIProviderSelection::select_provider(&request).unwrap();
+        let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
         assert_eq!(provider, "auto");
     }
 
@@ -216,7 +215,7 @@ mod tests {
     fn select_provider_local_task_reads_ai_default_provider_env() {
         temp_env::with_var("AI_DEFAULT_PROVIDER", Some("from-env"), || {
             let request = create_test_request("local", None);
-            let provider = AIProviderSelection::select_provider(&request).unwrap();
+            let provider = AIProviderSelection::select_provider(&request).expect("should succeed");
             assert_eq!(provider, "from-env");
         });
     }
@@ -260,7 +259,7 @@ mod tests {
         assert!(
             out.get("content")
                 .and_then(|x| x.as_str())
-                .unwrap()
+                .expect("should succeed")
                 .contains("No user message found")
         );
     }

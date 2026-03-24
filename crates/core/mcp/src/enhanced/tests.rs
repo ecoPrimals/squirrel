@@ -106,7 +106,7 @@ mod integration_tests {
             .with_test_models()
             .build();
             
-        let platform = EnhancedMCPPlatform::new(config).await.unwrap();
+        let platform = EnhancedMCPPlatform::new(config).await.expect("should succeed");
         
         // Create AI request
         let request = UniversalAIRequest {
@@ -146,7 +146,7 @@ mod integration_tests {
         ).await;
         
         assert!(result.is_ok(), "Request should complete within timeout");
-        let response = result.unwrap();
+        let response = result.expect("should succeed");
         assert!(response.is_ok(), "AI request should succeed with mock provider");
     }
     
@@ -156,7 +156,7 @@ mod integration_tests {
             .with_mock_providers()
             .build();
             
-        let platform = EnhancedMCPPlatform::new(config).await.unwrap();
+        let platform = EnhancedMCPPlatform::new(config).await.expect("should succeed");
         
         // Subscribe to AI events
         let mut ai_event_receiver = platform.subscribe_to_events("AIRequestStarted").await
@@ -183,7 +183,7 @@ mod integration_tests {
         // Check that event was received
         let received_event = timeout(Duration::from_secs(1), ai_event_receiver.recv()).await;
         assert!(received_event.is_ok(), "AI event should be received");
-        assert!(received_event.unwrap().is_ok(), "Event should be valid");
+        assert!(received_event.expect("should succeed").is_ok(), "Event should be valid");
     }
     
     #[tokio::test]
@@ -345,7 +345,7 @@ mod integration_tests {
         let result = success_provider.process_request(request).await;
         assert!(result.is_ok(), "Provider should succeed");
         
-        let response = result.unwrap();
+        let response = result.expect("should succeed");
         assert_eq!(response.provider, "openai");
         assert_eq!(response.model, "gpt-4");
     }
@@ -357,7 +357,7 @@ mod integration_tests {
             .with_fast_timeouts()
             .build();
             
-        let platform = EnhancedMCPPlatform::new(config).await.unwrap();
+        let platform = EnhancedMCPPlatform::new(config).await.expect("should succeed");
         
         // Test tool execution
         let result = platform.execute_tool(
@@ -376,7 +376,7 @@ mod integration_tests {
             .with_mock_providers()
             .build();
             
-        let platform = EnhancedMCPPlatform::new(config).await.unwrap();
+        let platform = EnhancedMCPPlatform::new(config).await.expect("should succeed");
         
         // Create AI session
         let preferences = coordinator::UserPreferences {
@@ -402,7 +402,7 @@ mod integration_tests {
             .with_test_models()
             .build();
             
-        let platform = EnhancedMCPPlatform::new(config).await.unwrap();
+        let platform = EnhancedMCPPlatform::new(config).await.expect("should succeed");
         
         // List available models
         let models = platform.list_all_ai_models().await
@@ -418,7 +418,7 @@ mod integration_tests {
             .with_mock_providers()
             .build();
             
-        let platform = EnhancedMCPPlatform::new(config).await.unwrap();
+        let platform = EnhancedMCPPlatform::new(config).await.expect("should succeed");
         
         // Create a test stream
         let stream_handle = MockStreamHandle::new();
@@ -483,7 +483,7 @@ mod integration_tests {
             .with_fast_timeouts()
             .build();
             
-        let platform = Arc::new(EnhancedMCPPlatform::new(config).await.unwrap());
+        let platform = Arc::new(EnhancedMCPPlatform::new(config).await.expect("should succeed"));
         
         // Create multiple concurrent requests
         let mut handles = Vec::new();

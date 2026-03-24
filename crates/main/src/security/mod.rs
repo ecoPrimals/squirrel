@@ -209,7 +209,9 @@ mod security_mod_tests {
     #[tokio::test]
     async fn test_production_security_system_orchestrator() {
         let config = SecurityOrchestrationConfig::default();
-        let system = ProductionSecuritySystem::new(config).await.unwrap();
+        let system = ProductionSecuritySystem::new(config)
+            .await
+            .expect("should succeed");
         let orchestrator = system.orchestrator();
         // Just verify we get an Arc back
         assert!(Arc::strong_count(&orchestrator) >= 1);
@@ -218,7 +220,9 @@ mod security_mod_tests {
     #[tokio::test]
     async fn test_production_security_system_no_beardog() {
         let config = SecurityOrchestrationConfig::default();
-        let system = ProductionSecuritySystem::new(config).await.unwrap();
+        let system = ProductionSecuritySystem::new(config)
+            .await
+            .expect("should succeed");
         assert!(system.beardog_coordinator().is_none());
     }
 }

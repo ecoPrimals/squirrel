@@ -282,7 +282,7 @@ async fn chaos_12_long_running_under_load() -> ChaosResult<()> {
             short_success += 1;
         }
     }
-    let long_result = long_handle.await.unwrap();
+    let long_result = long_handle.await.expect("should succeed");
     assert!(long_result.is_ok(), "Long operation should complete");
     assert!(short_success >= 90, "Most short operations should complete");
     println!("✅ Phase 2: Concurrent operations completed");

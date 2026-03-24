@@ -70,7 +70,7 @@ mod tests {
         let mut msg = ZeroCopyMessage::new(Arc::from("test"), Arc::from("hello"));
         msg.add_metadata(Arc::from("author"), Arc::from("system"));
 
-        let json = msg.to_json().unwrap();
+        let json = msg.to_json().expect("should succeed");
 
         assert!(json.contains("\"message_type\":\"test\""));
         assert!(json.contains("\"content\":\"hello\""));
@@ -81,7 +81,7 @@ mod tests {
     fn test_zero_copy_message_to_json_empty_metadata() {
         let msg = ZeroCopyMessage::new(Arc::from("simple"), Arc::from("message"));
 
-        let json = msg.to_json().unwrap();
+        let json = msg.to_json().expect("should succeed");
 
         assert!(json.contains("\"message_type\":\"simple\""));
         assert!(json.contains("\"content\":\"message\""));
@@ -135,7 +135,7 @@ mod tests {
         assert_eq!(msg.get_content(), "你好世界");
         assert_eq!(msg.get_metadata("言語"), Some("中文"));
 
-        let json = msg.to_json().unwrap();
+        let json = msg.to_json().expect("should succeed");
         assert!(json.contains("你好世界"));
     }
 
@@ -155,7 +155,7 @@ mod tests {
         );
         msg.add_metadata(Arc::from("special"), Arc::from(r#"value with "quotes""#));
 
-        let json = msg.to_json().unwrap();
+        let json = msg.to_json().expect("should succeed");
 
         // Should be valid JSON
         assert!(serde_json::from_str::<serde_json::Value>(&json).is_ok());

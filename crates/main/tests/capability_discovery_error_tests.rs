@@ -75,7 +75,7 @@ mod capability_discovery_error_tests {
                     "Error should mention no service found"
                 );
             }
-            _ => panic!("Expected ServiceDiscoveryFailed error"),
+            _ => unreachable!("Expected ServiceDiscoveryFailed error"),
         }
     }
 
@@ -98,7 +98,7 @@ mod capability_discovery_error_tests {
                 "SERVICE_DISCOVERY_DOMAIN",
             ],
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
                     let discovery = EcosystemServiceDiscovery::new();
 
@@ -109,7 +109,7 @@ mod capability_discovery_error_tests {
                     if result.is_err() {
                         match result {
                             Err(PrimalError::ServiceDiscoveryFailed(_)) => {}
-                            Err(e) => panic!("Unexpected error type: {e:?}"),
+                            Err(e) => unreachable!("Unexpected error type: {e:?}"),
                             _ => {}
                         }
                     }
@@ -143,7 +143,7 @@ mod capability_discovery_error_tests {
                     "Error should mention service not found"
                 );
             }
-            _ => panic!("Expected ServiceDiscoveryFailed error"),
+            _ => unreachable!("Expected ServiceDiscoveryFailed error"),
         }
     }
 
@@ -192,7 +192,7 @@ mod capability_discovery_error_tests {
             "SERVICE_DISCOVERY_DOMAIN",
             Some("invalid..domain..test"),
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
                     let discovery = EcosystemServiceDiscovery::new();
                     let result = discovery
@@ -202,7 +202,7 @@ mod capability_discovery_error_tests {
                     if result.is_err() {
                         match result {
                             Err(PrimalError::ServiceDiscoveryFailed(_)) => {}
-                            Err(e) => panic!("Unexpected error type: {e:?}"),
+                            Err(e) => unreachable!("Unexpected error type: {e:?}"),
                             _ => {}
                         }
                     }

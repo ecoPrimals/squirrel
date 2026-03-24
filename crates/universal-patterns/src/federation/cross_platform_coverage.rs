@@ -34,7 +34,7 @@ mod cross_platform_tests {
             }
             _ => {
                 // Should not reach here with current implementation
-                panic!("Unexpected platform detected");
+                unreachable!("Unexpected platform detected");
             }
         }
     }

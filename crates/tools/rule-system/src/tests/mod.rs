@@ -53,7 +53,7 @@ mod models_tests {
             assert_eq!(path, "data.value");
             assert_eq!(value, json!(42));
         } else {
-            panic!("Unexpected condition type");
+            unreachable!("Unexpected condition type");
         }
 
         let nested_condition = RuleCondition::All {
@@ -70,7 +70,7 @@ mod models_tests {
         if let RuleCondition::All { conditions } = nested_condition {
             assert_eq!(conditions.len(), 2);
         } else {
-            panic!("Unexpected condition type");
+            unreachable!("Unexpected condition type");
         }
     }
 
@@ -85,7 +85,7 @@ mod models_tests {
             assert_eq!(path, "data.value");
             assert_eq!(value, json!(42));
         } else {
-            panic!("Unexpected action type");
+            unreachable!("Unexpected action type");
         }
 
         let recovery_action = RuleAction::CreateRecoveryPoint {
@@ -95,7 +95,7 @@ mod models_tests {
         if let RuleAction::CreateRecoveryPoint { description } = recovery_action {
             assert_eq!(description, "Before update");
         } else {
-            panic!("Unexpected action type");
+            unreachable!("Unexpected action type");
         }
     }
 }
@@ -131,7 +131,7 @@ dependencies: []
     value: true
 "#;
 
-        let rule = parse_rule_content(content).unwrap();
+        let rule = parse_rule_content(content).expect("should succeed");
 
         assert_eq!(rule.id, "test-rule");
         assert_eq!(rule.name, "Test Rule");
@@ -173,11 +173,14 @@ This is a test rule.
 "#;
 
         let parser = RuleParser::default();
-        let rule = parser.parse_rule(content).unwrap();
+        let rule = parser.parse_rule(content).expect("should succeed");
 
         assert!(rule.metadata.contains_key("Notes"));
         assert_eq!(
-            rule.metadata["Notes"].as_str().unwrap().trim(),
+            rule.metadata["Notes"]
+                .as_str()
+                .expect("should succeed")
+                .trim(),
             "This is a test rule."
         );
     }
@@ -215,11 +218,12 @@ mod utils_tests {
         });
 
         // Simple path
-        let name = utils::extract_value_by_path(&data, "user.name").unwrap();
+        let name = utils::extract_value_by_path(&data, "user.name").expect("should succeed");
         assert_eq!(name, json!("John"));
 
         // Array indexing
-        let city = utils::extract_value_by_path(&data, "user.addresses[0].city").unwrap();
+        let city =
+            utils::extract_value_by_path(&data, "user.addresses[0].city").expect("should succeed");
         assert_eq!(city, json!("New York"));
 
         // Non-existent path
@@ -269,7 +273,7 @@ mod utils_tests {
 #[tokio::test]
 async fn test_rule_directory_manager() {
     // Create a temporary directory for testing
-    let base_dir = tempdir().unwrap();
+    let base_dir = tempdir().expect("should succeed");
 
     // Create a rule directory manager with config
     let config = RuleDirectoryConfig {
@@ -284,20 +288,20 @@ async fn test_rule_directory_manager() {
     let manager = RuleDirectoryManager::new(config);
 
     // Initialize the manager
-    manager.initialize().await.unwrap();
+    manager.initialize().await.expect("should succeed");
 
     // Create a rule file
     let rule_content = utils::create_rule_template("test-rule", "Test Rule", "test");
     let file_path = manager
         .create_rule_file("test-rule", None::<String>, &rule_content)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Check if the file exists
     assert!(file_path.exists());
 
     // Check if we can get all rule files
-    let rule_files = manager.get_all_rule_files().await.unwrap();
+    let rule_files = manager.get_all_rule_files().await.expect("should succeed");
     assert_eq!(rule_files.len(), 1);
 
     // Create a category
@@ -310,13 +314,13 @@ async fn test_rule_directory_manager() {
             &category_rule_content,
         )
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Check if the category file exists
     assert!(category_file_path.exists());
 
     // Get categories
-    let categories = manager.get_categories().await.unwrap();
+    let categories = manager.get_categories().await.expect("should succeed");
     assert_eq!(categories.len(), 1);
     assert_eq!(categories[0], "test-category");
 
@@ -324,7 +328,7 @@ async fn test_rule_directory_manager() {
     manager
         .delete_rule_file("test-rule", None::<String>)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Check if the file was deleted
     assert!(!PathBuf::from(&file_path).exists());

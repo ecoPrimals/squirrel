@@ -438,16 +438,16 @@ mod tests {
     fn test_config_utils_format_conversion() {
         let config = ConfigFactory::development("test");
 
-        let json = ConfigUtils::to_json(&config).unwrap();
+        let json = ConfigUtils::to_json(&config).expect("should succeed");
         assert!(json.contains("test"));
 
-        let yaml = ConfigUtils::to_yaml(&config).unwrap();
+        let yaml = ConfigUtils::to_yaml(&config).expect("should succeed");
         assert!(yaml.contains("test"));
 
-        let parsed_json = ConfigUtils::from_json(&json).unwrap();
+        let parsed_json = ConfigUtils::from_json(&json).expect("should succeed");
         assert_eq!(parsed_json.info.name, "test");
 
-        let parsed_yaml = ConfigUtils::from_yaml(&yaml).unwrap();
+        let parsed_yaml = ConfigUtils::from_yaml(&yaml).expect("should succeed");
         assert_eq!(parsed_yaml.info.name, "test");
     }
 
@@ -458,12 +458,16 @@ mod tests {
 
         let mut config2 = ConfigFactory::development("test2");
         config2.network.port = 9090;
-        config2.set_custom("custom_key", "custom_value").unwrap();
+        config2
+            .set_custom("custom_key", "custom_value")
+            .expect("should succeed");
 
-        let merged = ConfigUtils::merge_configs(vec![config1, config2]).unwrap();
+        let merged = ConfigUtils::merge_configs(vec![config1, config2]).expect("should succeed");
         assert_eq!(merged.network.port, 9090); // Second config takes precedence
         assert_eq!(
-            merged.get_custom::<String>("custom_key").unwrap(),
+            merged
+                .get_custom::<String>("custom_key")
+                .expect("should succeed"),
             Some("custom_value".to_string())
         );
     }
@@ -532,8 +536,8 @@ mod proptest_tests {
         #[test]
         fn primal_config_round_trip_serde(name in "[a-zA-Z0-9_-]{1,80}") {
             let original = ConfigFactory::development(&name);
-            let json = ConfigUtils::to_json(&original).unwrap();
-            let deserialized: PrimalConfig = ConfigUtils::from_json(&json).unwrap();
+            let json = ConfigUtils::to_json(&original).expect("should succeed");
+            let deserialized: PrimalConfig = ConfigUtils::from_json(&json).expect("should succeed");
             prop_assert_eq!(original.info.name, deserialized.info.name);
             prop_assert_eq!(original.info.version, deserialized.info.version);
             prop_assert_eq!(original.network.port, deserialized.network.port);
@@ -542,8 +546,8 @@ mod proptest_tests {
         #[test]
         fn primal_config_yaml_round_trip(name in "[a-zA-Z0-9_-]{1,80}") {
             let original = ConfigFactory::development(&name);
-            let yaml = ConfigUtils::to_yaml(&original).unwrap();
-            let deserialized: PrimalConfig = ConfigUtils::from_yaml(&yaml).unwrap();
+            let yaml = ConfigUtils::to_yaml(&original).expect("should succeed");
+            let deserialized: PrimalConfig = ConfigUtils::from_yaml(&yaml).expect("should succeed");
             prop_assert_eq!(original.info.name, deserialized.info.name);
             prop_assert_eq!(original.network.port, deserialized.network.port);
         }

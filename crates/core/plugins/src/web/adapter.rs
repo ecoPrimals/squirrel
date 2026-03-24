@@ -536,8 +536,8 @@ mod tests {
             component_type: "widget".into(),
             properties: json!({}),
         };
-        let json = serde_json::to_string(&c).unwrap();
-        let back: LegacyWebComponent = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&c).expect("should succeed");
+        let back: LegacyWebComponent = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.id, c.id);
         let _ = format!("{c:?}");
         assert_eq!(c.clone().name, c.name);
@@ -592,7 +592,9 @@ mod tests {
             permissions: vec![],
             route_params: HashMap::new(),
         };
-        let res = WebPlugin::handle_request(&adapter, req).await.unwrap();
+        let res = WebPlugin::handle_request(&adapter, req)
+            .await
+            .expect("should succeed");
         assert_eq!(res.status, HttpStatus::Created);
 
         let fail = LegacyWebPluginAdapter::new(Arc::new(FailingLegacy {
@@ -608,7 +610,9 @@ mod tests {
             permissions: vec![],
             route_params: HashMap::new(),
         };
-        let fail_res = WebPlugin::handle_request(&fail, error_req).await.unwrap();
+        let fail_res = WebPlugin::handle_request(&fail, error_req)
+            .await
+            .expect("should succeed");
         assert_eq!(fail_res.status, HttpStatus::InternalServerError);
 
         let eps = WebPlugin::get_endpoints(&adapter);
@@ -617,7 +621,7 @@ mod tests {
         assert!(!comps.is_empty());
         let markup = WebPlugin::get_component_markup(&adapter, Uuid::new_v4(), json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(markup.contains("div"));
     }
 
@@ -657,11 +661,13 @@ mod tests {
             permissions: vec![],
             route_params: HashMap::new(),
         };
-        let res = WebPlugin::handle_request(&adapter, req).await.unwrap();
+        let res = WebPlugin::handle_request(&adapter, req)
+            .await
+            .expect("should succeed");
         assert_eq!(res.status, HttpStatus::Created);
         let markup = WebPlugin::get_component_markup(&adapter, Uuid::new_v4(), json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(markup.contains("New Component"));
     }
 
@@ -679,7 +685,9 @@ mod tests {
             permissions: vec![],
             route_params: HashMap::new(),
         };
-        let res = WebPlugin::handle_request(&adapter, req).await.unwrap();
+        let res = WebPlugin::handle_request(&adapter, req)
+            .await
+            .expect("should succeed");
         assert_eq!(res.status, HttpStatus::Ok);
     }
 }

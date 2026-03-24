@@ -118,7 +118,7 @@ fn test_agent_status_failed_with_message() {
     if let AgentStatus::Failed(msg) = status {
         assert_eq!(msg, error_msg);
     } else {
-        panic!("Status should be Failed");
+        unreachable!("Status should be Failed");
     }
 }
 

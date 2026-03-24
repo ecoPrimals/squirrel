@@ -143,7 +143,11 @@ mod tests {
         let sc: &dyn SimpleCommand = &cmd;
         assert_eq!(sc.name(), "alpha");
         assert_eq!(sc.description(), "beta");
-        assert!(sc.execute(&[String::from("z")]).unwrap().contains("alpha"));
+        assert!(
+            sc.execute(&[String::from("z")])
+                .expect("should succeed")
+                .contains("alpha")
+        );
         assert_eq!(sc.parser().get_name(), "mock_command");
         assert!(sc.help().contains("alpha"));
         let boxed = sc.clone_box();
@@ -156,20 +160,24 @@ mod tests {
         let dbg = format!("{c:?}");
         assert!(dbg.contains("MockCommand"));
         let b = MockCommand::clone_box(&c);
-        assert_eq!(b.execute(&[]).unwrap(), c.execute(&[]).unwrap());
+        assert_eq!(
+            b.execute(&[]).expect("should succeed"),
+            c.execute(&[]).expect("should succeed")
+        );
     }
 
     #[test]
     fn mock_command_registry_register_list_get_help_and_errors() {
         let mut reg = MockCommandRegistry::new();
-        reg.register(MockCommand::new("one", "first")).unwrap();
+        reg.register(MockCommand::new("one", "first"))
+            .expect("should succeed");
         let names = reg.command_names();
         assert!(names.contains(&"one".to_string()));
         let listed = reg.list_commands();
         assert!(listed.iter().any(|(n, _)| n == "one"));
-        assert_eq!(reg.get("one").unwrap().name(), "one");
+        assert_eq!(reg.get("one").expect("should succeed").name(), "one");
         assert_eq!(
-            reg.get_help("one").unwrap(),
+            reg.get_help("one").expect("should succeed"),
             MockCommand::new("one", "first").help()
         );
         assert!(reg.get_help("nope").is_err());

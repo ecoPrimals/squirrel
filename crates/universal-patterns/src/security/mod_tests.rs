@@ -70,7 +70,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_beardog_client() {
-        let endpoint = url::Url::parse("http://localhost:8080").unwrap();
+        let endpoint = url::Url::parse("http://localhost:8080").expect("should succeed");
         let service_id = "test-service".to_string();
 
         // Try with fallback enabled

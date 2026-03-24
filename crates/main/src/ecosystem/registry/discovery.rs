@@ -470,7 +470,7 @@ mod tests {
         let registry = create_test_registry();
         let result = DiscoveryOps::discover_services(&registry, vec![]).await;
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.expect("should succeed").is_empty());
     }
 
     #[tokio::test]
@@ -540,7 +540,7 @@ mod tests {
         // Discover services (won't find new ones, but should return existing)
         let result = DiscoveryOps::discover_services(&registry, vec![]).await;
         assert!(result.is_ok());
-        let services = result.unwrap();
+        let services = result.expect("should succeed");
         assert_eq!(services.len(), 1);
     }
 

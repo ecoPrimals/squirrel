@@ -68,7 +68,7 @@ async fn test_mcp_adapter_authentication() -> CommandResult<()> {
     assert!(result.is_err());
     match result {
         Err(CommandError::AuthorizationFailed(_)) => (),
-        _ => panic!("Expected authorization failure"),
+        _ => unreachable!("Expected authorization failure"),
     }
 
     let invalid_auth = Auth::User("admin".to_string(), "wrong_password".to_string());
@@ -78,7 +78,7 @@ async fn test_mcp_adapter_authentication() -> CommandResult<()> {
     assert!(result.is_err());
     match result {
         Err(CommandError::AuthenticationFailed(_)) => (),
-        _ => panic!("Expected authentication failure"),
+        _ => unreachable!("Expected authentication failure"),
     }
 
     Ok(())

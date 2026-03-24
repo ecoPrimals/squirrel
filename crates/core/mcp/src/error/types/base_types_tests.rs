@@ -35,10 +35,10 @@ fn test_security_level_clone() {
 #[test]
 fn test_security_level_serialization() {
     let level = SecurityLevel::High;
-    let json = serde_json::to_string(&level).unwrap();
+    let json = serde_json::to_string(&level).expect("should succeed");
     assert!(json.contains("High"));
 
-    let deserialized: SecurityLevel = serde_json::from_str(&json).unwrap();
+    let deserialized: SecurityLevel = serde_json::from_str(&json).expect("should succeed");
     assert!(matches!(deserialized, SecurityLevel::High));
 }
 
@@ -74,10 +74,10 @@ fn test_wire_format_error_serialization() {
     let error = WireFormatError {
         message: "serialization test".to_string(),
     };
-    let json = serde_json::to_string(&error).unwrap();
+    let json = serde_json::to_string(&error).expect("should succeed");
     assert!(json.contains("serialization test"));
 
-    let deserialized: WireFormatError = serde_json::from_str(&json).unwrap();
+    let deserialized: WireFormatError = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(deserialized.message, "serialization test");
 }
 

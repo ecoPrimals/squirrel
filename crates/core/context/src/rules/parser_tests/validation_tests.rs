@@ -55,7 +55,7 @@ description: This rule has no patterns
                 "Error should mention pattern requirement"
             );
         }
-        _ => panic!("Expected ParseError"),
+        _ => unreachable!("Expected ParseError"),
     }
 }
 
@@ -93,7 +93,7 @@ patterns:
                 "Error should mention condition requirement"
             );
         }
-        _ => panic!("Expected ValidationError"),
+        _ => unreachable!("Expected ValidationError"),
     }
 }
 
@@ -131,7 +131,7 @@ patterns:
                 "Error should mention action requirement"
             );
         }
-        _ => panic!("Expected ValidationError"),
+        _ => unreachable!("Expected ValidationError"),
     }
 }
 
@@ -260,7 +260,7 @@ patterns:
         RuleError::ValidationError(msg) => {
             assert!(msg.contains("priority"), "Error should mention priority");
         }
-        _ => panic!("Expected ValidationError"),
+        _ => unreachable!("Expected ValidationError"),
     }
 }
 
@@ -351,7 +351,7 @@ patterns:
                 "Error should mention minimum length"
             );
         }
-        _ => panic!("Expected ValidationError"),
+        _ => unreachable!("Expected ValidationError"),
     }
 }
 
@@ -401,7 +401,7 @@ patterns:
                 "Error should mention alphanumeric requirement"
             );
         }
-        _ => panic!("Expected ValidationError"),
+        _ => unreachable!("Expected ValidationError"),
     }
 }
 
@@ -454,7 +454,7 @@ patterns:
                 "Error should mention length limit"
             );
         }
-        _ => panic!("Expected ValidationError"),
+        _ => unreachable!("Expected ValidationError"),
     }
 }
 

@@ -77,7 +77,7 @@ mod error_path_tests {
         assert!(result.is_err());
         match result {
             Err(PrimalError::Network(msg)) => assert_eq!(msg, "Failed"),
-            _ => panic!("Wrong error type"),
+            _ => unreachable!("Wrong error type"),
         }
     }
 
@@ -105,7 +105,7 @@ mod error_path_tests {
 
         match primal_error {
             PrimalError::Io(_) => (),
-            _ => panic!("Wrong error conversion"),
+            _ => unreachable!("Wrong error conversion"),
         }
     }
 
@@ -118,7 +118,7 @@ mod error_path_tests {
             let primal_error: PrimalError = e.into();
             match primal_error {
                 PrimalError::Serialization(_) => (),
-                _ => panic!("Wrong error conversion"),
+                _ => unreachable!("Wrong error conversion"),
             }
         }
     }
@@ -162,7 +162,7 @@ mod error_path_tests {
             PrimalError::OperationNotSupported(msg) => {
                 assert_eq!(msg, "Feature Y");
             }
-            _ => panic!("Pattern match failed"),
+            _ => unreachable!("Pattern match failed"),
         }
     }
 

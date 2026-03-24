@@ -271,9 +271,9 @@ mod tests {
         let h3 = tokio::spawn(async move { b3.wait().await });
 
         // All should complete without timeout
-        assert!(h1.await.unwrap().is_ok());
-        assert!(h2.await.unwrap().is_ok());
-        assert!(h3.await.unwrap().is_ok());
+        assert!(h1.await.expect("should succeed").is_ok());
+        assert!(h2.await.expect("should succeed").is_ok());
+        assert!(h3.await.expect("should succeed").is_ok());
     }
 
     #[tokio::test]
@@ -289,7 +289,7 @@ mod tests {
         s2.fire();
 
         // Should complete successfully
-        assert!(h1.await.unwrap().is_ok());
+        assert!(h1.await.expect("should succeed").is_ok());
         assert!(signal.is_fired());
     }
 
@@ -306,7 +306,7 @@ mod tests {
         c2.set(42).await;
 
         // Should receive the value
-        let result = h1.await.unwrap();
-        assert_eq!(result.unwrap(), 42);
+        let result = h1.await.expect("should succeed");
+        assert_eq!(result.expect("should succeed"), 42);
     }
 }

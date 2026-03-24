@@ -20,7 +20,7 @@ homepage = "https://example.com"
 "#;
     let result = parse_plugin_metadata(content, Path::new("/tmp/plugins/test"));
     assert!(result.is_ok());
-    let metadata = result.unwrap();
+    let metadata = result.expect("should succeed");
     assert_eq!(metadata.name, "test-plugin");
     assert_eq!(metadata.version, "1.0.0");
     assert_eq!(metadata.description, Some("A test plugin".to_string()));
@@ -36,7 +36,7 @@ version = "0.1.0"
 "#;
     let result = parse_plugin_metadata(content, Path::new("/tmp/plugins/min"));
     assert!(result.is_ok());
-    let metadata = result.unwrap();
+    let metadata = result.expect("should succeed");
     assert_eq!(metadata.name, "minimal");
     assert_eq!(metadata.version, "0.1.0");
     assert!(metadata.description.is_none());
@@ -83,7 +83,7 @@ version = "2.0.0"
 "#;
     let result = parse_plugin_metadata(content, Path::new("/tmp/plugins/commented"));
     assert!(result.is_ok());
-    let metadata = result.unwrap();
+    let metadata = result.expect("should succeed");
     assert_eq!(metadata.name, "commented-plugin");
     assert_eq!(metadata.version, "2.0.0");
 }
@@ -98,7 +98,7 @@ unknown_key = "ignored"
 "#;
     let result = parse_plugin_metadata(content, Path::new("/tmp/plugins/ext"));
     assert!(result.is_ok());
-    let metadata = result.unwrap();
+    let metadata = result.expect("should succeed");
     assert_eq!(metadata.name, "ext-plugin");
 }
 

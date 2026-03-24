@@ -162,8 +162,8 @@ mod tests {
     #[test]
     fn test_context_data_serde() {
         let data = ContextData::new();
-        let json = serde_json::to_string(&data).unwrap();
-        let deserialized: ContextData = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&data).expect("should succeed");
+        let deserialized: ContextData = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.version, data.version);
         assert!(deserialized.is_empty());
     }
@@ -180,15 +180,16 @@ mod tests {
     #[test]
     fn test_plugin_context_set_and_get() {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
-        ctx.set("name", "test_value".to_string()).unwrap();
-        let result: Option<String> = ctx.get("name").unwrap();
+        ctx.set("name", "test_value".to_string())
+            .expect("should succeed");
+        let result: Option<String> = ctx.get("name").expect("should succeed");
         assert_eq!(result, Some("test_value".to_string()));
     }
 
     #[test]
     fn test_plugin_context_get_missing_key() {
         let ctx = PluginContext::new("p".to_string(), "s".to_string());
-        let result: Option<String> = ctx.get("missing").unwrap();
+        let result: Option<String> = ctx.get("missing").expect("should succeed");
         assert_eq!(result, None);
     }
 
@@ -196,7 +197,7 @@ mod tests {
     fn test_plugin_context_set_increments_version() {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
         let initial_version = ctx.data.version;
-        ctx.set("key", 42).unwrap();
+        ctx.set("key", 42).expect("should succeed");
         assert_eq!(ctx.data.version, initial_version + 1);
     }
 
@@ -206,18 +207,18 @@ mod tests {
         let initial_ts = ctx.data.updated_at;
         // Small sleep to ensure timestamp changes (ms resolution)
         std::thread::sleep(std::time::Duration::from_millis(10));
-        ctx.set("key", "value").unwrap();
+        ctx.set("key", "value").expect("should succeed");
         assert!(ctx.data.updated_at >= initial_ts);
     }
 
     #[test]
     fn test_plugin_context_remove() {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
-        ctx.set("key", "value").unwrap();
+        ctx.set("key", "value").expect("should succeed");
         let removed = ctx.remove("key");
         assert!(removed.is_some());
-        assert_eq!(removed.unwrap(), serde_json::json!("value"));
-        let result: Option<String> = ctx.get("key").unwrap();
+        assert_eq!(removed.expect("should succeed"), serde_json::json!("value"));
+        let result: Option<String> = ctx.get("key").expect("should succeed");
         assert_eq!(result, None);
     }
 
@@ -231,7 +232,7 @@ mod tests {
     #[test]
     fn test_plugin_context_remove_increments_version() {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
-        ctx.set("key", "value").unwrap();
+        ctx.set("key", "value").expect("should succeed");
         let version_after_set = ctx.data.version;
         ctx.remove("key");
         assert_eq!(ctx.data.version, version_after_set + 1);
@@ -240,8 +241,8 @@ mod tests {
     #[test]
     fn test_plugin_context_clear() {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
-        ctx.set("key1", "value1").unwrap();
-        ctx.set("key2", "value2").unwrap();
+        ctx.set("key1", "value1").expect("should succeed");
+        ctx.set("key2", "value2").expect("should succeed");
         assert_eq!(ctx.data.len(), 2);
         ctx.clear();
         assert!(ctx.data.is_empty());
@@ -251,7 +252,7 @@ mod tests {
     #[test]
     fn test_plugin_context_clear_increments_version() {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
-        ctx.set("key", "value").unwrap();
+        ctx.set("key", "value").expect("should succeed");
         let version_after_set = ctx.data.version;
         ctx.clear();
         assert_eq!(ctx.data.version, version_after_set + 1);
@@ -260,34 +261,34 @@ mod tests {
     #[test]
     fn test_plugin_context_set_various_types() {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
-        ctx.set("string", "hello").unwrap();
-        ctx.set("number", 42).unwrap();
-        ctx.set("float", 2.5).unwrap();
-        ctx.set("bool", true).unwrap();
-        ctx.set("vec", vec![1, 2, 3]).unwrap();
+        ctx.set("string", "hello").expect("should succeed");
+        ctx.set("number", 42).expect("should succeed");
+        ctx.set("float", 2.5).expect("should succeed");
+        ctx.set("bool", true).expect("should succeed");
+        ctx.set("vec", vec![1, 2, 3]).expect("should succeed");
 
-        let string_val: Option<String> = ctx.get("string").unwrap();
+        let string_val: Option<String> = ctx.get("string").expect("should succeed");
         assert_eq!(string_val, Some("hello".to_string()));
 
-        let number_val: Option<i32> = ctx.get("number").unwrap();
+        let number_val: Option<i32> = ctx.get("number").expect("should succeed");
         assert_eq!(number_val, Some(42));
 
-        let float_val: Option<f64> = ctx.get("float").unwrap();
-        assert!((float_val.unwrap() - 2.5).abs() < f64::EPSILON);
+        let float_val: Option<f64> = ctx.get("float").expect("should succeed");
+        assert!((float_val.expect("should succeed") - 2.5).abs() < f64::EPSILON);
 
-        let bool_val: Option<bool> = ctx.get("bool").unwrap();
+        let bool_val: Option<bool> = ctx.get("bool").expect("should succeed");
         assert_eq!(bool_val, Some(true));
 
-        let vec_val: Option<Vec<i32>> = ctx.get("vec").unwrap();
+        let vec_val: Option<Vec<i32>> = ctx.get("vec").expect("should succeed");
         assert_eq!(vec_val, Some(vec![1, 2, 3]));
     }
 
     #[test]
     fn test_plugin_context_serde() {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
-        ctx.set("key", "value").unwrap();
-        let json = serde_json::to_string(&ctx).unwrap();
-        let deserialized: PluginContext = serde_json::from_str(&json).unwrap();
+        ctx.set("key", "value").expect("should succeed");
+        let json = serde_json::to_string(&ctx).expect("should succeed");
+        let deserialized: PluginContext = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.plugin_id, "p");
         assert_eq!(deserialized.session_id, "s");
         assert_eq!(deserialized.data.len(), 1);
@@ -296,9 +297,9 @@ mod tests {
     #[test]
     fn test_plugin_context_overwrite_key() {
         let mut ctx = PluginContext::new("p".to_string(), "s".to_string());
-        ctx.set("key", "first").unwrap();
-        ctx.set("key", "second").unwrap();
-        let result: Option<String> = ctx.get("key").unwrap();
+        ctx.set("key", "first").expect("should succeed");
+        ctx.set("key", "second").expect("should succeed");
+        let result: Option<String> = ctx.get("key").expect("should succeed");
         assert_eq!(result, Some("second".to_string()));
         assert_eq!(ctx.data.len(), 1);
     }

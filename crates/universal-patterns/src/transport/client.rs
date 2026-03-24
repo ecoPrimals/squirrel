@@ -805,7 +805,7 @@ mod tests {
                 .await;
 
         assert!(result.is_ok());
-        let transport = result.unwrap();
+        let transport = result.expect("should succeed");
         assert_eq!(transport.transport_type(), TransportType::InProcess);
     }
 
@@ -864,14 +864,14 @@ mod tests {
         use crate::transport::types::IpcEndpoint;
         let name = format!("ut-transport-{}", std::process::id());
         let path = std::path::PathBuf::from("/tmp").join(format!("{name}-ipc-port"));
-        std::fs::write(&path, "tcp:127.0.0.1:65533\n").unwrap();
+        std::fs::write(&path, "tcp:127.0.0.1:65533\n").expect("should succeed");
         let ep = discover_tcp_endpoint(&name).expect("tcp discovery");
         match ep {
             IpcEndpoint::TcpLocal(addr) => assert_eq!(addr.port(), 65533),
             #[cfg(unix)]
-            IpcEndpoint::UnixSocket(_) => panic!("expected tcp from file"),
+            IpcEndpoint::UnixSocket(_) => unreachable!("expected tcp from file"),
             #[cfg(windows)]
-            IpcEndpoint::NamedPipe(_) => panic!("expected tcp from file"),
+            IpcEndpoint::NamedPipe(_) => unreachable!("expected tcp from file"),
         }
         let _ = std::fs::remove_file(&path);
     }

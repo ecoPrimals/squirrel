@@ -259,13 +259,13 @@ mod tests {
     fn primal_and_ecosystem_message_serde() {
         let ctx = create_default_context("u", "d");
         let pr = PrimalRequest::new("s", "c", "o", Value::Null, ctx);
-        let pj = serde_json::to_string(&pr).unwrap();
-        let _: PrimalRequest = serde_json::from_str(&pj).unwrap();
+        let pj = serde_json::to_string(&pr).expect("should succeed");
+        let _: PrimalRequest = serde_json::from_str(&pj).expect("should succeed");
 
         let sec = create_default_security_context("u");
         let er = create_ecosystem_request("x", "y", "z", Value::Null, sec);
-        let ej = serde_json::to_string(&er).unwrap();
-        let _: EcosystemRequest = serde_json::from_str(&ej).unwrap();
+        let ej = serde_json::to_string(&er).expect("should succeed");
+        let _: EcosystemRequest = serde_json::from_str(&ej).expect("should succeed");
     }
 
     #[test]
@@ -276,8 +276,8 @@ mod tests {
             ResponseStatus::Timeout,
             ResponseStatus::NotFound,
         ] {
-            let v = serde_json::to_value(&status).unwrap();
-            let back: ResponseStatus = serde_json::from_value(v).unwrap();
+            let v = serde_json::to_value(&status).expect("should succeed");
+            let back: ResponseStatus = serde_json::from_value(v).expect("should succeed");
             assert_eq!(back, status);
         }
     }

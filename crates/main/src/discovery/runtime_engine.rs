@@ -170,10 +170,13 @@ mod tests {
     #[test]
     fn test_discover_from_env() {
         temp_env::with_var("COMPUTE_ENDPOINT", Some("http://localhost:8500"), || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let engine = RuntimeDiscoveryEngine::new();
-                let service = engine.discover_capability("compute").await.unwrap();
+                let service = engine
+                    .discover_capability("compute")
+                    .await
+                    .expect("should succeed");
 
                 assert_eq!(service.endpoint, "http://localhost:8500");
                 assert!(service.has_capability("compute"));
@@ -192,21 +195,30 @@ mod tests {
     #[test]
     fn test_cache() {
         temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://original:8080"), || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             let (engine, service1) = rt.block_on(async {
                 let engine = RuntimeDiscoveryEngine::new();
-                let service1 = engine.discover_capability("cache_test").await.unwrap();
+                let service1 = engine
+                    .discover_capability("cache_test")
+                    .await
+                    .expect("should succeed");
                 (engine, service1)
             });
 
             temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://changed:8080"), || {
                 rt.block_on(async {
-                    let service2 = engine.discover_capability("cache_test").await.unwrap();
+                    let service2 = engine
+                        .discover_capability("cache_test")
+                        .await
+                        .expect("should succeed");
                     assert_eq!(service1.endpoint, service2.endpoint);
 
                     engine.clear_cache().await;
 
-                    let service3 = engine.discover_capability("cache_test").await.unwrap();
+                    let service3 = engine
+                        .discover_capability("cache_test")
+                        .await
+                        .expect("should succeed");
                     assert_eq!(service3.endpoint, "http://changed:8080");
                 });
             });

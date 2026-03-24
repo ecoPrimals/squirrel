@@ -22,8 +22,8 @@ fn test_jsonrpc_request_serialization() {
         id: Some(json!(1)),
     };
 
-    let json = serde_json::to_string(&request).unwrap();
-    let deserialized: JsonRpcRequest = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&request).expect("should succeed");
+    let deserialized: JsonRpcRequest = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(request.method, deserialized.method);
     assert_eq!(request.jsonrpc, deserialized.jsonrpc);
@@ -38,8 +38,8 @@ fn test_jsonrpc_response_serialization() {
         id: json!(1),
     };
 
-    let json = serde_json::to_string(&response).unwrap();
-    let deserialized: JsonRpcResponse = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&response).expect("should succeed");
+    let deserialized: JsonRpcResponse = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(response.jsonrpc, deserialized.jsonrpc);
     assert!(deserialized.result.is_some());
@@ -59,13 +59,13 @@ fn test_jsonrpc_error_serialization() {
         id: json!(1),
     };
 
-    let json = serde_json::to_string(&response).unwrap();
-    let deserialized: JsonRpcResponse = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&response).expect("should succeed");
+    let deserialized: JsonRpcResponse = serde_json::from_str(&json).expect("should succeed");
 
     assert!(deserialized.result.is_none());
     assert!(deserialized.error.is_some());
     assert_eq!(
-        deserialized.error.unwrap().code,
+        deserialized.error.expect("should succeed").code,
         error_codes::METHOD_NOT_FOUND
     );
 }
@@ -94,21 +94,30 @@ async fn routing_covers_ai_query_complete_chat_list_providers() {
     for method in ["ai.query", "ai.complete", "ai.chat"] {
         let req =
             format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":{{"prompt":"hi"}},"id":1}}"#);
-        let raw = server.handle_request_or_batch(&req).await.unwrap();
-        let v: Value = serde_json::from_str(&raw).unwrap();
+        let raw = server
+            .handle_request_or_batch(&req)
+            .await
+            .expect("should succeed");
+        let v: Value = serde_json::from_str(&raw).expect("should succeed");
         assert!(
             v.get("error").is_some(),
             "{method} should error without AI router: {raw}"
         );
     }
     let req = r#"{"jsonrpc":"2.0","method":"ai.list_providers","id":2}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(v.pointer("/result/total").and_then(Value::as_u64), Some(0));
 
     let req = r#"{"jsonrpc":"2.0","method":"system.status","id":3}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/result/status").and_then(Value::as_str),
         Some("healthy")
@@ -120,8 +129,11 @@ async fn routing_health_liveness_and_readiness() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-health.sock".to_string());
     for (method, key) in [("health.liveness", "alive"), ("health.readiness", "ready")] {
         let req = format!(r#"{{"jsonrpc":"2.0","method":"{method}","id":1}}"#);
-        let raw = server.handle_request_or_batch(&req).await.unwrap();
-        let v: Value = serde_json::from_str(&raw).unwrap();
+        let raw = server
+            .handle_request_or_batch(&req)
+            .await
+            .expect("should succeed");
+        let v: Value = serde_json::from_str(&raw).expect("should succeed");
         assert!(
             v.pointer(&format!("/result/{key}")).is_some(),
             "{method}: {raw}"
@@ -134,8 +146,11 @@ async fn routing_capabilities_list_aliases() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-cap.sock".to_string());
     for method in ["capabilities.list", "capability.list"] {
         let req = format!(r#"{{"jsonrpc":"2.0","method":"{method}","id":1}}"#);
-        let raw = server.handle_request_or_batch(&req).await.unwrap();
-        let v: Value = serde_json::from_str(&raw).unwrap();
+        let raw = server
+            .handle_request_or_batch(&req)
+            .await
+            .expect("should succeed");
+        let v: Value = serde_json::from_str(&raw).expect("should succeed");
         assert!(
             v.pointer("/result/capabilities").is_some(),
             "{method}: {raw}"
@@ -147,13 +162,19 @@ async fn routing_capabilities_list_aliases() {
 async fn routing_capability_discover_and_announce() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-cap2.sock".to_string());
     let req = r#"{"jsonrpc":"2.0","method":"capability.discover","id":1}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert!(v.pointer("/result/capabilities").is_some());
 
     let req = r#"{"jsonrpc":"2.0","method":"capability.announce","params":{"capabilities":["x"]},"id":2}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/result/success").and_then(Value::as_bool),
         Some(true)
@@ -165,14 +186,20 @@ async fn routing_discovery_peers_lifecycle_graph() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-misc.sock".to_string());
 
     let req = r#"{"jsonrpc":"2.0","method":"discovery.peers","id":1}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert!(v.pointer("/result/peers").is_some());
 
     for method in ["lifecycle.register", "lifecycle.status"] {
         let req = format!(r#"{{"jsonrpc":"2.0","method":"{method}","id":2}}"#);
-        let raw = server.handle_request_or_batch(&req).await.unwrap();
-        let v: Value = serde_json::from_str(&raw).unwrap();
+        let raw = server
+            .handle_request_or_batch(&req)
+            .await
+            .expect("should succeed");
+        let v: Value = serde_json::from_str(&raw).expect("should succeed");
         assert!(v.get("result").is_some(), "{method}: {raw}");
     }
 
@@ -193,8 +220,11 @@ order = 1
         "id": 3
     })
     .to_string();
-    let raw = server.handle_request_or_batch(&parse_req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(&parse_req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert!(v.pointer("/result/graph").is_some(), "{raw}");
 
     let validate_req = json!({
@@ -205,8 +235,11 @@ order = 1
     })
     .to_string();
     let req = validate_req;
-    let raw = server.handle_request_or_batch(&req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(&req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert!(v.pointer("/result/valid").is_some(), "{raw}");
 }
 
@@ -215,8 +248,11 @@ async fn routing_graph_parse_invalid_returns_error_object() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-graph-bad.sock".to_string());
     let req =
         r#"{"jsonrpc":"2.0","method":"graph.parse","params":{"graph_toml":"not toml"},"id":1}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert!(v.get("error").is_some());
     assert_eq!(
         v.pointer("/error/code")
@@ -230,8 +266,11 @@ async fn routing_graph_parse_invalid_returns_error_object() {
 async fn single_request_parse_error_returns_invalid_json_shape() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-parse.sock".to_string());
     let req = r#"{"jsonrpc":"2.0","method":"system.ping","params":notjson,"id":1}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/error/code")
             .and_then(Value::as_i64)
@@ -248,9 +287,9 @@ async fn jsonrpc_request_round_trip_skips_none_id() {
         params: None,
         id: None,
     };
-    let s = serde_json::to_string(&r).unwrap();
+    let s = serde_json::to_string(&r).expect("should succeed");
     assert!(!s.contains("id"));
-    let back: JsonRpcRequest = serde_json::from_str(&s).unwrap();
+    let back: JsonRpcRequest = serde_json::from_str(&s).expect("should succeed");
     assert_eq!(back.method.as_ref(), "system.ping");
 }
 
@@ -265,8 +304,11 @@ async fn routing_context_tool_and_system_metrics() {
         "id": 1
     })
     .to_string();
-    let raw = server.handle_request_or_batch(&create).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(&create)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     let id = v
         .pointer("/result/id")
         .and_then(Value::as_str)
@@ -279,8 +321,11 @@ async fn routing_context_tool_and_system_metrics() {
         "id": 2
     })
     .to_string();
-    let raw = server.handle_request_or_batch(&update).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(&update)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert!(v.pointer("/result/version").is_some());
 
     let sum = json!({
@@ -290,13 +335,19 @@ async fn routing_context_tool_and_system_metrics() {
         "id": 3
     })
     .to_string();
-    let raw = server.handle_request_or_batch(&sum).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(&sum)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert!(v.pointer("/result/summary").is_some());
 
     let req = r#"{"jsonrpc":"2.0","method":"tool.list","id":4}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert!(v.pointer("/result/tools").is_some());
 
     let exec = json!({
@@ -306,16 +357,22 @@ async fn routing_context_tool_and_system_metrics() {
         "id": 5
     })
     .to_string();
-    let raw = server.handle_request_or_batch(&exec).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(&exec)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/result/success").and_then(Value::as_bool),
         Some(true)
     );
 
     let req = r#"{"jsonrpc":"2.0","method":"system.metrics","id":6}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert!(v.pointer("/result/requests_handled").is_some());
 }
 
@@ -342,8 +399,11 @@ async fn batch_request_mixed_methods_and_notifications() {
 #[tokio::test]
 async fn batch_empty_returns_invalid_request() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-batch-empty.sock".to_string());
-    let raw = server.handle_request_or_batch("[]").await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch("[]")
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/error/code")
             .and_then(Value::as_i64)
@@ -366,8 +426,11 @@ async fn notification_only_batch_returns_none() {
 #[tokio::test]
 async fn top_level_parse_error_in_batch_path() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-top-parse.sock".to_string());
-    let raw = server.handle_request_or_batch("not json").await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch("not json")
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/error/code")
             .and_then(Value::as_i64)
@@ -380,8 +443,11 @@ async fn top_level_parse_error_in_batch_path() {
 async fn invalid_jsonrpc_version_rejected() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-ver.sock".to_string());
     let req = r#"{"jsonrpc":"1.0","method":"system.ping","id":1}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/error/code")
             .and_then(Value::as_i64)
@@ -394,8 +460,11 @@ async fn invalid_jsonrpc_version_rejected() {
 async fn unknown_method_not_found() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-unknown.sock".to_string());
     let req = r#"{"jsonrpc":"2.0","method":"no.such.method","id":1}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/error/code")
             .and_then(Value::as_i64)
@@ -470,8 +539,11 @@ async fn ai_query_dispatches_to_router_and_returns_echo() {
     )]));
     let server = JsonRpcServer::with_ai_router("/tmp/jsonrpc-ai-ok.sock".to_string(), router);
     let req = r#"{"jsonrpc":"2.0","method":"ai.query","params":{"prompt":"ping"},"id":1}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/result/response").and_then(Value::as_str),
         Some("echo:ping")
@@ -486,8 +558,11 @@ async fn ai_query_dispatches_to_router_and_returns_echo() {
 async fn ai_query_without_router_returns_internal_error() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-ai-err.sock".to_string());
     let req = r#"{"jsonrpc":"2.0","method":"ai.query","params":{"prompt":"x"},"id":1}"#;
-    let raw = server.handle_request_or_batch(req).await.unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
+    let raw = server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
+    let v: Value = serde_json::from_str(&raw).expect("should succeed");
     assert_eq!(
         v.pointer("/error/code")
             .and_then(Value::as_i64)
@@ -501,7 +576,10 @@ async fn handler_error_increments_metrics_errors() {
     let server = JsonRpcServer::new("/tmp/jsonrpc-metrics.sock".to_string());
     let before = server.metrics.read().await.errors;
     let req = r#"{"jsonrpc":"2.0","method":"ai.query","params":{"prompt":"x"},"id":1}"#;
-    server.handle_request_or_batch(req).await.unwrap();
+    server
+        .handle_request_or_batch(req)
+        .await
+        .expect("should succeed");
     let after = server.metrics.read().await.errors;
     assert_eq!(after, before + 1);
 }

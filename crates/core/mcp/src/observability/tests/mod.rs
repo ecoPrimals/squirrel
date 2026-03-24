@@ -73,7 +73,7 @@ fn test_metrics_tracing_integration() -> ObservabilityResult<()> {
             span_guard.add_event("request_completed", event_attrs);
         }
         
-        // Note: We don't call span.lock().unwrap().end() here because that would
+        // Note: We don't call span.lock().expect("should succeed").end() here because that would
         // move out of the MutexGuard. The drop handler will handle ending.
     }
     
@@ -434,7 +434,7 @@ pub mod helpers {
         };
         
         // Initialize with the config
-        Arc::new(initialize_with_config(config).await.unwrap())
+        Arc::new(initialize_with_config(config).await.expect("should succeed"))
     }
     
     /// Create a full test framework with all features enabled
@@ -453,7 +453,7 @@ pub mod helpers {
         };
         
         // Initialize with the config
-        Arc::new(initialize_with_config(config).await.unwrap())
+        Arc::new(initialize_with_config(config).await.expect("should succeed"))
     }
     
     /// Create test metrics for the framework
@@ -467,14 +467,14 @@ pub mod helpers {
             "Test counter",
             None,
             labels.clone(),
-        ).unwrap();
+        ).expect("should succeed");
         
         let _gauge = framework.metrics.create_gauge(
             "test_gauge",
             "Test gauge",
             None,
             labels.clone(),
-        ).unwrap();
+        ).expect("should succeed");
         
         let _histogram = framework.metrics.create_histogram(
             "test_histogram",
@@ -482,24 +482,24 @@ pub mod helpers {
             None,
             labels,
             vec![0.1, 1.0, 10.0],
-        ).unwrap();
+        ).expect("should succeed");
     }
     
     /// Register test components for health checking
     pub fn register_test_components(framework: &ObservabilityFramework) {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         rt.block_on(async {
             framework.health_checker.register_component(
                 "test_component_1",
                 "Test Component 1",
                 crate::observability::health::HealthStatus::Healthy,
-            ).await.unwrap();
+            ).await.expect("should succeed");
             
             framework.health_checker.register_component(
                 "test_component_2",
                 "Test Component 2",
                 crate::observability::health::HealthStatus::Healthy,
-            ).await.unwrap();
+            ).await.expect("should succeed");
         });
     }
 }
@@ -521,14 +521,14 @@ async fn test_framework_initialization() {
         "Test counter",
         None,
         labels.clone(),
-    ).unwrap();
+    ).expect("should succeed");
     
     let _gauge = framework.metrics.create_gauge(
         "test_gauge",
         "Test gauge",
         None,
         labels.clone(),
-    ).unwrap();
+    ).expect("should succeed");
     
     let _histogram = framework.metrics.create_histogram(
         "test_histogram",
@@ -536,23 +536,23 @@ async fn test_framework_initialization() {
         None,
         labels.clone(),
         vec![0.1, 0.5, 1.0, 2.0, 5.0, 10.0],
-    ).unwrap();
+    ).expect("should succeed");
     
     // Test health API
     framework.health_checker.register_component(
         "api",
         "API Service",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     framework.health_checker.register_component(
         "database",
         "Database Service",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Clean shutdown
-    framework.shutdown().await.unwrap();
+    framework.shutdown().await.expect("should succeed");
 }
 
 /// Test creating a basic observability framework
@@ -569,7 +569,7 @@ async fn test_create_framework() {
     };
     
     // Initialize the framework
-    let framework = initialize_with_config(config).await.unwrap();
+    let framework = initialize_with_config(config).await.expect("should succeed");
     assert!(framework.is_initialized());
     
     // Register a test component
@@ -577,7 +577,7 @@ async fn test_create_framework() {
         "test_component",
         "Test component for integration test",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Create a test alert
     framework.alert_manager.create_alert(
@@ -587,13 +587,13 @@ async fn test_create_framework() {
         Some("This is a test alert from integration tests"),
         Some("test_component"),
         None,
-    ).unwrap();
+    ).expect("should succeed");
     
     // Set a test metric
-    framework.metrics.increment_counter("test_counter", 1.0, None).unwrap();
+    framework.metrics.increment_counter("test_counter", 1.0, None).expect("should succeed");
     
     // Clean shutdown
-    framework.shutdown().await.unwrap();
+    framework.shutdown().await.expect("should succeed");
 }
 
 pub mod alerting_tests;

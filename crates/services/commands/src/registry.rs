@@ -509,7 +509,9 @@ mod tests {
     #[test]
     fn test_register_duplicate_command() {
         let registry = CommandRegistry::new();
-        registry.register("test", Arc::new(TestCommand)).unwrap();
+        registry
+            .register("test", Arc::new(TestCommand))
+            .expect("should succeed");
         let result = registry.register("test", Arc::new(TestCommand));
         assert!(result.is_err());
     }
@@ -517,10 +519,12 @@ mod tests {
     #[test]
     fn test_execute_command() {
         let registry = CommandRegistry::new();
-        registry.register("test", Arc::new(TestCommand)).unwrap();
+        registry
+            .register("test", Arc::new(TestCommand))
+            .expect("should succeed");
         let result = registry.execute("test", &Vec::new());
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Test command executed");
+        assert_eq!(result.expect("should succeed"), "Test command executed");
     }
 
     #[test]
@@ -533,10 +537,12 @@ mod tests {
     #[test]
     fn test_list_commands() {
         let registry = CommandRegistry::new();
-        registry.register("test", Arc::new(TestCommand)).unwrap();
+        registry
+            .register("test", Arc::new(TestCommand))
+            .expect("should succeed");
         let result = registry.list_commands();
         assert!(result.is_ok());
-        let commands = result.unwrap();
+        let commands = result.expect("should succeed");
         assert_eq!(commands.len(), 1);
         assert_eq!(commands[0], "test");
     }
@@ -544,9 +550,11 @@ mod tests {
     #[test]
     fn test_get_help() {
         let registry = CommandRegistry::new();
-        registry.register("test", Arc::new(TestCommand)).unwrap();
+        registry
+            .register("test", Arc::new(TestCommand))
+            .expect("should succeed");
         let result = registry.get_help("test");
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "test: A test command");
+        assert_eq!(result.expect("should succeed"), "test: A test command");
     }
 }

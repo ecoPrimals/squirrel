@@ -281,8 +281,8 @@ mod tests {
         let cap = PrimalCapability::Authentication {
             methods: vec!["oauth2".to_string(), "jwt".to_string()],
         };
-        let json = serde_json::to_string(&cap).unwrap();
-        let deserialized: PrimalCapability = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&cap).expect("should succeed");
+        let deserialized: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(cap, deserialized);
     }
 
@@ -291,24 +291,24 @@ mod tests {
         let cap = PrimalCapability::Encryption {
             algorithms: vec!["AES-256".to_string(), "ChaCha20".to_string()],
         };
-        let json = serde_json::to_string(&cap).unwrap();
-        let deserialized: PrimalCapability = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&cap).expect("should succeed");
+        let deserialized: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(cap, deserialized);
     }
 
     #[test]
     fn test_key_management_serde() {
         let cap = PrimalCapability::KeyManagement { hsm_support: true };
-        let json = serde_json::to_string(&cap).unwrap();
-        let deserialized: PrimalCapability = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&cap).expect("should succeed");
+        let deserialized: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(cap, deserialized);
     }
 
     #[test]
     fn test_threat_detection_serde() {
         let cap = PrimalCapability::ThreatDetection { ml_enabled: false };
-        let json = serde_json::to_string(&cap).unwrap();
-        let deserialized: PrimalCapability = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&cap).expect("should succeed");
+        let deserialized: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(cap, deserialized);
     }
 
@@ -317,8 +317,8 @@ mod tests {
         let cap = PrimalCapability::ModelInference {
             models: vec!["gpt-4".to_string(), "claude-3".to_string()],
         };
-        let json = serde_json::to_string(&cap).unwrap();
-        let deserialized: PrimalCapability = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&cap).expect("should succeed");
+        let deserialized: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(cap, deserialized);
     }
 
@@ -328,8 +328,8 @@ mod tests {
             name: "my_cap".to_string(),
             attributes: "key=val".to_string(),
         };
-        let json = serde_json::to_string(&cap).unwrap();
-        let deserialized: PrimalCapability = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&cap).expect("should succeed");
+        let deserialized: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(cap, deserialized);
     }
 
@@ -523,8 +523,9 @@ mod tests {
         ];
 
         for cap in &caps {
-            let json = serde_json::to_string(cap).unwrap();
-            let deserialized: PrimalCapability = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(cap).expect("should succeed");
+            let deserialized: PrimalCapability =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(*cap, deserialized, "Failed roundtrip for {:?}", cap);
         }
     }

@@ -94,7 +94,7 @@ fn test_security_incident_application_panic() {
         SecurityIncident::ApplicationPanic { message, .. } => {
             assert_eq!(message, "Test panic");
         }
-        _ => panic!("Expected ApplicationPanic variant"),
+        _ => unreachable!("Expected ApplicationPanic variant"),
     }
 }
 
@@ -116,7 +116,7 @@ fn test_security_incident_rate_limit_exceeded() {
             assert_eq!(ip_address, "192.168.1.100");
             assert_eq!(attempt_count, 10);
         }
-        _ => panic!("Expected RateLimitExceeded variant"),
+        _ => unreachable!("Expected RateLimitExceeded variant"),
     }
 }
 
@@ -139,7 +139,7 @@ fn test_security_incident_account_locked() {
             assert_eq!(username, "testuser");
             assert_eq!(failed_attempts, 5);
         }
-        _ => panic!("Expected AccountLocked variant"),
+        _ => unreachable!("Expected AccountLocked variant"),
     }
 }
 
@@ -160,7 +160,7 @@ fn test_security_incident_suspicious_activity() {
             assert_eq!(activity_type, "injection_attempt");
             // Can't compare RiskLevel without PartialEq
         }
-        _ => panic!("Expected SuspiciousActivity variant"),
+        _ => unreachable!("Expected SuspiciousActivity variant"),
     }
 }
 
@@ -187,7 +187,7 @@ fn test_security_incident_config_change() {
             assert_eq!(new_value, "10");
             assert_eq!(changed_by, "admin");
         }
-        _ => panic!("Expected SecurityConfigChange variant"),
+        _ => unreachable!("Expected SecurityConfigChange variant"),
     }
 }
 
@@ -200,14 +200,14 @@ fn test_security_incident_serialization() {
         timestamp: Utc::now(),
     };
 
-    let serialized = serde_json::to_string(&incident).unwrap();
-    let deserialized: SecurityIncident = serde_json::from_str(&serialized).unwrap();
+    let serialized = serde_json::to_string(&incident).expect("should succeed");
+    let deserialized: SecurityIncident = serde_json::from_str(&serialized).expect("should succeed");
 
     match deserialized {
         SecurityIncident::RateLimitExceeded { ip_address, .. } => {
             assert_eq!(ip_address, "1.2.3.4");
         }
-        _ => panic!("Deserialization failed"),
+        _ => unreachable!("Deserialization failed"),
     }
 }
 
@@ -230,11 +230,11 @@ fn test_risk_level_variants() {
 #[test]
 fn test_risk_level_serialization() {
     let risk = RiskLevel::High;
-    let serialized = serde_json::to_string(&risk).unwrap();
-    let deserialized: RiskLevel = serde_json::from_str(&serialized).unwrap();
+    let serialized = serde_json::to_string(&risk).expect("should succeed");
+    let deserialized: RiskLevel = serde_json::from_str(&serialized).expect("should succeed");
 
     // Can't directly compare without PartialEq, so serialize both and compare
-    let re_serialized = serde_json::to_string(&deserialized).unwrap();
+    let re_serialized = serde_json::to_string(&deserialized).expect("should succeed");
     assert_eq!(serialized, re_serialized);
 }
 
@@ -353,7 +353,7 @@ async fn test_rate_limit_exceeded_after_multiple_failures() {
         Err(AuthRateLimitError::RateLimitExceeded { attempts, .. }) => {
             assert!(attempts >= 3);
         }
-        _ => panic!("Expected RateLimitExceeded error"),
+        _ => unreachable!("Expected RateLimitExceeded error"),
     }
 }
 
@@ -420,7 +420,7 @@ fn test_auth_rate_limit_error_variants() {
         AuthRateLimitError::RateLimitExceeded { attempts, .. } => {
             assert_eq!(attempts, 5);
         }
-        _ => panic!("Expected RateLimitExceeded"),
+        _ => unreachable!("Expected RateLimitExceeded"),
     }
 
     let account_locked_err = AuthRateLimitError::AccountLocked {
@@ -432,7 +432,7 @@ fn test_auth_rate_limit_error_variants() {
         AuthRateLimitError::AccountLocked { remaining_time, .. } => {
             assert_eq!(remaining_time.as_secs(), 300);
         }
-        _ => panic!("Expected AccountLocked"),
+        _ => unreachable!("Expected AccountLocked"),
     }
 }
 
@@ -447,7 +447,7 @@ fn test_security_error_variants() {
         SecurityError::ConfigurationError(msg) => {
             assert_eq!(msg, "Invalid config");
         }
-        _ => panic!("Expected ConfigurationError"),
+        _ => unreachable!("Expected ConfigurationError"),
     }
 
     let incident_err = SecurityError::IncidentHandlingFailed("Failed to log incident".to_string());
@@ -455,7 +455,7 @@ fn test_security_error_variants() {
         SecurityError::IncidentHandlingFailed(msg) => {
             assert_eq!(msg, "Failed to log incident");
         }
-        _ => panic!("Expected IncidentHandlingFailed"),
+        _ => unreachable!("Expected IncidentHandlingFailed"),
     }
 }
 
@@ -512,7 +512,7 @@ async fn test_initialize_production_security() {
     // Should successfully create Arc<SecurityHardening>
     assert!(result.is_ok());
 
-    let hardening = result.unwrap();
+    let hardening = result.expect("should succeed");
     // Verify it's usable
     let check_result = hardening
         .check_auth_rate_limit("127.0.0.1", "test", None)
@@ -606,7 +606,7 @@ async fn test_concurrent_auth_attempts() {
     // All should succeed (different IPs)
     let mut success_count = 0;
     while let Some(result) = set.join_next().await {
-        if result.unwrap().is_ok() {
+        if result.expect("should succeed").is_ok() {
             success_count += 1;
         }
     }

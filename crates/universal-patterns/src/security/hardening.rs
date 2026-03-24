@@ -744,7 +744,7 @@ mod tests {
         if let Err(AuthRateLimitError::RateLimitExceeded { attempts, .. }) = result {
             assert_eq!(attempts, 3);
         } else {
-            panic!("Expected RateLimitExceeded error");
+            unreachable!("Expected RateLimitExceeded error");
         }
     }
 

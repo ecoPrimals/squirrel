@@ -694,8 +694,8 @@ mod inline_tests {
     #[tokio::test]
     async fn test_platform_health_check() {
         let config = EnhancedPlatformConfig::default();
-        let platform = EnhancedMCPPlatform::new(config).await.unwrap();
-        let health = platform.get_platform_health().await.unwrap();
+        let platform = EnhancedMCPPlatform::new(config).await.expect("should succeed");
+        let health = platform.get_platform_health().await.expect("should succeed");
         assert_eq!(health.status, HealthStatus::Healthy);
     }
 }

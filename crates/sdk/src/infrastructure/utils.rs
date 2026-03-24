@@ -550,7 +550,7 @@ mod tests {
     #[test]
     fn test_safe_lock() {
         let mutex = Mutex::new(42);
-        let guard = safe_lock(&mutex, "test").unwrap();
+        let guard = safe_lock(&mutex, "test").expect("should succeed");
         assert_eq!(*guard, 42);
     }
 
@@ -659,7 +659,7 @@ mod tests {
         assert!(bp.add(1).is_none());
         let batch = bp.add(2);
         assert!(batch.is_some());
-        let batch = batch.unwrap();
+        let batch = batch.expect("should succeed");
         assert_eq!(batch, vec![1, 2]);
     }
 

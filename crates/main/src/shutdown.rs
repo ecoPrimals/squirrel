@@ -805,7 +805,7 @@ mod tests {
 
         assert!(!manager.is_shutdown_requested());
 
-        manager.request_shutdown().await.unwrap();
+        manager.request_shutdown().await.expect("should succeed");
 
         assert!(manager.is_shutdown_requested());
     }
@@ -908,9 +908,9 @@ mod tests {
         let coord_handle = tokio::spawn(async move { manager_clone.coordinate_shutdown().await });
 
         // Send graceful signal
-        manager.request_shutdown().await.unwrap();
+        manager.request_shutdown().await.expect("should succeed");
 
-        let result = coord_handle.await.unwrap();
+        let result = coord_handle.await.expect("should succeed");
         assert!(result.is_ok());
         assert!(manager.is_shutdown_complete().await);
     }

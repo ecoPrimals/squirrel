@@ -24,7 +24,7 @@ fn test_mcp_message_deserialization() {
     }
     "#;
 
-    let message: McpMessage = serde_json::from_str(json_str).unwrap();
+    let message: McpMessage = serde_json::from_str(json_str).expect("should succeed");
     assert_eq!(message.id, "msg-123");
     assert_eq!(message.message_type, "ping");
     assert_eq!(message.payload["data"], "test");
@@ -47,7 +47,7 @@ fn test_message_size_validation() {
 
     // This should fail when trying to send
     // Note: This test validates the message size check logic
-    let message_json = serde_json::to_string(&large_message).unwrap();
+    let message_json = serde_json::to_string(&large_message).expect("should succeed");
     assert!(message_json.len() > client.config.max_message_size);
 }
 
@@ -123,8 +123,8 @@ fn test_mcp_capabilities_default() {
 #[test]
 fn test_mcp_capabilities_serialization() {
     let capabilities = McpCapabilities::new();
-    let serialized = serde_json::to_string(&capabilities).unwrap();
-    let deserialized: McpCapabilities = serde_json::from_str(&serialized).unwrap();
+    let serialized = serde_json::to_string(&capabilities).expect("should succeed");
+    let deserialized: McpCapabilities = serde_json::from_str(&serialized).expect("should succeed");
 
     assert_eq!(deserialized.supports_mcp, capabilities.supports_mcp);
     assert_eq!(deserialized.protocol_version, capabilities.protocol_version);
@@ -149,12 +149,12 @@ async fn test_message_flow_integration() {
     };
 
     // Test message serialization
-    let serialized = serde_json::to_string(&message).unwrap();
+    let serialized = serde_json::to_string(&message).expect("should succeed");
     assert!(serialized.contains("integration-test"));
     assert!(serialized.contains("test_message"));
 
     // Test message deserialization
-    let deserialized: McpMessage = serde_json::from_str(&serialized).unwrap();
+    let deserialized: McpMessage = serde_json::from_str(&serialized).expect("should succeed");
     assert_eq!(deserialized.id, message.id);
     assert_eq!(deserialized.message_type, message.message_type);
 
@@ -178,7 +178,7 @@ async fn test_operation_handler_integration() {
     let mut handler = OperationHandler::new();
 
     // Test tools
-    let tools = handler.list_tools().await.unwrap();
+    let tools = handler.list_tools().await.expect("should succeed");
     assert!(!tools.is_empty());
 
     // Test calculator tool
@@ -186,15 +186,15 @@ async fn test_operation_handler_integration() {
     let calc_result = handler
         .execute_tool("calculator", calc_input)
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(calc_result["result"], 30.0);
 
     // Test resources
-    let resources = handler.list_resources().await.unwrap();
+    let resources = handler.list_resources().await.expect("should succeed");
     assert!(!resources.is_empty());
 
     // Test prompts
-    let prompts = handler.list_prompts().await.unwrap();
+    let prompts = handler.list_prompts().await.expect("should succeed");
     assert!(!prompts.is_empty());
 }
 

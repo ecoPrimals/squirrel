@@ -382,7 +382,7 @@ mod tests {
             retry_delay_ms: 200,
         };
 
-        let client = BearDogClient::new(config).unwrap();
+        let client = BearDogClient::new(config).expect("should succeed");
         assert_eq!(client.config.socket_path, "/tmp/test-beardog.sock");
         assert_eq!(client.config.timeout_secs, 10);
         assert_eq!(client.config.max_retries, 5);
@@ -402,7 +402,7 @@ mod tests {
     #[test]
     fn test_request_id_increments() {
         let config = BearDogClientConfig::default();
-        let client = BearDogClient::new(config).unwrap();
+        let client = BearDogClient::new(config).expect("should succeed");
 
         let id1 = client.next_request_id();
         let id2 = client.next_request_id();
@@ -415,20 +415,20 @@ mod tests {
 
     #[test]
     fn test_ed25519_sign_mock_socket() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = tempfile::tempdir().expect("should succeed");
             let socket_path = dir.path().join("beardog-sign.sock");
             let path_str = socket_path.to_string_lossy().to_string();
 
-            let listener = UnixListener::bind(&socket_path).unwrap();
+            let listener = UnixListener::bind(&socket_path).expect("should succeed");
 
             let server_handle = tokio::spawn(async move {
-                let (stream, _) = listener.accept().await.unwrap();
+                let (stream, _) = listener.accept().await.expect("should succeed");
                 let mut reader = BufReader::new(stream);
                 let mut line = String::new();
-                reader.read_line(&mut line).await.unwrap();
-                let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                reader.read_line(&mut line).await.expect("should succeed");
+                let req: serde_json::Value = serde_json::from_str(&line).expect("should succeed");
                 assert_eq!(req["method"], "crypto.ed25519.sign");
                 assert_eq!(req["params"]["key_id"], "test-key");
                 let sig_b64 = BASE64
@@ -442,8 +442,8 @@ mod tests {
                 stream
                     .write_all(response.to_string().as_bytes())
                     .await
-                    .unwrap();
-                stream.write_all(b"\n").await.unwrap();
+                    .expect("should succeed");
+                stream.write_all(b"\n").await.expect("should succeed");
             });
 
             let config = BearDogClientConfig {
@@ -452,33 +452,33 @@ mod tests {
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).unwrap();
+            let client = BearDogClient::new(config).expect("should succeed");
             let sig = client.ed25519_sign(b"hello", "test-key").await;
 
             let _ = server_handle.await;
             sig
         });
 
-        let signature = result.unwrap();
+        let signature = result.expect("should succeed");
         assert!(!signature.is_empty());
     }
 
     #[test]
     fn test_ed25519_verify_mock_socket() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = tempfile::tempdir().expect("should succeed");
             let socket_path = dir.path().join("beardog-verify.sock");
             let path_str = socket_path.to_string_lossy().to_string();
 
-            let listener = UnixListener::bind(&socket_path).unwrap();
+            let listener = UnixListener::bind(&socket_path).expect("should succeed");
 
             let server_handle = tokio::spawn(async move {
-                let (stream, _) = listener.accept().await.unwrap();
+                let (stream, _) = listener.accept().await.expect("should succeed");
                 let mut reader = BufReader::new(stream);
                 let mut line = String::new();
-                reader.read_line(&mut line).await.unwrap();
-                let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                reader.read_line(&mut line).await.expect("should succeed");
+                let req: serde_json::Value = serde_json::from_str(&line).expect("should succeed");
                 assert_eq!(req["method"], "crypto.ed25519.verify");
                 let response = serde_json::json!({
                     "jsonrpc": "2.0",
@@ -489,8 +489,8 @@ mod tests {
                 stream
                     .write_all(response.to_string().as_bytes())
                     .await
-                    .unwrap();
-                stream.write_all(b"\n").await.unwrap();
+                    .expect("should succeed");
+                stream.write_all(b"\n").await.expect("should succeed");
             });
 
             let config = BearDogClientConfig {
@@ -499,32 +499,32 @@ mod tests {
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).unwrap();
+            let client = BearDogClient::new(config).expect("should succeed");
             let valid = client.ed25519_verify(b"data", b"signature", "key-1").await;
 
             let _ = server_handle.await;
             valid
         });
 
-        assert!(result.unwrap());
+        assert!(result.expect("should succeed"));
     }
 
     #[test]
     fn test_ed25519_verify_invalid_mock_socket() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = tempfile::tempdir().expect("should succeed");
             let socket_path = dir.path().join("beardog-verify-invalid.sock");
             let path_str = socket_path.to_string_lossy().to_string();
 
-            let listener = UnixListener::bind(&socket_path).unwrap();
+            let listener = UnixListener::bind(&socket_path).expect("should succeed");
 
             let server_handle = tokio::spawn(async move {
-                let (stream, _) = listener.accept().await.unwrap();
+                let (stream, _) = listener.accept().await.expect("should succeed");
                 let mut reader = BufReader::new(stream);
                 let mut line = String::new();
-                reader.read_line(&mut line).await.unwrap();
-                let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                reader.read_line(&mut line).await.expect("should succeed");
+                let req: serde_json::Value = serde_json::from_str(&line).expect("should succeed");
                 assert_eq!(req["method"], "crypto.ed25519.verify");
                 let response = serde_json::json!({
                     "jsonrpc": "2.0",
@@ -535,8 +535,8 @@ mod tests {
                 stream
                     .write_all(response.to_string().as_bytes())
                     .await
-                    .unwrap();
-                stream.write_all(b"\n").await.unwrap();
+                    .expect("should succeed");
+                stream.write_all(b"\n").await.expect("should succeed");
             });
 
             let config = BearDogClientConfig {
@@ -545,19 +545,19 @@ mod tests {
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).unwrap();
+            let client = BearDogClient::new(config).expect("should succeed");
             let valid = client.ed25519_verify(b"data", b"bad-sig", "key-1").await;
 
             let _ = server_handle.await;
             valid
         });
 
-        assert!(!result.unwrap());
+        assert!(!result.expect("should succeed"));
     }
 
     #[test]
     fn test_ed25519_sign_no_socket_fails() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
             let config = BearDogClientConfig {
                 socket_path: "/nonexistent/socket/path.sock".to_string(),
@@ -565,7 +565,7 @@ mod tests {
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).unwrap();
+            let client = BearDogClient::new(config).expect("should succeed");
             client.ed25519_sign(b"data", "key").await
         });
         assert!(result.is_err());
@@ -573,20 +573,20 @@ mod tests {
 
     #[test]
     fn test_json_rpc_error_response() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         let result = rt.block_on(async {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = tempfile::tempdir().expect("should succeed");
             let socket_path = dir.path().join("beardog-error.sock");
             let path_str = socket_path.to_string_lossy().to_string();
 
-            let listener = UnixListener::bind(&socket_path).unwrap();
+            let listener = UnixListener::bind(&socket_path).expect("should succeed");
 
             let server_handle = tokio::spawn(async move {
-                let (stream, _) = listener.accept().await.unwrap();
+                let (stream, _) = listener.accept().await.expect("should succeed");
                 let mut reader = BufReader::new(stream);
                 let mut line = String::new();
-                reader.read_line(&mut line).await.unwrap();
-                let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                reader.read_line(&mut line).await.expect("should succeed");
+                let req: serde_json::Value = serde_json::from_str(&line).expect("should succeed");
                 let response = serde_json::json!({
                     "jsonrpc": "2.0",
                     "id": req["id"],
@@ -596,8 +596,8 @@ mod tests {
                 stream
                     .write_all(response.to_string().as_bytes())
                     .await
-                    .unwrap();
-                stream.write_all(b"\n").await.unwrap();
+                    .expect("should succeed");
+                stream.write_all(b"\n").await.expect("should succeed");
             });
 
             let config = BearDogClientConfig {
@@ -606,7 +606,7 @@ mod tests {
                 max_retries: 1,
                 retry_delay_ms: 10,
             };
-            let client = BearDogClient::new(config).unwrap();
+            let client = BearDogClient::new(config).expect("should succeed");
             let sig = client.ed25519_sign(b"data", "key").await;
 
             let _ = server_handle.await;

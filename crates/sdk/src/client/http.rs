@@ -619,9 +619,18 @@ mod tests {
     #[test]
     fn test_http_method_conversion() {
         assert_eq!(HttpMethod::Get.as_str(), "GET");
-        assert_eq!(HttpMethod::from_str("POST").unwrap(), HttpMethod::Post);
-        assert_eq!(HttpMethod::from_str("get").unwrap(), HttpMethod::Get);
-        assert_eq!(HttpMethod::from_str("patch").unwrap(), HttpMethod::Patch);
+        assert_eq!(
+            HttpMethod::from_str("POST").expect("should succeed"),
+            HttpMethod::Post
+        );
+        assert_eq!(
+            HttpMethod::from_str("get").expect("should succeed"),
+            HttpMethod::Get
+        );
+        assert_eq!(
+            HttpMethod::from_str("patch").expect("should succeed"),
+            HttpMethod::Patch
+        );
         assert!(HttpMethod::from_str("invalid").is_err());
         assert_eq!(HttpMethod::parse_method("DELETE"), Some(HttpMethod::Delete));
         assert_eq!(HttpMethod::Options.as_str(), "OPTIONS");
@@ -631,8 +640,8 @@ mod tests {
     #[test]
     fn test_http_method_serde_roundtrip() {
         let m = HttpMethod::Put;
-        let s = serde_json::to_string(&m).unwrap();
-        let back: HttpMethod = serde_json::from_str(&s).unwrap();
+        let s = serde_json::to_string(&m).expect("should succeed");
+        let back: HttpMethod = serde_json::from_str(&s).expect("should succeed");
         assert_eq!(m, back);
     }
 
@@ -669,7 +678,7 @@ mod tests {
 
         let request = HttpRequest::new("https://example.com".to_string(), HttpMethod::Post)
             .json(&data)
-            .unwrap();
+            .expect("should succeed");
 
         assert!(request.body.is_some());
         assert_eq!(
@@ -712,7 +721,7 @@ mod tests {
             .body("{}")
             .timeout(100)
             .json(&json!({"a": 1}))
-            .unwrap();
+            .expect("should succeed");
     }
 
     #[test]
@@ -739,7 +748,7 @@ mod tests {
         assert_eq!(response.text(), response.body);
         assert_eq!(response.get_header("X-Custom"), Some(&"v".to_string()));
 
-        let data: TestData = response.json().unwrap();
+        let data: TestData = response.json().expect("should succeed");
         assert_eq!(data.name, "test");
         assert_eq!(data.value, 42);
     }
@@ -769,8 +778,8 @@ mod tests {
             ok: false,
             url: "https://z".to_string(),
         };
-        let s = serde_json::to_string(&r).unwrap();
-        let back: HttpResponse = serde_json::from_str(&s).unwrap();
+        let s = serde_json::to_string(&r).expect("should succeed");
+        let back: HttpResponse = serde_json::from_str(&s).expect("should succeed");
         assert_eq!(r.status, back.status);
     }
 }

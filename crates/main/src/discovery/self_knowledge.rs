@@ -423,9 +423,8 @@ impl PrimalSelfKnowledge {
 
 #[cfg(test)]
 #[expect(
-    clippy::unwrap_used,
     clippy::expect_used,
-    reason = "Invariant or startup failure: unwrap/expect after validation"
+    reason = "Invariant or startup failure: expect after validation"
 )]
 mod tests {
     use super::*;
@@ -433,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_discover_self() {
-        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+        let self_knowledge = PrimalSelfKnowledge::discover_self().expect("discover_self in test");
         let identity = self_knowledge.identity();
 
         // Should have discovered a name
@@ -452,11 +451,15 @@ mod tests {
             "AI_ENDPOINT",
             Some("http://discovered.example.com:9200"),
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("tokio runtime for test");
                 rt.block_on(async {
-                    let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+                    let self_knowledge =
+                        PrimalSelfKnowledge::discover_self().expect("discover_self in test");
 
-                    let service = self_knowledge.discover_primal("ai").await.unwrap();
+                    let service = self_knowledge
+                        .discover_primal("ai")
+                        .await
+                        .expect("discover_primal ai");
 
                     assert_eq!(service.endpoint, "http://discovered.example.com:9200");
                     assert!(service.has_capability("ai"));
@@ -468,7 +471,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_capability_not_found() {
-        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+        let self_knowledge = PrimalSelfKnowledge::discover_self().expect("discover_self in test");
 
         // Try to discover non-existent capability
         let result = self_knowledge.discover_primal("nonexistent").await;
@@ -486,10 +489,14 @@ mod tests {
             "STORAGE_ENDPOINT",
             Some("http://cache-test.example.com:8500"),
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("tokio runtime for test");
                 let (self_knowledge, service1) = rt.block_on(async {
-                    let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
-                    let service1 = self_knowledge.discover_primal("storage").await.unwrap();
+                    let self_knowledge =
+                        PrimalSelfKnowledge::discover_self().expect("discover_self in test");
+                    let service1 = self_knowledge
+                        .discover_primal("storage")
+                        .await
+                        .expect("discover_primal storage");
                     (self_knowledge, service1)
                 });
 
@@ -498,11 +505,17 @@ mod tests {
                     Some("http://changed.example.com:8500"),
                     || {
                         rt.block_on(async {
-                            let service2 = self_knowledge.discover_primal("storage").await.unwrap();
+                            let service2 = self_knowledge
+                                .discover_primal("storage")
+                                .await
+                                .expect("discover_primal storage");
                             assert_eq!(service1.endpoint, service2.endpoint);
 
                             self_knowledge.clear_cache().await;
-                            let service3 = self_knowledge.discover_primal("storage").await.unwrap();
+                            let service3 = self_knowledge
+                                .discover_primal("storage")
+                                .await
+                                .expect("discover_primal storage");
                             assert_eq!(service3.endpoint, "http://changed.example.com:8500");
                         });
                     },
@@ -521,7 +534,8 @@ mod tests {
                 ("PRIMAL_PORT", Some("9200")),
             ],
             || {
-                let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+                let self_knowledge =
+                    PrimalSelfKnowledge::discover_self().expect("discover_self in test");
                 let identity = self_knowledge.identity();
 
                 assert_eq!(identity.name, "test-squirrel");
@@ -549,7 +563,8 @@ mod tests {
     #[test]
     fn test_primal_identity_default_capabilities() {
         temp_env::with_var("PRIMAL_CAPABILITIES", None::<&str>, || {
-            let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+            let self_knowledge =
+                PrimalSelfKnowledge::discover_self().expect("discover_self in test");
             let identity = self_knowledge.identity();
 
             assert!(!identity.capabilities.is_empty());
@@ -576,7 +591,10 @@ mod tests {
             .expect("cost_estimates_json returns object");
         assert!(map.contains_key("ai.query"));
         assert!(map.contains_key("lifecycle.register"));
-        let ai_query = map.get("ai.query").and_then(|v| v.as_object()).unwrap();
+        let ai_query = map
+            .get("ai.query")
+            .and_then(|v| v.as_object())
+            .expect("ai.query cost entry should be object");
         assert!(ai_query.contains_key("latency_ms"));
         assert!(ai_query.contains_key("gpu_beneficial"));
     }
@@ -591,14 +609,14 @@ mod tests {
         assert!(
             map.get("ai.query")
                 .and_then(|v| v.as_array())
-                .unwrap()
+                .expect("ai.query dependency list")
                 .contains(&serde_json::json!("prompt"))
         );
         assert!(map.contains_key("tool.execute"));
         assert!(
             map.get("tool.execute")
                 .and_then(|v| v.as_array())
-                .unwrap()
+                .expect("tool.execute dependency list")
                 .contains(&serde_json::json!("tool"))
         );
     }
@@ -612,21 +630,21 @@ mod tests {
 
     #[tokio::test]
     async fn test_discovered_empty_initially() {
-        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+        let self_knowledge = PrimalSelfKnowledge::discover_self().expect("discover_self in test");
         let discovered = self_knowledge.discovered().await;
         assert!(discovered.is_empty());
     }
 
     #[tokio::test]
     async fn test_announce_capabilities_succeeds() {
-        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+        let self_knowledge = PrimalSelfKnowledge::discover_self().expect("discover_self in test");
         let result = self_knowledge.announce_capabilities().await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_announce_capabilities_with_port() {
-        let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+        let self_knowledge = PrimalSelfKnowledge::discover_self().expect("discover_self in test");
         let result = self_knowledge.announce_capabilities_with_port(9999).await;
         assert!(result.is_ok());
     }
@@ -640,10 +658,12 @@ mod tests {
                 ("PRIMAL_CAPABILITIES", Some("ai.query,system.health")),
             ],
             || {
-                let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+                let self_knowledge =
+                    PrimalSelfKnowledge::discover_self().expect("discover_self in test");
                 let identity = self_knowledge.identity();
-                let json = serde_json::to_string(identity).unwrap();
-                let deserialized: PrimalIdentity = serde_json::from_str(&json).unwrap();
+                let json = serde_json::to_string(identity).expect("identity serializes");
+                let deserialized: PrimalIdentity =
+                    serde_json::from_str(&json).expect("identity deserializes");
                 assert_eq!(identity.name, deserialized.name);
                 assert_eq!(identity.primal_type, deserialized.primal_type);
                 assert_eq!(identity.capabilities.len(), deserialized.capabilities.len());
@@ -655,7 +675,8 @@ mod tests {
     #[test]
     fn test_primal_identity_host_fallback() {
         temp_env::with_var("PRIMAL_NAME", Some("host-test"), || {
-            let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+            let self_knowledge =
+                PrimalSelfKnowledge::discover_self().expect("discover_self in test");
             let identity = self_knowledge.identity();
             assert!(!identity.host.is_empty());
             assert!(identity.host == "localhost" || hostname::get().is_ok());
@@ -665,7 +686,8 @@ mod tests {
     #[test]
     fn test_primal_identity_instance_id_format() {
         temp_env::with_var("PRIMAL_NAME", Some("instance-test"), || {
-            let self_knowledge = PrimalSelfKnowledge::discover_self().unwrap();
+            let self_knowledge =
+                PrimalSelfKnowledge::discover_self().expect("discover_self in test");
             let identity = self_knowledge.identity();
             assert!(identity.instance_id.contains("instance-test"));
             assert!(

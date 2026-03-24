@@ -121,7 +121,7 @@ async fn test_rule_repository() -> crate::rules::error::Result<()> {
     // Get rule
     let rule = repository.get_rule("rule1").await?;
     assert!(rule.is_some(), "Should be able to find rule1");
-    assert_eq!(rule.unwrap().id(), "rule1");
+    assert_eq!(rule.expect("should succeed").id(), "rule1");
 
     // Get non-existent rule
     let rule = repository.get_rule("non-existent").await?;
@@ -161,7 +161,7 @@ async fn test_rule_repository() -> crate::rules::error::Result<()> {
     repository.update_rule(updated_rule).await?;
 
     // Get updated rule
-    let updated_rule = repository.get_rule("rule2").await?.unwrap();
+    let updated_rule = repository.get_rule("rule2").await?.expect("should succeed");
     assert_eq!(updated_rule.description(), "Updated description");
 
     // Remove rule
@@ -365,7 +365,7 @@ async fn test_rule_manager() -> crate::rules::error::Result<()> {
         added_rule.is_some(),
         "Rule should have been added successfully"
     );
-    assert_eq!(added_rule.unwrap().id(), "test_rule");
+    assert_eq!(added_rule.expect("should succeed").id(), "test_rule");
 
     // Create context that matches the rule
     let mut context = json!({
@@ -498,8 +498,13 @@ async fn test_rule_actions() -> crate::rules::error::Result<()> {
     };
 
     executor.execute_action(&action, &mut context).await?;
-    let user = context.get("user").unwrap();
-    assert!(user.get("processed").unwrap().as_bool().unwrap());
+    let user = context.get("user").expect("should succeed");
+    assert!(
+        user.get("processed")
+            .expect("should succeed")
+            .as_bool()
+            .expect("should succeed")
+    );
 
     // Test LogMessage action
     let action = RuleAction::LogMessage {

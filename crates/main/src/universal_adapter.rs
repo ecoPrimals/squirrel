@@ -317,7 +317,7 @@ mod tests {
         assert!(!status.rpc_server_running);
         assert!(status.service_registration.is_some());
 
-        let reg = status.service_registration.unwrap();
+        let reg = status.service_registration.expect("should succeed");
         assert_eq!(reg.service_id.as_ref(), "squirrel-adapter");
         assert!(reg.endpoints.primary.contains("localhost:8080"));
     }
@@ -325,7 +325,7 @@ mod tests {
     #[tokio::test]
     async fn test_adapter_get_status_initialized() {
         let mut adapter = create_test_adapter();
-        adapter.initialize().await.unwrap();
+        adapter.initialize().await.expect("should succeed");
 
         let status = adapter.get_status().await;
         assert!(status.initialized);
@@ -342,14 +342,14 @@ mod tests {
             Err(PrimalError::OperationFailed(msg)) => {
                 assert!(msg.contains("not initialized"));
             }
-            _ => panic!("Expected OperationFailed error"),
+            _ => unreachable!("Expected OperationFailed error"),
         }
     }
 
     #[tokio::test]
     async fn test_adapter_register_after_init() {
         let mut adapter = create_test_adapter();
-        adapter.initialize().await.unwrap();
+        adapter.initialize().await.expect("should succeed");
 
         let result = adapter.register_with_ecosystem().await;
         assert!(result.is_ok());
@@ -358,7 +358,7 @@ mod tests {
     #[tokio::test]
     async fn test_adapter_shutdown() {
         let mut adapter = create_test_adapter();
-        adapter.initialize().await.unwrap();
+        adapter.initialize().await.expect("should succeed");
 
         let result = adapter.shutdown().await;
         assert!(result.is_ok());

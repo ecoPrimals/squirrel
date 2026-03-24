@@ -284,7 +284,7 @@ mod tests {
         // Create request
         let node_id = NodeId("test-node".to_string());
         let remote_request = RemoteAIRequest {
-            request_id: uuid::Uuid::parse_str(&request_id).unwrap(),
+            request_id: uuid::Uuid::parse_str(&request_id).expect("should succeed"),
             session_id: None,
             provider_id: "test-provider".to_string(),
             chat_request: ChatRequest::new(),
@@ -295,11 +295,14 @@ mod tests {
         let result = adapter
             .send_request(&node_id, remote_request)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Verify response
         assert_eq!(
-            result.chat_response.choices[0].content.as_ref().unwrap(),
+            result.chat_response.choices[0]
+                .content
+                .as_ref()
+                .expect("should succeed"),
             "Custom mock response"
         );
     }
@@ -324,7 +327,10 @@ mod tests {
         adapter.add_mock_capabilities(node_id.clone(), capabilities);
 
         // Discover capabilities
-        let result = adapter.discover_capabilities().await.unwrap();
+        let result = adapter
+            .discover_capabilities()
+            .await
+            .expect("should succeed");
 
         // Verify capabilities
         assert!(result.contains_key(&node_id));
@@ -351,10 +357,13 @@ mod tests {
         let result = adapter
             .send_request(&node_id, remote_request)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Verify default response contains expected text
-        let content = result.chat_response.choices[0].content.as_ref().unwrap();
+        let content = result.chat_response.choices[0]
+            .content
+            .as_ref()
+            .expect("should succeed");
 
         // Response format: "Remote response from node NodeId("test-node") via MCP"
         assert!(content.contains("Remote response from node"));

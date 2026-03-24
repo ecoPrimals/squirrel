@@ -24,7 +24,7 @@ async fn test_circuit_breaker_success() {
     }.boxed()).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "success");
+    assert_eq!(result.expect("should succeed"), "success");
     
     // Check metrics
     let metrics = breaker.metrics().await;

@@ -130,7 +130,7 @@ fn test_parse_fails_without_frontmatter() {
                 "Error should mention frontmatter"
             );
         }
-        _ => panic!("Expected ParseError"),
+        _ => unreachable!("Expected ParseError"),
     }
 }
 
@@ -176,7 +176,7 @@ patterns:
         RuleError::ParseError(msg) => {
             assert!(msg.contains("id"), "Error should mention missing 'id'");
         }
-        _ => panic!("Expected ParseError"),
+        _ => unreachable!("Expected ParseError"),
     }
 }
 
@@ -222,7 +222,7 @@ patterns:
         RuleError::ParseError(msg) => {
             assert!(msg.contains("name"), "Error should mention missing 'name'");
         }
-        _ => panic!("Expected ParseError"),
+        _ => unreachable!("Expected ParseError"),
     }
 }
 

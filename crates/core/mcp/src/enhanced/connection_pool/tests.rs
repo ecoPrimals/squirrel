@@ -101,15 +101,15 @@ async fn test_connection_pool_manager() {
     let openai_config = create_test_provider_config("openai", "https://api.openai.com/v1");
     let anthropic_config = create_test_provider_config("anthropic", "https://api.anthropic.com");
     
-    manager.register_provider(openai_config).await.unwrap();
-    manager.register_provider(anthropic_config).await.unwrap();
+    manager.register_provider(openai_config).await.expect("should succeed");
+    manager.register_provider(anthropic_config).await.expect("should succeed");
     
     // Test routing
     let request = create_test_request();
     let provider = manager.route_request(&request).await;
     assert!(provider.is_ok());
     
-    let selected_provider = provider.unwrap();
+    let selected_provider = provider.expect("should succeed");
     assert!(selected_provider == "openai" || selected_provider == "anthropic");
 }
 
@@ -163,7 +163,7 @@ async fn test_rate_limiter() {
     
     // Test blocking acquire
     let start = std::time::Instant::now();
-    rate_limiter.acquire().await.unwrap();
+    rate_limiter.acquire().await.expect("should succeed");
     let duration = start.elapsed();
     
     // Should have taken some time to acquire due to rate limiting
@@ -382,8 +382,8 @@ async fn test_connection_state_transitions() {
     
     // Test serialization/deserialization
     for state in &states {
-        let serialized = serde_json::to_string(state).unwrap();
-        let deserialized: ConnectionState = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(state).expect("should succeed");
+        let deserialized: ConnectionState = serde_json::from_str(&serialized).expect("should succeed");
         assert_eq!(state, &deserialized);
     }
 }
@@ -398,8 +398,8 @@ async fn test_tls_config() {
     assert!(default_config.client_key_path.is_none());
     
     // Test serialization
-    let serialized = serde_json::to_string(&default_config).unwrap();
-    let deserialized: TlsConfig = serde_json::from_str(&serialized).unwrap();
+    let serialized = serde_json::to_string(&default_config).expect("should succeed");
+    let deserialized: TlsConfig = serde_json::from_str(&serialized).expect("should succeed");
     assert_eq!(default_config.verify_certificates, deserialized.verify_certificates);
 }
 
@@ -412,8 +412,8 @@ async fn test_rate_limit_config() {
     assert_eq!(default_config.retry_delay_ms, 1000);
     
     // Test serialization
-    let serialized = serde_json::to_string(&default_config).unwrap();
-    let deserialized: RateLimitConfig = serde_json::from_str(&serialized).unwrap();
+    let serialized = serde_json::to_string(&default_config).expect("should succeed");
+    let deserialized: RateLimitConfig = serde_json::from_str(&serialized).expect("should succeed");
     assert_eq!(default_config.max_requests_per_second, deserialized.max_requests_per_second);
     assert_eq!(default_config.burst_capacity, deserialized.burst_capacity);
 }
@@ -490,7 +490,7 @@ async fn test_concurrent_pool_operations() {
     
     // Register a provider
     let provider_config = create_test_provider_config("concurrent-test", "https://api.example.com");
-    pool.register_provider(provider_config).await.unwrap();
+    pool.register_provider(provider_config).await.expect("should succeed");
     
     // Perform concurrent operations
     let mut handles = Vec::new();
@@ -510,7 +510,7 @@ async fn test_concurrent_pool_operations() {
     
     // All operations should succeed
     for result in results {
-        let (i, success) = result.unwrap();
+        let (i, success) = result.expect("should succeed");
         assert!(success, "Operation {} should have succeeded", i);
     }
 }
@@ -530,7 +530,7 @@ async fn test_realistic_connection_pool_usage() {
     
     for (name, url) in providers {
         let provider_config = create_test_provider_config(name, url);
-        manager.register_provider(provider_config).await.unwrap();
+        manager.register_provider(provider_config).await.expect("should succeed");
     }
     
     // Simulate multiple concurrent requests
@@ -554,7 +554,7 @@ async fn test_realistic_connection_pool_usage() {
     
     // All requests should be routed successfully
     for result in request_results {
-        let (i, success) = result.unwrap();
+        let (i, success) = result.expect("should succeed");
         assert!(success, "Request {} should have been routed successfully", i);
     }
     

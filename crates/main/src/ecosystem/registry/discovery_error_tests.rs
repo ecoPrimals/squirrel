@@ -24,7 +24,7 @@ mod error_path_tests {
         let result = DiscoveryOps::discover_services(&registry, primal_types).await;
 
         assert!(result.is_ok());
-        let services = result.unwrap();
+        let services = result.expect("should succeed");
         assert!(services.is_empty());
     }
 
@@ -37,7 +37,7 @@ mod error_path_tests {
         let result = DiscoveryOps::discover_services(&registry, primal_types).await;
 
         assert!(result.is_ok());
-        let services = result.unwrap();
+        let services = result.expect("should succeed");
         assert_eq!(services.len(), 1);
         assert_eq!(services[0].primal_type, EcosystemPrimalType::Squirrel);
     }
@@ -55,7 +55,7 @@ mod error_path_tests {
         let result = DiscoveryOps::discover_services(&registry, primal_types).await;
 
         assert!(result.is_ok());
-        let services = result.unwrap();
+        let services = result.expect("should succeed");
         assert_eq!(services.len(), 3);
 
         // Verify all types discovered
@@ -268,7 +268,7 @@ mod error_path_tests {
         let result = DiscoveryOps::discover_services(&registry, primal_types.clone()).await;
 
         assert!(result.is_ok());
-        let services = result.unwrap();
+        let services = result.expect("should succeed");
         assert_eq!(services.len(), primal_types.len());
     }
 
@@ -302,7 +302,7 @@ mod error_path_tests {
 
         // All reads should succeed
         for handle in read_handles {
-            let count = handle.await.unwrap();
+            let count = handle.await.expect("should succeed");
             assert_eq!(count, 1);
         }
     }

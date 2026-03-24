@@ -313,15 +313,16 @@ mod tests {
     fn test_load_from_yaml_file() {
         // Test basic YAML loading functionality by creating a valid configuration
 
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let yaml_path = temp_dir.path().join("test_config.yaml");
 
         // Generate a complete configuration template first
-        ConfigLoader::generate_template(&yaml_path, PrimalType::Coordinator).unwrap();
+        ConfigLoader::generate_template(&yaml_path, PrimalType::Coordinator)
+            .expect("should succeed");
 
         // Verify the file exists and contains expected content
         assert!(yaml_path.exists());
-        let content = std::fs::read_to_string(&yaml_path).unwrap();
+        let content = std::fs::read_to_string(&yaml_path).expect("should succeed");
         assert!(content.contains("name:"));
         assert!(content.contains("port:"));
         assert!(content.contains("Coordinator"));
@@ -354,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_validate_file() {
-        let mut temp_file = NamedTempFile::new().unwrap();
+        let mut temp_file = NamedTempFile::new().expect("should succeed");
         temp_file
             .write_all(
                 br#"
@@ -370,7 +371,7 @@ network:
   port: 8080
 "#,
             )
-            .unwrap();
+            .expect("should succeed");
 
         // This should fail because the config is incomplete
         assert!(ConfigLoader::validate_file(temp_file.path()).is_err());
@@ -378,15 +379,16 @@ network:
 
     #[test]
     fn test_generate_template() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let config_path = temp_dir.path().join("squirrel.yaml");
 
-        ConfigLoader::generate_template(&config_path, PrimalType::Coordinator).unwrap();
+        ConfigLoader::generate_template(&config_path, PrimalType::Coordinator)
+            .expect("should succeed");
 
         assert!(config_path.exists());
 
         // Just verify the file was created and has content
-        let content = std::fs::read_to_string(&config_path).unwrap();
+        let content = std::fs::read_to_string(&config_path).expect("should succeed");
         assert!(!content.is_empty());
         assert!(content.contains("name:"));
         assert!(content.contains("port:"));
@@ -404,30 +406,30 @@ network:
 
         match yaml_source {
             ConfigSource::File { format, .. } => assert_eq!(format, FileFormat::Yaml),
-            _ => panic!("Expected file source"),
+            _ => unreachable!("Expected file source"),
         }
 
         match json_source {
             ConfigSource::File { format, .. } => assert_eq!(format, FileFormat::Json),
-            _ => panic!("Expected file source"),
+            _ => unreachable!("Expected file source"),
         }
 
         match env_source {
             ConfigSource::Environment { prefix } => assert_eq!(prefix, "TEST"),
-            _ => panic!("Expected environment source"),
+            _ => unreachable!("Expected environment source"),
         }
 
         match defaults_source {
             ConfigSource::Defaults => {}
-            _ => panic!("Expected defaults source"),
+            _ => unreachable!("Expected defaults source"),
         }
     }
 
     #[test]
     fn test_from_file_unsupported_format() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let bad_path = temp_dir.path().join("config.txt");
-        std::fs::write(&bad_path, "invalid").unwrap();
+        std::fs::write(&bad_path, "invalid").expect("should succeed");
 
         let result = ConfigLoader::from_file(&bad_path);
         assert!(result.is_err());
@@ -455,9 +457,9 @@ network:
 
     #[test]
     fn test_validate_file_unsupported_extension() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let path = temp_dir.path().join("config.xyz");
-        std::fs::write(&path, "x: 1").unwrap();
+        std::fs::write(&path, "x: 1").expect("should succeed");
 
         let result = ConfigLoader::validate_file(&path);
         assert!(result.is_err());
@@ -474,7 +476,7 @@ network:
 
     #[test]
     fn test_load_with_sources_nonexistent_file_skipped() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let path = temp_dir.path().join("does_not_exist.yaml");
 
         let result = ConfigLoader::load_with_sources(vec![
@@ -487,7 +489,7 @@ network:
 
     #[test]
     fn test_generate_template_all_primal_types() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         for pt in [
             PrimalType::Coordinator,
             PrimalType::Security,
@@ -505,48 +507,55 @@ network:
 
     #[test]
     fn test_from_file_json_round_trip() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let path = temp_dir.path().join("cfg.json");
         let original = PrimalConfig::default();
-        std::fs::write(&path, serde_json::to_string_pretty(&original).unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            serde_json::to_string_pretty(&original).expect("should succeed"),
+        )
+        .expect("should succeed");
 
-        let loaded = ConfigLoader::from_file(&path).unwrap();
+        let loaded = ConfigLoader::from_file(&path).expect("should succeed");
         assert_eq!(loaded.info.version, original.info.version);
     }
 
     #[test]
     fn test_from_file_toml_round_trip() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let path = temp_dir.path().join("cfg.toml");
         let original = PrimalConfig::default();
-        std::fs::write(&path, toml::to_string(&original).unwrap()).unwrap();
+        std::fs::write(&path, toml::to_string(&original).expect("should succeed"))
+            .expect("should succeed");
 
-        let loaded = ConfigLoader::from_file(&path).unwrap();
+        let loaded = ConfigLoader::from_file(&path).expect("should succeed");
         assert_eq!(loaded.environment.name, original.environment.name);
     }
 
     #[test]
     fn test_validate_file_accepts_valid_config() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let path = temp_dir.path().join("valid.json");
         let cfg = PrimalConfig::default();
-        std::fs::write(&path, serde_json::to_string(&cfg).unwrap()).unwrap();
+        std::fs::write(&path, serde_json::to_string(&cfg).expect("should succeed"))
+            .expect("should succeed");
 
-        ConfigLoader::validate_file(&path).unwrap();
+        ConfigLoader::validate_file(&path).expect("should succeed");
     }
 
     #[test]
     fn test_load_with_sources_existing_json_file() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let path = temp_dir.path().join("layer.json");
         let cfg = PrimalConfig::default();
-        std::fs::write(&path, serde_json::to_string(&cfg).unwrap()).unwrap();
+        std::fs::write(&path, serde_json::to_string(&cfg).expect("should succeed"))
+            .expect("should succeed");
 
         let loaded = ConfigLoader::load_with_sources(vec![
             ConfigSource::defaults(),
             ConfigSource::json_file(&path),
         ])
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(loaded.info.name, cfg.info.name);
     }
 

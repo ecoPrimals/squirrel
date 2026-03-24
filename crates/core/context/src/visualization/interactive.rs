@@ -75,7 +75,9 @@ mod tests {
     #[tokio::test]
     async fn test_interactive_visualization_start_stop() {
         let config = Arc::new(VisualizationSystemConfig::default());
-        let viz = InteractiveVisualization::new(config).await.unwrap();
+        let viz = InteractiveVisualization::new(config)
+            .await
+            .expect("should succeed");
         assert!(viz.start().await.is_ok());
         assert!(viz.stop().await.is_ok());
     }
@@ -83,10 +85,12 @@ mod tests {
     #[tokio::test]
     async fn test_interactive_visualization_start_session() {
         let config = Arc::new(VisualizationSystemConfig::default());
-        let viz = InteractiveVisualization::new(config).await.unwrap();
+        let viz = InteractiveVisualization::new(config)
+            .await
+            .expect("should succeed");
         let session_id = viz.start_session(json!({"mode": "interactive"})).await;
         assert!(session_id.is_ok());
-        assert!(!session_id.unwrap().is_empty());
+        assert!(!session_id.expect("should succeed").is_empty());
     }
 
     #[test]

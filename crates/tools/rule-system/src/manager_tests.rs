@@ -77,7 +77,7 @@ mod tests {
             .with_condition(RuleCondition::Exists {
                 path: "data".to_string(),
             });
-        manager.add_rule(rule).await.unwrap();
+        manager.add_rule(rule).await.expect("should succeed");
 
         // Now remove it
         let result = manager.remove_rule("test-remove").await;
@@ -94,7 +94,7 @@ mod tests {
             .with_condition(RuleCondition::Exists {
                 path: "data".to_string(),
             });
-        manager.add_rule(rule).await.unwrap();
+        manager.add_rule(rule).await.expect("should succeed");
 
         // Update it
         let updated_rule = Rule::new("test-update")
@@ -118,14 +118,14 @@ mod tests {
                 .with_condition(RuleCondition::Exists {
                     path: "data".to_string(),
                 });
-        manager.add_rule(rule).await.unwrap();
+        manager.add_rule(rule).await.expect("should succeed");
 
         // Get it back
         let result = manager.get_rule("test-get").await;
         assert!(result.is_ok());
-        let retrieved = result.unwrap();
+        let retrieved = result.expect("should succeed");
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().id, "test-get");
+        assert_eq!(retrieved.expect("should succeed").id, "test-get");
     }
 
     #[tokio::test]
@@ -139,12 +139,12 @@ mod tests {
                 .with_condition(RuleCondition::Exists {
                     path: "data".to_string(),
                 });
-            manager.add_rule(rule).await.unwrap();
+            manager.add_rule(rule).await.expect("should succeed");
         }
 
         let result = manager.get_all_rules().await;
         assert!(result.is_ok());
-        let rules = result.unwrap();
+        let rules = result.expect("should succeed");
         assert_eq!(rules.len(), 5);
     }
 
@@ -167,12 +167,12 @@ mod tests {
                 path: "data".to_string(),
             });
 
-        manager.add_rule(rule1).await.unwrap();
-        manager.add_rule(rule2).await.unwrap();
+        manager.add_rule(rule1).await.expect("should succeed");
+        manager.add_rule(rule2).await.expect("should succeed");
 
         let result = manager.get_rules_by_category("security").await;
         assert!(result.is_ok());
-        let rule_list = result.unwrap();
+        let rule_list = result.expect("should succeed");
         assert_eq!(rule_list.len(), 2);
     }
 
@@ -186,7 +186,7 @@ mod tests {
             .with_condition(RuleCondition::Exists {
                 path: "user".to_string(),
             });
-        manager.add_rule(rule).await.unwrap();
+        manager.add_rule(rule).await.expect("should succeed");
 
         let context = json!({"user": {"name": "Test"}});
 
@@ -209,7 +209,7 @@ mod tests {
                 path: "processed".to_string(),
                 value: json!(true),
             });
-        manager.add_rule(rule).await.unwrap();
+        manager.add_rule(rule).await.expect("should succeed");
 
         let context = json!({"user": {}});
 
@@ -237,7 +237,7 @@ mod tests {
                 path: "processed".to_string(),
                 value: json!(true),
             });
-        manager.add_rule(rule).await.unwrap();
+        manager.add_rule(rule).await.expect("should succeed");
 
         let context = json!({"user": {}});
 
@@ -272,7 +272,7 @@ mod tests {
             .with_condition(RuleCondition::Exists {
                 path: "data".to_string(),
             });
-        manager.add_rule(rule).await.unwrap();
+        manager.add_rule(rule).await.expect("should succeed");
 
         let result = manager.activate_rule("test-activate").await;
         assert!(result.is_ok());
@@ -288,8 +288,11 @@ mod tests {
             .with_condition(RuleCondition::Exists {
                 path: "data".to_string(),
             });
-        manager.add_rule(rule).await.unwrap();
-        manager.activate_rule("test-deactivate").await.unwrap();
+        manager.add_rule(rule).await.expect("should succeed");
+        manager
+            .activate_rule("test-deactivate")
+            .await
+            .expect("should succeed");
 
         let result = manager.deactivate_rule("test-deactivate").await;
         assert!(result.is_ok());
@@ -305,8 +308,11 @@ mod tests {
             .with_condition(RuleCondition::Exists {
                 path: "data".to_string(),
             });
-        manager.add_rule(rule).await.unwrap();
-        manager.activate_rule("test-is-active").await.unwrap();
+        manager.add_rule(rule).await.expect("should succeed");
+        manager
+            .activate_rule("test-is-active")
+            .await
+            .expect("should succeed");
 
         let is_active = manager.is_rule_active("test-is-active").await;
         assert!(is_active);
@@ -323,11 +329,11 @@ mod tests {
                 .with_condition(RuleCondition::Exists {
                     path: "data".to_string(),
                 });
-            manager.add_rule(rule).await.unwrap();
+            manager.add_rule(rule).await.expect("should succeed");
             manager
                 .activate_rule(&format!("test-active-{i}"))
                 .await
-                .unwrap();
+                .expect("should succeed");
         }
 
         let active_rules = manager.get_active_rules().await;
@@ -397,8 +403,8 @@ mod tests {
                 path: "z".to_string(),
                 value: json!(null),
             });
-        manager.add_rule(base).await.unwrap();
-        manager.add_rule(dependent).await.unwrap();
+        manager.add_rule(base).await.expect("should succeed");
+        manager.add_rule(dependent).await.expect("should succeed");
         let err = manager.remove_rule("base-rule").await.expect_err("blocked");
         assert!(matches!(
             err,
@@ -444,8 +450,8 @@ mod tests {
                 path: "q".to_string(),
                 value: json!(1),
             });
-        manager.add_rule(a).await.unwrap();
-        manager.add_rule(b).await.unwrap();
+        manager.add_rule(a).await.expect("should succeed");
+        manager.add_rule(b).await.expect("should succeed");
 
         let a_dep_b = Rule::new("rule-a")
             .with_name("A2")

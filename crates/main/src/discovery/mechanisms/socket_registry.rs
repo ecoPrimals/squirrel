@@ -264,30 +264,30 @@ mod tests {
 
     #[test]
     fn test_discover_from_empty_registry() {
-        let mut file = NamedTempFile::new().unwrap();
-        file.write_all(b"{}").unwrap();
-        file.flush().unwrap();
+        let mut file = NamedTempFile::new().expect("should succeed");
+        file.write_all(b"{}").expect("should succeed");
+        file.flush().expect("should succeed");
 
         let discovery = SocketRegistryDiscovery::with_path(PathBuf::from(file.path()));
         let result = discovery.discover_by_capability("ai");
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.expect("should succeed").is_empty());
     }
 
     #[test]
     fn test_discover_from_registry() {
-        let mut file = NamedTempFile::new().unwrap();
+        let mut file = NamedTempFile::new().expect("should succeed");
         file.write_all(
             br#"{"ai": "/run/user/1000/squirrel.sock", "storage": "/run/user/1000/nestgate.sock"}"#,
         )
-        .unwrap();
-        file.flush().unwrap();
+        .expect("should succeed");
+        file.flush().expect("should succeed");
 
         let discovery = SocketRegistryDiscovery::with_path(PathBuf::from(file.path()))
             .with_cache_ttl(Duration::from_secs(60));
         let result = discovery.discover_by_capability("ai");
         assert!(result.is_ok());
-        let services = result.unwrap();
+        let services = result.expect("should succeed");
         assert_eq!(services.len(), 1);
         assert_eq!(services[0].endpoint, "unix:///run/user/1000/squirrel.sock");
         assert_eq!(services[0].capabilities, vec!["ai"]);
@@ -296,17 +296,17 @@ mod tests {
 
     #[test]
     fn test_discover_all() {
-        let mut file = NamedTempFile::new().unwrap();
+        let mut file = NamedTempFile::new().expect("should succeed");
         file.write_all(
             br#"{"ai": "/run/user/1000/squirrel.sock", "storage": "/run/user/1000/nestgate.sock"}"#,
         )
-        .unwrap();
-        file.flush().unwrap();
+        .expect("should succeed");
+        file.flush().expect("should succeed");
 
         let discovery = SocketRegistryDiscovery::with_path(PathBuf::from(file.path()));
         let result = discovery.discover_all();
         assert!(result.is_ok());
-        let services = result.unwrap();
+        let services = result.expect("should succeed");
         assert_eq!(services.len(), 2);
     }
 
@@ -315,6 +315,6 @@ mod tests {
         let discovery = SocketRegistryDiscovery::with_path(PathBuf::from("/nonexistent/path.json"));
         let result = discovery.discover_by_capability("ai");
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.expect("should succeed").is_empty());
     }
 }

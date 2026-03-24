@@ -77,7 +77,7 @@ fn test_discover_from_env_found() {
         );
 
     temp_env::with_var("AI_COMPLETE_ENDPOINT", Some(test_endpoint.as_str()), || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         rt.block_on(async {
             let resolver = CapabilityResolver::new();
             let request = CapabilityRequest {
@@ -91,7 +91,7 @@ fn test_discover_from_env_found() {
             let result = resolver.discover_provider(request).await;
 
             assert!(result.is_ok());
-            let service = result.unwrap();
+            let service = result.expect("should succeed");
             assert_eq!(service.endpoint, test_endpoint);
             assert!(service.capabilities.contains(&"ai.complete".to_string()));
             assert_eq!(service.priority, 100);
@@ -102,7 +102,7 @@ fn test_discover_from_env_found() {
 #[test]
 fn test_discover_from_env_not_found() {
     temp_env::with_var_unset("NONEXISTENT_CAPABILITY_ENDPOINT", || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         rt.block_on(async {
             let resolver = CapabilityResolver::new();
             let request = CapabilityRequest {
@@ -125,7 +125,7 @@ fn test_discover_provider_with_dots_in_capability() {
         "HTTP_REQUEST_ENDPOINT",
         Some("unix:///tmp/songbird.sock"),
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = CapabilityResolver::new();
                 let request = CapabilityRequest {
@@ -139,7 +139,7 @@ fn test_discover_provider_with_dots_in_capability() {
                 let result = resolver.discover_provider(request).await;
 
                 assert!(result.is_ok());
-                let service = result.unwrap();
+                let service = result.expect("should succeed");
                 assert_eq!(service.endpoint, "unix:///tmp/songbird.sock");
                 assert!(service.capabilities.contains(&"http.request".to_string()));
             });
@@ -153,7 +153,7 @@ fn test_discover_provider_priority() {
         "TEST_CAPABILITY_ENDPOINT",
         Some("http://env-provider:8000"),
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = CapabilityResolver::new();
                 let request = CapabilityRequest {
@@ -167,7 +167,7 @@ fn test_discover_provider_priority() {
                 let result = resolver.discover_provider(request).await;
 
                 assert!(result.is_ok());
-                let service = result.unwrap();
+                let service = result.expect("should succeed");
                 assert_eq!(service.endpoint, "http://env-provider:8000");
                 assert_eq!(service.priority, 100);
             });
@@ -181,7 +181,7 @@ fn test_capability_request_with_preference() {
         "PREFERRED_SERVICE_ENDPOINT",
         Some("http://localhost:9000"),
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = CapabilityResolver::new();
                 let request = CapabilityRequest {
@@ -205,7 +205,7 @@ fn test_capability_request_with_features() {
         "FEATURED_SERVICE_ENDPOINT",
         Some("http://localhost:10000"),
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = CapabilityResolver::new();
                 let request = CapabilityRequest {
@@ -246,7 +246,7 @@ fn test_resolver_clone() {
         "CLONE_TEST_ENDPOINT",
         Some("http://localhost:11000"),
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver1 = CapabilityResolver::new();
                 let resolver2 = resolver1.clone();
@@ -275,7 +275,7 @@ fn test_discover_service_metadata() {
         "METADATA_TEST_ENDPOINT",
         Some("http://localhost:12000"),
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = CapabilityResolver::new();
                 let request = CapabilityRequest {
@@ -289,7 +289,7 @@ fn test_discover_service_metadata() {
                 let result = resolver.discover_provider(request).await;
 
                 assert!(result.is_ok());
-                let service = result.unwrap();
+                let service = result.expect("should succeed");
                 assert_eq!(service.name, "metadata.test-provider");
                 assert_eq!(service.discovery_method, "environment_variable");
                 assert!(service.healthy.unwrap_or(false));
@@ -304,7 +304,7 @@ fn test_uppercase_capability_env_conversion() {
         "LOWERCASE_TEST_ENDPOINT",
         Some("http://localhost:13000"),
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = CapabilityResolver::new();
                 let request = CapabilityRequest {
@@ -328,7 +328,7 @@ fn test_multiple_dots_in_capability() {
         "AI_NEURAL_INFERENCE_ENDPOINT",
         Some("http://localhost:14000"),
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = CapabilityResolver::new();
                 let request = CapabilityRequest {
@@ -342,7 +342,7 @@ fn test_multiple_dots_in_capability() {
                 let result = resolver.discover_provider(request).await;
 
                 assert!(result.is_ok());
-                let service = result.unwrap();
+                let service = result.expect("should succeed");
                 assert!(
                     service
                         .capabilities

@@ -423,7 +423,7 @@ mod tests {
         let out = ex
             .execute_rule_actions(&rule, Some(&mut ctx))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(out["a"]["b"], 42);
     }
 
@@ -437,7 +437,10 @@ mod tests {
             path: "k".to_string(),
             value: json!("v"),
         }]);
-        let out = ex.execute_rule_actions(&rule, None).await.unwrap();
+        let out = ex
+            .execute_rule_actions(&rule, None)
+            .await
+            .expect("should succeed");
         assert_eq!(out["k"], "v");
     }
 
@@ -499,7 +502,7 @@ mod tests {
         let mut ctx = json!({});
         ex.execute_rule_actions(&rule, Some(&mut ctx))
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 
     #[tokio::test]
@@ -521,7 +524,7 @@ mod tests {
         let mut ctx = json!({"in": 7, "out": null});
         ex.execute_rule_actions(&rule, Some(&mut ctx))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(ctx["out"], 7);
     }
 

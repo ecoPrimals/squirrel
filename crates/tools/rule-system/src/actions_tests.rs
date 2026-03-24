@@ -64,7 +64,7 @@ async fn test_action_executor_initialize() {
 #[tokio::test]
 async fn test_execute_modify_context() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::ModifyContext {
         path: "data.value".to_string(),
@@ -73,21 +73,24 @@ async fn test_execute_modify_context() {
     let result = executor
         .execute_action(&action, "ctx-1", "rule-1")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(result.success);
     assert_eq!(result.rule_id, "rule-1");
     assert_eq!(result.context_id, "ctx-1");
     assert!(result.action_id.starts_with("modify_context_"));
     assert!(result.message.contains("Modified context"));
-    assert_eq!(result.data.as_ref().unwrap()["path"], "data.value");
-    assert_eq!(result.data.as_ref().unwrap()["value"], 42);
+    assert_eq!(
+        result.data.as_ref().expect("should succeed")["path"],
+        "data.value"
+    );
+    assert_eq!(result.data.as_ref().expect("should succeed")["value"], 42);
 }
 
 #[tokio::test]
 async fn test_execute_create_recovery_point() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::CreateRecoveryPoint {
         description: "Before migration".to_string(),
@@ -95,16 +98,23 @@ async fn test_execute_create_recovery_point() {
     let result = executor
         .execute_action(&action, "ctx-2", "rule-2")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(result.success);
     assert_eq!(result.rule_id, "rule-2");
     assert_eq!(result.context_id, "ctx-2");
     assert!(result.action_id.starts_with("recovery_point_"));
     assert!(result.message.contains("Before migration"));
-    assert!(result.data.as_ref().unwrap().get("recovery_id").is_some());
+    assert!(
+        result
+            .data
+            .as_ref()
+            .expect("should succeed")
+            .get("recovery_id")
+            .is_some()
+    );
     assert_eq!(
-        result.data.as_ref().unwrap()["description"],
+        result.data.as_ref().expect("should succeed")["description"],
         "Before migration"
     );
 }
@@ -112,7 +122,7 @@ async fn test_execute_create_recovery_point() {
 #[tokio::test]
 async fn test_execute_transformation() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::ExecuteTransformation {
         transformation_id: "transform-1".to_string(),
@@ -121,14 +131,14 @@ async fn test_execute_transformation() {
     let result = executor
         .execute_action(&action, "ctx-3", "rule-3")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(result.success);
     assert_eq!(result.rule_id, "rule-3");
     assert!(result.action_id.starts_with("transformation_"));
     assert!(result.message.contains("transform-1"));
     assert_eq!(
-        result.data.as_ref().unwrap()["transformation_id"],
+        result.data.as_ref().expect("should succeed")["transformation_id"],
         "transform-1"
     );
 }
@@ -136,7 +146,7 @@ async fn test_execute_transformation() {
 #[tokio::test]
 async fn test_execute_transformation_without_config() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::ExecuteTransformation {
         transformation_id: "transform-2".to_string(),
@@ -145,11 +155,11 @@ async fn test_execute_transformation_without_config() {
     let result = executor
         .execute_action(&action, "ctx-4", "rule-4")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(result.success);
     assert_eq!(
-        result.data.as_ref().unwrap()["config"],
+        result.data.as_ref().expect("should succeed")["config"],
         serde_json::Value::Null
     );
 }
@@ -157,7 +167,7 @@ async fn test_execute_transformation_without_config() {
 #[tokio::test]
 async fn test_execute_notify() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::Notify {
         channel: "slack".to_string(),
@@ -167,21 +177,27 @@ async fn test_execute_notify() {
     let result = executor
         .execute_action(&action, "ctx-5", "rule-5")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(result.success);
     assert_eq!(result.rule_id, "rule-5");
     assert!(result.action_id.starts_with("notify_"));
     assert!(result.message.contains("slack"));
     assert!(result.message.contains("Test alert"));
-    assert_eq!(result.data.as_ref().unwrap()["channel"], "slack");
-    assert_eq!(result.data.as_ref().unwrap()["message"], "Test alert");
+    assert_eq!(
+        result.data.as_ref().expect("should succeed")["channel"],
+        "slack"
+    );
+    assert_eq!(
+        result.data.as_ref().expect("should succeed")["message"],
+        "Test alert"
+    );
 }
 
 #[tokio::test]
 async fn test_execute_notify_without_data() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::Notify {
         channel: "email".to_string(),
@@ -191,11 +207,11 @@ async fn test_execute_notify_without_data() {
     let result = executor
         .execute_action(&action, "ctx-6", "rule-6")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(result.success);
     assert_eq!(
-        result.data.as_ref().unwrap()["data"],
+        result.data.as_ref().expect("should succeed")["data"],
         serde_json::Value::Null
     );
 }
@@ -206,7 +222,7 @@ async fn test_execute_plugin_registered() {
     executor
         .register_plugin(Box::new(MockActionPlugin))
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let action = RuleAction::ExecutePlugin {
         plugin_id: "mock_plugin".to_string(),
@@ -215,18 +231,18 @@ async fn test_execute_plugin_registered() {
     let result = executor
         .execute_action(&action, "ctx-7", "rule-7")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(result.success);
     assert_eq!(result.action_id, "mock_action_123");
     assert_eq!(result.message, "Mock plugin executed");
-    assert_eq!(result.data.as_ref().unwrap()["mock"], true);
+    assert_eq!(result.data.as_ref().expect("should succeed")["mock"], true);
 }
 
 #[tokio::test]
 async fn test_execute_plugin_not_found() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::ExecutePlugin {
         plugin_id: "nonexistent_plugin".to_string(),
@@ -235,7 +251,7 @@ async fn test_execute_plugin_not_found() {
     let result = executor
         .execute_action(&action, "ctx-8", "rule-8")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(!result.success);
     assert!(result.action_id.starts_with("plugin_error_"));
@@ -245,7 +261,7 @@ async fn test_execute_plugin_not_found() {
 #[tokio::test]
 async fn test_execute_script() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::ExecuteScript {
         script: "return 1 + 1".to_string(),
@@ -254,18 +270,24 @@ async fn test_execute_script() {
     let result = executor
         .execute_action(&action, "ctx-9", "rule-9")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(!result.success);
     assert!(result.message.contains("not implemented"));
-    assert_eq!(result.data.as_ref().unwrap()["script"], "return 1 + 1");
-    assert_eq!(result.data.as_ref().unwrap()["language"], "js");
+    assert_eq!(
+        result.data.as_ref().expect("should succeed")["script"],
+        "return 1 + 1"
+    );
+    assert_eq!(
+        result.data.as_ref().expect("should succeed")["language"],
+        "js"
+    );
 }
 
 #[tokio::test]
 async fn test_execute_validate_context() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let schema = json!({
         "type": "object",
@@ -277,12 +299,15 @@ async fn test_execute_validate_context() {
     let result = executor
         .execute_action(&action, "ctx-10", "rule-10")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     assert!(result.success);
     assert!(result.action_id.starts_with("validate_"));
     assert_eq!(result.message, "Context validation completed");
-    assert_eq!(result.data.as_ref().unwrap()["schema"], schema);
+    assert_eq!(
+        result.data.as_ref().expect("should succeed")["schema"],
+        schema
+    );
 }
 
 #[tokio::test]
@@ -293,12 +318,15 @@ async fn test_register_and_unregister_plugin() {
     executor
         .register_plugin(Box::new(MockActionPlugin))
         .await
-        .unwrap();
+        .expect("should succeed");
     let plugins = executor.get_registered_plugins().await;
     assert_eq!(plugins.len(), 1);
     assert!(plugins.contains(&"mock_plugin".to_string()));
 
-    executor.unregister_plugin("mock_plugin").await.unwrap();
+    executor
+        .unregister_plugin("mock_plugin")
+        .await
+        .expect("should succeed");
     assert!(executor.get_registered_plugins().await.is_empty());
 }
 
@@ -312,7 +340,7 @@ async fn test_unregister_nonexistent_plugin() {
 #[tokio::test]
 async fn test_execution_history() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::ModifyContext {
         path: "x".to_string(),
@@ -321,11 +349,11 @@ async fn test_execution_history() {
     executor
         .execute_action(&action, "ctx-h", "rule-h")
         .await
-        .unwrap();
+        .expect("should succeed");
     executor
         .execute_action(&action, "ctx-h", "rule-h")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let history = executor.get_execution_history().await;
     assert_eq!(history.len(), 2);
@@ -338,7 +366,7 @@ async fn test_execution_history() {
 #[tokio::test]
 async fn test_statistics_tracking() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let success_action = RuleAction::ModifyContext {
         path: "x".to_string(),
@@ -352,15 +380,15 @@ async fn test_statistics_tracking() {
     executor
         .execute_action(&success_action, "ctx", "rule")
         .await
-        .unwrap();
+        .expect("should succeed");
     executor
         .execute_action(&success_action, "ctx", "rule")
         .await
-        .unwrap();
+        .expect("should succeed");
     executor
         .execute_action(&fail_action, "ctx", "rule")
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let stats = executor.get_statistics().await;
     assert_eq!(stats.total_actions(), 3);
@@ -373,7 +401,7 @@ async fn test_statistics_tracking() {
 #[tokio::test]
 async fn test_clear_history() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::ModifyContext {
         path: "x".to_string(),
@@ -382,17 +410,17 @@ async fn test_clear_history() {
     executor
         .execute_action(&action, "ctx", "rule")
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(executor.get_execution_history().await.len(), 1);
 
-    executor.clear_history().await.unwrap();
+    executor.clear_history().await.expect("should succeed");
     assert!(executor.get_execution_history().await.is_empty());
 }
 
 #[tokio::test]
 async fn test_reset_statistics() {
     let executor = ActionExecutor::new();
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let action = RuleAction::ModifyContext {
         path: "x".to_string(),
@@ -401,10 +429,10 @@ async fn test_reset_statistics() {
     executor
         .execute_action(&action, "ctx", "rule")
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(executor.get_statistics().await.total_actions(), 1);
 
-    executor.reset_statistics().await.unwrap();
+    executor.reset_statistics().await.expect("should succeed");
     let stats = executor.get_statistics().await;
     assert_eq!(stats.total_actions(), 0);
     assert_eq!(stats.successful_actions(), 0);
@@ -425,7 +453,10 @@ async fn test_notification_action_plugin() {
         message: "hello".to_string(),
         data: None,
     };
-    let result = plugin.execute(&action, "ctx", "rule").await.unwrap();
+    let result = plugin
+        .execute(&action, "ctx", "rule")
+        .await
+        .expect("should succeed");
     assert!(result.success);
     assert!(result.action_id.starts_with("notification_"));
     assert!(result.message.contains("test"));
@@ -457,7 +488,10 @@ async fn test_context_modification_action_plugin() {
         path: "data.x".to_string(),
         value: json!("value"),
     };
-    let result = plugin.execute(&action, "ctx", "rule").await.unwrap();
+    let result = plugin
+        .execute(&action, "ctx", "rule")
+        .await
+        .expect("should succeed");
     assert!(result.success);
     assert!(result.action_id.starts_with("context_mod_"));
     assert!(result.message.contains("data.x"));
@@ -488,7 +522,10 @@ async fn test_validation_action_plugin() {
     let action = RuleAction::ValidateContext {
         schema: schema.clone(),
     };
-    let result = plugin.execute(&action, "ctx", "rule").await.unwrap();
+    let result = plugin
+        .execute(&action, "ctx", "rule")
+        .await
+        .expect("should succeed");
     assert!(result.success);
     assert!(result.action_id.starts_with("validation_"));
 }
@@ -518,7 +555,7 @@ async fn test_action_statistics_default() {
 async fn test_create_action_executor() {
     let result = create_action_executor();
     assert!(result.is_ok());
-    let executor = result.unwrap();
+    let executor = result.expect("should succeed");
     assert!(executor.get_registered_plugins().await.is_empty());
 }
 
@@ -526,8 +563,8 @@ async fn test_create_action_executor() {
 async fn test_create_action_executor_async() {
     let result = create_action_executor();
     assert!(result.is_ok());
-    let executor = result.unwrap();
-    executor.initialize().await.unwrap();
+    let executor = result.expect("should succeed");
+    executor.initialize().await.expect("should succeed");
     assert!(!executor.get_registered_plugins().await.is_empty());
 }
 
@@ -535,14 +572,14 @@ async fn test_create_action_executor_async() {
 async fn test_create_action_executor_with_config() {
     let result = create_action_executor_with_config();
     assert!(result.is_ok());
-    let executor = result.unwrap();
+    let executor = result.expect("should succeed");
     assert!(executor.get_registered_plugins().await.is_empty());
 }
 
 #[tokio::test]
 async fn test_concurrent_executions() {
     let executor = std::sync::Arc::new(ActionExecutor::new());
-    executor.initialize().await.unwrap();
+    executor.initialize().await.expect("should succeed");
 
     let mut handles = vec![];
     for i in 0..5 {
@@ -557,7 +594,7 @@ async fn test_concurrent_executions() {
     }
 
     for handle in handles {
-        let result = handle.await.unwrap();
+        let result = handle.await.expect("should succeed");
         assert!(result.is_ok());
     }
 
@@ -577,8 +614,8 @@ async fn test_action_result_serialization_roundtrip() {
         data: Some(json!({"key": "value"})),
         timestamp: Utc::now(),
     };
-    let json = serde_json::to_string(&original).unwrap();
-    let deserialized: ActionResult = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&original).expect("should succeed");
+    let deserialized: ActionResult = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(original.action_id, deserialized.action_id);
     assert_eq!(original.rule_id, deserialized.rule_id);
     assert_eq!(original.context_id, deserialized.context_id);
@@ -592,8 +629,8 @@ async fn test_rule_action_modify_context_serialization() {
         path: "data.x".to_string(),
         value: json!(42),
     };
-    let json = serde_json::to_string(&action).unwrap();
-    let deserialized: RuleAction = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&action).expect("should succeed");
+    let deserialized: RuleAction = serde_json::from_str(&json).expect("should succeed");
     if let (
         RuleAction::ModifyContext {
             path: p1,
@@ -608,7 +645,7 @@ async fn test_rule_action_modify_context_serialization() {
         assert_eq!(p1, p2);
         assert_eq!(v1, v2);
     } else {
-        panic!("Expected ModifyContext variant");
+        unreachable!("Expected ModifyContext variant");
     }
 }
 
@@ -619,8 +656,8 @@ async fn test_rule_action_notify_serialization() {
         message: "hello".to_string(),
         data: Some(json!({"a": 1})),
     };
-    let json = serde_json::to_string(&action).unwrap();
-    let deserialized: RuleAction = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&action).expect("should succeed");
+    let deserialized: RuleAction = serde_json::from_str(&json).expect("should succeed");
     if let (
         RuleAction::Notify {
             channel: c1,
@@ -637,6 +674,6 @@ async fn test_rule_action_notify_serialization() {
         assert_eq!(c1, c2);
         assert_eq!(m1, m2);
     } else {
-        panic!("Expected Notify variant");
+        unreachable!("Expected Notify variant");
     }
 }

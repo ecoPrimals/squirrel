@@ -137,7 +137,7 @@ fn test_security_response_failed() {
     if let SecurityResponseStatus::Failed { reason: r } = response.status {
         assert_eq!(r, reason);
     } else {
-        panic!("Expected Failed status");
+        unreachable!("Expected Failed status");
     }
 
     assert_eq!(response.data, serde_json::Value::Null);

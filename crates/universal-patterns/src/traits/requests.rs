@@ -75,8 +75,8 @@ mod tests {
             priority: Some(5),
             security_level: Some("high".to_string()),
         };
-        let json = serde_json::to_string(&request).unwrap();
-        let deserialized: PrimalRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
+        let deserialized: PrimalRequest = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.id, request.id);
         assert_eq!(deserialized.request_type, PrimalRequestType::Authenticate);
         assert_eq!(deserialized.priority, Some(5));
@@ -99,8 +99,9 @@ mod tests {
             PrimalRequestType::Custom("my-op".to_string()),
         ];
         for rt in types {
-            let json = serde_json::to_string(&rt).unwrap();
-            let deserialized: PrimalRequestType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&rt).expect("should succeed");
+            let deserialized: PrimalRequestType =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, rt);
         }
     }
@@ -116,8 +117,8 @@ mod tests {
             priority: None,
             security_level: None,
         };
-        let json = serde_json::to_string(&request).unwrap();
-        let deserialized: PrimalRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
+        let deserialized: PrimalRequest = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.id, Uuid::nil());
         assert!(deserialized.context.is_none());
     }

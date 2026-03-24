@@ -806,16 +806,16 @@ mod tests {
             scheduled_at: None,
         };
         
-        let task_id = provider.schedule_task(task).await.unwrap();
-        let task_status = provider.get_task_status(&task_id).await.unwrap();
+        let task_id = provider.schedule_task(task).await.expect("should succeed");
+        let task_status = provider.get_task_status(&task_id).await.expect("should succeed");
         assert_eq!(task_status.state, TaskState::Completed);
         
         // Test service discovery
-        let services = provider.discover_services("test").await.unwrap();
+        let services = provider.discover_services("test").await.expect("should succeed");
         assert_eq!(services.len(), 0);
         
         // Test cluster status
-        let cluster_status = provider.get_cluster_status().await.unwrap();
+        let cluster_status = provider.get_cluster_status().await.expect("should succeed");
         assert_eq!(cluster_status.cluster_id, "test-cluster");
         assert_eq!(cluster_status.total_nodes, 3);
         assert_eq!(cluster_status.healthy_nodes, 3);

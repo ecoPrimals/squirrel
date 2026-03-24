@@ -292,7 +292,10 @@ mod tests {
             "tool": "system.health",
             "args": {}
         }));
-        let v = server.handle_execute_tool(params).await.unwrap();
+        let v = server
+            .handle_execute_tool(params)
+            .await
+            .expect("should succeed");
         assert_eq!(v.get("success"), Some(&serde_json::json!(true)));
         assert!(v.get("output").and_then(|o| o.as_str()).is_some());
     }
@@ -304,14 +307,17 @@ mod tests {
             "tool": "not.a.registered.tool",
             "args": {}
         }));
-        let v = server.handle_execute_tool(params).await.unwrap();
+        let v = server
+            .handle_execute_tool(params)
+            .await
+            .expect("should succeed");
         assert_eq!(v.get("success"), Some(&serde_json::json!(false)));
     }
 
     #[tokio::test]
     async fn list_tools_returns_non_empty() {
         let server = JsonRpcServer::new("/tmp/sq-tool-list.sock".to_string());
-        let v = server.handle_list_tools().await.unwrap();
+        let v = server.handle_list_tools().await.expect("should succeed");
         let tools = v.get("tools").and_then(|t| t.as_array());
         assert!(tools.is_some_and(|a| !a.is_empty()));
         assert!(
@@ -328,7 +334,10 @@ mod tests {
         let params = Some(serde_json::json!({
             "tool": "system.health"
         }));
-        let v = server.handle_execute_tool(params).await.unwrap();
+        let v = server
+            .handle_execute_tool(params)
+            .await
+            .expect("should succeed");
         assert_eq!(v.get("success"), Some(&serde_json::json!(true)));
     }
 

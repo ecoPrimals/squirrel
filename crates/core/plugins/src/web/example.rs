@@ -565,10 +565,10 @@ mod tests {
     async fn lifecycle_initialize_shutdown() {
         let p = ExampleWebPlugin::new();
         assert_eq!(*p.status.read().await, PluginStatus::Registered);
-        p.initialize().await.unwrap();
+        p.initialize().await.expect("should succeed");
         assert_eq!(*p.status.read().await, PluginStatus::Initialized);
         assert_eq!(p.data.read().await.len(), 2);
-        p.shutdown().await.unwrap();
+        p.shutdown().await.expect("should succeed");
         assert_eq!(*p.status.read().await, PluginStatus::Unloaded);
     }
 
@@ -590,16 +590,16 @@ mod tests {
     #[tokio::test]
     async fn handle_request_crud_and_not_found() {
         let p = ExampleWebPlugin::new();
-        p.initialize().await.unwrap();
+        p.initialize().await.expect("should succeed");
 
         let list = WebPlugin::handle_request(
             &p,
             example_req(HttpMethod::Get, "/api/examples", None, HashMap::new()),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(list.status, HttpStatus::Ok);
-        assert_eq!(list.body.as_ref().unwrap()["count"], 2);
+        assert_eq!(list.body.as_ref().expect("should succeed")["count"], 2);
 
         let one = WebPlugin::handle_request(
             &p,
@@ -610,9 +610,9 @@ mod tests {
             }),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(one.status, HttpStatus::Ok);
-        assert_eq!(one.body.as_ref().unwrap()["id"], "example1");
+        assert_eq!(one.body.as_ref().expect("should succeed")["id"], "example1");
 
         let missing = WebPlugin::handle_request(
             &p,
@@ -623,7 +623,7 @@ mod tests {
             }),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(missing.status, HttpStatus::NotFound);
 
         let create = WebPlugin::handle_request(
@@ -636,7 +636,7 @@ mod tests {
             ),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(create.status, HttpStatus::Created);
 
         let upd = WebPlugin::handle_request(
@@ -653,7 +653,7 @@ mod tests {
             ),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(upd.status, HttpStatus::Ok);
 
         let del = WebPlugin::handle_request(
@@ -665,7 +665,7 @@ mod tests {
             }),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(del.status, HttpStatus::NoContent);
 
         let nf = WebPlugin::handle_request(
@@ -673,7 +673,7 @@ mod tests {
             example_req(HttpMethod::Get, "/api/unknown", None, HashMap::new()),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(nf.status, HttpStatus::NotFound);
     }
 
@@ -682,7 +682,7 @@ mod tests {
         let p = ExampleWebPlugin::new();
         let markup = WebPlugin::get_component_markup(&p, EXAMPLE_COMPONENT_ID, json!({"a": 1}))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(markup.contains("Example Page"));
         assert!(markup.contains("\"a\": 1"));
 
@@ -693,7 +693,7 @@ mod tests {
     #[tokio::test]
     async fn legacy_trait_converts_endpoints_and_handles_request() {
         let p = ExampleWebPlugin::new();
-        p.initialize().await.unwrap();
+        p.initialize().await.expect("should succeed");
 
         let legacy_eps = LegacyWebPluginTrait::get_endpoints(&p);
         assert!(!legacy_eps.is_empty());
@@ -701,7 +701,7 @@ mod tests {
 
         let body = LegacyWebPluginTrait::handle_request(&p, "/api/examples", "GET", json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(body.get("count").is_some());
 
         let comps = LegacyWebPluginTrait::get_components(&p);

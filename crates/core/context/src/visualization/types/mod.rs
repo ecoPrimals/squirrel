@@ -59,19 +59,19 @@ mod tests {
     #[test]
     fn test_visualization_type_from_str() {
         assert_eq!(
-            VisualizationType::from_str("context_state").unwrap(),
+            VisualizationType::from_str("context_state").expect("should succeed"),
             VisualizationType::ContextState
         );
         assert_eq!(
-            VisualizationType::from_str("timeline").unwrap(),
+            VisualizationType::from_str("timeline").expect("should succeed"),
             VisualizationType::Timeline
         );
         assert_eq!(
-            VisualizationType::from_str("metrics_dashboard").unwrap(),
+            VisualizationType::from_str("metrics_dashboard").expect("should succeed"),
             VisualizationType::MetricsDashboard
         );
         assert_eq!(
-            VisualizationType::from_str("custom_thing").unwrap(),
+            VisualizationType::from_str("custom_thing").expect("should succeed"),
             VisualizationType::Custom("custom_thing".into())
         );
     }
@@ -89,7 +89,7 @@ mod tests {
         ];
         for vt in types {
             let s = vt.to_string();
-            let parsed = VisualizationType::from_str(&s).unwrap();
+            let parsed = VisualizationType::from_str(&s).expect("should succeed");
             assert_eq!(parsed, vt);
         }
     }
@@ -97,8 +97,8 @@ mod tests {
     #[test]
     fn test_visualization_type_serde() {
         let vt = VisualizationType::MetricsDashboard;
-        let json = serde_json::to_string(&vt).unwrap();
-        let deserialized: VisualizationType = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&vt).expect("should succeed");
+        let deserialized: VisualizationType = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, vt);
     }
 
@@ -116,8 +116,8 @@ mod tests {
     #[test]
     fn test_visualization_theme_serde() {
         let theme = VisualizationTheme::default();
-        let json = serde_json::to_string(&theme).unwrap();
-        let deserialized: VisualizationTheme = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&theme).expect("should succeed");
+        let deserialized: VisualizationTheme = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.primary_color, theme.primary_color);
         assert_eq!(deserialized.font_size, theme.font_size);
     }
@@ -197,8 +197,8 @@ mod tests {
     #[test]
     fn test_quality_config_serde() {
         let quality = QualityConfig::default();
-        let json = serde_json::to_string(&quality).unwrap();
-        let deserialized: QualityConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&quality).expect("should succeed");
+        let deserialized: QualityConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, quality);
     }
 
@@ -215,8 +215,8 @@ mod tests {
             color: Some("#ff0000".into()),
             size: Some(5.0),
         };
-        let json = serde_json::to_string(&dp).unwrap();
-        let deserialized: DataPoint = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&dp).expect("should succeed");
+        let deserialized: DataPoint = serde_json::from_str(&json).expect("should succeed");
         assert!((deserialized.x - 1.0).abs() < 1e-9);
         assert!((deserialized.y - 2.0).abs() < 1e-9);
         assert_eq!(deserialized.z, Some(3.0));
@@ -231,8 +231,9 @@ mod tests {
             series_type: "line".into(),
             metadata: std::collections::HashMap::new(),
         };
-        let json = serde_json::to_string(&series).unwrap();
-        let deserialized: VisualizationSeries = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&series).expect("should succeed");
+        let deserialized: VisualizationSeries =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.name, "series1");
         assert_eq!(deserialized.series_type, "line");
     }
@@ -245,8 +246,8 @@ mod tests {
             properties: std::collections::HashMap::new(),
             event_handlers: std::collections::HashMap::new(),
         };
-        let json = serde_json::to_string(&elem).unwrap();
-        let deserialized: InteractiveElement = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&elem).expect("should succeed");
+        let deserialized: InteractiveElement = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.element_type, "button");
         assert_eq!(deserialized.id, "btn-1");
     }
@@ -258,8 +259,8 @@ mod tests {
             parameters: std::collections::HashMap::new(),
             enabled: true,
         };
-        let json = serde_json::to_string(&filter).unwrap();
-        let deserialized: FilterConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&filter).expect("should succeed");
+        let deserialized: FilterConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.filter_type, "range");
         assert!(deserialized.enabled);
     }

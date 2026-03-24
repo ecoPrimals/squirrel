@@ -423,7 +423,8 @@ mod tests {
         let (listener, received_events) = TestListener::new();
 
         // Subscribe to events
-        bus.subscribe("test.event", Box::new(listener)).unwrap();
+        bus.subscribe("test.event", Box::new(listener))
+            .expect("should succeed");
 
         // Create and publish event
         let event = Event::new(
@@ -431,7 +432,7 @@ mod tests {
             serde_json::json!({"message": "Hello, World!"}),
         );
 
-        bus.publish(event).await.unwrap();
+        bus.publish(event).await.expect("should succeed");
 
         // Verify event was received
         let events = received_events.lock().await;
@@ -483,8 +484,8 @@ mod tests {
     #[test]
     fn test_event_serde_roundtrip() {
         let e = Event::new("t".to_string(), serde_json::json!({}));
-        let s = serde_json::to_string(&e).unwrap();
-        let back: Event = serde_json::from_str(&s).unwrap();
+        let s = serde_json::to_string(&e).expect("should succeed");
+        let back: Event = serde_json::from_str(&s).expect("should succeed");
         assert_eq!(back.event_type, e.event_type);
     }
 
@@ -507,13 +508,15 @@ mod tests {
         let id = bus
             .subscribe_async("async.evt", Box::new(listener))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(bus.get_listener_count("async.evt"), 1);
         let mut types = bus.list_event_types();
         types.sort();
         assert!(types.contains(&"async.evt".to_string()));
 
-        bus.unsubscribe_async("async.evt", &id).await.unwrap();
+        bus.unsubscribe_async("async.evt", &id)
+            .await
+            .expect("should succeed");
         assert_eq!(bus.get_listener_count("async.evt"), 0);
         assert!(bus.unsubscribe_async("async.evt", "nope").await.is_err());
         assert!(bus.unsubscribe_async("missing", &id).await.is_err());
@@ -539,9 +542,10 @@ mod tests {
         }
 
         let bus = EventBus::new();
-        bus.subscribe("fail.evt", Box::new(FailListener)).unwrap();
+        bus.subscribe("fail.evt", Box::new(FailListener))
+            .expect("should succeed");
         let ev = Event::new("fail.evt".to_string(), serde_json::json!({}));
-        bus.publish(ev).await.unwrap();
+        bus.publish(ev).await.expect("should succeed");
     }
 
     #[tokio::test]
@@ -568,10 +572,10 @@ mod tests {
         let n = Arc::new(TokioMutex::new(0u32));
         let bus = EventBus::new();
         bus.subscribe("s.e", Box::new(CountingListener { n: n.clone() }))
-            .unwrap();
+            .expect("should succeed");
         bus.publish(Event::new("s.e".to_string(), serde_json::json!({})))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(*n.lock().await, 1);
     }
 
@@ -581,6 +585,6 @@ mod tests {
         assert_eq!(bus.get_listener_count("none"), 0);
         bus.publish(Event::new("none".to_string(), serde_json::json!({})))
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 }

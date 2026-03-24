@@ -26,15 +26,15 @@ async fn test_full_resilience_chain() {
     
     // Scenario 1: Operation succeeds on retry, no recovery needed
     {
-        *operation_counter.lock().unwrap() = 0;
-        *recovery_counter.lock().unwrap() = 0;
+        *operation_counter.lock().expect("should succeed") = 0;
+        *recovery_counter.lock().expect("should succeed") = 0;
         
         let op_counter = operation_counter.clone();
         let rec_counter = recovery_counter.clone();
         
         let operation = move || {
             let op_clone = op_counter.clone();
-            let mut count = op_clone.lock().unwrap();
+            let mut count = op_clone.lock().expect("should succeed");
             *count += 1;
             
             if *count == 1 {
@@ -50,7 +50,7 @@ async fn test_full_resilience_chain() {
         
         let recovery_action = move || {
             let rec_clone = rec_counter.clone();
-            let mut count = rec_clone.lock().unwrap();
+            let mut count = rec_clone.lock().expect("should succeed");
             *count += 1;
             
             // Recovery succeeds
@@ -69,7 +69,7 @@ async fn test_full_resilience_chain() {
         ).await;
         
         assert!(result.is_ok(), "Scenario 1 should succeed via retry");
-        assert_eq!(result.unwrap().0, "Success via retry".to_string());
+        assert_eq!(result.expect("should succeed").0, "Success via retry".to_string());
         
         // Operation should be called twice (initial failure + retry success)
         assert_operation_count(&operation_counter, 2, "Full chain retry scenario");
@@ -81,8 +81,8 @@ async fn test_full_resilience_chain() {
     // Scenario 2: Trip the circuit breaker
     {
         // Reset counters
-        *operation_counter.lock().unwrap() = 0;
-        *recovery_counter.lock().unwrap() = 0;
+        *operation_counter.lock().expect("should succeed") = 0;
+        *recovery_counter.lock().expect("should succeed") = 0;
         
         // We'll keep track of successful failure operations
         let mut successful_failures = 0;
@@ -95,7 +95,7 @@ async fn test_full_resilience_chain() {
             
             let operation = move || {
                 let op_clone = op_counter.clone();
-                let mut count = op_clone.lock().unwrap();
+                let mut count = op_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 // Always fail
@@ -106,7 +106,7 @@ async fn test_full_resilience_chain() {
             
             let recovery_action = move || {
                 let rec_clone = rec_counter.clone();
-                let mut count = rec_clone.lock().unwrap();
+                let mut count = rec_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 // Even recovery fails
@@ -156,7 +156,7 @@ async fn test_full_resilience_chain() {
                 create_test_failure_info(FailureSeverity::Minor, "test"),
                 move || {
                     let op_clone = op_counter.clone();
-                    let mut count = op_clone.lock().unwrap();
+                    let mut count = op_clone.lock().expect("should succeed");
                     *count += 1;
                     
                     // This shouldn't be called, but if it is, return success
@@ -164,7 +164,7 @@ async fn test_full_resilience_chain() {
                 },
                 move || {
                     let rec_clone = rec_counter.clone();
-                    let mut count = rec_clone.lock().unwrap();
+                    let mut count = rec_clone.lock().expect("should succeed");
                     *count += 1;
                     
                     // This shouldn't be called either
@@ -175,7 +175,7 @@ async fn test_full_resilience_chain() {
             // This should fail with CircuitOpen
             assert!(
                 matches!(final_result, Err(ResilienceError::CircuitOpen(_))) || 
-                (final_result.is_ok() && final_result.as_ref().unwrap().0 == "This recovery shouldn't be called".to_string()),
+                (final_result.is_ok() && final_result.as_ref().expect("should succeed").0 == "This recovery shouldn't be called".to_string()),
                 "Expected CircuitOpen error or recovery fallback, got {:?}", final_result
             );
         } else {
@@ -204,7 +204,7 @@ async fn test_full_chain_with_recovery_success() {
     
     let operation = move || {
         let op_clone = op_counter.clone();
-        let mut count = op_clone.lock().unwrap();
+        let mut count = op_clone.lock().expect("should succeed");
         *count += 1;
         
         // Always fail to test recovery
@@ -215,7 +215,7 @@ async fn test_full_chain_with_recovery_success() {
     
     let recovery_action = move || {
         let rec_clone = rec_counter.clone();
-        let mut count = rec_clone.lock().unwrap();
+        let mut count = rec_clone.lock().expect("should succeed");
         *count += 1;
         
         // Recovery succeeds
@@ -235,10 +235,10 @@ async fn test_full_chain_with_recovery_success() {
     
     // Should succeed via recovery
     assert!(result.is_ok(), "Should succeed via recovery");
-    assert_eq!(result.unwrap().0, "Recovery provided fallback".to_string());
+    assert_eq!(result.expect("should succeed").0, "Recovery provided fallback".to_string());
     
     // Operation should be called multiple times (due to retries)
-    let op_count = *operation_counter.lock().unwrap();
+    let op_count = *operation_counter.lock().expect("should succeed");
     assert!(op_count >= 2, "Operation should be called at least twice due to retries, got {}", op_count);
     
     // Recovery should be called once
@@ -277,5 +277,5 @@ async fn test_health_monitoring_integration() {
     ).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().0, "Health monitoring successful".to_string());
+    assert_eq!(result.expect("should succeed").0, "Health monitoring successful".to_string());
 } 

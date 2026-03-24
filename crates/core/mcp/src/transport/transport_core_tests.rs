@@ -224,7 +224,7 @@ mod tests {
         let result = transport.receive_message().await;
         assert!(result.is_ok());
 
-        let message = result.unwrap();
+        let message = result.expect("should succeed");
         // SimpleTransport returns default message
         assert!(message.id.0.len() > 0); // Should have an ID
     }
@@ -367,7 +367,7 @@ mod tests {
         for handle in handles {
             let result = handle.await;
             assert!(result.is_ok());
-            assert!(result.unwrap().is_ok());
+            assert!(result.expect("should succeed").is_ok());
         }
     }
 
@@ -391,7 +391,7 @@ mod tests {
             additional_info: HashMap::new(),
         };
 
-        let remote = metadata.remote_address.unwrap();
+        let remote = metadata.remote_address.expect("should succeed");
         assert_eq!(remote.ip(), IpAddr::V4(Ipv4Addr::new(192, 168, 1, 100)));
         assert_eq!(remote.port(), 8080);
     }
@@ -414,7 +414,7 @@ mod tests {
             additional_info: HashMap::new(),
         };
 
-        let remote = metadata.remote_address.unwrap();
+        let remote = metadata.remote_address.expect("should succeed");
         assert_eq!(remote.ip(), IpAddr::V6(Ipv6Addr::LOCALHOST));
         assert_eq!(remote.port(), 8080);
     }

@@ -137,7 +137,7 @@ async fn test_multiple_episodes_in_session() {
         let episode_id = manager
             .start_episode(&format!("context_{}", i))
             .await
-            .unwrap_or_else(|_| panic!("Failed to start episode {}", i));
+            .unwrap_or_else(|_| unreachable!("Failed to start episode {}", i));
 
         manager
             .take_action(&episode_id, &format!("context_{}", i))
@@ -227,12 +227,12 @@ async fn test_episode_with_multiple_actions_and_rewards() {
         manager
             .take_action(&episode_id, "test_context")
             .await
-            .unwrap_or_else(|_| panic!("Failed to take action {}", i));
+            .unwrap_or_else(|_| unreachable!("Failed to take action {}", i));
 
         manager
             .provide_reward(&episode_id, (i + 1) as f64)
             .await
-            .unwrap_or_else(|_| panic!("Failed to provide reward {}", i));
+            .unwrap_or_else(|_| unreachable!("Failed to provide reward {}", i));
     }
 
     // End episode

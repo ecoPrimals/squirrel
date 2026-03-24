@@ -27,27 +27,27 @@ fn test_ecosystem_primal_type_as_str() {
 #[test]
 fn test_ecosystem_primal_type_from_str_valid() {
     assert_eq!(
-        EcosystemPrimalType::from_str("toadstool").unwrap(),
+        EcosystemPrimalType::from_str("toadstool").expect("should succeed"),
         EcosystemPrimalType::ToadStool
     );
     assert_eq!(
-        EcosystemPrimalType::from_str("SONGBIRD").unwrap(),
+        EcosystemPrimalType::from_str("SONGBIRD").expect("should succeed"),
         EcosystemPrimalType::Songbird
     );
     assert_eq!(
-        EcosystemPrimalType::from_str("BeArDoG").unwrap(),
+        EcosystemPrimalType::from_str("BeArDoG").expect("should succeed"),
         EcosystemPrimalType::BearDog
     );
     assert_eq!(
-        EcosystemPrimalType::from_str("nestgate").unwrap(),
+        EcosystemPrimalType::from_str("nestgate").expect("should succeed"),
         EcosystemPrimalType::NestGate
     );
     assert_eq!(
-        EcosystemPrimalType::from_str("squirrel").unwrap(),
+        EcosystemPrimalType::from_str("squirrel").expect("should succeed"),
         EcosystemPrimalType::Squirrel
     );
     assert_eq!(
-        EcosystemPrimalType::from_str("biomeos").unwrap(),
+        EcosystemPrimalType::from_str("biomeos").expect("should succeed"),
         EcosystemPrimalType::BiomeOS
     );
 }
@@ -268,14 +268,14 @@ async fn test_ecosystem_manager_concurrent_status_access() {
     }
 
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 }
 
 #[tokio::test]
 async fn test_ecosystem_manager_get_ecosystem_status() {
     let mut manager = create_test_manager();
-    manager.initialize().await.unwrap();
+    manager.initialize().await.expect("should succeed");
 
     let status = manager.get_ecosystem_status().await;
     assert!(!status.status.is_empty());
@@ -287,7 +287,7 @@ async fn test_ecosystem_manager_get_ecosystem_status() {
 #[tokio::test]
 async fn test_ecosystem_manager_update_health_status() {
     let mut manager = create_test_manager();
-    manager.initialize().await.unwrap();
+    manager.initialize().await.expect("should succeed");
 
     let result = manager
         .update_health_status(
@@ -323,7 +323,7 @@ async fn test_ecosystem_manager_discover_services() {
     let manager = create_test_manager();
     let result = manager.discover_services().await;
     assert!(result.is_ok());
-    assert!(result.unwrap().is_empty());
+    assert!(result.expect("should succeed").is_empty());
 }
 
 #[tokio::test]
@@ -346,7 +346,7 @@ async fn test_ecosystem_manager_shutdown() {
 #[tokio::test]
 async fn test_ecosystem_manager_start_coordination_fails_when_no_services() {
     let mut manager = create_test_manager();
-    manager.initialize().await.unwrap();
+    manager.initialize().await.expect("should succeed");
 
     let result = manager
         .start_coordination_by_capabilities(vec!["nonexistent_capability"], HashMap::new())
@@ -358,12 +358,12 @@ async fn test_ecosystem_manager_start_coordination_fails_when_no_services() {
 #[tokio::test]
 async fn test_ecosystem_manager_authenticate_universal() {
     let mut manager = create_test_manager();
-    manager.initialize().await.unwrap();
+    manager.initialize().await.expect("should succeed");
 
     let mut credentials = HashMap::new();
     credentials.insert("user_id".to_string(), "test-user".to_string());
     let result = manager.authenticate_universal(credentials).await;
     assert!(result.is_ok());
-    let session_id = result.unwrap();
+    let session_id = result.expect("should succeed");
     assert!(session_id.starts_with("beardog_session_"));
 }

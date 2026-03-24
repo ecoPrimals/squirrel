@@ -42,7 +42,7 @@
 //!
 //! if result.is_valid {
 //!     // Use sanitized input
-//!     process(result.sanitized_input.unwrap());
+//!     process(result.sanitized_input.expect("example"));
 //! } else {
 //!     // Handle violations
 //!     log_violations(result.violations);
@@ -171,7 +171,7 @@ impl ProductionInputValidator {
     /// );
     ///
     /// if result.is_valid {
-    ///     let safe_input = result.sanitized_input.unwrap();
+    ///     let safe_input = result.sanitized_input.expect("example");
     ///     // Use safe_input
     /// } else {
     ///     // Reject or log violations
@@ -426,13 +426,13 @@ mod tests {
             ..Default::default()
         };
 
-        let validator = ProductionInputValidator::new(config).unwrap();
+        let validator = ProductionInputValidator::new(config).expect("should succeed");
         let result =
             validator.validate_input("hello<script>alert('xss')</script>", InputType::Html, None);
 
         // In non-strict mode, should attempt sanitization
         assert!(result.sanitized_input.is_some());
-        let sanitized = result.sanitized_input.unwrap();
+        let sanitized = result.sanitized_input.expect("should succeed");
 
         // Script tags should be removed
         assert!(!sanitized.contains("<script>"));

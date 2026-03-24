@@ -49,7 +49,7 @@ async fn stress_atomic_operations() {
 
     // Wait for all tasks
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
     // Verify: No lost updates
@@ -98,7 +98,7 @@ async fn stress_rwlock_no_deadlock() {
 
     // All tasks complete without deadlock
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
     let final_value = *data.read().await;
@@ -124,7 +124,7 @@ async fn stress_semaphore_rate_limiting() {
         let max_obs = Arc::clone(&max_observed);
 
         handles.push(tokio::spawn(async move {
-            let _permit = sem.acquire().await.unwrap();
+            let _permit = sem.acquire().await.expect("should succeed");
 
             // Track concurrency
             let current = active.fetch_add(1, Ordering::SeqCst) + 1;
@@ -138,7 +138,7 @@ async fn stress_semaphore_rate_limiting() {
     }
 
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
     let max = max_observed.load(Ordering::SeqCst);
@@ -190,7 +190,7 @@ async fn stress_notify_coordination() {
 
     // All should wake up
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
     assert_eq!(ready_count.load(Ordering::SeqCst), WAITERS as u64);
@@ -232,7 +232,7 @@ async fn stress_barrier_synchronization() {
     }
 
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
     assert_eq!(before_barrier.load(Ordering::SeqCst), TASKS as u64);
@@ -256,7 +256,7 @@ async fn stress_channel_throughput() {
         let tx = tx.clone();
         handles.push(tokio::spawn(async move {
             for msg_id in 0..MESSAGES_PER_SENDER {
-                tx.send((sender_id, msg_id)).await.unwrap();
+                tx.send((sender_id, msg_id)).await.expect("should succeed");
             }
         }));
     }
@@ -276,11 +276,11 @@ async fn stress_channel_throughput() {
 
     // Wait for senders
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
     // Wait for receiver
-    receiver_handle.await.unwrap();
+    receiver_handle.await.expect("should succeed");
 
     assert_eq!(received.load(Ordering::SeqCst), TOTAL_MESSAGES as u64);
 }
@@ -324,8 +324,8 @@ async fn stress_state_machine_consistency() {
         count2.fetch_add(1, Ordering::SeqCst);
     });
 
-    handle1.await.unwrap();
-    handle2.await.unwrap();
+    handle1.await.expect("should succeed");
+    handle2.await.expect("should succeed");
 
     assert_eq!(*state.read().await, State::Complete);
     assert_eq!(transition_count.load(Ordering::SeqCst), 2);
@@ -371,7 +371,7 @@ async fn stress_performance_baseline() {
 
     // Wait for all workers to complete
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
     let elapsed = start.elapsed();
@@ -427,7 +427,7 @@ async fn stress_zero_race_conditions() {
     }
 
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 
     // Verify: All entries present and correct

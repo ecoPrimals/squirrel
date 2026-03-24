@@ -122,8 +122,8 @@ fn metric_event_types_serde_roundtrip() {
         version: "1".into(),
         timestamp: ts,
     };
-    let v = serde_json::to_value(&ev).unwrap();
-    let back: MonitoringEvent = serde_json::from_value(v).unwrap();
+    let v = serde_json::to_value(&ev).expect("should succeed");
+    let back: MonitoringEvent = serde_json::from_value(v).expect("should succeed");
     assert!(matches!(back, MonitoringEvent::ServiceStarted { .. }));
 
     let m = Metric {
@@ -135,8 +135,8 @@ fn metric_event_types_serde_roundtrip() {
         labels: std::iter::once(("k".into(), "v".into())).collect(),
         timestamp: ts,
     };
-    let mv = serde_json::to_value(&m).unwrap();
-    let mb: Metric = serde_json::from_value(mv).unwrap();
+    let mv = serde_json::to_value(&m).expect("should succeed");
+    let mb: Metric = serde_json::from_value(mv).expect("should succeed");
     assert_eq!(mb.name, "n");
 }
 
@@ -255,9 +255,13 @@ async fn record_paths_with_fallback_logger() {
         timestamp: ts,
     })
     .await
-    .unwrap();
-    svc.record_metric(base_metric()).await.unwrap();
-    svc.record_health("c", HealthStatus::Healthy).await.unwrap();
+    .expect("should succeed");
+    svc.record_metric(base_metric())
+        .await
+        .expect("should succeed");
+    svc.record_health("c", HealthStatus::Healthy)
+        .await
+        .expect("should succeed");
     svc.record_performance(
         "p",
         PerformanceMetrics {
@@ -273,7 +277,7 @@ async fn record_paths_with_fallback_logger() {
         },
     )
     .await
-    .unwrap();
+    .expect("should succeed");
     let st = svc.get_status().await;
     assert!(st.fallback_active);
     assert_eq!(st.provider_count, 0);
@@ -289,7 +293,7 @@ async fn record_with_failing_provider_still_ok() {
         timestamp: Utc::now(),
     })
     .await
-    .unwrap();
+    .expect("should succeed");
 }
 
 #[tokio::test]
@@ -325,9 +329,13 @@ async fn songbird_provider_trait_methods() {
         timestamp: Utc::now(),
     })
     .await
-    .unwrap();
-    p.record_metric(base_metric()).await.unwrap();
-    p.record_health("c", HealthStatus::Degraded).await.unwrap();
+    .expect("should succeed");
+    p.record_metric(base_metric())
+        .await
+        .expect("should succeed");
+    p.record_health("c", HealthStatus::Degraded)
+        .await
+        .expect("should succeed");
     p.record_performance(
         "c",
         PerformanceMetrics {
@@ -343,12 +351,12 @@ async fn songbird_provider_trait_methods() {
         },
     )
     .await
-    .unwrap();
+    .expect("should succeed");
     assert!(matches!(
-        p.provider_health().await.unwrap(),
+        p.provider_health().await.expect("should succeed"),
         HealthStatus::Unknown
     ));
-    let caps = p.provider_capabilities().await.unwrap();
+    let caps = p.provider_capabilities().await.expect("should succeed");
     assert!(
         caps.iter()
             .any(|c| matches!(c, MonitoringCapability::Events))
@@ -518,37 +526,52 @@ fn fallback_logger_branches() {
 #[tokio::test]
 async fn convenience_record_helpers() {
     let svc = MonitoringService::new(MonitoringConfig::default());
-    svc.record_service_started("a", "1").await.unwrap();
+    svc.record_service_started("a", "1")
+        .await
+        .expect("should succeed");
     svc.record_task_completed("t", std::time::Duration::ZERO, true)
         .await
-        .unwrap();
-    svc.record_error("T", "msg", "comp").await.unwrap();
-    svc.record_counter("c", 3, HashMap::new()).await.unwrap();
+        .expect("should succeed");
+    svc.record_error("T", "msg", "comp")
+        .await
+        .expect("should succeed");
+    svc.record_counter("c", 3, HashMap::new())
+        .await
+        .expect("should succeed");
     svc.record_gauge(
         "g",
         1.5,
         std::iter::once(("l".into(), "v".into())).collect(),
     )
     .await
-    .unwrap();
+    .expect("should succeed");
 }
 
 #[test]
 fn time_frame_and_capability_serde() {
     let tf = TimeFrame::LastHour;
-    let tfb: TimeFrame = serde_json::from_value(serde_json::to_value(&tf).unwrap()).unwrap();
+    let tfb: TimeFrame = serde_json::from_value(serde_json::to_value(&tf).expect("should succeed"))
+        .expect("should succeed");
     assert!(matches!(tfb, TimeFrame::LastHour));
     let cap = MonitoringCapability::Custom("x".into());
-    let json = serde_json::to_string(&cap).unwrap();
-    let capb: MonitoringCapability = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&cap).expect("should succeed");
+    let capb: MonitoringCapability = serde_json::from_str(&json).expect("should succeed");
     assert!(matches!(capb, MonitoringCapability::Custom(s) if s == "x"));
 }
 
 #[tokio::test]
 async fn monitoring_provider_default_query_health_and_metrics() {
     let p = OkProvider("default-queries");
-    assert!(p.query_health("any").await.unwrap().is_none());
-    let m = p.query_metrics("any", TimeFrame::LastWeek).await.unwrap();
+    assert!(
+        p.query_health("any")
+            .await
+            .expect("should succeed")
+            .is_none()
+    );
+    let m = p
+        .query_metrics("any", TimeFrame::LastWeek)
+        .await
+        .expect("should succeed");
     assert!(m.is_empty());
 }
 
@@ -565,8 +588,8 @@ fn monitoring_status_and_provider_status_serde() {
         }],
         fallback_active: false,
     };
-    let v = serde_json::to_value(&st).unwrap();
-    let back: MonitoringStatus = serde_json::from_value(v).unwrap();
+    let v = serde_json::to_value(&st).expect("should succeed");
+    let back: MonitoringStatus = serde_json::from_value(v).expect("should succeed");
     assert!(back.enabled);
     assert_eq!(back.providers.len(), 1);
 }
@@ -576,8 +599,8 @@ fn time_frame_custom_serde_roundtrip() {
     let from = Utc::now();
     let to = from + chrono::Duration::hours(1);
     let tf = TimeFrame::Custom { from, to };
-    let v = serde_json::to_value(&tf).unwrap();
-    let back: TimeFrame = serde_json::from_value(v).unwrap();
+    let v = serde_json::to_value(&tf).expect("should succeed");
+    let back: TimeFrame = serde_json::from_value(v).expect("should succeed");
     assert!(matches!(back, TimeFrame::Custom { .. }));
 }
 
@@ -594,8 +617,8 @@ fn performance_metrics_serde_preserves_optional_fields() {
         active_connections: Some(10),
         custom_metrics: std::iter::once(("k".into(), 1.0)).collect(),
     };
-    let json = serde_json::to_string(&m).unwrap();
-    let back: PerformanceMetrics = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&m).expect("should succeed");
+    let back: PerformanceMetrics = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(back.cpu_usage, m.cpu_usage);
     assert_eq!(back.custom_metrics.get("k").copied(), Some(1.0));
 }

@@ -181,8 +181,8 @@ mod tests {
     #[test]
     fn test_no_compression() {
         let data = b"Hello, world!";
-        let compressed = compress(data, CompressionFormat::None).unwrap();
-        let decompressed = decompress(&compressed, CompressionFormat::None).unwrap();
+        let compressed = compress(data, CompressionFormat::None).expect("should succeed");
+        let decompressed = decompress(&compressed, CompressionFormat::None).expect("should succeed");
         assert_eq!(data, decompressed.as_slice());
     }
     

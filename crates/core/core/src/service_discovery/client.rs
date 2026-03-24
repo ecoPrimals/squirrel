@@ -364,11 +364,17 @@ mod tests {
                 8080,
             )],
         );
-        discovery.register_service(service).await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
-        let found = client.find_service_by_type(ServiceType::AI).await.unwrap();
+        let found = client
+            .find_service_by_type(ServiceType::AI)
+            .await
+            .expect("should succeed");
         assert!(found.is_some());
-        assert_eq!(found.unwrap().id, "ai-service");
+        assert_eq!(found.expect("should succeed").id, "ai-service");
     }
 
     #[tokio::test]
@@ -387,11 +393,17 @@ mod tests {
             )],
         )
         .with_capability("chat".to_string());
-        discovery.register_service(service).await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
-        let found = client.find_service_by_capability("chat").await.unwrap();
+        let found = client
+            .find_service_by_capability("chat")
+            .await
+            .expect("should succeed");
         assert!(found.is_some());
-        assert_eq!(found.unwrap().id, "chat-service");
+        assert_eq!(found.expect("should succeed").id, "chat-service");
     }
 
     #[tokio::test]
@@ -419,13 +431,19 @@ mod tests {
                 8081,
             )],
         );
-        discovery.register_service(service1).await.unwrap();
-        discovery.register_service(service2).await.unwrap();
+        discovery
+            .register_service(service1)
+            .await
+            .expect("should succeed");
+        discovery
+            .register_service(service2)
+            .await
+            .expect("should succeed");
 
         let found = client
             .find_services_for_load_balancing(ServiceType::AI)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(found.len(), 2);
     }
 
@@ -458,15 +476,21 @@ mod tests {
         )
         .with_capability("chat".to_string());
 
-        discovery.register_service(service1).await.unwrap();
-        discovery.register_service(service2).await.unwrap();
+        discovery
+            .register_service(service1)
+            .await
+            .expect("should succeed");
+        discovery
+            .register_service(service2)
+            .await
+            .expect("should succeed");
 
         let best = client
             .find_best_service_for_capability("chat")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(best.is_some());
-        assert_eq!(best.unwrap().id, "chat-service-2"); // Higher weight
+        assert_eq!(best.expect("should succeed").id, "chat-service-2"); // Higher weight
     }
 
     #[tokio::test]
@@ -486,11 +510,17 @@ mod tests {
         )
         .with_metadata("region".to_string(), "us-east-1".to_string());
 
-        discovery.register_service(service).await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         let mut metadata = HashMap::new();
         metadata.insert("region".to_string(), "us-east-1".to_string());
-        let services = client.find_services_with_metadata(metadata).await.unwrap();
+        let services = client
+            .find_services_with_metadata(metadata)
+            .await
+            .expect("should succeed");
         assert_eq!(services.len(), 1);
         assert_eq!(services[0].id, "regional-service");
     }
@@ -513,13 +543,16 @@ mod tests {
         .with_capability("chat".to_string())
         .with_capability("translate".to_string());
 
-        discovery.register_service(service).await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         let capabilities = vec!["chat".to_string(), "translate".to_string()];
         let services = client
             .find_services_with_capabilities(capabilities)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(services.len(), 1);
         assert_eq!(services[0].id, "multi-service");
     }
@@ -539,9 +572,12 @@ mod tests {
                 8080,
             )],
         );
-        discovery.register_service(service).await.unwrap();
+        discovery
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
-        let stats = client.get_stats().await.unwrap();
+        let stats = client.get_stats().await.expect("should succeed");
         assert_eq!(stats.total_services, 1);
         assert_eq!(stats.healthy_services, 1);
     }

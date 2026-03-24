@@ -49,8 +49,8 @@ async fn test_memory_channel_create_pair_arc() {
     let (client, server) = MemoryChannel::create_pair_arc();
     
     // Connect both sides
-    client.connect().await.unwrap();
-    server.connect().await.unwrap();
+    client.connect().await.expect("should succeed");
+    server.connect().await.expect("should succeed");
     
     // Check that both are connected
     assert!(client.is_connected().await);
@@ -63,13 +63,13 @@ async fn test_memory_channel_create_pair_arc() {
     );
     
     // Send message from client to server
-    client.send_message(client_msg.clone()).await.unwrap();
+    client.send_message(client_msg.clone()).await.expect("should succeed");
     
     // Receive on server side with timeout to prevent hanging
     let received = timeout(
         Duration::from_secs(1),
         server.receive_message()
-    ).await.unwrap().unwrap();
+    ).await.expect("should succeed").expect("should succeed");
     
     // Verify message contents
     assert_eq!(received.id.0, client_msg.id.0);
@@ -86,13 +86,13 @@ async fn test_memory_channel_create_pair_arc() {
     );
     
     // Send message from server to client
-    server.send_message(server_msg.clone()).await.unwrap();
+    server.send_message(server_msg.clone()).await.expect("should succeed");
     
     // Receive on client side
     let received = timeout(
         Duration::from_secs(1),
         client.receive_message()
-    ).await.unwrap().unwrap();
+    ).await.expect("should succeed").expect("should succeed");
     
     // Verify message contents
     assert_eq!(received.id.0, server_msg.id.0);
@@ -103,8 +103,8 @@ async fn test_memory_channel_create_pair_arc() {
     );
     
     // Test disconnect
-    client.disconnect().await.unwrap();
-    server.disconnect().await.unwrap();
+    client.disconnect().await.expect("should succeed");
+    server.disconnect().await.expect("should succeed");
     
     // Verify disconnected state
     assert!(!client.is_connected().await);
@@ -117,8 +117,8 @@ async fn test_memory_transport_creation_directly() {
     let (mut client, mut server) = MemoryChannel::create_pair();
     
     // Connect both sides
-    client.connect().await.unwrap();
-    server.connect().await.unwrap();
+    client.connect().await.expect("should succeed");
+    server.connect().await.expect("should succeed");
     
     // Verify connected state
     assert!(client.is_connected().await);
@@ -134,8 +134,8 @@ async fn test_memory_transport_creation_directly() {
     assert!(server_meta.peer_addr.is_none());
     
     // Disconnect and verify
-    client.disconnect().await.unwrap();
-    server.disconnect().await.unwrap();
+    client.disconnect().await.expect("should succeed");
+    server.disconnect().await.expect("should succeed");
     
     assert!(!client.is_connected().await);
     assert!(!server.is_connected().await);
@@ -162,8 +162,8 @@ async fn test_message_history() {
     let (mut client, mut server) = channel.create_transport_pair(Some(config_a), Some(config_b));
     
     // Connect both sides
-    client.connect().await.unwrap();
-    server.connect().await.unwrap();
+    client.connect().await.expect("should succeed");
+    server.connect().await.expect("should succeed");
     
     // Send multiple messages to test history
     for i in 0..10 {
@@ -172,15 +172,15 @@ async fn test_message_history() {
             serde_json::json!({ "sequence": i }),
         );
         
-        client.send_message(msg).await.unwrap();
+        client.send_message(msg).await.expect("should succeed");
         
         // Receive on the other end to keep channels clear
-        let _ = server.receive_message().await.unwrap();
+        let _ = server.receive_message().await.expect("should succeed");
     }
     
     // Verify history size is limited by max_history
     let history = channel.get_history().await;
-    assert_eq!(history.len(), max_history.unwrap());
+    assert_eq!(history.len(), max_history.expect("should succeed"));
     
     // Verify history contains only the most recent messages
     let seq_values: Vec<i64> = history.iter()
@@ -217,8 +217,8 @@ async fn test_memory_transport_pair() {
     let (client, server) = channel_clone.create_transport_pair(Some(config_a), Some(config_b));
     
     // Connect both sides
-    client.connect().await.unwrap();
-    server.connect().await.unwrap();
+    client.connect().await.expect("should succeed");
+    server.connect().await.expect("should succeed");
     
     // Check that both are connected
     assert!(client.is_connected().await);
@@ -230,13 +230,13 @@ async fn test_memory_transport_pair() {
         serde_json::json!({ "action": "test" }),
     );
     
-    client.send_message(client_msg.clone()).await.unwrap();
+    client.send_message(client_msg.clone()).await.expect("should succeed");
     
     // Receive on server side
     let received = tokio::time::timeout(
         std::time::Duration::from_secs(1), 
         server.receive_message()
-    ).await.unwrap().unwrap();
+    ).await.expect("should succeed").expect("should succeed");
     
     // Verify message contents
     assert_eq!(received.id.0, client_msg.id.0);
@@ -248,13 +248,13 @@ async fn test_memory_transport_pair() {
         serde_json::json!({ "result": "ok" }),
     );
     
-    server.send_message(server_msg.clone()).await.unwrap();
+    server.send_message(server_msg.clone()).await.expect("should succeed");
     
     // Receive on client side
     let received = tokio::time::timeout(
         std::time::Duration::from_secs(1), 
         client.receive_message()
-    ).await.unwrap().unwrap();
+    ).await.expect("should succeed").expect("should succeed");
     
     // Verify message contents
     assert_eq!(received.id.0, server_msg.id.0);
@@ -287,8 +287,8 @@ async fn test_memory_transport_with_latency() {
     let (client, server) = channel_clone.create_transport_pair(Some(config_a), Some(config_b));
     
     // Connect both sides
-    client.connect().await.unwrap();
-    server.connect().await.unwrap();
+    client.connect().await.expect("should succeed");
+    server.connect().await.expect("should succeed");
     
     // Send message from client to server (should have latency)
     let start = tokio::time::Instant::now();
@@ -297,10 +297,10 @@ async fn test_memory_transport_with_latency() {
         serde_json::json!({ "action": "test" }),
     );
     
-    client.send_message(client_msg.clone()).await.unwrap();
+    client.send_message(client_msg.clone()).await.expect("should succeed");
     
     // Receive on server side
-    let _ = server.receive_message().await.unwrap();
+    let _ = server.receive_message().await.expect("should succeed");
     let elapsed = start.elapsed();
     
     // Should take at least the simulated latency

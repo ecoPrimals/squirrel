@@ -463,7 +463,7 @@ pub async fn register_security_service(
 /// ## Phase 2: `UniversalSecurityProvider` behavior
 ///
 /// The [`crate::security::traits::UniversalSecurityProvider`] implementation dispatches
-/// [`SecurityRequest`] values where possible, but **`authenticate` still returns a
+/// `SecurityRequest` values where possible, but **`authenticate` still returns a
 /// static test principal and token** until Beardog’s socket protocol returns real
 /// [`crate::traits::AuthResult`] data. `authorize`, encrypt/decrypt, and sign/verify are
 /// identity/pass-through stubs until Beardog crypto endpoints are wired—do not use this

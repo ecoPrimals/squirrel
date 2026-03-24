@@ -275,7 +275,7 @@ mod tests {
             let mut line = String::new();
             reader.read_line(&mut line).await.expect("read");
             let resp = serde_json::json!({"jsonrpc":"2.0","result":{},"id":1});
-            let mut body = serde_json::to_string(&resp).unwrap();
+            let mut body = serde_json::to_string(&resp).expect("should succeed");
             body.push('\n');
             stream.write_all(body.as_bytes()).await.expect("write");
         });
@@ -302,7 +302,7 @@ mod tests {
                 "error": {"code": -32000, "message": "rejected"},
                 "id": 1
             });
-            let mut body = serde_json::to_string(&resp).unwrap();
+            let mut body = serde_json::to_string(&resp).expect("should succeed");
             body.push('\n');
             stream.write_all(body.as_bytes()).await.expect("write");
         });

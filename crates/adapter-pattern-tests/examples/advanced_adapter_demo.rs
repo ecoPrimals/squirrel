@@ -49,7 +49,7 @@ fn setup_enhanced_mcp_adapter() -> CommandResult<McpAdapter> {
     let secure_cmd = TestCommand::new("secure-data", "Secure data access", "Secure data");
 
     tokio::task::block_in_place(|| {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
         rt.block_on(async {
             adapter.register_command(Arc::new(hello_cmd)).await?;
             adapter.register_command(Arc::new(echo_cmd)).await?;

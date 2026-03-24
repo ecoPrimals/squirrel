@@ -140,7 +140,7 @@ mod tests {
     #[tokio::test]
     async fn test_primal_default_restart_implementation() {
         let mut primal = MockPrimalForTraitTest::new();
-        primal.start().await.unwrap();
+        primal.start().await.expect("should succeed");
         assert_eq!(primal.state().await, PrimalState::Running);
 
         // restart() uses default impl: stop then start

@@ -7,9 +7,8 @@
 #![cfg_attr(
     not(test),
     expect(
-        clippy::unwrap_used,
         clippy::expect_used,
-        reason = "SDK library code: unwrap/expect only after invariants (tests use cfg_attr allow above)"
+        reason = "SDK library code: expect only after invariants (tests use cfg_attr allow above)"
     )
 )]
 
@@ -399,7 +398,7 @@ mod tests {
     fn test_version() {
         let v = version();
         assert!(!v.is_empty());
-        assert!(v.chars().next().unwrap().is_ascii_digit());
+        assert!(v.chars().next().expect("version nonempty").is_ascii_digit());
     }
 
     #[test]

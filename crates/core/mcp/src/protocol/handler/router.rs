@@ -44,16 +44,22 @@ mod tests {
         manager
             .create_workflow(workflow.clone(), &token)
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let retrieved = manager.get_workflow("test_workflow", &token).await.unwrap();
+        let retrieved = manager
+            .get_workflow("test_workflow", &token)
+            .await
+            .expect("should succeed");
         assert_eq!(retrieved.id, workflow.id);
 
         manager
             .update_workflow_status("test_workflow", WorkflowStatus::Completed, &token)
             .await
-            .unwrap();
-        let updated = manager.get_workflow("test_workflow", &token).await.unwrap();
+            .expect("should succeed");
+        let updated = manager
+            .get_workflow("test_workflow", &token)
+            .await
+            .expect("should succeed");
         assert!(matches!(updated.status, WorkflowStatus::Completed));
     }
 
@@ -73,9 +79,12 @@ mod tests {
         manager
             .send_message("test_workflow", message.clone(), &token)
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let messages = manager.get_messages("test_workflow", &token).await.unwrap();
+        let messages = manager
+            .get_messages("test_workflow", &token)
+            .await
+            .expect("should succeed");
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].id, message.id);
     }
@@ -94,9 +103,15 @@ mod tests {
             priority: Priority::High,
             security_level: SecurityLevel::High,
         };
-        manager.create_review(review.clone(), &token).await.unwrap();
+        manager
+            .create_review(review.clone(), &token)
+            .await
+            .expect("should succeed");
 
-        let retrieved = manager.get_review("test_review", &token).await.unwrap();
+        let retrieved = manager
+            .get_review("test_review", &token)
+            .await
+            .expect("should succeed");
         assert_eq!(retrieved.id, review.id);
     }
 
@@ -113,7 +128,10 @@ mod tests {
             permissions: vec![],
             metadata: HashMap::new(),
         };
-        manager.create_workflow(workflow, &token).await.unwrap();
+        manager
+            .create_workflow(workflow, &token)
+            .await
+            .expect("should succeed");
 
         manager
             .transition_workflow_state(
@@ -124,9 +142,12 @@ mod tests {
                 &token,
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let updated = manager.get_workflow("test_workflow", &token).await.unwrap();
+        let updated = manager
+            .get_workflow("test_workflow", &token)
+            .await
+            .expect("should succeed");
         assert!(matches!(updated.status, WorkflowStatus::Paused));
     }
 
@@ -143,7 +164,10 @@ mod tests {
             permissions: vec![],
             metadata: HashMap::new(),
         };
-        manager.create_workflow(workflow, &token).await.unwrap();
+        manager
+            .create_workflow(workflow, &token)
+            .await
+            .expect("should succeed");
 
         let task = Task {
             id: "test_task".to_string(),
@@ -160,17 +184,17 @@ mod tests {
         manager
             .create_task("test_workflow", task.clone(), &token)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         manager
             .update_task_status("test_workflow", "test_task", TaskStatus::InProgress, &token)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let tasks = manager
             .get_workflow_tasks("test_workflow", &token)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(tasks.len(), 1);
         assert!(matches!(tasks[0].status, TaskStatus::InProgress));
     }

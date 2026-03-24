@@ -32,7 +32,7 @@ async fn test_whitelist_bypass() {
     let limiter = ProductionRateLimiter::new(config);
 
     // Localhost should be whitelisted by default
-    let localhost: IpAddr = "127.0.0.1".parse().unwrap();
+    let localhost: IpAddr = "127.0.0.1".parse().expect("should succeed");
 
     // Should allow many requests from whitelisted IP
     for _ in 0..1000 {
@@ -55,7 +55,7 @@ async fn test_rate_limit_enforcement() {
     config.whitelist = vec![]; // Remove default whitelist
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.100".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.100".parse().expect("should succeed");
 
     // First 5 requests should succeed (burst capacity)
     for i in 0..5 {
@@ -87,7 +87,7 @@ async fn test_different_endpoint_limits() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.101".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.101".parse().expect("should succeed");
 
     // Auth endpoints should have stricter limits
     // Make requests and count how many are allowed
@@ -115,8 +115,8 @@ async fn test_per_ip_isolation() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let ip1: IpAddr = "192.168.1.102".parse().unwrap();
-    let ip2: IpAddr = "192.168.1.103".parse().unwrap();
+    let ip1: IpAddr = "192.168.1.102".parse().expect("should succeed");
+    let ip2: IpAddr = "192.168.1.103".parse().expect("should succeed");
 
     // Exhaust IP1's limit
     for _ in 0..3 {
@@ -140,7 +140,7 @@ async fn test_token_refill_over_time() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.104".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.104".parse().expect("should succeed");
 
     // Use burst capacity
     for _ in 0..2 {
@@ -177,7 +177,7 @@ async fn test_ban_mechanism() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.105".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.105".parse().expect("should succeed");
 
     // Generate violations by exceeding rate limit repeatedly
     for _ in 0..6 {
@@ -206,7 +206,7 @@ async fn test_health_check_endpoints_more_lenient() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.106".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.106".parse().expect("should succeed");
 
     // Health check endpoints should have higher limits
     // (2x API limit according to implementation)
@@ -230,7 +230,7 @@ async fn test_admin_endpoints_more_restrictive() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.107".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.107".parse().expect("should succeed");
 
     // Admin endpoints should have stricter limits than auth
     // (implementation uses 1/2 auth limit)
@@ -260,7 +260,7 @@ async fn test_adaptive_rate_limiting() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.108".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.108".parse().expect("should succeed");
 
     // Simulate high system load
     limiter.update_system_metrics(0.9, 0.85, 1000).await;
@@ -288,7 +288,7 @@ async fn test_adaptive_rate_limiting() {
 async fn test_statistics_collection() {
     let config = RateLimitConfig::default();
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.109".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.109".parse().expect("should succeed");
 
     // Make some requests
     for _ in 0..5 {
@@ -311,7 +311,7 @@ async fn test_user_agent_tracking() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.110".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.110".parse().expect("should succeed");
 
     // First request with user agent
     limiter
@@ -338,7 +338,7 @@ async fn test_cleanup_expired_data() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.111".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.111".parse().expect("should succeed");
 
     // Make some requests
     for _ in 0..5 {
@@ -365,7 +365,7 @@ async fn test_concurrent_requests() {
     config.whitelist = vec![];
 
     let limiter = std::sync::Arc::new(ProductionRateLimiter::new(config));
-    let test_ip: IpAddr = "192.168.1.112".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.112".parse().expect("should succeed");
 
     // Spawn concurrent requests
     let mut handles = vec![];
@@ -382,7 +382,7 @@ async fn test_concurrent_requests() {
     // Wait for all requests
     let mut allowed_count = 0;
     for handle in handles {
-        let result = handle.await.unwrap();
+        let result = handle.await.expect("should succeed");
         if result.allowed {
             allowed_count += 1;
         }
@@ -403,7 +403,7 @@ async fn test_ipv6_support() {
     // IPv6 localhost should be whitelisted by default
 
     let limiter = ProductionRateLimiter::new(config);
-    let ipv6_localhost: IpAddr = "::1".parse().unwrap();
+    let ipv6_localhost: IpAddr = "::1".parse().expect("should succeed");
 
     // Should be whitelisted
     let result = limiter
@@ -420,7 +420,7 @@ async fn test_non_whitelisted_ipv6() {
     config.whitelist = vec![]; // Remove default whitelist
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ipv6: IpAddr = "2001:db8::1".parse().unwrap();
+    let test_ipv6: IpAddr = "2001:db8::1".parse().expect("should succeed");
 
     // Should be rate limited like any other IP
     for _ in 0..3 {
@@ -446,7 +446,7 @@ async fn test_retry_after_information() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.113".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.113".parse().expect("should succeed");
 
     // Exhaust limit
     for _ in 0..2 {
@@ -474,7 +474,7 @@ async fn test_separate_endpoint_buckets() {
     config.whitelist = vec![];
 
     let limiter = ProductionRateLimiter::new(config);
-    let test_ip: IpAddr = "192.168.1.114".parse().unwrap();
+    let test_ip: IpAddr = "192.168.1.114".parse().expect("should succeed");
 
     // Exhaust API limit
     for _ in 0..3 {

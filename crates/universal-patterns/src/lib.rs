@@ -449,7 +449,7 @@ mod tests {
         let config = create_development_config();
         let result = initialize_primal_system(Some(config)).await;
         assert!(result.is_ok());
-        let registry = result.unwrap();
+        let registry = result.expect("should succeed");
         let stats = registry.get_statistics().await;
         assert_eq!(stats.total_primals, 0);
     }

@@ -293,7 +293,7 @@ mod tests {
         assert!(client.send(message.clone()).is_ok());
 
         // Receive message on server side
-        let received = server.try_recv().unwrap();
+        let received = server.try_recv().expect("should succeed");
         assert_eq!(received.as_deref(), Some(message.as_slice()));
 
         // Send message from server to client
@@ -301,7 +301,7 @@ mod tests {
         assert!(server.send(response.clone()).is_ok());
 
         // Receive response on client side
-        let received_response = client.try_recv().unwrap();
+        let received_response = client.try_recv().expect("should succeed");
         assert_eq!(received_response.as_deref(), Some(response.as_slice()));
     }
 
@@ -310,7 +310,7 @@ mod tests {
         let (mut client, _server) = InProcessTransport::pair();
 
         // Try to receive when channel is empty
-        let result = client.try_recv().unwrap();
+        let result = client.try_recv().expect("should succeed");
         assert_eq!(result, None);
     }
 
@@ -326,12 +326,12 @@ mod tests {
 
         // Receive all messages in order
         for i in 0..5 {
-            let msg = receiver.try_recv().unwrap();
+            let msg = receiver.try_recv().expect("should succeed");
             assert_eq!(msg.as_deref(), Some([i, i + 1, i + 2].as_slice()));
         }
 
         // Channel should be empty now
-        assert_eq!(receiver.try_recv().unwrap(), None);
+        assert_eq!(receiver.try_recv().expect("should succeed"), None);
     }
 
     #[test]
@@ -345,7 +345,7 @@ mod tests {
         assert!(client.send(large_message.clone()).is_ok());
 
         // Receive the large message
-        let msg = server.try_recv().unwrap();
+        let msg = server.try_recv().expect("should succeed");
         assert_eq!(msg.as_deref(), Some(large_message.as_slice()));
     }
 

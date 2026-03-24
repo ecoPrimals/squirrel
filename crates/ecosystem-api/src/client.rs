@@ -654,7 +654,7 @@ mod tests {
             RetryConfig::default(),
         );
         assert!(result.is_ok());
-        let client = result.unwrap();
+        let client = result.expect("should succeed");
         let _with_timeout = client.with_timeout(Duration::from_secs(10));
     }
 
@@ -733,7 +733,7 @@ mod discovery_health_tests {
         let out = discovery
             .find_by_primal_type(PrimalType::Squirrel)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, "a");
     }
@@ -752,9 +752,15 @@ mod discovery_health_tests {
         )
         .await;
         let discovery = ServiceDiscovery::new(Box::new(mock));
-        let out = discovery.find_by_capability("a").await.unwrap();
+        let out = discovery
+            .find_by_capability("a")
+            .await
+            .expect("should succeed");
         assert_eq!(out.len(), 2);
-        let out_b = discovery.find_by_capability("b").await.unwrap();
+        let out_b = discovery
+            .find_by_capability("b")
+            .await
+            .expect("should succeed");
         assert_eq!(out_b.len(), 1);
         assert_eq!(out_b[0].id, "both");
     }
@@ -768,7 +774,10 @@ mod discovery_health_tests {
         )
         .await;
         let discovery = ServiceDiscovery::new(Box::new(mock));
-        let out = discovery.find_healthy_services().await.unwrap();
+        let out = discovery
+            .find_healthy_services()
+            .await
+            .expect("should succeed");
         assert_eq!(out.len(), 1);
     }
 
@@ -783,7 +792,10 @@ mod discovery_health_tests {
         )
         .await;
         let discovery = ServiceDiscovery::new(Box::new(mock));
-        let out = discovery.find_by_metadata(meta).await.unwrap();
+        let out = discovery
+            .find_by_metadata(meta)
+            .await
+            .expect("should succeed");
         assert_eq!(out.len(), 1);
     }
 
@@ -792,7 +804,10 @@ mod discovery_health_tests {
         let mock = MockServiceMeshClient::new();
         let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock);
         let monitor = HealthMonitor::new(client, "svc-report".to_string(), Duration::from_secs(60));
-        monitor.report_health(HealthStatus::Degraded).await.unwrap();
+        monitor
+            .report_health(HealthStatus::Degraded)
+            .await
+            .expect("should succeed");
     }
 
     #[tokio::test]
@@ -803,7 +818,9 @@ mod discovery_health_tests {
             sample_service("beat", PrimalType::Squirrel, &[]),
         )
         .await;
-        ServiceMeshClient::heartbeat(&mock, "beat").await.unwrap();
+        ServiceMeshClient::heartbeat(&mock, "beat")
+            .await
+            .expect("should succeed");
         let all = mock.get_all_services().await;
         let svc = all.iter().find(|s| s.id == "beat").expect("service");
         assert!(svc.metadata.contains_key("last_heartbeat"));

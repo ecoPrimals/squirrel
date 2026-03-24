@@ -229,7 +229,7 @@ fn create_test_unified_metrics() -> UnifiedMetrics {
 
 #[tokio::test]
 async fn test_metrics_collector_creation() {
-    let collector = UnifiedMetricsCollector::new().await.unwrap();
+    let collector = UnifiedMetricsCollector::new().await.expect("should succeed");
     let state = collector.get_state().await;
     
     assert_eq!(state.status, CollectorStatus::Stopped);
@@ -239,15 +239,15 @@ async fn test_metrics_collector_creation() {
 
 #[tokio::test]
 async fn test_metrics_collector_start_stop() {
-    let collector = UnifiedMetricsCollector::new().await.unwrap();
+    let collector = UnifiedMetricsCollector::new().await.expect("should succeed");
     
     // Start collector
-    collector.start().await.unwrap();
+    collector.start().await.expect("should succeed");
     let state = collector.get_state().await;
     assert_eq!(state.status, CollectorStatus::Running);
     
     // Stop collector
-    collector.stop().await.unwrap();
+    collector.stop().await.expect("should succeed");
     let state = collector.get_state().await;
     assert_eq!(state.status, CollectorStatus::Stopped);
 }
@@ -255,7 +255,7 @@ async fn test_metrics_collector_start_stop() {
 #[tokio::test]
 async fn test_metrics_aggregator_creation() {
     let config = create_test_metrics_config();
-    let aggregator = MetricsAggregator::new(config).await.unwrap();
+    let aggregator = MetricsAggregator::new(config).await.expect("should succeed");
     let state = aggregator.get_state().await;
     
     assert_eq!(state.status, AggregatorStatus::Stopped);
@@ -265,24 +265,24 @@ async fn test_metrics_aggregator_creation() {
 #[tokio::test]
 async fn test_metrics_aggregation_processing() {
     let config = create_test_metrics_config();
-    let aggregator = MetricsAggregator::new(config).await.unwrap();
+    let aggregator = MetricsAggregator::new(config).await.expect("should succeed");
     
     // Start aggregator
-    aggregator.start().await.unwrap();
+    aggregator.start().await.expect("should succeed");
     
     // Process test metrics
     let test_metrics = create_test_unified_metrics();
-    aggregator.process_metrics(test_metrics).await.unwrap();
+    aggregator.process_metrics(test_metrics).await.expect("should succeed");
     
     // Get aggregated metrics
-    let aggregated = aggregator.get_current_aggregation().await.unwrap();
+    let aggregated = aggregator.get_current_aggregation().await.expect("should succeed");
     
     // Verify aggregation
     assert!(aggregated.sample_count > 0);
     assert!(aggregated.overall_performance.health_score > 0.0);
     
     // Stop aggregator
-    aggregator.stop().await.unwrap();
+    aggregator.stop().await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -294,7 +294,7 @@ async fn test_alert_manager_creation() {
         cooldown_period_secs: 60,
     };
     
-    let alert_manager = MetricsAlertManager::new(config).await.unwrap();
+    let alert_manager = MetricsAlertManager::new(config).await.expect("should succeed");
     let state = alert_manager.get_state().await;
     
     assert_eq!(state.status, AlertManagerStatus::Stopped);
@@ -318,8 +318,8 @@ async fn test_alert_threshold_checking() {
         cooldown_period_secs: 60,
     };
     
-    let alert_manager = MetricsAlertManager::new(config).await.unwrap();
-    alert_manager.start().await.unwrap();
+    let alert_manager = MetricsAlertManager::new(config).await.expect("should succeed");
+    alert_manager.start().await.expect("should succeed");
     
     // Create test metrics with high CPU usage
     let mut test_metrics = create_test_unified_metrics();
@@ -329,21 +329,21 @@ async fn test_alert_threshold_checking() {
     
     // Create aggregated metrics
     let config = create_test_metrics_config();
-    let aggregator = MetricsAggregator::new(config).await.unwrap();
-    aggregator.start().await.unwrap();
-    aggregator.process_metrics(test_metrics).await.unwrap();
+    let aggregator = MetricsAggregator::new(config).await.expect("should succeed");
+    aggregator.start().await.expect("should succeed");
+    aggregator.process_metrics(test_metrics).await.expect("should succeed");
     
-    let aggregated = aggregator.get_current_aggregation().await.unwrap();
+    let aggregated = aggregator.get_current_aggregation().await.expect("should succeed");
     
     // Check for alerts
-    let triggered_alerts = alert_manager.check_alerts(&aggregated).await.unwrap();
+    let triggered_alerts = alert_manager.check_alerts(&aggregated).await.expect("should succeed");
     
     // In a real implementation, this would trigger alerts based on the thresholds
     // For now, we just verify the functionality works
     assert!(triggered_alerts.is_empty() || !triggered_alerts.is_empty());
     
-    alert_manager.stop().await.unwrap();
-    aggregator.stop().await.unwrap();
+    alert_manager.stop().await.expect("should succeed");
+    aggregator.stop().await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -359,7 +359,7 @@ async fn test_prometheus_exporter_creation() {
         enabled: true,
     };
     
-    let exporter = PrometheusExporter::new(config).await.unwrap();
+    let exporter = PrometheusExporter::new(config).await.expect("should succeed");
     
     assert_eq!(exporter.exporter_name(), "test_prometheus");
     assert_eq!(exporter.exporter_type(), "prometheus");
@@ -385,7 +385,7 @@ async fn test_json_exporter_creation() {
         enabled: true,
     };
     
-    let exporter = JsonExporter::new(config).await.unwrap();
+    let exporter = JsonExporter::new(config).await.expect("should succeed");
     
     assert_eq!(exporter.exporter_name(), "test_json");
     assert_eq!(exporter.exporter_type(), "json");
@@ -397,7 +397,7 @@ async fn test_json_exporter_creation() {
 #[tokio::test]
 async fn test_enhanced_metrics_manager_creation() {
     let config = create_test_metrics_config();
-    let manager = EnhancedMetricsManager::new(config).await.unwrap();
+    let manager = EnhancedMetricsManager::new(config).await.expect("should succeed");
     let state = manager.get_state().await;
     
     assert_eq!(state.status, ManagerStatus::Stopped);
@@ -406,10 +406,10 @@ async fn test_enhanced_metrics_manager_creation() {
 #[tokio::test]
 async fn test_enhanced_metrics_manager_lifecycle() {
     let config = create_test_metrics_config();
-    let manager = EnhancedMetricsManager::new(config).await.unwrap();
+    let manager = EnhancedMetricsManager::new(config).await.expect("should succeed");
     
     // Start manager
-    manager.start().await.unwrap();
+    manager.start().await.expect("should succeed");
     let state = manager.get_state().await;
     assert_eq!(state.status, ManagerStatus::Running);
     
@@ -417,12 +417,12 @@ async fn test_enhanced_metrics_manager_lifecycle() {
     sleep(Duration::from_millis(100)).await;
     
     // Get performance summary
-    let summary = manager.get_performance_summary().await.unwrap();
+    let summary = manager.get_performance_summary().await.expect("should succeed");
     assert!(summary.overall_health_score >= 0.0);
     assert!(summary.overall_health_score <= 1.0);
     
     // Stop manager
-    manager.stop().await.unwrap();
+    manager.stop().await.expect("should succeed");
     let state = manager.get_state().await;
     assert_eq!(state.status, ManagerStatus::Stopped);
 }
@@ -431,12 +431,12 @@ async fn test_enhanced_metrics_manager_lifecycle() {
 async fn test_dashboard_creation() {
     let config = DashboardConfig::default();
     let metrics_config = create_test_metrics_config();
-    let manager = Arc::new(EnhancedMetricsManager::new(metrics_config).await.unwrap());
+    let manager = Arc::new(EnhancedMetricsManager::new(metrics_config).await.expect("should succeed"));
     
-    let dashboard = MetricsDashboard::new(config, manager).await.unwrap();
+    let dashboard = MetricsDashboard::new(config, manager).await.expect("should succeed");
     
     // Test dashboard functionality (without starting the web server)
-    let overview = dashboard.get_overview().await.unwrap();
+    let overview = dashboard.get_overview().await.expect("should succeed");
     
     assert!(!overview.system.status.is_empty());
     assert!(overview.system.health_score >= 0.0);
@@ -449,15 +449,15 @@ async fn test_dashboard_creation() {
 #[tokio::test]
 async fn test_component_metrics_integration() {
     let config = create_test_metrics_config();
-    let manager = EnhancedMetricsManager::new(config).await.unwrap();
+    let manager = EnhancedMetricsManager::new(config).await.expect("should succeed");
     
-    manager.start().await.unwrap();
+    manager.start().await.expect("should succeed");
     
     // Wait for initial collection
     sleep(Duration::from_millis(200)).await;
     
     // Get metrics snapshot
-    let snapshot = manager.get_metrics_snapshot().await.unwrap();
+    let snapshot = manager.get_metrics_snapshot().await.expect("should succeed");
     
     // Verify snapshot structure
     assert!(snapshot.raw_metrics.timestamp <= Utc::now());
@@ -465,7 +465,7 @@ async fn test_component_metrics_integration() {
     assert!(snapshot.system_health.overall_score >= 0.0);
     assert!(snapshot.system_health.overall_score <= 1.0);
     
-    manager.stop().await.unwrap();
+    manager.stop().await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -496,8 +496,8 @@ async fn test_metrics_export_integration() {
         },
     };
     
-    let manager = EnhancedMetricsManager::new(config).await.unwrap();
-    manager.start().await.unwrap();
+    let manager = EnhancedMetricsManager::new(config).await.expect("should succeed");
+    manager.start().await.expect("should succeed");
     
     // Wait for collection and export
     sleep(Duration::from_millis(1500)).await;
@@ -506,14 +506,14 @@ async fn test_metrics_export_integration() {
     let state = manager.get_state().await;
     assert_eq!(state.status, ManagerStatus::Running);
     
-    manager.stop().await.unwrap();
+    manager.stop().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_performance_trends_calculation() {
     let config = create_test_metrics_config();
-    let aggregator = MetricsAggregator::new(config).await.unwrap();
-    aggregator.start().await.unwrap();
+    let aggregator = MetricsAggregator::new(config).await.expect("should succeed");
+    aggregator.start().await.expect("should succeed");
     
     // Process multiple metrics over time to build trends
     for i in 0..5 {
@@ -525,30 +525,30 @@ async fn test_performance_trends_calculation() {
             system_metrics.memory_usage_percent = 30.0 + (i as f64 * 2.0);
         }
         
-        aggregator.process_metrics(test_metrics).await.unwrap();
+        aggregator.process_metrics(test_metrics).await.expect("should succeed");
         sleep(Duration::from_millis(50)).await;
     }
     
     // Get aggregated metrics
-    let aggregated = aggregator.get_current_aggregation().await.unwrap();
+    let aggregated = aggregator.get_current_aggregation().await.expect("should succeed");
     
     // Verify trend calculation
     assert!(aggregated.trends.len() >= 0); // Trends may or may not be calculated yet
     
-    aggregator.stop().await.unwrap();
+    aggregator.stop().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_health_status_calculation() {
     let config = create_test_metrics_config();
-    let manager = EnhancedMetricsManager::new(config).await.unwrap();
+    let manager = EnhancedMetricsManager::new(config).await.expect("should succeed");
     
-    manager.start().await.unwrap();
+    manager.start().await.expect("should succeed");
     
     // Wait for initial metrics collection
     sleep(Duration::from_millis(200)).await;
     
-    let snapshot = manager.get_metrics_snapshot().await.unwrap();
+    let snapshot = manager.get_metrics_snapshot().await.expect("should succeed");
     let health = snapshot.system_health;
     
     // Verify health calculation
@@ -556,7 +556,7 @@ async fn test_health_status_calculation() {
     assert!(!health.status.to_string().is_empty());
     assert!(health.last_updated <= Utc::now());
     
-    manager.stop().await.unwrap();
+    manager.stop().await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -579,36 +579,36 @@ async fn test_alert_notification_channels() {
         cooldown_period_secs: 60,
     };
     
-    let alert_manager = MetricsAlertManager::new(config).await.unwrap();
+    let alert_manager = MetricsAlertManager::new(config).await.expect("should succeed");
     
     // Start and verify initialization
-    alert_manager.start().await.unwrap();
+    alert_manager.start().await.expect("should succeed");
     let state = alert_manager.get_state().await;
     assert_eq!(state.status, AlertManagerStatus::Running);
     
-    alert_manager.stop().await.unwrap();
+    alert_manager.stop().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_comprehensive_metrics_flow() {
     // This test verifies the complete metrics flow from collection to dashboard
     let config = create_test_metrics_config();
-    let manager = Arc::new(EnhancedMetricsManager::new(config).await.unwrap());
+    let manager = Arc::new(EnhancedMetricsManager::new(config).await.expect("should succeed"));
     
     // Start the metrics manager
-    manager.start().await.unwrap();
+    manager.start().await.expect("should succeed");
     
     // Create dashboard
     let dashboard_config = DashboardConfig::default();
-    let dashboard = MetricsDashboard::new(dashboard_config, manager.clone()).await.unwrap();
+    let dashboard = MetricsDashboard::new(dashboard_config, manager.clone()).await.expect("should succeed");
     
     // Wait for metrics collection
     sleep(Duration::from_millis(1200)).await;
     
     // Get comprehensive overview
-    let overview = dashboard.get_overview().await.unwrap();
-    let trends = dashboard.get_performance_trends().await.unwrap();
-    let health = dashboard.get_health_summary().await.unwrap();
+    let overview = dashboard.get_overview().await.expect("should succeed");
+    let trends = dashboard.get_performance_trends().await.expect("should succeed");
+    let health = dashboard.get_health_summary().await.expect("should succeed");
     
     // Verify complete data flow
     assert!(!overview.system.status.is_empty());
@@ -622,7 +622,7 @@ async fn test_comprehensive_metrics_flow() {
     assert!(overview.performance.success_rate_percent <= 100.0);
     
     // Clean up
-    manager.stop().await.unwrap();
+    manager.stop().await.expect("should succeed");
 }
 
 /// Integration test that verifies metrics work with actual enhanced MCP components
@@ -661,14 +661,14 @@ async fn test_real_component_integration() {
 async fn test_metrics_system_performance() {
     // Test that the metrics system itself doesn't significantly impact performance
     let config = create_test_metrics_config();
-    let manager = EnhancedMetricsManager::new(config).await.unwrap();
+    let manager = EnhancedMetricsManager::new(config).await.expect("should succeed");
     
     let start_time = Instant::now();
-    manager.start().await.unwrap();
+    manager.start().await.expect("should succeed");
     
     // Simulate load
     for _i in 0..10 {
-        let _snapshot = manager.get_metrics_snapshot().await.unwrap();
+        let _snapshot = manager.get_metrics_snapshot().await.expect("should succeed");
         sleep(Duration::from_millis(10)).await;
     }
     
@@ -677,7 +677,7 @@ async fn test_metrics_system_performance() {
     // Verify reasonable performance (should complete in under 2 seconds)
     assert!(total_time.as_secs() < 2);
     
-    manager.stop().await.unwrap();
+    manager.stop().await.expect("should succeed");
 }
 
 /// Test helper to verify metrics data consistency

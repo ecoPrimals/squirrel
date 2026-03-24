@@ -598,8 +598,8 @@ mod proptest_tests {
             desc in ".*",
         ) {
             let task = Task::new(&name, &desc);
-            let json = serde_json::to_string(&task).unwrap();
-            let deserialized: Task = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&task).expect("should succeed");
+            let deserialized: Task = serde_json::from_str(&json).expect("should succeed");
             prop_assert_eq!(deserialized.name.as_ref(), name);
             prop_assert_eq!(deserialized.description, desc);
         }
@@ -607,16 +607,16 @@ mod proptest_tests {
         #[test]
         fn task_status_round_trip(status in 0i32..6) {
             let task_status: TaskStatus = status.into();
-            let json = serde_json::to_string(&task_status).unwrap();
-            let deserialized: TaskStatus = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&task_status).expect("should succeed");
+            let deserialized: TaskStatus = serde_json::from_str(&json).expect("should succeed");
             prop_assert_eq!(task_status, deserialized);
         }
 
         #[test]
         fn task_priority_round_trip(priority in 0i32..5) {
             let p = TaskPriority::from(priority);
-            let json = serde_json::to_string(&p).unwrap();
-            let deserialized: TaskPriority = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&p).expect("should succeed");
+            let deserialized: TaskPriority = serde_json::from_str(&json).expect("should succeed");
             prop_assert_eq!(p, deserialized);
         }
     }

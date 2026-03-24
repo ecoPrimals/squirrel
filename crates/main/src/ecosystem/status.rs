@@ -208,8 +208,9 @@ mod tests {
             overall_health: 0.85,
         };
 
-        let json = serde_json::to_string(&status).unwrap();
-        let deserialized: EcosystemIntegrationStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&status).expect("should succeed");
+        let deserialized: EcosystemIntegrationStatus =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.status, "healthy");
         assert_eq!(deserialized.active_integrations.len(), 2);
         assert!((deserialized.overall_health - 0.85).abs() < f64::EPSILON);
@@ -237,8 +238,8 @@ mod tests {
             },
         };
 
-        let json = serde_json::to_string(&status).unwrap();
-        let deserialized: ServiceMeshStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&status).expect("should succeed");
+        let deserialized: ServiceMeshStatus = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.enabled);
         assert!(deserialized.registered);
         assert_eq!(deserialized.load_balancing.active_connections, 5);
@@ -256,8 +257,8 @@ mod tests {
             supported_protocols: vec!["http".to_string(), "ws".to_string()],
         };
 
-        let json = serde_json::to_string(&status).unwrap();
-        let deserialized: CrossPrimalStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&status).expect("should succeed");
+        let deserialized: CrossPrimalStatus = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.enabled);
         assert_eq!(deserialized.active_connections, 10);
         assert_eq!(deserialized.supported_protocols.len(), 2);
@@ -305,8 +306,9 @@ mod tests {
             last_error: Some("Connection refused".to_string()),
         };
 
-        let json = serde_json::to_string(&status).unwrap();
-        let deserialized: EcosystemManagerStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&status).expect("should succeed");
+        let deserialized: EcosystemManagerStatus =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.status, "error");
         assert_eq!(deserialized.error_count, 5);
         assert_eq!(
@@ -329,7 +331,10 @@ mod tests {
 
         assert_eq!(health.status, "healthy");
         assert!(health.error.is_none());
-        assert_eq!(health.metadata.get("version").unwrap(), "1.0");
+        assert_eq!(
+            health.metadata.get("version").expect("should succeed"),
+            "1.0"
+        );
     }
 
     #[test]
@@ -341,8 +346,8 @@ mod tests {
             metadata: HashMap::new(),
         };
 
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: ComponentHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: ComponentHealth = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.status, "unhealthy");
         assert_eq!(deserialized.error.as_deref(), Some("Out of memory"));
     }
@@ -356,8 +361,8 @@ mod tests {
             health_errors: vec![],
         };
 
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: HealthStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: HealthStatus = serde_json::from_str(&json).expect("should succeed");
         assert!((deserialized.health_score - 0.92).abs() < f64::EPSILON);
         assert!(deserialized.health_errors.is_empty());
     }

@@ -667,7 +667,7 @@ pub mod tests {
         
         /// Set the health status for the mock
         pub fn set_status(&self, status: HealthStatus) {
-            let mut s = self.status.write().unwrap();
+            let mut s = self.status.write().expect("lock poisoned");
             *s = status;
         }
         
@@ -689,7 +689,7 @@ pub mod tests {
             
             async move {
                 call_count.fetch_add(1, Ordering::SeqCst);
-                let status = *status.read().unwrap();
+                let status = *status.read().expect("lock poisoned");
                 HealthCheckResult::new(
                     id,
                     status,
@@ -726,52 +726,54 @@ pub mod tests {
     }
     
     #[tokio::test]
-    async fn test_health_monitor_basic() {
+    async fn test_health_monitor_basic() -> Result<(), Box<dyn std::error::Error>> {
         let mut monitor = HealthMonitor::default();
         
         // Register a mock health check
         let mock_check = MockHealthCheck::new("test-component", HealthStatus::Healthy);
-        monitor.register(mock_check).unwrap();
+        monitor.register(mock_check)?;
         
         // Check the component
-        let result = monitor.check_component("test-component").await.unwrap();
+        let result = monitor.check_component("test-component").await?;
         
         assert_eq!(result.status, HealthStatus::Healthy);
         assert_eq!(monitor.get_component_status("test-component"), HealthStatus::Healthy);
         assert_eq!(monitor.get_all_component_status().get("test-component"), Some(&HealthStatus::Healthy));
+        Ok(())
     }
     
     #[tokio::test]
-    async fn test_health_status_transition() {
+    async fn test_health_status_transition() -> Result<(), Box<dyn std::error::Error>> {
         let mut monitor = HealthMonitor::default();
         
         // Create the mock check separately so we can control it
         let mock_check = MockHealthCheck::new("test-component", HealthStatus::Healthy);
         
         // Register the mock health check with auto-recovery disabled
-        monitor.register(mock_check).unwrap();
+        monitor.register(mock_check)?;
         
         // Initial check
-        let result = monitor.check_component("test-component").await.unwrap();
+        let result = monitor.check_component("test-component").await?;
         assert_eq!(result.status, HealthStatus::Healthy);
         
         // Since we can't access the check directly through the monitor, we'll 
         // create a new monitor with a new check with different status
         let mut monitor = HealthMonitor::default();
         let mock_check2 = MockHealthCheck::new("test-component", HealthStatus::Unhealthy);
-        monitor.register(mock_check2).unwrap();
+        monitor.register(mock_check2)?;
         
         // Unhealthy check
-        let result = monitor.check_component("test-component").await.unwrap();
+        let result = monitor.check_component("test-component").await?;
         assert_eq!(result.status, HealthStatus::Unhealthy);
         
         // Do another unhealthy check
-        let result = monitor.check_component("test-component").await.unwrap();
+        let result = monitor.check_component("test-component").await?;
         assert_eq!(result.status, HealthStatus::Unhealthy);
         
         // Verify metrics
         let metrics = monitor.get_metrics();
         assert_eq!(metrics.total_checks, 2);
         assert_eq!(*metrics.checks_by_status.get(&HealthStatus::Unhealthy).unwrap_or(&0), 2);
+        Ok(())
     }
 }

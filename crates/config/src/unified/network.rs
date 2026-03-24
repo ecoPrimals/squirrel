@@ -488,7 +488,7 @@ mod tests {
                 assert!(port1 == "http_port" || port1 == "websocket_port");
                 assert!(port2 == "http_port" || port2 == "websocket_port");
             }
-            _ => panic!("Expected PortConflict error"),
+            _ => unreachable!("Expected PortConflict error"),
         }
     }
 

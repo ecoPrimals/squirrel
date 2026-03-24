@@ -213,7 +213,7 @@ fn test_to_ai_capabilities_covers_types_and_performance_branches() {
 
 #[test]
 fn test_from_file_nested_models_json() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().expect("should succeed");
     let path = dir.path().join("reg.json");
     let json = r#"{
         "models": {
@@ -239,7 +239,7 @@ fn test_from_file_nested_models_json() {
             }
         }
     }"#;
-    std::fs::write(&path, json).unwrap();
+    std::fs::write(&path, json).expect("should succeed");
     let reg = ModelRegistry::from_file(&path).expect("nested models file should parse");
     assert!(reg.get_provider_models("prov").contains(&"mid".to_string()));
 }
@@ -267,10 +267,10 @@ fn test_save_non_json_extension_roundtrip() {
     };
     registry.register_model(capabilities);
 
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().expect("should succeed");
     let path = dir.path().join("registry.dat");
-    registry.save_to_file(&path).unwrap();
-    let loaded = ModelRegistry::from_file(&path).unwrap();
+    registry.save_to_file(&path).expect("should succeed");
+    let loaded = ModelRegistry::from_file(&path).expect("should succeed");
     assert!(loaded.get_model_capabilities("rp", "roundtrip").is_some());
 }
 
@@ -302,7 +302,7 @@ fn test_update_global_runs_closure() {
 
 #[test]
 fn test_load_from_available_paths_loads_first_existing_file() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().expect("should succeed");
     // Use non-`.json` extension so `load_from_file` uses direct `ModelRegistry` serde merge
     // (nested `.json` + `models` key path returns early without updating `self`).
     let path = dir.path().join("models.registry");
@@ -313,8 +313,8 @@ fn test_load_from_available_paths_loads_first_existing_file() {
         &path,
         r#"{"models":{"p":{"m":{"name":"m","provider_id":"p","version":null,"model_types":["LargeLanguageModel"],"task_types":["TextGeneration"],"max_context_size":128,"supports_streaming":false,"supports_function_calling":false,"supports_tool_use":false,"performance":{},"resources":{},"cost":{},"priority":50,"handles_sensitive_data":false,"cost_tier":"Medium","api_endpoint":null}}}}"#,
     )
-    .unwrap();
-    reg.load_from_available_paths().unwrap();
+    .expect("should succeed");
+    reg.load_from_available_paths().expect("should succeed");
     assert!(reg.get_model_capabilities("p", "m").is_some());
 }
 

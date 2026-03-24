@@ -276,8 +276,8 @@ mod tests {
         let ctx = ErrorContext::new("test")
             .with_module("mod")
             .with_function("func");
-        let json = serde_json::to_string(&ctx).unwrap();
-        let deserialized: ErrorContext = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&ctx).expect("should succeed");
+        let deserialized: ErrorContext = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.operation, ctx.operation);
         assert_eq!(deserialized.module, ctx.module);
         assert_eq!(deserialized.function, ctx.function);
@@ -302,7 +302,7 @@ mod tests {
             EnhancedError::new(security_error(), ErrorContext::new("chain")).with_source(root);
         assert!(chained.source.is_some());
         assert_eq!(
-            chained.source.as_ref().unwrap().category,
+            chained.source.as_ref().expect("should succeed").category,
             ErrorCategory::Network
         );
     }
@@ -361,8 +361,8 @@ mod tests {
     #[test]
     fn test_enhanced_error_serde() {
         let enhanced = EnhancedError::new(network_error(), ErrorContext::new("test"));
-        let json = serde_json::to_string(&enhanced).unwrap();
-        let deserialized: EnhancedError = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&enhanced).expect("should succeed");
+        let deserialized: EnhancedError = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.severity, enhanced.severity);
         assert_eq!(deserialized.category, enhanced.category);
         assert_eq!(deserialized.recoverable, enhanced.recoverable);
@@ -387,7 +387,7 @@ mod tests {
     fn test_result_ext_with_context_ok() {
         let result: Result<i32, PluginError> = Ok(42);
         let enhanced = result.with_context(ErrorContext::new("op"));
-        assert_eq!(enhanced.unwrap(), 42);
+        assert_eq!(enhanced.expect("should succeed"), 42);
     }
 
     #[test]
@@ -403,7 +403,7 @@ mod tests {
     fn test_result_ext_with_operation_ok() {
         let result: Result<i32, PluginError> = Ok(42);
         let enhanced = result.with_operation("op");
-        assert_eq!(enhanced.unwrap(), 42);
+        assert_eq!(enhanced.expect("should succeed"), 42);
     }
 
     #[test]

@@ -306,8 +306,8 @@ mod tests {
             error_handler,
         );
 
-        let addr = SocketAddr::from_str("127.0.0.1:8080").unwrap();
-        let connection = manager.create_connection(addr).await.unwrap();
+        let addr = SocketAddr::from_str("127.0.0.1:8080").expect("should succeed");
+        let connection = manager.create_connection(addr).await.expect("should succeed");
 
         assert_eq!(connection.addr, addr);
         assert_eq!(connection.status, ConnectionStatus::Connected);
@@ -327,9 +327,9 @@ mod tests {
             error_handler,
         );
 
-        let addr = SocketAddr::from_str("127.0.0.1:8080").unwrap();
-        let connection = manager.create_connection(addr).await.unwrap();
+        let addr = SocketAddr::from_str("127.0.0.1:8080").expect("should succeed");
+        let connection = manager.create_connection(addr).await.expect("should succeed");
         
-        manager.close_connection(connection.id).await.unwrap();
+        manager.close_connection(connection.id).await.expect("should succeed");
     }
 } 

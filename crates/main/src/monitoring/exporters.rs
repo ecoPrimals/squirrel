@@ -350,8 +350,8 @@ mod tests {
     #[test]
     fn test_exporter_config_serde() {
         let config = create_test_config("prometheus");
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: ExporterConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: ExporterConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.name, "prometheus");
         assert_eq!(deserialized.endpoint, "http://localhost:9090/metrics");
     }
@@ -366,8 +366,8 @@ mod tests {
             password: None,
             token: None,
         };
-        let json = serde_json::to_string(&auth).unwrap();
-        let deserialized: AuthConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&auth).expect("should succeed");
+        let deserialized: AuthConfig = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.username.is_none());
     }
 
@@ -379,8 +379,8 @@ mod tests {
             password: Some("secret".to_string()),
             token: None,
         };
-        let json = serde_json::to_string(&auth).unwrap();
-        let deserialized: AuthConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&auth).expect("should succeed");
+        let deserialized: AuthConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.username.as_deref(), Some("admin"));
     }
 
@@ -392,8 +392,8 @@ mod tests {
             password: None,
             token: Some("eyJ0eXAi...".to_string()),
         };
-        let json = serde_json::to_string(&auth).unwrap();
-        let deserialized: AuthConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&auth).expect("should succeed");
+        let deserialized: AuthConfig = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.token.is_some());
     }
 
@@ -406,9 +406,9 @@ mod tests {
             AuthType::ApiKey,
         ];
         for auth_type in types {
-            let json = serde_json::to_string(&auth_type).unwrap();
-            let deserialized: AuthType = serde_json::from_str(&json).unwrap();
-            let json2 = serde_json::to_string(&deserialized).unwrap();
+            let json = serde_json::to_string(&auth_type).expect("should succeed");
+            let deserialized: AuthType = serde_json::from_str(&json).expect("should succeed");
+            let json2 = serde_json::to_string(&deserialized).expect("should succeed");
             assert_eq!(json, json2);
         }
     }
@@ -440,7 +440,7 @@ mod tests {
         let result = exporter.export_metrics(metrics).await;
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("should succeed");
         assert!(output.contains("squirrel_cpu_usage 45.5"));
         assert!(output.contains("squirrel_memory_percentage 50"));
         assert!(output.contains("squirrel_disk_usage 60"));
@@ -458,7 +458,10 @@ mod tests {
         let exporter = PrometheusExporter::new(config);
         let metrics = create_test_metrics();
 
-        let output = exporter.export_metrics(metrics).await.unwrap();
+        let output = exporter
+            .export_metrics(metrics)
+            .await
+            .expect("should succeed");
         assert!(output.contains("squirrel_component_latency_ms{component=\"ai_router\"}"));
     }
 
@@ -468,7 +471,10 @@ mod tests {
         let exporter = PrometheusExporter::new(config);
         let metrics = create_test_metrics();
 
-        let output = exporter.export_metrics(metrics).await.unwrap();
+        let output = exporter
+            .export_metrics(metrics)
+            .await
+            .expect("should succeed");
         assert!(output.contains("squirrel_custom_requests_total"));
         assert!(output.contains("service=\"squirrel\""));
     }
@@ -490,7 +496,10 @@ mod tests {
             },
         );
 
-        let output = exporter.export_metrics(metrics).await.unwrap();
+        let output = exporter
+            .export_metrics(metrics)
+            .await
+            .expect("should succeed");
         assert!(output.contains("squirrel_custom_simple_counter 100"));
     }
 
@@ -500,7 +509,10 @@ mod tests {
         let exporter = PrometheusExporter::new(config);
         let metrics = create_test_metrics();
 
-        let output = exporter.export_metrics(metrics).await.unwrap();
+        let output = exporter
+            .export_metrics(metrics)
+            .await
+            .expect("should succeed");
         assert!(output.contains("# HELP squirrel_cpu_usage"));
         assert!(output.contains("# TYPE squirrel_cpu_usage gauge"));
     }
@@ -523,9 +535,9 @@ mod tests {
         let result = exporter.export_metrics(metrics).await;
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("should succeed");
         // Should be valid JSON
-        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&output).expect("should succeed");
         assert!(parsed.get("system_metrics").is_some());
         assert!(parsed.get("component_metrics").is_some());
         assert!(parsed.get("metrics").is_some());
@@ -545,9 +557,14 @@ mod tests {
         let result = exporter.export_metrics(metrics).await;
         assert!(result.is_ok());
 
-        let output = result.unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
-        assert!(parsed["metrics"].as_object().unwrap().is_empty());
+        let output = result.expect("should succeed");
+        let parsed: serde_json::Value = serde_json::from_str(&output).expect("should succeed");
+        assert!(
+            parsed["metrics"]
+                .as_object()
+                .expect("should succeed")
+                .is_empty()
+        );
     }
 
     // --- ExporterConfig with auth ---
@@ -567,10 +584,16 @@ mod tests {
             headers: HashMap::from([("X-Custom".to_string(), "value".to_string())]),
         };
 
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: ExporterConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: ExporterConfig = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.auth.is_some());
-        assert_eq!(deserialized.headers.get("X-Custom").unwrap(), "value");
+        assert_eq!(
+            deserialized
+                .headers
+                .get("X-Custom")
+                .expect("should succeed"),
+            "value"
+        );
     }
 
     #[test]
@@ -597,8 +620,8 @@ mod tests {
             password: None,
             token: Some("api-key-123".to_string()),
         };
-        let json = serde_json::to_string(&auth).unwrap();
-        let deserialized: AuthConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&auth).expect("should succeed");
+        let deserialized: AuthConfig = serde_json::from_str(&json).expect("should succeed");
         assert!(matches!(deserialized.auth_type, AuthType::ApiKey));
     }
 

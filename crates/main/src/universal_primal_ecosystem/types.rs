@@ -187,7 +187,7 @@ mod tests {
 
         // Test serialization
         for variant in variants {
-            let serialized = serde_json::to_string(&variant).unwrap();
+            let serialized = serde_json::to_string(&variant).expect("should succeed");
             assert!(!serialized.is_empty());
         }
     }
@@ -345,7 +345,7 @@ mod tests {
             matches: Vec::new(),
             cached_at: Instant::now()
                 .checked_sub(Duration::from_secs(400))
-                .unwrap(),
+                .expect("should succeed"),
             ttl_seconds: 300,
             access_count: 0,
         };
@@ -380,8 +380,8 @@ mod tests {
     #[test]
     fn test_service_health_serialization() {
         let health = ServiceHealth::Degraded;
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: ServiceHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: ServiceHealth = serde_json::from_str(&json).expect("should succeed");
 
         assert!(matches!(deserialized, ServiceHealth::Degraded));
     }
@@ -400,8 +400,8 @@ mod tests {
             last_health_check: None,
         };
 
-        let json = serde_json::to_string(&service).unwrap();
-        let deserialized: DiscoveredService = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&service).expect("should succeed");
+        let deserialized: DiscoveredService = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(service.service_id, deserialized.service_id);
     }

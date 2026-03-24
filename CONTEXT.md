@@ -16,11 +16,11 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 | Item | Value |
 |------|--------|
 | Language | Rust, **edition 2024** |
-| Workspace | **22** crates (see `Cargo.toml` `members`) |
-| Scale | ~**447k** lines across **1,327** `.rs` files |
+| Workspace | **23** crates (see `Cargo.toml` `members`) |
+| Scale | ~**450k** lines across **1,331** `.rs` files |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
-| Code license | **AGPL-3.0-only** (workspace `license`; see License section for full public framing) |
-| Version | **v0.1.0-alpha.23** (workspace); status **pre-alpha** |
+| Code license | **AGPL-3.0-or-later** (workspace `license`; see License section for full public framing) |
+| Version | **v0.1.0-alpha.24** (workspace); status **pre-alpha** |
 | Unsafe code | 0 — `#![forbid(unsafe_code)]` on all lib.rs, main.rs, and bin/*.rs workspace-wide |
 
 ## Capabilities (domains)
@@ -67,13 +67,14 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 | Layer | License | Scope |
 |-------|---------|--------|
-| Software | AGPL-3.0-only | Code and binaries |
+| Software | AGPL-3.0-or-later | Code and binaries |
 | Mechanics | ORC | Protocols, deployment niches, topology |
 | Creative | CC-BY-SA 4.0 | Docs, specs, diagrams (this file uses CC-BY-SA-4.0 SPDX in header) |
 
 ## Test suite
 
 - **7,035** tests passing, 0 failures.
+- **Zero `.unwrap()`** and **zero `panic!()`** in the entire codebase — all error handling is typed.
 - **Chaos** and integration tests (e.g. under `crates/main/tests/chaos`).
 - **Property-based** tests (e.g. `proptest` for serialization invariants).
 - **Coverage** ~**85.4%** line coverage (full `--all-features`) with **90%** as stated target (re-verify with `just coverage`).

@@ -59,7 +59,7 @@ mod tests {
         let discovery = DefaultPluginDiscovery;
         let result = discovery.discover(Path::new("/nonexistent/path"));
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.expect("should succeed").is_empty());
     }
 
     #[test]
@@ -68,7 +68,7 @@ mod tests {
         let discovery = DefaultPluginDiscovery;
         let result = discovery.discover(dir.path());
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.expect("should succeed").is_empty());
     }
 
     #[test]
@@ -80,7 +80,7 @@ mod tests {
         let discovery = DefaultPluginDiscovery;
         let result = discovery.discover(dir.path());
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.expect("should succeed").is_empty());
     }
 
     #[test]
@@ -92,7 +92,7 @@ mod tests {
         let discovery = DefaultPluginDiscovery;
         let result = discovery.discover(dir.path());
         assert!(result.is_ok());
-        let paths = result.unwrap();
+        let paths = result.expect("should succeed");
         assert_eq!(paths.len(), 1);
         assert!(paths[0].to_string_lossy().contains("plugin.so"));
     }

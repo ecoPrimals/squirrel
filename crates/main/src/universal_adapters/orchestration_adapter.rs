@@ -525,8 +525,8 @@ mod tests {
         r1.metadata.name = "O1".to_string();
         let mut r2 = test_orchestration_registration();
         r2.metadata.name = "O2".to_string();
-        reg.register_service(r1).await.unwrap();
-        reg.register_service(r2).await.unwrap();
+        reg.register_service(r1).await.expect("should succeed");
+        reg.register_service(r2).await.expect("should succeed");
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
         let list = adapter
             .discover_services_universal(vec![
@@ -566,7 +566,10 @@ mod tests {
     async fn rediscover_orchestration_services() {
         let reg = registry_with_orchestration().await;
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
-        adapter.coordinate_ai_workflow("w", vec![]).await.unwrap();
+        adapter
+            .coordinate_ai_workflow("w", vec![])
+            .await
+            .expect("should succeed");
         adapter
             .rediscover_orchestration_services()
             .await
@@ -626,7 +629,9 @@ mod tests {
         let reg = Arc::new(InMemoryServiceRegistry::new());
         let reg_data = test_orchestration_registration();
         let sid = reg_data.service_id.to_string();
-        reg.register_service(reg_data).await.unwrap();
+        reg.register_service(reg_data)
+            .await
+            .expect("should succeed");
         reg.update_service_health(
             &sid,
             ServiceHealth {
@@ -636,9 +641,12 @@ mod tests {
             },
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         let mut adapter = UniversalOrchestrationAdapter::new(reg);
-        adapter.coordinate_ai_workflow("w", vec![]).await.unwrap();
+        adapter
+            .coordinate_ai_workflow("w", vec![])
+            .await
+            .expect("should succeed");
         assert!(!adapter.is_healthy().await);
     }
 

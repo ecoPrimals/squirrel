@@ -35,7 +35,7 @@ mod error_path_tests {
             .await;
 
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.expect("should succeed").is_empty());
     }
 
     #[tokio::test]
@@ -129,13 +129,13 @@ mod error_path_tests {
         let security_primals = registry
             .discover_by_capability(&PrimalCapability::Security)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(security_primals.len(), 1);
 
         let storage_primals = registry
             .discover_by_capability(&PrimalCapability::Storage)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(storage_primals.len(), 1);
     }
 
@@ -250,7 +250,7 @@ mod error_path_tests {
         let primals = registry
             .discover_by_capability(&PrimalCapability::Compute)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(primals.len(), 1);
         assert_eq!(
@@ -295,14 +295,14 @@ mod error_path_tests {
         for handle in handles {
             let result = handle.await;
             assert!(result.is_ok());
-            assert!(result.unwrap().is_ok());
+            assert!(result.expect("should succeed").is_ok());
         }
 
         // Verify all 10 were registered
         let primals = registry
             .discover_by_capability(&PrimalCapability::Storage)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(primals.len(), 10);
     }
 
@@ -326,7 +326,7 @@ mod error_path_tests {
                     Default::default(),
                 )
                 .await
-                .unwrap();
+                .expect("should succeed");
         }
 
         // Now spawn concurrent discovery requests
@@ -345,7 +345,7 @@ mod error_path_tests {
         for handle in handles {
             let result = handle.await;
             assert!(result.is_ok());
-            let primals = result.unwrap().unwrap();
+            let primals = result.expect("should succeed").expect("should succeed");
             assert_eq!(primals.len(), 3);
         }
     }
@@ -387,7 +387,10 @@ mod error_path_tests {
             assert!(result.is_ok());
 
             // Verify discoverable
-            let primals = registry.discover_by_capability(capability).await.unwrap();
+            let primals = registry
+                .discover_by_capability(capability)
+                .await
+                .expect("should succeed");
             assert_eq!(primals.len(), 1);
         }
     }
@@ -423,7 +426,7 @@ mod error_path_tests {
         let primals = registry
             .discover_by_capability(&PrimalCapability::Storage)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(primals[0].metadata.len(), 100);
     }
@@ -452,7 +455,7 @@ mod error_path_tests {
         let primals = registry
             .discover_by_capability(&PrimalCapability::Compute)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(primals.len(), 1);
         assert!(primals[0].display_name.contains("测试服务"));
@@ -511,17 +514,19 @@ mod migration_helper_tests {
         assert!(helper.is_ok());
 
         // Should work even with no primals registered
-        let helper = helper.unwrap();
+        let helper = helper.expect("should succeed");
         let security = helper.get_security_service().await;
         assert!(security.is_ok());
-        assert_eq!(security.unwrap(), None);
+        assert_eq!(security.expect("should succeed"), None);
     }
 
     #[tokio::test]
     async fn test_migration_helper_with_explicit_endpoints() {
         // Test with explicit endpoint registration (no env var mutations)
         // This ensures concurrent test safety
-        let helper = CapabilityMigrationHelper::new().await.unwrap();
+        let helper = CapabilityMigrationHelper::new()
+            .await
+            .expect("should succeed");
 
         // Manually register services with explicit endpoints
         let mut capabilities = std::collections::HashSet::new();
@@ -534,16 +539,18 @@ mod migration_helper_tests {
                 "http://beardog-test.local:8080".to_string(),
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Should be discoverable
-        let security = helper.get_security_service().await.unwrap();
+        let security = helper.get_security_service().await.expect("should succeed");
         assert!(security.is_some());
     }
 
     #[tokio::test]
     async fn test_migration_helper_manual_registration() {
-        let helper = CapabilityMigrationHelper::new().await.unwrap();
+        let helper = CapabilityMigrationHelper::new()
+            .await
+            .expect("should succeed");
 
         let mut capabilities = HashSet::new();
         capabilities.insert(PrimalCapability::AIInference);
@@ -564,7 +571,7 @@ mod migration_helper_tests {
         let ai_primals = helper
             .discover_by_capability(&PrimalCapability::AIInference)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(ai_primals.len(), 1);
         assert_eq!(ai_primals[0].id, "custom-ai");
@@ -572,7 +579,9 @@ mod migration_helper_tests {
 
     #[tokio::test]
     async fn test_migration_helper_get_first_healthy() {
-        let helper = CapabilityMigrationHelper::new().await.unwrap();
+        let helper = CapabilityMigrationHelper::new()
+            .await
+            .expect("should succeed");
 
         let mut capabilities = HashSet::new();
         capabilities.insert(PrimalCapability::Storage);
@@ -587,17 +596,17 @@ mod migration_helper_tests {
                     format!("http://storage-{}.local:8000", i),
                 )
                 .await
-                .unwrap();
+                .expect("should succeed");
         }
 
         // Get first one for capability
         let storage = helper
             .get_primal_for_capability(&PrimalCapability::Storage)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(storage.is_some());
-        let storage = storage.unwrap();
+        let storage = storage.expect("should succeed");
         assert!(storage.id.starts_with("storage-"));
     }
 }

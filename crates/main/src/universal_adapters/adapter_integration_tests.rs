@@ -179,12 +179,15 @@ mod tests {
         let registry = create_test_registry();
         let service = create_compute_service_registration();
 
-        registry.register_service(service).await.unwrap();
+        registry
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         let _adapter = UniversalComputeAdapter::new(registry.clone());
 
         // Verify service is registered
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
     }
 
@@ -204,12 +207,15 @@ mod tests {
         let registry = create_test_registry();
         let service = create_storage_service_registration();
 
-        registry.register_service(service).await.unwrap();
+        registry
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         let _adapter = UniversalStorageAdapter::new(registry.clone());
 
         // Verify service is registered
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
     }
 
@@ -229,12 +235,15 @@ mod tests {
         let registry = create_test_registry();
         let service = create_security_service_registration();
 
-        registry.register_service(service).await.unwrap();
+        registry
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         let _adapter = UniversalSecurityAdapter::new(registry.clone());
 
         // Verify service is registered
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
     }
 
@@ -250,17 +259,17 @@ mod tests {
         registry
             .register_service(create_compute_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
         registry
             .register_service(create_storage_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
         registry
             .register_service(create_security_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 3);
     }
 
@@ -272,7 +281,7 @@ mod tests {
         registry
             .register_service(create_compute_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Discover by computation capability
         let compute_capability = ServiceCapability::Computation {
@@ -284,7 +293,7 @@ mod tests {
         let services = registry
             .discover_by_capability(compute_capability)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!services.is_empty());
     }
 
@@ -296,10 +305,13 @@ mod tests {
         registry
             .register_service(create_storage_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Discover by category
-        let services = registry.discover_by_category("Storage").await.unwrap();
+        let services = registry
+            .discover_by_category("Storage")
+            .await
+            .expect("should succeed");
         assert!(!services.is_empty());
     }
 
@@ -309,7 +321,10 @@ mod tests {
         let service = create_compute_service_registration();
         let service_id = service.service_id.to_string();
 
-        registry.register_service(service).await.unwrap();
+        registry
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         // Update health
         let health = ServiceHealth {
@@ -328,17 +343,23 @@ mod tests {
         let service = create_compute_service_registration();
         let service_id = service.service_id.to_string();
 
-        registry.register_service(service).await.unwrap();
+        registry
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         // Verify registered
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
 
         // Deregister
-        registry.deregister_service(&service_id).await.unwrap();
+        registry
+            .deregister_service(&service_id)
+            .await
+            .expect("should succeed");
 
         // Verify deregistered
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 0);
     }
 
@@ -517,10 +538,13 @@ mod tests {
         // 1. Register service
         let service = create_compute_service_registration();
         let service_id = service.service_id.to_string();
-        registry.register_service(service).await.unwrap();
+        registry
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         // 2. Verify registration
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
 
         // 3. Update health
@@ -532,13 +556,16 @@ mod tests {
         registry
             .update_service_health(&service_id, health)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // 4. Deregister
-        registry.deregister_service(&service_id).await.unwrap();
+        registry
+            .deregister_service(&service_id)
+            .await
+            .expect("should succeed");
 
         // 5. Verify deregistration
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 0);
     }
 
@@ -558,10 +585,10 @@ mod tests {
             .collect();
 
         for handle in handles {
-            assert!(handle.await.unwrap().is_ok());
+            assert!(handle.await.expect("should succeed").is_ok());
         }
 
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 5);
     }
 
@@ -576,10 +603,16 @@ mod tests {
         let mut service2 = create_compute_service_registration();
         service2.priority = 10;
 
-        registry.register_service(service1).await.unwrap();
-        registry.register_service(service2).await.unwrap();
+        registry
+            .register_service(service1)
+            .await
+            .expect("should succeed");
+        registry
+            .register_service(service2)
+            .await
+            .expect("should succeed");
 
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 2);
     }
 
@@ -600,18 +633,18 @@ mod tests {
         registry
             .register_service(create_compute_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
         registry
             .register_service(create_storage_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
         registry
             .register_service(create_security_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // All adapters share the same registry
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 3);
     }
 
@@ -623,18 +656,24 @@ mod tests {
         registry
             .register_service(create_compute_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
         registry
             .register_service(create_storage_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Discover compute services only
-        let compute_services = registry.discover_by_category("Compute").await.unwrap();
+        let compute_services = registry
+            .discover_by_category("Compute")
+            .await
+            .expect("should succeed");
         assert_eq!(compute_services.len(), 1);
 
         // Discover storage services only
-        let storage_services = registry.discover_by_category("Storage").await.unwrap();
+        let storage_services = registry
+            .discover_by_category("Storage")
+            .await
+            .expect("should succeed");
         assert_eq!(storage_services.len(), 1);
     }
 
@@ -671,9 +710,12 @@ mod tests {
             .extensions
             .insert("priority_boost".to_string(), serde_json::json!(true));
 
-        registry.register_service(service).await.unwrap();
+        registry
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
         assert_eq!(services[0].metadata.len(), 2);
     }
@@ -684,7 +726,10 @@ mod tests {
         let service = create_compute_service_registration();
         let service_id = service.service_id.to_string();
 
-        registry.register_service(service).await.unwrap();
+        registry
+            .register_service(service)
+            .await
+            .expect("should succeed");
 
         // Test healthy status
         let health = ServiceHealth {
@@ -695,7 +740,7 @@ mod tests {
         registry
             .update_service_health(&service_id, health)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Test unhealthy status
         let unhealthy = ServiceHealth {
@@ -706,7 +751,7 @@ mod tests {
         registry
             .update_service_health(&service_id, unhealthy)
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 
     // ========================================================================
@@ -721,13 +766,13 @@ mod tests {
         registry
             .register_service(create_compute_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Then create adapter
         let _adapter = UniversalComputeAdapter::new(registry.clone());
 
         // Pattern works correctly
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
     }
 
@@ -739,13 +784,13 @@ mod tests {
         registry
             .register_service(create_storage_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Then create adapter
         let _adapter = UniversalStorageAdapter::new(registry.clone());
 
         // Pattern works correctly
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
     }
 
@@ -757,13 +802,13 @@ mod tests {
         registry
             .register_service(create_security_service_registration())
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Then create adapter
         let _adapter = UniversalSecurityAdapter::new(registry.clone());
 
         // Pattern works correctly
-        let services = registry.list_all_services().await.unwrap();
+        let services = registry.list_all_services().await.expect("should succeed");
         assert_eq!(services.len(), 1);
     }
 }

@@ -247,7 +247,7 @@ mod tests {
             }
         });
         
-        let result = plugin.handle_message(message).await.unwrap();
+        let result = plugin.handle_message(message).await.expect("should succeed");
         assert!(result.get("success").and_then(|v| v.as_bool()).unwrap_or(false));
         
         // Test version requirements

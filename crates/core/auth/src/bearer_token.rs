@@ -293,7 +293,7 @@ mod tests {
                 expires_at,
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(token.user_id, user_id);
         assert_eq!(token.username, "test_user");
@@ -315,9 +315,9 @@ mod tests {
                 None,
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let auth_context = validator.validate_token(&token.token).await.unwrap();
+        let auth_context = validator.validate_token(&token.token).await.expect("should succeed");
         assert_eq!(auth_context.user_id, user_id);
         assert_eq!(auth_context.username, "test_user");
     }
@@ -336,13 +336,13 @@ mod tests {
                 None,
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Token should be valid initially
         assert!(validator.validate_token(&token.token).await.is_ok());
 
         // Revoke the token
-        validator.revoke_token(&token.token).await.unwrap();
+        validator.revoke_token(&token.token).await.expect("should succeed");
 
         // Token should now be invalid
         let result = validator.validate_token(&token.token).await;
@@ -365,7 +365,7 @@ mod tests {
                 expires_at,
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let result = validator.validate_token(&token.token).await;
         assert!(result.is_err());
@@ -377,7 +377,7 @@ mod tests {
         let validator = BearerTokenValidator::new();
 
         let header = "Bearer smc_abc123def456";
-        let token = validator.extract_bearer_token(header).unwrap();
+        let token = validator.extract_bearer_token(header).expect("should succeed");
         assert_eq!(token, "smc_abc123def456");
 
         let invalid_header = "smc_abc123def456";
@@ -401,7 +401,7 @@ mod tests {
                 None,
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let _token2 = validator
             .create_token(
@@ -412,10 +412,10 @@ mod tests {
                 None,
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Revoke all user tokens
-        let revoked_count = validator.revoke_user_tokens(&user_id).await.unwrap();
+        let revoked_count = validator.revoke_user_tokens(&user_id).await.expect("should succeed");
         assert_eq!(revoked_count, 2);
     }
 }

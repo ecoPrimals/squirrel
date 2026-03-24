@@ -321,7 +321,7 @@ async fn test_experience_replay_set_sampling_strategy() {
     // Verify the strategy is set correctly
     match replay.get_sampling_strategy() {
         SamplingStrategy::Prioritized(_) => {} // Success
-        _ => panic!("Expected Prioritized sampling strategy"),
+        _ => unreachable!("Expected Prioritized sampling strategy"),
     }
 }
 

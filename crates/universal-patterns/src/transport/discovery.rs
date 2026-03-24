@@ -224,7 +224,10 @@ mod tests {
         let candidates_b = get_tcp_discovery_file_candidates("service-b");
 
         // Should produce different paths
-        assert_ne!(candidates_a.first().unwrap(), candidates_b.first().unwrap(),);
+        assert_ne!(
+            candidates_a.first().expect("should succeed"),
+            candidates_b.first().expect("should succeed"),
+        );
     }
 
     // --- get_socket_paths tests (unix only) ---
@@ -294,7 +297,7 @@ mod tests {
         let tmp_path = tmp.path().to_string_lossy().to_string();
 
         let service_name = &format!("test-discovery-roundtrip-{}", std::process::id());
-        let addr: std::net::SocketAddr = "127.0.0.1:54321".parse().unwrap();
+        let addr: std::net::SocketAddr = "127.0.0.1:54321".parse().expect("should succeed");
 
         temp_env::with_vars(
             [
@@ -308,18 +311,18 @@ mod tests {
                 let discover_result = discover_tcp_endpoint(service_name);
                 assert!(discover_result.is_ok(), "Failed to discover endpoint");
 
-                let endpoint = discover_result.unwrap();
+                let endpoint = discover_result.expect("should succeed");
                 match endpoint {
                     IpcEndpoint::TcpLocal(discovered_addr) => {
                         assert_eq!(discovered_addr, addr);
                     }
                     #[cfg(unix)]
                     other @ IpcEndpoint::UnixSocket(_) => {
-                        panic!("Expected TcpLocal, got {other:?}")
+                        unreachable!("Expected TcpLocal, got {other:?}")
                     }
                     #[cfg(windows)]
                     other @ IpcEndpoint::NamedPipe(_) => {
-                        panic!("Expected TcpLocal, got {other:?}")
+                        unreachable!("Expected TcpLocal, got {other:?}")
                     }
                 }
             },

@@ -183,7 +183,7 @@ async fn test_register_primal_duplicate_fails() {
     registry
         .register_primal_for_context(provider.clone(), context.clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let result = registry
         .register_primal_for_context(provider, context, None)
@@ -245,7 +245,7 @@ async fn test_find_for_context() {
     registry
         .register_primal_for_context(provider.clone(), context.clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let found = registry.find_for_context(&context).await;
     assert_eq!(found.len(), 1);
@@ -273,7 +273,7 @@ async fn test_find_by_capability_for_context() {
     registry
         .register_primal_for_context(provider.clone(), context.clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let cap = PrimalCapability::Authentication {
         methods: vec!["password".to_string()],
@@ -299,7 +299,7 @@ async fn test_find_by_capability_with_extra_capability() {
     registry
         .register_primal_for_context(provider.clone(), context.clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let enc_cap = PrimalCapability::Encryption {
         algorithms: vec!["AES256".to_string()],
@@ -323,7 +323,7 @@ async fn test_route_request_with_context() {
     registry
         .register_primal_for_context(provider.clone(), context.clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let request = PrimalRequest {
         id: Uuid::new_v4(),
@@ -337,7 +337,7 @@ async fn test_route_request_with_context() {
 
     let response = registry.route_request_with_context(request, &context).await;
     assert!(response.is_ok());
-    assert!(response.unwrap().success);
+    assert!(response.expect("should succeed").success);
 }
 
 #[tokio::test]
@@ -373,7 +373,7 @@ async fn test_route_request_to_instance() {
     registry
         .register_primal_for_context(provider.clone(), context.clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let request = PrimalRequest {
         id: Uuid::new_v4(),
@@ -416,11 +416,11 @@ async fn test_port_info() {
     registry
         .register_primal_for_context(provider, context, Some(port_info.clone()))
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let retrieved = registry.get_port_info("inst-1").await;
     assert!(retrieved.is_some());
-    assert_eq!(retrieved.unwrap().assigned_port, 9000);
+    assert_eq!(retrieved.expect("should succeed").assigned_port, 9000);
 
     registry
         .update_port_info(
@@ -431,9 +431,9 @@ async fn test_port_info() {
             },
         )
         .await
-        .unwrap();
+        .expect("should succeed");
     let updated = registry.get_port_info("inst-1").await;
-    assert_eq!(updated.unwrap().assigned_port, 9001);
+    assert_eq!(updated.expect("should succeed").assigned_port, 9001);
 }
 
 #[tokio::test]
@@ -453,11 +453,11 @@ async fn test_get_instances_by_type() {
     registry
         .register_primal_for_context(p1.clone(), p1.context().clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
     registry
         .register_primal_for_context(p2.clone(), p2.context().clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let instances = registry.get_instances_by_type(PrimalType::Security).await;
     assert_eq!(instances.len(), 2);
@@ -478,7 +478,7 @@ async fn test_get_instances_for_user() {
     registry
         .register_primal_for_context(provider.clone(), provider.context().clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let alice_instances = registry.get_instances_for_user("alice").await;
     assert_eq!(alice_instances.len(), 1);
@@ -500,7 +500,7 @@ async fn test_unregister_instance() {
     registry
         .register_primal_for_context(provider.clone(), context, None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let result = registry.unregister_instance("inst-1").await;
     assert!(result.is_ok());
@@ -529,11 +529,11 @@ async fn test_enhanced_statistics() {
     registry
         .register_primal_for_context(p1.clone(), p1.context().clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
     registry
         .register_primal_for_context(p2.clone(), p2.context().clone(), None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let stats = registry.get_enhanced_statistics().await;
     assert_eq!(stats.total_instances, 2);
@@ -554,7 +554,7 @@ async fn test_health_check_all() {
     registry
         .register_primal_for_context(provider.clone(), context, None)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let health_results = registry.health_check_all().await;
     assert_eq!(health_results.len(), 1);

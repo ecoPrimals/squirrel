@@ -174,7 +174,7 @@ mod tests {
                 assert!(endpoints.service_mesh.is_some());
                 assert!(endpoints.custom.is_empty());
 
-                let http = endpoints.http.unwrap();
+                let http = endpoints.http.expect("should succeed");
                 assert!(http.contains("localhost:9010"), "got: {http}");
             },
         );
@@ -190,7 +190,7 @@ mod tests {
             ],
             || {
                 let endpoints = PrimalEndpoints::default();
-                let http = endpoints.http.unwrap();
+                let http = endpoints.http.expect("should succeed");
                 assert!(http.contains("0.0.0.0:8080"), "got: {http}");
             },
         );

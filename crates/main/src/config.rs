@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn test_config_serialization() {
         let config = SquirrelConfig::default();
-        let toml = toml::to_string(&config).unwrap();
+        let toml = toml::to_string(&config).expect("default config serializes to TOML");
         assert!(toml.contains("[server]"));
         assert!(toml.contains("[ai]"));
         assert!(toml.contains("[logging]"));
@@ -343,8 +343,9 @@ mod tests {
     #[test]
     fn test_config_json_roundtrip() {
         let config = SquirrelConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: SquirrelConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("config json roundtrip");
+        let deserialized: SquirrelConfig =
+            serde_json::from_str(&json).expect("config deserializes from json");
         assert_eq!(deserialized.server.port, config.server.port);
         assert_eq!(deserialized.server.bind, config.server.bind);
         assert_eq!(deserialized.ai.enabled, config.ai.enabled);
@@ -354,8 +355,9 @@ mod tests {
     #[test]
     fn test_config_toml_roundtrip() {
         let config = SquirrelConfig::default();
-        let toml_str = toml::to_string(&config).unwrap();
-        let deserialized: SquirrelConfig = toml::from_str(&toml_str).unwrap();
+        let toml_str = toml::to_string(&config).expect("config toml roundtrip serialize");
+        let deserialized: SquirrelConfig =
+            toml::from_str(&toml_str).expect("config deserializes from toml");
         assert_eq!(deserialized.server.port, config.server.port);
         assert_eq!(deserialized.ai.max_retries, config.ai.max_retries);
     }
@@ -383,7 +385,8 @@ mod tests {
             ],
             || {
                 let mut config = SquirrelConfig::default();
-                ConfigLoader::apply_env_overrides(&mut config).unwrap();
+                ConfigLoader::apply_env_overrides(&mut config)
+                    .expect("apply_env_overrides with valid test env");
                 assert_eq!(
                     config.server.socket.as_deref(),
                     Some("/tmp/test-squirrel.sock")
@@ -401,7 +404,8 @@ mod tests {
             ],
             || {
                 let mut config = SquirrelConfig::default();
-                ConfigLoader::apply_env_overrides(&mut config).unwrap();
+                ConfigLoader::apply_env_overrides(&mut config)
+                    .expect("apply_env_overrides with valid test env");
                 assert_eq!(
                     config.ai.provider_sockets.as_deref(),
                     Some("/tmp/ai1.sock,/tmp/ai2.sock")
@@ -417,7 +421,8 @@ mod tests {
             ],
             || {
                 let mut config = SquirrelConfig::default();
-                ConfigLoader::apply_env_overrides(&mut config).unwrap();
+                ConfigLoader::apply_env_overrides(&mut config)
+                    .expect("apply_env_overrides with valid test env");
                 assert_eq!(config.logging.level, "debug");
                 assert!(config.logging.json);
             },
@@ -428,7 +433,8 @@ mod tests {
             Some("/tmp/registry.sock"),
             || {
                 let mut config = SquirrelConfig::default();
-                ConfigLoader::apply_env_overrides(&mut config).unwrap();
+                ConfigLoader::apply_env_overrides(&mut config)
+                    .expect("apply_env_overrides with valid test env");
                 assert_eq!(
                     config.discovery.registry_socket.as_deref(),
                     Some("/tmp/registry.sock")
@@ -449,7 +455,7 @@ mod tests {
         });
 
         temp_env::with_vars_unset(SQUIRREL_ENV_VARS, || {
-            let config = ConfigLoader::load(None).unwrap();
+            let config = ConfigLoader::load(None).expect("load default config with env unset");
             assert_eq!(config.server.port, 9010);
         });
     }
@@ -457,7 +463,7 @@ mod tests {
     #[test]
     fn test_load_from_toml_file() {
         temp_env::with_vars_unset(SQUIRREL_ENV_VARS, || {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = tempfile::tempdir().expect("tempdir for config file test");
             let config_path = dir.path().join("squirrel.toml");
             std::fs::write(
                 &config_path,
@@ -479,9 +485,10 @@ json = true
 announce_capabilities = false
 "#,
             )
-            .unwrap();
+            .expect("write test config file");
 
-            let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
+            let config = ConfigLoader::load(Some(config_path.as_path()))
+                .expect("load config from test file");
             assert_eq!(config.server.port, 8080);
             assert_eq!(config.server.bind, "127.0.0.1");
             assert_eq!(config.server.max_connections, 50);
@@ -496,7 +503,7 @@ announce_capabilities = false
     #[test]
     fn test_load_from_yaml_file() {
         temp_env::with_vars_unset(SQUIRREL_ENV_VARS, || {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = tempfile::tempdir().expect("tempdir for config file test");
             let config_path = dir.path().join("squirrel.yaml");
             std::fs::write(
                 &config_path,
@@ -514,9 +521,10 @@ discovery:
   announce_capabilities: true
 "#,
             )
-            .unwrap();
+            .expect("write test config file");
 
-            let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
+            let config = ConfigLoader::load(Some(config_path.as_path()))
+                .expect("load config from test file");
             assert_eq!(config.server.port, 7070);
             assert!(config.ai.enabled);
             assert_eq!(config.ai.max_retries, 3);
@@ -527,15 +535,16 @@ discovery:
     #[test]
     fn test_load_from_json_file() {
         temp_env::with_vars_unset(SQUIRREL_ENV_VARS, || {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = tempfile::tempdir().expect("tempdir for config file test");
             let config_path = dir.path().join("squirrel.json");
             std::fs::write(
                 &config_path,
                 r#"{"server":{"port":6060,"bind":"0.0.0.0"},"ai":{"enabled":true},"logging":{"level":"info"},"discovery":{"announce_capabilities":true}}"#,
             )
-            .unwrap();
+            .expect("write test config file");
 
-            let config = ConfigLoader::load(Some(config_path.as_path())).unwrap();
+            let config = ConfigLoader::load(Some(config_path.as_path()))
+                .expect("load config from test file");
             assert_eq!(config.server.port, 6060);
         });
     }
@@ -548,9 +557,9 @@ discovery:
 
     #[test]
     fn test_load_from_unsupported_format() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir for unsupported format test");
         let config_path = dir.path().join("squirrel.txt");
-        std::fs::write(&config_path, "invalid format").unwrap();
+        std::fs::write(&config_path, "invalid format").expect("write invalid config file");
 
         let result = ConfigLoader::load(Some(config_path.as_path()));
         assert!(result.is_err());
@@ -564,9 +573,9 @@ discovery:
 
     #[test]
     fn test_load_from_invalid_toml() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir for invalid toml test");
         let config_path = dir.path().join("squirrel.toml");
-        std::fs::write(&config_path, "invalid toml [[[[").unwrap();
+        std::fs::write(&config_path, "invalid toml [[[[").expect("write invalid toml");
 
         let result = ConfigLoader::load(Some(config_path.as_path()));
         assert!(result.is_err());
@@ -574,9 +583,9 @@ discovery:
 
     #[test]
     fn test_load_from_invalid_json() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir for invalid json test");
         let config_path = dir.path().join("squirrel.json");
-        std::fs::write(&config_path, "{ invalid json }").unwrap();
+        std::fs::write(&config_path, "{ invalid json }").expect("write invalid json");
 
         let result = ConfigLoader::load(Some(config_path.as_path()));
         assert!(result.is_err());
@@ -617,7 +626,7 @@ discovery:
         assert!(logging.file.is_none());
         logging.file = Some(std::path::PathBuf::from("/var/log/squirrel.log"));
         assert_eq!(
-            logging.file.as_ref().unwrap(),
+            logging.file.as_ref().expect("logging.file set above"),
             &std::path::PathBuf::from("/var/log/squirrel.log")
         );
     }

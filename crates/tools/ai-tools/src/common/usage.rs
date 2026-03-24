@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn test_usage_info_with_cost() {
         let usage = UsageInfo::new(100, 50).with_cost(0.05);
-        assert!((usage.estimated_cost_usd.unwrap() - 0.05).abs() < f64::EPSILON);
+        assert!((usage.estimated_cost_usd.expect("should succeed") - 0.05).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
         assert_eq!(combined.prompt_tokens, 300);
         assert_eq!(combined.completion_tokens, 150);
         assert_eq!(combined.total_tokens, 450); // 150 + 300
-        assert!((combined.estimated_cost_usd.unwrap() - 0.15).abs() < f64::EPSILON);
+        assert!((combined.estimated_cost_usd.expect("should succeed") - 0.15).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -121,7 +121,7 @@ mod tests {
         let a = UsageInfo::new(100, 50).with_cost(0.05);
         let b = UsageInfo::new(200, 100);
         let combined = a.combine(&b);
-        assert!((combined.estimated_cost_usd.unwrap() - 0.05).abs() < f64::EPSILON);
+        assert!((combined.estimated_cost_usd.expect("should succeed") - 0.05).abs() < f64::EPSILON);
     }
 
     #[test]

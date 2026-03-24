@@ -430,7 +430,7 @@ mod tests {
         assert!(resources[0].is_active);
         
         // Deactivate the resource
-        hook.deactivate_resource(&resource_id).await.unwrap();
+        hook.deactivate_resource(&resource_id).await.expect("should succeed");
         
         // Should now have no active resources
         let active = hook.get_active_resources("test-tool").await;
@@ -485,7 +485,7 @@ mod tests {
             CleanupStrategy::Normal { timeout_ms } => {
                 assert_eq!(timeout_ms, 5000);
             }
-            _ => panic!("Expected Normal strategy"),
+            _ => unreachable!("Expected Normal strategy"),
         }
         
         // Set custom strategy
@@ -501,7 +501,7 @@ mod tests {
             CleanupStrategy::Custom { name, params: _ } => {
                 assert_eq!(name, "test-strategy");
             }
-            _ => panic!("Expected Custom strategy"),
+            _ => unreachable!("Expected Custom strategy"),
         }
     }
     

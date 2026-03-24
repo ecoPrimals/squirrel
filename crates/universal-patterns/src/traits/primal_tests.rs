@@ -169,7 +169,7 @@ mod tests {
         let mut primal = MockPrimal::new("test", PrimalType::Storage);
 
         // Start once
-        primal.start().await.unwrap();
+        primal.start().await.expect("should succeed");
 
         // Try to start again - should fail
         let result = primal.start().await;
@@ -178,7 +178,7 @@ mod tests {
             Err(PrimalError::State(msg)) => {
                 assert!(msg.contains("already running"));
             }
-            _ => panic!("Expected State error"),
+            _ => unreachable!("Expected State error"),
         }
     }
 
@@ -187,7 +187,7 @@ mod tests {
         let mut primal = MockPrimal::new("test", PrimalType::Orchestration);
 
         // Start then stop
-        primal.start().await.unwrap();
+        primal.start().await.expect("should succeed");
         let result = primal.stop().await;
 
         assert!(result.is_ok());
@@ -206,7 +206,7 @@ mod tests {
             Err(PrimalError::State(msg)) => {
                 assert!(msg.contains("already stopped"));
             }
-            _ => panic!("Expected State error"),
+            _ => unreachable!("Expected State error"),
         }
     }
 
@@ -215,7 +215,7 @@ mod tests {
         let mut primal = MockPrimal::new("test", PrimalType::Network);
 
         // Start primal first
-        primal.start().await.unwrap();
+        primal.start().await.expect("should succeed");
         assert_eq!(primal.state().await, PrimalState::Running);
 
         // Restart using default implementation
@@ -244,7 +244,7 @@ mod tests {
 
         let result = primal.health_check().await;
         assert!(result.is_ok());
-        let health = result.unwrap();
+        let health = result.expect("should succeed");
         assert_eq!(health.status, HealthState::Healthy);
     }
 
@@ -258,7 +258,7 @@ mod tests {
             Err(PrimalError::HealthCheck(msg)) => {
                 assert!(msg.contains("Simulated health check failure"));
             }
-            _ => panic!("Expected HealthCheck error"),
+            _ => unreachable!("Expected HealthCheck error"),
         }
     }
 
@@ -286,11 +286,11 @@ mod tests {
         let mut primal = MockPrimal::new("test", PrimalType::Compute);
 
         // Start and stop a few times
-        primal.start().await.unwrap();
-        primal.stop().await.unwrap();
-        primal.start().await.unwrap();
+        primal.start().await.expect("should succeed");
+        primal.stop().await.expect("should succeed");
+        primal.start().await.expect("should succeed");
 
-        let metrics = primal.metrics().await.unwrap();
+        let metrics = primal.metrics().await.expect("should succeed");
 
         // Check metrics exist and have expected values
         assert!(metrics.contains_key("start_count"));
@@ -298,12 +298,12 @@ mod tests {
 
         match metrics.get("start_count") {
             Some(MetricValue::Counter(val)) => assert_eq!(*val, 2),
-            _ => panic!("Expected Counter metric for start_count"),
+            _ => unreachable!("Expected Counter metric for start_count"),
         }
 
         match metrics.get("stop_count") {
             Some(MetricValue::Counter(val)) => assert_eq!(*val, 1),
-            _ => panic!("Expected Counter metric for stop_count"),
+            _ => unreachable!("Expected Counter metric for stop_count"),
         }
     }
 
@@ -312,7 +312,7 @@ mod tests {
         let mut primal = MockPrimal::new("test", PrimalType::Network);
 
         // Start primal
-        primal.start().await.unwrap();
+        primal.start().await.expect("should succeed");
         assert_eq!(primal.state().await, PrimalState::Running);
 
         // Shutdown
@@ -340,16 +340,16 @@ mod tests {
         // Full lifecycle test
         assert_eq!(primal.state().await, PrimalState::Stopped);
 
-        primal.start().await.unwrap();
+        primal.start().await.expect("should succeed");
         assert_eq!(primal.state().await, PrimalState::Running);
 
-        let health = primal.health_check().await.unwrap();
+        let health = primal.health_check().await.expect("should succeed");
         assert_eq!(health.status, HealthState::Healthy);
 
-        primal.stop().await.unwrap();
+        primal.stop().await.expect("should succeed");
         assert_eq!(primal.state().await, PrimalState::Stopped);
 
-        primal.shutdown().await.unwrap();
+        primal.shutdown().await.expect("should succeed");
         assert_eq!(primal.state().await, PrimalState::Stopped);
     }
 

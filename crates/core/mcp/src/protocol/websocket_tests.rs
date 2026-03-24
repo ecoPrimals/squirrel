@@ -116,11 +116,11 @@ async fn test_message_codec_encoding_decoding() {
     let test_message = create_test_message(MessageType::Command, "test message");
 
     // Test encoding
-    let frame = codec.encode_message(&test_message).unwrap();
+    let frame = codec.encode_message(&test_message).expect("should succeed");
     assert!(!frame.payload.is_empty());
 
     // Test decoding
-    let decoded_message = codec.decode_message(&frame).unwrap();
+    let decoded_message = codec.decode_message(&frame).expect("should succeed");
     assert_eq!(decoded_message.id.0, test_message.id.0);
     assert_eq!(decoded_message.type_, test_message.type_);
     assert_eq!(decoded_message.payload, test_message.payload);
@@ -132,8 +132,8 @@ async fn test_frame_serialization() {
     let frame = Frame::new(test_data.to_vec());
 
     // Test serialization/deserialization
-    let serialized = serde_json::to_string(&frame).unwrap();
-    let deserialized: Frame = serde_json::from_str(&serialized).unwrap();
+    let serialized = serde_json::to_string(&frame).expect("should succeed");
+    let deserialized: Frame = serde_json::from_str(&serialized).expect("should succeed");
 
     assert_eq!(frame.payload, deserialized.payload);
 }
@@ -233,8 +233,8 @@ async fn test_multiple_message_types() {
 
     for message_type in message_types {
         let test_message = create_test_message(message_type, "test");
-        let frame = codec.encode_message(&test_message).unwrap();
-        let decoded = codec.decode_message(&frame).unwrap();
+        let frame = codec.encode_message(&test_message).expect("should succeed");
+        let decoded = codec.decode_message(&frame).expect("should succeed");
 
         assert_eq!(decoded.type_, message_type);
     }
@@ -249,17 +249,17 @@ async fn test_large_message_handling() {
     let test_message = create_test_message(MessageType::Command, &large_content);
 
     // Test encoding/decoding large message
-    let frame = codec.encode_message(&test_message).unwrap();
+    let frame = codec.encode_message(&test_message).expect("should succeed");
     assert!(frame.payload.len() > 10000);
 
-    let decoded = codec.decode_message(&frame).unwrap();
+    let decoded = codec.decode_message(&frame).expect("should succeed");
     assert_eq!(
         decoded
             .payload
             .get("content")
-            .unwrap()
+            .expect("should succeed")
             .as_str()
-            .unwrap()
+            .expect("should succeed")
             .len(),
         10000
     );
@@ -318,15 +318,30 @@ async fn test_error_message_handling() {
         trace_id: Some("error-trace".to_string()),
     };
 
-    let frame = codec.encode_message(&error_message).unwrap();
-    let decoded = codec.decode_message(&frame).unwrap();
+    let frame = codec
+        .encode_message(&error_message)
+        .expect("should succeed");
+    let decoded = codec.decode_message(&frame).expect("should succeed");
 
     assert_eq!(decoded.type_, MessageType::Error);
     assert_eq!(
-        decoded.payload.get("error").unwrap().as_str().unwrap(),
+        decoded
+            .payload
+            .get("error")
+            .expect("should succeed")
+            .as_str()
+            .expect("should succeed"),
         "Test error message"
     );
-    assert_eq!(decoded.payload.get("code").unwrap().as_u64().unwrap(), 500);
+    assert_eq!(
+        decoded
+            .payload
+            .get("code")
+            .expect("should succeed")
+            .as_u64()
+            .expect("should succeed"),
+        500
+    );
 }
 
 #[tokio::test]
@@ -339,8 +354,8 @@ async fn test_concurrent_message_processing() {
         .map(|msg| {
             let codec_clone = codec.clone();
             tokio::spawn(async move {
-                let frame = codec_clone.encode_message(&msg).unwrap();
-                codec_clone.decode_message(&frame).unwrap()
+                let frame = codec_clone.encode_message(&msg).expect("should succeed");
+                codec_clone.decode_message(&frame).expect("should succeed")
             })
         })
         .collect();
@@ -350,10 +365,15 @@ async fn test_concurrent_message_processing() {
 
     assert_eq!(results.len(), 10);
     for (i, result) in results.into_iter().enumerate() {
-        let decoded = result.unwrap();
+        let decoded = result.expect("should succeed");
         assert_eq!(decoded.type_, MessageType::Command);
         assert_eq!(
-            decoded.payload.get("content").unwrap().as_str().unwrap(),
+            decoded
+                .payload
+                .get("content")
+                .expect("should succeed")
+                .as_str()
+                .expect("should succeed"),
             format!("message {i}")
         );
     }
@@ -392,8 +412,9 @@ async fn test_connection_state_serialization() {
 
     for state in states {
         // Test serialization/deserialization
-        let serialized = serde_json::to_string(&state).unwrap();
-        let deserialized: ConnectionState = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&state).expect("should succeed");
+        let deserialized: ConnectionState =
+            serde_json::from_str(&serialized).expect("should succeed");
 
         assert_eq!(state, deserialized);
     }
@@ -429,8 +450,8 @@ async fn test_protocol_version_compatibility() {
         let mut message = create_test_message(MessageType::Command, "version test");
         message.version = version.clone();
 
-        let frame = codec.encode_message(&message).unwrap();
-        let decoded = codec.decode_message(&frame).unwrap();
+        let frame = codec.encode_message(&message).expect("should succeed");
+        let decoded = codec.decode_message(&frame).expect("should succeed");
 
         assert_eq!(decoded.version, version);
     }
@@ -448,7 +469,7 @@ async fn test_websocket_integration() {
 
     // Start server in background
     tokio::spawn(async move {
-        server.start().await.unwrap();
+        server.start().await.expect("should succeed");
     });
 
     // Wait for server to be ready
@@ -459,6 +480,6 @@ async fn test_websocket_integration() {
     let client = WebSocketClient::new(client_config);
 
     // This would require the actual port number from the server
-    // client.connect("ws://127.0.0.1:port").await.unwrap();
+    // client.connect("ws://127.0.0.1:port").await.expect("should succeed");
 }
 */

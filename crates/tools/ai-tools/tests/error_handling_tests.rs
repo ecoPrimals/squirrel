@@ -97,7 +97,7 @@ fn test_error_propagation() {
         Err(AIToolsError::InvalidRequest(msg)) => {
             assert_eq!(msg, "invalid input");
         }
-        _ => panic!("Expected invalid request error"),
+        _ => unreachable!("Expected invalid request error"),
     }
 }
 

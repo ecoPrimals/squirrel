@@ -104,7 +104,7 @@ mod tests {
     fn test_external_services_empty() {
         let services = json!({});
         assert!(services.is_object());
-        assert_eq!(services.as_object().unwrap().len(), 0);
+        assert_eq!(services.as_object().expect("should succeed").len(), 0);
     }
 
     #[test]
@@ -210,7 +210,7 @@ mod tests {
     )]
     fn test_result_ok_handling() {
         let result: Result<serde_json::Value, String> = Ok(json!({"success": true}));
-        let value = result.unwrap();
+        let value = result.expect("should succeed");
         assert_eq!(
             value.get("success").and_then(serde_json::Value::as_bool),
             Some(true)
@@ -236,7 +236,7 @@ mod tests {
             "number": 42
         });
 
-        let json_string = serde_json::to_string(&data).unwrap();
+        let json_string = serde_json::to_string(&data).expect("should succeed");
         assert!(json_string.contains("key"));
         assert!(json_string.contains("value"));
         assert!(json_string.contains("42"));
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn test_json_from_string() {
         let json_string = r#"{"test":"data","value":123}"#;
-        let parsed: serde_json::Value = serde_json::from_str(json_string).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(json_string).expect("should succeed");
 
         assert_eq!(parsed.get("test").and_then(|v| v.as_str()), Some("data"));
         assert_eq!(
@@ -264,8 +264,9 @@ mod tests {
             }
         });
 
-        let serialized = serde_json::to_string(&original).unwrap();
-        let deserialized: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&original).expect("should succeed");
+        let deserialized: serde_json::Value =
+            serde_json::from_str(&serialized).expect("should succeed");
 
         assert_eq!(original, deserialized);
     }

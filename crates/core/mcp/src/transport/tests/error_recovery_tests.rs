@@ -291,7 +291,7 @@ mod tests {
                 NetworkError::ConnectionRefused => assert!(true),
                 NetworkError::Timeout => assert!(true),
                 NetworkError::BrokenPipe => assert!(true),
-                NetworkError::Other => assert!(false, "Unexpected error type"),
+                NetworkError::Other => unreachable!("Unexpected error type"),
             }
         }
     }

@@ -34,7 +34,7 @@ fn test_learning_state_serialization() {
 
     match deserialized {
         LearningState::Learning => {}
-        _ => panic!("Deserialization failed"),
+        _ => unreachable!("Deserialization failed"),
     }
 }
 
@@ -205,7 +205,7 @@ fn test_learning_action_type_serialization() {
 
     match deserialized {
         LearningActionType::ModifyContext => {}
-        _ => panic!("Deserialization failed"),
+        _ => unreachable!("Deserialization failed"),
     }
 }
 
@@ -442,7 +442,7 @@ fn test_reward_calculation_type_custom() {
         serde_json::from_str(&serialized).expect("Failed to deserialize");
     match deserialized {
         RewardCalculationType::Custom(name) => assert_eq!(name, "my_reward_fn"),
-        _ => panic!("Expected Custom variant"),
+        _ => unreachable!("Expected Custom variant"),
     }
 }
 

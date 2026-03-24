@@ -332,7 +332,7 @@ mod tests {
         let adapter =
             UniversalAiAdapter::from_capability_provider(provider, "ai.complete".to_string())
                 .await
-                .unwrap();
+                .expect("should succeed");
 
         // Should return false, not panic
         let available = adapter.is_available().await;
@@ -510,7 +510,7 @@ mod tests {
         let adapter =
             UniversalAiAdapter::from_capability_provider(provider, "ai.complete".to_string())
                 .await
-                .unwrap();
+                .expect("should succeed");
 
         let caps = adapter.capabilities();
         assert_eq!(caps.len(), 3);
@@ -539,7 +539,7 @@ mod tests {
         let adapter =
             UniversalAiAdapter::from_capability_provider(provider, "ai.complete".to_string())
                 .await
-                .unwrap();
+                .expect("should succeed");
 
         let meta = adapter.metadata();
         assert_eq!(meta.name, "meta-test");
@@ -560,7 +560,7 @@ mod tests {
         let adapter =
             UniversalAiAdapter::from_capability_provider(provider, "ai.complete".to_string())
                 .await
-                .unwrap();
+                .expect("should succeed");
 
         assert_eq!(adapter.provider_id(), "id-test-provider");
     }

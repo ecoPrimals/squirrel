@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_server_defaults() {
-        let cli = Cli::try_parse_from(["squirrel", "server"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "server"]).expect("should succeed");
         if let Commands::Server {
             port,
             daemon,
@@ -188,23 +188,24 @@ mod tests {
             assert!(socket.is_none());
             assert_eq!(bind, "0.0.0.0");
         } else {
-            panic!("Expected Server command");
+            unreachable!("Expected Server command");
         }
     }
 
     #[test]
     fn test_server_custom_port() {
-        let cli = Cli::try_parse_from(["squirrel", "server", "--port", "8080"]).unwrap();
+        let cli =
+            Cli::try_parse_from(["squirrel", "server", "--port", "8080"]).expect("should succeed");
         if let Commands::Server { port, .. } = cli.command {
             assert_eq!(port, 8080);
         } else {
-            panic!("Expected Server command");
+            unreachable!("Expected Server command");
         }
     }
 
     #[test]
     fn test_doctor_defaults() {
-        let cli = Cli::try_parse_from(["squirrel", "doctor"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "doctor"]).expect("should succeed");
         if let Commands::Doctor {
             comprehensive,
             format,
@@ -215,13 +216,13 @@ mod tests {
             assert!(matches!(format, OutputFormat::Text));
             assert!(subsystem.is_none());
         } else {
-            panic!("Expected Doctor command");
+            unreachable!("Expected Doctor command");
         }
     }
 
     #[test]
     fn test_version_command() {
-        let cli = Cli::try_parse_from(["squirrel", "version"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "version"]).expect("should succeed");
         assert!(matches!(cli.command, Commands::Version { .. }));
     }
 
@@ -235,7 +236,7 @@ mod tests {
             "--params",
             "{}",
         ])
-        .unwrap();
+        .expect("should succeed");
         if let Commands::Client {
             socket,
             method,
@@ -248,7 +249,7 @@ mod tests {
             assert_eq!(params, "{}");
             assert_eq!(timeout, 5000);
         } else {
-            panic!("Expected Client command");
+            unreachable!("Expected Client command");
         }
     }
 
@@ -264,7 +265,7 @@ mod tests {
             "--timeout",
             "10000",
         ])
-        .unwrap();
+        .expect("should succeed");
         if let Commands::Client {
             socket,
             method,
@@ -277,7 +278,7 @@ mod tests {
             assert_eq!(params, "{}"); // default
             assert_eq!(timeout, 10000);
         } else {
-            panic!("Expected Client command");
+            unreachable!("Expected Client command");
         }
     }
 
@@ -299,7 +300,7 @@ mod tests {
             "192.168.1.1",
             "--verbose",
         ])
-        .unwrap();
+        .expect("should succeed");
 
         if let Commands::Server {
             port,
@@ -315,7 +316,7 @@ mod tests {
             assert_eq!(bind, "192.168.1.1");
             assert!(verbose);
         } else {
-            panic!("Expected Server command");
+            unreachable!("Expected Server command");
         }
     }
 
@@ -330,7 +331,7 @@ mod tests {
             "--format",
             "json",
         ])
-        .unwrap();
+        .expect("should succeed");
 
         if let Commands::Doctor {
             comprehensive,
@@ -342,17 +343,18 @@ mod tests {
             assert!(matches!(subsystem, Some(Subsystem::Ai)));
             assert!(matches!(format, OutputFormat::Json));
         } else {
-            panic!("Expected Doctor command");
+            unreachable!("Expected Doctor command");
         }
     }
 
     #[test]
     fn test_version_verbose() {
-        let cli = Cli::try_parse_from(["squirrel", "version", "--verbose"]).unwrap();
+        let cli =
+            Cli::try_parse_from(["squirrel", "version", "--verbose"]).expect("should succeed");
         if let Commands::Version { verbose } = cli.command {
             assert!(verbose);
         } else {
-            panic!("Expected Version command");
+            unreachable!("Expected Version command");
         }
     }
 
@@ -510,7 +512,8 @@ mod tests {
 
     #[test]
     fn test_short_flags_work() {
-        let cli = Cli::try_parse_from(["squirrel", "server", "-p", "8080", "-d", "-v"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "server", "-p", "8080", "-d", "-v"])
+            .expect("should succeed");
         if let Commands::Server {
             port,
             daemon,
@@ -522,7 +525,7 @@ mod tests {
             assert!(daemon);
             assert!(verbose);
         } else {
-            panic!("Expected Server command");
+            unreachable!("Expected Server command");
         }
     }
 
@@ -538,7 +541,7 @@ mod tests {
             "--bind",
             "127.0.0.1",
         ])
-        .unwrap();
+        .expect("should succeed");
 
         if let Commands::Server {
             port,
@@ -553,7 +556,7 @@ mod tests {
             assert!(verbose);
             assert_eq!(bind, "127.0.0.1");
         } else {
-            panic!("Expected Server command");
+            unreachable!("Expected Server command");
         }
     }
 
@@ -568,21 +571,23 @@ mod tests {
 
     #[test]
     fn test_doctor_json_format() {
-        let cli = Cli::try_parse_from(["squirrel", "doctor", "--format", "json"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "doctor", "--format", "json"])
+            .expect("should succeed");
         if let Commands::Doctor { format, .. } = cli.command {
             assert!(matches!(format, OutputFormat::Json));
         } else {
-            panic!("Expected Doctor command");
+            unreachable!("Expected Doctor command");
         }
     }
 
     #[test]
     fn test_doctor_text_format() {
-        let cli = Cli::try_parse_from(["squirrel", "doctor", "--format", "text"]).unwrap();
+        let cli = Cli::try_parse_from(["squirrel", "doctor", "--format", "text"])
+            .expect("should succeed");
         if let Commands::Doctor { format, .. } = cli.command {
             assert!(matches!(format, OutputFormat::Text));
         } else {
-            panic!("Expected Doctor command");
+            unreachable!("Expected Doctor command");
         }
     }
 
@@ -601,13 +606,13 @@ mod tests {
     fn test_production_server_startup() {
         let cli =
             Cli::try_parse_from(["squirrel", "server", "--port", "9010", "--bind", "0.0.0.0"])
-                .unwrap();
+                .expect("should succeed");
 
         if let Commands::Server { port, bind, .. } = cli.command {
             assert_eq!(port, 9010);
             assert_eq!(bind, "0.0.0.0");
         } else {
-            panic!("Expected Server command");
+            unreachable!("Expected Server command");
         }
     }
 
@@ -622,7 +627,7 @@ mod tests {
             "127.0.0.1",
             "--verbose",
         ])
-        .unwrap();
+        .expect("should succeed");
 
         if let Commands::Server {
             port,
@@ -635,7 +640,7 @@ mod tests {
             assert_eq!(bind, "127.0.0.1");
             assert!(verbose);
         } else {
-            panic!("Expected Server command");
+            unreachable!("Expected Server command");
         }
     }
 
@@ -649,7 +654,7 @@ mod tests {
             "--subsystem",
             "ai",
         ])
-        .unwrap();
+        .expect("should succeed");
 
         if let Commands::Doctor {
             format, subsystem, ..
@@ -658,7 +663,7 @@ mod tests {
             assert!(matches!(format, OutputFormat::Json));
             assert!(matches!(subsystem, Some(Subsystem::Ai)));
         } else {
-            panic!("Expected Doctor command");
+            unreachable!("Expected Doctor command");
         }
     }
 }

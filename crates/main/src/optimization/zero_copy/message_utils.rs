@@ -129,7 +129,7 @@ mod tests {
         let mut msg = ZeroCopyMessage::new(Arc::from("request"), Arc::from("payload data"));
         msg.add_metadata(Arc::from("trace_id"), Arc::from("abc123"));
 
-        let json = msg.to_json().unwrap();
+        let json = msg.to_json().expect("should succeed");
         assert!(json.contains("request"));
         assert!(json.contains("payload data"));
         assert!(json.contains("trace_id"));
@@ -139,12 +139,17 @@ mod tests {
     #[test]
     fn test_to_json_empty_metadata() {
         let msg = ZeroCopyMessage::new(Arc::from("type"), Arc::from("content"));
-        let json = msg.to_json().unwrap();
+        let json = msg.to_json().expect("should succeed");
 
-        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(parsed["message_type"], "type");
         assert_eq!(parsed["content"], "content");
-        assert!(parsed["metadata"].as_object().unwrap().is_empty());
+        assert!(
+            parsed["metadata"]
+                .as_object()
+                .expect("should succeed")
+                .is_empty()
+        );
     }
 
     #[test]

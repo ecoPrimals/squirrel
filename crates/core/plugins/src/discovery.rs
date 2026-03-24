@@ -333,7 +333,7 @@ mod tests {
             "dependencies": ["dep1"],
             "capabilities": ["cap1", "cap2"]
         }"#;
-        let manifest: PluginManifest = serde_json::from_str(json).unwrap();
+        let manifest: PluginManifest = serde_json::from_str(json).expect("should succeed");
         assert_eq!(manifest.name, "test-plugin");
         assert_eq!(manifest.version, "1.0.0");
         assert_eq!(manifest.description, "A test plugin");
@@ -354,7 +354,7 @@ mod tests {
             "entry_point": "",
             "plugin_type": ""
         }"#;
-        let manifest: PluginManifest = serde_json::from_str(json).unwrap();
+        let manifest: PluginManifest = serde_json::from_str(json).expect("should succeed");
         assert_eq!(manifest.name, "minimal");
         assert!(manifest.dependencies.is_empty());
         assert!(manifest.capabilities.is_empty());
@@ -372,7 +372,7 @@ mod tests {
             "dependencies": [],
             "capabilities": ["cap-a"]
         }"#;
-        let manifest: PluginManifest = serde_json::from_str(json).unwrap();
+        let manifest: PluginManifest = serde_json::from_str(json).expect("should succeed");
         let metadata = manifest.to_metadata();
         assert_eq!(metadata.name, "meta-test");
         assert_eq!(metadata.version, "1.0.0");
@@ -384,15 +384,18 @@ mod tests {
         let plugin = create_noop_plugin(metadata);
         assert_eq!(plugin.metadata().name, "noop-test");
         assert_eq!(plugin.metadata().version, "1.0");
-        plugin.initialize().await.unwrap();
-        plugin.shutdown().await.unwrap();
+        plugin.initialize().await.expect("should succeed");
+        plugin.shutdown().await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn test_default_discovery_empty_dir() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("should succeed");
         let discovery = DefaultPluginDiscovery::new();
-        let plugins = discovery.discover_plugins(temp_dir.path()).await.unwrap();
+        let plugins = discovery
+            .discover_plugins(temp_dir.path())
+            .await
+            .expect("should succeed");
         assert!(plugins.is_empty());
     }
 
@@ -420,7 +423,7 @@ mod tests {
         };
         let result = loader.load_plugin(&manifest, Path::new("/tmp")).await;
         match result {
-            Ok(_) => panic!("expected load_plugin to fail"),
+            Ok(_) => unreachable!("expected load_plugin to fail"),
             Err(e) => assert!(e.to_string().contains("Native loader not available")),
         }
     }

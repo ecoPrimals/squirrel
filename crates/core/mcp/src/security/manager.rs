@@ -240,7 +240,6 @@ impl Clone for SecurityManagerImpl {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 mod tests {
     use super::*;
     use crate::error::MCPError;
@@ -296,16 +295,16 @@ mod tests {
             .identity_manager()
             .create_identity("bob".to_string(), None)
             .await
-            .unwrap();
+            .expect("create_identity");
 
-        let ok = m.authenticate("bob", "pw").await.unwrap();
-        assert_eq!(ok.unwrap().id, id.id);
+        let ok = m.authenticate("bob", "pw").await.expect("authenticate");
+        assert_eq!(ok.expect("bob session").id, id.id);
         let events = m.audit_service().get_events().await;
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].status, "success");
 
         m.audit_service().clear_events().await;
-        let fail = m.authenticate("nobody", "pw").await.unwrap();
+        let fail = m.authenticate("nobody", "pw").await.expect("authenticate");
         assert!(fail.is_none());
         let events = m.audit_service().get_events().await;
         assert_eq!(events.len(), 1);
@@ -318,8 +317,11 @@ mod tests {
         m.identity_manager()
             .create_identity("c".to_string(), None)
             .await
-            .unwrap();
-        m.authenticate("c", "x").await.unwrap().unwrap();
+            .expect("create_identity");
+        m.authenticate("c", "x")
+            .await
+            .expect("authenticate")
+            .expect("c session");
         assert!(m.audit_service().get_events().await.is_empty());
     }
 
@@ -331,7 +333,7 @@ mod tests {
         assert!(
             m.check_permission_by_id(&Uuid::new_v4(), "r", "a")
                 .await
-                .unwrap()
+                .expect("check_permission_by_id")
         );
     }
 
@@ -347,20 +349,24 @@ mod tests {
             .rbac_manager()
             .create_role("role".to_string(), String::new())
             .await
-            .unwrap();
+            .expect("create_role");
         m.rbac_manager()
             .add_permission_to_role(
                 &role.id,
                 Permission::new("res".to_string(), "act".to_string()),
             )
             .await
-            .unwrap();
+            .expect("add_permission_to_role");
         m.rbac_manager()
             .assign_role_to_user(&user, &role.id, &Uuid::new_v4())
             .await
-            .unwrap();
+            .expect("assign_role_to_user");
 
-        assert!(m.check_permission_by_id(&user, "res", "act").await.unwrap());
+        assert!(
+            m.check_permission_by_id(&user, "res", "act")
+                .await
+                .expect("check_permission_by_id")
+        );
 
         let err = m
             .check_permission(
@@ -388,7 +394,9 @@ mod tests {
         cfg.enable_audit = true;
         let m = SecurityManagerImpl::new(cfg);
         let id = Uuid::new_v4();
-        m.check_permission_by_id(&id, "any", "op").await.unwrap();
+        m.check_permission_by_id(&id, "any", "op")
+            .await
+            .expect("check_permission_by_id");
         let events = m.audit_service().get_events().await;
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].status, "denied");
@@ -398,8 +406,8 @@ mod tests {
     fn encrypt_decrypt_pass_through_when_disabled() {
         let m = SecurityManagerImpl::new(quiet_config());
         let data = [7_u8, 8, 9];
-        assert_eq!(m.encrypt(&data).unwrap(), data);
-        assert_eq!(m.decrypt(&data).unwrap(), data);
+        assert_eq!(m.encrypt(&data).expect("encrypt"), data);
+        assert_eq!(m.decrypt(&data).expect("decrypt"), data);
     }
 
     #[test]
@@ -408,8 +416,8 @@ mod tests {
         cfg.enable_encryption = true;
         let m = SecurityManagerImpl::new(cfg);
         let plain = b"secret payload";
-        let ct = m.encrypt(plain).unwrap();
+        let ct = m.encrypt(plain).expect("encrypt");
         assert_ne!(ct.as_slice(), plain);
-        assert_eq!(m.decrypt(&ct).unwrap(), plain);
+        assert_eq!(m.decrypt(&ct).expect("decrypt"), plain);
     }
 }

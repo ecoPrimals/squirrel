@@ -630,7 +630,7 @@ mod tests {
             Duration::from_millis(1000),
             Some(0.01),
             true,
-        ).await.unwrap();
+        ).await.expect("should succeed");
         
         let stats = router.get_performance_stats().await;
         assert!(stats.contains_key("openai:gpt-4"));

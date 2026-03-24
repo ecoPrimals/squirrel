@@ -49,7 +49,7 @@ async fn test_ecosystem_manager_concurrent_access() {
 
     // All should complete successfully
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 }
 
@@ -96,7 +96,7 @@ async fn test_service_discovery_concurrent_queries() {
 
     // All queries should complete without deadlock
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 }
 
@@ -131,7 +131,7 @@ async fn test_active_integrations_concurrent_reads() {
     }
 
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 }
 
@@ -194,7 +194,7 @@ async fn test_ecosystem_sustained_load() {
         }
 
         for handle in handles {
-            handle.await.unwrap();
+            handle.await.expect("should succeed");
         }
 
         // Batch completed successfully
@@ -226,7 +226,7 @@ async fn test_ecosystem_mixed_operations() {
 
     // All mixed operations should succeed
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
 }
 
@@ -280,9 +280,9 @@ async fn test_ecosystem_manager_arc_sharing() {
     let h2 = tokio::spawn(async move { manager2.discover_services().await.unwrap_or_default() });
     let h3 = tokio::spawn(async move { manager3.discover_services().await.unwrap_or_default() });
 
-    let r1 = h1.await.unwrap();
-    let r2 = h2.await.unwrap();
-    let r3 = h3.await.unwrap();
+    let r1 = h1.await.expect("should succeed");
+    let r2 = h2.await.expect("should succeed");
+    let r3 = h3.await.expect("should succeed");
 
     // All should return the same result (empty in this case)
     assert_eq!(r1.len(), r2.len());

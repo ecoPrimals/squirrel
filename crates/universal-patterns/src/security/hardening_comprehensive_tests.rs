@@ -127,7 +127,7 @@ mod comprehensive_security_tests {
 
         // Exhaust limit
         for _ in 0..5 {
-            rate_limiter.check_rate_limit(user_id).await.unwrap();
+            rate_limiter.check_rate_limit(user_id).await.expect("should succeed");
         }
 
         // Should be denied
@@ -146,7 +146,7 @@ mod comprehensive_security_tests {
 
         // User 1 exhausts their limit
         for _ in 0..5 {
-            rate_limiter.check_rate_limit("user1").await.unwrap();
+            rate_limiter.check_rate_limit("user1").await.expect("should succeed");
         }
         assert!(rate_limiter.check_rate_limit("user1").await.is_err());
 
@@ -421,7 +421,7 @@ mod comprehensive_security_tests {
 
         async fn check_rate_limit(&self, user: &str) -> Result<(), ()> {
             let now = std::time::Instant::now();
-            let mut requests = self.requests.lock().unwrap();
+            let mut requests = self.requests.lock().expect("should succeed");
 
             let user_requests = requests.entry(user.to_string()).or_insert_with(Vec::new);
 
@@ -467,7 +467,7 @@ mod comprehensive_security_tests {
         }
 
         async fn process_request(&self, req: &MockRequest) -> Result<(), AuthError> {
-            let mut nonces = self.used_nonces.lock().unwrap();
+            let mut nonces = self.used_nonces.lock().expect("should succeed");
 
             if nonces.contains(&req.nonce) {
                 Err(AuthError::ReplayDetected)
@@ -534,13 +534,13 @@ mod comprehensive_security_tests {
 
         fn generate_token(&self, session: &str) -> String {
             let token = format!("csrf_token_{}", session);
-            let mut tokens = self.valid_tokens.lock().unwrap();
+            let mut tokens = self.valid_tokens.lock().expect("should succeed");
             tokens.insert(token.clone(), session.to_string());
             token
         }
 
         fn validate_token(&self, token: &str, session: &str) -> Result<(), ()> {
-            let tokens = self.valid_tokens.lock().unwrap();
+            let tokens = self.valid_tokens.lock().expect("should succeed");
 
             if let Some(stored_session) = tokens.get(token) {
                 if stored_session == session {

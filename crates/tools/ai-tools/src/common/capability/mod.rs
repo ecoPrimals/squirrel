@@ -427,8 +427,8 @@ mod tests {
             SecurityLevel::Critical,
         ];
         for level in levels {
-            let json = serde_json::to_string(&level).unwrap();
-            let deserialized: SecurityLevel = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&level).expect("should succeed");
+            let deserialized: SecurityLevel = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, level);
         }
     }
@@ -457,8 +457,8 @@ mod tests {
             ModelType::Custom("my-model".to_string()),
         ];
         for mt in types {
-            let json = serde_json::to_string(&mt).unwrap();
-            let deserialized: ModelType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&mt).expect("should succeed");
+            let deserialized: ModelType = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, mt);
         }
     }
@@ -479,8 +479,8 @@ mod tests {
             TaskType::Custom("my-task".to_string()),
         ];
         for tt in types {
-            let json = serde_json::to_string(&tt).unwrap();
-            let deserialized: TaskType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&tt).expect("should succeed");
+            let deserialized: TaskType = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, tt);
         }
     }
@@ -508,8 +508,8 @@ mod tests {
             CostTier::High,
         ];
         for tier in tiers {
-            let json = serde_json::to_string(&tier).unwrap();
-            let deserialized: CostTier = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&tier).expect("should succeed");
+            let deserialized: CostTier = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, tier);
         }
     }
@@ -534,8 +534,8 @@ mod tests {
             max_batch_size: Some(32),
             quality_score: Some(95),
         };
-        let json = serde_json::to_string(&metrics).unwrap();
-        let deserialized: PerformanceMetrics = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&metrics).expect("should succeed");
+        let deserialized: PerformanceMetrics = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.avg_latency_ms, Some(100));
         assert_eq!(deserialized.quality_score, Some(95));
     }
@@ -561,8 +561,9 @@ mod tests {
             requires_specific_hardware: true,
             hardware_requirements: Some("NVIDIA A100".to_string()),
         };
-        let json = serde_json::to_string(&req).unwrap();
-        let deserialized: ResourceRequirements = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("should succeed");
+        let deserialized: ResourceRequirements =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.min_memory_mb, 4096);
         assert!(deserialized.requires_gpu);
     }
@@ -584,8 +585,8 @@ mod tests {
             has_fixed_cost: true,
             is_free: false,
         };
-        let json = serde_json::to_string(&metrics).unwrap();
-        let deserialized: CostMetrics = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&metrics).expect("should succeed");
+        let deserialized: CostMetrics = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.has_fixed_cost);
         assert!(!deserialized.is_free);
     }
@@ -614,8 +615,9 @@ mod tests {
                 data_residency: Some("US".to_string()),
             }),
         };
-        let json = serde_json::to_string(&req).unwrap();
-        let deserialized: SecurityRequirements = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("should succeed");
+        let deserialized: SecurityRequirements =
+            serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.requires_encryption);
         assert_eq!(deserialized.security_level, SecurityLevel::Critical);
         assert!(deserialized.geo_restrictions.is_some());
@@ -629,9 +631,16 @@ mod tests {
             blocked_regions: Some(vec!["CN".to_string()]),
             data_residency: Some("EU".to_string()),
         };
-        let json = serde_json::to_string(&geo).unwrap();
-        let deserialized: GeoConstraints = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.allowed_regions.as_ref().unwrap().len(), 1);
+        let json = serde_json::to_string(&geo).expect("should succeed");
+        let deserialized: GeoConstraints = serde_json::from_str(&json).expect("should succeed");
+        assert_eq!(
+            deserialized
+                .allowed_regions
+                .as_ref()
+                .expect("should succeed")
+                .len(),
+            1
+        );
     }
 
     // --- AITask tests ---
@@ -658,8 +667,8 @@ mod tests {
             complexity_score: Some(75),
             priority: 90,
         };
-        let json = serde_json::to_string(&task).unwrap();
-        let deserialized: AITask = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&task).expect("should succeed");
+        let deserialized: AITask = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.task_type, TaskType::CodeGeneration);
         assert_eq!(deserialized.priority, 90);
         assert!(deserialized.requires_streaming);
@@ -750,8 +759,8 @@ mod tests {
         caps.add_task_type(TaskType::TextGeneration);
         caps.with_max_context_size(4096).with_streaming(true);
 
-        let json = serde_json::to_string(&caps).unwrap();
-        let deserialized: AICapabilities = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&caps).expect("should succeed");
+        let deserialized: AICapabilities = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.max_context_size, 4096);
         assert!(deserialized.supports_streaming);
     }
@@ -782,8 +791,8 @@ mod tests {
             cost_sensitivity: 0.1,
             performance_priority: 0.9,
         };
-        let json = serde_json::to_string(&prefs).unwrap();
-        let deserialized: RoutingPreferences = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&prefs).expect("should succeed");
+        let deserialized: RoutingPreferences = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.priority, 90);
         assert!(deserialized.prefers_local);
         assert_eq!(deserialized.cost_tier, CostTier::High);

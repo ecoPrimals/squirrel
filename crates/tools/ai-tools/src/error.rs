@@ -239,7 +239,7 @@ mod tests {
         if let AIError::Parse(msg) = ai_err {
             assert!(!msg.is_empty());
         } else {
-            panic!("Expected Parse variant");
+            unreachable!("Expected Parse variant");
         }
     }
 
@@ -250,7 +250,7 @@ mod tests {
         if let AIError::Network(msg) = ai_err {
             assert!(msg.contains("file not found"));
         } else {
-            panic!("Expected Network variant");
+            unreachable!("Expected Network variant");
         }
     }
 

@@ -149,16 +149,16 @@ mod tests {
     fn transport_metadata_serde_roundtrip() {
         let meta = TransportMetadata {
             connection_id: "c1".into(),
-            remote_address: Some(SocketAddr::from_str("127.0.0.1:9000").unwrap()),
-            local_address: Some(SocketAddr::from_str("127.0.0.1:9001").unwrap()),
+            remote_address: Some(SocketAddr::from_str("127.0.0.1:9000").expect("should succeed")),
+            local_address: Some(SocketAddr::from_str("127.0.0.1:9001").expect("should succeed")),
             connected_at: Utc::now(),
             last_activity: Utc::now(),
             encryption_format: Some(EncryptionFormat::Aes256Gcm),
             compression_format: Some(CompressionFormat::Gzip),
             additional_info: HashMap::from([("k".into(), "v".into())]),
         };
-        let json = serde_json::to_string(&meta).unwrap();
-        let back: TransportMetadata = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&meta).expect("should succeed");
+        let back: TransportMetadata = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.connection_id, meta.connection_id);
         let _ = format!("{meta:?}");
         let cloned = meta.clone();
@@ -174,8 +174,8 @@ mod tests {
             ConnectionState::Disconnecting,
             ConnectionState::Error,
         ] {
-            let json = serde_json::to_string(&s).unwrap();
-            let back: ConnectionState = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&s).expect("should succeed");
+            let back: ConnectionState = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(s, back);
             let _ = format!("{s:?}");
         }
@@ -186,8 +186,8 @@ mod tests {
             TransportType::Memory,
             TransportType::Unknown,
         ] {
-            let json = serde_json::to_string(&t).unwrap();
-            let back: TransportType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&t).expect("should succeed");
+            let back: TransportType = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(t, back);
         }
     }
@@ -224,8 +224,8 @@ mod tests {
                 headers: HashMap::from([("h".into(), "v".into())]),
             },
         };
-        let json = serde_json::to_string(&msg).unwrap();
-        let back: TransportMessage = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&msg).expect("should succeed");
+        let back: TransportMessage = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.id, msg.id);
     }
 
@@ -237,8 +237,8 @@ mod tests {
         assert_eq!(d2.timeout_ms, d.timeout_ms);
         let m = TransportMessageMetadata::default();
         assert_eq!(m.content_type, "application/json");
-        let json = serde_json::to_string(&m).unwrap();
-        let back: TransportMessageMetadata = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&m).expect("should succeed");
+        let back: TransportMessageMetadata = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.content_type, m.content_type);
     }
 }

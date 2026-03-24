@@ -198,8 +198,14 @@ mod tests {
 
     #[test]
     fn http_method_from_str_case_insensitive() {
-        assert_eq!("get".parse::<HttpMethod>().unwrap(), HttpMethod::Get);
-        assert_eq!("POST".parse::<HttpMethod>().unwrap(), HttpMethod::Post);
+        assert_eq!(
+            "get".parse::<HttpMethod>().expect("should succeed"),
+            HttpMethod::Get
+        );
+        assert_eq!(
+            "POST".parse::<HttpMethod>().expect("should succeed"),
+            HttpMethod::Post
+        );
         assert!(HttpMethod::from_str("UNKNOWN").is_err());
     }
 
@@ -233,8 +239,8 @@ mod tests {
             HttpMethod::Head,
         ];
         for m in methods {
-            let j = serde_json::to_string(&m).unwrap();
-            let back: HttpMethod = serde_json::from_str(&j).unwrap();
+            let j = serde_json::to_string(&m).expect("should succeed");
+            let back: HttpMethod = serde_json::from_str(&j).expect("should succeed");
             assert_eq!(back, m);
         }
     }
@@ -255,8 +261,8 @@ mod tests {
         assert!(!HttpStatus::InternalServerError.is_client_error());
 
         let s = HttpStatus::Created;
-        let j = serde_json::to_string(&s).unwrap();
-        let back: HttpStatus = serde_json::from_str(&j).unwrap();
+        let j = serde_json::to_string(&s).expect("should succeed");
+        let back: HttpStatus = serde_json::from_str(&j).expect("should succeed");
         assert_eq!(back, s);
         assert_eq!(back.code(), 201);
     }

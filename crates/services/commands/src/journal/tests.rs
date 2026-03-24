@@ -104,28 +104,30 @@ fn test_in_memory_persistence() {
     let entry = JournalEntry::new("test-command", vec!["arg1".to_string()]);
 
     // Save the entry
-    persistence.save_entry(&entry).unwrap();
+    persistence.save_entry(&entry).expect("should succeed");
 
     // Load all entries
-    let entries = persistence.load_entries().unwrap();
+    let entries = persistence.load_entries().expect("should succeed");
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].command_name, "test-command");
 
     // Complete the entry and update
     let mut updated_entry = entry.clone();
     updated_entry.complete(Ok("Success".to_string()));
-    persistence.save_entry(&updated_entry).unwrap();
+    persistence
+        .save_entry(&updated_entry)
+        .expect("should succeed");
 
     // Verify the update
-    let updated_entries = persistence.load_entries().unwrap();
+    let updated_entries = persistence.load_entries().expect("should succeed");
     assert_eq!(updated_entries.len(), 1);
     assert_eq!(updated_entries[0].state, JournalEntryState::Completed);
 
     // Delete the entry
-    persistence.delete_entry(&entry.id).unwrap();
+    persistence.delete_entry(&entry.id).expect("should succeed");
 
     // Verify deletion
-    let empty_entries = persistence.load_entries().unwrap();
+    let empty_entries = persistence.load_entries().expect("should succeed");
     assert_eq!(empty_entries.len(), 0);
 }
 
@@ -139,16 +141,20 @@ fn test_command_journal_basic_workflow() {
     let args = vec!["arg1".to_string(), "arg2".to_string()];
 
     // Record command start
-    let id = journal.record_start(&command, &args).unwrap();
+    let id = journal
+        .record_start(&command, &args)
+        .expect("should succeed");
 
     // Execute the command
     let result = command.execute(&args);
 
     // Record command completion
-    journal.record_completion(id.clone(), result).unwrap();
+    journal
+        .record_completion(id.clone(), result)
+        .expect("should succeed");
 
     // Get the entry
-    let entry = journal.get_entry(id).unwrap();
+    let entry = journal.get_entry(id).expect("should succeed");
 
     // Verify entry state
     assert_eq!(entry.state, JournalEntryState::Completed);
@@ -168,16 +174,20 @@ fn test_command_journal_failed_command() {
     let args = vec!["fail".to_string()];
 
     // Record command start
-    let id = journal.record_start(&command, &args).unwrap();
+    let id = journal
+        .record_start(&command, &args)
+        .expect("should succeed");
 
     // Execute the command (which will fail)
     let result = command.execute(&args);
 
     // Record command completion
-    journal.record_completion(id.clone(), result).unwrap();
+    journal
+        .record_completion(id.clone(), result)
+        .expect("should succeed");
 
     // Get the entry
-    let entry = journal.get_entry(id).unwrap();
+    let entry = journal.get_entry(id).expect("should succeed");
 
     // Verify entry state
     assert_eq!(entry.state, JournalEntryState::Failed);
@@ -196,18 +206,18 @@ fn test_find_incomplete_entries() {
     // Create a completed entry
     let id1 = journal
         .record_start(&command, &["success".to_string()])
-        .unwrap();
+        .expect("should succeed");
     journal
         .record_completion(id1, Ok("Success".to_string()))
-        .unwrap();
+        .expect("should succeed");
 
     // Create an incomplete entry
     let id2 = journal
         .record_start(&command, &["incomplete".to_string()])
-        .unwrap();
+        .expect("should succeed");
 
     // Find incomplete entries
-    let incomplete = journal.find_incomplete().unwrap();
+    let incomplete = journal.find_incomplete().expect("should succeed");
 
     // Verify incomplete entries
     assert_eq!(incomplete.len(), 1);
@@ -226,7 +236,7 @@ fn test_recover_incomplete_entries() {
     // Create an incomplete entry
     let id = journal
         .record_start(&command, &["recoverable".to_string()])
-        .unwrap();
+        .expect("should succeed");
 
     // Recover incomplete entries
     let recovery_report = journal
@@ -234,14 +244,14 @@ fn test_recover_incomplete_entries() {
             assert_eq!(entry.arguments[0], "recoverable");
             Ok("Recovered successfully".to_string())
         })
-        .unwrap();
+        .expect("should succeed");
 
     // Verify recovery report
     assert_eq!(recovery_report.recovered_entries.len(), 1);
     assert_eq!(recovery_report.failed_entries.len(), 0);
 
     // Verify entry was updated
-    let entry = journal.get_entry(id).unwrap();
+    let entry = journal.get_entry(id).expect("should succeed");
     assert_eq!(entry.state, JournalEntryState::Recovered);
     assert_eq!(entry.result, Some("Recovered successfully".to_string()));
 }
@@ -257,45 +267,45 @@ fn test_entry_search() {
     // Create various entries
     let id1 = journal
         .record_start(&command, &["search1".to_string()])
-        .unwrap();
+        .expect("should succeed");
     journal
         .record_completion(id1, Ok("Success 1".to_string()))
-        .unwrap();
+        .expect("should succeed");
 
     let id2 = journal
         .record_start(&command, &["search2".to_string()])
-        .unwrap();
+        .expect("should succeed");
     journal
         .record_completion(id2.clone(), Ok("Success 2".to_string()))
-        .unwrap();
+        .expect("should succeed");
 
     let id3 = journal
         .record_start(&command, &["fail".to_string()])
-        .unwrap();
+        .expect("should succeed");
     journal
         .record_completion(
             id3.clone(),
             Err(CommandError::ExecutionError("Failed".to_string())),
         )
-        .unwrap();
+        .expect("should succeed");
 
     // Search for completed entries
     let completed = journal
         .search_entries(|entry| entry.state == JournalEntryState::Completed)
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(completed.len(), 2);
 
     // Search for failed entries
     let failed = journal
         .search_entries(|entry| entry.state == JournalEntryState::Failed)
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(failed.len(), 1);
     assert_eq!(failed[0].id, id3);
 
     // Search by argument content
     let search2 = journal
         .search_entries(|entry| entry.arguments.iter().any(|arg| arg.contains("search2")))
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(search2.len(), 1);
     assert_eq!(search2[0].id, id2);
 }
@@ -311,32 +321,32 @@ fn test_journal_capacity() {
     // Add entries to reach capacity
     let id1 = journal
         .record_start(&command, &["first".to_string()])
-        .unwrap();
+        .expect("should succeed");
     journal
         .record_completion(id1.clone(), Ok("First success".to_string()))
-        .unwrap();
+        .expect("should succeed");
 
     let id2 = journal
         .record_start(&command, &["second".to_string()])
-        .unwrap();
+        .expect("should succeed");
     journal
         .record_completion(id2.clone(), Ok("Second success".to_string()))
-        .unwrap();
+        .expect("should succeed");
 
     // Verify entries
-    let entries = journal.get_entries().unwrap();
+    let entries = journal.get_entries().expect("should succeed");
     assert_eq!(entries.len(), 2);
 
     // Add one more entry (should evict oldest)
     let id3 = journal
         .record_start(&command, &["third".to_string()])
-        .unwrap();
+        .expect("should succeed");
     journal
         .record_completion(id3.clone(), Ok("Third success".to_string()))
-        .unwrap();
+        .expect("should succeed");
 
     // Verify entries (should now have id2 and id3, but not id1)
-    let updated_entries = journal.get_entries().unwrap();
+    let updated_entries = journal.get_entries().expect("should succeed");
     assert_eq!(updated_entries.len(), 2);
 
     // The first entry should be evicted

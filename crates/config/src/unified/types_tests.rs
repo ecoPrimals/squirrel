@@ -46,8 +46,8 @@ fn test_load_balancing_strategy_serde() {
         LoadBalancingStrategy::HealthBased,
     ];
     for strategy in strategies {
-        let json = serde_json::to_string(&strategy).unwrap();
-        let decoded: LoadBalancingStrategy = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&strategy).expect("should succeed");
+        let decoded: LoadBalancingStrategy = serde_json::from_str(&json).expect("should succeed");
         assert!(std::mem::discriminant(&strategy) == std::mem::discriminant(&decoded));
     }
 }
@@ -61,9 +61,9 @@ fn test_database_backend_default() {
 #[test]
 fn test_service_registry_type_in_memory_serde() {
     let registry = ServiceRegistryType::InMemory;
-    let json = serde_json::to_string(&registry).unwrap();
+    let json = serde_json::to_string(&registry).expect("should succeed");
     assert!(json.contains("in_memory"));
-    let decoded: ServiceRegistryType = serde_json::from_str(&json).unwrap();
+    let decoded: ServiceRegistryType = serde_json::from_str(&json).expect("should succeed");
     assert!(matches!(decoded, ServiceRegistryType::InMemory));
 }
 
@@ -72,12 +72,12 @@ fn test_service_registry_type_file_serde() {
     let registry = ServiceRegistryType::File {
         path: "/tmp/registry.json".to_string(),
     };
-    let json = serde_json::to_string(&registry).unwrap();
-    let decoded: ServiceRegistryType = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&registry).expect("should succeed");
+    let decoded: ServiceRegistryType = serde_json::from_str(&json).expect("should succeed");
     if let ServiceRegistryType::File { path } = decoded {
         assert_eq!(path, "/tmp/registry.json");
     } else {
-        panic!("Expected File variant");
+        unreachable!("Expected File variant");
     }
 }
 
@@ -89,8 +89,8 @@ fn test_provider_config_serde() {
         enabled: true,
         settings: HashMap::new(),
     };
-    let json = serde_json::to_string(&provider).unwrap();
-    let decoded: ProviderConfig = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&provider).expect("should succeed");
+    let decoded: ProviderConfig = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(decoded.endpoint, provider.endpoint);
     assert_eq!(decoded.api_key, provider.api_key);
     assert!(decoded.enabled);
@@ -150,8 +150,8 @@ fn test_config_validate_security_enabled_no_auth() {
 #[test]
 fn test_config_serde_roundtrip_minimal() {
     let config = SquirrelUnifiedConfig::default();
-    let json = serde_json::to_string(&config).unwrap();
-    let decoded: SquirrelUnifiedConfig = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&config).expect("should succeed");
+    let decoded: SquirrelUnifiedConfig = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(config.system.environment, decoded.system.environment);
     assert_eq!(config.network.http_port, decoded.network.http_port);
 }

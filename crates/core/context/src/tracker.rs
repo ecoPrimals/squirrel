@@ -431,7 +431,7 @@ mod tests {
     async fn test_tracker_new() {
         let state = make_state(1);
         let tracker = ContextTracker::new(state.clone());
-        let got = tracker.get_state().await.unwrap();
+        let got = tracker.get_state().await.expect("should succeed");
         assert_eq!(got.version, 1);
     }
 
@@ -444,7 +444,7 @@ mod tests {
             max_recovery_points: 5,
         };
         let tracker = ContextTracker::with_config_and_manager(state, config, None);
-        let got = tracker.get_state().await.unwrap();
+        let got = tracker.get_state().await.expect("should succeed");
         assert_eq!(got.version, 1);
     }
 
@@ -457,7 +457,7 @@ mod tests {
         let result = tracker.update_state(state2).await;
         assert!(result.is_ok());
 
-        let got = tracker.get_state().await.unwrap();
+        let got = tracker.get_state().await.expect("should succeed");
         assert_eq!(got.version, 2);
     }
 
@@ -471,7 +471,7 @@ mod tests {
         assert!(result.is_ok());
 
         // State should still be version 2
-        let got = tracker.get_state().await.unwrap();
+        let got = tracker.get_state().await.expect("should succeed");
         assert_eq!(got.version, 2);
     }
 
@@ -481,7 +481,10 @@ mod tests {
         let tracker = ContextTracker::new(state);
 
         // Initially no active context
-        let active = tracker.get_active_context_id().await.unwrap();
+        let active = tracker
+            .get_active_context_id()
+            .await
+            .expect("should succeed");
         assert!(active.is_none());
     }
 
@@ -492,7 +495,10 @@ mod tests {
         let result = tracker.deactivate_context().await;
         assert!(result.is_ok());
 
-        let active = tracker.get_active_context_id().await.unwrap();
+        let active = tracker
+            .get_active_context_id()
+            .await
+            .expect("should succeed");
         assert!(active.is_none());
     }
 
@@ -569,11 +575,11 @@ mod tests {
         let mut factory = ContextTrackerFactory::new(None);
         let state = make_state(5);
         factory.set_default_state(state);
-        let tracker = factory.create().unwrap();
+        let tracker = factory.create().expect("should succeed");
 
         // The tracker should use the default state
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let got = rt.block_on(tracker.get_state()).unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
+        let got = rt.block_on(tracker.get_state()).expect("should succeed");
         assert_eq!(got.version, 5);
     }
 
@@ -582,8 +588,8 @@ mod tests {
         let factory = ContextTrackerFactory::new(None);
         let state = make_state(3);
         let tracker = factory.create_tracker(state);
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let got = rt.block_on(tracker.get_state()).unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
+        let got = rt.block_on(tracker.get_state()).expect("should succeed");
         assert_eq!(got.version, 3);
     }
 

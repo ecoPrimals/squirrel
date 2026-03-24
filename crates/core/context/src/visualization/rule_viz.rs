@@ -434,7 +434,7 @@ mod tests {
         let result = visualizer.render_dependency_graph(&rule_impacts, VisualizationFormat::Json).await;
         assert!(result.is_ok());
         
-        let rendered = result.unwrap();
+        let rendered = result.expect("should succeed");
         assert!(rendered.contains("rule_dependency_graph"));
         assert!(rendered.contains("Test Rule 1"));
     }
@@ -468,7 +468,7 @@ mod tests {
         let result = visualizer.render_impact_analysis(&rule_impacts, VisualizationFormat::Json).await;
         assert!(result.is_ok());
         
-        let rendered = result.unwrap();
+        let rendered = result.expect("should succeed");
         assert!(rendered.contains("rule_impact_analysis"));
         assert!(rendered.contains("High Impact Rule"));
         assert!(rendered.contains("Low Impact Rule"));
@@ -507,7 +507,7 @@ mod tests {
         assert_eq!(metrics["avg_success_rate"], 0.9);
         assert_eq!(metrics["avg_execution_time"], 1500.0);
         
-        let top_performers = metrics["top_performers"].as_array().unwrap();
+        let top_performers = metrics["top_performers"].as_array().expect("should succeed");
         assert_eq!(top_performers.len(), 2);
         assert_eq!(top_performers[0]["name"], "Rule 1");
     }

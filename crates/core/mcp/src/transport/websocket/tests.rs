@@ -201,7 +201,7 @@ async fn test_websocket_keepalive_configuration() {
         transport.config.ping_interval.is_some(),
         "Keepalive should be enabled"
     );
-    assert_eq!(transport.config.ping_interval.unwrap(), 30);
+    assert_eq!(transport.config.ping_interval.expect("should succeed"), 30);
 
     // Test with keepalive disabled
     let config_without_keepalive = WebSocketConfig {

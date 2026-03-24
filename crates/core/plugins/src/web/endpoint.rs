@@ -178,8 +178,8 @@ mod tests {
             "d".to_string(),
         )
         .with_tag("z");
-        let json = serde_json::to_string(&ep).unwrap();
-        let back: WebEndpoint = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&ep).expect("should succeed");
+        let back: WebEndpoint = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.path, ep.path);
         assert_eq!(back.method, ep.method);
         assert_eq!(back.tags, ep.tags);

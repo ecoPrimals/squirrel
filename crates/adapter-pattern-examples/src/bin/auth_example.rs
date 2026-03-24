@@ -173,10 +173,10 @@ impl Command for PublicInfoCommand {
 // Simple helper for getting user input
 fn prompt(message: &str) -> String {
     print!("{message}");
-    io::stdout().flush().unwrap();
+    io::stdout().flush().expect("stdout flush");
 
     let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
+    io::stdin().read_line(&mut input).expect("read line");
     input.trim().to_string()
 }
 

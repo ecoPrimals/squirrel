@@ -14,14 +14,14 @@ static DOCKER_STOP: Once = Once::new();
 /// Get the project root directory
 fn get_project_root() -> PathBuf {
     // Start from the current dir
-    let mut path = env::current_dir().unwrap();
+    let mut path = env::current_dir().expect("should succeed");
     
     // Go up until we find the docker-compose.yml file
     while !path.join("docker-compose.yml").exists() {
         if !path.pop() {
             // We've reached the root and still haven't found it
             // Just return the starting directory as a fallback
-            return env::current_dir().unwrap();
+            return env::current_dir().expect("should succeed");
         }
     }
     

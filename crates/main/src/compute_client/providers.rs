@@ -174,8 +174,8 @@ mod tests {
         let primal = make_discovered_primal();
         let provider = ComputeProvider::from_discovered_primal(&primal);
 
-        let json = serde_json::to_string(&provider).unwrap();
-        let deserialized: ComputeProvider = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&provider).expect("should succeed");
+        let deserialized: ComputeProvider = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.provider_id, provider.provider_id);
         assert_eq!(deserialized.metadata.name, provider.metadata.name);
@@ -193,8 +193,9 @@ mod tests {
             compliance: vec!["SOC2".to_string()],
         };
 
-        let json = serde_json::to_string(&metadata).unwrap();
-        let deserialized: ComputeProviderMetadata = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&metadata).expect("should succeed");
+        let deserialized: ComputeProviderMetadata =
+            serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.name, "test-provider");
         assert_eq!(deserialized.architectures.len(), 2);
@@ -212,8 +213,9 @@ mod tests {
             last_check: Utc::now(),
         };
 
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: ComputeProviderHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: ComputeProviderHealth =
+            serde_json::from_str(&json).expect("should succeed");
 
         assert!((deserialized.health_score - 0.95).abs() < f64::EPSILON);
         assert_eq!(deserialized.queue_length, 5);

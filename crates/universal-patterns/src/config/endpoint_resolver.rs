@@ -426,16 +426,18 @@ mod tests {
 
     #[test]
     fn test_parse_endpoint() {
-        let unix1 = EndpointResolver::parse_endpoint("unix:///tmp/test.sock").unwrap();
+        let unix1 =
+            EndpointResolver::parse_endpoint("unix:///tmp/test.sock").expect("should succeed");
         assert!(unix1.is_unix_socket());
 
-        let unix2 = EndpointResolver::parse_endpoint("/tmp/test.sock").unwrap();
+        let unix2 = EndpointResolver::parse_endpoint("/tmp/test.sock").expect("should succeed");
         assert!(unix2.is_unix_socket());
 
-        let http = EndpointResolver::parse_endpoint("http://localhost:8080").unwrap();
+        let http =
+            EndpointResolver::parse_endpoint("http://localhost:8080").expect("should succeed");
         assert!(http.is_http());
 
-        let ws = EndpointResolver::parse_endpoint("ws://localhost:8080").unwrap();
+        let ws = EndpointResolver::parse_endpoint("ws://localhost:8080").expect("should succeed");
         assert!(ws.is_websocket());
     }
 
@@ -454,10 +456,13 @@ mod tests {
             "TEST_PRIMAL_ENDPOINT",
             Some("http://localhost:9999"),
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
                     let resolver = EndpointResolver::new();
-                    let endpoint = resolver.resolve("test_primal").await.unwrap();
+                    let endpoint = resolver
+                        .resolve("test_primal")
+                        .await
+                        .expect("should succeed");
 
                     assert_eq!(
                         endpoint,
@@ -471,21 +476,30 @@ mod tests {
     #[test]
     fn test_cache() {
         temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://localhost:7777"), || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             let (resolver, endpoint1) = rt.block_on(async {
                 let resolver = EndpointResolver::new();
-                let endpoint1 = resolver.resolve("cache_test").await.unwrap();
+                let endpoint1 = resolver
+                    .resolve("cache_test")
+                    .await
+                    .expect("should succeed");
                 (resolver, endpoint1)
             });
 
             temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://localhost:8888"), || {
                 rt.block_on(async {
-                    let endpoint2 = resolver.resolve("cache_test").await.unwrap();
+                    let endpoint2 = resolver
+                        .resolve("cache_test")
+                        .await
+                        .expect("should succeed");
                     assert_eq!(endpoint1, endpoint2);
 
                     resolver.invalidate("cache_test").await;
 
-                    let endpoint3 = resolver.resolve("cache_test").await.unwrap();
+                    let endpoint3 = resolver
+                        .resolve("cache_test")
+                        .await
+                        .expect("should succeed");
                     assert_eq!(
                         endpoint3,
                         Endpoint::Http("http://localhost:8888".to_string())
@@ -507,19 +521,19 @@ mod tests {
         let service_mesh = resolver
             .resolve(capabilities::SERVICE_MESH_CAPABILITY)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!service_mesh.as_str().is_empty());
 
         let security = resolver
             .resolve(capabilities::SECURITY_CAPABILITY)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!security.as_str().is_empty());
 
         let self_primal = resolver
             .resolve(capabilities::SELF_PRIMAL_NAME)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!self_primal.as_str().is_empty());
     }
 }

@@ -292,8 +292,9 @@ mod tests {
             extended: vec!["universal_patterns".to_string()],
             integrations: vec!["ecosystem_integration".to_string()],
         };
-        let json = serde_json::to_string(&caps).unwrap();
-        let deserialized: ServiceCapabilities = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&caps).expect("should succeed");
+        let deserialized: ServiceCapabilities =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.core, vec!["ai_coordination"]);
         assert_eq!(deserialized.extended, vec!["universal_patterns"]);
     }
@@ -316,8 +317,8 @@ mod tests {
             secondary: vec!["unix:///run/user/1000/biomeos/songbird.sock".to_string()],
             health: None, // health via JSON-RPC; discovered at runtime
         };
-        let json = serde_json::to_string(&endpoints).unwrap();
-        let deserialized: ServiceEndpoints = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&endpoints).expect("should succeed");
+        let deserialized: ServiceEndpoints = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(
             deserialized.primary,
             "unix:///run/user/1000/biomeos/squirrel.sock"
@@ -344,8 +345,8 @@ mod tests {
             timeout_secs: 5,
             failure_threshold: 3,
         };
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: HealthCheckConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: HealthCheckConfig = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.enabled);
         assert_eq!(deserialized.interval_secs, 30);
         assert_eq!(deserialized.failure_threshold, 3);
@@ -370,8 +371,8 @@ mod tests {
             network: "1Gbps".to_string(),
             gpu: Some("nvidia-t4".to_string()),
         };
-        let json = serde_json::to_string(&spec).unwrap();
-        let deserialized: ResourceSpec = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&spec).expect("should succeed");
+        let deserialized: ResourceSpec = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.cpu, "500m");
         assert_eq!(deserialized.gpu.as_deref(), Some("nvidia-t4"));
     }
@@ -397,8 +398,8 @@ mod tests {
             audit_enabled: true,
             security_level: "high".to_string(),
         };
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: SecurityConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: SecurityConfig = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.auth_required);
         assert_eq!(deserialized.encryption_level, "tls1.3");
         assert!(deserialized.audit_enabled);
@@ -425,8 +426,9 @@ mod tests {
             max_memory_mb: Some(16384),
             storage_gb: Some(100),
         };
-        let json = serde_json::to_string(&req).unwrap();
-        let deserialized: ResourceRequirements = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("should succeed");
+        let deserialized: ResourceRequirements =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.min_cpu, Some(2));
         assert_eq!(deserialized.max_cpu, Some(8));
         assert_eq!(deserialized.storage_gb, Some(100));
@@ -437,11 +439,15 @@ mod tests {
     #[test]
     fn ecosystem_primal_type_from_str_accepts_case_insensitive() {
         assert_eq!(
-            "Songbird".parse::<EcosystemPrimalType>().unwrap(),
+            "Songbird"
+                .parse::<EcosystemPrimalType>()
+                .expect("should succeed"),
             EcosystemPrimalType::Songbird
         );
         assert_eq!(
-            "NESTGATE".parse::<EcosystemPrimalType>().unwrap(),
+            "NESTGATE"
+                .parse::<EcosystemPrimalType>()
+                .expect("should succeed"),
             EcosystemPrimalType::NestGate
         );
     }

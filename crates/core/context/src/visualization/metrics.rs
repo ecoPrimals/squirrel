@@ -155,8 +155,9 @@ mod tests {
     #[test]
     fn test_visualization_metrics_serde() {
         let metrics = VisualizationMetrics::new();
-        let json = serde_json::to_string(&metrics).unwrap();
-        let deserialized: VisualizationMetrics = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&metrics).expect("should succeed");
+        let deserialized: VisualizationMetrics =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.total_created, 0);
         assert_eq!(deserialized.cache_hits, 0);
     }

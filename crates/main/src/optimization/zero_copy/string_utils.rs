@@ -28,8 +28,8 @@ use std::sync::Arc;
 /// let strings = StaticStrings::new();
 ///
 /// // Efficient access to cached strings
-/// let provider = strings.get("openai").unwrap();
-/// let status = strings.get("running").unwrap();
+/// let provider = strings.get("openai").expect("example");
+/// let status = strings.get("running").expect("example");
 ///
 /// // Create new cached string
 /// let mut strings = StaticStrings::new();

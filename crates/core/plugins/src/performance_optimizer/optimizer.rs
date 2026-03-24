@@ -352,7 +352,10 @@ mod tests {
         );
         meta.capabilities = std::sync::Arc::new(vec!["cap.test".into()]);
         let entry = ZeroCopyPluginEntry::new(meta, ZeroCopyPluginConfig::new(id), None);
-        registry.register_plugin(entry).await.unwrap();
+        registry
+            .register_plugin(entry)
+            .await
+            .expect("should succeed");
 
         let first = opt
             .optimized_plugin_lookup("plugin-a", &registry)
@@ -376,7 +379,10 @@ mod tests {
             ZeroCopyPluginMetadata::new(id, "p".into(), "1".into(), "d".into(), "a".into());
         meta.capabilities = std::sync::Arc::new(vec!["search.cap".into()]);
         let entry = ZeroCopyPluginEntry::new(meta, ZeroCopyPluginConfig::new(id), None);
-        registry.register_plugin(entry).await.unwrap();
+        registry
+            .register_plugin(entry)
+            .await
+            .expect("should succeed");
 
         let r1 = opt
             .optimized_capability_query("search.cap", &registry)

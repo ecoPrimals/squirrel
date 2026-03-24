@@ -180,7 +180,7 @@ mod tests {
         }
 
         for handle in handles {
-            handle.await.unwrap();
+            handle.await.expect("should succeed");
         }
     }
 
@@ -304,7 +304,7 @@ mod tests {
         }
 
         for handle in handles {
-            handle.await.unwrap();
+            handle.await.expect("should succeed");
         }
     }
 
@@ -623,10 +623,18 @@ mod tests {
         }
 
         // Increment some counters
-        *counters.get_mut("ai.inference.requests").unwrap() += 100;
-        *counters.get_mut("ai.inference.errors").unwrap() += 2;
-        *counters.get_mut("crypto.encrypt.requests").unwrap() += 1000;
-        *counters.get_mut("crypto.encrypt.errors").unwrap() += 1;
+        *counters
+            .get_mut("ai.inference.requests")
+            .expect("should succeed") += 100;
+        *counters
+            .get_mut("ai.inference.errors")
+            .expect("should succeed") += 2;
+        *counters
+            .get_mut("crypto.encrypt.requests")
+            .expect("should succeed") += 1000;
+        *counters
+            .get_mut("crypto.encrypt.errors")
+            .expect("should succeed") += 1;
 
         // Verify counter values
         assert_eq!(counters["ai.inference.requests"], 100);

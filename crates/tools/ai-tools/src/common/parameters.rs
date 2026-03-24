@@ -186,9 +186,9 @@ mod tests {
             .with_presence_penalty(0.5)
             .with_stream(true)
             .with_tool_choice(ToolChoice::Auto);
-        assert!((params.temperature.unwrap() - 0.7).abs() < f32::EPSILON);
-        assert!((params.top_p.unwrap() - 0.9).abs() < f32::EPSILON);
-        assert!((params.top_k.unwrap() - 40.0).abs() < f32::EPSILON);
+        assert!((params.temperature.expect("should succeed") - 0.7).abs() < f32::EPSILON);
+        assert!((params.top_p.expect("should succeed") - 0.9).abs() < f32::EPSILON);
+        assert!((params.top_k.expect("should succeed") - 40.0).abs() < f32::EPSILON);
         assert_eq!(params.max_tokens, Some(1000));
         assert_eq!(params.stream, Some(true));
     }
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn test_model_parameters_with_stop() {
         let params = ModelParameters::new().with_stop("STOP").with_stop("END");
-        let stops = params.stop.unwrap();
+        let stops = params.stop.expect("should succeed");
         assert_eq!(stops.len(), 2);
         assert_eq!(stops[0], "STOP");
         assert_eq!(stops[1], "END");
@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn test_model_parameters_with_stops() {
         let params = ModelParameters::new().with_stops(vec!["A".to_string(), "B".to_string()]);
-        let stops = params.stop.unwrap();
+        let stops = params.stop.expect("should succeed");
         assert_eq!(stops.len(), 2);
     }
 
@@ -216,7 +216,7 @@ mod tests {
             .with_max_tokens(512);
         let json = serde_json::to_string(&params).expect("serialize");
         let deser: ModelParameters = serde_json::from_str(&json).expect("deserialize");
-        assert!((deser.temperature.unwrap() - 0.7).abs() < f32::EPSILON);
+        assert!((deser.temperature.expect("should succeed") - 0.7).abs() < f32::EPSILON);
         assert_eq!(deser.max_tokens, Some(512));
     }
 

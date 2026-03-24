@@ -525,7 +525,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_awaken_infant_primal() {
-        let adapter = UniversalAdapterV2::awaken().await.unwrap();
+        let adapter = UniversalAdapterV2::awaken().await.expect("should succeed");
         let identity = adapter.identity().identity();
 
         // Should have discovered self-identity
@@ -537,9 +537,9 @@ mod tests {
     fn test_connect_capability_from_env() {
         let compute_url = http_url(DEFAULT_LOCALHOST, get_service_port("compute"), "");
         temp_env::with_var("COMPUTE_ENDPOINT", Some(compute_url.as_str()), || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.unwrap();
+                let adapter = UniversalAdapterV2::awaken().await.expect("should succeed");
                 let client = adapter.connect_capability("compute").await;
 
                 assert!(client.is_ok());
@@ -554,12 +554,18 @@ mod tests {
     fn test_connection_pooling() {
         let storage_url = http_url(DEFAULT_LOCALHOST, get_service_port("storage"), "");
         temp_env::with_var("STORAGE_ENDPOINT", Some(storage_url.as_str()), || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.unwrap();
+                let adapter = UniversalAdapterV2::awaken().await.expect("should succeed");
 
-                let _client1 = adapter.connect_capability("storage").await.unwrap();
-                let _client2 = adapter.connect_capability("storage").await.unwrap();
+                let _client1 = adapter
+                    .connect_capability("storage")
+                    .await
+                    .expect("should succeed");
+                let _client2 = adapter
+                    .connect_capability("storage")
+                    .await
+                    .expect("should succeed");
 
                 let connections = adapter.connections.read().await;
                 assert!(connections.contains_key("storage"));

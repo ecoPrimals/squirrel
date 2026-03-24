@@ -621,8 +621,8 @@ mod tests {
         };
         
         // Connect both sides
-        client.connect().await.unwrap();
-        server.connect().await.unwrap();
+        client.connect().await.expect("should succeed");
+        server.connect().await.expect("should succeed");
         
         // Check that both are connected
         assert!(client.is_connected().await);
@@ -634,13 +634,13 @@ mod tests {
             serde_json::json!({ "action": "test", "value": 42 }),
         );
         
-        client.send_message(client_msg.clone()).await.unwrap();
+        client.send_message(client_msg.clone()).await.expect("should succeed");
         
         // Receive on server side with timeout (increase timeout to 10 seconds)
         let received = tokio::time::timeout(
             Duration::from_secs(10), 
             server.receive_message()
-        ).await.unwrap().unwrap();
+        ).await.expect("should succeed").expect("should succeed");
         
         // Verify contents
         assert_eq!(received.id, client_msg.id);
@@ -660,13 +660,13 @@ mod tests {
             serde_json::json!({ "result": "ok" }),
         );
         
-        server.send_message(server_msg.clone()).await.unwrap();
+        server.send_message(server_msg.clone()).await.expect("should succeed");
         
         // Receive on client side (increase timeout to 10 seconds)
         let received = tokio::time::timeout(
             Duration::from_secs(10), 
             client.receive_message()
-        ).await.unwrap().unwrap();
+        ).await.expect("should succeed").expect("should succeed");
         
         // Verify message contents
         assert_eq!(received.id, server_msg.id);
@@ -757,8 +757,8 @@ mod tests {
         };
         
         // Connect both sides
-        client.connect().await.unwrap();
-        server.connect().await.unwrap();
+        client.connect().await.expect("should succeed");
+        server.connect().await.expect("should succeed");
         
         // Test direct latency application
         let start = tokio::time::Instant::now();
@@ -779,13 +779,13 @@ mod tests {
         let start = tokio::time::Instant::now();
         
         // Send the message (should apply latency internally)
-        client.send_message(client_msg.clone()).await.unwrap();
+        client.send_message(client_msg.clone()).await.expect("should succeed");
         
         // Receive with extended timeout
         let _ = tokio::time::timeout(
             Duration::from_secs(10),
             server.receive_message()
-        ).await.unwrap().unwrap();
+        ).await.expect("should succeed").expect("should succeed");
         
         let elapsed = start.elapsed();
         

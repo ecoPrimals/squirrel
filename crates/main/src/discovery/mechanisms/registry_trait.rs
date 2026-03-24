@@ -246,7 +246,10 @@ mod tests {
 
         assert_eq!(provider.provider_name(), "test");
         assert!(provider.health_check().await);
-        assert_eq!(provider.discover_all().await.unwrap().len(), 0);
+        assert_eq!(
+            provider.discover_all().await.expect("should succeed").len(),
+            0
+        );
     }
 
     #[tokio::test]

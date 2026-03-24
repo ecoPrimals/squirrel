@@ -536,10 +536,11 @@ mod tests {
     use tempfile::tempdir;
 
     fn create_test_history() -> Arc<CommandHistory> {
-        let dir = tempdir().unwrap();
+        let dir = tempdir().expect("should succeed");
         let history_file = dir.path().join("test-history.json");
 
-        let history = Arc::new(CommandHistory::with_options(100, &history_file).unwrap());
+        let history =
+            Arc::new(CommandHistory::with_options(100, &history_file).expect("should succeed"));
 
         // Add some test entries
         history
@@ -550,7 +551,7 @@ mod tests {
                 None,
                 None,
             )
-            .unwrap();
+            .expect("should succeed");
 
         history
             .add(
@@ -560,7 +561,7 @@ mod tests {
                 None,
                 None,
             )
-            .unwrap();
+            .expect("should succeed");
 
         history
             .add(
@@ -570,7 +571,7 @@ mod tests {
                 None,
                 None,
             )
-            .unwrap();
+            .expect("should succeed");
 
         history
             .add(
@@ -580,7 +581,7 @@ mod tests {
                 None,
                 None,
             )
-            .unwrap();
+            .expect("should succeed");
 
         history
             .add(
@@ -590,7 +591,7 @@ mod tests {
                 None,
                 None,
             )
-            .unwrap();
+            .expect("should succeed");
 
         // Add a command sequence pattern: git status followed by git commit
         history
@@ -601,7 +602,7 @@ mod tests {
                 None,
                 None,
             )
-            .unwrap();
+            .expect("should succeed");
 
         history
             .add(
@@ -611,7 +612,7 @@ mod tests {
                 None,
                 None,
             )
-            .unwrap();
+            .expect("should succeed");
 
         history
     }
@@ -656,11 +657,13 @@ mod tests {
         let suggestions = CommandSuggestions::new(history);
 
         // Update patterns
-        suggestions.update_patterns().unwrap();
+        suggestions.update_patterns().expect("should succeed");
 
         // Get suggestions with no context
         let context = SuggestionContext::default();
-        let results = suggestions.get_suggestions(&context).unwrap();
+        let results = suggestions
+            .get_suggestions(&context)
+            .expect("should succeed");
 
         // Should have some suggestions
         assert!(!results.is_empty());
@@ -672,10 +675,10 @@ mod tests {
         let suggestions = CommandSuggestions::new(history);
 
         // Update patterns
-        suggestions.update_patterns().unwrap();
+        suggestions.update_patterns().expect("should succeed");
 
         // Get completions for "g"
-        let completions = suggestions.get_completions("g").unwrap();
+        let completions = suggestions.get_completions("g").expect("should succeed");
 
         // Should contain "git"
         assert!(completions.contains(&"git".to_string()));
@@ -690,12 +693,14 @@ mod tests {
         let suggestions = CommandSuggestions::new(history);
 
         // Update patterns
-        suggestions.update_patterns().unwrap();
+        suggestions.update_patterns().expect("should succeed");
 
         // Create context with previous command
         let context = SuggestionContext::default().with_previous_command("git status");
 
-        let results = suggestions.get_suggestions(&context).unwrap();
+        let results = suggestions
+            .get_suggestions(&context)
+            .expect("should succeed");
 
         // Git commit should be one of the high-ranking suggestions
         let has_git_commit = results
@@ -711,10 +716,12 @@ mod tests {
         let suggestions = CommandSuggestions::new(history);
 
         // Update patterns
-        suggestions.update_patterns().unwrap();
+        suggestions.update_patterns().expect("should succeed");
 
         // Get argument suggestions for "git"
-        let arg_suggestions = suggestions.get_argument_suggestions("git").unwrap();
+        let arg_suggestions = suggestions
+            .get_argument_suggestions("git")
+            .expect("should succeed");
 
         // Should have some argument patterns
         assert!(!arg_suggestions.is_empty());

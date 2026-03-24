@@ -441,19 +441,25 @@ mod tests {
         let mut config = PrimalConfig::default();
 
         // Test setting and getting custom values
-        config.set_custom("test_string", "hello").unwrap();
-        config.set_custom("test_number", 42).unwrap();
-        config.set_custom("test_bool", true).unwrap();
+        config
+            .set_custom("test_string", "hello")
+            .expect("should succeed");
+        config
+            .set_custom("test_number", 42)
+            .expect("should succeed");
+        config
+            .set_custom("test_bool", true)
+            .expect("should succeed");
 
-        let string_val: Option<String> = config.get_custom("test_string").unwrap();
-        let number_val: Option<i32> = config.get_custom("test_number").unwrap();
-        let bool_val: Option<bool> = config.get_custom("test_bool").unwrap();
+        let string_val: Option<String> = config.get_custom("test_string").expect("should succeed");
+        let number_val: Option<i32> = config.get_custom("test_number").expect("should succeed");
+        let bool_val: Option<bool> = config.get_custom("test_bool").expect("should succeed");
 
         assert_eq!(string_val, Some("hello".to_string()));
         assert_eq!(number_val, Some(42));
         assert_eq!(bool_val, Some(true));
 
-        let missing_val: Option<String> = config.get_custom("missing").unwrap();
+        let missing_val: Option<String> = config.get_custom("missing").expect("should succeed");
         assert_eq!(missing_val, None);
     }
 
@@ -523,7 +529,10 @@ mod tests {
         // Get instance
         let retrieved = config.get_instance("test");
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().instance_id, "test-instance");
+        assert_eq!(
+            retrieved.expect("should succeed").instance_id,
+            "test-instance"
+        );
 
         // Remove instance
         let removed = config.remove_instance("test");

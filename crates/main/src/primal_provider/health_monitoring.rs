@@ -389,8 +389,8 @@ mod health_monitoring_tests {
         let p = test_provider().await;
         let h = HealthReporting::generate_health_report(&p);
         assert!(h.healthy);
-        let d = h.details.unwrap();
-        let obj = d.as_object().unwrap();
+        let d = h.details.expect("should succeed");
+        let obj = d.as_object().expect("should succeed");
         assert!(obj.contains_key("uptime"));
         assert!(obj.contains_key("memory_usage"));
     }
@@ -412,14 +412,14 @@ mod health_monitoring_tests {
     #[tokio::test]
     async fn perform_health_check_returns_bool() {
         let p = test_provider().await;
-        let _ok: bool = p.perform_health_check().await.unwrap();
+        let _ok: bool = p.perform_health_check().await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn report_health_records_without_error() {
         let p = test_provider().await;
         let h = p.health_check().await;
-        p.report_health(h).await.unwrap();
+        p.report_health(h).await.expect("should succeed");
     }
 
     #[tokio::test]

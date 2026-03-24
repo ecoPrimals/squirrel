@@ -389,7 +389,7 @@ mod context_analysis_tests {
                 "analysis_type": "full"
             }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(
             full.get("analysis_type").and_then(|v| v.as_str()),
             Some("full")

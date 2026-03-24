@@ -191,7 +191,7 @@ mod tests {
         let result = mdns.discover_by_capability("ai").await;
         assert!(result.is_ok());
         // Graceful fallback returns empty vec
-        assert_eq!(result.unwrap().len(), 0);
+        assert_eq!(result.expect("should succeed").len(), 0);
     }
 
     #[tokio::test]
@@ -222,7 +222,7 @@ mod tests {
 
         let result = mdns.discover_by_capability("ai").await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 0);
+        assert_eq!(result.expect("should succeed").len(), 0);
     }
 
     #[test]
@@ -233,7 +233,7 @@ mod tests {
 
         let service = MdnsDiscovery::parse_mdns_response(
             "squirrel-ai".to_string(),
-            "192.168.1.100".parse().unwrap(),
+            "192.168.1.100".parse().expect("should succeed"),
             9200,
             txt_records,
         );

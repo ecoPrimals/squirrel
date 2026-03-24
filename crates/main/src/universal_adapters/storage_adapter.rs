@@ -564,7 +564,7 @@ mod tests {
         adapter
             .coordinate_storage("store", serde_json::json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         let m = adapter.get_storage_metrics().await.expect("metrics");
         assert_eq!(m["storage_service"], "Test Storage");
     }
@@ -585,7 +585,7 @@ mod tests {
         adapter
             .coordinate_storage("store", serde_json::json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         adapter.rediscover_storage_services().await.expect("redisc");
         assert!(adapter.get_current_storage_service().is_some());
     }
@@ -620,7 +620,9 @@ mod tests {
         let reg = Arc::new(InMemoryServiceRegistry::new());
         let reg_data = test_storage_registration();
         let sid = reg_data.service_id.to_string();
-        reg.register_service(reg_data).await.unwrap();
+        reg.register_service(reg_data)
+            .await
+            .expect("should succeed");
         reg.update_service_health(
             &sid,
             ServiceHealth {
@@ -630,12 +632,12 @@ mod tests {
             },
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         let mut adapter = UniversalStorageAdapter::new(reg);
         adapter
             .coordinate_storage("store", serde_json::json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!adapter.is_healthy().await);
     }
 

@@ -40,7 +40,7 @@ mod minimal_core_tests {
         let error = MCPError::Validation("test".to_string());
         match error {
             MCPError::Validation(msg) => assert_eq!(msg, "test"),
-            _ => panic!("Wrong error type"),
+            _ => unreachable!("Wrong error type"),
         }
     }
 

@@ -101,40 +101,54 @@ mod tests {
     #[test]
     fn test_from_str_all_variants() {
         assert_eq!(
-            "context_state".parse::<VisualizationType>().unwrap(),
+            "context_state"
+                .parse::<VisualizationType>()
+                .expect("should succeed"),
             VisualizationType::ContextState
         );
         assert_eq!(
             "rule_dependency_graph"
                 .parse::<VisualizationType>()
-                .unwrap(),
+                .expect("should succeed"),
             VisualizationType::RuleDependencyGraph
         );
         assert_eq!(
-            "timeline".parse::<VisualizationType>().unwrap(),
+            "timeline"
+                .parse::<VisualizationType>()
+                .expect("should succeed"),
             VisualizationType::Timeline
         );
         assert_eq!(
-            "metrics_dashboard".parse::<VisualizationType>().unwrap(),
+            "metrics_dashboard"
+                .parse::<VisualizationType>()
+                .expect("should succeed"),
             VisualizationType::MetricsDashboard
         );
         assert_eq!(
-            "state_diff".parse::<VisualizationType>().unwrap(),
+            "state_diff"
+                .parse::<VisualizationType>()
+                .expect("should succeed"),
             VisualizationType::StateDiff
         );
         assert_eq!(
-            "performance_heatmap".parse::<VisualizationType>().unwrap(),
+            "performance_heatmap"
+                .parse::<VisualizationType>()
+                .expect("should succeed"),
             VisualizationType::PerformanceHeatmap
         );
         assert_eq!(
-            "interactive_graph".parse::<VisualizationType>().unwrap(),
+            "interactive_graph"
+                .parse::<VisualizationType>()
+                .expect("should succeed"),
             VisualizationType::InteractiveGraph
         );
     }
 
     #[test]
     fn test_from_str_custom() {
-        let result = "my_custom_viz".parse::<VisualizationType>().unwrap();
+        let result = "my_custom_viz"
+            .parse::<VisualizationType>()
+            .expect("should succeed");
         assert_eq!(
             result,
             VisualizationType::Custom("my_custom_viz".to_string())
@@ -156,7 +170,7 @@ mod tests {
 
         for variant in variants {
             let s = variant.to_string();
-            let parsed: VisualizationType = s.parse().unwrap();
+            let parsed: VisualizationType = s.parse().expect("should succeed");
             assert_eq!(parsed, variant);
         }
     }

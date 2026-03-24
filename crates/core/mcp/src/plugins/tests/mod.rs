@@ -262,7 +262,7 @@ async fn test_plugin_registration() -> Result<()> {
     assert!(plugin_manager.has_plugin(plugin_id.clone()).await);
     
     // Get the plugin by ID
-    let retrieved_plugin = plugin_manager.get_plugin_by_id(plugin_id.clone()).await?.unwrap();
+    let retrieved_plugin = plugin_manager.get_plugin_by_id(plugin_id.clone()).await?.expect("should succeed");
     let metadata = retrieved_plugin.metadata();
     assert_eq!(metadata.id, plugin_id);
     

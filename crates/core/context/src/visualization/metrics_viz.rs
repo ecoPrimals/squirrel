@@ -118,7 +118,7 @@ impl MetricsVisualizer {
             // Execution time categorization
             for (min_time, max_time, label) in &time_bands {
                 if impact.avg_execution_time_us >= *min_time && impact.avg_execution_time_us < *max_time {
-                    *time_counters.get_mut(label).unwrap() += 1;
+                    *time_counters.get_mut(label).expect("example") += 1;
                     break;
                 }
             }
@@ -126,7 +126,7 @@ impl MetricsVisualizer {
             // Success rate categorization
             for (min_rate, max_rate, label) in &success_bands {
                 if impact.success_rate >= *min_rate && impact.success_rate < *max_rate {
-                    *success_counters.get_mut(label).unwrap() += 1;
+                    *success_counters.get_mut(label).expect("example") += 1;
                     break;
                 }
             }
@@ -134,7 +134,7 @@ impl MetricsVisualizer {
             // Usage frequency categorization
             for (min_usage, max_usage, label) in &usage_bands {
                 if impact.apply_count >= *min_usage && impact.apply_count < *max_usage {
-                    *usage_counters.get_mut(label).unwrap() += 1;
+                    *usage_counters.get_mut(label).expect("example") += 1;
                     break;
                 }
             }
@@ -544,7 +544,7 @@ mod tests {
         let result = visualizer.render_dashboard(&metrics, VisualizationFormat::Json).await;
         assert!(result.is_ok());
         
-        let rendered = result.unwrap();
+        let rendered = result.expect("should succeed");
         assert!(rendered.contains("metrics_dashboard"));
         assert!(rendered.contains("100"));
     }
@@ -609,7 +609,7 @@ mod tests {
         
         let health_data = visualizer.calculate_system_health(&metrics, &rule_impacts);
         
-        assert!(health_data["overall_score"].as_f64().unwrap() > 0.0);
+        assert!(health_data["overall_score"].as_f64().expect("should succeed") > 0.0);
         assert!(health_data["health_status"].as_str().is_some());
         assert!(health_data["recommendations"].is_array());
     }

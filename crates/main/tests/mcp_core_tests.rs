@@ -108,7 +108,7 @@ mod core_functionality {
         let error = MCPError::Validation("test message".to_string());
         match error {
             MCPError::Validation(msg) => assert_eq!(msg, "test message"),
-            _ => panic!("Wrong error variant"),
+            _ => unreachable!("Wrong error variant"),
         }
     }
 

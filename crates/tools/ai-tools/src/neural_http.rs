@@ -235,8 +235,8 @@ mod tests {
             headers: vec![("a".to_string(), "b".to_string())],
             body: None,
         };
-        let j = serde_json::to_string(&req).unwrap();
-        let back: HttpRequest = serde_json::from_str(&j).unwrap();
+        let j = serde_json::to_string(&req).expect("should succeed");
+        let back: HttpRequest = serde_json::from_str(&j).expect("should succeed");
         assert_eq!(back.method, "GET");
 
         let res = HttpResponse {
@@ -244,8 +244,8 @@ mod tests {
             headers: vec![("X-Foo".to_string(), "bar".to_string())],
             body: "{}".to_string(),
         };
-        let j2 = serde_json::to_string(&res).unwrap();
-        let back2: HttpResponse = serde_json::from_str(&j2).unwrap();
+        let j2 = serde_json::to_string(&res).expect("should succeed");
+        let back2: HttpResponse = serde_json::from_str(&j2).expect("should succeed");
         assert_eq!(back2.status, 201);
     }
 

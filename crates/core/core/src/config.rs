@@ -154,8 +154,8 @@ mod tests {
 
     #[test]
     fn ecosystem_mode_variants_are_distinct_in_json() {
-        let standalone = serde_json::to_string(&EcosystemMode::Standalone).unwrap();
-        let sovereign = serde_json::to_string(&EcosystemMode::Sovereign).unwrap();
+        let standalone = serde_json::to_string(&EcosystemMode::Standalone).expect("should succeed");
+        let sovereign = serde_json::to_string(&EcosystemMode::Sovereign).expect("should succeed");
         assert_ne!(standalone, sovereign);
     }
 }

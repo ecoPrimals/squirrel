@@ -40,7 +40,7 @@ async fn test_adapter_initialization() {
     assert!(!adapter.is_initialized().await);
 
     // Initialize it
-    adapter.initialize().await.unwrap();
+    adapter.initialize().await.expect("should succeed");
 
     // Now it should be initialized
     assert!(adapter.is_initialized().await);
@@ -64,7 +64,7 @@ async fn test_adapter_with_config() {
     adapter
         .initialize_with_config(config.clone())
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Check the config was set
     let adapter_config = adapter.get_config().await;
@@ -106,14 +106,14 @@ async fn test_uninitialized_operations() {
 async fn test_handler_registration() {
     // Create and initialize adapter
     let adapter = MCPProtocolAdapter::new();
-    adapter.initialize().await.unwrap();
+    adapter.initialize().await.expect("should succeed");
 
     // Register a handler
     let handler = Box::new(TestCommandHandler);
     adapter
         .register_handler(MessageType::Command, handler)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Create a test message for the registered handler
     let message = MCPMessage {
@@ -128,7 +128,7 @@ async fn test_handler_registration() {
     };
 
     // Handle the message
-    let response = adapter.handle_message(message).await.unwrap();
+    let response = adapter.handle_message(message).await.expect("should succeed");
 
     // Verify response
     assert_eq!(response.status, crate::types::ResponseStatus::Success);
@@ -148,7 +148,7 @@ async fn test_factory_functions() {
     assert!(adapter2.is_initialized().await);
 
     // Test initialized creation
-    let adapter3 = create_initialized_protocol_adapter().await.unwrap();
+    let adapter3 = create_initialized_protocol_adapter().await.expect("should succeed");
     assert!(adapter3.is_initialized().await);
 
     // Test creation with config
@@ -159,7 +159,7 @@ async fn test_factory_functions() {
     };
     let adapter4 = create_protocol_adapter_with_config(custom_config)
         .await
-        .unwrap();
+        .expect("should succeed");
     assert!(adapter4.is_initialized().await);
 
     let config4 = adapter4.get_config().await;
@@ -170,7 +170,7 @@ async fn test_factory_functions() {
 async fn test_state_management() {
     // Create and initialize adapter
     let adapter = MCPProtocolAdapter::new();
-    adapter.initialize().await.unwrap();
+    adapter.initialize().await.expect("should succeed");
 
     // Default state should be null
     let state = adapter.get_state().await;
@@ -192,14 +192,14 @@ async fn test_state_management() {
 async fn test_adapter_cloning() {
     // Create and initialize adapter
     let adapter = MCPProtocolAdapter::new();
-    adapter.initialize().await.unwrap();
+    adapter.initialize().await.expect("should succeed");
 
     // Register a handler
     let handler = Box::new(TestCommandHandler);
     adapter
         .register_handler(MessageType::Command, handler)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Clone the adapter
     let adapter_clone = adapter.clone();
@@ -224,8 +224,8 @@ async fn test_adapter_cloning() {
         trace_id: None,
     };
 
-    let response1 = adapter.handle_message(message.clone()).await.unwrap();
-    let response2 = adapter_clone.handle_message(message).await.unwrap();
+    let response1 = adapter.handle_message(message.clone()).await.expect("should succeed");
+    let response2 = adapter_clone.handle_message(message).await.expect("should succeed");
 
     assert_eq!(response1.status, response2.status);
 }

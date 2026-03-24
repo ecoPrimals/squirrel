@@ -650,7 +650,7 @@ mod tests {
         let monitoring_system = MonitoringSystem::new(config);
         let result = monitoring_system.get_component_metrics("nonexistent").await;
         assert!(result.is_ok());
-        let metrics = result.unwrap();
+        let metrics = result.expect("should succeed");
         assert!(metrics.is_empty());
     }
 
@@ -668,7 +668,7 @@ mod tests {
         let monitoring_system = MonitoringSystem::new(config);
         let result = monitoring_system.get_performance_summary().await;
         assert!(result.is_ok());
-        let summary = result.unwrap();
+        let summary = result.expect("should succeed");
         // Performance tracker may collect real system metrics
         assert!(summary.cpu_usage >= 0.0 && summary.cpu_usage <= 100.0);
     }
@@ -679,7 +679,7 @@ mod tests {
         let monitoring_system = MonitoringSystem::new(config);
         let result = monitoring_system.get_active_alerts().await;
         assert!(result.is_ok());
-        let alerts = result.unwrap();
+        let alerts = result.expect("should succeed");
         assert!(alerts.is_empty());
     }
 

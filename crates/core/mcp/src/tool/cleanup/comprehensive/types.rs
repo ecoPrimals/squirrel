@@ -282,7 +282,7 @@ mod tests {
         let strategy = CleanupStrategy::normal(1000);
         match strategy {
             CleanupStrategy::Normal { timeout_ms } => assert_eq!(timeout_ms, 1000),
-            _ => panic!("Expected Normal strategy"),
+            _ => unreachable!("Expected Normal strategy"),
         }
     }
     

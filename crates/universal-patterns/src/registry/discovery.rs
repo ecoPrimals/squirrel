@@ -404,22 +404,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_scan_directory_missing_dir_returns_empty() {
-        let dir = TempDir::new().unwrap();
+        let dir = TempDir::new().expect("should succeed");
         let missing = dir.path().join("nonexistent_subdir");
         let discovery = PrimalDiscovery::with_config(DiscoveryConfig {
             socket_dirs: vec![missing],
             ..DiscoveryConfig::default()
         });
-        let out = discovery.discover_all().await.unwrap();
+        let out = discovery.discover_all().await.expect("should succeed");
         assert!(out.is_empty());
     }
 
     #[cfg(unix)]
     #[tokio::test]
     async fn test_discover_all_finds_listening_unix_socket() {
-        let dir = TempDir::new().unwrap();
+        let dir = TempDir::new().expect("should succeed");
         let socket_path = dir.path().join("probe-me.sock");
-        let _listener = tokio::net::UnixListener::bind(&socket_path).unwrap();
+        let _listener = tokio::net::UnixListener::bind(&socket_path).expect("should succeed");
 
         let discovery = PrimalDiscovery::with_config(DiscoveryConfig {
             socket_dirs: vec![dir.path().to_path_buf()],
@@ -428,7 +428,7 @@ mod tests {
             ..DiscoveryConfig::default()
         });
 
-        let found = discovery.discover_all().await.unwrap();
+        let found = discovery.discover_all().await.expect("should succeed");
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].id, "probe");
     }
@@ -436,12 +436,15 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn test_probe_socket_rejects_non_socket_file() {
-        let dir = TempDir::new().unwrap();
+        let dir = TempDir::new().expect("should succeed");
         let path = dir.path().join("fake.sock");
-        std::fs::write(&path, b"not-a-socket").unwrap();
+        std::fs::write(&path, b"not-a-socket").expect("should succeed");
 
         let discovery = PrimalDiscovery::new();
-        let result = discovery.probe_socket_for_test(&path).await.unwrap();
+        let result = discovery
+            .probe_socket_for_test(&path)
+            .await
+            .expect("should succeed");
         assert!(
             matches!(result.status, DiscoveryStatus::ProbeFailed(_)),
             "expected ProbeFailed, got {:?}",

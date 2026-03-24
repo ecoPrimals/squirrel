@@ -55,18 +55,18 @@ impl TestComponent {
         if count < self.fail_count.load(Ordering::Relaxed) {
             Err(Box::new(TestError(format!("Operation {} failed (attempt {})", self.id, count + 1))))
         } else {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock().expect("should succeed");
             *state = format!("success-{}", count + 1);
             Ok(state.clone())
         }
     }
     
     fn get_state(&self) -> String {
-        self.state.lock().unwrap().clone()
+        self.state.lock().expect("should succeed").clone()
     }
     
     fn set_state(&self, new_state: &str) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().expect("should succeed");
         *state = new_state.to_string();
     }
     
@@ -231,7 +231,7 @@ async fn test_circuit_breaker_opens_with_too_many_failures() {
     assert!(result3.is_err());
     match result3 {
         Err(ResilienceError::CircuitOpen(_)) => (),
-        _ => panic!("Expected CircuitOpen error"),
+        _ => unreachable!("Expected CircuitOpen error"),
     }
 }
 
@@ -286,14 +286,14 @@ async fn test_health_monitoring() {
     health_monitor.register(health_check);
     
     // Initial health should be unhealthy (initial state)
-    let result = health_monitor.check_component("test-component-4").await.unwrap();
+    let result = health_monitor.check_component("test-component-4").await.expect("should succeed");
     assert_eq!(result.status, HealthStatus::Unhealthy);
     
     // Update state to healthy
-    component.operate().unwrap();
+    component.operate().expect("should succeed");
     
     // Now health should be healthy
-    let result = health_monitor.check_component("test-component-4").await.unwrap();
+    let result = health_monitor.check_component("test-component-4").await.expect("should succeed");
     assert_eq!(result.status, HealthStatus::Healthy);
     
     // Test operation with health monitoring
@@ -309,7 +309,7 @@ async fn test_health_monitoring() {
     component.set_state("broken");
     
     // Update health status
-    health_monitor.check_component("test-component-4").await.unwrap();
+    health_monitor.check_component("test-component-4").await.expect("should succeed");
     
     // Operation should be prevented
     let operation_result = with_health_monitoring(
@@ -466,9 +466,9 @@ async fn test_complex_failure_scenario() {
     api_service.set_state("degraded-db-dependency");
     
     // 3. Update health status
-    health_monitor.check_component("database").await.unwrap();
-    health_monitor.check_component("api-service").await.unwrap();
-    health_monitor.check_component("user-service").await.unwrap();
+    health_monitor.check_component("database").await.expect("should succeed");
+    health_monitor.check_component("api-service").await.expect("should succeed");
+    health_monitor.check_component("user-service").await.expect("should succeed");
     
     // 4. Attempt recovery on database
     let db_recovery_result = with_recovery(

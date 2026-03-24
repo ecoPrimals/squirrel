@@ -216,8 +216,8 @@ mod tests {
     #[test]
     fn plugin_metadata_serde_roundtrip() {
         let m = PluginMetadata::new("x", "0.1.0", "desc", "auth");
-        let j = serde_json::to_string(&m).unwrap();
-        let back: PluginMetadata = serde_json::from_str(&j).unwrap();
+        let j = serde_json::to_string(&m).expect("should succeed");
+        let back: PluginMetadata = serde_json::from_str(&j).expect("should succeed");
         assert_eq!(back.name, m.name);
         assert_eq!(back.id, m.id);
     }
@@ -240,8 +240,8 @@ mod tests {
             PluginStatus::Unloaded,
             PluginStatus::Failed,
         ] {
-            let j = serde_json::to_string(&s).unwrap();
-            let back: PluginStatus = serde_json::from_str(&j).unwrap();
+            let j = serde_json::to_string(&s).expect("should succeed");
+            let back: PluginStatus = serde_json::from_str(&j).expect("should succeed");
             assert_eq!(back, s);
         }
     }
@@ -253,8 +253,8 @@ mod tests {
             method: "GET".to_string(),
             permissions: vec!["p".to_string()],
         };
-        let j = serde_json::to_string(&e).unwrap();
-        let back: WebEndpoint = serde_json::from_str(&j).unwrap();
+        let j = serde_json::to_string(&e).expect("should succeed");
+        let back: WebEndpoint = serde_json::from_str(&j).expect("should succeed");
         assert_eq!(back.path, e.path);
         assert_eq!(back.method, e.method);
     }

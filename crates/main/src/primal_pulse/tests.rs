@@ -34,7 +34,13 @@ mod primal_pulse_tests {
         });
 
         assert_eq!(graph.nodes.len(), 1);
-        assert_eq!(graph.get_node("squirrel").unwrap().primal_name, "squirrel");
+        assert_eq!(
+            graph
+                .get_node("squirrel")
+                .expect("should succeed")
+                .primal_name,
+            "squirrel"
+        );
     }
 
     #[test]

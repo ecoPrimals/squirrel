@@ -343,11 +343,11 @@ mod tests {
     #[test]
     fn test_extract_token_from_header() {
         let config = CapabilityJwtConfig::default();
-        let client = DelegatedJwtClient::new(config).unwrap();
+        let client = DelegatedJwtClient::new(config).expect("should succeed");
 
         let token = client
             .extract_token_from_header("Bearer my-jwt-token-123")
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(token, "my-jwt-token-123");
 
         let err = client.extract_token_from_header("Basic credentials");
@@ -362,18 +362,18 @@ mod tests {
         use tokio::io::BufReader;
         use tokio::net::UnixListener;
 
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let socket_path = dir.path().join("delegated-jwt-mock.sock");
         let path_str = socket_path.to_string_lossy().to_string();
 
-        let listener = UnixListener::bind(&socket_path).unwrap();
+        let listener = UnixListener::bind(&socket_path).expect("should succeed");
 
         let server_handle = tokio::spawn(async move {
-            let (stream1, _) = listener.accept().await.unwrap();
+            let (stream1, _) = listener.accept().await.expect("should succeed");
             let mut reader = BufReader::new(stream1);
             let mut line = String::new();
-            reader.read_line(&mut line).await.unwrap();
-            let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+            reader.read_line(&mut line).await.expect("should succeed");
+            let req: serde_json::Value = serde_json::from_str(&line).expect("should succeed");
             assert_eq!(req["method"], "crypto.sign");
             let sig_b64 =
                 base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &[0u8; 64][..]);
@@ -386,14 +386,14 @@ mod tests {
             stream
                 .write_all(response.to_string().as_bytes())
                 .await
-                .unwrap();
-            stream.write_all(b"\n").await.unwrap();
+                .expect("should succeed");
+            stream.write_all(b"\n").await.expect("should succeed");
 
-            let (stream2, _) = listener.accept().await.unwrap();
+            let (stream2, _) = listener.accept().await.expect("should succeed");
             let mut reader2 = BufReader::new(stream2);
             let mut line2 = String::new();
-            reader2.read_line(&mut line2).await.unwrap();
-            let req2: serde_json::Value = serde_json::from_str(&line2).unwrap();
+            reader2.read_line(&mut line2).await.expect("should succeed");
+            let req2: serde_json::Value = serde_json::from_str(&line2).expect("should succeed");
             assert_eq!(req2["method"], "crypto.verify");
             let response2 = serde_json::json!({
                 "jsonrpc": "2.0",
@@ -404,8 +404,8 @@ mod tests {
             stream2
                 .write_all(response2.to_string().as_bytes())
                 .await
-                .unwrap();
-            stream2.write_all(b"\n").await.unwrap();
+                .expect("should succeed");
+            stream2.write_all(b"\n").await.expect("should succeed");
         });
 
         let config = CapabilityJwtConfig {
@@ -416,7 +416,7 @@ mod tests {
             key_id: identity::JWT_SIGNING_KEY_ID.to_string(),
             expiry_hours: 24,
         };
-        let client = DelegatedJwtClient::new(config).unwrap();
+        let client = DelegatedJwtClient::new(config).expect("should succeed");
 
         let user_id = Uuid::new_v4();
         let session_id = Uuid::new_v4();
@@ -431,11 +431,11 @@ mod tests {
                 expires_at,
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert!(token.contains('.'));
 
-        let claims = client.verify_token(&token).await.unwrap();
+        let claims = client.verify_token(&token).await.expect("should succeed");
         let _ = server_handle.await;
         assert_eq!(claims.username, "delegated-user");
         assert_eq!(claims.sub, user_id.to_string());
@@ -447,7 +447,7 @@ mod tests {
     #[ignore = "requires crypto capability provider running"]
     async fn test_create_and_verify_token_integration() {
         // Socket path from capability discovery (NOT hardcoded!)
-        let client = DelegatedJwtClient::new_from_env().unwrap();
+        let client = DelegatedJwtClient::new_from_env().expect("should succeed");
 
         let user_id = Uuid::new_v4();
         let session_id = Uuid::new_v4();
@@ -462,9 +462,9 @@ mod tests {
                 expires_at,
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let claims = client.verify_token(&token).await.unwrap();
+        let claims = client.verify_token(&token).await.expect("should succeed");
 
         assert_eq!(claims.username, "alice");
         assert_eq!(claims.sub, user_id.to_string());

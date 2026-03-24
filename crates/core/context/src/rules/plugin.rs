@@ -153,8 +153,15 @@ mod tests {
     async fn register_and_get_condition_evaluator() {
         let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
         mgr.register_condition_evaluator("ce1", TrueEvaluator).await;
-        let ev = mgr.get_condition_evaluator("ce1").await.unwrap();
-        assert!(ev.evaluate(&json!({}), &json!({})).await.unwrap());
+        let ev = mgr
+            .get_condition_evaluator("ce1")
+            .await
+            .expect("should succeed");
+        assert!(
+            ev.evaluate(&json!({}), &json!({}))
+                .await
+                .expect("should succeed")
+        );
     }
 
     #[tokio::test]
@@ -169,8 +176,14 @@ mod tests {
         let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
         mgr.register_action_executor("ae1", EchoActionExecutor)
             .await;
-        let ex = mgr.get_action_executor("ae1").await.unwrap();
-        let v = ex.execute(&json!({}), &json!({"k": 1})).await.unwrap();
+        let ex = mgr
+            .get_action_executor("ae1")
+            .await
+            .expect("should succeed");
+        let v = ex
+            .execute(&json!({}), &json!({"k": 1}))
+            .await
+            .expect("should succeed");
         assert_eq!(v["k"], 1);
     }
 

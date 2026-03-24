@@ -40,7 +40,7 @@ mod config_loader_tests {
             Err(ConfigError::Invalid(msg)) => {
                 assert!(msg.contains("Unsupported file format"));
             }
-            _ => panic!("Expected ConfigError::Invalid"),
+            _ => unreachable!("Expected ConfigError::Invalid"),
         }
     }
 

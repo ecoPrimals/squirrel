@@ -3,6 +3,7 @@
 
 #![allow(
     clippy::unwrap_used,
+    clippy::expect_used,
     clippy::semicolon_if_nothing_returned,
     clippy::explicit_iter_loop,
     clippy::cast_sign_loss,
@@ -22,14 +23,15 @@ use tokio::runtime::Runtime;
 
 /// Benchmark the comprehensive ecosystem performance
 fn ecosystem_performance_benchmark(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new().expect("should succeed");
 
     let mut group = c.benchmark_group("ecosystem_performance");
     group.measurement_time(Duration::from_secs(60));
     group.sample_size(10);
 
     // Initialize benchmarking framework
-    let benchmark_suite = rt.block_on(async { initialize_benchmarking().await.unwrap() });
+    let benchmark_suite =
+        rt.block_on(async { initialize_benchmarking().await.expect("should succeed") });
 
     // AI Intelligence benchmarks
     group.bench_function("ai_intelligence_suite", |b| {
@@ -92,12 +94,13 @@ fn ecosystem_performance_benchmark(c: &mut Criterion) {
 
 /// Benchmark individual operations with varying load
 fn operation_scaling_benchmark(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new().expect("should succeed");
 
     let mut group = c.benchmark_group("operation_scaling");
     group.measurement_time(Duration::from_secs(30));
 
-    let benchmark_suite = rt.block_on(async { initialize_benchmarking().await.unwrap() });
+    let benchmark_suite =
+        rt.block_on(async { initialize_benchmarking().await.expect("should succeed") });
 
     // Test with different operation counts
     for operation_count in [100, 500, 1000, 5000].iter() {
@@ -130,13 +133,14 @@ fn operation_scaling_benchmark(c: &mut Criterion) {
 
 /// Benchmark system under stress conditions
 fn stress_testing_benchmark(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new().expect("should succeed");
 
     let mut group = c.benchmark_group("stress_testing");
     group.measurement_time(Duration::from_secs(120));
     group.sample_size(10);
 
-    let benchmark_suite = rt.block_on(async { initialize_benchmarking().await.unwrap() });
+    let benchmark_suite =
+        rt.block_on(async { initialize_benchmarking().await.expect("should succeed") });
 
     // High-load stress test
     group.bench_function("high_load_stress", |b| {
@@ -189,12 +193,13 @@ fn stress_testing_benchmark(c: &mut Criterion) {
 
 /// Benchmark concurrent operations
 fn concurrency_benchmark(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new().expect("should succeed");
 
     let mut group = c.benchmark_group("concurrency");
     group.measurement_time(Duration::from_secs(45));
 
-    let benchmark_suite = rt.block_on(async { initialize_benchmarking().await.unwrap() });
+    let benchmark_suite =
+        rt.block_on(async { initialize_benchmarking().await.expect("should succeed") });
 
     // Test with different concurrency levels
     for concurrency in [1, 2, 4, 8, 16, 32].iter() {
@@ -229,12 +234,13 @@ fn concurrency_benchmark(c: &mut Criterion) {
 
 /// Benchmark resource utilization
 fn resource_utilization_benchmark(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new().expect("should succeed");
 
     let mut group = c.benchmark_group("resource_utilization");
     group.measurement_time(Duration::from_secs(30));
 
-    let benchmark_suite = rt.block_on(async { initialize_benchmarking().await.unwrap() });
+    let benchmark_suite =
+        rt.block_on(async { initialize_benchmarking().await.expect("should succeed") });
 
     // CPU-intensive benchmark
     group.bench_function("cpu_intensive", |b| {
@@ -288,13 +294,14 @@ fn resource_utilization_benchmark(c: &mut Criterion) {
 
 /// Benchmark end-to-end workflows
 fn end_to_end_benchmark(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new().expect("should succeed");
 
     let mut group = c.benchmark_group("end_to_end");
     group.measurement_time(Duration::from_secs(90));
     group.sample_size(10);
 
-    let benchmark_suite = rt.block_on(async { initialize_benchmarking().await.unwrap() });
+    let benchmark_suite =
+        rt.block_on(async { initialize_benchmarking().await.expect("should succeed") });
 
     // Complete AI processing workflow
     group.bench_function("ai_processing_workflow", |b| {
@@ -348,7 +355,7 @@ fn end_to_end_benchmark(c: &mut Criterion) {
 
 /// Benchmark system initialization and teardown
 fn lifecycle_benchmark(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new().expect("should succeed");
 
     let mut group = c.benchmark_group("lifecycle");
     group.measurement_time(Duration::from_secs(30));
@@ -356,7 +363,7 @@ fn lifecycle_benchmark(c: &mut Criterion) {
     // System initialization benchmark
     group.bench_function("system_initialization", |b| {
         b.to_async(&rt).iter(|| async {
-            let benchmark_suite = initialize_benchmarking().await.unwrap();
+            let benchmark_suite = initialize_benchmarking().await.expect("should succeed");
             black_box(benchmark_suite)
         })
     });
@@ -364,7 +371,7 @@ fn lifecycle_benchmark(c: &mut Criterion) {
     // System teardown benchmark
     group.bench_function("system_teardown", |b| {
         b.to_async(&rt).iter(|| async {
-            let benchmark_suite = initialize_benchmarking().await.unwrap();
+            let benchmark_suite = initialize_benchmarking().await.expect("should succeed");
             // Simulate system teardown
             tokio::time::sleep(Duration::from_millis(100)).await;
             black_box(benchmark_suite)

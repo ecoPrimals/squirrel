@@ -370,18 +370,18 @@ mod tests {
     #[test]
     async fn test_port_reservation() {
         let config = PortConfig::default();
-        let manager = PortManager::new(config).unwrap();
+        let manager = PortManager::new(config).expect("should succeed");
 
         // Test valid port reservation
-        manager.reserve_port(8080).await.unwrap();
-        assert!(manager.is_port_reserved(8080).await.unwrap());
+        manager.reserve_port(8080).await.expect("should succeed");
+        assert!(manager.is_port_reserved(8080).await.expect("should succeed"));
 
         // Test duplicate reservation
         assert!(manager.reserve_port(8080).await.is_err());
 
         // Test port release
-        manager.release_port(8080, "test_requester").await.unwrap();
-        assert!(!manager.is_port_reserved(8080).await.unwrap());
+        manager.release_port(8080, "test_requester").await.expect("should succeed");
+        assert!(!manager.is_port_reserved(8080).await.expect("should succeed"));
 
         // Test releasing non-reserved port
         assert!(manager.release_port(8080, "test_requester").await.is_err());

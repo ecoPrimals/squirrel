@@ -24,7 +24,7 @@ fn test_discovery_from_environment_variable() {
             ("STORAGE_ENDPOINT", Some("http://localhost:8002")),
         ],
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let engine = RuntimeDiscoveryEngine::new();
 
@@ -52,7 +52,7 @@ fn test_discovery_from_environment_variable() {
 #[test]
 fn test_discovery_capability_not_found() {
     temp_env::with_var_unset("NONEXISTENT_CAPABILITY_ENDPOINT", || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         rt.block_on(async {
             let engine = RuntimeDiscoveryEngine::new();
             let result = engine.discover_capability("nonexistent.capability").await;
@@ -93,7 +93,7 @@ fn test_capability_resolver_with_dots_in_name() {
         "AI_INFERENCE_ENDPOINT",
         Some("http://localhost:9000"),
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let resolver = CapabilityResolver::new();
                 let request = squirrel::discovery::CapabilityRequest::new("ai.inference");
@@ -101,7 +101,7 @@ fn test_capability_resolver_with_dots_in_name() {
                 let result = resolver.discover_provider(request).await;
 
                 assert!(result.is_ok());
-                let service = result.unwrap();
+                let service = result.expect("should succeed");
                 assert_eq!(service.endpoint, "http://localhost:9000");
             });
         },
@@ -168,7 +168,7 @@ async fn test_discovered_service_capability_matching() {
 #[test]
 fn test_runtime_discovery_engine_caching() {
     temp_env::with_var("CACHE_TEST_ENDPOINT", Some("http://localhost:7777"), || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
         rt.block_on(async {
             let engine = RuntimeDiscoveryEngine::new();
 
@@ -202,13 +202,13 @@ fn test_discovery_with_complex_endpoint() {
 
     for (env_value, expected_endpoint) in test_cases {
         temp_env::with_var("COMPLEX_ENDPOINT", Some(env_value), || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(async {
                 let engine = RuntimeDiscoveryEngine::new();
                 let result = engine.discover_capability("complex").await;
 
                 assert!(result.is_ok(), "Failed for endpoint: {env_value}");
-                let service = result.unwrap();
+                let service = result.expect("should succeed");
                 assert_eq!(service.endpoint, expected_endpoint);
             });
         });

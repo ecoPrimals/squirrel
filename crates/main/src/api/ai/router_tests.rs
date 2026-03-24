@@ -167,7 +167,10 @@ async fn generate_text_routes_to_mock_and_returns_echo() {
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-    let out = router.generate_text(req, None).await.unwrap();
+    let out = router
+        .generate_text(req, None)
+        .await
+        .expect("should succeed");
     assert_eq!(out.text, "echo:hello");
     assert_eq!(out.provider_id, "mock-text");
 }
@@ -210,8 +213,8 @@ fn text_generation_request_serde_round_trip() {
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-    let v = serde_json::to_value(&req).unwrap();
-    let back: TextGenerationRequest = serde_json::from_value(v).unwrap();
+    let v = serde_json::to_value(&req).expect("should succeed");
+    let back: TextGenerationRequest = serde_json::from_value(v).expect("should succeed");
     assert_eq!(back.prompt, "p");
     assert_eq!(back.model.as_deref(), Some("m"));
 }
@@ -228,7 +231,7 @@ fn image_generation_request_serde_round_trip() {
         params: std::collections::HashMap::new(),
     };
     let j = json!({"prompt":"a cat","size":"512x512","n":1});
-    let parsed: ImageGenerationRequest = serde_json::from_value(j).unwrap();
+    let parsed: ImageGenerationRequest = serde_json::from_value(j).expect("should succeed");
     assert_eq!(parsed.prompt, req.prompt);
 }
 
@@ -283,7 +286,10 @@ async fn generate_text_with_constraints_uses_constraint_router() {
         constraints: vec![RoutingConstraint::RequireProvider("mock-text".to_string())],
         params: std::collections::HashMap::new(),
     };
-    let out = router.generate_text(req, None).await.unwrap();
+    let out = router
+        .generate_text(req, None)
+        .await
+        .expect("should succeed");
     assert_eq!(out.provider_id, "mock-text");
 }
 
@@ -293,7 +299,10 @@ async fn get_text_generation_providers_filters_non_text() {
         Arc::new(MockTextAdapter { id: "t", name: "T" }) as Arc<dyn AiProviderAdapter>,
         Arc::new(MockImageOnlyAdapter { id: "i" }) as Arc<dyn AiProviderAdapter>,
     ]);
-    let infos = router.get_text_generation_providers().await.unwrap();
+    let infos = router
+        .get_text_generation_providers()
+        .await
+        .expect("should succeed");
     assert_eq!(infos.len(), 1);
     assert_eq!(infos[0].provider_id, "t");
 }
@@ -434,7 +443,10 @@ async fn generate_image_retries_with_fallback_provider() {
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-    let out = router.generate_image(req, None).await.unwrap();
+    let out = router
+        .generate_image(req, None)
+        .await
+        .expect("should succeed");
     assert_eq!(out.provider_id, "img-ok");
     assert_eq!(out.images.len(), 1);
 }
@@ -452,7 +464,10 @@ async fn generate_image_success_without_retry() {
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-    let out = router.generate_image(req, None).await.unwrap();
+    let out = router
+        .generate_image(req, None)
+        .await
+        .expect("should succeed");
     assert_eq!(out.provider_id, "img-one");
 }
 
@@ -490,7 +505,10 @@ async fn generate_text_with_dignity_sensitive_prompt_still_routes_when_provider_
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-    let out = router.generate_text(req, None).await.unwrap();
+    let out = router
+        .generate_text(req, None)
+        .await
+        .expect("should succeed");
     assert!(out.text.contains("echo:"));
     assert_eq!(out.provider_id, "mock-text");
 }
@@ -508,7 +526,10 @@ async fn generate_image_dignity_prompt_still_succeeds_with_image_provider() {
         constraints: vec![],
         params: std::collections::HashMap::new(),
     };
-    let out = router.generate_image(req, None).await.unwrap();
+    let out = router
+        .generate_image(req, None)
+        .await
+        .expect("should succeed");
     assert_eq!(out.provider_id, "img-one");
 }
 
@@ -529,6 +550,9 @@ async fn generate_text_constraint_require_provider_still_routes_after_fallback()
         )],
         params: std::collections::HashMap::new(),
     };
-    let out = router.generate_text(req, None).await.unwrap();
+    let out = router
+        .generate_text(req, None)
+        .await
+        .expect("should succeed");
     assert_eq!(out.provider_id, "mock-text");
 }

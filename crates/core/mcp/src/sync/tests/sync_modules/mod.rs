@@ -155,8 +155,8 @@ pub async fn wait_for_change_with_timeout(
         rx.recv()
     )
     .await
-    .unwrap_or_else(|_| panic!("Timeout waiting for change in {}", context))
-    .unwrap_or_else(|e| panic!("Failed to receive change in {}: {:?}", context, e))
+    .unwrap_or_else(|_| unreachable!("Timeout waiting for change in {}", context))
+    .unwrap_or_else(|e| unreachable!("Failed to receive change in {}: {:?}", context, e))
 }
 
 /// Create a dual sync setup for persistence testing

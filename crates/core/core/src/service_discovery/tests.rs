@@ -15,37 +15,40 @@ mod service_type_tests {
 
     #[tokio::test]
     async fn test_service_type_from_string() {
-        assert_eq!(ServiceType::from_str("ai").unwrap(), ServiceType::AI);
         assert_eq!(
-            ServiceType::from_str("compute").unwrap(),
+            ServiceType::from_str("ai").expect("should succeed"),
+            ServiceType::AI
+        );
+        assert_eq!(
+            ServiceType::from_str("compute").expect("should succeed"),
             ServiceType::Compute
         );
         assert_eq!(
-            ServiceType::from_str("storage").unwrap(),
+            ServiceType::from_str("storage").expect("should succeed"),
             ServiceType::Storage
         );
         assert_eq!(
-            ServiceType::from_str("security").unwrap(),
+            ServiceType::from_str("security").expect("should succeed"),
             ServiceType::Security
         );
         assert_eq!(
-            ServiceType::from_str("communication").unwrap(),
+            ServiceType::from_str("communication").expect("should succeed"),
             ServiceType::Communication
         );
         assert_eq!(
-            ServiceType::from_str("discovery").unwrap(),
+            ServiceType::from_str("discovery").expect("should succeed"),
             ServiceType::Discovery
         );
         assert_eq!(
-            ServiceType::from_str("monitoring").unwrap(),
+            ServiceType::from_str("monitoring").expect("should succeed"),
             ServiceType::Monitoring
         );
         assert_eq!(
-            ServiceType::from_str("gateway").unwrap(),
+            ServiceType::from_str("gateway").expect("should succeed"),
             ServiceType::Gateway
         );
         assert_eq!(
-            ServiceType::from_str("custom").unwrap(),
+            ServiceType::from_str("custom").expect("should succeed"),
             ServiceType::Custom("custom".to_string())
         );
     }

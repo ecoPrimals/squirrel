@@ -42,11 +42,11 @@
 //!     // Start background task
 //!     tokio::spawn(async move {
 //!         perform_operation().await;
-//!         tx.send(()).unwrap(); // Notify completion
+//!         tx.send(()).expect("should succeed"); // Notify completion
 //!     });
 //!    
 //!     // Wait for event (with timeout for safety)
-//!     rx.await_with_timeout(Duration::from_secs(5)).await.unwrap();
+//!     rx.await_with_timeout(Duration::from_secs(5)).await.expect("should succeed");
 //!     assert!(operation_completed());
 //! }
 //! ```
@@ -70,7 +70,7 @@
 //!    
 //!     // All operations should succeed without race conditions
 //!     for handle in handles {
-//!         assert!(handle.await.unwrap().is_ok());
+//!         assert!(handle.await.expect("should succeed").is_ok());
 //!     }
 //! }
 //! ```
@@ -459,7 +459,11 @@ where
     let mut handles = Vec::with_capacity(iterations);
 
     for i in 0..iterations {
-        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let permit = semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("should succeed");
         let f = f.clone();
 
         handles.push(tokio::spawn(async move {
@@ -514,10 +518,13 @@ mod tests {
 
         tokio::spawn(async move {
             tokio::task::yield_now().await;
-            tx.send(42).unwrap();
+            tx.send(42).expect("should succeed");
         });
 
-        let value = rx.await_with_timeout(Duration::from_secs(1)).await.unwrap();
+        let value = rx
+            .await_with_timeout(Duration::from_secs(1))
+            .await
+            .expect("should succeed");
         assert_eq!(value, 42);
     }
 
@@ -538,7 +545,7 @@ mod tests {
         }
 
         for handle in handles {
-            handle.await.unwrap();
+            handle.await.expect("should succeed");
         }
 
         assert_eq!(counter.load(Ordering::SeqCst), 10);
@@ -573,7 +580,9 @@ mod tests {
         // Signal the spawned task immediately
         ready.notify_one();
 
-        flag.wait_set(Duration::from_secs(1)).await.unwrap();
+        flag.wait_set(Duration::from_secs(1))
+            .await
+            .expect("should succeed");
         assert!(flag.is_set());
     }
 

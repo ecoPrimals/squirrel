@@ -2,9 +2,8 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![expect(
-    clippy::unwrap_used,
     clippy::expect_used,
-    reason = "Test code: explicit unwrap/expect and local lint noise"
+    reason = "Test code: explicit expect and local lint noise"
 )]
 //! Comprehensive integration tests for `UniversalAdapterV2`
 //!
@@ -33,17 +32,19 @@ fn test_connect_capability_from_environment() {
         "TEST_SERVICE_ENDPOINT",
         Some("http://localhost:8888"),
         || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+            tokio::runtime::Runtime::new()
+                .expect("should succeed")
+                .block_on(async {
+                    let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-                let client = adapter
-                    .connect_capability("test.service")
-                    .await
-                    .expect("Should connect to test service");
+                    let client = adapter
+                        .connect_capability("test.service")
+                        .await
+                        .expect("Should connect to test service");
 
-                assert_eq!(client.endpoint(), "http://localhost:8888");
-                assert_eq!(client.service_name(), "test.service-provider");
-            });
+                    assert_eq!(client.endpoint(), "http://localhost:8888");
+                    assert_eq!(client.service_name(), "test.service-provider");
+                });
         },
     );
 }
@@ -51,20 +52,22 @@ fn test_connect_capability_from_environment() {
 #[test]
 fn test_connect_capability_not_found() {
     temp_env::with_var("NONEXISTENT_SERVICE_ENDPOINT", None::<&str>, || {
-        tokio::runtime::Runtime::new().unwrap().block_on(async {
-            let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+        tokio::runtime::Runtime::new()
+            .expect("should succeed")
+            .block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-            let result = adapter.connect_capability("nonexistent.service").await;
+                let result = adapter.connect_capability("nonexistent.service").await;
 
-            assert!(result.is_err());
-            match result {
-                Err(e) => {
-                    let err_msg = format!("{e:?}");
-                    assert!(err_msg.contains("not found") || err_msg.contains("Capability"));
+                assert!(result.is_err());
+                match result {
+                    Err(e) => {
+                        let err_msg = format!("{e:?}");
+                        assert!(err_msg.contains("not found") || err_msg.contains("Capability"));
+                    }
+                    Ok(_) => unreachable!("Expected error for non-existent capability"),
                 }
-                Ok(_) => panic!("Expected error for non-existent capability"),
-            }
-        });
+            });
     });
 }
 
@@ -74,22 +77,24 @@ fn test_connection_pooling_reuse() {
         "POOLING_TEST_ENDPOINT",
         Some("http://localhost:7890"),
         || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+            tokio::runtime::Runtime::new()
+                .expect("should succeed")
+                .block_on(async {
+                    let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-                let client1 = adapter
-                    .connect_capability("pooling.test")
-                    .await
-                    .expect("Should connect first time");
+                    let client1 = adapter
+                        .connect_capability("pooling.test")
+                        .await
+                        .expect("Should connect first time");
 
-                let client2 = adapter
-                    .connect_capability("pooling.test")
-                    .await
-                    .expect("Should connect second time");
+                    let client2 = adapter
+                        .connect_capability("pooling.test")
+                        .await
+                        .expect("Should connect second time");
 
-                assert_eq!(client1.endpoint(), client2.endpoint());
-                assert_eq!(client1.endpoint(), "http://localhost:7890");
-            });
+                    assert_eq!(client1.endpoint(), client2.endpoint());
+                    assert_eq!(client1.endpoint(), "http://localhost:7890");
+                });
         },
     );
 }
@@ -100,17 +105,19 @@ fn test_protocol_detection_https() {
         "HTTPS_SERVICE_ENDPOINT",
         Some("https://secure.example.com:443"),
         || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+            tokio::runtime::Runtime::new()
+                .expect("should succeed")
+                .block_on(async {
+                    let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-                let client = adapter
-                    .connect_capability("https.service")
-                    .await
-                    .expect("Should connect to HTTPS service");
+                    let client = adapter
+                        .connect_capability("https.service")
+                        .await
+                        .expect("Should connect to HTTPS service");
 
-                assert_eq!(client.protocol(), Protocol::Https);
-                assert_eq!(client.endpoint(), "https://secure.example.com:443");
-            });
+                    assert_eq!(client.protocol(), Protocol::Https);
+                    assert_eq!(client.endpoint(), "https://secure.example.com:443");
+                });
         },
     );
 }
@@ -121,17 +128,19 @@ fn test_protocol_detection_unix_socket() {
         "UNIX_SERVICE_ENDPOINT",
         Some("unix:///var/run/service.sock"),
         || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+            tokio::runtime::Runtime::new()
+                .expect("should succeed")
+                .block_on(async {
+                    let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-                let client = adapter
-                    .connect_capability("unix.service")
-                    .await
-                    .expect("Should connect to Unix socket service");
+                    let client = adapter
+                        .connect_capability("unix.service")
+                        .await
+                        .expect("Should connect to Unix socket service");
 
-                assert_eq!(client.protocol(), Protocol::JsonRpc);
-                assert_eq!(client.endpoint(), "unix:///var/run/service.sock");
-            });
+                    assert_eq!(client.protocol(), Protocol::JsonRpc);
+                    assert_eq!(client.endpoint(), "unix:///var/run/service.sock");
+                });
         },
     );
 }
@@ -142,17 +151,19 @@ fn test_protocol_detection_localhost() {
         "LOCAL_SERVICE_ENDPOINT",
         Some("http://localhost:9999"),
         || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+            tokio::runtime::Runtime::new()
+                .expect("should succeed")
+                .block_on(async {
+                    let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-                let client = adapter
-                    .connect_capability("local.service")
-                    .await
-                    .expect("Should connect to localhost service");
+                    let client = adapter
+                        .connect_capability("local.service")
+                        .await
+                        .expect("Should connect to localhost service");
 
-                assert_eq!(client.protocol(), Protocol::Http);
-                assert_eq!(client.endpoint(), "http://localhost:9999");
-            });
+                    assert_eq!(client.protocol(), Protocol::Http);
+                    assert_eq!(client.endpoint(), "http://localhost:9999");
+                });
         },
     );
 }
@@ -166,26 +177,28 @@ fn test_multiple_capability_connections() {
             ("COMPUTE_ENDPOINT", Some("http://localhost:8003")),
         ],
         || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+            tokio::runtime::Runtime::new()
+                .expect("should succeed")
+                .block_on(async {
+                    let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-                let ai = adapter
-                    .connect_capability("ai")
-                    .await
-                    .expect("AI connection");
-                let storage = adapter
-                    .connect_capability("storage")
-                    .await
-                    .expect("Storage connection");
-                let compute = adapter
-                    .connect_capability("compute")
-                    .await
-                    .expect("Compute connection");
+                    let ai = adapter
+                        .connect_capability("ai")
+                        .await
+                        .expect("AI connection");
+                    let storage = adapter
+                        .connect_capability("storage")
+                        .await
+                        .expect("Storage connection");
+                    let compute = adapter
+                        .connect_capability("compute")
+                        .await
+                        .expect("Compute connection");
 
-                assert_eq!(ai.endpoint(), "http://localhost:8001");
-                assert_eq!(storage.endpoint(), "http://localhost:8002");
-                assert_eq!(compute.endpoint(), "http://localhost:8003");
-            });
+                    assert_eq!(ai.endpoint(), "http://localhost:8001");
+                    assert_eq!(storage.endpoint(), "http://localhost:8002");
+                    assert_eq!(compute.endpoint(), "http://localhost:8003");
+                });
         },
     );
 }
@@ -206,27 +219,29 @@ fn test_adapter_with_complex_capability_names() {
             ),
         ],
         || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+            tokio::runtime::Runtime::new()
+                .expect("should succeed")
+                .block_on(async {
+                    let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-                let ai = adapter
-                    .connect_capability("ai.inference")
-                    .await
-                    .expect("AI inference");
-                assert_eq!(ai.endpoint(), "http://localhost:8001");
+                    let ai = adapter
+                        .connect_capability("ai.inference")
+                        .await
+                        .expect("AI inference");
+                    assert_eq!(ai.endpoint(), "http://localhost:8001");
 
-                let security = adapter
-                    .connect_capability("security.authentication")
-                    .await
-                    .expect("Security auth");
-                assert_eq!(security.endpoint(), "http://localhost:8002");
+                    let security = adapter
+                        .connect_capability("security.authentication")
+                        .await
+                        .expect("Security auth");
+                    assert_eq!(security.endpoint(), "http://localhost:8002");
 
-                let storage = adapter
-                    .connect_capability("storage.object.store")
-                    .await
-                    .expect("Storage");
-                assert_eq!(storage.endpoint(), "http://localhost:8003");
-            });
+                    let storage = adapter
+                        .connect_capability("storage.object.store")
+                        .await
+                        .expect("Storage");
+                    assert_eq!(storage.endpoint(), "http://localhost:8003");
+                });
         },
     );
 }
@@ -240,27 +255,39 @@ fn test_adapter_concurrent_connections() {
             ("CONCURRENT3_ENDPOINT", Some("http://localhost:9003")),
         ],
         || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let adapter = Arc::new(UniversalAdapterV2::awaken().await.expect("Should awaken"));
+            tokio::runtime::Runtime::new()
+                .expect("should succeed")
+                .block_on(async {
+                    let adapter =
+                        Arc::new(UniversalAdapterV2::awaken().await.expect("Should awaken"));
 
-                let adapter1 = adapter.clone();
-                let adapter2 = adapter.clone();
-                let adapter3 = adapter.clone();
+                    let adapter1 = adapter.clone();
+                    let adapter2 = adapter.clone();
+                    let adapter3 = adapter.clone();
 
-                let (result1, result2, result3) = tokio::join!(
-                    async move { adapter1.connect_capability("concurrent1").await },
-                    async move { adapter2.connect_capability("concurrent2").await },
-                    async move { adapter3.connect_capability("concurrent3").await },
-                );
+                    let (result1, result2, result3) = tokio::join!(
+                        async move { adapter1.connect_capability("concurrent1").await },
+                        async move { adapter2.connect_capability("concurrent2").await },
+                        async move { adapter3.connect_capability("concurrent3").await },
+                    );
 
-                assert!(result1.is_ok());
-                assert!(result2.is_ok());
-                assert!(result3.is_ok());
+                    assert!(result1.is_ok());
+                    assert!(result2.is_ok());
+                    assert!(result3.is_ok());
 
-                assert_eq!(result1.unwrap().endpoint(), "http://localhost:9001");
-                assert_eq!(result2.unwrap().endpoint(), "http://localhost:9002");
-                assert_eq!(result3.unwrap().endpoint(), "http://localhost:9003");
-            });
+                    assert_eq!(
+                        result1.expect("should succeed").endpoint(),
+                        "http://localhost:9001"
+                    );
+                    assert_eq!(
+                        result2.expect("should succeed").endpoint(),
+                        "http://localhost:9002"
+                    );
+                    assert_eq!(
+                        result3.expect("should succeed").endpoint(),
+                        "http://localhost:9003"
+                    );
+                });
         },
     );
 }
@@ -282,17 +309,19 @@ fn test_connection_metadata() {
         "METADATA_TEST_ENDPOINT",
         Some("http://localhost:7777"),
         || {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+            tokio::runtime::Runtime::new()
+                .expect("should succeed")
+                .block_on(async {
+                    let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-                let client = adapter
-                    .connect_capability("metadata.test")
-                    .await
-                    .expect("Should connect");
+                    let client = adapter
+                        .connect_capability("metadata.test")
+                        .await
+                        .expect("Should connect");
 
-                assert!(!client.service_name().is_empty());
-                assert!(client.endpoint().starts_with("http://"));
-            });
+                    assert!(!client.service_name().is_empty());
+                    assert!(client.endpoint().starts_with("http://"));
+                });
         },
     );
 }
@@ -300,31 +329,35 @@ fn test_connection_metadata() {
 #[test]
 fn test_adapter_with_ipv4_endpoint() {
     temp_env::with_var("IPV4_ENDPOINT", Some("http://192.168.1.100:8080"), || {
-        tokio::runtime::Runtime::new().unwrap().block_on(async {
-            let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+        tokio::runtime::Runtime::new()
+            .expect("should succeed")
+            .block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-            let client = adapter
-                .connect_capability("ipv4")
-                .await
-                .expect("Should connect to IPv4 endpoint");
+                let client = adapter
+                    .connect_capability("ipv4")
+                    .await
+                    .expect("Should connect to IPv4 endpoint");
 
-            assert_eq!(client.endpoint(), "http://192.168.1.100:8080");
-        });
+                assert_eq!(client.endpoint(), "http://192.168.1.100:8080");
+            });
     });
 }
 
 #[test]
 fn test_adapter_with_ipv6_endpoint() {
     temp_env::with_var("IPV6_ENDPOINT", Some("http://[::1]:8080"), || {
-        tokio::runtime::Runtime::new().unwrap().block_on(async {
-            let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
+        tokio::runtime::Runtime::new()
+            .expect("should succeed")
+            .block_on(async {
+                let adapter = UniversalAdapterV2::awaken().await.expect("Should awaken");
 
-            let client = adapter
-                .connect_capability("ipv6")
-                .await
-                .expect("Should connect to IPv6 endpoint");
+                let client = adapter
+                    .connect_capability("ipv6")
+                    .await
+                    .expect("Should connect to IPv6 endpoint");
 
-            assert_eq!(client.endpoint(), "http://[::1]:8080");
-        });
+                assert_eq!(client.endpoint(), "http://[::1]:8080");
+            });
     });
 }

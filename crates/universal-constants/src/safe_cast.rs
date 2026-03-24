@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn f64_f32_special() {
-        assert!(f64_to_f32(f64::NAN).unwrap().is_nan());
+        assert!(f64_to_f32(f64::NAN).expect("should succeed").is_nan());
         assert_eq!(f64_to_f32(f64::INFINITY), Some(f32::INFINITY));
         assert_eq!(f64_to_f32(f64::NEG_INFINITY), Some(f32::NEG_INFINITY));
     }

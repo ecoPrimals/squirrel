@@ -343,7 +343,13 @@ mod tests {
             assert!(reg.service_id.as_ref().contains("eco-test"));
             assert_eq!(reg.primal_type, EcosystemPrimalType::Squirrel);
             assert_eq!(reg.endpoints.primary, "http://0.0.0.0:8080");
-            assert!(reg.endpoints.health.as_ref().unwrap().ends_with("/health"));
+            assert!(
+                reg.endpoints
+                    .health
+                    .as_ref()
+                    .expect("should succeed")
+                    .ends_with("/health")
+            );
             assert!(reg.capabilities.core.iter().any(|c| c == "ai_coordination"));
         });
     }

@@ -93,13 +93,22 @@ fn handle_command_uses_registry_execute() {
 #[test]
 fn json_to_args_edge_cases() {
     let server = MCPServer::new(None, None);
-    assert!(server.json_to_args(&json!({})).unwrap().is_empty());
+    assert!(
+        server
+            .json_to_args(&json!({}))
+            .expect("should succeed")
+            .is_empty()
+    );
     assert_eq!(
-        server.json_to_args(&json!({"args": "single"})).unwrap(),
+        server
+            .json_to_args(&json!({"args": "single"}))
+            .expect("should succeed"),
         vec!["single".to_string()]
     );
     assert_eq!(
-        server.json_to_args(&json!({"args": ["x"]})).unwrap(),
+        server
+            .json_to_args(&json!({"args": ["x"]}))
+            .expect("should succeed"),
         vec!["x".to_string()]
     );
 }
@@ -113,7 +122,7 @@ fn process_message_request_routing_subscribe_unsubscribe_and_errors() {
         "subscribe".to_string(),
         Some(json!({"topic": "news"})),
     );
-    let line = sub.to_json().unwrap();
+    let line = sub.to_json().expect("should succeed");
     let out = server
         .process_message("c1", &line)
         .expect("subscribe")
@@ -126,7 +135,7 @@ fn process_message_request_routing_subscribe_unsubscribe_and_errors() {
         Some(json!({"topic": "*"})),
     );
     let out = server
-        .process_message("c1", &unsub.to_json().unwrap())
+        .process_message("c1", &unsub.to_json().expect("should succeed"))
         .expect("unsub")
         .expect("resp");
     assert!(out.contains("ok"));
@@ -138,14 +147,14 @@ fn process_message_request_routing_subscribe_unsubscribe_and_errors() {
     );
     assert!(
         server
-            .process_message("c1", &bad_sub.to_json().unwrap())
+            .process_message("c1", &bad_sub.to_json().expect("should succeed"))
             .is_err()
     );
 
     let resp_msg = MCPMessage::new_response("x".to_string(), "cmd".to_string(), None);
     assert!(
         server
-            .process_message("c1", &resp_msg.to_json().unwrap())
+            .process_message("c1", &resp_msg.to_json().expect("should succeed"))
             .is_err()
     );
 }
@@ -193,7 +202,7 @@ fn process_message_notification_returns_no_line() {
         Some(json!({ "x": 1 })),
     );
     let out = server
-        .process_message("c99", &note.to_json().unwrap())
+        .process_message("c99", &note.to_json().expect("should succeed"))
         .expect("ok");
     assert!(out.is_none());
 }
@@ -244,7 +253,7 @@ fn handle_unsubscribe_specific_topic() {
         Some(json!({"topic": "news"})),
     );
     let line = server
-        .process_message("c1", &req.to_json().unwrap())
+        .process_message("c1", &req.to_json().expect("should succeed"))
         .expect("unsub")
         .expect("line");
     assert!(line.contains("ok"));

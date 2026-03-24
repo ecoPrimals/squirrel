@@ -541,13 +541,16 @@ mod tests {
     fn test_file_content_text() {
         let content = FileContent::Text("Hello World".to_string());
 
-        assert_eq!(content.as_text().unwrap(), "Hello World");
+        assert_eq!(content.as_text().expect("should succeed"), "Hello World");
         assert_eq!(content.as_binary(), b"Hello World");
         assert_eq!(content.size(), 11);
         assert_eq!(content.len(), 11);
         assert!(!content.is_empty());
         assert!(content.is_text());
-        assert_eq!(content.as_text_ref().unwrap(), "Hello World");
+        assert_eq!(
+            content.as_text_ref().expect("should succeed"),
+            "Hello World"
+        );
         assert_eq!(content.as_text_lossy(), "Hello World");
     }
 
@@ -555,8 +558,8 @@ mod tests {
     fn test_file_content_binary_valid_utf8() {
         let content = FileContent::Binary(b"hi".to_vec());
         assert!(!content.is_text());
-        assert_eq!(content.as_text().unwrap(), "hi");
-        assert_eq!(content.as_text_ref().unwrap(), "hi");
+        assert_eq!(content.as_text().expect("should succeed"), "hi");
+        assert_eq!(content.as_text_ref().expect("should succeed"), "hi");
         assert_eq!(content.as_text_lossy(), "hi");
     }
 
@@ -622,8 +625,8 @@ mod tests {
             is_directory: false,
             permissions: Some("rw".to_string()),
         };
-        let json = serde_json::to_string(&meta).unwrap();
-        let back: FileMetadata = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&meta).expect("should succeed");
+        let back: FileMetadata = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(meta.name, back.name);
         assert_eq!(meta.permissions, back.permissions);
     }
@@ -642,8 +645,8 @@ mod tests {
                 permissions: None,
             },
         };
-        let v = serde_json::to_value(&entry).unwrap();
-        let back: DirectoryEntry = serde_json::from_value(v).unwrap();
+        let v = serde_json::to_value(&entry).expect("should succeed");
+        let back: DirectoryEntry = serde_json::from_value(v).expect("should succeed");
         assert_eq!(entry.path, back.path);
     }
 
@@ -659,8 +662,8 @@ mod tests {
             mime_type: "text/plain".to_string(),
             permissions: FilePermissions::ReadWrite,
         };
-        let s = serde_json::to_string(&info).unwrap();
-        let back: FileInfo = serde_json::from_str(&s).unwrap();
+        let s = serde_json::to_string(&info).expect("should succeed");
+        let back: FileInfo = serde_json::from_str(&s).expect("should succeed");
         assert!(matches!(back.permissions, FilePermissions::ReadWrite));
     }
 
@@ -680,9 +683,15 @@ mod tests {
     #[tokio::test]
     async fn test_filesystem_read_text_and_bytes() {
         let fs = FileSystem::new();
-        let txt = fs.read_text("readme.txt".to_string()).await.unwrap();
+        let txt = fs
+            .read_text("readme.txt".to_string())
+            .await
+            .expect("should succeed");
         assert_eq!(txt, "Hello World");
-        let bytes = fs.read_bytes("blob.bin".to_string()).await.unwrap();
+        let bytes = fs
+            .read_bytes("blob.bin".to_string())
+            .await
+            .expect("should succeed");
         assert_eq!(bytes, b"Hello World");
     }
 
@@ -691,17 +700,21 @@ mod tests {
         let fs = FileSystem::new();
         fs.write_text("out.txt".to_string(), "x".to_string())
             .await
-            .unwrap();
+            .expect("should succeed");
         fs.write_bytes("out.bin".to_string(), vec![1, 2])
             .await
-            .unwrap();
-        assert!(fs.exists("any".to_string()).await.unwrap());
-        fs.create_directory("d".to_string()).await.unwrap();
-        fs.delete("d".to_string()).await.unwrap();
-        fs.copy("a".to_string(), "b".to_string()).await.unwrap();
+            .expect("should succeed");
+        assert!(fs.exists("any".to_string()).await.expect("should succeed"));
+        fs.create_directory("d".to_string())
+            .await
+            .expect("should succeed");
+        fs.delete("d".to_string()).await.expect("should succeed");
+        fs.copy("a".to_string(), "b".to_string())
+            .await
+            .expect("should succeed");
         fs.move_file("a".to_string(), "b".to_string())
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 
     /// `metadata` / `list_directory` use `serde_wasm_bindgen::to_value`, which requires wasm.
@@ -709,11 +722,18 @@ mod tests {
     #[tokio::test]
     async fn test_filesystem_metadata_and_list_wasm() {
         let fs = FileSystem::new();
-        let meta = fs.metadata("x.txt".to_string()).await.unwrap();
-        let parsed: FileMetadata = serde_wasm_bindgen::from_value(meta).unwrap();
+        let meta = fs
+            .metadata("x.txt".to_string())
+            .await
+            .expect("should succeed");
+        let parsed: FileMetadata = serde_wasm_bindgen::from_value(meta).expect("should succeed");
         assert_eq!(parsed.file_type, "text/plain");
-        let list = fs.list_directory("/".to_string()).await.unwrap();
-        let entries: Vec<DirectoryEntry> = serde_wasm_bindgen::from_value(list).unwrap();
+        let list = fs
+            .list_directory("/".to_string())
+            .await
+            .expect("should succeed");
+        let entries: Vec<DirectoryEntry> =
+            serde_wasm_bindgen::from_value(list).expect("should succeed");
         assert!(entries.is_empty());
     }
 
@@ -728,7 +748,7 @@ mod tests {
                 "application/octet-stream".to_string(),
             )
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(id.starts_with("upload_"));
     }
 
@@ -745,7 +765,7 @@ mod tests {
                         || message.contains("not implemented")
                 );
             }
-            _ => panic!("expected JsError"),
+            _ => unreachable!("expected JsError"),
         }
     }
 }

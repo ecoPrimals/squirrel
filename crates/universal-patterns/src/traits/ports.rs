@@ -63,8 +63,8 @@ mod tests {
             assigned_at: Utc::now(),
             lease_duration: Duration::hours(1),
         };
-        let json = serde_json::to_string(&info).unwrap();
-        let deserialized: DynamicPortInfo = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&info).expect("should succeed");
+        let deserialized: DynamicPortInfo = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.assigned_port, 8080);
         assert_eq!(deserialized.port_type, PortType::Http);
         assert_eq!(deserialized.status, PortStatus::Active);
@@ -78,8 +78,8 @@ mod tests {
             PortType::WebSocket,
             PortType::Grpc,
         ] {
-            let json = serde_json::to_string(&pt).unwrap();
-            let deserialized: PortType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&pt).expect("should succeed");
+            let deserialized: PortType = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, pt);
         }
     }
@@ -87,8 +87,8 @@ mod tests {
     #[test]
     fn test_port_type_custom_serde() {
         let pt = PortType::Custom("mqtt".to_string());
-        let json = serde_json::to_string(&pt).unwrap();
-        let deserialized: PortType = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&pt).expect("should succeed");
+        let deserialized: PortType = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, pt);
     }
 
@@ -100,8 +100,8 @@ mod tests {
             PortStatus::Releasing,
             PortStatus::Expired,
         ] {
-            let json = serde_json::to_string(&status).unwrap();
-            let deserialized: PortStatus = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&status).expect("should succeed");
+            let deserialized: PortStatus = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, status);
         }
     }

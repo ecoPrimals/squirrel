@@ -301,7 +301,7 @@ mod tests {
 
         match event {
             ServerEvent::ClientConnected(id) => assert_eq!(id, "client-123"),
-            _ => panic!("Expected ClientConnected"),
+            _ => unreachable!("Expected ClientConnected"),
         }
     }
 
@@ -311,7 +311,7 @@ mod tests {
 
         match event {
             ServerEvent::ClientDisconnected(id) => assert_eq!(id, "client-456"),
-            _ => panic!("Expected ClientDisconnected"),
+            _ => unreachable!("Expected ClientDisconnected"),
         }
     }
 
@@ -327,7 +327,7 @@ mod tests {
                 assert_eq!(id, "client-789");
                 assert_eq!(msg, "Connection timeout");
             }
-            _ => panic!("Expected ConnectionError"),
+            _ => unreachable!("Expected ConnectionError"),
         }
     }
 
@@ -340,7 +340,7 @@ mod tests {
             (ServerEvent::ClientConnected(id1), ServerEvent::ClientConnected(id2)) => {
                 assert_eq!(id1, id2);
             }
-            _ => panic!("Clone produced different variant"),
+            _ => unreachable!("Clone produced different variant"),
         }
     }
 

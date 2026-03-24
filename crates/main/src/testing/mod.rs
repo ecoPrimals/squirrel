@@ -114,14 +114,14 @@ pub mod assertions {
     pub fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
         match result {
             Ok(val) => val,
-            Err(e) => panic!("Expected Ok, got Err: {:?}", e),
+            Err(e) => unreachable!("Expected Ok, got Err: {:?}", e),
         }
     }
     
     /// Assert that a result is Err
     pub fn assert_err<T: std::fmt::Debug, E>(result: Result<T, E>) {
         match result {
-            Ok(val) => panic!("Expected Err, got Ok: {:?}", val),
+            Ok(val) => unreachable!("Expected Err, got Ok: {:?}", val),
             Err(_) => {},
         }
     }

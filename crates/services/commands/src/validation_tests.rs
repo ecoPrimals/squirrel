@@ -133,8 +133,16 @@ fn test_description_rule() {
 #[test]
 fn test_validation_context() {
     let context = ValidationContext::new();
-    context.set("test_key", "test_value").unwrap();
-    assert_eq!(context.get("test_key").unwrap().unwrap(), "test_value");
+    context
+        .set("test_key", "test_value")
+        .expect("should succeed");
+    assert_eq!(
+        context
+            .get("test_key")
+            .expect("should succeed")
+            .expect("should succeed"),
+        "test_value"
+    );
 }
 
 #[test]
@@ -144,7 +152,7 @@ fn test_input_sanitization() {
         "email".to_string(),
         r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
     );
-    let rule = InputSanitizationRule::new(patterns, 100).unwrap();
+    let rule = InputSanitizationRule::new(patterns, 100).expect("should succeed");
     let mut context = ValidationContext::new();
     context
         .arguments
@@ -171,7 +179,7 @@ fn test_resource_validation_rule() {
 fn test_validator_rules() {
     let validator = CommandValidator::new();
     let rule = NameLengthRule::new(3, 10);
-    validator.add_rule(Arc::new(rule)).unwrap();
+    validator.add_rule(Arc::new(rule)).expect("should succeed");
     let command = TestCommand;
     assert!(validator.validate(&command).is_ok());
 }
@@ -186,17 +194,17 @@ fn test_thread_safety() {
         handles.push(std::thread::spawn(move || {
             context
                 .set(&format!("key{i}"), &format!("value{i}"))
-                .unwrap();
+                .expect("should succeed");
         }));
     }
 
     for handle in handles {
-        handle.join().unwrap();
+        handle.join().expect("should succeed");
     }
 
     for i in 0..10 {
         assert_eq!(
-            context.get(&format!("key{i}")).unwrap(),
+            context.get(&format!("key{i}")).expect("should succeed"),
             Some(format!("value{i}"))
         );
     }
@@ -267,7 +275,7 @@ fn test_environment_rule() {
 #[test]
 fn test_input_sanitization_edge_cases() {
     let patterns = HashMap::new();
-    let rule = InputSanitizationRule::new(patterns, 0).unwrap();
+    let rule = InputSanitizationRule::new(patterns, 0).expect("should succeed");
     let mut context = ValidationContext::new();
     context
         .arguments
@@ -363,7 +371,7 @@ fn test_argument_pattern_invalid_regex_in_map() {
 #[test]
 fn test_validation_context_get_missing() {
     let ctx = ValidationContext::new();
-    assert_eq!(ctx.get("nope").unwrap(), None);
+    assert_eq!(ctx.get("nope").expect("should succeed"), None);
 }
 
 #[test]

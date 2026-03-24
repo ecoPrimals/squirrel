@@ -213,14 +213,14 @@ async fn process_request_first_match_and_highest_priority() {
     let mut config = RouterConfig::default();
     config.routing_strategy = RoutingStrategy::FirstMatch;
     let router = AIRouter::new(config);
-    register_text_provider(&router, "a").unwrap();
-    register_text_provider(&router, "b").unwrap();
+    register_text_provider(&router, "a").expect("should succeed");
+    register_text_provider(&router, "b").expect("should succeed");
 
     let req = ChatRequest::new().add_user("hi");
     let resp = router
         .process_request(req, request_context(base_task()))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(resp.choices[0].content.as_deref(), Some("ok"));
 
     let mut cfg = RouterConfig::default();
@@ -234,14 +234,18 @@ async fn process_request_first_match_and_highest_priority() {
         priority: 99,
         ..RoutingPreferences::default()
     })) as Arc<dyn AIClient>;
-    router.register_provider("low", low).unwrap();
-    router.register_provider("high", high).unwrap();
+    router
+        .register_provider("low", low)
+        .expect("should succeed");
+    router
+        .register_provider("high", high)
+        .expect("should succeed");
 
     let req = ChatRequest::new().add_user("x");
     let resp = router
         .process_request(req, request_context(base_task()))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(resp.model, "mock-model");
     assert!(router.get_stats().provider_usage.contains_key("high"));
 }
@@ -266,19 +270,19 @@ async fn process_request_lowest_latency_and_lowest_cost() {
             "slow",
             Arc::new(TestClient::new("slow").with_caps(slow_caps)),
         )
-        .unwrap();
+        .expect("should succeed");
     router
         .register_provider(
             "fast",
             Arc::new(TestClient::new("fast").with_caps(fast_caps)),
         )
-        .unwrap();
+        .expect("should succeed");
 
     let req = ChatRequest::new().add_user("ping");
     let resp = router
         .process_request(req, request_context(base_task()))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(resp.choices[0].content.as_deref(), Some("ok"));
     assert!(router.get_stats().provider_usage.contains_key("fast"));
 
@@ -293,14 +297,18 @@ async fn process_request_lowest_latency_and_lowest_cost() {
         cost_tier: CostTier::High,
         ..RoutingPreferences::default()
     })) as Arc<dyn AIClient>;
-    router.register_provider("cheap", cheap).unwrap();
-    router.register_provider("pricey", pricey).unwrap();
+    router
+        .register_provider("cheap", cheap)
+        .expect("should succeed");
+    router
+        .register_provider("pricey", pricey)
+        .expect("should succeed");
 
     let req = ChatRequest::new().add_user("z");
     let resp = router
         .process_request(req, request_context(base_task()))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert!(router.get_stats().provider_usage.contains_key("cheap"));
     assert_eq!(resp.choices[0].content.as_deref(), Some("ok"));
 }
@@ -310,34 +318,40 @@ async fn process_request_round_robin_and_random() {
     let mut cfg = RouterConfig::default();
     cfg.routing_strategy = RoutingStrategy::RoundRobin;
     let router = AIRouter::new(cfg);
-    register_text_provider(&router, "r1").unwrap();
-    register_text_provider(&router, "r2").unwrap();
+    register_text_provider(&router, "r1").expect("should succeed");
+    register_text_provider(&router, "r2").expect("should succeed");
 
     let ctx = request_context(base_task());
     let req = || ChatRequest::new().add_user("rr");
-    router.process_request(req(), ctx.clone()).await.unwrap();
-    router.process_request(req(), ctx.clone()).await.unwrap();
+    router
+        .process_request(req(), ctx.clone())
+        .await
+        .expect("should succeed");
+    router
+        .process_request(req(), ctx.clone())
+        .await
+        .expect("should succeed");
     assert!(router.get_stats().total_requests >= 2);
 
     let mut cfg = RouterConfig::default();
     cfg.routing_strategy = RoutingStrategy::Random;
     let router = AIRouter::new(cfg);
-    register_text_provider(&router, "x").unwrap();
-    register_text_provider(&router, "y").unwrap();
+    register_text_provider(&router, "x").expect("should succeed");
+    register_text_provider(&router, "y").expect("should succeed");
     router
         .process_request(
             ChatRequest::new().add_user("r"),
             request_context(base_task()),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
 }
 
 #[tokio::test]
 async fn routing_hint_preferred_provider_and_mismatch_error() {
     let router = AIRouter::new(RouterConfig::default());
-    register_text_provider(&router, "alpha").unwrap();
-    register_text_provider(&router, "beta").unwrap();
+    register_text_provider(&router, "alpha").expect("should succeed");
+    register_text_provider(&router, "beta").expect("should succeed");
 
     let mut ctx = request_context(base_task());
     ctx.routing_hint = Some(RoutingHint {
@@ -351,7 +365,7 @@ async fn routing_hint_preferred_provider_and_mismatch_error() {
     let resp = router
         .process_request(ChatRequest::new().add_user("u"), ctx)
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(resp.choices[0].content.as_deref(), Some("ok"));
 
     let mut ctx = request_context(base_task());
@@ -376,14 +390,14 @@ async fn no_provider_uses_default_when_configured() {
     cfg.default_provider = Some("fallback".to_string());
     cfg.allow_remote_routing = false;
     let router = AIRouter::new(cfg);
-    register_text_provider(&router, "fallback").unwrap();
+    register_text_provider(&router, "fallback").expect("should succeed");
 
     let mut task = base_task();
     task.task_type = TaskType::ImageGeneration;
     let resp = router
         .process_request(ChatRequest::new().add_user("pic"), request_context(task))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(resp.choices[0].content.as_deref(), Some("ok"));
 }
 
@@ -395,7 +409,7 @@ async fn no_provider_config_error() {
         ..RouterConfig::default()
     };
     let router = AIRouter::new(cfg);
-    register_text_provider(&router, "only").unwrap();
+    register_text_provider(&router, "only").expect("should succeed");
 
     let mut task = base_task();
     task.task_type = TaskType::ImageGeneration;
@@ -424,7 +438,7 @@ async fn remote_routing_via_mcp() {
     router
         .registry()
         .register_remote_capabilities(node, map)
-        .unwrap();
+        .expect("should succeed");
 
     let resp = router
         .process_request(
@@ -432,7 +446,7 @@ async fn remote_routing_via_mcp() {
             request_context(base_task()),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(resp.choices[0].content.as_deref(), Some("remote-ok"));
     assert!(router.get_stats().provider_usage.contains_key("remote"));
 }
@@ -476,7 +490,7 @@ async fn remote_blocked_by_routing_hint() {
     router
         .registry()
         .register_remote_capabilities(node, map)
-        .unwrap();
+        .expect("should succeed");
 
     let mut ctx = request_context(base_task());
     ctx.routing_hint = Some(RoutingHint {
@@ -503,7 +517,7 @@ async fn process_stream_uses_registered_provider() {
     let router = AIRouter::new(RouterConfig::default());
     router
         .register_provider("m", Arc::new(MockAIClient::new().with_latency(0)))
-        .unwrap();
+        .expect("should succeed");
 
     let _stream = router
         .process_stream_request(
@@ -511,7 +525,7 @@ async fn process_stream_uses_registered_provider() {
             request_context(base_task()),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
 }
 
 #[tokio::test]
@@ -528,7 +542,7 @@ async fn process_stream_remote_path() {
     router
         .registry()
         .register_remote_capabilities(node, map)
-        .unwrap();
+        .expect("should succeed");
 
     let _ = router
         .process_stream_request(
@@ -536,7 +550,7 @@ async fn process_stream_remote_path() {
             request_context(base_task()),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
 }
 
 #[test]
@@ -548,7 +562,7 @@ fn select_provider_for_task_exposes_selector() {
             vec![("one".to_string(), p)],
             &RequestContext::new(base_task()),
         )
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(out.0, "one");
 }
 
@@ -559,7 +573,7 @@ async fn stats_success_failure_and_reset() {
     let mut router = AIRouter::new(cfg);
     router
         .register_provider("ok", Arc::new(TestClient::new("ok")))
-        .unwrap();
+        .expect("should succeed");
 
     // First request succeeds (only "ok" is registered for TextGeneration)
     router
@@ -568,13 +582,13 @@ async fn stats_success_failure_and_reset() {
             request_context(base_task()),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Second request uses ImageGeneration (no provider matches), falls through
     // to default_provider "bad" which fails
     router
         .register_provider("bad", Arc::new(TestClient::new("bad").with_chat_ok(false)))
-        .unwrap();
+        .expect("should succeed");
     let mut task = base_task();
     task.task_type = TaskType::ImageGeneration;
     let mut cfg = RouterConfig::default();
@@ -599,9 +613,9 @@ fn unregister_and_list_providers() {
     let router = AIRouter::new(RouterConfig::default());
     router
         .register_provider("z", Arc::new(TestClient::new("z")))
-        .unwrap();
+        .expect("should succeed");
     assert!(router.has_provider("z"));
-    router.unregister_provider("z").unwrap();
+    router.unregister_provider("z").expect("should succeed");
     assert!(!router.has_provider("z"));
 }
 

@@ -32,7 +32,7 @@ fn test_io_error_conversion() {
 
     match primal_err {
         PrimalError::Io(_) => { /* Expected */ }
-        _ => panic!("Expected Io variant"),
+        _ => unreachable!("Expected Io variant"),
     }
 }
 
@@ -43,7 +43,7 @@ fn test_serde_json_error_conversion() {
 
     match primal_err {
         PrimalError::Serialization(_) => { /* Expected */ }
-        _ => panic!("Expected Serialization variant"),
+        _ => unreachable!("Expected Serialization variant"),
     }
 }
 
@@ -54,7 +54,7 @@ fn test_url_parse_error_conversion() {
 
     match primal_err {
         PrimalError::UrlParse(_) => { /* Expected */ }
-        _ => panic!("Expected UrlParse variant"),
+        _ => unreachable!("Expected UrlParse variant"),
     }
 }
 
@@ -68,7 +68,7 @@ fn test_boxed_error_conversion() {
         PrimalError::Generic(msg) => {
             assert!(msg.contains("Boxed error"));
         }
-        _ => panic!("Expected Generic variant"),
+        _ => unreachable!("Expected Generic variant"),
     }
 }
 
@@ -83,7 +83,7 @@ fn test_discovery_error_conversion() {
         PrimalError::NetworkError(msg) => {
             assert!(msg.contains("Discovery error"));
         }
-        _ => panic!("Expected NetworkError variant"),
+        _ => unreachable!("Expected NetworkError variant"),
     }
 }
 

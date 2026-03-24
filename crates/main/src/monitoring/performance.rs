@@ -608,7 +608,7 @@ mod tests {
     async fn test_performance_summary() {
         let tracker = PerformanceTracker::new();
 
-        let summary = tracker.get_summary().await.unwrap();
+        let summary = tracker.get_summary().await.expect("should succeed");
         assert!(summary.cpu_usage > 0.0);
         assert!(summary.memory_usage > 0.0);
         assert!(summary.avg_response_time > 0.0);
@@ -633,10 +633,13 @@ mod tests {
         tracker
             .set_baseline("test_baseline", "Test baseline")
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Compare to baseline (no sleep needed -- values come from current snapshot)
-        let comparison = tracker.compare_to_baseline("test_baseline").await.unwrap();
+        let comparison = tracker
+            .compare_to_baseline("test_baseline")
+            .await
+            .expect("should succeed");
         assert!(!comparison.is_empty());
         assert!(comparison.contains_key("cpu_usage"));
     }
@@ -646,9 +649,12 @@ mod tests {
         let tracker = PerformanceTracker::new();
 
         // Track performance to create metrics
-        tracker.track_performance().await.unwrap();
+        tracker.track_performance().await.expect("should succeed");
 
-        let metric = tracker.get_metric("cpu_usage").await.unwrap();
+        let metric = tracker
+            .get_metric("cpu_usage")
+            .await
+            .expect("should succeed");
         assert_eq!(metric.name, "cpu_usage");
         assert!(metric.current_value > 0.0);
         assert!(metric.sample_count > 0);

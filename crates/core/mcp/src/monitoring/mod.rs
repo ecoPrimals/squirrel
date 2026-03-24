@@ -352,7 +352,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_metrics_recording() {
-        let monitor = MCPMonitor::new().await.unwrap();
+        let monitor = MCPMonitor::new().await.expect("should succeed");
         
         // Record some operations
         monitor.record_message("test_message").await;
@@ -360,7 +360,7 @@ mod tests {
         monitor.record_sync_operation(100.0, true).await;
         
         // Check metrics
-        let metrics = monitor.get_metrics().await.unwrap();
+        let metrics = monitor.get_metrics().await.expect("should succeed");
         assert_eq!(metrics.total_messages, 1);
         assert_eq!(metrics.total_errors, 1);
         assert_eq!(metrics.sync_operations, 1);
@@ -369,13 +369,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_status() {
-        let monitor = MCPMonitor::new().await.unwrap();
+        let monitor = MCPMonitor::new().await.expect("should succeed");
         
         // Update health status
-        monitor.update_health().await.unwrap();
+        monitor.update_health().await.expect("should succeed");
         
         // Check health
-        let health = monitor.get_health().await.unwrap();
+        let health = monitor.get_health().await.expect("should succeed");
         assert!(health.is_healthy);
     }
 } 

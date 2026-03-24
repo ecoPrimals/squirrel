@@ -67,7 +67,7 @@ mod tests {
     #[tokio::test]
     async fn task_update_sender_round_trip_message() {
         let (tx, mut rx): (TaskUpdateSender, _) = mpsc::channel(4);
-        tx.send("ping".to_string()).await.unwrap();
+        tx.send("ping".to_string()).await.expect("should succeed");
         assert_eq!(rx.recv().await, Some("ping".to_string()));
     }
 
@@ -83,9 +83,14 @@ mod tests {
     fn simple_command_execute_and_clone_box() {
         let boxed: Box<dyn SimpleCommand> = TestSimpleCommand.clone_box();
         assert_eq!(boxed.name(), "test_cmd");
-        assert_eq!(boxed.execute(&[]).unwrap(), "args_len=0");
+        assert_eq!(boxed.execute(&[]).expect("should succeed"), "args_len=0");
         let boxed2 = boxed.clone_box();
-        assert_eq!(boxed2.execute(&[String::from("a")]).unwrap(), "args_len=1");
+        assert_eq!(
+            boxed2
+                .execute(&[String::from("a")])
+                .expect("should succeed"),
+            "args_len=1"
+        );
     }
 
     #[test]

@@ -192,7 +192,10 @@ mod direct_tests {
     #[tokio::test]
     async fn health_readiness_json_shape() {
         let server = JsonRpcServer::new("/tmp/sys-readiness.sock".to_string());
-        let v = server.handle_health_readiness().await.unwrap();
+        let v = server
+            .handle_health_readiness()
+            .await
+            .expect("should succeed");
         assert_eq!(
             v.get("ready").and_then(serde_json::Value::as_bool),
             Some(true)
@@ -206,7 +209,10 @@ mod direct_tests {
     #[tokio::test]
     async fn health_liveness_json_shape() {
         let server = JsonRpcServer::new("/tmp/sys-live.sock".to_string());
-        let v = server.handle_health_liveness().await.unwrap();
+        let v = server
+            .handle_health_liveness()
+            .await
+            .expect("should succeed");
         assert_eq!(
             v.get("alive").and_then(serde_json::Value::as_bool),
             Some(true)

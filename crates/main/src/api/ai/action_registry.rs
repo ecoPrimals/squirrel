@@ -204,7 +204,7 @@ mod tests {
 
         let providers = registry.find_providers_for_action("test.action").await;
         assert!(providers.is_some());
-        assert_eq!(providers.unwrap().len(), 1);
+        assert_eq!(providers.expect("should succeed").len(), 1);
     }
 
     #[tokio::test]
@@ -219,7 +219,7 @@ mod tests {
             .await;
 
         let providers = registry.find_providers_for_action("test.action").await;
-        assert_eq!(providers.unwrap().len(), 2);
+        assert_eq!(providers.expect("should succeed").len(), 2);
     }
 
     #[tokio::test]
@@ -232,7 +232,7 @@ mod tests {
         registry.deregister_provider("p1").await;
 
         let providers = registry.find_providers_for_action("test.action").await;
-        assert!(providers.is_none() || providers.unwrap().is_empty());
+        assert!(providers.is_none() || providers.expect("should succeed").is_empty());
     }
 
     #[tokio::test]

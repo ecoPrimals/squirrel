@@ -552,7 +552,7 @@ mod tests {
     #[test]
     fn test_config_validation_development() {
         let validator = ConfigValidator::new(Environment::Development);
-        let config = validator.build_platform_config().unwrap();
+        let config = validator.build_platform_config().expect("should succeed");
         
         assert_eq!(config.platform_settings.debug_mode, true);
         assert_eq!(config.platform_settings.enable_experimental, true);
@@ -561,7 +561,7 @@ mod tests {
     #[test]
     fn test_config_validation_production() {
         let validator = ConfigValidator::new(Environment::Production);
-        let config = validator.build_platform_config().unwrap();
+        let config = validator.build_platform_config().expect("should succeed");
         
         assert_eq!(config.platform_settings.debug_mode, false);
         assert_eq!(config.platform_settings.enable_experimental, false);
@@ -573,7 +573,7 @@ mod tests {
         let validator = temp_env::with_var("MCP_ENVIRONMENT", Some("production"), || {
             ConfigValidator::from_env()
         })
-        .unwrap();
+        .expect("should succeed");
         assert_eq!(validator.environment, Environment::Production);
     }
 } 

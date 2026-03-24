@@ -163,33 +163,33 @@ mod tests {
 
     #[test]
     fn file_journal_missing_file_loads_empty() {
-        let dir = tempdir().unwrap();
+        let dir = tempdir().expect("should succeed");
         let path = dir.path().join("nj.json");
         let p = FileJournalPersistence::new(&path);
-        assert!(p.load_entries().unwrap().is_empty());
+        assert!(p.load_entries().expect("should succeed").is_empty());
     }
 
     #[test]
     fn file_journal_save_load_update_delete_roundtrip() {
-        let dir = tempdir().unwrap();
+        let dir = tempdir().expect("should succeed");
         let path = dir.path().join("j.json");
         let p = FileJournalPersistence::new(&path);
 
         let mut e1 = JournalEntry::new("echo", vec!["a".into()]);
-        p.save_entry(&e1).unwrap();
-        let loaded = p.load_entries().unwrap();
+        p.save_entry(&e1).expect("should succeed");
+        let loaded = p.load_entries().expect("should succeed");
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].command_name, "echo");
 
         e1.state = JournalEntryState::Completed;
-        p.save_entry(&e1).unwrap();
+        p.save_entry(&e1).expect("should succeed");
         assert_eq!(
-            p.load_entries().unwrap()[0].state,
+            p.load_entries().expect("should succeed")[0].state,
             JournalEntryState::Completed
         );
 
-        p.delete_entry(&e1.id).unwrap();
-        assert!(p.load_entries().unwrap().is_empty());
+        p.delete_entry(&e1.id).expect("should succeed");
+        assert!(p.load_entries().expect("should succeed").is_empty());
     }
 
     #[test]
@@ -197,10 +197,10 @@ mod tests {
         let p = InMemoryJournalPersistence::new();
         let e = JournalEntry::new("ls", vec![]);
         let id = e.id.clone();
-        p.save_entry(&e).unwrap();
-        assert_eq!(p.load_entries().unwrap().len(), 1);
-        p.delete_entry(&id).unwrap();
-        assert!(p.load_entries().unwrap().is_empty());
+        p.save_entry(&e).expect("should succeed");
+        assert_eq!(p.load_entries().expect("should succeed").len(), 1);
+        p.delete_entry(&id).expect("should succeed");
+        assert!(p.load_entries().expect("should succeed").is_empty());
     }
 
     #[test]

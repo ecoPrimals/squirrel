@@ -99,8 +99,8 @@ mod tests {
     #[test]
     fn test_health_check_config_serialization() {
         let config = HealthCheckConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: HealthCheckConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: HealthCheckConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.interval, config.interval);
         assert_eq!(deserialized.failure_threshold, config.failure_threshold);
     }
@@ -143,7 +143,7 @@ mod tests {
         };
 
         assert_eq!(health.details.len(), 2);
-        assert_eq!(health.details.get("cpu").unwrap(), "45%");
+        assert_eq!(health.details.get("cpu").expect("should succeed"), "45%");
         assert!(matches!(health.state, HealthState::Warning));
     }
 
@@ -161,8 +161,8 @@ mod tests {
             consecutive_failures: 0,
         };
 
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: ComponentHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: ComponentHealth = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.name, "api-server");
         assert_eq!(deserialized.check_count, 1000);
     }
@@ -203,8 +203,8 @@ mod tests {
             system_health: HealthState::Warning,
         };
 
-        let json = serde_json::to_string(&snapshot).unwrap();
-        let deserialized: HealthSnapshot = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&snapshot).expect("should succeed");
+        let deserialized: HealthSnapshot = serde_json::from_str(&json).expect("should succeed");
         assert!(matches!(deserialized.system_health, HealthState::Warning));
     }
 }

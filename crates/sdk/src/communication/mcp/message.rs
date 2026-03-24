@@ -337,7 +337,10 @@ mod tests {
         }
         "#;
 
-        let message = handler.handle_incoming_message(message_json).await.unwrap();
+        let message = handler
+            .handle_incoming_message(message_json)
+            .await
+            .expect("should succeed");
         assert_eq!(message.id, "test-id");
         assert_eq!(message.message_type, "ping");
     }

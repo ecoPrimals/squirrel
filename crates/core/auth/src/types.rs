@@ -542,8 +542,8 @@ mod tests {
     fn login_request_serde_roundtrip() {
         let req =
             LoginRequest::new("alice", "secret").with_factors(serde_json::json!({"mfa": true}));
-        let json = serde_json::to_string(&req).unwrap();
-        let restored: LoginRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("should succeed");
+        let restored: LoginRequest = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(restored.username, req.username);
         assert_eq!(restored.additional_factors, req.additional_factors);
     }
@@ -565,8 +565,8 @@ mod tests {
             },
         ];
         for provider in providers {
-            let json = serde_json::to_string(&provider).unwrap();
-            let restored: AuthProvider = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&provider).expect("should succeed");
+            let restored: AuthProvider = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(restored, provider);
         }
     }
@@ -575,8 +575,8 @@ mod tests {
     fn session_serde_roundtrip() {
         let user_id = Uuid::new_v4();
         let session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
-        let json = serde_json::to_string(&session).unwrap();
-        let restored: Session = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&session).expect("should succeed");
+        let restored: Session = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(restored.id, session.id);
         assert_eq!(restored.user_id, session.user_id);
     }

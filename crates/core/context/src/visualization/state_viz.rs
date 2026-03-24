@@ -404,7 +404,7 @@ mod tests {
         let result = visualizer.render_state_tree(&state, VisualizationFormat::Json).await;
         assert!(result.is_ok());
         
-        let rendered = result.unwrap();
+        let rendered = result.expect("should succeed");
         assert!(rendered.contains("state_tree"));
         assert!(rendered.contains("test-state"));
     }
@@ -432,7 +432,7 @@ mod tests {
         let result = visualizer.render_timeline(&history, VisualizationFormat::Json).await;
         assert!(result.is_ok());
         
-        let rendered = result.unwrap();
+        let rendered = result.expect("should succeed");
         assert!(rendered.contains("timeline"));
         assert!(rendered.contains("state1"));
         assert!(rendered.contains("state2"));
@@ -469,7 +469,7 @@ mod tests {
         let result = visualizer.render_state_diff(&old_state, &new_state, VisualizationFormat::Json).await;
         assert!(result.is_ok());
         
-        let rendered = result.unwrap();
+        let rendered = result.expect("should succeed");
         assert!(rendered.contains("state_diff"));
         assert!(rendered.contains("modified"));
         assert!(rendered.contains("added"));
@@ -506,11 +506,11 @@ mod tests {
         
         let diff = visualizer.calculate_state_diff(&old_state, &new_state);
         
-        assert!(diff["version_changed"].as_bool().unwrap());
-        assert!(diff["timestamp_changed"].as_bool().unwrap());
-        assert!(diff["data_changes"]["added"]["key4"].as_str().unwrap() == "added");
-        assert!(diff["data_changes"]["removed"]["key3"].as_str().unwrap() == "removed");
-        assert!(diff["data_changes"]["modified"]["key1"]["new"].as_str().unwrap() == "new_value");
+        assert!(diff["version_changed"].as_bool().expect("should succeed"));
+        assert!(diff["timestamp_changed"].as_bool().expect("should succeed"));
+        assert!(diff["data_changes"]["added"]["key4"].as_str().expect("should succeed") == "added");
+        assert!(diff["data_changes"]["removed"]["key3"].as_str().expect("should succeed") == "removed");
+        assert!(diff["data_changes"]["modified"]["key1"]["new"].as_str().expect("should succeed") == "new_value");
     }
     
     #[test]

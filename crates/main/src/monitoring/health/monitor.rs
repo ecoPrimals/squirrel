@@ -273,30 +273,45 @@ mod tests {
     #[tokio::test]
     async fn check_component_updates_health_and_summary() {
         let m = HealthMonitor::new();
-        m.register_component("api", sample_config()).await.unwrap();
-        m.check_component_health("api").await.unwrap();
+        m.register_component("api", sample_config())
+            .await
+            .expect("should succeed");
+        m.check_component_health("api")
+            .await
+            .expect("should succeed");
 
-        let h = m.get_component_health("api").await.unwrap();
+        let h = m.get_component_health("api").await.expect("should succeed");
         assert!(matches!(h.state, HealthState::Healthy));
         assert_eq!(h.check_count, 1);
         assert_eq!(h.consecutive_successes, 1);
         assert_eq!(h.consecutive_failures, 0);
 
-        let summary = m.get_health_summary().await.unwrap();
+        let summary = m.get_health_summary().await.expect("should succeed");
         assert_eq!(summary.get("api"), Some(&HealthState::Healthy));
     }
 
     #[tokio::test]
     async fn system_health_empty_unknown_before_check() {
         let m = HealthMonitor::new();
-        assert_eq!(m.get_system_health().await.unwrap(), HealthState::Unknown);
+        assert_eq!(
+            m.get_system_health().await.expect("should succeed"),
+            HealthState::Unknown
+        );
 
-        m.register_component("a", sample_config()).await.unwrap();
+        m.register_component("a", sample_config())
+            .await
+            .expect("should succeed");
         // Before any check, components are Unknown → aggregated Warning
-        assert_eq!(m.get_system_health().await.unwrap(), HealthState::Warning);
+        assert_eq!(
+            m.get_system_health().await.expect("should succeed"),
+            HealthState::Warning
+        );
 
-        m.check_all_components().await.unwrap();
-        assert_eq!(m.get_system_health().await.unwrap(), HealthState::Healthy);
+        m.check_all_components().await.expect("should succeed");
+        assert_eq!(
+            m.get_system_health().await.expect("should succeed"),
+            HealthState::Healthy
+        );
     }
 
     #[tokio::test]
@@ -310,10 +325,12 @@ mod tests {
     async fn health_history_snapshot_and_trim() {
         let mut m = HealthMonitor::new();
         m.set_max_history_size(2);
-        m.register_component("c1", sample_config()).await.unwrap();
-        m.check_all_components().await.unwrap();
-        m.check_all_components().await.unwrap();
-        m.check_all_components().await.unwrap();
+        m.register_component("c1", sample_config())
+            .await
+            .expect("should succeed");
+        m.check_all_components().await.expect("should succeed");
+        m.check_all_components().await.expect("should succeed");
+        m.check_all_components().await.expect("should succeed");
 
         let hist = m.get_health_history().await;
         assert!(hist.len() <= 2);

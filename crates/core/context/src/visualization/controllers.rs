@@ -64,7 +64,9 @@ mod tests {
     #[tokio::test]
     async fn test_context_controller_start_stop() {
         let config = Arc::new(VisualizationSystemConfig::default());
-        let controller = ContextController::new(config).await.unwrap();
+        let controller = ContextController::new(config)
+            .await
+            .expect("should succeed");
         assert!(controller.start().await.is_ok());
         assert!(controller.stop().await.is_ok());
     }
@@ -72,7 +74,9 @@ mod tests {
     #[tokio::test]
     async fn test_context_controller_update_context() {
         let config = Arc::new(VisualizationSystemConfig::default());
-        let controller = ContextController::new(config).await.unwrap();
+        let controller = ContextController::new(config)
+            .await
+            .expect("should succeed");
         let result = controller
             .update_context("ctx-1", json!({"key": "value"}))
             .await;
@@ -82,9 +86,11 @@ mod tests {
     #[tokio::test]
     async fn test_context_controller_get_context() {
         let config = Arc::new(VisualizationSystemConfig::default());
-        let controller = ContextController::new(config).await.unwrap();
+        let controller = ContextController::new(config)
+            .await
+            .expect("should succeed");
         let result = controller.get_context("ctx-1").await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), json!({}));
+        assert_eq!(result.expect("should succeed"), json!({}));
     }
 }

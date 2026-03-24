@@ -61,7 +61,7 @@ mod tests {
         let result = Ok("success");
         let extracted = extract_auth_result(result, "test_operation");
         assert!(extracted.is_ok());
-        assert_eq!(extracted.unwrap(), "success");
+        assert_eq!(extracted.expect("should succeed"), "success");
     }
 
     #[test]
@@ -83,7 +83,7 @@ mod tests {
         let option = Some("value");
         let extracted = extract_option(option, "test_operation");
         assert!(extracted.is_ok());
-        assert_eq!(extracted.unwrap(), "value");
+        assert_eq!(extracted.expect("should succeed"), "value");
     }
 
     #[test]

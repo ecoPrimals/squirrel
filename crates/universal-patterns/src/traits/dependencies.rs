@@ -52,8 +52,8 @@ mod tests {
         let dep = PrimalDependency::RequiresAuthentication {
             methods: vec!["oauth2".to_string(), "jwt".to_string()],
         };
-        let json = serde_json::to_string(&dep).unwrap();
-        let deserialized: PrimalDependency = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&dep).expect("should succeed");
+        let deserialized: PrimalDependency = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, dep);
     }
 
@@ -62,8 +62,8 @@ mod tests {
         let dep = PrimalDependency::RequiresEncryption {
             algorithms: vec!["AES-256".to_string()],
         };
-        let json = serde_json::to_string(&dep).unwrap();
-        let deserialized: PrimalDependency = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&dep).expect("should succeed");
+        let deserialized: PrimalDependency = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, dep);
     }
 
@@ -72,8 +72,8 @@ mod tests {
         let dep = PrimalDependency::RequiresStorage {
             types: vec!["kv".to_string(), "blob".to_string()],
         };
-        let json = serde_json::to_string(&dep).unwrap();
-        let deserialized: PrimalDependency = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&dep).expect("should succeed");
+        let deserialized: PrimalDependency = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, dep);
     }
 
@@ -82,8 +82,8 @@ mod tests {
         let dep = PrimalDependency::RequiresCompute {
             types: vec!["gpu".to_string()],
         };
-        let json = serde_json::to_string(&dep).unwrap();
-        let deserialized: PrimalDependency = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&dep).expect("should succeed");
+        let deserialized: PrimalDependency = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, dep);
     }
 
@@ -92,8 +92,8 @@ mod tests {
         let dep = PrimalDependency::RequiresAI {
             capabilities: vec!["text-generation".to_string(), "embedding".to_string()],
         };
-        let json = serde_json::to_string(&dep).unwrap();
-        let deserialized: PrimalDependency = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&dep).expect("should succeed");
+        let deserialized: PrimalDependency = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, dep);
     }
 
@@ -103,8 +103,8 @@ mod tests {
             name: "external-api".to_string(),
             requirements: "v2+".to_string(),
         };
-        let json = serde_json::to_string(&dep).unwrap();
-        let deserialized: PrimalDependency = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&dep).expect("should succeed");
+        let deserialized: PrimalDependency = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, dep);
     }
 

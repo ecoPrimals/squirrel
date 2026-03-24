@@ -366,14 +366,14 @@ mod tests {
         let strategy = selector.select_strategy(&ResourceType::Memory, &CleanupMethod::Normal);
         match strategy {
             CleanupStrategy::Normal { timeout_ms } => assert_eq!(timeout_ms, 5000),
-            _ => panic!("Expected Normal strategy"),
+            _ => unreachable!("Expected Normal strategy"),
         }
         
         // Test forced strategy selection
         let forced_strategy = selector.select_strategy(&ResourceType::Memory, &CleanupMethod::Forced);
         match forced_strategy {
             CleanupStrategy::Forced { method } => assert_eq!(method, "forced_memory"),
-            _ => panic!("Expected Forced strategy"),
+            _ => unreachable!("Expected Forced strategy"),
         }
     }
     
@@ -388,7 +388,7 @@ mod tests {
         
         match strategy {
             CleanupStrategy::Forced { method } => assert_eq!(method, "memory_pressure"),
-            _ => panic!("Expected Forced strategy for memory limits"),
+            _ => unreachable!("Expected Forced strategy for memory limits"),
         }
     }
 } 

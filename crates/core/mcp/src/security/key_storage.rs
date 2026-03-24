@@ -151,7 +151,6 @@ impl Default for InMemoryKeyStorage {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 mod tests {
     use super::*;
     use chrono::{Duration, Utc};
@@ -167,8 +166,8 @@ mod tests {
             expires_at: None,
             active: true,
         };
-        let json = serde_json::to_string(&k).unwrap();
-        let back: StoredKey = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&k).expect("stored key serializes");
+        let back: StoredKey = serde_json::from_str(&json).expect("stored key deserializes");
         assert_eq!(back.id, k.id);
         assert_eq!(back.name, k.name);
         assert_eq!(back.data, k.data);
@@ -183,34 +182,64 @@ mod tests {
         let id = s
             .store_key("k1".to_string(), "type".to_string(), vec![1, 2, 3], None)
             .await
-            .unwrap();
+            .expect("store_key");
 
-        assert_eq!(s.get_key(&id).await.unwrap().unwrap().name, "k1");
-        assert_eq!(s.get_key_by_name("k1").await.unwrap().unwrap().id, id);
-        assert!(s.get_key(&Uuid::new_v4()).await.unwrap().is_none());
-        assert!(s.get_key_by_name("missing").await.unwrap().is_none());
+        assert_eq!(
+            s.get_key(&id)
+                .await
+                .expect("get_key")
+                .expect("key exists")
+                .name,
+            "k1"
+        );
+        assert_eq!(
+            s.get_key_by_name("k1")
+                .await
+                .expect("get_key_by_name")
+                .expect("key exists")
+                .id,
+            id
+        );
+        assert!(s.get_key(&Uuid::new_v4()).await.expect("get_key").is_none());
+        assert!(
+            s.get_key_by_name("missing")
+                .await
+                .expect("get_key_by_name")
+                .is_none()
+        );
 
-        let mut rec = s.get_key(&id).await.unwrap().unwrap();
+        let mut rec = s.get_key(&id).await.expect("get_key").expect("key exists");
         rec.name = "renamed".to_string();
-        s.update_key(rec).await.unwrap();
-        assert_eq!(s.get_key_by_name("renamed").await.unwrap().unwrap().id, id);
+        s.update_key(rec).await.expect("update_key");
+        assert_eq!(
+            s.get_key_by_name("renamed")
+                .await
+                .expect("get_key_by_name")
+                .expect("key exists")
+                .id,
+            id
+        );
 
-        let keys = s.list_keys().await.unwrap();
+        let keys = s.list_keys().await.expect("list_keys");
         assert_eq!(keys.len(), 1);
 
-        let mut inactive = s.get_key(&id).await.unwrap().unwrap();
+        let mut inactive = s.get_key(&id).await.expect("get_key").expect("key exists");
         inactive.active = false;
-        s.update_key(inactive).await.unwrap();
-        assert!(s.list_keys().await.unwrap().is_empty());
+        s.update_key(inactive).await.expect("update_key");
+        assert!(s.list_keys().await.expect("list_keys").is_empty());
 
-        s.delete_key(&id).await.unwrap();
-        assert!(s.get_key(&id).await.unwrap().is_none());
+        s.delete_key(&id).await.expect("delete_key");
+        assert!(s.get_key(&id).await.expect("get_key").is_none());
     }
 
     #[tokio::test]
     async fn is_key_expired_missing_and_future() {
         let s = InMemoryKeyStorage::new();
-        assert!(s.is_key_expired(&Uuid::new_v4()).await.unwrap());
+        assert!(
+            s.is_key_expired(&Uuid::new_v4())
+                .await
+                .expect("is_key_expired")
+        );
 
         let id = s
             .store_key(
@@ -220,13 +249,13 @@ mod tests {
                 Some(Utc::now() + Duration::hours(24)),
             )
             .await
-            .unwrap();
-        assert!(!s.is_key_expired(&id).await.unwrap());
+            .expect("store_key");
+        assert!(!s.is_key_expired(&id).await.expect("is_key_expired"));
 
-        let mut k = s.get_key(&id).await.unwrap().unwrap();
+        let mut k = s.get_key(&id).await.expect("get_key").expect("key exists");
         k.expires_at = Some(Utc::now() - Duration::hours(1));
-        s.update_key(k).await.unwrap();
-        assert!(s.is_key_expired(&id).await.unwrap());
+        s.update_key(k).await.expect("update_key");
+        assert!(s.is_key_expired(&id).await.expect("is_key_expired"));
     }
 
     #[tokio::test]
@@ -236,21 +265,29 @@ mod tests {
         let _ = s
             .store_key("gone".to_string(), "t".to_string(), vec![], Some(past))
             .await
-            .unwrap();
+            .expect("store_key");
         let future = Utc::now() + Duration::hours(1);
         let keep = s
             .store_key("stay".to_string(), "t".to_string(), vec![], Some(future))
             .await
-            .unwrap();
+            .expect("store_key");
         let no_exp = s
             .store_key("forever".to_string(), "t".to_string(), vec![], None)
             .await
-            .unwrap();
+            .expect("store_key");
 
-        let removed = s.cleanup_expired_keys().await.unwrap();
+        let removed = s
+            .cleanup_expired_keys()
+            .await
+            .expect("cleanup_expired_keys");
         assert_eq!(removed, 1);
-        assert!(s.get_key_by_name("gone").await.unwrap().is_none());
-        assert!(s.get_key(&keep).await.unwrap().is_some());
-        assert!(s.get_key(&no_exp).await.unwrap().is_some());
+        assert!(
+            s.get_key_by_name("gone")
+                .await
+                .expect("get_key_by_name")
+                .is_none()
+        );
+        assert!(s.get_key(&keep).await.expect("get_key").is_some());
+        assert!(s.get_key(&no_exp).await.expect("get_key").is_some());
     }
 }

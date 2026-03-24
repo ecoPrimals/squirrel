@@ -812,8 +812,8 @@ mod tests {
     #[tokio::test]
     async fn test_tcp_transport_send_raw() {
         // Set up a mock listener to receive the raw bytes
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("should succeed");
+        let addr = listener.local_addr().expect("should succeed");
         
         // Create a config pointing to our listener
         let config = TcpTransportConfig {
@@ -832,7 +832,7 @@ mod tests {
         
         // Spawn a task to accept the connection and read the data
         let handle = tokio::spawn(async move {
-            let (socket, _) = listener.accept().await.unwrap();
+            let (socket, _) = listener.accept().await.expect("should succeed");
             let mut reader = FrameReader::new(socket);
             if let Ok(Some(frame)) = reader.read_frame().await {
                 return frame.payload.to_vec();
@@ -845,7 +845,7 @@ mod tests {
         transport.send_raw(test_data).await.expect("Failed to send raw data");
         
         // Check that the data was received correctly
-        let received = handle.await.unwrap();
+        let received = handle.await.expect("should succeed");
         assert_eq!(received, test_data);
     }
 } 

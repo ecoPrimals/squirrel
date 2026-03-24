@@ -18,7 +18,7 @@ fn test_auth_service_new_standalone_fallback() {
             ("SECURITY_AUTHENTICATION_PORT", None::<&str>),
         ],
         || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Runtime::new().expect("should succeed");
             rt.block_on(AuthService::new())
         },
     );
@@ -40,7 +40,7 @@ async fn test_authenticate_standalone_admin_success() {
     let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
 
     let request = LoginRequest::new("admin", "admin123");
-    let response = service.authenticate(request).await.unwrap();
+    let response = service.authenticate(request).await.expect("should succeed");
     assert!(response.success);
     assert!(response.user_context.is_some());
     assert!(response.session_token.is_some());
@@ -58,7 +58,7 @@ async fn test_authenticate_standalone_wrong_password() {
     let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
 
     let request = LoginRequest::new("admin", "wrong");
-    let response = service.authenticate(request).await.unwrap();
+    let response = service.authenticate(request).await.expect("should succeed");
     assert!(!response.success);
     assert!(response.user_context.is_none());
     assert_eq!(
@@ -74,7 +74,7 @@ async fn test_authenticate_standalone_user_not_found() {
     let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
 
     let request = LoginRequest::new("unknown", "any");
-    let response = service.authenticate(request).await.unwrap();
+    let response = service.authenticate(request).await.expect("should succeed");
     assert!(!response.success);
     assert_eq!(response.error_message.as_deref(), Some("User not found"));
 }
@@ -87,7 +87,7 @@ async fn test_authenticate_standalone_user_success() {
     let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
 
     let request = LoginRequest::new("user", "user123");
-    let response = service.authenticate(request).await.unwrap();
+    let response = service.authenticate(request).await.expect("should succeed");
     assert!(response.success);
     assert!(response.user_context.is_some());
 }
@@ -99,10 +99,17 @@ async fn test_authenticate_development_always_succeeds() {
     let service = AuthService::for_testing(session_manager, AuthProvider::Development, users);
 
     let request = LoginRequest::new("devuser", "any-password");
-    let response = service.authenticate(request).await.unwrap();
+    let response = service.authenticate(request).await.expect("should succeed");
     assert!(response.success);
     assert!(response.user_context.is_some());
-    assert_eq!(response.user_context.as_ref().unwrap().username, "devuser");
+    assert_eq!(
+        response
+            .user_context
+            .as_ref()
+            .expect("should succeed")
+            .username,
+        "devuser"
+    );
 }
 
 #[tokio::test]
@@ -114,12 +121,18 @@ async fn test_validate_session_valid() {
     let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
 
     let request = LoginRequest::new("admin", "admin123");
-    let login_response = service.authenticate(request).await.unwrap();
-    let session_token = login_response.session_token.clone().unwrap();
+    let login_response = service.authenticate(request).await.expect("should succeed");
+    let session_token = login_response
+        .session_token
+        .clone()
+        .expect("should succeed");
 
-    let validated = service.validate_session(&session_token).await.unwrap();
+    let validated = service
+        .validate_session(&session_token)
+        .await
+        .expect("should succeed");
     assert!(validated.is_some());
-    assert_eq!(validated.unwrap().username, "admin");
+    assert_eq!(validated.expect("should succeed").username, "admin");
 }
 
 #[tokio::test]
@@ -139,7 +152,10 @@ async fn test_validate_session_unknown_session() {
     let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
 
     let fake_uuid = uuid::Uuid::new_v4().to_string();
-    let validated = service.validate_session(&fake_uuid).await.unwrap();
+    let validated = service
+        .validate_session(&fake_uuid)
+        .await
+        .expect("should succeed");
     assert!(validated.is_none());
 }
 
@@ -156,10 +172,16 @@ async fn test_logout_valid_session() {
     let login_response = service
         .authenticate(LoginRequest::new("admin", "admin123"))
         .await
-        .unwrap();
-    let session_token = login_response.session_token.clone().unwrap();
+        .expect("should succeed");
+    let session_token = login_response
+        .session_token
+        .clone()
+        .expect("should succeed");
 
-    let result = service.logout(&session_token).await.unwrap();
+    let result = service
+        .logout(&session_token)
+        .await
+        .expect("should succeed");
     assert!(result);
 }
 
@@ -187,7 +209,7 @@ async fn test_get_auth_provider() {
 #[test]
 fn test_parse_security_capability_with_auth() {
     let body = r#"{"auth": true, "primal_id": "security-primal"}"#;
-    let info = AuthService::parse_security_capability_for_test(body).unwrap();
+    let info = AuthService::parse_security_capability_for_test(body).expect("should succeed");
     assert_eq!(info.primal_type, "security-primal");
     assert!(info.supports_auth);
     assert_eq!(info.api_version, "v1");
@@ -196,7 +218,7 @@ fn test_parse_security_capability_with_auth() {
 #[test]
 fn test_parse_security_capability_with_security() {
     let body = r#"{"security": true, "session": true}"#;
-    let info = AuthService::parse_security_capability_for_test(body).unwrap();
+    let info = AuthService::parse_security_capability_for_test(body).expect("should succeed");
     assert_eq!(info.primal_type, "discovered");
     assert!(info.supports_sessions);
     assert_eq!(info.api_version, "v1");
@@ -205,7 +227,7 @@ fn test_parse_security_capability_with_security() {
 #[test]
 fn test_parse_security_capability_with_token() {
     let body = r#"{"token": "supported"}"#;
-    let info = AuthService::parse_security_capability_for_test(body).unwrap();
+    let info = AuthService::parse_security_capability_for_test(body).expect("should succeed");
     assert!(info.supports_sessions);
 }
 
@@ -232,7 +254,7 @@ fn test_parse_security_capability_primal_id_from_nested() {
 #[test]
 fn test_parse_security_capability_authentication_keyword() {
     let body = r#"{"authentication": "enabled"}"#;
-    let info = AuthService::parse_security_capability_for_test(body).unwrap();
+    let info = AuthService::parse_security_capability_for_test(body).expect("should succeed");
     assert!(info.supports_auth);
 }
 
@@ -287,7 +309,7 @@ fn auth_provider_security_capability_holds_endpoint_and_metadata() {
             assert_eq!(discovery_method, "unit_test");
             assert_eq!(capability_info, cap);
         }
-        _ => panic!("expected SecurityCapability variant"),
+        _ => unreachable!("expected SecurityCapability variant"),
     }
 }
 
@@ -326,7 +348,7 @@ async fn auth_service_standalone_success_propagates_user_roles_to_context() {
     let response = service
         .authenticate(LoginRequest::new("admin", "admin123"))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert!(response.success);
     let ctx = response
         .user_context
@@ -345,7 +367,7 @@ async fn auth_service_development_authentication_sets_username_and_empty_roles()
     let response = service
         .authenticate(LoginRequest::new("devuser", "ignored"))
         .await
-        .unwrap();
+        .expect("should succeed");
     let ctx = response
         .user_context
         .as_ref()
@@ -367,11 +389,23 @@ async fn auth_service_validate_session_returns_none_after_logout() {
     let login = service
         .authenticate(LoginRequest::new("admin", "admin123"))
         .await
-        .unwrap();
+        .expect("should succeed");
     let token = login.session_token.clone().expect("expected session token");
-    assert!(service.validate_session(&token).await.unwrap().is_some());
-    assert!(service.logout(&token).await.unwrap());
-    assert!(service.validate_session(&token).await.unwrap().is_none());
+    assert!(
+        service
+            .validate_session(&token)
+            .await
+            .expect("should succeed")
+            .is_some()
+    );
+    assert!(service.logout(&token).await.expect("should succeed"));
+    assert!(
+        service
+            .validate_session(&token)
+            .await
+            .expect("should succeed")
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -384,10 +418,16 @@ async fn auth_service_validate_session_returns_none_for_expired_session() {
 
     let expired = Session::new(user_id, Duration::hours(-1), AuthProvider::Standalone);
     let token = expired.id.to_string();
-    session_manager.create_session(expired).await.unwrap();
+    session_manager
+        .create_session(expired)
+        .await
+        .expect("should succeed");
 
     let service = AuthService::for_testing(session_manager, AuthProvider::Standalone, users);
-    let validated = service.validate_session(&token).await.unwrap();
+    let validated = service
+        .validate_session(&token)
+        .await
+        .expect("should succeed");
     assert!(validated.is_none());
 }
 
@@ -426,7 +466,7 @@ async fn auth_service_logout_invalid_token_returns_token_error() {
 #[test]
 fn parse_security_capability_accepts_secure_keyword_without_auth_flag() {
     let body = r#"{"secure": true}"#;
-    let info = AuthService::parse_security_capability_for_test(body).unwrap();
+    let info = AuthService::parse_security_capability_for_test(body).expect("should succeed");
     assert!(!info.supports_auth);
     assert!(!info.supports_sessions);
     assert_eq!(info.primal_type, "discovered");
@@ -435,14 +475,14 @@ fn parse_security_capability_accepts_secure_keyword_without_auth_flag() {
 #[test]
 fn parse_security_capability_accepts_session_keyword() {
     let body = r#"{"session": "ok"}"#;
-    let info = AuthService::parse_security_capability_for_test(body).unwrap();
+    let info = AuthService::parse_security_capability_for_test(body).expect("should succeed");
     assert!(info.supports_sessions);
 }
 
 #[test]
 fn parse_security_capability_primal_id_from_json_root() {
     let body = r#"{"auth": true, "primal_id": "alpha"}"#;
-    let info = AuthService::parse_security_capability_for_test(body).unwrap();
+    let info = AuthService::parse_security_capability_for_test(body).expect("should succeed");
     assert_eq!(info.primal_type, "alpha");
 }
 

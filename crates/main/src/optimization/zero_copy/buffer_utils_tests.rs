@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn test_shared_buffer_slice_valid() {
         let buffer = SharedBuffer::new(vec![1, 2, 3, 4, 5]);
-        let slice = buffer.slice(1, 3).unwrap();
+        let slice = buffer.slice(1, 3).expect("should succeed");
 
         assert_eq!(slice.len(), 3);
         assert_eq!(slice.as_slice(), &[2, 3, 4]);
@@ -115,7 +115,7 @@ mod tests {
     #[test]
     fn test_shared_buffer_slice_full() {
         let buffer = SharedBuffer::new(vec![1, 2, 3, 4, 5]);
-        let slice = buffer.slice(0, 5).unwrap();
+        let slice = buffer.slice(0, 5).expect("should succeed");
 
         assert_eq!(slice.len(), 5);
         assert_eq!(slice.as_slice(), &[1, 2, 3, 4, 5]);
@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn test_shared_buffer_slice_empty() {
         let buffer = SharedBuffer::new(vec![1, 2, 3, 4, 5]);
-        let slice = buffer.slice(2, 0).unwrap();
+        let slice = buffer.slice(2, 0).expect("should succeed");
 
         assert_eq!(slice.len(), 0);
         assert!(slice.is_empty());
@@ -143,8 +143,8 @@ mod tests {
     #[test]
     fn test_shared_buffer_nested_slicing() {
         let buffer = SharedBuffer::new(vec![1, 2, 3, 4, 5, 6, 7, 8]);
-        let slice1 = buffer.slice(2, 5).unwrap(); // [3,4,5,6,7]
-        let slice2 = slice1.slice(1, 3).unwrap(); // [4,5,6]
+        let slice1 = buffer.slice(2, 5).expect("should succeed"); // [3,4,5,6,7]
+        let slice2 = slice1.slice(1, 3).expect("should succeed"); // [4,5,6]
 
         assert_eq!(slice2.as_slice(), &[4, 5, 6]);
     }

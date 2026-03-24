@@ -141,9 +141,12 @@ mod tests {
     #[tokio::test]
     async fn test_plugin_manager_tester() {
         let tester = PluginManagerTester::new();
-        tester.test_plugin_loading().unwrap();
-        tester.test_plugin_security().unwrap();
-        tester.test_plugin_execution().await.unwrap();
+        tester.test_plugin_loading().expect("should succeed");
+        tester.test_plugin_security().expect("should succeed");
+        tester
+            .test_plugin_execution()
+            .await
+            .expect("should succeed");
     }
 
     #[tokio::test]
@@ -151,6 +154,6 @@ mod tests {
         let plugin = TestPlugin::new("test".to_string(), "1.0.0".to_string());
         PluginTestUtils::verify_plugin_functionality(&plugin)
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 }

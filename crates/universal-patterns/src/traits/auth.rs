@@ -128,13 +128,13 @@ mod tests {
             username: "admin".to_string(),
             password: "secret".to_string(),
         };
-        let json = serde_json::to_string(&creds).unwrap();
-        let deserialized: Credentials = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&creds).expect("should succeed");
+        let deserialized: Credentials = serde_json::from_str(&json).expect("should succeed");
         if let Credentials::Password { username, password } = deserialized {
             assert_eq!(username, "admin");
             assert_eq!(password, "secret");
         } else {
-            panic!("Expected Password variant");
+            unreachable!("Expected Password variant");
         }
     }
 
@@ -144,13 +144,13 @@ mod tests {
             key: "key123".to_string(),
             service_id: "svc-1".to_string(),
         };
-        let json = serde_json::to_string(&creds).unwrap();
-        let deserialized: Credentials = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&creds).expect("should succeed");
+        let deserialized: Credentials = serde_json::from_str(&json).expect("should succeed");
         if let Credentials::ApiKey { key, service_id } = deserialized {
             assert_eq!(key, "key123");
             assert_eq!(service_id, "svc-1");
         } else {
-            panic!("Expected ApiKey variant");
+            unreachable!("Expected ApiKey variant");
         }
     }
 
@@ -159,12 +159,12 @@ mod tests {
         let creds = Credentials::Bearer {
             token: "tok".to_string(),
         };
-        let json = serde_json::to_string(&creds).unwrap();
-        let deserialized: Credentials = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&creds).expect("should succeed");
+        let deserialized: Credentials = serde_json::from_str(&json).expect("should succeed");
         if let Credentials::Bearer { token } = deserialized {
             assert_eq!(token, "tok");
         } else {
-            panic!("Expected Bearer variant");
+            unreachable!("Expected Bearer variant");
         }
     }
 
@@ -194,8 +194,8 @@ mod tests {
             }),
         ];
         for creds in variants {
-            let json = serde_json::to_string(&creds).unwrap();
-            let _deserialized: Credentials = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&creds).expect("should succeed");
+            let _deserialized: Credentials = serde_json::from_str(&json).expect("should succeed");
         }
     }
 
@@ -209,8 +209,8 @@ mod tests {
             permissions: vec!["read".to_string(), "write".to_string()],
             metadata: HashMap::new(),
         };
-        let json = serde_json::to_string(&principal).unwrap();
-        let deserialized: Principal = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&principal).expect("should succeed");
+        let deserialized: Principal = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.id, "p1");
         assert_eq!(deserialized.name, "Admin");
         assert_eq!(deserialized.roles.len(), 1);
@@ -225,8 +225,8 @@ mod tests {
             PrincipalType::Client,
             PrincipalType::System,
         ] {
-            let json = serde_json::to_string(&pt).unwrap();
-            let _deserialized: PrincipalType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&pt).expect("should succeed");
+            let _deserialized: PrincipalType = serde_json::from_str(&json).expect("should succeed");
         }
     }
 
@@ -246,8 +246,8 @@ mod tests {
             permissions: vec!["read".to_string()],
             metadata: HashMap::new(),
         };
-        let json = serde_json::to_string(&result).unwrap();
-        let deserialized: AuthResult = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&result).expect("should succeed");
+        let deserialized: AuthResult = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.token, "token123");
         assert_eq!(deserialized.permissions.len(), 1);
     }
@@ -286,10 +286,10 @@ mod proptest_tests {
     proptest! {
         #[test]
         fn credentials_round_trip_serde(creds in credentials_strategy()) {
-            let json = serde_json::to_string(&creds).unwrap();
-            let deserialized: Credentials = serde_json::from_str(&json).unwrap();
-            let json2 = serde_json::to_string(&deserialized).unwrap();
-            let round_tripped: Credentials = serde_json::from_str(&json2).unwrap();
+            let json = serde_json::to_string(&creds).expect("should succeed");
+            let deserialized: Credentials = serde_json::from_str(&json).expect("should succeed");
+            let json2 = serde_json::to_string(&deserialized).expect("should succeed");
+            let round_tripped: Credentials = serde_json::from_str(&json2).expect("should succeed");
             prop_assert_eq!(deserialized, round_tripped);
         }
     }

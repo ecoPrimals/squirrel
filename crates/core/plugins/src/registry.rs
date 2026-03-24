@@ -80,7 +80,7 @@ mod tests {
     impl PluginRegistry for MockRegistry {
         async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
             let id = plugin.id();
-            let mut g = self.plugins.lock().unwrap();
+            let mut g = self.plugins.lock().expect("should succeed");
             if g.contains_key(&id) {
                 return Err(PluginError::PluginAlreadyExists(id.to_string()));
             }
@@ -89,15 +89,15 @@ mod tests {
         }
 
         async fn unregister_plugin(&self, id: Uuid) -> Result<()> {
-            self.plugins.lock().unwrap().remove(&id);
-            self.statuses.lock().unwrap().remove(&id);
+            self.plugins.lock().expect("should succeed").remove(&id);
+            self.statuses.lock().expect("should succeed").remove(&id);
             Ok(())
         }
 
         async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
             self.plugins
                 .lock()
-                .unwrap()
+                .expect("should succeed")
                 .get(&id)
                 .cloned()
                 .ok_or_else(|| PluginError::NotFound(id))
@@ -106,7 +106,7 @@ mod tests {
         async fn get_plugin_by_name(&self, name: &str) -> Result<Arc<dyn Plugin>> {
             self.plugins
                 .lock()
-                .unwrap()
+                .expect("should succeed")
                 .values()
                 .find(|p| p.metadata().name == name)
                 .cloned()
@@ -114,28 +114,48 @@ mod tests {
         }
 
         async fn list_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
-            Ok(self.plugins.lock().unwrap().values().cloned().collect())
+            Ok(self
+                .plugins
+                .lock()
+                .expect("should succeed")
+                .values()
+                .cloned()
+                .collect())
         }
 
         async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus> {
             self.statuses
                 .lock()
-                .unwrap()
+                .expect("should succeed")
                 .get(&id)
                 .copied()
                 .ok_or_else(|| PluginError::NotFound(id))
         }
 
         async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()> {
-            if !self.plugins.lock().unwrap().contains_key(&id) {
+            if !self
+                .plugins
+                .lock()
+                .expect("should succeed")
+                .contains_key(&id)
+            {
                 return Err(PluginError::NotFound(id));
             }
-            self.statuses.lock().unwrap().insert(id, status);
+            self.statuses
+                .lock()
+                .expect("should succeed")
+                .insert(id, status);
             Ok(())
         }
 
         async fn get_all_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
-            Ok(self.plugins.lock().unwrap().values().cloned().collect())
+            Ok(self
+                .plugins
+                .lock()
+                .expect("should succeed")
+                .values()
+                .cloned()
+                .collect())
         }
     }
 
@@ -144,9 +164,9 @@ mod tests {
         let reg = MockRegistry::new();
         let id = Uuid::new_v4();
         let p = test_plugin(id, "alpha");
-        reg.register_plugin(p).await.unwrap();
-        let via_get_plugins = reg.get_plugins().await.unwrap();
-        let via_get_all = reg.get_all_plugins().await.unwrap();
+        reg.register_plugin(p).await.expect("should succeed");
+        let via_get_plugins = reg.get_plugins().await.expect("should succeed");
+        let via_get_all = reg.get_all_plugins().await.expect("should succeed");
         assert_eq!(via_get_plugins.len(), via_get_all.len());
         assert_eq!(via_get_plugins[0].id(), via_get_all[0].id());
     }
@@ -156,18 +176,31 @@ mod tests {
         let reg = MockRegistry::new();
         let id = Uuid::new_v4();
         let p = test_plugin(id, "p1");
-        reg.register_plugin(p).await.unwrap();
-        assert_eq!(reg.get_plugin(id).await.unwrap().metadata().name, "p1");
-        assert_eq!(reg.get_plugin_by_name("p1").await.unwrap().id(), id);
-        assert_eq!(reg.list_plugins().await.unwrap().len(), 1);
+        reg.register_plugin(p).await.expect("should succeed");
+        assert_eq!(
+            reg.get_plugin(id)
+                .await
+                .expect("should succeed")
+                .metadata()
+                .name,
+            "p1"
+        );
+        assert_eq!(
+            reg.get_plugin_by_name("p1")
+                .await
+                .expect("should succeed")
+                .id(),
+            id
+        );
+        assert_eq!(reg.list_plugins().await.expect("should succeed").len(), 1);
         reg.set_plugin_status(id, PluginStatus::Initialized)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(
-            reg.get_plugin_status(id).await.unwrap(),
+            reg.get_plugin_status(id).await.expect("should succeed"),
             PluginStatus::Initialized
         );
-        reg.unregister_plugin(id).await.unwrap();
+        reg.unregister_plugin(id).await.expect("should succeed");
         assert!(reg.get_plugin(id).await.is_err());
     }
 }

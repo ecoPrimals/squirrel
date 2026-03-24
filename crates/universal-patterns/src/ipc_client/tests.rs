@@ -137,11 +137,11 @@ fn http_response_serde() {
         },
         body: r#"{"ok": true}"#.to_string(),
     };
-    let json = serde_json::to_string(&resp).unwrap();
-    let deser: HttpResponse = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&resp).expect("should succeed");
+    let deser: HttpResponse = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(deser.status, 200);
     assert_eq!(
-        deser.headers.get("content-type").unwrap(),
+        deser.headers.get("content-type").expect("should succeed"),
         "application/json"
     );
 }
@@ -159,8 +159,8 @@ fn capability_info_serde() {
         }],
         primary_socket: PathBuf::from("/tmp/p1.sock"),
     };
-    let json = serde_json::to_string(&info).unwrap();
-    let deser: CapabilityInfo = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&info).expect("should succeed");
+    let deser: CapabilityInfo = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(deser.capability, "secure_http");
     assert_eq!(deser.providers.len(), 1);
     assert!(deser.providers[0].healthy);
@@ -179,8 +179,8 @@ fn routing_metrics_serde() {
             error: None,
         }],
     };
-    let json = serde_json::to_string(&metrics).unwrap();
-    let deser: RoutingMetrics = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&metrics).expect("should succeed");
+    let deser: RoutingMetrics = serde_json::from_str(&json).expect("should succeed");
     assert_eq!(deser.total_requests, 42);
     assert_eq!(deser.entries.len(), 1);
     assert!(deser.entries[0].success);
@@ -196,8 +196,8 @@ fn routing_metric_with_error() {
         success: false,
         error: Some("timeout".to_string()),
     };
-    let json = serde_json::to_string(&metric).unwrap();
-    let deser: RoutingMetric = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&metric).expect("should succeed");
+    let deser: RoutingMetric = serde_json::from_str(&json).expect("should succeed");
     assert!(!deser.success);
     assert_eq!(deser.error.as_deref(), Some("timeout"));
 }
@@ -314,7 +314,7 @@ fn extract_rpc_error_from_error_response() {
         },
         "id": 1
     });
-    let err = extract_rpc_error(&resp).unwrap();
+    let err = extract_rpc_error(&resp).expect("should succeed");
     assert_eq!(err.code, -32601);
     assert_eq!(err.message, "method not found");
     assert!(err.is_method_not_found());
@@ -337,7 +337,7 @@ fn extract_rpc_error_internal() {
     let resp = serde_json::json!({
         "error": { "code": -32603, "message": "internal error" }
     });
-    let err = extract_rpc_error(&resp).unwrap();
+    let err = extract_rpc_error(&resp).expect("should succeed");
     assert!(err.is_internal());
 }
 
@@ -346,7 +346,7 @@ fn extract_rpc_error_server_range() {
     let resp = serde_json::json!({
         "error": { "code": -32050, "message": "custom server error" }
     });
-    let err = extract_rpc_error(&resp).unwrap();
+    let err = extract_rpc_error(&resp).expect("should succeed");
     assert!(err.is_server_error());
 }
 
@@ -368,7 +368,7 @@ fn extract_rpc_result_from_success() {
         "result": {"ok": true},
         "id": 1
     });
-    let result = extract_rpc_result(&resp).unwrap();
+    let result = extract_rpc_result(&resp).expect("should succeed");
     assert_eq!(result, serde_json::json!({"ok": true}));
 }
 
@@ -398,7 +398,7 @@ fn extract_rpc_result_null_result_is_ok() {
         "result": null,
         "id": 1
     });
-    let result = extract_rpc_result(&resp).unwrap();
+    let result = extract_rpc_result(&resp).expect("should succeed");
     assert!(result.is_null());
 }
 
@@ -433,7 +433,7 @@ mod unix_socket_call_tests {
             "id": id,
             "result": result,
         });
-        serde_json::to_vec(&v).unwrap()
+        serde_json::to_vec(&v).expect("should succeed")
     }
 
     fn json_rpc_error(id: u64, error: serde_json::Value) -> Vec<u8> {
@@ -442,47 +442,47 @@ mod unix_socket_call_tests {
             "id": id,
             "error": error,
         });
-        serde_json::to_vec(&v).unwrap()
+        serde_json::to_vec(&v).expect("should succeed")
     }
 
     #[tokio::test]
     async fn call_succeeds_with_mock_unix_server() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-test.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let response = json_rpc_result(1, serde_json::json!({"echo": true}));
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 16384];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
         let out = client
             .call("test.method", &serde_json::json!({ "x": 1 }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(out, serde_json::json!({"echo": true}));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn call_returns_rpc_error_from_server() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-rpc-err.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let response = json_rpc_error(
             1,
             serde_json::json!({ "code": -32601, "message": "method not found" }),
         );
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 16384];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
@@ -492,21 +492,21 @@ mod unix_socket_call_tests {
             .unwrap_err();
         let msg = format!("{err:#}");
         assert!(msg.contains("-32601") || msg.contains("method not found"));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn call_rpc_error_uses_default_code_when_missing() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-default-code.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let response = json_rpc_error(1, serde_json::json!({ "message": "oops" }));
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 16384];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
@@ -515,21 +515,21 @@ mod unix_socket_call_tests {
             .await
             .unwrap_err();
         assert!(format!("{err:#}").contains(&format!("{}", IpcClientError::INTERNAL_ERROR)));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn call_rpc_error_uses_unknown_message_when_missing() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-default-msg.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let response = json_rpc_error(1, serde_json::json!({ "code": -32000 }));
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 16384];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
@@ -538,21 +538,21 @@ mod unix_socket_call_tests {
             .await
             .unwrap_err();
         assert!(format!("{err:#}").contains("unknown error"));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn call_fails_when_result_missing_on_success_envelope() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-no-result.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let response = br#"{"jsonrpc":"2.0","id":1}"#.to_vec();
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 16384];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
@@ -561,20 +561,23 @@ mod unix_socket_call_tests {
             .await
             .unwrap_err();
         assert!(format!("{err:#}").contains("result"));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn call_fails_on_invalid_json_response() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-bad-json.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 16384];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(b"not json at all").await.unwrap();
+            stream
+                .write_all(b"not json at all")
+                .await
+                .expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
@@ -583,7 +586,7 @@ mod unix_socket_call_tests {
             .await
             .unwrap_err();
         assert!(format!("{err:#}").to_lowercase().contains("parse"));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
@@ -601,12 +604,12 @@ mod unix_socket_call_tests {
 
     #[tokio::test]
     async fn call_times_out_when_server_never_responds() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-slow.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 16384];
             let _ = stream.read(&mut buf).await;
             tokio::time::sleep(Duration::from_secs(60)).await;
@@ -627,10 +630,10 @@ mod unix_socket_call_tests {
 
     #[tokio::test]
     async fn proxy_http_parses_http_response_from_call() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-proxy.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let http_payload = serde_json::json!({
             "status": 201,
             "headers": { "x-test": "1" },
@@ -638,105 +641,108 @@ mod unix_socket_call_tests {
         });
         let response = json_rpc_result(1, http_payload);
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 32768];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
         let resp = client
             .proxy_http("POST", "https://example.test/", None, None)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(resp.status, 201);
         assert_eq!(resp.body, "created");
         assert_eq!(resp.headers.get("x-test").map(String::as_str), Some("1"));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn discover_capability_parses_capability_info() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-cap.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let cap = CapabilityInfo {
             capability: "secure_http".into(),
             atomic_type: Some("Tower".into()),
             providers: vec![],
             primary_socket: PathBuf::from("/tmp/p.sock"),
         };
-        let response = json_rpc_result(1, serde_json::to_value(&cap).unwrap());
+        let response = json_rpc_result(1, serde_json::to_value(&cap).expect("should succeed"));
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 32768];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
-        let info = client.discover_capability("secure_http").await.unwrap();
+        let info = client
+            .discover_capability("secure_http")
+            .await
+            .expect("should succeed");
         assert_eq!(info.capability, "secure_http");
         assert_eq!(info.atomic_type.as_deref(), Some("Tower"));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn route_by_capability_returns_value() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-route.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let response = json_rpc_result(1, serde_json::json!({ "ok": true, "n": 7 }));
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 32768];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
         let v = client
             .route_by_capability("ai.query", "tool.run", serde_json::json!({ "a": 1 }))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(v["n"], 7);
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[tokio::test]
     async fn get_metrics_parses_routing_metrics() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-metrics.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let metrics = RoutingMetrics {
             total_requests: 3,
             entries: vec![],
         };
-        let response = json_rpc_result(1, serde_json::to_value(&metrics).unwrap());
+        let response = json_rpc_result(1, serde_json::to_value(&metrics).expect("should succeed"));
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 32768];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
-        let m = client.get_metrics().await.unwrap();
+        let m = client.get_metrics().await.expect("should succeed");
         assert_eq!(m.total_requests, 3);
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 
     #[test]
     fn discover_succeeds_when_xdg_runtime_socket_exists() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let runtime = dir.path();
         let biomeos = runtime.join("biomeos");
-        std::fs::create_dir_all(&biomeos).unwrap();
+        std::fs::create_dir_all(&biomeos).expect("should succeed");
         let sock_path = biomeos.join("xdg_discover_test.sock");
-        let _listener = std::os::unix::net::UnixListener::bind(&sock_path).unwrap();
+        let _listener = std::os::unix::net::UnixListener::bind(&sock_path).expect("should succeed");
 
         temp_env::with_vars(
             [(
@@ -744,7 +750,7 @@ mod unix_socket_call_tests {
                 Some(runtime.to_str().expect("utf8 temp path")),
             )],
             || {
-                let client = IpcClient::discover("xdg_discover_test").unwrap();
+                let client = IpcClient::discover("xdg_discover_test").expect("should succeed");
                 assert_eq!(client.socket_path, sock_path);
             },
         );
@@ -752,16 +758,16 @@ mod unix_socket_call_tests {
 
     #[tokio::test]
     async fn proxy_http_fails_on_malformed_http_payload() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock_path = dir.path().join("ipc-proxy-bad.sock");
         let _ = std::fs::remove_file(&sock_path);
-        let listener = UnixListener::bind(&sock_path).unwrap();
+        let listener = UnixListener::bind(&sock_path).expect("should succeed");
         let response = json_rpc_result(1, serde_json::json!("not an object"));
         let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
+            let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 32768];
             let _ = stream.read(&mut buf).await;
-            stream.write_all(&response).await.unwrap();
+            stream.write_all(&response).await.expect("should succeed");
         });
 
         let client = IpcClient::new(&sock_path);
@@ -770,6 +776,6 @@ mod unix_socket_call_tests {
             .await
             .unwrap_err();
         assert!(format!("{err:#}").to_lowercase().contains("parse"));
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 }

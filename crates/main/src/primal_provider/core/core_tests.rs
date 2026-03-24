@@ -48,15 +48,15 @@ async fn getters_and_metadata() {
 #[tokio::test]
 async fn config_helpers_roundtrip() {
     let mut p = provider().await;
-    let j = p.get_managed_config().unwrap();
+    let j = p.get_managed_config().expect("should succeed");
     assert!(j.get("instance_id").is_some());
     p.update_managed_config(serde_json::json!({"x": 1}))
-        .unwrap();
-    assert!(p.validate_configuration().unwrap());
-    p.reset_to_defaults().unwrap();
-    let ext = p.get_external_services().unwrap();
+        .expect("should succeed");
+    assert!(p.validate_configuration().expect("should succeed"));
+    p.reset_to_defaults().expect("should succeed");
+    let ext = p.get_external_services().expect("should succeed");
     assert!(ext.is_object());
-    let bio = p.get_biomeos_endpoints().unwrap();
+    let bio = p.get_biomeos_endpoints().expect("should succeed");
     assert!(bio.get("health_url").is_some());
 }
 
@@ -66,17 +66,20 @@ async fn coordinate_and_discover_return_json() {
     let coord = p
         .coordinate_ai_operation(serde_json::json!({"operation_type": "test"}))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(
         coord.get("status").and_then(|v| v.as_str()),
         Some("coordinated")
     );
-    let disc = p.discover_ecosystem_services().await.unwrap();
+    let disc = p
+        .discover_ecosystem_services()
+        .await
+        .expect("should succeed");
     assert!(disc.is_empty() || !disc.is_empty());
     let mesh = p
         .coordinate_with_service_mesh(serde_json::json!({"operation": "x"}))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert!(mesh.get("mesh_services_discovered").is_some());
 }
 
@@ -85,19 +88,21 @@ async fn leverage_capabilities() {
     let p = provider().await;
     p.leverage_security_capabilities("auth", serde_json::json!({}))
         .await
-        .unwrap();
+        .expect("should succeed");
     p.leverage_compute_capabilities("run", serde_json::json!({}))
         .await
-        .unwrap();
+        .expect("should succeed");
     p.leverage_storage_capabilities("retrieve", "k", None)
         .await
-        .unwrap();
+        .expect("should succeed");
     let e = p
         .leverage_storage_capabilities("store", "k", None)
         .await
         .unwrap_err();
     assert!(matches!(e, crate::error::PrimalError::ValidationError(_)));
-    p.leverage_orchestration_capabilities().await.unwrap();
+    p.leverage_orchestration_capabilities()
+        .await
+        .expect("should succeed");
 }
 
 #[tokio::test]
@@ -111,14 +116,14 @@ async fn ai_prompts_and_strings() {
 #[tokio::test]
 async fn ecosystem_status_and_registry_update() {
     let p = provider().await;
-    let st = p.get_ecosystem_status().await.unwrap();
+    let st = p.get_ecosystem_status().await.expect("should succeed");
     assert!(st.get("coordination_efficiency").is_some());
     p.update_ecosystem_registry(vec![serde_json::json!({
         "service_id": "a",
         "update_type": "register"
     })])
     .await
-    .unwrap();
+    .expect("should succeed");
 }
 
 #[tokio::test]
@@ -146,7 +151,7 @@ fn dependencies_match_trait() {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
-        .unwrap();
+        .expect("should succeed");
     rt.block_on(async {
         let p = provider().await;
         let d = UniversalPrimalProvider::dependencies(&p);
@@ -170,7 +175,7 @@ async fn leverage_storage_store_with_data_and_unsupported_op() {
     let stored = p
         .leverage_storage_capabilities("store", "key1", Some(b"bytes"))
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(
         stored.get("status").and_then(|v| v.as_str()),
         Some("stored")
@@ -207,7 +212,7 @@ async fn universal_trait_ecosystem_report_health_update_caps() {
     );
     let resp = UniversalPrimalProvider::handle_ecosystem_request(&p, req)
         .await
-        .unwrap();
+        .expect("should succeed");
     assert!(resp.success);
 
     let health = PrimalHealth {
@@ -220,10 +225,10 @@ async fn universal_trait_ecosystem_report_health_update_caps() {
     };
     UniversalPrimalProvider::report_health(&p, health)
         .await
-        .unwrap();
+        .expect("should succeed");
     UniversalPrimalProvider::update_capabilities(&p, vec![])
         .await
-        .unwrap();
+        .expect("should succeed");
     assert!(UniversalPrimalProvider::dynamic_port_info(&p).is_some());
 }
 

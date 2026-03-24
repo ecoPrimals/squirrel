@@ -108,8 +108,9 @@ mod tests {
             endpoints: vec!["http://localhost:8080".to_string()],
             metadata: HashMap::from([("version".to_string(), "1.0.0".to_string())]),
         };
-        let json = serde_json::to_string(&reg).unwrap();
-        let deserialized: ServiceRegistration = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&reg).expect("registration serializes");
+        let deserialized: ServiceRegistration =
+            serde_json::from_str(&json).expect("registration deserializes");
         assert_eq!(deserialized.service_id, "squirrel-1");
         assert_eq!(deserialized.capabilities.len(), 2);
         assert_eq!(deserialized.endpoints.len(), 1);

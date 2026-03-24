@@ -92,7 +92,7 @@ fn test_security_requirements() {
     };
     
     assert!(security.contains_sensitive_data);
-    assert_eq!(security.required_data_residency.as_ref().unwrap().len(), 2);
+    assert_eq!(security.required_data_residency.as_ref().expect("should succeed").len(), 2);
     assert!(security.requires_e2e_encryption);
 }
 

@@ -88,8 +88,9 @@ mod tests {
     #[test]
     fn ecosystem_service_registration_serde_roundtrip() {
         let reg = minimal_registration();
-        let json = serde_json::to_string(&reg).unwrap();
-        let back: EcosystemServiceRegistration = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&reg).expect("should succeed");
+        let back: EcosystemServiceRegistration =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.service_id.as_ref(), "svc-test");
         assert_eq!(back.primal_type, EcosystemPrimalType::Squirrel);
         assert_eq!(back.endpoints.primary, reg.endpoints.primary);
@@ -99,7 +100,7 @@ mod tests {
     fn ecosystem_service_registration_arc_str_field() {
         let mut reg = minimal_registration();
         reg.service_id = Arc::from("other-id");
-        let v = serde_json::to_value(&reg).unwrap();
+        let v = serde_json::to_value(&reg).expect("should succeed");
         assert_eq!(v["service_id"], serde_json::json!("other-id"));
     }
 }

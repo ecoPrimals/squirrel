@@ -25,7 +25,7 @@ async fn test_circuit_breaker_with_retry() {
             &mut circuit_breaker,
             retry.clone(),
             move || {
-                let mut count = counter_clone.lock().unwrap();
+                let mut count = counter_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 if *count < 2 {
@@ -37,12 +37,12 @@ async fn test_circuit_breaker_with_retry() {
         ).await;
         
         assert!(result.is_ok(), "First operation should succeed after retry");
-        assert_eq!(result.unwrap().0, "Success".to_string());
+        assert_eq!(result.expect("should succeed").0, "Success".to_string());
         assert_operation_count(&counter, 2, "First operation");
     }
     
     // Reset counter
-    *counter.lock().unwrap() = 0;
+    *counter.lock().expect("should succeed") = 0;
     
     // Test operation that always fails (should trip circuit breaker)
     let successful_failures = trip_circuit_with_failures(&mut circuit_breaker, retry.clone(), 5).await;
@@ -79,7 +79,7 @@ async fn test_retry_mechanism_and_circuit_integration() {
     let retry_result: Result<TestString, RetryError> = retry.execute(|| {
         let counter = attempt_counter.clone();
         Box::pin(async move {
-            let mut count = counter.lock().unwrap();
+            let mut count = counter.lock().expect("should succeed");
             *count += 1;
             
             if *count == 1 {
@@ -91,7 +91,7 @@ async fn test_retry_mechanism_and_circuit_integration() {
     }).await;
     
     assert!(retry_result.is_ok());
-    assert_eq!(retry_result.unwrap().0, "Success on retry".to_string());
+    assert_eq!(retry_result.expect("should succeed").0, "Success on retry".to_string());
     assert_operation_count(&attempt_counter, 2, "Retry operation");
 }
 
@@ -109,7 +109,7 @@ async fn test_exponential_retry_with_circuit() {
         &mut circuit_breaker,
         retry,
         move || {
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
             if *count < 3 {
@@ -123,7 +123,7 @@ async fn test_exponential_retry_with_circuit() {
     ).await;
     
     assert!(result.is_ok(), "Operation should succeed after exponential backoff");
-    assert_eq!(result.unwrap().0, "Success after exponential backoff".to_string());
+    assert_eq!(result.expect("should succeed").0, "Success after exponential backoff".to_string());
     assert_operation_count(&attempt_counter, 3, "Exponential backoff operation");
 }
 
@@ -144,7 +144,7 @@ async fn test_rapid_failure_circuit_tripping() {
             &mut circuit_breaker,
             retry.clone(),
             move || {
-                let mut count = attempts_clone.lock().unwrap();
+                let mut count = attempts_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 Err(Box::<dyn StdError + Send + Sync>::from(TestError(

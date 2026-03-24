@@ -61,18 +61,21 @@ impl McpAdapter {
 
         // Add default admin user synchronously
         {
-            let mut users = instance.authorized_users.write().unwrap();
+            let mut users = instance.authorized_users.write().expect("should succeed");
             users.insert("admin".to_string(), "password".to_string());
         }
 
         {
-            let mut user_roles = instance.user_roles.write().unwrap();
+            let mut user_roles = instance.user_roles.write().expect("should succeed");
             user_roles.insert("admin".to_string(), vec![UserRole::Admin]);
         }
 
         // Mark admin commands as requiring admin role
         {
-            let mut permissions = instance.command_permissions.write().unwrap();
+            let mut permissions = instance
+                .command_permissions
+                .write()
+                .expect("should succeed");
             permissions.insert("admin-cmd".to_string(), vec![UserRole::Admin]);
         }
 
@@ -87,7 +90,7 @@ impl McpAdapter {
     pub fn add_user(&self, username: &str, password: &str, is_admin: bool) {
         self.authorized_users
             .write()
-            .unwrap()
+            .expect("should succeed")
             .insert(username.to_string(), password.to_string());
 
         let roles = if is_admin {
@@ -98,11 +101,11 @@ impl McpAdapter {
 
         self.user_roles
             .write()
-            .unwrap()
+            .expect("should succeed")
             .insert(username.to_string(), roles);
 
         if is_admin {
-            let mut permissions = self.command_permissions.write().unwrap();
+            let mut permissions = self.command_permissions.write().expect("should succeed");
             permissions.insert("admin-cmd".to_string(), vec![UserRole::Admin]);
         }
     }
@@ -115,7 +118,7 @@ impl McpAdapter {
     pub fn add_command_with_permissions(&mut self, command_name: &str, roles: Vec<UserRole>) {
         self.command_permissions
             .write()
-            .unwrap()
+            .expect("should succeed")
             .insert(command_name.to_string(), roles);
     }
 
@@ -151,7 +154,10 @@ impl McpAdapter {
         let token = format!(
             "token-{}-{}",
             username,
-            std::time::SystemTime::now().elapsed().unwrap().as_secs()
+            std::time::SystemTime::now()
+                .elapsed()
+                .expect("should succeed")
+                .as_secs()
         );
 
         let roles = self
@@ -187,7 +193,12 @@ impl McpAdapter {
     fn authenticate(&self, auth: &Auth) -> CommandResult<Option<AuthUser>> {
         match auth {
             Auth::User(username, password) => {
-                if let Some(stored_password) = self.authorized_users.read().unwrap().get(username) {
+                if let Some(stored_password) = self
+                    .authorized_users
+                    .read()
+                    .expect("should succeed")
+                    .get(username)
+                {
                     if password != stored_password {
                         return Err(CommandError::AuthenticationFailed(format!(
                             "Invalid password for user '{username}'"
@@ -197,7 +208,7 @@ impl McpAdapter {
                     let roles = self
                         .user_roles
                         .read()
-                        .unwrap()
+                        .expect("should succeed")
                         .get(username)
                         .cloned()
                         .unwrap_or_default();
@@ -212,14 +223,19 @@ impl McpAdapter {
                     )))
                 }
             }
-            Auth::Token(token) => self.active_tokens.read().unwrap().get(token).map_or_else(
-                || {
-                    Err(CommandError::AuthenticationFailed(
-                        "Invalid or expired token".to_string(),
-                    ))
-                },
-                |user| Ok(Some(user.clone())),
-            ),
+            Auth::Token(token) => self
+                .active_tokens
+                .read()
+                .expect("should succeed")
+                .get(token)
+                .map_or_else(
+                    || {
+                        Err(CommandError::AuthenticationFailed(
+                            "Invalid or expired token".to_string(),
+                        ))
+                    },
+                    |user| Ok(Some(user.clone())),
+                ),
             Auth::ApiKey(key) => {
                 if key == "squirrel-api-key" {
                     Ok(Some(AuthUser {
@@ -237,7 +253,7 @@ impl McpAdapter {
     }
 
     fn authorize(&self, command: &str, user: Option<&AuthUser>) -> CommandResult<()> {
-        let permissions = self.command_permissions.read().unwrap();
+        let permissions = self.command_permissions.read().expect("should succeed");
 
         if let Some(required_roles) = permissions.get(command) {
             match user {
@@ -272,7 +288,7 @@ impl McpAdapter {
         success: bool,
         message: String,
     ) {
-        let mut log = self.command_log.write().unwrap();
+        let mut log = self.command_log.write().expect("should succeed");
         log.push(CommandLogEntry {
             command: command.to_string(),
             args: args.to_vec(),
@@ -286,7 +302,7 @@ impl McpAdapter {
     /// Get command execution logs
     #[must_use]
     pub fn get_command_logs(&self) -> Vec<CommandLogEntry> {
-        self.command_log.read().unwrap().clone()
+        self.command_log.read().expect("should succeed").clone()
     }
 
     /// Get formatted command logs for display
@@ -294,7 +310,7 @@ impl McpAdapter {
     pub fn get_formatted_command_logs(&self) -> Vec<String> {
         self.command_log
             .read()
-            .unwrap()
+            .expect("should succeed")
             .iter()
             .map(|entry| {
                 let timestamp = entry
@@ -325,14 +341,14 @@ impl McpAdapter {
             && !self
                 .command_permissions
                 .read()
-                .unwrap()
+                .expect("should succeed")
                 .contains_key(cmd_name)
         {
-            let mut permissions = self.command_permissions.write().unwrap();
+            let mut permissions = self.command_permissions.write().expect("should succeed");
             permissions.insert(cmd_name.to_string(), vec![UserRole::Admin]);
         }
 
-        let mut adapter = self.adapter.write().unwrap();
+        let mut adapter = self.adapter.write().expect("should succeed");
         adapter.register(cmd_name, command.clone())
     }
 
@@ -351,7 +367,7 @@ impl McpAdapter {
         self.authorize(command, user.as_ref())?;
 
         let result = {
-            let adapter = self.adapter.read().unwrap();
+            let adapter = self.adapter.read().expect("should succeed");
             adapter.execute(command, args.clone())
         };
 
@@ -374,7 +390,11 @@ impl McpAdapter {
     )]
     pub async fn get_available_commands(&self, auth: Auth) -> CommandResult<Vec<String>> {
         let user = self.authenticate(&auth).ok().flatten();
-        let mut commands = self.adapter.read().unwrap().list_commands()?;
+        let mut commands = self
+            .adapter
+            .read()
+            .expect("should succeed")
+            .list_commands()?;
 
         match user {
             Some(user) => {
@@ -382,7 +402,11 @@ impl McpAdapter {
                     return Ok(commands);
                 }
                 commands.retain(|cmd| {
-                    if let Some(required_roles) = self.command_permissions.read().unwrap().get(cmd)
+                    if let Some(required_roles) = self
+                        .command_permissions
+                        .read()
+                        .expect("should succeed")
+                        .get(cmd)
                     {
                         user.roles.iter().any(|role| required_roles.contains(role))
                     } else {
@@ -391,7 +415,13 @@ impl McpAdapter {
                 });
             }
             None => {
-                commands.retain(|cmd| !self.command_permissions.read().unwrap().contains_key(cmd));
+                commands.retain(|cmd| {
+                    !self
+                        .command_permissions
+                        .read()
+                        .expect("should succeed")
+                        .contains_key(cmd)
+                });
             }
         }
 
@@ -406,12 +436,12 @@ impl CommandAdapter for McpAdapter {
     }
 
     async fn get_help(&self, command: &str) -> CommandResult<String> {
-        let adapter = self.adapter.read().unwrap();
+        let adapter = self.adapter.read().expect("should succeed");
         adapter.get_help(command)
     }
 
     async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        let adapter = self.adapter.read().unwrap();
+        let adapter = self.adapter.read().expect("should succeed");
         adapter.list_commands()
     }
 }
@@ -429,7 +459,7 @@ mod tests {
     #[tokio::test]
     async fn test_mcp_adapter_default() {
         let adapter = McpAdapter::default();
-        let cmds = adapter.list_commands().await.unwrap();
+        let cmds = adapter.list_commands().await.expect("should succeed");
         assert!(cmds.is_empty());
     }
 
@@ -437,8 +467,8 @@ mod tests {
     async fn test_mcp_adapter_clone() {
         let adapter = McpAdapter::new();
         let cloned = adapter.clone();
-        let a = adapter.list_commands().await.unwrap();
-        let b = cloned.list_commands().await.unwrap();
+        let a = adapter.list_commands().await.expect("should succeed");
+        let b = cloned.list_commands().await.expect("should succeed");
         assert_eq!(a, b);
     }
 
@@ -448,11 +478,11 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::User("admin".to_string(), "password".to_string());
         let result = adapter.execute_with_auth("hello", vec![], auth).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "hi");
+        assert_eq!(result.expect("should succeed"), "hi");
     }
 
     #[tokio::test]
@@ -461,7 +491,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::User("admin".to_string(), "wrong".to_string());
         let result = adapter.execute_with_auth("hello", vec![], auth).await;
         assert!(result.is_err());
@@ -474,7 +504,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::User("nonexistent".to_string(), "pass".to_string());
         let result = adapter.execute_with_auth("hello", vec![], auth).await;
         assert!(result.is_err());
@@ -487,7 +517,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let token = adapter
             .generate_token("admin", "password")
             .expect("token gen");
@@ -502,7 +532,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::Token("invalid-token".to_string());
         let result = adapter.execute_with_auth("hello", vec![], auth).await;
         assert!(result.is_err());
@@ -515,7 +545,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::ApiKey("squirrel-api-key".to_string());
         let result = adapter.execute_with_auth("hello", vec![], auth).await;
         assert!(result.is_ok());
@@ -527,7 +557,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::ApiKey("bad-key".to_string());
         let result = adapter.execute_with_auth("hello", vec![], auth).await;
         assert!(result.is_err());
@@ -540,7 +570,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let result = adapter.execute_with_auth("hello", vec![], Auth::None).await;
         assert!(result.is_ok());
     }
@@ -551,7 +581,7 @@ mod tests {
         adapter
             .register_command(test_cmd("admin-cmd", "admin"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let result = adapter
             .execute_with_auth("admin-cmd", vec![], Auth::None)
             .await;
@@ -565,11 +595,11 @@ mod tests {
         adapter
             .register_command(test_cmd("admin-cmd", "admin"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::User("admin".to_string(), "password".to_string());
         let result = adapter.execute_with_auth("admin-cmd", vec![], auth).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "admin");
+        assert_eq!(result.expect("should succeed"), "admin");
     }
 
     #[tokio::test]
@@ -579,7 +609,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::User("bob".to_string(), "bob123".to_string());
         let result = adapter.execute_with_auth("hello", vec![], auth).await;
         assert!(result.is_ok());
@@ -592,7 +622,7 @@ mod tests {
         adapter
             .register_command(test_cmd("admin-cmd", "admin"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::User("superadmin".to_string(), "super123".to_string());
         let result = adapter.execute_with_auth("admin-cmd", vec![], auth).await;
         assert!(result.is_ok());
@@ -605,7 +635,7 @@ mod tests {
         adapter
             .register_command(test_cmd("power-cmd", "power"))
             .await
-            .unwrap();
+            .expect("should succeed");
         // Regular user (bob) cannot run power-cmd which requires PowerUser
         adapter.add_user("bob", "bob123", false);
         let auth = Auth::User("bob".to_string(), "bob123".to_string());
@@ -621,7 +651,9 @@ mod tests {
     #[tokio::test]
     async fn test_generate_token_success() {
         let mut adapter = McpAdapter::new();
-        let token = adapter.generate_token("admin", "password").unwrap();
+        let token = adapter
+            .generate_token("admin", "password")
+            .expect("should succeed");
         assert!(token.starts_with("token-admin-"));
     }
 
@@ -647,7 +679,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let _ = adapter.execute_with_auth("hello", vec![], Auth::None).await;
         let logs = adapter.get_command_logs();
         assert_eq!(logs.len(), 1);
@@ -679,7 +711,7 @@ mod tests {
         adapter
             .register_command(Arc::new(FailingCommand))
             .await
-            .unwrap();
+            .expect("should succeed");
         let _ = adapter
             .execute_with_auth("fail-cmd", vec![], Auth::None)
             .await;
@@ -694,7 +726,7 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let _ = adapter.execute_with_auth("hello", vec![], Auth::None).await;
         let formatted = adapter.get_formatted_command_logs();
         assert_eq!(formatted.len(), 1);
@@ -708,7 +740,7 @@ mod tests {
         adapter
             .register_command(test_cmd("admin-stats", "stats"))
             .await
-            .unwrap();
+            .expect("should succeed");
         // Anonymous should not access admin-stats
         let result = adapter
             .execute_with_auth("admin-stats", vec![], Auth::None)
@@ -722,13 +754,16 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         adapter
             .register_command(test_cmd("admin-cmd", "admin"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let auth = Auth::User("admin".to_string(), "password".to_string());
-        let cmds = adapter.get_available_commands(auth).await.unwrap();
+        let cmds = adapter
+            .get_available_commands(auth)
+            .await
+            .expect("should succeed");
         assert!(cmds.contains(&"hello".to_string()));
         assert!(cmds.contains(&"admin-cmd".to_string()));
     }
@@ -739,12 +774,15 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         adapter
             .register_command(test_cmd("admin-cmd", "admin"))
             .await
-            .unwrap();
-        let cmds = adapter.get_available_commands(Auth::None).await.unwrap();
+            .expect("should succeed");
+        let cmds = adapter
+            .get_available_commands(Auth::None)
+            .await
+            .expect("should succeed");
         assert!(cmds.contains(&"hello".to_string()));
         assert!(!cmds.contains(&"admin-cmd".to_string()));
     }
@@ -755,20 +793,20 @@ mod tests {
         adapter
             .register_command(test_cmd("hello", "hi"))
             .await
-            .unwrap();
+            .expect("should succeed");
         let result = <McpAdapter as CommandAdapter>::execute(&adapter, "hello", vec![]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "hi");
+        assert_eq!(result.expect("should succeed"), "hi");
     }
 
     #[tokio::test]
     async fn test_command_adapter_get_help() {
         let adapter = McpAdapter::new();
         let cmd = Arc::new(crate::types::TestCommand::new("hello", "Says hello", "hi"));
-        adapter.register_command(cmd).await.unwrap();
+        adapter.register_command(cmd).await.expect("should succeed");
         let help = <McpAdapter as CommandAdapter>::get_help(&adapter, "hello")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(help, "hello: Says hello");
     }
 

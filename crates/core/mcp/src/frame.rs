@@ -27,11 +27,11 @@
 //! // Encode the frame
 //! let mut encoder = FrameEncoder::new();
 //! let mut buffer = BytesMut::new();
-//! encoder.encode(frame.clone(), &mut buffer).unwrap();
+//! encoder.encode(frame.clone(), &mut buffer).expect("example");
 //!
 //! // Later, decode the frame from the buffer
 //! let mut decoder = FrameDecoder::new();
-//! let decoded_frame = decoder.decode(&mut buffer).unwrap().unwrap();
+//! let decoded_frame = decoder.decode(&mut buffer).expect("example").expect("example");
 //! 
 //! // Compare payload content with original bytes
 //! assert_eq!(decoded_frame.payload().len(), message_bytes.len());

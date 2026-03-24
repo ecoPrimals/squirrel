@@ -78,7 +78,7 @@ async fn test_transform_passthrough() {
         dependencies: vec![],
     };
     
-    let result = engine.execute_transform_step(&step, &context).await.unwrap();
+    let result = engine.execute_transform_step(&step, &context).await.expect("should succeed");
     assert_eq!(result, serde_json::json!({"data": "test value"}));
 }
 
@@ -105,7 +105,7 @@ async fn test_transform_extract() {
         dependencies: vec![],
     };
     
-    let result = engine.execute_transform_step(&step, &context).await.unwrap();
+    let result = engine.execute_transform_step(&step, &context).await.expect("should succeed");
     assert_eq!(result, serde_json::json!("John"));
 }
 
@@ -136,7 +136,7 @@ async fn test_transform_map() {
         dependencies: vec![],
     };
     
-    let result = engine.execute_transform_step(&step, &context).await.unwrap();
+    let result = engine.execute_transform_step(&step, &context).await.expect("should succeed");
     let expected = serde_json::json!([
         {"name": "Alice", "score": 95},
         {"name": "Bob", "score": 88},
@@ -173,7 +173,7 @@ async fn test_transform_filter() {
         dependencies: vec![],
     };
     
-    let result = engine.execute_transform_step(&step, &context).await.unwrap();
+    let result = engine.execute_transform_step(&step, &context).await.expect("should succeed");
     let expected = serde_json::json!([
         {"name": "Alice", "active": true},
         {"name": "Charlie", "active": true}
@@ -187,7 +187,7 @@ async fn test_transform_merge() {
     let mut context = create_test_context();
     
     // Add merge data to context
-    context.set_variable("extra_data", serde_json::json!({"city": "NYC", "country": "USA"})).unwrap();
+    context.set_variable("extra_data", serde_json::json!({"city": "NYC", "country": "USA"})).expect("should succeed");
     
     let step = WorkflowStep {
         id: "transform-5".to_string(),
@@ -207,7 +207,7 @@ async fn test_transform_merge() {
         dependencies: vec![],
     };
     
-    let result = engine.execute_transform_step(&step, &context).await.unwrap();
+    let result = engine.execute_transform_step(&step, &context).await.expect("should succeed");
     let expected = serde_json::json!({
         "name": "Alice",
         "age": 25,
@@ -270,12 +270,12 @@ async fn test_parallel_execution_success() {
     };
     
     let start = std::time::Instant::now();
-    let result = engine.execute_parallel_step(&step, &context, &ai, &svc, &evt).await.unwrap();
+    let result = engine.execute_parallel_step(&step, &context, &ai, &svc, &evt).await.expect("should succeed");
     let duration = start.elapsed();
     
     // All results should be present
     assert!(result.is_array());
-    let results = result.as_array().unwrap();
+    let results = result.as_array().expect("should succeed");
     assert_eq!(results.len(), 3);
     
     // Parallel execution should be fast (no significant delays)
@@ -316,11 +316,11 @@ async fn test_parallel_execution_with_max_concurrency() {
         dependencies: vec![],
     };
     
-    let result = engine.execute_parallel_step(&step, &context, &ai, &svc, &evt).await.unwrap();
+    let result = engine.execute_parallel_step(&step, &context, &ai, &svc, &evt).await.expect("should succeed");
     
     // All 4 steps should complete
     assert!(result.is_array());
-    assert_eq!(result.as_array().unwrap().len(), 4);
+    assert_eq!(result.as_array().expect("should succeed").len(), 4);
 }
 
 // ============================================================================
@@ -367,7 +367,7 @@ async fn test_sequential_execution_with_context_passing() {
         dependencies: vec![],
     };
     
-    let result = engine.execute_sequential_step(&step, &context, &ai, &svc, &evt).await.unwrap();
+    let result = engine.execute_sequential_step(&step, &context, &ai, &svc, &evt).await.expect("should succeed");
     
     // Should return last result by default
     assert_eq!(result, serde_json::json!({"value": "world"}));
@@ -422,11 +422,11 @@ async fn test_sequential_execution_return_all_results() {
         dependencies: vec![],
     };
     
-    let result = engine.execute_sequential_step(&step, &context, &ai, &svc, &evt).await.unwrap();
+    let result = engine.execute_sequential_step(&step, &context, &ai, &svc, &evt).await.expect("should succeed");
     
     // Should return all results
     assert!(result.is_array());
-    let results = result.as_array().unwrap();
+    let results = result.as_array().expect("should succeed");
     assert_eq!(results.len(), 3);
     assert_eq!(results[0], serde_json::json!({"value": 1}));
     assert_eq!(results[1], serde_json::json!({"value": 2}));
@@ -486,11 +486,11 @@ async fn test_sequential_execution_continue_on_error() {
         dependencies: vec![],
     };
     
-    let result = engine.execute_sequential_step(&step, &context, &ai, &svc, &evt).await.unwrap();
+    let result = engine.execute_sequential_step(&step, &context, &ai, &svc, &evt).await.expect("should succeed");
     
     // Should continue and complete all steps despite errors
     assert!(result.is_array());
-    let results = result.as_array().unwrap();
+    let results = result.as_array().expect("should succeed");
     assert_eq!(results.len(), 3);
 }
 
@@ -502,12 +502,12 @@ async fn test_sequential_execution_continue_on_error() {
 async fn test_condition_equals() {
     let engine = create_test_engine();
     let mut context = create_test_context();
-    context.set_variable("status", serde_json::json!("active")).unwrap();
+    context.set_variable("status", serde_json::json!("active")).expect("should succeed");
     
-    let result = engine.evaluate_condition("status == \"active\"", &context).await.unwrap();
+    let result = engine.evaluate_condition("status == \"active\"", &context).await.expect("should succeed");
     assert!(result);
     
-    let result = engine.evaluate_condition("status == \"inactive\"", &context).await.unwrap();
+    let result = engine.evaluate_condition("status == \"inactive\"", &context).await.expect("should succeed");
     assert!(!result);
 }
 
@@ -515,12 +515,12 @@ async fn test_condition_equals() {
 async fn test_condition_not_equals() {
     let engine = create_test_engine();
     let mut context = create_test_context();
-    context.set_variable("status", serde_json::json!("active")).unwrap();
+    context.set_variable("status", serde_json::json!("active")).expect("should succeed");
     
-    let result = engine.evaluate_condition("status != \"inactive\"", &context).await.unwrap();
+    let result = engine.evaluate_condition("status != \"inactive\"", &context).await.expect("should succeed");
     assert!(result);
     
-    let result = engine.evaluate_condition("status != \"active\"", &context).await.unwrap();
+    let result = engine.evaluate_condition("status != \"active\"", &context).await.expect("should succeed");
     assert!(!result);
 }
 
@@ -528,12 +528,12 @@ async fn test_condition_not_equals() {
 async fn test_condition_contains() {
     let engine = create_test_engine();
     let mut context = create_test_context();
-    context.set_variable("message", serde_json::json!("Hello, world!")).unwrap();
+    context.set_variable("message", serde_json::json!("Hello, world!")).expect("should succeed");
     
-    let result = engine.evaluate_condition("message contains \"world\"", &context).await.unwrap();
+    let result = engine.evaluate_condition("message contains \"world\"", &context).await.expect("should succeed");
     assert!(result);
     
-    let result = engine.evaluate_condition("message contains \"goodbye\"", &context).await.unwrap();
+    let result = engine.evaluate_condition("message contains \"goodbye\"", &context).await.expect("should succeed");
     assert!(!result);
 }
 
@@ -541,12 +541,12 @@ async fn test_condition_contains() {
 async fn test_condition_greater_than() {
     let engine = create_test_engine();
     let mut context = create_test_context();
-    context.set_variable("count", serde_json::json!(10)).unwrap();
+    context.set_variable("count", serde_json::json!(10)).expect("should succeed");
     
-    let result = engine.evaluate_condition("count > 5", &context).await.unwrap();
+    let result = engine.evaluate_condition("count > 5", &context).await.expect("should succeed");
     assert!(result);
     
-    let result = engine.evaluate_condition("count > 15", &context).await.unwrap();
+    let result = engine.evaluate_condition("count > 15", &context).await.expect("should succeed");
     assert!(!result);
 }
 
@@ -554,12 +554,12 @@ async fn test_condition_greater_than() {
 async fn test_condition_less_than() {
     let engine = create_test_engine();
     let mut context = create_test_context();
-    context.set_variable("count", serde_json::json!(10)).unwrap();
+    context.set_variable("count", serde_json::json!(10)).expect("should succeed");
     
-    let result = engine.evaluate_condition("count < 15", &context).await.unwrap();
+    let result = engine.evaluate_condition("count < 15", &context).await.expect("should succeed");
     assert!(result);
     
-    let result = engine.evaluate_condition("count < 5", &context).await.unwrap();
+    let result = engine.evaluate_condition("count < 5", &context).await.expect("should succeed");
     assert!(!result);
 }
 
@@ -567,12 +567,12 @@ async fn test_condition_less_than() {
 async fn test_condition_exists() {
     let engine = create_test_engine();
     let mut context = create_test_context();
-    context.set_variable("enabled", serde_json::json!(true)).unwrap();
+    context.set_variable("enabled", serde_json::json!(true)).expect("should succeed");
     
-    let result = engine.evaluate_condition("exists enabled", &context).await.unwrap();
+    let result = engine.evaluate_condition("exists enabled", &context).await.expect("should succeed");
     assert!(result);
     
-    let result = engine.evaluate_condition("exists nonexistent", &context).await.unwrap();
+    let result = engine.evaluate_condition("exists nonexistent", &context).await.expect("should succeed");
     assert!(!result);
 }
 
@@ -580,13 +580,13 @@ async fn test_condition_exists() {
 async fn test_condition_boolean_variable() {
     let engine = create_test_engine();
     let mut context = create_test_context();
-    context.set_variable("is_enabled", serde_json::json!(true)).unwrap();
-    context.set_variable("is_disabled", serde_json::json!(false)).unwrap();
+    context.set_variable("is_enabled", serde_json::json!(true)).expect("should succeed");
+    context.set_variable("is_disabled", serde_json::json!(false)).expect("should succeed");
     
-    let result = engine.evaluate_condition("is_enabled", &context).await.unwrap();
+    let result = engine.evaluate_condition("is_enabled", &context).await.expect("should succeed");
     assert!(result);
     
-    let result = engine.evaluate_condition("is_disabled", &context).await.unwrap();
+    let result = engine.evaluate_condition("is_disabled", &context).await.expect("should succeed");
     assert!(!result);
 }
 
@@ -596,7 +596,7 @@ async fn test_condition_missing_variable() {
     let context = create_test_context();
     
     // Missing variable should evaluate to false
-    let result = engine.evaluate_condition("missing_var == \"value\"", &context).await.unwrap();
+    let result = engine.evaluate_condition("missing_var == \"value\"", &context).await.expect("should succeed");
     assert!(!result);
 }
 
@@ -633,7 +633,7 @@ async fn test_complex_transform_pipeline() {
         dependencies: vec![],
     };
     
-    let filtered = engine.execute_transform_step(&filter_step, &context).await.unwrap();
+    let filtered = engine.execute_transform_step(&filter_step, &context).await.expect("should succeed");
     
     // 2. Map to extract names and scores
     let map_step = WorkflowStep {
@@ -654,7 +654,7 @@ async fn test_complex_transform_pipeline() {
         dependencies: vec![],
     };
     
-    let mapped = engine.execute_transform_step(&map_step, &context).await.unwrap();
+    let mapped = engine.execute_transform_step(&map_step, &context).await.expect("should succeed");
     
     // Verify final result
     let expected = serde_json::json!([
@@ -698,7 +698,7 @@ async fn test_parallel_vs_sequential_performance() {
     };
     
     let parallel_start = std::time::Instant::now();
-    let _parallel_result = engine.execute_parallel_step(&parallel_step, &context, &ai, &svc, &evt).await.unwrap();
+    let _parallel_result = engine.execute_parallel_step(&parallel_step, &context, &ai, &svc, &evt).await.expect("should succeed");
     let parallel_duration = parallel_start.elapsed();
     
     // Test sequential execution
@@ -720,7 +720,7 @@ async fn test_parallel_vs_sequential_performance() {
     };
     
     let sequential_start = std::time::Instant::now();
-    let _sequential_result = engine.execute_sequential_step(&sequential_step, &context, &ai, &svc, &evt).await.unwrap();
+    let _sequential_result = engine.execute_sequential_step(&sequential_step, &context, &ai, &svc, &evt).await.expect("should succeed");
     let sequential_duration = sequential_start.elapsed();
     
     // Parallel should be comparable or faster (allowing for variance)

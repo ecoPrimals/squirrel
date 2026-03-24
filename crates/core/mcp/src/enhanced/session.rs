@@ -740,7 +740,7 @@ mod tests {
         assert_eq!(cfg.persistence.encryption, false);
         match &cfg.persistence.backend {
             StorageBackend::Memory => {}
-            other => panic!("expected Memory backend, got {other:?}"),
+            other => unreachable!("expected Memory backend, got {other:?}"),
         }
     }
 
@@ -844,7 +844,7 @@ mod tests {
             (StorageBackend::FileSystem { path: p1 }, StorageBackend::FileSystem { path: p2 }) => {
                 assert_eq!(p1, p2)
             }
-            _ => panic!("backend mismatch after roundtrip"),
+            _ => unreachable!("backend mismatch after roundtrip"),
         }
     }
 
@@ -879,7 +879,7 @@ mod tests {
             (StorageBackend::Redis { url: u1 }, StorageBackend::Redis { url: u2 }) => {
                 assert_eq!(u1, u2)
             }
-            _ => panic!("expected Redis variant"),
+            _ => unreachable!("expected Redis variant"),
         }
     }
 

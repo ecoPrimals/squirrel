@@ -302,15 +302,15 @@ mod tests {
             requirements: Some(ActionRequirements::default()),
             metadata: HashMap::new(),
         };
-        let json = serde_json::to_string(&req).unwrap();
-        let deser: UniversalAiRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("should succeed");
+        let deser: UniversalAiRequest = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.action, "text.generation");
     }
 
     #[test]
     fn test_universal_ai_request_without_requirements() {
         let json = r#"{"action":"test","input":"hello"}"#;
-        let req: UniversalAiRequest = serde_json::from_str(json).unwrap();
+        let req: UniversalAiRequest = serde_json::from_str(json).expect("should succeed");
         assert!(req.requirements.is_none());
         assert!(req.metadata.is_empty());
     }
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn test_image_generation_request_defaults() {
         let json = r#"{"prompt":"a cat"}"#;
-        let req: ImageGenerationRequest = serde_json::from_str(json).unwrap();
+        let req: ImageGenerationRequest = serde_json::from_str(json).expect("should succeed");
         assert_eq!(req.prompt, "a cat");
         assert_eq!(req.size, "512x512");
         assert_eq!(req.n, 1);
@@ -342,8 +342,8 @@ mod tests {
             cost_usd: Some(0.02),
             latency_ms: 3000,
         };
-        let json = serde_json::to_string(&resp).unwrap();
-        let deser: ImageGenerationResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp).expect("should succeed");
+        let deser: ImageGenerationResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.images.len(), 1);
         assert_eq!(deser.images[0].width, 512);
     }
@@ -353,7 +353,7 @@ mod tests {
     #[test]
     fn test_text_generation_request_defaults() {
         let json = r#"{"prompt":"Hello world"}"#;
-        let req: TextGenerationRequest = serde_json::from_str(json).unwrap();
+        let req: TextGenerationRequest = serde_json::from_str(json).expect("should succeed");
         assert_eq!(req.prompt, "Hello world");
         assert_eq!(req.max_tokens, 1024);
         assert!((req.temperature - 0.7).abs() < f32::EPSILON);
@@ -375,10 +375,13 @@ mod tests {
             cost_usd: Some(0.001),
             latency_ms: 500,
         };
-        let json = serde_json::to_string(&resp).unwrap();
-        let deser: TextGenerationResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp).expect("should succeed");
+        let deser: TextGenerationResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.model, "gpt-4");
-        assert_eq!(deser.usage.as_ref().unwrap().total_tokens, 30);
+        assert_eq!(
+            deser.usage.as_ref().expect("should succeed").total_tokens,
+            30
+        );
     }
 
     // ========== TokenUsage Tests ==========
@@ -390,8 +393,8 @@ mod tests {
             completion_tokens: 200,
             total_tokens: 300,
         };
-        let json = serde_json::to_string(&usage).unwrap();
-        let deser: TokenUsage = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&usage).expect("should succeed");
+        let deser: TokenUsage = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.prompt_tokens, 100);
         assert_eq!(deser.completion_tokens, 200);
         assert_eq!(deser.total_tokens, 300);
@@ -423,8 +426,8 @@ mod tests {
         let err = AiErrorResponse::new("E003", "Rate limited")
             .retryable()
             .with_provider("anthropic");
-        let json = serde_json::to_string(&err).unwrap();
-        let deser: AiErrorResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&err).expect("should succeed");
+        let deser: AiErrorResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.code, "E003");
         assert!(deser.retryable);
     }

@@ -315,8 +315,8 @@ mod tests {
             timestamp: "2024-01-01T00:00:00Z".to_string(),
         };
 
-        let serialized = serde_json::to_string(&message).unwrap();
-        let deserialized: McpMessage = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&message).expect("should succeed");
+        let deserialized: McpMessage = serde_json::from_str(&serialized).expect("should succeed");
 
         assert_eq!(deserialized.id, message.id);
         assert_eq!(deserialized.message_type, message.message_type);
@@ -400,8 +400,8 @@ mod tests {
     #[test]
     fn test_mcp_capabilities_serde() {
         let capabilities = McpCapabilities::new();
-        let json = serde_json::to_string(&capabilities).unwrap();
-        let deserialized: McpCapabilities = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&capabilities).expect("should succeed");
+        let deserialized: McpCapabilities = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(deserialized.supports_mcp, capabilities.supports_mcp);
         assert_eq!(deserialized.protocol_version, capabilities.protocol_version);
@@ -427,8 +427,8 @@ mod tests {
             output_schema: Some(json!({"type": "number"})),
         };
 
-        let json_str = serde_json::to_string(&tool).unwrap();
-        let deserialized: McpTool = serde_json::from_str(&json_str).unwrap();
+        let json_str = serde_json::to_string(&tool).expect("should succeed");
+        let deserialized: McpTool = serde_json::from_str(&json_str).expect("should succeed");
 
         assert_eq!(deserialized.name, "calculator");
         assert_eq!(deserialized.description, "Performs arithmetic");
@@ -444,8 +444,8 @@ mod tests {
             output_schema: None,
         };
 
-        let json_str = serde_json::to_string(&tool).unwrap();
-        let deserialized: McpTool = serde_json::from_str(&json_str).unwrap();
+        let json_str = serde_json::to_string(&tool).expect("should succeed");
+        let deserialized: McpTool = serde_json::from_str(&json_str).expect("should succeed");
 
         assert!(deserialized.output_schema.is_none());
     }
@@ -459,8 +459,8 @@ mod tests {
             metadata: json!({"size": 1024}),
         };
 
-        let json_str = serde_json::to_string(&resource).unwrap();
-        let deserialized: McpResource = serde_json::from_str(&json_str).unwrap();
+        let json_str = serde_json::to_string(&resource).expect("should succeed");
+        let deserialized: McpResource = serde_json::from_str(&json_str).expect("should succeed");
 
         assert_eq!(deserialized.uri, "file:///data.json");
         assert_eq!(deserialized.name, "Data File");
@@ -476,8 +476,8 @@ mod tests {
             parameters: json!({"text": {"type": "string"}}),
         };
 
-        let json_str = serde_json::to_string(&prompt).unwrap();
-        let deserialized: McpPrompt = serde_json::from_str(&json_str).unwrap();
+        let json_str = serde_json::to_string(&prompt).expect("should succeed");
+        let deserialized: McpPrompt = serde_json::from_str(&json_str).expect("should succeed");
 
         assert_eq!(deserialized.name, "summarize");
         assert_eq!(deserialized.template, "Summarize: {text}");

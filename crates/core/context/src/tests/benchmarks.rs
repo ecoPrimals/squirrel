@@ -108,7 +108,7 @@ async fn benchmark_context_creation(concurrent_tasks: usize, contexts_per_task: 
             for i in 0..contexts_per_task {
                 let id = format!("bench-{}-{}", task_id, i);
                 let state = create_test_state();
-                manager_clone.create_context(&id, state).await.unwrap();
+                manager_clone.create_context(&id, state).await.expect("should succeed");
             }
         });
         
@@ -120,7 +120,7 @@ async fn benchmark_context_creation(concurrent_tasks: usize, contexts_per_task: 
     
     // Wait for all tasks to complete
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
     
     // End timing
@@ -145,7 +145,7 @@ async fn benchmark_context_update(concurrent_tasks: usize, updates_per_task: usi
     // Create a single context for all tasks to update
     let context_id = "bench-update";
     let initial_state = create_test_state();
-    manager.create_context(context_id, initial_state).await.unwrap();
+    manager.create_context(context_id, initial_state).await.expect("should succeed");
     
     let barrier = Arc::new(Barrier::new(concurrent_tasks));
     
@@ -161,10 +161,10 @@ async fn benchmark_context_update(concurrent_tasks: usize, updates_per_task: usi
             
             // Update context
             for i in 0..updates_per_task {
-                let mut state = manager_clone.get_context_state(context_id).await.unwrap();
+                let mut state = manager_clone.get_context_state(context_id).await.expect("should succeed");
                 state.version += 1;
                 state.data.insert(format!("key-{}-{}", task_id, i), format!("value-{}", i));
-                manager_clone.update_context_state(context_id, state).await.unwrap();
+                manager_clone.update_context_state(context_id, state).await.expect("should succeed");
             }
         });
         
@@ -176,7 +176,7 @@ async fn benchmark_context_update(concurrent_tasks: usize, updates_per_task: usi
     
     // Wait for all tasks to complete
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
     
     // End timing
@@ -200,7 +200,7 @@ async fn benchmark_context_read(concurrent_tasks: usize, reads_per_task: usize) 
     for i in 0..num_contexts {
         let context_id = format!("bench-read-{}", i);
         let state = create_test_state();
-        manager.create_context(&context_id, state).await.unwrap();
+        manager.create_context(&context_id, state).await.expect("should succeed");
     }
     
     let barrier = Arc::new(Barrier::new(concurrent_tasks));
@@ -218,7 +218,7 @@ async fn benchmark_context_read(concurrent_tasks: usize, reads_per_task: usize) 
             // Read contexts
             for i in 0..reads_per_task {
                 let context_id = format!("bench-read-{}", i % num_contexts);
-                let _state = manager_clone.get_context_state(&context_id).await.unwrap();
+                let _state = manager_clone.get_context_state(&context_id).await.expect("should succeed");
             }
         });
         
@@ -230,7 +230,7 @@ async fn benchmark_context_read(concurrent_tasks: usize, reads_per_task: usize) 
     
     // Wait for all tasks to complete
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
     
     // End timing
@@ -254,7 +254,7 @@ async fn benchmark_mixed_operations(concurrent_tasks: usize, operations_per_task
     for i in 0..num_contexts {
         let context_id = format!("bench-mixed-{}", i);
         let state = create_test_state();
-        manager.create_context(&context_id, state).await.unwrap();
+        manager.create_context(&context_id, state).await.expect("should succeed");
     }
     
     let barrier = Arc::new(Barrier::new(concurrent_tasks));
@@ -276,15 +276,15 @@ async fn benchmark_mixed_operations(concurrent_tasks: usize, operations_per_task
                     0 => {
                         // Read operation
                         let context_id = format!("bench-mixed-{}", i % num_contexts);
-                        let _state = manager_clone.get_context_state(&context_id).await.unwrap();
+                        let _state = manager_clone.get_context_state(&context_id).await.expect("should succeed");
                     },
                     1 => {
                         // Update operation
                         let context_id = format!("bench-mixed-{}", i % num_contexts);
-                        let mut state = manager_clone.get_context_state(&context_id).await.unwrap();
+                        let mut state = manager_clone.get_context_state(&context_id).await.expect("should succeed");
                         state.version += 1;
                         state.data.insert(format!("key-{}-{}", task_id, i), format!("value-{}", i));
-                        manager_clone.update_context_state(&context_id, state).await.unwrap();
+                        manager_clone.update_context_state(&context_id, state).await.expect("should succeed");
                     },
                     2 => {
                         // Create operation
@@ -305,7 +305,7 @@ async fn benchmark_mixed_operations(concurrent_tasks: usize, operations_per_task
     
     // Wait for all tasks to complete
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
     
     // End timing
@@ -327,7 +327,7 @@ fn create_test_state() -> ContextState {
         version: 1,
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("should succeed")
             .as_secs(),
         data: HashMap::new(),
         metadata: HashMap::new(),

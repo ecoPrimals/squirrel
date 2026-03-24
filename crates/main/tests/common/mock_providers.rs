@@ -79,7 +79,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_healthy_provider(&self, name: &str) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -94,7 +94,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_slow_provider(&self, name: &str, delay: Duration) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -109,7 +109,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_network_error_provider(&self, name: &str, error: &str) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -124,7 +124,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_invalid_provider(&self, name: &str) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -139,7 +139,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_provider_with_capabilities(&self, name: &str, capabilities: Vec<&str>) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -163,13 +163,13 @@ impl MockEcosystemManager {
             error_mode: Some(ErrorMode::RateLimit),
         };
         
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(name.to_string(), provider.clone());
         provider
     }
 
     pub fn add_streaming_provider_with_disconnect(&self, name: &str, _disconnect_at: usize) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -184,7 +184,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_provider_requiring_auth(&self, name: &str, _authenticated: bool) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -199,7 +199,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_crash_provider(&self, name: &str) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -214,7 +214,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_provider_with_invalid_schema(&self, name: &str) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -229,7 +229,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_redirect_provider(&self, name: &str, _redirect_to: &str) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -244,7 +244,7 @@ impl MockEcosystemManager {
     }
 
     pub fn add_provider_with_priority(&self, name: &str, priority: u8) {
-        let mut providers = self.providers.lock().unwrap();
+        let mut providers = self.providers.lock().expect("should succeed");
         providers.insert(
             name.to_string(),
             MockProvider {
@@ -259,7 +259,7 @@ impl MockEcosystemManager {
     }
 
     pub fn get_providers(&self) -> Vec<MockProvider> {
-        let providers = self.providers.lock().unwrap();
+        let providers = self.providers.lock().expect("should succeed");
         providers.values().cloned().collect()
     }
 }
@@ -376,7 +376,7 @@ mod tests {
         let selected = tokio_test::block_on(select_provider(&providers, &request));
         
         assert!(selected.is_some());
-        assert_eq!(selected.unwrap().name, "high");
+        assert_eq!(selected.expect("should succeed").name, "high");
     }
 }
 

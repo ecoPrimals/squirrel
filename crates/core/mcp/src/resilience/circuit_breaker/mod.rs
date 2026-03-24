@@ -48,7 +48,7 @@ mod tests {
         let result = breaker.execute(|| async { Ok::<_, BreakerError>(42) }.boxed()).await;
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("should succeed"), 42);
         
         // Verify metrics
         let metrics = breaker.metrics().await;

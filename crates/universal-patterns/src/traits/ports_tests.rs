@@ -62,13 +62,13 @@ mod port_type_tests {
     #[test]
     fn test_port_type_serialization() {
         let port_type = PortType::Grpc;
-        let json = serde_json::to_string(&port_type).unwrap();
-        let deserialized: PortType = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&port_type).expect("should succeed");
+        let deserialized: PortType = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(port_type, deserialized);
 
         let custom = PortType::Custom("mqtt".to_string());
-        let json_custom = serde_json::to_string(&custom).unwrap();
-        let deserialized_custom: PortType = serde_json::from_str(&json_custom).unwrap();
+        let json_custom = serde_json::to_string(&custom).expect("should succeed");
+        let deserialized_custom: PortType = serde_json::from_str(&json_custom).expect("should succeed");
         assert_eq!(custom, deserialized_custom);
     }
 
@@ -125,8 +125,8 @@ mod port_status_tests {
     #[test]
     fn test_port_status_serialization() {
         let status = PortStatus::Releasing;
-        let json = serde_json::to_string(&status).unwrap();
-        let deserialized: PortStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&status).expect("should succeed");
+        let deserialized: PortStatus = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(status, deserialized);
     }
 
@@ -293,8 +293,8 @@ mod dynamic_port_info_tests {
             lease_duration: Duration::hours(24),
         };
 
-        let json = serde_json::to_string(&port_info).unwrap();
-        let deserialized: DynamicPortInfo = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&port_info).expect("should succeed");
+        let deserialized: DynamicPortInfo = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(port_info, deserialized);
     }
 

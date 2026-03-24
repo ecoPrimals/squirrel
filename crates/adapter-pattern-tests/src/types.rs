@@ -195,7 +195,7 @@ mod tests {
         let cmd = TestCommand::new("echo", "Echo", "output");
         let result = cmd.execute(vec![]);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "output");
+        assert_eq!(result.expect("should succeed"), "output");
     }
 
     #[test]
@@ -203,7 +203,7 @@ mod tests {
         let cmd = TestCommand::new("echo", "Echo", "Echo");
         let result = cmd.execute(vec!["a".to_string(), "b".to_string()]);
         assert!(result.is_ok());
-        let s = result.unwrap();
+        let s = result.expect("should succeed");
         assert!(s.contains('a'));
         assert!(s.contains('b'));
     }
@@ -232,7 +232,7 @@ mod tests {
                 assert_eq!(u1, u2);
                 assert_eq!(p1, p2);
             }
-            _ => panic!("expected User variant"),
+            _ => unreachable!("expected User variant"),
         }
     }
 

@@ -635,7 +635,7 @@ mod tests {
         let ctx = RequestContext::new(base_task());
         let out = selector
             .select_provider(vec![("only".to_string(), p)], &ctx, RoutingStrategy::Random)
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(out.0, "only");
     }
 
@@ -661,7 +661,7 @@ mod tests {
                 &ctx,
                 RoutingStrategy::FirstMatch,
             )
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(first.0, "a");
 
         let best = selector
@@ -670,7 +670,7 @@ mod tests {
                 &ctx,
                 RoutingStrategy::HighestPriority,
             )
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(best.0, "b");
     }
 
@@ -698,7 +698,7 @@ mod tests {
                 &ctx,
                 RoutingStrategy::LowestLatency,
             )
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(pick.0, "fast");
 
         let cheap = Arc::new(MockClient::new("cheap").with_prefs(RoutingPreferences {
@@ -716,7 +716,7 @@ mod tests {
                 &ctx,
                 RoutingStrategy::LowestCost,
             )
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(cost_pick.0, "cheap");
     }
 
@@ -729,11 +729,11 @@ mod tests {
         let v = vec![("a".to_string(), a), ("b".to_string(), b)];
         let first = selector
             .select_provider(v.clone(), &ctx, RoutingStrategy::RoundRobin)
-            .unwrap()
+            .expect("should succeed")
             .0;
         let second = selector
             .select_provider(v, &ctx, RoutingStrategy::RoundRobin)
-            .unwrap()
+            .expect("should succeed")
             .0;
         assert_ne!(first, second);
     }
@@ -769,7 +769,7 @@ mod tests {
                 &ctx,
                 RoutingStrategy::BestFit,
             )
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(best.0, "strong");
     }
 

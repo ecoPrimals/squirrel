@@ -251,7 +251,7 @@ mod tests {
         let tool = Tool::function(func);
         assert!(matches!(tool.tool_type, ToolType::Function));
         assert!(tool.function.is_some());
-        assert_eq!(tool.function.unwrap().name, "test_fn");
+        assert_eq!(tool.function.expect("should succeed").name, "test_fn");
     }
 
     #[test]
@@ -277,11 +277,11 @@ mod tests {
         let schema = ParameterSchema::object()
             .with_property("name", PropertySchema::string("The name"), true)
             .with_property("age", PropertySchema::integer("The age"), false);
-        let props = schema.properties.unwrap();
+        let props = schema.properties.expect("should succeed");
         assert_eq!(props.len(), 2);
         assert!(props.contains_key("name"));
         assert!(props.contains_key("age"));
-        let req = schema.required.unwrap();
+        let req = schema.required.expect("should succeed");
         assert_eq!(req.len(), 1);
         assert!(req.contains(&"name".to_string()));
     }
@@ -313,7 +313,7 @@ mod tests {
     fn test_property_schema_enum() {
         let e = PropertySchema::enum_type("pick", vec!["a".to_string(), "b".to_string()]);
         assert_eq!(e.schema_type, "string");
-        assert_eq!(e.enum_values.unwrap().len(), 2);
+        assert_eq!(e.enum_values.expect("should succeed").len(), 2);
     }
 
     #[test]
@@ -329,7 +329,7 @@ mod tests {
         });
         let json = serde_json::to_string(&tool).expect("serialize");
         let deser: Tool = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(deser.function.unwrap().name, "search");
+        assert_eq!(deser.function.expect("should succeed").name, "search");
     }
 
     #[test]

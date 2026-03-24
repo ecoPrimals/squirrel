@@ -142,9 +142,8 @@ impl UniversalPrimalEcosystem {
 
 #[cfg(all(test, unix))]
 #[expect(
-    clippy::unwrap_used,
     clippy::expect_used,
-    reason = "Invariant or startup failure: unwrap/expect after validation"
+    reason = "Invariant or startup failure: expect after validation"
 )]
 mod ipc_tests {
     use crate::error::PrimalError;
@@ -221,7 +220,7 @@ mod ipc_tests {
                 "id": id_str,
                 "result": {"ok": true, "message": "pong"}
             });
-            let mut line = serde_json::to_string(&resp).unwrap();
+            let mut line = serde_json::to_string(&resp).expect("ipc response json");
             line.push('\n');
             stream.write_all(line.as_bytes()).await.ok();
             drop(stream);

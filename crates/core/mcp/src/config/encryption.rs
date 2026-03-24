@@ -82,8 +82,8 @@ mod tests {
             key_management: "vault".to_string(),
         };
 
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: EncryptionConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: EncryptionConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(config, deserialized);
     }
 }

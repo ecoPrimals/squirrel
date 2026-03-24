@@ -208,8 +208,8 @@ mod tests {
             primal: Some("healthSpring".to_string()),
         };
 
-        let json = serde_json::to_string(&tool).unwrap();
-        let decoded: SpringToolDef = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&tool).expect("should succeed");
+        let decoded: SpringToolDef = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(tool, decoded);
     }
 
@@ -224,7 +224,7 @@ mod tests {
             primal: None,
         };
 
-        let json = serde_json::to_string(&tool).unwrap();
+        let json = serde_json::to_string(&tool).expect("should succeed");
         assert!(!json.contains("input_schema"));
     }
 
@@ -300,7 +300,7 @@ mod tests {
                     ]
                 }
             });
-            let mut out = serde_json::to_string(&resp).unwrap();
+            let mut out = serde_json::to_string(&resp).expect("should succeed");
             out.push('\n');
             stream.write_all(out.as_bytes()).await.expect("write");
             stream.flush().await.expect("flush");
@@ -343,7 +343,7 @@ mod tests {
                     }
                 ]
             });
-            let mut out = serde_json::to_string(&resp).unwrap();
+            let mut out = serde_json::to_string(&resp).expect("should succeed");
             out.push('\n');
             stream.write_all(out.as_bytes()).await.expect("write");
             stream.flush().await.expect("flush");

@@ -90,7 +90,7 @@ mod error_path_tests {
             super::super::FederationError::ConsensusFailure(msg) => {
                 assert!(msg.contains("Insufficient") || msg.contains("quorum"));
             }
-            _ => panic!("Expected ConsensusFailure for insufficient quorum"),
+            _ => unreachable!("Expected ConsensusFailure for insufficient quorum"),
         }
     }
 
@@ -122,7 +122,7 @@ mod error_path_tests {
         // This should succeed (quorum met)
         assert!(result.is_ok());
 
-        let consensus_result = result.unwrap();
+        let consensus_result = result.expect("should succeed");
         // Status could be InProgress or TimedOut depending on voting timeout
         assert!(matches!(
             consensus_result.status,
@@ -173,7 +173,7 @@ mod error_path_tests {
         // At least some should succeed
         let successes = results
             .into_iter()
-            .filter(|r| r.is_ok() && r.as_ref().unwrap().is_ok())
+            .filter(|r| r.is_ok() && r.as_ref().expect("should succeed").is_ok())
             .count();
         assert!(
             successes > 0,
@@ -213,7 +213,7 @@ mod error_path_tests {
         let proposal_result = manager.propose(b"test value".to_vec()).await;
         assert!(proposal_result.is_ok());
 
-        let proposal_id = proposal_result.unwrap().proposal_id;
+        let proposal_id = proposal_result.expect("should succeed").proposal_id;
 
         // Cast votes from registered nodes
         for _id in node_ids {
@@ -255,7 +255,7 @@ mod error_path_tests {
         let proposal_result = manager.propose(b"test value".to_vec()).await;
         assert!(proposal_result.is_ok());
 
-        let proposal_id = proposal_result.unwrap().proposal_id;
+        let proposal_id = proposal_result.expect("should succeed").proposal_id;
 
         // Test abstain vote
         let vote_result = manager.vote(proposal_id, super::super::Vote::Abstain).await;
@@ -290,7 +290,7 @@ mod error_path_tests {
         let proposal_result = manager.propose(b"test value".to_vec()).await;
         assert!(proposal_result.is_ok());
 
-        let proposal_id = proposal_result.unwrap().proposal_id;
+        let proposal_id = proposal_result.expect("should succeed").proposal_id;
 
         // Test against vote
         let vote_result = manager.vote(proposal_id, super::super::Vote::Against).await;
@@ -323,7 +323,7 @@ mod error_path_tests {
         }
 
         // Initial state
-        let state1 = manager.get_state().await.unwrap();
+        let state1 = manager.get_state().await.expect("should succeed");
         assert_eq!(state1.round, 0);
         assert!(state1.active_proposals.is_empty());
 
@@ -331,7 +331,7 @@ mod error_path_tests {
         let _ = manager.propose(b"test value".to_vec()).await;
 
         // State should now show active proposal
-        let state2 = manager.get_state().await.unwrap();
+        let state2 = manager.get_state().await.expect("should succeed");
         assert_eq!(state2.round, 0); // Round stays same
                                      // Active proposals may or may not be visible depending on implementation
     }
@@ -466,7 +466,7 @@ mod error_path_tests {
 
         let state = manager.get_state().await;
         assert!(state.is_ok());
-        let state = state.unwrap();
+        let state = state.expect("should succeed");
         assert!(state.active_proposals.is_empty());
     }
 

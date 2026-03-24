@@ -552,7 +552,7 @@ mod tests {
         }).await;
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("should succeed"), 42);
         
         let metrics = retry.get_metrics();
         assert_eq!(metrics.success_count, 1);
@@ -587,7 +587,7 @@ mod tests {
         }).await;
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("should succeed"), 42);
         assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 2); // Should have made 2 attempts
         
         let metrics = retry.get_metrics();
@@ -821,7 +821,7 @@ mod tests {
             assert!(unique_delays > 1, "Jitter should produce different delays");
             
             // Max delay should increase exponentially
-            let max_delay = *delays.iter().max().unwrap();
+            let max_delay = *delays.iter().max().expect("should succeed");
             if attempt > 1 {
                 // Each max should be approximately double the previous max (exponential)
                 assert!(max_delay > last_max);

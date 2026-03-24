@@ -483,14 +483,20 @@ mod tests {
             )],
         );
 
-        registry.register_local_service(service).await.unwrap();
+        registry
+            .register_local_service(service)
+            .await
+            .expect("should succeed");
 
         let local_services = registry.get_local_services().await;
         assert_eq!(local_services.len(), 1);
         assert_eq!(local_services[0].id, "test-service");
 
         // Verify it's also in discovery
-        let discovered = discovery.get_service("test-service").await.unwrap();
+        let discovered = discovery
+            .get_service("test-service")
+            .await
+            .expect("should succeed");
         assert!(discovered.is_some());
     }
 
@@ -510,17 +516,23 @@ mod tests {
             )],
         );
 
-        registry.register_local_service(service).await.unwrap();
+        registry
+            .register_local_service(service)
+            .await
+            .expect("should succeed");
         registry
             .deregister_local_service("test-service")
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let local_services = registry.get_local_services().await;
         assert_eq!(local_services.len(), 0);
 
         // Verify it's removed from discovery
-        let discovered = discovery.get_service("test-service").await.unwrap();
+        let discovered = discovery
+            .get_service("test-service")
+            .await
+            .expect("should succeed");
         assert!(discovered.is_none());
     }
 
@@ -540,11 +552,14 @@ mod tests {
             )],
         );
 
-        registry.register_local_service(service).await.unwrap();
+        registry
+            .register_local_service(service)
+            .await
+            .expect("should succeed");
         registry
             .update_local_service_health("test-service", ServiceHealthStatus::Unhealthy)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let local_services = registry.get_local_services().await;
         assert_eq!(
@@ -553,9 +568,12 @@ mod tests {
         );
 
         // Verify it's updated in discovery
-        let discovered = discovery.get_service("test-service").await.unwrap();
+        let discovered = discovery
+            .get_service("test-service")
+            .await
+            .expect("should succeed");
         assert_eq!(
-            discovered.unwrap().health_status,
+            discovered.expect("should succeed").health_status,
             ServiceHealthStatus::Unhealthy
         );
     }
@@ -588,15 +606,30 @@ mod tests {
         )
         .with_health_status(ServiceHealthStatus::Unhealthy);
 
-        registry.register_local_service(service1).await.unwrap();
-        registry.register_local_service(service2).await.unwrap();
+        registry
+            .register_local_service(service1)
+            .await
+            .expect("should succeed");
+        registry
+            .register_local_service(service2)
+            .await
+            .expect("should succeed");
 
         let stats = registry.get_registry_stats().await;
         assert_eq!(stats.total_services, 2);
         assert_eq!(stats.healthy_services, 1);
         assert_eq!(stats.unhealthy_services, 1);
-        assert_eq!(stats.services_by_type.get("ai").unwrap(), &1);
-        assert_eq!(stats.services_by_type.get("compute").unwrap(), &1);
+        assert_eq!(
+            stats.services_by_type.get("ai").expect("should succeed"),
+            &1
+        );
+        assert_eq!(
+            stats
+                .services_by_type
+                .get("compute")
+                .expect("should succeed"),
+            &1
+        );
     }
 
     #[tokio::test]
@@ -626,17 +659,29 @@ mod tests {
             )],
         );
 
-        registry.register_local_service(service1).await.unwrap();
-        registry.register_local_service(service2).await.unwrap();
+        registry
+            .register_local_service(service1)
+            .await
+            .expect("should succeed");
+        registry
+            .register_local_service(service2)
+            .await
+            .expect("should succeed");
 
-        registry.shutdown().await.unwrap();
+        registry.shutdown().await.expect("should succeed");
 
         let local_services = registry.get_local_services().await;
         assert_eq!(local_services.len(), 0);
 
         // Verify services are removed from discovery
-        let discovered1 = discovery.get_service("service1").await.unwrap();
-        let discovered2 = discovery.get_service("service2").await.unwrap();
+        let discovered1 = discovery
+            .get_service("service1")
+            .await
+            .expect("should succeed");
+        let discovered2 = discovery
+            .get_service("service2")
+            .await
+            .expect("should succeed");
         assert!(discovered1.is_none());
         assert!(discovered2.is_none());
     }
@@ -658,14 +703,20 @@ mod tests {
             )],
         );
 
-        registry.register_local_service(service).await.unwrap();
-        registry.start_heartbeat_loop().unwrap();
+        registry
+            .register_local_service(service)
+            .await
+            .expect("should succeed");
+        registry.start_heartbeat_loop().expect("should succeed");
 
         // Wait for a few heartbeats
         tokio::time::sleep(Duration::from_millis(150)).await;
 
         // Verify service is still active
-        let discovered = discovery.get_service("test-service").await.unwrap();
+        let discovered = discovery
+            .get_service("test-service")
+            .await
+            .expect("should succeed");
         assert!(discovered.is_some());
     }
 }

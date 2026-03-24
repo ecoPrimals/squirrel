@@ -20,7 +20,7 @@ fn test_frontmatter_crlf_line_endings() {
     let result = FrontmatterParser::extract_frontmatter(content);
 
     assert!(result.is_ok(), "Should handle CRLF line endings");
-    let (frontmatter_opt, remaining) = result.unwrap();
+    let (frontmatter_opt, remaining) = result.expect("should succeed");
     assert!(frontmatter_opt.is_some());
     assert!(remaining.contains("Body content"));
 }
@@ -32,7 +32,7 @@ fn test_frontmatter_empty() {
     let result = FrontmatterParser::extract_frontmatter(content);
 
     assert!(result.is_ok());
-    let (frontmatter_opt, remaining) = result.unwrap();
+    let (frontmatter_opt, remaining) = result.expect("should succeed");
     assert!(frontmatter_opt.is_some());
     assert!(remaining.contains("Content"));
 }
@@ -44,7 +44,7 @@ fn test_frontmatter_incomplete() {
     let result = FrontmatterParser::extract_frontmatter(content);
 
     assert!(result.is_ok());
-    let (frontmatter_opt, _) = result.unwrap();
+    let (frontmatter_opt, _) = result.expect("should succeed");
     // Should fail to find frontmatter if missing closing delimiter
     assert!(frontmatter_opt.is_none());
 }
@@ -180,7 +180,7 @@ patterns:
     let result = RuleParser::parse_string(content);
     assert!(result.is_ok(), "Should accept priority of 0");
 
-    let rule = result.unwrap();
+    let rule = result.expect("should succeed");
     assert_eq!(rule.priority, 0);
 }
 
@@ -224,7 +224,7 @@ patterns:
     let result = RuleParser::parse_string(content);
     assert!(result.is_ok(), "Should accept priority of 10000");
 
-    let rule = result.unwrap();
+    let rule = result.expect("should succeed");
     assert_eq!(rule.priority, 10000);
 }
 
@@ -616,7 +616,7 @@ patterns:
     let result = RuleParser::parse_string(content);
     assert!(result.is_ok(), "Should parse mixed JSON formatting");
 
-    let rule = result.unwrap();
+    let rule = result.expect("should succeed");
     assert_eq!(rule.conditions.len(), 1);
     assert_eq!(rule.actions.len(), 1);
 }
@@ -708,7 +708,7 @@ patterns:
     let result = RuleParser::parse_string(content);
     assert!(result.is_ok(), "Should parse Unicode characters");
 
-    let rule = result.unwrap();
+    let rule = result.expect("should succeed");
     assert!(rule.name.contains("Unicode"));
     assert!(rule.description.contains("émojis"));
 }

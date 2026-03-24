@@ -21,7 +21,7 @@ fn sample_service(id: &str, endpoint: &str, capabilities: Vec<&str>) -> Discover
 #[tokio::test]
 async fn new_and_initialize_default_context() {
     let mut eco = UniversalPrimalEcosystem::new(PrimalContext::default());
-    eco.initialize().await.unwrap();
+    eco.initialize().await.expect("should succeed");
     assert!(eco.get_discovered_primals().await.is_empty());
 }
 
@@ -36,7 +36,10 @@ async fn with_cache_config_disables_caching_uncached_path() {
         context: PrimalContext::default(),
         metadata: HashMap::new(),
     };
-    let matches = eco.find_services_by_capability(&req).await.unwrap();
+    let matches = eco
+        .find_services_by_capability(&req)
+        .await
+        .expect("should succeed");
     assert!(matches.is_empty());
 }
 
@@ -57,7 +60,10 @@ async fn find_services_matches_required_and_optional_scoring() {
         context: PrimalContext::default(),
         metadata: HashMap::new(),
     };
-    let matches = eco.find_services_by_capability(&req).await.unwrap();
+    let matches = eco
+        .find_services_by_capability(&req)
+        .await
+        .expect("should succeed");
     assert_eq!(matches.len(), 1);
     assert_eq!(matches[0].score, 0.0);
     assert!(matches[0].missing_capabilities.is_empty());
@@ -72,7 +78,10 @@ async fn find_by_capability_alias() {
         vec!["container-runtime"],
     ))
     .await;
-    let m = eco.find_by_capability("container-runtime").await.unwrap();
+    let m = eco
+        .find_by_capability("container-runtime")
+        .await
+        .expect("should succeed");
     assert_eq!(m.len(), 1);
 }
 
@@ -88,8 +97,14 @@ async fn capability_discovery_cache_hit_second_call() {
         context: PrimalContext::default(),
         metadata: HashMap::new(),
     };
-    let first = eco.find_services_by_capability(&req).await.unwrap();
-    let second = eco.find_services_by_capability(&req).await.unwrap();
+    let first = eco
+        .find_services_by_capability(&req)
+        .await
+        .expect("should succeed");
+    let second = eco
+        .find_services_by_capability(&req)
+        .await
+        .expect("should succeed");
     assert_eq!(first.len(), second.len());
 }
 
@@ -104,7 +119,10 @@ async fn clear_caches_and_stats() {
         context: PrimalContext::default(),
         metadata: HashMap::new(),
     };
-    let _ = eco.find_services_by_capability(&req).await.unwrap();
+    let _ = eco
+        .find_services_by_capability(&req)
+        .await
+        .expect("should succeed");
     let stats_before = eco.get_cache_stats().await;
     eco.clear_caches().await;
     let stats_after = eco.get_cache_stats().await;
@@ -121,7 +139,10 @@ async fn send_to_primal_returns_success_json() {
         serde_json::json!({}),
         PrimalContext::default(),
     );
-    let resp = eco.send_to_primal("any", req).await.unwrap();
+    let resp = eco
+        .send_to_primal("any", req)
+        .await
+        .expect("should succeed");
     assert!(resp.success);
 }
 
@@ -134,7 +155,7 @@ async fn match_capabilities_delegates_to_find() {
         context: PrimalContext::default(),
         metadata: HashMap::new(),
     };
-    let m = eco.match_capabilities(&req).await.unwrap();
+    let m = eco.match_capabilities(&req).await.expect("should succeed");
     assert!(m.is_empty());
 }
 
@@ -168,7 +189,7 @@ async fn query_service_capabilities_non_unix_returns_empty() {
     let caps = eco
         .query_service_capabilities("http://localhost:8080")
         .await
-        .unwrap();
+        .expect("should succeed");
     assert!(caps.is_empty());
 }
 
@@ -185,7 +206,7 @@ async fn discover_service_mesh_sets_endpoint_from_match() {
         ],
     ))
     .await;
-    eco.discover_service_mesh().await.unwrap();
+    eco.discover_service_mesh().await.expect("should succeed");
     assert_eq!(
         eco.service_mesh_endpoint.as_deref(),
         Some("unix:///tmp/mesh.sock")
@@ -257,7 +278,7 @@ async fn find_services_skips_when_required_capabilities_missing() {
     assert!(
         eco.find_services_by_capability(&req)
             .await
-            .unwrap()
+            .expect("should succeed")
             .is_empty()
     );
 }
@@ -275,7 +296,10 @@ async fn cache_ttl_zero_marks_expired_in_stats_before_next_lookup() {
         context: PrimalContext::default(),
         metadata: HashMap::new(),
     };
-    let _ = eco.find_services_by_capability(&req).await.unwrap();
+    let _ = eco
+        .find_services_by_capability(&req)
+        .await
+        .expect("should succeed");
     let stats = eco.get_cache_stats().await;
     assert!(stats.expired_cache_entries >= 1);
 }
@@ -299,7 +323,10 @@ async fn cache_evicts_oldest_when_at_capacity() {
             context: PrimalContext::default(),
             metadata: HashMap::new(),
         };
-        let _ = eco.find_services_by_capability(&req).await.unwrap();
+        let _ = eco
+            .find_services_by_capability(&req)
+            .await
+            .expect("should succeed");
     }
     let stats = eco.get_cache_stats().await;
     assert!(stats.discovery_cache_size <= 10);
@@ -315,7 +342,9 @@ fn discover_ecosystem_services_empty_ports_skips_well_known() {
             .expect("runtime")
             .block_on(async {
                 let mut eco = UniversalPrimalEcosystem::new(PrimalContext::default());
-                eco.discover_ecosystem_services().await.unwrap();
+                eco.discover_ecosystem_services()
+                    .await
+                    .expect("should succeed");
             });
     });
 }

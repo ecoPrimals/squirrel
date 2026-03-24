@@ -77,7 +77,7 @@ fn test_primal_type_roundtrip() {
         EcosystemPrimalType::BiomeOS,
     ] {
         let str_repr = primal.as_str();
-        let parsed = EcosystemPrimalType::from_str(str_repr).unwrap();
+        let parsed = EcosystemPrimalType::from_str(str_repr).expect("should succeed");
         assert_eq!(primal, &parsed);
     }
 }
@@ -86,15 +86,15 @@ fn test_primal_type_roundtrip() {
 fn test_from_str_case_insensitive() {
     // Test case insensitivity
     assert_eq!(
-        EcosystemPrimalType::from_str("SONGBIRD").unwrap(),
+        EcosystemPrimalType::from_str("SONGBIRD").expect("should succeed"),
         EcosystemPrimalType::Songbird
     );
     assert_eq!(
-        EcosystemPrimalType::from_str("SongBird").unwrap(),
+        EcosystemPrimalType::from_str("SongBird").expect("should succeed"),
         EcosystemPrimalType::Songbird
     );
     assert_eq!(
-        EcosystemPrimalType::from_str("songbird").unwrap(),
+        EcosystemPrimalType::from_str("songbird").expect("should succeed"),
         EcosystemPrimalType::Songbird
     );
 }

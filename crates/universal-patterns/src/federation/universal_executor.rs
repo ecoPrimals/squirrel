@@ -708,7 +708,7 @@ mod tests {
             "python",
             "print(42)",
         );
-        let out = executor.execute(req).await.unwrap();
+        let out = executor.execute(req).await.expect("should succeed");
         assert!(out.success);
         assert!(out.stdout.contains("42"));
     }
@@ -749,7 +749,7 @@ mod tests {
             "import time; time.sleep(10)",
         );
         req.timeout_seconds = 0;
-        let out = linux.execute(req).await.unwrap();
+        let out = linux.execute(req).await.expect("should succeed");
         assert!(!out.success);
         assert_eq!(out.error.as_deref(), Some("Execution timed out"));
     }

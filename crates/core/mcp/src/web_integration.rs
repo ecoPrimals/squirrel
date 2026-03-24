@@ -484,11 +484,11 @@ mod tests {
         let connection_id = "test-connection-1".to_string();
         
         // Register connection
-        service.register_websocket_connection(connection_id.clone(), None).await.unwrap();
+        service.register_websocket_connection(connection_id.clone(), None).await.expect("should succeed");
         assert_eq!(service.get_active_connections().await, 1);
         
         // Unregister connection
-        service.unregister_websocket_connection(&connection_id).await.unwrap();
+        service.unregister_websocket_connection(&connection_id).await.expect("should succeed");
         assert_eq!(service.get_active_connections().await, 0);
     }
 

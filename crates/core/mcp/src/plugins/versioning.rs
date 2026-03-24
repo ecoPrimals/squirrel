@@ -257,16 +257,16 @@ mod tests {
         let version = ProtocolVersion::new(1, 2, 3);
         let req = VersionRequirement::new(">=1.0.0, <2.0.0");
         
-        assert!(version.is_compatible_with(&req).unwrap());
+        assert!(version.is_compatible_with(&req).expect("should succeed"));
         
         let req2 = VersionRequirement::new(">=2.0.0");
-        assert!(!version.is_compatible_with(&req2).unwrap());
+        assert!(!version.is_compatible_with(&req2).expect("should succeed"));
     }
     
     #[test]
     fn test_protocol_version_serialization() {
         let version = ProtocolVersion::new(1, 0, 0);
-        let json = serde_json::to_value(&version).unwrap();
+        let json = serde_json::to_value(&version).expect("should succeed");
         
         assert_eq!(json, serde_json::json!({
             "major": 1,

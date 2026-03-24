@@ -184,7 +184,7 @@ mod tests {
         let buf = SharedBuffer::new(vec![1, 2, 3, 4, 5]);
         let sliced = buf.slice(1, 3);
         assert!(sliced.is_some());
-        let sliced = sliced.unwrap();
+        let sliced = sliced.expect("should succeed");
         assert_eq!(sliced.len(), 3);
         assert_eq!(sliced.as_slice(), &[2, 3, 4]);
     }
@@ -201,7 +201,7 @@ mod tests {
         let buf = SharedBuffer::new(vec![1, 2, 3]);
         let sliced = buf.slice(1, 0);
         assert!(sliced.is_some());
-        let sliced = sliced.unwrap();
+        let sliced = sliced.expect("should succeed");
         assert!(sliced.is_empty());
     }
 
@@ -217,8 +217,8 @@ mod tests {
     #[test]
     fn test_shared_buffer_nested_slice() {
         let buf = SharedBuffer::new(vec![1, 2, 3, 4, 5, 6, 7, 8]);
-        let slice1 = buf.slice(2, 4).unwrap(); // [3, 4, 5, 6]
-        let slice2 = slice1.slice(1, 2).unwrap(); // [4, 5]
+        let slice1 = buf.slice(2, 4).expect("should succeed"); // [3, 4, 5, 6]
+        let slice2 = slice1.slice(1, 2).expect("should succeed"); // [4, 5]
         assert_eq!(slice2.as_slice(), &[4, 5]);
     }
 }

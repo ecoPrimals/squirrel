@@ -87,8 +87,8 @@ mod tests {
             HealthState::Unhealthy,
             HealthState::Unknown,
         ] {
-            let json = serde_json::to_string(&state).unwrap();
-            let deserialized: HealthState = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&state).expect("should succeed");
+            let deserialized: HealthState = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(deserialized, state);
         }
     }
@@ -104,12 +104,12 @@ mod tests {
                 m
             },
         };
-        let json = serde_json::to_string(&detail).unwrap();
-        let deserialized: HealthDetail = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&detail).expect("should succeed");
+        let deserialized: HealthDetail = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.status, HealthState::Healthy);
         assert_eq!(deserialized.message, "All systems go");
         assert_eq!(
-            deserialized.data.get("uptime").unwrap(),
+            deserialized.data.get("uptime").expect("should succeed"),
             &serde_json::json!(3600)
         );
     }
@@ -133,8 +133,8 @@ mod tests {
             timestamp: chrono::Utc::now(),
             duration: chrono::Duration::milliseconds(150),
         };
-        let json = serde_json::to_string(&status).unwrap();
-        let deserialized: HealthStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&status).expect("should succeed");
+        let deserialized: HealthStatus = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.status, HealthState::Degraded);
         assert!(deserialized.details.contains_key("db"));
     }
@@ -142,8 +142,8 @@ mod tests {
     #[test]
     fn test_primal_health_healthy_serde() {
         let health = PrimalHealth::Healthy;
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: PrimalHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: PrimalHealth = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, PrimalHealth::Healthy);
     }
 
@@ -152,8 +152,8 @@ mod tests {
         let health = PrimalHealth::Degraded {
             issues: vec!["slow disk".to_string(), "high memory".to_string()],
         };
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: PrimalHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: PrimalHealth = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, health);
     }
 
@@ -162,8 +162,8 @@ mod tests {
         let health = PrimalHealth::Unhealthy {
             reason: "disk full".to_string(),
         };
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: PrimalHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: PrimalHealth = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized, health);
     }
 

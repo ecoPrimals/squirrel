@@ -99,8 +99,8 @@ fn test_security_provider_serialization() {
     };
 
     let provider = SecurityProvider::from_discovered_primal(&primal);
-    let json = serde_json::to_string(&provider).unwrap();
-    let deserialized: SecurityProvider = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&provider).expect("should succeed");
+    let deserialized: SecurityProvider = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(provider.provider_id, deserialized.provider_id);
     assert_eq!(provider.metadata.name, deserialized.metadata.name);

@@ -19,13 +19,13 @@ use crate::observability::ObservabilityResult;
 async fn test_health_checker_creation() {
     let health_checker = HealthChecker::new();
     assert!(health_checker.initialize().await.is_ok());
-    health_checker.shutdown().await.unwrap();
+    health_checker.shutdown().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_component_registration() {
     let health_checker = HealthChecker::new();
-    health_checker.initialize().await.unwrap();
+    health_checker.initialize().await.expect("should succeed");
     
     // Register a component
     let result = health_checker.register_component(
@@ -36,28 +36,28 @@ async fn test_component_registration() {
     assert!(result.is_ok());
     
     // Get component health
-    let component_health = health_checker.get_component_health("test_component").await.unwrap();
+    let component_health = health_checker.get_component_health("test_component").await.expect("should succeed");
     assert!(component_health.is_some());
     
-    let health = component_health.unwrap();
+    let health = component_health.expect("should succeed");
     assert_eq!(health.component_id, "test_component");
     assert_eq!(health.name, "Test Component");
     assert_eq!(health.status, HealthStatus::Healthy);
     
-    health_checker.shutdown().await.unwrap();
+    health_checker.shutdown().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_component_status_update() {
     let health_checker = HealthChecker::new();
-    health_checker.initialize().await.unwrap();
+    health_checker.initialize().await.expect("should succeed");
     
     // Register a component
     health_checker.register_component(
         "test_component",
         "Test Component",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Update status
     let result = health_checker.update_component_status(
@@ -68,25 +68,25 @@ async fn test_component_status_update() {
     assert!(result.is_ok());
     
     // Get updated health
-    let component_health = health_checker.get_component_health("test_component").await.unwrap().unwrap();
+    let component_health = health_checker.get_component_health("test_component").await.expect("should succeed").expect("should succeed");
     assert_eq!(component_health.status, HealthStatus::Degraded);
     assert_eq!(component_health.details, Some("Service is experiencing high latency".to_string()));
     
     // Cleanup
-    health_checker.shutdown().await.unwrap();
+    health_checker.shutdown().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_health_check_registration() {
     let health_checker = HealthChecker::new();
-    health_checker.initialize().await.unwrap();
+    health_checker.initialize().await.expect("should succeed");
     
     // Register a component
     health_checker.register_component(
         "test_component",
         "Test Component",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Register a health check
     let result = health_checker.register_health_check(
@@ -100,29 +100,29 @@ async fn test_health_check_registration() {
     assert!(result.is_ok());
     
     // Cleanup
-    health_checker.shutdown().await.unwrap();
+    health_checker.shutdown().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_system_health_status() {
     let health_checker = HealthChecker::new();
-    health_checker.initialize().await.unwrap();
+    health_checker.initialize().await.expect("should succeed");
     
     // Register multiple components with different statuses
     health_checker.register_component(
         "component1",
         "Component 1",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     health_checker.register_component(
         "component2",
         "Component 2",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // System should be healthy when all components are healthy
-    let system_status = health_checker.get_system_health_status().await.unwrap();
+    let system_status = health_checker.get_system_health_status().await.expect("should succeed");
     assert_eq!(system_status, HealthStatus::Healthy);
     
     // Update one component to degraded
@@ -130,10 +130,10 @@ async fn test_system_health_status() {
         "component1",
         HealthStatus::Degraded,
         None,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // System should be degraded when at least one component is degraded
-    let system_status = health_checker.get_system_health_status().await.unwrap();
+    let system_status = health_checker.get_system_health_status().await.expect("should succeed");
     assert_eq!(system_status, HealthStatus::Degraded);
     
     // Update one component to unhealthy
@@ -141,27 +141,27 @@ async fn test_system_health_status() {
         "component2",
         HealthStatus::Unhealthy,
         None,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // System should be unhealthy when at least one component is unhealthy
-    let system_status = health_checker.get_system_health_status().await.unwrap();
+    let system_status = health_checker.get_system_health_status().await.expect("should succeed");
     assert_eq!(system_status, HealthStatus::Unhealthy);
     
     // Cleanup
-    health_checker.shutdown().await.unwrap();
+    health_checker.shutdown().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_health_check_execution() {
     let health_checker = HealthChecker::new();
-    health_checker.initialize().await.unwrap();
+    health_checker.initialize().await.expect("should succeed");
     
     // Register a component
     health_checker.register_component(
         "test_component",
         "Test Component",
         HealthStatus::Unknown,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Track check execution count
     let execution_count = Arc::new(AtomicUsize::new(0));
@@ -178,7 +178,7 @@ async fn test_health_check_execution() {
             HealthCheckResult::healthy()
         }),
         Some(1), // Run every 1 second
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Wait for the check to run at least once
     tokio::time::sleep(Duration::from_secs(2)).await;
@@ -187,24 +187,24 @@ async fn test_health_check_execution() {
     assert!(execution_count.load(Ordering::SeqCst) > 0);
     
     // Check that the component status was updated
-    let component_health = health_checker.get_component_health("test_component").await.unwrap().unwrap();
+    let component_health = health_checker.get_component_health("test_component").await.expect("should succeed").expect("should succeed");
     assert_eq!(component_health.status, HealthStatus::Healthy);
     
     // Cleanup
-    health_checker.shutdown().await.unwrap();
+    health_checker.shutdown().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_health_status_subscription() {
     let health_checker = Arc::new(HealthChecker::new());
-    health_checker.initialize().await.unwrap();
+    health_checker.initialize().await.expect("should succeed");
     
     // Register a component
     health_checker.register_component(
         "test_component",
         "Test Component",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Subscribe to status changes
     let mut status_rx = health_checker.subscribe_to_status_changes();
@@ -227,7 +227,7 @@ async fn test_health_status_subscription() {
         "test_component",
         HealthStatus::Degraded,
         Some("Service is degraded".to_string()),
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Wait for status change to be received or timeout
     tokio::select! {
@@ -235,12 +235,12 @@ async fn test_health_status_subscription() {
             // Status change was received
         }
         _ = tokio::time::sleep(Duration::from_secs(2)) => {
-            panic!("Timed out waiting for status change event");
+            unreachable!("Timed out waiting for status change event");
         }
     }
     
     // Cleanup
-    health_checker.shutdown().await.unwrap();
+    health_checker.shutdown().await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -248,33 +248,33 @@ async fn test_health_alerting_integration() {
     let health_checker = Arc::new(HealthChecker::new());
     let alert_manager = Arc::new(AlertManager::new());
     
-    health_checker.initialize().await.unwrap();
+    health_checker.initialize().await.expect("should succeed");
     
     // Register a component
     health_checker.register_component(
         "test_component",
         "Test Component",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Connect health to alerting
     let _task = connect_health_to_alerting(
         health_checker.clone(),
         alert_manager.clone(),
-    ).unwrap();
+    ).expect("should succeed");
     
     // Update component to unhealthy to trigger alert
     health_checker.update_component_status(
         "test_component",
         HealthStatus::Unhealthy,
         Some("Component has failed".to_string()),
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Wait a bit for the alert to be created
     sleep(Duration::from_millis(100)).await;
     
     // Check that an alert was created
-    let alerts = alert_manager.get_active_alerts().unwrap();
+    let alerts = alert_manager.get_active_alerts().expect("should succeed");
     assert!(!alerts.is_empty(), "Should have created at least one alert");
     
     // Find the component alert
@@ -282,39 +282,39 @@ async fn test_health_alerting_integration() {
         a.component.as_deref() == Some("test_component")
     });
     assert!(component_alert.is_some(), "Should have created an alert for the component");
-    assert_eq!(component_alert.unwrap().severity, AlertSeverity::Critical);
+    assert_eq!(component_alert.expect("should succeed").severity, AlertSeverity::Critical);
     
     // Update component back to healthy
     health_checker.update_component_status(
         "test_component",
         HealthStatus::Healthy,
         Some("Component has recovered".to_string()),
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Wait a bit for the alert to be resolved
     sleep(Duration::from_millis(100)).await;
     
     // Check that the alert was resolved
-    let active_alerts = alert_manager.get_active_alerts().unwrap();
+    let active_alerts = alert_manager.get_active_alerts().expect("should succeed");
     let component_alert = active_alerts.iter().find(|a| {
         a.component.as_deref() == Some("test_component")
     });
     assert!(component_alert.is_none(), "Component alert should have been resolved");
     
-    health_checker.shutdown().await.unwrap();
+    health_checker.shutdown().await.expect("should succeed");
 }
 
 #[tokio::test]
 async fn test_standard_health_checks() {
     let health_checker = HealthChecker::new();
-    health_checker.initialize().await.unwrap();
+    health_checker.initialize().await.expect("should succeed");
     
     // Register a component
     health_checker.register_component(
         "test_component",
         "Test Component",
         HealthStatus::Healthy,
-    ).await.unwrap();
+    ).await.expect("should succeed");
     
     // Create standard health checks
     let result = create_standard_health_checks(
@@ -326,10 +326,10 @@ async fn test_standard_health_checks() {
     // Now health checker should have standard health checks registered
     // Wait for a short time and check that the component still exists
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let component_health = health_checker.get_component_health("test_component").await.unwrap();
+    let component_health = health_checker.get_component_health("test_component").await.expect("should succeed");
     assert!(component_health.is_some());
     
-    health_checker.shutdown().await.unwrap();
+    health_checker.shutdown().await.expect("should succeed");
 }
 
 #[test]

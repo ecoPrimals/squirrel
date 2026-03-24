@@ -443,14 +443,14 @@ mod tests {
     fn test_prepare_socket_path_creates_directory() {
         use tempfile::tempdir;
 
-        let dir = tempdir().unwrap();
+        let dir = tempdir().expect("should succeed");
         let socket_path = dir.path().join("subdir/test.sock");
-        let socket_str = socket_path.to_str().unwrap();
+        let socket_str = socket_path.to_str().expect("should succeed");
 
         // Should create parent directory and return path
         let result = prepare_socket_path(socket_str);
         assert!(result.is_ok());
-        assert!(socket_path.parent().unwrap().exists());
+        assert!(socket_path.parent().expect("should succeed").exists());
     }
 
     #[test]
@@ -460,7 +460,7 @@ mod tests {
             let result = verify_socket_config();
             assert!(result.is_ok());
 
-            let message = result.unwrap();
+            let message = result.expect("should succeed");
             assert!(message.contains("Socket:"));
             assert!(message.contains("Family:"));
             assert!(message.contains("Node:"));
@@ -485,15 +485,15 @@ mod tests {
         let result = ensure_biomeos_directory();
         assert!(result.is_ok());
 
-        let path = result.unwrap();
+        let path = result.expect("should succeed");
         assert!(path.exists());
-        assert!(path.to_str().unwrap().ends_with("biomeos"));
+        assert!(path.to_str().expect("should succeed").ends_with("biomeos"));
 
         // Verify directory is accessible (Unix only)
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let metadata = std::fs::metadata(&path).unwrap();
+            let metadata = std::fs::metadata(&path).expect("should succeed");
             let mode = metadata.permissions().mode();
             // Check that user has rwx permissions (at minimum)
             assert_eq!(mode & 0o700, 0o700, "User should have rwx permissions");

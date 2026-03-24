@@ -134,8 +134,8 @@ mod lib_tests {
             description: "A test command".to_string(),
             version: "1.0.0".to_string(),
         };
-        let json = serde_json::to_string(&metadata).unwrap();
-        let deserialized: CommandMetadata = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&metadata).expect("should succeed");
+        let deserialized: CommandMetadata = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.name, "test-cmd");
         assert_eq!(deserialized.description, "A test command");
         assert_eq!(deserialized.version, "1.0.0");
@@ -159,7 +159,7 @@ mod lib_tests {
         let service = CommandsService::new(context_manager);
         let result = service.process_command("ping", vec![]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "pong");
+        assert_eq!(result.expect("should succeed"), "pong");
     }
 
     #[tokio::test]
@@ -168,7 +168,7 @@ mod lib_tests {
         let service = CommandsService::new(context_manager);
         let result = service.process_command("version", vec![]).await;
         assert!(result.is_ok());
-        assert!(!result.unwrap().is_empty());
+        assert!(!result.expect("should succeed").is_empty());
     }
 
     #[tokio::test]
@@ -177,7 +177,7 @@ mod lib_tests {
         let service = CommandsService::new(context_manager);
         let result = service.process_command("status", vec![]).await;
         assert!(result.is_ok());
-        assert!(result.unwrap().contains("running"));
+        assert!(result.expect("should succeed").contains("running"));
     }
 
     #[tokio::test]

@@ -309,15 +309,15 @@ mod tests {
     #[tokio::test]
     async fn test_plugin_manager_new() {
         let manager = PluginManager::new();
-        let plugins = manager.list_plugins().await.unwrap();
+        let plugins = manager.list_plugins().await.expect("should succeed");
         assert!(plugins.is_empty());
     }
 
     #[tokio::test]
     async fn test_plugin_manager_init_registers_builtin() {
         let manager = PluginManager::new();
-        manager.init().await.unwrap();
-        let plugins = manager.list_plugins().await.unwrap();
+        manager.init().await.expect("should succeed");
+        let plugins = manager.list_plugins().await.expect("should succeed");
         assert_eq!(plugins.len(), 1);
         assert_eq!(plugins[0].metadata().name, "system-default");
     }
@@ -325,84 +325,101 @@ mod tests {
     #[tokio::test]
     async fn test_register_and_unregister_plugin() {
         let manager = PluginManager::new();
-        manager.init().await.unwrap();
+        manager.init().await.expect("should succeed");
         let plugin = make_test_plugin("test-plugin");
         let id = plugin.id();
-        manager.register_plugin(plugin).await.unwrap();
-        let plugins = manager.list_plugins().await.unwrap();
+        manager
+            .register_plugin(plugin)
+            .await
+            .expect("should succeed");
+        let plugins = manager.list_plugins().await.expect("should succeed");
         assert_eq!(plugins.len(), 2);
-        manager.unregister_plugin(id).await.unwrap();
-        let plugins = manager.list_plugins().await.unwrap();
+        manager.unregister_plugin(id).await.expect("should succeed");
+        let plugins = manager.list_plugins().await.expect("should succeed");
         assert_eq!(plugins.len(), 1);
     }
 
     #[tokio::test]
     async fn test_get_plugin_by_id() {
         let manager = PluginManager::new();
-        manager.init().await.unwrap();
+        manager.init().await.expect("should succeed");
         let plugin = make_test_plugin("lookup-plugin");
         let id = plugin.id();
-        manager.register_plugin(plugin).await.unwrap();
-        let found = PluginManagerTrait::get_plugin(&manager, id).await.unwrap();
+        manager
+            .register_plugin(plugin)
+            .await
+            .expect("should succeed");
+        let found = PluginManagerTrait::get_plugin(&manager, id)
+            .await
+            .expect("should succeed");
         assert_eq!(found.metadata().name, "lookup-plugin");
     }
 
     #[tokio::test]
     async fn test_get_plugin_by_name() {
         let manager = PluginManager::new();
-        manager.init().await.unwrap();
+        manager.init().await.expect("should succeed");
         let plugin = make_test_plugin("named-plugin");
-        manager.register_plugin(plugin).await.unwrap();
-        let found = manager.get_plugin_by_name("named-plugin").await.unwrap();
+        manager
+            .register_plugin(plugin)
+            .await
+            .expect("should succeed");
+        let found = manager
+            .get_plugin_by_name("named-plugin")
+            .await
+            .expect("should succeed");
         assert_eq!(found.metadata().name, "named-plugin");
     }
 
     #[tokio::test]
     async fn test_get_plugin_status_and_set() {
         let manager = PluginManager::new();
-        manager.init().await.unwrap();
-        let plugins = manager.list_plugins().await.unwrap();
+        manager.init().await.expect("should succeed");
+        let plugins = manager.list_plugins().await.expect("should succeed");
         let id = plugins[0].id();
         let status = PluginManagerTrait::get_plugin_status(&manager, id)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(status, PluginStatus::Registered);
         PluginManagerTrait::set_plugin_status(&manager, id, PluginStatus::Running)
             .await
-            .unwrap();
+            .expect("should succeed");
         let status = PluginManagerTrait::get_plugin_status(&manager, id)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(status, PluginStatus::Running);
     }
 
     #[tokio::test]
     async fn test_initialize_and_shutdown_plugin() {
         let manager = PluginManager::new();
-        manager.init().await.unwrap();
+        manager.init().await.expect("should succeed");
         let plugin = make_test_plugin("init-plugin");
         let id = plugin.id();
-        manager.register_plugin(plugin).await.unwrap();
-        manager.initialize_plugin(id).await.unwrap();
+        manager
+            .register_plugin(plugin)
+            .await
+            .expect("should succeed");
+        manager.initialize_plugin(id).await.expect("should succeed");
         let status = PluginManagerTrait::get_plugin_status(&manager, id)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(status, PluginStatus::Running);
-        manager.shutdown_plugin(id).await.unwrap();
+        manager.shutdown_plugin(id).await.expect("should succeed");
         let status = PluginManagerTrait::get_plugin_status(&manager, id)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(status, PluginStatus::Stopped);
     }
 
     #[tokio::test]
     async fn test_get_plugin_unknown_id_returns_error() {
         let manager = PluginManager::new();
-        manager.init().await.unwrap();
+        manager.init().await.expect("should succeed");
         let unknown_id = uuid::Uuid::new_v4();
         let result = PluginManagerTrait::get_plugin(&manager, unknown_id).await;
         match result {
-            Ok(_) => panic!("expected error for unknown plugin"),
+            Ok(_) => unreachable!("expected error for unknown plugin"),
             Err(e) => assert!(matches!(e, PluginError::PluginNotFound(_))),
         }
     }
@@ -410,7 +427,7 @@ mod tests {
     #[tokio::test]
     async fn test_unregister_unknown_plugin_returns_error() {
         let manager = PluginManager::new();
-        manager.init().await.unwrap();
+        manager.init().await.expect("should succeed");
         let unknown_id = uuid::Uuid::new_v4();
         let result = manager.unregister_plugin(unknown_id).await;
         let err = result.expect_err("expected error for unknown plugin");

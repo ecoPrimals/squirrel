@@ -87,7 +87,7 @@ mod tests {
                 let service = discover_from_env("test_capability");
                 assert!(service.is_some());
 
-                let service = service.unwrap();
+                let service = service.expect("should succeed");
                 assert_eq!(service.endpoint, "http://test.example.com:8080");
                 assert_eq!(service.priority, 100);
             },

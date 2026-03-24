@@ -819,11 +819,13 @@ mod tests {
     fn test_settings() {
         let mut config = PluginConfig::default();
 
-        config.set_setting("test_key", "test_value").unwrap();
-        let value: Option<String> = config.get_setting("test_key").unwrap();
+        config
+            .set_setting("test_key", "test_value")
+            .expect("should succeed");
+        let value: Option<String> = config.get_setting("test_key").expect("should succeed");
         assert_eq!(value, Some("test_value".to_string()));
 
-        let missing: Option<String> = config.get_setting("missing_key").unwrap();
+        let missing: Option<String> = config.get_setting("missing_key").expect("should succeed");
         assert_eq!(missing, None);
     }
 

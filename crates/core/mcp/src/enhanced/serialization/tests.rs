@@ -162,7 +162,7 @@ async fn test_buffer_pool_concurrent_access() {
     
     // Wait for all tasks to complete
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("should succeed");
     }
     
     let stats = pool.get_stats().await;
@@ -191,7 +191,7 @@ async fn test_mcp_message_serialization() {
     let result = serializer.serialize_mcp_message(&message).await;
     
     assert!(result.is_ok());
-    let serialization_result = result.unwrap();
+    let serialization_result = result.expect("should succeed");
     assert!(!serialization_result.data.is_empty());
     assert_eq!(serialization_result.metadata.method, SerializationMethod::Standard);
 }
@@ -205,7 +205,7 @@ async fn test_ai_request_serialization() {
     let result = serializer.serialize_ai_request(&request).await;
     
     assert!(result.is_ok());
-    let serialization_result = result.unwrap();
+    let serialization_result = result.expect("should succeed");
     assert!(!serialization_result.data.is_empty());
     assert!(serialization_result.metadata.duration.as_nanos() > 0);
 }
@@ -219,7 +219,7 @@ async fn test_ai_response_serialization() {
     let result = serializer.serialize_ai_response(&response).await;
     
     assert!(result.is_ok());
-    let serialization_result = result.unwrap();
+    let serialization_result = result.expect("should succeed");
     assert!(!serialization_result.data.is_empty());
 }
 
@@ -235,7 +235,7 @@ async fn test_serialization_with_buffer_pooling() {
     let result = serializer.serialize_mcp_message(&message).await;
     
     assert!(result.is_ok());
-    let serialization_result = result.unwrap();
+    let serialization_result = result.expect("should succeed");
     assert!(serialization_result.metadata.used_buffer_pool);
 }
 
@@ -245,11 +245,11 @@ async fn test_deserialization() {
     let serializer = ZeroCopySerializer::new(config);
     
     let original_message = create_test_mcp_message();
-    let serialized = serializer.serialize_mcp_message(&original_message).await.unwrap();
+    let serialized = serializer.serialize_mcp_message(&original_message).await.expect("should succeed");
     let deserialized = serializer.deserialize_mcp_message(&serialized.data).await;
     
     assert!(deserialized.is_ok());
-    let deserialized_message = deserialized.unwrap();
+    let deserialized_message = deserialized.expect("should succeed");
     assert_eq!(original_message.id, deserialized_message.id);
     assert_eq!(original_message.type_, deserialized_message.type_);
 }
@@ -262,7 +262,7 @@ async fn test_serialization_metrics() {
     // Perform multiple serializations
     for _ in 0..5 {
         let message = create_test_mcp_message();
-        let _ = serializer.serialize_mcp_message(&message).await.unwrap();
+        let _ = serializer.serialize_mcp_message(&message).await.expect("should succeed");
     }
     
     let metrics = serializer.get_metrics().await;
@@ -277,7 +277,7 @@ async fn test_performance_report() {
     
     // Perform serializations
     let message = create_test_mcp_message();
-    let _ = serializer.serialize_mcp_message(&message).await.unwrap();
+    let _ = serializer.serialize_mcp_message(&message).await.expect("should succeed");
     
     let report = serializer.generate_performance_report().await;
     assert!(report.metrics.total_serializations > 0);
@@ -294,7 +294,7 @@ async fn test_mcp_message_codec() {
     let result = codec.encode(&message).await;
     assert!(result.is_ok());
     
-    let serialized = result.unwrap();
+    let serialized = result.expect("should succeed");
     assert!(!serialized.data.is_empty());
     assert_eq!(serialized.metadata.method, SerializationMethod::FastCodec);
 }
@@ -336,7 +336,7 @@ async fn test_binary_codec() {
     let result = codec.encode(&message).await;
     assert!(result.is_ok());
     
-    let serialized = result.unwrap();
+    let serialized = result.expect("should succeed");
     assert!(!serialized.data.is_empty());
     assert_eq!(serialized.metadata.method, SerializationMethod::Binary);
 }
@@ -506,10 +506,10 @@ async fn test_serialization_roundtrip() {
     let original = create_test_mcp_message();
     
     // Serialize
-    let serialized = serializer.serialize_mcp_message(&original).await.unwrap();
+    let serialized = serializer.serialize_mcp_message(&original).await.expect("should succeed");
     
     // Deserialize
-    let deserialized = serializer.deserialize_mcp_message(&serialized.data).await.unwrap();
+    let deserialized = serializer.deserialize_mcp_message(&serialized.data).await.expect("should succeed");
     
     // Verify roundtrip
     assert_eq!(original.id, deserialized.id);
@@ -525,10 +525,10 @@ async fn test_ai_request_roundtrip() {
     let original = create_test_ai_request();
     
     // Serialize
-    let serialized = serializer.serialize_ai_request(&original).await.unwrap();
+    let serialized = serializer.serialize_ai_request(&original).await.expect("should succeed");
     
     // Deserialize
-    let deserialized = serializer.deserialize_ai_request(&serialized.data).await.unwrap();
+    let deserialized = serializer.deserialize_ai_request(&serialized.data).await.expect("should succeed");
     
     // Verify roundtrip
     assert_eq!(original.id, deserialized.id);
@@ -558,7 +558,7 @@ async fn test_concurrent_serialization() {
     
     // Wait for all tasks and verify results
     for handle in handles {
-        let (i, success) = handle.await.unwrap();
+        let (i, success) = handle.await.expect("should succeed");
         assert!(success, "Serialization {} should have succeeded", i);
     }
     
@@ -590,12 +590,12 @@ async fn test_performance_comparison() {
     
     // Measure optimized serialization
     let start = std::time::Instant::now();
-    let _optimized_result = optimized_serializer.serialize_mcp_message(&message).await.unwrap();
+    let _optimized_result = optimized_serializer.serialize_mcp_message(&message).await.expect("should succeed");
     let optimized_time = start.elapsed();
     
     // Measure basic serialization
     let start = std::time::Instant::now();
-    let _basic_result = basic_serializer.serialize_mcp_message(&message).await.unwrap();
+    let _basic_result = basic_serializer.serialize_mcp_message(&message).await.expect("should succeed");
     let basic_time = start.elapsed();
     
     // Both should work, optimized might be faster (but not guaranteed in tests)
@@ -621,7 +621,7 @@ async fn test_large_message_handling() {
     let result = serializer.serialize_ai_request(&large_request).await;
     assert!(result.is_ok());
     
-    let serialized = result.unwrap();
+    let serialized = result.expect("should succeed");
     assert!(serialized.data.len() > 10000);
 }
 
@@ -671,7 +671,7 @@ async fn test_memory_efficiency() {
     // Perform many serializations to test memory reuse
     for _ in 0..100 {
         let message = create_test_mcp_message();
-        let _result = serializer.serialize_mcp_message(&message).await.unwrap();
+        let _result = serializer.serialize_mcp_message(&message).await.expect("should succeed");
     }
     
     let metrics = serializer.get_metrics().await;

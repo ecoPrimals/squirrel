@@ -99,7 +99,7 @@ mod tests {
                 assert!(multi_factor);
                 assert!(!biometric_support);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -121,7 +121,7 @@ mod tests {
                 assert!(!abac_support);
                 assert_eq!(policy_engines.len(), 1);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -143,7 +143,7 @@ mod tests {
                 assert!(key_management);
                 assert!(!hardware_security_modules);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -165,7 +165,7 @@ mod tests {
                 assert_eq!(identity, "user@example.com");
                 assert!(credentials.contains_key("username"));
             }
-            _ => panic!("Wrong operation type"),
+            _ => unreachable!("Wrong operation type"),
         }
     }
 
@@ -187,7 +187,7 @@ mod tests {
                 assert_eq!(resource, "/api/data");
                 assert_eq!(action, "read");
             }
-            _ => panic!("Wrong operation type"),
+            _ => unreachable!("Wrong operation type"),
         }
     }
 
@@ -203,7 +203,7 @@ mod tests {
                 assert_eq!(algorithm, "AES-256-GCM");
                 assert_eq!(key_id, Some("key123".to_string()));
             }
-            _ => panic!("Wrong operation type"),
+            _ => unreachable!("Wrong operation type"),
         }
     }
 
@@ -335,7 +335,7 @@ mod tests {
             DecisionOutcome::AllowWithConditions { conditions } => {
                 assert_eq!(conditions.len(), 1);
             }
-            _ => panic!("Wrong outcome type"),
+            _ => unreachable!("Wrong outcome type"),
         }
     }
 
@@ -438,10 +438,11 @@ mod tests {
             metadata: HashMap::new(),
         };
 
-        let json = serde_json::to_string(&request).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
         assert!(json.contains("user123"));
 
-        let deserialized: UniversalSecurityRequest = serde_json::from_str(&json).unwrap();
+        let deserialized: UniversalSecurityRequest =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.security_context.user_id, "user123");
     }
 

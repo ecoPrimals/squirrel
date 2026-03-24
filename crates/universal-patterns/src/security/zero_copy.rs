@@ -541,7 +541,7 @@ mod tests {
 
         // Store and retrieve
         cache.store("user123".to_string(), principal.clone()).await;
-        let cached = cache.get("user123").await.unwrap();
+        let cached = cache.get("user123").await.expect("should succeed");
         assert_eq!(cached.id(), "user123");
 
         // Check stats

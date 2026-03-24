@@ -296,12 +296,18 @@ mod tests {
         let session_id = session.id;
 
         // Create session
-        manager.create_session(session).await.unwrap();
+        manager
+            .create_session(session)
+            .await
+            .expect("should succeed");
 
         // Retrieve session
-        let retrieved = manager.get_session(&session_id).await.unwrap();
+        let retrieved = manager
+            .get_session(&session_id)
+            .await
+            .expect("should succeed");
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().user_id, user_id);
+        assert_eq!(retrieved.expect("should succeed").user_id, user_id);
     }
 
     #[tokio::test]
@@ -314,10 +320,16 @@ mod tests {
         session.expires_at = Utc::now() - Duration::hours(1); // Already expired
         let session_id = session.id;
 
-        manager.create_session(session).await.unwrap();
+        manager
+            .create_session(session)
+            .await
+            .expect("should succeed");
 
         // Should return None for expired session
-        let retrieved = manager.get_session(&session_id).await.unwrap();
+        let retrieved = manager
+            .get_session(&session_id)
+            .await
+            .expect("should succeed");
         assert!(retrieved.is_none());
     }
 
@@ -329,14 +341,23 @@ mod tests {
         let session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         let session_id = session.id;
 
-        manager.create_session(session).await.unwrap();
+        manager
+            .create_session(session)
+            .await
+            .expect("should succeed");
 
         // Invalidate session
-        let result = manager.invalidate_session(&session_id).await.unwrap();
+        let result = manager
+            .invalidate_session(&session_id)
+            .await
+            .expect("should succeed");
         assert!(result);
 
         // Should return None for invalidated session
-        let retrieved = manager.get_session(&session_id).await.unwrap();
+        let retrieved = manager
+            .get_session(&session_id)
+            .await
+            .expect("should succeed");
         assert!(retrieved.is_none());
     }
 
@@ -355,15 +376,24 @@ mod tests {
 
         // create_session runs internal cleanup opportunistically, so the
         // expired session is already purged when the valid session is inserted.
-        manager.create_session(expired_session).await.unwrap();
-        manager.create_session(valid_session).await.unwrap();
+        manager
+            .create_session(expired_session)
+            .await
+            .expect("should succeed");
+        manager
+            .create_session(valid_session)
+            .await
+            .expect("should succeed");
 
         // Explicit cleanup finds nothing left to remove
-        let removed = manager.cleanup_expired_sessions().await.unwrap();
+        let removed = manager
+            .cleanup_expired_sessions()
+            .await
+            .expect("should succeed");
         assert_eq!(removed, 0);
 
         // Only the valid session remains
-        let stats = manager.get_session_stats().await.unwrap();
+        let stats = manager.get_session_stats().await.expect("should succeed");
         assert_eq!(stats.active_sessions, 1);
         assert_eq!(stats.total_sessions, 1);
     }
@@ -376,15 +406,22 @@ mod tests {
         let session_id = session.id;
         let original_expires = session.expires_at;
 
-        manager.create_session(session).await.unwrap();
+        manager
+            .create_session(session)
+            .await
+            .expect("should succeed");
 
         let extended = manager
             .extend_session(&session_id, Duration::hours(1))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(extended);
 
-        let retrieved = manager.get_session(&session_id).await.unwrap().unwrap();
+        let retrieved = manager
+            .get_session(&session_id)
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
         assert!(retrieved.expires_at > original_expires);
     }
 
@@ -396,12 +433,15 @@ mod tests {
         session.expires_at = Utc::now() - Duration::hours(1);
         let session_id = session.id;
 
-        manager.create_session(session).await.unwrap();
+        manager
+            .create_session(session)
+            .await
+            .expect("should succeed");
 
         let extended = manager
             .extend_session(&session_id, Duration::hours(1))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!extended);
     }
 
@@ -415,11 +455,14 @@ mod tests {
         let s2 = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         let s3 = Session::new(other_user_id, Duration::hours(1), AuthProvider::Standalone);
 
-        manager.create_session(s1).await.unwrap();
-        manager.create_session(s2).await.unwrap();
-        manager.create_session(s3).await.unwrap();
+        manager.create_session(s1).await.expect("should succeed");
+        manager.create_session(s2).await.expect("should succeed");
+        manager.create_session(s3).await.expect("should succeed");
 
-        let user_sessions = manager.get_user_sessions(&user_id).await.unwrap();
+        let user_sessions = manager
+            .get_user_sessions(&user_id)
+            .await
+            .expect("should succeed");
         assert_eq!(user_sessions.len(), 2);
     }
 
@@ -432,13 +475,22 @@ mod tests {
         let s2 = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         let session_id_1 = s1.id;
 
-        manager.create_session(s1).await.unwrap();
-        manager.create_session(s2).await.unwrap();
+        manager.create_session(s1).await.expect("should succeed");
+        manager.create_session(s2).await.expect("should succeed");
 
-        let count = manager.invalidate_user_sessions(&user_id).await.unwrap();
+        let count = manager
+            .invalidate_user_sessions(&user_id)
+            .await
+            .expect("should succeed");
         assert_eq!(count, 2);
 
-        assert!(manager.get_session(&session_id_1).await.unwrap().is_none());
+        assert!(
+            manager
+                .get_session(&session_id_1)
+                .await
+                .expect("should succeed")
+                .is_none()
+        );
     }
 
     #[tokio::test]
@@ -451,10 +503,16 @@ mod tests {
 
         let active = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
 
-        manager.create_session(expired).await.unwrap();
-        manager.create_session(active).await.unwrap();
+        manager
+            .create_session(expired)
+            .await
+            .expect("should succeed");
+        manager
+            .create_session(active)
+            .await
+            .expect("should succeed");
 
-        let stats = manager.get_session_stats().await.unwrap();
+        let stats = manager.get_session_stats().await.expect("should succeed");
         assert_eq!(stats.total_sessions, 1);
         assert_eq!(stats.active_sessions, 1);
         assert_eq!(stats.expired_sessions, 0);
@@ -468,10 +526,13 @@ mod tests {
         let standalone = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         let dev = Session::new(user_id, Duration::hours(1), AuthProvider::Development);
 
-        manager.create_session(standalone).await.unwrap();
-        manager.create_session(dev).await.unwrap();
+        manager
+            .create_session(standalone)
+            .await
+            .expect("should succeed");
+        manager.create_session(dev).await.expect("should succeed");
 
-        let stats = manager.get_session_stats().await.unwrap();
+        let stats = manager.get_session_stats().await.expect("should succeed");
         assert_eq!(stats.total_sessions, 2);
         assert_eq!(stats.standalone_sessions, 1);
     }

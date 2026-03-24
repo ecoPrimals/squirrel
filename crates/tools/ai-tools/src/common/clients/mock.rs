@@ -362,7 +362,7 @@ mod tests {
             .add_user("hello")
             .with_model("mock-model");
 
-        let response = client.chat(request).await.unwrap();
+        let response = client.chat(request).await.expect("should succeed");
         assert_eq!(response.choices.len(), 1);
         assert_eq!(response.choices[0].content, Some("Hi there!".to_string()));
         assert_eq!(response.model, "mock-model");
@@ -372,7 +372,7 @@ mod tests {
     #[tokio::test]
     async fn test_mock_client_list_models() {
         let client = MockAIClient::new();
-        let models = client.list_models().await.unwrap();
+        let models = client.list_models().await.expect("should succeed");
 
         assert!(!models.is_empty());
         assert!(models.contains(&"mock-model".to_string()));
@@ -391,7 +391,10 @@ mod tests {
     #[tokio::test]
     async fn test_mock_client_capabilities() {
         let client = MockAIClient::new();
-        let capabilities = client.get_capabilities("mock-gpt-4").await.unwrap();
+        let capabilities = client
+            .get_capabilities("mock-gpt-4")
+            .await
+            .expect("should succeed");
 
         assert!(capabilities.supports_model_type(&ModelType::LargeLanguageModel));
         assert!(capabilities.supports_task(&TaskType::TextGeneration));

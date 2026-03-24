@@ -2,10 +2,9 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![expect(
-    clippy::unwrap_used,
     clippy::expect_used,
     missing_docs,
-    reason = "Test code: explicit unwrap/expect and local lint noise"
+    reason = "Test code: explicit expect and local lint noise"
 )]
 // Integration tests gated behind `integration-tests` feature — API migration
 // (CryptoClient → CapabilityCryptoConfig endpoint) tracked in CURRENT_STATUS.md known issues.
@@ -37,10 +36,7 @@ mod integration_tests {
     /// This is a simple test server that responds to JSON-RPC requests
     /// for crypto.ed25519.sign and crypto.ed25519.verify.
     struct MockCryptoProvider {
-        #[expect(
-            dead_code,
-            reason = "Test code: explicit unwrap/expect and local lint noise"
-        )]
+        #[expect(dead_code, reason = "Test code: explicit expect and local lint noise")]
         socket_path: PathBuf,
         listener: UnixListener,
     }
@@ -117,7 +113,7 @@ mod integration_tests {
                 }
             };
 
-            let response_str = serde_json::to_string(&response).unwrap();
+            let response_str = serde_json::to_string(&response).expect("should succeed");
             let _ = writer.write_all(response_str.as_bytes()).await;
             let _ = writer.write_all(b"\n").await;
             let _ = writer.flush().await;
@@ -256,7 +252,7 @@ mod integration_tests {
             expiry_hours: 24,
         };
 
-        let jwt_service = CapabilityJwtService::new(config).unwrap();
+        let jwt_service = CapabilityJwtService::new(config).expect("should succeed");
 
         // Test valid Bearer token
         let header = "Bearer eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.test.signature";
@@ -302,7 +298,7 @@ mod integration_tests {
             expiry_hours: 24,
         };
 
-        let jwt_service = CapabilityJwtService::new(config).unwrap();
+        let jwt_service = CapabilityJwtService::new(config).expect("should succeed");
 
         // Create already-expired token
         let user_id = Uuid::new_v4();
@@ -317,7 +313,10 @@ mod integration_tests {
             expires_at,
         );
 
-        let token = jwt_service.create_token(&claims).await.unwrap();
+        let token = jwt_service
+            .create_token(&claims)
+            .await
+            .expect("should succeed");
 
         // Try to verify expired token
         let result = jwt_service.verify_token(&token).await;

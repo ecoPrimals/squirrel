@@ -136,8 +136,8 @@ mod tests {
             usage: "install <id>".into(),
             parameters: HashMap::from([("force".into(), "bool".into())]),
         };
-        let json = serde_json::to_string(&c).unwrap();
-        let back: CliCommand = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&c).expect("should succeed");
+        let back: CliCommand = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(back.name, c.name);
         let cloned = c.clone();
         assert_eq!(format!("{cloned:?}"), format!("{c:?}"));
@@ -167,7 +167,10 @@ mod tests {
     #[tokio::test]
     async fn cli_plugin_execute_and_help() {
         let p = TestCliPlugin::new();
-        let out = p.execute_command("list", vec!["a".into()]).await.unwrap();
+        let out = p
+            .execute_command("list", vec!["a".into()])
+            .await
+            .expect("should succeed");
         assert!(out.contains("list"));
         assert_eq!(p.get_command_help("list"), Some("help for list".into()));
         assert!(p.get_command_help("other").is_none());

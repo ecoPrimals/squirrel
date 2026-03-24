@@ -646,8 +646,10 @@ mod tests {
     fn test_hook_execution() {
         let mut manager = HookManager::new();
         let hook = || -> Result<(), CommandError> { Ok(()) };
-        manager.add_hook("test_hook", Box::new(hook)).unwrap();
-        manager.execute_hooks().unwrap();
+        manager
+            .add_hook("test_hook", Box::new(hook))
+            .expect("should succeed");
+        manager.execute_hooks().expect("should succeed");
     }
 
     #[test]
@@ -655,19 +657,28 @@ mod tests {
         let mut manager = HookManager::new();
         let hook =
             || -> Result<(), CommandError> { Err(CommandError::Hook("Hook error".to_string())) };
-        manager.add_hook("error_hook", Box::new(hook)).unwrap();
+        manager
+            .add_hook("error_hook", Box::new(hook))
+            .expect("should succeed");
         assert!(manager.execute_hooks().is_err());
     }
 
     #[test]
     fn hook_registry_register_execute_and_context() {
         let mut reg = HookRegistry::new();
-        reg.register("a".into(), || Ok(())).unwrap();
+        reg.register("a".into(), || Ok(())).expect("should succeed");
         assert!(reg.register("a".into(), || Ok(())).is_err());
-        reg.set_context_data("k", "v").unwrap();
-        assert_eq!(reg.get_context_data("k").unwrap(), Some("v".into()));
-        assert!(reg.get_context_data("missing").unwrap().is_none());
-        reg.execute_hooks().unwrap();
+        reg.set_context_data("k", "v").expect("should succeed");
+        assert_eq!(
+            reg.get_context_data("k").expect("should succeed"),
+            Some("v".into())
+        );
+        assert!(
+            reg.get_context_data("missing")
+                .expect("should succeed")
+                .is_none()
+        );
+        reg.execute_hooks().expect("should succeed");
     }
 
     #[test]
@@ -676,29 +687,34 @@ mod tests {
         reg.register("x".into(), || {
             Err(CommandError::ValidationError("bad".into()))
         })
-        .unwrap();
+        .expect("should succeed");
         assert!(reg.execute_hooks().is_err());
     }
 
     #[test]
     fn logging_and_metrics_hooks_run() {
         let cmd = TestCommand;
-        LoggingHook::default().execute(&cmd).unwrap();
-        MetricsHook::default().execute(&cmd).unwrap();
+        LoggingHook::default()
+            .execute(&cmd)
+            .expect("should succeed");
+        MetricsHook::default()
+            .execute(&cmd)
+            .expect("should succeed");
     }
 
     #[test]
     fn timing_hook_two_phases() {
         let cmd = TestCommand;
         let hook = TimingHook::new();
-        hook.execute(&cmd).unwrap();
-        hook.execute(&cmd).unwrap();
+        hook.execute(&cmd).expect("should succeed");
+        hook.execute(&cmd).expect("should succeed");
     }
 
     #[test]
     fn hook_manager_duplicate_name_errors() {
         let mut m = HookManager::new();
-        m.add_hook("x", Box::new(|| Ok(()))).unwrap();
+        m.add_hook("x", Box::new(|| Ok(())))
+            .expect("should succeed");
         assert!(
             m.add_hook("x", Box::new(|| Ok(())))
                 .unwrap_err()
@@ -727,9 +743,9 @@ mod tests {
         let env_hook = EnvironmentValidationHook::default();
         let res_hook = ResourceValidationHook::default();
         for s in stages {
-            arg_hook.on_stage(&s, &cmd).unwrap();
-            env_hook.on_stage(&s, &cmd).unwrap();
-            res_hook.on_stage(&s, &cmd).unwrap();
+            arg_hook.on_stage(&s, &cmd).expect("should succeed");
+            env_hook.on_stage(&s, &cmd).expect("should succeed");
+            res_hook.on_stage(&s, &cmd).expect("should succeed");
         }
         let _b: Box<dyn LifecycleHook> = arg_hook.clone_box();
     }
@@ -738,16 +754,17 @@ mod tests {
     fn history_hook_records_success_and_failure() {
         use tempfile::tempdir;
 
-        let dir = tempdir().unwrap();
+        let dir = tempdir().expect("should succeed");
         let path = dir.path().join("hist.json");
-        let history = Arc::new(CommandHistory::with_options(50, &path).unwrap());
+        let history = Arc::new(CommandHistory::with_options(50, &path).expect("should succeed"));
         let hook = HistoryHook::new(Arc::clone(&history));
 
         let cmd = TestCommand;
         assert_eq!(hook.name(), "history_hook");
-        hook.post_process(&cmd, &[], &Ok("ok".into())).unwrap();
+        hook.post_process(&cmd, &[], &Ok("ok".into()))
+            .expect("should succeed");
         hook.post_process(&cmd, &[], &Err(CommandError::ValidationError("e".into())))
-            .unwrap();
+            .expect("should succeed");
 
         let boxed = create_history_hook(history);
         assert_eq!(boxed.name(), "history_hook");

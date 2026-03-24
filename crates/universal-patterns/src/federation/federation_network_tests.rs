@@ -51,18 +51,18 @@ mod tests {
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
-            address: "127.0.0.1:8080".parse().unwrap(),
+            address: "127.0.0.1:8080".parse().expect("should succeed"),
             last_seen: Utc::now(),
             status: PeerStatus::Connected,
             latency: Some(Duration::from_millis(50)),
         };
 
-        network.add_peer(peer_info.clone()).await.unwrap();
+        network.add_peer(peer_info.clone()).await.expect("should succeed");
 
         let stats = network.get_stats().await;
         assert_eq!(stats.peer_count, 1);
 
-        network.remove_peer(peer_info.id).await.unwrap();
+        network.remove_peer(peer_info.id).await.expect("should succeed");
 
         let stats = network.get_stats().await;
         assert_eq!(stats.peer_count, 0);
@@ -95,7 +95,7 @@ mod tests {
                 Ok(())
             })
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 
     #[tokio::test]
@@ -112,9 +112,9 @@ mod tests {
 
         let network = FederationNetworkManager::new(config, node_info);
 
-        network.start().await.unwrap();
+        network.start().await.expect("should succeed");
 
-        network.stop().await.unwrap();
+        network.stop().await.expect("should succeed");
     }
 
     #[tokio::test]
@@ -131,13 +131,13 @@ mod tests {
 
         let network = FederationNetworkManager::new(config, node_info);
 
-        network.start().await.unwrap();
+        network.start().await.expect("should succeed");
         let result = network.start().await;
         assert!(result.is_err());
 
         match result.unwrap_err() {
             FederationError::AlreadyRunning(_) => {}
-            _ => panic!("Expected AlreadyRunning error"),
+            _ => unreachable!("Expected AlreadyRunning error"),
         }
     }
 
@@ -159,12 +159,12 @@ mod tests {
         for i in 0..5 {
             let peer = PeerInfo {
                 id: Uuid::new_v4(),
-                address: format!("127.0.0.1:808{}", i).parse().unwrap(),
+                address: format!("127.0.0.1:808{}", i).parse().expect("should succeed"),
                 last_seen: Utc::now(),
                 status: PeerStatus::Connected,
                 latency: Some(Duration::from_millis(50 + i * 10)),
             };
-            network.add_peer(peer).await.unwrap();
+            network.add_peer(peer).await.expect("should succeed");
         }
 
         let stats = network.get_stats().await;
@@ -188,13 +188,13 @@ mod tests {
         let peer_id = Uuid::new_v4();
         let peer = PeerInfo {
             id: peer_id,
-            address: "127.0.0.1:8080".parse().unwrap(),
+            address: "127.0.0.1:8080".parse().expect("should succeed"),
             last_seen: Utc::now(),
             status: PeerStatus::Connected,
             latency: Some(Duration::from_millis(50)),
         };
 
-        network.add_peer(peer).await.unwrap();
+        network.add_peer(peer).await.expect("should succeed");
     }
 
     #[tokio::test]
@@ -220,22 +220,22 @@ mod tests {
 
         match http {
             NetworkProtocol::Http => {}
-            _ => panic!("Expected Http"),
+            _ => unreachable!("Expected Http"),
         }
 
         match grpc {
             NetworkProtocol::Grpc => {}
-            _ => panic!("Expected Grpc"),
+            _ => unreachable!("Expected Grpc"),
         }
 
         match websocket {
             NetworkProtocol::WebSocket => {}
-            _ => panic!("Expected WebSocket"),
+            _ => unreachable!("Expected WebSocket"),
         }
 
         match custom {
             NetworkProtocol::Custom(ref name) => assert_eq!(name, "my-protocol"),
-            _ => panic!("Expected Custom"),
+            _ => unreachable!("Expected Custom"),
         }
     }
 
@@ -267,7 +267,7 @@ mod tests {
         };
         match discovery {
             NetworkMessage::Discovery { .. } => {}
-            _ => panic!("Expected Discovery"),
+            _ => unreachable!("Expected Discovery"),
         }
 
         // Test DiscoveryResponse message
@@ -278,7 +278,7 @@ mod tests {
         };
         match discovery_response {
             NetworkMessage::DiscoveryResponse { .. } => {}
-            _ => panic!("Expected DiscoveryResponse"),
+            _ => unreachable!("Expected DiscoveryResponse"),
         }
 
         // Test ConsensusVote message
@@ -290,7 +290,7 @@ mod tests {
         };
         match vote {
             NetworkMessage::ConsensusVote { .. } => {}
-            _ => panic!("Expected ConsensusVote"),
+            _ => unreachable!("Expected ConsensusVote"),
         }
 
         // Test DataSync message
@@ -301,7 +301,7 @@ mod tests {
         };
         match sync {
             NetworkMessage::DataSync { .. } => {}
-            _ => panic!("Expected DataSync"),
+            _ => unreachable!("Expected DataSync"),
         }
 
         // Test HealthCheck message
@@ -311,7 +311,7 @@ mod tests {
         };
         match health {
             NetworkMessage::HealthCheck { .. } => {}
-            _ => panic!("Expected HealthCheck"),
+            _ => unreachable!("Expected HealthCheck"),
         }
 
         // Test Federation message
@@ -323,7 +323,7 @@ mod tests {
         };
         match federation {
             NetworkMessage::Federation { .. } => {}
-            _ => panic!("Expected Federation"),
+            _ => unreachable!("Expected Federation"),
         }
     }
 
@@ -342,14 +342,14 @@ mod tests {
         connection
             .send_message(peer_id, message.clone())
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let (received_peer, received_msg) = connection.receive_message().await.unwrap();
+        let (received_peer, received_msg) = connection.receive_message().await.expect("should succeed");
         assert_eq!(received_peer, peer_id);
 
         match received_msg {
             NetworkMessage::HealthCheck { .. } => {}
-            _ => panic!("Expected HealthCheck message"),
+            _ => unreachable!("Expected HealthCheck message"),
         }
     }
 
@@ -360,7 +360,7 @@ mod tests {
 
         assert!(connection.is_connected().await);
 
-        connection.close().await.unwrap();
+        connection.close().await.expect("should succeed");
 
         assert!(!connection.is_connected().await);
     }
@@ -393,7 +393,7 @@ mod tests {
     async fn test_peer_info_with_latency() {
         let peer = PeerInfo {
             id: Uuid::new_v4(),
-            address: "127.0.0.1:8080".parse().unwrap(),
+            address: "127.0.0.1:8080".parse().expect("should succeed"),
             last_seen: Utc::now(),
             status: PeerStatus::Connected,
             latency: Some(Duration::from_millis(25)),
@@ -401,14 +401,14 @@ mod tests {
 
         assert_eq!(peer.status, PeerStatus::Connected);
         assert!(peer.latency.is_some());
-        assert_eq!(peer.latency.unwrap().as_millis(), 25);
+        assert_eq!(peer.latency.expect("should succeed").as_millis(), 25);
     }
 
     #[tokio::test]
     async fn test_peer_info_without_latency() {
         let peer = PeerInfo {
             id: Uuid::new_v4(),
-            address: "127.0.0.1:8080".parse().unwrap(),
+            address: "127.0.0.1:8080".parse().expect("should succeed"),
             last_seen: Utc::now(),
             status: PeerStatus::Disconnected,
             latency: None,
@@ -458,16 +458,16 @@ mod tests {
         network
             .register_handler("type1".to_string(), move |_msg| Ok(()))
             .await
-            .unwrap();
+            .expect("should succeed");
 
         network
             .register_handler("type2".to_string(), move |_msg| Ok(()))
             .await
-            .unwrap();
+            .expect("should succeed");
 
         network
             .register_handler("type3".to_string(), move |_msg| Ok(()))
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 }

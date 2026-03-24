@@ -141,14 +141,14 @@ async fn test_transformation() {
     let transform_result = manager.transform_data("test.transform", test_data.clone()).await;
     assert!(transform_result.is_ok());
     
-    let transformed = transform_result.unwrap();
+    let transformed = transform_result.expect("should succeed");
     
     // Verify the transformation was applied
     let original = transformed.get("original");
     assert!(original.is_some());
-    assert_eq!(original.unwrap(), &test_data);
+    assert_eq!(original.expect("should succeed"), &test_data);
     
     let test_field = transformed.get("test");
     assert!(test_field.is_some());
-    assert_eq!(test_field.unwrap().as_str().unwrap(), "Test transformation applied");
+    assert_eq!(test_field.expect("should succeed").as_str().expect("should succeed"), "Test transformation applied");
 } 

@@ -26,7 +26,7 @@ fn test_version_command_description() {
 #[test]
 fn test_version_command_execute_output() {
     let cmd = VersionCommand::new();
-    let result = cmd.execute(&[]).unwrap();
+    let result = cmd.execute(&[]).expect("should succeed");
     assert!(result.starts_with("Version: "));
     assert!(result.len() > 9);
 }
@@ -89,7 +89,7 @@ fn test_help_command_execute_all_commands() {
             ("cmd2".to_string(), "cmd2: Second command".to_string()),
         ],
     };
-    let result = cmd.execute(&[]).unwrap();
+    let result = cmd.execute(&[]).expect("should succeed");
     assert!(result.contains("Available commands:"));
     assert!(result.contains("cmd1: First command"));
     assert!(result.contains("cmd2: Second command"));
@@ -103,7 +103,7 @@ fn test_help_command_execute_specific_command() {
             ("version".to_string(), "version: Shows version".to_string()),
         ],
     };
-    let result = cmd.execute(&["echo".to_string()]).unwrap();
+    let result = cmd.execute(&["echo".to_string()]).expect("should succeed");
     assert_eq!(result, "echo: Echoes arguments");
 }
 
@@ -117,7 +117,7 @@ fn test_help_command_execute_command_not_found() {
     if let Err(CommandError::CommandNotFound(name)) = result {
         assert_eq!(name, "nonexistent");
     } else {
-        panic!("Expected CommandNotFound error");
+        unreachable!("Expected CommandNotFound error");
     }
 }
 
@@ -126,7 +126,7 @@ fn test_help_command_empty_help_list() {
     let cmd = HelpCommand {
         command_help: vec![],
     };
-    let result = cmd.execute(&[]).unwrap();
+    let result = cmd.execute(&[]).expect("should succeed");
     assert!(result.contains("Available commands:"));
     assert!(!result.contains("  ")); // No command entries
 }
@@ -136,7 +136,7 @@ fn test_help_command_new_with_empty_registry() {
     let registry = Arc::new(Mutex::new(CommandRegistry::new()));
     let cmd = HelpCommand::new(registry);
     assert_eq!(cmd.name(), "help");
-    let result = cmd.execute(&[]).unwrap();
+    let result = cmd.execute(&[]).expect("should succeed");
     assert!(result.contains("Available commands:"));
 }
 
@@ -145,17 +145,17 @@ fn test_help_command_new_with_populated_registry() {
     let registry = Arc::new(Mutex::new(CommandRegistry::new()));
     registry
         .lock()
-        .unwrap()
+        .expect("should succeed")
         .register("version", Arc::new(VersionCommand::new()))
-        .unwrap();
+        .expect("should succeed");
     registry
         .lock()
-        .unwrap()
+        .expect("should succeed")
         .register("echo", Arc::new(EchoCommand::new()))
-        .unwrap();
+        .expect("should succeed");
 
     let cmd = HelpCommand::new(Arc::clone(&registry));
-    let result = cmd.execute(&[]).unwrap();
+    let result = cmd.execute(&[]).expect("should succeed");
     assert!(result.contains("version"));
     assert!(result.contains("echo"));
 }
@@ -164,16 +164,16 @@ fn test_help_command_new_with_populated_registry() {
 fn test_help_command_update() {
     let registry = Arc::new(Mutex::new(CommandRegistry::new()));
     let mut cmd = HelpCommand::new(Arc::clone(&registry));
-    let initial = cmd.execute(&[]).unwrap();
+    let initial = cmd.execute(&[]).expect("should succeed");
 
     registry
         .lock()
-        .unwrap()
+        .expect("should succeed")
         .register("newcmd", Arc::new(VersionCommand::new()))
-        .unwrap();
+        .expect("should succeed");
 
     cmd.update(&registry);
-    let updated = cmd.execute(&[]).unwrap();
+    let updated = cmd.execute(&[]).expect("should succeed");
     // Help displays command.help() text; VersionCommand's help contains "version"
     assert!(updated.contains("version"));
     assert!(
@@ -209,7 +209,7 @@ fn test_echo_command() {
     assert_eq!(cmd.name(), "echo");
     let result = cmd.execute(&["hello".to_string(), "world".to_string()]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "Echo: hello world");
+    assert_eq!(result.expect("should succeed"), "Echo: hello world");
 }
 
 #[test]
@@ -224,28 +224,28 @@ fn test_echo_command_description() {
 #[test]
 fn test_echo_command_empty_args() {
     let cmd = EchoCommand::new();
-    let result = cmd.execute(&[]).unwrap();
+    let result = cmd.execute(&[]).expect("should succeed");
     assert_eq!(result, "Echo: ");
 }
 
 #[test]
 fn test_echo_command_single_arg() {
     let cmd = EchoCommand::new();
-    let result = cmd.execute(&["hello".to_string()]).unwrap();
+    let result = cmd.execute(&["hello".to_string()]).expect("should succeed");
     assert_eq!(result, "Echo: hello");
 }
 
 #[test]
 fn test_echo_command_with_prefix() {
     let cmd = EchoCommand::with_prefix(">> ");
-    let result = cmd.execute(&["hello".to_string()]).unwrap();
+    let result = cmd.execute(&["hello".to_string()]).expect("should succeed");
     assert_eq!(result, ">> hello");
 }
 
 #[test]
 fn test_echo_command_with_prefix_empty() {
     let cmd = EchoCommand::with_prefix("");
-    let result = cmd.execute(&["hello".to_string()]).unwrap();
+    let result = cmd.execute(&["hello".to_string()]).expect("should succeed");
     assert_eq!(result, "hello");
 }
 
@@ -253,7 +253,10 @@ fn test_echo_command_with_prefix_empty() {
 fn test_echo_command_default() {
     let cmd = EchoCommand::default();
     assert_eq!(cmd.name(), "echo");
-    assert_eq!(cmd.execute(&["x".to_string()]).unwrap(), "Echo: x");
+    assert_eq!(
+        cmd.execute(&["x".to_string()]).expect("should succeed"),
+        "Echo: x"
+    );
 }
 
 #[test]
@@ -268,7 +271,10 @@ fn test_echo_command_clone_box() {
     let cmd = EchoCommand::with_prefix("PREFIX: ");
     let cloned = cmd.clone_box();
     assert_eq!(cloned.name(), "echo");
-    assert_eq!(cloned.execute(&["x".to_string()]).unwrap(), "PREFIX: x");
+    assert_eq!(
+        cloned.execute(&["x".to_string()]).expect("should succeed"),
+        "PREFIX: x"
+    );
 }
 
 // ========== ExitCommand ==========
@@ -279,7 +285,7 @@ fn test_exit_command() {
     assert_eq!(cmd.name(), "exit");
     let result = cmd.execute(&[]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "Exiting application");
+    assert_eq!(result.expect("should succeed"), "Exiting application");
 }
 
 #[test]
@@ -326,7 +332,10 @@ fn test_kill_command() {
     // Test with valid PID
     let result = cmd.execute(&["1234".to_string()]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "Process with PID 1234 terminated");
+    assert_eq!(
+        result.expect("should succeed"),
+        "Process with PID 1234 terminated"
+    );
 
     // Test with invalid PID
     let result = cmd.execute(&["invalid".to_string()]);
@@ -351,7 +360,7 @@ fn test_kill_command_empty_args_validation_error() {
     if let Err(CommandError::ValidationError(msg)) = result {
         assert_eq!(msg, "No PID provided");
     } else {
-        panic!("Expected ValidationError");
+        unreachable!("Expected ValidationError");
     }
 }
 
@@ -363,7 +372,7 @@ fn test_kill_command_invalid_pid_format() {
     if let Err(CommandError::ValidationError(msg)) = result {
         assert!(msg.contains("Invalid PID format"));
     } else {
-        panic!("Expected ValidationError");
+        unreachable!("Expected ValidationError");
     }
 }
 
@@ -372,7 +381,10 @@ fn test_kill_command_pid_zero() {
     let cmd = KillCommand::new();
     let result = cmd.execute(&["0".to_string()]);
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "Process with PID 0 terminated");
+    assert_eq!(
+        result.expect("should succeed"),
+        "Process with PID 0 terminated"
+    );
 }
 
 #[test]
@@ -399,9 +411,10 @@ fn test_kill_command_clone_box() {
 // ========== HistoryCommand ==========
 
 fn create_test_history() -> (Arc<CommandHistory>, tempfile::TempDir) {
-    let dir = tempdir().unwrap();
+    let dir = tempdir().expect("should succeed");
     let history_file = dir.path().join("builtin_test_history.json");
-    let history = Arc::new(CommandHistory::with_options(100, &history_file).unwrap());
+    let history =
+        Arc::new(CommandHistory::with_options(100, &history_file).expect("should succeed"));
     (history, dir)
 }
 
@@ -412,7 +425,7 @@ fn test_history_command_empty() {
     assert_eq!(cmd.name(), "history");
     assert_eq!(cmd.description(), "View and manage command history");
 
-    let result = cmd.execute(&[]).unwrap();
+    let result = cmd.execute(&[]).expect("should succeed");
     assert!(result.contains("Command history is empty") || result.contains("No history"));
 }
 
@@ -427,13 +440,13 @@ fn test_history_command_with_entries() {
             None,
             None,
         )
-        .unwrap();
+        .expect("should succeed");
     history
         .add("version".to_string(), vec![], true, None, None)
-        .unwrap();
+        .expect("should succeed");
 
     let cmd = HistoryCommand::new(history);
-    let result = cmd.execute(&[]).unwrap();
+    let result = cmd.execute(&[]).expect("should succeed");
     assert!(result.contains("Command history") || result.contains("echo"));
     assert!(result.contains("version") || result.contains("1:") || result.contains("2:"));
 }
@@ -443,10 +456,12 @@ fn test_history_command_clear() {
     let (history, _dir) = create_test_history();
     history
         .add("test".to_string(), vec![], true, None, None)
-        .unwrap();
+        .expect("should succeed");
 
     let cmd = HistoryCommand::new(history);
-    let result = cmd.execute(&["--clear".to_string()]).unwrap();
+    let result = cmd
+        .execute(&["--clear".to_string()])
+        .expect("should succeed");
     assert_eq!(result, "Command history cleared.");
 }
 
@@ -461,7 +476,7 @@ fn test_history_command_search() {
             None,
             None,
         )
-        .unwrap();
+        .expect("should succeed");
     history
         .add(
             "grep".to_string(),
@@ -470,12 +485,12 @@ fn test_history_command_search() {
             None,
             None,
         )
-        .unwrap();
+        .expect("should succeed");
 
     let cmd = HistoryCommand::new(history);
     let result = cmd
         .execute(&["--search".to_string(), "file.txt".to_string()])
-        .unwrap();
+        .expect("should succeed");
     assert!(result.contains("file.txt"));
     assert!(result.contains("find") || result.contains("Search results"));
 }
@@ -491,12 +506,12 @@ fn test_history_command_search_no_match() {
             None,
             None,
         )
-        .unwrap();
+        .expect("should succeed");
 
     let cmd = HistoryCommand::new(history);
     let result = cmd
         .execute(&["--search".to_string(), "nonexistent_query_xyz".to_string()])
-        .unwrap();
+        .expect("should succeed");
     assert!(result.contains("No command history entries found matching"));
 }
 
@@ -511,12 +526,12 @@ fn test_history_command_specific_command() {
             None,
             None,
         )
-        .unwrap();
+        .expect("should succeed");
 
     let cmd = HistoryCommand::new(history);
     let result = cmd
         .execute(&["--command".to_string(), "echo".to_string()])
-        .unwrap();
+        .expect("should succeed");
     assert!(result.contains("echo"));
     assert!(result.contains("hello") || result.contains("Last execution"));
 }
@@ -527,7 +542,7 @@ fn test_history_command_specific_command_not_found() {
     let cmd = HistoryCommand::new(history);
     let result = cmd
         .execute(&["--command".to_string(), "never_executed_cmd".to_string()])
-        .unwrap();
+        .expect("should succeed");
     assert!(result.contains("No history found for command"));
 }
 
@@ -537,11 +552,13 @@ fn test_history_command_limit() {
     for i in 0..5 {
         history
             .add(format!("cmd{i}"), vec![], true, None, None)
-            .unwrap();
+            .expect("should succeed");
     }
 
     let cmd = HistoryCommand::new(history);
-    let result = cmd.execute(&["-n".to_string(), "2".to_string()]).unwrap();
+    let result = cmd
+        .execute(&["-n".to_string(), "2".to_string()])
+        .expect("should succeed");
     let line_count = result
         .lines()
         .filter(|l| l.starts_with(|c: char| c.is_ascii_digit()))
@@ -554,12 +571,12 @@ fn test_history_command_cleanup() {
     let (history, _dir) = create_test_history();
     let mut entry = HistoryEntry::new("old".to_string(), vec![], true, None, None);
     entry.timestamp = 1000;
-    history.add_entry(entry).unwrap();
+    history.add_entry(entry).expect("should succeed");
 
     let cmd = HistoryCommand::new(history);
     let result = cmd
         .execute(&["--cleanup".to_string(), "365".to_string()])
-        .unwrap();
+        .expect("should succeed");
     assert!(result.contains("Removed") && result.contains("history entries"));
 }
 

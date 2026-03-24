@@ -90,8 +90,8 @@ mod tests {
             metrics: vec!["cpu".to_string(), "memory".to_string()],
         };
 
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: ScalingConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: ScalingConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(config, deserialized);
     }
 }

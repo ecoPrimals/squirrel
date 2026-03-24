@@ -404,8 +404,8 @@ mod tests {
             endpoint: Some("/tmp/crypto.sock".to_string()),
             discovery_timeout_ms: Some(1000),
         };
-        let json = serde_json::to_string(&config).unwrap();
-        let restored: CapabilityCryptoConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let restored: CapabilityCryptoConfig = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(restored.endpoint, config.endpoint);
         assert_eq!(restored.discovery_timeout_ms, config.discovery_timeout_ms);
     }
@@ -443,7 +443,7 @@ mod tests {
             "CRYPTO_SIGNING_ENDPOINT",
             Some("/tmp/test-crypto.sock"),
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
                     let mut provider = CapabilityCryptoProvider::new();
                     let result = provider.sign_ed25519(b"test").await;
@@ -468,7 +468,7 @@ mod tests {
                 ("CRYPTO_ENDPOINT", Some("/tmp/crypto-alt.sock")),
             ],
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
                     let mut provider = CapabilityCryptoProvider::new();
                     let result = provider.sign_ed25519(b"test").await;
@@ -486,7 +486,7 @@ mod tests {
                 ("CRYPTO_ENDPOINT", None::<&str>),
             ],
             || {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Runtime::new().expect("should succeed");
                 rt.block_on(async {
                     let mut provider = CapabilityCryptoProvider::new();
                     let result = provider.sign_ed25519(b"data").await;
@@ -503,21 +503,22 @@ mod tests {
 
     #[test]
     fn test_mock_socket_sign_ed25519() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let dir = tempfile::tempdir().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
+        let dir = tempfile::tempdir().expect("should succeed");
         let socket_path = dir.path().join("crypto.sock");
         let path_str = socket_path.to_string_lossy().to_string();
 
         let result = temp_env::with_var("CRYPTO_SIGNING_ENDPOINT", Some(path_str.as_str()), || {
             rt.block_on(async {
-                let listener = UnixListener::bind(&socket_path).unwrap();
+                let listener = UnixListener::bind(&socket_path).expect("should succeed");
 
                 let server_handle = tokio::spawn(async move {
-                    let (stream, _) = listener.accept().await.unwrap();
+                    let (stream, _) = listener.accept().await.expect("should succeed");
                     let mut reader = BufReader::new(stream);
                     let mut line = String::new();
-                    reader.read_line(&mut line).await.unwrap();
-                    let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                    reader.read_line(&mut line).await.expect("should succeed");
+                    let req: serde_json::Value =
+                        serde_json::from_str(&line).expect("should succeed");
                     assert_eq!(req["method"], "crypto.sign");
                     let sig_b64 = base64::Engine::encode(
                         &base64::engine::general_purpose::STANDARD,
@@ -532,8 +533,8 @@ mod tests {
                     stream
                         .write_all(response.to_string().as_bytes())
                         .await
-                        .unwrap();
-                    stream.write_all(b"\n").await.unwrap();
+                        .expect("should succeed");
+                    stream.write_all(b"\n").await.expect("should succeed");
                 });
 
                 let mut provider = CapabilityCryptoProvider::new();
@@ -543,27 +544,28 @@ mod tests {
             })
         });
 
-        let signature = result.unwrap();
+        let signature = result.expect("should succeed");
         assert!(!signature.is_empty());
     }
 
     #[test]
     fn test_mock_socket_verify_ed25519() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let dir = tempfile::tempdir().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
+        let dir = tempfile::tempdir().expect("should succeed");
         let socket_path = dir.path().join("crypto-verify.sock");
         let path_str = socket_path.to_string_lossy().to_string();
 
         let result = temp_env::with_var("CRYPTO_SIGNING_ENDPOINT", Some(path_str.as_str()), || {
             rt.block_on(async {
-                let listener = UnixListener::bind(&socket_path).unwrap();
+                let listener = UnixListener::bind(&socket_path).expect("should succeed");
 
                 let server_handle = tokio::spawn(async move {
-                    let (stream, _) = listener.accept().await.unwrap();
+                    let (stream, _) = listener.accept().await.expect("should succeed");
                     let mut reader = BufReader::new(stream);
                     let mut line = String::new();
-                    reader.read_line(&mut line).await.unwrap();
-                    let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                    reader.read_line(&mut line).await.expect("should succeed");
+                    let req: serde_json::Value =
+                        serde_json::from_str(&line).expect("should succeed");
                     assert_eq!(req["method"], "crypto.verify");
                     let response = serde_json::json!({
                         "jsonrpc": "2.0",
@@ -574,8 +576,8 @@ mod tests {
                     stream
                         .write_all(response.to_string().as_bytes())
                         .await
-                        .unwrap();
-                    stream.write_all(b"\n").await.unwrap();
+                        .expect("should succeed");
+                    stream.write_all(b"\n").await.expect("should succeed");
                 });
 
                 let mut provider = CapabilityCryptoProvider::new();
@@ -585,26 +587,27 @@ mod tests {
             })
         });
 
-        assert!(result.unwrap());
+        assert!(result.expect("should succeed"));
     }
 
     #[test]
     fn test_mock_socket_verify_ed25519_with_key_id() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let dir = tempfile::tempdir().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("should succeed");
+        let dir = tempfile::tempdir().expect("should succeed");
         let socket_path = dir.path().join("crypto-keyid.sock");
         let path_str = socket_path.to_string_lossy().to_string();
 
         let result = temp_env::with_var("CRYPTO_SIGNING_ENDPOINT", Some(path_str.as_str()), || {
             rt.block_on(async {
-                let listener = UnixListener::bind(&socket_path).unwrap();
+                let listener = UnixListener::bind(&socket_path).expect("should succeed");
 
                 let server_handle = tokio::spawn(async move {
-                    let (stream, _) = listener.accept().await.unwrap();
+                    let (stream, _) = listener.accept().await.expect("should succeed");
                     let mut reader = BufReader::new(stream);
                     let mut line = String::new();
-                    reader.read_line(&mut line).await.unwrap();
-                    let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+                    reader.read_line(&mut line).await.expect("should succeed");
+                    let req: serde_json::Value =
+                        serde_json::from_str(&line).expect("should succeed");
                     assert_eq!(req["method"], "crypto.verify");
                     assert_eq!(req["params"]["key_id"], "jwt-key-1");
                     let response = serde_json::json!({
@@ -616,8 +619,8 @@ mod tests {
                     stream
                         .write_all(response.to_string().as_bytes())
                         .await
-                        .unwrap();
-                    stream.write_all(b"\n").await.unwrap();
+                        .expect("should succeed");
+                    stream.write_all(b"\n").await.expect("should succeed");
                 });
 
                 let mut provider = CapabilityCryptoProvider::new();
@@ -629,6 +632,6 @@ mod tests {
             })
         });
 
-        assert!(!result.unwrap());
+        assert!(!result.expect("should succeed"));
     }
 }

@@ -170,25 +170,26 @@ mod tests {
     #[test]
     fn manifest_serde_roundtrip() {
         let m = test_manifest();
-        let json = serde_json::to_string(&m).unwrap();
-        let deser: PrimalManifest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&m).expect("should succeed");
+        let deser: PrimalManifest = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(m, deser);
     }
 
     #[test]
     fn scan_empty_directory() {
-        let dir = TempDir::new().unwrap();
+        let dir = TempDir::new().expect("should succeed");
         let manifests = scan_directory(dir.path());
         assert!(manifests.is_empty());
     }
 
     #[test]
     fn scan_with_valid_manifest() {
-        let dir = TempDir::new().unwrap();
+        let dir = TempDir::new().expect("should succeed");
         let m = test_manifest();
-        let json = serde_json::to_string(&m).unwrap();
-        let mut f = std::fs::File::create(dir.path().join("test-primal.json")).unwrap();
-        f.write_all(json.as_bytes()).unwrap();
+        let json = serde_json::to_string(&m).expect("should succeed");
+        let mut f =
+            std::fs::File::create(dir.path().join("test-primal.json")).expect("should succeed");
+        f.write_all(json.as_bytes()).expect("should succeed");
 
         let manifests = scan_directory(dir.path());
         assert_eq!(manifests.len(), 1);
@@ -197,8 +198,8 @@ mod tests {
 
     #[test]
     fn scan_skips_malformed_files() {
-        let dir = TempDir::new().unwrap();
-        std::fs::write(dir.path().join("bad.json"), "not json").unwrap();
+        let dir = TempDir::new().expect("should succeed");
+        std::fs::write(dir.path().join("bad.json"), "not json").expect("should succeed");
 
         let manifests = scan_directory(dir.path());
         assert!(manifests.is_empty());
@@ -206,8 +207,8 @@ mod tests {
 
     #[test]
     fn scan_skips_non_json_files() {
-        let dir = TempDir::new().unwrap();
-        std::fs::write(dir.path().join("readme.txt"), "hello").unwrap();
+        let dir = TempDir::new().expect("should succeed");
+        std::fs::write(dir.path().join("readme.txt"), "hello").expect("should succeed");
 
         let manifests = scan_directory(dir.path());
         assert!(manifests.is_empty());
@@ -215,18 +216,18 @@ mod tests {
 
     #[test]
     fn write_and_remove_manifest() {
-        let dir = TempDir::new().unwrap();
+        let dir = TempDir::new().expect("should succeed");
         temp_env::with_var(
             "XDG_RUNTIME_DIR",
-            Some(dir.path().to_str().unwrap()),
+            Some(dir.path().to_str().expect("should succeed")),
             || {
                 let m = test_manifest();
-                write_manifest(&m).unwrap();
+                write_manifest(&m).expect("should succeed");
 
                 let expected = dir.path().join("ecoPrimals/test-primal.json");
                 assert!(expected.exists());
 
-                remove_manifest("test-primal", None).unwrap();
+                remove_manifest("test-primal", None).expect("should succeed");
                 assert!(!expected.exists());
             },
         );
@@ -234,14 +235,14 @@ mod tests {
 
     #[test]
     fn write_manifest_with_family_id() {
-        let dir = TempDir::new().unwrap();
+        let dir = TempDir::new().expect("should succeed");
         temp_env::with_var(
             "XDG_RUNTIME_DIR",
-            Some(dir.path().to_str().unwrap()),
+            Some(dir.path().to_str().expect("should succeed")),
             || {
                 let mut m = test_manifest();
                 m.family_id = Some("alpha".into());
-                write_manifest(&m).unwrap();
+                write_manifest(&m).expect("should succeed");
 
                 let expected = dir.path().join("ecoPrimals/test-primal-alpha.json");
                 assert!(expected.exists());
@@ -265,7 +266,7 @@ mod tests {
 
     #[test]
     fn discover_by_capability_filters() {
-        let dir = TempDir::new().unwrap();
+        let dir = TempDir::new().expect("should succeed");
 
         let m1 = PrimalManifest {
             primal: "alpha".into(),
@@ -287,19 +288,19 @@ mod tests {
         };
 
         let eco_dir = dir.path().join("ecoPrimals");
-        std::fs::create_dir_all(&eco_dir).unwrap();
+        std::fs::create_dir_all(&eco_dir).expect("should succeed");
         std::fs::write(
             eco_dir.join("alpha.json"),
-            serde_json::to_string(&m1).unwrap(),
+            serde_json::to_string(&m1).expect("should succeed"),
         )
-        .unwrap();
+        .expect("should succeed");
         std::fs::write(
             eco_dir.join("beta.json"),
-            serde_json::to_string(&m2).unwrap(),
+            serde_json::to_string(&m2).expect("should succeed"),
         )
-        .unwrap();
+        .expect("should succeed");
 
-        let all = scan_directory(&eco_dir.parent().unwrap().join("ecoPrimals"));
+        let all = scan_directory(&eco_dir.parent().expect("should succeed").join("ecoPrimals"));
         let ai_primals: Vec<_> = all
             .into_iter()
             .filter(|m| m.capabilities.iter().any(|c| c == "ai.query"))

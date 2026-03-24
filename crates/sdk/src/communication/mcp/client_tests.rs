@@ -12,23 +12,23 @@ use wasm_bindgen::prelude::JsValue;
 #[test]
 fn message_category_serde_roundtrip() {
     let c = MessageCategory::ToolInvocation;
-    let s = serde_json::to_string(&c).unwrap();
+    let s = serde_json::to_string(&c).expect("should succeed");
     assert_eq!(s, "\"tool_invocation\"");
-    let back: MessageCategory = serde_json::from_str(&s).unwrap();
+    let back: MessageCategory = serde_json::from_str(&s).expect("should succeed");
     assert_eq!(back, c);
 
-    let unknown: MessageCategory = serde_json::from_str("\"unknown\"").unwrap();
+    let unknown: MessageCategory = serde_json::from_str("\"unknown\"").expect("should succeed");
     assert_eq!(unknown, MessageCategory::Generic);
 }
 
 #[test]
 fn processing_strategy_serde_roundtrip() {
     let p = ProcessingStrategy::Streaming;
-    let s = serde_json::to_string(&p).unwrap();
-    let back: ProcessingStrategy = serde_json::from_str(&s).unwrap();
+    let s = serde_json::to_string(&p).expect("should succeed");
+    let back: ProcessingStrategy = serde_json::from_str(&s).expect("should succeed");
     assert_eq!(back, p);
 
-    let unknown: ProcessingStrategy = serde_json::from_str("\"unknown\"").unwrap();
+    let unknown: ProcessingStrategy = serde_json::from_str("\"unknown\"").expect("should succeed");
     assert_eq!(unknown, ProcessingStrategy::Standard);
 }
 
@@ -52,8 +52,8 @@ fn processed_payload_ai_message_and_response_serde() {
         },
         processing_strategy: ProcessingStrategy::Standard,
     };
-    let v = serde_json::to_value(&msg).unwrap();
-    let msg2: AiMcpMessage = serde_json::from_value(v).unwrap();
+    let v = serde_json::to_value(&msg).expect("should succeed");
+    let msg2: AiMcpMessage = serde_json::from_value(v).expect("should succeed");
     assert_eq!(msg2.id, msg.id);
 
     let resp = MessageResponse {
@@ -62,8 +62,8 @@ fn processed_payload_ai_message_and_response_serde() {
         message_type: "r".to_string(),
         timestamp: 1,
     };
-    let s = serde_json::to_string(&resp).unwrap();
-    let r2: MessageResponse = serde_json::from_str(&s).unwrap();
+    let s = serde_json::to_string(&resp).expect("should succeed");
+    let r2: MessageResponse = serde_json::from_str(&s).expect("should succeed");
     assert_eq!(r2.message_type, resp.message_type);
 }
 
@@ -84,34 +84,40 @@ fn mcp_client_constructors_and_state() {
 #[tokio::test]
 async fn disconnect_when_already_disconnected_ok() {
     let mut c = McpClient::new();
-    c.disconnect().await.unwrap();
+    c.disconnect().await.expect("should succeed");
 }
 
 #[test]
 fn classify_message_type_aliases_and_generic() {
     let c = McpClient::new();
     assert_eq!(
-        c.test_classify_message_type("function_call").unwrap(),
+        c.test_classify_message_type("function_call")
+            .expect("should succeed"),
         MessageCategory::ToolInvocation
     );
     assert_eq!(
-        c.test_classify_message_type("file_request").unwrap(),
+        c.test_classify_message_type("file_request")
+            .expect("should succeed"),
         MessageCategory::ResourceAccess
     );
     assert_eq!(
-        c.test_classify_message_type("chat_completion").unwrap(),
+        c.test_classify_message_type("chat_completion")
+            .expect("should succeed"),
         MessageCategory::Completion
     );
     assert_eq!(
-        c.test_classify_message_type("state_change").unwrap(),
+        c.test_classify_message_type("state_change")
+            .expect("should succeed"),
         MessageCategory::StateManagement
     );
     assert_eq!(
-        c.test_classify_message_type("ping").unwrap(),
+        c.test_classify_message_type("ping")
+            .expect("should succeed"),
         MessageCategory::SystemHealth
     );
     assert_eq!(
-        c.test_classify_message_type("anything_else").unwrap(),
+        c.test_classify_message_type("anything_else")
+            .expect("should succeed"),
         MessageCategory::Generic
     );
 }
@@ -150,11 +156,17 @@ async fn send_message_tool_call_builds_response() {
         "tool": "demo_tool",
         "arguments": {"q": "hello"}
     }))
-    .unwrap();
+    .expect("should succeed");
 
-    let js = client.send_message("tool_call", payload).await.unwrap();
-    let s = js_sys::JSON::stringify(&js).unwrap().as_string().unwrap();
-    let v: serde_json::Value = serde_json::from_str(&s).unwrap();
+    let js = client
+        .send_message("tool_call", payload)
+        .await
+        .expect("should succeed");
+    let s = js_sys::JSON::stringify(&js)
+        .expect("should succeed")
+        .as_string()
+        .expect("should succeed");
+    let v: serde_json::Value = serde_json::from_str(&s).expect("should succeed");
     assert_eq!(v["success"], true);
     assert_eq!(v["message_type"], "tool_result");
 }
@@ -163,14 +175,26 @@ async fn send_message_tool_call_builds_response() {
 #[tokio::test]
 async fn send_message_generic_and_notification() {
     let mut client = McpClient::new();
-    let p1 = serde_wasm_bindgen::to_value(&json!({"x": 1})).unwrap();
-    let r1 = client.send_message("custom", p1).await.unwrap();
-    let s1 = js_sys::JSON::stringify(&r1).unwrap().as_string().unwrap();
+    let p1 = serde_wasm_bindgen::to_value(&json!({"x": 1})).expect("should succeed");
+    let r1 = client
+        .send_message("custom", p1)
+        .await
+        .expect("should succeed");
+    let s1 = js_sys::JSON::stringify(&r1)
+        .expect("should succeed")
+        .as_string()
+        .expect("should succeed");
     assert!(s1.contains("generic_response"));
 
-    let p2 = serde_wasm_bindgen::to_value(&json!({"note": "n"})).unwrap();
-    let r2 = client.send_message("notification", p2).await.unwrap();
-    let s2 = js_sys::JSON::stringify(&r2).unwrap().as_string().unwrap();
+    let p2 = serde_wasm_bindgen::to_value(&json!({"note": "n"})).expect("should succeed");
+    let r2 = client
+        .send_message("notification", p2)
+        .await
+        .expect("should succeed");
+    let s2 = js_sys::JSON::stringify(&r2)
+        .expect("should succeed")
+        .as_string()
+        .expect("should succeed");
     assert!(s2.contains("generic_response"));
 }
 
@@ -188,15 +212,27 @@ async fn send_message_invalid_payload_errors() {
 #[tokio::test]
 async fn send_message_resource_and_completion_routes() {
     let mut client = McpClient::new();
-    let p = serde_wasm_bindgen::to_value(&json!({"uri": "file:///a"})).unwrap();
-    let r = client.send_message("resource_request", p).await.unwrap();
-    let txt = js_sys::JSON::stringify(&r).unwrap().as_string().unwrap();
+    let p = serde_wasm_bindgen::to_value(&json!({"uri": "file:///a"})).expect("should succeed");
+    let r = client
+        .send_message("resource_request", p)
+        .await
+        .expect("should succeed");
+    let txt = js_sys::JSON::stringify(&r)
+        .expect("should succeed")
+        .as_string()
+        .expect("should succeed");
     assert!(txt.contains("Processed"));
 
     let mut c2 = McpClient::new();
-    let p2 = serde_wasm_bindgen::to_value(&json!({"prompt": "p"})).unwrap();
-    let r2 = c2.send_message("completion_request", p2).await.unwrap();
-    let txt2 = js_sys::JSON::stringify(&r2).unwrap().as_string().unwrap();
+    let p2 = serde_wasm_bindgen::to_value(&json!({"prompt": "p"})).expect("should succeed");
+    let r2 = c2
+        .send_message("completion_request", p2)
+        .await
+        .expect("should succeed");
+    let txt2 = js_sys::JSON::stringify(&r2)
+        .expect("should succeed")
+        .as_string()
+        .expect("should succeed");
     assert!(txt2.contains("Processed"));
 }
 
@@ -204,13 +240,16 @@ async fn send_message_resource_and_completion_routes() {
 #[tokio::test]
 async fn send_message_health_and_context_update() {
     let mut client = McpClient::new();
-    let p = serde_wasm_bindgen::to_value(&json!({})).unwrap();
-    let r = client.send_message("health_check", p).await.unwrap();
+    let p = serde_wasm_bindgen::to_value(&json!({})).expect("should succeed");
+    let r = client
+        .send_message("health_check", p)
+        .await
+        .expect("should succeed");
     assert!(
         js_sys::JSON::stringify(&r)
-            .unwrap()
+            .expect("should succeed")
             .as_string()
-            .unwrap()
+            .expect("should succeed")
             .contains("generic_response")
     );
 
@@ -218,15 +257,15 @@ async fn send_message_health_and_context_update() {
     let r2 = c2
         .send_message(
             "context_update",
-            serde_wasm_bindgen::to_value(&json!({"ctx": 1})).unwrap(),
+            serde_wasm_bindgen::to_value(&json!({"ctx": 1})).expect("should succeed"),
         )
         .await
-        .unwrap();
+        .expect("should succeed");
     assert!(
         js_sys::JSON::stringify(&r2)
-            .unwrap()
+            .expect("should succeed")
             .as_string()
-            .unwrap()
+            .expect("should succeed")
             .contains("generic_response")
     );
 }

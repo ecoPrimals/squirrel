@@ -500,7 +500,7 @@ mod tests {
 
         let result = registry.discover_by_capability("ai").await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 0);
+        assert_eq!(result.expect("should succeed").len(), 0);
     }
 
     #[test]
@@ -534,17 +534,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_socket_registry_discover() {
-        let mut file = tempfile::NamedTempFile::new().unwrap();
+        let mut file = tempfile::NamedTempFile::new().expect("should succeed");
         file.write_all(
             br#"{"ai": "/run/user/1000/squirrel.sock", "storage": "/run/user/1000/nestgate.sock"}"#,
         )
-        .unwrap();
-        file.flush().unwrap();
+        .expect("should succeed");
+        file.flush().expect("should succeed");
 
         let registry = RegistryDiscovery::socket_registry_with_path(file.path());
         let result = registry.discover_by_capability("ai").await;
         assert!(result.is_ok());
-        let services = result.unwrap();
+        let services = result.expect("should succeed");
         assert_eq!(services.len(), 1);
         assert_eq!(services[0].endpoint, "unix:///run/user/1000/squirrel.sock");
         assert_eq!(services[0].discovery_method, "socket_registry");

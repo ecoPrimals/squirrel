@@ -866,7 +866,7 @@ mod tests {
         system
             .shutdown(ShutdownPhase::CleanupResources)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(system.is_shutdown_complete().await);
     }
 }

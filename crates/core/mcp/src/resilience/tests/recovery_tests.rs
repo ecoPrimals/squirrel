@@ -69,7 +69,7 @@ fn test_recovery_strategy_minor_success() {
     });
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 42);
+    assert_eq!(result.expect("should succeed"), 42);
     
     // Check metrics
     let metrics = recovery.get_metrics();
@@ -96,7 +96,7 @@ fn test_recovery_strategy_moderate_success() {
     });
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "API recovered".to_string());
+    assert_eq!(result.expect("should succeed"), "API recovered".to_string());
     
     // Check metrics
     let metrics = recovery.get_metrics();
@@ -145,7 +145,7 @@ fn test_recovery_strategy_critical_not_attempted() {
     // Recovery should not be attempted
     let result: std::result::Result<String, RecoveryError> = recovery.handle_failure(failure, || {
         // This shouldn't be called
-        panic!("Recovery action should not be called for critical failures by default");
+        unreachable!("Recovery action should not be called for critical failures by default");
     });
     
     assert!(matches!(result, Err(RecoveryError::CriticalFailureNoRecovery)));
@@ -216,7 +216,7 @@ fn test_recovery_strategy_max_minor_attempts() {
     };
     
     let result2: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure2, || {
-        panic!("This should not be called");
+        unreachable!("This should not be called");
     });
     
     assert!(matches!(result2, Err(RecoveryError::MaxAttemptsExceeded { .. })));
@@ -252,7 +252,7 @@ fn test_recovery_strategy_max_moderate_attempts() {
     };
     
     let result2: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure2, || {
-        panic!("This should not be called");
+        unreachable!("This should not be called");
     });
     
     assert!(matches!(result2, Err(RecoveryError::MaxAttemptsExceeded { .. })));
@@ -394,7 +394,7 @@ fn test_recovery_strategy_metrics_accumulation() {
         // Mock a successful recovery action
         let counter_clone = counter.clone();
         let _: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure.clone(), move || {
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             Ok::<(), Box<dyn StdError + Send + Sync>>(())
         });
@@ -421,7 +421,7 @@ fn test_recovery_strategy_metrics_accumulation() {
     assert_eq!(metrics.recoveries_by_severity[2], 1); // Severe (1 success)
     
     // Verify the counter was incremented 3 times
-    assert_eq!(*counter.lock().unwrap(), 3);
+    assert_eq!(*counter.lock().expect("should succeed"), 3);
     
     // Now reset metrics
     recovery.reset_metrics();
@@ -463,7 +463,7 @@ fn test_recovery_strategy_max_severe_attempts() {
     };
     
     let result2: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure2, || {
-        panic!("This should not be called");
+        unreachable!("This should not be called");
     });
     
     assert!(matches!(result2, Err(RecoveryError::MaxAttemptsExceeded { .. })));
@@ -492,14 +492,14 @@ fn test_recovery_real_world_scenario() {
     // First recovery attempt
     let db_connection_clone = db_connection.clone();
     let result1: std::result::Result<String, RecoveryError> = recovery.handle_failure(failure.clone(), move || {
-        let mut conn = db_connection_clone.lock().unwrap();
+        let mut conn = db_connection_clone.lock().expect("should succeed");
         *conn = true; // Set to connected
         Ok::<_, Box<dyn StdError + Send + Sync>>("Connection restored".to_string())
     });
     
     assert!(result1.is_ok());
-    assert_eq!(result1.unwrap(), "Connection restored".to_string());
-    assert!(*db_connection.lock().unwrap()); // Should be connected now
+    assert_eq!(result1.expect("should succeed"), "Connection restored".to_string());
+    assert!(*db_connection.lock().expect("should succeed")); // Should be connected now
     
     // Check metrics after successful recovery
     let metrics = recovery.get_metrics();

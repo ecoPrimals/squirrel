@@ -391,8 +391,8 @@ mod tests {
     #[test]
     fn test_serde_roundtrip() {
         let original = SmartString::new("test value");
-        let json = serde_json::to_string(&original).unwrap();
-        let deserialized: SmartString = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&original).expect("should succeed");
+        let deserialized: SmartString = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(&*original, &*deserialized);
     }
@@ -423,7 +423,7 @@ mod tests {
                 interned.is_some(),
                 "Semantic method name '{name}' should be pre-interned"
             );
-            assert_eq!(&*interned.unwrap(), *name);
+            assert_eq!(&*interned.expect("should succeed"), *name);
         }
     }
 
@@ -443,7 +443,7 @@ mod tests {
                 interned.is_some(),
                 "Capability domain '{domain}' should be pre-interned"
             );
-            assert_eq!(&*interned.unwrap(), *domain);
+            assert_eq!(&*interned.expect("should succeed"), *domain);
         }
     }
 
@@ -460,7 +460,7 @@ mod tests {
         for ep in &endpoints {
             let interned = intern::get_common(ep);
             assert!(interned.is_some(), "Endpoint '{ep}' should be pre-interned");
-            assert_eq!(&*interned.unwrap(), *ep);
+            assert_eq!(&*interned.expect("should succeed"), *ep);
         }
     }
 
@@ -479,7 +479,7 @@ mod tests {
                 interned.is_some(),
                 "Metric '{metric}' should be pre-interned"
             );
-            assert_eq!(&*interned.unwrap(), *metric);
+            assert_eq!(&*interned.expect("should succeed"), *metric);
         }
     }
 
@@ -583,17 +583,17 @@ mod tests {
     #[test]
     fn test_smart_string_serde_empty() {
         let original = SmartString::new("");
-        let json = serde_json::to_string(&original).unwrap();
+        let json = serde_json::to_string(&original).expect("should succeed");
         assert_eq!(json, "\"\"");
-        let deserialized: SmartString = serde_json::from_str(&json).unwrap();
+        let deserialized: SmartString = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(&*deserialized, "");
     }
 
     #[test]
     fn test_smart_string_serde_special_chars() {
         let original = SmartString::new("hello \"world\"\nnewline");
-        let json = serde_json::to_string(&original).unwrap();
-        let deserialized: SmartString = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&original).expect("should succeed");
+        let deserialized: SmartString = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(&*original, &*deserialized);
     }
 
@@ -615,8 +615,8 @@ mod tests {
     #[test]
     fn test_interned_pointer_identity_for_preinterned() {
         // Two calls to get_common for the same key must return same Arc pointer
-        let a = intern::get_common("squirrel").unwrap();
-        let b = intern::get_common("squirrel").unwrap();
+        let a = intern::get_common("squirrel").expect("should succeed");
+        let b = intern::get_common("squirrel").expect("should succeed");
         assert!(
             Arc::ptr_eq(&a, &b),
             "Pre-interned strings must share the same Arc"

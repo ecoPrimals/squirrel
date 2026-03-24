@@ -496,7 +496,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_tools() {
         let mut handler = OperationHandler::new();
-        let tools = handler.list_tools().await.unwrap();
+        let tools = handler.list_tools().await.expect("should succeed");
 
         assert_eq!(tools.len(), 2);
         assert_eq!(tools[0].name, "calculator");
@@ -509,12 +509,18 @@ mod tests {
 
         // Test addition
         let input = json!({"operation": "add", "operands": [1, 2, 3]});
-        let result = handler.execute_tool("calculator", input).await.unwrap();
+        let result = handler
+            .execute_tool("calculator", input)
+            .await
+            .expect("should succeed");
         assert_eq!(result["result"], 6.0);
 
         // Test multiplication
         let input = json!({"operation": "multiply", "operands": [2, 3, 4]});
-        let result = handler.execute_tool("calculator", input).await.unwrap();
+        let result = handler
+            .execute_tool("calculator", input)
+            .await
+            .expect("should succeed");
         assert_eq!(result["result"], 24.0);
 
         // Test division by zero
@@ -529,17 +535,26 @@ mod tests {
 
         // Test uppercase
         let input = json!({"text": "hello world", "operation": "uppercase"});
-        let result = handler.execute_tool("text_processor", input).await.unwrap();
+        let result = handler
+            .execute_tool("text_processor", input)
+            .await
+            .expect("should succeed");
         assert_eq!(result["processed_text"], "HELLO WORLD");
 
         // Test lowercase
         let input = json!({"text": "HELLO WORLD", "operation": "lowercase"});
-        let result = handler.execute_tool("text_processor", input).await.unwrap();
+        let result = handler
+            .execute_tool("text_processor", input)
+            .await
+            .expect("should succeed");
         assert_eq!(result["processed_text"], "hello world");
 
         // Test reverse
         let input = json!({"text": "hello", "operation": "reverse"});
-        let result = handler.execute_tool("text_processor", input).await.unwrap();
+        let result = handler
+            .execute_tool("text_processor", input)
+            .await
+            .expect("should succeed");
         assert_eq!(result["processed_text"], "olleh");
     }
 
@@ -554,7 +569,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_resources() {
         let mut handler = OperationHandler::new();
-        let resources = handler.list_resources().await.unwrap();
+        let resources = handler.list_resources().await.expect("should succeed");
 
         assert_eq!(resources.len(), 2);
         assert_eq!(resources[0].name, "Application Configuration");
@@ -569,12 +584,15 @@ mod tests {
         let content = handler
             .get_resource("file:///config/app.json")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(content.get("content").is_some());
         assert_eq!(content["content_type"], "application/json");
 
         // Test getting log resource
-        let content = handler.get_resource("file:///logs/app.log").await.unwrap();
+        let content = handler
+            .get_resource("file:///logs/app.log")
+            .await
+            .expect("should succeed");
         assert!(content.get("content").is_some());
         assert_eq!(content["content_type"], "text/plain");
 
@@ -586,7 +604,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_prompts() {
         let mut handler = OperationHandler::new();
-        let prompts = handler.list_prompts().await.unwrap();
+        let prompts = handler.list_prompts().await.expect("should succeed");
 
         assert_eq!(prompts.len(), 2);
         assert_eq!(prompts[0].name, "summarize");
@@ -599,13 +617,19 @@ mod tests {
 
         // Test summarize prompt
         let params = json!({"text": "This is a test text"});
-        let prompt = handler.get_prompt("summarize", params).await.unwrap();
+        let prompt = handler
+            .get_prompt("summarize", params)
+            .await
+            .expect("should succeed");
         assert_eq!(prompt.name, "summarize");
         assert!(prompt.template.contains("This is a test text"));
 
         // Test code review prompt
         let params = json!({"code": "fn main() {}", "language": "rust"});
-        let prompt = handler.get_prompt("code_review", params).await.unwrap();
+        let prompt = handler
+            .get_prompt("code_review", params)
+            .await
+            .expect("should succeed");
         assert_eq!(prompt.name, "code_review");
         assert!(prompt.template.contains("fn main() {}"));
         assert!(prompt.template.contains("rust"));

@@ -86,8 +86,8 @@ fn test_compute_provider_serialization() {
     };
 
     let provider = ComputeProvider::from_discovered_primal(&primal);
-    let json = serde_json::to_string(&provider).unwrap();
-    let deserialized: ComputeProvider = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&provider).expect("should succeed");
+    let deserialized: ComputeProvider = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(provider.provider_id, deserialized.provider_id);
     assert_eq!(provider.metadata.name, deserialized.metadata.name);

@@ -456,7 +456,7 @@ mod tests {
         });
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("should succeed"), 42);
         assert_eq!(recovery.metrics.successful_recoveries, 1);
         assert_eq!(recovery.metrics.failed_recoveries, 0);
         assert_eq!(recovery.metrics.recoveries_by_severity[0], 1); // Minor

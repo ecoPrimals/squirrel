@@ -283,9 +283,9 @@ mod tests {
             "p1".to_string(),
             Box::new(MockPlugin::new("p1", PluginStatus::Active, fail.clone())),
         )
-        .unwrap();
-        assert!(mgr.has_plugin("p1").unwrap());
-        assert_eq!(mgr.list_plugins().unwrap().len(), 1);
+        .expect("should succeed");
+        assert!(mgr.has_plugin("p1").expect("should succeed"));
+        assert_eq!(mgr.list_plugins().expect("should succeed").len(), 1);
 
         let err = mgr.register_plugin(
             "p1".to_string(),
@@ -302,7 +302,7 @@ mod tests {
             "u".to_string(),
             Box::new(MockPlugin::new("u", PluginStatus::Uninitialized, fail)),
         )
-        .unwrap();
+        .expect("should succeed");
         let mut mgr = mgr;
         let err = mgr.start_all().unwrap_err();
         assert!(matches!(err, PluginError::InitializationError { .. }));
@@ -316,11 +316,11 @@ mod tests {
             "a".to_string(),
             Box::new(MockPlugin::new("a", PluginStatus::Active, fail)),
         )
-        .unwrap();
+        .expect("should succeed");
         let mut mgr = mgr;
-        mgr.stop_all().unwrap();
-        mgr.unregister_plugin("a").unwrap();
-        assert!(!mgr.has_plugin("a").unwrap());
+        mgr.stop_all().expect("should succeed");
+        mgr.unregister_plugin("a").expect("should succeed");
+        assert!(!mgr.has_plugin("a").expect("should succeed"));
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -332,7 +332,7 @@ mod tests {
             "bad".to_string(),
             Box::new(MockPlugin::new("bad", PluginStatus::Active, fail.clone())),
         )
-        .unwrap();
+        .expect("should succeed");
         let err = mgr.unregister_plugin("bad").unwrap_err();
         assert!(matches!(err, PluginError::InternalError { .. }));
     }
@@ -346,7 +346,7 @@ mod tests {
             "bad".to_string(),
             Box::new(MockPlugin::new("bad", PluginStatus::Active, fail.clone())),
         )
-        .unwrap();
+        .expect("should succeed");
         let mut mgr = mgr;
         let err = mgr.stop_all().unwrap_err();
         assert!(matches!(err, PluginError::InternalError { .. }));
@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn utils_validate_plugin_info_ok() {
         let info = sample_info("id", PluginStatus::Active);
-        utils::validate_plugin_info(&info).unwrap();
+        utils::validate_plugin_info(&info).expect("should succeed");
     }
 
     #[test]

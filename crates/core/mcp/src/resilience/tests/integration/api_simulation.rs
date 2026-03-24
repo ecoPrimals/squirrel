@@ -28,7 +28,7 @@ async fn test_real_world_api_resilience() {
     
     let operation = move || {
         let conn_clone = api_conn.clone();
-        let connected = *conn_clone.lock().unwrap();
+        let connected = *conn_clone.lock().expect("should succeed");
         
         if !connected {
             // Simulate connection failure
@@ -49,11 +49,11 @@ async fn test_real_world_api_resilience() {
         let conn_recovery_clone = api_conn_recovery.clone();
         let cache_recovery_clone = api_cache_recovery.clone();
         
-        let mut conn = conn_recovery_clone.lock().unwrap();
+        let mut conn = conn_recovery_clone.lock().expect("should succeed");
         *conn = true; // Connect
         
         // Return from cache while connection is being established
-        let cache = cache_recovery_clone.lock().unwrap();
+        let cache = cache_recovery_clone.lock().expect("should succeed");
         match cache.get("test_data") {
             Some(data) => Ok::<TestString, Box<dyn StdError + Send + Sync>>(TestString(data.clone())),
             None => Err(Box::<dyn StdError + Send + Sync>::from(TestError("No cached data available".to_string())))
@@ -74,14 +74,14 @@ async fn test_real_world_api_resilience() {
     ).await;
     
     assert!(result1.is_ok());
-    assert_eq!(result1.unwrap().0, "Cached API data".to_string());
+    assert_eq!(result1.expect("should succeed").0, "Cached API data".to_string());
     assert!(api_connection.is_connected()); // Should be connected now
     
     // Second call - should use the now-established connection
     let api_conn = api_connection.connected.clone();
     let operation2 = move || {
         let conn_clone = api_conn.clone();
-        let connected = *conn_clone.lock().unwrap();
+        let connected = *conn_clone.lock().expect("should succeed");
         
         if !connected {
             // Simulate connection failure
@@ -100,7 +100,7 @@ async fn test_real_world_api_resilience() {
     ).await;
     
     assert!(result2.is_ok());
-    assert_eq!(result2.unwrap().0, "Fresh API data".to_string());
+    assert_eq!(result2.expect("should succeed").0, "Fresh API data".to_string());
 }
 
 /// Test API connection with intermittent failures
@@ -123,7 +123,7 @@ async fn test_api_intermittent_failures() {
             let conn_clone = conn.clone();
             let counter_clone = counter.clone();
             
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
             // Simulate intermittent connectivity - fail every other attempt
@@ -132,7 +132,7 @@ async fn test_api_intermittent_failures() {
             }
             
             // Even attempts succeed
-            let mut connected = conn_clone.lock().unwrap();
+            let mut connected = conn_clone.lock().expect("should succeed");
             *connected = true;
             
             Ok(TestString("Intermittent success".to_string()))
@@ -140,10 +140,10 @@ async fn test_api_intermittent_failures() {
     ).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().0, "Intermittent success".to_string());
+    assert_eq!(result.expect("should succeed").0, "Intermittent success".to_string());
     
     // Should have been called at least twice due to failures
-    let final_count = *failure_counter.lock().unwrap();
+    let final_count = *failure_counter.lock().expect("should succeed");
     assert!(final_count >= 2, "Expected at least 2 attempts due to intermittent failures, got {}", final_count);
 }
 
@@ -159,7 +159,7 @@ async fn test_api_caching_fallback() {
     
     // Populate cache with some data
     {
-        let mut cache = api_connection.data_cache.lock().unwrap();
+        let mut cache = api_connection.data_cache.lock().expect("should succeed");
         cache.insert("user_profile".to_string(), "Cached user profile data".to_string());
         cache.insert("settings".to_string(), "Cached settings data".to_string());
     }
@@ -176,7 +176,7 @@ async fn test_api_caching_fallback() {
     let cache = api_connection.data_cache.clone();
     let recovery_action = move || {
         let cache_clone = cache.clone();
-        let cache_data = cache_clone.lock().unwrap();
+        let cache_data = cache_clone.lock().expect("should succeed");
         
         if let Some(profile) = cache_data.get("user_profile") {
             Ok::<TestString, Box<dyn StdError + Send + Sync>>(TestString(profile.clone()))
@@ -197,7 +197,7 @@ async fn test_api_caching_fallback() {
     ).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().0, "Cached user profile data".to_string());
+    assert_eq!(result.expect("should succeed").0, "Cached user profile data".to_string());
 }
 
 /// Test API rate limiting with backoff
@@ -216,7 +216,7 @@ async fn test_api_rate_limiting_backoff() {
         retry,
         move || {
             let counter_clone = counter.clone();
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
             if *count <= rate_limit_threshold {
@@ -231,10 +231,10 @@ async fn test_api_rate_limiting_backoff() {
     
     // Should eventually succeed after exponential backoff
     if result.is_ok() {
-        assert_eq!(result.unwrap().0, "Request successful after backoff".to_string());
+        assert_eq!(result.expect("should succeed").0, "Request successful after backoff".to_string());
         
         // Should have made multiple attempts
-        let final_count = *request_counter.lock().unwrap();
+        let final_count = *request_counter.lock().expect("should succeed");
         assert!(final_count > rate_limit_threshold, "Expected more than {} attempts due to rate limiting, got {}", rate_limit_threshold, final_count);
     } else {
         // If it didn't succeed, that's also acceptable for rate limiting test
@@ -253,7 +253,7 @@ async fn test_api_timeout_and_pooling() {
     
     // Initialize connection pool
     {
-        let mut pool = connection_pool.lock().unwrap();
+        let mut pool = connection_pool.lock().expect("should succeed");
         pool.insert("connection_1".to_string(), true);
         pool.insert("connection_2".to_string(), true);
         pool.insert("connection_3".to_string(), false); // One connection is broken
@@ -270,10 +270,10 @@ async fn test_api_timeout_and_pooling() {
             let pool_clone = pool.clone();
             let counter_clone = counter.clone();
             
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
-            let pool_data = pool_clone.lock().unwrap();
+            let pool_data = pool_clone.lock().expect("should succeed");
             
             // Find an available connection
             for (conn_id, available) in pool_data.iter() {
@@ -288,6 +288,6 @@ async fn test_api_timeout_and_pooling() {
     ).await;
     
     assert!(result.is_ok());
-    let response = result.unwrap().0;
+    let response = result.expect("should succeed").0;
     assert!(response.contains("Request completed via connection_"));
 } 

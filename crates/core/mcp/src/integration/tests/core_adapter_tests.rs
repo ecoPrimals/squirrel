@@ -93,13 +93,13 @@ async fn test_handle_state_query() {
     };
     
     // Handle message
-    let response = adapter.handle_message(message).await.unwrap();
+    let response = adapter.handle_message(message).await.expect("should succeed");
     
     // Verify response
     assert_eq!(response.status, ResponseStatus::Success);
     
     // Parse payload back to JSON for verification
-    let payload_json: serde_json::Value = serde_json::from_slice(&response.payload).unwrap();
-    assert_eq!(payload_json.get("version").unwrap(), "1.0.0");
-    assert_eq!(payload_json.get("status").unwrap(), "active");
+    let payload_json: serde_json::Value = serde_json::from_slice(&response.payload).expect("should succeed");
+    assert_eq!(payload_json.get("version").expect("should succeed"), "1.0.0");
+    assert_eq!(payload_json.get("status").expect("should succeed"), "active");
 } 

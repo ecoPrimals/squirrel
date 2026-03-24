@@ -502,7 +502,7 @@ mod tests {
             }).await;
             
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), i);
+            assert_eq!(result.expect("should succeed"), i);
         }
         
         // 4th operation should be rejected
@@ -516,7 +516,7 @@ mod tests {
                 ResilienceError::RateLimit(msg) => {
                     assert!(msg.contains("exceeded"));
                 },
-                _ => panic!("Expected RateLimitError::LimitExceeded, got: {:?}", e),
+                _ => unreachable!("Expected RateLimitError::LimitExceeded, got: {:?}", e),
             }
         }
         
@@ -564,7 +564,7 @@ mod tests {
         }).await;
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 4);
+        assert_eq!(result.expect("should succeed"), 4);
     }
     
     #[tokio::test]
@@ -600,7 +600,7 @@ mod tests {
                     // This is the expected error type
                     println!("Received expected timeout error: {}", e);
                 },
-                _ => panic!("Expected RateLimitError::Timeout, got: {:?}", e),
+                _ => unreachable!("Expected RateLimitError::Timeout, got: {:?}", e),
             }
         }
         
@@ -631,7 +631,7 @@ mod tests {
         }).await;
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 3);
+        assert_eq!(result.expect("should succeed"), 3);
         
         // Should have waited at least the refresh period
         assert!(start.elapsed() >= Duration::from_millis(100));

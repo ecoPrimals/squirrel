@@ -279,7 +279,7 @@ mod tests {
         };
 
         assert_eq!(loc.ip_address, "192.168.1.1");
-        assert_eq!(loc.subnet.unwrap(), "192.168.1.0/24");
+        assert_eq!(loc.subnet.expect("should succeed"), "192.168.1.0/24");
     }
 
     #[test]

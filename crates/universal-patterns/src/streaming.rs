@@ -138,8 +138,8 @@ mod tests {
     #[test]
     fn data_item_roundtrip() {
         let item = StreamItem::data(0, serde_json::json!({"key": "value"}));
-        let line = item.to_ndjson_line().unwrap();
-        let parsed = StreamItem::from_ndjson_line(&line).unwrap();
+        let line = item.to_ndjson_line().expect("should succeed");
+        let parsed = StreamItem::from_ndjson_line(&line).expect("should succeed");
         assert_eq!(parsed, item);
         assert_eq!(parsed.kind, StreamKind::Data);
         assert_eq!(parsed.seq, 0);
@@ -166,7 +166,7 @@ mod tests {
         assert!(
             item.payload["error"]
                 .as_str()
-                .unwrap()
+                .expect("should succeed")
                 .contains("disk full")
         );
     }
@@ -186,14 +186,14 @@ mod tests {
     #[test]
     fn ndjson_line_no_trailing_newline() {
         let item = StreamItem::data(0, serde_json::json!(1));
-        let line = item.to_ndjson_line().unwrap();
+        let line = item.to_ndjson_line().expect("should succeed");
         assert!(!line.ends_with('\n'));
     }
 
     #[test]
     fn skip_none_correlation_id() {
         let item = StreamItem::data(0, Value::Null);
-        let json = serde_json::to_string(&item).unwrap();
+        let json = serde_json::to_string(&item).expect("should succeed");
         assert!(!json.contains("correlation_id"));
     }
 }

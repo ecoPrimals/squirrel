@@ -39,7 +39,7 @@ mod tests {
                 assert_eq!(c, code);
                 assert_eq!(m, message);
             }
-            _ => panic!("Expected Error status"),
+            _ => unreachable!("Expected Error status"),
         }
         assert_eq!(response.data, serde_json::Value::Null);
     }
@@ -75,7 +75,7 @@ mod tests {
                 assert_eq!(specialties.len(), 2);
                 assert!(specialties.contains(&"gpu".to_string()));
             }
-            _ => panic!("Wrong category type"),
+            _ => unreachable!("Wrong category type"),
         }
     }
 
@@ -89,7 +89,7 @@ mod tests {
             ServiceCategory::Storage { types } => {
                 assert_eq!(types.len(), 2);
             }
-            _ => panic!("Wrong category type"),
+            _ => unreachable!("Wrong category type"),
         }
     }
 
@@ -103,7 +103,7 @@ mod tests {
             ServiceCategory::Security { domains } => {
                 assert_eq!(domains.len(), 2);
             }
-            _ => panic!("Wrong category type"),
+            _ => unreachable!("Wrong category type"),
         }
     }
 
@@ -117,7 +117,7 @@ mod tests {
             ServiceCategory::Orchestration { scopes } => {
                 assert_eq!(scopes.len(), 2);
             }
-            _ => panic!("Wrong category type"),
+            _ => unreachable!("Wrong category type"),
         }
     }
 
@@ -131,7 +131,7 @@ mod tests {
             ServiceCategory::Intelligence { modalities } => {
                 assert_eq!(modalities.len(), 2);
             }
-            _ => panic!("Wrong category type"),
+            _ => unreachable!("Wrong category type"),
         }
     }
 
@@ -150,7 +150,7 @@ mod tests {
                 assert_eq!(c, "ml_ops");
                 assert_eq!(subcategories.len(), 2);
             }
-            _ => panic!("Wrong category type"),
+            _ => unreachable!("Wrong category type"),
         }
     }
 
@@ -172,7 +172,7 @@ mod tests {
                 assert_eq!(compliance.len(), 2);
                 assert_eq!(trust_levels.len(), 1);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -194,7 +194,7 @@ mod tests {
                 assert_eq!(consistency, "eventual");
                 assert_eq!(fault_tolerance, "high");
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -220,7 +220,7 @@ mod tests {
                 assert_eq!(consistency, "strong");
                 assert_eq!(durability, "persistent");
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -245,7 +245,7 @@ mod tests {
                 assert!(resources.contains_key("cpu"));
                 assert_eq!(constraints.len(), 1);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -267,7 +267,7 @@ mod tests {
                 assert_eq!(tasks.len(), 2);
                 assert_eq!(interfaces.len(), 2);
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -292,7 +292,7 @@ mod tests {
                 assert_eq!(cap, "device_management");
                 assert!(parameters.contains_key("param1"));
             }
-            _ => panic!("Wrong capability type"),
+            _ => unreachable!("Wrong capability type"),
         }
     }
 
@@ -428,7 +428,7 @@ mod tests {
                 assert_eq!(code, "E001");
                 assert_eq!(message, "Error occurred");
             }
-            _ => panic!("Wrong status type"),
+            _ => unreachable!("Wrong status type"),
         }
     }
 
@@ -444,7 +444,7 @@ mod tests {
                 assert_eq!(completed, 50);
                 assert_eq!(total, 100);
             }
-            _ => panic!("Wrong status type"),
+            _ => unreachable!("Wrong status type"),
         }
     }
 
@@ -481,7 +481,7 @@ mod tests {
         let response =
             UniversalResponse::success("test-123".to_string(), serde_json::json!({"data": "test"}));
 
-        let json = serde_json::to_string(&response).unwrap();
+        let json = serde_json::to_string(&response).expect("should succeed");
         assert!(json.contains("test-123"));
         assert!(json.contains("Success"));
     }
@@ -497,7 +497,7 @@ mod tests {
             timestamp: Utc::now(),
         };
 
-        let json = serde_json::to_string(&request).unwrap();
+        let json = serde_json::to_string(&request).expect("should succeed");
         assert!(json.contains("req-123"));
         assert!(json.contains("test"));
     }

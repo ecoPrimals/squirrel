@@ -253,7 +253,7 @@ mod tests {
             params: HashMap::new(),
         };
 
-        let response = bridge.generate_text(request).await.unwrap();
+        let response = bridge.generate_text(request).await.expect("should succeed");
         assert!(response.text.contains("Mock response"));
         assert_eq!(response.provider_id, "test-provider");
     }

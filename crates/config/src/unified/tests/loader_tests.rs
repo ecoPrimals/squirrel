@@ -143,7 +143,7 @@ level = "info"
         let config = loader.build();
         
         assert!(config.is_ok(), "Should use defaults when env vars missing");
-        let cfg = config.unwrap();
+        let cfg = config.expect("should succeed");
         
         // Verify defaults are present
         assert!(!cfg.network.bind_address.is_empty(), "Should have default bind address");
@@ -454,11 +454,11 @@ network:
 
         let loader = loader
             .with_platform_detection()
-            .unwrap()
+            .expect("should succeed")
             .validate()
-            .unwrap();
+            .expect("should succeed");
 
-        let loaded = loader.build_with_sources().unwrap();
+        let loaded = loader.build_with_sources().expect("should succeed");
         
         assert!(loaded.sources().len() >= 2, "Should track multiple sources");
         assert!(loaded.has_source("secure_defaults"));
@@ -469,7 +469,7 @@ network:
         let mut loader = ConfigLoader::new();
         loader.config.security.enabled = false;
         
-        let loaded = loader.validate().unwrap().build_with_sources().unwrap();
+        let loaded = loader.validate().expect("should succeed").build_with_sources().expect("should succeed");
         
         // Test all LoadedConfig methods
         assert!(!loaded.config().network.bind_address.is_empty());
@@ -486,11 +486,11 @@ network:
         
         assert!(result.is_ok(), "Builder pattern should chain successfully");
         
-        let loader = result.unwrap();
+        let loader = result.expect("should succeed");
         let validated = loader.validate();
         assert!(validated.is_ok(), "Validation should succeed");
         
-        let built = validated.unwrap().build_with_sources();
+        let built = validated.expect("should succeed").build_with_sources();
         assert!(built.is_ok(), "Build should succeed");
     }
 
@@ -518,7 +518,7 @@ network:
     #[test]
     fn test_merge_config_preserves_defaults() {
         let loader = ConfigLoader::new();
-        let config1 = loader.build().unwrap();
+        let config1 = loader.build().expect("should succeed");
         
         // Verify defaults are present
         assert!(config1.network.port > 0, "Default port should be set");
@@ -558,7 +558,7 @@ port = 9090
             .and_then(|l| l.with_file_if_exists(&path2));
         
         assert!(result.is_ok(), "Should load from multiple files");
-        let loader = result.unwrap();
+        let loader = result.expect("should succeed");
         assert!(loader.sources_loaded.len() >= 3, "Should track all sources");
     }
 

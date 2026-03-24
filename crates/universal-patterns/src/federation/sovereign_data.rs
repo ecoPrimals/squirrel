@@ -624,7 +624,7 @@ mod tests {
             modified_at: Utc::now(),
         };
 
-        let data_id = manager.store_data(data).await.unwrap();
+        let data_id = manager.store_data(data).await.expect("should succeed");
         assert!(!data_id.is_nil());
     }
 
@@ -633,18 +633,21 @@ mod tests {
         let key_manager = DefaultEncryptionKeyManager::new();
 
         let data = b"sensitive data";
-        let key = key_manager.generate_key("AES-256-GCM").await.unwrap();
+        let key = key_manager
+            .generate_key("AES-256-GCM")
+            .await
+            .expect("should succeed");
 
         let encrypted = key_manager
             .encrypt(data, &key, "AES-256-GCM")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_ne!(encrypted, data);
 
         let decrypted = key_manager
             .decrypt(&encrypted, &key, "AES-256-GCM")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(decrypted, data);
     }
 
@@ -657,33 +660,33 @@ mod tests {
         let has_permission = access_control
             .check_permission("user1", data_id, DataAccessType::Read)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!has_permission);
 
         // Grant permission
         access_control
             .grant_permission("user1", data_id, DataAccessType::Read)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Check permission again
         let has_permission = access_control
             .check_permission("user1", data_id, DataAccessType::Read)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(has_permission);
 
         // Revoke permission
         access_control
             .revoke_permission("user1", data_id, DataAccessType::Read)
             .await
-            .unwrap();
+            .expect("should succeed");
 
         // Check permission after revocation
         let has_permission = access_control
             .check_permission("user1", data_id, DataAccessType::Read)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!has_permission);
     }
 
@@ -713,7 +716,7 @@ mod tests {
             FederationError::ResourceLimitExceeded(msg) => {
                 assert!(msg.contains("exceeds limit"));
             }
-            _ => panic!("Expected ResourceLimitExceeded error"),
+            _ => unreachable!("Expected ResourceLimitExceeded error"),
         }
     }
 }

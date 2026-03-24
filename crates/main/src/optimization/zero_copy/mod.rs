@@ -38,7 +38,7 @@
 //!
 //! // String interning for common values
 //! let strings = StaticStrings::new();
-//! let cached = strings.get("openai").unwrap(); // Arc<str>
+//! let cached = strings.get("openai").expect("example"); // Arc<str>
 //!
 //! // Performance metrics
 //! let metrics = Arc::new(ZeroCopyMetrics::new());

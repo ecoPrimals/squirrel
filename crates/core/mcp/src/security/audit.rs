@@ -93,8 +93,8 @@ mod tests {
             status: "ok".to_string(),
             message: "m".to_string(),
         };
-        let json = serde_json::to_string(&e).unwrap();
-        let back: AuditEvent = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&e).expect("audit event serializes");
+        let back: AuditEvent = serde_json::from_str(&json).expect("audit event deserializes");
         assert_eq!(back.id, e.id);
         assert_eq!(back.event_type, e.event_type);
         assert_eq!(back.resource_id, e.resource_id);

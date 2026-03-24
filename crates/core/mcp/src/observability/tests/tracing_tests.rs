@@ -16,14 +16,14 @@ use crate::observability::ObservabilityResult;
 #[test]
 fn test_basic_span_creation() {
     let tracer = Tracer::new();
-    tracer.initialize().unwrap();
+    tracer.initialize().expect("should succeed");
     
     let span_result = tracer.start_span("test_operation");
     assert!(span_result.is_ok());
     
-    let span = span_result.unwrap();
+    let span = span_result.expect("should succeed");
     {
-        let span_guard = span.lock().unwrap();
+        let span_guard = span.lock().expect("should succeed");
         assert_eq!(span_guard.span().name(), "test_operation");
         assert!(span_guard.span().parent_id().is_none());
         assert_eq!(span_guard.span().status(), SpanStatus::Running);
@@ -37,13 +37,13 @@ fn test_basic_span_creation() {
 #[test]
 fn test_span_attributes() {
     let tracer = Tracer::new();
-    tracer.initialize().unwrap();
+    tracer.initialize().expect("should succeed");
     
-    let span = tracer.start_span("attribute_test").unwrap();
+    let span = tracer.start_span("attribute_test").expect("should succeed");
     
     // Add attributes to the span
     {
-        let mut span_guard = span.lock().unwrap();
+        let mut span_guard = span.lock().expect("should succeed");
         span_guard.add_attribute("service.name", "test-service");
         span_guard.add_attribute("operation.type", "query");
         span_guard.add_attribute("user.id", "12345");
@@ -64,8 +64,8 @@ fn test_span_attributes() {
 #[test]
 fn test_span_events() {
     let tracer = Tracer::new();
-    let span = tracer.start_span("test_span").unwrap();
-    let mut span_guard = span.lock().unwrap();
+    let span = tracer.start_span("test_span").expect("should succeed");
+    let mut span_guard = span.lock().expect("should succeed");
 
     // Add events
     let mut empty_attrs = HashMap::new();
@@ -85,22 +85,22 @@ fn test_span_events() {
 #[test]
 fn test_span_hierarchy() {
     let tracer = Tracer::new();
-    tracer.initialize().unwrap();
+    tracer.initialize().expect("should succeed");
     
     // Create parent span
-    let parent_span = tracer.start_span("parent_operation").unwrap();
+    let parent_span = tracer.start_span("parent_operation").expect("should succeed");
     let parent_id = {
-        let parent_guard = parent_span.lock().unwrap();
+        let parent_guard = parent_span.lock().expect("should succeed");
         parent_guard.span().id().to_string()
     };
     
     // Create child span
-    let child_span = tracer.start_span_with_parent("child_operation", Some(parent_span.clone())).unwrap();
+    let child_span = tracer.start_span_with_parent("child_operation", Some(parent_span.clone())).expect("should succeed");
     
     // Verify parent-child relationship
     {
-        let child_guard = child_span.lock().unwrap();
-        let parent_guard = parent_span.lock().unwrap();
+        let child_guard = child_span.lock().expect("should succeed");
+        let parent_guard = parent_span.lock().expect("should succeed");
         
         assert_eq!(child_guard.span().name(), "child_operation");
         assert_eq!(child_guard.span().parent_id(), Some(parent_id.as_str()));
@@ -118,13 +118,13 @@ fn test_span_hierarchy() {
 #[test]
 fn test_span_status() {
     let tracer = Tracer::new();
-    tracer.initialize().unwrap();
+    tracer.initialize().expect("should succeed");
     
     // Create a span that will succeed
-    let success_span = tracer.start_span("success_operation").unwrap();
+    let success_span = tracer.start_span("success_operation").expect("should succeed");
     
     // Create a span that will fail
-    let error_span = tracer.start_span("error_operation").unwrap();
+    let error_span = tracer.start_span("error_operation").expect("should succeed");
     
     // End spans with different statuses
     {
@@ -134,7 +134,7 @@ fn test_span_status() {
     
     {
         let span = Arc::clone(&error_span);
-        let mut guard = span.lock().unwrap();
+        let mut guard = span.lock().expect("should succeed");
         guard.add_attribute("error.message", "Something went wrong");
         // We can't call end_with_error() directly on the guard because it requires ownership
         // We'll end the span outside this block
@@ -154,20 +154,20 @@ fn test_span_status() {
 #[test]
 fn test_span_lifecycle() {
     let tracer = Tracer::new();
-    tracer.initialize().unwrap();
+    tracer.initialize().expect("should succeed");
     
     // Start time tracking
     let start = std::time::Instant::now();
     
     // Create span
-    let span = tracer.start_span("timed_operation").unwrap();
+    let span = tracer.start_span("timed_operation").expect("should succeed");
     
     // Simulate work
     thread::sleep(Duration::from_millis(50));
     
     // Add some attributes
     {
-        let mut span_guard = span.lock().unwrap();
+        let mut span_guard = span.lock().expect("should succeed");
         span_guard.add_attribute("operation.duration_target", "50ms");
     }
     
@@ -183,26 +183,26 @@ fn test_span_lifecycle() {
 #[test]
 fn test_tracer_configuration() {
     let tracer = Tracer::new();
-    tracer.initialize().unwrap();
+    tracer.initialize().expect("should succeed");
     
     // Get current configuration
-    let current_config = tracer.get_config().unwrap();
+    let current_config = tracer.get_config().expect("should succeed");
     
     // Modify configuration
     let mut new_config = current_config.clone();
     new_config.enabled = false;
     
     // Apply new configuration
-    tracer.set_config(new_config).unwrap();
+    tracer.set_config(new_config).expect("should succeed");
     
     // Verify configuration was applied
-    let retrieved_config = tracer.get_config().unwrap();
+    let retrieved_config = tracer.get_config().expect("should succeed");
     assert_eq!(retrieved_config.enabled, false);
     
     // Re-enable tracing
     let mut enabled_config = retrieved_config.clone();
     enabled_config.enabled = true;
-    tracer.set_config(enabled_config).unwrap();
+    tracer.set_config(enabled_config).expect("should succeed");
     
     // Verify we can create spans again
     assert!(tracer.start_span("test").is_ok());
@@ -220,11 +220,11 @@ async fn test_concurrent_spans() {
         let tracer_clone = Arc::clone(&tracer);
         let handle = tokio::spawn(async move {
             let span_name = format!("concurrent_span_{}", i);
-            let span = tracer_clone.start_span(&span_name).unwrap();
+            let span = tracer_clone.start_span(&span_name).expect("should succeed");
             
             // Add unique attributes
             {
-                let mut span_guard = span.lock().unwrap();
+                let mut span_guard = span.lock().expect("should succeed");
                 span_guard.add_attribute("thread_id", i.to_string());
             }
             
@@ -243,12 +243,12 @@ async fn test_concurrent_spans() {
     // Wait for all spans to complete
     let mut span_names = vec![];
     for handle in handles {
-        span_names.push(handle.await.unwrap());
+        span_names.push(handle.await.expect("should succeed"));
     }
     
     // Verify all spans were created
     for name in span_names {
-        let spans = tracer.get_trace_spans("").unwrap();
+        let spans = tracer.get_trace_spans("").expect("should succeed");
         assert!(spans.iter().any(|span| span.name() == name));
     }
 }
@@ -257,7 +257,7 @@ async fn test_concurrent_spans() {
 #[test]
 fn test_tracer_error_handling() {
     let tracer = Tracer::new();
-    tracer.initialize().unwrap();
+    tracer.initialize().expect("should succeed");
     
     // Test invalid span name (empty)
     let result = tracer.start_span("");
@@ -274,21 +274,21 @@ fn test_current_span() {
     let tracer = Tracer::new();
     
     // Initially, there should be no current span
-    let current = tracer.current_span().unwrap();
+    let current = tracer.current_span().expect("should succeed");
     assert!(current.is_none());
     
     // Create a span
-    let span = tracer.start_span("current_test").unwrap();
+    let span = tracer.start_span("current_test").expect("should succeed");
     
     // Now there should be a current span
-    let current = tracer.current_span().unwrap();
+    let current = tracer.current_span().expect("should succeed");
     assert!(current.is_some());
     
     // End the span
     drop(span);
     
     // After ending, the current span should be None again
-    let current = tracer.current_span().unwrap();
+    let current = tracer.current_span().expect("should succeed");
     assert!(current.is_none());
 }
 
@@ -296,21 +296,21 @@ fn test_current_span() {
 #[test]
 fn test_span_context_propagation() {
     let tracer = Tracer::new();
-    tracer.initialize().unwrap();
+    tracer.initialize().expect("should succeed");
     
     // Create a root span
-    let root_span = tracer.start_span("root_span").unwrap();
+    let root_span = tracer.start_span("root_span").expect("should succeed");
     let (trace_id, span_id) = {
-        let root_guard = root_span.lock().unwrap();
+        let root_guard = root_span.lock().expect("should succeed");
         (root_guard.span().trace_id().to_string(), root_guard.span().id().to_string())
     };
     
     // Create a child span manually using the IDs
-    let child_span = tracer.start_span_with_parent("child_span", Some(root_span.clone())).unwrap();
+    let child_span = tracer.start_span_with_parent("child_span", Some(root_span.clone())).expect("should succeed");
     
     // Verify the child inherits context
     {
-        let child_guard = child_span.lock().unwrap();
+        let child_guard = child_span.lock().expect("should succeed");
         
         assert_eq!(child_guard.span().parent_id(), Some(span_id.as_str()));
         assert_eq!(child_guard.span().trace_id(), &trace_id);
@@ -323,29 +323,29 @@ fn test_multiple_traces() {
     let tracer = Tracer::new();
     
     // Create two root spans (different traces)
-    let span1 = tracer.start_span("trace1_root").unwrap();
-    let trace1_id = span1.lock().unwrap().span().trace_id().to_string();
+    let span1 = tracer.start_span("trace1_root").expect("should succeed");
+    let trace1_id = span1.lock().expect("should succeed").span().trace_id().to_string();
     
-    let span2 = tracer.start_span("trace2_root").unwrap();
-    let trace2_id = span2.lock().unwrap().span().trace_id().to_string();
+    let span2 = tracer.start_span("trace2_root").expect("should succeed");
+    let trace2_id = span2.lock().expect("should succeed").span().trace_id().to_string();
     
     // Traces should be different
     assert_ne!(trace1_id, trace2_id);
     
     // Create children in each trace
-    let child1 = tracer.start_span_with_parent("trace1_child", Some(Arc::clone(&span1))).unwrap();
-    let child2 = tracer.start_span_with_parent("trace2_child", Some(Arc::clone(&span2))).unwrap();
+    let child1 = tracer.start_span_with_parent("trace1_child", Some(Arc::clone(&span1))).expect("should succeed");
+    let child2 = tracer.start_span_with_parent("trace2_child", Some(Arc::clone(&span2))).expect("should succeed");
     
     // Verify trace propagation
-    assert_eq!(child1.lock().unwrap().span().trace_id(), trace1_id);
-    assert_eq!(child2.lock().unwrap().span().trace_id(), trace2_id);
+    assert_eq!(child1.lock().expect("should succeed").span().trace_id(), trace1_id);
+    assert_eq!(child2.lock().expect("should succeed").span().trace_id(), trace2_id);
     
     // Get spans for trace1
-    let trace1_spans = tracer.get_trace_spans(&trace1_id).unwrap();
+    let trace1_spans = tracer.get_trace_spans(&trace1_id).expect("should succeed");
     assert_eq!(trace1_spans.len(), 2);
     
     // Get spans for trace2
-    let trace2_spans = tracer.get_trace_spans(&trace2_id).unwrap();
+    let trace2_spans = tracer.get_trace_spans(&trace2_id).expect("should succeed");
     assert_eq!(trace2_spans.len(), 2);
 }
 
@@ -356,18 +356,18 @@ fn test_span_guard_drop() {
     
     // Create a span and capture its ID
     let span_id = {
-        let span = tracer.start_span("drop_test").unwrap();
-        let id = span.lock().unwrap().span().id().to_string();
+        let span = tracer.start_span("drop_test").expect("should succeed");
+        let id = span.lock().expect("should succeed").span().id().to_string();
         
         // Span should be active
-        assert!(tracer.get_span(&id).unwrap().unwrap().is_active());
+        assert!(tracer.get_span(&id).expect("should succeed").expect("should succeed").is_active());
         
         // Let span go out of scope without explicitly ending it
         id
     };
     
     // After drop, the span should be ended
-    let span_info = tracer.get_span(&span_id).unwrap().unwrap();
+    let span_info = tracer.get_span(&span_id).expect("should succeed").expect("should succeed");
     assert!(!span_info.is_active());
 }
 
@@ -378,19 +378,19 @@ fn test_clear_spans() {
     
     // Create several spans
     for i in 0..5 {
-        let span = tracer.start_span(&format!("clear_test_{}", i)).unwrap();
+        let span = tracer.start_span(&format!("clear_test_{}", i)).expect("should succeed");
         drop(span); // End the span by dropping it
     }
     
     // Verify spans were created
-    let trace_spans = tracer.get_trace_spans("").unwrap();
+    let trace_spans = tracer.get_trace_spans("").expect("should succeed");
     assert_eq!(trace_spans.len(), 5);
     
     // Clear all spans
-    tracer.clear_spans().unwrap();
+    tracer.clear_spans().expect("should succeed");
     
     // Verify spans were cleared
-    let trace_spans = tracer.get_trace_spans("").unwrap();
+    let trace_spans = tracer.get_trace_spans("").expect("should succeed");
     assert_eq!(trace_spans.len(), 0);
 }
 
@@ -402,15 +402,15 @@ fn test_tracer_instances() {
     let tracer2 = Tracer::new();
     
     // Initialize the tracers
-    tracer1.initialize().unwrap();
-    tracer2.initialize().unwrap();
+    tracer1.initialize().expect("should succeed");
+    tracer2.initialize().expect("should succeed");
     
     // Both should work independently
-    let span1 = tracer1.start_span("test_from_tracer1").unwrap();
-    let span2 = tracer2.start_span("test_from_tracer2").unwrap();
+    let span1 = tracer1.start_span("test_from_tracer1").expect("should succeed");
+    let span2 = tracer2.start_span("test_from_tracer2").expect("should succeed");
     
     // Both spans should be created successfully
-    assert!(span1.lock().unwrap().span().trace_id() != span2.lock().unwrap().span().trace_id());
+    assert!(span1.lock().expect("should succeed").span().trace_id() != span2.lock().expect("should succeed").span().trace_id());
     
     // End spans
     drop(span1);
@@ -423,29 +423,29 @@ fn test_trace_correlation() {
     let tracer = Tracer::new();
     
     // Create two related spans
-    let span1 = tracer.start_span("span1").unwrap();
-    let span2 = tracer.start_span_with_parent("span2", Some(span1.clone())).unwrap();
+    let span1 = tracer.start_span("span1").expect("should succeed");
+    let span2 = tracer.start_span_with_parent("span2", Some(span1.clone())).expect("should succeed");
     
     // Verify they share the same trace ID
-    assert_eq!(span1.lock().unwrap().span().trace_id(), span2.lock().unwrap().span().trace_id());
+    assert_eq!(span1.lock().expect("should succeed").span().trace_id(), span2.lock().expect("should succeed").span().trace_id());
 }
 
 #[test]
 fn test_span_parent_child() {
     let tracer = Tracer::new();
-    tracer.initialize().unwrap();
+    tracer.initialize().expect("should succeed");
     
     // Create parent span
-    let parent = tracer.start_span("parent").unwrap();
+    let parent = tracer.start_span("parent").expect("should succeed");
     let parent_id = {
-        let parent_guard = parent.lock().unwrap();
+        let parent_guard = parent.lock().expect("should succeed");
         parent_guard.span().id().to_string()
     };
     
     // Create child span
-    let child = tracer.start_span_with_parent("child", Some(parent.clone())).unwrap();
+    let child = tracer.start_span_with_parent("child", Some(parent.clone())).expect("should succeed");
     
     // Verify parent-child relationship
-    let child_guard = child.lock().unwrap();
+    let child_guard = child.lock().expect("should succeed");
     assert_eq!(child_guard.span().parent_id(), Some(parent_id.as_str()));
 } 

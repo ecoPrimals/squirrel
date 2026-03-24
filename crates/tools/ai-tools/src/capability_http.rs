@@ -407,8 +407,8 @@ mod tests {
             headers: vec![("X".to_string(), "Y".to_string())],
             body: Some("\"json\"".to_string()),
         };
-        let j = serde_json::to_string(&req).unwrap();
-        let back: HttpRequest = serde_json::from_str(&j).unwrap();
+        let j = serde_json::to_string(&req).expect("should succeed");
+        let back: HttpRequest = serde_json::from_str(&j).expect("should succeed");
         assert_eq!(back.method, "PUT");
 
         let res = HttpResponse {
@@ -416,8 +416,8 @@ mod tests {
             headers: vec![],
             body: "nf".to_string(),
         };
-        let j2 = serde_json::to_string(&res).unwrap();
-        let back2: HttpResponse = serde_json::from_str(&j2).unwrap();
+        let j2 = serde_json::to_string(&res).expect("should succeed");
+        let back2: HttpResponse = serde_json::from_str(&j2).expect("should succeed");
         assert_eq!(back2.status, 404);
     }
 
@@ -435,22 +435,22 @@ mod tests {
 
     #[tokio::test]
     async fn post_json_adds_content_type_and_round_trips() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let sock = dir.path().join("http.sock");
         let sock_clone = sock.clone();
 
         let server = tokio::spawn(async move {
-            let listener = tokio::net::UnixListener::bind(&sock_clone).unwrap();
-            let (stream, _) = listener.accept().await.unwrap();
+            let listener = tokio::net::UnixListener::bind(&sock_clone).expect("should succeed");
+            let (stream, _) = listener.accept().await.expect("should succeed");
             use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
             let (read_half, mut write_half) = stream.into_split();
             let mut line = String::new();
             let mut reader = BufReader::new(read_half);
-            reader.read_line(&mut line).await.unwrap();
-            let v: serde_json::Value = serde_json::from_str(line.trim()).unwrap();
+            reader.read_line(&mut line).await.expect("should succeed");
+            let v: serde_json::Value = serde_json::from_str(line.trim()).expect("should succeed");
             assert_eq!(v["method"], "http.request");
-            let params = v["params"].as_object().unwrap();
-            let headers = params["headers"].as_array().unwrap();
+            let params = v["params"].as_object().expect("should succeed");
+            let headers = params["headers"].as_array().expect("should succeed");
             assert!(
                 headers
                     .iter()
@@ -469,8 +469,8 @@ mod tests {
             write_half
                 .write_all(body.to_string().as_bytes())
                 .await
-                .unwrap();
-            write_half.write_all(b"\n").await.unwrap();
+                .expect("should succeed");
+            write_half.write_all(b"\n").await.expect("should succeed");
         });
 
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
@@ -481,14 +481,14 @@ mod tests {
             max_retries: 1,
             retry_delay_ms: 1,
         })
-        .unwrap();
+        .expect("should succeed");
 
         let resp = client
             .post_json("https://example.com", vec![], r#"{"a":1}"#)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(resp.status, 200);
         assert_eq!(resp.body, "done");
-        server.await.unwrap();
+        server.await.expect("should succeed");
     }
 }

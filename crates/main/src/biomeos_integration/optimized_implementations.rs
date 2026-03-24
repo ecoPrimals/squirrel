@@ -483,11 +483,11 @@ mod optimized_impl_tests {
         let mut proc = OptimizedMessageProcessor::default();
         let r1 = proc
             .process_intelligence_request("r1", "analysis", &serde_json::json!({}))
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(r1.intelligence_type, "analysis");
         let r2 = proc
             .process_intelligence_request("r2", "other", &serde_json::json!({}))
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(r2.intelligence_type, "other");
         assert!(proc.get_metrics().total_operations >= 2);
     }
@@ -529,11 +529,11 @@ mod optimized_impl_tests {
     async fn process_intelligence_request_async_variants() {
         let v = process_intelligence_request("id", "pattern_recognition", serde_json::json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(v.result.get("patterns").is_some());
         let v2 = process_intelligence_request("id2", "unknown", serde_json::json!({}))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(v2.result.get("error").is_some());
     }
 
@@ -557,7 +557,7 @@ mod optimized_impl_tests {
         let mut proc = OptimizedMessageProcessor::new();
         let msg = ZeroCopyMessage::new(Arc::from("t"), Arc::from("hello"));
         proc.cache_message("k", msg);
-        let cached = proc.get_cached_message("k").unwrap();
+        let cached = proc.get_cached_message("k").expect("should succeed");
         assert_eq!(cached.get_content(), "hello");
     }
 }

@@ -401,7 +401,7 @@ mod tests {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().unwrap();
+            handle.join().expect("should succeed");
         }
 
         // Verify totals: 10 threads * 100 operations = 1000

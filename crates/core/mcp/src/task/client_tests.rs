@@ -89,13 +89,13 @@ fn create_task_params_and_list_tasks_params_default() {
         agent_type: 0,
     };
     if let Some(data) = params.input_data.clone() {
-        req.input_data = serde_json::to_vec(&data).unwrap();
+        req.input_data = serde_json::to_vec(&data).expect("should succeed");
     }
     if let Some(meta) = params.metadata {
-        req.metadata = serde_json::to_vec(&meta).unwrap();
+        req.metadata = serde_json::to_vec(&meta).expect("should succeed");
     }
-    let v = serde_json::to_value(&req).unwrap();
-    let back: CreateTaskRequest = serde_json::from_value(v).unwrap();
+    let v = serde_json::to_value(&req).expect("should succeed");
+    let back: CreateTaskRequest = serde_json::from_value(v).expect("should succeed");
     assert_eq!(back.name, "n");
     assert!(!back.input_data.is_empty());
 }
@@ -113,14 +113,16 @@ fn json_rpc_request_types_roundtrip() {
         agent_id: "a".to_string(),
         agent_type: 2,
     };
-    let v = serde_json::to_value(&ct).unwrap();
-    let ct2: CreateTaskRequest = serde_json::from_value(v).unwrap();
+    let v = serde_json::to_value(&ct).expect("should succeed");
+    let ct2: CreateTaskRequest = serde_json::from_value(v).expect("should succeed");
     assert_eq!(ct2.agent_type, 2);
 
     let gt = GetTaskRequest {
         task_id: "id-1".to_string(),
     };
-    let gt_rt: GetTaskRequest = serde_json::from_value(serde_json::to_value(&gt).unwrap()).unwrap();
+    let gt_rt: GetTaskRequest =
+        serde_json::from_value(serde_json::to_value(&gt).expect("should succeed"))
+            .expect("should succeed");
     assert_eq!(gt_rt.task_id, gt.task_id);
 
     let lt = ListTasksRequest {
@@ -131,7 +133,9 @@ fn json_rpc_request_types_roundtrip() {
         limit: 50,
         offset: 0,
     };
-    let lt2: ListTasksRequest = serde_json::from_value(serde_json::to_value(&lt).unwrap()).unwrap();
+    let lt2: ListTasksRequest =
+        serde_json::from_value(serde_json::to_value(&lt).expect("should succeed"))
+            .expect("should succeed");
     assert_eq!(lt2.limit, 50);
 
     let assign = AssignTaskRequest {
@@ -140,7 +144,8 @@ fn json_rpc_request_types_roundtrip() {
         agent_type: AgentType::AI as i32,
     };
     let _: AssignTaskRequest =
-        serde_json::from_value(serde_json::to_value(&assign).unwrap()).unwrap();
+        serde_json::from_value(serde_json::to_value(&assign).expect("should succeed"))
+            .expect("should succeed");
 
     let rp = ReportProgressRequest {
         task_id: "t".to_string(),
@@ -149,7 +154,8 @@ fn json_rpc_request_types_roundtrip() {
         interim_results: vec![],
     };
     let _: ReportProgressRequest =
-        serde_json::from_value(serde_json::to_value(&rp).unwrap()).unwrap();
+        serde_json::from_value(serde_json::to_value(&rp).expect("should succeed"))
+            .expect("should succeed");
 
     let comp = CompleteTaskRequest {
         task_id: "t".to_string(),
@@ -157,13 +163,16 @@ fn json_rpc_request_types_roundtrip() {
         metadata: vec![],
     };
     let _: CompleteTaskRequest =
-        serde_json::from_value(serde_json::to_value(&comp).unwrap()).unwrap();
+        serde_json::from_value(serde_json::to_value(&comp).expect("should succeed"))
+            .expect("should succeed");
 
     let can = CancelTaskRequest {
         task_id: "t".to_string(),
         reason: "r".to_string(),
     };
-    let _: CancelTaskRequest = serde_json::from_value(serde_json::to_value(&can).unwrap()).unwrap();
+    let _: CancelTaskRequest =
+        serde_json::from_value(serde_json::to_value(&can).expect("should succeed"))
+            .expect("should succeed");
 }
 
 #[test]
@@ -182,11 +191,11 @@ fn json_task_to_task_maps_fields() {
         created_at: None,
         updated_at: None,
         completed_at: None,
-        input_data: serde_json::to_vec(&serde_json::json!({"x": "1"})).unwrap(),
+        input_data: serde_json::to_vec(&serde_json::json!({"x": "1"})).expect("should succeed"),
         output_data: vec![],
         error_message: String::new(),
         progress_message: "working".to_string(),
-        metadata: serde_json::to_vec(&serde_json::json!({"k": "v"})).unwrap(),
+        metadata: serde_json::to_vec(&serde_json::json!({"k": "v"})).expect("should succeed"),
     };
     let task = json_task_to_task(jt);
     assert_eq!(task.id.as_ref(), "tid");
@@ -277,7 +286,8 @@ fn update_task_request_serializes_from_task() {
             .unwrap_or_default(),
     };
     let _: UpdateTaskRequest =
-        serde_json::from_value(serde_json::to_value(&request).unwrap()).unwrap();
+        serde_json::from_value(serde_json::to_value(&request).expect("should succeed"))
+            .expect("should succeed");
 }
 
 #[test]
@@ -339,7 +349,7 @@ async fn json_rpc_create_task_success_and_rpc_error() {
         .await
         .expect("create_task");
     assert_eq!(id, "new-task-id");
-    h.await.unwrap();
+    h.await.expect("should succeed");
 
     let path2 = dir.join(format!(
         "mcp_task_client_test_{}.sock",
@@ -365,7 +375,7 @@ async fn json_rpc_create_task_success_and_rpc_error() {
         .await
         .expect_err("expected rpc error");
     assert!(e.to_string().contains("server boom"));
-    h2.await.unwrap();
+    h2.await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -388,7 +398,7 @@ async fn json_rpc_get_task_missing_task_and_list_success_false() {
     let client = test_client(&path);
     let err = client.get_task("x").await.expect_err("no task in body");
     assert!(err.to_string().contains("No task"));
-    h.await.unwrap();
+    h.await.expect("should succeed");
 
     let path2 = dir.join(format!(
         "mcp_task_client_test_{}.sock",
@@ -411,7 +421,7 @@ async fn json_rpc_get_task_missing_task_and_list_success_false() {
         .await
         .expect_err("list failed");
     assert!(e.to_string().contains("list failed"));
-    h2.await.unwrap();
+    h2.await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -467,7 +477,7 @@ async fn json_rpc_assign_report_complete_cancel_branches() {
             _ => unreachable!(),
         };
         assert!(r.is_err());
-        h.await.unwrap();
+        h.await.expect("should succeed");
     }
 }
 
@@ -515,7 +525,7 @@ async fn json_rpc_update_task_failure_response() {
         .await
         .expect_err("update should fail");
     assert!(err.to_string().contains("cannot update"));
-    h.await.unwrap();
+    h.await.expect("should succeed");
 }
 
 #[tokio::test]
@@ -545,5 +555,5 @@ async fn list_tasks_request_builds_filters_and_limits() {
         })
         .await
         .expect("list");
-    h.await.unwrap();
+    h.await.expect("should succeed");
 }

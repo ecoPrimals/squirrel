@@ -249,10 +249,16 @@ mod module_tests {
     #[test]
     fn test_get_module_info_values() {
         let info = get_module_info();
-        assert_eq!(info.get("version").unwrap(), "1.0.0");
-        assert_eq!(info.get("name").unwrap(), "Universal Security Module");
-        assert_eq!(info.get("supports_beardog").unwrap(), "true");
-        assert_eq!(info.get("thread_safe").unwrap(), "true");
+        assert_eq!(info.get("version").expect("should succeed"), "1.0.0");
+        assert_eq!(
+            info.get("name").expect("should succeed"),
+            "Universal Security Module"
+        );
+        assert_eq!(
+            info.get("supports_beardog").expect("should succeed"),
+            "true"
+        );
+        assert_eq!(info.get("thread_safe").expect("should succeed"), "true");
     }
 
     #[test]

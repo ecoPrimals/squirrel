@@ -67,7 +67,7 @@ fn test_learning_algorithm_serialization() {
 
     match deserialized {
         LearningAlgorithm::DeepQLearning => {}
-        _ => panic!("Deserialization failed"),
+        _ => unreachable!("Deserialization failed"),
     }
 }
 

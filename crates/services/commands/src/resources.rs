@@ -279,19 +279,23 @@ mod tests {
         // Set up a limit
         manager
             .set_limit("memory", ResourceLimit::new(100, None))
-            .unwrap();
+            .expect("should succeed");
 
         // Test allocation
         assert!(manager.allocate("memory", 50, "test_command").is_ok());
         assert_eq!(
-            manager.get_allocation("memory", "test_command").unwrap(),
+            manager
+                .get_allocation("memory", "test_command")
+                .expect("should succeed"),
             50
         );
 
         // Test deallocation
         assert!(manager.deallocate("memory", 30, "test_command").is_ok());
         assert_eq!(
-            manager.get_allocation("memory", "test_command").unwrap(),
+            manager
+                .get_allocation("memory", "test_command")
+                .expect("should succeed"),
             20
         );
     }

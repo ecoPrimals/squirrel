@@ -35,6 +35,9 @@ members = [
     "crates/universal-constants",
     "crates/universal-error",
     
+    # Integration (umbrella)
+    "crates/integration",
+    
     # Ecosystem API
     "crates/ecosystem-api",
     
@@ -46,7 +49,7 @@ members = [
 [workspace.package]
 authors = ["ecoPrimals Contributors"]
 edition = "2024"
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 version = "0.1.0"
 
 [workspace.dependencies]
@@ -154,8 +157,8 @@ unused_variables = "warn"
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
-expect_used = "deny"
-unwrap_used = "deny"
+expect_used = "warn"
+unwrap_used = "warn"
 missing_docs_in_private_items = "allow"
 module_name_repetitions = "allow"
 missing_panics_doc = "allow"

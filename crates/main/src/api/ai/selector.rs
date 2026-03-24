@@ -298,7 +298,9 @@ mod tests {
             ..Default::default()
         };
 
-        let best = selector.select_best(&providers, Some(&reqs)).unwrap();
+        let best = selector
+            .select_best(&providers, Some(&reqs))
+            .expect("should succeed");
         assert_eq!(best.provider_id, "high");
     }
 
@@ -315,7 +317,9 @@ mod tests {
             ..Default::default()
         };
 
-        let best = selector.select_best(&providers, Some(&reqs)).unwrap();
+        let best = selector
+            .select_best(&providers, Some(&reqs))
+            .expect("should succeed");
         assert_eq!(best.provider_id, "cheap");
     }
 
@@ -332,7 +336,9 @@ mod tests {
             ..Default::default()
         };
 
-        let best = selector.select_best(&providers, Some(&reqs)).unwrap();
+        let best = selector
+            .select_best(&providers, Some(&reqs))
+            .expect("should succeed");
         assert_eq!(best.provider_id, "fast");
     }
 }

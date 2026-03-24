@@ -284,7 +284,7 @@ mod tests {
             value: 42,
         };
 
-        let result = formatter.format(data).unwrap();
+        let result = formatter.format(data).expect("should succeed");
         assert!(result.contains("test"));
         assert!(result.contains("42"));
     }
@@ -297,7 +297,7 @@ mod tests {
             value: 42,
         };
 
-        let result = formatter.format(data).unwrap();
+        let result = formatter.format(data).expect("should succeed");
         assert!(result.contains("\"name\": \"test\""));
         assert!(result.contains("\"value\": 42"));
     }
@@ -310,7 +310,7 @@ mod tests {
             value: 42,
         };
 
-        let result = formatter.format(data).unwrap();
+        let result = formatter.format(data).expect("should succeed");
         assert!(result.contains("name: test"));
         assert!(result.contains("value: 42"));
     }

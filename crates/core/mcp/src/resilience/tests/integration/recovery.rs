@@ -24,7 +24,7 @@ async fn test_recovery_with_retry() {
         let result = retry.execute(move || {
             let op_counter_clone = op_counter.clone();
             Box::pin(async move {
-                let mut count = op_counter_clone.lock().unwrap();
+                let mut count = op_counter_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 if *count == 1 {
@@ -38,13 +38,13 @@ async fn test_recovery_with_retry() {
         }).await;
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().0, "Success".to_string());
+        assert_eq!(result.expect("should succeed").0, "Success".to_string());
         assert_operation_count(&operation_counter, 2, "Retry success scenario");
     }
     
     // Reset counters
-    *operation_counter.lock().unwrap() = 0;
-    *recovery_counter.lock().unwrap() = 0;
+    *operation_counter.lock().expect("should succeed") = 0;
+    *recovery_counter.lock().expect("should succeed") = 0;
     
     // Second scenario: Retry fails, recovery needed
     {
@@ -55,7 +55,7 @@ async fn test_recovery_with_retry() {
         let failure_result: std::result::Result<TestString, _> = retry.execute(move || {
             let op_counter_clone = op_counter.clone();
             Box::pin(async move {
-                let mut count = op_counter_clone.lock().unwrap();
+                let mut count = op_counter_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 // Always fail to trigger recovery
@@ -74,7 +74,7 @@ async fn test_recovery_with_retry() {
             failure_info,
             move || {
                 let rec_counter_clone = rec_counter.clone();
-                let mut count = rec_counter_clone.lock().unwrap();
+                let mut count = rec_counter_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 // Recovery succeeds
@@ -83,7 +83,7 @@ async fn test_recovery_with_retry() {
         );
         
         assert!(recovery_result.is_ok());
-        assert_eq!(recovery_result.unwrap().0, "Recovery successful".to_string());
+        assert_eq!(recovery_result.expect("should succeed").0, "Recovery successful".to_string());
         assert_operation_count(&recovery_counter, 1, "Recovery scenario");
     }
 }
@@ -103,7 +103,7 @@ async fn test_recovery_failure_severities() {
             failure_info,
             move || {
                 let counter_clone = counter.clone();
-                let mut count = counter_clone.lock().unwrap();
+                let mut count = counter_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 Ok(TestString("Minor recovery".to_string()))
@@ -111,11 +111,11 @@ async fn test_recovery_failure_severities() {
         );
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().0, "Minor recovery".to_string());
+        assert_eq!(result.expect("should succeed").0, "Minor recovery".to_string());
     }
     
     // Reset counter
-    *recovery_counter.lock().unwrap() = 0;
+    *recovery_counter.lock().expect("should succeed") = 0;
     
     // Test moderate failure recovery
     {
@@ -126,7 +126,7 @@ async fn test_recovery_failure_severities() {
             failure_info,
             move || {
                 let counter_clone = counter.clone();
-                let mut count = counter_clone.lock().unwrap();
+                let mut count = counter_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 Ok(TestString("Moderate recovery".to_string()))
@@ -134,11 +134,11 @@ async fn test_recovery_failure_severities() {
         );
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().0, "Moderate recovery".to_string());
+        assert_eq!(result.expect("should succeed").0, "Moderate recovery".to_string());
     }
     
     // Reset counter
-    *recovery_counter.lock().unwrap() = 0;
+    *recovery_counter.lock().expect("should succeed") = 0;
     
     // Test severe failure recovery
     {
@@ -149,7 +149,7 @@ async fn test_recovery_failure_severities() {
             failure_info,
             move || {
                 let counter_clone = counter.clone();
-                let mut count = counter_clone.lock().unwrap();
+                let mut count = counter_clone.lock().expect("should succeed");
                 *count += 1;
                 
                 Ok(TestString("Severe recovery".to_string()))
@@ -157,7 +157,7 @@ async fn test_recovery_failure_severities() {
         );
         
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().0, "Severe recovery".to_string());
+        assert_eq!(result.expect("should succeed").0, "Severe recovery".to_string());
     }
 }
 
@@ -175,7 +175,7 @@ async fn test_recovery_multiple_attempts() {
         failure_info,
         move || {
             let counter_clone = counter.clone();
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
             if *count == 1 {
@@ -193,6 +193,6 @@ async fn test_recovery_multiple_attempts() {
     assert_operation_count(&failure_counter, 1, "Recovery attempts"); // At least one attempt should be made
     
     if result.is_ok() {
-        assert_eq!(result.unwrap().0, "Recovery succeeded on retry".to_string());
+        assert_eq!(result.expect("should succeed").0, "Recovery succeeded on retry".to_string());
     }
 } 

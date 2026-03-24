@@ -268,13 +268,18 @@ mod tests {
 
     #[test]
     fn test_detect_sql_injection() {
-        let patterns = vec![Regex::new(r"(?i)(\bunion\b.*\bselect\b|\bor\b.*1\s*=\s*1)").unwrap()];
+        let patterns = vec![
+            Regex::new(r"(?i)(\bunion\b.*\bselect\b|\bor\b.*1\s*=\s*1)").expect("should succeed"),
+        ];
         let correlation_id = create_test_correlation_id();
 
         // Should detect SQL injection
         let result = detect_sql_injection("' OR 1=1 --", &patterns, &correlation_id);
         assert!(result.is_some());
-        assert_eq!(result.unwrap().violation_type, ViolationType::SqlInjection);
+        assert_eq!(
+            result.expect("should succeed").violation_type,
+            ViolationType::SqlInjection
+        );
 
         // Should not detect in safe input
         let result = detect_sql_injection("normal user input", &patterns, &correlation_id);
@@ -283,13 +288,17 @@ mod tests {
 
     #[test]
     fn test_detect_xss() {
-        let patterns = vec![Regex::new(r"(?i)<script|javascript:|onerror=").unwrap()];
+        let patterns =
+            vec![Regex::new(r"(?i)<script|javascript:|onerror=").expect("should succeed")];
         let correlation_id = create_test_correlation_id();
 
         // Should detect XSS
         let result = detect_xss("<script>alert('xss')</script>", &patterns, &correlation_id);
         assert!(result.is_some());
-        assert_eq!(result.unwrap().violation_type, ViolationType::XssAttack);
+        assert_eq!(
+            result.expect("should succeed").violation_type,
+            ViolationType::XssAttack
+        );
 
         // Should not detect in safe input
         let result = detect_xss("Hello world", &patterns, &correlation_id);
@@ -298,14 +307,14 @@ mod tests {
 
     #[test]
     fn test_detect_command_injection() {
-        let patterns = vec![Regex::new(r"[;&|`$]|(\.\./)|(/bin/)").unwrap()];
+        let patterns = vec![Regex::new(r"[;&|`$]|(\.\./)|(/bin/)").expect("should succeed")];
         let correlation_id = create_test_correlation_id();
 
         // Should detect command injection
         let result = detect_command_injection("ls; rm -rf /", &patterns, &correlation_id);
         assert!(result.is_some());
         assert_eq!(
-            result.unwrap().violation_type,
+            result.expect("should succeed").violation_type,
             ViolationType::CommandInjection
         );
 
@@ -316,13 +325,16 @@ mod tests {
 
     #[test]
     fn test_detect_path_traversal() {
-        let patterns = vec![Regex::new(r"\.\./|\.\.\\").unwrap()];
+        let patterns = vec![Regex::new(r"\.\./|\.\.\\").expect("should succeed")];
         let correlation_id = create_test_correlation_id();
 
         // Should detect path traversal
         let result = detect_path_traversal("../../etc/passwd", &patterns, &correlation_id);
         assert!(result.is_some());
-        assert_eq!(result.unwrap().violation_type, ViolationType::PathTraversal);
+        assert_eq!(
+            result.expect("should succeed").violation_type,
+            ViolationType::PathTraversal
+        );
 
         // Should not detect in safe input
         let result = detect_path_traversal("safe/path/file.txt", &patterns, &correlation_id);
@@ -331,14 +343,14 @@ mod tests {
 
     #[test]
     fn test_detect_nosql_injection() {
-        let patterns = vec![Regex::new(r"(?i)\$where|\$ne|\$gt").unwrap()];
+        let patterns = vec![Regex::new(r"(?i)\$where|\$ne|\$gt").expect("should succeed")];
         let correlation_id = create_test_correlation_id();
 
         // Should detect NoSQL injection
         let result = detect_nosql_injection(r#"{"$ne": null}"#, &patterns, &correlation_id);
         assert!(result.is_some());
         assert_eq!(
-            result.unwrap().violation_type,
+            result.expect("should succeed").violation_type,
             ViolationType::NoSqlInjection
         );
 

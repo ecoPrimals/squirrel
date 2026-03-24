@@ -370,7 +370,7 @@ fn test_resource_utilization() {
     };
 
     assert!((utilization.cpu_utilization - 0.75).abs() < f64::EPSILON);
-    assert!((utilization.gpu_utilization.unwrap() - 0.85).abs() < f64::EPSILON);
+    assert!((utilization.gpu_utilization.expect("should succeed") - 0.85).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -501,8 +501,8 @@ fn test_universal_compute_response() {
 #[test]
 fn test_serialization() {
     let config = ComputeClientConfig::default();
-    let json = serde_json::to_string(&config).unwrap();
-    let deserialized: ComputeClientConfig = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&config).expect("should succeed");
+    let deserialized: ComputeClientConfig = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(config.max_retries, deserialized.max_retries);
 }

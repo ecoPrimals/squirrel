@@ -18,7 +18,7 @@ async fn test_discover_capability_not_found() {
     let result = manager.discover_capability("nonexistent-capability").await;
 
     assert!(result.is_ok());
-    let services = result.unwrap();
+    let services = result.expect("should succeed");
     assert!(services.is_empty());
 }
 
@@ -48,7 +48,7 @@ async fn test_discover_capability_network_error() {
     let result = manager.discover_capability("any-capability").await;
 
     assert!(result.is_ok());
-    assert!(result.unwrap().is_empty());
+    assert!(result.expect("should succeed").is_empty());
 }
 
 #[tokio::test]
@@ -63,18 +63,18 @@ async fn test_discover_capability_malformed_response() {
 
 #[tokio::test]
 async fn test_discover_capability_empty_response() {
-    let manager = EcosystemManager::new().await.unwrap();
+    let manager = EcosystemManager::new().await.expect("should succeed");
 
     // Registry returns valid but empty response
     let result = manager.discover_capability("new-capability").await;
 
     assert!(result.is_ok());
-    assert!(result.unwrap().is_empty());
+    assert!(result.expect("should succeed").is_empty());
 }
 
 #[tokio::test]
 async fn test_discover_capability_unhealthy_services_filtered() {
-    let mut manager = EcosystemManager::new().await.unwrap();
+    let mut manager = EcosystemManager::new().await.expect("should succeed");
 
     // Register 3 services, 2 unhealthy
     manager
@@ -85,7 +85,7 @@ async fn test_discover_capability_unhealthy_services_filtered() {
             ..Default::default()
         })
         .await
-        .unwrap();
+        .expect("should succeed");
 
     manager
         .register_test_service(Service {
@@ -95,7 +95,7 @@ async fn test_discover_capability_unhealthy_services_filtered() {
             ..Default::default()
         })
         .await
-        .unwrap();
+        .expect("should succeed");
 
     manager
         .register_test_service(Service {
@@ -105,9 +105,9 @@ async fn test_discover_capability_unhealthy_services_filtered() {
             ..Default::default()
         })
         .await
-        .unwrap();
+        .expect("should succeed");
 
-    let result = manager.discover_capability("test").await.unwrap();
+    let result = manager.discover_capability("test").await.expect("should succeed");
 
     // Should only return healthy service
     assert_eq!(result.len(), 1);
@@ -116,13 +116,13 @@ async fn test_discover_capability_unhealthy_services_filtered() {
 
 #[tokio::test]
 async fn test_discover_capability_with_stale_cache() {
-    let manager = EcosystemManager::new().await.unwrap();
+    let manager = EcosystemManager::new().await.expect("should succeed");
 
     // First discovery (populates cache)
-    let result1 = manager.discover_capability("test").await.unwrap();
+    let result1 = manager.discover_capability("test").await.expect("should succeed");
 
     // Second discovery (exercises cache path, no sleep needed)
-    let result2 = manager.discover_capability("test").await.unwrap();
+    let result2 = manager.discover_capability("test").await.expect("should succeed");
 
     // Both calls should succeed without panics; results are valid
     let _ = result1;
@@ -131,7 +131,7 @@ async fn test_discover_capability_with_stale_cache() {
 
 #[tokio::test]
 async fn test_discover_capability_concurrent_requests() {
-    let manager = EcosystemManager::new().await.unwrap();
+    let manager = EcosystemManager::new().await.expect("should succeed");
 
     // Spawn 100 concurrent discovery requests
     let handles: Vec<_> = (0..100)
@@ -146,14 +146,14 @@ async fn test_discover_capability_concurrent_requests() {
     // All should succeed (or fail gracefully)
     for result in results {
         assert!(result.is_ok());
-        let discovery_result = result.unwrap();
+        let discovery_result = result.expect("should succeed");
         assert!(discovery_result.is_ok() || discovery_result.is_err());
     }
 }
 
 #[tokio::test]
 async fn test_discover_capability_invalid_capability_name() {
-    let manager = EcosystemManager::new().await.unwrap();
+    let manager = EcosystemManager::new().await.expect("should succeed");
 
     // Empty capability
     let result = manager.discover_capability("").await;
@@ -172,9 +172,9 @@ async fn test_discover_capability_invalid_capability_name() {
 async fn test_discover_capability_registry_returns_duplicate_services() {
     let manager = EcosystemManager::new_with_duplicate_registry()
         .await
-        .unwrap();
+        .expect("should succeed");
 
-    let result = manager.discover_capability("test").await.unwrap();
+    let result = manager.discover_capability("test").await.expect("should succeed");
 
     // Should deduplicate services
     let unique_names: std::collections::HashSet<_> =
@@ -187,7 +187,7 @@ async fn test_discover_capability_registry_returns_duplicate_services() {
 async fn test_discover_capability_service_missing_required_fields() {
     let manager = EcosystemManager::new_with_incomplete_services()
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let result = manager.discover_capability("test").await;
 
@@ -205,7 +205,7 @@ async fn test_discover_capability_service_missing_required_fields() {
 
 #[tokio::test]
 async fn test_discover_capability_network_partition() {
-    let manager = EcosystemManager::new().await.unwrap();
+    let manager = EcosystemManager::new().await.expect("should succeed");
 
     // Simulate network partition
     manager.simulate_network_partition().await;
@@ -220,7 +220,7 @@ async fn test_discover_capability_network_partition() {
 async fn test_discover_capability_registry_version_mismatch() {
     let manager = EcosystemManager::new_with_old_registry_version()
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let result = manager.discover_capability("test").await;
 
@@ -232,7 +232,7 @@ async fn test_discover_capability_registry_version_mismatch() {
 
 #[tokio::test]
 async fn test_discover_capability_max_results_exceeded() {
-    let mut manager = EcosystemManager::new().await.unwrap();
+    let mut manager = EcosystemManager::new().await.expect("should succeed");
 
     // Register 1000 services with same capability
     for i in 0..1000 {
@@ -243,10 +243,10 @@ async fn test_discover_capability_max_results_exceeded() {
                 ..Default::default()
             })
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 
-    let result = manager.discover_capability("test").await.unwrap();
+    let result = manager.discover_capability("test").await.expect("should succeed");
 
     // Should limit results to reasonable number
     assert!(result.len() <= 100); // Configurable limit
@@ -254,7 +254,7 @@ async fn test_discover_capability_max_results_exceeded() {
 
 #[tokio::test]
 async fn test_discover_capability_priority_sorting() {
-    let mut manager = EcosystemManager::new().await.unwrap();
+    let mut manager = EcosystemManager::new().await.expect("should succeed");
 
     manager
         .register_test_service(Service {
@@ -264,7 +264,7 @@ async fn test_discover_capability_priority_sorting() {
             ..Default::default()
         })
         .await
-        .unwrap();
+        .expect("should succeed");
 
     manager
         .register_test_service(Service {
@@ -274,7 +274,7 @@ async fn test_discover_capability_priority_sorting() {
             ..Default::default()
         })
         .await
-        .unwrap();
+        .expect("should succeed");
 
     manager
         .register_test_service(Service {
@@ -284,9 +284,9 @@ async fn test_discover_capability_priority_sorting() {
             ..Default::default()
         })
         .await
-        .unwrap();
+        .expect("should succeed");
 
-    let result = manager.discover_capability("test").await.unwrap();
+    let result = manager.discover_capability("test").await.expect("should succeed");
 
     // Should be sorted by priority (highest first)
     assert_eq!(result[0].name.as_str(), "high");
@@ -296,7 +296,7 @@ async fn test_discover_capability_priority_sorting() {
 
 #[tokio::test]
 async fn test_discover_capability_circular_dependency_detection() {
-    let manager = EcosystemManager::new().await.unwrap();
+    let manager = EcosystemManager::new().await.expect("should succeed");
 
     // Service A depends on B, B depends on C, C depends on A
     manager.register_circular_dependencies().await;
@@ -310,7 +310,7 @@ async fn test_discover_capability_circular_dependency_detection() {
 
 #[tokio::test]
 async fn test_discover_capability_cache_poisoning_prevention() {
-    let manager = EcosystemManager::new().await.unwrap();
+    let manager = EcosystemManager::new().await.expect("should succeed");
 
     // Attempt to poison cache with invalid data
     manager
@@ -321,7 +321,7 @@ async fn test_discover_capability_cache_poisoning_prevention() {
 
     // Should validate cache entries and reject invalid data
     assert!(result.is_ok());
-    let services = result.unwrap();
+    let services = result.expect("should succeed");
 
     // Should not contain poisoned entry
     assert!(!services

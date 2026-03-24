@@ -215,7 +215,7 @@ patterns:
                 "Error should mention condition parsing"
             );
         }
-        _ => panic!("Expected ParseError"),
+        _ => unreachable!("Expected ParseError"),
     }
 }
 
@@ -265,7 +265,7 @@ patterns:
                 "Error should mention action parsing"
             );
         }
-        _ => panic!("Expected ParseError"),
+        _ => unreachable!("Expected ParseError"),
     }
 }
 

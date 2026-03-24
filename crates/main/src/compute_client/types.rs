@@ -566,8 +566,9 @@ mod tests {
     #[test]
     fn test_compute_client_config_serde() {
         let config = ComputeClientConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: ComputeClientConfig = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&config).expect("should succeed");
+        let deserialized: ComputeClientConfig =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.max_retries, 3);
         assert_eq!(deserialized.preferred_capabilities.len(), 2);
     }
@@ -579,7 +580,7 @@ mod tests {
             memory_gb: 64,
             architecture: "x86_64".to_string(),
         };
-        let json = serde_json::to_string(&cpu).unwrap();
+        let json = serde_json::to_string(&cpu).expect("should succeed");
         assert!(json.contains("CpuIntensive"));
 
         let gpu = ComputeCapabilityType::GpuAccelerated {
@@ -587,7 +588,7 @@ mod tests {
             cuda_support: true,
             frameworks: vec!["pytorch".to_string()],
         };
-        let json = serde_json::to_string(&gpu).unwrap();
+        let json = serde_json::to_string(&gpu).expect("should succeed");
         assert!(json.contains("GpuAccelerated"));
 
         let ml = ComputeCapabilityType::MachineLearning {
@@ -595,14 +596,14 @@ mod tests {
             training_support: true,
             inference_support: true,
         };
-        let json = serde_json::to_string(&ml).unwrap();
+        let json = serde_json::to_string(&ml).expect("should succeed");
         assert!(json.contains("MachineLearning"));
 
         let serverless = ComputeCapabilityType::ServerlessExecution {
             languages: vec!["rust".to_string()],
             cold_start_ms: 50,
         };
-        let json = serde_json::to_string(&serverless).unwrap();
+        let json = serde_json::to_string(&serverless).expect("should succeed");
         assert!(json.contains("ServerlessExecution"));
 
         let hpc = ComputeCapabilityType::HighPerformanceComputing {
@@ -610,7 +611,7 @@ mod tests {
             parallel_processing: true,
             distributed_compute: true,
         };
-        let json = serde_json::to_string(&hpc).unwrap();
+        let json = serde_json::to_string(&hpc).expect("should succeed");
         assert!(json.contains("HighPerformanceComputing"));
     }
 
@@ -623,8 +624,8 @@ mod tests {
             IsolationLevel::Hardware,
         ];
         for level in levels {
-            let json = serde_json::to_string(&level).unwrap();
-            let deserialized: IsolationLevel = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&level).expect("should succeed");
+            let deserialized: IsolationLevel = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(format!("{deserialized:?}"), format!("{level:?}"));
         }
     }
@@ -638,8 +639,9 @@ mod tests {
             NetworkSecurityLevel::AirGapped,
         ];
         for level in levels {
-            let json = serde_json::to_string(&level).unwrap();
-            let deserialized: NetworkSecurityLevel = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&level).expect("should succeed");
+            let deserialized: NetworkSecurityLevel =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(format!("{deserialized:?}"), format!("{level:?}"));
         }
     }
@@ -665,8 +667,9 @@ mod tests {
             },
         ];
         for op in ops {
-            let json = serde_json::to_string(&op).unwrap();
-            let deserialized: ComputeOperation = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&op).expect("should succeed");
+            let deserialized: ComputeOperation =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(format!("{deserialized:?}"), format!("{op:?}"));
         }
     }
@@ -680,8 +683,9 @@ mod tests {
             ComputePriority::Critical,
         ];
         for priority in priorities {
-            let json = serde_json::to_string(&priority).unwrap();
-            let deserialized: ComputePriority = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&priority).expect("should succeed");
+            let deserialized: ComputePriority =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(format!("{deserialized:?}"), format!("{priority:?}"));
         }
     }
@@ -698,8 +702,9 @@ mod tests {
             },
         ];
         for pref in prefs {
-            let json = serde_json::to_string(&pref).unwrap();
-            let deserialized: CostPerformancePreference = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&pref).expect("should succeed");
+            let deserialized: CostPerformancePreference =
+                serde_json::from_str(&json).expect("should succeed");
             assert_eq!(format!("{deserialized:?}"), format!("{pref:?}"));
         }
     }
@@ -713,8 +718,8 @@ mod tests {
             stderr: String::new(),
             metadata: HashMap::new(),
         };
-        let json = serde_json::to_string(&results).unwrap();
-        let deserialized: ComputeResults = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&results).expect("should succeed");
+        let deserialized: ComputeResults = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.return_code, 0);
         assert_eq!(deserialized.stdout, "Success");
     }
@@ -727,8 +732,9 @@ mod tests {
             gpu_utilization: Some(0.9),
             network_utilization: None,
         };
-        let json = serde_json::to_string(&util).unwrap();
-        let deserialized: ResourceUtilization = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&util).expect("should succeed");
+        let deserialized: ResourceUtilization =
+            serde_json::from_str(&json).expect("should succeed");
         assert!((deserialized.cpu_utilization - 0.75).abs() < f64::EPSILON);
         assert!(deserialized.gpu_utilization.is_some());
         assert!(deserialized.network_utilization.is_none());
@@ -744,8 +750,8 @@ mod tests {
             network_cost: 1.0,
             total_cost: 38.0,
         };
-        let json = serde_json::to_string(&cost).unwrap();
-        let deserialized: CostBreakdown = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&cost).expect("should succeed");
+        let deserialized: CostBreakdown = serde_json::from_str(&json).expect("should succeed");
         assert!((deserialized.total_cost - 38.0).abs() < f64::EPSILON);
     }
 
@@ -758,8 +764,9 @@ mod tests {
             gpu_requirement: 0.9,
             parallelizability: 0.7,
         };
-        let json = serde_json::to_string(&wc).unwrap();
-        let deserialized: WorkloadCharacteristics = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&wc).expect("should succeed");
+        let deserialized: WorkloadCharacteristics =
+            serde_json::from_str(&json).expect("should succeed");
         assert!((deserialized.cpu_intensity - 0.8).abs() < f64::EPSILON);
         assert!((deserialized.gpu_requirement - 0.9).abs() < f64::EPSILON);
     }
@@ -771,8 +778,9 @@ mod tests {
             data_in_transit: true,
             data_in_use: false,
         };
-        let json = serde_json::to_string(&enc).unwrap();
-        let deserialized: EncryptionRequirements = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&enc).expect("should succeed");
+        let deserialized: EncryptionRequirements =
+            serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.data_at_rest);
         assert!(deserialized.data_in_transit);
         assert!(!deserialized.data_in_use);

@@ -565,7 +565,7 @@ mod compute_client_tests {
             ComputeClientConfig::default(),
             PrimalContext::default(),
         );
-        client.initialize().await.unwrap();
+        client.initialize().await.expect("should succeed");
         assert!(client.get_compute_config().max_retries <= 10);
     }
 
@@ -602,7 +602,7 @@ mod compute_client_tests {
         assert!(req.resources.memory_gb > 0);
         assert!(req.resources.max_execution_time.as_secs() > 0);
 
-        let resp = client.execute_operation(req).await.unwrap();
+        let resp = client.execute_operation(req).await.expect("should succeed");
         assert!(resp.success);
         assert_eq!(resp.provider_id, "prov-1");
     }
@@ -619,7 +619,7 @@ mod compute_client_tests {
         let r = client
             .execute_code("python", "x=1".to_string(), ComputePriority::High)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(r.success);
     }
 

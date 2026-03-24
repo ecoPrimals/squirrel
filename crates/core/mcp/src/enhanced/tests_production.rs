@@ -105,7 +105,7 @@ mod production_tests {
         let platform = EnhancedMCPPlatform::new(config).await;
         assert!(platform.is_ok(), "Platform should initialize successfully in production mode");
         
-        let mut platform = platform.unwrap();
+        let mut platform = platform.expect("should succeed");
         
         // Test startup
         let start_result = platform.start().await;
@@ -115,7 +115,7 @@ mod production_tests {
         let health = platform.get_platform_health().await;
         assert!(health.is_ok(), "Health check should succeed");
         
-        let health = health.unwrap();
+        let health = health.expect("should succeed");
         assert_eq!(health.status, HealthStatus::Healthy, "Platform should be healthy after startup");
         
         // Test graceful shutdown
@@ -299,7 +299,7 @@ mod production_tests {
             }
             Err(_) => {
                 // Should not hang - timeout should be respected
-                panic!("Request should not hang - platform should respect timeouts");
+                unreachable!("Request should not hang - platform should respect timeouts");
             }
         }
         

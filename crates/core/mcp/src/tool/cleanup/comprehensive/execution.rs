@@ -505,7 +505,7 @@ mod tests {
         assert!(resources[0].is_active);
         
         // Deactivate the resource
-        executor.deactivate_resource(&resource_id).await.unwrap();
+        executor.deactivate_resource(&resource_id).await.expect("should succeed");
         
         // Should now have no active resources
         let active = executor.get_active_resources("test-tool").await;

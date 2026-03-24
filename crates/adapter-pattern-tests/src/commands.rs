@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn test_command_registry_default() {
         let registry = CommandRegistry::default();
-        let cmds = registry.list_commands().unwrap();
+        let cmds = registry.list_commands().expect("should succeed");
         assert!(cmds.is_empty());
     }
 
@@ -152,9 +152,9 @@ mod tests {
     fn test_command_registry_register_and_execute() {
         let mut registry = CommandRegistry::new();
         let cmd = Arc::new(TestCommand::new("hello", "Says hello", "Hello!"));
-        registry.register("hello", cmd).unwrap();
+        registry.register("hello", cmd).expect("should succeed");
 
-        let result = registry.execute("hello", vec![]).unwrap();
+        let result = registry.execute("hello", vec![]).expect("should succeed");
         assert_eq!(result, "Hello!");
     }
 
@@ -162,11 +162,11 @@ mod tests {
     fn test_command_registry_execute_with_args() {
         let mut registry = CommandRegistry::new();
         let cmd = Arc::new(TestCommand::new("echo", "Echoes", "Echo"));
-        registry.register("echo", cmd).unwrap();
+        registry.register("echo", cmd).expect("should succeed");
 
         let result = registry
             .execute("echo", vec!["a".to_string(), "b".to_string()])
-            .unwrap();
+            .expect("should succeed");
         assert!(result.contains('a'));
         assert!(result.contains('b'));
     }
@@ -183,9 +183,9 @@ mod tests {
     fn test_command_registry_get_help() {
         let mut registry = CommandRegistry::new();
         let cmd = Arc::new(TestCommand::new("hello", "Says hello", "Hello!"));
-        registry.register("hello", cmd).unwrap();
+        registry.register("hello", cmd).expect("should succeed");
 
-        let help = registry.get_help("hello").unwrap();
+        let help = registry.get_help("hello").expect("should succeed");
         assert_eq!(help, "hello: Says hello");
     }
 
@@ -202,12 +202,12 @@ mod tests {
         let mut registry = CommandRegistry::new();
         registry
             .register("a", Arc::new(TestCommand::new("a", "A", "a")))
-            .unwrap();
+            .expect("should succeed");
         registry
             .register("b", Arc::new(TestCommand::new("b", "B", "b")))
-            .unwrap();
+            .expect("should succeed");
 
-        let cmds = registry.list_commands().unwrap();
+        let cmds = registry.list_commands().expect("should succeed");
         assert_eq!(cmds.len(), 2);
         assert!(cmds.contains(&"a".to_string()));
         assert!(cmds.contains(&"b".to_string()));
@@ -216,7 +216,7 @@ mod tests {
     #[tokio::test]
     async fn test_registry_adapter_default() {
         let adapter = RegistryAdapter::default();
-        let cmds = adapter.list_commands().unwrap();
+        let cmds = adapter.list_commands().expect("should succeed");
         assert!(cmds.is_empty());
     }
 
@@ -224,11 +224,11 @@ mod tests {
     async fn test_registry_adapter_register_execute() {
         let mut adapter = RegistryAdapter::new();
         let cmd = Arc::new(TestCommand::new("hello", "Says hello", "Hello!"));
-        adapter.register("hello", cmd).unwrap();
+        adapter.register("hello", cmd).expect("should succeed");
 
         let result = <RegistryAdapter as CommandAdapter>::execute(&adapter, "hello", vec![]).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Hello!");
+        assert_eq!(result.expect("should succeed"), "Hello!");
     }
 
     #[tokio::test]
@@ -244,11 +244,11 @@ mod tests {
     async fn test_registry_adapter_get_help() {
         let mut adapter = RegistryAdapter::new();
         let cmd = Arc::new(TestCommand::new("hello", "Says hello", "Hello!"));
-        adapter.register("hello", cmd).unwrap();
+        adapter.register("hello", cmd).expect("should succeed");
 
         let help = <RegistryAdapter as CommandAdapter>::get_help(&adapter, "hello")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(help, "hello: Says hello");
     }
 
@@ -265,14 +265,14 @@ mod tests {
         let mut adapter = RegistryAdapter::new();
         adapter
             .register("a", Arc::new(TestCommand::new("a", "A", "a")))
-            .unwrap();
+            .expect("should succeed");
         adapter
             .register("b", Arc::new(TestCommand::new("b", "B", "b")))
-            .unwrap();
+            .expect("should succeed");
 
         let cmds = <RegistryAdapter as CommandAdapter>::list_commands(&adapter)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(cmds.len(), 2);
         assert!(cmds.contains(&"a".to_string()));
         assert!(cmds.contains(&"b".to_string()));

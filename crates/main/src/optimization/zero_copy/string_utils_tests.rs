@@ -24,8 +24,8 @@ mod tests {
         let strings = StaticStrings::new();
 
         // Get cached string
-        let openai1 = strings.get("openai").unwrap();
-        let openai2 = strings.get("openai").unwrap();
+        let openai1 = strings.get("openai").expect("should succeed");
+        let openai2 = strings.get("openai").expect("should succeed");
 
         // Should be same Arc (pointer equality)
         assert!(Arc::ptr_eq(&openai1, &openai2));
@@ -49,7 +49,7 @@ mod tests {
         assert_eq!(&*custom, "custom_value");
 
         // Should now be cached
-        let custom2 = strings.get("custom_value").unwrap();
+        let custom2 = strings.get("custom_value").expect("should succeed");
         assert!(Arc::ptr_eq(&custom, &custom2));
     }
 
@@ -62,7 +62,7 @@ mod tests {
         assert_eq!(&*openai, "openai");
 
         // Should be from cache, not newly created
-        let openai2 = strings.get("openai").unwrap();
+        let openai2 = strings.get("openai").expect("should succeed");
         assert!(Arc::ptr_eq(&openai, &openai2));
     }
 
@@ -166,9 +166,9 @@ mod tests {
         let strings = StaticStrings::new();
 
         // Get same string multiple times
-        let str1 = strings.get("openai").unwrap();
-        let str2 = strings.get("openai").unwrap();
-        let str3 = strings.get("openai").unwrap();
+        let str1 = strings.get("openai").expect("should succeed");
+        let str2 = strings.get("openai").expect("should succeed");
+        let str3 = strings.get("openai").expect("should succeed");
 
         // All should point to same allocation (zero-copy)
         assert!(Arc::ptr_eq(&str1, &str2));

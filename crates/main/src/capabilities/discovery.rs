@@ -595,8 +595,8 @@ mod tests {
             discovered_via: "test".to_string(),
         };
 
-        let json = serde_json::to_string(&provider).unwrap();
-        let deserialized: CapabilityProvider = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&provider).expect("should succeed");
+        let deserialized: CapabilityProvider = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(provider.id, deserialized.id);
         assert_eq!(provider.capabilities, deserialized.capabilities);
@@ -691,7 +691,7 @@ mod tests {
                     "metadata": { "k": "v" }
                 }
             });
-            let mut out = serde_json::to_string(&resp).unwrap();
+            let mut out = serde_json::to_string(&resp).expect("should succeed");
             out.push('\n');
             stream.write_all(out.as_bytes()).await.expect("write");
             stream.flush().await.expect("flush");
@@ -723,7 +723,7 @@ mod tests {
                 "id": 1,
                 "error": { "code": -32601, "message": "nope" }
             });
-            let mut out = serde_json::to_string(&resp).unwrap();
+            let mut out = serde_json::to_string(&resp).expect("should succeed");
             out.push('\n');
             stream.write_all(out.as_bytes()).await.expect("write");
             stream.flush().await.expect("flush");
@@ -734,7 +734,7 @@ mod tests {
         let err = probe_socket(&sock_path).await.unwrap_err();
         match err {
             DiscoveryError::ProbeFailed(m) => assert!(m.contains("Method not supported")),
-            _ => panic!("expected ProbeFailed, got {err:?}"),
+            _ => unreachable!("expected ProbeFailed, got {err:?}"),
         }
     }
 
@@ -762,7 +762,7 @@ mod tests {
                             DiscoveryError::CapabilityNotFound(c) => {
                                 assert!(c.contains("zzzz.nonexistent"));
                             }
-                            _ => panic!("unexpected {err:?}"),
+                            _ => unreachable!("unexpected {err:?}"),
                         }
                     });
             },

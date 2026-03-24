@@ -79,7 +79,7 @@ mod tests {
             assert!(models.contains(&"gpt-4".to_string()));
             assert!(models.contains(&"claude-3".to_string()));
         } else {
-            panic!("Expected ModelInference capability");
+            unreachable!("Expected ModelInference capability");
         }
     }
 
@@ -93,7 +93,7 @@ mod tests {
         if let PrimalCapability::AgentFramework { mcp_support, .. } = cap {
             assert!(mcp_support);
         } else {
-            panic!("Expected AgentFramework capability");
+            unreachable!("Expected AgentFramework capability");
         }
     }
 
@@ -107,7 +107,7 @@ mod tests {
         if let PrimalCapability::AgentFramework { mcp_support, .. } = cap {
             assert!(!mcp_support);
         } else {
-            panic!("Expected AgentFramework capability");
+            unreachable!("Expected AgentFramework capability");
         }
     }
 
@@ -121,7 +121,7 @@ mod tests {
             assert_eq!(languages.len(), 3);
             assert!(languages.contains(&"en".to_string()));
         } else {
-            panic!("Expected NaturalLanguage capability");
+            unreachable!("Expected NaturalLanguage capability");
         }
     }
 
@@ -207,7 +207,7 @@ mod tests {
         if let PortType::Custom(name) = port_type {
             assert_eq!(name, "admin");
         } else {
-            panic!("Expected Custom port type");
+            unreachable!("Expected Custom port type");
         }
     }
 

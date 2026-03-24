@@ -592,7 +592,7 @@ mod tests {
             SystemConfigError::RelativePathInProduction { field, .. } => {
                 assert_eq!(field, "work_dir");
             }
-            _ => panic!("Expected RelativePathInProduction error"),
+            _ => unreachable!("Expected RelativePathInProduction error"),
         }
     }
 

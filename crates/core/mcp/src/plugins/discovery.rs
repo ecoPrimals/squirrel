@@ -179,7 +179,7 @@ mod tests {
             timestamp: chrono::Utc::now(),
         };
         
-        let result = executor.execute(context).await.unwrap();
+        let result = executor.execute(context).await.expect("should succeed");
         assert_eq!(result.status, ExecutionStatus::Success);
         assert!(result.output.is_some());
     }

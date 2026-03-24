@@ -237,8 +237,8 @@ mod tests {
         let created = p
             .create_session(serde_json::json!({ "user_id": "u2" }))
             .await
-            .unwrap();
-        let sid = created["session_id"].as_str().unwrap();
+            .expect("should succeed");
+        let sid = created["session_id"].as_str().expect("should succeed");
 
         let listed = p
             .list_user_sessions(serde_json::json!({

@@ -88,8 +88,8 @@ async fn test_discover_nonexistent_capability() {
                 "Error message should indicate service not found: {msg}"
             );
         }
-        Err(e) => panic!("Expected ServiceDiscoveryFailed, got: {e:?}"),
-        Ok(_) => panic!("Expected error, got success"),
+        Err(e) => unreachable!("Expected ServiceDiscoveryFailed, got: {e:?}"),
+        Ok(_) => unreachable!("Expected error, got success"),
     }
 }
 
@@ -126,7 +126,7 @@ async fn test_discover_without_env_vars() {
         Err(PrimalError::ServiceDiscoveryFailed(_)) => {
             // Acceptable if service is not running locally
         }
-        Err(e) => panic!("Unexpected error type: {e:?}"),
+        Err(e) => unreachable!("Unexpected error type: {e:?}"),
     }
 }
 
@@ -180,7 +180,7 @@ async fn test_discover_with_invalid_dns() {
             // Expected - DNS failed and no fallback available
             assert!(!msg.is_empty(), "Error message should not be empty");
         }
-        Err(e) => panic!("Unexpected error type: {e:?}"),
+        Err(e) => unreachable!("Unexpected error type: {e:?}"),
     }
 
     // No cleanup needed - no env var mutation!
@@ -202,7 +202,7 @@ async fn test_cache_behavior() {
 
         assert!(second_result.is_ok(), "Cached discovery should succeed");
 
-        let second_service = second_result.unwrap();
+        let second_service = second_result.expect("should succeed");
         assert_eq!(
             first_service.endpoint, second_service.endpoint,
             "Cached result should match original"
@@ -283,7 +283,7 @@ async fn test_concurrent_discovery() {
         match result {
             Ok(Ok(_)) => successes += 1,
             Ok(Err(_)) => failures += 1,
-            Err(e) => panic!("Task panicked: {e:?}"),
+            Err(e) => unreachable!("Task panicked: {e:?}"),
         }
     }
 

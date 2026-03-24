@@ -399,8 +399,8 @@ mod tests {
     #[test]
     fn tool_capability_serde_roundtrip() {
         let t = sample_tool("t1");
-        let json = serde_json::to_string(&t).unwrap();
-        let t2: Tool = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&t).expect("should succeed");
+        let t2: Tool = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(t2.id, t.id);
         assert_eq!(t2.capabilities.len(), 1);
         assert!(matches!(
@@ -411,8 +411,8 @@ mod tests {
 
     #[test]
     fn security_level_roundtrip() {
-        let s = serde_json::to_string(&SecurityLevel::Critical).unwrap();
-        let v: SecurityLevel = serde_json::from_str(&s).unwrap();
+        let s = serde_json::to_string(&SecurityLevel::Critical).expect("should succeed");
+        let v: SecurityLevel = serde_json::from_str(&s).expect("should succeed");
         assert_eq!(v, SecurityLevel::Critical);
     }
 
@@ -428,57 +428,80 @@ mod tests {
         ));
 
         let good = sample_tool("tool-a");
-        mgr.register_tool(good).await.unwrap();
+        mgr.register_tool(good).await.expect("should succeed");
 
-        let found = mgr.get_tool("tool-a").await.unwrap().unwrap();
+        let found = mgr
+            .get_tool("tool-a")
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
         assert_eq!(found.name, "tool-a-name");
 
-        let by_cap = mgr.find_tools_by_capability("cap1").await.unwrap();
+        let by_cap = mgr
+            .find_tools_by_capability("cap1")
+            .await
+            .expect("should succeed");
         assert!(by_cap.contains("tool-a"));
 
-        mgr.validate_capability("tool-a", "cap1").await.unwrap();
+        mgr.validate_capability("tool-a", "cap1")
+            .await
+            .expect("should succeed");
         let v_err = mgr.validate_capability("tool-a", "missing").await;
         assert!(v_err.is_err());
 
-        mgr.unregister_tool("tool-a").await.unwrap();
+        mgr.unregister_tool("tool-a").await.expect("should succeed");
         let missing = mgr.unregister_tool("tool-a").await;
         assert!(missing.is_err());
 
-        let not_found = mgr.get_tool("tool-a").await.unwrap();
+        let not_found = mgr.get_tool("tool-a").await.expect("should succeed");
         assert!(not_found.is_none());
     }
 
     #[tokio::test]
     async fn tool_state_updates_and_usage_error_threshold() {
         let mgr = ToolManager::new();
-        mgr.register_tool(sample_tool("u1")).await.unwrap();
+        mgr.register_tool(sample_tool("u1"))
+            .await
+            .expect("should succeed");
 
         mgr.update_tool_state("u1", ToolStatus::Inactive)
             .await
-            .unwrap();
-        let st = mgr.get_tool_state("u1").await.unwrap().unwrap();
+            .expect("should succeed");
+        let st = mgr
+            .get_tool_state("u1")
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
         assert_eq!(st.status, ToolStatus::Inactive);
 
         let bad = mgr.update_tool_state("nope", ToolStatus::Active).await;
         assert!(bad.is_err());
 
-        mgr.increment_usage("u1").await.unwrap();
-        let st = mgr.get_tool_state("u1").await.unwrap().unwrap();
+        mgr.increment_usage("u1").await.expect("should succeed");
+        let st = mgr
+            .get_tool_state("u1")
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
         assert_eq!(st.usage_count, 1);
 
         for _ in 0..11 {
-            mgr.increment_error("u1").await.unwrap();
+            mgr.increment_error("u1").await.expect("should succeed");
         }
-        let st = mgr.get_tool_state("u1").await.unwrap().unwrap();
+        let st = mgr
+            .get_tool_state("u1")
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
         assert_eq!(st.status, ToolStatus::Error);
 
         let low = mgr
             .get_tools_by_security_level(SecurityLevel::Low)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(low.len(), 1);
 
-        let active = mgr.get_active_tools().await.unwrap();
+        let active = mgr.get_active_tools().await.expect("should succeed");
         assert!(active.is_empty());
     }
 }

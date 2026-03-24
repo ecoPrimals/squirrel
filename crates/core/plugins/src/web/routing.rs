@@ -140,7 +140,9 @@ mod tests {
     #[test]
     fn test_param_extraction() {
         let route = Route::new("/api/v1/users/{id}");
-        let params = route.extract_params("/api/v1/users/123").unwrap();
+        let params = route
+            .extract_params("/api/v1/users/123")
+            .expect("should succeed");
         assert_eq!(params.get("id"), Some(&"123".to_string()));
     }
 

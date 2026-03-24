@@ -25,10 +25,13 @@ async fn test_dashboard_overview() {
     let manager = Arc::new(DefaultPluginManager::new());
     let dashboard = PluginDashboard::new(manager);
 
-    let response = dashboard.get_dashboard_overview().await.unwrap();
+    let response = dashboard
+        .get_dashboard_overview()
+        .await
+        .expect("should succeed");
     assert_eq!(response.status, HttpStatus::Ok);
 
-    let body = response.body.unwrap();
+    let body = response.body.expect("should succeed");
     assert!(body.get("plugin_stats").is_some());
     assert!(body.get("system_health").is_some());
     assert!(body.get("recent_activities").is_some());
@@ -48,8 +51,8 @@ fn dashboard_config_default_and_serde_roundtrip() {
     let d = DashboardConfig::default();
     assert_eq!(d.refresh_interval, 30);
     assert!(!d.theme.dark_mode);
-    let j = serde_json::to_string(&d).unwrap();
-    let back: DashboardConfig = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&d).expect("should succeed");
+    let back: DashboardConfig = serde_json::from_str(&j).expect("should succeed");
     assert_eq!(back.refresh_interval, d.refresh_interval);
 }
 
@@ -95,8 +98,8 @@ fn dashboard_types_serde_roundtrip() {
         quick_actions: vec![],
         alerts: vec![],
     };
-    let j = serde_json::to_string(&overview).unwrap();
-    let _: DashboardOverview = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&overview).expect("should succeed");
+    let _: DashboardOverview = serde_json::from_str(&j).expect("should succeed");
 
     let alert = Alert {
         id: Uuid::new_v4(),
@@ -112,8 +115,8 @@ fn dashboard_types_serde_roundtrip() {
             method: "GET".to_string(),
         }],
     };
-    let j = serde_json::to_string(&alert).unwrap();
-    let _: Alert = serde_json::from_str(&j).unwrap();
+    let j = serde_json::to_string(&alert).expect("should succeed");
+    let _: Alert = serde_json::from_str(&j).expect("should succeed");
 }
 
 #[tokio::test]
@@ -152,7 +155,7 @@ async fn handle_request_routes_and_not_found() {
             permissions: vec![],
             route_params: HashMap::new(),
         };
-        let res = dashboard.handle_request(r).await.unwrap();
+        let res = dashboard.handle_request(r).await.expect("should succeed");
         assert_eq!(res.status, HttpStatus::Ok, "path={path}");
     }
 
@@ -168,7 +171,7 @@ async fn handle_request_routes_and_not_found() {
             route_params: HashMap::new(),
         })
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(nf.status, HttpStatus::NotFound);
 }
 
@@ -195,13 +198,13 @@ async fn put_config_and_dismiss_alert() {
             path: "/api/dashboard/config".to_string(),
             query_params: HashMap::new(),
             headers: HashMap::new(),
-            body: Some(serde_json::to_value(&new_cfg).unwrap()),
+            body: Some(serde_json::to_value(&new_cfg).expect("should succeed")),
             user_id: None,
             permissions: vec![],
             route_params: HashMap::new(),
         })
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(put.status, HttpStatus::Ok);
 
     let aid = Uuid::new_v4();
@@ -217,7 +220,7 @@ async fn put_config_and_dismiss_alert() {
             route_params: HashMap::new(),
         })
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(dismiss.status, HttpStatus::Ok);
 }
 
@@ -239,7 +242,7 @@ async fn extract_alert_id_ok() {
     let id = Uuid::new_v4();
     assert_eq!(
         d.extract_alert_id(&format!("/api/dashboard/alerts/{id}/dismiss"))
-            .unwrap(),
+            .expect("should succeed"),
         id
     );
 }
@@ -254,17 +257,20 @@ async fn failed_plugin_produces_alert_and_dismiss_hides() {
     let meta = PluginMetadata::new("bad", "1.0.0", "d", "a");
     let id = meta.id;
     let p = create_noop_plugin(meta);
-    manager.register_plugin(p).await.unwrap();
+    manager.register_plugin(p).await.expect("should succeed");
     PluginRegistry::set_plugin_status(manager.as_ref(), id, PluginStatus::Failed)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     let dashboard = PluginDashboard::new(manager);
     let alerts = dashboard.collect_registry_alerts().await;
     assert_eq!(alerts.len(), 1);
     let alert_id = alerts[0].id;
 
-    dashboard.dismiss_alert(alert_id).await.unwrap();
+    dashboard
+        .dismiss_alert(alert_id)
+        .await
+        .expect("should succeed");
     let after = dashboard.collect_registry_alerts().await;
     assert!(after.is_empty());
 }

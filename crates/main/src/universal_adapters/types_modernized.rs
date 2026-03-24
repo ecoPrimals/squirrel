@@ -426,8 +426,8 @@ mod tests {
         req.add_parameter("timeout", serde_json::json!(30));
         req.add_context("env", serde_json::json!("production"));
 
-        let json = serde_json::to_string(&req).unwrap();
-        let deserialized: UniversalRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("should succeed");
+        let deserialized: UniversalRequest = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(&*deserialized.request_id, "req-rt");
         assert_eq!(&*deserialized.operation, "health_check");
@@ -456,7 +456,7 @@ mod tests {
                 assert_eq!(&**code, "NOT_FOUND");
                 assert_eq!(&**message, "Resource not found");
             }
-            _ => panic!("Expected Error status"),
+            _ => unreachable!("Expected Error status"),
         }
         assert_eq!(resp.data, serde_json::Value::Null);
     }
@@ -476,8 +476,8 @@ mod tests {
             UniversalResponse::success(Arc::from("req-rt"), serde_json::json!({"count": 5}));
         resp.add_metadata("version", serde_json::json!("2.0"));
 
-        let json = serde_json::to_string(&resp).unwrap();
-        let deserialized: UniversalResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp).expect("should succeed");
+        let deserialized: UniversalResponse = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(&*deserialized.request_id, "req-rt");
         assert!(matches!(deserialized.status, ResponseStatus::Success));
@@ -486,15 +486,15 @@ mod tests {
     #[test]
     fn test_error_response_serde_roundtrip() {
         let resp = UniversalResponse::error(Arc::from("req-err"), "500", "internal");
-        let json = serde_json::to_string(&resp).unwrap();
-        let deserialized: UniversalResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp).expect("should succeed");
+        let deserialized: UniversalResponse = serde_json::from_str(&json).expect("should succeed");
 
         match &deserialized.status {
             ResponseStatus::Error { code, message } => {
                 assert_eq!(&**code, "500");
                 assert_eq!(&**message, "internal");
             }
-            _ => panic!("Expected Error status after deserialization"),
+            _ => unreachable!("Expected Error status after deserialization"),
         }
     }
 
@@ -513,7 +513,7 @@ mod tests {
         let health = ServiceHealth::unhealthy("database connection lost");
         assert!(!health.healthy);
         assert_eq!(
-            &**health.message.as_ref().unwrap(),
+            &**health.message.as_ref().expect("should succeed"),
             "database connection lost"
         );
     }
@@ -521,18 +521,21 @@ mod tests {
     #[test]
     fn test_service_health_serde_roundtrip() {
         let health = ServiceHealth::unhealthy("out of memory");
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: ServiceHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: ServiceHealth = serde_json::from_str(&json).expect("should succeed");
 
         assert!(!deserialized.healthy);
-        assert_eq!(&**deserialized.message.as_ref().unwrap(), "out of memory");
+        assert_eq!(
+            &**deserialized.message.as_ref().expect("should succeed"),
+            "out of memory"
+        );
     }
 
     #[test]
     fn test_service_health_healthy_serde_roundtrip() {
         let health = ServiceHealth::healthy();
-        let json = serde_json::to_string(&health).unwrap();
-        let deserialized: ServiceHealth = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&health).expect("should succeed");
+        let deserialized: ServiceHealth = serde_json::from_str(&json).expect("should succeed");
 
         assert!(deserialized.healthy);
         assert!(deserialized.message.is_none());
@@ -546,15 +549,15 @@ mod tests {
             completed: 3,
             total: 10,
         };
-        let json = serde_json::to_string(&status).unwrap();
-        let deserialized: ResponseStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&status).expect("should succeed");
+        let deserialized: ResponseStatus = serde_json::from_str(&json).expect("should succeed");
 
         match deserialized {
             ResponseStatus::Partial { completed, total } => {
                 assert_eq!(completed, 3);
                 assert_eq!(total, 10);
             }
-            _ => panic!("Expected Partial status"),
+            _ => unreachable!("Expected Partial status"),
         }
     }
 }

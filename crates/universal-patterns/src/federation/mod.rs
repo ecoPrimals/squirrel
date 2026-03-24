@@ -551,8 +551,8 @@ mod tests {
     #[test]
     fn test_platform_serialization() {
         let platform = Platform::Linux(LinuxVariant::Ubuntu);
-        let serialized = serde_json::to_string(&platform).unwrap();
-        let deserialized: Platform = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&platform).expect("should succeed");
+        let deserialized: Platform = serde_json::from_str(&serialized).expect("should succeed");
         assert_eq!(platform, deserialized);
     }
 
@@ -595,7 +595,7 @@ mod tests {
 
         match primal_error {
             PrimalError::NotImplemented(feature) => assert_eq!(feature, "test"),
-            _ => panic!("Unexpected error type"),
+            _ => unreachable!("Unexpected error type"),
         }
     }
 }

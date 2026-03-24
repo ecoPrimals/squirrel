@@ -165,7 +165,7 @@ mod tests {
         let result = provider.authenticate(&credentials).await;
         assert!(result.is_ok());
 
-        let auth_result = result.unwrap();
+        let auth_result = result.expect("should succeed");
         assert_eq!(auth_result.principal.username, "testuser");
         assert_eq!(auth_result.principal.id, "test-user");
         assert!(auth_result.token.starts_with("mock-token"));
@@ -187,7 +187,7 @@ mod tests {
             Err(SecurityError::AuthenticationFailed(msg)) => {
                 assert!(msg.contains("Mock authentication failure"));
             }
-            _ => panic!("Expected AuthenticationFailed error"),
+            _ => unreachable!("Expected AuthenticationFailed error"),
         }
     }
 
@@ -206,7 +206,7 @@ mod tests {
         // Should be authorized for "read"
         let result = provider.authorize(&principal, "read", "resource").await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), true);
+        assert_eq!(result.expect("should succeed"), true);
     }
 
     #[tokio::test]
@@ -224,7 +224,7 @@ mod tests {
         // Should NOT be authorized for "delete"
         let result = provider.authorize(&principal, "delete", "resource").await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), false);
+        assert_eq!(result.expect("should succeed"), false);
     }
 
     #[tokio::test]
@@ -246,7 +246,7 @@ mod tests {
             Err(SecurityError::AuthorizationFailed(msg)) => {
                 assert!(msg.contains("Mock authorization failure"));
             }
-            _ => panic!("Expected AuthorizationFailed error"),
+            _ => unreachable!("Expected AuthorizationFailed error"),
         }
     }
 
@@ -256,11 +256,11 @@ mod tests {
         let original_data = b"Hello, secure world!";
 
         // Encrypt
-        let encrypted = provider.encrypt(original_data).await.unwrap();
+        let encrypted = provider.encrypt(original_data).await.expect("should succeed");
         assert_ne!(encrypted, original_data);
 
         // Decrypt
-        let decrypted = provider.decrypt(&encrypted).await.unwrap();
+        let decrypted = provider.decrypt(&encrypted).await.expect("should succeed");
         assert_eq!(decrypted, original_data);
     }
 
@@ -276,7 +276,7 @@ mod tests {
             Err(SecurityError::EncryptionFailed(msg)) => {
                 assert!(msg.contains("Mock encryption failure"));
             }
-            _ => panic!("Expected EncryptionFailed error"),
+            _ => unreachable!("Expected EncryptionFailed error"),
         }
     }
 
@@ -287,7 +287,7 @@ mod tests {
 
         let result = provider.encrypt(empty_data).await;
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
+        assert!(result.expect("should succeed").is_empty());
     }
 
     #[tokio::test]
@@ -297,7 +297,7 @@ mod tests {
 
         let result = provider.encrypt(&large_data).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 10_000);
+        assert_eq!(result.expect("should succeed").len(), 10_000);
     }
 
     #[tokio::test]
@@ -306,11 +306,11 @@ mod tests {
         let data = b"data to sign";
 
         // Sign
-        let signature = provider.sign(data).await.unwrap();
+        let signature = provider.sign(data).await.expect("should succeed");
         assert!(!signature.is_empty());
 
         // Verify
-        let is_valid = provider.verify(data, &signature).await.unwrap();
+        let is_valid = provider.verify(data, &signature).await.expect("should succeed");
         assert!(is_valid);
     }
 
@@ -320,7 +320,7 @@ mod tests {
         let data = b"data to sign";
         let invalid_signature = vec![0x00, 0x11, 0x22];
 
-        let is_valid = provider.verify(data, &invalid_signature).await.unwrap();
+        let is_valid = provider.verify(data, &invalid_signature).await.expect("should succeed");
         assert!(!is_valid);
     }
 
@@ -336,7 +336,7 @@ mod tests {
             Err(SecurityError::SigningFailed(msg)) => {
                 assert!(msg.contains("Mock signing failure"));
             }
-            _ => panic!("Expected SigningFailed error"),
+            _ => unreachable!("Expected SigningFailed error"),
         }
     }
 
@@ -347,7 +347,7 @@ mod tests {
         let result = provider.health_check().await;
         assert!(result.is_ok());
 
-        let health = result.unwrap();
+        let health = result.expect("should succeed");
         assert!(health.is_healthy);
         assert!(health.encryption_available);
         assert!(health.signing_available);
@@ -362,7 +362,7 @@ mod tests {
         let result = provider.health_check().await;
         assert!(result.is_ok());
 
-        let health = result.unwrap();
+        let health = result.expect("should succeed");
         assert!(health.is_healthy); // Overall still healthy
         assert!(!health.encryption_available);
         assert!(!health.signing_available);
@@ -375,7 +375,7 @@ mod tests {
         let result = provider.get_context().await;
         assert!(result.is_ok());
 
-        let context = result.unwrap();
+        let context = result.expect("should succeed");
         assert_eq!(context.service_name, "mock-security");
         assert_eq!(context.environment, "test");
         assert!(context.encryption_enabled);
@@ -404,7 +404,7 @@ mod tests {
         // All should succeed
         let mut success_count = 0;
         while let Some(result) = set.join_next().await {
-            if result.unwrap().is_ok() {
+            if result.expect("should succeed").is_ok() {
                 success_count += 1;
             }
         }
@@ -431,36 +431,36 @@ mod tests {
             username: "workflow-user".to_string(),
             password: "secure-pass".to_string(),
         };
-        let auth_result = provider.authenticate(&credentials).await.unwrap();
+        let auth_result = provider.authenticate(&credentials).await.expect("should succeed");
 
         // 2. Authorize
         let is_authorized = provider
             .authorize(&auth_result.principal, "read", "document")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(is_authorized);
 
         // 3. Encrypt data
         let sensitive_data = b"sensitive information";
-        let encrypted = provider.encrypt(sensitive_data).await.unwrap();
+        let encrypted = provider.encrypt(sensitive_data).await.expect("should succeed");
 
         // 4. Sign data
-        let signature = provider.sign(sensitive_data).await.unwrap();
+        let signature = provider.sign(sensitive_data).await.expect("should succeed");
 
         // 5. Verify signature
-        let is_valid = provider.verify(sensitive_data, &signature).await.unwrap();
+        let is_valid = provider.verify(sensitive_data, &signature).await.expect("should succeed");
         assert!(is_valid);
 
         // 6. Decrypt data
-        let decrypted = provider.decrypt(&encrypted).await.unwrap();
+        let decrypted = provider.decrypt(&encrypted).await.expect("should succeed");
         assert_eq!(decrypted, sensitive_data);
 
         // 7. Health check
-        let health = provider.health_check().await.unwrap();
+        let health = provider.health_check().await.expect("should succeed");
         assert!(health.is_healthy);
 
         // 8. Get context
-        let context = provider.get_context().await.unwrap();
+        let context = provider.get_context().await.expect("should succeed");
         assert!(context.encryption_enabled);
     }
 }

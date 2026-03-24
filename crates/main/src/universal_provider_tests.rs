@@ -237,7 +237,7 @@ fn test_dynamic_port_info() {
     let provider = UniversalSquirrelProvider::new(config, context).expect("create provider");
     let info = provider.dynamic_port_info();
     assert!(info.is_some());
-    let info = info.unwrap();
+    let info = info.expect("should succeed");
     assert_eq!(info.port, 8080);
 }
 

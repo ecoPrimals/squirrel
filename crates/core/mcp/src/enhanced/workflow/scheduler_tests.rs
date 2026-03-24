@@ -36,9 +36,9 @@ async fn test_schedule_one_time_workflow() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let schedules = scheduler.list_schedules().await.unwrap();
+    let schedules = scheduler.list_schedules().await.expect("should succeed");
     assert_eq!(schedules.len(), 1);
     assert_eq!(schedules[0].id, "test-schedule-1");
 }
@@ -59,11 +59,11 @@ async fn test_schedule_interval_workflow() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("test-schedule-2").await.unwrap();
+    let retrieved = scheduler.get_schedule("test-schedule-2").await.expect("should succeed");
     assert!(retrieved.is_some());
-    assert!(retrieved.unwrap().next_execution.is_some());
+    assert!(retrieved.expect("should succeed").next_execution.is_some());
 }
 
 #[tokio::test]
@@ -83,11 +83,11 @@ async fn test_cancel_schedule() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
-    assert_eq!(scheduler.list_schedules().await.unwrap().len(), 1);
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
+    assert_eq!(scheduler.list_schedules().await.expect("should succeed").len(), 1);
     
-    scheduler.cancel_schedule("test-schedule-3").await.unwrap();
-    assert_eq!(scheduler.list_schedules().await.unwrap().len(), 0);
+    scheduler.cancel_schedule("test-schedule-3").await.expect("should succeed");
+    assert_eq!(scheduler.list_schedules().await.expect("should succeed").len(), 0);
 }
 
 #[tokio::test]
@@ -107,18 +107,18 @@ async fn test_update_schedule_enabled_status() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
     // Disable the schedule
-    scheduler.update_schedule("test-schedule-4", false).await.unwrap();
+    scheduler.update_schedule("test-schedule-4", false).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("test-schedule-4").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("test-schedule-4").await.expect("should succeed").expect("should succeed");
     assert!(!retrieved.enabled);
     
     // Re-enable the schedule
-    scheduler.update_schedule("test-schedule-4", true).await.unwrap();
+    scheduler.update_schedule("test-schedule-4", true).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("test-schedule-4").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("test-schedule-4").await.expect("should succeed").expect("should succeed");
     assert!(retrieved.enabled);
 }
 
@@ -139,12 +139,12 @@ async fn test_cron_parsing_daily_midnight() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("cron-test-1").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("cron-test-1").await.expect("should succeed").expect("should succeed");
     assert!(retrieved.next_execution.is_some());
     
-    let next_exec = retrieved.next_execution.unwrap();
+    let next_exec = retrieved.next_execution.expect("should succeed");
     assert_eq!(next_exec.hour(), 0);
     assert_eq!(next_exec.minute(), 0);
 }
@@ -166,12 +166,12 @@ async fn test_cron_parsing_every_5_minutes() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("cron-test-2").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("cron-test-2").await.expect("should succeed").expect("should succeed");
     assert!(retrieved.next_execution.is_some());
     
-    let next_exec = retrieved.next_execution.unwrap();
+    let next_exec = retrieved.next_execution.expect("should succeed");
     assert_eq!(next_exec.minute() % 5, 0);
 }
 
@@ -192,12 +192,12 @@ async fn test_cron_parsing_weekday_business_hours() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("cron-test-3").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("cron-test-3").await.expect("should succeed").expect("should succeed");
     assert!(retrieved.next_execution.is_some());
     
-    let next_exec = retrieved.next_execution.unwrap();
+    let next_exec = retrieved.next_execution.expect("should succeed");
     assert_eq!(next_exec.minute(), 0);
     assert!(next_exec.hour() >= 9 && next_exec.hour() <= 17);
     let weekday = next_exec.weekday().num_days_from_sunday();
@@ -221,12 +221,12 @@ async fn test_cron_parsing_specific_times() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("cron-test-4").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("cron-test-4").await.expect("should succeed").expect("should succeed");
     assert!(retrieved.next_execution.is_some());
     
-    let next_exec = retrieved.next_execution.unwrap();
+    let next_exec = retrieved.next_execution.expect("should succeed");
     assert_eq!(next_exec.minute(), 30);
     assert!(next_exec.hour() == 8 || next_exec.hour() == 17);
 }
@@ -252,7 +252,7 @@ async fn test_cron_parsing_invalid_expression() {
     let result = scheduler.schedule_workflow(schedule).await;
     assert!(result.is_ok());
     
-    let retrieved = scheduler.get_schedule("cron-test-invalid-1").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("cron-test-invalid-1").await.expect("should succeed").expect("should succeed");
     // Fallback should schedule for next minute
     assert!(retrieved.next_execution.is_some());
 }
@@ -274,13 +274,13 @@ async fn test_cron_parsing_every_minute() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("cron-test-5").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("cron-test-5").await.expect("should succeed").expect("should succeed");
     assert!(retrieved.next_execution.is_some());
     
     // Should be scheduled for the next minute
-    let next_exec = retrieved.next_execution.unwrap();
+    let next_exec = retrieved.next_execution.expect("should succeed");
     let now = chrono::Utc::now();
     let diff = next_exec.signed_duration_since(now);
     assert!(diff.num_seconds() >= 0 && diff.num_seconds() <= 120);
@@ -302,9 +302,9 @@ async fn test_event_driven_schedule() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("event-test-1").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("event-test-1").await.expect("should succeed").expect("should succeed");
     assert!(retrieved.next_execution.is_none());
 }
 
@@ -326,10 +326,10 @@ async fn test_multiple_schedules() {
             enabled: true,
         };
         
-        scheduler.schedule_workflow(schedule).await.unwrap();
+        scheduler.schedule_workflow(schedule).await.expect("should succeed");
     }
     
-    let schedules = scheduler.list_schedules().await.unwrap();
+    let schedules = scheduler.list_schedules().await.expect("should succeed");
     assert_eq!(schedules.len(), 5);
 }
 
@@ -367,12 +367,12 @@ async fn test_cron_parsing_monthly_first_day() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("cron-test-6").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("cron-test-6").await.expect("should succeed").expect("should succeed");
     assert!(retrieved.next_execution.is_some());
     
-    let next_exec = retrieved.next_execution.unwrap();
+    let next_exec = retrieved.next_execution.expect("should succeed");
     assert_eq!(next_exec.day(), 1);
     assert_eq!(next_exec.hour(), 12);
     assert_eq!(next_exec.minute(), 0);
@@ -398,10 +398,10 @@ async fn test_schedule_with_parameters() {
         enabled: true,
     };
     
-    scheduler.schedule_workflow(schedule).await.unwrap();
+    scheduler.schedule_workflow(schedule).await.expect("should succeed");
     
-    let retrieved = scheduler.get_schedule("param-test-1").await.unwrap().unwrap();
+    let retrieved = scheduler.get_schedule("param-test-1").await.expect("should succeed").expect("should succeed");
     assert_eq!(retrieved.parameters.len(), 2);
-    assert_eq!(retrieved.parameters.get("user_id").unwrap(), &serde_json::json!("user123"));
-    assert_eq!(retrieved.parameters.get("action").unwrap(), &serde_json::json!("backup"));
+    assert_eq!(retrieved.parameters.get("user_id").expect("should succeed"), &serde_json::json!("user123"));
+    assert_eq!(retrieved.parameters.get("action").expect("should succeed"), &serde_json::json!("backup"));
 }

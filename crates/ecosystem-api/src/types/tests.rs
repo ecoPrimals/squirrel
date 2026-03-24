@@ -28,8 +28,8 @@ mod tests {
             PrimalType::BiomeOS,
             PrimalType::Any,
         ] {
-            let json = serde_json::to_string(pt).unwrap();
-            let deser: PrimalType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(pt).expect("should succeed");
+            let deser: PrimalType = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(*pt, deser);
         }
     }
@@ -42,8 +42,8 @@ mod tests {
             SecurityLevel::Restricted,
             SecurityLevel::Confidential,
         ] {
-            let json = serde_json::to_string(level).unwrap();
-            let deser: SecurityLevel = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(level).expect("should succeed");
+            let deser: SecurityLevel = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(*level, deser);
         }
     }
@@ -53,26 +53,26 @@ mod tests {
         use std::sync::Arc;
 
         let success = ResponseStatus::Success;
-        let json = serde_json::to_string(&success).unwrap();
-        let deser: ResponseStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&success).expect("should succeed");
+        let deser: ResponseStatus = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(success, deser);
 
         let error = ResponseStatus::Error {
             code: Arc::from("E001"),
             message: "Something went wrong".to_string(),
         };
-        let json = serde_json::to_string(&error).unwrap();
-        let deser: ResponseStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&error).expect("should succeed");
+        let deser: ResponseStatus = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(error, deser);
 
         let timeout = ResponseStatus::Timeout;
-        let json = serde_json::to_string(&timeout).unwrap();
-        let deser: ResponseStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&timeout).expect("should succeed");
+        let deser: ResponseStatus = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(timeout, deser);
 
         let unavailable = ResponseStatus::ServiceUnavailable;
-        let json = serde_json::to_string(&unavailable).unwrap();
-        let deser: ResponseStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&unavailable).expect("should succeed");
+        let deser: ResponseStatus = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(unavailable, deser);
     }
 
@@ -84,8 +84,8 @@ mod tests {
             HealthStatus::Unhealthy,
             HealthStatus::Unknown,
         ] {
-            let json = serde_json::to_string(status).unwrap();
-            let deser: HealthStatus = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(status).expect("should succeed");
+            let deser: HealthStatus = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(*status, deser);
         }
     }
@@ -162,8 +162,8 @@ mod tests {
             timestamp: chrono::Utc::now(),
         };
 
-        let json = serde_json::to_string(&req).unwrap();
-        let deser: EcosystemRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("should succeed");
+        let deser: EcosystemRequest = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.source_service.as_ref(), "squirrel");
         assert_eq!(deser.target_service.as_ref(), "songbird");
         assert_eq!(deser.operation.as_ref(), "discover");
@@ -174,8 +174,8 @@ mod tests {
         let cap = PrimalCapability::ModelInference {
             models: vec!["gpt-4".to_string(), "claude".to_string()],
         };
-        let json = serde_json::to_string(&cap).unwrap();
-        let deser: PrimalCapability = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&cap).expect("should succeed");
+        let deser: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(cap, deser);
     }
 
@@ -188,8 +188,8 @@ mod tests {
             required: true,
             min_version: Some("1.0.0".to_string()),
         };
-        let json = serde_json::to_string(&dep).unwrap();
-        let deser: PrimalDependency = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&dep).expect("should succeed");
+        let deser: PrimalDependency = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(dep, deser);
     }
 
@@ -264,8 +264,8 @@ mod tests {
         ];
 
         for cap in &caps {
-            let json = serde_json::to_string(cap).unwrap();
-            let deser: PrimalCapability = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(cap).expect("should succeed");
+            let deser: PrimalCapability = serde_json::from_str(&json).expect("should succeed");
             assert_eq!(*cap, deser, "Failed roundtrip for: {cap:?}");
         }
     }

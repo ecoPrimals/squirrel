@@ -24,7 +24,7 @@ async fn test_with_resilience_success() {
     ).await;
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().0, "Success");
+    assert_eq!(result.expect("should succeed").0, "Success");
 }
 
 /// Test basic failure and retry scenario
@@ -41,7 +41,7 @@ async fn test_basic_failure_and_retry() {
         retry,
         move || {
             let counter_clone = counter.clone();
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
             if *count == 1 {
@@ -55,7 +55,7 @@ async fn test_basic_failure_and_retry() {
     ).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().0, "Retry succeeded".to_string());
+    assert_eq!(result.expect("should succeed").0, "Retry succeeded".to_string());
     assert_operation_count(&attempt_counter, 2, "Basic retry scenario");
 }
 
@@ -72,7 +72,7 @@ async fn test_immediate_success() {
         retry,
         move || {
             let counter_clone = counter.clone();
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
             // Always succeed immediately
@@ -81,7 +81,7 @@ async fn test_immediate_success() {
     ).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().0, "Immediate success".to_string());
+    assert_eq!(result.expect("should succeed").0, "Immediate success".to_string());
     assert_operation_count(&attempt_counter, 1, "Immediate success scenario");
 }
 
@@ -103,7 +103,7 @@ async fn test_basic_circuit_breaker() {
     ).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().0, "Circuit breaker working".to_string());
+    assert_eq!(result.expect("should succeed").0, "Circuit breaker working".to_string());
     
     // Circuit should still be closed after success
     let final_state = circuit_breaker.state().await;
@@ -125,7 +125,7 @@ async fn test_error_propagation() {
         retry,
         move || {
             let counter_clone = counter.clone();
-            let mut count = counter_clone.lock().unwrap();
+            let mut count = counter_clone.lock().expect("should succeed");
             *count += 1;
             
             // Always fail
@@ -176,7 +176,7 @@ async fn test_different_error_types() {
     ).await;
     
     assert!(result3.is_ok());
-    assert_eq!(result3.unwrap().0, "Success after errors".to_string());
+    assert_eq!(result3.expect("should succeed").0, "Success after errors".to_string());
 }
 
 /// Test resilience framework with empty operations
@@ -193,7 +193,7 @@ async fn test_minimal_operations() {
     ).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().0, "");
+    assert_eq!(result.expect("should succeed").0, "");
 }
 
 /// Test circuit breaker metrics tracking

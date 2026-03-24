@@ -96,11 +96,11 @@ mod tests {
                     path: "data".to_string(),
                 });
 
-        repo.add_rule(rule).await.unwrap();
+        repo.add_rule(rule).await.expect("should succeed");
 
         let result = repo.get_rule("test-get").await;
         assert!(result.is_ok());
-        let retrieved = result.unwrap().unwrap();
+        let retrieved = result.expect("should succeed").expect("should succeed");
         assert_eq!(retrieved.id, "test-get");
         assert_eq!(retrieved.name, "Get Test");
     }
@@ -111,7 +111,7 @@ mod tests {
 
         let result = repo.get_rule("nonexistent").await;
         assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
+        assert!(result.expect("should succeed").is_none());
     }
 
     #[tokio::test]
@@ -124,13 +124,13 @@ mod tests {
                 path: "data".to_string(),
             });
 
-        repo.add_rule(rule).await.unwrap();
+        repo.add_rule(rule).await.expect("should succeed");
 
         let result = repo.remove_rule("test-remove").await;
         assert!(result.is_ok());
 
         // Verify it's gone
-        let get_result = repo.get_rule("test-remove").await.unwrap();
+        let get_result = repo.get_rule("test-remove").await.expect("should succeed");
         assert!(get_result.is_none());
     }
 
@@ -144,7 +144,7 @@ mod tests {
                 path: "data".to_string(),
             });
 
-        repo.add_rule(rule).await.unwrap();
+        repo.add_rule(rule).await.expect("should succeed");
 
         let updated_rule = Rule::new("test-update")
             .with_name("Updated Name")
@@ -157,7 +157,11 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify update
-        let retrieved = repo.get_rule("test-update").await.unwrap().unwrap();
+        let retrieved = repo
+            .get_rule("test-update")
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
         assert_eq!(retrieved.name, "Updated Name");
         assert_eq!(retrieved.description, "New description");
     }
@@ -173,12 +177,12 @@ mod tests {
                 .with_condition(RuleCondition::Exists {
                     path: "data".to_string(),
                 });
-            repo.add_rule(rule).await.unwrap();
+            repo.add_rule(rule).await.expect("should succeed");
         }
 
         let result = repo.get_all_rules().await;
         assert!(result.is_ok());
-        let rules = result.unwrap();
+        let rules = result.expect("should succeed");
         assert_eq!(rules.len(), 5);
     }
 
@@ -208,13 +212,13 @@ mod tests {
                 path: "data".to_string(),
             });
 
-        repo.add_rule(rule1).await.unwrap();
-        repo.add_rule(rule2).await.unwrap();
-        repo.add_rule(rule3).await.unwrap();
+        repo.add_rule(rule1).await.expect("should succeed");
+        repo.add_rule(rule2).await.expect("should succeed");
+        repo.add_rule(rule3).await.expect("should succeed");
 
         let result = repo.get_rules_by_category("security").await;
         assert!(result.is_ok());
-        let rule_list = result.unwrap();
+        let rule_list = result.expect("should succeed");
         assert_eq!(rule_list.len(), 2);
     }
 
@@ -230,11 +234,11 @@ mod tests {
                 path: "data".to_string(),
             });
 
-        repo.add_rule(rule).await.unwrap();
+        repo.add_rule(rule).await.expect("should succeed");
 
         let result = repo.get_rules_by_pattern("login.*").await;
         assert!(result.is_ok());
-        let rules = result.unwrap();
+        let rules = result.expect("should succeed");
         assert_eq!(rules.len(), 1);
     }
 
@@ -249,7 +253,7 @@ mod tests {
                 path: "data".to_string(),
             });
 
-        repo.add_rule(rule).await.unwrap();
+        repo.add_rule(rule).await.expect("should succeed");
 
         let result = repo.get_matching_rules("test-context").await;
         // May or may not match depending on implementation
@@ -269,12 +273,12 @@ mod tests {
                 .with_condition(RuleCondition::Exists {
                     path: "data".to_string(),
                 });
-            repo.add_rule(rule).await.unwrap();
+            repo.add_rule(rule).await.expect("should succeed");
         }
 
         let result = repo.get_categories().await;
         assert!(result.is_ok());
-        let cats = result.unwrap();
+        let cats = result.expect("should succeed");
         assert!(cats.contains(&"security".to_string()));
         assert!(cats.contains(&"performance".to_string()));
         assert!(cats.contains(&"data".to_string()));
@@ -292,11 +296,11 @@ mod tests {
                 path: "data".to_string(),
             });
 
-        repo.add_rule(rule).await.unwrap();
+        repo.add_rule(rule).await.expect("should succeed");
 
         let result = repo.get_patterns().await;
         assert!(result.is_ok());
-        let patterns = result.unwrap();
+        let patterns = result.expect("should succeed");
         assert!(patterns.contains(&"login.*".to_string()));
         assert!(patterns.contains(&"auth.*".to_string()));
     }
@@ -312,7 +316,7 @@ mod tests {
                 .with_condition(RuleCondition::Exists {
                     path: "data".to_string(),
                 });
-            repo.add_rule(rule).await.unwrap();
+            repo.add_rule(rule).await.expect("should succeed");
         }
 
         let result = repo.get_statistics().await;
@@ -341,9 +345,13 @@ mod tests {
                 path: "data".to_string(),
             });
 
-        repo.add_rule(rule).await.unwrap();
+        repo.add_rule(rule).await.expect("should succeed");
 
-        let retrieved = repo.get_rule("test-meta").await.unwrap().unwrap();
+        let retrieved = repo
+            .get_rule("test-meta")
+            .await
+            .expect("should succeed")
+            .expect("should succeed");
         assert_eq!(retrieved.metadata.get("author"), Some(&json!("test-user")));
         assert_eq!(retrieved.metadata.get("version"), Some(&json!("1.0.0")));
     }

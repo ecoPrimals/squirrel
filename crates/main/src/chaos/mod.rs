@@ -388,25 +388,25 @@ mod tests {
     #[test]
     fn test_test_status_serde() {
         let running = TestStatus::Running;
-        let json = serde_json::to_string(&running).unwrap();
-        let deserialized: TestStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&running).expect("should succeed");
+        let deserialized: TestStatus = serde_json::from_str(&json).expect("should succeed");
         assert!(matches!(deserialized, TestStatus::Running));
 
         let completed = TestStatus::Completed;
-        let json = serde_json::to_string(&completed).unwrap();
-        let deserialized: TestStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&completed).expect("should succeed");
+        let deserialized: TestStatus = serde_json::from_str(&json).expect("should succeed");
         assert!(matches!(deserialized, TestStatus::Completed));
 
         let cancelled = TestStatus::Cancelled;
-        let json = serde_json::to_string(&cancelled).unwrap();
-        let deserialized: TestStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&cancelled).expect("should succeed");
+        let deserialized: TestStatus = serde_json::from_str(&json).expect("should succeed");
         assert!(matches!(deserialized, TestStatus::Cancelled));
 
         let failed = TestStatus::Failed {
             reason: "timeout".to_string(),
         };
-        let json = serde_json::to_string(&failed).unwrap();
-        let deserialized: TestStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&failed).expect("should succeed");
+        let deserialized: TestStatus = serde_json::from_str(&json).expect("should succeed");
         assert!(matches!(deserialized, TestStatus::Failed { .. }));
     }
 
@@ -416,8 +416,9 @@ mod tests {
             service_name: "openai".to_string(),
             failure_rate: 0.5,
         };
-        let json = serde_json::to_string(&test_type).unwrap();
-        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&test_type).expect("should succeed");
+        let deserialized: AIResilienceTestType =
+            serde_json::from_str(&json).expect("should succeed");
         match deserialized {
             AIResilienceTestType::AIServiceUnavailable {
                 service_name,
@@ -426,7 +427,7 @@ mod tests {
                 assert_eq!(service_name, "openai");
                 assert!((failure_rate - 0.5).abs() < f64::EPSILON);
             }
-            _ => panic!("Wrong test type"),
+            _ => unreachable!("Wrong test type"),
         }
     }
 
@@ -436,8 +437,9 @@ mod tests {
             service_name: "anthropic".to_string(),
             delay_ms: 5000,
         };
-        let json = serde_json::to_string(&test_type).unwrap();
-        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&test_type).expect("should succeed");
+        let deserialized: AIResilienceTestType =
+            serde_json::from_str(&json).expect("should succeed");
         match deserialized {
             AIResilienceTestType::SlowAIResponse {
                 service_name,
@@ -446,7 +448,7 @@ mod tests {
                 assert_eq!(service_name, "anthropic");
                 assert_eq!(delay_ms, 5000);
             }
-            _ => panic!("Wrong test type"),
+            _ => unreachable!("Wrong test type"),
         }
     }
 
@@ -456,8 +458,9 @@ mod tests {
             affected_primals: vec!["squirrel".to_string(), "songbird".to_string()],
             failure_type: "network_partition".to_string(),
         };
-        let json = serde_json::to_string(&test_type).unwrap();
-        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&test_type).expect("should succeed");
+        let deserialized: AIResilienceTestType =
+            serde_json::from_str(&json).expect("should succeed");
         match deserialized {
             AIResilienceTestType::CoordinationFailure {
                 affected_primals,
@@ -466,7 +469,7 @@ mod tests {
                 assert_eq!(affected_primals.len(), 2);
                 assert_eq!(failure_type, "network_partition");
             }
-            _ => panic!("Wrong test type"),
+            _ => unreachable!("Wrong test type"),
         }
     }
 
@@ -476,8 +479,9 @@ mod tests {
             service_name: "ai-service".to_string(),
             failure_threshold: 5,
         };
-        let json = serde_json::to_string(&test_type).unwrap();
-        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&test_type).expect("should succeed");
+        let deserialized: AIResilienceTestType =
+            serde_json::from_str(&json).expect("should succeed");
         match deserialized {
             AIResilienceTestType::CircuitBreakerTest {
                 service_name,
@@ -486,7 +490,7 @@ mod tests {
                 assert_eq!(service_name, "ai-service");
                 assert_eq!(failure_threshold, 5);
             }
-            _ => panic!("Wrong test type"),
+            _ => unreachable!("Wrong test type"),
         }
     }
 
@@ -496,8 +500,9 @@ mod tests {
             service_name: "ml-service".to_string(),
             max_retries: 3,
         };
-        let json = serde_json::to_string(&test_type).unwrap();
-        let deserialized: AIResilienceTestType = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&test_type).expect("should succeed");
+        let deserialized: AIResilienceTestType =
+            serde_json::from_str(&json).expect("should succeed");
         match deserialized {
             AIResilienceTestType::RetryPatternTest {
                 service_name,
@@ -506,7 +511,7 @@ mod tests {
                 assert_eq!(service_name, "ml-service");
                 assert_eq!(max_retries, 3);
             }
-            _ => panic!("Wrong test type"),
+            _ => unreachable!("Wrong test type"),
         }
     }
 
@@ -525,8 +530,9 @@ mod tests {
             recovery_time_ms: Some(200),
             lessons_learned: vec!["Circuit breaker works".to_string()],
         };
-        let json = serde_json::to_string(&result).unwrap();
-        let deserialized: ResilienceTestResult = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&result).expect("should succeed");
+        let deserialized: ResilienceTestResult =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.test_id, "test-001");
         assert_eq!(deserialized.duration_ms, 500);
         assert_eq!(deserialized.ai_operations_tested, 50);
@@ -546,8 +552,8 @@ mod tests {
             active_tests_count: 2,
             last_check: chrono::Utc::now(),
         };
-        let json = serde_json::to_string(&status).unwrap();
-        let deserialized: AIResilienceStatus = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&status).expect("should succeed");
+        let deserialized: AIResilienceStatus = serde_json::from_str(&json).expect("should succeed");
         assert!(deserialized.overall_healthy);
         assert_eq!(deserialized.security_coordination, "healthy");
         assert_eq!(deserialized.storage_coordination, "degraded");
@@ -564,7 +570,7 @@ mod tests {
         let test_id = coordinator
             .start_ai_resilience_test(test_type, Duration::from_secs(10))
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!test_id.is_empty());
 
         let active = coordinator.get_active_tests().await;
@@ -586,7 +592,7 @@ mod tests {
                 Duration::from_secs(5),
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let t2 = coordinator
             .start_ai_resilience_test(
@@ -597,7 +603,7 @@ mod tests {
                 Duration::from_secs(5),
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         assert_ne!(t1, t2);
         let active = coordinator.get_active_tests().await;
@@ -614,9 +620,12 @@ mod tests {
         let test_id = coordinator
             .start_ai_resilience_test(test_type, Duration::from_secs(10))
             .await
-            .unwrap();
+            .expect("should succeed");
 
-        let result = coordinator.stop_resilience_test(&test_id).await.unwrap();
+        let result = coordinator
+            .stop_resilience_test(&test_id)
+            .await
+            .expect("should succeed");
         assert_eq!(result.test_id, test_id);
         assert!(matches!(result.status, TestStatus::Completed));
         assert_eq!(result.ai_operations_tested, 25);
@@ -665,7 +674,7 @@ mod tests {
                 Duration::from_secs(60),
             )
             .await
-            .unwrap();
+            .expect("should succeed");
 
         let status = coordinator.quick_ai_resilience_check().await;
         assert_eq!(status.active_tests_count, 1);

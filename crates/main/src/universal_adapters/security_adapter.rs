@@ -444,7 +444,7 @@ mod tests {
         adapter
             .coordinate_security("ping", HashMap::new())
             .await
-            .unwrap();
+            .expect("should succeed");
         adapter
             .rediscover_security_services()
             .await
@@ -490,7 +490,9 @@ mod tests {
         let reg = Arc::new(InMemoryServiceRegistry::new());
         let reg_data = test_security_registration();
         let sid = reg_data.service_id.to_string();
-        reg.register_service(reg_data).await.unwrap();
+        reg.register_service(reg_data)
+            .await
+            .expect("should succeed");
         reg.update_service_health(
             &sid,
             ServiceHealth {
@@ -500,12 +502,12 @@ mod tests {
             },
         )
         .await
-        .unwrap();
+        .expect("should succeed");
         let mut adapter = UniversalSecurityAdapter::new(reg);
         adapter
             .coordinate_security("x", HashMap::new())
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(!adapter.is_healthy().await);
     }
 

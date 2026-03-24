@@ -40,7 +40,7 @@ mod auth_tests_impl {
 
     #[tokio::test]
     async fn test_successful_standalone_login() {
-        let service = create_test_auth_service().await.unwrap();
+        let service = create_test_auth_service().await.expect("should succeed");
         let request = LoginRequest::new("admin", "admin123");
         let result = service.authenticate(request).await;
 
@@ -48,7 +48,7 @@ mod auth_tests_impl {
             result.is_ok(),
             "Login with valid credentials should succeed"
         );
-        let response = result.unwrap();
+        let response = result.expect("should succeed");
         assert!(response.success, "Response should indicate success");
         assert!(
             response.session_token.is_some(),
@@ -58,15 +58,15 @@ mod auth_tests_impl {
             response.user_context.is_some(),
             "User context should be present"
         );
-        let ctx = response.user_context.clone().unwrap();
+        let ctx = response.user_context.clone().expect("should succeed");
         assert_eq!(ctx.username, "admin");
     }
 
     #[tokio::test]
     async fn test_failed_login_invalid_credentials() {
-        let service = create_test_auth_service().await.unwrap();
+        let service = create_test_auth_service().await.expect("should succeed");
         let request = LoginRequest::new("admin", "wrongpassword");
-        let response = service.authenticate(request).await.unwrap();
+        let response = service.authenticate(request).await.expect("should succeed");
 
         assert!(
             !response.success,
@@ -77,56 +77,59 @@ mod auth_tests_impl {
 
     #[tokio::test]
     async fn test_failed_login_unknown_user() {
-        let service = create_test_auth_service().await.unwrap();
+        let service = create_test_auth_service().await.expect("should succeed");
         let request = LoginRequest::new("nonexistent", "password");
-        let response = service.authenticate(request).await.unwrap();
+        let response = service.authenticate(request).await.expect("should succeed");
 
         assert!(!response.success, "Login with unknown user should fail");
     }
 
     #[tokio::test]
     async fn test_logout() {
-        let service = create_test_auth_service().await.unwrap();
+        let service = create_test_auth_service().await.expect("should succeed");
         let request = LoginRequest::new("admin", "admin123");
-        let login_response = service.authenticate(request).await.unwrap();
+        let login_response = service.authenticate(request).await.expect("should succeed");
         assert!(login_response.success);
 
-        let token = login_response.session_token.clone().unwrap();
+        let token = login_response
+            .session_token
+            .clone()
+            .expect("should succeed");
         let result = service.logout(&token).await;
         assert!(result.is_ok(), "Logout should succeed");
     }
 
     #[tokio::test]
     async fn test_validate_session_valid() {
-        let service = create_test_auth_service().await.unwrap();
+        let service = create_test_auth_service().await.expect("should succeed");
         let request = LoginRequest::new("admin", "admin123");
-        let response = service.authenticate(request).await.unwrap();
+        let response = service.authenticate(request).await.expect("should succeed");
         assert!(response.success);
 
-        let token = response.session_token.clone().unwrap();
+        let token = response.session_token.clone().expect("should succeed");
         let result = service.validate_session(&token).await;
         assert!(result.is_ok(), "Valid session should pass validation");
 
-        let ctx = result.unwrap();
+        let ctx = result.expect("should succeed");
         assert!(ctx.is_some(), "Should return an auth context");
-        assert_eq!(ctx.unwrap().username, "admin");
+        assert_eq!(ctx.expect("should succeed").username, "admin");
     }
 
     #[tokio::test]
     async fn test_validate_session_invalid() {
-        let service = create_test_auth_service().await.unwrap();
+        let service = create_test_auth_service().await.expect("should succeed");
         let fake_uuid = Uuid::new_v4().to_string();
         let result = service.validate_session(&fake_uuid).await;
         assert!(result.is_ok());
         assert!(
-            result.unwrap().is_none(),
+            result.expect("should succeed").is_none(),
             "Invalid session should return None"
         );
     }
 
     #[tokio::test]
     async fn test_capability_discovery_fallback() {
-        let service = create_test_auth_service().await.unwrap();
+        let service = create_test_auth_service().await.expect("should succeed");
         let provider = service.get_auth_provider();
         assert!(
             matches!(provider, AuthProvider::Standalone),
@@ -145,18 +148,24 @@ mod auth_tests_impl {
         let session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         let session_id = session.id;
 
-        manager.create_session(session).await.unwrap();
+        manager
+            .create_session(session)
+            .await
+            .expect("should succeed");
 
-        let retrieved = manager.get_session(&session_id).await.unwrap();
+        let retrieved = manager
+            .get_session(&session_id)
+            .await
+            .expect("should succeed");
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().user_id, user_id);
+        assert_eq!(retrieved.expect("should succeed").user_id, user_id);
     }
 
     #[tokio::test]
     async fn test_session_manager_validate_nonexistent() {
         let manager = SessionManager::new();
         let fake_id = Uuid::new_v4();
-        let result = manager.get_session(&fake_id).await.unwrap();
+        let result = manager.get_session(&fake_id).await.expect("should succeed");
         assert!(result.is_none(), "Nonexistent session should return None");
     }
 
@@ -167,11 +176,20 @@ mod auth_tests_impl {
         let session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         let session_id = session.id;
 
-        manager.create_session(session).await.unwrap();
-        let result = manager.invalidate_session(&session_id).await.unwrap();
+        manager
+            .create_session(session)
+            .await
+            .expect("should succeed");
+        let result = manager
+            .invalidate_session(&session_id)
+            .await
+            .expect("should succeed");
         assert!(result, "Session invalidation should succeed");
 
-        let retrieved = manager.get_session(&session_id).await.unwrap();
+        let retrieved = manager
+            .get_session(&session_id)
+            .await
+            .expect("should succeed");
         assert!(
             retrieved.is_none(),
             "Invalidated session should not be returned"
@@ -186,8 +204,14 @@ mod auth_tests_impl {
         session.expires_at = Utc::now() - Duration::hours(1);
         let session_id = session.id;
 
-        manager.create_session(session).await.unwrap();
-        let retrieved = manager.get_session(&session_id).await.unwrap();
+        manager
+            .create_session(session)
+            .await
+            .expect("should succeed");
+        let retrieved = manager
+            .get_session(&session_id)
+            .await
+            .expect("should succeed");
         assert!(
             retrieved.is_none(),
             "Expired session should not be returned"
@@ -201,8 +225,14 @@ mod auth_tests_impl {
         let session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         let session_id = session.id;
 
-        manager.create_session(session).await.unwrap();
-        let result = manager.touch_session(&session_id).await.unwrap();
+        manager
+            .create_session(session)
+            .await
+            .expect("should succeed");
+        let result = manager
+            .touch_session(&session_id)
+            .await
+            .expect("should succeed");
         assert!(result, "Session touch should succeed");
     }
 
@@ -313,11 +343,23 @@ mod auth_tests_impl {
         let id1 = s1.id;
         let id2 = s2.id;
 
-        manager.create_session(s1).await.unwrap();
-        manager.create_session(s2).await.unwrap();
+        manager.create_session(s1).await.expect("should succeed");
+        manager.create_session(s2).await.expect("should succeed");
 
-        assert!(manager.get_session(&id1).await.unwrap().is_some());
-        assert!(manager.get_session(&id2).await.unwrap().is_some());
+        assert!(
+            manager
+                .get_session(&id1)
+                .await
+                .expect("should succeed")
+                .is_some()
+        );
+        assert!(
+            manager
+                .get_session(&id2)
+                .await
+                .expect("should succeed")
+                .is_some()
+        );
         assert_ne!(id1, id2);
     }
 
@@ -334,10 +376,10 @@ mod auth_tests_impl {
             Permission::new("api", "write"),
         ];
 
-        let json = serde_json::to_string(&user).unwrap();
+        let json = serde_json::to_string(&user).expect("should succeed");
         assert!(!json.is_empty());
 
-        let deserialized: User = serde_json::from_str(&json).unwrap();
+        let deserialized: User = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deserialized.username, "serialuser");
         assert_eq!(deserialized.roles, vec!["admin"]);
         assert_eq!(deserialized.permissions.len(), 2);

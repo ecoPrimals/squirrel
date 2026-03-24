@@ -83,8 +83,8 @@ fn test_storage_provider_serialization() {
     };
 
     let provider = StorageProvider::from_discovered_primal(&primal);
-    let json = serde_json::to_string(&provider).unwrap();
-    let deserialized: StorageProvider = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&provider).expect("should succeed");
+    let deserialized: StorageProvider = serde_json::from_str(&json).expect("should succeed");
 
     assert_eq!(provider.provider_id, deserialized.provider_id);
     assert_eq!(provider.metadata.name, deserialized.metadata.name);

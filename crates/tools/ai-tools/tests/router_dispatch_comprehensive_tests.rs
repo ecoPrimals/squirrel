@@ -421,7 +421,14 @@ async fn test_large_message_content() {
 
     let request = ChatRequest::new().add_user(&large_content);
 
-    assert_eq!(request.messages[0].content.as_ref().unwrap().len(), 10000);
+    assert_eq!(
+        request.messages[0]
+            .content
+            .as_ref()
+            .expect("should succeed")
+            .len(),
+        10000
+    );
 }
 
 #[tokio::test]

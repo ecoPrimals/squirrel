@@ -378,7 +378,7 @@ impl<T> OneshotResult<T> {
 
     /// Send the result
     pub fn send(mut self, value: T) -> Result<(), T> {
-        self.sender.take().unwrap().send(value)
+        self.sender.take().expect("should succeed").send(value)
     }
 
     /// Receive the result with timeout
@@ -412,7 +412,7 @@ mod tests {
             n.signal_ready().await;
         });
 
-        notifier.wait_ready(Duration::from_secs(1)).await.unwrap();
+        notifier.wait_ready(Duration::from_secs(1)).await.expect("should succeed");
         assert!(notifier.is_ready().await);
     }
 
@@ -426,7 +426,7 @@ mod tests {
             let _ = sender.send("running");
         });
 
-        watcher.wait_for_state("running", Duration::from_secs(1)).await.unwrap();
+        watcher.wait_for_state("running", Duration::from_secs(1)).await.expect("should succeed");
         assert_eq!(watcher.current_state(), "running");
     }
 
@@ -452,7 +452,7 @@ mod tests {
         // All should start at nearly the same time
         assert_eq!(results.len(), 3);
         let times: Vec<_> = results.iter().map(|(_, t)| t.as_millis()).collect();
-        let max_diff = times.iter().max().unwrap() - times.iter().min().unwrap();
+        let max_diff = times.iter().max().expect("should succeed") - times.iter().min().expect("should succeed");
         assert!(max_diff < 50, "Tasks should start simultaneously, diff: {}ms", max_diff);
     }
 
@@ -469,7 +469,7 @@ mod tests {
             });
         }
 
-        tracker.wait_all_complete(Duration::from_secs(1)).await.unwrap();
+        tracker.wait_all_complete(Duration::from_secs(1)).await.expect("should succeed");
         assert_eq!(tracker.completed_count().await, 5);
     }
 

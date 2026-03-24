@@ -425,7 +425,7 @@ mod tests {
             .version("1.0.0")
             .port(9000)
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(config.info.name, "test-primal");
         assert_eq!(config.info.version, "1.0.0");
@@ -434,7 +434,10 @@ mod tests {
 
     #[test]
     fn test_builder_squirrel() {
-        let config = ConfigBuilder::squirrel().version("1.0.0").build().unwrap();
+        let config = ConfigBuilder::squirrel()
+            .version("1.0.0")
+            .build()
+            .expect("should succeed");
 
         assert_eq!(config.info.name, "squirrel");
         assert_eq!(config.info.primal_type, PrimalType::Coordinator);
@@ -443,7 +446,10 @@ mod tests {
 
     #[test]
     fn test_builder_beardog() {
-        let config = ConfigBuilder::beardog().version("1.0.0").build().unwrap();
+        let config = ConfigBuilder::beardog()
+            .version("1.0.0")
+            .build()
+            .expect("should succeed");
 
         assert_eq!(config.info.name, "beardog");
         assert_eq!(config.info.primal_type, PrimalType::Security);
@@ -452,7 +458,10 @@ mod tests {
 
     #[test]
     fn test_builder_songbird() {
-        let config = ConfigBuilder::songbird().version("1.0.0").build().unwrap();
+        let config = ConfigBuilder::songbird()
+            .version("1.0.0")
+            .build()
+            .expect("should succeed");
 
         assert_eq!(config.info.name, "songbird");
         assert_eq!(config.info.primal_type, PrimalType::Orchestration);
@@ -465,7 +474,7 @@ mod tests {
             .name("test-primal")
             .version("1.0.0")
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(config.environment.name, "development");
         assert_eq!(config.logging.level, LogLevel::Debug);
@@ -484,7 +493,7 @@ mod tests {
                     .name("test-primal")
                     .version("1.0.0")
                     .build()
-                    .unwrap();
+                    .expect("should succeed");
 
                 assert_eq!(config.environment.name, "production");
                 assert_eq!(config.logging.level, LogLevel::Info);
@@ -499,8 +508,8 @@ mod tests {
 
     #[test]
     fn test_builder_tls() {
-        let cert_file = NamedTempFile::new().unwrap();
-        let key_file = NamedTempFile::new().unwrap();
+        let cert_file = NamedTempFile::new().expect("should succeed");
+        let key_file = NamedTempFile::new().expect("should succeed");
 
         let config = ConfigBuilder::new()
             .name("test-primal")
@@ -510,10 +519,10 @@ mod tests {
                 key_file.path().to_path_buf(),
             )
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert!(config.network.tls.is_some());
-        let tls = config.network.tls.unwrap();
+        let tls = config.network.tls.expect("should succeed");
         assert_eq!(tls.cert_file, cert_file.path());
         assert_eq!(tls.key_file, key_file.path());
         assert!(!tls.require_client_cert);
@@ -525,11 +534,11 @@ mod tests {
             .name("test-primal")
             .version("1.0.0")
             .add_custom("test_key", "test_value")
-            .unwrap()
+            .expect("should succeed")
             .build()
-            .unwrap();
+            .expect("should succeed");
 
-        let custom_value: Option<String> = config.get_custom("test_key").unwrap();
+        let custom_value: Option<String> = config.get_custom("test_key").expect("should succeed");
         assert_eq!(custom_value, Some("test_value".to_string()));
     }
 
@@ -541,7 +550,7 @@ mod tests {
             .max_memory_mb(1024)
             .max_cpu_percent(50.0)
             .build()
-            .unwrap();
+            .expect("should succeed");
 
         assert_eq!(config.environment.resources.max_memory_mb, Some(1024));
         assert_eq!(config.environment.resources.max_cpu_percent, Some(50.0));

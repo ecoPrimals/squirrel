@@ -252,22 +252,22 @@ mod tests {
     #[test]
     fn test_arcstr_serialize() {
         let s = ArcStr::from("test");
-        let json = serde_json::to_string(&s).unwrap();
+        let json = serde_json::to_string(&s).expect("should succeed");
         assert_eq!(json, "\"test\"");
     }
 
     #[test]
     fn test_arcstr_deserialize() {
         let json = "\"test\"";
-        let s: ArcStr = serde_json::from_str(json).unwrap();
+        let s: ArcStr = serde_json::from_str(json).expect("should succeed");
         assert_eq!(s, "test");
     }
 
     #[test]
     fn test_arcstr_roundtrip() {
         let original = ArcStr::from("hello world");
-        let json = serde_json::to_string(&original).unwrap();
-        let deserialized: ArcStr = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&original).expect("should succeed");
+        let deserialized: ArcStr = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(original, deserialized);
     }
 
@@ -284,8 +284,8 @@ mod tests {
             description: ArcStr::from("A test service"),
         };
 
-        let json = serde_json::to_string(&data).unwrap();
-        let parsed: TestStruct = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&data).expect("should succeed");
+        let parsed: TestStruct = serde_json::from_str(&json).expect("should succeed");
 
         assert_eq!(data, parsed);
     }

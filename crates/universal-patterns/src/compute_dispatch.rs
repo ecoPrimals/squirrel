@@ -115,7 +115,7 @@ mod tests {
     fn embedding_request_builder() {
         let req = ComputeDispatchRequest::embedding("bge-small", &["hello", "world"]);
         assert_eq!(req.task_type, "embedding");
-        let texts = req.input["texts"].as_array().unwrap();
+        let texts = req.input["texts"].as_array().expect("should succeed");
         assert_eq!(texts.len(), 2);
     }
 
@@ -125,7 +125,7 @@ mod tests {
             .with_priority(10)
             .with_timeout_ms(5000);
         let params = req.to_params();
-        let deser: ComputeDispatchRequest = serde_json::from_value(params).unwrap();
+        let deser: ComputeDispatchRequest = serde_json::from_value(params).expect("should succeed");
         assert_eq!(deser.priority, 10);
         assert_eq!(deser.timeout_ms, Some(5000));
     }
@@ -138,8 +138,8 @@ mod tests {
             execution_ms: 42,
             gpu_device: Some("cuda:0".to_string()),
         };
-        let json = serde_json::to_string(&resp).unwrap();
-        let deser: ComputeDispatchResponse = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&resp).expect("should succeed");
+        let deser: ComputeDispatchResponse = serde_json::from_str(&json).expect("should succeed");
         assert_eq!(deser.backend, "gpu");
         assert_eq!(deser.execution_ms, 42);
     }
@@ -147,7 +147,7 @@ mod tests {
     #[test]
     fn prefer_gpu_default_is_true() {
         let json = r#"{"task_type":"test","input":null,"priority":0}"#;
-        let req: ComputeDispatchRequest = serde_json::from_str(json).unwrap();
+        let req: ComputeDispatchRequest = serde_json::from_str(json).expect("should succeed");
         assert!(req.prefer_gpu);
     }
 }

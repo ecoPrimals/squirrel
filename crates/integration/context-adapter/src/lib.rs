@@ -2,11 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![forbid(unsafe_code)]
-#![allow(
-    clippy::missing_const_for_fn,
-    clippy::significant_drop_tightening,
-    reason = "Context adapter patterns; const/drop tightening deferred"
-)]
+#![allow(clippy::missing_const_for_fn, clippy::significant_drop_tightening)] // const/drop tightening deferred
 
 //! Context adapter for Squirrel
 //!
@@ -33,16 +29,19 @@
 //!     let adapter = create_context_adapter_with_plugins(config, plugin_manager);
 //!     
 //!     // Initialize plugins
-//!     adapter.initialize_plugins().await.unwrap();
+//!     adapter.initialize_plugins().await.expect("should succeed");
 //!     
 //!     // Now you can use transformations and adapters
 //!     let data = serde_json::json!({ "example": "data" });
 //!     
 //!     // Transform data
-//!     let transformed = adapter.transform_data("some.transformation", data.clone()).await.unwrap();
+//!     let transformed = adapter
+//!         .transform_data("some.transformation", data.clone())
+//!         .await
+//!         .expect("should succeed");
 //!     
 //!     // Convert data format
-//!     let converted = adapter.convert_data("some.adapter", data).await.unwrap();
+//!     let converted = adapter.convert_data("some.adapter", data).await.expect("should succeed");
 //! }
 //! ```
 
@@ -50,7 +49,7 @@
 #![warn(clippy::missing_docs_in_private_items)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
-#![cfg_attr(test, allow(clippy::unwrap_used))]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 /// Context adapter implementation
 pub mod adapter;

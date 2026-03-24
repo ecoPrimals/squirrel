@@ -733,7 +733,7 @@ mod tests {
     #[test]
     fn test_universal_result_type() {
         let ok: UniversalResult<i32> = Ok(42);
-        assert_eq!(ok.as_ref().unwrap(), &42);
+        assert_eq!(ok.as_ref().expect("should succeed"), &42);
 
         let err: UniversalResult<i32> = Err(UniversalError::Internal("fail".to_string()));
         assert!(err.is_err());

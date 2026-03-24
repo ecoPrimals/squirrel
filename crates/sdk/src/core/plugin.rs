@@ -648,7 +648,7 @@ mod tests {
     async fn test_plugin_lifecycle() {
         let mut plugin = BasePlugin::new("test".to_string(), "1.0.0".to_string());
         let config = PluginConfig::default();
-        let js_config = serde_wasm_bindgen::to_value(&config).unwrap();
+        let js_config = serde_wasm_bindgen::to_value(&config).expect("config to wasm");
 
         // Test initialization
         assert!(plugin.initialize(js_config).await.is_ok());
@@ -774,14 +774,14 @@ mod tests {
     #[test]
     fn test_plugin_manager_lifecycle() {
         let manager = PluginManager::new();
-        assert!(manager.list_plugins().unwrap().is_empty());
-        assert!(!manager.has_plugin("nonexistent").unwrap());
+        assert!(manager.list_plugins().expect("list_plugins").is_empty());
+        assert!(!manager.has_plugin("nonexistent").expect("has_plugin"));
     }
 
     #[test]
     fn test_plugin_manager_has_plugin_empty() {
         let manager = PluginManager::new();
-        assert!(!manager.has_plugin("x").unwrap());
+        assert!(!manager.has_plugin("x").expect("has_plugin"));
     }
 
     #[test]

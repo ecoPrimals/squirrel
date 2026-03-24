@@ -356,10 +356,10 @@ mod tests {
     #[test]
     fn test_get_env_var() {
         temp_env::with_var("TEST_PORT", Some("8080"), || {
-            let port: u16 = get_env_var("TEST_PORT", "3000").unwrap();
+            let port: u16 = get_env_var("TEST_PORT", "3000").expect("should succeed");
             assert_eq!(port, 8080);
         });
-        let port: u16 = get_env_var("NONEXISTENT_PORT", "3000").unwrap();
+        let port: u16 = get_env_var("NONEXISTENT_PORT", "3000").expect("should succeed");
         assert_eq!(port, 3000);
     }
 

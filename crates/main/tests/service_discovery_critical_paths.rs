@@ -106,7 +106,7 @@ mod service_discovery_critical_paths {
 
         // ASSERT: Only service with BOTH capabilities should match
         assert!(result.is_ok(), "Multi-capability discovery should succeed");
-        let matches = result.unwrap();
+        let matches = result.expect("should succeed");
         assert_eq!(matches.len(), 1, "Only one service has both capabilities");
         assert_eq!(matches[0].id, "service-both");
     }
@@ -123,7 +123,7 @@ mod service_discovery_critical_paths {
         // ASSERT: Should return empty (not error)
         assert!(result.is_ok(), "Empty capability query should succeed");
         assert_eq!(
-            result.unwrap().len(),
+            result.expect("should succeed").len(),
             0,
             "Empty capabilities should return no matches"
         );
@@ -181,7 +181,7 @@ mod service_discovery_critical_paths {
 
         // ASSERT: Only healthy service should be returned
         assert!(result.is_ok(), "Discovery should succeed");
-        let matches = result.unwrap();
+        let matches = result.expect("should succeed");
         assert_eq!(matches.len(), 1, "Only healthy service should match");
         assert_eq!(matches[0].id, "healthy-service");
     }
@@ -211,7 +211,7 @@ mod service_discovery_critical_paths {
         let result1 = registry
             .discover_by_capability(&PrimalCapability::Compute)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(result1.len(), 1, "Should discover healthy service");
 
         // Mark as unhealthy
@@ -224,7 +224,7 @@ mod service_discovery_critical_paths {
         let result2 = registry
             .discover_by_capability(&PrimalCapability::Compute)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(result2.len(), 0, "Should not discover unhealthy service");
 
         // Mark as healthy again
@@ -237,7 +237,7 @@ mod service_discovery_critical_paths {
         let result3 = registry
             .discover_by_capability(&PrimalCapability::Compute)
             .await
-            .unwrap();
+            .expect("should succeed");
         assert_eq!(result3.len(), 1, "Should discover healthy service again");
     }
 
@@ -369,7 +369,7 @@ mod service_discovery_critical_paths {
         for result in results {
             let discovery_result = result.expect("Task should not panic");
             assert!(discovery_result.is_ok(), "Each discovery should succeed");
-            let matches = discovery_result.unwrap();
+            let matches = discovery_result.expect("should succeed");
             assert_eq!(matches.len(), 5, "Should find all 5 services");
         }
     }
@@ -447,7 +447,7 @@ mod service_discovery_critical_paths {
             "Discovery of nonexistent capability should not error"
         );
         assert_eq!(
-            result.unwrap().len(),
+            result.expect("should succeed").len(),
             0,
             "Should return empty list for nonexistent capability"
         );
@@ -526,7 +526,10 @@ mod service_discovery_critical_paths {
         );
 
         // Verify the updated values are used
-        let primal = registry.get_primal("duplicate-id").await.unwrap();
+        let primal = registry
+            .get_primal("duplicate-id")
+            .await
+            .expect("should succeed");
         assert_eq!(primal.display_name.as_ref(), "Second Registration");
     }
 

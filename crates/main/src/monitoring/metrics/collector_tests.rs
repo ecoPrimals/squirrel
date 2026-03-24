@@ -175,10 +175,16 @@ async fn test_list_metric_definitions() {
             unit: "count".to_string(),
             source: "test".to_string(),
         };
-        collector.register_custom_metric(metric_def).await.unwrap();
+        collector
+            .register_custom_metric(metric_def)
+            .await
+            .expect("should succeed");
     }
 
-    let definitions = collector.list_metric_definitions().await.unwrap();
+    let definitions = collector
+        .list_metric_definitions()
+        .await
+        .expect("should succeed");
     assert_eq!(definitions.len(), 3);
 }
 
@@ -214,14 +220,29 @@ async fn test_get_metrics_by_source() {
         source: "source_b".to_string(),
     };
 
-    collector.register_custom_metric(metric1).await.unwrap();
-    collector.register_custom_metric(metric2).await.unwrap();
-    collector.register_custom_metric(metric3).await.unwrap();
+    collector
+        .register_custom_metric(metric1)
+        .await
+        .expect("should succeed");
+    collector
+        .register_custom_metric(metric2)
+        .await
+        .expect("should succeed");
+    collector
+        .register_custom_metric(metric3)
+        .await
+        .expect("should succeed");
 
-    let source_a_metrics = collector.get_metrics_by_source("source_a").await.unwrap();
+    let source_a_metrics = collector
+        .get_metrics_by_source("source_a")
+        .await
+        .expect("should succeed");
     assert_eq!(source_a_metrics.len(), 2);
 
-    let source_b_metrics = collector.get_metrics_by_source("source_b").await.unwrap();
+    let source_b_metrics = collector
+        .get_metrics_by_source("source_b")
+        .await
+        .expect("should succeed");
     assert_eq!(source_b_metrics.len(), 1);
 }
 
@@ -257,14 +278,29 @@ async fn test_get_metrics_by_unit() {
         source: "test".to_string(),
     };
 
-    collector.register_custom_metric(metric1).await.unwrap();
-    collector.register_custom_metric(metric2).await.unwrap();
-    collector.register_custom_metric(metric3).await.unwrap();
+    collector
+        .register_custom_metric(metric1)
+        .await
+        .expect("should succeed");
+    collector
+        .register_custom_metric(metric2)
+        .await
+        .expect("should succeed");
+    collector
+        .register_custom_metric(metric3)
+        .await
+        .expect("should succeed");
 
-    let bytes_metrics = collector.get_metrics_by_unit("bytes").await.unwrap();
+    let bytes_metrics = collector
+        .get_metrics_by_unit("bytes")
+        .await
+        .expect("should succeed");
     assert_eq!(bytes_metrics.len(), 2);
 
-    let count_metrics = collector.get_metrics_by_unit("count").await.unwrap();
+    let count_metrics = collector
+        .get_metrics_by_unit("count")
+        .await
+        .expect("should succeed");
     assert_eq!(count_metrics.len(), 1);
 }
 
@@ -282,19 +318,22 @@ async fn test_get_all_metrics() {
         source: "test".to_string(),
     };
 
-    collector.register_custom_metric(metric_def).await.unwrap();
+    collector
+        .register_custom_metric(metric_def)
+        .await
+        .expect("should succeed");
 
     let mut labels = HashMap::new();
     labels.insert("key".to_string(), "value".to_string());
     collector
         .record_metric("all_test_metric", 99.0, labels)
         .await
-        .unwrap();
+        .expect("should succeed");
 
     // Collect system metrics
-    collector.collect_metrics().await.unwrap();
+    collector.collect_metrics().await.expect("should succeed");
 
-    let all_metrics = collector.get_all_metrics().await.unwrap();
+    let all_metrics = collector.get_all_metrics().await.expect("should succeed");
     assert!(!all_metrics.metrics.is_empty());
     assert!(!all_metrics.component_metrics.is_empty());
     #[cfg(feature = "system-metrics")]
@@ -306,9 +345,9 @@ async fn test_snapshot_creation_and_history() {
     let collector = MetricsCollector::new();
 
     // Collect metrics to create snapshots
-    collector.collect_metrics().await.unwrap();
-    collector.collect_metrics().await.unwrap();
-    collector.collect_metrics().await.unwrap();
+    collector.collect_metrics().await.expect("should succeed");
+    collector.collect_metrics().await.expect("should succeed");
+    collector.collect_metrics().await.expect("should succeed");
 
     let history = collector.history.read().await;
     assert_eq!(history.len(), 3);
@@ -355,7 +394,7 @@ async fn test_history_size_limit() {
 async fn test_component_specific_metrics_all_components() {
     let collector = MetricsCollector::new();
 
-    collector.collect_metrics().await.unwrap();
+    collector.collect_metrics().await.expect("should succeed");
 
     // Internal components always have metrics; capability-domain components
     // are only present when discovered at runtime via socket scan
@@ -367,7 +406,10 @@ async fn test_component_specific_metrics_all_components() {
     ];
 
     for component in internal_components {
-        let metrics = collector.get_component_metrics(component).await.unwrap();
+        let metrics = collector
+            .get_component_metrics(component)
+            .await
+            .expect("should succeed");
         assert!(
             !metrics.is_empty(),
             "Internal component {component} should have metrics"
@@ -409,7 +451,10 @@ async fn test_multiple_metric_recordings() {
         source: "test".to_string(),
     };
 
-    collector.register_custom_metric(metric_def).await.unwrap();
+    collector
+        .register_custom_metric(metric_def)
+        .await
+        .expect("should succeed");
 
     // Record multiple values (each overwrites the previous)
     for i in 1..=5 {
@@ -417,10 +462,13 @@ async fn test_multiple_metric_recordings() {
         collector
             .record_metric("multi_record_metric", f64::from(i) * 10.0, labels)
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 
-    let value = collector.values.get("multi_record_metric").unwrap();
+    let value = collector
+        .values
+        .get("multi_record_metric")
+        .expect("should succeed");
     assert_eq!(value.value().value, 50.0); // Last recorded value
 }
 
@@ -431,7 +479,7 @@ async fn test_get_component_metrics_nonexistent() {
     let result = collector
         .get_component_metrics("nonexistent_component")
         .await
-        .unwrap();
+        .expect("should succeed");
     assert!(result.is_empty());
 }
 
@@ -448,17 +496,23 @@ async fn test_metric_value_timestamp() {
         source: "test".to_string(),
     };
 
-    collector.register_custom_metric(metric_def).await.unwrap();
+    collector
+        .register_custom_metric(metric_def)
+        .await
+        .expect("should succeed");
 
     let before_time = Utc::now();
     let labels = HashMap::new();
     collector
         .record_metric("timestamp_metric", 1.0, labels)
         .await
-        .unwrap();
+        .expect("should succeed");
     let after_time = Utc::now();
 
-    let value = collector.values.get("timestamp_metric").unwrap();
+    let value = collector
+        .values
+        .get("timestamp_metric")
+        .expect("should succeed");
     assert!(value.value().timestamp >= before_time);
     assert!(value.value().timestamp <= after_time);
 }
@@ -484,17 +538,23 @@ async fn test_metric_type_preservation() {
             source: "test".to_string(),
         };
 
-        collector.register_custom_metric(metric_def).await.unwrap();
+        collector
+            .register_custom_metric(metric_def)
+            .await
+            .expect("should succeed");
 
         let labels = HashMap::new();
         collector
             .record_metric(&format!("type_test_{i}"), 1.0, labels)
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 
     for (i, expected_type) in metric_types.iter().enumerate() {
-        let value = collector.values.get(&format!("type_test_{i}")).unwrap();
+        let value = collector
+            .values
+            .get(&format!("type_test_{i}"))
+            .expect("should succeed");
         assert!(matches!(&value.value().metric_type, t if t == expected_type));
     }
 }

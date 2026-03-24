@@ -260,15 +260,16 @@ mod tests {
             assert_eq!(*code, -32602);
             assert!(message.contains("missing 'query'"));
         } else {
-            panic!("expected ProtocolError");
+            unreachable!("expected ProtocolError");
         }
     }
 
     #[test]
     fn serde_roundtrip() {
         let outcome = DispatchOutcome::Ok(serde_json::json!({"status": "ok"}));
-        let json = serde_json::to_string(&outcome).unwrap();
-        let deser: DispatchOutcome<serde_json::Value> = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&outcome).expect("should succeed");
+        let deser: DispatchOutcome<serde_json::Value> =
+            serde_json::from_str(&json).expect("should succeed");
         assert_eq!(outcome, deser);
     }
 

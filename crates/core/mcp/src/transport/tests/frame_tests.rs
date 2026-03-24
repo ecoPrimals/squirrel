@@ -23,7 +23,7 @@ async fn test_frame_serialization_and_parsing() {
     
     // Parse the frame back
     let mut buffer = serialized.clone();
-    let parsed_frame = Frame::parse(&mut buffer).unwrap().unwrap();
+    let parsed_frame = Frame::parse(&mut buffer).expect("should succeed").expect("should succeed");
     
     // Verify the parsed frame matches the original
     assert_eq!(&parsed_frame.payload[..], &test_payload[..]);
@@ -67,10 +67,10 @@ async fn test_message_codec() {
     let codec = MessageCodec::new();
     
     // Encode message to frame
-    let frame = codec.encode_message(&message).await.unwrap();
+    let frame = codec.encode_message(&message).await.expect("should succeed");
     
     // Decode frame back to message
-    let decoded = codec.decode_message(frame).await.unwrap();
+    let decoded = codec.decode_message(frame).await.expect("should succeed");
     
     // Verify decoded message matches original
     assert_eq!(decoded.message_type, message.message_type);
@@ -93,10 +93,10 @@ async fn test_frame_reader_and_writer() {
     let frame = Frame::new(test_payload.clone());
     
     // Write frame
-    writer.write_frame(frame).await.unwrap();
+    writer.write_frame(frame).await.expect("should succeed");
     
     // Read frame
-    let read_frame = reader.read_frame().await.unwrap().unwrap();
+    let read_frame = reader.read_frame().await.expect("should succeed").expect("should succeed");
     
     // Verify read frame matches original
     assert_eq!(&read_frame.payload[..], &test_payload[..]);
@@ -121,12 +121,12 @@ async fn test_frame_reader_with_multiple_frames() {
     // Write all frames
     for payload in &payloads {
         let frame = Frame::new(payload.clone());
-        writer.write_frame(frame).await.unwrap();
+        writer.write_frame(frame).await.expect("should succeed");
     }
     
     // Read all frames and verify
     for expected_payload in &payloads {
-        let read_frame = reader.read_frame().await.unwrap().unwrap();
+        let read_frame = reader.read_frame().await.expect("should succeed").expect("should succeed");
         assert_eq!(&read_frame.payload[..], &expected_payload[..]);
     }
 }
@@ -148,24 +148,24 @@ async fn test_reader_with_fragmented_data() {
     use tokio::io::AsyncWriteExt;
     
     // Write part of header
-    server.write_all(&serialized[0..4]).await.unwrap();
+    server.write_all(&serialized[0..4]).await.expect("should succeed");
     
     // No complete frame yet
     tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
     
     // Write rest of header
-    server.write_all(&serialized[4..8]).await.unwrap();
+    server.write_all(&serialized[4..8]).await.expect("should succeed");
     
     // Write part of payload
-    server.write_all(&serialized[8..12]).await.unwrap();
+    server.write_all(&serialized[8..12]).await.expect("should succeed");
     
     // Still no complete frame
     tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
     
     // Write rest of payload
-    server.write_all(&serialized[12..]).await.unwrap();
+    server.write_all(&serialized[12..]).await.expect("should succeed");
     
     // Should now be able to read complete frame
-    let read_frame = reader.read_frame().await.unwrap().unwrap();
+    let read_frame = reader.read_frame().await.expect("should succeed").expect("should succeed");
     assert_eq!(&read_frame.payload[..], &test_payload[..]);
 } 

@@ -52,7 +52,7 @@
 //!     
 //!     // Register a handler
 //!     let handler = Box::new(EchoHandler);
-//!     protocol.register_handler(MessageType::Command, handler).unwrap();
+//!     protocol.register_handler(MessageType::Command, handler).expect("example");
 //!     
 //!     // Create a message
 //!     let message = MCPMessage {
@@ -409,7 +409,7 @@ impl MCPProtocolBase {
     ///
     /// async fn example() {
     ///     let mut protocol = MCPProtocolBase::new_default();
-    ///     protocol.register_handler(MessageType::Command, Box::new(StatusHandler)).unwrap();
+    ///     protocol.register_handler(MessageType::Command, Box::new(StatusHandler)).expect("example");
     ///     
     ///     let message = MCPMessage {
     ///         id: MessageId("msg123".to_string()),
@@ -497,7 +497,7 @@ impl MCPProtocolBase {
     ///     
     ///     // Register a handler for command messages
     ///     let handler = Box::new(StatusHandler);
-    ///     protocol.register_handler(MessageType::Command, handler).unwrap();
+    ///     protocol.register_handler(MessageType::Command, handler).expect("example");
     /// }
     /// ```
     pub fn register_handler(

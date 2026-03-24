@@ -322,8 +322,8 @@ mod tests {
             last_modified: SystemTime::now(),
         };
 
-        let serialized = serde_json::to_string(&state).unwrap();
-        let deserialized: ContextState = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&state).expect("should succeed");
+        let deserialized: ContextState = serde_json::from_str(&serialized).expect("should succeed");
 
         assert_eq!(deserialized.version, state.version);
         assert_eq!(deserialized.data, state.data);
@@ -352,8 +352,8 @@ mod tests {
             })),
         };
 
-        let serialized = serde_json::to_string(&snapshot).unwrap();
-        let deserialized: ContextSnapshot = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&snapshot).expect("should succeed");
+        let deserialized: ContextSnapshot = serde_json::from_str(&serialized).expect("should succeed");
 
         assert_eq!(deserialized.id, snapshot.id);
         assert_eq!(deserialized.state.version, snapshot.state.version);
@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn test_context_tracker_new() {
         let tracker = ContextTracker::new();
-        let state = tracker.get_state().unwrap();
+        let state = tracker.get_state().expect("should succeed");
         assert_eq!(state.version, 0);
         assert!(matches!(state.data, serde_json::Value::Null));
     }
@@ -379,7 +379,7 @@ mod tests {
         // Test state update
         assert!(tracker.update_state(test_data.clone()).is_ok());
 
-        let state = tracker.get_state().unwrap();
+        let state = tracker.get_state().expect("should succeed");
         assert_eq!(state.version, 1);
         assert_eq!(state.data, test_data);
     }
@@ -391,7 +391,7 @@ mod tests {
         // Add multiple states
         for i in 0..5 {
             let data = serde_json::json!({ "index": i });
-            tracker.update_state(data).unwrap();
+            tracker.update_state(data).expect("should succeed");
         }
 
         let history = tracker.get_history();
@@ -411,12 +411,12 @@ mod tests {
         // Add multiple states
         for i in 0..3 {
             let data = serde_json::json!({ "index": i });
-            tracker.update_state(data).unwrap();
+            tracker.update_state(data).expect("should succeed");
         }
 
         // Rollback to version 2
         assert!(tracker.rollback_to(2).is_ok());
-        let state = tracker.get_state().unwrap();
+        let state = tracker.get_state().expect("should succeed");
         assert_eq!(state.version, 1);
         assert_eq!(state.data["index"], 0);
 
@@ -455,7 +455,7 @@ mod tests {
         // Update state multiple times
         for i in 0..3 {
             let data = serde_json::json!({ "index": i });
-            tracker.update_state(data).unwrap();
+            tracker.update_state(data).expect("should succeed");
         }
 
         assert_eq!(counter.load(Ordering::SeqCst), 3);

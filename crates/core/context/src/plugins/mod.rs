@@ -274,7 +274,7 @@ mod tests {
         let mgr = ContextPluginManager::new();
         mgr.register_plugin(sample_plugin_with_transform())
             .await
-            .unwrap();
+            .expect("should succeed");
         let t = mgr.get_transformations().await;
         assert_eq!(t.len(), 1);
         assert_eq!(t[0].get_id(), "tid");
@@ -285,8 +285,11 @@ mod tests {
         let mgr = ContextPluginManager::new();
         mgr.register_plugin(sample_plugin_with_transform())
             .await
-            .unwrap();
-        let out = mgr.transform("tid", json!({"x": 1})).await.unwrap();
+            .expect("should succeed");
+        let out = mgr
+            .transform("tid", json!({"x": 1}))
+            .await
+            .expect("should succeed");
         assert_eq!(out["wrapped"]["x"], 1);
     }
 
@@ -295,7 +298,7 @@ mod tests {
         let mgr = ContextPluginManager::new();
         mgr.register_plugin(sample_plugin_with_transform())
             .await
-            .unwrap();
+            .expect("should succeed");
         let err = mgr.transform("missing", json!({})).await.unwrap_err();
         assert!(matches!(err, ContextError::TransformationNotFound(_)));
     }
@@ -305,9 +308,12 @@ mod tests {
         let mgr = ContextPluginManager::new();
         mgr.register_plugin(sample_plugin_with_adapter())
             .await
-            .unwrap();
+            .expect("should succeed");
         let a = mgr.get_adapter("aid").await.expect("adapter");
-        let meta = mgr.get_adapter_metadata("aid").await.unwrap();
+        let meta = mgr
+            .get_adapter_metadata("aid")
+            .await
+            .expect("should succeed");
         assert_eq!(meta.id, "aid");
         assert_eq!(a.get_metadata().await.id, "aid");
     }
@@ -324,7 +330,7 @@ mod tests {
         let mgr = ContextPluginManager::new();
         mgr.load_plugins_from_path("/nonexistent/for/placeholder")
             .await
-            .unwrap();
+            .expect("should succeed");
     }
 
     #[tokio::test]
@@ -337,7 +343,7 @@ mod tests {
         let mgr = ContextPluginManager::new();
         mgr.register_plugin(sample_plugin_with_adapter())
             .await
-            .unwrap();
+            .expect("should succeed");
         let map = mgr.get_adapters().await;
         assert!(map.contains_key("aid"));
     }

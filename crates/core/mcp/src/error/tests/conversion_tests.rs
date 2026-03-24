@@ -174,7 +174,7 @@ mod tests {
             (MCPError::General(msg1), MCPError::General(msg2)) => {
                 assert_eq!(msg1, msg2);
             }
-            _ => panic!("Should be same variant"),
+            _ => unreachable!("Should be same variant"),
         }
     }
 
@@ -270,7 +270,7 @@ mod tests {
             crate::error::TransportError::ConnectionFailed(msg) => {
                 assert!(msg.contains("Failed connection"));
             }
-            _ => panic!("Expected ConnectionFailed variant"),
+            _ => unreachable!("Expected ConnectionFailed variant"),
         }
 
         // Test simplified to canonical conversion
@@ -283,7 +283,7 @@ mod tests {
             CanonicalTransportError::Timeout(msg) => {
                 assert!(msg.contains("Connection timeout"));
             }
-            _ => panic!("Expected Timeout variant"),
+            _ => unreachable!("Expected Timeout variant"),
         }
 
         // Test MCPError wrapping of simplified error
@@ -296,9 +296,9 @@ mod tests {
                 crate::error::TransportError::IoError(msg) => {
                     assert!(msg.contains("IO failure"));
                 }
-                _ => panic!("Expected IoError variant"),
+                _ => unreachable!("Expected IoError variant"),
             },
-            _ => panic!("Expected MCPError::Transport"),
+            _ => unreachable!("Expected MCPError::Transport"),
         }
     }
 }

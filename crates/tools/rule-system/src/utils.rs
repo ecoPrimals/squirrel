@@ -340,7 +340,7 @@ mod tests {
     fn timestamps_roundtrip() {
         let now = Utc::now();
         let s = format_timestamp(now);
-        let back = parse_timestamp(&s).unwrap();
+        let back = parse_timestamp(&s).expect("should succeed");
         assert_eq!(now.timestamp(), back.timestamp());
     }
 
@@ -374,16 +374,16 @@ mod tests {
 
     #[tokio::test]
     async fn create_and_serialize_rule_roundtrip() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().expect("should succeed");
         let path = create_rule_file(dir.path(), "rid", "---\nid: rid\n---\n")
             .await
-            .unwrap();
+            .expect("should succeed");
         assert!(path.exists());
 
         let rule = Rule::new("x").with_name("n").with_category("c");
-        let yaml = serialize_rule_to_yaml(&rule).unwrap();
+        let yaml = serialize_rule_to_yaml(&rule).expect("should succeed");
         assert!(yaml.contains('x'));
-        let json = serialize_rule_to_json(&rule).unwrap();
+        let json = serialize_rule_to_json(&rule).expect("should succeed");
         assert!(json.contains('x'));
     }
 }
