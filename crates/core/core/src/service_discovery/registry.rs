@@ -42,8 +42,8 @@ use crate::error::CoreResult;
 /// );
 /// registry.register_local_service(service).await?;
 ///
-/// // Start heartbeat loop
-/// registry.start_heartbeat_loop().await?;
+/// // Start heartbeat loop (spawns a background task)
+/// registry.start_heartbeat_loop()?;
 /// # Ok(())
 /// # }
 /// ```
@@ -146,8 +146,10 @@ impl ServiceRegistry {
         self.discovery.register_service(service.clone()).await?;
 
         // Store locally
-        let mut local_services = self.local_services.write().await;
-        local_services.insert(service.id.clone(), service);
+        {
+            let mut local_services = self.local_services.write().await;
+            local_services.insert(service.id.clone(), service);
+        }
 
         Ok(())
     }
@@ -182,8 +184,10 @@ impl ServiceRegistry {
         self.discovery.deregister_service(service_id).await?;
 
         // Remove locally
-        let mut local_services = self.local_services.write().await;
-        local_services.remove(service_id);
+        {
+            let mut local_services = self.local_services.write().await;
+            local_services.remove(service_id);
+        }
 
         Ok(())
     }
@@ -227,10 +231,12 @@ impl ServiceRegistry {
             .await?;
 
         // Update locally
-        let mut local_services = self.local_services.write().await;
-        if let Some(service) = local_services.get_mut(service_id) {
-            service.health_status = health;
-            service.last_heartbeat = Utc::now();
+        {
+            let mut local_services = self.local_services.write().await;
+            if let Some(service) = local_services.get_mut(service_id) {
+                service.health_status = health;
+                service.last_heartbeat = Utc::now();
+            }
         }
 
         Ok(())
@@ -271,8 +277,8 @@ impl ServiceRegistry {
     ///
     /// ```rust
     /// # use squirrel_core::{CoreResult, ServiceRegistry};
-    /// # async fn example(registry: &ServiceRegistry) -> CoreResult<()> {
-    /// registry.start_heartbeat_loop().await?;
+    /// # fn example(registry: &ServiceRegistry) -> CoreResult<()> {
+    /// registry.start_heartbeat_loop()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -280,7 +286,7 @@ impl ServiceRegistry {
     /// # Errors
     ///
     /// Returns [`crate::error::CoreError`] if the heartbeat task cannot be started.
-    pub async fn start_heartbeat_loop(&self) -> CoreResult<()> {
+    pub fn start_heartbeat_loop(&self) -> CoreResult<()> {
         let discovery = self.discovery.clone();
         let local_services = self.local_services.clone();
         let interval = self.heartbeat_interval;
@@ -372,8 +378,10 @@ impl ServiceRegistry {
     /// # }
     /// ```
     pub async fn get_registry_stats(&self) -> RegistryStats {
-        let services = self.local_services.read().await;
-        let all_services: Vec<ServiceDefinition> = services.values().cloned().collect();
+        let all_services: Vec<ServiceDefinition> = {
+            let services = self.local_services.read().await;
+            services.values().cloned().collect()
+        };
 
         RegistryStats::from_services(&all_services)
     }
@@ -437,7 +445,17 @@ impl RegistryStats {
             return 100.0;
         }
 
-        (self.healthy_services as f32 / self.total_services as f32) * 100.0
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "Counts are small enough that f64 division is exact for UI percentages"
+        )]
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "Availability is displayed as f32 in the 0..=100 range"
+        )]
+        {
+            ((self.healthy_services as f64 / self.total_services as f64) * 100.0) as f32
+        }
     }
 }
 
@@ -641,7 +659,7 @@ mod tests {
         );
 
         registry.register_local_service(service).await.unwrap();
-        registry.start_heartbeat_loop().await.unwrap();
+        registry.start_heartbeat_loop().unwrap();
 
         // Wait for a few heartbeats
         tokio::time::sleep(Duration::from_millis(150)).await;

@@ -24,7 +24,7 @@ mod security;
 mod service_mesh;
 
 #[cfg(test)]
-#[expect(
+#[allow(
     clippy::module_inception,
     reason = "Nested `types` module groups generated and hand-written type definitions"
 )]

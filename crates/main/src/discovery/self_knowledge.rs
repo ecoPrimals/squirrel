@@ -34,6 +34,18 @@ where
     Ok(v.into_iter().map(Arc::from).collect())
 }
 
+/// Store a discovered service and return an owned copy without cloning on insert.
+fn insert_discovered_and_return(
+    cache: &mut HashMap<String, DiscoveredService>,
+    capability: &str,
+    service: DiscoveredService,
+) -> DiscoveryResult<DiscoveredService> {
+    cache.insert(capability.to_string(), service);
+    cache.get(capability).cloned().ok_or_else(|| {
+        DiscoveryError::ParseError("discovery cache missing entry after insert".into())
+    })
+}
+
 /// Identity of this primal (self-knowledge)
 /// Uses `Arc<str>` for capabilities to avoid cloning on hot paths.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,13 +219,8 @@ impl PrimalSelfKnowledge {
                 priority: 100, // ENV vars have highest priority
             };
 
-            // Cache it (clone for cache, return original to avoid extra clone)
-            self.discovered
-                .write()
-                .await
-                .insert(capability.to_string(), service.clone());
-
-            return Ok(service);
+            let mut cache = self.discovered.write().await;
+            return insert_discovered_and_return(&mut cache, capability, service);
         }
 
         // Stage 2: Try socket registry (biomeOS - primary primal discovery)
@@ -226,11 +233,8 @@ impl PrimalSelfKnowledge {
                 "✅ Found '{}' via socket registry: {}",
                 capability, service.endpoint
             );
-            self.discovered
-                .write()
-                .await
-                .insert(capability.to_string(), service.clone());
-            return Ok(service);
+            let mut cache = self.discovered.write().await;
+            return insert_discovered_and_return(&mut cache, capability, service);
         }
 
         // Stage 3: Try mDNS (local network; falls back to socket registry)
@@ -240,11 +244,8 @@ impl PrimalSelfKnowledge {
             && let Some(service) = services.into_iter().next()
         {
             info!("✅ Found '{}' via mDNS: {}", capability, service.endpoint);
-            self.discovered
-                .write()
-                .await
-                .insert(capability.to_string(), service.clone());
-            return Ok(service);
+            let mut cache = self.discovered.write().await;
+            return insert_discovered_and_return(&mut cache, capability, service);
         }
 
         // Stage 4: Try DNS-SD (network-wide; falls back to socket registry)
@@ -254,11 +255,8 @@ impl PrimalSelfKnowledge {
             && let Some(service) = services.into_iter().next()
         {
             info!("✅ Found '{}' via DNS-SD: {}", capability, service.endpoint);
-            self.discovered
-                .write()
-                .await
-                .insert(capability.to_string(), service.clone());
-            return Ok(service);
+            let mut cache = self.discovered.write().await;
+            return insert_discovered_and_return(&mut cache, capability, service);
         }
 
         // Stage 5: Try external service registry (if configured)
@@ -287,11 +285,8 @@ impl PrimalSelfKnowledge {
                     "✅ Found '{}' via service registry: {}",
                     capability, service.endpoint
                 );
-                self.discovered
-                    .write()
-                    .await
-                    .insert(capability.to_string(), service.clone());
-                return Ok(service);
+                let mut cache = self.discovered.write().await;
+                return insert_discovered_and_return(&mut cache, capability, service);
             }
         }
 
@@ -427,7 +422,11 @@ impl PrimalSelfKnowledge {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "Invariant or startup failure: unwrap/expect after validation"
+)]
 mod tests {
     use super::*;
     use crate::niche;

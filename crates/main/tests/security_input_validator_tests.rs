@@ -5,7 +5,7 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::field_reassign_with_default
-)]
+)] // Test code: explicit unwrap/expect and local lint noise
 //! Comprehensive tests for `ProductionInputValidator`
 //!
 //! These tests ensure proper validation, sanitization, and error handling

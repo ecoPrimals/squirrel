@@ -332,7 +332,7 @@ impl DefaultTokenManager {
     }
 
     /// Hash token string (stub — will use proper hashing via BearDog)
-    #[expect(
+    #[allow(
         clippy::unused_self,
         reason = "will use internal hash config when BearDog is integrated"
     )]

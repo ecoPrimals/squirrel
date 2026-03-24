@@ -3,6 +3,13 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 use super::*;
+use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
+use crate::api::ai::router::AiRouter;
+use crate::api::ai::types::{
+    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
+};
+use crate::error::PrimalError;
+use async_trait::async_trait;
 use serde_json::{Value, json};
 use std::sync::Arc;
 
@@ -395,4 +402,106 @@ async fn unknown_method_not_found() {
             .map(|c| c as i32),
         Some(error_codes::METHOD_NOT_FOUND)
     );
+}
+
+/// Minimal text adapter for JSON-RPC + router integration tests.
+struct JsonRpcMockTextAdapter;
+
+#[async_trait]
+impl AiProviderAdapter for JsonRpcMockTextAdapter {
+    fn provider_id(&self) -> &'static str {
+        "jsonrpc-mock-text"
+    }
+
+    fn provider_name(&self) -> &'static str {
+        "JsonRpcMock"
+    }
+
+    fn is_local(&self) -> bool {
+        true
+    }
+
+    fn cost_per_unit(&self) -> Option<f64> {
+        Some(0.0)
+    }
+
+    fn avg_latency_ms(&self) -> u64 {
+        5
+    }
+
+    fn quality_tier(&self) -> QualityTier {
+        QualityTier::Standard
+    }
+
+    fn supports_text_generation(&self) -> bool {
+        true
+    }
+
+    fn supports_image_generation(&self) -> bool {
+        false
+    }
+
+    async fn generate_text(
+        &self,
+        request: TextGenerationRequest,
+    ) -> Result<TextGenerationResponse, PrimalError> {
+        Ok(TextGenerationResponse {
+            text: format!("echo:{}", request.prompt),
+            provider_id: self.provider_id().to_string(),
+            model: request.model.unwrap_or_else(|| "mock".to_string()),
+            usage: None,
+            cost_usd: None,
+            latency_ms: 1,
+        })
+    }
+
+    async fn generate_image(
+        &self,
+        _request: ImageGenerationRequest,
+    ) -> Result<ImageGenerationResponse, PrimalError> {
+        Err(PrimalError::OperationFailed("no image".to_string()))
+    }
+}
+
+#[tokio::test]
+async fn ai_query_dispatches_to_router_and_returns_echo() {
+    let router = Arc::new(AiRouter::from_adapters_for_test(vec![Arc::new(
+        JsonRpcMockTextAdapter,
+    )]));
+    let server = JsonRpcServer::with_ai_router("/tmp/jsonrpc-ai-ok.sock".to_string(), router);
+    let req = r#"{"jsonrpc":"2.0","method":"ai.query","params":{"prompt":"ping"},"id":1}"#;
+    let raw = server.handle_request_or_batch(req).await.unwrap();
+    let v: Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(
+        v.pointer("/result/response").and_then(Value::as_str),
+        Some("echo:ping")
+    );
+    assert_eq!(
+        v.pointer("/result/success").and_then(Value::as_bool),
+        Some(true)
+    );
+}
+
+#[tokio::test]
+async fn ai_query_without_router_returns_internal_error() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-ai-err.sock".to_string());
+    let req = r#"{"jsonrpc":"2.0","method":"ai.query","params":{"prompt":"x"},"id":1}"#;
+    let raw = server.handle_request_or_batch(req).await.unwrap();
+    let v: Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(
+        v.pointer("/error/code")
+            .and_then(Value::as_i64)
+            .map(|c| c as i32),
+        Some(error_codes::INTERNAL_ERROR)
+    );
+}
+
+#[tokio::test]
+async fn handler_error_increments_metrics_errors() {
+    let server = JsonRpcServer::new("/tmp/jsonrpc-metrics.sock".to_string());
+    let before = server.metrics.read().await.errors;
+    let req = r#"{"jsonrpc":"2.0","method":"ai.query","params":{"prompt":"x"},"id":1}"#;
+    server.handle_request_or_batch(req).await.unwrap();
+    let after = server.metrics.read().await.errors;
+    assert_eq!(after, before + 1);
 }

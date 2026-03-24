@@ -4,7 +4,7 @@
 
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![expect(
+#![allow(
     clippy::option_if_let_else,
     clippy::cast_possible_truncation,
     reason = "Main entry point; legacy patterns under progressive refactor"
@@ -148,7 +148,7 @@ async fn run_client(
 }
 
 /// Run server mode
-#[expect(
+#[allow(
     clippy::too_many_lines,
     reason = "Server orchestration; refactor planned"
 )]

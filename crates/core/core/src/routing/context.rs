@@ -85,14 +85,15 @@ impl ContextManager {
     }
 
     /// Get context data for a specific agent
-    pub async fn get_context(&self, agent_id: &str) -> Option<Value> {
+    #[must_use]
+    pub fn get_context(&self, agent_id: &str) -> Option<Value> {
         // Look for persistent context first
-        if let Some(persistent_context) = self.get_persistent_context(agent_id).await {
+        if let Some(persistent_context) = self.get_persistent_context(agent_id) {
             return Some(persistent_context.data);
         }
 
         // Look for shared contexts
-        let shared_contexts = self.get_shared_contexts_for_agent(agent_id).await;
+        let shared_contexts = self.get_shared_contexts_for_agent(agent_id);
         if !shared_contexts.is_empty() {
             // Merge shared contexts if there are multiple
             let mut merged_data = serde_json::Map::new();
@@ -112,7 +113,7 @@ impl ContextManager {
     /// # Errors
     ///
     /// Returns [`Error`] if the context cannot be updated.
-    pub async fn update_persistent_context(&self, agent_id: &str, data: Value) -> Result<()> {
+    pub fn update_persistent_context(&self, agent_id: &str, data: Value) -> Result<()> {
         let context_id = format!("persistent_{agent_id}");
         let now = Utc::now();
 
@@ -135,7 +136,7 @@ impl ContextManager {
     /// # Errors
     ///
     /// Returns [`Error`] if the shared context does not exist.
-    pub async fn update_shared_context(&self, context_id: &str, data: Value) -> Result<()> {
+    pub fn update_shared_context(&self, context_id: &str, data: Value) -> Result<()> {
         match self.shared_contexts.get_mut(context_id) {
             Some(mut context) => {
                 context.data = data;
@@ -156,7 +157,7 @@ impl ContextManager {
     /// # Errors
     ///
     /// Returns [`Error`] if the context cannot be stored.
-    pub async fn create_shared_context(
+    pub fn create_shared_context(
         &self,
         context_id: &str,
         data: Value,
@@ -180,7 +181,7 @@ impl ContextManager {
     }
 
     /// Get persistent context for an agent
-    async fn get_persistent_context(&self, agent_id: &str) -> Option<PersistentContext> {
+    fn get_persistent_context(&self, agent_id: &str) -> Option<PersistentContext> {
         let context_id = format!("persistent_{agent_id}");
         self.persistent_contexts.get(&context_id).map(|entry| {
             let mut context = entry.value().clone();
@@ -190,7 +191,7 @@ impl ContextManager {
     }
 
     /// Get shared contexts for an agent
-    async fn get_shared_contexts_for_agent(&self, agent_id: &str) -> Vec<SharedContext> {
+    fn get_shared_contexts_for_agent(&self, agent_id: &str) -> Vec<SharedContext> {
         self.shared_contexts
             .iter()
             .filter(|entry| entry.value().shared_with.contains(&agent_id.to_string()))
@@ -203,11 +204,7 @@ impl ContextManager {
     /// # Errors
     ///
     /// Returns [`Error`] if the shared context does not exist.
-    pub async fn add_agent_to_shared_context(
-        &self,
-        context_id: &str,
-        agent_id: &str,
-    ) -> Result<()> {
+    pub fn add_agent_to_shared_context(&self, context_id: &str, agent_id: &str) -> Result<()> {
         match self.shared_contexts.get_mut(context_id) {
             Some(mut context) => {
                 if !context.shared_with.contains(&agent_id.to_string()) {
@@ -228,11 +225,7 @@ impl ContextManager {
     /// # Errors
     ///
     /// Returns [`Error`] if the shared context does not exist.
-    pub async fn remove_agent_from_shared_context(
-        &self,
-        context_id: &str,
-        agent_id: &str,
-    ) -> Result<()> {
+    pub fn remove_agent_from_shared_context(&self, context_id: &str, agent_id: &str) -> Result<()> {
         match self.shared_contexts.get_mut(context_id) {
             Some(mut context) => {
                 context.shared_with.retain(|id| id != agent_id);
@@ -247,8 +240,9 @@ impl ContextManager {
     }
 
     /// Get context value by key
-    pub async fn get_context_value(&self, agent_id: &str, key: &str) -> Option<Value> {
-        if let Some(Value::Object(obj)) = self.get_context(agent_id).await {
+    #[must_use]
+    pub fn get_context_value(&self, agent_id: &str, key: &str) -> Option<Value> {
+        if let Some(Value::Object(obj)) = self.get_context(agent_id) {
             obj.get(key).cloned()
         } else {
             None
@@ -260,16 +254,14 @@ impl ContextManager {
     /// # Errors
     ///
     /// Returns [`Error`] if the context shape is invalid or persistence fails.
-    pub async fn set_context_value(&self, agent_id: &str, key: &str, value: Value) -> Result<()> {
+    pub fn set_context_value(&self, agent_id: &str, key: &str, value: Value) -> Result<()> {
         let mut context_data = self
             .get_context(agent_id)
-            .await
             .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
 
         if let Value::Object(ref mut obj) = context_data {
             obj.insert(key.to_string(), value);
-            self.update_persistent_context(agent_id, context_data)
-                .await?;
+            self.update_persistent_context(agent_id, context_data)?;
             Ok(())
         } else {
             Err(Error::InvalidContext(
@@ -279,7 +271,8 @@ impl ContextManager {
     }
 
     /// Check if agent has access to a specific context
-    pub async fn agent_has_context_access(&self, agent_id: &str, context_id: &str) -> bool {
+    #[must_use]
+    pub fn agent_has_context_access(&self, agent_id: &str, context_id: &str) -> bool {
         // Check persistent context
         if context_id.starts_with("persistent_") {
             let expected_id = format!("persistent_{agent_id}");
@@ -295,7 +288,7 @@ impl ContextManager {
     }
 
     /// Clean up expired contexts
-    pub async fn cleanup_expired_contexts(&self) -> usize {
+    pub fn cleanup_expired_contexts(&self) -> usize {
         let now = Utc::now();
         let mut removed_count = 0;
 
@@ -325,10 +318,11 @@ impl ContextManager {
     }
 
     /// Get context statistics
-    pub async fn get_context_statistics(&self) -> ContextStatistics {
+    #[must_use]
+    pub fn get_context_statistics(&self) -> ContextStatistics {
         let persistent_count = self.persistent_contexts.len();
         let shared_count = self.shared_contexts.len();
-        let total_size = self.calculate_total_context_size().await;
+        let total_size = self.calculate_total_context_size();
 
         ContextStatistics {
             persistent_contexts: persistent_count,
@@ -340,7 +334,7 @@ impl ContextManager {
     }
 
     /// Calculate total size of all contexts
-    async fn calculate_total_context_size(&self) -> usize {
+    fn calculate_total_context_size(&self) -> usize {
         let mut total_size = 0;
 
         // Calculate size of persistent contexts
@@ -365,7 +359,7 @@ impl ContextManager {
     /// # Errors
     ///
     /// Returns [`Error`] if export cannot be assembled.
-    pub async fn export_contexts(&self) -> Result<ContextExport> {
+    pub fn export_contexts(&self) -> Result<ContextExport> {
         let persistent_contexts: Vec<PersistentContext> = self
             .persistent_contexts
             .iter()
@@ -390,7 +384,7 @@ impl ContextManager {
     /// # Errors
     ///
     /// Returns [`Error`] if import cannot be applied.
-    pub async fn import_contexts(&self, export: ContextExport) -> Result<()> {
+    pub fn import_contexts(&self, export: &ContextExport) -> Result<()> {
         // Import persistent contexts
         for context in &export.persistent_contexts {
             self.persistent_contexts
@@ -417,23 +411,19 @@ impl ContextManager {
     /// # Errors
     ///
     /// Returns [`Error`] if required context keys cannot be set or shared context updates fail.
-    pub async fn apply_context_requirements(
+    pub fn apply_context_requirements(
         &self,
         agent_id: &str,
         requirements: &ContextRequirements,
     ) -> Result<()> {
         // Set required context values
         for (key, value) in &requirements.required_context {
-            self.set_context_value(agent_id, key, serde_json::Value::String(value.clone()))
-                .await?;
+            self.set_context_value(agent_id, key, serde_json::Value::String(value.clone()))?;
         }
 
         // Add to shared contexts if specified
         for shared_context_id in &requirements.shared_contexts {
-            if let Err(e) = self
-                .add_agent_to_shared_context(shared_context_id, agent_id)
-                .await
-            {
+            if let Err(e) = self.add_agent_to_shared_context(shared_context_id, agent_id) {
                 warn!(
                     "Failed to add agent '{}' to shared context '{}': {}",
                     agent_id, shared_context_id, e
@@ -480,5 +470,134 @@ pub struct ContextExport {
 impl Default for ContextManager {
     fn default() -> Self {
         Self::new(Some(ContextStorage::Local))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ContextRequirements;
+    use crate::Error;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    #[test]
+    fn context_storage_variants_and_default() {
+        assert!(matches!(ContextStorage::default(), ContextStorage::Local));
+        let nest = ContextStorage::NestGate {
+            endpoint: "http://ng".to_string(),
+        };
+        let fed = ContextStorage::Federation {
+            nodes: vec!["a".to_string()],
+        };
+        assert!(matches!(nest, ContextStorage::NestGate { .. }));
+        assert!(matches!(fed, ContextStorage::Federation { .. }));
+    }
+
+    #[test]
+    fn persistent_context_roundtrip_and_get_context() {
+        let mgr = ContextManager::new(None);
+        mgr.update_persistent_context("agent1", json!({"k": 1}))
+            .expect("upd");
+        let v = mgr.get_context("agent1").expect("ctx");
+        assert_eq!(v["k"], 1);
+        assert_eq!(mgr.get_context_value("agent1", "k"), Some(json!(1)));
+    }
+
+    #[test]
+    fn shared_context_create_update_merge_and_access() {
+        let mgr = ContextManager::new(None);
+        mgr.create_shared_context(
+            "sc1",
+            json!({"a": 1}),
+            vec!["u1".to_string(), "u2".to_string()],
+        )
+        .expect("create");
+        mgr.update_shared_context("sc1", json!({"b": 2}))
+            .expect("upd");
+        let merged = mgr.get_context("u1").expect("merged");
+        assert!(merged.get("b").is_some());
+        assert!(mgr.agent_has_context_access("u1", "sc1"));
+        assert!(!mgr.agent_has_context_access("other", "sc1"));
+        mgr.add_agent_to_shared_context("sc1", "u3").expect("add");
+        mgr.remove_agent_from_shared_context("sc1", "u1")
+            .expect("rm");
+        assert!(!mgr.agent_has_context_access("u1", "sc1"));
+    }
+
+    #[test]
+    fn shared_context_missing_errors() {
+        let mgr = ContextManager::new(None);
+        assert!(matches!(
+            mgr.update_shared_context("nope", json!({})),
+            Err(Error::ContextNotFound(_))
+        ));
+        assert!(matches!(
+            mgr.add_agent_to_shared_context("nope", "a"),
+            Err(Error::ContextNotFound(_))
+        ));
+        assert!(matches!(
+            mgr.remove_agent_from_shared_context("nope", "a"),
+            Err(Error::ContextNotFound(_))
+        ));
+    }
+
+    #[test]
+    fn set_context_value_requires_object_shape() {
+        let mgr = ContextManager::new(None);
+        mgr.update_persistent_context("a", json!("scalar"))
+            .expect("init");
+        let err = mgr
+            .set_context_value("a", "x", json!(1))
+            .expect_err("not object");
+        assert!(matches!(err, Error::InvalidContext(_)));
+    }
+
+    #[test]
+    fn cleanup_expired_noop_without_expiry_and_statistics_track_counts() {
+        let mgr = ContextManager::new(Some(ContextStorage::Local));
+        mgr.update_persistent_context("z", json!({})).expect("u");
+        assert_eq!(mgr.cleanup_expired_contexts(), 0);
+        let stats = mgr.get_context_statistics();
+        assert_eq!(stats.persistent_contexts, 1);
+        assert!(matches!(stats.storage_backend, Some(ContextStorage::Local)));
+    }
+
+    #[test]
+    fn export_import_roundtrip() {
+        let a = ContextManager::new(None);
+        a.update_persistent_context("p", json!({"x": 1}))
+            .expect("u");
+        a.create_shared_context("s", json!({"y": 2}), vec!["u".to_string()])
+            .expect("c");
+        let exp = a.export_contexts().expect("exp");
+        let b = ContextManager::new(None);
+        b.import_contexts(&exp).expect("imp");
+        assert_eq!(b.get_context("p").expect("p")["x"], 1);
+    }
+
+    #[test]
+    fn apply_context_requirements_sets_keys_and_tolerates_missing_shared() {
+        let mgr = ContextManager::new(None);
+        let req = ContextRequirements {
+            persistent_context: false,
+            shared_context: HashMap::new(),
+            shared_contexts: vec!["missing-shared".to_string()],
+            required_context: HashMap::from([("rk".to_string(), "rv".to_string())]),
+            context_keys: vec![],
+        };
+        mgr.apply_context_requirements("agent", &req)
+            .expect("apply");
+        let v = mgr.get_context_value("agent", "rk").expect("rk");
+        assert_eq!(v, json!("rv"));
+    }
+
+    #[test]
+    fn default_context_manager_matches_local_storage() {
+        let mgr = ContextManager::default();
+        assert!(matches!(
+            mgr.get_storage_backend(),
+            Some(ContextStorage::Local)
+        ));
     }
 }

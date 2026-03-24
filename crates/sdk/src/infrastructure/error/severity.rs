@@ -93,7 +93,7 @@ pub trait PluginErrorClassification {
 }
 
 // Backward compatibility: PluginError deprecated in favor of universal_error::sdk::SDKError
-#[expect(
+#[allow(
     deprecated,
     reason = "backward compat: PluginError during migration to universal_error::sdk::SDKError"
 )]
@@ -277,8 +277,14 @@ impl PluginErrorClassification for PluginError {
 mod tests {
     use super::*;
 
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
-    #[allow(clippy::too_many_lines)]
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Exhaustive table or handler; splitting hurts clarity"
+    )]
     fn make_error(variant: &str) -> PluginError {
         match variant {
             "UnknownCommand" => PluginError::UnknownCommand {

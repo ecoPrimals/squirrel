@@ -6,7 +6,7 @@
     clippy::expect_used,
     clippy::future_not_send,
     missing_docs
-)]
+)] // Test code: explicit unwrap/expect and local lint noise
 //! Modern Concurrent Test Helpers
 //!
 //! This module provides utilities for writing truly concurrent tests without sleeps.

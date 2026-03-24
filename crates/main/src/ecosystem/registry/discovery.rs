@@ -273,7 +273,10 @@ mod tests {
     }
 
     /// Helper to create a test service
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn create_test_service(primal_type: EcosystemPrimalType) -> Arc<DiscoveredService> {
         Arc::new(DiscoveredService {
             service_id: Arc::from(format!("{primal_type:?}-test")),
@@ -395,7 +398,10 @@ mod tests {
 
     // Tests for get_capabilities_for_primal (deprecated, but should still work)
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_get_capabilities_for_primal_squirrel() {
         let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::Squirrel);
         assert!(!caps.is_empty());
@@ -403,7 +409,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_get_capabilities_for_primal_songbird() {
         let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::Songbird);
         assert!(!caps.is_empty());
@@ -411,7 +420,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_get_capabilities_for_primal_toadstool() {
         let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::ToadStool);
         assert!(!caps.is_empty());
@@ -419,7 +431,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_get_capabilities_for_primal_beardog() {
         let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::BearDog);
         assert!(!caps.is_empty());
@@ -427,7 +442,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_get_capabilities_for_primal_nestgate() {
         let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::NestGate);
         assert!(!caps.is_empty());
@@ -435,7 +453,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_get_capabilities_for_primal_biomeos() {
         let caps = DiscoveryOps::get_capabilities_for_primal(&EcosystemPrimalType::BiomeOS);
         assert!(!caps.is_empty());
@@ -453,7 +474,10 @@ mod tests {
     }
 
     #[tokio::test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     async fn test_discover_services_single_primal_type() {
         let registry = create_test_registry();
         let primal_types = vec![EcosystemPrimalType::Squirrel];
@@ -464,7 +488,10 @@ mod tests {
     }
 
     #[tokio::test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     async fn test_discover_services_multiple_primal_types() {
         let registry = create_test_registry();
         let primal_types = vec![
@@ -477,7 +504,10 @@ mod tests {
     }
 
     #[tokio::test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     async fn test_discover_services_all_primal_types() {
         let registry = create_test_registry();
         let primal_types = vec![
@@ -493,7 +523,10 @@ mod tests {
     }
 
     #[tokio::test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     async fn test_discover_services_returns_registered_services() {
         let registry = create_test_registry();
 
@@ -513,7 +546,10 @@ mod tests {
 
     // Tests for build_service_endpoint (indirectly through discover_services)
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_build_service_endpoint_uses_env_var() {
         temp_env::with_vars(
             [
@@ -528,7 +564,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_build_service_endpoint_uses_service_discovery() {
         temp_env::with_vars(
             [
@@ -543,7 +582,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_build_service_endpoint_falls_back_to_default() {
         temp_env::with_vars_unset(
             [
@@ -600,7 +642,10 @@ mod tests {
     }
 
     #[tokio::test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     async fn test_discover_services_concurrent_access() {
         let registry = create_test_registry();
 

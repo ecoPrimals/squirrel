@@ -19,6 +19,7 @@ use super::config::SongbirdConfig;
 use super::types::{
     Metric, MonitoringCapability, MonitoringEvent, MonitoringProvider, PerformanceMetrics,
 };
+use universal_constants::primal_names;
 
 /// Monitoring provider that delegates to whichever ecosystem service exposes
 /// `monitoring.*` capabilities (typically Songbird, but capability-first — we
@@ -90,7 +91,7 @@ impl SongbirdProvider {
 #[async_trait]
 impl MonitoringProvider for SongbirdProvider {
     fn provider_name(&self) -> &'static str {
-        "songbird"
+        primal_names::SONGBIRD
     }
 
     fn provider_version(&self) -> &'static str {

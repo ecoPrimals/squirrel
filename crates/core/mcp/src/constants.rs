@@ -184,7 +184,7 @@ pub mod env_vars {
 }
 
 /// Helper functions for building common URLs
-#[expect(
+#[allow(
     deprecated,
     reason = "Uses deprecated network helpers during migration to universal_constants"
 )]
@@ -247,7 +247,10 @@ pub mod url_builders {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "Documented suppression for local structure or compatibility"
+)]
 mod tests {
     use super::message_sizes;
     use super::network;
@@ -256,7 +259,10 @@ mod tests {
     use super::url_builders;
     use super::url_templates;
 
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "Documented suppression for local structure or compatibility"
+    )]
     #[test]
     fn network_ports_and_sizes_are_sane() {
         assert_eq!(network::DEFAULT_WEBSOCKET_PORT, 8080);
@@ -265,14 +271,20 @@ mod tests {
         assert_eq!(protocol::DEFAULT_MCP_SUBPROTOCOL, "mcp");
     }
 
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "Documented suppression for local structure or compatibility"
+    )]
     #[test]
     fn timeouts_are_nonzero() {
         assert!(timeouts::DEFAULT_CONNECTION_TIMEOUT.as_secs() > 0);
         assert!(timeouts::DEFAULT_REQUEST_TIMEOUT >= timeouts::DEFAULT_CONNECTION_TIMEOUT);
     }
 
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "Documented suppression for local structure or compatibility"
+    )]
     #[test]
     fn url_helpers_build_expected_paths() {
         assert!(url_builders::health_url("http://h:1").ends_with(url_templates::HEALTH_ENDPOINT));

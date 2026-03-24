@@ -434,21 +434,21 @@ impl From<reqwest::Error> for UniversalError {
 #[cfg(feature = "http-client")]
 impl From<reqwest::Error> for EcosystemError {
     fn from(err: reqwest::Error) -> Self {
-        EcosystemError::Network(err.to_string())
+        Self::Network(err.to_string())
     }
 }
 
 #[cfg(feature = "http-client")]
 impl From<reqwest::Error> for ServiceMeshError {
     fn from(err: reqwest::Error) -> Self {
-        ServiceMeshError::Network(err.to_string())
+        Self::Network(err.to_string())
     }
 }
 
 #[cfg(feature = "http-client")]
 impl From<reqwest::Error> for HealthError {
     fn from(err: reqwest::Error) -> Self {
-        HealthError::Network(err.to_string())
+        Self::Network(err.to_string())
     }
 }
 

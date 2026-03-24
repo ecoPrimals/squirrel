@@ -146,18 +146,24 @@ impl InMemoryServiceDiscovery {
     ///
     /// Returns [`crate::error::CoreError`] if the registry lock cannot be acquired or cleanup fails.
     pub async fn cleanup_expired_services(&self) -> CoreResult<Vec<String>> {
-        let mut services = self.services.write().await;
-        let mut expired_services = Vec::new();
+        let expired_ids: Vec<String> = {
+            let services = self.services.read().await;
+            services
+                .iter()
+                .filter_map(|(id, service)| self.is_service_expired(service).then_some(id.clone()))
+                .collect()
+        };
 
-        services.retain(|id, service| {
-            if self.is_service_expired(service) {
-                expired_services.push(id.clone());
-                warn!("Service {} expired, removing from registry", id);
-                false
-            } else {
-                true
+        let mut expired_services = Vec::new();
+        {
+            let mut services = self.services.write().await;
+            for id in expired_ids {
+                if services.remove(&id).is_some() {
+                    warn!("Service {} expired, removing from registry", id);
+                    expired_services.push(id);
+                }
             }
-        });
+        }
 
         if !expired_services.is_empty() {
             info!("Cleaned up {} expired services", expired_services.len());
@@ -168,7 +174,6 @@ impl InMemoryServiceDiscovery {
 
     /// Apply query filters and sorting
     fn apply_query_filters(
-        &self,
         services: Vec<ServiceDefinition>,
         query: &ServiceQuery,
     ) -> Vec<ServiceDefinition> {
@@ -197,71 +202,82 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
         // Validate service definition
         service.validate()?;
 
-        let mut services = self.services.write().await;
+        {
+            let mut services = self.services.write().await;
 
-        // Check if service already exists
-        if services.contains_key(&service.id) {
-            warn!("Service {} already exists, updating", service.id);
-        } else {
-            info!("Registering new service: {} ({})", service.name, service.id);
+            // Check if service already exists
+            if services.contains_key(&service.id) {
+                warn!("Service {} already exists, updating", service.id);
+            } else {
+                info!("Registering new service: {} ({})", service.name, service.id);
+            }
+
+            services.insert(service.id.clone(), service);
         }
-
-        services.insert(service.id.clone(), service);
         Ok(())
     }
 
     async fn deregister_service(&self, service_id: &str) -> CoreResult<()> {
-        let mut services = self.services.write().await;
+        {
+            let mut services = self.services.write().await;
 
-        if services.remove(service_id).is_some() {
-            info!("Deregistered service: {}", service_id);
-        } else {
-            warn!(
-                "Attempted to deregister non-existent service: {}",
-                service_id
-            );
+            if services.remove(service_id).is_some() {
+                info!("Deregistered service: {}", service_id);
+            } else {
+                warn!(
+                    "Attempted to deregister non-existent service: {}",
+                    service_id
+                );
+            }
         }
 
         Ok(())
     }
 
     async fn discover_services(&self, query: ServiceQuery) -> CoreResult<Vec<ServiceDefinition>> {
-        let services = self.services.read().await;
-        let mut results = Vec::new();
-
         debug!("Discovering services with query: {:?}", query);
 
-        for service in services.values() {
-            // Skip expired services
-            if self.is_service_expired(service) {
-                debug!("Skipping expired service: {}", service.id);
-                continue;
-            }
+        let results: Vec<ServiceDefinition> = {
+            let services = self.services.read().await;
+            services
+                .values()
+                .filter(|service| {
+                    if self.is_service_expired(service) {
+                        debug!("Skipping expired service: {}", service.id);
+                        false
+                    } else {
+                        true
+                    }
+                })
+                .cloned()
+                .collect()
+        };
 
-            results.push(service.clone());
-        }
-
-        let filtered = self.apply_query_filters(results, &query);
+        let filtered = Self::apply_query_filters(results, &query);
 
         debug!("Found {} services matching query", filtered.len());
         Ok(filtered)
     }
 
     async fn get_active_services(&self) -> CoreResult<Vec<ServiceDefinition>> {
-        let services = self.services.read().await;
-        let results: Vec<ServiceDefinition> = services
-            .values()
-            .filter(|service| !self.is_service_expired(service))
-            .cloned()
-            .collect();
+        let results: Vec<ServiceDefinition> = {
+            let services = self.services.read().await;
+            services
+                .values()
+                .filter(|service| !self.is_service_expired(service))
+                .cloned()
+                .collect()
+        };
 
         debug!("Found {} active services", results.len());
         Ok(results)
     }
 
     async fn get_service(&self, service_id: &str) -> CoreResult<Option<ServiceDefinition>> {
-        let services = self.services.read().await;
-        let service = services.get(service_id).cloned();
+        let service = {
+            let services = self.services.read().await;
+            services.get(service_id).cloned()
+        };
 
         if let Some(ref service) = service
             && self.is_service_expired(service)
@@ -278,34 +294,38 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
         service_id: &str,
         health: ServiceHealthStatus,
     ) -> CoreResult<()> {
-        let mut services = self.services.write().await;
+        {
+            let mut services = self.services.write().await;
 
-        if let Some(service) = services.get_mut(service_id) {
-            let old_status = service.health_status.clone();
-            service.health_status = health.clone();
-            service.last_heartbeat = Utc::now();
+            if let Some(service) = services.get_mut(service_id) {
+                let old_status = service.health_status.clone();
+                service.health_status = health.clone();
+                service.last_heartbeat = Utc::now();
 
-            if old_status != health {
-                info!(
-                    "Service {} health changed from {:?} to {:?}",
-                    service_id, old_status, health
-                );
+                if old_status != health {
+                    info!(
+                        "Service {} health changed from {:?} to {:?}",
+                        service_id, old_status, health
+                    );
+                }
+            } else {
+                return Err(CoreError::ServiceNotFound(service_id.to_string()));
             }
-        } else {
-            return Err(CoreError::ServiceNotFound(service_id.to_string()));
         }
 
         Ok(())
     }
 
     async fn heartbeat(&self, service_id: &str) -> CoreResult<()> {
-        let mut services = self.services.write().await;
+        {
+            let mut services = self.services.write().await;
 
-        if let Some(service) = services.get_mut(service_id) {
-            service.last_heartbeat = Utc::now();
-            debug!("Updated heartbeat for service: {}", service_id);
-        } else {
-            return Err(CoreError::ServiceNotFound(service_id.to_string()));
+            if let Some(service) = services.get_mut(service_id) {
+                service.last_heartbeat = Utc::now();
+                debug!("Updated heartbeat for service: {}", service_id);
+            } else {
+                return Err(CoreError::ServiceNotFound(service_id.to_string()));
+            }
         }
 
         Ok(())
@@ -313,16 +333,15 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
 
     async fn get_service_stats(&self) -> CoreResult<ServiceStats> {
         let services = self.services.read().await;
-        let active_services: Vec<&ServiceDefinition> = services
+        let active_services: Vec<ServiceDefinition> = services
             .values()
             .filter(|service| !self.is_service_expired(service))
+            .cloned()
             .collect();
+        drop(services);
 
         let mut stats = ServiceStats::new();
-        let active_services_vec: Vec<ServiceDefinition> =
-            active_services.into_iter().cloned().collect();
-
-        stats.update_from_services(&active_services_vec);
+        stats.update_from_services(&active_services);
 
         Ok(stats)
     }

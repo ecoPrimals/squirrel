@@ -77,7 +77,7 @@ impl Default for DefaultAuditService {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 mod tests {
     use super::*;
 

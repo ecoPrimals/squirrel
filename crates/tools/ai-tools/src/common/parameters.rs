@@ -45,7 +45,8 @@ pub enum ToolChoice {
 
 impl ModelParameters {
     /// Create new parameters with default values
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             temperature: None,
             top_p: None,
@@ -60,30 +61,35 @@ impl ModelParameters {
     }
 
     /// Set the temperature
-    pub fn with_temperature(mut self, temperature: f32) -> Self {
+    #[must_use]
+    pub const fn with_temperature(mut self, temperature: f32) -> Self {
         self.temperature = Some(temperature);
         self
     }
 
-    /// Set the top_p value
-    pub fn with_top_p(mut self, top_p: f32) -> Self {
+    /// Set the `top_p` value
+    #[must_use]
+    pub const fn with_top_p(mut self, top_p: f32) -> Self {
         self.top_p = Some(top_p);
         self
     }
 
-    /// Set the top_k value
-    pub fn with_top_k(mut self, top_k: f32) -> Self {
+    /// Set the `top_k` value
+    #[must_use]
+    pub const fn with_top_k(mut self, top_k: f32) -> Self {
         self.top_k = Some(top_k);
         self
     }
 
     /// Set the maximum tokens
-    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+    #[must_use]
+    pub const fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
         self
     }
 
     /// Add a stop sequence
+    #[must_use]
     pub fn with_stop(mut self, stop: impl Into<String>) -> Self {
         if let Some(ref mut stops) = self.stop {
             stops.push(stop.into());
@@ -94,30 +100,35 @@ impl ModelParameters {
     }
 
     /// Add multiple stop sequences
+    #[must_use]
     pub fn with_stops(mut self, stops: Vec<String>) -> Self {
         self.stop = Some(stops);
         self
     }
 
     /// Set the frequency penalty
-    pub fn with_frequency_penalty(mut self, frequency_penalty: f32) -> Self {
+    #[must_use]
+    pub const fn with_frequency_penalty(mut self, frequency_penalty: f32) -> Self {
         self.frequency_penalty = Some(frequency_penalty);
         self
     }
 
     /// Set the presence penalty
-    pub fn with_presence_penalty(mut self, presence_penalty: f32) -> Self {
+    #[must_use]
+    pub const fn with_presence_penalty(mut self, presence_penalty: f32) -> Self {
         self.presence_penalty = Some(presence_penalty);
         self
     }
 
     /// Set streaming mode
-    pub fn with_stream(mut self, stream: bool) -> Self {
+    #[must_use]
+    pub const fn with_stream(mut self, stream: bool) -> Self {
         self.stream = Some(stream);
         self
     }
 
     /// Set the tool choice
+    #[must_use]
     pub fn with_tool_choice(mut self, tool_choice: ToolChoice) -> Self {
         self.tool_choice = Some(tool_choice);
         self

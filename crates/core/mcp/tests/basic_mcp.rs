@@ -8,7 +8,7 @@
     clippy::uninlined_format_args,
     clippy::items_after_statements,
     unused_variables
-)]
+)] // Test code: explicit unwrap/expect and local lint noise
 // Integration tests gated behind `integration-tests` feature — API migration
 // (websocket, MCPMessage, WebSocketConfig) tracked in CURRENT_STATUS.md known issues.
 #[cfg(not(feature = "integration-tests"))]

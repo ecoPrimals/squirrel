@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    missing_docs,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 // Integration tests gated behind `integration-tests` feature — API migration
 // (CryptoClient → CapabilityCryptoConfig endpoint) tracked in CURRENT_STATUS.md known issues.
 #[cfg(not(feature = "integration-tests"))]
@@ -32,7 +37,10 @@ mod integration_tests {
     /// This is a simple test server that responds to JSON-RPC requests
     /// for crypto.ed25519.sign and crypto.ed25519.verify.
     struct MockCryptoProvider {
-        #[allow(dead_code)]
+        #[expect(
+            dead_code,
+            reason = "Test code: explicit unwrap/expect and local lint noise"
+        )]
         socket_path: PathBuf,
         listener: UnixListener,
     }

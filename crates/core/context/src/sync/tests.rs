@@ -2,7 +2,7 @@
 // ORC-Notice: Sync mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 
 use super::*;
 use crate::ContextState;

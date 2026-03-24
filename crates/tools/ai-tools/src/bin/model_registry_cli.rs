@@ -7,7 +7,7 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::ignored_unit_patterns
-)]
+)] // Invariant or startup failure: unwrap/expect after validation
 
 //! Model registry management CLI tool.
 

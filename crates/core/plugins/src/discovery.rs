@@ -19,7 +19,7 @@
 //!   [`PluginError::LoadError`] with discovery hints (other primals expose plugins via IPC).
 
 // Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
-#![expect(
+#![allow(
     deprecated,
     reason = "Backward compatibility: uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces"
 )]
@@ -72,9 +72,10 @@ pub struct PluginManifest {
 }
 
 impl PluginManifest {
-    /// Convert to plugin metadata (used by tests and testing feature)
+    /// Convert to plugin metadata for test assertions and the `testing` feature.
     #[must_use]
     #[cfg(any(test, feature = "testing"))]
+    #[allow(dead_code)] // Public API for downstream test consumers via the `testing` feature
     #[expect(
         deprecated,
         reason = "backward compat: PluginMetadata during migration"
@@ -179,7 +180,7 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
 ///
 /// Used when a manifest is present but this primal does not host native plugin code: the plugin
 /// entry is a documented no-op; real implementations are discovered on other primals via IPC.
-#[expect(
+#[allow(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
 )]
@@ -189,7 +190,7 @@ pub fn create_noop_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
 }
 
 /// No-op plugin: satisfies the [`Plugin`] contract without side effects; logs lifecycle for observability.
-#[expect(
+#[allow(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
 )]
@@ -199,7 +200,7 @@ pub struct NoOpPlugin {
 }
 
 #[async_trait]
-#[expect(
+#[allow(
     deprecated,
     reason = "backward compat: PluginMetadata during migration"
 )]
@@ -281,7 +282,7 @@ impl DefaultPluginDiscovery {
     /// # Errors
     ///
     /// Returns [`anyhow::Error`] when native dynamic loading is unavailable for the given path.
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]

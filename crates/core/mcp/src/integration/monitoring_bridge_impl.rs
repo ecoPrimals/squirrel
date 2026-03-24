@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![expect(
+#![allow(
     unused_variables,
-    reason = "Bridge stubs reserve parameters for future monitoring wiring"
-)]
+    reason = "Bridge stubs reserve parameters for future monitoring wiring")]
 
 // MCP Resilience Health Monitoring Bridge Implementation
 //

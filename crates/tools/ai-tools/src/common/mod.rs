@@ -4,7 +4,7 @@
 //! Common types and traits for AI clients
 //!
 //! This module provides a unified interface for interacting with various AI providers,
-//! including OpenAI, Anthropic, local AI servers, and others. The module has been reorganized
+//! including `OpenAI`, Anthropic, local AI servers, and others. The module has been reorganized
 //! into focused sub-modules for better maintainability.
 //!
 //! ## Architecture
@@ -17,7 +17,7 @@
 //! * **capability**: AI capabilities and task management
 //! * **message**: Message types and chat structures
 //! * **parameters**: Model parameters and configuration
-//! * **rate_limiter**: Rate limiting functionality
+//! * **`rate_limiter`**: Rate limiting functionality
 //! * **registry**: Client registry for managing AI clients
 //! * **tool**: Tool definitions and tool calling
 //! * **usage**: Usage tracking and metrics
@@ -98,9 +98,14 @@ pub use usage::TokenCounter;
 
 // Additional utility functions for backward compatibility
 
-/// Create a provider client (factory function) - backward compatibility
+/// Create a provider client (factory function) — backward compatibility.
+///
 /// NOTE: HTTP clients removed. Use capability-based patterns via Universal Transport.
-/// See: crates/universal-patterns/src/transport.rs (Isomorphic IPC complete Jan 31, 2026)
+/// See: `crates/universal-patterns/src/transport.rs` (Isomorphic IPC complete Jan 31, 2026).
+///
+/// # Errors
+///
+/// Always returns an error directing callers to `capability_ai::AiClient` and capability transport.
 pub fn create_provider_client(_provider: &str, _api_key: &str) -> crate::Result<Box<dyn AIClient>> {
     // Old HTTP-based providers removed - use capability_ai::AiClient instead
     Err(universal_error::tools::AIToolsError::Configuration(
@@ -111,7 +116,8 @@ pub fn create_provider_client(_provider: &str, _api_key: &str) -> crate::Result<
 }
 
 /// Create a chat request from messages
-pub fn create_chat_request(messages: Vec<ChatMessage>, model: Option<String>) -> ChatRequest {
+#[must_use]
+pub const fn create_chat_request(messages: Vec<ChatMessage>, model: Option<String>) -> ChatRequest {
     ChatRequest {
         model,
         messages,
@@ -121,6 +127,7 @@ pub fn create_chat_request(messages: Vec<ChatMessage>, model: Option<String>) ->
 }
 
 /// Create a text message
+#[must_use]
 pub fn create_text_message(content: &str) -> ChatMessage {
     ChatMessage {
         role: MessageRole::User,
@@ -132,6 +139,7 @@ pub fn create_text_message(content: &str) -> ChatMessage {
 }
 
 /// Create a system message
+#[must_use]
 pub fn create_system_message(content: &str) -> ChatMessage {
     ChatMessage {
         role: MessageRole::System,
@@ -143,6 +151,7 @@ pub fn create_system_message(content: &str) -> ChatMessage {
 }
 
 /// Create an assistant message
+#[must_use]
 pub fn create_assistant_message(content: &str) -> ChatMessage {
     ChatMessage {
         role: MessageRole::Assistant,

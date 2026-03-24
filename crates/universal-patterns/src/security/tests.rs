@@ -7,7 +7,10 @@
 //! including providers, clients, and integrations.
 
 #[cfg(test)]
-#[allow(clippy::module_inception)] // tests.rs file contains mod tests - standard pattern
+#[expect(
+    clippy::module_inception,
+    reason = "Nested mod tests in tests.rs (standard layout)"
+)]
 mod tests {
     use super::super::*;
     use crate::config::{

@@ -334,7 +334,7 @@ impl ExampleWebPlugin {
 
 #[async_trait]
 impl Plugin for ExampleWebPlugin {
-    #[expect(
+    #[allow(
         deprecated,
         reason = "backward compat: PluginMetadata during migration"
     )]

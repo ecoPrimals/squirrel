@@ -204,9 +204,12 @@ impl CommandValidator {
 
     /// Validates system requirements including memory and thread usage.
     /// Only runs when `system-metrics` feature is enabled (ecoBin: pure Rust default).
-    #[expect(
-        clippy::unnecessary_wraps,
-        reason = "Result needed when system-metrics feature is enabled"
+    #[cfg_attr(
+        not(feature = "system-metrics"),
+        expect(
+            clippy::unnecessary_wraps,
+            reason = "Result needed when system-metrics feature is enabled"
+        )
     )]
     fn validate_system_requirements() -> Result<()> {
         #[cfg(feature = "system-metrics")]
@@ -582,9 +585,12 @@ impl ResourceValidationRule {
 
     /// Checks if the current memory usage is within the specified limits.
     /// Only runs when `system-metrics` feature is enabled (ecoBin: pure Rust default).
-    #[expect(
-        clippy::unnecessary_wraps,
-        reason = "Result needed when system-metrics feature is enabled"
+    #[cfg_attr(
+        not(feature = "system-metrics"),
+        expect(
+            clippy::unnecessary_wraps,
+            reason = "Result needed when system-metrics feature is enabled"
+        )
     )]
     fn check_memory_usage(&self) -> Result<()> {
         #[cfg(feature = "system-metrics")]
@@ -606,9 +612,12 @@ impl ResourceValidationRule {
 
     /// Checks if the current thread usage is within the specified limits.
     /// Only runs when `system-metrics` feature is enabled (ecoBin: pure Rust default).
-    #[expect(
-        clippy::unnecessary_wraps,
-        reason = "Result needed when system-metrics feature is enabled"
+    #[cfg_attr(
+        not(feature = "system-metrics"),
+        expect(
+            clippy::unnecessary_wraps,
+            reason = "Result needed when system-metrics feature is enabled"
+        )
     )]
     fn check_thread_usage(&self) -> Result<()> {
         #[cfg(feature = "system-metrics")]

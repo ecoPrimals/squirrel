@@ -6,7 +6,10 @@
 //!
 //! Tests the new environment variable and service discovery features
 
-#[allow(deprecated)] // Tests deprecated path for backward compatibility
+#[expect(
+    deprecated,
+    reason = "Tests deprecated path for backward compatibility"
+)]
 // EcosystemPrimalType is deprecated but needed for backward compatibility in tests
 use squirrel::ecosystem::EcosystemPrimalType;
 use std::str::FromStr;

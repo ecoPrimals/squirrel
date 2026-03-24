@@ -35,7 +35,7 @@ pub struct MdnsDiscovery {
     #[allow(dead_code)] // Reserved for real mDNS implementation
     service_type: String,
 
-    #[allow(dead_code)] // Reserved for real mDNS implementation
+    #[expect(dead_code, reason = "Reserved for real mDNS implementation")]
     timeout: Duration,
 
     /// Enable/disable mDNS

@@ -5,11 +5,11 @@
 //!
 //! Action handlers use `&self` for future state access and consistent API.
 
-#![expect(
+#![allow(
     clippy::unused_self,
     reason = "Action handlers use &self for consistent API and future state access"
 )]
-#![expect(
+#![allow(
     dead_code,
     reason = "Rule action types used during evaluation and kept for executor API"
 )]
@@ -254,7 +254,7 @@ impl ActionExecutor {
     }
 
     /// Execute modify context action
-    #[expect(
+    #[allow(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -282,7 +282,7 @@ impl ActionExecutor {
     }
 
     /// Execute create recovery point action
-    #[expect(
+    #[allow(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -310,7 +310,7 @@ impl ActionExecutor {
     }
 
     /// Execute transformation action
-    #[expect(
+    #[allow(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -337,7 +337,7 @@ impl ActionExecutor {
     }
 
     /// Execute notify action
-    #[expect(
+    #[allow(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -395,7 +395,7 @@ impl ActionExecutor {
     }
 
     /// Execute script action
-    #[expect(
+    #[allow(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -423,7 +423,7 @@ impl ActionExecutor {
     }
 
     /// Execute validate context action
-    #[expect(
+    #[allow(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -483,7 +483,7 @@ impl ActionExecutor {
         }
 
         // Update average duration using saturating arithmetic to avoid truncation
-        #[expect(
+        #[allow(
             clippy::cast_possible_truncation,
             reason = "Action execution; value range audited"
         )]

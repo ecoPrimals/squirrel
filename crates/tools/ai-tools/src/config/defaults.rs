@@ -18,7 +18,8 @@ impl DefaultEndpoints {
     /// Get local AI server endpoint from environment or default
     ///
     /// Agnostic: works with any OpenAI-compatible local server (Ollama, llama.cpp, vLLM, etc.)
-    /// Checks LOCAL_AI_ENDPOINT first, then falls back to legacy vendor-specific env vars.
+    /// Checks `LOCAL_AI_ENDPOINT` first, then falls back to legacy vendor-specific env vars.
+    #[must_use]
     pub fn local_server_endpoint() -> String {
         env::var("LOCAL_AI_ENDPOINT")
             .or_else(|_| env::var("OLLAMA_ENDPOINT"))
@@ -37,16 +38,19 @@ impl DefaultEndpoints {
     }
 
     /// Backward-compatible alias
+    #[must_use]
     pub fn ollama_endpoint() -> String {
         Self::local_server_endpoint()
     }
 
     /// Backward-compatible alias
+    #[must_use]
     pub fn llamacpp_endpoint() -> String {
         Self::local_server_endpoint()
     }
 
     /// Get MCP server endpoint from environment or default
+    #[must_use]
     pub fn mcp_server_endpoint() -> String {
         env::var("MCP_SERVER_ENDPOINT").unwrap_or_else(|_| {
             let host = env::var("MCP_HOST")
@@ -60,6 +64,7 @@ impl DefaultEndpoints {
     }
 
     /// Get general AI service host from environment or default
+    #[must_use]
     pub fn ai_service_host() -> String {
         env::var("AI_SERVICE_HOST")
             .or_else(|_| env::var("MCP_HOST"))
@@ -67,12 +72,14 @@ impl DefaultEndpoints {
     }
 
     /// Get development server host from environment or default
+    #[must_use]
     pub fn dev_server_host() -> String {
         env::var("DEV_SERVER_HOST")
             .unwrap_or_else(|_| config_helpers::get_host("DEV_SERVER_HOST", LOCALHOST_IPV4))
     }
 
     /// Get service discovery port from environment or default
+    #[must_use]
     pub fn service_discovery_port() -> u16 {
         env::var("SERVICE_DISCOVERY_PORT")
             .ok()
@@ -81,6 +88,7 @@ impl DefaultEndpoints {
     }
 
     /// Get CLI MCP host from environment or default
+    #[must_use]
     pub fn cli_mcp_host() -> String {
         env::var("CLI_MCP_HOST")
             .or_else(|_| env::var("MCP_HOST"))
@@ -90,9 +98,10 @@ impl DefaultEndpoints {
     /// Get WebSocket server URL from environment or default
     ///
     /// Multi-tier resolution:
-    /// 1. MCP_SERVER_URL (full URL override)
-    /// 2. MCP_SERVER_PORT (port override)
-    /// 3. Default: ws://127.0.0.1 with port from `get_service_port("websocket")`
+    /// 1. `MCP_SERVER_URL` (full URL override)
+    /// 2. `MCP_SERVER_PORT` (port override)
+    /// 3. Default: <ws://127.0.0.1> with port from `get_service_port("websocket")`
+    #[must_use]
     pub fn websocket_server_url() -> String {
         env::var("MCP_SERVER_URL").unwrap_or_else(|_| {
             let port = env::var("MCP_SERVER_PORT")
@@ -107,10 +116,11 @@ impl DefaultEndpoints {
     /// Note: This is a fallback - services should use capability discovery
     ///
     /// Multi-tier resolution:
-    /// 1. SECURITY_SERVICE_ENDPOINT (full endpoint)
-    /// 2. SECURITY_AUTH_SERVICE_ENDPOINT (alt full endpoint)
-    /// 3. SECURITY_AUTHENTICATION_PORT (port override)
+    /// 1. `SECURITY_SERVICE_ENDPOINT` (full endpoint)
+    /// 2. `SECURITY_AUTH_SERVICE_ENDPOINT` (alt full endpoint)
+    /// 3. `SECURITY_AUTHENTICATION_PORT` (port override)
     /// 4. Fallback: `SECURITY_SERVICE_PORT` / capability default from [`ports::security_service`]
+    #[must_use]
     pub fn security_service_endpoint() -> String {
         env::var("SECURITY_SERVICE_ENDPOINT")
             .or_else(|_| env::var("SECURITY_AUTH_SERVICE_ENDPOINT"))
@@ -128,14 +138,15 @@ impl DefaultEndpoints {
 
     /// Get ecosystem registry (service mesh) endpoint from environment or default
     ///
-    /// Env vars are runtime config - SONGBIRD_ENDPOINT is backward-compatible.
+    /// Env vars are runtime config - `SONGBIRD_ENDPOINT` is backward-compatible.
     /// Code treats this as ecosystem role endpoint, not hardcoded primal identity.
     ///
     /// Multi-tier resolution:
-    /// 1. SERVICE_MESH_ENDPOINT (capability-based)
-    /// 2. SONGBIRD_ENDPOINT (legacy env var, runtime config)
-    /// 3. SONGBIRD_PORT (port override)
+    /// 1. `SERVICE_MESH_ENDPOINT` (capability-based)
+    /// 2. `SONGBIRD_ENDPOINT` (legacy env var, runtime config)
+    /// 3. `SONGBIRD_PORT` (port override)
     /// 4. Fallback: `SERVICE_MESH_PORT` / [`ports::service_mesh`]
+    #[must_use]
     pub fn songbird_endpoint() -> String {
         env::var("SERVICE_MESH_ENDPOINT")
             .or_else(|_| env::var("SONGBIRD_ENDPOINT"))
@@ -151,12 +162,13 @@ impl DefaultEndpoints {
             })
     }
 
-    /// Get ToadStool endpoint from environment or default
+    /// Get `ToadStool` endpoint from environment or default
     ///
     /// Multi-tier resolution:
-    /// 1. TOADSTOOL_ENDPOINT (full endpoint)
-    /// 2. TOADSTOOL_PORT (port override)
+    /// 1. `TOADSTOOL_ENDPOINT` (full endpoint)
+    /// 2. `TOADSTOOL_PORT` (port override)
     /// 3. Fallback: [`ports::compute_service`] (compute capability — no compile-time primal port)
+    #[must_use]
     pub fn toadstool_endpoint() -> String {
         env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
             let host = config_helpers::get_host("TOADSTOOL_HOST", "localhost");
@@ -166,27 +178,32 @@ impl DefaultEndpoints {
     }
 
     /// Get network host from environment or default
+    #[must_use]
     pub fn network_host() -> String {
         env::var("NETWORK_HOST")
             .unwrap_or_else(|_| config_helpers::get_host("NETWORK_HOST", LOCALHOST_IPV4))
     }
 
     /// Build endpoint URL with host and port
+    #[must_use]
     pub fn build_endpoint(host: &str, port: u16, scheme: &str) -> String {
         format!("{scheme}://{host}:{port}")
     }
 
     /// Build health endpoint URL
+    #[must_use]
     pub fn health_endpoint(base_url: &str) -> String {
         format!("{}/health", base_url.trim_end_matches('/'))
     }
 
     /// Build metrics endpoint URL
+    #[must_use]
     pub fn metrics_endpoint(base_url: &str) -> String {
         format!("{}/metrics", base_url.trim_end_matches('/'))
     }
 
     /// Build admin endpoint URL
+    #[must_use]
     pub fn admin_endpoint(base_url: &str) -> String {
         format!("{}/admin", base_url.trim_end_matches('/'))
     }

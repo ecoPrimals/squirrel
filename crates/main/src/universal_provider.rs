@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Squirrel Provider Implementation
-#![expect(
+#![allow(
     dead_code,
     reason = "Provider implementation used at ecosystem runtime"
 )]

@@ -28,6 +28,10 @@ pub struct ModelRegistry {
 }
 
 /// Model capabilities configuration
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Serde-backed model manifest; flat bool fields match JSON schema"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelCapabilities {
     /// Model name
@@ -90,7 +94,7 @@ pub struct ModelCapabilities {
     pub api_endpoint: Option<String>,
 }
 
-fn default_priority() -> u8 {
+const fn default_priority() -> u8 {
     50
 }
 
@@ -151,11 +155,11 @@ pub struct ResourceConfig {
     pub hardware_requirements: Option<String>,
 }
 
-fn default_memory_mb() -> u32 {
+const fn default_memory_mb() -> u32 {
     256
 }
 
-fn default_true() -> bool {
+const fn default_true() -> bool {
     true
 }
 
@@ -188,6 +192,7 @@ struct ModelRegistryOutput {
 
 impl ModelRegistry {
     /// Create a new empty model registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             models: HashMap::new(),
@@ -197,14 +202,13 @@ impl ModelRegistry {
 
     /// Get the global model registry instance
     pub fn global() -> Self {
-        match GLOBAL_REGISTRY.read() {
-            Ok(registry) => registry.clone(),
-            Err(_) => {
-                // If the global registry is poisoned, return a new default instance
+        GLOBAL_REGISTRY.read().map_or_else(
+            |_| {
                 warn!("Global model registry is poisoned, returning default instance");
                 Self::new()
-            }
-        }
+            },
+            |registry| registry.clone(),
+        )
     }
 
     /// Set the global model registry instance
@@ -237,6 +241,10 @@ impl ModelRegistry {
     }
 
     /// Initialize the registry with default search paths and load configurations
+    ///
+    /// # Errors
+    ///
+    /// Propagates I/O and deserialization errors from [`Self::load_from_available_paths`].
     pub fn initialize() -> Result<(), Box<dyn std::error::Error>> {
         let mut registry = Self::new();
 
@@ -264,13 +272,17 @@ impl ModelRegistry {
     }
 
     /// Load from the first available config path
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from the first successful path's [`Self::load_from_file`].
     pub fn load_from_available_paths(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let paths = self.config_paths.clone();
         for path in &paths {
             if path.exists() {
                 info!("Loading model registry from {}", path.display());
                 match self.load_from_file(path) {
-                    Ok(_) => return Ok(()),
+                    Ok(()) => return Ok(()),
                     Err(e) => {
                         warn!(
                             "Failed to load model registry from {}: {}",
@@ -291,6 +303,10 @@ impl ModelRegistry {
     }
 
     /// Load model registry from a file
+    ///
+    /// # Errors
+    ///
+    /// Propagates I/O and JSON/TOML deserialization errors.
     pub fn load_from_file<P: AsRef<Path>>(
         &mut self,
         path: P,
@@ -332,6 +348,10 @@ impl ModelRegistry {
     }
 
     /// Save the registry to a file
+    ///
+    /// # Errors
+    ///
+    /// Propagates serialization and I/O errors.
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
         // Format depends on file extension
         let is_json = path.as_ref().extension().is_some_and(|ext| ext == "json");
@@ -357,6 +377,7 @@ impl ModelRegistry {
     }
 
     /// Get capabilities for a model
+    #[must_use]
     pub fn get_model_capabilities(
         &self,
         provider_id: &str,
@@ -370,6 +391,7 @@ impl ModelRegistry {
     }
 
     /// Get all models for a provider
+    #[must_use]
     pub fn get_provider_models(&self, provider_id: &str) -> Vec<String> {
         self.models
             .get(provider_id)
@@ -389,11 +411,16 @@ impl ModelRegistry {
     }
 
     /// Get all registered providers
+    #[must_use]
     pub fn get_providers(&self) -> Vec<String> {
         self.models.keys().cloned().collect()
     }
 
     /// Import default models for standard providers
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Single catalog of bundled defaults; splitting would obscure provider groupings"
+    )]
     pub fn import_defaults(&mut self) {
         // OpenAI models
         self.register_model(ModelCapabilities {
@@ -432,7 +459,7 @@ impl ModelRegistry {
             version: Some("2024-04-09".to_string()),
             model_types: vec!["LargeLanguageModel".to_string()],
             task_types: vec!["TextGeneration".to_string()],
-            max_context_size: Some(128000),
+            max_context_size: Some(128_000),
             supports_streaming: true,
             supports_function_calling: true,
             supports_tool_use: true,
@@ -466,7 +493,7 @@ impl ModelRegistry {
                 "TextGeneration".to_string(),
                 "ImageUnderstanding".to_string(),
             ],
-            max_context_size: Some(200000),
+            max_context_size: Some(200_000),
             supports_streaming: true,
             supports_function_calling: true,
             supports_tool_use: true,
@@ -500,7 +527,7 @@ impl ModelRegistry {
                 "TextGeneration".to_string(),
                 "ImageUnderstanding".to_string(),
             ],
-            max_context_size: Some(1000000),
+            max_context_size: Some(1_000_000),
             supports_streaming: true,
             supports_function_calling: true,
             supports_tool_use: false,
@@ -526,6 +553,10 @@ impl ModelRegistry {
     }
 
     /// Create a model registry from a file
+    ///
+    /// # Errors
+    ///
+    /// Propagates the same errors as [`Self::load_from_file`] for the given path format.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
         let path_ref = path.as_ref(); // Get a reference to avoid moving path
         let contents = fs::read_to_string(path_ref)?;
@@ -564,7 +595,8 @@ impl ModelRegistry {
 }
 
 impl ModelCapabilities {
-    /// Convert to AICapabilities structure
+    /// Convert to `AICapabilities` structure
+    #[must_use]
     pub fn to_ai_capabilities(&self) -> AICapabilities {
         let mut capabilities = AICapabilities::new();
 
@@ -608,9 +640,9 @@ impl ModelCapabilities {
         }
 
         // Set resource requirements
-        capabilities.resource_requirements.min_memory_mb = self.resources.min_memory_mb as u64;
+        capabilities.resource_requirements.min_memory_mb = u64::from(self.resources.min_memory_mb);
         capabilities.resource_requirements.min_gpu_memory_mb =
-            self.resources.min_gpu_memory_mb.map(|mb| mb as u64);
+            self.resources.min_gpu_memory_mb.map(u64::from);
         capabilities.resource_requirements.min_cpu_cores = self.resources.min_cpu_cores;
         capabilities.resource_requirements.requires_gpu = self.resources.requires_gpu;
         capabilities.resource_requirements.requires_internet = self.resources.requires_internet;
@@ -636,7 +668,7 @@ impl ModelCapabilities {
         capabilities
     }
 
-    /// Convert string to ModelType
+    /// Convert string to `ModelType`
     fn str_to_model_type(model_type_str: &str) -> ModelType {
         match model_type_str {
             "LargeLanguageModel" => ModelType::LargeLanguageModel,
@@ -650,7 +682,7 @@ impl ModelCapabilities {
         }
     }
 
-    /// Convert string to TaskType
+    /// Convert string to `TaskType`
     fn str_to_task_type(task_type_str: &str) -> TaskType {
         match task_type_str {
             "TextGeneration" => TaskType::TextGeneration,
@@ -666,12 +698,12 @@ impl ModelCapabilities {
     }
 
     /// Get cost tier as enum
+    #[must_use]
     pub fn get_cost_tier(&self) -> CostTier {
         match self.cost_tier.to_lowercase().as_str() {
             "free" => CostTier::Free,
             "low" => CostTier::Low,
             "medium" => CostTier::Medium,
-            "high" => CostTier::High,
             _ => CostTier::High,
         }
     }

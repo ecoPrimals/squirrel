@@ -2,10 +2,13 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP Adapter for AI Router
-#![expect(dead_code, reason = "MCP adapter module awaiting activation")]
 //!
-//! This module provides an adapter between the AIRouter and MCP for
+//! This module provides an adapter between the `AIRouter` and MCP for
 //! remote AI capabilities.
+//!
+//! **Phase 2**: Production [`MCPAdapter::send_request`] returns a deterministic local
+//! response until MCP transport is wired; [`MCPAdapter::discover_capabilities`] returns
+//! an empty map outside tests. Test-only injection uses `#[cfg(test)]` helpers on [`MCPAdapter`].
 
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -45,7 +48,11 @@ impl Default for MCPAdapterConfig {
 /// MCP adapter for remote AI capabilities
 #[derive(Debug)]
 pub struct MCPAdapter {
-    /// Configuration
+    /// Configuration (endpoint, timeouts, TLS) — applied when the adapter calls MCP transport (Phase 2).
+    #[expect(
+        dead_code,
+        reason = "Phase 2 — used when adapter delegates to real MCP client"
+    )]
     config: MCPAdapterConfig,
 
     #[cfg(test)]
@@ -57,6 +64,11 @@ pub struct MCPAdapter {
 
 impl MCPAdapter {
     /// Create a new MCP adapter
+    #[must_use]
+    #[allow(
+        clippy::missing_const_for_fn,
+        reason = "Test-only RwLock::new in struct literal is not const"
+    )]
     pub fn new(config: MCPAdapterConfig) -> Self {
         Self {
             config,
@@ -70,17 +82,14 @@ impl MCPAdapter {
     /// For testing: add a mock response
     #[cfg(test)]
     pub fn add_mock_response(&self, request_id: String, response: ChatResponse) {
-        let responses_result = self.mock_responses.write();
-
-        let mut responses = match responses_result {
-            Ok(guard) => guard,
+        match self.mock_responses.write() {
+            Ok(mut responses) => {
+                responses.insert(request_id, response);
+            }
             Err(e) => {
                 tracing::error!("Failed to acquire mock responses write lock: {}", e);
-                return; // Gracefully fail for test setup
             }
-        };
-
-        responses.insert(request_id, response);
+        }
     }
 
     /// For testing: add mock capabilities
@@ -90,17 +99,14 @@ impl MCPAdapter {
         node_id: NodeId,
         capabilities: HashMap<String, AICapabilities>,
     ) {
-        let caps_result = self.mock_capabilities.write();
-
-        let mut caps = match caps_result {
-            Ok(guard) => guard,
+        match self.mock_capabilities.write() {
+            Ok(mut caps) => {
+                caps.insert(node_id, capabilities);
+            }
             Err(e) => {
                 tracing::error!("Failed to acquire mock capabilities write lock: {}", e);
-                return; // Gracefully fail for test setup
             }
-        };
-
-        caps.insert(node_id, capabilities);
+        }
     }
 }
 
@@ -114,13 +120,19 @@ impl MCPInterface for MCPAdapter {
         // For testing: return mock response if available
         #[cfg(test)]
         {
-            let responses_result = self.mock_responses.read();
-
-            let responses = match responses_result {
-                Ok(guard) => guard,
+            match self.mock_responses.read() {
+                Ok(responses) => {
+                    if let Some(response) = responses.get(&request.request_id.to_string()) {
+                        return Ok(RemoteAIResponse {
+                            response_id: uuid::Uuid::new_v4(),
+                            request_id: request.request_id,
+                            provider_id: request.provider_id,
+                            chat_response: response.clone(),
+                        });
+                    }
+                }
                 Err(e) => {
                     tracing::error!("Failed to acquire mock responses read lock: {}", e);
-                    // Continue with default response if lock fails
                     return Ok(RemoteAIResponse {
                         response_id: uuid::Uuid::new_v4(),
                         request_id: request.request_id,
@@ -145,15 +157,6 @@ impl MCPInterface for MCPAdapter {
                         },
                     });
                 }
-            };
-
-            if let Some(response) = responses.get(&request.request_id.to_string()) {
-                return Ok(RemoteAIResponse {
-                    response_id: uuid::Uuid::new_v4(),
-                    request_id: request.request_id,
-                    provider_id: request.provider_id,
-                    chat_response: response.clone(),
-                });
             }
         }
 
@@ -206,31 +209,29 @@ impl MCPInterface for MCPAdapter {
         // Include mock capabilities for testing
         #[cfg(test)]
         {
-            let mock_caps_result = self.mock_capabilities.read();
-
-            let mock_caps = match mock_caps_result {
-                Ok(guard) => guard,
+            match self.mock_capabilities.read() {
+                Ok(mock_caps) => {
+                    all_capabilities.extend(mock_caps.clone());
+                }
                 Err(e) => {
                     tracing::error!("Failed to acquire mock capabilities read lock: {}", e);
-                    // Return empty capabilities if lock fails
                     return Ok(all_capabilities);
                 }
-            };
-
-            all_capabilities.extend(mock_caps.clone());
+            }
         }
 
         Ok(all_capabilities)
     }
 }
 
-// Placeholder types for MCP protocol
-// These would be replaced with actual MCP protocol types
-// NOTE(phase2): MCP adapter implementation - pending full MCP protocol integration
+// Phase 2: wire types below to the real MCP JSON-RPC / stream codec when the adapter
+// delegates to `squirrel-mcp` transport instead of local fallbacks.
 #[derive(Debug)]
+#[expect(dead_code, reason = "Phase 2 — MCP wire protocol client/types")]
 struct McpClient;
 
 #[derive(Debug)]
+#[expect(dead_code, reason = "Phase 2 — MCP wire protocol client/types")]
 struct McpRequest {
     id: String,
     method: String,
@@ -238,12 +239,14 @@ struct McpRequest {
 }
 
 #[derive(Debug)]
+#[expect(dead_code, reason = "Phase 2 — MCP wire protocol client/types")]
 struct McpResponse {
     id: String,
     result: serde_json::Value,
 }
 
 #[derive(Debug)]
+#[expect(dead_code, reason = "Phase 2 — MCP wire protocol client/types")]
 struct McpChunk {
     id: String,
     data: serde_json::Value,

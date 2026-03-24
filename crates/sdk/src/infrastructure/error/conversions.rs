@@ -296,7 +296,7 @@ impl From<Box<dyn std::error::Error>> for PluginError {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 mod tests {
     use super::*;
     use crate::infrastructure::error::context::ErrorContext;
@@ -415,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)] // Exhaustive variant coverage table
+    #[expect(clippy::too_many_lines, reason = "Exhaustive variant coverage table")]
     fn test_error_code_all_variants() {
         let cases: Vec<PluginError> = vec![
             PluginError::MissingParameter {
@@ -616,7 +616,7 @@ mod tests {
         let m = std::sync::Mutex::new(());
         let _ = std::panic::catch_unwind(|| {
             let _g = m.lock().unwrap();
-            panic!("poison mutex");
+            std::panic::resume_unwind(Box::new("intentional mutex poison for test"));
         });
         let err: PluginError = m.lock().unwrap_err().into();
         assert!(matches!(err, PluginError::LockError { .. }));
@@ -624,7 +624,7 @@ mod tests {
         let rw = std::sync::RwLock::new(());
         let _ = std::panic::catch_unwind(|| {
             let _g = rw.write().unwrap();
-            panic!("poison rw");
+            std::panic::resume_unwind(Box::new("intentional rwlock poison for test"));
         });
         let err_r: PluginError = rw.read().unwrap_err().into();
         assert!(matches!(err_r, PluginError::LockError { .. }));

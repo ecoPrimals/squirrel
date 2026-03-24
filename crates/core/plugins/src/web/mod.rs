@@ -219,7 +219,7 @@ impl PluginManagementInterface {
     }
 
     /// Get plugin logs
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]

@@ -569,25 +569,27 @@ mod tests {
     }
 
     #[test]
-    fn all_squirrel_graphs_structurally_valid() {
+    fn all_squirrel_graphs_structurally_valid() -> Result<(), String> {
         let graph_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../graphs");
         if !graph_dir.exists() {
-            return;
+            return Ok(());
         }
-        for entry in std::fs::read_dir(&graph_dir).unwrap().flatten() {
+        for entry in std::fs::read_dir(&graph_dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
             if path.extension().is_some_and(|e| e == "toml") {
-                let contents = std::fs::read_to_string(&path).unwrap();
-                let graph = NicheDeployGraph::from_toml(&contents).unwrap_or_else(|e| {
-                    panic!("{} failed to parse: {e}", path.display());
-                });
+                let contents = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+                let graph = NicheDeployGraph::from_toml(&contents)
+                    .map_err(|e| format!("{} failed to parse: {e}", path.display()))?;
                 let issues = graph.structural_issues();
-                assert!(
-                    issues.is_empty(),
-                    "{} has structural issues: {issues:?}",
-                    path.display()
-                );
+                if !issues.is_empty() {
+                    return Err(format!(
+                        "{} has structural issues: {issues:?}",
+                        path.display()
+                    ));
+                }
             }
         }
+        Ok(())
     }
 }

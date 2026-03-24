@@ -20,6 +20,7 @@ use crate::{AuthError, AuthResult, JwtClaims};
 use chrono::{DateTime, Utc};
 use tracing::{debug, info};
 use universal_constants::identity;
+use universal_constants::network::resolve_capability_unix_socket;
 use uuid::Uuid;
 
 /// Delegated JWT Client - High-level wrapper for capability-based JWT
@@ -89,8 +90,10 @@ impl DelegatedJwtClient {
     pub fn new_from_env() -> AuthResult<Self> {
         use std::env;
 
-        let socket_path = env::var("CRYPTO_CAPABILITY_SOCKET")
-            .unwrap_or_else(|_| "/var/run/crypto/provider.sock".to_string());
+        let socket_path =
+            resolve_capability_unix_socket("CRYPTO_CAPABILITY_SOCKET", "crypto-provider")
+                .to_string_lossy()
+                .into_owned();
 
         let key_id =
             env::var("JWT_KEY_ID").unwrap_or_else(|_| identity::JWT_SIGNING_KEY_ID.to_string());

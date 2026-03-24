@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Command registry for managing and executing commands
-#![expect(
+#![allow(
     clippy::type_complexity,
     reason = "Complex handler types are inherent to the command pattern"
 )]

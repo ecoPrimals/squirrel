@@ -71,7 +71,10 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ContextError {
 }
 
 #[cfg(test)]
-#[allow(clippy::unnecessary_literal_unwrap)] // Tests intentionally create Result types
+#[expect(
+    clippy::unnecessary_literal_unwrap,
+    reason = "Tests intentionally create Result types"
+)]
 mod tests {
     use super::*;
 

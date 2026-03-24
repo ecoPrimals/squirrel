@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
 
 use crate::api::ai::adapters::{AiProviderAdapter, QualityTier};
 use crate::api::ai::constraints::RoutingConstraint;
+use crate::api::ai::dignity::{DignityCheckRequest, DignityEvaluator};
 use crate::api::ai::router::AiRouter;
 use crate::api::ai::types::{
     GeneratedImage, ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
@@ -459,4 +460,75 @@ async fn generate_image_success_without_retry() {
 async fn router_default_has_no_providers() {
     let r = AiRouter::default();
     assert_eq!(r.provider_count().await, 0);
+}
+
+/// Router uses the same dignity evaluator semantics as [`DignityEvaluator`] (non-blocking log on violation).
+#[test]
+fn dignity_integration_matches_standalone_evaluator_for_text_prompt() {
+    let prompt = "Should we hire this applicant?";
+    let standalone = DignityEvaluator.evaluate_request(&DignityCheckRequest {
+        prompt,
+        model: None,
+        context: None,
+    });
+    assert!(!standalone.passed);
+    assert!(!standalone.flags.is_empty());
+}
+
+#[tokio::test]
+async fn generate_text_with_dignity_sensitive_prompt_still_routes_when_provider_ok() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
+        id: "mock-text",
+        name: "Mock",
+    })]);
+    let req = TextGenerationRequest {
+        prompt: "Review this applicant for employment".to_string(),
+        system: None,
+        max_tokens: 64,
+        temperature: 0.5,
+        model: Some("gpt-4".to_string()),
+        constraints: vec![],
+        params: std::collections::HashMap::new(),
+    };
+    let out = router.generate_text(req, None).await.unwrap();
+    assert!(out.text.contains("echo:"));
+    assert_eq!(out.provider_id, "mock-text");
+}
+
+#[tokio::test]
+async fn generate_image_dignity_prompt_still_succeeds_with_image_provider() {
+    let router =
+        AiRouter::from_adapters_for_test(vec![Arc::new(MockImageOnlyAdapter { id: "img-one" })]);
+    let req = ImageGenerationRequest {
+        prompt: "Evaluate housing eligibility for this tenant".to_string(),
+        negative_prompt: None,
+        size: "128x128".to_string(),
+        n: 1,
+        quality_preference: None,
+        constraints: vec![],
+        params: std::collections::HashMap::new(),
+    };
+    let out = router.generate_image(req, None).await.unwrap();
+    assert_eq!(out.provider_id, "img-one");
+}
+
+#[tokio::test]
+async fn generate_text_constraint_require_provider_still_routes_after_fallback() {
+    let router = AiRouter::from_adapters_for_test(vec![Arc::new(MockTextAdapter {
+        id: "mock-text",
+        name: "Mock",
+    })]);
+    let req = TextGenerationRequest {
+        prompt: "hi".to_string(),
+        system: None,
+        max_tokens: 32,
+        temperature: 0.7,
+        model: None,
+        constraints: vec![RoutingConstraint::RequireProvider(
+            "nonexistent".to_string(),
+        )],
+        params: std::collections::HashMap::new(),
+    };
+    let out = router.generate_text(req, None).await.unwrap();
+    assert_eq!(out.provider_id, "mock-text");
 }

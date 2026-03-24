@@ -3,7 +3,7 @@
 
 // NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
 // The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
-#![expect(
+#![allow(
     deprecated,
     reason = "Uses deprecated plugin::PluginMetadata until interfaces crate stabilizes (see module note)"
 )]
@@ -74,7 +74,7 @@ pub struct PluginManager {
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
     /// Dependency resolver for proper plugin initialization order (reserved for dependency resolution system)
-    #[expect(
+    #[allow(
         dead_code,
         reason = "Phase 2 placeholder — dependency resolution system"
     )]

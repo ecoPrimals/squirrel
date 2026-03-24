@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
 //! Error Path Tests for Service Discovery
 //!
 //! These tests ensure that service discovery handles error conditions gracefully
@@ -15,13 +15,16 @@
 use squirrel::error::PrimalError;
 
 // Stub types for compilation
-#[allow(dead_code)]
+#[allow(dead_code)] // Test code: explicit unwrap/expect and local lint noise
 struct DiscoveredService {
     endpoint: String,
     metadata: std::collections::HashMap<String, String>,
 }
 
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 struct EcosystemServiceDiscovery {
     config: ServiceDiscoveryConfig,
 }
@@ -37,7 +40,10 @@ impl EcosystemServiceDiscovery {
         Self { config }
     }
 
-    #[allow(clippy::unused_async)]
+    #[expect(
+        clippy::unused_async,
+        reason = "Test code: explicit unwrap/expect and local lint noise"
+    )]
     async fn discover_by_capability(
         &self,
         capability: &str,
@@ -49,7 +55,10 @@ impl EcosystemServiceDiscovery {
     }
 }
 
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 #[derive(Default)]
 struct ServiceDiscoveryConfig {
     environment: Option<String>,

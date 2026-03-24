@@ -3,13 +3,14 @@
 
 //! AI client trait and related functionality
 //!
-//! This module defines the core AIClient trait that provides a unified interface
+//! This module defines the core `AIClient` trait that provides a unified interface
 //! for interacting with various AI providers (cloud APIs, local servers, etc.).
 
 use async_trait::async_trait;
 
 use crate::common::capability::{AICapabilities, AITask, TaskType};
 use crate::common::types::{ChatRequest, ChatResponse, ChatResponseStream};
+use crate::float_helpers;
 
 /// AI client trait for unified interface across providers
 #[async_trait]
@@ -83,36 +84,29 @@ pub trait AIClient: Send + Sync + std::fmt::Debug + 'static {
     fn estimate_cost(&self, task: &AITask) -> f64 {
         // Base cost estimation - providers can override
         let base_cost = match task.task_type {
-            TaskType::TextGeneration => 0.01,
-            TaskType::CodeGeneration => 0.02,
+            TaskType::TextGeneration
+            | TaskType::ChatCompletion
+            | TaskType::Other
+            | TaskType::Custom(_) => 0.01,
+            TaskType::CodeGeneration | TaskType::DataAnalysis => 0.02,
             TaskType::Translation => 0.015,
             TaskType::Summarization => 0.008,
             TaskType::QuestionAnswering => 0.012,
-            TaskType::ChatCompletion => 0.01,
-            TaskType::FunctionCalling => 0.03,
+            TaskType::FunctionCalling | TaskType::FunctionExecution => 0.03,
             TaskType::ImageGeneration => 0.2,
-            TaskType::ImageAnalysis => 0.15,
-            TaskType::ImageUnderstanding => 0.15,
+            TaskType::ImageAnalysis | TaskType::ImageUnderstanding => 0.15,
             TaskType::AudioTranscription => 0.05,
-            TaskType::AudioGeneration => 0.08,
-            TaskType::SpeechSynthesis => 0.08,
-            TaskType::TextEmbedding => 0.001,
-            TaskType::Embedding => 0.001,
+            TaskType::AudioGeneration | TaskType::SpeechSynthesis => 0.08,
+            TaskType::TextEmbedding | TaskType::Embedding => 0.001,
             TaskType::Classification => 0.005,
             TaskType::Sentiment => 0.003,
             TaskType::NamedEntityRecognition => 0.004,
-            TaskType::DataAnalysis => 0.02,
-            TaskType::FunctionExecution => 0.03,
-            TaskType::Other => 0.01,
-            TaskType::Custom(_) => 0.01,
         };
 
         // Adjust based on estimated token usage
-        let token_multiplier = if let Some(min_tokens) = task.min_context_size {
-            (min_tokens as f64) / 1000.0
-        } else {
-            1.0
-        };
+        let token_multiplier = task.min_context_size.map_or(1.0f64, |min_tokens| {
+            float_helpers::usize_to_f64_lossy(min_tokens) / 1000.0
+        });
 
         base_cost * token_multiplier
     }
@@ -150,6 +144,10 @@ pub trait AIClientFactory {
 /// Client configuration trait
 pub trait ClientConfig {
     /// Validate the configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` with a human-readable message when validation fails.
     fn validate(&self) -> Result<(), String>;
 
     /// Get the provider name for this configuration
@@ -204,39 +202,31 @@ impl Default for ClientMetrics {
 
 impl ClientMetrics {
     /// Calculate success rate
+    #[must_use]
     pub fn success_rate(&self) -> f64 {
-        if self.total_requests == 0 {
-            0.0
-        } else {
-            self.successful_requests as f64 / self.total_requests as f64
-        }
+        float_helpers::u64_ratio(self.successful_requests, self.total_requests)
     }
 
     /// Calculate failure rate
+    #[must_use]
     pub fn failure_rate(&self) -> f64 {
-        if self.total_requests == 0 {
-            0.0
-        } else {
-            self.failed_requests as f64 / self.total_requests as f64
-        }
+        float_helpers::u64_ratio(self.failed_requests, self.total_requests)
     }
 
     /// Calculate average cost per request
+    #[must_use]
     pub fn avg_cost_per_request(&self) -> f64 {
         if self.total_requests == 0 {
             0.0
         } else {
-            self.total_cost / self.total_requests as f64
+            self.total_cost / float_helpers::u64_to_f64_lossy(self.total_requests)
         }
     }
 
     /// Calculate average tokens per request
+    #[must_use]
     pub fn avg_tokens_per_request(&self) -> f64 {
-        if self.total_requests == 0 {
-            0.0
-        } else {
-            self.total_tokens as f64 / self.total_requests as f64
-        }
+        float_helpers::u64_ratio(self.total_tokens, self.total_requests)
     }
 }
 

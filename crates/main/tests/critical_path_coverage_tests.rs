@@ -6,7 +6,7 @@
     clippy::expect_used,
     clippy::absurd_extreme_comparisons,
     clippy::assertions_on_constants
-)]
+)] // Test code: explicit unwrap/expect and local lint noise
 //! Critical path tests for capability matching edge cases
 //!
 //! These tests cover error paths, edge cases, and integration scenarios

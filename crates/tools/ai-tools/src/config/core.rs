@@ -77,14 +77,17 @@ impl Default for ProviderConfig {
 
 impl AIToolsConfig {
     /// Load configuration from environment variables and files
+    ///
+    /// # Errors
+    ///
+    /// Propagates I/O, TOML parse errors, and invalid numeric env values.
     pub fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
-        let mut config = Self::default();
-
-        // Try to load from SQUIRREL_AI_CONFIG environment variable
-        if let Ok(config_path) = env::var("SQUIRREL_AI_CONFIG") {
+        let mut config = if let Ok(config_path) = env::var("SQUIRREL_AI_CONFIG") {
             let config_str = std::fs::read_to_string(config_path)?;
-            config = toml::from_str(&config_str)?;
-        }
+            toml::from_str(&config_str)?
+        } else {
+            Self::default()
+        };
 
         // Override with environment variables
         if let Ok(default_provider) = env::var("SQUIRREL_DEFAULT_AI_PROVIDER") {
@@ -104,13 +107,13 @@ impl AIToolsConfig {
         }
 
         // Load provider-specific configurations
-        config.load_provider_configs()?;
+        Self::load_provider_configs(&mut config);
 
         Ok(config)
     }
 
     /// Load provider configurations from environment variables
-    fn load_provider_configs(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn load_provider_configs(&mut self) {
         // OpenAI configuration
         if let Ok(api_key) = env::var("OPENAI_API_KEY") {
             let provider_config = ProviderConfig {
@@ -173,11 +176,10 @@ impl AIToolsConfig {
             };
             self.providers.insert("local".to_string(), provider_config);
         }
-
-        Ok(())
     }
 
     /// Get provider configuration by name
+    #[must_use]
     pub fn get_provider(&self, name: &str) -> Option<&ProviderConfig> {
         self.providers.get(name)
     }
@@ -193,11 +195,16 @@ impl AIToolsConfig {
     }
 
     /// Get all available provider names
+    #[must_use]
     pub fn provider_names(&self) -> Vec<&String> {
         self.providers.keys().collect()
     }
 
     /// Validate the configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns a human-readable message when the configuration is inconsistent.
     pub fn validate(&self) -> Result<(), String> {
         if self.providers.is_empty() {
             return Err("No providers configured".to_string());
@@ -220,6 +227,7 @@ impl AIToolsConfig {
 
 impl ProviderConfig {
     /// Create a new provider configuration
+    #[must_use]
     pub fn new(provider_type: String) -> Self {
         Self {
             provider_type,
@@ -231,41 +239,45 @@ impl ProviderConfig {
     }
 
     /// Set the API key
+    #[must_use]
     pub fn with_api_key(mut self, api_key: String) -> Self {
         self.api_key = Some(api_key);
         self
     }
 
     /// Set the base URL
+    #[must_use]
     pub fn with_base_url(mut self, base_url: String) -> Self {
         self.base_url = Some(base_url);
         self
     }
 
     /// Set the default model
+    #[must_use]
     pub fn with_default_model(mut self, model: String) -> Self {
         self.default_model = Some(model);
         self
     }
 
     /// Add a setting
+    #[must_use]
     pub fn with_setting(mut self, key: String, value: serde_json::Value) -> Self {
         self.settings.insert(key, value);
         self
     }
 
     /// Get a setting value
+    #[must_use]
     pub fn get_setting(&self, key: &str) -> Option<&serde_json::Value> {
         self.settings.get(key)
     }
 
     /// Check if this configuration is valid
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         match self.provider_type.as_str() {
             "openai" | "anthropic" | "gemini" => self.api_key.is_some(),
-            "local-server" | "local" | "native" => true, // Local providers don't need API keys
-            // Legacy names still valid for backward compat
-            "ollama" | "llamacpp" => true,
+            "local-server" | "local" | "native" | "ollama" | "llamacpp" => true,
             _ => false, // Unknown provider type
         }
     }

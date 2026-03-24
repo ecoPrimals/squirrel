@@ -6,7 +6,10 @@
 //!
 //! Tests ecosystem primal types and their properties.
 
-#[allow(deprecated)] // Tests deprecated path for backward compatibility
+#[expect(
+    deprecated,
+    reason = "Tests deprecated path for backward compatibility"
+)]
 // EcosystemPrimalType is deprecated but needed for backward compatibility in tests
 use squirrel::ecosystem::EcosystemPrimalType;
 

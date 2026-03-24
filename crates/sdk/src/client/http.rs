@@ -567,7 +567,7 @@ impl<'a> RequestBuilder<'a> {
 
 /// Utility functions for HTTP operations
 pub mod utils {
-    #![allow(clippy::wildcard_imports)]
+    #![allow(clippy::wildcard_imports)] // Aligned with parent module re-exports
 
     use super::*;
 

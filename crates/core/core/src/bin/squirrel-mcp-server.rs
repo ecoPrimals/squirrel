@@ -8,11 +8,6 @@
 //! This binary starts the Squirrel MCP server for multi-MCP coordination,
 //! ecosystem participation, and federation.
 
-#![expect(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "Server bootstrap and demo paths; unwrap/expect after validation"
-)]
 use std::sync::Arc;
 use tokio::signal;
 use tracing::{error, info, warn};
@@ -92,7 +87,7 @@ async fn main() -> Result<()> {
     );
 
     // Start routing service (MCP coordination)
-    routing_service.start().await?;
+    routing_service.start()?;
     info!("🚀 MCP routing service started");
 
     // Start federation service (scaling & federation)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used, unexpected_cfgs)]
+#![allow(clippy::unwrap_used, clippy::expect_used, unexpected_cfgs)] // Test code: explicit unwrap/expect and local lint noise
 //! Error Path Coverage Tests
 //!
 //! This module provides comprehensive error path testing to improve

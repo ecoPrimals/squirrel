@@ -474,7 +474,7 @@ impl PluginManager {
     }
 
     /// Create a test plugin instance for testing
-    #[expect(
+    #[allow(
         dead_code,
         reason = "public API — used for testing plugin infrastructure"
     )]
@@ -772,5 +772,8 @@ pub fn initialize_plugins() -> Result<(), PluginError> {
 
 #[cfg(test)]
 #[path = "manager_tests.rs"]
-#[allow(clippy::unnecessary_literal_bound)]
+#[expect(
+    clippy::unnecessary_literal_bound,
+    reason = "Bounds match external trait or generated signatures"
+)]
 mod tests;

@@ -145,7 +145,7 @@ impl WebSocketTransport {
     }
 
     /// Placeholder for internal message sending logic (reserved for WebSocket message sending system)
-    #[expect(
+    #[allow(
         dead_code,
         reason = "Phase 2 placeholder — WebSocket message sending system"
     )]

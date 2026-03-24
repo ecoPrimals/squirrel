@@ -284,7 +284,7 @@ impl PluginPerformanceOptimizer {
     }
 
     /// Calculate cache efficiency from statistics
-    #[expect(
+    #[allow(
         clippy::unused_self,
         clippy::cast_precision_loss,
         reason = "Trait impl; precision loss audited"

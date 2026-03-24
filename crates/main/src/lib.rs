@@ -33,7 +33,7 @@
 //
 // ARCHITECTURAL: These require trait/API redesign, not simple code edits.
 // Each will be resolved as the module is refactored.
-#![expect(
+#![allow(
     // Docs WIP — tracked for completion
     missing_docs,
     clippy::missing_errors_doc,
@@ -64,8 +64,7 @@
     // Noisy in domain code — many intentional patterns
     clippy::items_after_statements,
     clippy::struct_excessive_bools,
-    reason = "Progressive lint tightening per CHANGELOG"
-)]
+    reason = "Progressive lint tightening per CHANGELOG")]
 
 // Core modules
 pub mod api;

@@ -19,47 +19,13 @@
 //!
 //! Actual routing goes through Songbird (`discovery.find_primals`) or
 //! biomeOS (`capability.call`).
+//!
+//! Machine identifiers are re-exported from [`universal_constants::primal_names`].
 
-/// Self — Squirrel's own primal identifier.
-pub const SQUIRREL: &str = "squirrel";
-
-/// biomeOS orchestrator (Phase 2 primal).
-pub const BIOMEOS: &str = "biomeos";
-
-/// Songbird service-mesh (Phase 1 primal).
-pub const SONGBIRD: &str = "songbird";
-
-/// BearDog cryptographic identity (Phase 1 primal).
-pub const BEARDOG: &str = "beardog";
-
-/// NestGate storage primal (Phase 1 primal).
-pub const NESTGATE: &str = "nestgate";
-
-/// ToadStool compute primal (Phase 1 primal).
-pub const TOADSTOOL: &str = "toadstool";
-
-/// coralReef GPU compiler primal (root-level primal).
-pub const CORALREEF: &str = "coralreef";
-
-/// barraCuda GPU math primal (root-level primal).
-pub const BARRACUDA: &str = "barracuda";
-
-/// rhizoCrypt cryptographic storage primal (Phase 2 primal).
-pub const RHIZOCRYPT: &str = "rhizocrypt";
-
-/// petalTongue natural language primal (Phase 2 primal).
-pub const PETALTONGUE: &str = "petaltongue";
-
-/// sweetGrass environmental sensing primal (Phase 2 primal).
-pub const SWEETGRASS: &str = "sweetgrass";
-
-/// loamSpine provenance primal (Phase 2 primal).
-pub const LOAMSPINE: &str = "loamspine";
-
-/// skunkBat anomaly detection primal (Phase 2 primal).
-pub const SKUNKBAT: &str = "skunkbat";
-
-// -- Socket filename conventions --------------------------------------------------
+pub use universal_constants::primal_names::{
+    BARRACUDA, BEARDOG, BIOMEOS, CORALREEF, LOAMSPINE, NESTGATE, PETALTONGUE, RHIZOCRYPT, SKUNKBAT,
+    SONGBIRD, SQUIRREL, SWEETGRASS, TOADSTOOL,
+};
 
 /// Standard biomeOS socket subdirectory under XDG_RUNTIME_DIR.
 pub const BIOMEOS_SOCKET_DIR: &str = "biomeos";

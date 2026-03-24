@@ -79,7 +79,10 @@ async fn test_ecosystem_config_default() {
 }
 
 #[tokio::test]
-#[allow(deprecated)] // Tests deprecated path for backward compatibility // Tests deprecated path for backward compatibility
+#[expect(
+    deprecated,
+    reason = "Tests deprecated path for backward compatibility // Tests deprecated path for backward compatibility"
+)]
 async fn test_ecosystem_primal_type_as_str_deprecated() {
     // Testing deprecated API for backward compatibility
     // These tests intentionally use the deprecated enum to ensure it remains functional
@@ -263,7 +266,10 @@ async fn test_ecosystem_manager_find_services_by_capability() {
 }
 
 #[tokio::test]
-#[allow(deprecated)] // Tests deprecated path for backward compatibility
+#[expect(
+    deprecated,
+    reason = "Tests deprecated path for backward compatibility"
+)]
 async fn test_ecosystem_manager_find_services_by_type_deprecated() {
     // Test that deprecated method returns proper error
     let config = create_test_config();
@@ -457,7 +463,10 @@ async fn test_component_health_error_message() {
 }
 
 #[tokio::test]
-#[allow(deprecated)] // Tests deprecated path for backward compatibility
+#[expect(
+    deprecated,
+    reason = "Tests deprecated path for backward compatibility"
+)]
 async fn test_ecosystem_primal_type_all_variants() {
     // Testing deprecated enum for backward compatibility
     let types = vec![

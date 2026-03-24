@@ -22,6 +22,8 @@
 //! literals. Squirrel only knows itself — it discovers other primals at
 //! runtime via capability-based discovery through Songbird.
 
+use universal_constants::primal_names;
+
 /// Primal identity — used in all JSON-RPC, IPC, and biomeOS interactions.
 pub const PRIMAL_ID: &str = "squirrel";
 
@@ -177,15 +179,23 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
 /// `required = true` means Squirrel cannot function without it.
 /// `required = false` means graceful degradation is supported.
 pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
-    ("beardog", true, "cryptographic identity and trust"),
-    ("songbird", true, "service discovery and IPC mesh"),
     (
-        "toadstool",
+        primal_names::BEARDOG,
+        true,
+        "cryptographic identity and trust",
+    ),
+    (
+        primal_names::SONGBIRD,
+        true,
+        "service discovery and IPC mesh",
+    ),
+    (
+        primal_names::TOADSTOOL,
         false,
         "GPU compute dispatch (graceful fallback to CPU-only inference)",
     ),
     (
-        "nestgate",
+        primal_names::NESTGATE,
         false,
         "persistent storage (graceful fallback to in-memory cache)",
     ),
@@ -195,7 +205,7 @@ pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
         "coordination validation and BYOB graph execution",
     ),
     (
-        "petaltongue",
+        primal_names::PETALTONGUE,
         false,
         "visualization and user interface rendering",
     ),

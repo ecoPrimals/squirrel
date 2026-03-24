@@ -10,7 +10,7 @@
 //! This crate provides the command-line interface components for the Squirrel platform.
 //! It includes commands, formatters, and configuration management.
 
-#![expect(
+#![allow(
     clippy::uninlined_format_args,
     clippy::missing_errors_doc,
     clippy::use_self,

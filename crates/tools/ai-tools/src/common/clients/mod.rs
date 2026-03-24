@@ -4,7 +4,7 @@
 //! AI client implementations
 //!
 //! This module contains concrete implementations of AI clients for various providers.
-//! Each client implements the AIClient trait for seamless integration.
+//! Each client implements the `AIClient` trait for seamless integration.
 //!
 //! **Note**: Old vendor-specific HTTP clients have been replaced with capability-based routing.
 //! Use `capability_ai::AiClient` instead for TRUE ecoBin compliance.
@@ -24,6 +24,7 @@ pub struct ClientFactory;
 impl ClientFactory {
     /// Create a mock client for testing
     #[cfg(test)]
+    #[must_use]
     pub fn create_mock_client() -> Arc<dyn AIClient> {
         Arc::new(MockAIClient::new())
     }
@@ -48,6 +49,7 @@ pub struct ClientConfig {
 
 impl ClientConfig {
     /// Create a new client configuration
+    #[must_use]
     pub fn new() -> Self {
         Self {
             api_key: None,
@@ -60,44 +62,51 @@ impl ClientConfig {
     }
 
     /// Set the API key
+    #[must_use]
     pub fn with_api_key(mut self, api_key: String) -> Self {
         self.api_key = Some(api_key);
         self
     }
 
     /// Set the endpoint
+    #[must_use]
     pub fn with_endpoint(mut self, endpoint: String) -> Self {
         self.endpoint = Some(endpoint);
         self
     }
 
     /// Set the default model
+    #[must_use]
     pub fn with_default_model(mut self, model: String) -> Self {
         self.default_model = Some(model);
         self
     }
 
     /// Set the maximum context size
-    pub fn with_max_context_size(mut self, size: usize) -> Self {
+    #[must_use]
+    pub const fn with_max_context_size(mut self, size: usize) -> Self {
         self.max_context_size = Some(size);
         self
     }
 
     /// Set the request timeout
-    pub fn with_timeout(mut self, seconds: u64) -> Self {
+    #[must_use]
+    pub const fn with_timeout(mut self, seconds: u64) -> Self {
         self.timeout_seconds = Some(seconds);
         self
     }
 
     /// Add extra configuration
+    #[must_use]
     pub fn with_extra_config(mut self, key: String, value: String) -> Self {
         self.extra_config.insert(key, value);
         self
     }
 
     /// Check if the configuration is valid for a provider
-    /// **Note**: Old providers removed. Use capability_ai instead.
-    pub fn is_valid_for_provider(&self, _provider: &str) -> bool {
+    /// **Note**: Old providers removed. Use `capability_ai` instead.
+    #[must_use]
+    pub const fn is_valid_for_provider(&self, _provider: &str) -> bool {
         // Old provider validation removed
         // Use capability_ai::AiClient::from_env() instead
         false
@@ -117,6 +126,7 @@ pub struct ClientRegistry {
 
 impl ClientRegistry {
     /// Create a new client registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             clients: std::collections::HashMap::new(),
@@ -129,6 +139,7 @@ impl ClientRegistry {
     }
 
     /// Get a client by name
+    #[must_use]
     pub fn get_client(&self, name: &str) -> Option<&Arc<dyn AIClient>> {
         self.clients.get(name)
     }
@@ -139,11 +150,13 @@ impl ClientRegistry {
     }
 
     /// List all client names
+    #[must_use]
     pub fn list_clients(&self) -> Vec<String> {
         self.clients.keys().cloned().collect()
     }
 
     /// Get all clients
+    #[must_use]
     pub fn get_all_clients(&self) -> Vec<(String, Arc<dyn AIClient>)> {
         self.clients
             .iter()
@@ -152,11 +165,13 @@ impl ClientRegistry {
     }
 
     /// Check if a client exists
+    #[must_use]
     pub fn has_client(&self, name: &str) -> bool {
         self.clients.contains_key(name)
     }
 
     /// Get the number of clients
+    #[must_use]
     pub fn client_count(&self) -> usize {
         self.clients.len()
     }

@@ -26,7 +26,8 @@ pub struct UsageInfo {
 
 impl UsageInfo {
     /// Create new usage info
-    pub fn new(prompt_tokens: u32, completion_tokens: u32) -> Self {
+    #[must_use]
+    pub const fn new(prompt_tokens: u32, completion_tokens: u32) -> Self {
         Self {
             prompt_tokens,
             completion_tokens,
@@ -36,12 +37,14 @@ impl UsageInfo {
     }
 
     /// Set the estimated cost
-    pub fn with_cost(mut self, cost: f64) -> Self {
+    #[must_use]
+    pub const fn with_cost(mut self, cost: f64) -> Self {
         self.estimated_cost_usd = Some(cost);
         self
     }
 
     /// Combine with another usage info
+    #[must_use]
     pub fn combine(&self, other: &Self) -> Self {
         let estimated_cost_usd = match (self.estimated_cost_usd, other.estimated_cost_usd) {
             (Some(a), Some(b)) => Some(a + b),
@@ -72,11 +75,14 @@ impl TokenCounter {
     }
 
     /// Count tokens in a string
+    #[must_use]
     pub fn count_tokens(&self, text: &str) -> u32 {
         // This is a very simple approximation
         // In a real implementation, we would use a proper tokenizer like tiktoken
         let words = text.split_whitespace().count();
-        (words as f32 * 1.3) as u32
+        // ~1.3 tokens per word, integer path (avoids float casts)
+        let approx = words.saturating_mul(13) / 10;
+        u32::try_from(approx).unwrap_or(u32::MAX)
     }
 }
 

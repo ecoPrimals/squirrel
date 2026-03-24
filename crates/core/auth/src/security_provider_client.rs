@@ -27,6 +27,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::time::{Duration, timeout};
 use tracing::{debug, info, warn};
+use universal_constants::network::resolve_capability_unix_socket;
 
 /// Security provider client configuration
 #[derive(Debug, Clone)]
@@ -47,7 +48,12 @@ pub struct BearDogClientConfig {
 impl Default for BearDogClientConfig {
     fn default() -> Self {
         Self {
-            socket_path: "/var/run/beardog/crypto.sock".to_string(),
+            socket_path: resolve_capability_unix_socket(
+                "CRYPTO_CAPABILITY_SOCKET",
+                "crypto-provider",
+            )
+            .to_string_lossy()
+            .into_owned(),
             timeout_secs: 5,
             max_retries: 3,
             retry_delay_ms: 100,
@@ -333,11 +339,30 @@ mod tests {
 
     #[test]
     fn test_beardog_client_config_default() {
-        let config = BearDogClientConfig::default();
-        assert_eq!(config.socket_path, "/var/run/beardog/crypto.sock");
-        assert_eq!(config.timeout_secs, 5);
-        assert_eq!(config.max_retries, 3);
-        assert_eq!(config.retry_delay_ms, 100);
+        temp_env::with_vars_unset(
+            [
+                "CRYPTO_CAPABILITY_SOCKET",
+                "SQUIRREL_SOCKET",
+                "BIOMEOS_SOCKET_PATH",
+                "PRIMAL_SOCKET",
+                "FAMILY_ID",
+                "SQUIRREL_FAMILY_ID",
+                "XDG_RUNTIME_DIR",
+            ],
+            || {
+                let config = BearDogClientConfig::default();
+                assert!(
+                    config.socket_path.ends_with("crypto-provider.sock")
+                        && (config.socket_path.starts_with("/tmp/biomeos/")
+                            || config.socket_path.contains("/biomeos/")),
+                    "unexpected default socket: {}",
+                    config.socket_path
+                );
+                assert_eq!(config.timeout_secs, 5);
+                assert_eq!(config.max_retries, 3);
+                assert_eq!(config.retry_delay_ms, 100);
+            },
+        );
     }
 
     #[test]

@@ -96,7 +96,10 @@ mod tests {
     fn test_error_circuit_breaker_concept() {
         // Arrange - Simulate circuit breaker state
         #[derive(Debug, PartialEq)]
-        #[allow(dead_code)]
+        #[expect(
+            dead_code,
+            reason = "Test code: explicit unwrap/expect and local lint noise"
+        )]
         enum CircuitState {
             Closed,
             Open,

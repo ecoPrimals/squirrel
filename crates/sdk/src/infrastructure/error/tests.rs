@@ -4,7 +4,10 @@
 //! Tests for the error handling system in the Squirrel Plugin SDK
 
 #[cfg(test)]
-#[allow(clippy::module_inception)]
+#[expect(
+    clippy::module_inception,
+    reason = "tests.rs contains mod tests (standard layout)"
+)]
 mod tests {
     use super::super::*;
     use wasm_bindgen_test::*;

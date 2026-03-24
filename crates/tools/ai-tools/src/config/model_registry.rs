@@ -35,6 +35,10 @@ pub struct ModelRegistry {
 }
 
 /// Model capabilities configuration
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Serde-backed model manifest; flat bool fields match JSON schema"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelCapabilities {
     /// Model name
@@ -97,7 +101,7 @@ pub struct ModelCapabilities {
     pub api_endpoint: Option<String>,
 }
 
-fn default_priority() -> u8 {
+const fn default_priority() -> u8 {
     50
 }
 
@@ -162,6 +166,10 @@ pub struct CostConfig {
 
 impl ModelRegistry {
     /// Load model registry from a file
+    ///
+    /// # Errors
+    ///
+    /// Propagates I/O and JSON deserialization errors.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
         let contents = fs::read_to_string(path)?;
         let registry = serde_json::from_str(&contents)?;
@@ -190,6 +198,7 @@ impl ModelRegistry {
     }
 
     /// Get capabilities for a model
+    #[must_use]
     pub fn get_model_capabilities(
         &self,
         provider_id: &str,
@@ -203,6 +212,7 @@ impl ModelRegistry {
     }
 
     /// Get all models for a provider
+    #[must_use]
     pub fn get_provider_models(&self, provider_id: &str) -> Vec<String> {
         self.models
             .get(provider_id)
@@ -222,6 +232,10 @@ impl ModelRegistry {
     }
 
     /// Save the registry to a file
+    ///
+    /// # Errors
+    ///
+    /// Propagates serialization and I/O errors.
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
         let contents = serde_json::to_string_pretty(self)?;
         fs::write(path, contents)?;
@@ -229,6 +243,10 @@ impl ModelRegistry {
     }
 
     /// Import default models for standard providers
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Bundled default catalog; splitting obscures provider groupings"
+    )]
     pub fn import_defaults(&mut self) {
         // Import OpenAI models
         self.register_model(ModelCapabilities {
@@ -278,7 +296,7 @@ impl ModelRegistry {
                 "TextGeneration".to_string(),
                 "ImageUnderstanding".to_string(),
             ],
-            max_context_size: Some(200000),
+            max_context_size: Some(200_000),
             supports_streaming: true,
             supports_function_calling: true,
             supports_tool_use: true,
@@ -350,7 +368,8 @@ impl ModelRegistry {
 }
 
 impl ModelCapabilities {
-    /// Convert to AICapabilities
+    /// Convert to `AICapabilities`
+    #[must_use]
     pub fn to_ai_capabilities(&self) -> AICapabilities {
         let mut capabilities = AICapabilities::default();
 
@@ -435,13 +454,13 @@ impl ModelCapabilities {
     }
 
     /// Get the cost tier
+    #[must_use]
     pub fn get_cost_tier(&self) -> CostTier {
         match self.cost_tier.as_str() {
             "Free" => CostTier::Free,
             "Low" => CostTier::Low,
-            "Medium" => CostTier::Medium,
             "High" => CostTier::High,
-            _ => CostTier::Medium, // Default to medium if unknown
+            _ => CostTier::Medium,
         }
     }
 }
@@ -680,9 +699,12 @@ mod tests {
     #[test]
     fn test_model_registry_instance() {
         let instance = ModelRegistry::instance();
-        let guard = instance.read().unwrap();
-        // Default instance should have empty models
-        assert!(guard.models.is_empty() || !guard.models.is_empty()); // Just verify it's accessible
+        {
+            let guard = instance.read().unwrap();
+            // Default instance should have empty models
+            assert!(guard.models.is_empty() || !guard.models.is_empty()); // Just verify it's accessible
+            drop(guard);
+        }
     }
 
     #[test]

@@ -8,7 +8,7 @@
     clippy::absurd_extreme_comparisons,
     clippy::significant_drop_tightening,
     clippy::doc_markdown
-)]
+)] // Test code: explicit unwrap/expect and local lint noise
 //! Real `BiomeOS` Integration Tests
 //!
 //! These tests validate the actual `SquirrelBiomeOSIntegration` API,

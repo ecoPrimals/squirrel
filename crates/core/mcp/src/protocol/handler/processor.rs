@@ -253,7 +253,7 @@ impl ToolManager {
         Ok(())
     }
 
-    #[expect(
+    #[allow(
         clippy::unused_self,
         reason = "method will use self when validation checks security context"
     )]

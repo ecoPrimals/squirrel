@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP AI Tools Adapter
-#![expect(
+#![allow(
     dead_code,
     reason = "MCP AI tools integration adapter awaiting activation"
 )]
@@ -463,7 +463,10 @@ pub fn create_mcp_ai_tools_adapter_with_config(
 
 #[cfg(test)]
 mod tests {
-    #![allow(deprecated)] // squirrel_ai_tools::AIError variants deprecated during universal_error migration
+    #![expect(
+        deprecated,
+        reason = "squirrel_ai_tools::AIError variants deprecated during universal_error migration"
+    )]
 
     use super::*;
     use async_trait::async_trait;

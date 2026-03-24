@@ -278,7 +278,10 @@ mod tests {
     }
 
     #[tokio::test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     async fn test_concurrent_metrics_collection() {
         // Testing deprecated API for backward compatibility
         let mut services = HashMap::new();

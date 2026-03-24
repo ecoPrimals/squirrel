@@ -3,7 +3,7 @@
 
 //! Main AI router implementation and request dispatching logic.
 //!
-//! This module contains the core AIRouter that processes requests and routes them
+//! This module contains the core `AIRouter` that processes requests and routes them
 //! to appropriate providers based on capabilities and routing strategies.
 
 use super::optimization::ProviderSelector;
@@ -15,6 +15,7 @@ use crate::Result;
 use crate::common::capability::{AITask, SecurityRequirements, TaskType};
 use crate::common::{AIClient, ChatRequest, ChatResponse, ChatResponseStream};
 use crate::error::Error;
+use crate::float_helpers;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::debug;
@@ -39,6 +40,7 @@ pub struct AIRouter {
 
 impl AIRouter {
     /// Create a new AI router
+    #[must_use]
     pub fn new(config: RouterConfig) -> Self {
         Self {
             registry: Arc::new(CapabilityRegistry::new()),
@@ -50,6 +52,7 @@ impl AIRouter {
     }
 
     /// Set the MCP client for remote communication
+    #[must_use]
     pub fn with_mcp(mut self, mcp_client: Arc<dyn MCPInterface>) -> Self {
         self.mcp_client = Some(mcp_client);
         self
@@ -61,6 +64,10 @@ impl AIRouter {
     }
 
     /// Register a provider with the router
+    ///
+    /// # Errors
+    ///
+    /// Propagates registry errors when the id is invalid or registration fails.
     pub fn register_provider(
         &self,
         provider_id: impl Into<String>,
@@ -72,6 +79,10 @@ impl AIRouter {
     }
 
     /// Process a chat request with the given context
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Configuration`] when no provider matches, or provider/network errors from the selected backend.
     pub async fn process_request(
         &self,
         request: ChatRequest,
@@ -113,7 +124,7 @@ impl AIRouter {
         }
 
         // Apply routing hint if provided
-        let filtered_providers = self.apply_routing_hint(providers, &context)?;
+        let filtered_providers = Self::apply_routing_hint(providers, &context)?;
 
         // Apply routing strategy
         let (provider_id, provider) = self.selector.select_provider(
@@ -132,6 +143,10 @@ impl AIRouter {
     }
 
     /// Process a streaming chat request with the given context
+    ///
+    /// # Errors
+    ///
+    /// Same error cases as [`Self::process_request`], plus streaming-specific provider errors.
     pub async fn process_stream_request(
         &self,
         request: ChatRequest,
@@ -173,7 +188,7 @@ impl AIRouter {
         }
 
         // Apply routing hint if provided
-        let filtered_providers = self.apply_routing_hint(providers, &context)?;
+        let filtered_providers = Self::apply_routing_hint(providers, &context)?;
 
         // Apply routing strategy
         let (provider_id, provider) = self.selector.select_provider(
@@ -193,7 +208,6 @@ impl AIRouter {
 
     /// Apply routing hint to filter providers
     fn apply_routing_hint(
-        &self,
         providers: Vec<(String, Arc<dyn AIClient>)>,
         context: &RequestContext,
     ) -> Result<Vec<(String, Arc<dyn AIClient>)>> {
@@ -336,6 +350,10 @@ impl AIRouter {
     }
 
     /// Select a provider for a given task context (public API)
+    ///
+    /// # Errors
+    ///
+    /// Propagates [`Error::Configuration`] from [`ProviderSelector::select_provider`] when selection fails.
     pub fn select_provider_for_task(
         &self,
         providers: Vec<(String, Arc<dyn AIClient>)>,
@@ -347,9 +365,10 @@ impl AIRouter {
 
     /// Update statistics for a request
     fn update_stats(&self, provider_name: &str, start_time: Instant, success: bool) {
-        let stats_result = self.stats.write();
+        let latency_ms = start_time.elapsed().as_millis();
+        let latency = float_helpers::u128_to_f64_lossy(latency_ms);
 
-        let mut stats = match stats_result {
+        let mut stats = match self.stats.write() {
             Ok(guard) => guard,
             Err(e) => {
                 tracing::error!("Failed to acquire stats write lock for update: {}", e);
@@ -365,10 +384,12 @@ impl AIRouter {
             stats.failed_requests += 1;
         }
 
-        let latency = start_time.elapsed().as_millis() as f64;
-        stats.average_latency_ms = (stats.average_latency_ms * (stats.total_requests - 1) as f64
-            + latency)
-            / stats.total_requests as f64;
+        let n = stats.total_requests;
+        let prev = n.saturating_sub(1);
+        stats.average_latency_ms = stats
+            .average_latency_ms
+            .mul_add(float_helpers::u64_to_f64_lossy(prev), latency)
+            / float_helpers::u64_to_f64_lossy(n);
 
         *stats
             .provider_usage
@@ -391,7 +412,7 @@ impl AIRouter {
     }
 
     /// Get router configuration
-    pub fn get_config(&self) -> &RouterConfig {
+    pub const fn get_config(&self) -> &RouterConfig {
         &self.config
     }
 
@@ -401,17 +422,17 @@ impl AIRouter {
     }
 
     /// Check if remote routing is enabled
-    pub fn is_remote_routing_enabled(&self) -> bool {
+    pub const fn is_remote_routing_enabled(&self) -> bool {
         self.config.allow_remote_routing
     }
 
     /// Get the current routing strategy
-    pub fn get_routing_strategy(&self) -> crate::router::types::RoutingStrategy {
+    pub const fn get_routing_strategy(&self) -> crate::router::types::RoutingStrategy {
         self.config.routing_strategy
     }
 
     /// Set the routing strategy
-    pub fn set_routing_strategy(&mut self, strategy: crate::router::types::RoutingStrategy) {
+    pub const fn set_routing_strategy(&mut self, strategy: crate::router::types::RoutingStrategy) {
         self.config.routing_strategy = strategy;
     }
 
@@ -426,6 +447,10 @@ impl AIRouter {
     }
 
     /// Unregister a provider
+    ///
+    /// # Errors
+    ///
+    /// Propagates registry errors when the provider id is unknown.
     pub fn unregister_provider(&self, provider_id: &str) -> Result<()> {
         self.registry.unregister_provider(provider_id)
     }
@@ -441,7 +466,7 @@ impl AIRouter {
         if stats.total_requests == 0 {
             return 0.0;
         }
-        (stats.successful_requests as f64) / (stats.total_requests as f64)
+        float_helpers::u64_ratio(stats.successful_requests, stats.total_requests)
     }
 
     /// Get average latency
@@ -459,6 +484,9 @@ impl AIRouter {
 
 #[cfg(test)]
 #[path = "dispatch_tests.rs"]
-#[allow(clippy::field_reassign_with_default)]
+#[expect(
+    clippy::field_reassign_with_default,
+    reason = "Struct update after Default::default()"
+)]
 // Tests build `RouterConfig` field-by-field for clarity
 mod tests;

@@ -133,7 +133,7 @@ impl<T> Plugin for LegacyWebPluginAdapter<T>
 where
     T: LegacyWebPluginTrait + Plugin + Send + Sync + 'static,
 {
-    #[expect(
+    #[allow(
         deprecated,
         reason = "backward compat: PluginMetadata during migration"
     )]
@@ -290,7 +290,7 @@ impl<T> Plugin for NewWebPluginAdapter<T>
 where
     T: Plugin + Send + Sync + 'static,
 {
-    #[expect(
+    #[allow(
         deprecated,
         reason = "backward compat: PluginMetadata during migration"
     )]

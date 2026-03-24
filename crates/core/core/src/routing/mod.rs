@@ -27,7 +27,7 @@
 //!     .with_max_concurrent_tasks(100);
 //!
 //! let routing_service = McpRoutingService::new(config)?;
-//! tokio::runtime::Runtime::new().unwrap().block_on(routing_service.start())?;
+//! routing_service.start()?;
 //! # Ok(())
 //! # }
 //! ```
@@ -153,21 +153,21 @@ impl McpRoutingService {
     /// # Errors
     ///
     /// Returns [`Error`] if startup fails.
-    pub async fn start(&self) -> Result<()> {
+    pub fn start(&self) -> Result<()> {
         info!(
             "Starting MCP routing service with node ID: {}",
             self.state.node_id
         );
 
         // Start background tasks
-        self.start_background_tasks().await;
+        self.start_background_tasks();
 
         info!("MCP routing service started successfully");
         Ok(())
     }
 
     /// Start background processing tasks
-    async fn start_background_tasks(&self) {
+    fn start_background_tasks(&self) {
         // Start task processing loop
         let service_clone = self.clone();
         tokio::spawn(async move {
@@ -308,7 +308,7 @@ impl McpRoutingService {
             }
 
             // Clean up expired contexts
-            let expired_contexts = self.context_manager.cleanup_expired_contexts().await;
+            let expired_contexts = self.context_manager.cleanup_expired_contexts();
             if expired_contexts > 0 {
                 info!("Cleaned up {} expired contexts", expired_contexts);
             }
@@ -365,7 +365,7 @@ impl McpRoutingService {
     /// # Errors
     ///
     /// Returns [`Error`] if registration fails.
-    pub async fn register_agent(&self, agent_spec: AgentSpec) -> Result<()> {
+    pub fn register_agent(&self, agent_spec: AgentSpec) -> Result<()> {
         self.agent_registry.register_agent(agent_spec)
     }
 
@@ -374,7 +374,7 @@ impl McpRoutingService {
     /// # Errors
     ///
     /// Returns [`Error`] if the task cannot be queued.
-    pub async fn queue_task(&self, task: McpTask, priority: TaskPriority) -> Result<String> {
+    pub fn queue_task(&self, task: McpTask, priority: TaskPriority) -> Result<String> {
         let task_id = uuid::Uuid::new_v4().to_string();
         let queued_task = QueuedTask {
             task,
@@ -400,7 +400,8 @@ impl McpRoutingService {
             completed_tasks: *state.completed_tasks.read(),
             failed_tasks: *state.failed_tasks.read(),
             average_response_time: *state.average_response_time.read(),
-            registered_agents: self.agent_registry.get_all_agents().len() as u32,
+            registered_agents: u32::try_from(self.agent_registry.get_all_agents().len())
+                .unwrap_or(u32::MAX),
             queued_tasks: self.task_queue.len() as u64,
             federation_nodes: 0, // FUTURE: [Feature] implement federation node counting
                                  // Tracking: Planned for v0.2.0 - federation support
@@ -437,7 +438,7 @@ impl McpRouter for McpRoutingService {
         }
 
         // Select best agent using load balancer
-        let selected_agent = self.load_balancer.select_agent(available_agents).await?;
+        let selected_agent = self.load_balancer.select_agent(&available_agents)?;
 
         let task_id = task.id;
         // Create a simple task response
@@ -465,11 +466,11 @@ impl McpRouter for McpRoutingService {
     }
 
     async fn coordinate_agents(&self, agents: Vec<AgentSpec>) -> Result<CoordinationResult> {
-        let agent_count = agents.len() as u32;
+        let agent_count = u32::try_from(agents.len()).unwrap_or(u32::MAX);
 
         // Register all agents
         for agent in agents {
-            self.register_agent(agent).await?;
+            self.register_agent(agent)?;
         }
 
         Ok(CoordinationResult {
@@ -490,5 +491,161 @@ impl McpRouter for McpRoutingService {
             message: "Capacity scaled successfully".to_string(),
             new_capacity: requirements.target_capacity,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::McpRoutingService;
+    use crate::routing::config::{LoadBalancingStrategy, RoutingConfig};
+    use crate::{AgentSpec, Error, McpRouter, McpTask, ScaleRequirements, TaskPriority};
+    use std::collections::HashMap;
+
+    #[test]
+    fn new_rejects_invalid_max_concurrent_tasks() {
+        let r = McpRoutingService::new(RoutingConfig::default().with_max_concurrent_tasks(0));
+        assert!(matches!(r, Err(Error::ConfigurationError(_))));
+    }
+
+    #[test]
+    fn new_rejects_non_positive_task_timeout() {
+        let r = McpRoutingService::new(
+            RoutingConfig::default().with_task_timeout(chrono::Duration::zero()),
+        );
+        assert!(matches!(r, Err(Error::ConfigurationError(_))));
+    }
+
+    #[test]
+    fn new_applies_context_persistence_toggle() {
+        let svc = McpRoutingService::new(RoutingConfig::default().with_context_persistence(false))
+            .expect("ok");
+        assert!(svc.get_context_manager().get_storage_backend().is_none());
+        let svc2 = McpRoutingService::new(RoutingConfig::default().with_context_persistence(true))
+            .expect("ok");
+        assert!(matches!(
+            svc2.get_context_manager().get_storage_backend(),
+            Some(super::ContextStorage::Local)
+        ));
+    }
+
+    #[tokio::test]
+    async fn start_is_idempotent_for_stats() {
+        let svc = McpRoutingService::new(RoutingConfig::default()).expect("new");
+        svc.start().expect("start");
+        let s = svc.get_stats();
+        assert!(!s.node_id.is_empty());
+        assert_eq!(s.queued_tasks, 0);
+    }
+
+    #[tokio::test]
+    async fn route_task_errors_without_agents() {
+        let svc = McpRoutingService::new(RoutingConfig::default()).expect("new");
+        let task = McpTask {
+            id: "t1".to_string(),
+            agent_id: None,
+            payload: serde_json::json!({}),
+            context: None,
+            routing_hints: vec![],
+            context_requirements: None,
+            mcp_request: serde_json::json!({}),
+        };
+        let err = svc.route_task(task).await.expect_err("no agent");
+        assert!(matches!(err, Error::NoAgentAvailable));
+    }
+
+    #[tokio::test]
+    async fn route_task_selects_registered_agent() {
+        let svc = McpRoutingService::new(RoutingConfig::default()).expect("new");
+        svc.register_agent(AgentSpec {
+            id: "ag".to_string(),
+            endpoint: "http://127.0.0.1:1".to_string(),
+            capabilities: vec!["mcp".to_string()],
+            weight: None,
+            max_concurrent_tasks: 2,
+            metadata: HashMap::new(),
+        })
+        .expect("reg");
+        let task = McpTask {
+            id: "t1".to_string(),
+            agent_id: None,
+            payload: serde_json::json!({}),
+            context: None,
+            routing_hints: vec![],
+            context_requirements: None,
+            mcp_request: serde_json::json!({}),
+        };
+        let resp = svc.route_task(task).await.expect("route");
+        assert_eq!(resp.agent_id, "ag");
+    }
+
+    #[tokio::test]
+    async fn coordinate_agents_registers_all() {
+        let svc = McpRoutingService::new(RoutingConfig::default()).expect("new");
+        let agents = vec![
+            AgentSpec {
+                id: "a1".to_string(),
+                endpoint: "http://a1".to_string(),
+                capabilities: vec![],
+                weight: None,
+                max_concurrent_tasks: 1,
+                metadata: HashMap::new(),
+            },
+            AgentSpec {
+                id: "a2".to_string(),
+                endpoint: "http://a2".to_string(),
+                capabilities: vec![],
+                weight: None,
+                max_concurrent_tasks: 1,
+                metadata: HashMap::new(),
+            },
+        ];
+        let r = svc.coordinate_agents(agents).await.expect("coord");
+        assert_eq!(r.registered_agents, 2);
+        assert_eq!(r.total_agents, 2);
+    }
+
+    #[tokio::test]
+    async fn scale_capacity_returns_target() {
+        let svc = McpRoutingService::new(RoutingConfig::default()).expect("new");
+        let req = ScaleRequirements {
+            target_capacity: 7,
+            min_instances: 1,
+            max_instances: 10,
+            triggers: vec![],
+        };
+        let r = svc.scale_capacity(req).await.expect("scale");
+        assert_eq!(r.target_instances, 7);
+        assert!(r.scaling_triggered);
+    }
+
+    #[test]
+    fn queue_task_and_get_stats_track_queue() {
+        let svc = McpRoutingService::new(RoutingConfig::default()).expect("new");
+        let task = McpTask {
+            id: "q1".to_string(),
+            agent_id: None,
+            payload: serde_json::json!({}),
+            context: None,
+            routing_hints: vec![],
+            context_requirements: None,
+            mcp_request: serde_json::json!({}),
+        };
+        let id = svc.queue_task(task, TaskPriority::High).expect("queue");
+        assert!(!id.is_empty());
+        assert_eq!(svc.get_stats().queued_tasks, 1);
+    }
+
+    #[test]
+    fn getters_expose_components() {
+        let svc = McpRoutingService::new(
+            RoutingConfig::default()
+                .with_load_balancing_strategy(LoadBalancingStrategy::RoundRobin),
+        )
+        .expect("new");
+        let hc = svc.get_agent_registry().get_health_check_config();
+        assert_eq!(hc.failure_threshold, 3);
+        assert_eq!(hc.success_threshold, 2);
+        let _ = svc.get_load_balancer();
+        let _ = svc.get_context_manager();
     }
 }

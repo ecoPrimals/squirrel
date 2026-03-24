@@ -30,6 +30,7 @@ pub struct MockAIClient {
 
 impl MockAIClient {
     /// Create a new mock client
+    #[must_use]
     pub fn new() -> Self {
         let mut responses = HashMap::new();
         responses.insert(
@@ -54,6 +55,7 @@ impl MockAIClient {
     }
 
     /// Create a mock client that simulates being unavailable
+    #[must_use]
     pub fn unavailable() -> Self {
         let mut client = Self::new();
         client.available = false;
@@ -61,6 +63,7 @@ impl MockAIClient {
     }
 
     /// Set a custom response for a specific input
+    #[must_use]
     pub fn with_response(mut self, input: &str, response: &str) -> Self {
         self.responses
             .insert(input.to_lowercase(), response.to_string());
@@ -68,13 +71,15 @@ impl MockAIClient {
     }
 
     /// Set the mock latency
-    pub fn with_latency(mut self, latency_ms: u64) -> Self {
+    #[must_use]
+    pub const fn with_latency(mut self, latency_ms: u64) -> Self {
         self.latency_ms = latency_ms;
         self
     }
 
     /// Set availability status
-    pub fn with_availability(mut self, available: bool) -> Self {
+    #[must_use]
+    pub const fn with_availability(mut self, available: bool) -> Self {
         self.available = available;
         self
     }
@@ -152,9 +157,10 @@ impl AIClient for MockAIClient {
 
         // Mock usage information
         let usage = Some(UsageInfo {
-            prompt_tokens: input.len() as u32 / 4, // Rough estimate
-            completion_tokens: response_content.len() as u32 / 4, // Rough estimate
-            total_tokens: (input.len() + response_content.len()) as u32 / 4,
+            prompt_tokens: u32::try_from(input.len() / 4).unwrap_or(u32::MAX), // Rough estimate
+            completion_tokens: u32::try_from(response_content.len() / 4).unwrap_or(u32::MAX), // Rough estimate
+            total_tokens: u32::try_from((input.len() + response_content.len()) / 4)
+                .unwrap_or(u32::MAX),
         });
 
         Ok(ChatResponse {
@@ -188,11 +194,11 @@ impl AIClient for MockAIClient {
         self.available
     }
 
-    fn provider_name(&self) -> &str {
+    fn provider_name(&self) -> &'static str {
         "mock"
     }
 
-    fn default_model(&self) -> &str {
+    fn default_model(&self) -> &'static str {
         "mock-model"
     }
 
@@ -218,14 +224,14 @@ impl AIClient for MockAIClient {
         // Model-specific capabilities
         match model {
             "mock-gpt-4" => {
-                capabilities.max_context_size = 128000;
+                capabilities.max_context_size = 128_000;
                 capabilities.supports_function_calling = true;
                 capabilities.supports_images = true;
                 capabilities.add_task_type(TaskType::ImageAnalysis);
                 capabilities.add_task_type(TaskType::FunctionCalling);
             }
             "mock-claude-3" => {
-                capabilities.max_context_size = 200000;
+                capabilities.max_context_size = 200_000;
                 capabilities.supports_function_calling = true;
                 capabilities.supports_images = true;
                 capabilities.add_task_type(TaskType::ImageAnalysis);
@@ -392,7 +398,7 @@ mod tests {
         assert!(capabilities.supports_streaming);
         assert!(capabilities.supports_function_calling);
         assert!(capabilities.supports_images);
-        assert_eq!(capabilities.max_context_size, 128000);
+        assert_eq!(capabilities.max_context_size, 128_000);
     }
 
     #[tokio::test]

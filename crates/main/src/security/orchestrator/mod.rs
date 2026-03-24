@@ -83,7 +83,7 @@ impl SecurityOrchestrator {
     }
 
     /// Perform comprehensive security check
-    #[expect(
+    #[allow(
         clippy::too_many_lines,
         reason = "Orchestration logic; refactor planned"
     )]

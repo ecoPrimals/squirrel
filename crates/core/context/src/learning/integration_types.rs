@@ -6,7 +6,7 @@
 //! This module contains types and functions for planned features that are not yet fully implemented.
 //! These are kept here for future development.
 
-#![expect(
+#![allow(
     dead_code,
     reason = "Planned learning integration; not yet wired into the runtime"
 )]

@@ -218,7 +218,7 @@ impl ServiceDiscoveryClient {
             let a_weight = a.primary_endpoint().and_then(|e| e.weight).unwrap_or(0.0);
             let b_weight = b.primary_endpoint().and_then(|e| e.weight).unwrap_or(0.0);
 
-            if a_weight != b_weight {
+            if (a_weight - b_weight).abs() > f32::EPSILON {
                 return b_weight
                     .partial_cmp(&a_weight)
                     .unwrap_or(std::cmp::Ordering::Equal);

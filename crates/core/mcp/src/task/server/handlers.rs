@@ -493,7 +493,10 @@ mod tests {
     }
 
     #[tokio::test]
-    #[allow(clippy::too_many_lines)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Exhaustive table or handler; splitting hurts clarity"
+    )]
     async fn task_json_rpc_create_get_list_update_assign_progress_complete_and_cancel() {
         let svc = svc();
         let created = svc

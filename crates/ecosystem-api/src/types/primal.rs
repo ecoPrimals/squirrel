@@ -4,6 +4,7 @@
 //! Primal type definitions and capability system.
 
 use serde::{Deserialize, Serialize};
+use universal_constants::primal_names;
 
 /// Standardized primal types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -29,12 +30,12 @@ impl PrimalType {
     #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
-            Self::ToadStool => "toadstool",
-            Self::Songbird => "songbird",
-            Self::BearDog => "beardog",
-            Self::NestGate => "nestgate",
-            Self::Squirrel => "squirrel",
-            Self::BiomeOS => "biomeos",
+            Self::ToadStool => primal_names::TOADSTOOL,
+            Self::Songbird => primal_names::SONGBIRD,
+            Self::BearDog => primal_names::BEARDOG,
+            Self::NestGate => primal_names::NESTGATE,
+            Self::Squirrel => primal_names::SQUIRREL,
+            Self::BiomeOS => primal_names::BIOMEOS,
             Self::Any => "any",
         }
     }

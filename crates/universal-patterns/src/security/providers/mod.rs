@@ -455,9 +455,19 @@ pub async fn register_security_service(
     registry.register_service(info.service_id, service).await
 }
 
-/// Beardog Security Provider Implementation
-/// Integrates with Beardog security service through capability-based discovery
-/// NOTE: HTTP removed - Uses Unix socket communication via Songbird
+/// Beardog security provider (integration with the Beardog primal).
+///
+/// Uses capability-based discovery; HTTP is removed in favor of Unix sockets (often via
+/// Songbird).
+///
+/// ## Phase 2: `UniversalSecurityProvider` behavior
+///
+/// The [`crate::security::traits::UniversalSecurityProvider`] implementation dispatches
+/// [`SecurityRequest`] values where possible, but **`authenticate` still returns a
+/// static test principal and token** until Beardog’s socket protocol returns real
+/// [`crate::traits::AuthResult`] data. `authorize`, encrypt/decrypt, and sign/verify are
+/// identity/pass-through stubs until Beardog crypto endpoints are wired—do not use this
+/// provider for production security boundaries yet.
 pub struct BeardogSecurityProvider {
     config: SecurityServiceConfig,
     // Note: HTTP client removed - should use Unix socket for Beardog communication
@@ -644,7 +654,7 @@ impl BeardogIntegration {
     ///
     /// Note: This is a factory function that returns BeardogSecurityProvider, not Self.
     /// This is intentional as BeardogIntegration is a namespace for integration logic.
-    #[expect(
+    #[allow(
         clippy::new_ret_no_self,
         reason = "Factory pattern; returns trait object"
     )]

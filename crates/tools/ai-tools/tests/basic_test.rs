@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
+#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)] // Test code: explicit unwrap/expect and local lint noise
 use squirrel_ai_tools::{
     Result,
     common::{AIClient, ChatMessage, ChatRequest, MessageRole},
@@ -13,9 +13,9 @@ use squirrel_ai_tools::common::clients::mock::MockAIClient;
 
 #[tokio::test]
 async fn test_basic_dispatcher_creation() -> Result<()> {
-    let dispatcher = DispatcherBuilder::new().build().await;
+    let dispatcher = DispatcherBuilder::new().build().expect("build dispatcher");
 
-    assert!(dispatcher.is_ok());
+    assert_eq!(dispatcher.router().get_provider_count(), 0);
     Ok(())
 }
 

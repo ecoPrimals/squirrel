@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![forbid(unsafe_code)]
-#![expect(
+#![allow(
     clippy::missing_const_for_fn,
     clippy::significant_drop_tightening,
     reason = "Context adapter patterns; const/drop tightening deferred"

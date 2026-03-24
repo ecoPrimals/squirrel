@@ -314,7 +314,7 @@ impl McpAdapter {
     }
 
     /// Register a command in the adapter
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -337,7 +337,7 @@ impl McpAdapter {
     }
 
     /// Execute a command with authentication and authorization
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -368,7 +368,7 @@ impl McpAdapter {
     }
 
     /// Get list of commands available to the authenticated user
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]

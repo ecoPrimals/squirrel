@@ -36,6 +36,7 @@ use crate::compute_client::types::{ComputeCapabilityType, ResourceRequirements};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use universal_constants::primal_names;
 use uuid::Uuid;
 
 /// Result type for compute operations
@@ -263,7 +264,7 @@ pub async fn auto_detect_compute_provider() -> ComputeResult<Box<dyn ComputeProv
 /// Create compute provider from type string
 async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<dyn ComputeProvider>> {
     match provider_type.to_lowercase().as_str() {
-        "toadstool" => Err(ComputeProviderError::NotAvailable(
+        primal_names::TOADSTOOL => Err(ComputeProviderError::NotAvailable(
             "Toadstool provider not yet implemented".to_string(),
         )),
         "kubernetes" | "k8s" => Err(ComputeProviderError::NotAvailable(
@@ -285,7 +286,11 @@ async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<dyn 
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "Invariant or startup failure: unwrap/expect after validation"
+)]
 mod tests {
     use super::*;
 

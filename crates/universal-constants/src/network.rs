@@ -331,6 +331,54 @@ pub fn get_socket_path(service: &str) -> std::path::PathBuf {
     get_socket_dir().join(filename)
 }
 
+/// Tiered Unix socket resolution for capability clients (AI, crypto, security provider, etc.).
+///
+/// Aligns with `crates/main/src/rpc/unix_socket` (`SocketConfig` / `get_socket_path` tiers):
+///
+/// 1. `primary_env` if set and non-empty (e.g. `AI_CAPABILITY_SOCKET`, `CRYPTO_CAPABILITY_SOCKET`)
+/// 2. `SQUIRREL_SOCKET`
+/// 3. `BIOMEOS_SOCKET_PATH`
+/// 4. `PRIMAL_SOCKET` with `SQUIRREL_FAMILY_ID` suffix (default family: `default`)
+/// 5. `$XDG_RUNTIME_DIR/biomeos/{stem}[-{FAMILY_ID}].sock`, else `/tmp/biomeos/...`
+///
+/// `biomeos_socket_stem` is the basename without `.sock` (e.g. `ai-provider`, `crypto-provider`).
+#[must_use]
+pub fn resolve_capability_unix_socket(
+    primary_env: &str,
+    biomeos_socket_stem: &str,
+) -> std::path::PathBuf {
+    use std::path::PathBuf;
+
+    if let Ok(p) = std::env::var(primary_env)
+        && !p.is_empty()
+    {
+        return PathBuf::from(p);
+    }
+    if let Ok(p) = std::env::var("SQUIRREL_SOCKET")
+        && !p.is_empty()
+    {
+        return PathBuf::from(p);
+    }
+    if let Ok(p) = std::env::var("BIOMEOS_SOCKET_PATH")
+        && !p.is_empty()
+    {
+        return PathBuf::from(p);
+    }
+    if let Ok(generic) = std::env::var("PRIMAL_SOCKET")
+        && !generic.is_empty()
+    {
+        let family_id =
+            std::env::var("SQUIRREL_FAMILY_ID").unwrap_or_else(|_| "default".to_string());
+        return PathBuf::from(format!("{generic}-{family_id}"));
+    }
+
+    let filename = match std::env::var("FAMILY_ID") {
+        Ok(fid) if !fid.is_empty() => format!("{biomeos_socket_stem}-{fid}.sock"),
+        _ => format!("{biomeos_socket_stem}.sock"),
+    };
+    get_socket_dir().join(filename)
+}
+
 /// Generic environment variable name for a primal's socket path.
 ///
 /// Pattern absorbed from sweetGrass v0.7.17: `{PRIMAL_NAME}_SOCKET`.
@@ -525,7 +573,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_get_port_from_env() {
         assert_eq!(get_port_from_env("NONEXISTENT_PORT_XYZ", 1234), 1234);
     }
@@ -613,5 +664,65 @@ mod tests {
             );
             assert_eq!(url, "http://localhost:8444");
         });
+    }
+
+    #[test]
+    fn test_resolve_capability_unix_socket_primary_env() {
+        temp_env::with_var("AI_CAPABILITY_SOCKET", Some("/custom/ai.sock"), || {
+            let p = super::resolve_capability_unix_socket("AI_CAPABILITY_SOCKET", "ai-provider");
+            assert_eq!(p, std::path::PathBuf::from("/custom/ai.sock"));
+        });
+    }
+
+    #[test]
+    fn test_resolve_capability_unix_socket_squirrel_overrides_biomeos() {
+        temp_env::with_vars(
+            [
+                ("AI_CAPABILITY_SOCKET", None::<&str>),
+                ("SQUIRREL_SOCKET", Some("/run/squirrel.sock")),
+                ("BIOMEOS_SOCKET_PATH", Some("/run/biomeos.sock")),
+            ],
+            || {
+                let p =
+                    super::resolve_capability_unix_socket("AI_CAPABILITY_SOCKET", "ai-provider");
+                assert_eq!(p, std::path::PathBuf::from("/run/squirrel.sock"));
+            },
+        );
+    }
+
+    #[test]
+    fn test_resolve_capability_unix_socket_biomeos_tier() {
+        temp_env::with_vars(
+            [
+                ("AI_CAPABILITY_SOCKET", None::<&str>),
+                ("SQUIRREL_SOCKET", None::<&str>),
+                ("BIOMEOS_SOCKET_PATH", Some("/run/neural.sock")),
+                ("PRIMAL_SOCKET", None::<&str>),
+            ],
+            || {
+                let p =
+                    super::resolve_capability_unix_socket("AI_CAPABILITY_SOCKET", "ai-provider");
+                assert_eq!(p, std::path::PathBuf::from("/run/neural.sock"));
+            },
+        );
+    }
+
+    #[test]
+    fn test_resolve_capability_unix_socket_xdg_fallback() {
+        temp_env::with_vars(
+            [
+                ("AI_CAPABILITY_SOCKET", None::<&str>),
+                ("SQUIRREL_SOCKET", None::<&str>),
+                ("BIOMEOS_SOCKET_PATH", None::<&str>),
+                ("PRIMAL_SOCKET", None::<&str>),
+                ("FAMILY_ID", None::<&str>),
+                ("XDG_RUNTIME_DIR", None::<&str>),
+            ],
+            || {
+                let p =
+                    super::resolve_capability_unix_socket("AI_CAPABILITY_SOCKET", "ai-provider");
+                assert_eq!(p, std::path::PathBuf::from("/tmp/biomeos/ai-provider.sock"));
+            },
+        );
     }
 }

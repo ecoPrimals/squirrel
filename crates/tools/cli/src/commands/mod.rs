@@ -39,7 +39,7 @@ pub fn register_commands() -> Result<()> {
 
 /// Command adapter module
 pub mod adapter {
-    #![allow(clippy::wildcard_imports)]
+    #![allow(clippy::wildcard_imports)] // Aligned with parent module re-exports
 
     use super::*;
 

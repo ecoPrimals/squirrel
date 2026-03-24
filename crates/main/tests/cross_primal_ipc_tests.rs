@@ -7,7 +7,11 @@
 //! primals must support — absorbed from ecosystem-wide testing patterns
 //! in petalTongue v0.5.20 and rhizoCrypt v0.13.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 
 use serde_json::{Value, json};
 use std::path::PathBuf;

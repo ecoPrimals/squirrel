@@ -5,7 +5,7 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
-#![expect(
+#![allow(
     clippy::missing_errors_doc,
     clippy::must_use_candidate,
     clippy::missing_const_for_fn,

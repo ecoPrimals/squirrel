@@ -13,6 +13,7 @@ use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use crate::ecosystem::EcosystemPrimalType;
+use universal_constants::primal_names;
 
 /// String interning for common service registry values
 /// Uses capability constants for discovery; legacy primal names for backward compatibility.
@@ -50,11 +51,11 @@ static REGISTRY_STRINGS: LazyLock<HashMap<&'static str, Arc<str>>> = LazyLock::n
     );
     // Legacy primal names: display/fallback only, NOT for discovery routing.
     // Used when deserializing config or external responses that reference primal IDs.
-    map.insert("songbird", Arc::from("songbird"));
-    map.insert("toadstool", Arc::from("toadstool"));
-    map.insert("beardog", Arc::from("beardog"));
-    map.insert("nestgate", Arc::from("nestgate"));
-    map.insert("biomeos", Arc::from("biomeos"));
+    map.insert(primal_names::SONGBIRD, Arc::from(primal_names::SONGBIRD));
+    map.insert(primal_names::TOADSTOOL, Arc::from(primal_names::TOADSTOOL));
+    map.insert(primal_names::BEARDOG, Arc::from(primal_names::BEARDOG));
+    map.insert(primal_names::NESTGATE, Arc::from(primal_names::NESTGATE));
+    map.insert(primal_names::BIOMEOS, Arc::from(primal_names::BIOMEOS));
 
     // Common capabilities
     map.insert("ai_coordination", Arc::from("ai_coordination"));
@@ -100,14 +101,14 @@ pub fn intern_registry_string(s: &str) -> Arc<str> {
         "discovery" => Arc::from("discovery"),
         "ai_coordination" => Arc::from("ai_coordination"),
         // Squirrel can know its own name (self-knowledge)
-        "squirrel" => Arc::from("squirrel"),
+        primal_names::SQUIRREL => Arc::from(primal_names::SQUIRREL),
         // Legacy primal names: display/fallback only when deserializing external data.
         // NOT for discovery routing—use capability constants for that.
-        "songbird" => Arc::from("songbird"),
-        "toadstool" => Arc::from("toadstool"),
-        "beardog" => Arc::from("beardog"),
-        "nestgate" => Arc::from("nestgate"),
-        "biomeos" => Arc::from("biomeos"),
+        primal_names::SONGBIRD => Arc::from(primal_names::SONGBIRD),
+        primal_names::TOADSTOOL => Arc::from(primal_names::TOADSTOOL),
+        primal_names::BEARDOG => Arc::from(primal_names::BEARDOG),
+        primal_names::NESTGATE => Arc::from(primal_names::NESTGATE),
+        primal_names::BIOMEOS => Arc::from(primal_names::BIOMEOS),
         // Capability constants -> capability names (for discovery, NOT primal names)
         n if n == capabilities::SELF_PRIMAL_NAME => Arc::from("squirrel"),
         n if n == capabilities::SERVICE_MESH_CAPABILITY => {

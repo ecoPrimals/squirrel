@@ -10,6 +10,7 @@ use super::types::{RequestContext, RoutingStrategy};
 use crate::Result;
 use crate::common::AIClient;
 use crate::error::Error;
+use crate::float_helpers;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::debug;
@@ -22,13 +23,18 @@ pub struct ProviderSelector {
 
 impl ProviderSelector {
     /// Create a new provider selector
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             round_robin_index: AtomicUsize::new(0),
         }
     }
 
     /// Select a provider based on the routing strategy
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Configuration`] when `providers` is empty.
     pub fn select_provider(
         &self,
         providers: Vec<(String, Arc<dyn AIClient>)>,
@@ -42,102 +48,102 @@ impl ProviderSelector {
         }
 
         if providers.len() == 1 {
-            return Ok(providers[0].clone());
+            let mut providers = providers;
+            return Ok(providers.swap_remove(0));
         }
 
         match strategy {
-            RoutingStrategy::FirstMatch => self.select_first_match(providers),
-            RoutingStrategy::HighestPriority => self.select_highest_priority(providers),
-            RoutingStrategy::LowestLatency => self.select_lowest_latency(providers),
-            RoutingStrategy::LowestCost => self.select_lowest_cost(providers),
-            RoutingStrategy::BestFit => self.select_best_fit(providers, context),
-            RoutingStrategy::RoundRobin => self.select_round_robin(providers),
-            RoutingStrategy::Random => self.select_random(providers),
+            RoutingStrategy::FirstMatch => Ok(Self::select_first_match(&providers)),
+            RoutingStrategy::HighestPriority => Ok(Self::select_highest_priority(&providers)),
+            RoutingStrategy::LowestLatency => Ok(Self::select_lowest_latency(&providers)),
+            RoutingStrategy::LowestCost => Ok(Self::select_lowest_cost(&providers)),
+            RoutingStrategy::BestFit => Ok(Self::select_best_fit(providers, context)),
+            RoutingStrategy::RoundRobin => Ok(self.select_round_robin(&providers)),
+            RoutingStrategy::Random => Ok(Self::select_random(&providers)),
         }
     }
 
     /// Select the first provider in the list
     fn select_first_match(
-        &self,
-        providers: Vec<(String, Arc<dyn AIClient>)>,
-    ) -> Result<(String, Arc<dyn AIClient>)> {
+        providers: &[(String, Arc<dyn AIClient>)],
+    ) -> (String, Arc<dyn AIClient>) {
         debug!("Using FirstMatch strategy");
-        Ok(providers[0].clone())
+        let (id, client) = &providers[0];
+        (id.clone(), Arc::clone(client))
     }
 
     /// Select the provider with the highest priority
     fn select_highest_priority(
-        &self,
-        providers: Vec<(String, Arc<dyn AIClient>)>,
-    ) -> Result<(String, Arc<dyn AIClient>)> {
+        providers: &[(String, Arc<dyn AIClient>)],
+    ) -> (String, Arc<dyn AIClient>) {
         debug!("Using HighestPriority strategy");
-        let mut best_provider = providers[0].clone();
-        let mut best_priority = best_provider.1.routing_preferences().priority;
+        let mut best_idx = 0;
+        let mut best_priority = providers[0].1.routing_preferences().priority;
 
-        for (id, provider) in providers.iter().skip(1) {
+        for (i, (_, provider)) in providers.iter().enumerate().skip(1) {
             let priority = provider.routing_preferences().priority;
             if priority > best_priority {
-                best_provider = (id.clone(), provider.clone());
+                best_idx = i;
                 best_priority = priority;
             }
         }
 
-        Ok(best_provider)
+        let (id, client) = &providers[best_idx];
+        (id.clone(), Arc::clone(client))
     }
 
     /// Select the provider with the lowest latency
     fn select_lowest_latency(
-        &self,
-        providers: Vec<(String, Arc<dyn AIClient>)>,
-    ) -> Result<(String, Arc<dyn AIClient>)> {
+        providers: &[(String, Arc<dyn AIClient>)],
+    ) -> (String, Arc<dyn AIClient>) {
         debug!("Using LowestLatency strategy");
-        let mut best_provider = providers[0].clone();
-        let mut best_latency = best_provider
+        let mut best_idx = 0;
+        let mut best_latency = providers[0]
             .1
             .capabilities()
             .performance_metrics
             .avg_latency_ms
             .unwrap_or(u64::MAX);
 
-        for (id, provider) in providers.iter().skip(1) {
+        for (i, (_, provider)) in providers.iter().enumerate().skip(1) {
             if let Some(latency) = provider.capabilities().performance_metrics.avg_latency_ms
                 && latency < best_latency
             {
-                best_provider = (id.clone(), provider.clone());
+                best_idx = i;
                 best_latency = latency;
             }
         }
 
-        Ok(best_provider)
+        let (id, client) = &providers[best_idx];
+        (id.clone(), Arc::clone(client))
     }
 
     /// Select the provider with the lowest cost tier
     fn select_lowest_cost(
-        &self,
-        providers: Vec<(String, Arc<dyn AIClient>)>,
-    ) -> Result<(String, Arc<dyn AIClient>)> {
+        providers: &[(String, Arc<dyn AIClient>)],
+    ) -> (String, Arc<dyn AIClient>) {
         debug!("Using LowestCost strategy");
-        let mut best_provider = providers[0].clone();
-        let mut best_cost = best_provider.1.routing_preferences().cost_tier;
+        let mut best_idx = 0;
+        let mut best_cost = providers[0].1.routing_preferences().cost_tier;
 
-        for (id, provider) in providers.iter().skip(1) {
+        for (i, (_, provider)) in providers.iter().enumerate().skip(1) {
             let cost = provider.routing_preferences().cost_tier;
             // Lower cost tier is better (Free < Low < Medium < High)
             if cost < best_cost {
-                best_provider = (id.clone(), provider.clone());
+                best_idx = i;
                 best_cost = cost;
             }
         }
 
-        Ok(best_provider)
+        let (id, client) = &providers[best_idx];
+        (id.clone(), Arc::clone(client))
     }
 
     /// Select the provider that best matches the task requirements
     fn select_best_fit(
-        &self,
         providers: Vec<(String, Arc<dyn AIClient>)>,
         context: &RequestContext,
-    ) -> Result<(String, Arc<dyn AIClient>)> {
+    ) -> (String, Arc<dyn AIClient>) {
         debug!("Using BestFit strategy");
         let scorer = ProviderScorer::new();
 
@@ -155,28 +161,28 @@ impl ProviderSelector {
 
         debug!("Best fit provider score: {}", scored_providers[0].2);
 
-        // Return the highest scoring provider
-        Ok((scored_providers[0].0.clone(), scored_providers[0].1.clone()))
+        // Return the highest scoring provider (move out — no tuple clone)
+        let best = scored_providers.swap_remove(0);
+        (best.0, best.1)
     }
 
     /// Select a provider using round-robin
     fn select_round_robin(
         &self,
-        providers: Vec<(String, Arc<dyn AIClient>)>,
-    ) -> Result<(String, Arc<dyn AIClient>)> {
+        providers: &[(String, Arc<dyn AIClient>)],
+    ) -> (String, Arc<dyn AIClient>) {
         debug!("Using RoundRobin strategy");
         let index = self.round_robin_index.fetch_add(1, Ordering::SeqCst) % providers.len();
-        Ok(providers[index].clone())
+        let (id, client) = &providers[index];
+        (id.clone(), Arc::clone(client))
     }
 
     /// Select a provider randomly
-    fn select_random(
-        &self,
-        providers: Vec<(String, Arc<dyn AIClient>)>,
-    ) -> Result<(String, Arc<dyn AIClient>)> {
+    fn select_random(providers: &[(String, Arc<dyn AIClient>)]) -> (String, Arc<dyn AIClient>) {
         debug!("Using Random strategy");
         let index = rand::random::<usize>() % providers.len();
-        Ok(providers[index].clone())
+        let (id, client) = &providers[index];
+        (id.clone(), Arc::clone(client))
     }
 }
 
@@ -191,7 +197,8 @@ pub struct ProviderScorer;
 
 impl ProviderScorer {
     /// Create a new provider scorer
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self
     }
 
@@ -202,7 +209,7 @@ impl ProviderScorer {
         let preferences = provider.routing_preferences();
 
         // Base score from priority
-        score += preferences.priority as u32;
+        score += u32::from(preferences.priority);
 
         // Bonus for supporting streaming if required
         if context.task.requires_streaming && capabilities.supports_streaming {
@@ -224,7 +231,9 @@ impl ProviderScorer {
             && capabilities.max_context_size >= required_size
         {
             // Higher bonus for models with just enough context (to avoid over-provisioning)
-            let size_ratio = (capabilities.max_context_size as f32) / (required_size as f32);
+            let req = required_size.max(1);
+            let size_ratio = float_helpers::usize_to_f64_lossy(capabilities.max_context_size)
+                / float_helpers::usize_to_f64_lossy(req);
             if size_ratio <= 1.5 {
                 score += 15;
             } else if size_ratio <= 2.0 {
@@ -308,7 +317,9 @@ impl ProviderScorer {
 
         // Context size compatibility
         if let Some(required_size) = context.task.min_context_size {
-            let ratio = (capabilities.max_context_size as f64) / (required_size as f64);
+            let req = required_size.max(1);
+            let ratio = float_helpers::usize_to_f64_lossy(capabilities.max_context_size)
+                / float_helpers::usize_to_f64_lossy(req);
             compatibility_factors.push(ratio.min(1.0));
         } else {
             compatibility_factors.push(1.0);
@@ -349,7 +360,8 @@ impl ProviderScorer {
 
         // Calculate geometric mean for overall compatibility
         let product: f64 = compatibility_factors.iter().product();
-        product.powf(1.0 / compatibility_factors.len() as f64)
+        let n = float_helpers::usize_to_f64_lossy(compatibility_factors.len().max(1));
+        product.powf(1.0 / n)
     }
 
     /// Calculate performance score based on provider metrics
@@ -360,7 +372,7 @@ impl ProviderScorer {
         // Latency score (lower is better)
         if let Some(latency) = capabilities.performance_metrics.avg_latency_ms {
             // Convert to score where 100ms = 1.0, 1000ms = 0.1, etc.
-            performance_score += (100.0 / latency as f64).min(1.0);
+            performance_score += (100.0 / float_helpers::u64_to_f64_lossy(latency)).min(1.0);
         } else {
             performance_score += 0.5; // Default score for unknown latency
         }
@@ -396,6 +408,7 @@ pub struct OptimizationUtils;
 
 impl OptimizationUtils {
     /// Filter providers based on routing hints
+    #[must_use]
     pub fn filter_by_routing_hint(
         providers: Vec<(String, Arc<dyn AIClient>)>,
         context: &RequestContext,
@@ -412,6 +425,7 @@ impl OptimizationUtils {
     }
 
     /// Sort providers by priority
+    #[must_use]
     pub fn sort_by_priority(
         mut providers: Vec<(String, Arc<dyn AIClient>)>,
     ) -> Vec<(String, Arc<dyn AIClient>)> {
@@ -424,6 +438,7 @@ impl OptimizationUtils {
     }
 
     /// Sort providers by cost tier (lowest first)
+    #[must_use]
     pub fn sort_by_cost(
         mut providers: Vec<(String, Arc<dyn AIClient>)>,
     ) -> Vec<(String, Arc<dyn AIClient>)> {
@@ -436,6 +451,7 @@ impl OptimizationUtils {
     }
 
     /// Sort providers by latency (lowest first)
+    #[must_use]
     pub fn sort_by_latency(
         mut providers: Vec<(String, Arc<dyn AIClient>)>,
     ) -> Vec<(String, Arc<dyn AIClient>)> {

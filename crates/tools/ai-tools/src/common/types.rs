@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
 /// Message role in a chat conversation
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MessageRole {
     /// System message
     System,
@@ -54,7 +54,8 @@ pub struct ChatRequest {
 
 impl ChatRequest {
     /// Create a new chat request
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             model: None,
             messages: Vec::new(),
@@ -64,6 +65,7 @@ impl ChatRequest {
     }
 
     /// Add a system message
+    #[must_use]
     pub fn add_system(mut self, content: &str) -> Self {
         self.messages.push(ChatMessage {
             role: MessageRole::System,
@@ -76,6 +78,7 @@ impl ChatRequest {
     }
 
     /// Add a user message
+    #[must_use]
     pub fn add_user(mut self, content: &str) -> Self {
         self.messages.push(ChatMessage {
             role: MessageRole::User,
@@ -88,6 +91,7 @@ impl ChatRequest {
     }
 
     /// Add an assistant message
+    #[must_use]
     pub fn add_assistant(mut self, content: &str) -> Self {
         self.messages.push(ChatMessage {
             role: MessageRole::Assistant,
@@ -100,18 +104,21 @@ impl ChatRequest {
     }
 
     /// Set the model to use
+    #[must_use]
     pub fn with_model(mut self, model: &str) -> Self {
         self.model = Some(model.to_string());
         self
     }
 
     /// Set the model parameters
+    #[must_use]
     pub fn with_parameters(mut self, parameters: super::parameters::ModelParameters) -> Self {
         self.parameters = Some(parameters);
         self
     }
 
     /// Add tools to the request
+    #[must_use]
     pub fn with_tools(mut self, tools: Vec<Tool>) -> Self {
         self.tools = Some(tools);
         self
@@ -239,7 +246,8 @@ pub struct FunctionDefinition {
 
 impl Tool {
     /// Create a new tool
-    pub fn new(name: String, description: String, parameters: serde_json::Value) -> Self {
+    #[must_use]
+    pub const fn new(name: String, description: String, parameters: serde_json::Value) -> Self {
         Self {
             name,
             description,
@@ -249,6 +257,7 @@ impl Tool {
     }
 
     /// Create a new tool with function definition
+    #[must_use]
     pub fn with_function(name: String, description: String, parameters: serde_json::Value) -> Self {
         let function = FunctionDefinition {
             name: name.clone(),
@@ -265,7 +274,8 @@ impl Tool {
 }
 
 /// Create a chat request from messages
-pub fn create_chat_request(messages: Vec<ChatMessage>, model: Option<String>) -> ChatRequest {
+#[must_use]
+pub const fn create_chat_request(messages: Vec<ChatMessage>, model: Option<String>) -> ChatRequest {
     ChatRequest {
         model,
         messages,
@@ -275,6 +285,7 @@ pub fn create_chat_request(messages: Vec<ChatMessage>, model: Option<String>) ->
 }
 
 /// Create a text message
+#[must_use]
 pub fn create_text_message(content: &str) -> ChatMessage {
     ChatMessage {
         role: MessageRole::User,
@@ -286,6 +297,7 @@ pub fn create_text_message(content: &str) -> ChatMessage {
 }
 
 /// Create a system message
+#[must_use]
 pub fn create_system_message(content: &str) -> ChatMessage {
     ChatMessage {
         role: MessageRole::System,
@@ -297,6 +309,7 @@ pub fn create_system_message(content: &str) -> ChatMessage {
 }
 
 /// Create an assistant message
+#[must_use]
 pub fn create_assistant_message(content: &str) -> ChatMessage {
     ChatMessage {
         role: MessageRole::Assistant,

@@ -72,11 +72,13 @@ impl TaskManager {
             tasks_set.insert(Arc::clone(&task.id));
         }
 
-        // Store the task
-        let task_clone = task.clone();
+        let id_key = Arc::clone(&task.id);
         tasks.insert(Arc::clone(&task.id), task);
 
-        Ok(task_clone)
+        Ok(tasks
+            .get(id_key.as_ref())
+            .ok_or_else(|| Error::NotFound("Task missing immediately after insert".to_string()))?
+            .clone())
     }
 
     /// Get a task by ID.
@@ -148,10 +150,13 @@ impl TaskManager {
             }
         }
 
-        // Update the task
-        tasks.insert(Arc::clone(&merged_task.id), merged_task.clone());
+        // Update the task (move merged_task into map; return a single clone for the API)
+        tasks.insert(Arc::clone(&merged_task.id), merged_task);
 
-        Ok(merged_task)
+        Ok(tasks
+            .get(updated_task.id.as_ref())
+            .ok_or_else(|| Error::NotFound("Task missing immediately after update".to_string()))?
+            .clone())
     }
 
     /// Assign a task to an agent.
@@ -203,9 +208,12 @@ impl TaskManager {
             .or_insert_with(HashSet::new);
         tasks_set.insert(Arc::clone(&task.id));
 
-        tasks.insert(Arc::clone(&task.id), task.clone());
+        tasks.insert(Arc::clone(&task.id), task);
 
-        Ok(task)
+        Ok(tasks
+            .get(task_id)
+            .ok_or_else(|| Error::NotFound("Task missing immediately after assign".to_string()))?
+            .clone())
     }
 
     /// Update the progress of a task.
@@ -234,10 +242,13 @@ impl TaskManager {
         // Update the progress
         task.update_progress(progress, status_message);
 
-        // Update the task in the map
-        tasks.insert(Arc::clone(&task.id), task.clone());
+        let id_key = Arc::clone(&task.id);
+        tasks.insert(Arc::clone(&task.id), task);
 
-        Ok(task)
+        Ok(tasks
+            .get(id_key.as_ref())
+            .ok_or_else(|| Error::NotFound("Task missing after progress update".to_string()))?
+            .clone())
     }
 
     /// Mark a task as completed.
@@ -265,8 +276,7 @@ impl TaskManager {
         // Mark the task as completed
         task.mark_completed(output_data);
 
-        // Update the task in the map
-        tasks.insert(Arc::clone(&task.id), task.clone());
+        tasks.insert(Arc::clone(&task.id), task);
 
         // Check dependent tasks
         drop(tasks); // Release the lock before calling another method
@@ -295,10 +305,13 @@ impl TaskManager {
         // Mark the task as failed
         task.mark_failed(error_message);
 
-        // Update the task in the map
-        tasks.insert(Arc::clone(&task.id), task.clone());
+        let id_key = Arc::clone(&task.id);
+        tasks.insert(Arc::clone(&task.id), task);
 
-        Ok(task)
+        Ok(tasks
+            .get(id_key.as_ref())
+            .ok_or_else(|| Error::NotFound("Task missing after fail".to_string()))?
+            .clone())
     }
 
     /// Cancel a task.
@@ -322,10 +335,13 @@ impl TaskManager {
         // Mark the task as cancelled
         task.mark_cancelled(reason);
 
-        // Update the task in the map
-        tasks.insert(Arc::clone(&task.id), task.clone());
+        let id_key = Arc::clone(&task.id);
+        tasks.insert(Arc::clone(&task.id), task);
 
-        Ok(task)
+        Ok(tasks
+            .get(id_key.as_ref())
+            .ok_or_else(|| Error::NotFound("Task missing after cancel".to_string()))?
+            .clone())
     }
 
     /// Get all tasks assigned to a specific agent.
@@ -412,21 +428,21 @@ impl TaskManager {
         drop(tasks_guard);
 
         let mut assignable_tasks = Vec::new();
+        let pending_len = pending_tasks.len();
 
         // Check each task's prerequisites
-        for task in &pending_tasks {
-            // Check if all prerequisites are met
-            let prerequisites_met = self.check_prerequisites(task).await?;
+        for task in pending_tasks {
+            let prerequisites_met = self.check_prerequisites(&task).await?;
 
             if prerequisites_met {
-                assignable_tasks.push(task.clone());
+                assignable_tasks.push(task);
             }
         }
 
         debug!(
             "Found {} assignable tasks out of {} pending tasks",
             assignable_tasks.len(),
-            pending_tasks.len()
+            pending_len
         );
 
         Ok(assignable_tasks)

@@ -265,7 +265,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn test_beardog_constructor() {
         let config =
             SecurityProviderConfig::beardog("http://localhost:8443", AuthMethod::UnixSocket);

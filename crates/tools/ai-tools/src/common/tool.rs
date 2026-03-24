@@ -46,7 +46,8 @@ pub struct FunctionCall {
 
 impl Tool {
     /// Create a new function tool
-    pub fn function(function: FunctionDefinition) -> Self {
+    #[must_use]
+    pub const fn function(function: FunctionDefinition) -> Self {
         Self {
             tool_type: ToolType::Function,
             function: Some(function),
@@ -97,6 +98,7 @@ pub struct ParameterSchema {
 
 impl ParameterSchema {
     /// Create a new object schema
+    #[must_use]
     pub fn object() -> Self {
         Self {
             schema_type: "object".to_string(),
@@ -107,6 +109,7 @@ impl ParameterSchema {
     }
 
     /// Add a property to the schema
+    #[must_use]
     pub fn with_property(
         mut self,
         name: impl Into<String>,

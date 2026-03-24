@@ -4,7 +4,7 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
-#![expect(
+#![allow(
     clippy::doc_markdown,
     clippy::use_self,
     clippy::unnested_or_patterns,

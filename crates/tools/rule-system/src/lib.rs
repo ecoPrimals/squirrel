@@ -7,7 +7,7 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![expect(
+#![allow(
     clippy::missing_errors_doc,
     clippy::significant_drop_tightening,
     clippy::option_if_let_else,

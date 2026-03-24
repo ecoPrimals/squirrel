@@ -281,7 +281,7 @@ impl AiRouter {
                 match config.provider_id.as_str() {
                     "anthropic" => {
                         // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
-                        #[expect(
+                        #[allow(
                             deprecated,
                             reason = "backward compat: AnthropicAdapter until v0.3.0 removal"
                         )]
@@ -292,7 +292,7 @@ impl AiRouter {
                     }
                     "openai" => {
                         // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
-                        #[expect(
+                        #[allow(
                             deprecated,
                             reason = "backward compat: OpenAiAdapter until v0.3.0 removal"
                         )]

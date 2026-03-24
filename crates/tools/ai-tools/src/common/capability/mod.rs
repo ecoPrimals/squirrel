@@ -33,7 +33,7 @@ pub use registry::ModelRegistry;
 pub enum ModelType {
     /// Large language model for text generation
     LargeLanguageModel,
-    /// Chat model (alias for LargeLanguageModel)
+    /// Chat model (alias for `LargeLanguageModel`)
     ChatModel,
     /// Embedding model for generating vectors
     Embedding,
@@ -172,7 +172,7 @@ pub struct CostMetrics {
 }
 
 /// Security requirements for AI requests
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecurityRequirements {
     /// Whether the request requires encryption
     pub requires_encryption: bool,
@@ -199,7 +199,7 @@ impl Default for SecurityRequirements {
 }
 
 /// Geographic constraints for AI providers
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GeoConstraints {
     /// Allowed regions
     pub allowed_regions: Option<Vec<String>>,
@@ -210,7 +210,7 @@ pub struct GeoConstraints {
 }
 
 /// AI task description for routing decisions
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AITask {
     /// Type of task to perform
     pub task_type: TaskType,
@@ -249,6 +249,10 @@ impl Default for AITask {
 }
 
 /// Capabilities of an AI provider
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Provider capability flags; flat fields for ergonomics and serde"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AICapabilities {
     /// Supported model types
@@ -278,7 +282,8 @@ pub struct AICapabilities {
 }
 
 impl AICapabilities {
-    /// Create a new AICapabilities instance
+    /// Create a new `AICapabilities` instance
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -294,43 +299,43 @@ impl AICapabilities {
     }
 
     /// Set maximum context size
-    pub fn with_max_context_size(&mut self, size: usize) -> &mut Self {
+    pub const fn with_max_context_size(&mut self, size: usize) -> &mut Self {
         self.max_context_size = size;
         self
     }
 
     /// Set streaming support
-    pub fn with_streaming(&mut self, supports: bool) -> &mut Self {
+    pub const fn with_streaming(&mut self, supports: bool) -> &mut Self {
         self.supports_streaming = supports;
         self
     }
 
     /// Set function calling support
-    pub fn with_function_calling(&mut self, supports: bool) -> &mut Self {
+    pub const fn with_function_calling(&mut self, supports: bool) -> &mut Self {
         self.supports_function_calling = supports;
         self
     }
 
     /// Set tool use support
-    pub fn with_tool_use(&mut self, supports: bool) -> &mut Self {
+    pub const fn with_tool_use(&mut self, supports: bool) -> &mut Self {
         self.supports_tool_use = supports;
         self
     }
 
     /// Set image support
-    pub fn with_image_support(&mut self, supports: bool) -> &mut Self {
+    pub const fn with_image_support(&mut self, supports: bool) -> &mut Self {
         self.supports_images = supports;
         self
     }
 
     /// Set cost metrics
-    pub fn with_cost_metrics(&mut self, metrics: CostMetrics) -> &mut Self {
+    pub const fn with_cost_metrics(&mut self, metrics: CostMetrics) -> &mut Self {
         self.cost_metrics = metrics;
         self
     }
 
     /// Set performance metrics
-    pub fn with_performance_metrics(&mut self, metrics: PerformanceMetrics) -> &mut Self {
+    pub const fn with_performance_metrics(&mut self, metrics: PerformanceMetrics) -> &mut Self {
         self.performance_metrics = metrics;
         self
     }
@@ -360,11 +365,13 @@ impl AICapabilities {
     }
 
     /// Check if this provider supports a specific task
+    #[must_use]
     pub fn supports_task(&self, task_type: &TaskType) -> bool {
         self.supported_task_types.contains(task_type)
     }
 
     /// Check if this provider supports a specific model type
+    #[must_use]
     pub fn supports_model_type(&self, model_type: &ModelType) -> bool {
         self.supported_model_types.contains(model_type)
     }
@@ -697,13 +704,13 @@ mod tests {
     #[test]
     fn test_ai_capabilities_builder_methods() {
         let mut caps = AICapabilities::new();
-        caps.with_max_context_size(128000)
+        caps.with_max_context_size(128_000)
             .with_streaming(true)
             .with_function_calling(true)
             .with_tool_use(true)
             .with_image_support(true);
 
-        assert_eq!(caps.max_context_size, 128000);
+        assert_eq!(caps.max_context_size, 128_000);
         assert!(caps.supports_streaming);
         assert!(caps.supports_function_calling);
         assert!(caps.supports_tool_use);

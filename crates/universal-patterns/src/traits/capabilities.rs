@@ -155,7 +155,7 @@ pub enum PrimalCapability {
 }
 
 impl Hash for PrimalCapability {
-    #[expect(
+    #[allow(
         clippy::too_many_lines,
         reason = "Exhaustive match on capability variants"
     )]

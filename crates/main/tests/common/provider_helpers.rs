@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![expect(clippy::unwrap_used, clippy::expect_used, reason = "Test code: explicit unwrap/expect and local lint noise")]
 //! Test helper functions for creating provider instances
 //!
 //! Provides reusable test utilities for setting up SquirrelPrimalProvider
@@ -21,7 +21,7 @@ use squirrel::universal_adapter::{UniversalAdapter, UniversalAdapterConfig};
 use std::sync::Arc;
 
 /// Create a test instance of SquirrelPrimalProvider with mock dependencies
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Test code: explicit unwrap/expect and local lint noise")]
 pub fn create_test_provider() -> SquirrelPrimalProvider {
     let instance_id = "test-instance".to_string();
     let config = EcosystemConfig::default();
@@ -47,7 +47,7 @@ pub fn create_test_provider() -> SquirrelPrimalProvider {
 }
 
 /// Create a test provider with custom configuration
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Test code: explicit unwrap/expect and local lint noise")]
 pub fn create_test_provider_with_config(config: EcosystemConfig) -> SquirrelPrimalProvider {
     let instance_id = "test-instance".to_string();
     let metrics_collector = Arc::new(MetricsCollector::new());
@@ -72,7 +72,7 @@ pub fn create_test_provider_with_config(config: EcosystemConfig) -> SquirrelPrim
 }
 
 /// Create a test provider with custom instance ID
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Test code: explicit unwrap/expect and local lint noise")]
 pub fn create_test_provider_with_id(instance_id: String) -> SquirrelPrimalProvider {
     let config = EcosystemConfig::default();
     let metrics_collector = Arc::new(MetricsCollector::new());

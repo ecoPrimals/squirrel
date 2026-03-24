@@ -14,7 +14,7 @@
     test,
     allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)
 )]
-#![expect(
+#![allow(
     // Docs WIP — clippy docs tracked for completion (missing_docs enforced via warn above)
     clippy::missing_errors_doc,
     // Genuine domain naming
@@ -27,8 +27,7 @@
     clippy::option_if_let_else,
     clippy::significant_drop_tightening,
     clippy::similar_names,
-    reason = "Large MCP crate; progressive documentation and refactor"
-)]
+    reason = "Large MCP crate; progressive documentation and refactor")]
 
 pub mod constants;
 pub mod error;

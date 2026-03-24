@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
 //! Additional error path coverage tests
 //!
 //! These tests target under-covered error scenarios to push coverage toward 65%
@@ -10,7 +10,7 @@
 mod additional_error_coverage {
     use squirrel::error::PrimalError;
     /// Local test aliases for error recovery patterns
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Test code: explicit unwrap/expect and local lint noise
     mod safe_operations {
         use super::PrimalError;
         pub type SafeResult<T> = Result<T, PrimalError>;
@@ -306,7 +306,10 @@ mod additional_error_coverage {
     }
 
     #[test]
-    #[allow(clippy::unnecessary_literal_unwrap)]
+    #[expect(
+        clippy::unnecessary_literal_unwrap,
+        reason = "Test code: explicit unwrap/expect and local lint noise"
+    )]
     fn test_error_result_fallback_pattern() {
         // Test fallback pattern using standard Result
         let primary: SafeResult<String> = Err(PrimalError::Internal("primary failed".to_string()));

@@ -9,6 +9,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.23] - 2026-03-24
+
+Comprehensive audit, modern idiomatic Rust evolution, and coverage push.
+Full `--all-features` build/clippy/doc/test now green. 136+ clippy errors fixed
+across squirrel-core mesh modules, ai-tools, ecosystem-api, and commands.
+Blanket lint suppression in ai-tools eliminated. Production panics removed.
+Hardcoded paths evolved to capability-based discovery. 82 new tests, clone audit
+on 5 hot-path files, 3 large files refactored into module trees. Migration
+script cleaned.
+
+### Added
+
+- **82 new tests**: 57 for squirrel-core mesh modules, 12 for ai-tools
+  ipc_routed_providers, 7 for main (router + jsonrpc), 6 for ecosystem-api
+- **`rustfmt.toml`** with edition 2024, max_width 100
+- **`resolve_capability_unix_socket()`** in universal-constants for tiered
+  socket path resolution (env → XDG → tmp fallback)
+- **`# Errors` doc sections** on 20+ public Result-returning methods
+
+### Changed
+
+- **136+ clippy errors fixed** under `--all-features -D warnings`: unused_async,
+  significant_drop, cast safety, use_self, missing_errors_doc, dead_code
+- **Blanket lint suppression eliminated** from ai-tools/lib.rs (28 lints → per-item)
+- **Primal names centralized** to `universal_constants::primal_names::*` constants
+- **Production `panic!()` replaced** with proper error returns in deploy_graph, SDK
+- **Hardcoded socket paths evolved**: capability_ai, delegated_jwt, security_provider
+- **27+ redundant clones eliminated** across 5 hot-path files
+- **federation.rs** refactored to module tree (types.rs + service.rs)
+- **auth.rs** refactored to module tree (discovery.rs + operations.rs + tests.rs)
+- **cli/mcp/mod.rs** test module extracted
+- **`#[allow]` → `#[expect(reason)]` migration** completed across workspace
+- **3 doctests fixed** for sync `start_heartbeat_loop` signature
+- **`#[cfg_attr]` conditional expects** for system-metrics feature in commands
+
+### Removed
+
+- **`scripts/migrate_allow_to_expect.py`** — migration complete, script is debris
+- **Unused import `ChatMessage`** from ipc_routed_providers
+- **`clippy::expect_used`** from benchmark expect list (unfulfilled)
+
 ## [0.1.0-alpha.22] - 2026-03-23
 
 Deep debt resolution, lint pedantry, and cross-ecosystem absorption sprint.

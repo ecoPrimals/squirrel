@@ -7,6 +7,7 @@ use crate::{Error, HealthStatus, Result};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
+use universal_constants::primal_names;
 
 use super::config::{MonitoringConfig, SongbirdConfig};
 use super::fallback::FallbackLogger;
@@ -279,7 +280,7 @@ impl MonitoringService {
         config: &serde_json::Value,
     ) -> Result<Arc<dyn MonitoringProvider>> {
         match name {
-            "songbird" => {
+            primal_names::SONGBIRD => {
                 let songbird_config: SongbirdConfig = serde_json::from_value(config.clone())?;
                 Self::try_initialize_songbird(&songbird_config)
             }

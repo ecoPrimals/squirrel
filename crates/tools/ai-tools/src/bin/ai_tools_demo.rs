@@ -167,7 +167,7 @@ async fn create_dispatcher(
 
     // Local AI is enabled by default in the dispatcher
 
-    let dispatcher = builder.build().await?;
+    let dispatcher = builder.build()?;
     info!("Multi-model dispatcher created successfully");
 
     Ok(dispatcher)
@@ -425,7 +425,7 @@ async fn benchmark_models(
                     clippy::cast_precision_loss,
                     clippy::cast_possible_truncation,
                     clippy::cast_sign_loss
-                )]
+                )] // Metrics/benchmark float conversions are intentional
                 let success_rate =
                     f64::from(success_count as u32) / f64::from(count as u32) * 100.0;
 

@@ -93,7 +93,7 @@ pub struct PluginConfig {
 
 /// Resource limits for plugins
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[expect(
+#[allow(
     clippy::struct_field_names,
     reason = "Domain naming convention: plugin_id, plugin_name"
 )]

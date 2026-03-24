@@ -140,14 +140,13 @@ impl RateLimiter {
         let window = Duration::from_secs(60); // 1 minute window
 
         // Remove entries that are older than the window
-        while !token_bucket.is_empty() {
-            if let Some(entry) = token_bucket.front()
-                && now.duration_since(entry.timestamp) > window
-            {
-                token_bucket.pop_front();
-                continue;
+        loop {
+            match token_bucket.front() {
+                Some(entry) if now.duration_since(entry.timestamp) > window => {
+                    token_bucket.pop_front();
+                }
+                _ => break,
             }
-            break;
         }
     }
 
@@ -161,6 +160,14 @@ impl RateLimiter {
     }
 
     /// Try to acquire a permit to execute a request
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RateLimitError`] when the permit cannot be acquired within retry policy.
+    #[expect(
+        clippy::significant_drop_tightening,
+        reason = "Async mutex guards; explicit drop would not reduce contention meaningfully here"
+    )]
     pub async fn acquire(&self) -> Result<()> {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
 
@@ -191,7 +198,7 @@ impl RateLimiter {
                 self.retry_count.fetch_add(1, Ordering::Relaxed);
 
                 // Calculate retry delay with exponential backoff
-                let delay_ms = retry_config.retry_delay_ms * retry as u64;
+                let delay_ms = retry_config.retry_delay_ms * u64::from(retry);
                 tracing::warn!(
                     "Rate limit exceeded for {}, waiting {}ms (retry {}/{})",
                     self.provider,
@@ -251,6 +258,10 @@ impl RateLimiter {
     }
 
     /// Execute a function with rate limiting
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`Self::acquire`] or the inner future.
     pub async fn execute<F, T>(&self, f: F) -> Result<T>
     where
         F: std::future::Future<Output = Result<T>> + Send,
@@ -272,7 +283,7 @@ impl RateLimiter {
             provider: self.provider.clone(),
             available_permits: config
                 .max_requests_per_minute
-                .saturating_sub(token_bucket.len() as u32),
+                .saturating_sub(u32::try_from(token_bucket.len()).unwrap_or(u32::MAX)),
             rejection_count: self.rejected_count.load(Ordering::Relaxed),
             retry_count: self.retry_count.load(Ordering::Relaxed),
             total_requests: self.total_requests.load(Ordering::Relaxed),
@@ -280,7 +291,7 @@ impl RateLimiter {
     }
 
     /// Update the rate limiter configuration
-    pub fn update_config(&self, new_config: RateLimiterConfig) {
+    pub fn update_config(&self, new_config: &RateLimiterConfig) {
         // Get the old config for comparison
         let rt = tokio::runtime::Handle::current();
 

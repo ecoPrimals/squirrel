@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 //! Comprehensive integration tests for `UniversalAdapterV2`
 //!
 //! Tests the complete universal adapter flow including protocol negotiation,

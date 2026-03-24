@@ -171,7 +171,7 @@ impl PluginErrorExt for PluginError {
 ///
 /// Note: The large error size is intentional for comprehensive error context.
 /// Boxing would add indirection overhead for a common path.
-#[expect(
+#[allow(
     clippy::result_large_err,
     reason = "Intentional for comprehensive error context; boxing would add indirection"
 )]
@@ -197,7 +197,10 @@ impl<T> ResultExt<T> for Result<T, PluginError> {
 mod tests {
     use super::*;
 
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn network_error() -> PluginError {
         PluginError::NetworkError {
             operation: "fetch".to_string(),
@@ -205,7 +208,10 @@ mod tests {
         }
     }
 
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
+    #[expect(
+        deprecated,
+        reason = "Tests deprecated path for backward compatibility"
+    )]
     fn security_error() -> PluginError {
         PluginError::SecurityViolation {
             violation: "unauthorized".to_string(),

@@ -122,7 +122,7 @@
 //! );
 //!
 //! registry.register_local_service(service).await?;
-//! registry.start_heartbeat_loop().await?;
+//! registry.start_heartbeat_loop()?;
 //!
 //! // Service will automatically send heartbeats
 //! # Ok(())

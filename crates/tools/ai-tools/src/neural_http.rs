@@ -3,13 +3,13 @@
 
 //! Neural API HTTP Client Wrapper for Squirrel
 //!
-//! This module provides a bridge between Squirrel's existing capability_http
+//! This module provides a bridge between Squirrel's existing `capability_http`
 //! interface and squirrel's own IPC client for TRUE PRIMAL routing.
 //!
 //! # TRUE PRIMAL Pattern
 //!
-//! - Zero knowledge of Songbird or BearDog
-//! - Runtime discovery via family_id
+//! - Zero knowledge of Songbird or `BearDog`
+//! - Runtime discovery via `family_id`
 //! - No reqwest, no ring, 100% Pure Rust
 //! - Uses squirrel's autonomous IPC client (primal autonomy)
 
@@ -62,7 +62,7 @@ impl From<universal_patterns::ipc_client::HttpResponse> for HttpResponse {
 /// # TRUE PRIMAL Pattern
 ///
 /// This client uses squirrel's autonomous IPC client for routing.
-/// Squirrel doesn't know about Songbird or BearDog — it just asks for
+/// Squirrel doesn't know about Songbird or `BearDog` — it just asks for
 /// "http proxy capability" and the ecosystem routes it.
 ///
 /// # Example
@@ -96,8 +96,12 @@ impl NeuralHttpClient {
     ///
     /// # TRUE PRIMAL Pattern
     ///
-    /// Socket path is discovered at runtime based on service_id.
+    /// Socket path is discovered at runtime based on `service_id`.
     /// No hardcoded paths, no primal names!
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the ecosystem IPC socket cannot be discovered.
     pub fn discover(service_id: &str) -> Result<Self> {
         let ipc_client =
             IpcClient::discover(service_id).context("failed to discover ecosystem socket")?;
@@ -115,6 +119,10 @@ impl NeuralHttpClient {
     ///
     /// Delegates to the ecosystem router, which handles TLS, crypto,
     /// and routing — Squirrel knows NONE of those details.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the ecosystem HTTP proxy or body parsing fails.
     pub async fn request(&self, request: HttpRequest) -> Result<HttpResponse> {
         let headers: HashMap<String, String> = request.headers.into_iter().collect();
         let body = if let Some(body_str) = request.body {
@@ -133,6 +141,10 @@ impl NeuralHttpClient {
     }
 
     /// Convenience: POST JSON
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::request`].
     pub async fn post_json(
         &self,
         url: &str,
@@ -157,6 +169,10 @@ impl NeuralHttpClient {
     }
 
     /// Convenience: GET
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::request`].
     pub async fn get(&self, url: &str, headers: Vec<(String, String)>) -> Result<HttpResponse> {
         self.request(HttpRequest {
             method: "GET".to_string(),
@@ -168,6 +184,10 @@ impl NeuralHttpClient {
     }
 
     /// Get routing metrics (for observability)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the IPC metrics call fails.
     pub async fn get_metrics(&self) -> Result<RoutingMetrics> {
         self.ipc_client
             .get_metrics()
@@ -176,6 +196,10 @@ impl NeuralHttpClient {
     }
 
     /// Discover capability information
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when capability discovery over IPC fails.
     pub async fn discover_capability(&self, capability: &str) -> Result<CapabilityInfo> {
         self.ipc_client
             .discover_capability(capability)

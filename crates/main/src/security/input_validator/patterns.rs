@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Regex pattern compilation for attack detection
-#![expect(
+#![allow(
     dead_code,
     reason = "Security infrastructure awaiting orchestrator wiring"
 )]

@@ -92,7 +92,7 @@ impl SecurityManagerImpl {
     }
 
     /// Initialize security manager (stub — will delegate to BearDog)
-    #[expect(
+    #[allow(
         clippy::missing_const_for_fn,
         reason = "will be non-const when BearDog init is integrated"
     )]
@@ -240,7 +240,7 @@ impl Clone for SecurityManagerImpl {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 mod tests {
     use super::*;
     use crate::error::MCPError;

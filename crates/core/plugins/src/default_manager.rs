@@ -32,7 +32,7 @@ pub struct DefaultPluginManager {
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
     /// Dependency resolver for initialization order (reserved for dependency resolution system)
-    #[expect(
+    #[allow(
         dead_code,
         reason = "Phase 2 placeholder — dependency resolution system"
     )]

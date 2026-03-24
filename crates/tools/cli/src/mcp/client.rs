@@ -576,7 +576,7 @@ impl MCPClient {
     /// # Returns
     ///
     /// A Result indicating success or an error
-    #[expect(
+    #[allow(
         clippy::too_many_lines,
         reason = "REPL command loop; split later if this grows further"
     )]

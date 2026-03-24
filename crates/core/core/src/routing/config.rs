@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Configuration for the MCP routing service
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Serde-facing config mirrors independent feature toggles from the routing schema"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutingConfig {
     /// Maximum number of concurrent tasks
@@ -69,6 +73,10 @@ pub enum LoadBalancingStrategy {
 }
 
 /// Configuration for agent selection behavior
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Selection policy flags are orthogonal knobs exposed in serialized configuration"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentSelectionConfig {
     /// Allow manual override of automatic selection

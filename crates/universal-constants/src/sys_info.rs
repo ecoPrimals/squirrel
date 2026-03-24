@@ -117,7 +117,7 @@ pub fn uptime_seconds() -> Result<u64, io::Error> {
         .next()
         .and_then(|s| s.parse().ok())
         .unwrap_or(0.0);
-    #[expect(
+    #[allow(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "Platform-specific size handling"

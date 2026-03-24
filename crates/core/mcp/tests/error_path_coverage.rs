@@ -6,7 +6,7 @@
     clippy::expect_used,
     missing_docs,
     clippy::uninlined_format_args
-)]
+)] // Test code: explicit unwrap/expect and local lint noise
 // Integration tests gated behind `integration-tests` feature — API migration
 // (MCPProtocolBase, MCPMessage, MessageId) tracked in CURRENT_STATUS.md known issues.
 // Integration tests disabled until API migration (MCPProtocolBase, MCPMessage) — tracked in CURRENT_STATUS.md

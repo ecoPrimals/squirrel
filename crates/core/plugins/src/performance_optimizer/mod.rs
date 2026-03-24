@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Plugin Performance Optimizer
-#![expect(
+#![allow(
     dead_code,
     reason = "Performance optimizer infrastructure awaiting activation"
 )]

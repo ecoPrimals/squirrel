@@ -600,7 +600,17 @@ impl ServiceStats {
             return 100.0;
         }
 
-        (self.healthy_services as f32 / self.total_services as f32) * 100.0
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "Counts are small enough that f64 division is exact for UI percentages"
+        )]
+        #[allow(
+            clippy::cast_possible_truncation,
+            reason = "Availability is displayed as f32 in the 0..=100 range"
+        )]
+        {
+            ((self.healthy_services as f64 / self.total_services as f64) * 100.0) as f32
+        }
     }
 }
 

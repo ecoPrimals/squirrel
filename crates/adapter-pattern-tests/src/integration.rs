@@ -47,7 +47,7 @@ impl PluginAdapter {
     }
 
     /// Register a command in the plugin adapter
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -57,7 +57,7 @@ impl PluginAdapter {
     }
 
     /// Get list of registered commands
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]

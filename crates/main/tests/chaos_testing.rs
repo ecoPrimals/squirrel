@@ -21,7 +21,7 @@
     clippy::option_if_let_else,
     clippy::trivially_copy_pass_by_ref,
     clippy::unused_self
-)]
+)] // Test code: explicit unwrap/expect and local lint noise
 //! # Chaos Testing Suite
 //!
 //! This test binary provides chaos engineering tests to validate system resilience

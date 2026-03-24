@@ -10,7 +10,7 @@
 //! **Philosophy**: Deploy like an infant - knows nothing, discovers everything!
 //! - Squirrel doesn't know "Songbird" exists
 //! - Squirrel asks: "Who provides ai.chat.completion?"
-//! - Runtime answers: "Service at /var/run/ai/provider.sock"
+//! - Runtime answers: a path from capability discovery (often under `$XDG_RUNTIME_DIR/biomeos/`)
 //! - Could be Songbird, could be any AI proxy primal!
 
 use anyhow::{Context, Result};
@@ -21,6 +21,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::time::{Duration, timeout};
 use tracing::{debug, info, warn};
+use universal_constants::network::resolve_capability_unix_socket;
 
 /// AI client configuration (capability-based!)
 #[derive(Debug, Clone)]
@@ -42,10 +43,8 @@ pub struct AiClientConfig {
 impl Default for AiClientConfig {
     fn default() -> Self {
         Self {
-            // Default path from environment or discovery
-            socket_path: std::env::var("AI_CAPABILITY_SOCKET")
-                .unwrap_or_else(|_| "/var/run/ai/provider.sock".to_string())
-                .into(),
+            // Tiered resolution: AI_CAPABILITY_SOCKET → SQUIRREL_SOCKET → … → XDG/biomeos fallback
+            socket_path: resolve_capability_unix_socket("AI_CAPABILITY_SOCKET", "ai-provider"),
             timeout_secs: 30, // AI calls can take longer
             max_retries: 3,
             retry_delay_ms: 100,
@@ -70,7 +69,7 @@ impl Default for AiClientConfig {
 /// async fn main() -> anyhow::Result<()> {
 ///     // Socket path comes from capability discovery (NOT hardcoded!)
 ///     let config = AiClientConfig {
-///         socket_path: "/var/run/ai/provider.sock".into(),  // From discovery!
+///         socket_path: "/run/user/1000/biomeos/ai-provider.sock".into(),  // From discovery!
 ///         ..Default::default()
 ///     };
 ///     
@@ -100,6 +99,10 @@ impl AiClient {
     ///
     /// **IMPORTANT**: Socket path should come from capability discovery!
     /// Do NOT hardcode primal names like "songbird-nat0.sock"!
+    ///
+    /// # Errors
+    ///
+    /// Currently always returns `Ok`; reserved for future configuration validation.
     pub fn new(config: AiClientConfig) -> Result<Self> {
         info!(
             "Initializing capability-based AI client: {}",
@@ -119,6 +122,10 @@ impl AiClient {
     ///
     /// Reads `AI_CAPABILITY_SOCKET` from environment.
     /// This should be set by capability discovery at startup!
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`Self::new`].
     pub fn from_env() -> Result<Self> {
         let config = AiClientConfig::default();
         info!(
@@ -133,10 +140,14 @@ impl AiClient {
     /// # Arguments
     /// * `model` - Model name (e.g., "gpt-4", "claude-3-opus")
     /// * `messages` - Chat messages
-    /// * `options` - Optional parameters (temperature, max_tokens, etc.)
+    /// * `options` - Optional parameters (temperature, `max_tokens`, etc.)
     ///
     /// # Returns
     /// Chat completion response
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the JSON-RPC request fails or the response body cannot be parsed.
     pub async fn chat_completion(
         &self,
         model: &str,
@@ -194,6 +205,10 @@ impl AiClient {
     ///
     /// # Returns
     /// Embedding vector
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the JSON-RPC request fails or the embedding vector cannot be parsed.
     pub async fn create_embedding(&self, model: &str, input: &str) -> Result<Vec<f32>> {
         debug!(
             "Embedding request via capability: model={}, input_len={}",
@@ -231,6 +246,10 @@ impl AiClient {
     ///
     /// # Returns
     /// Generated text
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the JSON-RPC request fails or the generated text cannot be read.
     pub async fn text_generation(
         &self,
         model: &str,
@@ -473,7 +492,10 @@ struct JsonRpcError {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::items_after_statements)]
+    #![expect(
+        clippy::items_after_statements,
+        reason = "Local helpers after setup in macro-like blocks"
+    )]
 
     use super::*;
 

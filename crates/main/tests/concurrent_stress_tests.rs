@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
 //! Concurrent Stress Tests
 //!
 //! Proves robustness under extreme concurrent load without timing hacks.
@@ -383,7 +383,10 @@ async fn stress_performance_baseline() {
         "Lost operations: expected {TOTAL_OPS}, got {total_ops_actual}"
     );
 
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "Test code: explicit unwrap/expect and local lint noise"
+    )]
     let ops_per_sec = total_ops_actual as f64 / elapsed.as_secs_f64();
     println!(
         "Performance: {:.2} M ops/sec ({}M ops in {:?})",

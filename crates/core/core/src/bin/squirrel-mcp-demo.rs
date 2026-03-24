@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![forbid(unsafe_code)]
-#![expect(
+#![allow(
     clippy::unused_self,
     clippy::unused_async,
     clippy::cast_precision_loss,

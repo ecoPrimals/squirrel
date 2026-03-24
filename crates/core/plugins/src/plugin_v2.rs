@@ -3,7 +3,7 @@
 
 // NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
 // The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
-#![expect(
+#![allow(
     deprecated,
     reason = "Uses deprecated plugin::PluginMetadata until interfaces crate stabilizes (see module note)"
 )]
@@ -114,7 +114,7 @@ pub struct PluginWrapper<T: PluginV2> {
 
 impl<T: PluginV2> PluginWrapper<T> {
     /// Create a new `PluginWrapper` with the given `PluginV2` implementation
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Reserved API or schema fields consumed outside this build
     pub const fn new(inner: T) -> Self {
         Self { inner }
     }
@@ -140,7 +140,7 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
 }
 
 /// Helper function to adapt a `PluginV2` to Plugin (used in tests)
-#[allow(dead_code)]
+#[allow(dead_code)] // Reserved API or schema fields consumed outside this build
 pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
     Arc::new(PluginWrapper::new(plugin))
 }
@@ -187,7 +187,10 @@ mod tests {
     }
 
     impl PluginV2 for ExamplePluginV2 {
-        #[allow(deprecated)] // Tests deprecated path for backward compatibility
+        #[expect(
+            deprecated,
+            reason = "Tests deprecated path for backward compatibility"
+        )]
         fn metadata(&self) -> &PluginMetadata {
             &self.metadata
         }

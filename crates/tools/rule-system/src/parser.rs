@@ -5,7 +5,7 @@
 //!
 //! Methods use `&self` for future extensibility and consistent API
 
-#![expect(
+#![allow(
     clippy::unused_self,
     reason = "Parser methods use &self for consistent API and future extensibility"
 )]

@@ -21,7 +21,7 @@ use crate::web::{HttpMethod, HttpStatus, WebEndpoint, WebRequest, WebResponse};
 #[derive(Clone)]
 pub struct PluginMarketplaceClient {
     /// Plugin manager instance (reserved for marketplace plugin management)
-    #[expect(
+    #[allow(
         dead_code,
         reason = "Phase 2 placeholder — marketplace plugin management"
     )]
@@ -431,7 +431,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Get featured plugins
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -449,7 +449,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Get trending plugins
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -509,7 +509,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Install plugin from marketplace
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -539,7 +539,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Get installation status list
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -568,7 +568,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Get installation status
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -598,7 +598,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Cancel installation
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -616,7 +616,7 @@ impl PluginMarketplaceClient {
     }
 
     /// Helper function to search a specific repository
-    #[expect(
+    #[allow(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]

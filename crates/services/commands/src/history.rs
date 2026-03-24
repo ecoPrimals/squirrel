@@ -157,7 +157,6 @@ impl CommandHistory {
 
     /// Adds a new entry to the command history
     pub fn add_entry(&self, entry: HistoryEntry) -> HistoryResult<()> {
-        // Add to memory
         {
             let mut entries = self.entries.write().map_err(|err| {
                 CommandError::ResourceError(format!(
@@ -165,7 +164,7 @@ impl CommandHistory {
                 ))
             })?;
 
-            entries.push_front(entry.clone());
+            entries.push_front(entry);
 
             // Trim if needed
             while entries.len() > self.max_size {
@@ -173,8 +172,15 @@ impl CommandHistory {
             }
         }
 
-        // Persist to file
-        self.save_entry(&entry)
+        let entry_ref = self.entries.read().map_err(|err| {
+            CommandError::ResourceError(format!(
+                "Failed to acquire read lock on history entries: {err}"
+            ))
+        })?;
+        let front = entry_ref.front().ok_or_else(|| {
+            CommandError::ResourceError("History unexpectedly empty after add".to_string())
+        })?;
+        self.save_entry(front)
     }
 
     /// Adds a command execution to history
@@ -418,8 +424,7 @@ impl CommandHistory {
                     ))
                 })?;
 
-            let entries = vec![entry.clone()];
-            serde_json::to_writer_pretty(file, &entries).map_err(|err| {
+            serde_json::to_writer_pretty(file, &std::slice::from_ref(entry)).map_err(|err| {
                 CommandError::ResourceError(format!("Failed to write history entry to file: {err}"))
             })?;
         } else {

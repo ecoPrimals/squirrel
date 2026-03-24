@@ -124,7 +124,10 @@ impl PluginTestUtils {
 }
 
 #[cfg(test)]
-#[allow(clippy::module_inception)]
+#[expect(
+    clippy::module_inception,
+    reason = "tests.rs contains mod tests (standard layout)"
+)]
 mod tests {
     use super::*;
 

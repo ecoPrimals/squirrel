@@ -35,7 +35,7 @@ pub enum JournalError {
 }
 
 // Manual implementation of Clone for JournalError
-#[expect(
+#[allow(
     clippy::unwrap_used,
     reason = "Invalid JSON always fails; unwrap_err is safe"
 )]

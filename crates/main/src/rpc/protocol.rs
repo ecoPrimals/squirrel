@@ -65,7 +65,7 @@ impl IpcProtocol {
     /// assert_eq!(IpcProtocol::from_str("jsonrpc"), Some(IpcProtocol::JsonRpc));
     /// assert_eq!(IpcProtocol::from_str("invalid"), None);
     /// ```
-    #[expect(
+    #[allow(
         clippy::should_implement_trait,
         reason = "Custom from_str avoids FromStr trait conflict"
     )]

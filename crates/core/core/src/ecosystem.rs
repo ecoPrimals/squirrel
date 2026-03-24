@@ -13,6 +13,16 @@ use crate::{
     PerformanceMetrics, PrimalCoordinator, PrimalEndpoint, PrimalType, Result,
     SQUIRREL_MCP_VERSION, Task, TaskResult,
 };
+use universal_constants::primal_names;
+
+/// Converts counters to `f64` for monitoring; loss beyond `f64` mantissa is acceptable for KPIs.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "Dashboard metrics: u64 counters may exceed f64 precision"
+)]
+const fn metric_u64_as_f64(x: u64) -> f64 {
+    x as f64
+}
 
 /// Main ecosystem coordination service for Squirrel MCP
 ///
@@ -140,7 +150,7 @@ impl EcosystemService {
         }
 
         // Start background tasks
-        self.start_background_tasks().await;
+        self.start_background_tasks();
 
         tracing::info!("Squirrel MCP ecosystem service started successfully");
         Ok(())
@@ -194,7 +204,7 @@ impl EcosystemService {
     }
 
     /// Start background coordination tasks
-    async fn start_background_tasks(&self) {
+    fn start_background_tasks(&self) {
         let service = self.clone();
         tokio::spawn(async move {
             service.monitoring_loop().await;
@@ -227,7 +237,8 @@ impl EcosystemService {
                     let performance_metrics = {
                         let stats = self.state.coordination_stats.read();
                         let error_rate = if stats.tasks_coordinated > 0 {
-                            stats.coordination_failures as f64 / stats.tasks_coordinated as f64
+                            metric_u64_as_f64(stats.coordination_failures)
+                                / metric_u64_as_f64(stats.tasks_coordinated)
                         } else {
                             0.0
                         };
@@ -237,10 +248,12 @@ impl EcosystemService {
                             memory_usage: None,
                             network_usage: None,
                             response_time: None,
-                            throughput: Some(stats.tasks_coordinated as f64),
+                            throughput: Some(metric_u64_as_f64(stats.tasks_coordinated)),
                             error_rate: Some(error_rate),
                             queue_length: None,
-                            active_connections: Some(self.discovered_primals.len() as u32),
+                            active_connections: Some(
+                                u32::try_from(self.discovered_primals.len()).unwrap_or(u32::MAX),
+                            ),
                             custom_metrics: {
                                 let mut custom = HashMap::new();
                                 custom.insert("primals_discovered".to_string(), f64::from(stats.primals_discovered));
@@ -297,8 +310,9 @@ impl EcosystemService {
     fn get_current_health(&self) -> HealthStatus {
         match self.get_status() {
             ServiceStatus::Starting => HealthStatus::Unknown,
-            ServiceStatus::Standalone | ServiceStatus::Coordinating => HealthStatus::Healthy,
-            ServiceStatus::Discovering => HealthStatus::Healthy,
+            ServiceStatus::Standalone
+            | ServiceStatus::Coordinating
+            | ServiceStatus::Discovering => HealthStatus::Healthy,
             ServiceStatus::Degraded => HealthStatus::Degraded,
             ServiceStatus::Stopping => HealthStatus::Unhealthy,
         }
@@ -356,6 +370,10 @@ impl EcosystemService {
     /// # Errors
     ///
     /// Returns [`Error`] if shutdown steps fail.
+    #[expect(
+        clippy::unused_async,
+        reason = "Public shutdown API is async for consistency with other services"
+    )]
     pub async fn shutdown(&self) -> Result<()> {
         tracing::info!("Shutting down ecosystem service");
 
@@ -363,9 +381,7 @@ impl EcosystemService {
         *self.state.status.write() = ServiceStatus::Stopping;
 
         // Unregister from ecosystem
-        if let Err(e) = self.unregister_from_ecosystem().await {
-            tracing::warn!("Failed to unregister from ecosystem: {}", e);
-        }
+        Self::unregister_from_ecosystem();
 
         // Notify background tasks to shutdown
         self.shutdown_notify.notify_waiters();
@@ -375,35 +391,41 @@ impl EcosystemService {
     }
 
     /// Unregister from the ecosystem
-    async fn unregister_from_ecosystem(&self) -> Result<()> {
+    const fn unregister_from_ecosystem() {
         // Implementation would unregister from Songbird or other discovery systems
         // For now, this is a placeholder
-        Ok(())
     }
 }
 
 #[async_trait::async_trait]
 impl PrimalCoordinator for EcosystemService {
     async fn register_with_ecosystem(&self) -> Result<()> {
-        if let Some(ref songbird_endpoint) = self.config.discovery.songbird_endpoint {
-            tracing::info!(
-                "Attempting to register with Songbird at: {}",
-                songbird_endpoint
-            );
+        self.config
+            .discovery
+            .songbird_endpoint
+            .as_ref()
+            .map_or_else(
+                || {
+                    tracing::debug!("No Songbird endpoint configured, skipping registration");
+                    Ok(())
+                },
+                |songbird_endpoint| {
+                    tracing::info!(
+                        "Attempting to register with Songbird at: {}",
+                        songbird_endpoint
+                    );
 
-            // NOTE: Registration uses Unix socket discovery via ecosystem patterns
-            // Pattern: Capability-based service registry via Unix sockets
-            tracing::info!(
-                "Songbird registration not yet implemented (requires Unix socket discovery)"
-            );
-            tracing::debug!("Songbird endpoint: {}", songbird_endpoint);
+                    // NOTE: Registration uses Unix socket discovery via ecosystem patterns
+                    // Pattern: Capability-based service registry via Unix sockets
+                    tracing::info!(
+                        "Songbird registration not yet implemented (requires Unix socket discovery)"
+                    );
+                    tracing::debug!("Songbird endpoint: {}", songbird_endpoint);
 
-            // For now, succeed silently (registration will use file-based or Unix socket discovery)
-            Ok(())
-        } else {
-            tracing::debug!("No Songbird endpoint configured, skipping registration");
-            Ok(())
-        }
+                    // For now, succeed silently (registration will use file-based or Unix socket discovery)
+                    Ok(())
+                },
+            )
     }
 
     async fn discover_primals(&self) -> Result<Vec<PrimalEndpoint>> {
@@ -411,18 +433,8 @@ impl PrimalCoordinator for EcosystemService {
 
         // Try Songbird service discovery first
         if let Some(ref songbird_endpoint) = self.config.discovery.songbird_endpoint {
-            match self.discover_via_songbird(songbird_endpoint).await {
-                Ok(mut primals) => {
-                    discovered.append(&mut primals);
-                }
-                Err(e) => {
-                    tracing::debug!("Songbird discovery failed: {}", e);
-                    let _ = self
-                        .monitoring
-                        .record_error("songbird_discovery", &e.to_string(), "ecosystem")
-                        .await;
-                }
-            }
+            let mut primals = Self::discover_via_songbird(songbird_endpoint);
+            discovered.append(&mut primals);
         }
 
         // Fallback to direct endpoint probing
@@ -441,7 +453,7 @@ impl PrimalCoordinator for EcosystemService {
             }
         }
 
-        let count = discovered.len() as u32;
+        let count = u32::try_from(discovered.len()).unwrap_or(u32::MAX);
         let returned = discovered.clone();
 
         // Record discovery events (borrowed pass), then move primals into the cache.
@@ -497,7 +509,7 @@ impl PrimalCoordinator for EcosystemService {
         // In a real system, this would route the task to appropriate primals
         // based on the task requirements and available capabilities
 
-        let (result, executed_by) = match self.route_task_to_primal(&task).await {
+        let (result, executed_by) = match self.route_task_to_primal(&task) {
             Ok(result) => {
                 let primal_id = result
                     .get("primal_id")
@@ -562,7 +574,7 @@ impl EcosystemService {
     /// Discover primals via Songbird service discovery
     /// Discover primals via Songbird service registry
     /// NOTE: Uses Unix socket-based discovery via ecosystem patterns
-    async fn discover_via_songbird(&self, songbird_endpoint: &str) -> Result<Vec<PrimalEndpoint>> {
+    fn discover_via_songbird(songbird_endpoint: &str) -> Vec<PrimalEndpoint> {
         tracing::debug!(
             "Songbird discovery not yet implemented (requires Unix socket): {}",
             songbird_endpoint
@@ -572,7 +584,7 @@ impl EcosystemService {
         // Pattern: CapabilityRegistry::discover_services().await
 
         // For now, return empty list (discovery will use file-based or direct probing)
-        Ok(Vec::new())
+        Vec::new()
     }
 
     /// Discover primals via direct endpoint probing
@@ -582,7 +594,7 @@ impl EcosystemService {
         let mut primals = Vec::new();
 
         for (primal_name, endpoint) in &self.config.discovery.direct_endpoints {
-            match self.probe_primal_endpoint(primal_name, endpoint).await {
+            match Self::probe_primal_endpoint(primal_name, endpoint) {
                 Ok(primal) => primals.push(primal),
                 Err(e) => {
                     tracing::debug!("Failed to probe {}: {}", primal_name, e);
@@ -599,11 +611,7 @@ impl EcosystemService {
 
     /// Probe a specific primal endpoint
     /// NOTE: Uses Unix socket-based health check via ecosystem patterns
-    async fn probe_primal_endpoint(
-        &self,
-        primal_name: &str,
-        endpoint: &str,
-    ) -> Result<PrimalEndpoint> {
+    fn probe_primal_endpoint(primal_name: &str, endpoint: &str) -> Result<PrimalEndpoint> {
         tracing::debug!(
             "Endpoint probing not yet implemented (requires Unix socket): {}",
             endpoint
@@ -620,14 +628,14 @@ impl EcosystemService {
 
     /// Parse primal type from string
     #[expect(dead_code, reason = "Phase 2 placeholder — primal type parsing")]
-    fn parse_primal_type(&self, type_str: &str) -> Result<PrimalType> {
+    fn parse_primal_type(type_str: &str) -> Result<PrimalType> {
         match type_str.to_lowercase().as_str() {
-            "squirrel" => Ok(PrimalType::Squirrel),
-            "songbird" => Ok(PrimalType::Songbird),
-            "nestgate" => Ok(PrimalType::NestGate),
-            "beardog" => Ok(PrimalType::BearDog),
-            "toadstool" => Ok(PrimalType::ToadStool),
-            "biomeos" => Ok(PrimalType::BiomeOS),
+            primal_names::SQUIRREL => Ok(PrimalType::Squirrel),
+            primal_names::SONGBIRD => Ok(PrimalType::Songbird),
+            primal_names::NESTGATE => Ok(PrimalType::NestGate),
+            primal_names::BEARDOG => Ok(PrimalType::BearDog),
+            primal_names::TOADSTOOL => Ok(PrimalType::ToadStool),
+            primal_names::BIOMEOS => Ok(PrimalType::BiomeOS),
             _ => Err(Error::Discovery(format!("Unknown primal type: {type_str}"))),
         }
     }
@@ -638,11 +646,11 @@ impl EcosystemService {
     /// 1. Match discovered primals by `task.requirements.required_capabilities`
     /// 2. Prefer primals in `task.requirements.preferred_primals`
     /// 3. If no match, return error (caller may fall back to local execution in sovereign mode)
-    async fn route_task_to_primal(&self, task: &Task) -> Result<serde_json::Value> {
+    fn route_task_to_primal(&self, task: &Task) -> Result<serde_json::Value> {
         let required = &task.requirements.required_capabilities;
         let preferred = &task.requirements.preferred_primals;
 
-        let candidates: Vec<_> = self
+        let candidate_ids: Vec<String> = self
             .discovered_primals
             .iter()
             .filter(|entry| {
@@ -653,9 +661,10 @@ impl EcosystemService {
                         .all(|cap| primal.capabilities.iter().any(|c| c == cap));
                 has_caps && primal.health != crate::HealthStatus::Unhealthy
             })
+            .map(|entry| entry.key().clone())
             .collect();
 
-        if candidates.is_empty() {
+        if candidate_ids.is_empty() {
             tracing::debug!(
                 "No capable primal found for task {} (required: {:?})",
                 task.id,
@@ -667,16 +676,29 @@ impl EcosystemService {
             )));
         }
 
-        // Prefer primals matching preferred_primals; otherwise use first candidate
-        let selected = if preferred.is_empty() {
-            candidates[0].value().clone()
+        let selected_id = if preferred.is_empty() {
+            candidate_ids[0].clone()
         } else {
-            candidates
+            candidate_ids
                 .iter()
-                .find(|e| preferred.contains(&e.value().primal_type))
-                .unwrap_or(&candidates[0])
-                .value()
-                .clone()
+                .find(|id| {
+                    self.discovered_primals
+                        .get(id.as_str())
+                        .is_some_and(|p| preferred.contains(&p.primal_type))
+                })
+                .cloned()
+                .unwrap_or_else(|| candidate_ids[0].clone())
+        };
+
+        let Some(selected) = self
+            .discovered_primals
+            .get(&selected_id)
+            .map(|r| r.value().clone())
+        else {
+            return Err(Error::Routing(format!(
+                "Primal {selected_id} disappeared during routing for task {}",
+                task.id
+            )));
         };
 
         tracing::info!(
@@ -756,4 +778,223 @@ struct ServiceInfo {
 struct PrimalInfo {
     capabilities: Vec<String>,
     metadata: HashMap<String, String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::monitoring::MonitoringConfig;
+    use crate::{
+        DiscoveryConfig, EcosystemConfig, EcosystemMode, Error, HealthStatus, MonitoringService,
+        PrimalCoordinator, Task, TaskPriority, TaskRequirements, TaskType,
+    };
+    use chrono::Duration as ChronoDuration;
+    use ecosystem_api::PrimalType;
+
+    fn monitoring() -> Arc<MonitoringService> {
+        Arc::new(MonitoringService::new(MonitoringConfig::default()))
+    }
+
+    fn service(cfg: EcosystemConfig) -> EcosystemService {
+        EcosystemService::new(cfg, monitoring()).expect("ecosystem new")
+    }
+
+    fn sample_task() -> Task {
+        Task {
+            id: "task-1".to_string(),
+            task_type: TaskType::McpCoordination,
+            priority: TaskPriority::Normal,
+            requirements: TaskRequirements {
+                cpu: None,
+                memory: None,
+                storage: None,
+                network: None,
+                required_capabilities: vec!["nonexistent-cap".to_string()],
+                preferred_primals: vec![PrimalType::Squirrel],
+                constraints: HashMap::new(),
+            },
+            context: serde_json::json!({}),
+            deadline: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn start_disabled_sets_standalone_and_skips_background() {
+        let cfg = EcosystemConfig {
+            enabled: false,
+            mode: EcosystemMode::Coordinated,
+            discovery: DiscoveryConfig::default(),
+        };
+        let eco = service(cfg);
+        eco.start().await.expect("start");
+        assert!(matches!(eco.get_status(), ServiceStatus::Standalone));
+    }
+
+    #[tokio::test]
+    async fn start_standalone_mode_sets_status() {
+        let cfg = EcosystemConfig {
+            enabled: true,
+            mode: EcosystemMode::Standalone,
+            discovery: DiscoveryConfig {
+                auto_discovery: false,
+                songbird_endpoint: None,
+                direct_endpoints: HashMap::new(),
+                probe_interval: ChronoDuration::seconds(60),
+                health_check_timeout: ChronoDuration::seconds(5),
+            },
+        };
+        let eco = service(cfg);
+        eco.start().await.expect("start");
+        assert!(matches!(eco.get_status(), ServiceStatus::Standalone));
+    }
+
+    #[tokio::test]
+    async fn start_sovereign_reaches_coordinating() {
+        let cfg = EcosystemConfig {
+            enabled: true,
+            mode: EcosystemMode::Sovereign,
+            discovery: DiscoveryConfig {
+                auto_discovery: false,
+                songbird_endpoint: None,
+                direct_endpoints: HashMap::new(),
+                probe_interval: ChronoDuration::seconds(60),
+                health_check_timeout: ChronoDuration::seconds(5),
+            },
+        };
+        let eco = service(cfg);
+        eco.start().await.expect("start");
+        assert!(matches!(eco.get_status(), ServiceStatus::Coordinating));
+    }
+
+    #[tokio::test]
+    async fn start_coordinated_succeeds_when_discovery_succeeds() {
+        let cfg = EcosystemConfig {
+            enabled: true,
+            mode: EcosystemMode::Coordinated,
+            discovery: DiscoveryConfig {
+                auto_discovery: false,
+                songbird_endpoint: None,
+                direct_endpoints: HashMap::new(),
+                probe_interval: ChronoDuration::seconds(60),
+                health_check_timeout: ChronoDuration::seconds(5),
+            },
+        };
+        let eco = service(cfg);
+        eco.start().await.expect("start");
+        assert!(matches!(eco.get_status(), ServiceStatus::Coordinating));
+    }
+
+    #[test]
+    fn get_endpoint_resolves_localhost_http_url() {
+        let eco = service(EcosystemConfig::default());
+        let ep = eco.get_endpoint();
+        assert!(ep.starts_with("http://"), "{ep}");
+        assert!(ep.contains("localhost"), "{ep}");
+    }
+
+    #[test]
+    fn get_service_metadata_contains_core_keys() {
+        let eco = service(EcosystemConfig::default());
+        let m = eco.get_service_metadata();
+        assert!(m.contains_key("version"));
+        assert!(m.contains_key("node_id"));
+        assert!(m.contains_key("started_at"));
+        assert!(m.contains_key("mode"));
+    }
+
+    #[tokio::test]
+    async fn discover_primals_returns_empty_without_real_probes() {
+        let eco = service(EcosystemConfig::default());
+        let v = eco.discover_primals().await.expect("discover");
+        assert!(v.is_empty());
+        assert!(eco.get_discovered_primals().is_empty());
+    }
+
+    #[tokio::test]
+    async fn coordinate_task_sovereign_falls_back_locally() {
+        let cfg = EcosystemConfig {
+            enabled: true,
+            mode: EcosystemMode::Sovereign,
+            discovery: DiscoveryConfig {
+                auto_discovery: false,
+                songbird_endpoint: None,
+                direct_endpoints: HashMap::new(),
+                probe_interval: ChronoDuration::seconds(60),
+                health_check_timeout: ChronoDuration::seconds(5),
+            },
+        };
+        let eco = service(cfg);
+        eco.start().await.expect("start");
+        let res = eco
+            .coordinate_task(sample_task())
+            .await
+            .expect("coordinate");
+        assert_eq!(res.status, crate::TaskStatus::Completed);
+        assert!(res.result.is_some());
+        assert!(res.executed_by.is_none());
+    }
+
+    #[tokio::test]
+    async fn coordinate_task_coordinated_errors_without_route() {
+        let cfg = EcosystemConfig {
+            enabled: true,
+            mode: EcosystemMode::Coordinated,
+            discovery: DiscoveryConfig {
+                auto_discovery: false,
+                songbird_endpoint: None,
+                direct_endpoints: HashMap::new(),
+                probe_interval: ChronoDuration::seconds(60),
+                health_check_timeout: ChronoDuration::seconds(5),
+            },
+        };
+        let eco = service(cfg);
+        eco.start().await.expect("start");
+        let err = eco
+            .coordinate_task(sample_task())
+            .await
+            .expect_err("no primal");
+        assert!(matches!(err, Error::Routing(_)));
+    }
+
+    #[tokio::test]
+    async fn health_check_returns_mapped_status() {
+        let eco = service(EcosystemConfig::default());
+        eco.start().await.expect("start");
+        let h = eco.health_check().await.expect("health");
+        assert!(matches!(
+            h,
+            HealthStatus::Healthy | HealthStatus::Unknown | HealthStatus::Degraded
+        ));
+    }
+
+    #[tokio::test]
+    async fn register_with_ecosystem_no_songbird_is_ok() {
+        let eco = service(EcosystemConfig::default());
+        eco.register_with_ecosystem().await.expect("register");
+    }
+
+    #[tokio::test]
+    async fn register_with_ecosystem_with_songbird_endpoint_is_ok() {
+        let cfg = EcosystemConfig {
+            enabled: true,
+            mode: EcosystemMode::Sovereign,
+            discovery: DiscoveryConfig {
+                auto_discovery: false,
+                songbird_endpoint: Some("unix:///tmp/songbird.sock".to_string()),
+                direct_endpoints: HashMap::new(),
+                probe_interval: ChronoDuration::seconds(60),
+                health_check_timeout: ChronoDuration::seconds(5),
+            },
+        };
+        let eco = service(cfg);
+        eco.register_with_ecosystem().await.expect("register");
+    }
+
+    #[tokio::test]
+    async fn shutdown_sets_stopping_status() {
+        let eco = service(EcosystemConfig::default());
+        eco.start().await.expect("start");
+        eco.shutdown().await.expect("shutdown");
+        assert!(matches!(eco.get_status(), ServiceStatus::Stopping));
+    }
 }

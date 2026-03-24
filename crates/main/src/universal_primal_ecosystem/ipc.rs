@@ -141,7 +141,11 @@ impl UniversalPrimalEcosystem {
 }
 
 #[cfg(all(test, unix))]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "Invariant or startup failure: unwrap/expect after validation"
+)]
 mod ipc_tests {
     use crate::error::PrimalError;
     use crate::universal::PrimalRequest;

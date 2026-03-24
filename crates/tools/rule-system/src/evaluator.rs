@@ -5,7 +5,7 @@
 //!
 //! Evaluator methods use `&self` for consistency and future state access.
 
-#![expect(
+#![allow(
     clippy::unused_self,
     reason = "Evaluator methods use &self for consistency and future state access"
 )]

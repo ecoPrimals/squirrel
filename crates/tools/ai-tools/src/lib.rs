@@ -14,37 +14,7 @@
 //!
 //! This crate provides AI provider integrations and routing capabilities.
 
-// Structural lints requiring manual refactoring — tracked for future sprints.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::unused_async,
-    clippy::must_use_candidate,
-    clippy::missing_const_for_fn,
-    clippy::doc_markdown,
-    clippy::needless_pass_by_value,
-    clippy::module_name_repetitions,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::significant_drop_tightening,
-    clippy::option_if_let_else,
-    clippy::single_match_else,
-    clippy::return_self_not_must_use,
-    clippy::derive_partial_eq_without_eq,
-    clippy::struct_excessive_bools,
-    clippy::match_same_arms,
-    clippy::cast_precision_loss,
-    clippy::unnecessary_wraps,
-    clippy::cast_lossless,
-    clippy::unused_self,
-    clippy::too_many_lines,
-    clippy::suboptimal_flops,
-    clippy::too_long_first_doc_paragraph,
-    clippy::useless_let_if_seq,
-    clippy::unnecessary_literal_bound,
-    clippy::ignored_unit_patterns,
-    clippy::unreadable_literal,
-    reason = "Large AI tools crate; progressive refactor and documentation"
-)]
+pub(crate) mod float_helpers;
 
 // Capability-based AI client (TRUE PRIMAL!)
 // Delegates AI HTTP calls via capability discovery (network specialist)
@@ -135,7 +105,11 @@ pub mod dispatch {
 
     impl MultiModelDispatcher {
         /// Create a new multi-model dispatcher
-        pub async fn new(config: DispatcherConfig) -> Result<Self> {
+        ///
+        /// # Errors
+        ///
+        /// Currently infallible at construction; reserved for future validation failures.
+        pub fn new(config: DispatcherConfig) -> Result<Self> {
             let router = AIRouter::new(config.router_config.clone());
 
             // Vendor-specific direct HTTP modules are optional; production routes via IPC
@@ -146,26 +120,38 @@ pub mod dispatch {
         }
 
         /// Process a request with automatic model selection
+        ///
+        /// # Errors
+        ///
+        /// Propagates errors from the underlying [`AIRouter::process_request`].
         pub async fn process_request(
             &self,
             request: ChatRequest,
             task: AITask,
         ) -> Result<ChatResponse> {
-            let context = self.create_request_context(task).await;
+            let context = self.create_request_context(task);
             self.router.process_request(request, context).await
         }
 
         /// Process a streaming request with automatic model selection
+        ///
+        /// # Errors
+        ///
+        /// Propagates errors from the underlying [`AIRouter::process_stream_request`].
         pub async fn process_stream_request(
             &self,
             request: ChatRequest,
             task: AITask,
         ) -> Result<ChatResponseStream> {
-            let context = self.create_request_context(task).await;
+            let context = self.create_request_context(task);
             self.router.process_stream_request(request, context).await
         }
 
         /// Process a request with explicit model preference
+        ///
+        /// # Errors
+        ///
+        /// Propagates errors from the underlying [`AIRouter::process_request`].
         pub async fn process_with_model_preference(
             &self,
             request: ChatRequest,
@@ -173,7 +159,7 @@ pub mod dispatch {
             preferred_provider: Option<String>,
             preferred_model: Option<String>,
         ) -> Result<ChatResponse> {
-            let mut context = self.create_request_context(task).await;
+            let mut context = self.create_request_context(task);
 
             // Set routing hint for model preference
             context.routing_hint = Some(RoutingHint {
@@ -189,7 +175,7 @@ pub mod dispatch {
         }
 
         /// Create a request context with intelligent routing hints
-        async fn create_request_context(&self, task: AITask) -> RequestContext {
+        fn create_request_context(&self, task: AITask) -> RequestContext {
             let mut routing_hint = None;
 
             // Apply intelligent routing based on configuration and task characteristics
@@ -231,6 +217,11 @@ pub mod dispatch {
         }
 
         /// Get available models from all providers
+        ///
+        /// # Errors
+        ///
+        /// Returns `Ok` with models grouped by provider. Per-provider failures are logged and
+        /// skipped.
         pub async fn list_all_available_models(&self) -> Result<HashMap<String, Vec<String>>> {
             let mut all_models = HashMap::new();
 
@@ -255,7 +246,8 @@ pub mod dispatch {
         }
 
         /// Get the router for advanced usage
-        pub fn router(&self) -> &AIRouter {
+        #[must_use]
+        pub const fn router(&self) -> &AIRouter {
             &self.router
         }
     }
@@ -267,6 +259,7 @@ pub mod dispatch {
 
     impl DispatcherBuilder {
         /// Create a new dispatcher builder
+        #[must_use]
         pub fn new() -> Self {
             Self {
                 config: DispatcherConfig::default(),
@@ -274,6 +267,7 @@ pub mod dispatch {
         }
 
         /// Add an API key for a provider
+        #[must_use]
         pub fn with_api_key(
             mut self,
             provider: impl Into<String>,
@@ -284,26 +278,45 @@ pub mod dispatch {
         }
 
         /// Set routing strategy
+        #[must_use]
+        #[expect(
+            clippy::missing_const_for_fn,
+            reason = "Mutates DispatcherConfig (HashMap/strategy); not const"
+        )]
         pub fn with_routing_strategy(mut self, strategy: RoutingStrategy) -> Self {
             self.config.router_config.routing_strategy = strategy;
             self
         }
 
         /// Prefer local models for sensitive data
+        #[must_use]
+        #[expect(
+            clippy::missing_const_for_fn,
+            reason = "Mutates DispatcherConfig; not const"
+        )]
         pub fn prefer_local_for_sensitive(mut self, prefer: bool) -> Self {
             self.config.prefer_local_for_sensitive = prefer;
             self
         }
 
         /// Prefer API models for complex tasks
+        #[must_use]
+        #[expect(
+            clippy::missing_const_for_fn,
+            reason = "Mutates DispatcherConfig; not const"
+        )]
         pub fn prefer_api_for_complex(mut self, prefer: bool) -> Self {
             self.config.prefer_api_for_complex = prefer;
             self
         }
 
         /// Build the dispatcher
-        pub async fn build(self) -> Result<MultiModelDispatcher> {
-            MultiModelDispatcher::new(self.config).await
+        ///
+        /// # Errors
+        ///
+        /// Propagates construction errors from [`MultiModelDispatcher::new`].
+        pub fn build(self) -> Result<MultiModelDispatcher> {
+            MultiModelDispatcher::new(self.config)
         }
     }
 
@@ -314,10 +327,22 @@ pub mod dispatch {
     }
 }
 
-/// Client factory functions for easy instantiation
+/// Client factory functions for easy instantiation.
+///
+/// Each vendor client delegates HTTP via the ecosystem IPC proxy
+/// (`neural_api.proxy_http`) — no direct `reqwest`/`ring` dependency.
 pub mod clients {
+    #[cfg(any(feature = "openai", feature = "anthropic", feature = "gemini"))]
+    use std::sync::Arc;
 
-    /// Create an OpenAI-compatible client that sends traffic through the ecosystem IPC HTTP proxy.
+    #[cfg(any(feature = "openai", feature = "anthropic", feature = "gemini"))]
+    use crate::{AIClient, Result, ipc_routed_providers};
+
+    /// Create an OpenAI-compatible client routed through the ecosystem IPC HTTP proxy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the IPC-routed vendor client fails to initialize.
     #[cfg(feature = "openai")]
     pub fn openai(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
         ipc_routed_providers::IpcRoutedVendorClient::try_new(
@@ -326,7 +351,11 @@ pub mod clients {
         )
     }
 
-    /// Anthropic Messages API via IPC-delegated HTTP (`neural_api.proxy_http`).
+    /// Anthropic Messages API routed through the ecosystem IPC HTTP proxy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the IPC-routed vendor client fails to initialize.
     #[cfg(feature = "anthropic")]
     pub fn anthropic(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
         ipc_routed_providers::IpcRoutedVendorClient::try_new(
@@ -335,7 +364,11 @@ pub mod clients {
         )
     }
 
-    /// Google Gemini `generateContent` via IPC-delegated HTTP.
+    /// Google Gemini `generateContent` routed through the ecosystem IPC HTTP proxy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the IPC-routed vendor client fails to initialize.
     #[cfg(feature = "gemini")]
     pub fn gemini(api_key: impl Into<String>) -> Result<Arc<dyn AIClient>> {
         ipc_routed_providers::IpcRoutedVendorClient::try_new(
@@ -353,17 +386,24 @@ pub mod workflows {
     use crate::router::RoutingStrategy;
 
     /// Create a dispatcher optimized for development workflows
-    pub async fn create_dev_dispatcher() -> Result<MultiModelDispatcher> {
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`DispatcherBuilder::build`].
+    pub fn create_dev_dispatcher() -> Result<MultiModelDispatcher> {
         DispatcherBuilder::new()
             .prefer_local_for_sensitive(true)
             .prefer_api_for_complex(false)
             .with_routing_strategy(RoutingStrategy::BestFit)
             .build()
-            .await
     }
 
     /// Create a dispatcher optimized for production workflows
-    pub async fn create_production_dispatcher(
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`DispatcherBuilder::build`].
+    pub fn create_production_dispatcher(
         openai_key: Option<String>,
         anthropic_key: Option<String>,
     ) -> Result<MultiModelDispatcher> {
@@ -380,10 +420,14 @@ pub mod workflows {
             builder = builder.with_api_key("anthropic", key);
         }
 
-        builder.build().await
+        builder.build()
     }
 
     /// Process a simple text generation task with automatic model selection
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`MultiModelDispatcher::process_request`].
     pub async fn generate_text(
         dispatcher: &MultiModelDispatcher,
         prompt: impl Into<String>,
@@ -478,7 +522,6 @@ mod lib_dispatch_tests {
             .prefer_local_for_sensitive(false)
             .prefer_api_for_complex(true)
             .build()
-            .await
             .expect("dispatcher should construct without network providers");
         assert_eq!(d.router().get_provider_count(), 0);
         assert!(
@@ -494,7 +537,6 @@ mod lib_dispatch_tests {
         let d = DispatcherBuilder::new()
             .with_routing_strategy(RoutingStrategy::FirstMatch)
             .build()
-            .await
             .expect("build");
         d.router()
             .register_provider("mock", Arc::new(MockAIClient::new().with_latency(0)))
@@ -520,7 +562,7 @@ mod lib_dispatch_tests {
 
     #[tokio::test]
     async fn dispatcher_stream_and_model_preference_paths() {
-        let d = DispatcherBuilder::new().build().await.expect("build");
+        let d = DispatcherBuilder::new().build().expect("build");
         d.router()
             .register_provider("mock", Arc::new(MockAIClient::new().with_latency(0)))
             .expect("register");
@@ -544,9 +586,7 @@ mod lib_dispatch_tests {
 
     #[tokio::test]
     async fn workflows_dev_and_production_dispatchers_build() {
-        let dev = crate::workflows::create_dev_dispatcher()
-            .await
-            .expect("dev");
+        let dev = crate::workflows::create_dev_dispatcher().expect("dev");
         assert_eq!(
             dev.router().get_routing_strategy(),
             RoutingStrategy::BestFit
@@ -556,14 +596,13 @@ mod lib_dispatch_tests {
             Some("k1".to_string()),
             Some("k2".to_string()),
         )
-        .await
         .expect("prod");
         assert!(prod.router().is_remote_routing_enabled());
     }
 
     #[tokio::test]
     async fn workflows_generate_text_with_registered_provider() {
-        let d = DispatcherBuilder::new().build().await.expect("build");
+        let d = DispatcherBuilder::new().build().expect("build");
         d.router()
             .register_provider("mock", Arc::new(MockAIClient::new().with_latency(0)))
             .expect("register");

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
 //! Comprehensive tests for Context Learning System types
 //!
 //! Tests learning states, action types, and configurations.
 
-#![allow(clippy::field_reassign_with_default)] // Test code uses builder pattern
+#![expect(
+    clippy::field_reassign_with_default,
+    reason = "Test code uses builder pattern"
+)]
 
 use squirrel_context::learning::{ContextLearningManagerConfig, LearningActionType, LearningState};
 use std::time::Duration;

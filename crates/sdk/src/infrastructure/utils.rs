@@ -275,7 +275,7 @@ pub fn validate_plugin_id(id: &str) -> PluginResult<String> {
 
 /// Common error conversion utilities
 pub mod error_conversion {
-    #![allow(clippy::wildcard_imports)]
+    #![allow(clippy::wildcard_imports)] // Aligned with parent module re-exports
 
     use super::*;
 
@@ -368,7 +368,7 @@ pub mod error_conversion {
 
 /// Performance monitoring utilities
 pub mod performance {
-    #![allow(clippy::wildcard_imports)]
+    #![allow(clippy::wildcard_imports)] // Aligned with parent module re-exports
 
     use super::*;
 

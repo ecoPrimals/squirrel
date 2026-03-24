@@ -98,7 +98,10 @@ pub struct ConnectionInfo {
     pub messages_received: u64,
 }
 
-/// WebSocket transport (placeholder for now)
+/// Lightweight handle holding [`ConnectionInfo`] and [`WebSocketConfig`] for an active session.
+///
+/// The full accept/connect flow and I/O loops live in this module’s server/client helpers;
+/// this struct is the per-connection view used when recording metrics and routing messages.
 #[derive(Debug, Clone)]
 pub struct WebSocketTransport {
     /// Connection information
@@ -137,8 +140,8 @@ pub struct WebSocketServer {
     connections: Arc<DashMap<String, ConnectionInfo>>,
     /// Connection message senders
     connection_senders: Arc<DashMap<String, mpsc::Sender<MCPMessage>>>,
-    /// Message codec
-    codec: MessageCodec,
+    /// Message codec (shared via `Arc` — clone is a single pointer bump)
+    codec: Arc<MessageCodec>,
     /// Broadcast sender for server events
     event_sender: broadcast::Sender<ServerEvent>,
 }
@@ -153,7 +156,7 @@ impl WebSocketServer {
             config,
             connections: Arc::new(DashMap::new()),
             connection_senders: Arc::new(DashMap::new()),
-            codec: MessageCodec::new(),
+            codec: Arc::new(MessageCodec::new()),
             event_sender,
         }
     }
@@ -178,7 +181,7 @@ impl WebSocketServer {
             let config = Arc::new(self.config.clone()); // Wrap config in Arc to avoid clone in spawn
             let connections = Arc::clone(&self.connections);
             let connection_senders = Arc::clone(&self.connection_senders);
-            let codec = Arc::new(self.codec.clone()); // Wrap codec in Arc for sharing
+            let codec = Arc::clone(&self.codec);
             let event_sender = self.event_sender.clone(); // Broadcast sender is cheap to clone
             let peer_addr_str = peer_addr.to_string(); // Convert once outside spawn
             let connection_id_for_error = connection_id.clone(); // Clone for error message
@@ -205,7 +208,7 @@ impl WebSocketServer {
     }
 
     /// Handle a WebSocket connection
-    #[expect(
+    #[allow(
         clippy::too_many_arguments,
         reason = "WebSocket handler configuration; builder refactor planned"
     )]
@@ -379,8 +382,8 @@ pub struct WebSocketClient {
     message_sender: Arc<Mutex<Option<mpsc::Sender<MCPMessage>>>>,
     /// Connection info
     connection_info: Arc<RwLock<Option<ConnectionInfo>>>,
-    /// Message codec
-    codec: MessageCodec,
+    /// Message codec (shared via `Arc` for spawned tasks)
+    codec: Arc<MessageCodec>,
 }
 
 impl WebSocketClient {
@@ -391,7 +394,7 @@ impl WebSocketClient {
             config,
             message_sender: Arc::new(Mutex::new(None)),
             connection_info: Arc::new(RwLock::new(None)),
-            codec: MessageCodec::new(),
+            codec: Arc::new(MessageCodec::new()),
         }
     }
 
@@ -434,7 +437,7 @@ impl WebSocketClient {
             *sender = Some(msg_tx);
         }
 
-        let codec = self.codec.clone();
+        let codec = Arc::clone(&self.codec);
 
         // Spawn task to handle outgoing messages
         tokio::spawn(async move {
@@ -462,7 +465,7 @@ impl WebSocketClient {
         });
 
         // Spawn task to handle incoming messages
-        let codec_in = self.codec.clone();
+        let codec_in = Arc::clone(&self.codec);
         tokio::spawn(async move {
             while let Some(message) = ws_receiver.next().await {
                 let message = match message {

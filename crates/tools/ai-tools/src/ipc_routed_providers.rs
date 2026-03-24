@@ -8,15 +8,49 @@ use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 use crate::common::capability::{AICapabilities, ModelType, TaskType};
 use crate::common::client::AIClient;
 use crate::common::types::{
-    ChatChoice, ChatMessage, ChatRequest, ChatResponse, ChatResponseStream, MessageRole, UsageInfo,
+    ChatChoice, ChatRequest, ChatResponse, ChatResponseStream, MessageRole, UsageInfo,
 };
 use crate::error::{Error, Result};
-use crate::neural_http::NeuralHttpClient;
+use crate::neural_http::{HttpResponse, NeuralHttpClient};
+
+/// HTTP surface used by [`IpcRoutedVendorClient`] (implemented by [`NeuralHttpClient`]; mockable in tests).
+#[async_trait]
+trait IpcHttpDelegate: Send + Sync {
+    async fn post_json(
+        &self,
+        url: &str,
+        headers: Vec<(String, String)>,
+        body: &str,
+    ) -> anyhow::Result<HttpResponse>;
+
+    async fn get(&self, url: &str, headers: Vec<(String, String)>) -> anyhow::Result<HttpResponse>;
+}
+
+#[async_trait]
+#[allow(
+    clippy::use_self,
+    reason = "Call inherent NeuralHttpClient::{post_json,get}; Self would recurse with trait methods"
+)]
+impl IpcHttpDelegate for NeuralHttpClient {
+    async fn post_json(
+        &self,
+        url: &str,
+        headers: Vec<(String, String)>,
+        body: &str,
+    ) -> anyhow::Result<HttpResponse> {
+        // Call inherent methods (not the trait method being defined).
+        NeuralHttpClient::post_json(self, url, headers, body).await
+    }
+
+    async fn get(&self, url: &str, headers: Vec<(String, String)>) -> anyhow::Result<HttpResponse> {
+        NeuralHttpClient::get(self, url, headers).await
+    }
+}
 
 /// Which vendor API shape to use when building requests (all traffic still goes through IPC).
 #[derive(Debug, Clone, Copy)]
@@ -35,7 +69,7 @@ fn ipc_service_id() -> String {
 
 /// HTTP AI access delegated through IPC (`http.client` / neural proxy).
 pub struct IpcRoutedVendorClient {
-    http: NeuralHttpClient,
+    http: Arc<dyn IpcHttpDelegate>,
     api_key: String,
     vendor: VendorKind,
 }
@@ -66,13 +100,13 @@ impl IpcRoutedVendorClient {
             ))
         })?;
         Ok(Arc::new(Self {
-            http,
+            http: Arc::new(http),
             api_key,
             vendor,
         }))
     }
 
-    fn vendor_default_model(&self) -> &'static str {
+    const fn vendor_default_model(&self) -> &'static str {
         match self.vendor {
             VendorKind::OpenAI => "gpt-4o-mini",
             VendorKind::Anthropic => "claude-3-5-sonnet-20241022",
@@ -130,7 +164,7 @@ impl IpcRoutedVendorClient {
         for m in &request.messages {
             match m.role {
                 MessageRole::System => {
-                    system = m.content.clone();
+                    system.clone_from(&m.content);
                 }
                 MessageRole::User => messages.push(json!({
                     "role": "user",
@@ -195,6 +229,11 @@ impl IpcRoutedVendorClient {
     }
 }
 
+#[inline]
+fn json_u64_as_u32_saturating(n: u64) -> u32 {
+    u32::try_from(n).unwrap_or(u32::MAX)
+}
+
 fn parse_openai_chat_response(body: &str) -> Result<ChatResponse> {
     let v: Value = serde_json::from_str(body).map_err(|e| Error::Parse(e.to_string()))?;
     let id = v["id"].as_str().unwrap_or("openai-ipc").to_string();
@@ -202,11 +241,15 @@ fn parse_openai_chat_response(body: &str) -> Result<ChatResponse> {
     let choice0 = &v["choices"][0];
     let content = choice0["message"]["content"].as_str().map(str::to_string);
     let finish = choice0["finish_reason"].as_str().map(str::to_string);
-    let usage = v["usage"].as_object().map(|u| UsageInfo {
-        prompt_tokens: u["prompt_tokens"].as_u64().unwrap_or(0) as u32,
-        completion_tokens: u["completion_tokens"].as_u64().unwrap_or(0) as u32,
-        total_tokens: u["total_tokens"].as_u64().unwrap_or(0) as u32,
-    });
+    let usage = v["usage"]
+        .as_object()
+        .map(|u: &Map<String, Value>| UsageInfo {
+            prompt_tokens: json_u64_as_u32_saturating(u["prompt_tokens"].as_u64().unwrap_or(0)),
+            completion_tokens: json_u64_as_u32_saturating(
+                u["completion_tokens"].as_u64().unwrap_or(0),
+            ),
+            total_tokens: json_u64_as_u32_saturating(u["total_tokens"].as_u64().unwrap_or(0)),
+        });
     Ok(ChatResponse {
         id,
         model,
@@ -234,11 +277,14 @@ fn parse_anthropic_chat_response(body: &str) -> Result<ChatResponse> {
             }
         }
     }
-    let usage = v["usage"].as_object().map(|u| UsageInfo {
-        prompt_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32,
-        completion_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
-        total_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32
-            + u["output_tokens"].as_u64().unwrap_or(0) as u32,
+    let usage = v["usage"].as_object().map(|u: &Map<String, Value>| {
+        let input = json_u64_as_u32_saturating(u["input_tokens"].as_u64().unwrap_or(0));
+        let output = json_u64_as_u32_saturating(u["output_tokens"].as_u64().unwrap_or(0));
+        UsageInfo {
+            prompt_tokens: input,
+            completion_tokens: output,
+            total_tokens: input.saturating_add(output),
+        }
     });
     Ok(ChatResponse {
         id,
@@ -354,5 +400,272 @@ impl AIClient for IpcRoutedVendorClient {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+}
+
+#[cfg(test)]
+impl IpcRoutedVendorClient {
+    /// Build client with an injected HTTP delegate (unit tests).
+    fn new_for_test(
+        http: Arc<dyn IpcHttpDelegate>,
+        api_key: impl Into<String>,
+        vendor: VendorKind,
+    ) -> Self {
+        Self {
+            http,
+            api_key: api_key.into(),
+            vendor,
+        }
+    }
+}
+
+/// Deterministic mock for [`IpcHttpDelegate`] (FIFO responses per operation).
+#[cfg(test)]
+struct MockNeuralHttp {
+    post_json_responses:
+        std::sync::Arc<tokio::sync::Mutex<std::collections::VecDeque<HttpResponse>>>,
+    get_responses: std::sync::Arc<tokio::sync::Mutex<std::collections::VecDeque<HttpResponse>>>,
+}
+
+#[cfg(test)]
+impl MockNeuralHttp {
+    fn new() -> Self {
+        Self {
+            post_json_responses: std::sync::Arc::new(tokio::sync::Mutex::new(
+                std::collections::VecDeque::new(),
+            )),
+            get_responses: std::sync::Arc::new(tokio::sync::Mutex::new(
+                std::collections::VecDeque::new(),
+            )),
+        }
+    }
+
+    async fn push_post_json(&self, body: impl Into<String>) {
+        self.post_json_responses
+            .lock()
+            .await
+            .push_back(HttpResponse {
+                status: 200,
+                headers: vec![],
+                body: body.into(),
+            });
+    }
+
+    async fn push_get(&self, body: impl Into<String>) {
+        self.get_responses.lock().await.push_back(HttpResponse {
+            status: 200,
+            headers: vec![],
+            body: body.into(),
+        });
+    }
+}
+
+#[cfg(test)]
+#[async_trait]
+impl IpcHttpDelegate for MockNeuralHttp {
+    async fn post_json(
+        &self,
+        _url: &str,
+        _headers: Vec<(String, String)>,
+        _body: &str,
+    ) -> anyhow::Result<HttpResponse> {
+        self.post_json_responses
+            .lock()
+            .await
+            .pop_front()
+            .ok_or_else(|| anyhow::anyhow!("MockNeuralHttp: no post_json response queued"))
+    }
+
+    async fn get(
+        &self,
+        _url: &str,
+        _headers: Vec<(String, String)>,
+    ) -> anyhow::Result<HttpResponse> {
+        self.get_responses
+            .lock()
+            .await
+            .pop_front()
+            .ok_or_else(|| anyhow::anyhow!("MockNeuralHttp: no get response queued"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::client::AIClient;
+    use crate::common::types::{ChatMessage, ChatRequest, MessageRole};
+
+    fn msg(role: MessageRole, content: &str) -> ChatMessage {
+        ChatMessage {
+            role,
+            content: Some(content.to_string()),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+        }
+    }
+
+    #[test]
+    fn vendor_kind_default_models_match_provider_names() {
+        let cases = [
+            (VendorKind::OpenAI, "gpt-4o-mini", "openai-ipc"),
+            (
+                VendorKind::Anthropic,
+                "claude-3-5-sonnet-20241022",
+                "anthropic-ipc",
+            ),
+            (VendorKind::Gemini, "gemini-1.5-flash", "gemini-ipc"),
+        ];
+        for (vendor, expected_model, expected_name) in cases {
+            let http = Arc::new(MockNeuralHttp::new());
+            let client = IpcRoutedVendorClient::new_for_test(http, "k", vendor);
+            assert_eq!(client.default_model(), expected_model);
+            assert_eq!(client.provider_name(), expected_name);
+        }
+    }
+
+    #[test]
+    fn json_u64_saturates_to_u32_max() {
+        let n = u64::from(u32::MAX) + 1;
+        assert_eq!(json_u64_as_u32_saturating(n), u32::MAX);
+    }
+
+    #[test]
+    fn parse_openai_response_maps_usage_and_content() {
+        let body = r#"{
+            "id": "chatcmpl-1",
+            "model": "gpt-4o-mini",
+            "choices": [{"message": {"content": "hi"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5}
+        }"#;
+        let r = parse_openai_chat_response(body).unwrap();
+        assert_eq!(r.id, "chatcmpl-1");
+        assert_eq!(r.model, "gpt-4o-mini");
+        assert_eq!(r.choices[0].content.as_deref(), Some("hi"));
+        assert_eq!(r.choices[0].finish_reason.as_deref(), Some("stop"));
+        let u = r.usage.expect("usage");
+        assert_eq!(u.prompt_tokens, 3);
+        assert_eq!(u.completion_tokens, 2);
+        assert_eq!(u.total_tokens, 5);
+    }
+
+    #[test]
+    fn parse_openai_invalid_json_errors() {
+        assert!(parse_openai_chat_response("not json").is_err());
+    }
+
+    #[test]
+    fn parse_anthropic_response_maps_text_block_and_usage() {
+        let body = r#"{
+            "id": "msg_1",
+            "model": "claude-3-5-sonnet-20241022",
+            "content": [{"type": "text", "text": "hello"}],
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": 10, "output_tokens": 20}
+        }"#;
+        let r = parse_anthropic_chat_response(body).unwrap();
+        assert_eq!(r.choices[0].content.as_deref(), Some("hello"));
+        assert_eq!(r.choices[0].finish_reason.as_deref(), Some("end_turn"));
+        let u = r.usage.expect("usage");
+        assert_eq!(u.prompt_tokens, 10);
+        assert_eq!(u.completion_tokens, 20);
+        assert_eq!(u.total_tokens, 30);
+    }
+
+    #[test]
+    fn parse_gemini_response_concatenates_parts() {
+        let body = r#"{"candidates":[{"content":{"parts":[{"text":"a"},{"text":"b"}]}}]}"#;
+        let r = parse_gemini_chat_response(body, "gemini-1.5-flash").unwrap();
+        assert_eq!(r.choices[0].content.as_deref(), Some("ab"));
+        assert_eq!(r.model, "gemini-1.5-flash");
+    }
+
+    #[tokio::test]
+    async fn chat_openai_builds_request_and_parses_mock_response() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        mock
+            .push_post_json(r#"{"id":"x","model":"m","choices":[{"message":{"content":"ok"},"finish_reason":null}],"usage":null}"#)
+            .await;
+        let client = IpcRoutedVendorClient::new_for_test(mock, "secret", VendorKind::OpenAI);
+        let req = ChatRequest {
+            model: Some("custom-model".to_string()),
+            messages: vec![msg(MessageRole::System, "sys"), msg(MessageRole::User, "u")],
+            parameters: None,
+            tools: None,
+        };
+        let out = client.chat_openai(req).await.unwrap();
+        assert_eq!(out.choices[0].content.as_deref(), Some("ok"));
+    }
+
+    #[tokio::test]
+    async fn chat_anthropic_includes_system_and_skips_unknown_roles() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        mock.push_post_json(
+            r#"{"id":"a","model":"m","content":[{"type":"text","text":"y"}],"usage":null}"#,
+        )
+        .await;
+        let client = IpcRoutedVendorClient::new_for_test(mock, "key", VendorKind::Anthropic);
+        let req = ChatRequest {
+            model: None,
+            messages: vec![
+                msg(MessageRole::System, "be nice"),
+                msg(MessageRole::User, "hi"),
+                msg(MessageRole::Tool, "ignored"),
+            ],
+            parameters: None,
+            tools: None,
+        };
+        let out = client.chat_anthropic(req).await.unwrap();
+        assert_eq!(out.choices[0].content.as_deref(), Some("y"));
+    }
+
+    #[tokio::test]
+    async fn chat_gemini_posts_parts_from_user_and_system() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        mock.push_post_json(r#"{"candidates":[{"content":{"parts":[{"text":"g"}]}}]}"#)
+            .await;
+        let client = IpcRoutedVendorClient::new_for_test(mock, "apikey", VendorKind::Gemini);
+        let req = ChatRequest {
+            model: Some("gemini-pro".to_string()),
+            messages: vec![msg(MessageRole::System, "s"), msg(MessageRole::User, "u")],
+            parameters: None,
+            tools: None,
+        };
+        let out = client.chat_gemini(req).await.unwrap();
+        assert_eq!(out.choices[0].content.as_deref(), Some("g"));
+    }
+
+    #[tokio::test]
+    async fn list_models_openai_parses_data_array() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        mock.push_get(r#"{"data":[{"id":"gpt-4"},{"id":"ada"}]}"#)
+            .await;
+        let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::OpenAI);
+        let models = client.list_models().await.unwrap();
+        assert_eq!(models, vec!["gpt-4".to_string(), "ada".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn list_models_anthropic_returns_default_only() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::Anthropic);
+        let models = client.list_models().await.unwrap();
+        assert_eq!(models.len(), 1);
+        assert!(models[0].contains("claude"));
+    }
+
+    #[tokio::test]
+    async fn chat_stream_is_unsupported() {
+        let mock = Arc::new(MockNeuralHttp::new());
+        let client = IpcRoutedVendorClient::new_for_test(mock, "k", VendorKind::OpenAI);
+        let res = client
+            .chat_stream(ChatRequest {
+                model: None,
+                messages: vec![],
+                parameters: None,
+                tools: None,
+            })
+            .await;
+        assert!(matches!(res, Err(Error::UnsupportedProvider(_))));
     }
 }

@@ -9,7 +9,11 @@
 //! discovery at runtime.
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 mod tests {
     use super::super::ai_inference::{AIInferenceRequest, AIProviderSelection};
     use crate::ecosystem::EcosystemManager;

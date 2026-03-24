@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,720 passing | **Edition**: 2024 | **Rust**: 1.94+ | **Coverage**: 86.0%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-only + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,035 passing | **Edition**: 2024 | **Rust**: 1.94+ | **Coverage**: 85.4%
 
 ---
 
@@ -74,7 +74,7 @@ Fallback: `/run/user/<uid>/biomeos/squirrel.sock` or `/tmp/squirrel.sock`.
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   6,720 tests passing
+Fitness:   7,035 tests passing
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -141,7 +141,7 @@ squirrel/
 - `cargo fmt` — zero formatting violations
 - Pure Rust: zero C dependencies in default build (ecoBin v3.0 compliant — `sysinfo` removed)
 - All source files under 1,000 lines
-- SPDX `AGPL-3.0-only` license header on all 1,287 `.rs` files
+- SPDX `AGPL-3.0-only` license header on all 1,327 `.rs` files
 - Edition 2024 across all 21 workspace crates
 - `tracing` for structured logging (no `println!` in production code)
 - Typed errors via `thiserror`; `.context()` on all key error paths

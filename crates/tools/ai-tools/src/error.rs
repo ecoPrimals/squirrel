@@ -95,11 +95,13 @@ impl fmt::Display for AIError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Configuration(msg) => write!(f, "Configuration error: {msg}"),
-            Self::Network(msg) => write!(f, "Network error: {msg}"),
+            Self::Network(msg) | Self::NetworkError(msg) => {
+                write!(f, "Network error: {msg}")
+            }
             Self::Http(msg) => write!(f, "HTTP error: {msg}"),
             Self::Provider(msg) => write!(f, "Provider error: {msg}"),
             Self::Model(msg) => write!(f, "Model error: {msg}"),
-            Self::Parse(msg) => write!(f, "Parse error: {msg}"),
+            Self::Parse(msg) | Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
             Self::RateLimit(msg) => write!(f, "Rate limit error: {msg}"),
             Self::Streaming(msg) => write!(f, "Streaming error: {msg}"),
             Self::Runtime(msg) => write!(f, "Runtime error: {msg}"),
@@ -109,8 +111,6 @@ impl fmt::Display for AIError {
             Self::Timeout(msg) => write!(f, "Timeout error: {msg}"),
             Self::Validation(msg) => write!(f, "Validation error: {msg}"),
             Self::InvalidRequest(msg) => write!(f, "Invalid request: {msg}"),
-            Self::NetworkError(msg) => write!(f, "Network error: {msg}"),
-            Self::ParseError(msg) => write!(f, "Parse error: {msg}"),
             Self::UnsupportedProvider(msg) => write!(f, "Unsupported provider: {msg}"),
             Self::Generic(msg) => write!(f, "Error: {msg}"),
             Self::Parsing(msg) => write!(f, "Parsing error: {msg}"),
@@ -147,9 +147,9 @@ impl From<universal_error::tools::AIToolsError> for AIError {
     fn from(err: universal_error::tools::AIToolsError) -> Self {
         use universal_error::tools::AIToolsError;
         match err {
-            AIToolsError::Provider(s) => Self::Provider(s),
-            AIToolsError::Router(s) => Self::Provider(s),
-            AIToolsError::Local(s) => Self::Provider(s),
+            AIToolsError::Provider(s) | AIToolsError::Router(s) | AIToolsError::Local(s) => {
+                Self::Provider(s)
+            }
             AIToolsError::ModelNotFound(s) => Self::Model(s),
             AIToolsError::RateLimitExceeded(s) => Self::RateLimit(s),
             AIToolsError::InvalidResponse(s) => Self::InvalidResponse(s),

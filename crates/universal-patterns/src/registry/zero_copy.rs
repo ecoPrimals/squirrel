@@ -9,6 +9,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use universal_constants::primal_names;
+
 /// String cache for common registry identifiers
 ///
  Maintains a cache of ``Arc<str>`` instances for frequently used strings like
@@ -33,12 +35,12 @@ impl RegistryStringCache {
     pub fn with_common_values(self) -> Self {
         let common_values = [
             // Primal types
-            "squirrel",
-            "nestgate",
-            "toadstool",
-            "beardog",
-            "songbird",
-            "biomeos",
+            primal_names::SQUIRREL,
+            primal_names::NESTGATE,
+            primal_names::TOADSTOOL,
+            primal_names::BEARDOG,
+            primal_names::SONGBIRD,
+            primal_names::BIOMEOS,
             // Common capabilities
             "mcp",
             "ai",

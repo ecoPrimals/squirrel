@@ -204,7 +204,10 @@ mod tests {
     // ========== Error Handling Tests ==========
 
     #[test]
-    #[allow(clippy::unnecessary_literal_unwrap)]
+    #[expect(
+        clippy::unnecessary_literal_unwrap,
+        reason = "Test code: explicit unwrap/expect and local lint noise"
+    )]
     fn test_result_ok_handling() {
         let result: Result<serde_json::Value, String> = Ok(json!({"success": true}));
         let value = result.unwrap();
@@ -215,7 +218,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unnecessary_literal_unwrap)]
+    #[expect(
+        clippy::unnecessary_literal_unwrap,
+        reason = "Test code: explicit unwrap/expect and local lint noise"
+    )]
     fn test_result_error_handling() {
         let result: Result<serde_json::Value, String> = Err("test error".to_string());
         assert_eq!(result.unwrap_err(), "test error");

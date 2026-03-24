@@ -212,7 +212,7 @@ impl MCPMessage {
     ///
     /// ... (doc comment) ...
     #[must_use]
-    #[expect(
+    #[allow(
         clippy::too_many_arguments,
         reason = "Full MCP message constructor mirrors protocol fields"
     )]

@@ -110,7 +110,10 @@ impl From<serde_yaml_ng::Error> for RuleError {
 }
 
 #[cfg(test)]
-#[allow(clippy::unnecessary_literal_unwrap)] // Tests intentionally create Result types
+#[expect(
+    clippy::unnecessary_literal_unwrap,
+    reason = "Tests intentionally create Result types"
+)]
 mod tests {
     use super::*;
     use std::path::PathBuf;

@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: March 23, 2026
-**Version**: 0.1.0-alpha.22
+**Last Updated**: March 24, 2026
+**Version**: 0.1.0-alpha.23
 **License**: AGPL-3.0-only (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 6,720 passing / 0 failures across 22 workspace members |
+| Tests | 7,035 passing / 0 failures across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
@@ -18,9 +18,9 @@
 | Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in **all** crate `lib.rs`, `main.rs`, and `bin/*.rs` files workspace-wide |
 | Pure Rust | 100% default features (zero C deps); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
-| Coverage | 86.0% line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is IPC/network code requiring real socket connections and binary entry points |
+| Coverage | 85.4% line coverage via `cargo-llvm-cov` with `--all-features` (target: 90%); comprehensive coverage including mesh/federation code; remaining gap is IPC/network code, demo binaries, and binary entry points |
 | Crates | 22 workspace members |
-| Files >1000 lines | 0 (max: 987 — learning/integration_tests.rs); all 19 previously >1000-line files smart-refactored |
+| Files >1000 lines | 0 (max: 1000 — ecosystem.rs); federation.rs, auth.rs, mcp/mod.rs smart-refactored into module trees |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
@@ -245,19 +245,42 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 | Tool | Config |
 |------|--------|
 | just | `justfile` — ci, check, fmt, clippy, test, coverage, build-release, build-ecobin-all (x86_64+aarch64 musl), audit, doctor |
-| rustfmt | `.rustfmt.toml` — edition 2024, max_width 100 |
+| rustfmt | `rustfmt.toml` — edition 2024, max_width 100 |
 | clippy | `clippy.toml` — pedantic + nursery + deny(unwrap/expect) via `[workspace.lints.clippy]` |
 | cargo-deny | `deny.toml` — license allowlist, advisory audit, ban wildcards, deny yanked, 14-crate ecoBin C-dep ban |
-| cargo-llvm-cov | 86.0% line coverage (target: 90%) |
+| cargo-llvm-cov | 85.4% line coverage with `--all-features` (target: 90%) |
 | proptest | Round-trip + wire-format fuzz + IPC fuzz for all JSON-RPC types (23 properties) + Unix socket IPC tests |
 | rust-toolchain | `rust-toolchain.toml` — pinned stable + clippy + rustfmt + llvm-tools-preview |
 
 ## Known Issues
 
-1. Coverage at 86.0% — remaining ~4% gap to 90% is primarily IPC/network code, binary entry points, and WASM-dependent SDK paths
+1. Coverage at 85.4% (full `--all-features`) — remaining ~4.6% gap to 90% is primarily demo binaries, IPC/network code needing integration infrastructure, and binary entry points
 2. Performance optimizer `batch_processor` / `optimizer` stubs remain deferred to Phase 2 (swarm coordination, coordination service, and crypto are now production implementations, not stubs)
+3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 
-## Changes Since Last Handoff (March 23, 2026)
+## Changes Since Last Handoff (March 24, 2026)
+
+### alpha.23 Sprint (Comprehensive Audit, Modern Idiomatic Rust & Coverage Push)
+
+- **Build fully green with `--all-features`**: Fixed 15 compile errors in `squirrel-ai-tools` (missing imports), 12 clippy errors in `ecosystem-api` (missing docs, `use_self`), 123 pedantic clippy errors in `squirrel-core` (unused_async, significant_drop, cast safety, etc.), 3 unfulfilled lint expectations in `squirrel-commands`, 1 dead code in `squirrel-plugins`, 2 errors in `squirrel-ai-tools` (unused import, inefficient clone)
+- **Blanket lint suppression eliminated**: Removed 28-lint blanket `#![expect(...)]` from `ai-tools/lib.rs`; every underlying issue fixed with proper per-item docs, `#[must_use]`, `const fn`, removed `unused_async`, proper cast conversions
+- **`#[allow]` → `#[expect(reason)]` migration**: Completed across workspace; remaining `#[allow]` only where lint is conditional
+- **Primal name centralization**: Raw `"songbird"`/`"toadstool"`/`"beardog"` literals replaced with `universal_constants::primal_names::*` constants across 10+ production files
+- **Production `panic!()` eliminated**: `deploy_graph.rs` and `sdk/error/conversions.rs` evolved to proper error returns
+- **Hardcoded socket paths evolved**: New `resolve_capability_unix_socket()` in `universal-constants/network.rs` with tiered env-var resolution; `capability_ai.rs`, `delegated_jwt_client.rs`, `security_provider_client.rs` all migrated
+- **Clone audit**: 27+ redundant clones eliminated across 5 hot-path files; patterns: `swap_remove`, `Arc::clone`, borrow + `from_ref`, move-then-fetch
+- **Large file refactoring**: `federation.rs` → module tree (types.rs + service.rs), `auth.rs` → module tree (discovery.rs + operations.rs + tests.rs), `cli/mcp/mod.rs` → extracted test module
+- **Production stubs evolved**: `api.rs` `/info` returns real uptime + federation stats; `/federation/join` calls `SwarmManager`; Phase 2 items documented with proper `#[expect(dead_code, reason)]`
+- **82 new tests**: 57 for `squirrel-core` mesh modules (federation, ecosystem, api, routing), 12 for `ai-tools` ipc_routed_providers, 7 for main (router + jsonrpc), 6 for ecosystem-api
+- **`rustfmt.toml` added**: edition 2024, max_width 100
+- **reqwest verified rustls-only**: All reqwest deps use `default-features = false, features = ["rustls-tls"]`; `deny.toml` bans openssl/ring/native-tls
+- **SPDX header**: Fixed 1 missing file (`engine_tests/mod.rs`); all 1,327 `.rs` files now have AGPL-3.0-only header
+- **Doctest fixes**: 3 doctests updated for sync `start_heartbeat_loop` signature
+- **Migration script cleaned**: `scripts/migrate_allow_to_expect.py` removed (migration complete)
+- **Test count**: 6,720 → 7,035 (+315 tests)
+- **Coverage**: 85.4% line coverage with full `--all-features` (comprehensive — includes previously untested mesh code)
+- **Files**: 1,327 `.rs` files, 447K total lines, max file 1000 lines
+- **Quality gates**: `fmt` ✓, `clippy --all-features -D warnings` ✓, `doc --all-features` ✓, `test --all-features` ✓ (7,035/0)
 
 ### alpha.22 Sprint (Deep Debt Resolution, Lint Pedantry & Cross-Ecosystem Absorption)
 

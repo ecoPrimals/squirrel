@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
+#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)] // Test code: explicit unwrap/expect and local lint noise
 
 // Integration tests gated behind `integration-tests` feature — requires http-auth
 // for AuthService, which depends on reqwest/network access.

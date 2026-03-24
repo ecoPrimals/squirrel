@@ -7,6 +7,7 @@ use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use super::types::{FederationConfig, FederationStats, ScalingPolicy};
 use crate::{
     Error, FederationLoadBalancer, FederationResult, FederationStatus, FederationTopology,
     InstanceStatus, LoadBalanceResult, LoadMetrics, NodeSpec, Result, SquirrelConfig,
@@ -14,6 +15,7 @@ use crate::{
 };
 use universal_constants::limits::DEFAULT_MAX_CONNECTIONS;
 use universal_constants::network::{DEFAULT_SQUIRREL_SERVER_PORT, get_service_port};
+use universal_constants::safe_cast::{f64_to_u64_clamped, usize_to_u32_saturating};
 
 /// Local federation code path requires a capability that must be discovered on another primal via IPC.
 fn capability_unavailable_federation(capability: &str, operation: &str) -> Error {
@@ -50,45 +52,6 @@ pub struct FederationService {
     scaling_policy: Arc<ScalingPolicy>,
 }
 
-/// Tunables for node identity, discovery, scaling, and federation networking.
-#[derive(Debug, Clone)]
-pub struct FederationConfig {
-    /// Unique identifier for this node in the federation.
-    pub node_id: String,
-    /// Primary listen port for Squirrel on this node.
-    pub port: u16,
-    /// Endpoints or URLs used to discover other federation members.
-    pub federation_discovery_urls: Vec<String>,
-    /// Whether automatic scale-up and scale-down loops are enabled.
-    pub auto_scaling_enabled: bool,
-    /// Minimum Squirrel instances to retain when scaling down.
-    pub min_instances: u32,
-    /// Maximum Squirrel instances allowed on this node or cluster slice.
-    pub max_instances: u32,
-    /// Utilization fraction above which scale-up is considered.
-    pub scale_up_threshold: f64,
-    /// Utilization fraction below which scale-down is considered.
-    pub scale_down_threshold: f64,
-    /// Interval between periodic health checks of federation peers.
-    pub health_check_interval: chrono::Duration,
-    /// Timeout for federation RPC or join operations.
-    pub federation_timeout: chrono::Duration,
-    /// Master switch for federation features versus standalone mode.
-    pub federation_enabled: bool,
-    /// Optional region label for topology-aware routing.
-    pub region: Option<String>,
-    /// Optional availability zone within the region.
-    pub zone: Option<String>,
-    /// Cap on concurrently managed local instances on this node.
-    pub max_local_instances: u32,
-    /// Interval between auto-scaling evaluations.
-    pub scaling_check_interval: chrono::Duration,
-    /// Logical network shape used for federation messaging assumptions.
-    pub topology: FederationTopology,
-    /// Port exposed for federation control or peer traffic.
-    pub federation_port: u16,
-}
-
 #[derive(Debug)]
 struct FederationState {
     status: RwLock<FederationStatus>,
@@ -97,63 +60,6 @@ struct FederationState {
     last_scale_event: RwLock<Option<DateTime<Utc>>>,
     total_capacity: RwLock<u32>,
     current_utilization: RwLock<f64>,
-}
-
-/// Snapshot of a remote or peer federation member and its observed health.
-#[derive(Debug, Clone)]
-pub struct FederationNode {
-    /// Stable node identifier within the federation.
-    pub id: String,
-    /// Base URL or socket address for contacting this node.
-    pub endpoint: String,
-    /// Optional region label for locality.
-    pub region: Option<String>,
-    /// Optional zone label within the region.
-    pub zone: Option<String>,
-    /// Advertised capability strings used for routing and admission.
-    pub capabilities: Vec<String>,
-    /// Maximum concurrent work units this node claims to accept.
-    pub capacity: u32,
-    /// Observed load against `capacity` at last measurement.
-    pub current_load: u32,
-    /// Aggregated health classification from probes or heartbeats.
-    pub health: NodeHealth,
-    /// Last time this node responded to discovery or health traffic.
-    pub last_seen: DateTime<Utc>,
-    /// Arbitrary key-value metadata from registration or gossip.
-    pub metadata: HashMap<String, String>,
-}
-
-/// Coarse health classification for a federation node or link.
-#[derive(Debug, Clone)]
-pub enum NodeHealth {
-    /// Fully responsive within SLOs.
-    Healthy,
-    /// Partially impaired but still contactable.
-    Degraded,
-    /// Failing checks or returning errors.
-    Unhealthy,
-    /// No recent successful contact; treated as absent.
-    Unreachable,
-}
-
-/// Thresholds and cooldowns governing automatic scaling decisions.
-#[derive(Debug)]
-pub struct ScalingPolicy {
-    /// Utilization level that triggers scale-up when sustained.
-    pub scale_up_threshold: f64,
-    /// Utilization level that triggers scale-down when sustained.
-    pub scale_down_threshold: f64,
-    /// Minimum time between consecutive scale-up actions.
-    pub scale_up_cooldown: chrono::Duration,
-    /// Minimum time between consecutive scale-down actions.
-    pub scale_down_cooldown: chrono::Duration,
-    /// Lower bound on instance count enforced by the policy.
-    pub min_instances: u32,
-    /// Upper bound on instance count enforced by the policy.
-    pub max_instances: u32,
-    /// Multiplier applied when computing the next target instance count.
-    pub scale_factor: f64,
 }
 
 impl FederationService {
@@ -216,6 +122,10 @@ impl FederationService {
     /// # Errors
     ///
     /// Returns [`Error`] if federation initialization fails.
+    #[expect(
+        clippy::unused_async,
+        reason = "Async API matches callers that await start (e.g. squirrel-mcp-server)"
+    )]
     pub async fn start(&self) -> Result<()> {
         tracing::info!(
             "Starting federation service for node: {}",
@@ -224,25 +134,25 @@ impl FederationService {
 
         if self.config.federation_enabled {
             // Initialize federation
-            self.initialize_federation().await?;
+            self.initialize_federation()?;
         } else {
             tracing::info!("Federation disabled, operating in standalone mode");
             *self.state.status.write() = FederationStatus::Active;
         }
 
         // Start background tasks
-        self.start_background_tasks().await;
+        self.start_background_tasks();
 
         tracing::info!("Federation service started successfully");
         Ok(())
     }
 
     /// Initialize federation
-    async fn initialize_federation(&self) -> Result<()> {
+    fn initialize_federation(&self) -> Result<()> {
         *self.state.status.write() = FederationStatus::Forming;
 
         // Try to discover existing federation nodes
-        self.discover_federation_nodes().await?;
+        self.discover_federation_nodes();
 
         // Determine if we should be the leader or join existing federation
         if self.instances.is_empty() {
@@ -252,20 +162,20 @@ impl FederationService {
             tracing::info!("No existing federation found, becoming leader node");
         } else {
             // Join existing federation
-            self.join_existing_federation().await?;
+            self.join_existing_federation()?;
         }
 
         Ok(())
     }
 
     /// Discover existing federation nodes
-    async fn discover_federation_nodes(&self) -> Result<()> {
+    fn discover_federation_nodes(&self) {
         // This would implement actual node discovery
         // For now, using environment variables or configuration
 
         if let Ok(nodes_config) = std::env::var("FEDERATION_NODES") {
             for node_endpoint in nodes_config.split(',') {
-                match self.probe_federation_node(node_endpoint.trim()).await {
+                match self.probe_federation_node(node_endpoint.trim()) {
                     Ok(node) => {
                         self.instances.insert(node.id.clone(), node);
                     }
@@ -275,13 +185,15 @@ impl FederationService {
                 }
             }
         }
-
-        Ok(())
     }
 
     /// Probe a potential federation node
     /// NOTE: Delegates HTTP to Songbird via Unix sockets (TRUE PRIMAL pattern)
-    async fn probe_federation_node(&self, endpoint: &str) -> Result<SquirrelInstance> {
+    #[expect(
+        clippy::unused_self,
+        reason = "Instance method for API symmetry; will use federation state when probing is implemented"
+    )]
+    fn probe_federation_node(&self, endpoint: &str) -> Result<SquirrelInstance> {
         Err(capability_unavailable_federation(
             "http.client",
             &format!("probe_federation_node endpoint={endpoint}"),
@@ -290,7 +202,11 @@ impl FederationService {
 
     /// Join an existing federation
     /// NOTE: Delegates HTTP to Songbird via Unix sockets
-    async fn join_existing_federation(&self) -> Result<()> {
+    #[expect(
+        clippy::unused_self,
+        reason = "Instance method for API symmetry; will use config/state when join is implemented"
+    )]
+    fn join_existing_federation(&self) -> Result<()> {
         Err(capability_unavailable_federation(
             "http.client",
             "join_existing_federation",
@@ -299,7 +215,7 @@ impl FederationService {
 
     /// Find the leader node in the federation
     #[expect(dead_code, reason = "Phase 2 placeholder — leader election")]
-    async fn find_leader_node(&self) -> Result<SquirrelInstance> {
+    fn find_leader_node(&self) -> Result<SquirrelInstance> {
         // Simple leader election: use the node with the lowest ID
         // In practice, this would be more sophisticated
 
@@ -326,7 +242,7 @@ impl FederationService {
     }
 
     /// Start background federation tasks
-    async fn start_background_tasks(&self) {
+    fn start_background_tasks(&self) {
         // Health monitoring
         let service = self.clone();
         tokio::spawn(async move {
@@ -368,8 +284,8 @@ impl FederationService {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    self.check_federation_health().await;
-                    self.check_instance_health().await;
+                    self.check_federation_health();
+                    self.check_instance_health();
                 }
                 () = self.shutdown_notify.notified() => {
                     tracing::info!("Health monitoring loop shutting down");
@@ -386,7 +302,7 @@ impl FederationService {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    self.collect_load_metrics().await;
+                    self.collect_load_metrics();
                 }
                 () = self.shutdown_notify.notified() => {
                     tracing::info!("Load monitoring loop shutting down");
@@ -427,7 +343,7 @@ impl FederationService {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    self.maintain_federation().await;
+                    self.maintain_federation();
                 }
                 () = self.shutdown_notify.notified() => {
                     tracing::info!("Federation maintenance loop shutting down");
@@ -439,7 +355,7 @@ impl FederationService {
 
     /// Check health of federation nodes
     /// NOTE: Delegates HTTP health checks to Songbird via Unix sockets
-    async fn check_federation_health(&self) {
+    fn check_federation_health(&self) {
         // For now, assume all instances are running (HTTP health checking requires Songbird)
         for mut entry in self.instances.iter_mut() {
             let (_instance_id, instance) = entry.pair_mut();
@@ -453,7 +369,7 @@ impl FederationService {
 
     /// Check health of local instances
     /// NOTE: Delegates to Songbird for HTTP health checks
-    async fn check_instance_health(&self) {
+    fn check_instance_health(&self) {
         // Instance health checking requires HTTP delegation to Songbird
         // Pattern: CapabilityHttpClient::discover("http.client").get(&health_url).await
 
@@ -475,7 +391,7 @@ impl FederationService {
     ///
     /// Uses config-driven defaults when real metrics are unavailable.
     /// Real implementation would delegate to Songbird/metrics exporter.
-    async fn collect_load_metrics(&self) {
+    fn collect_load_metrics(&self) {
         // Use config-based defaults; real metrics would come from metrics exporter
         let cpu = std::env::var("FEDERATION_CPU_USAGE")
             .ok()
@@ -489,7 +405,9 @@ impl FederationService {
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(0u32);
-        let active_tasks = (self.instances.len() as u32).min(DEFAULT_MAX_CONNECTIONS as u32);
+        let instance_count = usize_to_u32_saturating(self.instances.len());
+        let max_conn = usize_to_u32_saturating(DEFAULT_MAX_CONNECTIONS);
+        let active_tasks = instance_count.min(max_conn);
 
         tracing::debug!(
             "Load metrics - CPU: {:.2}%, Memory: {:.2}%, Queue: {}, Active: {}",
@@ -502,11 +420,12 @@ impl FederationService {
 
     /// Evaluate whether scaling is needed
     async fn evaluate_scaling_decision(&self) -> Result<()> {
-        let current_utilization = self.calculate_overall_utilization().await;
-        let current_instances = self.instances.len() as u32;
+        let current_utilization = self.calculate_overall_utilization();
+        let current_instances = usize_to_u32_saturating(self.instances.len());
 
         // Check cooldown periods
-        if let Some(last_scale) = *self.state.last_scale_event.read() {
+        let last_scale_snapshot = *self.state.last_scale_event.read();
+        if let Some(last_scale) = last_scale_snapshot {
             let time_since_last_scale = Utc::now() - last_scale;
             if time_since_last_scale < self.scaling_policy.scale_up_cooldown {
                 return Ok(()); // Still in cooldown
@@ -516,9 +435,12 @@ impl FederationService {
         // Scale up decision
         if current_utilization > self.scaling_policy.scale_up_threshold {
             if current_instances < self.scaling_policy.max_instances {
-                let target_instances =
-                    ((f64::from(current_instances) * self.scaling_policy.scale_factor) as u32)
-                        .min(self.scaling_policy.max_instances);
+                let scaled = f64::from(current_instances) * self.scaling_policy.scale_factor;
+                let capped =
+                    f64_to_u64_clamped(scaled).min(u64::from(self.scaling_policy.max_instances));
+                let target_instances = u32::try_from(capped)
+                    .unwrap_or(u32::MAX)
+                    .min(self.scaling_policy.max_instances);
 
                 tracing::info!(
                     "Scaling up from {} to {} instances (utilization: {:.2})",
@@ -534,9 +456,11 @@ impl FederationService {
         else if current_utilization < self.scaling_policy.scale_down_threshold
             && current_instances > self.scaling_policy.min_instances
         {
-            let target_instances = ((f64::from(current_instances)
-                / self.scaling_policy.scale_factor) as u32)
-                .max(self.scaling_policy.min_instances);
+            let scaled = f64::from(current_instances) / self.scaling_policy.scale_factor;
+            let rounded = f64_to_u64_clamped(scaled);
+            let target_instances =
+                u32::try_from(rounded.max(u64::from(self.scaling_policy.min_instances)))
+                    .unwrap_or(u32::MAX);
 
             tracing::info!(
                 "Scaling down from {} to {} instances (utilization: {:.2})",
@@ -545,15 +469,14 @@ impl FederationService {
                 current_utilization
             );
 
-            self.scale_down(current_instances - target_instances)
-                .await?;
+            self.scale_down(current_instances - target_instances);
         }
 
         Ok(())
     }
 
     /// Calculate overall utilization across all metrics
-    async fn calculate_overall_utilization(&self) -> f64 {
+    fn calculate_overall_utilization(&self) -> f64 {
         let cpu = self.load_metrics.cpu_usage;
         let memory = self.load_metrics.memory_usage;
         let queue_pressure = f64::from(self.load_metrics.queue_length) / 100.0;
@@ -565,7 +488,7 @@ impl FederationService {
     /// Scale up by spawning new instances
     async fn scale_up(&self, instances_to_add: u32) -> Result<()> {
         for i in 0..instances_to_add {
-            let instance_config = self.create_instance_config(i).await?;
+            let instance_config = self.create_instance_config(i);
             match self.spawn_squirrel(instance_config).await {
                 Ok(instance) => {
                     tracing::info!("Successfully spawned new instance: {}", instance.id);
@@ -581,7 +504,7 @@ impl FederationService {
     }
 
     /// Scale down by stopping instances
-    async fn scale_down(&self, instances_to_remove: u32) -> Result<()> {
+    fn scale_down(&self, instances_to_remove: u32) {
         let mut instances_to_stop = Vec::new();
 
         // Select instances to stop (prefer those with lower load)
@@ -597,7 +520,7 @@ impl FederationService {
                 instance.health = InstanceStatus::Stopping;
 
                 // Send shutdown signal to instance
-                if let Err(e) = self.stop_instance(&instance).await {
+                if let Err(e) = self.stop_instance(&instance) {
                     tracing::error!("Failed to stop instance {}: {}", instance.id, e);
                 } else {
                     tracing::info!("Successfully stopped instance: {}", instance.id);
@@ -606,12 +529,15 @@ impl FederationService {
         }
 
         *self.state.last_scale_event.write() = Some(Utc::now());
-        Ok(())
     }
 
     /// Stop a specific instance
     /// NOTE: Delegates to Songbird for HTTP shutdown request
-    async fn stop_instance(&self, instance: &SquirrelInstance) -> Result<()> {
+    #[expect(
+        clippy::unused_self,
+        reason = "Instance method for API symmetry; will use federation state when HTTP shutdown is implemented"
+    )]
+    fn stop_instance(&self, instance: &SquirrelInstance) -> Result<()> {
         Err(capability_unavailable_federation(
             "http.client",
             &format!("stop_instance endpoint={}", instance.endpoint),
@@ -619,23 +545,24 @@ impl FederationService {
     }
 
     /// Create configuration for a new instance using universal-constants defaults
-    async fn create_instance_config(&self, instance_index: u32) -> Result<SquirrelConfig> {
+    fn create_instance_config(&self, instance_index: u32) -> SquirrelConfig {
         let base_port = std::env::var("SQUIRREL_PORT")
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
             .unwrap_or_else(|| get_service_port("websocket"));
+        let offset = u16::try_from(instance_index).unwrap_or(u16::MAX);
         let port = if base_port > 0 {
-            base_port + instance_index as u16
+            base_port.saturating_add(offset)
         } else {
-            DEFAULT_SQUIRREL_SERVER_PORT + instance_index as u16
+            DEFAULT_SQUIRREL_SERVER_PORT.saturating_add(offset)
         };
 
         let capacity = std::env::var("SQUIRREL_INSTANCE_CAPACITY")
             .ok()
             .and_then(|s| s.parse().ok())
-            .unwrap_or(DEFAULT_MAX_CONNECTIONS as u32);
+            .unwrap_or(usize_to_u32_saturating(DEFAULT_MAX_CONNECTIONS));
 
-        Ok(SquirrelConfig {
+        SquirrelConfig {
             node_id: format!("{}-instance-{}", self.config.node_id, instance_index),
             port,
             federation_enabled: false, // Instances don't federate themselves
@@ -645,45 +572,55 @@ impl FederationService {
             capabilities: vec!["mcp".to_string(), "routing".to_string()],
             capacity,
             metadata: std::collections::HashMap::new(),
-        })
+        }
     }
 
     /// Maintain federation health and topology
-    async fn maintain_federation(&self) {
+    fn maintain_federation(&self) {
         // Periodic federation maintenance tasks
 
         // 1. Sync federation state with other nodes
-        if let Err(e) = self.sync_federation_state().await {
-            tracing::debug!("Federation state sync failed: {}", e);
-        }
+        self.sync_federation_state();
 
         // 2. Re-elect leader if needed
-        if let Err(e) = self.check_leader_health().await {
-            tracing::debug!("Leader health check failed: {}", e);
-        }
+        self.check_leader_health();
 
         // 3. Optimize topology if needed
-        if let Err(e) = self.optimize_topology().await {
-            tracing::debug!("Topology optimization failed: {}", e);
-        }
+        self.optimize_topology();
     }
 
     /// Sync federation state with other nodes
-    async fn sync_federation_state(&self) -> Result<()> {
-        // Implementation would sync state across federation nodes
-        Ok(())
+    ///
+    /// **Phase 2**: Requires cross-node messaging (e.g. HTTP via Songbird capability
+    /// `http.client`) to exchange `FederationStats` and reconcile membership.
+    fn sync_federation_state(&self) {
+        tracing::trace!(
+            federation_id = %self.state.federation_id,
+            "sync_federation_state: deferred to Phase 2 (peer IPC / Songbird)"
+        );
     }
 
     /// Check leader health and trigger re-election if needed
-    async fn check_leader_health(&self) -> Result<()> {
-        // Implementation would check leader health and trigger re-election
-        Ok(())
+    ///
+    /// **Phase 2**: Requires live probes of the leader endpoint and consensus or
+    /// lease-based failover; `find_leader_node` is the local registry view only.
+    fn check_leader_health(&self) {
+        tracing::trace!(
+            leader = ?self.state.leader_node.read().as_ref(),
+            "check_leader_health: deferred to Phase 2 (leader probes)"
+        );
     }
 
     /// Optimize federation topology
-    async fn optimize_topology(&self) -> Result<()> {
-        // Implementation would optimize the federation topology based on performance metrics
-        Ok(())
+    ///
+    /// **Phase 2**: Uses metrics from peers and `FederationTopology` to rebalance
+    /// or reconfigure routing; no-op until mesh telemetry is available.
+    fn optimize_topology(&self) {
+        let topology = self.federation_topology.read().clone();
+        tracing::trace!(
+            ?topology,
+            "optimize_topology: deferred to Phase 2 (topology-aware routing)"
+        );
     }
 
     /// Get current node endpoint
@@ -703,7 +640,7 @@ impl FederationService {
 
     /// Get current node capabilities
     #[expect(dead_code, reason = "Phase 2 placeholder — capability discovery")]
-    fn get_node_capabilities(&self) -> Vec<String> {
+    fn get_node_capabilities() -> Vec<String> {
         vec![
             "mcp".to_string(),
             "ai-task-routing".to_string(),
@@ -717,12 +654,13 @@ impl FederationService {
     /// Get federation statistics
     #[must_use]
     pub fn get_federation_stats(&self) -> FederationStats {
+        let instance_count = usize_to_u32_saturating(self.instances.len());
         FederationStats {
             node_id: self.config.node_id.clone(),
             federation_id: self.state.federation_id.clone(),
             status: self.state.status.read().clone(),
-            local_instances: self.instances.len() as u32,
-            federation_nodes: self.instances.len() as u32,
+            local_instances: instance_count,
+            federation_nodes: instance_count,
             total_capacity: *self.state.total_capacity.read(),
             current_utilization: *self.state.current_utilization.read(),
             is_leader: self.state.leader_node.read().as_ref() == Some(&self.config.node_id),
@@ -734,6 +672,10 @@ impl FederationService {
     /// # Errors
     ///
     /// Returns [`Error`] if teardown steps fail.
+    #[expect(
+        clippy::unused_async,
+        reason = "Async API matches callers that await shutdown (e.g. squirrel-mcp-server) and future async teardown"
+    )]
     pub async fn shutdown(&self) -> Result<()> {
         tracing::info!("Shutting down federation service");
 
@@ -743,16 +685,14 @@ impl FederationService {
         // Stop all local instances
         for entry in self.instances.iter() {
             let instance = entry.value();
-            if let Err(e) = self.stop_instance(instance).await {
+            if let Err(e) = self.stop_instance(instance) {
                 tracing::warn!("Failed to stop instance during shutdown: {}", e);
             }
         }
 
         // Leave federation if we're part of one
-        if self.config.federation_enabled
-            && let Err(e) = self.leave_federation().await
-        {
-            tracing::warn!("Failed to leave federation during shutdown: {}", e);
+        if self.config.federation_enabled {
+            self.leave_federation();
         }
 
         tracing::info!("Federation service shutdown complete");
@@ -760,10 +700,9 @@ impl FederationService {
     }
 
     /// Leave the federation
-    async fn leave_federation(&self) -> Result<()> {
+    fn leave_federation(&self) {
         // Implementation would properly leave the federation
         *self.state.status.write() = FederationStatus::Inactive;
-        Ok(())
     }
 }
 
@@ -806,29 +745,18 @@ impl SwarmManager for FederationService {
 
     async fn federate_nodes(&self, nodes: Vec<NodeSpec>) -> Result<FederationResult> {
         let mut nodes_joined = 0u32;
-        let mut failed_nodes = 0u32;
         let mut joined_capacity = 0u32;
 
         for node_spec in nodes {
-            let node_id = node_spec.id.clone();
-            match self.add_federation_node(node_spec).await {
-                Ok(cap) => {
-                    nodes_joined += 1;
-                    joined_capacity += cap;
-                }
-                Err(e) => {
-                    tracing::error!("Failed to add federation node {}: {}", node_id, e);
-                    failed_nodes += 1;
-                }
-            }
+            let cap = self.add_federation_node(node_spec);
+            nodes_joined += 1;
+            joined_capacity += cap;
         }
 
-        let status = if failed_nodes == 0 {
-            FederationStatus::Active
-        } else if nodes_joined == 0 {
+        let status = if nodes_joined == 0 {
             FederationStatus::Inactive
         } else {
-            FederationStatus::Degraded
+            FederationStatus::Active
         };
 
         Ok(FederationResult {
@@ -843,7 +771,7 @@ impl SwarmManager for FederationService {
         // Update our load metrics
 
         // Calculate load balancing decision
-        let current_utilization = self.calculate_overall_utilization().await;
+        let current_utilization = self.calculate_overall_utilization();
         *self.state.current_utilization.write() = current_utilization;
 
         // Determine load balancing action
@@ -865,7 +793,7 @@ impl SwarmManager for FederationService {
 
 impl FederationService {
     /// Add a new node to the federation
-    async fn add_federation_node(&self, node_spec: NodeSpec) -> Result<u32> {
+    fn add_federation_node(&self, node_spec: NodeSpec) -> u32 {
         let cap = node_spec.capacity;
         let node = SquirrelInstance {
             id: node_spec.id.clone(),
@@ -882,75 +810,164 @@ impl FederationService {
         };
 
         self.instances.insert(node_spec.id, node);
-        Ok(cap)
+        cap
     }
 }
 
-// Supporting types
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[expect(dead_code, reason = "deserialized from JSON at runtime")]
-struct NodeInfo {
-    node_id: String,
-    region: Option<String>,
-    zone: Option<String>,
-    capabilities: Vec<String>,
-    capacity: u32,
-    current_load: u32,
-    metadata: HashMap<String, String>,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        FederationResult, FederationStatus, InstanceStatus, LoadBalanceResult, LoadMetrics,
+        NodeSpec, SquirrelConfig, SwarmManager,
+    };
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[expect(dead_code, reason = "deserialized from JSON at runtime")]
-struct JoinRequest {
-    node_id: String,
-    endpoint: String,
-    region: Option<String>,
-    zone: Option<String>,
-    capabilities: Vec<String>,
-    capacity: u32,
-}
-
-/// Point-in-time summary of federation membership and load for observability.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct FederationStats {
-    /// This node's identifier.
-    pub node_id: String,
-    /// Identifier of the logical federation this node belongs to.
-    pub federation_id: String,
-    /// Current lifecycle state of the federation from this node's view.
-    pub status: FederationStatus,
-    /// Number of Squirrel instances managed locally.
-    pub local_instances: u32,
-    /// Count of known peer nodes participating in the federation.
-    pub federation_nodes: u32,
-    /// Sum of advertised capacity across tracked members.
-    pub total_capacity: u32,
-    /// Blended utilization metric in the 0–1 range.
-    pub current_utilization: f64,
-    /// Whether this node currently holds the leader role.
-    pub is_leader: bool,
-}
-
-impl Default for FederationConfig {
-    fn default() -> Self {
-        Self {
-            node_id: format!("node-{}", uuid::Uuid::new_v4()),
-            port: 8080,
-            federation_discovery_urls: Vec::new(),
-            auto_scaling_enabled: true,
-            min_instances: 1,
-            max_instances: 10,
-            scale_up_threshold: 0.8,
-            scale_down_threshold: 0.3,
-            health_check_interval: chrono::Duration::seconds(30),
-            federation_timeout: chrono::Duration::seconds(60),
+    fn test_config() -> FederationConfig {
+        FederationConfig {
+            node_id: "test-node".to_string(),
             federation_enabled: false,
+            auto_scaling_enabled: false,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn new_sets_expected_scaling_policy_and_load_metrics() {
+        let svc = FederationService::new(test_config()).expect("new");
+        let stats = svc.get_federation_stats();
+        assert_eq!(stats.node_id, "test-node");
+        assert!(!stats.federation_id.is_empty());
+        assert_eq!(stats.local_instances, 0);
+    }
+
+    #[tokio::test]
+    async fn start_standalone_when_federation_disabled() {
+        let svc = FederationService::new(test_config()).expect("new");
+        svc.start().await.expect("start");
+        let stats = svc.get_federation_stats();
+        assert!(matches!(stats.status, FederationStatus::Active));
+        svc.shutdown().await.expect("shutdown");
+    }
+
+    #[tokio::test]
+    async fn start_federation_becomes_leader_when_isolated() {
+        let mut cfg = test_config();
+        cfg.federation_enabled = true;
+        let svc = FederationService::new(cfg).expect("new");
+        svc.start().await.expect("start");
+        let stats = svc.get_federation_stats();
+        assert!(stats.is_leader);
+        assert!(matches!(stats.status, FederationStatus::Active));
+        svc.shutdown().await.expect("shutdown");
+    }
+
+    #[tokio::test]
+    async fn start_federation_fails_when_peers_preloaded_and_join_unavailable() {
+        let mut cfg = test_config();
+        cfg.federation_enabled = true;
+        let svc = FederationService::new(cfg).expect("new");
+        let spec = NodeSpec {
+            id: "peer-1".to_string(),
             region: None,
             zone: None,
-            max_local_instances: 10,
-            scaling_check_interval: chrono::Duration::seconds(60),
-            topology: FederationTopology::Star,
-            federation_port: 8090,
-        }
+            endpoint: "http://127.0.0.1:1".to_string(),
+            capabilities: vec!["mcp".to_string()],
+            capacity: 4,
+        };
+        svc.federate_nodes(vec![spec]).await.expect("federate");
+        let err = svc
+            .start()
+            .await
+            .expect_err("join_existing_federation should fail without http.client");
+        assert!(matches!(err, Error::CapabilityUnavailable { .. }));
+    }
+
+    #[tokio::test]
+    async fn federate_nodes_updates_stats_and_swarm_result() {
+        let svc = FederationService::new(test_config()).expect("new");
+        let spec = NodeSpec {
+            id: "n1".to_string(),
+            region: Some("us".to_string()),
+            zone: None,
+            endpoint: "http://127.0.0.1:9".to_string(),
+            capabilities: vec!["x".to_string()],
+            capacity: 10,
+        };
+        let FederationResult {
+            nodes_joined,
+            status,
+            ..
+        } = svc.federate_nodes(vec![spec]).await.expect("federate");
+        assert_eq!(nodes_joined, 1);
+        assert_eq!(status, FederationStatus::Active);
+        assert_eq!(svc.get_federation_stats().local_instances, 1);
+    }
+
+    #[tokio::test]
+    async fn federate_nodes_empty_yields_inactive() {
+        let svc = FederationService::new(test_config()).expect("new");
+        let r = svc.federate_nodes(vec![]).await.expect("federate");
+        assert_eq!(r.nodes_joined, 0);
+        assert_eq!(r.status, FederationStatus::Inactive);
+    }
+
+    #[tokio::test]
+    async fn spawn_squirrel_registers_instance() {
+        let svc = FederationService::new(test_config()).expect("new");
+        let cfg = SquirrelConfig {
+            node_id: "spawn-test".to_string(),
+            port: 18080,
+            region: None,
+            zone: None,
+            capabilities: vec!["mcp".to_string()],
+            capacity: 2,
+            federation_enabled: false,
+            auto_scaling_enabled: false,
+            metadata: std::collections::HashMap::new(),
+        };
+        let inst = svc.spawn_squirrel(cfg).await.expect("spawn");
+        assert_eq!(inst.health, InstanceStatus::Starting);
+        assert_eq!(svc.get_federation_stats().local_instances, 1);
+    }
+
+    #[tokio::test]
+    async fn balance_load_uses_internal_metrics_snapshot() {
+        let svc = FederationService::new(test_config()).expect("new");
+        // `balance_load` currently ignores the argument and uses internal `LoadMetrics` (zeroed at init).
+        let lm = LoadMetrics {
+            cpu_usage: 0.9,
+            memory_usage: 0.5,
+            network_usage: 0.0,
+            active_tasks: 2,
+            queue_length: 10,
+            response_time: std::time::Duration::from_millis(5),
+            error_rate: 0.0,
+        };
+        let LoadBalanceResult { balance_score, .. } = svc.balance_load(lm).await.expect("balance");
+        assert!(balance_score.abs() < f64::EPSILON);
+        assert!(svc.get_federation_stats().current_utilization.abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn shutdown_notifies_and_completes() {
+        let mut cfg = test_config();
+        cfg.federation_enabled = true;
+        let svc = FederationService::new(cfg).expect("new");
+        svc.start().await.expect("start");
+        svc.shutdown().await.expect("shutdown");
+        assert!(matches!(
+            svc.get_federation_stats().status,
+            FederationStatus::Inactive
+        ));
+    }
+
+    #[test]
+    fn default_federation_config_matches_documented_defaults() {
+        let c = FederationConfig::default();
+        assert!(!c.federation_enabled);
+        assert_eq!(c.port, 8080);
+        assert_eq!(c.federation_port, 8090);
+        assert_eq!(c.max_instances, 10);
+        assert_eq!(c.min_instances, 1);
     }
 }

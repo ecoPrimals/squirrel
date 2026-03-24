@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::unused_async)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::unused_async)] // Test code: explicit unwrap/expect and local lint noise
 //! Capability Discovery Error Path Tests
 //!
 //! These tests ensure robust error handling in capability-based service discovery.
@@ -17,7 +17,7 @@ mod capability_discovery_error_tests {
     use super::*;
 
     // Stub types for compilation
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Test code: explicit unwrap/expect and local lint noise
     struct EcosystemServiceDiscovery;
 
     impl EcosystemServiceDiscovery {

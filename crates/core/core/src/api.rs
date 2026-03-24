@@ -11,17 +11,18 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
-    AgentSpec, ContextRequirements, Error, McpRouter, McpTask, PrimalCoordinator, Result,
-    ScaleRequirements, Task, ecosystem::EcosystemService, federation::FederationService,
-    routing::McpRoutingService,
+    AgentSpec, ContextRequirements, Error, McpRouter, McpTask, NodeSpec, PrimalCoordinator, Result,
+    ScaleRequirements, SwarmManager, Task, ecosystem::EcosystemService,
+    federation::FederationService, routing::McpRoutingService,
 };
 
 /// API Server for the MCP Routing Service
-#[expect(clippy::struct_field_names, reason = "Domain naming convention")]
 pub struct ApiServer {
     ecosystem_service: Arc<EcosystemService>,
     routing_service: Arc<McpRoutingService>,
     federation_service: Arc<FederationService>,
+    /// Wall-clock time when this API server was constructed (used for `/info` uptime).
+    api_started_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Clone)]
@@ -29,12 +30,13 @@ struct AppState {
     ecosystem: Arc<EcosystemService>,
     routing: Arc<McpRoutingService>,
     federation: Arc<FederationService>,
+    api_started_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl ApiServer {
     /// Create a new API server
     #[must_use]
-    pub const fn new(
+    pub fn new(
         ecosystem_service: Arc<EcosystemService>,
         routing_service: Arc<McpRoutingService>,
         federation_service: Arc<FederationService>,
@@ -43,6 +45,7 @@ impl ApiServer {
             ecosystem_service,
             routing_service,
             federation_service,
+            api_started_at: chrono::Utc::now(),
         }
     }
 
@@ -52,6 +55,7 @@ impl ApiServer {
             ecosystem: self.ecosystem_service.clone(),
             routing: self.routing_service.clone(),
             federation: self.federation_service.clone(),
+            api_started_at: self.api_started_at,
         };
 
         Router::new()
@@ -154,15 +158,17 @@ async fn get_status(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 /// Get system information
-async fn get_info(State(_state): State<AppState>) -> impl IntoResponse {
-    // Use placeholder data since get_status doesn't exist
-    let federation_status = "Active".to_string();
+async fn get_info(State(state): State<AppState>) -> impl IntoResponse {
+    let federation_stats = state.federation.get_federation_stats();
+    let uptime = chrono::Utc::now().signed_duration_since(state.api_started_at);
+    let uptime_secs = uptime.num_seconds().max(0);
+    let uptime_str = format!("{uptime_secs}s");
 
     let response = InfoResponse {
-        node_id: "squirrel-node".to_string(), // Placeholder since get_node_id doesn't exist
+        node_id: federation_stats.node_id,
         version: crate::SQUIRREL_MCP_VERSION.to_string(),
-        uptime: chrono::Utc::now().to_rfc3339(),
-        federation_status,
+        uptime: uptime_str,
+        federation_status: format!("{:?}", federation_stats.status),
     };
 
     Json(response).into_response()
@@ -203,7 +209,7 @@ async fn register_agent(
     State(state): State<AppState>,
     Json(agent): Json<AgentSpec>,
 ) -> impl IntoResponse {
-    let result = match state.routing.register_agent(agent).await {
+    let result = match state.routing.register_agent(agent) {
         Ok(()) => RegisterResponse {
             success: true,
             message: "Agent registered successfully".to_string(),
@@ -232,24 +238,53 @@ async fn get_federation_info(State(state): State<AppState>) -> impl IntoResponse
 
 /// Join federation
 async fn join_federation(
-    State(_state): State<AppState>,
-    Json(_request): Json<JoinFederationRequest>,
+    State(state): State<AppState>,
+    Json(request): Json<JoinFederationRequest>,
 ) -> impl IntoResponse {
-    // Use placeholder implementation since join_federation doesn't exist
-    let result = crate::FederationResult {
-        federation_id: "federation-1".to_string(),
-        nodes_joined: 1,
-        total_capacity: 100,
-        status: crate::FederationStatus::Active,
+    let node_id = request
+        .metadata
+        .get("node_id")
+        .cloned()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let zone = request.metadata.get("zone").cloned();
+    let capacity = request
+        .metadata
+        .get("capacity")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(100_u32);
+
+    if let Some(ref requested_fed) = request.federation_id {
+        let current = state.federation.get_federation_stats().federation_id;
+        if requested_fed != &current {
+            tracing::debug!(
+                requested = %requested_fed,
+                current = %current,
+                "Join request federation_id does not match local federation; proceeding with local registration"
+            );
+        }
+    }
+
+    let spec = NodeSpec {
+        id: node_id,
+        region: request.region,
+        zone,
+        endpoint: request.node_endpoint,
+        capabilities: request.capabilities,
+        capacity,
     };
 
-    let response = FederationResponse {
-        success: matches!(result.status, crate::FederationStatus::Active),
-        federation_id: result.federation_id,
-        node_count: result.nodes_joined,
-        status: format!("{:?}", result.status),
-    };
-    Json(response).into_response()
+    match state.federation.federate_nodes(vec![spec]).await {
+        Ok(result) => {
+            let response = FederationResponse {
+                success: matches!(result.status, crate::FederationStatus::Active),
+                federation_id: result.federation_id,
+                node_count: result.nodes_joined,
+                status: format!("{:?}", result.status),
+            };
+            Json(response).into_response()
+        }
+        Err(e) => ApiError(e).into_response(),
+    }
 }
 
 /// List federation nodes
@@ -454,6 +489,7 @@ struct StatusResponse {
 struct InfoResponse {
     node_id: String,
     version: String,
+    /// Elapsed time since the HTTP API server was constructed (e.g. `42s`).
     uptime: String,
     federation_status: String,
 }
@@ -578,4 +614,286 @@ struct JoinFederationRequest {
     capabilities: Vec<String>,
     region: Option<String>,
     metadata: std::collections::HashMap<String, String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ApiServer;
+    use crate::ecosystem::EcosystemService;
+    use crate::federation::FederationService;
+    use crate::monitoring::MonitoringConfig;
+    use crate::routing::McpRoutingService;
+    use crate::{
+        AgentSpec, DiscoveryConfig, EcosystemConfig, EcosystemMode, FederationConfig, McpTask,
+        MonitoringService, RoutingConfig, Task, TaskPriority, TaskRequirements, TaskType,
+    };
+    use axum::body::{Body, to_bytes};
+    use axum::http::{Request, StatusCode};
+    use chrono::Duration as ChronoDuration;
+    use ecosystem_api::PrimalType;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use tower05::util::ServiceExt;
+
+    fn test_routing() -> Arc<McpRoutingService> {
+        Arc::new(McpRoutingService::new(RoutingConfig::default()).expect("routing config"))
+    }
+
+    fn test_federation() -> Arc<FederationService> {
+        Arc::new(FederationService::new(FederationConfig::default()).expect("fed"))
+    }
+
+    fn test_ecosystem_disabled() -> Arc<EcosystemService> {
+        Arc::new(
+            EcosystemService::new(
+                EcosystemConfig {
+                    enabled: false,
+                    mode: EcosystemMode::Standalone,
+                    discovery: DiscoveryConfig::default(),
+                },
+                Arc::new(MonitoringService::new(MonitoringConfig::default())),
+            )
+            .expect("eco"),
+        )
+    }
+
+    fn test_ecosystem_coordinated() -> Arc<EcosystemService> {
+        Arc::new(
+            EcosystemService::new(
+                EcosystemConfig {
+                    enabled: true,
+                    mode: EcosystemMode::Coordinated,
+                    discovery: DiscoveryConfig {
+                        auto_discovery: false,
+                        songbird_endpoint: None,
+                        direct_endpoints: HashMap::new(),
+                        probe_interval: ChronoDuration::seconds(60),
+                        health_check_timeout: ChronoDuration::seconds(5),
+                    },
+                },
+                Arc::new(MonitoringService::new(MonitoringConfig::default())),
+            )
+            .expect("eco"),
+        )
+    }
+
+    fn app_disabled_eco() -> axum::Router {
+        ApiServer::new(test_ecosystem_disabled(), test_routing(), test_federation()).create_router()
+    }
+
+    fn app_coord_eco() -> axum::Router {
+        ApiServer::new(
+            test_ecosystem_coordinated(),
+            test_routing(),
+            test_federation(),
+        )
+        .create_router()
+    }
+
+    async fn read_body_json(resp: axum::response::Response) -> serde_json::Value {
+        let bytes = to_bytes(resp.into_body(), usize::MAX).await.expect("body");
+        serde_json::from_slice(&bytes).expect("json")
+    }
+
+    #[tokio::test]
+    async fn health_returns_healthy_payload() {
+        let app = app_disabled_eco();
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .expect("req"),
+            )
+            .await
+            .expect("call");
+        assert_eq!(res.status(), StatusCode::OK);
+        let v = read_body_json(res).await;
+        assert_eq!(v["status"], "healthy");
+    }
+
+    #[tokio::test]
+    async fn route_mcp_without_agents_returns_500() {
+        let app = app_disabled_eco();
+        let task = McpTask {
+            id: "t1".to_string(),
+            agent_id: None,
+            payload: serde_json::json!({}),
+            context: None,
+            routing_hints: vec![],
+            context_requirements: None,
+            mcp_request: serde_json::json!({}),
+        };
+        let body = serde_json::to_vec(&task).expect("ser");
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/route")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .expect("req"),
+            )
+            .await
+            .expect("call");
+        assert_eq!(res.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test]
+    async fn route_mcp_after_register_agent_succeeds() {
+        let app = app_disabled_eco();
+        let agent = AgentSpec {
+            id: "a1".to_string(),
+            endpoint: "http://127.0.0.1:1".to_string(),
+            capabilities: vec!["mcp".to_string()],
+            weight: None,
+            max_concurrent_tasks: 4,
+            metadata: HashMap::new(),
+        };
+        let reg = serde_json::to_vec(&agent).expect("ser");
+        let res_reg = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/agents")
+                    .header("content-type", "application/json")
+                    .body(Body::from(reg))
+                    .expect("req"),
+            )
+            .await
+            .expect("call");
+        assert_eq!(res_reg.status(), StatusCode::OK);
+
+        let task = McpTask {
+            id: "t1".to_string(),
+            agent_id: None,
+            payload: serde_json::json!({}),
+            context: None,
+            routing_hints: vec![],
+            context_requirements: None,
+            mcp_request: serde_json::json!({}),
+        };
+        let body = serde_json::to_vec(&task).expect("ser");
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/route")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .expect("req"),
+            )
+            .await
+            .expect("call");
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn info_returns_node_and_version_fields() {
+        let app = app_disabled_eco();
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/info")
+                    .body(Body::empty())
+                    .expect("req"),
+            )
+            .await
+            .expect("call");
+        assert_eq!(res.status(), StatusCode::OK);
+        let v = read_body_json(res).await;
+        assert!(v.get("node_id").is_some());
+        assert_eq!(
+            v["version"].as_str().unwrap_or(""),
+            crate::SQUIRREL_MCP_VERSION
+        );
+    }
+
+    #[tokio::test]
+    async fn coordinate_task_returns_503_when_routing_fails() {
+        let app = app_coord_eco();
+        let task = Task {
+            id: "x1".to_string(),
+            task_type: TaskType::McpCoordination,
+            priority: TaskPriority::Normal,
+            requirements: TaskRequirements {
+                cpu: None,
+                memory: None,
+                storage: None,
+                network: None,
+                required_capabilities: vec!["missing".to_string()],
+                preferred_primals: vec![PrimalType::Squirrel],
+                constraints: HashMap::new(),
+            },
+            context: serde_json::json!({}),
+            deadline: None,
+        };
+        let body = serde_json::to_vec(&task).expect("ser");
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/coordinate")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .expect("req"),
+            )
+            .await
+            .expect("call");
+        assert_eq!(res.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[tokio::test]
+    async fn list_discovered_primals_returns_zero_by_default() {
+        let app = app_disabled_eco();
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/primals")
+                    .body(Body::empty())
+                    .expect("req"),
+            )
+            .await
+            .expect("call");
+        assert_eq!(res.status(), StatusCode::OK);
+        let v = read_body_json(res).await;
+        assert_eq!(v["total_primals"], 0);
+    }
+
+    #[tokio::test]
+    async fn get_task_status_stub_returns_completed() {
+        let app = app_disabled_eco();
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/tasks/task-abc")
+                    .body(Body::empty())
+                    .expect("req"),
+            )
+            .await
+            .expect("call");
+        assert_eq!(res.status(), StatusCode::OK);
+        let v = read_body_json(res).await;
+        assert_eq!(v["task_id"], "task-abc");
+        assert_eq!(v["status"], "completed");
+    }
+
+    #[tokio::test]
+    async fn shutdown_endpoint_returns_message() {
+        let app = app_disabled_eco();
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/shutdown")
+                    .body(Body::empty())
+                    .expect("req"),
+            )
+            .await
+            .expect("call");
+        assert_eq!(res.status(), StatusCode::OK);
+        let v = read_body_json(res).await;
+        assert_eq!(v["message"], "Shutdown initiated");
+    }
 }

@@ -10,6 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use universal_constants::primal_names;
 
 /// Standardized primal types for ecosystem integration (canonical definition)
 #[deprecated(
@@ -31,12 +32,12 @@ impl EcosystemPrimalType {
     #[deprecated(since = "0.1.0", note = "Use capability() for discovery")]
     pub const fn as_str(&self) -> &'static str {
         match self {
-            Self::ToadStool => "toadstool",
-            Self::Songbird => "songbird",
-            Self::BearDog => "beardog",
-            Self::NestGate => "nestgate",
-            Self::Squirrel => "squirrel",
-            Self::BiomeOS => "biomeos",
+            Self::ToadStool => primal_names::TOADSTOOL,
+            Self::Songbird => primal_names::SONGBIRD,
+            Self::BearDog => primal_names::BEARDOG,
+            Self::NestGate => primal_names::NESTGATE,
+            Self::Squirrel => primal_names::SQUIRREL,
+            Self::BiomeOS => primal_names::BIOMEOS,
         }
     }
     #[must_use]
@@ -78,12 +79,12 @@ impl std::str::FromStr for EcosystemPrimalType {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "toadstool" => Ok(Self::ToadStool),
-            "songbird" => Ok(Self::Songbird),
-            "beardog" => Ok(Self::BearDog),
-            "nestgate" => Ok(Self::NestGate),
-            "squirrel" => Ok(Self::Squirrel),
-            "biomeos" => Ok(Self::BiomeOS),
+            primal_names::TOADSTOOL => Ok(Self::ToadStool),
+            primal_names::SONGBIRD => Ok(Self::Songbird),
+            primal_names::BEARDOG => Ok(Self::BearDog),
+            primal_names::NESTGATE => Ok(Self::NestGate),
+            primal_names::SQUIRREL => Ok(Self::Squirrel),
+            primal_names::BIOMEOS => Ok(Self::BiomeOS),
             _ => Err(format!("Unknown primal type: {s}")),
         }
     }

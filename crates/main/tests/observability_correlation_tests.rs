@@ -6,7 +6,7 @@
     clippy::expect_used,
     clippy::assertions_on_constants,
     clippy::unused_async
-)]
+)] // Test code: explicit unwrap/expect and local lint noise
 //! Comprehensive tests for `UniversalCorrelationTracker`
 //!
 //! Tests distributed tracing, correlation IDs, operation lifecycle,
@@ -19,7 +19,7 @@ use squirrel::observability::CorrelationId;
 use std::time::Duration;
 
 // Stub types for compilation
-#[allow(dead_code)]
+#[allow(dead_code)] // Test code: explicit unwrap/expect and local lint noise
 #[derive(Clone)]
 struct CorrelationConfig {
     max_operations_history: usize,
@@ -39,7 +39,10 @@ impl Default for CorrelationConfig {
     }
 }
 
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 #[derive(Clone, Debug)]
 enum OperationStatus {
     Pending,
@@ -49,7 +52,10 @@ enum OperationStatus {
     Cancelled,
 }
 
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 struct UniversalCorrelationTracker {
     config: CorrelationConfig,
 }

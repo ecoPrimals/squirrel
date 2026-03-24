@@ -4,6 +4,14 @@
 
 #![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    not(test),
+    expect(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "SDK library code: unwrap/expect only after invariants (tests use cfg_attr allow above)"
+    )
+)]
 
 //! # Squirrel Plugin SDK
 //!
@@ -62,9 +70,7 @@
     clippy::if_not_else,
     clippy::needless_continue,
     clippy::map_unwrap_or,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "SDK plugin API surface; progressive lint tightening"
+    reason = "SDK plugin API surface; progressive lint tightening (unwrap/expect allowed in tests via cfg_attr)"
 )]
 //!
 //! #[wasm_bindgen]
@@ -121,7 +127,7 @@ pub mod prelude {
 
     // Client APIs
     #[cfg(feature = "http")]
-    #[expect(
+    #[allow(
         ambiguous_glob_reexports,
         reason = "Prelude re-exports; http/fs feature namespacing"
     )]
@@ -385,7 +391,7 @@ pub mod internal {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 mod tests {
     use super::*;
 

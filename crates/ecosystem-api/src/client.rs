@@ -54,7 +54,11 @@ pub struct SongbirdClient {
     reason = "backward compat: SongbirdClient for legacy consumers"
 )]
 impl SongbirdClient {
-    /// Create a new Songbird client
+    /// Create a new Songbird client.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EcosystemError::Configuration`] if the HTTP client cannot be built.
     pub fn new(
         base_url: String,
         auth_token: Option<String>,
@@ -76,9 +80,9 @@ impl SongbirdClient {
         })
     }
 
-    /// Set client timeout
+    /// Set client timeout.
     #[must_use]
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+    pub const fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
@@ -474,7 +478,11 @@ struct HeartbeatData {
 pub struct ServiceMeshClientFactory;
 
 impl ServiceMeshClientFactory {
-    /// Create a new service mesh client
+    /// Create a new service mesh client.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EcosystemError`] if the underlying HTTP client cannot be constructed.
     // Backward compatibility: kept for deserialization of legacy data / existing consumers
     #[expect(
         deprecated,
@@ -518,7 +526,11 @@ impl HealthMonitor {
         }
     }
 
-    /// Start health monitoring
+    /// Start health monitoring.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`UniversalError`] if a heartbeat request fails after retries.
     pub async fn start_monitoring(&self) -> UniversalResult<()> {
         let mut interval = tokio::time::interval(self.interval);
 
@@ -543,7 +555,11 @@ impl HealthMonitor {
         }
     }
 
-    /// Report health status
+    /// Report health status.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`UniversalError`] if the health report request fails.
     pub async fn report_health(&self, health: HealthStatus) -> UniversalResult<()> {
         self.client.report_health(&self.service_id, health).await
     }
@@ -561,7 +577,11 @@ impl ServiceDiscovery {
         Self { client }
     }
 
-    /// Find services by primal type
+    /// Find services by primal type.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`UniversalError`] if the service discovery request fails.
     pub async fn find_by_primal_type(
         &self,
         primal_type: PrimalType,
@@ -574,7 +594,11 @@ impl ServiceDiscovery {
         self.client.discover_services(query).await
     }
 
-    /// Find services by capability
+    /// Find services by capability.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`UniversalError`] if the service discovery request fails.
     pub async fn find_by_capability(&self, capability: &str) -> UniversalResult<Vec<ServiceInfo>> {
         let query = ServiceQuery {
             capabilities: vec![capability.to_string()],
@@ -584,7 +608,11 @@ impl ServiceDiscovery {
         self.client.discover_services(query).await
     }
 
-    /// Find healthy services
+    /// Find healthy services.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`UniversalError`] if the service discovery request fails.
     pub async fn find_healthy_services(&self) -> UniversalResult<Vec<ServiceInfo>> {
         let query = ServiceQuery {
             health_status: Some(HealthStatus::Healthy),
@@ -594,7 +622,11 @@ impl ServiceDiscovery {
         self.client.discover_services(query).await
     }
 
-    /// Find services by metadata filter
+    /// Find services by metadata filter.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`UniversalError`] if the service discovery request fails.
     pub async fn find_by_metadata(
         &self,
         metadata: HashMap<String, String>,
@@ -660,5 +692,126 @@ mod tests {
         let mock = MockServiceMeshClient::new();
         let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock);
         let _discovery = ServiceDiscovery::new(client);
+    }
+}
+
+#[cfg(test)]
+mod discovery_health_tests {
+    use super::*;
+    use crate::traits::{ServiceInfo, ServiceMeshClient};
+    use crate::types::{HealthStatus, PrimalType};
+    use std::collections::HashMap;
+    use std::time::Duration;
+
+    fn sample_service(id: &str, primal: PrimalType, caps: &[&str]) -> ServiceInfo {
+        ServiceInfo {
+            id: id.to_string(),
+            name: id.to_string(),
+            service_type: "test-type".to_string(),
+            primal_type: primal,
+            endpoint: "http://localhost:0".to_string(),
+            capabilities: caps.iter().map(|s| (*s).to_string()).collect(),
+            health_status: "healthy".to_string(),
+            metadata: HashMap::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn service_discovery_find_by_primal_type_filters() {
+        let mock = MockServiceMeshClient::new();
+        mock.add_service(
+            "a".to_string(),
+            sample_service("a", PrimalType::Squirrel, &["x"]),
+        )
+        .await;
+        mock.add_service(
+            "b".to_string(),
+            sample_service("b", PrimalType::Songbird, &["y"]),
+        )
+        .await;
+        let discovery = ServiceDiscovery::new(Box::new(mock));
+        let out = discovery
+            .find_by_primal_type(PrimalType::Squirrel)
+            .await
+            .unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].id, "a");
+    }
+
+    #[tokio::test]
+    async fn service_discovery_find_by_capability_intersection() {
+        let mock = MockServiceMeshClient::new();
+        mock.add_service(
+            "both".to_string(),
+            sample_service("both", PrimalType::Any, &["a", "b"]),
+        )
+        .await;
+        mock.add_service(
+            "a_only".to_string(),
+            sample_service("a_only", PrimalType::Any, &["a"]),
+        )
+        .await;
+        let discovery = ServiceDiscovery::new(Box::new(mock));
+        let out = discovery.find_by_capability("a").await.unwrap();
+        assert_eq!(out.len(), 2);
+        let out_b = discovery.find_by_capability("b").await.unwrap();
+        assert_eq!(out_b.len(), 1);
+        assert_eq!(out_b[0].id, "both");
+    }
+
+    #[tokio::test]
+    async fn service_discovery_find_healthy_services_delegates() {
+        let mock = MockServiceMeshClient::new();
+        mock.add_service(
+            "h".to_string(),
+            sample_service("h", PrimalType::BiomeOS, &["z"]),
+        )
+        .await;
+        let discovery = ServiceDiscovery::new(Box::new(mock));
+        let out = discovery.find_healthy_services().await.unwrap();
+        assert_eq!(out.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn service_discovery_find_by_metadata_builds_query() {
+        let mock = MockServiceMeshClient::new();
+        let mut meta = HashMap::new();
+        meta.insert("region".to_string(), "us".to_string());
+        mock.add_service(
+            "m1".to_string(),
+            sample_service("m1", PrimalType::Squirrel, &[]),
+        )
+        .await;
+        let discovery = ServiceDiscovery::new(Box::new(mock));
+        let out = discovery.find_by_metadata(meta).await.unwrap();
+        assert_eq!(out.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn health_monitor_report_health_succeeds() {
+        let mock = MockServiceMeshClient::new();
+        let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock);
+        let monitor = HealthMonitor::new(client, "svc-report".to_string(), Duration::from_secs(60));
+        monitor.report_health(HealthStatus::Degraded).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn health_monitor_heartbeat_updates_registered_service() {
+        let mock = MockServiceMeshClient::new();
+        mock.add_service(
+            "beat".to_string(),
+            sample_service("beat", PrimalType::Squirrel, &[]),
+        )
+        .await;
+        ServiceMeshClient::heartbeat(&mock, "beat").await.unwrap();
+        let all = mock.get_all_services().await;
+        let svc = all.iter().find(|s| s.id == "beat").expect("service");
+        assert!(svc.metadata.contains_key("last_heartbeat"));
+
+        let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock.clone());
+        let monitor = HealthMonitor::new(client, "beat".to_string(), Duration::from_millis(15));
+        let task = tokio::spawn(async move { monitor.start_monitoring().await });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        task.abort();
     }
 }

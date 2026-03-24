@@ -794,7 +794,7 @@ fn process_rss_mb_linux() -> Option<f64> {
 
 /// System uptime in whole seconds from Linux `/proc/uptime` (first field).
 #[cfg(target_os = "linux")]
-#[expect(
+#[allow(
     clippy::cast_sign_loss,
     reason = "/proc/uptime first field is non-negative; cast is bounded via clamp"
 )]

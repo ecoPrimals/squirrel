@@ -123,6 +123,7 @@ pub struct RequestContext {
 
 impl RequestContext {
     /// Create a new request context
+    #[must_use]
     pub fn new(task: AITask) -> Self {
         Self {
             request_id: uuid::Uuid::new_v4(),
@@ -135,18 +136,21 @@ impl RequestContext {
     }
 
     /// Set the session ID
-    pub fn with_session_id(mut self, session_id: uuid::Uuid) -> Self {
+    #[must_use]
+    pub const fn with_session_id(mut self, session_id: uuid::Uuid) -> Self {
         self.session_id = Some(session_id);
         self
     }
 
     /// Set the user ID
+    #[must_use]
     pub fn with_user_id(mut self, user_id: impl Into<String>) -> Self {
         self.user_id = Some(user_id.into());
         self
     }
 
     /// Set the routing hint
+    #[must_use]
     pub fn with_routing_hint(mut self, hint: RoutingHint) -> Self {
         self.routing_hint = Some(hint);
         self
@@ -169,8 +173,13 @@ impl Default for CapabilityRegistry {
     }
 }
 
+#[expect(
+    clippy::significant_drop_tightening,
+    reason = "std::sync::PoisonError from RwLock uses a significant Drop; only on error paths"
+)]
 impl CapabilityRegistry {
     /// Create a new capability registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             local_providers: RwLock::new(HashMap::new()),
@@ -179,91 +188,88 @@ impl CapabilityRegistry {
     }
 
     /// Register a local provider
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Configuration`] when the registry lock is poisoned.
     pub fn register_provider(
         &self,
         provider_id: impl Into<String>,
         client: Arc<dyn AIClient>,
     ) -> Result<()> {
-        let providers_result = self.local_providers.write().map_err(|e| {
-            Error::Configuration(format!(
-                "Failed to acquire provider lock for registration: {e}"
-            ))
-        });
-
-        let mut providers = match providers_result {
+        let mut providers = match self.local_providers.write() {
             Ok(guard) => guard,
             Err(e) => {
-                tracing::error!("Provider registration failed: {}", e);
-                return Err(e);
+                let err = Error::Configuration(format!(
+                    "Failed to acquire provider lock for registration: {e}"
+                ));
+                tracing::error!("Provider registration failed: {}", err);
+                return Err(err);
             }
         };
-
         providers.insert(provider_id.into(), client);
         Ok(())
     }
 
     /// Unregister a local provider
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Configuration`] when the registry lock is poisoned.
     pub fn unregister_provider(&self, provider_id: &str) -> Result<()> {
-        let providers_result = self.local_providers.write().map_err(|e| {
-            Error::Configuration(format!(
-                "Failed to acquire provider lock for unregistration: {e}"
-            ))
-        });
-
-        let mut providers = match providers_result {
+        let mut providers = match self.local_providers.write() {
             Ok(guard) => guard,
             Err(e) => {
-                tracing::error!("Provider unregistration failed: {}", e);
-                return Err(e);
+                let err = Error::Configuration(format!(
+                    "Failed to acquire provider lock for unregistration: {e}"
+                ));
+                tracing::error!("Provider unregistration failed: {}", err);
+                return Err(err);
             }
         };
-
         providers.remove(provider_id);
         Ok(())
     }
 
     /// Register remote node capabilities
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Configuration`] when the registry lock is poisoned.
     pub fn register_remote_capabilities(
         &self,
         node_id: NodeId,
         capabilities: HashMap<String, AICapabilities>,
     ) -> Result<()> {
-        let remote_caps_result = self.remote_capabilities.write().map_err(|e| {
-            Error::Configuration(format!("Failed to acquire remote capabilities lock: {e}"))
-        });
-
-        let mut remote_caps = match remote_caps_result {
+        let mut remote_caps = match self.remote_capabilities.write() {
             Ok(guard) => guard,
             Err(e) => {
-                tracing::error!("Remote capabilities registration failed: {}", e);
-                return Err(e);
+                let err = Error::Configuration(format!(
+                    "Failed to acquire remote capabilities lock: {e}"
+                ));
+                tracing::error!("Remote capabilities registration failed: {}", err);
+                return Err(err);
             }
         };
-
         remote_caps.insert(node_id, capabilities);
         Ok(())
     }
 
     /// Get a local provider by ID
     pub fn get_provider(&self, provider_id: &str) -> Option<Arc<dyn AIClient>> {
-        let providers_result = self.local_providers.read();
-
-        let providers = match providers_result {
+        let providers = match self.local_providers.read() {
             Ok(guard) => guard,
             Err(e) => {
                 tracing::error!("Failed to acquire provider read lock: {}", e);
                 return None;
             }
         };
-
         providers.get(provider_id).cloned()
     }
 
     /// Find providers that can handle a specific task
     pub fn find_providers_for_task(&self, task: &AITask) -> Vec<(String, Arc<dyn AIClient>)> {
-        let providers_result = self.local_providers.read();
-
-        let providers = match providers_result {
+        let providers = match self.local_providers.read() {
             Ok(guard) => guard,
             Err(e) => {
                 tracing::error!(
@@ -287,9 +293,7 @@ impl CapabilityRegistry {
 
     /// Find remote nodes that can handle a specific task
     pub fn find_remote_nodes_for_task(&self, task: &AITask) -> Vec<(NodeId, String)> {
-        let remote_caps_result = self.remote_capabilities.read();
-
-        let remote_caps = match remote_caps_result {
+        let remote_caps = match self.remote_capabilities.read() {
             Ok(guard) => guard,
             Err(e) => {
                 tracing::error!("Failed to acquire remote capabilities read lock: {}", e);
@@ -312,16 +316,13 @@ impl CapabilityRegistry {
 
     /// List all registered providers
     pub fn list_providers(&self) -> Vec<String> {
-        let providers_result = self.local_providers.read();
-
-        let providers = match providers_result {
+        let providers = match self.local_providers.read() {
             Ok(guard) => guard,
             Err(e) => {
                 tracing::error!("Failed to acquire provider read lock for listing: {}", e);
                 return Vec::new();
             }
         };
-
         providers.keys().cloned().collect()
     }
 }
@@ -418,6 +419,7 @@ impl Default for RouterStats {
 }
 
 /// Check if a task matches given capabilities
+#[must_use]
 pub fn task_matches_capabilities(task: &AITask, capabilities: &AICapabilities) -> bool {
     // Check basic task type support
     if !capabilities.supports_task(&task.task_type) {
@@ -470,11 +472,9 @@ impl TryFlattenStreamExt
     async fn try_flatten_stream(mut self) -> Result<ChatResponseStream> {
         use futures::StreamExt;
 
-        if let Some(result) = self.next().await {
-            result
-        } else {
-            Err(Error::Runtime("Empty stream received".to_string()))
-        }
+        self.next()
+            .await
+            .unwrap_or_else(|| Err(Error::Runtime("Empty stream received".to_string())))
     }
 }
 

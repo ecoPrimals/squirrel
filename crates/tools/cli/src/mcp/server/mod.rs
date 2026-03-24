@@ -889,5 +889,8 @@ impl MCPServer {
 
 #[cfg(test)]
 #[path = "server_tests.rs"]
-#[allow(clippy::unnecessary_literal_bound)]
+#[expect(
+    clippy::unnecessary_literal_bound,
+    reason = "Bounds match external trait or generated signatures"
+)]
 mod tests;

@@ -30,6 +30,8 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use universal_constants::primal_names;
+
 /// Thread-safe string cache for BiomeOS identifiers
 ///
  Provides ``Arc<str>`` interning for service IDs, biome IDs, endpoints,
@@ -51,11 +53,11 @@ impl BiomeStringCache {
     pub fn with_common_values(self) -> Self {
         let common_values = [
             // Service types
-            "squirrel",
-            "nestgate",
-            "toadstool",
-            "beardog",
-            "songbird",
+            primal_names::SQUIRREL,
+            primal_names::NESTGATE,
+            primal_names::TOADSTOOL,
+            primal_names::BEARDOG,
+            primal_names::SONGBIRD,
             // Biome IDs
             "default-biome",
             "production-biome",

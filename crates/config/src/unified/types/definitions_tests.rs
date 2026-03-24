@@ -40,7 +40,10 @@ fn sample_timeouts() -> TimeoutConfig {
     }
 }
 
-#[allow(clippy::too_many_lines)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 fn sample_squirrel_unified_config() -> SquirrelUnifiedConfig {
     let mut providers = HashMap::new();
     providers.insert(

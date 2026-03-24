@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Capability-Based HTTP Client (TRUE PRIMAL!)
-#![expect(
+#![allow(
     dead_code,
     reason = "HTTP capability client module awaiting activation"
 )]
@@ -157,7 +157,11 @@ impl HttpClient {
     /// Create a new HTTP client from capability discovery
     ///
     /// **IMPORTANT**: Socket path should come from capability discovery!
-    /// Use `get_socket_path(service)` or env vars (HTTP_CAPABILITY_SOCKET, etc.)
+    /// Use `get_socket_path(service)` or env vars (`HTTP_CAPABILITY_SOCKET`, etc.)
+    ///
+    /// # Errors
+    ///
+    /// Currently always returns `Ok`; reserved for future validation.
     pub fn new(config: HttpClientConfig) -> Result<Self> {
         info!(
             socket_path = %config.socket_path.display(),
@@ -181,6 +185,10 @@ impl HttpClient {
     /// - Rate limiting
     ///
     /// We just send request, get response - pure delegation!
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when all retries are exhausted or the capability provider fails.
     pub async fn request(&self, request: HttpRequest) -> Result<HttpResponse> {
         let method = &request.method;
         let url = &request.url;
@@ -310,6 +318,10 @@ impl HttpClient {
     }
 
     /// Convenience method for POST JSON
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::request`].
     pub async fn post_json(
         &self,
         url: &str,
@@ -334,6 +346,10 @@ impl HttpClient {
     }
 
     /// Convenience method for GET
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::request`].
     pub async fn get(&self, url: &str, headers: Vec<(String, String)>) -> Result<HttpResponse> {
         self.request(HttpRequest {
             method: "GET".to_string(),
@@ -347,7 +363,10 @@ impl HttpClient {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::items_after_statements)]
+    #![expect(
+        clippy::items_after_statements,
+        reason = "Local helpers after setup in macro-like blocks"
+    )]
 
     use super::*;
 

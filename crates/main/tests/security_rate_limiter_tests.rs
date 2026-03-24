@@ -6,7 +6,7 @@
     clippy::expect_used,
     clippy::assertions_on_constants,
     clippy::field_reassign_with_default
-)]
+)] // Test code: explicit unwrap/expect and local lint noise
 //! Comprehensive tests for `ProductionRateLimiter`
 //!
 //! Tests `DoS` protection, rate limiting enforcement, ban mechanisms,

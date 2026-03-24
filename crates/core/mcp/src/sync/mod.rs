@@ -16,6 +16,10 @@
 //! backward compatibility—production code should use [`StateSyncManager`] and
 //! [`StateChange`] from the `state` submodule, or integrate with ToadStool/NestGate
 //! for full ecosystem sync.
+//!
+//! The deprecated `SyncManager` and `ContextChange` types compile only with the
+//! **`sync-placeholders`** Cargo feature (off by default); prefer `MCPSync` and
+//! `sync::state::StateSyncManager` for new code.
 
 /// Deprecated placeholder - sync delegated to ToadStool/NestGate.
 ///
