@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! System, Discovery, and Lifecycle domain JSON-RPC handlers.
+//! Health, System, Discovery, and Lifecycle domain JSON-RPC handlers.
 //!
-//! - `system.health`, `system.metrics`, `system.ping`
+//! Canonical health methods (PRIMAL_IPC_PROTOCOL v3.0 / SEMANTIC_METHOD_NAMING_STANDARD):
+//! - `health.check` → full health report (canonical)
+//! - `health.liveness` → minimal alive probe
+//! - `health.readiness` → subsystem readiness probe
+//!
+//! Backward-compat aliases: `system.health`, `system.status`, `system.metrics`, `system.ping`
+//!
 //! - `discovery.peers`
 //! - `lifecycle.register`, `lifecycle.status`
 
@@ -15,7 +21,10 @@ use tracing::{debug, info, warn};
 impl JsonRpcServer {
     // -- System domain -------------------------------------------------------
 
-    /// Handle `system.health` / `health` method (full health report).
+    /// Handle `health.check` / `system.health` / `system.status` (full health report).
+    ///
+    /// `health.check` is the canonical method per SEMANTIC_METHOD_NAMING_STANDARD.
+    /// `system.health` and `system.status` are retained as backward-compat aliases.
     pub(crate) async fn handle_health(&self) -> Result<Value, JsonRpcError> {
         debug!("health check");
 

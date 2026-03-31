@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::zero_copy::{ZeroCopyPlugin, ZeroCopyPluginEntry, ZeroCopyPluginRegistry};
 
 use super::optimizer::get_global_optimizer;
-use super::types::OptimizerMetrics;
+use super::types::{OptimizationRecommendation, OptimizerMetrics};
 
 /// Perform an optimized plugin lookup
 pub async fn fast_plugin_lookup(
@@ -42,4 +42,9 @@ pub async fn batch_load(
 /// Get current optimization metrics
 pub async fn get_performance_metrics() -> OptimizerMetrics {
     get_global_optimizer().get_optimization_metrics().await
+}
+
+/// Tuning recommendations derived from live metrics (cache, batch, latency, errors, throughput).
+pub async fn get_optimization_suggestions() -> Vec<OptimizationRecommendation> {
+    get_global_optimizer().get_optimization_suggestions().await
 }

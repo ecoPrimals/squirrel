@@ -169,6 +169,7 @@ fn sample_metadata(name: &str) -> PluginMetadata {
         description: Some("desc".to_string()),
         author: None,
         homepage: None,
+        capabilities: vec![],
     }
 }
 

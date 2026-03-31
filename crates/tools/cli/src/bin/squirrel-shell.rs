@@ -12,13 +12,14 @@
 
 //! Main executable for the Squirrel CLI.
 
+use anyhow::Result;
 use squirrel_cli::commands::registry::CommandRegistry;
 use std::io::{self, Write};
 
 use tracing::info;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     // Initialize tracing subscriber
     tracing_subscriber::fmt::init();
 

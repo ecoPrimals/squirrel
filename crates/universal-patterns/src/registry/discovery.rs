@@ -7,9 +7,11 @@
 //! No knowledge of specific primals (Songbird, BearDog, etc.)
 //! Only discovers via capabilities.
 
+use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tracing::{debug, info, warn};
 
@@ -87,6 +89,56 @@ pub enum DiscoveryStatus {
     NotAPrimal,
     /// Timeout during probe
     Timeout,
+}
+
+/// Parse a JSON-RPC line response from `identity.get` into [`PrimalInfo`].
+///
+/// Expects `result.primal_id`, `result.domain`, optional `result.version` and `result.capabilities`.
+fn parse_identity_get_response(line: &str) -> Option<PrimalInfo> {
+    let v: Value = serde_json::from_str(line.trim()).ok()?;
+    if v.get("error").is_some() {
+        return None;
+    }
+    let result = v.get("result")?;
+    let primal_id = result.get("primal_id")?.as_str()?.to_string();
+    let domain = result.get("domain")?.as_str()?.to_string();
+    let version = result
+        .get("version")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let capabilities: Vec<PrimalCapability> = result
+        .get("capabilities")
+        .and_then(|c| c.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|x| x.as_str())
+                .map(|s| {
+                    serde_json::from_str::<PrimalCapability>(s).unwrap_or_else(|_| {
+                        PrimalCapability::Custom {
+                            name: s.to_string(),
+                            attributes: String::new(),
+                        }
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let instance_id = if version.is_empty() {
+        format!("{}@{}", primal_id, domain)
+    } else {
+        format!("{}@{}@{}", primal_id, domain, version)
+    };
+
+    Some(PrimalInfo {
+        primal_id,
+        instance_id,
+        primal_type: PrimalType::Custom(domain),
+        capabilities,
+        health: PrimalHealth::Healthy,
+    })
 }
 
 /// TRUE PRIMAL discovery engine
@@ -298,11 +350,37 @@ impl PrimalDiscovery {
             }
         };
 
-        // NOTE(phase2): JSON-RPC "info" request - requires primal info protocol definition
-        // For now, this is a placeholder that will be completed with actual JSON-RPC protocol
-        drop(stream); // Close connection
+        let probe_ms = self.config.probe_timeout_ms;
+        let line_result = tokio::time::timeout(std::time::Duration::from_millis(probe_ms), async {
+            const IDENTITY_REQ: &[u8] = br#"{"jsonrpc":"2.0","method":"identity.get","id":1}"#;
+            let mut stream = stream;
+            stream.write_all(IDENTITY_REQ).await?;
+            stream.write_all(b"\n").await?;
+            stream.flush().await?;
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await?;
+            Ok::<_, std::io::Error>(line)
+        })
+        .await;
 
-        // Placeholder: parse socket name for basic info
+        let line = match line_result {
+            Ok(Ok(l)) if !l.trim().is_empty() => l,
+            Ok(Ok(_) | Err(_)) | Err(_) => {
+                // Timeout, I/O error, or empty response — fall back to filename parsing below
+                String::new()
+            }
+        };
+
+        if let Some(primal_info) = parse_identity_get_response(&line) {
+            return Ok(DiscoveryResult {
+                socket_path: socket_path.to_path_buf(),
+                primal_info: Some(primal_info),
+                status: DiscoveryStatus::Success,
+            });
+        }
+
+        // Fallback: parse socket name for basic info
         let filename = socket_path
             .file_name()
             .and_then(|n| n.to_str())

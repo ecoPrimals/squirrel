@@ -48,6 +48,8 @@
 //! }
 //! ```
 
+use universal_constants::primal_names;
+
 // Internal modules
 mod client;
 mod context;
@@ -122,7 +124,10 @@ pub async fn create_default_client() -> Result<UniversalSecurityClient, Security
     UniversalSecurityClient::new(config).await
 }
 
-/// Create a new universal security client with Beardog configuration
+/// Create a new universal security client with Beardog configuration.
+///
+/// [`crate::config::AuthMethod::Beardog`] and related config fields are capability-based
+/// aliases for the cryptographic identity primal ([`primal_names::BEARDOG`]).
 pub async fn create_beardog_client(
     endpoint: url::Url,
     service_id: String,
@@ -199,7 +204,10 @@ pub fn get_module_info() -> std::collections::HashMap<String, String> {
         "description".to_string(),
         "Security integration module for universal patterns".to_string(),
     );
-    info.insert("supports_beardog".to_string(), "true".to_string());
+    info.insert(
+        format!("supports_{}", primal_names::BEARDOG),
+        "true".to_string(),
+    );
     info.insert("supports_local_fallback".to_string(), "true".to_string());
     info.insert("supports_audit_logging".to_string(), "true".to_string());
     info.insert("supports_health_monitoring".to_string(), "true".to_string());

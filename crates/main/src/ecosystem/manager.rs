@@ -315,7 +315,7 @@ impl EcosystemManager {
                                     .iter()
                                     .map(|(k, v)| (k.as_str(), v.as_str()))
                                     .collect();
-                                #[allow(
+                                #[expect(
                                     deprecated,
                                     reason = "backward compat: deprecated ecosystem path"
                                 )]

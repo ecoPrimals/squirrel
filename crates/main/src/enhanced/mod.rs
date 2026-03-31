@@ -7,6 +7,7 @@
 
 pub mod coordinator;
 
+use crate::error::PrimalError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -85,7 +86,7 @@ impl EnhancedMCPServer {
     }
 
     /// Start the server
-    pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn start(&self) -> Result<(), PrimalError> {
         println!("Enhanced MCP Server starting...");
         Ok(())
     }
@@ -94,7 +95,7 @@ impl EnhancedMCPServer {
     pub async fn create_session(
         &self,
         _client_info: ClientInfo,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<String, PrimalError> {
         let session_id = Uuid::new_v4().to_string();
         Ok(session_id)
     }
@@ -103,7 +104,7 @@ impl EnhancedMCPServer {
     pub fn create_session_sync(
         &self,
         _client_info: ClientInfo,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<String, PrimalError> {
         let session_id = Uuid::new_v4().to_string();
         Ok(session_id)
     }
@@ -113,7 +114,7 @@ impl EnhancedMCPServer {
         &self,
         _session_id: &str,
         _request: MCPRequest,
-    ) -> Result<MCPResponse, Box<dyn std::error::Error>> {
+    ) -> Result<MCPResponse, PrimalError> {
         Ok(MCPResponse {
             id: Uuid::new_v4().to_string(),
             result: serde_json::Value::String("Success".to_string()),
@@ -126,7 +127,7 @@ impl EnhancedMCPServer {
         &self,
         _session_id: &str,
         _request: MCPRequest,
-    ) -> Result<MCPResponse, Box<dyn std::error::Error>> {
+    ) -> Result<MCPResponse, PrimalError> {
         Ok(MCPResponse {
             id: Uuid::new_v4().to_string(),
             result: serde_json::Value::String("Success".to_string()),
@@ -138,14 +139,18 @@ impl EnhancedMCPServer {
     pub async fn process_request(
         &self,
         request: MCPRequest,
-    ) -> Result<MCPResponse, Box<dyn std::error::Error>> {
+    ) -> Result<MCPResponse, PrimalError> {
         // Validate request
         if request.id.is_empty() {
-            return Err("Request ID cannot be empty".into());
+            return Err(PrimalError::InvalidInput(
+                "Request ID cannot be empty".to_string(),
+            ));
         }
 
         if request.method.is_empty() {
-            return Err("Request method cannot be empty".into());
+            return Err(PrimalError::InvalidInput(
+                "Request method cannot be empty".to_string(),
+            ));
         }
 
         // Process request
@@ -169,7 +174,7 @@ impl EnhancedMCPServer {
     }
 
     /// Stop the server
-    pub async fn stop(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn stop(&self) -> Result<(), PrimalError> {
         println!("Enhanced MCP Server stopping...");
         Ok(())
     }

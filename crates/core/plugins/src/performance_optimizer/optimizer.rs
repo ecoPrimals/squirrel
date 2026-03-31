@@ -3,11 +3,12 @@
 
 //! Main plugin performance optimizer implementation.
 
+use std::collections::VecDeque;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use tokio::sync::RwLock;
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument};
 use uuid::Uuid;
 
 use crate::errors::{PluginError, Result};
@@ -18,7 +19,73 @@ use super::config::PerformanceOptimizerConfig;
 use super::hot_path_cache::HotPathCache;
 use super::memory_optimizer::MemoryOptimizer;
 use super::predictive_loader::PredictiveLoader;
-use super::types::{CacheStatistics, CachedCapabilityQuery, CachedPluginLookup, OptimizerMetrics};
+use super::types::{
+    CacheStatistics, CachedCapabilityQuery, CachedPluginLookup, OptimizationRecommendation,
+    OptimizerMetrics, RecommendationSeverity,
+};
+
+/// Rolling samples for `record_runtime_sample` (response times in ms).
+const OBSERVED_RESPONSE_WINDOW: usize = 256;
+
+/// Runtime samples used to drive suggestions (response time, errors, throughput).
+#[derive(Debug)]
+struct ObservedRuntimeMetrics {
+    response_times_ms: VecDeque<f64>,
+    success_count: u64,
+    error_count: u64,
+    session_start: Instant,
+    total_session_ops: u64,
+}
+
+impl ObservedRuntimeMetrics {
+    fn new() -> Self {
+        Self {
+            response_times_ms: VecDeque::with_capacity(OBSERVED_RESPONSE_WINDOW),
+            success_count: 0,
+            error_count: 0,
+            session_start: Instant::now(),
+            total_session_ops: 0,
+        }
+    }
+
+    fn record(&mut self, duration_ms: f64, success: bool) {
+        if success {
+            self.success_count += 1;
+        } else {
+            self.error_count += 1;
+        }
+        if self.response_times_ms.len() >= OBSERVED_RESPONSE_WINDOW {
+            self.response_times_ms.pop_front();
+        }
+        self.response_times_ms.push_back(duration_ms);
+        self.total_session_ops += 1;
+    }
+
+    fn avg_response_ms(&self) -> f64 {
+        if self.response_times_ms.is_empty() {
+            return 0.0;
+        }
+        let sum: f64 = self.response_times_ms.iter().sum();
+        sum / self.response_times_ms.len() as f64
+    }
+
+    fn error_rate(&self) -> f64 {
+        let total = self.success_count.saturating_add(self.error_count);
+        if total == 0 {
+            return 0.0;
+        }
+        self.error_count as f64 / total as f64
+    }
+
+    fn throughput_ops_per_sec(&self) -> f64 {
+        let elapsed = self.session_start.elapsed().as_secs_f64().max(1e-9);
+        self.total_session_ops as f64 / elapsed
+    }
+
+    const fn recorded_sample_count(&self) -> u64 {
+        self.success_count.saturating_add(self.error_count)
+    }
+}
 
 /// Global plugin performance optimizer
 static GLOBAL_OPTIMIZER: std::sync::OnceLock<Arc<PluginPerformanceOptimizer>> =
@@ -50,8 +117,8 @@ pub struct PluginPerformanceOptimizer {
     /// Memory optimizer
     memory_optimizer: Arc<MemoryOptimizer>,
 
-    /// Performance metrics for tracking optimizer effectiveness
-    metrics: Arc<RwLock<OptimizerMetrics>>,
+    /// Observed response times and outcomes for suggestion generation
+    observed_runtime: Arc<RwLock<ObservedRuntimeMetrics>>,
 
     /// Configuration
     config: PerformanceOptimizerConfig,
@@ -65,14 +132,14 @@ impl PluginPerformanceOptimizer {
         let batch_processor = Arc::new(BatchProcessor::new(config.batch_processing.clone()));
         let predictive_loader = Arc::new(PredictiveLoader::new(config.predictive_loading.clone()));
         let memory_optimizer = Arc::new(MemoryOptimizer::new(config.memory_optimization.clone()));
-        let metrics = Arc::new(RwLock::new(OptimizerMetrics::default()));
+        let observed_runtime = Arc::new(RwLock::new(ObservedRuntimeMetrics::new()));
 
         let optimizer = Self {
             hot_path_cache,
             batch_processor,
             predictive_loader,
             memory_optimizer,
-            metrics,
+            observed_runtime,
             config,
         };
 
@@ -176,24 +243,136 @@ impl PluginPerformanceOptimizer {
         &self,
         plugin_entries: Vec<Arc<ZeroCopyPluginEntry>>,
     ) -> Vec<Result<Arc<dyn ZeroCopyPlugin>>> {
-        if plugin_entries.len() <= 1 {
-            // No benefit from batching single operations
-            let results = Vec::new();
-            for entry in plugin_entries {
-                // STUB: Plugin loading is intentionally simplified for performance benchmarking.
-                warn!(
-                    plugin_name = %entry.name(),
-                    "batch_load_plugins: stub path — no real plugin loaded; unified plugin system not yet implemented"
-                );
-                let _entry = entry; // Suppress unused warning
-            }
-            return results;
-        }
-
-        // Use batch processor for multiple plugins
         self.batch_processor
             .batch_load_plugins(plugin_entries)
             .await
+    }
+
+    /// Record one observed operation (e.g. registry lookup or RPC) to feed suggestions and metrics.
+    pub async fn record_runtime_sample(&self, duration: Duration, success: bool) {
+        let ms = duration.as_millis() as f64;
+        let mut o = self.observed_runtime.write().await;
+        o.record(ms, success);
+    }
+
+    /// Analyze aggregate metrics and return concrete tuning recommendations.
+    pub async fn get_optimization_suggestions(&self) -> Vec<OptimizationRecommendation> {
+        let metrics = self.get_optimization_metrics().await;
+        let batch_stats = self.batch_processor.get_statistics().await;
+        let runtime_samples = {
+            let observed = self.observed_runtime.read().await;
+            observed.recorded_sample_count()
+        };
+
+        let mut suggestions = Vec::new();
+
+        if metrics.cache_efficiency < 0.5 && metrics.cache_efficiency > f64::EPSILON {
+            suggestions.push(OptimizationRecommendation {
+                severity: RecommendationSeverity::Warning,
+                summary: "Low hot-path cache hit rate".to_string(),
+                detail: format!(
+                    "Cache efficiency is {:.1}%. Consider enabling cache warming, increasing `max_cached_operations`, or lowering `min_access_count` so frequent lookups stay warm.",
+                    metrics.cache_efficiency * 100.0
+                ),
+            });
+        }
+
+        if batch_stats.batches_processed > 0
+            && metrics.batch_efficiency < 0.3
+            && self.config.batch_processing.max_batch_size > 1
+        {
+            suggestions.push(OptimizationRecommendation {
+                severity: RecommendationSeverity::Info,
+                summary: "Batch utilization below target".to_string(),
+                detail: format!(
+                    "Batch efficiency is {:.1}% of configured max batch size. Group more plugin loads per call or enable `dynamic_batching` so work fills batches.",
+                    metrics.batch_efficiency * 100.0
+                ),
+            });
+        }
+
+        if self.config.predictive_loading.enabled
+            && metrics.prediction_accuracy > 0.0
+            && metrics.prediction_accuracy < 0.5
+        {
+            suggestions.push(OptimizationRecommendation {
+                severity: RecommendationSeverity::Info,
+                summary: "Predictive loading accuracy is weak".to_string(),
+                detail: format!(
+                    "Prediction accuracy is {:.1}%. Widen the prediction window or raise `confidence_threshold` so only high-confidence preloads run.",
+                    metrics.prediction_accuracy * 100.0
+                ),
+            });
+        }
+
+        if metrics.error_rate > 0.05 {
+            suggestions.push(OptimizationRecommendation {
+                severity: RecommendationSeverity::Critical,
+                summary: "Elevated observed error rate".to_string(),
+                detail: format!(
+                    "Observed error rate is {:.2}% over recorded samples. Inspect failing operations, dependency health, and registry/plugin state.",
+                    metrics.error_rate * 100.0
+                ),
+            });
+        } else if metrics.error_rate > 0.01 {
+            suggestions.push(OptimizationRecommendation {
+                severity: RecommendationSeverity::Warning,
+                summary: "Non-zero error rate".to_string(),
+                detail: format!(
+                    "Observed error rate is {:.2}%. Monitor trends; sustained errors may warrant circuit breaking or backoff.",
+                    metrics.error_rate * 100.0
+                ),
+            });
+        }
+
+        if metrics.avg_response_time_ms > 500.0 {
+            suggestions.push(OptimizationRecommendation {
+                severity: RecommendationSeverity::Warning,
+                summary: "High average response time".to_string(),
+                detail: format!(
+                    "Mean observed latency is {:.1} ms. Profile hot paths, verify cache hits on lookups, and consider batching to reduce round trips.",
+                    metrics.avg_response_time_ms
+                ),
+            });
+        } else if metrics.avg_response_time_ms > 100.0 && metrics.cache_efficiency < 0.7 {
+            suggestions.push(OptimizationRecommendation {
+                severity: RecommendationSeverity::Info,
+                summary: "Latency and cache headroom".to_string(),
+                detail: format!(
+                    "Average response time is {:.1} ms with cache efficiency {:.1}%. Improving cache hit rate may reduce latency further.",
+                    metrics.avg_response_time_ms,
+                    metrics.cache_efficiency * 100.0
+                ),
+            });
+        }
+
+        if runtime_samples > 20
+            && metrics.throughput_ops_per_sec < 5.0
+            && metrics.operations_optimized > 50
+        {
+            suggestions.push(OptimizationRecommendation {
+                severity: RecommendationSeverity::Info,
+                summary: "Throughput is limited relative to optimized operations".to_string(),
+                detail: format!(
+                    "Session throughput is {:.2} ops/s with {} optimized operations recorded. Increase concurrency or reduce per-operation work if sustained load requires higher throughput.",
+                    metrics.throughput_ops_per_sec,
+                    metrics.operations_optimized
+                ),
+            });
+        }
+
+        if metrics.memory_saved_bytes == 0
+            && metrics.operations_optimized > 10
+            && self.config.memory_optimization.zero_copy_enabled
+        {
+            suggestions.push(OptimizationRecommendation {
+                severity: RecommendationSeverity::Info,
+                summary: "No memory savings reported yet".to_string(),
+                detail: "Memory optimizer reports zero bytes saved. Ensure workloads exercise pooled buffers or compaction so savings can accrue.".to_string(),
+            });
+        }
+
+        suggestions
     }
 
     /// Enable predictive loading based on usage patterns
@@ -231,6 +410,8 @@ impl PluginPerformanceOptimizer {
         let prediction_model = self.predictive_loader.get_prediction_model().await;
         let memory_info = self.memory_optimizer.get_memory_info().await;
 
+        let observed = self.observed_runtime.read().await;
+
         OptimizerMetrics {
             cache_efficiency: self.calculate_cache_efficiency(&cache_stats),
             batch_efficiency: batch_stats.average_batch_size
@@ -241,6 +422,9 @@ impl PluginPerformanceOptimizer {
                 + cache_stats.capability_hits
                 + batch_stats.operations_batched,
             total_time_saved_ms: cache_stats.total_memory_saved + batch_stats.time_saved_ms,
+            avg_response_time_ms: observed.avg_response_ms(),
+            error_rate: observed.error_rate(),
+            throughput_ops_per_sec: observed.throughput_ops_per_sec(),
         }
     }
 
@@ -406,7 +590,8 @@ mod tests {
             None,
         ));
         let empty = opt.batch_load_plugins(vec![e.clone()]).await;
-        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 1);
+        assert!(empty[0].is_err());
 
         let id2 = Uuid::new_v4();
         let m2 = ZeroCopyPluginMetadata::new(id2, "a".into(), "1".into(), "d".into(), "a".into());
@@ -416,7 +601,8 @@ mod tests {
             None,
         ));
         let batch = opt.batch_load_plugins(vec![e, e2]).await;
-        assert!(batch.is_empty());
+        assert_eq!(batch.len(), 2);
+        assert!(batch.iter().all(Result::is_err));
     }
 
     #[tokio::test]

@@ -65,7 +65,7 @@ pub mod error {
 
 // Define our own Result type
 /// Result type alias for CLI operations
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 pub use squirrel_commands as commands_crate;
 

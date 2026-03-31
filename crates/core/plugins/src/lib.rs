@@ -64,8 +64,9 @@ pub use errors::{PluginError, Result};
 pub use manager::PluginManager;
 pub use metrics::{PluginManagerMetrics, PluginManagerStatus};
 pub use performance_optimizer::{
-    BatchProcessingConfig, HotPathCacheConfig, MemoryOptimizationConfig, OptimizerMetrics,
-    PerformanceOptimizerConfig, PluginPerformanceOptimizer, PredictiveLoadingConfig,
+    BatchProcessingConfig, HotPathCacheConfig, MemoryOptimizationConfig,
+    OptimizationRecommendation, OptimizerMetrics, PerformanceOptimizerConfig,
+    PluginPerformanceOptimizer, PredictiveLoadingConfig, RecommendationSeverity,
     get_global_optimizer, init_global_optimizer, optimized_ops,
 };
 pub use plugin::Plugin;

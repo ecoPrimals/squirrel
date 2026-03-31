@@ -268,7 +268,7 @@ impl RegistryDiscovery {
     /// * `capabilities` - Capabilities/tags
     /// * `health_endpoint` - Health check endpoint (optional)
     /// * `metadata` - Additional metadata
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "Registry builder; refactor to builder pattern planned"
     )]

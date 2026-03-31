@@ -570,7 +570,7 @@ mod tests {
             HashMap::new(),
         ));
         let ok = ZeroCopyAuthResult::success(
-            principal.clone(),
+            principal,
             Some(Arc::from("jwt")),
             HashMap::from([("s".into(), "v".into())]),
         );

@@ -74,7 +74,7 @@ pub struct PluginManager {
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
     /// Dependency resolver for proper plugin initialization order (reserved for dependency resolution system)
-    #[allow(
+    #[expect(
         dead_code,
         reason = "Phase 2 placeholder — dependency resolution system"
     )]

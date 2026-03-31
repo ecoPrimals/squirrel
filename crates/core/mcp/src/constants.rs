@@ -184,10 +184,7 @@ pub mod env_vars {
 }
 
 /// Helper functions for building common URLs
-#[allow(
-    deprecated,
-    reason = "Uses deprecated network helpers during migration to universal_constants"
-)]
+#[expect(deprecated, reason = "backward-compatible alias")]
 pub mod url_builders {
     use super::url_templates;
     use universal_constants::network;

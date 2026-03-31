@@ -56,7 +56,6 @@
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::future_not_send,
-    clippy::elidable_lifetime_names,
     clippy::struct_excessive_bools,
     clippy::match_same_arms,
     clippy::return_self_not_must_use,
@@ -126,7 +125,7 @@ pub mod prelude {
 
     // Client APIs
     #[cfg(feature = "http")]
-    #[allow(
+    #[expect(
         ambiguous_glob_reexports,
         reason = "Prelude re-exports; http/fs feature namespacing"
     )]

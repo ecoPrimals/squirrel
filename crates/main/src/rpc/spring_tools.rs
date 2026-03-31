@@ -9,6 +9,7 @@
 //! `tool.list` response.
 
 use crate::discovery::mechanisms::socket_registry::SocketRegistryDiscovery;
+use crate::error::PrimalError;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -127,12 +128,14 @@ impl SpringToolDiscovery {
     async fn query_spring_tools(
         &self,
         socket_path: &str,
-    ) -> Result<Vec<SpringToolDef>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Vec<SpringToolDef>, PrimalError> {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
         use tokio::net::UnixStream;
 
         let stream = tokio::time::timeout(Duration::from_secs(2), UnixStream::connect(socket_path))
-            .await??;
+            .await
+            .map_err(|e| PrimalError::Internal(format!("unix connect timeout: {e}")))?
+            .map_err(PrimalError::Io)?;
 
         let request = serde_json::json!({
             "jsonrpc": "2.0",
@@ -145,8 +148,11 @@ impl SpringToolDiscovery {
         request_line.push('\n');
 
         let (reader, mut writer) = tokio::io::split(stream);
-        writer.write_all(request_line.as_bytes()).await?;
-        writer.flush().await?;
+        writer
+            .write_all(request_line.as_bytes())
+            .await
+            .map_err(PrimalError::Io)?;
+        writer.flush().await.map_err(PrimalError::Io)?;
 
         let mut buf_reader = BufReader::new(reader);
         let mut response_line = String::new();
@@ -155,12 +161,14 @@ impl SpringToolDiscovery {
             Duration::from_secs(2),
             buf_reader.read_line(&mut response_line),
         )
-        .await??;
+        .await
+        .map_err(|e| PrimalError::Internal(format!("read_line timeout: {e}")))?
+        .map_err(PrimalError::Io)?;
 
         let response: serde_json::Value = serde_json::from_str(response_line.trim())?;
 
         let result = universal_patterns::extract_rpc_result(&response)
-            .map_err(|e| format!("RPC error: {e}"))?;
+            .map_err(|e| PrimalError::RemoteError(format!("RPC error: {e}")))?;
 
         let tools: Vec<SpringToolDef> = if let Some(tools_array) = result.get("tools") {
             serde_json::from_value(tools_array.clone()).unwrap_or_default()

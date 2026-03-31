@@ -240,6 +240,112 @@ pub fn get_node_id() -> String {
     get_node_id_with(&SocketConfig::from_env())
 }
 
+/// PRIMAL_IPC_PROTOCOL: capability-domain symlink `ai.sock` → `<socket basename>` in the same directory.
+#[cfg(unix)]
+const CAPABILITY_DOMAIN_SYMLINK_NAME: &str = "ai.sock";
+
+/// True if `ai_sock` is a symlink whose target lives in the same directory as `socket_path`
+/// (relative basename or absolute path with the same parent). Used to clean stale PRIMAL_IPC symlinks
+/// without deleting unrelated `ai.sock` entries.
+#[cfg(unix)]
+fn capability_symlink_points_to_same_directory(socket_path: &Path, ai_sock: &Path) -> bool {
+    let Ok(meta) = std::fs::symlink_metadata(ai_sock) else {
+        return false;
+    };
+    if !meta.file_type().is_symlink() {
+        return false;
+    }
+    let Ok(target) = std::fs::read_link(ai_sock) else {
+        return false;
+    };
+    let Some(parent) = socket_path.parent() else {
+        return false;
+    };
+    if target.is_absolute() {
+        target.parent() == Some(parent)
+    } else {
+        use std::path::Component;
+        target.components().count() == 1
+            && matches!(target.components().next(), Some(Component::Normal(_)))
+    }
+}
+
+/// Remove stale `ai.sock` before rebinding the filesystem socket (next startup / prepare).
+#[cfg(unix)]
+fn remove_stale_capability_domain_symlink(socket_path: &Path) {
+    let Some(parent) = socket_path.parent() else {
+        return;
+    };
+    let ai_sock = parent.join(CAPABILITY_DOMAIN_SYMLINK_NAME);
+    if capability_symlink_points_to_same_directory(socket_path, &ai_sock)
+        && let Err(e) = std::fs::remove_file(&ai_sock)
+    {
+        warn!(
+            "Could not remove stale capability symlink {}: {}",
+            ai_sock.display(),
+            e
+        );
+    }
+}
+
+/// After binding the filesystem socket, create `ai.sock` → `<basename>` (PRIMAL_IPC_PROTOCOL).
+/// Removes an existing `ai.sock` in that directory first. Non-Unix: no-op `Ok(())`.
+#[cfg(unix)]
+pub fn try_create_capability_domain_symlink(filesystem_socket_path: &str) -> std::io::Result<()> {
+    let path = Path::new(filesystem_socket_path);
+    let Some(parent) = path.parent() else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "socket path has no parent directory",
+        ));
+    };
+    let Some(target_name) = path.file_name() else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "socket path has no file name",
+        ));
+    };
+    let link_path = parent.join(CAPABILITY_DOMAIN_SYMLINK_NAME);
+    if link_path.exists() {
+        std::fs::remove_file(&link_path)?;
+    }
+    std::os::unix::fs::symlink(target_name, &link_path)?;
+    info!(
+        "Capability-domain symlink {} → {} (PRIMAL_IPC_PROTOCOL)",
+        link_path.display(),
+        target_name.to_string_lossy()
+    );
+    Ok(())
+}
+
+#[cfg(not(unix))]
+pub fn try_create_capability_domain_symlink(_filesystem_socket_path: &str) -> std::io::Result<()> {
+    Ok(())
+}
+
+/// Best-effort removal of `ai.sock` when it is our same-directory capability symlink.
+#[cfg(unix)]
+pub fn cleanup_capability_domain_symlink(filesystem_socket_path: &str) {
+    let path = Path::new(filesystem_socket_path);
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    let ai_sock = parent.join(CAPABILITY_DOMAIN_SYMLINK_NAME);
+    if capability_symlink_points_to_same_directory(path, &ai_sock)
+        && let Err(e) = std::fs::remove_file(&ai_sock)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        warn!(
+            "Could not remove capability symlink {}: {}",
+            ai_sock.display(),
+            e
+        );
+    }
+}
+
+#[cfg(not(unix))]
+pub fn cleanup_capability_domain_symlink(_filesystem_socket_path: &str) {}
+
 /// Prepare socket path for binding
 ///
 /// Ensures:
@@ -268,6 +374,9 @@ pub fn prepare_socket_path(socket_path: &str) -> std::io::Result<PathBuf> {
         std::fs::create_dir_all(parent)?;
     }
 
+    #[cfg(unix)]
+    remove_stale_capability_domain_symlink(path);
+
     // Remove old socket if exists (prevents "address already in use")
     if path.exists() {
         info!("Removing old socket file: {}", socket_path);
@@ -288,6 +397,7 @@ pub fn cleanup_socket(socket_path: &str) {
             warn!("⚠️ Failed to remove socket: {}", e);
         }
     }
+    cleanup_capability_domain_symlink(socket_path);
 }
 
 /// Verify socket configuration for biomeOS atomic deployment

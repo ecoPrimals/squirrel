@@ -144,6 +144,41 @@ impl AiRouter {
                     }
                 }
 
+                // 1.5: SQ-02 — Discover local AI inference (Ollama, llama.cpp, vLLM)
+                // LOCAL_AI_ENDPOINT feeds into AIProviderConfig but was NOT wired
+                // into AiRouter discovery. Resolve the env chain and probe.
+                if local_providers.is_empty()
+                    && let Some(endpoint) = Self::resolve_local_ai_endpoint()
+                {
+                    info!("🔍 LOCAL_AI_ENDPOINT resolved: {}", endpoint);
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(3),
+                        Self::probe_local_ai_endpoint(&endpoint),
+                    )
+                    .await
+                    {
+                        Ok(Ok(adapter)) => {
+                            info!(
+                                "✅ Local AI inference server discovered at {}",
+                                endpoint
+                            );
+                            local_providers.push(adapter);
+                        }
+                        Ok(Err(e)) => {
+                            debug!(
+                                "⚠️ Local AI endpoint {} not reachable: {}",
+                                endpoint, e
+                            );
+                        }
+                        Err(_) => {
+                            debug!(
+                                "⚠️ Local AI endpoint {} probe timed out (>3s)",
+                                endpoint
+                            );
+                        }
+                    }
+                }
+
                 // 2. Check for Unix socket providers (other primals)
                 // BIOME OS RECOMMENDATION: Use AI_PROVIDER_SOCKETS hint (simple & fast)
                 if let Ok(socket_paths) = std::env::var("AI_PROVIDER_SOCKETS") {
@@ -281,7 +316,7 @@ impl AiRouter {
                 match config.provider_id.as_str() {
                     "anthropic" => {
                         // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
-                        #[allow(
+                        #[expect(
                             deprecated,
                             reason = "backward compat: AnthropicAdapter until v0.3.0 removal"
                         )]
@@ -292,7 +327,7 @@ impl AiRouter {
                     }
                     "openai" => {
                         // Backward compatibility: deprecated-adapters feature, v0.3.0 removal planned
-                        #[allow(
+                        #[expect(
                             deprecated,
                             reason = "backward compat: OpenAiAdapter until v0.3.0 removal"
                         )]
@@ -370,7 +405,103 @@ impl AiRouter {
         Ok(adapter)
     }
 
-    // Legacy initialization removed - use new_with_discovery() for all builds
+    /// Resolve the local AI inference endpoint from environment variables.
+    ///
+    /// Uses the same multi-tier resolution as `AIProviderConfig::from_env()`:
+    /// `LOCAL_AI_ENDPOINT` → `OLLAMA_ENDPOINT` → `OLLAMA_URL`.
+    /// Returns `None` if no env var is explicitly set (does NOT fall back to
+    /// a default — the socket scan in step 3 handles implicit discovery).
+    fn resolve_local_ai_endpoint() -> Option<String> {
+        std::env::var("LOCAL_AI_ENDPOINT")
+            .or_else(|_| std::env::var("OLLAMA_ENDPOINT"))
+            .or_else(|_| std::env::var("OLLAMA_URL"))
+            .ok()
+    }
+
+    /// Probe a local AI endpoint and wrap it as a provider if reachable.
+    ///
+    /// If the endpoint is a Unix socket path (starts with `/` and ends with
+    /// `.sock`), delegates to `create_universal_adapter_from_path`.
+    /// If it is an HTTP URL, performs a TCP probe to verify the server is
+    /// listening and creates a socket-scan candidate from the biomeOS
+    /// toadStool socket directory (the ecosystem pattern for local inference).
+    async fn probe_local_ai_endpoint(
+        endpoint: &str,
+    ) -> Result<Arc<dyn AiProviderAdapter>, PrimalError> {
+        // Socket path — delegate directly
+        if endpoint.starts_with('/') {
+            let adapter = Self::create_universal_adapter_from_path(endpoint).await?;
+            return Ok(Arc::new(adapter));
+        }
+
+        // HTTP URL — extract host:port and probe
+        let url = url::Url::parse(endpoint).map_err(|e| {
+            PrimalError::Configuration(format!("Invalid LOCAL_AI_ENDPOINT URL: {e}"))
+        })?;
+        let host = url.host_str().unwrap_or("localhost");
+        let port = url.port().unwrap_or(11434);
+        let addr = format!("{host}:{port}");
+
+        tokio::net::TcpStream::connect(&addr)
+            .await
+            .map_err(|e| PrimalError::OperationFailed(format!("Cannot reach {addr}: {e}")))?;
+
+        // Server is reachable. Check for a toadStool socket wrapping it.
+        let uid = nix::unistd::getuid();
+        let dir = crate::primal_names::BIOMEOS_SOCKET_DIR;
+        let compute_hint = crate::primal_names::TOADSTOOL;
+        let socket_candidates = [
+            format!("/run/user/{uid}/{dir}/{compute_hint}.sock"),
+            format!("/tmp/{compute_hint}.sock"),
+        ];
+
+        for socket_path in &socket_candidates {
+            let path = PathBuf::from(socket_path);
+            if !path.exists() {
+                continue;
+            }
+            if let Ok(adapter) = Self::create_universal_adapter_from_path(socket_path).await {
+                info!(
+                    "✅ Wired LOCAL_AI_ENDPOINT {} via toadStool socket {}",
+                    endpoint, socket_path
+                );
+                return Ok(Arc::new(adapter));
+            }
+        }
+
+        // No toadStool socket — create a metadata-only provider so the router
+        // knows the endpoint exists. Actual requests will need HTTP delegation
+        // through the ecosystem (songBird http.request capability).
+        let metadata = ProviderMetadata {
+            primal_id: "local-ai".to_string(),
+            name: format!("Local AI ({endpoint})"),
+            is_local: Some(true),
+            quality: Some("standard".to_string()),
+            cost: Some(0.0),
+            max_tokens: Some(4096),
+            additional: {
+                let mut m = HashMap::new();
+                m.insert(
+                    "endpoint".to_string(),
+                    serde_json::Value::String(endpoint.to_string()),
+                );
+                m.insert(
+                    "transport".to_string(),
+                    serde_json::Value::String("tcp".to_string()),
+                );
+                m
+            },
+        };
+
+        let adapter = UniversalAiAdapter::from_discovery(
+            "ai:text-generation",
+            PathBuf::from(endpoint),
+            metadata,
+        );
+
+        Ok(Arc::new(adapter))
+    }
+
     // All providers now use capability discovery (TRUE PRIMAL pattern)
 
     /// Get count of available providers

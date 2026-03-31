@@ -91,12 +91,43 @@ impl SecurityManagerImpl {
         self.token_manager.clone()
     }
 
-    /// Initialize security manager (stub — will delegate to BearDog)
-    #[allow(
-        clippy::missing_const_for_fn,
-        reason = "will be non-const when BearDog init is integrated"
-    )]
+    /// Validate configuration and run a local crypto self-test (standalone; no BearDog required).
+    ///
+    /// Per PRIMAL_IPC_PROTOCOL, Squirrel MCP security operates without an external security primal.
     pub fn initialize(&self) -> Result<()> {
+        let cfg = &self.config;
+        if cfg.token_expiry_minutes == 0 {
+            return Err(crate::error::MCPError::Configuration(
+                "token_expiry_minutes must be greater than zero".to_string(),
+            ));
+        }
+
+        if cfg.tls_enabled {
+            let cert = cfg.tls_cert_path.as_ref().filter(|s| !s.is_empty());
+            let key = cfg.tls_key_path.as_ref().filter(|s| !s.is_empty());
+            match (cert, key) {
+                (Some(c), Some(k))
+                    if std::path::Path::new(c).is_file() && std::path::Path::new(k).is_file() => {}
+                _ => {
+                    return Err(crate::error::MCPError::Configuration(
+                        "tls_enabled requires existing tls_cert_path and tls_key_path files"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+
+        if cfg.enable_encryption {
+            let plain = b"squirrel-mcp security init probe";
+            let ct = self.crypto_provider.encrypt(plain)?;
+            let round = self.crypto_provider.decrypt(&ct)?;
+            if round != plain {
+                return Err(crate::error::MCPError::Internal(
+                    "encryption self-test failed: decrypt mismatch".to_string(),
+                ));
+            }
+        }
+
         Ok(())
     }
 

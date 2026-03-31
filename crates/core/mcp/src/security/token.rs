@@ -331,13 +331,13 @@ impl DefaultTokenManager {
         Ok(None)
     }
 
-    /// Hash token string (stub — will use proper hashing via BearDog)
-    #[allow(
+    /// Deterministic BLAKE3 hash of the secret (hex-encoded); never stores raw secrets.
+    #[expect(
         clippy::unused_self,
-        reason = "will use internal hash config when BearDog is integrated"
+        reason = "Instance method keeps parity with future keyed/salted hashing"
     )]
     fn hash_token(&self, token: &str) -> String {
-        format!("hash_{token}")
+        blake3::hash(token.as_bytes()).to_hex().to_string()
     }
 
     /// Returns aggregate counts for stored tokens.
@@ -512,7 +512,10 @@ mod tests {
             .expect("lookup")
             .expect("found");
         assert_eq!(by_str.id, created.id);
-        assert_eq!(by_str.token_hash, format!("hash_{secret}"));
+        assert_eq!(
+            by_str.token_hash,
+            blake3::hash(secret.as_bytes()).to_hex().to_string()
+        );
     }
 
     #[tokio::test]

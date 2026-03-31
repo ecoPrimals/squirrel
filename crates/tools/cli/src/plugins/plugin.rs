@@ -26,6 +26,8 @@ pub struct PluginMetadata {
     pub author: Option<String>,
     /// Optional homepage URL
     pub homepage: Option<String>,
+    /// Declared capabilities (from `plugin.toml`, empty if absent)
+    pub capabilities: Vec<String>,
 }
 
 /// Status of a plugin
@@ -210,6 +212,7 @@ mod tests {
             description: Some("A test plugin".to_string()),
             author: Some("Test Author".to_string()),
             homepage: Some("https://example.com".to_string()),
+            capabilities: vec![],
         }
     }
 
@@ -232,6 +235,7 @@ mod tests {
             description: None,
             author: None,
             homepage: None,
+            capabilities: vec![],
         };
         assert_eq!(meta.name, "minimal");
         assert!(meta.description.is_none());
@@ -345,6 +349,7 @@ mod tests {
             description: Some("My awesome plugin".to_string()),
             author: None,
             homepage: None,
+            capabilities: vec![],
         };
         let item = PluginItem::new(meta, PathBuf::from("/opt/plugins"), PluginStatus::Installed);
 

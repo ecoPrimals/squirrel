@@ -32,7 +32,7 @@ use tracing::{debug, info, warn};
 /// mDNS discovery client
 #[derive(Debug, Clone)]
 pub struct MdnsDiscovery {
-    #[allow(dead_code)] // Reserved for real mDNS implementation
+    #[allow(dead_code)]
     service_type: String,
 
     #[expect(dead_code, reason = "Reserved for real mDNS implementation")]

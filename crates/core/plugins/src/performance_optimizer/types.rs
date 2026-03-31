@@ -198,6 +198,34 @@ pub struct OptimizerMetrics {
     pub operations_optimized: u64,
     /// Total time saved by optimizations in milliseconds.
     pub total_time_saved_ms: u64,
+    /// Rolling average observed response time in milliseconds (from `record_runtime_sample`).
+    pub avg_response_time_ms: f64,
+    /// Observed error rate (0.0 to 1.0) from recorded samples.
+    pub error_rate: f64,
+    /// Observed throughput (operations per second) over the optimizer session.
+    pub throughput_ops_per_sec: f64,
+}
+
+/// Severity for an optimization recommendation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RecommendationSeverity {
+    /// Informational tuning hint.
+    Info,
+    /// Worth addressing soon.
+    Warning,
+    /// Likely user-visible impact.
+    Critical,
+}
+
+/// Actionable optimization suggestion derived from live metrics.
+#[derive(Debug, Clone)]
+pub struct OptimizationRecommendation {
+    /// Relative importance.
+    pub severity: RecommendationSeverity,
+    /// Short title for dashboards or logs.
+    pub summary: String,
+    /// Concrete guidance (may include measured values).
+    pub detail: String,
 }
 
 /// Internal memory info for optimizer
@@ -280,6 +308,7 @@ mod tests {
         let om = OptimizerMetrics::default();
         let om2 = om.clone();
         assert!((om2.cache_efficiency - om.cache_efficiency).abs() < f64::EPSILON);
+        assert!((om2.avg_response_time_ms - om.avg_response_time_ms).abs() < f64::EPSILON);
         let mi = MemoryInfo::default();
         let _ = format!("{mi:?}");
     }

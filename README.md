@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,839 passing | **Edition**: 2024 | **Coverage**: 86.5%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,143 passing | **Edition**: 2024 | **Coverage**: 86.5%
 
 ---
 
@@ -44,7 +44,7 @@ cargo build --release
 ./target/release/squirrel server
 
 # Client (send a JSON-RPC call)
-./target/release/squirrel client --method system.ping --params '{}'
+./target/release/squirrel client --method health.liveness --params '{}'
 
 # Test
 cargo test --workspace
@@ -67,6 +67,8 @@ $XDG_RUNTIME_DIR/biomeos/squirrel-${FAMILY_ID}.sock
 
 Fallback: `/run/user/<uid>/biomeos/squirrel.sock` or `/tmp/squirrel.sock`.
 
+Capability symlink: `ai.sock` → `squirrel.sock` (auto-created for capability-based discovery)
+
 ---
 
 ## Architecture
@@ -74,10 +76,11 @@ Fallback: `/run/user/<uid>/biomeos/squirrel.sock` or `/tmp/squirrel.sock`.
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   6,839 tests passing (0 failures, 107 ignored)
+Fitness:   7,143 tests passing (0 failures, 5 ignored)
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
+TCP:       JSON-RPC 2.0 over TCP via `--port` (newline-delimited)
 Transport: Unix sockets → Named pipes → TCP (automatic fallback)
 HTTP:      Feature-gated OFF by default (optional dev/test only)
 Lifecycle: biomeOS lifecycle.register + Songbird discovery.register + 30s heartbeat
@@ -85,6 +88,8 @@ Niche:     niche.rs self-knowledge (capabilities, costs, dependencies, consumed)
 Edition:   Rust 2024
 ecoBin:    Pure Rust — zero C dependencies in default build
 ```
+
+**JSON-RPC health (ecosystem standard):** `health.check`, `health.liveness`, and `health.readiness` are the **canonical** method names. The `system.*` names (for example `system.ping`) remain as **backward-compatibility aliases** only.
 
 ### Capability-Based Discovery
 

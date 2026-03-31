@@ -8,6 +8,7 @@
 
 use super::connection::ConnectionManager;
 use super::types::McpMessage;
+use crate::infrastructure::error::PluginResult;
 use tracing::{debug, info, warn};
 
 /// Message handler for MCP protocol
@@ -77,7 +78,7 @@ impl MessageHandler {
         &mut self,
         connection: &mut ConnectionManager,
         message: &McpMessage,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> PluginResult<()> {
         let message_json = serde_json::to_string(message)?;
         debug!("Sending MCP message: {}", message_json);
 
@@ -114,7 +115,7 @@ impl MessageHandler {
     pub async fn handle_incoming_message(
         &mut self,
         message_json: &str,
-    ) -> Result<McpMessage, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> PluginResult<McpMessage> {
         let message: McpMessage = serde_json::from_str(message_json)?;
         debug!("Received MCP message: {:?}", message);
         Ok(message)
@@ -152,10 +153,7 @@ impl MessageHandler {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn handle_notification(
-        &mut self,
-        message: &McpMessage,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn handle_notification(&mut self, message: &McpMessage) -> PluginResult<()> {
         match message.message_type.as_str() {
             "ping" => {
                 debug!("Received ping from server");

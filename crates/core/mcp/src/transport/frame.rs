@@ -97,7 +97,7 @@ impl Frame {
 
     /// Write frame to a writer
     #[must_use = "I/O errors should be handled"]
-    #[allow(
+    #[expect(
         clippy::cast_possible_truncation,
         reason = "Frame protocol uses u32 length prefix"
     )]
@@ -209,7 +209,7 @@ impl<W: AsyncWrite + Unpin> AsyncFrameWriter<W> {
     }
 
     /// Writes a frame to the underlying stream
-    #[allow(
+    #[expect(
         clippy::cast_possible_truncation,
         reason = "Frame protocol uses u32 length prefix"
     )]

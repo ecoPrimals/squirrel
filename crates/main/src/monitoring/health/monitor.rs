@@ -7,9 +7,12 @@
 
 use chrono::Utc;
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::net::UnixStream;
 use tokio::sync::RwLock;
+use tokio::time::timeout;
 use tracing::{debug, error, info};
 
 use super::HealthState;
@@ -217,10 +220,75 @@ impl HealthMonitor {
         Ok(())
     }
 
-    /// Perform actual health check (stub for now)
-    async fn perform_health_check(&self, _component: &str) -> Result<(), PrimalError> {
-        // This would be implemented by calling the actual component health check
-        // For now, return success
+    /// Perform actual health check: system resource thresholds and optional Unix socket probes.
+    ///
+    /// Uses [`universal_constants::sys_info`] for CPU and memory on supported platforms.
+    /// Unix sockets listed in `AI_PROVIDER_SOCKETS` / `SONGBIRD_SOCKET` and the resolved Squirrel
+    /// socket path are probed **only when the path exists**, so idle tests without listeners stay green.
+    async fn perform_health_check(&self, component: &str) -> Result<(), PrimalError> {
+        let check_timeout = self
+            .health_checks
+            .read()
+            .await
+            .get(component)
+            .map_or_else(|| Duration::from_secs(2), |c| c.timeout);
+
+        let cpu = universal_constants::sys_info::system_cpu_usage_percent().unwrap_or(0.0);
+        let mem_pct = universal_constants::sys_info::memory_info()
+            .ok()
+            .filter(|m| m.total > 0)
+            .map_or(0.0, |m| (m.used as f64 / m.total as f64) * 100.0);
+
+        const CPU_CRITICAL: f64 = 99.5;
+        const MEM_CRITICAL: f64 = 99.5;
+        if cpu >= CPU_CRITICAL {
+            return Err(PrimalError::Internal(format!(
+                "CPU utilization critically high: {cpu:.1}%"
+            )));
+        }
+        if mem_pct >= MEM_CRITICAL {
+            return Err(PrimalError::Internal(format!(
+                "Memory utilization critically high: {mem_pct:.1}%"
+            )));
+        }
+
+        let mut socket_paths: Vec<String> = Vec::new();
+        socket_paths.push(crate::rpc::unix_socket::get_socket_path(
+            &crate::rpc::unix_socket::get_node_id(),
+        ));
+        if let Ok(extra) = std::env::var("AI_PROVIDER_SOCKETS") {
+            for p in extra.split(',') {
+                let p = p.trim();
+                if !p.is_empty() {
+                    socket_paths.push(p.to_string());
+                }
+            }
+        }
+        if let Ok(p) = std::env::var("SONGBIRD_SOCKET")
+            && !p.is_empty()
+        {
+            socket_paths.push(p);
+        }
+
+        for path in socket_paths {
+            if !Path::new(&path).exists() {
+                continue;
+            }
+            match timeout(check_timeout, UnixStream::connect(&path)).await {
+                Ok(Ok(_)) => {}
+                Ok(Err(e)) => {
+                    return Err(PrimalError::Network(format!(
+                        "Unix socket not accepting connections at {path}: {e}"
+                    )));
+                }
+                Err(_) => {
+                    return Err(PrimalError::Network(format!(
+                        "Unix socket connection to {path} exceeded {check_timeout:?}"
+                    )));
+                }
+            }
+        }
+
         Ok(())
     }
 

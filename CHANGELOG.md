@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.26] - 2026-03-31
+
+Deep debt resolution and wateringHole IPC compliance evolution.
+7,143 tests passing, zero clippy warnings, all quality gates green.
+
+### Added
+
+- **TCP JSON-RPC listener** — `--port` CLI flag now binds a real `TcpListener` on
+  `127.0.0.1:<port>` serving newline-delimited JSON-RPC (IPC compliance P → C)
+- **Capability domain symlink** — `ai.sock` → `squirrel.sock` auto-created at
+  `$XDG_RUNTIME_DIR/biomeos/` for capability-based socket discovery (PRIMAL_IPC_PROTOCOL v3.1)
+- **JSON-RPC identity.get probe** — registry discovery now sends actual JSON-RPC
+  `identity.get` request over socket instead of filename parsing
+- **Plugin TOML manifest parsing** — real `plugin.toml` parsing with `[plugin]` or flat keys
+- **Alert evaluation** — `AlertManager::evaluate_alerts` with threshold-based metric checks
+- **blake3 token hashing** — MCP `hash_token` uses blake3 (pure Rust)
+- **blake3 plugin signature verification** — constant-time hash comparison against `.sig` files
+- **SDK scoped logging** — `ScopedLogger` with context propagation, `send_to_host` via
+  CustomEvent (WASM) or tracing (native)
+- **Performance optimizer** — real metric-based suggestions and bounded VecDeque batch processing
+
+### Changed
+
+- **`health.check`** is now CANONICAL (was alias); `system.health`/`system.status` are
+  backward-compatible aliases per SEMANTIC_METHOD_NAMING_STANDARD v2.0
+- **`Box<dyn Error>`** → typed errors (`PrimalError`, `anyhow::Error`, `PluginResult`) across
+  main, tools/cli, ai-tools, sdk, rule-system
+- **`#[allow(` → `#[expect(reason=...)]`** across main, core/plugins, core/mcp, tools,
+  sdk, universal-patterns (~50+ sites)
+- **Workspace dependencies centralized** — main, ai-tools, mcp crates migrated to
+  `{ workspace = true }` per WORKSPACE_DEPENDENCY_STANDARD
+- **Hardcoded primal names** → `universal_constants::primal_names` constants in security providers
+- **WIP comments** removed from lib.rs files (standards compliance)
+- **MCP security manager** — real initialization with config validation and crypto self-test
+
+### Refactored
+
+- **`ecosystem/registry/types.rs`** (818 → 29 lines + 8 semantic modules)
+- **`security/providers/mod.rs`** (932 → 30 lines + 4 semantic modules)
+- **`core/core/ecosystem.rs`** (1000 → 20 lines + 5 semantic modules)
+- **`jsonrpc_server.rs`** tests extracted to `jsonrpc_server_unit_tests.rs`
+
 ## [0.1.0-alpha.25] - 2026-03-24
 
 Ecosystem absorption and modern idiomatic Rust evolution: `identity.get` handler,

@@ -9,6 +9,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 
+use universal_constants::primal_names;
+
 use crate::config::SecurityConfig;
 use crate::traits::{AuthResult, Credentials, Principal};
 
@@ -87,7 +89,7 @@ impl UniversalSecurityClient {
 
         // Convert SecurityConfig to SecurityServiceConfig for providers
         let service_config = SecurityServiceConfig {
-            service_id: "beardog-security".to_string(),
+            service_id: format!("{}-security", primal_names::BEARDOG),
             endpoint: config.beardog_endpoint.as_ref().map(|url| url.to_string()),
             timeout_seconds: Some(30),
             max_retries: Some(3),

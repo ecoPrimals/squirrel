@@ -7,6 +7,7 @@
 //! connection establishment, reconnection logic, and connection cleanup.
 
 use crate::config::McpClientConfig;
+use crate::infrastructure::error::{PluginError, PluginResult};
 use std::time::Duration;
 use tracing::{debug, info};
 
@@ -86,10 +87,7 @@ impl ConnectionManager {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn establish_connection(
-        &mut self,
-        config: &McpClientConfig,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn establish_connection(&mut self, config: &McpClientConfig) -> PluginResult<()> {
         debug!(
             "Establishing WebSocket connection to: {}",
             config.server_url
@@ -171,17 +169,16 @@ impl ConnectionManager {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn send_message(
-        &mut self,
-        message: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn send_message(&mut self, message: &str) -> PluginResult<()> {
         if message.len() > self.config.max_message_size {
-            return Err(format!(
-                "Message size {} exceeds maximum {}",
-                message.len(),
-                self.config.max_message_size
-            )
-            .into());
+            return Err(PluginError::ResourceLimitExceeded {
+                resource: "mcp_websocket_message".to_string(),
+                limit: format!(
+                    "max {} bytes (got {})",
+                    self.config.max_message_size,
+                    message.len()
+                ),
+            });
         }
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -190,7 +187,10 @@ impl ConnectionManager {
             ws.send(Message::Text(message.to_string())).await?;
             debug!("Message sent (native): {}", message);
         } else {
-            return Err("No WebSocket connection available".into());
+            return Err(PluginError::ConnectionError {
+                endpoint: self.config.server_url.clone(),
+                message: "No WebSocket connection available".to_string(),
+            });
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -198,7 +198,10 @@ impl ConnectionManager {
             ws.send_with_str(message)?;
             debug!("Message sent (WASM): {}", message);
         } else {
-            return Err("No WebSocket connection available".into());
+            return Err(PluginError::ConnectionError {
+                endpoint: self.config.server_url.clone(),
+                message: "No WebSocket connection available".to_string(),
+            });
         }
 
         Ok(())
@@ -226,7 +229,7 @@ impl ConnectionManager {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn close(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn close(&mut self) -> PluginResult<()> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(mut ws) = self.websocket.take() {
             ws.close(None).await?;
@@ -289,13 +292,12 @@ impl ConnectionManager {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn reconnect(
-        &mut self,
-        config: &McpClientConfig,
-        attempt: u32,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn reconnect(&mut self, config: &McpClientConfig, attempt: u32) -> PluginResult<()> {
         if attempt >= config.max_reconnect_attempts {
-            return Err("Max reconnection attempts reached".into());
+            return Err(PluginError::TemporaryFailure {
+                operation: "mcp_reconnect".to_string(),
+                message: "Max reconnection attempts reached".to_string(),
+            });
         }
 
         info!(

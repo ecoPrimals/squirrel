@@ -12,6 +12,7 @@ use tracing::{debug, error, info, warn};
 
 use super::security::SecurePluginLoader;
 use crate::plugins::error::PluginError;
+use crate::plugins::manifest;
 use crate::plugins::plugin::Plugin;
 use crate::plugins::plugin::{PluginFactory, PluginItem, PluginMetadata, PluginStatus};
 use crate::plugins::state::PluginState;
@@ -212,11 +213,36 @@ impl PluginManager {
         // Look for plugin.toml or other metadata file
         let metadata_file = path.join("plugin.toml");
 
+        let mut metadata = PluginMetadata {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+            description: Some(format!("Plugin loaded from {}", path.display())),
+            author: Some("Unknown".to_string()),
+            homepage: None,
+            capabilities: vec![],
+        };
+
         if metadata_file.exists() {
-            // Parse metadata from TOML file
-            let _metadata_content =
-                std::fs::read_to_string(&metadata_file).map_err(PluginError::IoError)?;
-            // For now, create basic metadata - NOTE(phase2): implement TOML manifest parsing
+            let content = std::fs::read_to_string(&metadata_file).map_err(PluginError::IoError)?;
+            let merged = manifest::parse_plugin_manifest(&content)?;
+            if let Some(n) = merged.name {
+                metadata.name = n;
+            }
+            if let Some(v) = merged.version {
+                metadata.version = v;
+            }
+            if merged.description.is_some() {
+                metadata.description = merged.description;
+            }
+            if merged.author.is_some() {
+                metadata.author = merged.author;
+            }
+            if merged.homepage.is_some() {
+                metadata.homepage = merged.homepage;
+            }
+            if !merged.capabilities.is_empty() {
+                metadata.capabilities = merged.capabilities;
+            }
         } else {
             warn!(
                 "⚠️ No metadata file found for plugin {}, using defaults",
@@ -224,13 +250,7 @@ impl PluginManager {
             );
         }
 
-        Ok(PluginMetadata {
-            name: name.to_string(),
-            version: "1.0.0".to_string(),
-            description: Some(format!("Plugin loaded from {}", path.display())),
-            author: Some("Unknown".to_string()),
-            homepage: None,
-        })
+        Ok(metadata)
     }
 
     /// Register all commands from loaded plugins with the command registry
@@ -558,6 +578,7 @@ impl PluginManager {
             description: plugin.description().map(|s| s.to_string()),
             author: None,   // Factories don't provide author
             homepage: None, // Factories don't provide homepage
+            capabilities: vec![],
         };
 
         // Create a plugin item

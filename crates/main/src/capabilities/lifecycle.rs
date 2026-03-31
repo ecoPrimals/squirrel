@@ -145,6 +145,8 @@ pub fn cleanup_socket(socket_path: &str) {
     {
         warn!("Failed to remove socket {socket_path}: {e}");
     }
+    #[cfg(unix)]
+    crate::rpc::unix_socket::cleanup_capability_domain_symlink(socket_path);
 }
 
 /// Install a SIGTERM handler that cleans up the socket and sends shutdown signal.

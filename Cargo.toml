@@ -71,15 +71,15 @@ chrono = { version = "0.4", features = ["serde"] }
 # CRYPTO: reqwest 0.12 → rustls 0.23 (pluggable crypto). ecoPrimals target: Pure Rust.
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + rustls-rustcrypto/aws-lc-rs.
 # See docs/CRYPTO_MIGRATION.md.
-url = "2.4"
+url = "2.5"
 
 # Additional common dependencies
 async-recursion = "1.0"
-bytes = "1.5"
+bytes = { version = "1.5", features = ["serde"] }
 regex = "1.10"
 serde_yaml_ng = "0.10"
 parking_lot = "0.12"
-dashmap = "5.4"
+dashmap = "5.5"
 semver = "1.0"
 
 # More common dependencies
@@ -136,7 +136,48 @@ test-context = "0.2"
 proptest = "1.10.0"
 
 # Benchmarking dependencies
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+
+# RPC / transport (main + mcp)
+tokio-util = { version = "0.7.17", features = ["full"] }
+tarpc = { version = "0.37", features = ["full"] }
+tarpc-mcp = { package = "tarpc", version = "0.37", features = ["tokio1", "serde-transport"] }
+tokio-serde = { version = "0.8.0", features = ["bincode"] }
+bincode = "1.3"
+toml = "0.8"
+dirs = "5.0"
+hostname = "0.4"
+metrics-exporter-prometheus = "0.12"
+pprof = "0.13"
+iai = "0.1"
+nvml-wrapper = "0.10"
+
+# HTTP / AI client (optional; ai-tools + mcp)
+tokio-stream = { version = "0.1", features = ["sync"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+openai = { version = "1.1", default-features = false, features = ["rustls"] }
+axum = { version = "0.7", features = ["json"] }
+axum-mcp = { package = "axum", version = "0.6", features = ["ws", "headers"] }
+axum-extra-mcp = { package = "axum-extra", version = "0.8" }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# mcp-specific externals
+serde_bytes = "0.11"
+futures-util = "0.3"
+tokio-tungstenite = "0.20"
+tungstenite = "0.20"
+tracing-appender = "0.2"
+sled = "0.34"
+redis = { version = "1.0", features = ["tokio-comp", "connection-manager"] }
+zstd = "0.12"
+flate2 = "1.0"
+lz4 = "1.24"
+rustls = "0.21"
+rustls-pemfile = "1.0"
+libloading = "0.8"
+wasmtime = "12.0"
+wasmtime-wasi = "12.0"
 
 # Internal crate dependencies
 squirrel-ai-tools = { path = "crates/tools/ai-tools", version = "0.1.0" }
@@ -145,9 +186,13 @@ squirrel-integration = { path = "crates/integration", version = "0.1.0" }
 ecosystem-api = { path = "crates/ecosystem-api", version = "0.1.0" }
 squirrel-interfaces = { path = "crates/core/interfaces", version = "0.1.0" }
 squirrel-context = { path = "crates/core/context", version = "0.1.0" }
-squirrel-universal-patterns = { path = "crates/universal-patterns", version = "0.1.0" }
+universal-patterns = { path = "crates/universal-patterns", version = "0.1.0" }
+universal-constants = { path = "crates/universal-constants", version = "0.1.0" }
+universal-error = { path = "crates/universal-error", version = "0.1.0" }
 squirrel-sdk = { path = "crates/sdk", version = "1.0.0" }
 squirrel-plugins = { path = "crates/core/plugins", version = "0.1.0" }
+squirrel-mcp = { path = "crates/core/mcp", version = "0.1.0" }
+squirrel-mcp-auth = { path = "crates/core/auth", version = "0.1.0" }
 
 [workspace.lints.rust]
 missing_docs = "warn"

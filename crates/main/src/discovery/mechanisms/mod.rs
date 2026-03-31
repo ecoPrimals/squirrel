@@ -22,7 +22,7 @@ pub use dnssd::DnssdDiscovery;
 pub use env_vars::{discover_all_from_env, discover_from_env};
 pub use mdns::MdnsDiscovery;
 // Backward compatibility: RegistryType/RegistryDiscovery for legacy consumers
-#[allow(
+#[expect(
     deprecated,
     reason = "backward compat: RegistryDiscovery/RegistryType for legacy consumers"
 )]

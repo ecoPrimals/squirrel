@@ -14,7 +14,7 @@ pub fn register_commands() -> Result<()> {
 
     // Create a command registry from the services crate
     let services_registry = squirrel_commands::create_command_registry()
-        .map_err(|e| format!("Failed to create services registry: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to create services registry: {}", e))?;
 
     // Register commands successfully
     info!("Successfully registered built-in commands from services crate");

@@ -141,7 +141,11 @@ pub enum PrimalError {
     RemoteError(String),
 }
 
-// Add support for Box<dyn Error> conversion for our Arc<str> modernization
+/// Converts any `Send + Sync` boxed error into [`PrimalError`].
+///
+/// This is retained for call sites that still produce type-erased errors (e.g. third-party
+/// crates returning `Box<dyn Error + Send + Sync>`). Prefer `PrimalError` or `anyhow::Error`
+/// at boundaries instead of introducing new `Box<dyn Error>` returns.
 impl From<Box<dyn std::error::Error + Send + Sync>> for PrimalError {
     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
         Self::Generic(format!("Boxed error: {err}"))

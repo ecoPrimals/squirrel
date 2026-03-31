@@ -5139,6 +5139,7 @@ dependencies = [
 name = "squirrel-cli"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "assert_cmd",
  "async-trait",
  "blake3",

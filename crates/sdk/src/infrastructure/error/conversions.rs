@@ -140,6 +140,17 @@ impl From<serde_json::Error> for PluginError {
     }
 }
 
+/// WebSocket / MCP transport errors (native targets only; `tokio-tungstenite` is not used on WASM).
+#[cfg(not(target_arch = "wasm32"))]
+impl From<tokio_tungstenite::tungstenite::Error> for PluginError {
+    fn from(error: tokio_tungstenite::tungstenite::Error) -> Self {
+        PluginError::ConnectionError {
+            endpoint: "websocket".to_string(),
+            message: error.to_string(),
+        }
+    }
+}
+
 impl From<serde_wasm_bindgen::Error> for PluginError {
     fn from(error: serde_wasm_bindgen::Error) -> Self {
         PluginError::SerializationError {

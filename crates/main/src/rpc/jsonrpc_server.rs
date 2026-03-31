@@ -23,9 +23,12 @@
 //! - `ai.list_providers` - List available AI providers
 //! - `capability.announce` - Announce capabilities
 //! - `capability.discover` - Report own capabilities for socket scanning
-//! - `system.health` - Health check endpoint
+//! - `health.check` - Full health check (canonical, PRIMAL_IPC_PROTOCOL v3.0)
+//! - `health.liveness` - Liveness probe
+//! - `health.readiness` - Readiness probe
+//! - `system.health` - Alias for health.check (backward compat)
 //! - `system.metrics` - Server metrics
-//! - `system.ping` - Connectivity test
+//! - `system.ping` - Alias for health.liveness (backward compat)
 //! - `identity.get` - Primal self-knowledge (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0)
 //! - `discovery.peers` - Peer discovery
 //! - `tool.execute` - Tool execution (local + forwarding to announced primals)
@@ -240,6 +243,9 @@ pub struct JsonRpcServer {
 
     /// Capability registry loaded from capability_registry.toml (source of truth)
     pub capability_registry: Arc<crate::capabilities::registry::CapabilityRegistry>,
+
+    /// When set, binds an additional TCP JSON-RPC listener on `127.0.0.1:<port>` (localhost only).
+    tcp_port: Option<u16>,
 }
 
 impl JsonRpcServer {
@@ -274,6 +280,7 @@ impl JsonRpcServer {
             ai_router: None,
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
+            tcp_port: None,
         }
     }
 
@@ -287,7 +294,15 @@ impl JsonRpcServer {
             ai_router: Some(ai_router),
             announced_tools: Arc::new(RwLock::new(std::collections::HashMap::new())),
             capability_registry: Self::load_registry(),
+            tcp_port: None,
         }
+    }
+
+    /// Enable a localhost TCP JSON-RPC listener on `127.0.0.1:<port>` alongside Universal Transport.
+    #[must_use]
+    pub const fn with_tcp_port(mut self, port: u16) -> Self {
+        self.tcp_port = Some(port);
+        self
     }
 
     /// Start the JSON-RPC server with Universal Transport (Isomorphic IPC)
@@ -297,13 +312,13 @@ impl JsonRpcServer {
     /// - Android (SELinux): TCP fallback with discovery files
     /// - Windows: Named pipes (when available)
     ///
-    /// The server will automatically:
-    /// 1. Try Unix socket first
-    /// 2. Detect platform constraints (SELinux, AppArmor, etc.)
-    /// 3. Adapt to TCP fallback if needed
-    /// 4. Write discovery files for client auto-discovery
+    /// ## SQ-01: Dual Socket Binding (Linux)
     ///
-    /// This method will block until the server is stopped (Ctrl+C).
+    /// On Linux the primary listener uses an abstract namespace socket (`\0squirrel`),
+    /// which is invisible to `readdir()`. biomeOS filesystem socket scanning therefore
+    /// cannot discover abstract-only primals. To comply with IPC_COMPLIANCE_MATRIX
+    /// and PRIMAL_IPC_PROTOCOL, we **also** bind a filesystem socket at
+    /// `$XDG_RUNTIME_DIR/biomeos/squirrel.sock` so biomeOS can find us.
     pub async fn start(self: Arc<Self>) -> Result<()> {
         info!("🔌 Starting JSON-RPC server with Universal Transport...");
 
@@ -312,9 +327,76 @@ impl JsonRpcServer {
             .await
             .context("Failed to bind Universal Transport listener")?;
 
+        // SQ-01: On Linux, also bind a filesystem socket at the biomeOS standard
+        // path. Abstract namespace sockets are invisible to readdir()-based
+        // discovery used by biomeOS socket scanning.
+        #[cfg(target_os = "linux")]
+        {
+            let fs_path = super::unix_socket::get_socket_path(&super::unix_socket::get_node_id());
+            if let Err(e) = super::unix_socket::prepare_socket_path(&fs_path) {
+                warn!(
+                    "Failed to prepare filesystem socket {}: {} (abstract-only mode)",
+                    fs_path, e
+                );
+            } else {
+                match tokio::net::UnixListener::bind(&fs_path) {
+                    Ok(fs_listener) => {
+                        info!(
+                            "✅ Filesystem socket bound: {} (biomeOS discovery)",
+                            fs_path
+                        );
+                        #[cfg(unix)]
+                        {
+                            if let Err(e) =
+                                super::unix_socket::try_create_capability_domain_symlink(&fs_path)
+                            {
+                                warn!(
+                                    "Could not create capability-domain symlink ai.sock → {} (PRIMAL_IPC_PROTOCOL): {}",
+                                    std::path::Path::new(&fs_path)
+                                        .file_name()
+                                        .and_then(|n| n.to_str())
+                                        .unwrap_or("squirrel.sock"),
+                                    e
+                                );
+                            }
+                        }
+                        let server = Arc::clone(&self);
+                        tokio::spawn(async move {
+                            Self::accept_filesystem_socket(server, fs_listener).await;
+                        });
+                    }
+                    Err(e) => {
+                        warn!(
+                            "⚠️ Could not bind filesystem socket {}: {} (abstract-only mode)",
+                            fs_path, e
+                        );
+                    }
+                }
+            }
+        }
+
+        if let Some(port) = self.tcp_port {
+            let addr = format!("127.0.0.1:{port}");
+            match tokio::net::TcpListener::bind(&addr).await {
+                Ok(tcp_listener) => {
+                    info!("TCP JSON-RPC listener on 127.0.0.1:{port}");
+                    let server = Arc::clone(&self);
+                    tokio::spawn(async move {
+                        Self::accept_tcp_jsonrpc(server, tcp_listener).await;
+                    });
+                }
+                Err(e) => {
+                    warn!(
+                        "Could not bind TCP JSON-RPC on {}: {} (continuing without TCP)",
+                        addr, e
+                    );
+                }
+            }
+        }
+
         info!("✅ JSON-RPC server ready (service: {})", self.service_name);
 
-        // Accept connections loop
+        // Accept connections loop (primary transport)
         loop {
             match listener.accept().await {
                 Ok((transport, _remote_addr)) => {
@@ -329,6 +411,53 @@ impl JsonRpcServer {
                 }
                 Err(e) => {
                     error!("Failed to accept connection: {}", e);
+                }
+            }
+        }
+    }
+
+    /// Accept loop for the biomeOS filesystem socket (SQ-01 compliance).
+    ///
+    /// Runs as a spawned task alongside the primary abstract/TCP listener.
+    /// Connections are handed off to the same `handle_universal_connection`
+    /// pipeline so both transports share handler logic.
+    #[cfg(target_os = "linux")]
+    async fn accept_filesystem_socket(server: Arc<Self>, fs_listener: tokio::net::UnixListener) {
+        loop {
+            match fs_listener.accept().await {
+                Ok((stream, _addr)) => {
+                    debug!("📥 Filesystem socket connection accepted");
+                    let srv = Arc::clone(&server);
+                    tokio::spawn(async move {
+                        let transport = UniversalTransport::UnixSocket(stream);
+                        if let Err(e) = srv.clone().handle_universal_connection(transport).await {
+                            error!("Error handling filesystem socket connection: {}", e);
+                        }
+                    });
+                }
+                Err(e) => {
+                    error!("Failed to accept on filesystem socket: {}", e);
+                }
+            }
+        }
+    }
+
+    /// Accept loop for localhost TCP JSON-RPC (newline-delimited, same handler as Unix).
+    async fn accept_tcp_jsonrpc(server: Arc<Self>, listener: tokio::net::TcpListener) {
+        loop {
+            match listener.accept().await {
+                Ok((stream, _addr)) => {
+                    debug!("📥 TCP JSON-RPC connection accepted");
+                    let srv = Arc::clone(&server);
+                    tokio::spawn(async move {
+                        let transport = UniversalTransport::Tcp(stream);
+                        if let Err(e) = srv.clone().handle_universal_connection(transport).await {
+                            error!("Error handling TCP JSON-RPC connection: {}", e);
+                        }
+                    });
+                }
+                Err(e) => {
+                    error!("Failed to accept on TCP JSON-RPC listener: {}", e);
                 }
             }
         }
@@ -675,14 +804,16 @@ impl JsonRpcServer {
             // Identity domain — CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
             "identity.get" => self.handle_identity_get().await,
 
-            // System domain — semantic names (preferred)
-            "system.health" | "system.status" => self.handle_health().await,
+            // Health domain — PRIMAL_IPC_PROTOCOL v3.0 (canonical)
+            // SEMANTIC_METHOD_NAMING_STANDARD: health.* is NON-NEGOTIABLE.
+            // system.health / system.status are backward-compat aliases.
+            "health.check" | "system.health" | "system.status" => self.handle_health().await,
+            "health.liveness" => self.handle_health_liveness().await,
+            "health.readiness" => self.handle_health_readiness().await,
+
+            // System domain — backward-compat (metrics/ping have no health.* equivalent)
             "system.metrics" => self.handle_metrics().await,
             "system.ping" => self.handle_ping().await,
-
-            // Health domain — PRIMAL_IPC_PROTOCOL v3.0
-            "health.check" | "health.liveness" => self.handle_health_liveness().await,
-            "health.readiness" => self.handle_health_readiness().await,
 
             // Discovery domain — semantic names (preferred)
             "discovery.peers" | "discovery.list" => self.handle_discover_peers(params).await,
@@ -854,5 +985,5 @@ impl JsonRpcServer {
 }
 
 #[cfg(test)]
-#[path = "jsonrpc_server_tests.rs"]
-mod tests;
+#[path = "jsonrpc_server_unit_tests.rs"]
+mod unit_tests;

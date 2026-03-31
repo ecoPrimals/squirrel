@@ -34,7 +34,7 @@
 // ARCHITECTURAL: These require trait/API redesign, not simple code edits.
 // Each will be resolved as the module is refactored.
 #![allow(
-    // Docs WIP — tracked for completion
+    // Architectural: docs require trait/API stabilization before completion
     missing_docs,
     clippy::missing_errors_doc,
     // Edition 2024 stabilisation noise

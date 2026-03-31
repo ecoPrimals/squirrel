@@ -146,10 +146,7 @@ pub trait Plugin: Send + Sync {
 
     /// Get the plugin metadata
     // Backward compatibility: PluginMetadata during migration to squirrel_interfaces
-    #[allow(
-        deprecated,
-        reason = "backward compat: PluginMetadata during migration to squirrel_interfaces"
-    )]
+    #[expect(deprecated, reason = "backward-compatible alias")]
     fn metadata(&self) -> &PluginMetadata;
 
     /// Initialize the plugin

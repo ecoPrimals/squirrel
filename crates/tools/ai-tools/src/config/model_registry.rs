@@ -18,6 +18,7 @@ use crate::common::capability::{
     AICapabilities, CostMetrics, CostTier, ModelType, PerformanceMetrics, ResourceRequirements,
     TaskType,
 };
+use crate::error::Result;
 
 static GLOBAL_REGISTRY: LazyLock<RwLock<ModelRegistry>> =
     LazyLock::new(|| RwLock::new(ModelRegistry::default()));
@@ -170,7 +171,7 @@ impl ModelRegistry {
     /// # Errors
     ///
     /// Propagates I/O and JSON deserialization errors.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let contents = fs::read_to_string(path)?;
         let registry = serde_json::from_str(&contents)?;
         Ok(registry)
@@ -236,7 +237,7 @@ impl ModelRegistry {
     /// # Errors
     ///
     /// Propagates serialization and I/O errors.
-    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let contents = serde_json::to_string_pretty(self)?;
         fs::write(path, contents)?;
         Ok(())

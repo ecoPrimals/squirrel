@@ -59,11 +59,13 @@ pub use types::{PrimalCapability, PrimalInfo, PrimalType, SquirrelCapability};
 /// Re-export deployment configuration from universal-constants
 pub use universal_constants::deployment;
 
+use crate::error::PrimalError;
+
 /// Universal system version
 pub const VERSION: &str = "1.0.0";
 
 /// Initialize the universal system
-pub fn init() -> Result<(), Box<dyn std::error::Error>> {
+pub fn init() -> Result<(), PrimalError> {
     // Configure tracing via subscriber if RUST_LOG is unset, avoiding
     // `std::env::set_var` which is unsafe in edition 2024.
     if std::env::var("RUST_LOG").is_err() {

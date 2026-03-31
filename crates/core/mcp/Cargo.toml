@@ -12,88 +12,88 @@ categories = ["development-tools"]
 
 [dependencies]
 # Core async runtime
-tokio = { version = "1.0", features = ["full"] }
-tokio-stream = { version = "0.1", features = ["sync"], optional = true }
-tokio-util = { version = "0.7", features = ["full"] }
-futures-util = "0.3"
-async-trait = "0.1"
+tokio.workspace = true
+tokio-stream = { workspace = true, optional = true }
+tokio-util.workspace = true
+futures-util.workspace = true
+async-trait.workspace = true
 
 # Serialization
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde_bytes = "0.11"
-uuid = { version = "1.0", features = ["serde", "v4"] }
+serde.workspace = true
+serde_json.workspace = true
+serde_bytes.workspace = true
+uuid.workspace = true
 
 # Networking & Transport
-tarpc = { version = "0.37", features = ["tokio1", "serde-transport"], optional = true }
-tokio-serde = { version = "0.8", features = ["bincode"], optional = true }
-bincode = { version = "1.3", optional = true }
-tokio-tungstenite = { version = "0.20", optional = true }
-tungstenite = { version = "0.20", optional = true }
+tarpc-mcp = { workspace = true, optional = true }
+tokio-serde = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+tokio-tungstenite = { workspace = true, optional = true }
+tungstenite = { workspace = true, optional = true }
 
 # Internal crates
-squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
-universal-constants = { path = "../../universal-constants", version = "0.1.0" }
+squirrel-mcp-config.workspace = true
+universal-constants.workspace = true
 
 # WebSocket support (optional, behind websocket feature)
-axum = { version = "0.6", features = ["ws", "headers"], optional = true }
-axum-extra = { version = "0.8", optional = true }
+axum-mcp = { workspace = true, optional = true }
+axum-extra-mcp = { workspace = true, optional = true }
 
 # Concurrency
-dashmap = "5.0"
+dashmap.workspace = true
 
 # Observability
-tracing = { version = "0.1", features = ["log"] }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-appender = "0.2"
-metrics = { version = "0.21", optional = true }
-metrics-exporter-prometheus = { version = "0.12", optional = true }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-appender.workspace = true
+metrics = { workspace = true, optional = true }
+metrics-exporter-prometheus = { workspace = true, optional = true }
 
 # Time and dates
-chrono = { version = "0.4", features = ["serde"] }
+chrono.workspace = true
 
 # Error handling
-thiserror = "1.0"
-anyhow = "1.0"
+thiserror.workspace = true
+anyhow.workspace = true
 
 # Configuration
-toml = "0.8"
+toml.workspace = true
 
 # Storage and persistence (optional)
-sled = { version = "0.34", optional = true }
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"], optional = true }
-redis = { version = "1.0", features = ["tokio-comp", "connection-manager"], optional = true }
+sled = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
+redis = { workspace = true, optional = true }
 
 # Compression (optional)
-zstd = { version = "0.12", optional = true }
-flate2 = { version = "1.0", optional = true }
-lz4 = { version = "1.24", optional = true }
+zstd = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+lz4 = { workspace = true, optional = true }
 
 # Cryptography (optional, for TLS)
-rustls = { version = "0.21", optional = true }
-rustls-pemfile = { version = "1.0", optional = true }
+rustls = { workspace = true, optional = true }
+rustls-pemfile = { workspace = true, optional = true }
 
 # AI providers (optional) - openai-api-rs/anthropic-sdk REMOVED: pulled reqwest 0.11 (native-tls/openssl).
 # Providers use reqwest directly via direct-http (rustls). See coordinator/providers.rs.
 # CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider. See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
+reqwest = { workspace = true, optional = true }
 
 # Plugin system (optional)
-libloading = { version = "0.8", optional = true }
-wasmtime = { version = "12.0", optional = true }
-wasmtime-wasi = { version = "12.0", optional = true }
+libloading = { workspace = true, optional = true }
+wasmtime = { workspace = true, optional = true }
+wasmtime-wasi = { workspace = true, optional = true }
 
 # Utilities
-parking_lot = "0.12"
-rand = "0.8"
-blake3 = { workspace = true }
-ed25519-dalek = { workspace = true }
-futures = "0.3"
-bytes = { version = "1.0", features = ["serde"] }
-clap = "4.0"
-regex = "1.7"
-base64 = "0.22"
+parking_lot.workspace = true
+rand.workspace = true
+blake3.workspace = true
+ed25519-dalek.workspace = true
+futures.workspace = true
+bytes.workspace = true
+clap.workspace = true
+regex.workspace = true
+base64.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"
@@ -138,8 +138,8 @@ full = [
     "metrics",
     "compression"
 ]
-websocket = ["dep:tokio-tungstenite", "dep:tungstenite", "dep:axum", "dep:axum-extra"]
-tarpc = ["dep:tarpc", "dep:tokio-serde", "dep:bincode"]
+websocket = ["dep:tokio-tungstenite", "dep:tungstenite", "dep:axum-mcp", "dep:axum-extra-mcp"]
+tarpc = ["dep:tarpc-mcp", "dep:tokio-serde", "dep:bincode"]
 streaming = ["dep:tokio-stream"]
 ai-providers = ["direct-http"]
 plugins = ["dep:libloading", "dep:wasmtime", "dep:wasmtime-wasi"]

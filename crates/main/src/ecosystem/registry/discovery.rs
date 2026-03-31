@@ -7,6 +7,7 @@
 
 use super::types::{DiscoveredService, ServiceHealthStatus, intern_registry_string};
 use crate::EcosystemPrimalType;
+use crate::error::PrimalError;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock; // Import from crate root
@@ -19,7 +20,7 @@ impl DiscoveryOps {
     pub async fn discover_services(
         service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
         primal_types: Vec<EcosystemPrimalType>,
-    ) -> Result<Vec<Arc<DiscoveredService>>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Vec<Arc<DiscoveredService>>, PrimalError> {
         let mut discovered_services = Vec::new();
 
         for primal_type in primal_types {
@@ -129,12 +130,14 @@ impl DiscoveryOps {
     fn read_endpoint_from_config(
         _config_path: &str,
         _primal_type: EcosystemPrimalType,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<String, PrimalError> {
         // Future: Configuration file parsing for service endpoints
         // Currently uses environment variables and discovery
         // This would read from TOML/JSON/YAML config file
         // Example: { "endpoints": { "security": "https://beardog.example.com" } }
-        Err("Configuration file parsing not yet implemented".into())
+        Err(PrimalError::NotImplemented(
+            "Configuration file parsing not yet implemented".to_string(),
+        ))
     }
 
     /// Get development default endpoints (ONLY for development environment)
@@ -171,7 +174,7 @@ impl DiscoveryOps {
         service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
         primal_type: EcosystemPrimalType,
         endpoint: String,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), PrimalError> {
         // Create discovered service with Arc<str> optimization (move endpoint, no clone)
         let health_endpoint = Arc::from(format!("{endpoint}/health"));
         let service = Arc::new(DiscoveredService {

@@ -148,7 +148,7 @@ async fn run_client(
 }
 
 /// Run server mode
-#[allow(
+#[expect(
     clippy::too_many_lines,
     reason = "Server orchestration; refactor planned"
 )]
@@ -225,8 +225,8 @@ async fn run_server(
 
     info!("Starting JSON-RPC server...");
     info!("Socket: {socket_path}");
-    info!("Bind: {bind} (unused in Unix socket mode)");
-    info!("Port: {port} (unused in Unix socket mode)");
+    info!("Bind: {bind}");
+    info!("Port: {port} (TCP JSON-RPC on 127.0.0.1:{port})");
     if daemon {
         info!("Daemon mode: enabled (FUTURE: implement background detach)");
     }
@@ -272,8 +272,10 @@ async fn run_server(
     };
 
     let server = ai_router.map_or_else(
-        || Arc::new(JsonRpcServer::new(socket_path.clone())),
-        |router| Arc::new(JsonRpcServer::with_ai_router(socket_path.clone(), router)),
+        || Arc::new(JsonRpcServer::new(socket_path.clone()).with_tcp_port(port)),
+        |router| {
+            Arc::new(JsonRpcServer::with_ai_router(socket_path.clone(), router).with_tcp_port(port))
+        },
     );
     let server_clone = Arc::clone(&server);
 

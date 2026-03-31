@@ -12,93 +12,93 @@ categories = ["development-tools"]
 
 [dependencies]
 # CLI framework for UniBin architecture
-clap = { version = "4.4", features = ["derive", "cargo", "wrap_help"] }
+clap = { workspace = true, features = ["cargo", "wrap_help"] }
 
-tokio = { version = "1.0", features = ["full"] }
-tokio-util = { version = "0.7.17", features = ["codec"] }
-bytes = "1.5"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde_yaml_ng = "0.10"
-toml = "0.8"
-dirs = "5.0"
-uuid = { version = "1.0", features = ["v4"] }
-url = "2.4"
-chrono = { version = "0.4", features = ["serde"] }
-tracing = { version = "0.1", features = ["log"] }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-anyhow = "1.0"
-thiserror = "1.0"
-async-trait = "0.1"
-dashmap = "5.5"
-parking_lot = "0.12"
+tokio.workspace = true
+tokio-util.workspace = true
+bytes.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml_ng.workspace = true
+toml.workspace = true
+dirs.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+url.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+anyhow.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+dashmap.workspace = true
+parking_lot.workspace = true
 # HTTP framework REMOVED - Squirrel uses Unix sockets + JSON-RPC + tarpc
 # All external HTTP is proxied via ecosystem capability routing (own IPC client)
-base64 = "0.22"
-rand = "0.8"
-futures = "0.3"
+base64.workspace = true
+rand.workspace = true
+futures.workspace = true
 # lazy_static removed - evolved to std::sync::LazyLock (stable Rust 1.80+)
 
 # Text processing and validation (CRITICAL FIX: Missing regex dependency)
-regex = "1.10"
+regex.workspace = true
 
 # JSON-RPC: Using manual implementation (BearDog pattern) - ZERO C dependencies!
 # jsonrpsee removed - it pulls ring via rustls
-hostname = "0.4"
+hostname.workspace = true
 nix = { workspace = true }
 
 # tarpc for high-performance RPC (Phase 2) - Fixed with correct versions from Songbird/BearDog
-tarpc = { version = "0.37", features = ["full"], optional = true }
-tokio-serde = { version = "0.8.0", features = ["bincode"], optional = true }
-bincode = { version = "1.3", optional = true }
+tarpc = { workspace = true, optional = true }
+tokio-serde = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
 
 # Ecosystem integrations - Service Mesh via Capability Discovery
-ecosystem-api = { path = "../ecosystem-api", version = "0.1.0" }
+ecosystem-api.workspace = true
 # NOTE: Service mesh dependencies discovered at runtime via capability registry.
 # No compile-time primal dependencies needed (TRUE PRIMAL architecture).
 # Squirrel knows only itself; other primals are discovered dynamically via Unix sockets.
 
 # Configuration management
-squirrel-mcp-config = { path = "../config", version = "0.1.0" }
+squirrel-mcp-config.workspace = true
 
 # Authentication system (CRITICAL FIX: Missing auth dependency)
-squirrel-mcp-auth = { path = "../core/auth", version = "0.1.0" }
+squirrel-mcp-auth.workspace = true
 
 # Optional local auth crates for development
 
 # Universal patterns
-universal-patterns = { path = "../universal-patterns", version = "0.1.0" }
-universal-constants = { path = "../universal-constants", version = "0.1.0" }
+universal-patterns.workspace = true
+universal-constants.workspace = true
 zeroize.workspace = true
 
 # SDK dependencies
-squirrel-sdk = { path = "../sdk", version = "1.0.0" }
-squirrel-integration = { path = "../integration", version = "0.1.0" }
+squirrel-sdk.workspace = true
+squirrel-integration.workspace = true
 
 # Context management
-squirrel-context = { path = "../core/context", version = "0.1.0" }
+squirrel-context.workspace = true
 
 # MCP and AI dependencies
 # Using our own MCP implementation instead of external mcp crate
-squirrel-mcp = { path = "../core/mcp", version = "0.1.0" }
+squirrel-mcp.workspace = true
 # OpenAI SDK - OPTIONAL in v1.1.0+ (dev-direct-http feature only!)
 # openai REMOVED - Use capability_ai (delegates to Songbird via Unix sockets) instead!
 
 # Observability
 # SECURITY FIX: Updated from 0.13 to fix RUSTSEC-2024-0437 (protobuf uncontrolled recursion)
 # Updated to 0.14 to fix protobuf vulnerability (RUSTSEC-2024-0437)
-prometheus = { version = "0.14", optional = true }
+prometheus = { workspace = true, optional = true }
 # Metrics export — prometheus optional, monitoring via capability.call preferred
-metrics = { version = "0.21", optional = true }
-metrics-exporter-prometheus = { version = "0.12", optional = true }
+metrics = { workspace = true, optional = true }
+metrics-exporter-prometheus = { workspace = true, optional = true }
 
 # Benchmarking (optional)
-criterion = { version = "0.5", optional = true, features = ["async_tokio"] }
-pprof = { version = "0.13", optional = true }
-iai = { version = "0.1", optional = true }
+criterion = { workspace = true, optional = true }
+pprof = { workspace = true, optional = true }
+iai = { workspace = true, optional = true }
 
 # GPU detection (optional — production delegates to ToadStool)
-nvml-wrapper = { version = "0.10", optional = true }
+nvml-wrapper = { workspace = true, optional = true }
 
 # gRPC REMOVED - NOT ecoPrimals standard!
 # ecoPrimals uses JSON-RPC + tarpc (full Rust ecosystem)
@@ -122,7 +122,11 @@ monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]  # Metrics
 benchmarking = ["criterion", "pprof", "iai"]     # Benchmarking tools
 enhanced_error_handling = []                     # Enhanced error handling
 optimizations = []                               # Performance optimizations
-deprecated-adapters = []                          # Enable deprecated AI adapters (Anthropic, OpenAI) for backward compatibility
+## Enable deprecated vendor-specific AI adapters (Anthropic, OpenAI).
+## These compile in direct HTTP adapters — v0.3.0 removal planned.
+## Prefer capability-based discovery with UniversalAiAdapter + LOCAL_AI_ENDPOINT.
+## See crates/main/src/api/ai/adapters/mod.rs for migration guidance.
+deprecated-adapters = []
 nvml = ["dep:nvml-wrapper"]                        # NVIDIA NVML GPU detection
 gpu-detection = []                                # GPU detection via NVML/ROCm/nvidia-smi (ToadStool compute primal)
 

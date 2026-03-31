@@ -386,16 +386,10 @@ pub fn create_rule_directory_manager_with_root_dir(
 #[async_trait::async_trait]
 pub trait FileWatcher: Send + Sync {
     /// Start watching a directory
-    async fn watch_directory(
-        &self,
-        directory: impl AsRef<Path> + Send,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn watch_directory(&self, directory: impl AsRef<Path> + Send) -> anyhow::Result<()>;
 
     /// Stop watching a directory
-    async fn stop_watching(
-        &self,
-        directory: impl AsRef<Path> + Send,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn stop_watching(&self, directory: impl AsRef<Path> + Send) -> anyhow::Result<()>;
 
     /// Get all watched directories
     async fn get_watched_directories(&self) -> Vec<PathBuf>;

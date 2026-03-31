@@ -254,7 +254,7 @@ impl ActionExecutor {
     }
 
     /// Execute modify context action
-    #[allow(
+    #[expect(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -282,7 +282,7 @@ impl ActionExecutor {
     }
 
     /// Execute create recovery point action
-    #[allow(
+    #[expect(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -310,7 +310,7 @@ impl ActionExecutor {
     }
 
     /// Execute transformation action
-    #[allow(
+    #[expect(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -337,7 +337,7 @@ impl ActionExecutor {
     }
 
     /// Execute notify action
-    #[allow(
+    #[expect(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -395,7 +395,7 @@ impl ActionExecutor {
     }
 
     /// Execute script action
-    #[allow(
+    #[expect(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -423,7 +423,7 @@ impl ActionExecutor {
     }
 
     /// Execute validate context action
-    #[allow(
+    #[expect(
         clippy::unnecessary_wraps,
         reason = "Result needed for trait compatibility"
     )]
@@ -483,7 +483,7 @@ impl ActionExecutor {
         }
 
         // Update average duration using saturating arithmetic to avoid truncation
-        #[allow(
+        #[expect(
             clippy::cast_possible_truncation,
             reason = "Action execution; value range audited"
         )]

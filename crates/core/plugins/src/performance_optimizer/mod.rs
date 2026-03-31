@@ -32,4 +32,4 @@ pub use config::{
     PerformanceOptimizerConfig, PredictiveLoadingConfig,
 };
 pub use optimizer::{PluginPerformanceOptimizer, get_global_optimizer, init_global_optimizer};
-pub use types::OptimizerMetrics;
+pub use types::{OptimizationRecommendation, OptimizerMetrics, RecommendationSeverity};

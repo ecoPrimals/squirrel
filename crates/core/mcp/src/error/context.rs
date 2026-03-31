@@ -524,7 +524,7 @@ impl ErrorHandler {
     /// # Returns
     ///
     /// Boolean indicating whether recovery was successful
-    #[allow(
+    #[expect(
         unused_variables,
         reason = "Trait default impl; params reserved for derived implementations"
     )]

@@ -129,6 +129,24 @@ impl From<serde_json::Error> for AIError {
     }
 }
 
+impl From<toml::de::Error> for AIError {
+    fn from(err: toml::de::Error) -> Self {
+        Self::Parse(err.to_string())
+    }
+}
+
+impl From<std::num::ParseIntError> for AIError {
+    fn from(err: std::num::ParseIntError) -> Self {
+        Self::Parse(err.to_string())
+    }
+}
+
+impl From<std::str::ParseBoolError> for AIError {
+    fn from(err: std::str::ParseBoolError) -> Self {
+        Self::Parse(err.to_string())
+    }
+}
+
 impl From<std::io::Error> for AIError {
     fn from(err: std::io::Error) -> Self {
         Self::Network(err.to_string())

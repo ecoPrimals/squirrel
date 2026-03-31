@@ -14,6 +14,8 @@ pub mod error;
 pub mod example_plugin;
 /// Plugin lifecycle and registration.
 pub mod manager;
+/// TOML manifest parsing (`plugin.toml`).
+pub(crate) mod manifest;
 #[cfg(test)]
 mod mod_tests;
 /// Plugin trait and metadata types.
@@ -180,47 +182,22 @@ fn parse_plugin_metadata(
     content: &str,
     _plugin_path: &Path,
 ) -> Result<PluginMetadata, PluginError> {
-    // For now, we'll use a simple parsing approach
-    // In a real implementation, we would use a TOML parser like toml-rs
+    let merged = manifest::parse_plugin_manifest(content)?;
 
-    let mut name = None;
-    let mut version = None;
-    let mut description = None;
-    let mut author = None;
-    let mut homepage = None;
-
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-
-        if let Some(pos) = line.find('=') {
-            let key = line[..pos].trim();
-            let value = line[pos + 1..].trim().trim_matches('"');
-
-            match key {
-                "name" => name = Some(value.to_string()),
-                "version" => version = Some(value.to_string()),
-                "description" => description = Some(value.to_string()),
-                "author" => author = Some(value.to_string()),
-                "homepage" => homepage = Some(value.to_string()),
-                _ => {} // Ignore unknown keys
-            }
-        }
-    }
-
-    let name =
-        name.ok_or_else(|| PluginError::ValidationError("Plugin name is required".to_string()))?;
-    let version = version
+    let name = merged
+        .name
+        .ok_or_else(|| PluginError::ValidationError("Plugin name is required".to_string()))?;
+    let version = merged
+        .version
         .ok_or_else(|| PluginError::ValidationError("Plugin version is required".to_string()))?;
 
     Ok(PluginMetadata {
         name,
         version,
-        description,
-        author,
-        homepage,
+        description: merged.description,
+        author: merged.author,
+        homepage: merged.homepage,
+        capabilities: merged.capabilities,
     })
 }
 

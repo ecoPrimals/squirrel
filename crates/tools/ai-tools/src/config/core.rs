@@ -81,7 +81,7 @@ impl AIToolsConfig {
     /// # Errors
     ///
     /// Propagates I/O, TOML parse errors, and invalid numeric env values.
-    pub fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from_env() -> crate::error::Result<Self> {
         let mut config = if let Ok(config_path) = env::var("SQUIRREL_AI_CONFIG") {
             let config_str = std::fs::read_to_string(config_path)?;
             toml::from_str(&config_str)?

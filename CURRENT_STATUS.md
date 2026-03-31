@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: March 24, 2026
-**Version**: 0.1.0-alpha.25
+**Last Updated**: March 31, 2026
+**Version**: 0.1.0-alpha.26
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 6,839 passing / 0 failures / 107 ignored across 22 workspace members |
+| Tests | 7,143 passing / 0 failures / 5 ignored across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
@@ -30,7 +30,7 @@
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
 | Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(any(test, feature = "testing"))]` |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
-| TODO/FIXME in code | 0 (documented `STUB` comments only in performance optimizer batch/optimizer — Phase 2 deferred; swarm, coordination, and crypto are production implementations) |
+| TODO/FIXME in code | 0 — all NOTE(phase2) stubs completed; no TODO/FIXME/HACK markers in committed code |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
 | Zero-copy | Hot-path clones audited; `Arc::clone()` for intent clarity; `mem::take` for payload moves; `String` → borrow in MCP task client |
 
@@ -44,8 +44,8 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 | Capability | **`capabilities.list`** (canonical), `capabilities.announce`, `capabilities.discover`, `capability.announce` (alias), `capability.discover` (alias), `capability.list` (alias), `primal.capabilities` (alias) |
 | Identity | `identity.get` (CAPABILITY_BASED_DISCOVERY_STANDARD v1.0) |
 | Context | `context.create`, `context.update`, `context.summarize` |
-| System | `system.health`, `system.status`, `system.metrics`, `system.ping` |
-| Health | `health.check` (alias), `health.liveness`, `health.readiness` (PRIMAL_IPC_PROTOCOL v3.0) |
+| System | **`system.metrics`** (canonical), `system.health`, `system.status`, `system.ping` (backward-compat aliases) |
+| Health | **`health.check`**, **`health.liveness`**, **`health.readiness`** (canonical — PRIMAL_IPC_PROTOCOL v3.0) |
 | Discovery | `discovery.peers`, `discovery.list` (alias) |
 | Tool | `tool.execute`, `tool.list` |
 | Lifecycle | `lifecycle.register`, `lifecycle.status` |
@@ -56,7 +56,7 @@ Source of truth: [`capability_registry.toml`](capability_registry.toml)
 **Legacy prefix normalization**: `normalize_method()` strips `squirrel.` and `mcp.` prefixes
 for ecosystem backward compatibility (e.g. `squirrel.system.health` → `system.health`).
 
-**Health tiering**: `system.health` returns `HealthTier` (alive/ready/healthy) per
+**Health tiering**: `health.check` (canonical; `system.health` alias) returns `HealthTier` (alive/ready/healthy) per
 CAPABILITY_BASED_DISCOVERY_STANDARD v1.0 — alive (process running), ready (providers
 initialized), healthy (fully operational with served requests).
 
@@ -202,7 +202,7 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | `PluginEventBus` | Implemented — pub/sub with topic-based routing |
 | `PluginSecurityManager` | Implemented — capability-based permission checks |
 | `ManagerMetrics` | Implemented — load/unload/error counters |
-| Performance optimizer | Batch/optimizer stubs deferred to Phase 2 (`batch_processor`, `optimizer`) |
+| Performance optimizer | Implemented — `batch_processor`, `optimizer` completed (NOTE(phase2) stubs resolved) |
 
 ## Ecosystem Integration
 
@@ -221,6 +221,10 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | Health Probes v3.0 | `health.liveness` + `health.readiness` — PRIMAL_IPC_PROTOCOL v3.0 |
 | Circuit Breaker | `CircuitBreaker` + `RetryPolicy` + `ResilientCaller` for IPC resilience; `StandardRetryPolicy::from_env()` with primal→ecosystem→default chain |
 | Manifest Discovery | `PrimalManifest` scan at `$XDG_RUNTIME_DIR/ecoPrimals/*.json` — Songbird fallback |
+| TCP JSON-RPC listener | TCP JSON-RPC listener for remote/tooling access alongside Unix socket transport |
+| Capability domain symlink | `ai.sock` capability-domain symlink for Neural API / biomeOS alignment |
+| Workspace dependency centralization | Shared `[workspace.dependencies]` + `{ workspace = true }` in member crates |
+| Smart file refactoring | Large modules split with tests extracted; file-size compliance maintained |
 | OrExit Pattern | `OrExit<T>` trait + centralized `exit_codes` for zero-panic binary entry points |
 | DispatchOutcome | `DispatchOutcome<T>` for protocol vs application error separation |
 | Validation Harness | `ValidationHarness` for multi-check binary validation (doctor, validate) |
@@ -264,10 +268,20 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 ## Known Issues
 
 1. Coverage at 86.5% — remaining ~3.5% gap to 90% is primarily demo binaries, IPC/network code needing integration infrastructure, and binary entry points
-2. Performance optimizer `batch_processor` / `optimizer` stubs remain deferred to Phase 2 (swarm coordination, coordination service, and crypto are now production implementations, not stubs)
+2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs); coverage gap to 90% remains as in item 1
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 
-## Changes Since Last Handoff (March 24, 2026)
+## Changes Since Last Handoff (March 31, 2026)
+
+### March 31, 2026 session (TCP JSON-RPC, capability symlink, workspace deps, refactoring)
+
+- **TCP JSON-RPC listener**: TCP JSON-RPC listener alongside Unix socket — remote clients and tooling can attach without a local socket path
+- **Capability domain symlink (`ai.sock`)**: Symlink aligns the Neural API / biomeOS capability domain with the canonical socket name for discovery and orchestration
+- **Workspace dependency centralization**: `[workspace.dependencies]` in the root manifest with `{ workspace = true }` in member crates — fewer version skews and simpler upgrades
+- **Smart file refactoring**: Large modules split with tests extracted; ecosystem/core/plugin surfaces kept under file-size limits
+- **Health RPC naming**: `health.check`, `health.liveness`, `health.readiness` canonical; `system.health`, `system.status`, `system.ping` backward-compat aliases; `system.metrics` remains canonical for system metrics
+- **Performance optimizer**: `batch_processor` / `optimizer` NOTE(phase2) work completed; TODO/FIXME/HACK sweep clean in committed code
+- **Tests**: 7,143 passing / 0 failures / 5 ignored across 22 workspace members
 
 ### alpha.25b Sprint (Deep Debt Evolution & Modern Idiomatic Rust)
 

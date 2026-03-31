@@ -110,7 +110,14 @@ description = "Alias for capabilities.list — retained for ecosystem backward c
 [capabilities.capability_list_alias.input_schema]
 type = "object"
 
-# --- Health probes (PRIMAL_IPC_PROTOCOL v3.0) ---
+# --- Health domain (PRIMAL_IPC_PROTOCOL v3.0 — canonical, NON-NEGOTIABLE) ---
+
+[capabilities.health_check]
+method = "health.check"
+domain = "health.probe"
+description = "Full health check — canonical per SEMANTIC_METHOD_NAMING_STANDARD"
+[capabilities.health_check.input_schema]
+type = "object"
 
 [capabilities.health_liveness]
 method = "health.liveness"
@@ -135,19 +142,19 @@ description = "Returns primal identity, domain, version, transport, and protocol
 [capabilities.identity_get.input_schema]
 type = "object"
 
-# --- System domain ---
+# --- System domain (backward-compat aliases — prefer health.*) ---
 
 [capabilities.system_health]
 method = "system.health"
 domain = "system.monitoring"
-description = "Health check with uptime and provider count"
+description = "Alias for health.check (backward compat — prefer health.check)"
 [capabilities.system_health.input_schema]
 type = "object"
 
 [capabilities.system_status]
 method = "system.status"
 domain = "system.monitoring"
-description = "System status (UniBin alias for system.health)"
+description = "Alias for health.check (backward compat — prefer health.check)"
 [capabilities.system_status.input_schema]
 type = "object"
 
@@ -161,7 +168,7 @@ type = "object"
 [capabilities.system_ping]
 method = "system.ping"
 domain = "system.monitoring"
-description = "Connectivity test (returns pong)"
+description = "Connectivity test — alias for health.liveness pong variant"
 [capabilities.system_ping.input_schema]
 type = "object"
 

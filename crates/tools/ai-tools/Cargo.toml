@@ -15,19 +15,19 @@ workspace = true
 
 [dependencies]
 # Core async runtime
-tokio = { version = "1.0", features = ["full"] }
-tokio-stream = { version = "0.1", features = ["sync"] }
-async-trait = "0.1"
-futures = "0.3"
-bytes = "1.0"
+tokio.workspace = true
+tokio-stream.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+bytes.workspace = true
 
 # Serialization
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-uuid = { version = "1.0", features = ["v4", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
-thiserror = "1.0"
-anyhow = "1.0"
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
 
 # HTTP client for AI services (OPTIONAL - for dev/testing only!)
 # Production uses Unix sockets → Songbird (Pure Rust!)
@@ -35,55 +35,55 @@ anyhow = "1.0"
 # CRYPTO MIGRATION (ecoPrimals: Pure Rust): reqwest 0.12 → rustls 0.23 (pluggable crypto).
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
 # See docs/CRYPTO_MIGRATION.md.
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
-url = "2.5"
+reqwest = { workspace = true, optional = true }
+url.workspace = true
 
 # Logging and tracing
-tracing = { version = "0.1", features = ["log"] }
+tracing.workspace = true
 
 # AI service clients (OPTIONAL - for dev/testing only!)
 # Production delegates to Songbird via Unix sockets!
 # anthropic-sdk REMOVED: pulls reqwest with default native-tls (chimeric C dep).
 # Direct HTTP providers return Err("not yet implemented") - use capability_ai instead.
-openai = { version = "1.1", default-features = false, features = ["rustls"], optional = true }
+openai = { workspace = true, optional = true }
 
 # CRITICAL FIX: Add missing config dependency
-squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
+squirrel-mcp-config.workspace = true
 
 # IPC client from universal patterns (primal autonomy - no shared external IPC crates!)
-universal-patterns = { path = "../../universal-patterns", version = "0.1.0" }
+universal-patterns.workspace = true
 
 # Universal error system
-universal-error = { path = "../../universal-error", version = "0.1.0" }
+universal-error.workspace = true
 
 # Universal constants (socket paths, SLOs, ports)
-universal-constants = { path = "../../universal-constants", version = "0.1.0" }
+universal-constants.workspace = true
 
 # Web framework for API (OPTIONAL - for HTTP API routes only)
-axum = { version = "0.7", features = ["json"], optional = true }
-tower = { version = "0.4", optional = true }
-tower-http = { version = "0.5", features = ["cors", "trace"], optional = true }
+axum = { workspace = true, optional = true }
+tower = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
 
 # Configuration (TOML is ecosystem standard format)
-toml = "0.8"
+toml.workspace = true
 
 # Logging
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # Security
-secrecy = "0.8"
+secrecy.workspace = true
 
 # File system
-dirs = "5.0"
-tempfile = "3.0"
+dirs.workspace = true
+tempfile.workspace = true
 
 # lazy_static removed - evolved to std::sync::LazyLock (stable Rust 1.80+)
 
 # CLI
-clap = { version = "4.0", features = ["derive"] }
+clap.workspace = true
 
 # Additional dependencies for native provider
-rand = "0.8"
+rand.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"

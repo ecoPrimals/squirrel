@@ -40,11 +40,11 @@ pub struct Cli {
 pub enum Commands {
     /// Start Squirrel in server mode
     ///
-    /// Runs the AI orchestration server with HTTP and Unix socket APIs.
+    /// Runs the AI orchestration server with Unix socket and optional localhost TCP JSON-RPC.
     /// Supports multiple AI providers (cloud APIs, local servers, model hubs) with
     /// intelligent routing based on cost, quality, and latency.
     Server {
-        /// Server port for HTTP API (env: `SQUIRREL_SERVER_PORT`)
+        /// TCP port for JSON-RPC on localhost `127.0.0.1` (env: `SQUIRREL_SERVER_PORT`)
         #[arg(short, long, default_value_t = universal_constants::deployment::ports::squirrel_server())]
         port: u16,
 

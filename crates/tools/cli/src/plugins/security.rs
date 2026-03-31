@@ -15,6 +15,18 @@ use tracing::{info, warn};
 use crate::plugins::plugin::PluginMetadata;
 use crate::plugins::{Plugin, PluginError}; // Use local PluginMetadata for compatibility
 
+/// Constant-time equality for equal-length byte slices (mitigates timing leaks on match).
+fn constant_time_eq_bytes(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
 /// Secure plugin loader errors
 #[derive(Error, Debug)]
 pub enum PluginSecurityError {
@@ -186,13 +198,12 @@ impl SecurePluginLoader {
         Ok(blake3::hash(&contents).to_hex().to_string())
     }
 
-    /// Verify plugin signature (placeholder - integrate with actual security system)
+    /// Verify plugin signature by comparing the computed blake3 hex checksum with the hash in the `.sig` file.
     fn verify_plugin_signature(
         &self,
         plugin_path: &Path,
         checksum: &str,
     ) -> Result<bool, PluginSecurityError> {
-        // Look for .sig file
         let sig_path = plugin_path.with_extension("sig");
 
         if !sig_path.exists() {
@@ -200,17 +211,50 @@ impl SecurePluginLoader {
                 "⚠️ No signature file found for plugin: {}",
                 plugin_path.display()
             );
-            return Ok(false); // In production, this should fail
+            return Ok(false);
         }
 
-        // NOTE(phase2): Security primal integration via capability discovery for signature verification
-        // Use capability registry to discover security service, then verify via Unix socket JSON-RPC
-        info!(
-            "🔐 Signature verification placeholder for checksum: {}",
-            checksum
-        );
+        let sig_contents = std::fs::read_to_string(&sig_path).map_err(|e| {
+            PluginSecurityError::SignatureVerificationFailed(format!(
+                "Cannot read signature file {}: {}",
+                sig_path.display(),
+                e
+            ))
+        })?;
 
-        Ok(true) // Placeholder - implement actual verification
+        let expected = sig_contents.trim();
+        if expected.is_empty() {
+            warn!("⚠️ Signature file is empty: {}", sig_path.display());
+            return Ok(false);
+        }
+
+        // `calculate_checksum` uses blake3 hex (lowercase); normalize file contents for comparison.
+        let expected_lower = expected.to_ascii_lowercase();
+        if expected_lower.len() != checksum.len() {
+            warn!(
+                "⚠️ Signature hash length mismatch (want {} hex chars, got {}): {}",
+                checksum.len(),
+                expected_lower.len(),
+                sig_path.display()
+            );
+            return Ok(false);
+        }
+
+        let matches = constant_time_eq_bytes(expected_lower.as_bytes(), checksum.as_bytes());
+        if matches {
+            info!(
+                "🔐 Plugin signature verified (blake3 matches {}): {}",
+                sig_path.display(),
+                plugin_path.display()
+            );
+        } else {
+            warn!(
+                "⚠️ Plugin signature mismatch: computed checksum does not match {}",
+                sig_path.display()
+            );
+        }
+
+        Ok(matches)
     }
 
     /// Perform additional security checks
@@ -390,6 +434,7 @@ mod tests {
             description: Some("A stub".to_string()),
             author: None,
             homepage: None,
+            capabilities: vec![],
         };
         let stub = SecurePluginStub::new(metadata);
         assert_eq!(stub.name(), "test-stub");
@@ -405,6 +450,7 @@ mod tests {
             description: None,
             author: None,
             homepage: None,
+            capabilities: vec![],
         };
         let stub = SecurePluginStub::new(metadata);
         assert!(stub.description().is_none());
@@ -418,6 +464,7 @@ mod tests {
             description: None,
             author: None,
             homepage: None,
+            capabilities: vec![],
         };
         let stub = SecurePluginStub::new(metadata);
         let result = stub.initialize().await;
@@ -432,6 +479,7 @@ mod tests {
             description: None,
             author: None,
             homepage: None,
+            capabilities: vec![],
         };
         let stub = SecurePluginStub::new(metadata);
         let result = stub.execute(&["arg1".to_string()]).await;
@@ -450,6 +498,7 @@ mod tests {
             description: None,
             author: None,
             homepage: None,
+            capabilities: vec![],
         };
         let stub = SecurePluginStub::new(metadata);
         let result = stub.cleanup().await;
@@ -464,6 +513,7 @@ mod tests {
             description: None,
             author: None,
             homepage: None,
+            capabilities: vec![],
         };
         let stub = SecurePluginStub::new(metadata);
         assert!(stub.commands().is_empty());

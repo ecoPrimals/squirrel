@@ -4,8 +4,13 @@
 //! Logging functionality for plugins
 
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use wasm_bindgen::prelude::*;
+
+thread_local! {
+    static GLOBAL_LOGGER: RefCell<Logger> = RefCell::new(Logger::new("global".to_string()));
+}
 
 /// Log level enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -259,6 +264,14 @@ impl Logger {
 }
 
 impl Logger {
+    /// Run `f` with the process-global logger (thread-local on native).
+    pub fn with_global<F, R>(f: F) -> R
+    where
+        F: FnOnce(&mut Logger) -> R,
+    {
+        GLOBAL_LOGGER.with(|cell| f(&mut cell.borrow_mut()))
+    }
+
     /// Log a message with optional metadata
     pub fn log_with_metadata(
         &mut self,
@@ -300,8 +313,50 @@ impl Logger {
     }
 
     /// Send log entry to host system
-    fn send_to_host(&self, _entry: &LogEntry) {
-        // NOTE(phase2): Host communication - requires host-plugin bridge
+    fn send_to_host(&self, entry: &LogEntry) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            use wasm_bindgen::JsCast;
+            use web_sys::CustomEvent;
+
+            let Some(window) = web_sys::window() else {
+                return;
+            };
+            let detail = match serde_wasm_bindgen::to_value(entry) {
+                Ok(v) => v,
+                Err(_) => return,
+            };
+            let init = web_sys::CustomEventInit::new();
+            init.set_detail(&detail);
+            let Ok(event) =
+                CustomEvent::new_with_custom_event_init_dict("squirrel-plugin-log", &init)
+            else {
+                return;
+            };
+            let _ = window.dispatch_event(event.as_ref().unchecked_ref());
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let payload = serde_json::to_string(entry).unwrap_or_else(|_| entry.message.clone());
+            match entry.level {
+                LogLevel::Trace => {
+                    tracing::trace!(target: "squirrel_sdk_plugin", "{}", payload);
+                }
+                LogLevel::Debug => {
+                    tracing::debug!(target: "squirrel_sdk_plugin", "{}", payload);
+                }
+                LogLevel::Info => {
+                    tracing::info!(target: "squirrel_sdk_plugin", "{}", payload);
+                }
+                LogLevel::Warn => {
+                    tracing::warn!(target: "squirrel_sdk_plugin", "{}", payload);
+                }
+                LogLevel::Error => {
+                    tracing::error!(target: "squirrel_sdk_plugin", "{}", payload);
+                }
+            }
+        }
     }
 
     /// Log to browser console
@@ -335,35 +390,56 @@ impl Logger {
     }
 
     /// Create a scoped logger with additional context
-    pub fn with_context(&self, _context: HashMap<String, serde_json::Value>) -> ScopedLogger<'_> {
+    pub fn with_context(&self, context: HashMap<String, serde_json::Value>) -> ScopedLogger {
         ScopedLogger {
-            _phantom: std::marker::PhantomData,
+            plugin_id: self.plugin_id.clone(),
+            context,
         }
     }
+}
+
+fn format_context_prefix(context: &HashMap<String, serde_json::Value>) -> String {
+    if context.is_empty() {
+        return String::new();
+    }
+    let mut keys: Vec<_> = context.keys().collect();
+    keys.sort_unstable();
+    let parts: Vec<String> = keys
+        .into_iter()
+        .filter_map(|k| context.get(k).map(|v| format!("{k}={v}")))
+        .collect();
+    format!("[{}]", parts.join(", "))
 }
 
 /// Scoped logger for contextual logging
-pub struct ScopedLogger<'a> {
-    _phantom: std::marker::PhantomData<&'a ()>,
+#[derive(Default)]
+pub struct ScopedLogger {
+    plugin_id: String,
+    context: HashMap<String, serde_json::Value>,
 }
 
-impl<'a> Default for ScopedLogger<'a> {
-    fn default() -> Self {
-        Self {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'a> ScopedLogger<'a> {
+impl ScopedLogger {
     /// Create a new scoped logger
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Log a message with the current context
-    pub fn log(&self, _level: LogLevel, _message: &str) {
-        // NOTE(phase2): Scoped logging - requires scope context propagation
+    pub fn log(&self, level: LogLevel, message: &str) {
+        let prefix = format_context_prefix(&self.context);
+        let full = if prefix.is_empty() {
+            message.to_string()
+        } else {
+            format!("{prefix} {message}")
+        };
+        Logger::with_global(|logger| {
+            let prev = logger.plugin_id.clone();
+            if !self.plugin_id.is_empty() {
+                logger.plugin_id.clone_from(&self.plugin_id);
+            }
+            logger.log_with_metadata(level, &full, Some(self.context.clone()));
+            logger.plugin_id = prev;
+        });
     }
 }
 
@@ -376,7 +452,9 @@ impl<'a> ScopedLogger<'a> {
 #[macro_export]
 macro_rules! log_trace {
     ($($arg:tt)*) => {
-        $crate::logging::Logger::global().trace(&format!($($arg)*))
+        $crate::logging::Logger::with_global(|logger| {
+            logger.trace(&format!($($arg)*))
+        })
     };
 }
 

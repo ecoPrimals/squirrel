@@ -60,6 +60,9 @@ fn test_optimizer_metrics_clone() {
         memory_saved_bytes: 1024,
         operations_optimized: 100,
         total_time_saved_ms: 500,
+        avg_response_time_ms: 12.0,
+        error_rate: 0.01,
+        throughput_ops_per_sec: 50.0,
     };
     let cloned = metrics.clone();
     assert!((metrics.cache_efficiency - cloned.cache_efficiency).abs() < f64::EPSILON);

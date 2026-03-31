@@ -42,7 +42,7 @@ use crate::plugin::{Plugin, PluginMetadata};
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)] // Serde schema + tests; fields consumed by loaders and manifest I/O
+#[allow(dead_code)]
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -75,11 +75,8 @@ impl PluginManifest {
     /// Convert to plugin metadata for test assertions and the `testing` feature.
     #[must_use]
     #[cfg(any(test, feature = "testing"))]
-    #[allow(dead_code)] // Public API for downstream test consumers via the `testing` feature
-    #[expect(
-        deprecated,
-        reason = "backward compat: PluginMetadata during migration"
-    )]
+    #[allow(dead_code)]
+    #[expect(deprecated, reason = "backward-compatible alias")]
     pub fn to_metadata(&self) -> PluginMetadata {
         let mut metadata =
             PluginMetadata::new(&self.name, &self.version, &self.description, &self.author);
@@ -180,30 +177,21 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
 ///
 /// Used when a manifest is present but this primal does not host native plugin code: the plugin
 /// entry is a documented no-op; real implementations are discovered on other primals via IPC.
-#[allow(
-    deprecated,
-    reason = "backward compat: PluginMetadata during migration"
-)]
+#[expect(deprecated, reason = "backward-compatible alias")]
 #[must_use]
 pub fn create_noop_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
     Arc::new(NoOpPlugin { metadata })
 }
 
 /// No-op plugin: satisfies the [`Plugin`] contract without side effects; logs lifecycle for observability.
-#[allow(
-    deprecated,
-    reason = "backward compat: PluginMetadata during migration"
-)]
+#[expect(deprecated, reason = "backward-compatible alias")]
 #[derive(Debug, Clone)]
 pub struct NoOpPlugin {
     metadata: PluginMetadata,
 }
 
 #[async_trait]
-#[allow(
-    deprecated,
-    reason = "backward compat: PluginMetadata during migration"
-)]
+#[expect(deprecated, reason = "backward-compatible alias")]
 impl Plugin for NoOpPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
@@ -282,7 +270,7 @@ impl DefaultPluginDiscovery {
     /// # Errors
     ///
     /// Returns [`anyhow::Error`] when native dynamic loading is unavailable for the given path.
-    #[allow(
+    #[expect(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -297,7 +285,7 @@ impl DefaultPluginDiscovery {
 
 /// Default plugin loader implementation (kept for trait impl / future use)
 #[derive(Debug, Copy, Clone)]
-#[allow(dead_code)] // Trait surface; constructed in tests / IPC-backed deployments
+#[allow(dead_code)]
 pub struct DefaultPluginLoader;
 
 #[async_trait]

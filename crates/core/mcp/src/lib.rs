@@ -20,7 +20,7 @@
     )
 )]
 #![allow(
-    // Docs WIP — clippy docs tracked for completion (missing_docs enforced via warn above)
+    // Architectural: docs require protocol stabilization (missing_docs enforced via warn above)
     clippy::missing_errors_doc,
     // Genuine domain naming
     clippy::doc_markdown,

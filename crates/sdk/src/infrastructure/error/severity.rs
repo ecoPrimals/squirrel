@@ -93,10 +93,7 @@ pub trait PluginErrorClassification {
 }
 
 // Backward compatibility: PluginError deprecated in favor of universal_error::sdk::SDKError
-#[allow(
-    deprecated,
-    reason = "backward compat: PluginError during migration to universal_error::sdk::SDKError"
-)]
+#[expect(deprecated, reason = "backward-compatible alias")]
 impl PluginErrorClassification for PluginError {
     fn severity(&self) -> ErrorSeverity {
         match self {

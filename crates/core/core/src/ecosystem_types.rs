@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 /// Serialized service registration payload (ecosystem registry / Songbird).
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 pub struct ServiceRegistration {
     /// Stable service identifier.
     pub service_id: String,
@@ -24,6 +25,7 @@ pub struct ServiceRegistration {
 
 /// Service listing entry returned from discovery.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 pub struct ServiceInfo {
     /// Stable service identifier.
     pub service_id: String,
@@ -39,6 +41,7 @@ pub struct ServiceInfo {
 
 /// Minimal primal capability snapshot for JSON interchange.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[expect(dead_code, reason = "deserialized from JSON at runtime")]
 pub struct PrimalInfo {
     /// Advertised capability ids.
     pub capabilities: Vec<String>,
