@@ -75,8 +75,12 @@ fn run_dignity_check(prompt: &str, model: Option<&str>, context: Option<&str>) {
 impl AiRouter {
     /// Create a new AI router with capability-based discovery (TRUE PRIMAL!)
     ///
-    /// Discovers AI providers via: (1) HTTP providers from `AI_HTTP_PROVIDERS` / API keys,
-    /// (2) `AI_PROVIDER_SOCKETS` hint, (3) biomeOS socket scan for local compute primals.
+    /// Discovers AI providers via:
+    /// 1. HTTP providers from `AI_HTTP_PROVIDERS` / API keys
+    /// 2. `LOCAL_AI_ENDPOINT` / `OLLAMA_ENDPOINT` / `OLLAMA_URL` (local inference)
+    /// 3. Default Ollama probe at `localhost:11434` (implicit discovery)
+    /// 4. `AI_PROVIDER_SOCKETS` hint (Unix socket providers)
+    /// 5. biomeOS socket scan for local compute primals (toadStool)
     ///
     /// # Arguments
     ///
@@ -144,12 +148,10 @@ impl AiRouter {
                     }
                 }
 
-                // 1.5: SQ-02 — Discover local AI inference (Ollama, llama.cpp, vLLM)
-                // LOCAL_AI_ENDPOINT feeds into AIProviderConfig but was NOT wired
-                // into AiRouter discovery. Resolve the env chain and probe.
-                if local_providers.is_empty()
-                    && let Some(endpoint) = Self::resolve_local_ai_endpoint()
-                {
+                // 1.5: Discover local AI inference (Ollama, llama.cpp, vLLM)
+                // SQ-02: LOCAL_AI_ENDPOINT → OLLAMA_ENDPOINT → OLLAMA_URL env chain.
+                // Always attempted — local inference coexists with cloud providers.
+                if let Some(endpoint) = Self::resolve_local_ai_endpoint() {
                     info!("🔍 LOCAL_AI_ENDPOINT resolved: {}", endpoint);
                     match tokio::time::timeout(
                         std::time::Duration::from_secs(3),
@@ -175,6 +177,32 @@ impl AiRouter {
                                 "⚠️ Local AI endpoint {} probe timed out (>3s)",
                                 endpoint
                             );
+                        }
+                    }
+                } else if local_providers.is_empty() {
+                    // 1.6: No explicit env var — probe default Ollama port as last
+                    // resort. AIProviderConfig::from_env() defaults to this endpoint;
+                    // the router should match.
+                    let default_endpoint = universal_constants::deployment::endpoints::ollama();
+                    debug!("🔍 Probing default Ollama endpoint: {}", default_endpoint);
+                    match tokio::time::timeout(
+                        std::time::Duration::from_secs(2),
+                        Self::probe_local_ai_endpoint(&default_endpoint),
+                    )
+                    .await
+                    {
+                        Ok(Ok(adapter)) => {
+                            info!(
+                                "✅ Default Ollama instance discovered at {}",
+                                default_endpoint
+                            );
+                            local_providers.push(adapter);
+                        }
+                        Ok(Err(_)) => {
+                            debug!("ℹ️ No Ollama at default endpoint {}", default_endpoint);
+                        }
+                        Err(_) => {
+                            debug!("ℹ️ Default Ollama probe timed out (>2s)");
                         }
                     }
                 }
@@ -264,10 +292,12 @@ impl AiRouter {
         // Summary
         if providers.is_empty() {
             warn!("⚠️  No AI providers available!");
+            warn!("⚠️  For local AI (Ollama/llama.cpp/vLLM):");
+            warn!("     - Set LOCAL_AI_ENDPOINT=http://localhost:11434");
+            warn!("     - Or start Ollama (auto-discovered at default port)");
             warn!("⚠️  For external AI APIs:");
             warn!("     - Set ANTHROPIC_API_KEY or OPENAI_API_KEY");
-            warn!("     - Ensure HTTP provider available (http.request capability)");
-            warn!("⚠️  For local AI primals:");
+            warn!("⚠️  For Unix socket providers:");
             warn!("     - Set AI_PROVIDER_SOCKETS=/tmp/provider.sock");
         } else {
             info!(

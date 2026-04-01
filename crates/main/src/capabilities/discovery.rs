@@ -628,7 +628,6 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
     fn discover_capability_returns_env_provider_without_probe() {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("fake.sock");
@@ -653,7 +652,6 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
     fn get_socket_directories_respects_socket_scan_dir_override() {
         let dir = tempfile::tempdir().expect("tempdir");
         temp_env::with_var(
@@ -697,8 +695,6 @@ mod tests {
             stream.flush().await.expect("flush");
         });
 
-        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
-
         let p = probe_socket(&sock_path).await.expect("probe");
         assert!(p.capabilities.contains(&cap_name.to_string()));
         assert_eq!(p.discovered_via, "probe");
@@ -729,8 +725,6 @@ mod tests {
             stream.flush().await.expect("flush");
         });
 
-        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
-
         let err = probe_socket(&sock_path).await.unwrap_err();
         match err {
             DiscoveryError::ProbeFailed(m) => assert!(m.contains("Method not supported")),
@@ -739,7 +733,6 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
     fn discover_capability_not_found_without_env_or_registry() {
         let dir = tempfile::tempdir().expect("tempdir");
         temp_env::with_vars(

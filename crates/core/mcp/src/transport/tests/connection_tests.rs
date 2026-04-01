@@ -18,6 +18,29 @@ use crate::mcp::types::{
 };
 use crate::test_utils::MockSecurityManager;
 
+async fn await_transport_running(transport: &Transport) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !transport.is_running().await {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("transport should start within timeout");
+}
+
+async fn await_connections(transport: &Transport, expected: usize) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if transport.get_active_connections().await.expect("count") == expected {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("expected connection count within timeout");
+}
+
 // Helper function to create a TCP socket pair (server and client)
 async fn create_socket_pair() -> (TcpStream, TcpStream) {
     // Create a TCP listener on a random port
@@ -97,8 +120,7 @@ async fn test_connection_activity_tracking() {
     // Get initial last_activity time
     let initial_activity = connection.last_activity;
     
-    // Wait a moment
-    tokio::time::sleep(Duration::from_millis(5)).await;
+    tokio::task::yield_now().await;
     
     // Update activity timestamp
     connection.update_activity();
@@ -135,23 +157,14 @@ async fn test_connection_in_transport() {
         transport_clone.start().await.expect("should succeed");
     });
     
-    // Wait a bit for transport to start
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    await_transport_running(&transport).await;
     
-    // Get the assigned port
     let port = transport.get_port().await.expect("should succeed");
-    
-    // Connect multiple clients
     let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).expect("should succeed");
     let client1 = TcpStream::connect(addr).await.expect("should succeed");
     let client2 = TcpStream::connect(addr).await.expect("should succeed");
     
-    // Wait for connections to be established
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    
-    // Verify connections were created and tracked
-    let active_connections = transport.get_active_connections().await.expect("should succeed");
-    assert_eq!(active_connections, 2);
+    await_connections(&transport, 2).await;
     
     // Get connection details
     let connections = transport.get_connection_states().await.expect("should succeed");
@@ -163,15 +176,9 @@ async fn test_connection_in_transport() {
         assert!(conn.id.len() > 0);
     }
     
-    // Close one client
     drop(client1);
     
-    // Wait for transport to detect closed connection
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    
-    // Verify connection count decreased
-    let active_connections = transport.get_active_connections().await.expect("should succeed");
-    assert_eq!(active_connections, 1);
+    await_connections(&transport, 1).await;
     
     // Cleanup
     drop(client2);
@@ -179,7 +186,7 @@ async fn test_connection_in_transport() {
     handle.abort();
 }
 
-#[test]
+#[tokio::test(start_paused = true)]
 async fn test_connection_idle_timeout() {
     // Create mock security manager
     let security_manager = Arc::new(RwLock::new(MockSecurityManager::new()));
@@ -208,29 +215,19 @@ async fn test_connection_idle_timeout() {
         transport_clone.start().await.expect("should succeed");
     });
     
-    // Wait a bit for transport to start
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    await_transport_running(&transport).await;
     
-    // Get the assigned port
     let port = transport.get_port().await.expect("should succeed");
-    
-    // Connect client
     let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).expect("should succeed");
     let _client = TcpStream::connect(addr).await.expect("should succeed");
     
-    // Wait for connection to be established
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    await_connections(&transport, 1).await;
     
-    // Verify connection was created
-    let active_connections = transport.get_active_connections().await.expect("should succeed");
-    assert_eq!(active_connections, 1);
+    // Advance paused time past the idle timeout instead of real sleeping
+    tokio::time::advance(Duration::from_secs(2)).await;
+    tokio::task::yield_now().await;
     
-    // Wait for connection to time out (a bit more than the idle timeout)
-    tokio::time::sleep(Duration::from_secs(2)).await;
-    
-    // Verify connection was closed due to idle timeout
-    let active_connections = transport.get_active_connections().await.expect("should succeed");
-    assert_eq!(active_connections, 0);
+    await_connections(&transport, 0).await;
     
     // Cleanup
     transport.shutdown().await.expect("should succeed");

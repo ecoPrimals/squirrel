@@ -363,7 +363,6 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
     fn test_fallback_chain() {
         temp_env::with_var_unset("HTTP_PORT", || {
             let rt = tokio::runtime::Runtime::new().expect("should succeed");

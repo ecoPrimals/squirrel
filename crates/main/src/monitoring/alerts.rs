@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::{debug, warn};
 
 use super::metrics::MetricsCollector;
 use crate::error::PrimalError;
@@ -81,13 +82,87 @@ impl AlertManager {
         }
     }
 
-    /// Evaluate alerts based on current metrics
+    /// Evaluate alerts based on current metrics.
+    ///
+    /// Inspects the collector's system metrics and fires alerts when
+    /// resource usage exceeds safe thresholds.
     pub async fn evaluate_alerts(
         &self,
-        _metrics_collector: &MetricsCollector,
+        metrics_collector: &MetricsCollector,
     ) -> Result<(), PrimalError> {
-        // Stub implementation
+        let system = metrics_collector.system_metrics.read().await;
+        let now = Utc::now();
+        debug!("Evaluating alerts against system metrics");
+
+        // CPU pressure: warn > 80%, critical > 95%
+        if system.cpu_usage > 95.0 {
+            self.fire_alert(
+                "cpu_critical",
+                "CPU usage critical",
+                AlertSeverity::Critical,
+                now,
+            )
+            .await;
+        } else if system.cpu_usage > 80.0 {
+            self.fire_alert("cpu_high", "CPU usage high", AlertSeverity::High, now)
+                .await;
+        } else {
+            self.auto_resolve("cpu_critical").await;
+            self.auto_resolve("cpu_high").await;
+        }
+
+        // Memory pressure: warn > 85%, critical > 95%
+        if system.memory_percentage > 95.0 {
+            self.fire_alert(
+                "memory_critical",
+                "Memory usage critical",
+                AlertSeverity::Critical,
+                now,
+            )
+            .await;
+        } else if system.memory_percentage > 85.0 {
+            self.fire_alert("memory_high", "Memory usage high", AlertSeverity::High, now)
+                .await;
+        } else {
+            self.auto_resolve("memory_critical").await;
+            self.auto_resolve("memory_high").await;
+        }
+
         Ok(())
+    }
+
+    async fn fire_alert(
+        &self,
+        id: &str,
+        message: &str,
+        severity: AlertSeverity,
+        timestamp: DateTime<Utc>,
+    ) {
+        let mut alerts = self.active_alerts.write().await;
+        if !alerts.contains_key(id) {
+            warn!(alert_id = id, %message, "Alert fired");
+            alerts.insert(
+                id.to_string(),
+                Alert {
+                    id: id.to_string(),
+                    name: id.to_string(),
+                    message: message.to_string(),
+                    severity,
+                    timestamp,
+                    status: AlertStatus::Active,
+                },
+            );
+        }
+    }
+
+    async fn auto_resolve(&self, id: &str) {
+        let mut alerts = self.active_alerts.write().await;
+        if let Some(mut alert) = alerts.remove(id) {
+            debug!(alert_id = id, "Alert auto-resolved");
+            alert.status = AlertStatus::Resolved;
+            let mut history = self.alert_history.write().await;
+            history.push(alert);
+        }
     }
 
     /// Get active alerts
@@ -166,6 +241,59 @@ mod tests {
     async fn resolve_unknown_alert_is_ok() {
         let mgr = AlertManager::new();
         mgr.resolve_alert("missing").await.expect("should succeed");
+    }
+
+    #[tokio::test]
+    async fn evaluate_alerts_fires_cpu_critical() {
+        let mgr = AlertManager::new();
+        let collector = MetricsCollector::default();
+        {
+            let mut sys = collector.system_metrics.write().await;
+            sys.cpu_usage = 96.0;
+        }
+        mgr.evaluate_alerts(&collector)
+            .await
+            .expect("should succeed");
+        let active = mgr.get_active_alerts().await.expect("should succeed");
+        assert!(active.iter().any(|a| a.id == "cpu_critical"));
+    }
+
+    #[tokio::test]
+    async fn evaluate_alerts_auto_resolves_when_healthy() {
+        let mgr = AlertManager::new();
+        let collector = MetricsCollector::default();
+        {
+            let mut sys = collector.system_metrics.write().await;
+            sys.cpu_usage = 96.0;
+        }
+        mgr.evaluate_alerts(&collector)
+            .await
+            .expect("should succeed");
+        assert!(!mgr.get_active_alerts().await.expect("ok").is_empty());
+
+        {
+            let mut sys = collector.system_metrics.write().await;
+            sys.cpu_usage = 30.0;
+        }
+        mgr.evaluate_alerts(&collector)
+            .await
+            .expect("should succeed");
+        assert!(mgr.get_active_alerts().await.expect("ok").is_empty());
+    }
+
+    #[tokio::test]
+    async fn evaluate_alerts_fires_memory_high() {
+        let mgr = AlertManager::new();
+        let collector = MetricsCollector::default();
+        {
+            let mut sys = collector.system_metrics.write().await;
+            sys.memory_percentage = 90.0;
+        }
+        mgr.evaluate_alerts(&collector)
+            .await
+            .expect("should succeed");
+        let active = mgr.get_active_alerts().await.expect("should succeed");
+        assert!(active.iter().any(|a| a.id == "memory_high"));
     }
 
     #[test]

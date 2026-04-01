@@ -123,12 +123,10 @@ fn connect_listener_eof_then_disconnect() {
             drop(stream);
         }
     });
-    thread::sleep(Duration::from_millis(20));
     let mut c = MCPClient::new("127.0.0.1".to_string(), port);
     c.timeout = Some(Duration::from_secs(2));
     c.connect(None).expect("connect");
     assert!(c.is_connected());
-    thread::sleep(Duration::from_millis(80));
     c.disconnect().expect("disconnect");
     assert!(!c.is_connected());
     server.join().ok();
@@ -146,11 +144,10 @@ fn listener_malformed_json_line_is_tolerated() {
             thread::sleep(Duration::from_millis(300));
         }
     });
-    thread::sleep(Duration::from_millis(20));
     let mut c = MCPClient::new("127.0.0.1".to_string(), port);
     c.timeout = Some(Duration::from_secs(2));
     c.connect(None).expect("connect");
-    thread::sleep(Duration::from_millis(120));
+    thread::sleep(Duration::from_millis(50));
     c.disconnect().expect("disconnect");
 }
 
@@ -164,7 +161,6 @@ fn reconnect_after_disconnect_to_new_port() {
             drop(s);
         }
     });
-    thread::sleep(Duration::from_millis(20));
     let mut c = MCPClient::new("127.0.0.1".to_string(), p1);
     c.timeout = Some(Duration::from_secs(2));
     c.connect(None).expect("c1");
@@ -178,7 +174,6 @@ fn reconnect_after_disconnect_to_new_port() {
             drop(s);
         }
     });
-    thread::sleep(Duration::from_millis(20));
     let mut c2 = MCPClient::new("127.0.0.1".to_string(), p2);
     c2.timeout = Some(Duration::from_secs(2));
     c2.connect(None).expect("c2");
@@ -205,11 +200,10 @@ fn listener_ignores_non_notification_message_type() {
             thread::sleep(Duration::from_millis(200));
         }
     });
-    thread::sleep(Duration::from_millis(20));
     let mut c = MCPClient::new("127.0.0.1".to_string(), port);
     c.timeout = Some(Duration::from_secs(2));
     c.connect(None).expect("connect");
-    thread::sleep(Duration::from_millis(80));
+    thread::sleep(Duration::from_millis(50));
     c.disconnect().expect("disconnect");
 }
 
@@ -222,7 +216,6 @@ fn drop_disconnects_when_connected() {
             drop(s);
         }
     });
-    thread::sleep(Duration::from_millis(20));
     {
         let mut c = MCPClient::new("127.0.0.1".to_string(), port);
         c.timeout = Some(Duration::from_secs(2));
@@ -271,7 +264,6 @@ fn send_notification_round_trip_no_response_body() {
             assert!(line.contains("notify_topic"));
         }
     });
-    thread::sleep(Duration::from_millis(20));
     let mut c = MCPClient::new("127.0.0.1".to_string(), port);
     c.timeout = Some(Duration::from_secs(2));
     c.connect(None).expect("connect");

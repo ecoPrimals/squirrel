@@ -10,7 +10,6 @@
 //! Tests the complete universal adapter flow including protocol negotiation,
 //! connection pooling, capability execution, and error handling.
 
-use serial_test::serial;
 use squirrel::universal_adapter_v2::{Protocol, UniversalAdapterV2};
 use std::sync::Arc;
 
@@ -204,7 +203,6 @@ fn test_multiple_capability_connections() {
 }
 
 #[test]
-#[serial]
 fn test_adapter_with_complex_capability_names() {
     temp_env::with_vars(
         [

@@ -324,7 +324,7 @@ impl DashboardIntegrationAdapter {
                 
                 // Collect metrics
                 if let Err(e) = Self::export_metrics_to_dashboard(&client, &config, &metrics_registry).await {
-                    eprintln!("Error exporting metrics to dashboard: {}", e);
+                    tracing::error!("Error exporting metrics to dashboard: {}", e);
                 }
             }
         });
@@ -346,7 +346,7 @@ impl DashboardIntegrationAdapter {
                 
                 // Collect traces
                 if let Err(e) = Self::export_traces_to_dashboard(&client, &config, &tracer).await {
-                    eprintln!("Error exporting traces to dashboard: {}", e);
+                    tracing::error!("Error exporting traces to dashboard: {}", e);
                 }
             }
         });
@@ -368,7 +368,7 @@ impl DashboardIntegrationAdapter {
                 
                 // Collect health data
                 if let Err(e) = Self::export_health_to_dashboard(&client, &config, &health_checker).await {
-                    eprintln!("Error exporting health data to dashboard: {}", e);
+                    tracing::error!("Error exporting health data to dashboard: {}", e);
                 }
             }
         });
@@ -390,7 +390,7 @@ impl DashboardIntegrationAdapter {
                 
                 // Collect alerts
                 if let Err(e) = Self::export_alerts_to_dashboard(&client, &config, &alert_manager).await {
-                    eprintln!("Error exporting alerts to dashboard: {}", e);
+                    tracing::error!("Error exporting alerts to dashboard: {}", e);
                 }
             }
         });

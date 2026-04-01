@@ -11,6 +11,7 @@ pub use error::{
 
 // Configuration
 pub mod config;
+pub mod plugin_config;
 pub use config::{
     HttpConfig, LoggingConfig, McpClientConfig, NetworkConfig, PerformanceConfig, PluginConfig,
     PluginMetadata, PluginSdkConfig, SandboxConfig, SecurityLevel,

@@ -107,6 +107,7 @@ pub trait WebPluginExtV2: PluginV2 {
 
 /// Helper struct to adapt `PluginV2` to Plugin for backward compatibility
 #[derive(Debug)]
+#[allow(dead_code, reason = "used via adapt_plugin_v2 in tests")]
 pub struct PluginWrapper<T: PluginV2> {
     inner: T,
 }
@@ -138,7 +139,7 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
 }
 
 /// Helper function to adapt a `PluginV2` to Plugin (used in tests)
-#[allow(dead_code)]
+#[allow(dead_code, reason = "adapter used in tests via re-export")]
 pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
     Arc::new(PluginWrapper::new(plugin))
 }

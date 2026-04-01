@@ -42,7 +42,10 @@ use crate::plugin::{Plugin, PluginMetadata};
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "deserialized from plugin manifest files at runtime"
+)]
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -75,7 +78,7 @@ impl PluginManifest {
     /// Convert to plugin metadata for test assertions and the `testing` feature.
     #[must_use]
     #[cfg(any(test, feature = "testing"))]
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "test utility — called from test modules")]
     #[expect(deprecated, reason = "backward-compatible alias")]
     pub fn to_metadata(&self) -> PluginMetadata {
         let mut metadata =
@@ -285,7 +288,10 @@ impl DefaultPluginDiscovery {
 
 /// Default plugin loader implementation (kept for trait impl / future use)
 #[derive(Debug, Copy, Clone)]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "trait-based loader; constructed via PluginLoader trait"
+)]
 pub struct DefaultPluginLoader;
 
 #[async_trait]

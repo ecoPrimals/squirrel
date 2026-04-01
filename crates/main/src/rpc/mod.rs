@@ -42,6 +42,7 @@ mod handlers_tool;
 pub mod ipc_client;
 mod jsonrpc_handlers;
 pub mod jsonrpc_server;
+pub mod jsonrpc_types;
 pub mod protocol;
 pub mod protocol_negotiation;
 pub mod spring_tools;

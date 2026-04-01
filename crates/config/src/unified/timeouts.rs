@@ -381,8 +381,26 @@ mod tests {
 
     #[test]
     fn test_validation() {
-        let config = TimeoutConfig::default();
-        assert!(config.validate().is_ok());
+        // Pin all timeout env vars to prevent pollution from parallel test
+        // runs or CI environments (Default calls from_env).
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_CONNECTION_TIMEOUT_SECS", None::<&str>),
+                ("SQUIRREL_REQUEST_TIMEOUT_SECS", None),
+                ("SQUIRREL_HEALTH_CHECK_TIMEOUT_SECS", None),
+                ("SQUIRREL_OPERATION_TIMEOUT_SECS", None),
+                ("SQUIRREL_DATABASE_TIMEOUT_SECS", None),
+                ("SQUIRREL_HEARTBEAT_INTERVAL_SECS", None),
+                ("SQUIRREL_DISCOVERY_TIMEOUT_SECS", None),
+                ("SQUIRREL_AI_INFERENCE_TIMEOUT_SECS", None),
+                ("SQUIRREL_PLUGIN_LOAD_TIMEOUT_SECS", None),
+                ("SQUIRREL_SESSION_TIMEOUT_SECS", None),
+            ],
+            || {
+                let config = TimeoutConfig::default();
+                assert!(config.validate().is_ok());
+            },
+        );
     }
 
     #[test]

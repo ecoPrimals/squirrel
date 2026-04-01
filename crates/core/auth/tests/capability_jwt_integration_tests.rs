@@ -122,9 +122,9 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_capability_crypto_client() {
-        let socket_path = PathBuf::from("/tmp/test-crypto-capability.sock");
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let socket_path = tmp.path().join("crypto.sock");
 
-        // Start mock provider
         let provider =
             MockCryptoProvider::new(socket_path.clone()).expect("Failed to create mock provider");
 
@@ -132,10 +132,6 @@ mod integration_tests {
             provider.run().await;
         });
 
-        // Give server time to start
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-        // Create crypto provider with socket endpoint
         let config = CapabilityCryptoConfig {
             endpoint: Some(socket_path.to_string_lossy().to_string()),
             discovery_timeout_ms: Some(5000),
@@ -159,25 +155,19 @@ mod integration_tests {
             .expect("Failed to verify signature");
 
         assert!(valid, "Signature should be valid");
-
-        // Cleanup
-        let _ = std::fs::remove_file("/tmp/test-crypto-capability.sock");
     }
 
     #[tokio::test]
     async fn test_capability_jwt_full_flow() {
-        let socket_path = PathBuf::from("/tmp/test-jwt-capability.sock");
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let socket_path = tmp.path().join("jwt.sock");
 
-        // Start mock provider
         let provider =
             MockCryptoProvider::new(socket_path.clone()).expect("Failed to create mock provider");
 
         tokio::spawn(async move {
             provider.run().await;
         });
-
-        // Give server time to start
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         // Create JWT service with capability discovery
         let config = CapabilityJwtConfig {
@@ -225,14 +215,12 @@ mod integration_tests {
         assert_eq!(verified_claims.roles.len(), 2);
         assert!(verified_claims.roles.contains(&"user".to_string()));
         assert!(verified_claims.roles.contains(&"admin".to_string()));
-
-        // Cleanup
-        let _ = std::fs::remove_file("/tmp/test-jwt-capability.sock");
     }
 
     #[tokio::test]
     async fn test_jwt_token_extraction() {
-        let socket_path = PathBuf::from("/tmp/test-jwt-extract.sock");
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let socket_path = tmp.path().join("extract.sock");
 
         let provider =
             MockCryptoProvider::new(socket_path.clone()).expect("Failed to create mock provider");
@@ -240,8 +228,6 @@ mod integration_tests {
         tokio::spawn(async move {
             provider.run().await;
         });
-
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         let config = CapabilityJwtConfig {
             crypto_config: CapabilityCryptoConfig {
@@ -271,14 +257,12 @@ mod integration_tests {
         let empty_header = "Bearer ";
         let result = jwt_service.extract_token_from_header(empty_header);
         assert!(result.is_err(), "Should fail with empty token");
-
-        // Cleanup
-        let _ = std::fs::remove_file("/tmp/test-jwt-extract.sock");
     }
 
     #[tokio::test]
     async fn test_expired_token() {
-        let socket_path = PathBuf::from("/tmp/test-jwt-expired.sock");
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let socket_path = tmp.path().join("expired.sock");
 
         let provider =
             MockCryptoProvider::new(socket_path.clone()).expect("Failed to create mock provider");
@@ -286,8 +270,6 @@ mod integration_tests {
         tokio::spawn(async move {
             provider.run().await;
         });
-
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         let config = CapabilityJwtConfig {
             crypto_config: CapabilityCryptoConfig {
@@ -321,9 +303,6 @@ mod integration_tests {
         // Try to verify expired token
         let result = jwt_service.verify_token(&token).await;
         assert!(result.is_err(), "Should reject expired token");
-
-        // Cleanup
-        let _ = std::fs::remove_file("/tmp/test-jwt-expired.sock");
     }
 
     #[tokio::test]

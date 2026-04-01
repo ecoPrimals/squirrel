@@ -472,12 +472,12 @@ impl TcpTransport {
                             Ok(message) => {
                                 // Forward the message to the channel
                                 if let Err(e) = frame_tx.send(message).await {
-                                    eprintln!("Failed to forward message: {e}");
+                                    tracing::error!("Failed to forward message: {e}");
                                     break 'reader_loop;
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to decode frame: {e}");
+                                tracing::error!("Failed to decode frame: {e}");
                                 continue 'reader_loop;
                             }
                         }
@@ -487,7 +487,7 @@ impl TcpTransport {
                         break 'reader_loop;
                     }
                     Err(e) => {
-                        eprintln!("Failed to read frame: {e}");
+                        tracing::error!("Failed to read frame: {e}");
                         break 'reader_loop;
                     }
                 }
@@ -531,12 +531,12 @@ impl TcpTransport {
                             Ok(frame) => {
                                 // Write the frame
                                 if let Err(e) = writer.write_frame(frame).await {
-                                    eprintln!("Failed to write frame: {e}");
+                                    tracing::error!("Failed to write frame: {e}");
                                     break;
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to encode message: {e}");
+                                tracing::error!("Failed to encode message: {e}");
                                 continue;
                             }
                         }

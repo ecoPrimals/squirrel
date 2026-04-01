@@ -466,7 +466,7 @@ impl HttpClient {
                     operation: "fetch".to_string(),
                     message: "Failed to read response body".to_string(),
                 })?;
-        let body = body_js.as_string().unwrap_or_else(|| "".to_string());
+        let body = body_js.as_string().unwrap_or_default();
 
         Ok(HttpResponse {
             status,
@@ -774,7 +774,7 @@ mod tests {
             status: 404,
             status_text: "Nope".to_string(),
             headers: HashMap::new(),
-            body: "".to_string(),
+            body: String::new(),
             ok: false,
             url: "https://z".to_string(),
         };

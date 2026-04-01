@@ -437,11 +437,10 @@ pub fn verify_socket_config() -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
 
-    /// Socket-related env vars - used for save/restore and temp_env isolation.
-    /// temp_env provides cross-test isolation via internal mutex; serial_test
-    /// prevents races with tests that modify env directly (e.g. config tests).
+    /// Socket-related env vars — used for temp_env isolation.
+    /// `temp_env::with_vars` acquires an internal process-wide mutex so all
+    /// env-modifying tests are safe to run concurrently without `#[serial]`.
     const SOCKET_ENV_VARS: &[&str] = &[
         "SQUIRREL_SOCKET",
         "BIOMEOS_SOCKET_PATH",
@@ -451,7 +450,6 @@ mod tests {
     ];
 
     #[test]
-    #[serial(socket_env)]
     fn test_socket_path_tier1_squirrel_socket() {
         temp_env::with_var("SQUIRREL_SOCKET", Some("/custom/path/socket.sock"), || {
             let path = get_socket_path("test-node");
@@ -460,7 +458,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_socket_path_tier2_biomeos_socket_path() {
         temp_env::with_var(
             "BIOMEOS_SOCKET_PATH",
@@ -473,7 +471,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_squirrel_socket_overrides_biomeos_socket_path() {
         temp_env::with_vars(
             [
@@ -488,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_socket_path_tier3_primal_socket() {
         temp_env::with_vars(
             [
@@ -503,7 +501,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_socket_path_tier4_and_tier5_fallback() {
         temp_env::with_var("SQUIRREL_FAMILY_ID", Some("test0"), || {
             let path = get_socket_path("test-node");
@@ -514,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_get_family_id_default() {
         temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
             let family_id = get_family_id();
@@ -523,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_get_family_id_from_env() {
         temp_env::with_var("SQUIRREL_FAMILY_ID", Some("nat0"), || {
             let family_id = get_family_id();
@@ -532,7 +530,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_get_node_id_default() {
         temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
             let node_id = get_node_id();
@@ -541,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_get_node_id_from_env() {
         temp_env::with_var("SQUIRREL_NODE_ID", Some("custom-node"), || {
             let node_id = get_node_id();
@@ -564,7 +562,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_verify_socket_config() {
         temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
             let result = verify_socket_config();
@@ -578,7 +576,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_xdg_socket_path_format() {
         temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
             if let Some(xdg_path) = get_xdg_socket_path() {
@@ -611,7 +609,7 @@ mod tests {
     }
 
     #[test]
-    #[serial(socket_env)]
+
     fn test_socket_path_uses_biomeos_directory() {
         temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
             let path = get_socket_path("test-node");

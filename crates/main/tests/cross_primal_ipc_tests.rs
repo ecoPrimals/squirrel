@@ -13,7 +13,6 @@
 )]
 
 use serde_json::{Value, json};
-use std::path::PathBuf;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 
@@ -38,11 +37,11 @@ async fn jsonrpc_roundtrip(socket_path: &std::path::Path, method: &str, params: 
     serde_json::from_slice(&buf).expect("should succeed")
 }
 
-/// Helper: spawn a minimal echo JSON-RPC server on a Unix socket
-fn spawn_mock_server(socket_path: PathBuf) -> tokio::task::JoinHandle<()> {
+/// Helper: spawn a minimal echo JSON-RPC server on a Unix socket.
+/// Binds synchronously so the socket is ready before returning — no sleep needed.
+fn spawn_mock_server(socket_path: &std::path::Path) -> tokio::task::JoinHandle<()> {
+    let listener = UnixListener::bind(socket_path).expect("should succeed");
     tokio::spawn(async move {
-        let listener = UnixListener::bind(&socket_path).expect("should succeed");
-        // Accept connections in a loop
         loop {
             let Ok((mut stream, _)) = listener.accept().await else {
                 break;
@@ -111,8 +110,7 @@ fn spawn_mock_server(socket_path: PathBuf) -> tokio::task::JoinHandle<()> {
 async fn test_cross_primal_health_exchange() {
     let tmp = tempfile::TempDir::new().expect("should succeed");
     let sock = tmp.path().join("health.sock");
-    let server = spawn_mock_server(sock.clone());
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    let server = spawn_mock_server(&sock);
 
     let resp = jsonrpc_roundtrip(&sock, "system.health", json!({})).await;
     let result = resp.get("result").expect("should succeed");
@@ -126,8 +124,7 @@ async fn test_cross_primal_health_exchange() {
 async fn test_capability_list_ecosystem_format() {
     let tmp = tempfile::TempDir::new().expect("should succeed");
     let sock = tmp.path().join("caplist.sock");
-    let server = spawn_mock_server(sock.clone());
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    let server = spawn_mock_server(&sock);
 
     let resp = jsonrpc_roundtrip(&sock, "capability.list", json!({})).await;
     let result = resp.get("result").expect("should succeed");
@@ -168,8 +165,7 @@ async fn test_capability_list_ecosystem_format() {
 async fn test_ipc_error_phase_propagation() {
     let tmp = tempfile::TempDir::new().expect("should succeed");
     let sock = tmp.path().join("error.sock");
-    let server = spawn_mock_server(sock.clone());
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    let server = spawn_mock_server(&sock);
 
     let resp = jsonrpc_roundtrip(&sock, "error.test", json!({})).await;
     let error = resp.get("error").expect("should succeed");
@@ -203,8 +199,7 @@ async fn test_connect_error_phase() {
 async fn test_concurrent_ipc_requests() {
     let tmp = tempfile::TempDir::new().expect("should succeed");
     let sock = tmp.path().join("concurrent.sock");
-    let server = spawn_mock_server(sock.clone());
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    let server = spawn_mock_server(&sock);
 
     let mut handles = Vec::new();
     for i in 0..10 {
@@ -226,15 +221,14 @@ async fn test_concurrent_ipc_requests() {
 async fn test_graceful_disconnect() {
     let tmp = tempfile::TempDir::new().expect("should succeed");
     let sock = tmp.path().join("disconnect.sock");
-    let server = spawn_mock_server(sock.clone());
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    let server = spawn_mock_server(&sock);
 
     // Connect and immediately drop without sending data
     {
         let _stream = UnixStream::connect(&sock).await.expect("should succeed");
         // drop immediately
     }
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    tokio::task::yield_now().await;
 
     // Server should still be healthy — verify with a normal request
     let resp = jsonrpc_roundtrip(&sock, "system.health", json!({})).await;

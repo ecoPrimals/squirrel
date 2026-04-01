@@ -390,7 +390,6 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
     fn test_authenticate_uses_client_ip_env() {
         temp_env::with_vars(
             [

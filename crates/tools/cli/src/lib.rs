@@ -48,6 +48,9 @@ pub mod mcp;
 /// Plugin system
 pub mod plugins;
 
+/// Runtime status helpers for the `squirrel status` CLI command.
+pub mod status;
+
 /// Command adapter re-exports for testing and benchmarking
 pub mod command_adapter {
     pub use crate::commands::adapter::registry::CommandRegistryAdapter as RegistryAdapter;

@@ -610,6 +610,10 @@ mod tests {
     #[test]
     fn test_federation_error_maps_to_primal_error_all_variants() {
         let id = Uuid::nil();
+        #[expect(
+            clippy::type_complexity,
+            reason = "exhaustive variant-checker pairs for coverage"
+        )]
         let cases: Vec<(FederationError, fn(PrimalError) -> bool)> = vec![
             (
                 FederationError::UnsupportedLanguage("lang".into()),

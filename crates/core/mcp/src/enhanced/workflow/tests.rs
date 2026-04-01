@@ -16,6 +16,41 @@ use crate::enhanced::events::EventBroadcaster;
 use crate::enhanced::service_composition::ServiceCompositionEngine;
 use crate::enhanced::coordinator::{AICoordinator, UniversalAIRequest, UniversalAIResponse, Message};
 
+/// Poll until a workflow reaches a terminal state (Completed or Failed).
+async fn await_workflow_done(
+    engine: &WorkflowManagementEngine,
+    id: &str,
+) -> super::WorkflowInstance {
+    timeout(Duration::from_secs(10), async {
+        loop {
+            if let Some(status) = engine.get_workflow_status(id).await.expect("status") {
+                match status.state {
+                    WorkflowState::Completed | WorkflowState::Failed => return status,
+                    _ => {}
+                }
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("workflow should reach terminal state within timeout")
+}
+
+/// Poll until no active workflows remain.
+async fn await_all_workflows_done(engine: &WorkflowManagementEngine) {
+    timeout(Duration::from_secs(10), async {
+        loop {
+            let active = engine.list_active_workflows().await.expect("list");
+            if active.is_empty() {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("all workflows should complete within timeout");
+}
+
 /// Helper function to create a test workflow management engine
 async fn create_test_engine() -> WorkflowManagementEngine {
     let config = WorkflowManagementConfig::default();
@@ -233,21 +268,7 @@ async fn test_workflow_sequential_execution() {
     
     let instance = engine.execute_workflow("sequential-test", parameters).await.expect("should succeed");
     
-    // Wait for execution to complete
-    let completed_instance = timeout(Duration::from_secs(10), async {
-        loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
-                match status.state {
-                    WorkflowState::Completed | WorkflowState::Failed => break status,
-                    _ => {
-                        tokio::time::sleep(Duration::from_millis(100)).await;
-                        continue;
-                    }
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    }).await.expect("Workflow should complete within timeout");
+    let completed_instance = await_workflow_done(&engine, &instance.id).await;
     
     assert_eq!(completed_instance.state, WorkflowState::Completed);
     assert!(completed_instance.started_at.is_some());
@@ -313,21 +334,7 @@ async fn test_workflow_parallel_execution() {
     let start_time = std::time::Instant::now();
     let instance = engine.execute_workflow("parallel-test", HashMap::new()).await.expect("should succeed");
     
-    // Wait for completion
-    let completed_instance = timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
-                match status.state {
-                    WorkflowState::Completed | WorkflowState::Failed => break status,
-                    _ => {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                        continue;
-                    }
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }).await.expect("Parallel workflow should complete within timeout");
+    let completed_instance = await_workflow_done(&engine, &instance.id).await;
     
     let execution_time = start_time.elapsed();
     
@@ -377,20 +384,7 @@ async fn test_workflow_condition_step() {
     
     let instance = engine.execute_workflow("condition-test", parameters).await.expect("should succeed");
     
-    let completed_instance = timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
-                match status.state {
-                    WorkflowState::Completed | WorkflowState::Failed => break status,
-                    _ => {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                        continue;
-                    }
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }).await.expect("Condition workflow should complete");
+    let completed_instance = await_workflow_done(&engine, &instance.id).await;
     
     assert_eq!(completed_instance.state, WorkflowState::Completed);
     
@@ -428,20 +422,7 @@ async fn test_workflow_notification_step() {
     
     let instance = engine.execute_workflow("notification-test", HashMap::new()).await.expect("should succeed");
     
-    let completed_instance = timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
-                match status.state {
-                    WorkflowState::Completed | WorkflowState::Failed => break status,
-                    _ => {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                        continue;
-                    }
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }).await.expect("Notification workflow should complete");
+    let completed_instance = await_workflow_done(&engine, &instance.id).await;
     
     assert_eq!(completed_instance.state, WorkflowState::Completed);
     
@@ -483,10 +464,20 @@ async fn test_workflow_cancellation() {
     // Start workflow
     let instance = engine.execute_workflow("cancel-test", HashMap::new()).await.expect("should succeed");
     
-    // Wait a bit for workflow to start
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // Wait for workflow to reach Running state before cancelling
+    timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("status") {
+                if matches!(status.state, WorkflowState::Running) {
+                    break;
+                }
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("workflow should start running");
     
-    // Cancel workflow
     engine.cancel_workflow(&instance.id).await.expect("should succeed");
     
     // Verify workflow was cancelled
@@ -520,21 +511,7 @@ async fn test_workflow_error_handling() {
     let instance = engine.execute_workflow("error-test", HashMap::new()).await.expect("should succeed");
     
     // Wait for workflow to fail
-    let failed_instance = timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
-                match status.state {
-                    WorkflowState::Failed => break status,
-                    WorkflowState::Completed => unreachable!("Workflow should have failed"),
-                    _ => {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                        continue;
-                    }
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }).await.expect("Workflow should fail within timeout");
+    let failed_instance = await_workflow_done(&engine, &instance.id).await;
     
     assert_eq!(failed_instance.state, WorkflowState::Failed);
     assert!(failed_instance.started_at.is_some());
@@ -568,21 +545,7 @@ async fn test_workflow_metrics_collection() {
     // Execute workflow
     let instance = engine.execute_workflow("metrics-test", HashMap::new()).await.expect("should succeed");
     
-    // Wait for completion
-    timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
-                match status.state {
-                    WorkflowState::Completed | WorkflowState::Failed => break,
-                    _ => {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                        continue;
-                    }
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }).await.expect("Workflow should complete");
+    let _ = await_workflow_done(&engine, &instance.id).await;
     
     // Check metrics
     let metrics = engine.get_metrics().await.expect("should succeed");
@@ -636,16 +599,7 @@ async fn test_concurrent_workflow_execution() {
     
     assert_eq!(instances.len(), 5);
     
-    // Wait for all to complete
-    timeout(Duration::from_secs(10), async {
-        loop {
-            let active = engine.list_active_workflows().await.expect("should succeed");
-            if active.is_empty() {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-    }).await.expect("All workflows should complete");
+    await_all_workflows_done(&engine).await;
     
     let metrics = engine.get_metrics().await.expect("should succeed");
     assert_eq!(metrics.completed_workflows, 5);
@@ -695,21 +649,7 @@ async fn test_workflow_data_processing_chain() {
     
     let instance = engine.execute_workflow("data-chain-test", parameters).await.expect("should succeed");
     
-    let completed_instance = timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(status) = engine.get_workflow_status(&instance.id).await.expect("should succeed") {
-                match status.state {
-                    WorkflowState::Completed => break status,
-                    WorkflowState::Failed => unreachable!("Workflow should not fail"),
-                    _ => {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                        continue;
-                    }
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }).await.expect("Data processing workflow should complete");
+    let completed_instance = await_workflow_done(&engine, &instance.id).await;
     
     assert_eq!(completed_instance.state, WorkflowState::Completed);
     assert!(completed_instance.outputs.contains_key("step_0"));

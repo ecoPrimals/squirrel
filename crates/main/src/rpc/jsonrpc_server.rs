@@ -3,11 +3,12 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! JSON-RPC 2.0 Server with Universal Transport (Isomorphic IPC)
-#![expect(dead_code, reason = "JSON-RPC fields used in serde deserialization")]
 //!
 //! Modern, idiomatic Rust implementation of JSON-RPC 2.0 protocol for
 //! biomeOS integration. This server uses Universal Transport abstractions
 //! for automatic platform adaptation (Unix sockets OR TCP with discovery files).
+//!
+//! Wire types, error codes, and metrics live in [`super::jsonrpc_types`].
 //!
 //! ## Architecture
 //!
@@ -34,7 +35,6 @@
 //! - `tool.execute` - Tool execution (local + forwarding to announced primals)
 //! - `tool.list` - List available tools (local + remote announced)
 //!
-//!
 //! ## Protocol
 //!
 //! Standard JSON-RPC 2.0:
@@ -48,178 +48,18 @@
 //! ```
 
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
-
-// Serde helpers for Arc<str> (zero-copy for hot-path jsonrpc/method fields)
-fn serialize_arc_str<S>(arc_str: &Arc<str>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(arc_str)
-}
-
-fn deserialize_arc_str<'de, D>(deserializer: D) -> Result<Arc<str>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = String::deserialize(deserializer)?;
-    Ok(Arc::from(s))
-}
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 use universal_patterns::transport::{UniversalListener, UniversalTransport};
 
-/// JSON-RPC 2.0 Request
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsonRpcRequest {
-    /// JSON-RPC version (must be "2.0") — `Arc<str>` for zero-copy (always "2.0")
-    #[serde(
-        serialize_with = "serialize_arc_str",
-        deserialize_with = "deserialize_arc_str"
-    )]
-    pub jsonrpc: Arc<str>,
-
-    /// Method name — `Arc<str>` for zero-copy (method names reused constantly)
-    #[serde(
-        serialize_with = "serialize_arc_str",
-        deserialize_with = "deserialize_arc_str"
-    )]
-    pub method: Arc<str>,
-
-    /// Parameters (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub params: Option<Value>,
-
-    /// Request ID (optional for notifications)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<Value>,
-}
-
-/// JSON-RPC 2.0 Response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsonRpcResponse {
-    /// JSON-RPC version — `Arc<str>` for zero-copy (always "2.0")
-    #[serde(
-        serialize_with = "serialize_arc_str",
-        deserialize_with = "deserialize_arc_str"
-    )]
-    pub jsonrpc: Arc<str>,
-
-    /// Result (if successful)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result: Option<Value>,
-
-    /// Error (if failed)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<JsonRpcError>,
-
-    /// Request ID (echoed from request)
-    pub id: Value,
-}
-
-/// JSON-RPC 2.0 Error
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsonRpcError {
-    /// Error code
-    pub code: i32,
-
-    /// Error message
-    pub message: String,
-
-    /// Additional error data
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<Value>,
-}
-
-impl std::fmt::Display for JsonRpcError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (code {})", self.message, self.code)
-    }
-}
-
-impl std::error::Error for JsonRpcError {}
-
-pub(crate) fn normalize_method(method: &str) -> &str {
-    // Strip known legacy prefixes for ecosystem compatibility
-    // Per BearDog v0.9.0, barraCuda v0.3.7 pattern
-    method
-        .strip_prefix("squirrel.")
-        .or_else(|| method.strip_prefix("mcp."))
-        .unwrap_or(method)
-}
-
-/// JSON-RPC error codes (standard + reserved server range)
-pub mod error_codes {
-    /// Invalid JSON was received by the server.
-    pub const PARSE_ERROR: i32 = -32700;
-    /// The JSON sent is not a valid Request object.
-    pub const INVALID_REQUEST: i32 = -32600;
-    /// The method does not exist or is not available.
-    pub const METHOD_NOT_FOUND: i32 = -32601;
-    /// Invalid method parameter(s).
-    pub const INVALID_PARAMS: i32 = -32602;
-    /// Internal JSON-RPC error.
-    pub const INTERNAL_ERROR: i32 = -32603;
-    /// Start of reserved implementation-defined server-error range (-32000..=-32099).
-    pub const SERVER_ERROR_MIN: i32 = -32099;
-    /// End of reserved implementation-defined server-error range.
-    pub const SERVER_ERROR_MAX: i32 = -32000;
-}
-
-/// Server metrics
-#[derive(Debug, Clone)]
-pub struct ServerMetrics {
-    /// Total requests handled
-    pub requests_handled: u64,
-
-    /// Total errors
-    pub errors: u64,
-
-    /// Server start time
-    pub start_time: Instant,
-
-    /// Total response time (for averaging)
-    pub total_response_time_ms: u64,
-}
-
-impl Default for ServerMetrics {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ServerMetrics {
-    /// Creates a new server metrics instance with default values.
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            requests_handled: 0,
-            errors: 0,
-            start_time: Instant::now(),
-            total_response_time_ms: 0,
-        }
-    }
-
-    /// Returns the server uptime in seconds.
-    #[must_use]
-    pub fn uptime_seconds(&self) -> u64 {
-        self.start_time.elapsed().as_secs()
-    }
-
-    /// Returns the average response time in milliseconds, if any requests were handled.
-    #[must_use]
-    pub fn avg_response_time_ms(&self) -> Option<f64> {
-        if self.requests_handled > 0 {
-            Some(self.total_response_time_ms as f64 / self.requests_handled as f64)
-        } else {
-            None
-        }
-    }
-}
+pub(crate) use super::jsonrpc_types::normalize_method;
+pub use super::jsonrpc_types::{
+    JsonRpcError, JsonRpcRequest, JsonRpcResponse, ServerMetrics, error_codes,
+};
 
 /// JSON-RPC Server with Universal Transport (Isomorphic IPC)
 pub struct JsonRpcServer {
@@ -227,6 +67,10 @@ pub struct JsonRpcServer {
     pub(crate) service_name: String,
 
     /// Legacy socket path (kept for backward compatibility, used as fallback)
+    #[allow(
+        dead_code,
+        reason = "written during construction; reserved for fallback path"
+    )]
     pub(crate) socket_path: String,
 
     /// Server metrics
@@ -671,6 +515,7 @@ impl JsonRpcServer {
     /// Note: New code should use handle_universal_connection() instead.
     /// This method is kept for any legacy direct Unix socket usage.
     #[deprecated(note = "Use handle_universal_connection() with UniversalTransport instead")]
+    #[allow(dead_code, reason = "deprecated legacy path; kept for fallback")]
     async fn handle_connection<S>(&self, stream: S) -> Result<()>
     where
         S: AsyncRead + AsyncWrite + Unpin,

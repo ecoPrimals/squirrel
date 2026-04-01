@@ -87,7 +87,7 @@ impl EnhancedMCPServer {
 
     /// Start the server
     pub async fn start(&self) -> Result<(), PrimalError> {
-        println!("Enhanced MCP Server starting...");
+        tracing::info!("Enhanced MCP Server starting");
         Ok(())
     }
 
@@ -175,7 +175,7 @@ impl EnhancedMCPServer {
 
     /// Stop the server
     pub async fn stop(&self) -> Result<(), PrimalError> {
-        println!("Enhanced MCP Server stopping...");
+        tracing::info!("Enhanced MCP Server stopping");
         Ok(())
     }
 }

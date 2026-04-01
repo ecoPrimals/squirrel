@@ -51,7 +51,7 @@ pub fn connect_health_to_alerting(
                     }
                 },
                 Err(e) => {
-                    eprintln!("Error receiving health status update: {}", e);
+                    tracing::error!("Error receiving health status update: {}", e);
                     // Wait a bit before retrying
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
@@ -171,7 +171,7 @@ pub async fn monitor_health_checker(health_checker: Arc<HealthChecker>) {
                 tokio::time::sleep(Duration::from_secs(30)).await;
             }
             Err(e) => {
-                eprintln!("Health checker appears unresponsive: {}", e);
+                tracing::error!("Health checker appears unresponsive: {}", e);
                 // In a real implementation, you might restart the health checker here
                 tokio::time::sleep(Duration::from_secs(5)).await;
             }

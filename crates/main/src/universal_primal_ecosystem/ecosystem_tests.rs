@@ -333,7 +333,6 @@ async fn cache_evicts_oldest_when_at_capacity() {
 }
 
 #[test]
-#[serial_test::serial]
 fn discover_ecosystem_services_empty_ports_skips_well_known() {
     temp_env::with_var("SERVICE_DISCOVERY_PORTS", Some(""), || {
         tokio::runtime::Builder::new_current_thread()

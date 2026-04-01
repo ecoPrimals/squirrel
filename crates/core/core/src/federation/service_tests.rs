@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-use super::super::types::FederationConfig;
 use super::*;
 use crate::{
     Error, FederationResult, FederationStatus, InstanceStatus, LoadBalanceResult, LoadMetrics,
@@ -29,10 +28,10 @@ fn new_sets_expected_scaling_policy_and_load_metrics() {
 #[tokio::test]
 async fn start_standalone_when_federation_disabled() {
     let svc = FederationService::new(test_config()).expect("new");
-    svc.start().await.await?;
+    svc.start().await.expect("start");
     let stats = svc.get_federation_stats();
     assert!(matches!(stats.status, FederationStatus::Active));
-    svc.shutdown().await.await?;
+    svc.shutdown().await.expect("shutdown");
 }
 
 #[tokio::test]
@@ -40,11 +39,11 @@ async fn start_federation_becomes_leader_when_isolated() {
     let mut cfg = test_config();
     cfg.federation_enabled = true;
     let svc = FederationService::new(cfg).expect("new");
-    svc.start().await.await?;
+    svc.start().await.expect("start");
     let stats = svc.get_federation_stats();
     assert!(stats.is_leader);
     assert!(matches!(stats.status, FederationStatus::Active));
-    svc.shutdown().await.await?;
+    svc.shutdown().await.expect("shutdown");
 }
 
 #[tokio::test]
@@ -60,7 +59,7 @@ async fn start_federation_fails_when_peers_preloaded_and_join_unavailable() {
         capabilities: vec!["mcp".to_string()],
         capacity: 4,
     };
-    svc.federate_nodes(vec![spec]).await.await?;
+    svc.federate_nodes(vec![spec]).await.expect("federate");
     let err = svc
         .start()
         .await
@@ -83,7 +82,7 @@ async fn federate_nodes_updates_stats_and_swarm_result() {
         nodes_joined,
         status,
         ..
-    } = svc.federate_nodes(vec![spec]).await.await?;
+    } = svc.federate_nodes(vec![spec]).await.expect("federate");
     assert_eq!(nodes_joined, 1);
     assert_eq!(status, FederationStatus::Active);
     assert_eq!(svc.get_federation_stats().local_instances, 1);
@@ -92,7 +91,7 @@ async fn federate_nodes_updates_stats_and_swarm_result() {
 #[tokio::test]
 async fn federate_nodes_empty_yields_inactive() {
     let svc = FederationService::new(test_config()).expect("new");
-    let r = svc.federate_nodes(vec![]).await.await?;
+    let r = svc.federate_nodes(vec![]).await.expect("federate");
     assert_eq!(r.nodes_joined, 0);
     assert_eq!(r.status, FederationStatus::Inactive);
 }
@@ -111,7 +110,7 @@ async fn spawn_squirrel_registers_instance() {
         auto_scaling_enabled: false,
         metadata: std::collections::HashMap::new(),
     };
-    let inst = svc.spawn_squirrel(cfg).await.await?;
+    let inst = svc.spawn_squirrel(cfg).await.expect("spawn");
     assert_eq!(inst.health, InstanceStatus::Starting);
     assert_eq!(svc.get_federation_stats().local_instances, 1);
 }
@@ -119,7 +118,6 @@ async fn spawn_squirrel_registers_instance() {
 #[tokio::test]
 async fn balance_load_uses_internal_metrics_snapshot() {
     let svc = FederationService::new(test_config()).expect("new");
-    // `balance_load` currently ignores the argument and uses internal `LoadMetrics` (zeroed at init).
     let lm = LoadMetrics {
         cpu_usage: 0.9,
         memory_usage: 0.5,
@@ -129,7 +127,7 @@ async fn balance_load_uses_internal_metrics_snapshot() {
         response_time: std::time::Duration::from_millis(5),
         error_rate: 0.0,
     };
-    let LoadBalanceResult { balance_score, .. } = svc.balance_load(lm).await.await?;
+    let LoadBalanceResult { balance_score, .. } = svc.balance_load(lm).await.expect("balance");
     assert!(balance_score.abs() < f64::EPSILON);
     assert!(svc.get_federation_stats().current_utilization.abs() < f64::EPSILON);
 }
@@ -139,8 +137,8 @@ async fn shutdown_notifies_and_completes() {
     let mut cfg = test_config();
     cfg.federation_enabled = true;
     let svc = FederationService::new(cfg).expect("new");
-    svc.start().await.await?;
-    svc.shutdown().await.await?;
+    svc.start().await.expect("start");
+    svc.shutdown().await.expect("shutdown");
     assert!(matches!(
         svc.get_federation_stats().status,
         FederationStatus::Inactive

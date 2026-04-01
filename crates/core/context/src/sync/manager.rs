@@ -132,34 +132,41 @@ impl SyncManager {
             });
         }
 
-        // Add to pending operations
-        self.pending_operations
-            .insert(message.id.clone(), message.clone());
+        // Track in pending operations, then take back for handler dispatch
+        let msg_id = message.id.clone();
+        let op_type = format!("{:?}", message.operation);
+        self.pending_operations.insert(msg_id.clone(), message);
 
         // Broadcast started event
         let _ = self
             .broadcast_event(SyncEvent::Started {
-                operation_id: message.id.clone(),
-                operation_type: format!("{:?}", message.operation),
+                operation_id: msg_id.clone(),
+                operation_type: op_type,
             })
             .await;
 
-        // Process based on operation type (clone message for handlers that need it)
+        // Remove from pending before dispatch (avoids &/&mut self conflict)
+        let message = self
+            .pending_operations
+            .remove(&msg_id)
+            .expect("just inserted");
+
+        // Handlers borrow &SyncMessage — no clones needed
         let result = match &message.operation {
             SyncOperation::Heartbeat { node_id, timestamp } => {
                 self.handle_heartbeat(node_id.clone(), *timestamp).await
             }
-            SyncOperation::StateUpdate(_) => self.handle_state_update(message.clone()).await,
-            SyncOperation::SnapshotCreate(_) => self.handle_snapshot_create(message.clone()).await,
-            SyncOperation::SnapshotDelete(_) => self.handle_snapshot_delete(message.clone()).await,
+            SyncOperation::StateUpdate(_) => self.handle_state_update(&message).await,
+            SyncOperation::SnapshotCreate(_) => self.handle_snapshot_create(&message).await,
+            SyncOperation::SnapshotDelete(_) => self.handle_snapshot_delete(&message).await,
             SyncOperation::Conflict(conflict_info) => {
                 self.handle_conflict(conflict_info.clone()).await
             }
             SyncOperation::FullSyncRequest { .. } => {
-                self.handle_full_sync_request(message.clone()).await
+                self.handle_full_sync_request(&message).await
             }
             SyncOperation::FullSyncResponse { .. } => {
-                self.handle_full_sync_response(message.clone()).await
+                self.handle_full_sync_response(&message).await
             }
             SyncOperation::PartitionDetected(partition_info) => {
                 self.handle_partition_detected(partition_info.clone()).await
@@ -172,9 +179,6 @@ impl SyncManager {
                     .await
             }
         };
-
-        // Remove from pending operations
-        self.pending_operations.remove(&message.id);
 
         // Handle result
         match result {
@@ -246,7 +250,7 @@ impl SyncManager {
     /// Handle state update
     async fn handle_state_update(
         &mut self,
-        message: SyncMessage,
+        message: &SyncMessage,
     ) -> Result<SyncResult, ContextError> {
         debug!("Processing state update from source: {}", message.source);
 
@@ -301,7 +305,7 @@ impl SyncManager {
     /// Handle snapshot creation
     async fn handle_snapshot_create(
         &mut self,
-        message: SyncMessage,
+        message: &SyncMessage,
     ) -> Result<SyncResult, ContextError> {
         debug!("Creating snapshot for message: {}", message.id);
 
@@ -340,7 +344,7 @@ impl SyncManager {
     /// Handle snapshot deletion
     async fn handle_snapshot_delete(
         &mut self,
-        message: SyncMessage,
+        message: &SyncMessage,
     ) -> Result<SyncResult, ContextError> {
         debug!("Deleting snapshot for message: {}", message.id);
 
@@ -453,7 +457,7 @@ impl SyncManager {
     /// Handle full sync request
     async fn handle_full_sync_request(
         &mut self,
-        message: SyncMessage,
+        message: &SyncMessage,
     ) -> Result<SyncResult, ContextError> {
         info!("Processing full sync request from: {}", message.source);
 
@@ -521,7 +525,7 @@ impl SyncManager {
     /// Handle full sync response
     async fn handle_full_sync_response(
         &mut self,
-        message: SyncMessage,
+        message: &SyncMessage,
     ) -> Result<SyncResult, ContextError> {
         info!("Processing full sync response from: {}", message.source);
 

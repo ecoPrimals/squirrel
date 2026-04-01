@@ -17,10 +17,10 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 |------|--------|
 | Language | Rust, **edition 2024** |
 | Workspace | **22** crates (see `Cargo.toml` `members`) |
-| Scale | ~**452k** lines across **1,334** `.rs` files |
+| Scale | ~**453k** lines across **1,355** `.rs` files |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
 | Code license | **AGPL-3.0-or-later** (workspace `license`; see License section for full public framing) |
-| Version | **v0.1.0-alpha.26** (workspace); status **pre-alpha** |
+| Version | **v0.1.0-alpha.27** (workspace); status **pre-alpha** |
 | Unsafe code | 0 — `#![forbid(unsafe_code)]` on all lib.rs, main.rs, and bin/*.rs workspace-wide |
 
 ## Capabilities (domains)
@@ -73,7 +73,7 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **7,143** tests passing, 0 failures, 5 ignored.
+- **6,852** tests passing, 0 failures, 107 ignored.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Chaos** and integration tests (e.g. under `crates/main/tests/chaos`).
 - **Property-based** tests (e.g. `proptest` for serialization invariants).

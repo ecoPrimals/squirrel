@@ -61,7 +61,6 @@
     clippy::return_self_not_must_use,
     clippy::option_if_let_else,
     clippy::cast_precision_loss,
-    clippy::manual_string_new,
     clippy::significant_drop_tightening,
     clippy::derive_partial_eq_without_eq,
     clippy::or_fun_call,

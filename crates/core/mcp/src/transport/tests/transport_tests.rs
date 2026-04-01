@@ -22,6 +22,29 @@ use crate::mcp::types::{
 };
 use crate::test_utils::{TestData, MockSecurityManager};
 
+async fn await_transport_running(transport: &Transport) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !transport.is_running().await {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("transport should start within timeout");
+}
+
+async fn await_connections(transport: &Transport, expected: usize) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if transport.get_active_connections().await.expect("count") == expected {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("expected connection count within timeout");
+}
+
 // Mock security manager for testing
 struct MockTransportEnvironment {
     transport: Arc<Transport>,
@@ -146,22 +169,20 @@ async fn test_transport_start_and_stop() {
         transport_clone.start().await.expect("should succeed");
     });
     
-    // Wait a bit for transport to start
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    
-    // Check transport is running
+    await_transport_running(&env.transport).await;
     assert!(env.transport.is_running().await);
     
-    // Stop transport
     env.transport.shutdown().await.expect("should succeed");
     
-    // Wait for transport to shut down
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while env.transport.is_running().await {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("transport should stop within timeout");
     
-    // Verify transport is stopped
     assert!(!env.transport.is_running().await);
-    
-    // Abort the spawned task
     handle.abort();
 }
 
@@ -176,24 +197,14 @@ async fn test_client_connection() {
         transport_clone.start().await.expect("should succeed");
     });
     
-    // Wait a bit for transport to start
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    await_transport_running(&env.transport).await;
     
-    // Get the assigned port
     let port = env.get_port().await;
-    
-    // Connect client
     let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).expect("should succeed");
-    let stream = TcpStream::connect(addr).await.expect("should succeed");
+    let _stream = TcpStream::connect(addr).await.expect("should succeed");
     
-    // Wait a bit for connection to complete
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    await_connections(&env.transport, 1).await;
     
-    // Verify connection was accepted
-    let active_connections = env.transport.get_active_connections().await.expect("should succeed");
-    assert_eq!(active_connections, 1);
-    
-    // Cleanup
     env.transport.shutdown().await.expect("should succeed");
     handle.abort();
 }
@@ -225,32 +236,17 @@ async fn test_connection_limits() {
         transport_clone.start().await.expect("should succeed");
     });
     
-    // Wait a bit for transport to start
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    await_transport_running(&transport).await;
     
-    // Get the assigned port
     let port = transport.get_port().await.expect("should succeed");
-    
-    // Connect first client - should succeed
     let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).expect("should succeed");
     let _stream1 = TcpStream::connect(addr).await.expect("should succeed");
     
-    // Wait for connection to be established
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    await_connections(&transport, 1).await;
     
-    // Verify one connection is active
-    let active_connections = transport.get_active_connections().await.expect("should succeed");
-    assert_eq!(active_connections, 1);
-    
-    // Try to connect second client - should fail or be rejected by transport
-    // Note: In some implementations, the connection might be accepted but immediately closed
-    // Let's try to connect and then check if we still have only one active connection
     let _stream2_result = TcpStream::connect(addr).await;
+    tokio::task::yield_now().await;
     
-    // Wait a bit for potential connection to be processed
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    
-    // Verify still only one connection is active
     let active_connections = transport.get_active_connections().await.expect("should succeed");
     assert_eq!(active_connections, 1);
     
@@ -270,13 +266,9 @@ async fn test_message_sending() {
         transport_clone.start().await.expect("should succeed");
     });
     
-    // Wait a bit for transport to start
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    await_transport_running(&env.transport).await;
     
-    // Get the assigned port
     let port = env.get_port().await;
-    
-    // Connect client
     let addr = SocketAddr::from_str(&format!("127.0.0.1:{}", port)).expect("should succeed");
     let mut stream = TcpStream::connect(addr).await.expect("should succeed");
     
@@ -298,8 +290,7 @@ async fn test_message_sending() {
     let frame = codec.encode_message(&test_message).await.expect("should succeed");
     writer.write_frame(frame).await.expect("should succeed");
     
-    // Wait a bit for message to be processed
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::task::yield_now().await;
     
     // Try to receive message from transport
     let mut transport_receiver = env.transport.clone();

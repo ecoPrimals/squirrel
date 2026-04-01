@@ -140,14 +140,19 @@ async fn main() {
                 println!("Squirrel CLI Version: {}", env!("CARGO_PKG_VERSION"));
             }
             "status" => {
+                let pid = std::process::id();
+                let rss_kb = read_proc_rss_kb();
+                let env_name =
+                    std::env::var("SQUIRREL_ENV").unwrap_or_else(|_| "development".into());
+                let socket_info = squirrel_cli::status::socket_status();
+
                 if use_json_output {
-                    // Output in JSON format
                     let status_json = json!({
-                        "status": "running",
-                        "uptime": 123,
-                        "memory_usage": 42,
-                        "active_commands": 5,
-                        "connected_clients": 2
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "pid": pid,
+                        "environment": env_name,
+                        "memory_rss_kb": rss_kb,
+                        "socket": socket_info,
                     });
                     match serde_json::to_string_pretty(&status_json) {
                         Ok(json_string) => println!("{json_string}"),
@@ -157,25 +162,18 @@ async fn main() {
                         }
                     }
                 } else if verbose_mode {
-                    println!("System Status - Detailed information");
-                    println!("\nDetailed information about the current state of Squirrel CLI:");
-                    println!("  - Version: {}", env!("CARGO_PKG_VERSION"));
-                    println!("  - Environment: Development");
-                    println!("  - Active plugins: 0");
-                    println!("  - Connection status: Disconnected");
-                    println!("  - Configuration status: Default");
-                    println!("  - Memory usage: 42MB");
-                    println!("  - Uptime: 123 seconds");
-                    println!("\nUsage: squirrel status [--verbose]");
+                    println!("Squirrel Status (verbose)");
+                    println!("  Version:     {}", env!("CARGO_PKG_VERSION"));
+                    println!("  PID:         {pid}");
+                    println!("  Environment: {env_name}");
+                    println!(
+                        "  Memory RSS:  {} KB",
+                        rss_kb.map_or_else(|| "N/A".to_string(), |k| k.to_string())
+                    );
+                    println!("  Socket:      {socket_info}");
                 } else {
-                    println!("System Status");
-                    println!("\nDisplays information about the current state of Squirrel CLI:");
-                    println!("  - Version information");
-                    println!("  - Environment settings");
-                    println!("  - Active plugins");
-                    println!("  - Connection status");
-                    println!("  - Configuration status");
-                    println!("\nUsage: squirrel status [--verbose]");
+                    println!("Squirrel v{} (pid {pid})", env!("CARGO_PKG_VERSION"));
+                    println!("  Socket: {socket_info}");
                 }
             }
             "config" => {
@@ -285,4 +283,18 @@ async fn main() {
         println!("Available commands:");
         println!("{}", app.render_help());
     }
+}
+
+/// Read RSS from `/proc/self/status` (Linux).  Returns `None` on other platforms.
+fn read_proc_rss_kb() -> Option<u64> {
+    let status = std::fs::read_to_string("/proc/self/status").ok()?;
+    for line in status.lines() {
+        if let Some(rest) = line.strip_prefix("VmRSS:") {
+            return rest
+                .trim()
+                .strip_suffix("kB")
+                .and_then(|s| s.trim().parse().ok());
+        }
+    }
+    None
 }

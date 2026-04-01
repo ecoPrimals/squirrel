@@ -244,7 +244,7 @@ impl EventBus {
         if let Some(event_listeners) = listeners.get(&event.event_type) {
             for entry in event_listeners {
                 if let Err(e) = entry.listener.handle_event(event.clone()).await {
-                    eprintln!("Error handling event for listener {}: {:?}", entry.id, e);
+                    tracing::error!(listener_id = %entry.id, error = ?e, "Error handling event");
                 }
             }
         }

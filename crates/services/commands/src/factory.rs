@@ -71,11 +71,108 @@ pub fn create_command_registry() -> Result<Arc<Mutex<CommandRegistry>>, CommandE
 ///
 /// A tuple containing the command registry and the plugin adapter
 pub fn create_command_registry_with_plugin() -> Result<RegistryWithPlugin, CommandError> {
-    // Create the registry (validates it can be built)
-    let _registry = create_command_registry()?;
+    let registry = create_command_registry()?;
+    let adapter = Arc::new(CommandRegistryPluginAdapter::new(Arc::clone(&registry)));
+    Ok((registry, adapter))
+}
 
-    // Plugin adapter registration is planned for the next evolution phase
-    Err("Plugin adapter not yet implemented".into())
+/// Bridges `CommandRegistry` into the `CommandsPlugin` trait interface.
+#[derive(Debug)]
+struct CommandRegistryPluginAdapter {
+    registry: Arc<Mutex<CommandRegistry>>,
+    metadata: squirrel_interfaces::plugins::PluginMetadata,
+}
+
+impl CommandRegistryPluginAdapter {
+    fn new(registry: Arc<Mutex<CommandRegistry>>) -> Self {
+        Self {
+            registry,
+            metadata: squirrel_interfaces::plugins::PluginMetadata::new(
+                "command-registry",
+                env!("CARGO_PKG_VERSION"),
+                "Built-in command registry plugin adapter",
+                "ecoPrimals",
+            ),
+        }
+    }
+}
+
+impl squirrel_interfaces::plugins::Plugin for CommandRegistryPluginAdapter {
+    fn metadata(&self) -> &squirrel_interfaces::plugins::PluginMetadata {
+        &self.metadata
+    }
+}
+
+#[async_trait::async_trait]
+impl CommandsPlugin for CommandRegistryPluginAdapter {
+    fn get_available_commands(&self) -> Vec<squirrel_interfaces::plugins::CommandMetadata> {
+        let names = self
+            .registry
+            .lock()
+            .ok()
+            .and_then(|r| r.list_commands().ok())
+            .unwrap_or_default();
+
+        names
+            .into_iter()
+            .map(|name| {
+                let id = name.clone();
+                squirrel_interfaces::plugins::CommandMetadata {
+                    id,
+                    name,
+                    description: String::new(),
+                    input_schema: serde_json::json!({"type": "array", "items": {"type": "string"}}),
+                    output_schema: serde_json::json!({"type": "string"}),
+                    permissions: Vec::new(),
+                }
+            })
+            .collect()
+    }
+
+    fn get_command_metadata(
+        &self,
+        command_id: &str,
+    ) -> Option<squirrel_interfaces::plugins::CommandMetadata> {
+        let reg = self.registry.lock().ok()?;
+        let cmd = reg.get_command(command_id).ok()?;
+        Some(squirrel_interfaces::plugins::CommandMetadata {
+            id: command_id.to_string(),
+            name: cmd.name().to_string(),
+            description: cmd.description().to_string(),
+            input_schema: serde_json::json!({"type": "array", "items": {"type": "string"}}),
+            output_schema: serde_json::json!({"type": "string"}),
+            permissions: Vec::new(),
+        })
+    }
+
+    async fn execute_command(
+        &self,
+        command_id: &str,
+        input: serde_json::Value,
+    ) -> anyhow::Result<serde_json::Value> {
+        let args: Vec<String> = match input {
+            serde_json::Value::Array(arr) => arr
+                .into_iter()
+                .map(|v| v.as_str().unwrap_or_default().to_string())
+                .collect(),
+            serde_json::Value::String(s) => vec![s],
+            _ => Vec::new(),
+        };
+
+        let result = self
+            .registry
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Lock poisoned: {e}"))?
+            .execute(command_id, &args)?;
+
+        Ok(serde_json::Value::String(result))
+    }
+
+    fn get_command_help(&self, command_id: &str) -> Option<String> {
+        let reg = self.registry.lock().ok()?;
+        let cmd = reg.get_command(command_id).ok()?;
+        Some(cmd.help())
+    }
 }
 
 /// The default command registry factory
@@ -517,5 +614,42 @@ mod tests {
 
         info!("Test: Completed test_factory_with_custom_commands successfully");
         Ok(())
+    }
+
+    #[test]
+    fn test_create_command_registry_with_plugin_produces_adapter() {
+        let result = create_command_registry_with_plugin();
+        assert!(result.is_ok(), "should return a registry + plugin adapter");
+        let (registry, adapter) = result.expect("tested above");
+        let cmds = adapter.get_available_commands();
+        assert!(!cmds.is_empty(), "adapter should list built-in commands");
+
+        let reg_cmds = registry.lock().expect("lock").list_commands().expect("ok");
+        assert_eq!(cmds.len(), reg_cmds.len());
+    }
+
+    #[tokio::test]
+    async fn test_plugin_adapter_execute_command() {
+        let (_registry, adapter) = create_command_registry_with_plugin().expect("ok");
+        let result = adapter
+            .execute_command("echo", serde_json::json!(["hello", "world"]))
+            .await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_plugin_adapter_get_command_help() {
+        let (_registry, adapter) = create_command_registry_with_plugin().expect("ok");
+        let help = adapter.get_command_help("echo");
+        assert!(help.is_some());
+    }
+
+    #[test]
+    fn test_plugin_adapter_get_command_metadata() {
+        let (_registry, adapter) = create_command_registry_with_plugin().expect("ok");
+        let meta = adapter.get_command_metadata("echo");
+        assert!(meta.is_some());
+        let meta = meta.expect("tested above");
+        assert_eq!(meta.id, "echo");
     }
 }

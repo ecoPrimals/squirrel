@@ -2,7 +2,14 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![forbid(unsafe_code)]
-#![allow(clippy::missing_const_for_fn, clippy::significant_drop_tightening)] // const/drop tightening deferred
+#![expect(
+    clippy::missing_const_for_fn,
+    reason = "async trait bounds prevent const"
+)]
+#![expect(
+    clippy::significant_drop_tightening,
+    reason = "lock scopes match async lifetimes"
+)]
 
 //! Context adapter for Squirrel
 //!

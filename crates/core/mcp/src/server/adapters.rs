@@ -60,7 +60,7 @@ impl CommandHandler for RouterCommandHandler {
                             .map(|s| s.trim_start_matches(':').trim())
                             .unwrap_or("unknown");
                             
-                        eprintln!("No handler found for message type: {msg_type}");
+                        tracing::warn!("No handler found for message type: {msg_type}");
                         
                         // Create a default success response when no handler found
                         Ok(Some(MessageBuilder::new()

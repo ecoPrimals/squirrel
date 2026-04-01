@@ -25,7 +25,7 @@ pub async fn start_scheduler(
     loop {
         // Execute due health checks
         if let Err(e) = execute_due_health_checks(&health_checks, &component_health).await {
-            eprintln!("Error executing health checks: {}", e);
+            tracing::error!("Error executing health checks: {}", e);
         }
         
         // Sleep for a short interval before checking again

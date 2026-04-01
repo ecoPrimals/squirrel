@@ -69,7 +69,10 @@ pub struct StatsCollector {
     last_calculation: Arc<RwLock<Instant>>,
 }
 
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "security monitoring stats collection — wiring pending"
+)]
 impl StatsCollector {
     /// Create a new statistics collector
     pub fn new() -> Self {

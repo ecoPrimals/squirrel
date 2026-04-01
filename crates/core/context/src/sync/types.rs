@@ -47,7 +47,7 @@ impl Default for SyncConfig {
 }
 
 /// Status of sync operations
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SyncStatus {
     /// Sync is healthy and operating normally
     Healthy,

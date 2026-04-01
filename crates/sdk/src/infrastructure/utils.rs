@@ -124,7 +124,7 @@ where
     match mutex.lock() {
         Ok(guard) => guard.clone(),
         Err(e) => {
-            eprintln!("Warning: Failed to acquire {} lock: {}", context, e);
+            tracing::warn!("Failed to acquire {} lock: {}", context, e);
             fallback()
         }
     }

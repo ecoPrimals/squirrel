@@ -171,7 +171,7 @@ impl Hook for LoggingHook {
     }
 
     fn execute(&self, command: &dyn Command) -> Result<(), CommandError> {
-        println!("Executing command '{}'", command.name());
+        tracing::info!(command = command.name(), "Executing command");
         Ok(())
     }
 }
@@ -211,7 +211,7 @@ impl Hook for MetricsHook {
     }
 
     fn execute(&self, command: &dyn Command) -> Result<(), CommandError> {
-        println!("Metrics - Command: {}", command.name());
+        tracing::info!(command = command.name(), "Metrics recorded");
         Ok(())
     }
 }
@@ -258,7 +258,7 @@ impl Hook for TimingHook {
             }
             Some(start) => {
                 let duration = start.elapsed();
-                println!("Command '{}' took {:?}", command.name(), duration);
+                tracing::info!(command = command.name(), ?duration, "Command timing");
                 *start_time = None;
             }
         }
