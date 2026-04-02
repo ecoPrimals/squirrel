@@ -4,8 +4,6 @@
 //! Pure Rust system info (no C deps). Uses /proc on Linux, defaults elsewhere.
 //! ecoBin v3.0: no infrastructure C (e.g. /proc + nix instead of sysinfo).
 
-#![forbid(unsafe_code)]
-
 use std::io;
 
 /// Memory info from /proc/meminfo (Linux) or defaults.

@@ -7,7 +7,7 @@ Squirrel is the AI coordination primal of the ecoPrimals ecosystem.
 
 All contributions are accepted under the **scyBorg triple-copyleft** framework:
 
-- **Code**: AGPL-3.0-only (see `LICENSE-AGPL3`)
+- **Code**: AGPL-3.0-or-later (see `LICENSE-AGPL3`)
 - **Mechanics**: ORC (see `LICENSE-ORC`)
 - **Creative**: CC-BY-SA 4.0 (see `LICENSE-CC-BY-SA`)
 
@@ -29,7 +29,7 @@ cargo doc --all-features --no-deps
 
 | Rule | Detail |
 |------|--------|
-| `#![forbid(unsafe_code)]` | Every crate root. No exceptions without hardware justification. |
+| `unsafe_code = "forbid"` | Workspace `[lints.rust]`. No exceptions without hardware justification. |
 | `clippy::pedantic + nursery + cargo` | Zero warnings under `-D warnings`. |
 | `#[expect(reason)]` over `#[allow]` | Dead suppressions caught automatically. |
 | `deny(unwrap_used, expect_used)` | Production code. Tests relax via `cfg_attr`. |

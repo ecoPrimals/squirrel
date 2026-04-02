@@ -22,6 +22,10 @@ use std::path::{Path, PathBuf};
 use universal_constants::deployment::ports;
 use universal_constants::network::BIND_ALL_INTERFACES;
 
+fn default_bind() -> String {
+    BIND_ALL_INTERFACES.to_string()
+}
+
 /// Main Squirrel configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -48,10 +52,13 @@ pub struct ServerConfig {
     /// for runtime discovery (XDG, env vars, capability-based).
     pub socket: Option<String>,
 
-    /// Bind address (for future HTTP server)
+    /// Bind address — retained for config-file backward compatibility.
+    /// Squirrel uses Unix sockets + localhost TCP JSON-RPC; this field is not
+    /// consumed by the server runtime.
+    #[serde(default = "default_bind")]
     pub bind: String,
 
-    /// Port (for future HTTP server)
+    /// TCP port for localhost JSON-RPC (env: `SQUIRREL_PORT`, `SQUIRREL_SERVER_PORT`)
     pub port: u16,
 
     /// Run as daemon

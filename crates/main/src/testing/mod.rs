@@ -108,21 +108,29 @@ pub mod response_helpers {
     }
 }
 
-/// Test assertions for common patterns
+/// Test assertions for common patterns (test-only; panics on wrong variant)
 pub mod assertions {
-    /// Assert that a result is Ok and return the value
+    /// Assert that a result is `Ok` and return the value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the result is `Err`.
     pub fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
         match result {
             Ok(val) => val,
-            Err(e) => unreachable!("Expected Ok, got Err: {:?}", e),
+            Err(e) => panic!("Expected Ok, got Err: {e:?}"),
         }
     }
-    
-    /// Assert that a result is Err
+
+    /// Assert that a result is `Err`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the result is `Ok`.
     pub fn assert_err<T: std::fmt::Debug, E>(result: Result<T, E>) {
         match result {
-            Ok(val) => unreachable!("Expected Err, got Ok: {:?}", val),
-            Err(_) => {},
+            Ok(val) => panic!("Expected Err, got Ok: {val:?}"),
+            Err(_) => {}
         }
     }
 }
@@ -187,7 +195,7 @@ mod tests {
     }
     
     #[test]
-    #[should_panic(expected = "Expected Err, got Ok")]
+    #[should_panic(expected = "Expected Err, got Ok:")]
     fn test_assert_err_with_ok() {
         let result: Result<i32, String> = Ok(42);
         assert_err(result);

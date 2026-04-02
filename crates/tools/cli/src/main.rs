@@ -2,8 +2,6 @@
 // ORC-Notice: CLI interaction mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![forbid(unsafe_code)]
-
 //! Squirrel CLI — command-line interface for the Squirrel AI primal.
 
 use serde_json::json;

@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,852 passing | **Edition**: 2024 | **Coverage**: 86.5%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,161 passing | **Edition**: 2024 | **Coverage**: 85.3%
 
 ---
 
@@ -76,7 +76,7 @@ Capability symlink: `ai.sock` → `squirrel.sock` (auto-created for capability-b
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   6,852 tests passing (0 failures, 107 ignored)
+Fitness:   7,161 tests passing (0 failures, 110 ignored)
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation
@@ -138,7 +138,7 @@ squirrel/
 
 ## Code Standards
 
-- `#![forbid(unsafe_code)]` unconditional on all 22 crate lib.rs, main.rs, and bin/*.rs files
+- `unsafe_code = "forbid"` in workspace `[lints.rust]` — enforced across all 22 crates
 - `#![deny(clippy::expect_used, clippy::unwrap_used)]` in production code (test-only `cfg_attr` allows)
 - `#![warn(missing_docs)]` on all library crates
 - `cargo clippy` with `pedantic` + `nursery` + `cargo` lints — zero errors under `-D warnings`

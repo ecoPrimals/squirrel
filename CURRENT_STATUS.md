@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 1, 2026
-**Version**: 0.1.0-alpha.27
+**Last Updated**: April 2, 2026
+**Version**: 0.1.0-alpha.28
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,15 +10,15 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 6,852 passing / 0 failures / 107 ignored across 22 workspace members |
+| Tests | 7,161 passing / 0 failures / 110 ignored across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
-| Unsafe Code | 0 in production — `#![forbid(unsafe_code)]` in **all** crate `lib.rs`, `main.rs`, and `bin/*.rs` files workspace-wide |
+| Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 22 crates) |
 | Pure Rust | 100% default features (zero C deps); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
-| Coverage | 86.0% line coverage via `cargo-llvm-cov` (target: 90%); comprehensive coverage including mesh/federation code; remaining gap is IPC/network code, demo binaries, and binary entry points |
+| Coverage | 85.3% line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is CLI status (now covered), IPC/network code, demo binaries, and binary entry points |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`) |

@@ -2,7 +2,6 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![forbid(unsafe_code)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![allow(
     clippy::option_if_let_else,
@@ -59,10 +58,9 @@ async fn run() -> i32 {
             port,
             daemon,
             socket,
-            bind,
             verbose,
         } => {
-            if let Err(e) = run_server(port, daemon, socket, bind, verbose).await {
+            if let Err(e) = run_server(port, daemon, socket, verbose).await {
                 error!("Error: {e:?}");
                 return exit_codes::ERROR;
             }
@@ -152,13 +150,7 @@ async fn run_client(
     clippy::too_many_lines,
     reason = "Server orchestration; refactor planned"
 )]
-async fn run_server(
-    port: u16,
-    daemon: bool,
-    socket: Option<String>,
-    bind: String,
-    _verbose: bool,
-) -> Result<()> {
+async fn run_server(port: u16, daemon: bool, socket: Option<String>, _verbose: bool) -> Result<()> {
     use squirrel::rpc::JsonRpcServer;
     use squirrel::rpc::unix_socket;
 
@@ -174,7 +166,6 @@ async fn run_server(
         config.server.daemon = true;
     }
     config.server.port = port;
-    config.server.bind = bind.clone();
 
     // Tracing already initialized in run() with verbose-based level
 
@@ -225,7 +216,6 @@ async fn run_server(
 
     info!("Starting JSON-RPC server...");
     info!("Socket: {socket_path}");
-    info!("Bind: {bind}");
     info!("Port: {port} (TCP JSON-RPC on 127.0.0.1:{port})");
     if daemon {
         info!("Daemon mode: enabled (FUTURE: implement background detach)");

@@ -2,8 +2,6 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![forbid(unsafe_code)]
-
 //! Squirrel Universal AI Primal
 //!
 //! A universal AI coordination primal that implements the standardized ecosystem

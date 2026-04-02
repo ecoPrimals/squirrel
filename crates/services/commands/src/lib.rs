@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![forbid(unsafe_code)]
-
 //! Squirrel Commands Service
 #![expect(dead_code, reason = "Command service awaiting full wiring")]
 #![allow(

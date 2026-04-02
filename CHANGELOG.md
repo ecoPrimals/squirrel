@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.28] - 2026-04-02
+
+primalSpring audit compliance, deep debt evolution, and ecosystem alignment.
+7,161 tests passing, zero clippy warnings, zero rustdoc warnings, all quality gates green.
+
+### Added
+
+- **`unsafe_code = "forbid"` in workspace `[lints.rust]`** — ecosystem standard alignment per
+  primalSpring audit recommendation (SQ-04). All 22 crates covered at workspace level.
+- **Test coverage for `cli/status.rs`** — was 0% (5 new tests: socket status, discovery,
+  OptionalKb display variants)
+- **`unregister_from_ecosystem` implementation** — was an empty placeholder; now calls
+  `manifest_discovery::remove_manifest()` for proper ecosystem deregistration
+
+### Changed
+
+- **Hardcoded port 8080 → `universal_constants::network::squirrel_primal_port()`** in
+  `ecosystem_service.rs` — multi-tier env resolution (SQUIRREL_PORT → SQUIRREL_SERVER_PORT → 9010)
+- **Vestigial `--bind` flag removed** from CLI Server subcommand — Squirrel is zero-HTTP;
+  field retained in config for backward compatibility but no longer exposed as CLI arg
+- **`unreachable!` → `panic!`** in `testing/mod.rs` assertion helpers — semantically correct
+  (test helpers intentionally panic) with proper `# Panics` doc sections
+- **`unreachable!` → `#[expect]` + `expect()`** in `presets.rs` static URL parse — documented
+  reason, no functional change
+- **CONTRIBUTING.md license** — fixed AGPL-3.0-only → AGPL-3.0-or-later to match SPDX headers
+  and Cargo.toml
+- **deny.toml** — removed stale `libsqlite3-sys@0` skip (no longer in tree), removed
+  unnecessary `cc` skip (cosmetic warning), documented ring/cc ecoBin v3 migration paths
+- **Root docs** — README, CONTEXT, CURRENT_STATUS, CONTRIBUTING updated with accurate
+  test counts (7,161), coverage (85.3%), and workspace-level unsafe_code lint
+
+### Removed
+
+- **Redundant `#![forbid(unsafe_code)]` attributes** from 21+ files — now enforced at
+  workspace level via `[workspace.lints.rust]`
+- **3 rustdoc broken intra-doc links** in `ecosystem_service.rs` — `[Error]` → plain text
+
 ## [0.1.0-alpha.26] - 2026-03-31
 
 Deep debt resolution and wateringHole IPC compliance evolution.

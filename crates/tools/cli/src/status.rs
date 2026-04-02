@@ -45,3 +45,44 @@ impl fmt::Display for OptionalKb {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn socket_status_contains_path() {
+        let status = socket_status();
+        assert!(
+            status.contains("squirrel.sock")
+                || status.contains("(exists)")
+                || status.contains("(not found)"),
+            "unexpected socket status: {status}"
+        );
+    }
+
+    #[test]
+    fn discover_socket_path_returns_nonempty() {
+        let path = discover_socket_path();
+        assert!(!path.is_empty());
+        assert!(path.contains("squirrel"));
+    }
+
+    #[test]
+    fn optional_kb_some_value() {
+        let kb = OptionalKb(Some(1024));
+        assert_eq!(format!("{kb}"), "1024 KB");
+    }
+
+    #[test]
+    fn optional_kb_none() {
+        let kb = OptionalKb(None);
+        assert_eq!(format!("{kb}"), "N/A");
+    }
+
+    #[test]
+    fn optional_kb_zero() {
+        let kb = OptionalKb(Some(0));
+        assert_eq!(format!("{kb}"), "0 KB");
+    }
+}

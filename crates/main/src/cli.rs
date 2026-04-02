@@ -62,13 +62,6 @@ pub enum Commands {
         #[arg(short, long)]
         socket: Option<String>,
 
-        /// Bind address for HTTP server
-        ///
-        /// Default is 0.0.0.0 (all interfaces). Use 127.0.0.1 for
-        /// localhost only.
-        #[arg(short, long, default_value = "0.0.0.0")]
-        bind: String,
-
         /// Enable verbose logging
         #[arg(short, long)]
         verbose: bool,
@@ -179,14 +172,12 @@ mod tests {
             port,
             daemon,
             socket,
-            bind,
             ..
         } = cli.command
         {
             assert_eq!(port, 9010);
             assert!(!daemon);
             assert!(socket.is_none());
-            assert_eq!(bind, "0.0.0.0");
         } else {
             unreachable!("Expected Server command");
         }
@@ -296,8 +287,6 @@ mod tests {
             "--daemon",
             "--socket",
             "/custom/socket.sock",
-            "--bind",
-            "192.168.1.1",
             "--verbose",
         ])
         .expect("should succeed");
@@ -306,14 +295,12 @@ mod tests {
             port,
             daemon,
             socket,
-            bind,
             verbose,
         } = cli.command
         {
             assert_eq!(port, 3000);
             assert!(daemon);
             assert_eq!(socket, Some("/custom/socket.sock".to_string()));
-            assert_eq!(bind, "192.168.1.1");
             assert!(verbose);
         } else {
             unreachable!("Expected Server command");
@@ -531,30 +518,19 @@ mod tests {
 
     #[test]
     fn test_mixed_short_and_long_flags() {
-        let cli = Cli::try_parse_from([
-            "squirrel",
-            "server",
-            "-p",
-            "3000",
-            "--daemon",
-            "-v",
-            "--bind",
-            "127.0.0.1",
-        ])
-        .expect("should succeed");
+        let cli = Cli::try_parse_from(["squirrel", "server", "-p", "3000", "--daemon", "-v"])
+            .expect("should succeed");
 
         if let Commands::Server {
             port,
             daemon,
             verbose,
-            bind,
             ..
         } = cli.command
         {
             assert_eq!(port, 3000);
             assert!(daemon);
             assert!(verbose);
-            assert_eq!(bind, "127.0.0.1");
         } else {
             unreachable!("Expected Server command");
         }
@@ -605,12 +581,10 @@ mod tests {
     #[test]
     fn test_production_server_startup() {
         let cli =
-            Cli::try_parse_from(["squirrel", "server", "--port", "9010", "--bind", "0.0.0.0"])
-                .expect("should succeed");
+            Cli::try_parse_from(["squirrel", "server", "--port", "9010"]).expect("should succeed");
 
-        if let Commands::Server { port, bind, .. } = cli.command {
+        if let Commands::Server { port, .. } = cli.command {
             assert_eq!(port, 9010);
-            assert_eq!(bind, "0.0.0.0");
         } else {
             unreachable!("Expected Server command");
         }
@@ -618,26 +592,11 @@ mod tests {
 
     #[test]
     fn test_development_server_startup() {
-        let cli = Cli::try_parse_from([
-            "squirrel",
-            "server",
-            "--port",
-            "8080",
-            "--bind",
-            "127.0.0.1",
-            "--verbose",
-        ])
-        .expect("should succeed");
+        let cli = Cli::try_parse_from(["squirrel", "server", "--port", "8080", "--verbose"])
+            .expect("should succeed");
 
-        if let Commands::Server {
-            port,
-            bind,
-            verbose,
-            ..
-        } = cli.command
-        {
+        if let Commands::Server { port, verbose, .. } = cli.command {
             assert_eq!(port, 8080);
-            assert_eq!(bind, "127.0.0.1");
             assert!(verbose);
         } else {
             unreachable!("Expected Server command");

@@ -53,16 +53,11 @@ deny = [
     { name = "pkg-config", reason = "ecoBin: C pkg-config FFI discovery.", use-instead = "Pure Rust crates" },
     { name = "vcpkg", reason = "ecoBin: C/C++ package manager integration.", use-instead = "Pure Rust crates" },
 ]
-# cc is a build-time-only transitive dep from:
-#   pprof (benchmarking feature) → findshlibs → cc
-#   wasmtime (plugins feature) → ittapi-sys → cc
-#   sqlx-sqlite (persistence feature) → libsqlite3-sys → cc
-# All are behind optional features; default build is pure Rust.
-# Migration: pprof → samply; sqlx-sqlite → redb; wasmtime → wasm3 or wasmtime-c-api-free.
-skip = [
-    { crate = "cc@1", reason = "Build-time only; transitive via optional features (pprof, wasmtime, sqlx-sqlite)" },
-    { crate = "libsqlite3-sys@0", reason = "Behind optional persistence feature; migration target: redb" },
-]
+# cc (build-time only) enters via pprof → findshlibs and wasmtime → ittapi-sys.
+# Both are behind optional features; default build is pure Rust.
+# ecoBin v3 migration: pprof → samply; wasmtime → cc-free backend.
+# ring enters transitively via sqlx → rustls 0.23 (default crypto provider).
+# ecoBin v3 migration: sqlx + rustls-rustcrypto (pure Rust crypto provider).
 
 [sources]
 unknown-registry = "deny"

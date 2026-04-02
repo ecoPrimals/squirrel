@@ -38,7 +38,7 @@ impl EcosystemService {
     ///
     /// # Errors
     ///
-    /// Returns [`Error`] if the service cannot be constructed.
+    /// Returns an error if the service cannot be constructed.
     pub fn new(config: EcosystemConfig, monitoring: Arc<MonitoringService>) -> Result<Self> {
         let service_id = format!("squirrel-{}", uuid::Uuid::new_v4());
         let node_id =
@@ -68,7 +68,7 @@ impl EcosystemService {
     ///
     /// # Errors
     ///
-    /// Returns [`Error`] if coordinated or sovereign startup fails.
+    /// Returns an error if coordinated or sovereign startup fails.
     pub async fn start(&self) -> Result<()> {
         tracing::info!("Starting Squirrel MCP ecosystem service");
 
@@ -273,20 +273,16 @@ impl EcosystemService {
         }
     }
 
-    /// Get the current service endpoint
     /// Get Squirrel MCP endpoint with multi-tier resolution
     ///
     /// Resolution tiers:
     /// 1. `SQUIRREL_MCP_ENDPOINT` (full endpoint)
-    /// 2. `SQUIRREL_PORT` (port override)
-    /// 3. Default: <http://localhost:8080>
+    /// 2. `SQUIRREL_PORT` / `SQUIRREL_SERVER_PORT` (port override via `universal_constants`)
+    /// 3. Default: <http://localhost:9010>
     #[must_use]
     pub fn get_endpoint(&self) -> String {
         std::env::var("SQUIRREL_MCP_ENDPOINT").unwrap_or_else(|_| {
-            let port = std::env::var("SQUIRREL_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or(8080); // Default Squirrel MCP port
+            let port = universal_constants::network::squirrel_primal_port();
             format!("http://localhost:{port}")
         })
     }
@@ -324,7 +320,7 @@ impl EcosystemService {
     ///
     /// # Errors
     ///
-    /// Returns [`Error`] if shutdown steps fail.
+    /// Returns an error if shutdown steps fail.
     #[expect(
         clippy::unused_async,
         reason = "Public shutdown API is async for consistency with other services"
@@ -345,9 +341,18 @@ impl EcosystemService {
         Ok(())
     }
 
-    /// Unregister from the ecosystem
-    const fn unregister_from_ecosystem() {
-        // Implementation would unregister from Songbird or other discovery systems
-        // For now, this is a placeholder
+    /// Unregister from the ecosystem via manifest cleanup.
+    ///
+    /// Removes the primal manifest so discovery systems no longer advertise this
+    /// instance. Socket-level cleanup (biomeOS heartbeat, Songbird) is handled by
+    /// the signal handler in `main.rs`.
+    fn unregister_from_ecosystem() {
+        let family_id = std::env::var("FAMILY_ID").ok();
+        if let Err(e) = universal_patterns::manifest_discovery::remove_manifest(
+            "squirrel",
+            family_id.as_deref(),
+        ) {
+            tracing::warn!("Failed to remove primal manifest during unregister: {e}");
+        }
     }
 }

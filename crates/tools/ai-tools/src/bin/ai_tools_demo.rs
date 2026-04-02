@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![forbid(unsafe_code)]
 #![allow(warnings)] // Interactive demo binary; keep workspace `-D warnings` green
 
 //! AI Tools Multi-Model Dispatch Demo

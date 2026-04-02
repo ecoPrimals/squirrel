@@ -6,8 +6,6 @@
 //! Per wateringHole standards, AI operations include dignity checks: discrimination
 //! prevention, human oversight, manipulation prevention, and right to explanation.
 
-#![forbid(unsafe_code)]
-
 use std::fmt;
 
 /// Request payload for dignity evaluation.

@@ -9,8 +9,6 @@
 //! 🛡️ SAFETY GUARANTEE: This module contains ZERO unsafe code blocks.
 //! All serialization uses safe serde operations with proper error handling.
 
-#![forbid(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed in serialization
-
 use std::collections::HashMap;
 use std::future::Future;
 use bytes::{Bytes, BytesMut, BufMut};

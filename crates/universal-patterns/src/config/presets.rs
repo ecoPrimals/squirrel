@@ -23,9 +23,8 @@ use super::*;
 /// Parse URLs from [`endpoints`] builders. They are always valid `http://` URLs; if parsing ever
 /// fails (e.g. corrupted env), fall back to a minimal localhost URL so presets stay constructible.
 fn parse_deployment_endpoint(url: &str) -> Url {
-    let Ok(fallback) = Url::parse("http://127.0.0.1:8444/") else {
-        unreachable!("static fallback URL must parse");
-    };
+    #[expect(clippy::expect_used, reason = "static literal is always valid")]
+    let fallback = Url::parse("http://127.0.0.1:8444/").expect("static fallback URL");
     Url::parse(url).unwrap_or(fallback)
 }
 

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![forbid(unsafe_code)]
 #![allow(warnings)] // Large table-driven CLI; keep workspace `-D warnings` green
 #![allow(
     clippy::unwrap_used,
