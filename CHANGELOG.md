@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.30] - 2026-04-02
+
+Capability-based discovery compliance: decouple Songbird by name from socket resolution,
+monitoring types, config fields, and env vars. 7,162 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **`capabilities/songbird.rs` → `capabilities/discovery_service.rs`** — module renamed from
+  primal-specific to capability-based; discovers "discovery" capability, not Songbird by name
+- **`discover_songbird_socket` → `discover_discovery_socket`** — public API renamed; callers
+  request the "discovery" capability
+- **`SONGBIRD_SOCKET` → `DISCOVERY_SOCKET`** — primary env var for discovery socket;
+  `SONGBIRD_SOCKET` retained as deprecated fallback
+- **`DISCOVERY_SOCKET_NAME`** — new constant `discovery-default.sock`; `SONGBIRD_SOCKET_NAME`
+  kept for backward compat with deprecation doc
+- **Monitoring types renamed** — `SongbirdProvider` → `MonitoringServiceProvider`,
+  `SongbirdConfig` → `MonitoringServiceConfig`, `SongbirdMonitoringClient` →
+  `ServiceMeshMonitoringClient`, `SongbirdClientConfig` → `ServiceMeshClientConfig`,
+  `create_songbird_client` → `create_monitoring_client`
+- **`songbird_endpoint` → `discovery_endpoint`** — config field in `OrchestrationConfig` and
+  `DiscoveryConfig`; serde alias preserves old JSON key
+- **`SongbirdConfig` → `ServiceMeshConfig`** — ecosystem-api config type; field `songbird` →
+  `service_mesh` on `UniversalConfig`
+- **All `SONGBIRD_*` env vars now deprecated fallbacks** — primary vars are `SERVICE_MESH_*`,
+  `MONITORING_*`, `DISCOVERY_*`; zero direct `SONGBIRD_*` reads remain
+- **Bootstrap documented** — `discovery.sock` symlink pattern documented for chicken-and-egg
+  resolution in `capabilities/discovery_service.rs`
+
 ## [0.1.0-alpha.29] - 2026-04-02
 
 Deep debt execution: dependency evolution, discovery-first hardcoding removal, mock isolation,

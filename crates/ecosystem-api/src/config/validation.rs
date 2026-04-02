@@ -4,7 +4,7 @@
 //! Configuration validation utilities
 
 use crate::error::ConfigError;
-use crate::traits::{ResourceConfig, ServiceConfig, SongbirdConfig, UniversalConfig};
+use crate::traits::{ResourceConfig, ServiceConfig, ServiceMeshConfig, UniversalConfig};
 use crate::types::SecurityConfig;
 
 /// Configuration validation utilities
@@ -18,7 +18,7 @@ impl ConfigValidator {
     /// Returns an error when any subsection of the configuration is invalid.
     pub fn validate_universal_config(config: &UniversalConfig) -> Result<(), ConfigError> {
         Self::validate_service_config(&config.service)?;
-        Self::validate_songbird_config(&config.songbird)?;
+        Self::validate_service_mesh_config(&config.service_mesh)?;
         Self::validate_security_config(&config.security)?;
         Self::validate_resource_config(&config.resources)?;
         Ok(())
@@ -48,7 +48,7 @@ impl ConfigValidator {
         Ok(())
     }
 
-    fn validate_songbird_config(config: &SongbirdConfig) -> Result<(), ConfigError> {
+    fn validate_service_mesh_config(config: &ServiceMeshConfig) -> Result<(), ConfigError> {
         if config.discovery_endpoint.is_empty() {
             return Err(ConfigError::ValidationFailed(
                 "Discovery endpoint cannot be empty".to_string(),
@@ -153,7 +153,9 @@ impl ConfigValidator {
 #[cfg(test)]
 mod tests {
     use super::ConfigValidator;
-    use crate::traits::{FeatureFlags, ResourceConfig, RetryConfig, ServiceConfig, SongbirdConfig};
+    use crate::traits::{
+        FeatureFlags, ResourceConfig, RetryConfig, ServiceConfig, ServiceMeshConfig,
+    };
     use crate::types::{SecurityConfig, SecurityLevel};
 
     fn valid_universal_config() -> crate::traits::UniversalConfig {
@@ -167,7 +169,7 @@ mod tests {
                 log_level: "info".to_string(),
                 instance_id: "i1".to_string(),
             },
-            songbird: SongbirdConfig {
+            service_mesh: ServiceMeshConfig {
                 discovery_endpoint: "http://a:1".to_string(),
                 registration_endpoint: "http://b:2".to_string(),
                 health_endpoint: "http://c:3".to_string(),
@@ -230,43 +232,43 @@ mod tests {
     #[test]
     fn validate_rejects_invalid_discovery_url() {
         let mut c = valid_universal_config();
-        c.songbird.discovery_endpoint = "not a url".to_string();
+        c.service_mesh.discovery_endpoint = "not a url".to_string();
         assert!(ConfigValidator::validate_universal_config(&c).is_err());
     }
 
     #[test]
     fn validate_rejects_zero_max_retries() {
         let mut c = valid_universal_config();
-        c.songbird.retry_config.max_retries = 0;
+        c.service_mesh.retry_config.max_retries = 0;
         assert!(ConfigValidator::validate_universal_config(&c).is_err());
     }
 
     #[test]
     fn validate_rejects_zero_initial_delay() {
         let mut c = valid_universal_config();
-        c.songbird.retry_config.initial_delay_ms = 0;
+        c.service_mesh.retry_config.initial_delay_ms = 0;
         assert!(ConfigValidator::validate_universal_config(&c).is_err());
     }
 
     #[test]
     fn validate_rejects_empty_registration_endpoint() {
         let mut c = valid_universal_config();
-        c.songbird.registration_endpoint.clear();
+        c.service_mesh.registration_endpoint.clear();
         assert!(ConfigValidator::validate_universal_config(&c).is_err());
     }
 
     #[test]
     fn validate_rejects_retry_max_delay_less_than_initial() {
         let mut c = valid_universal_config();
-        c.songbird.retry_config.initial_delay_ms = 500;
-        c.songbird.retry_config.max_delay_ms = 100;
+        c.service_mesh.retry_config.initial_delay_ms = 500;
+        c.service_mesh.retry_config.max_delay_ms = 100;
         assert!(ConfigValidator::validate_universal_config(&c).is_err());
     }
 
     #[test]
     fn validate_rejects_backoff_multiplier_too_low() {
         let mut c = valid_universal_config();
-        c.songbird.retry_config.backoff_multiplier = 1.0;
+        c.service_mesh.retry_config.backoff_multiplier = 1.0;
         assert!(ConfigValidator::validate_universal_config(&c).is_err());
     }
 

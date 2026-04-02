@@ -301,6 +301,20 @@ mod tests {
                 );
             });
 
+            temp_env::with_var("SONGBIRD_ENDPOINT", Some("http://legacy-mesh:8500"), || {
+                assert_eq!(
+                    DefaultEndpoints::service_mesh_endpoint(),
+                    "http://legacy-mesh:8500"
+                );
+            });
+
+            temp_env::with_var("SONGBIRD_PORT", Some("7123"), || {
+                assert_eq!(
+                    DefaultEndpoints::service_mesh_endpoint(),
+                    "http://localhost:7123"
+                );
+            });
+
             assert_eq!(
                 DefaultEndpoints::compute_endpoint(),
                 "http://localhost:8081"

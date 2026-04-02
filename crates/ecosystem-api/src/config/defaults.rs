@@ -4,7 +4,7 @@
 //! Configuration defaults for common scenarios
 
 use crate::traits::{
-    FeatureFlags, ResourceConfig, RetryConfig, ServiceConfig, SongbirdConfig, UniversalConfig,
+    FeatureFlags, ResourceConfig, RetryConfig, ServiceConfig, ServiceMeshConfig, UniversalConfig,
 };
 use crate::types::{SecurityConfig, SecurityLevel};
 use std::collections::HashMap;
@@ -27,7 +27,7 @@ impl ConfigDefaults {
                 log_level: "debug".to_string(),
                 instance_id: uuid::Uuid::new_v4().to_string(),
             },
-            songbird: SongbirdConfig {
+            service_mesh: ServiceMeshConfig {
                 discovery_endpoint: crate::defaults::DefaultEndpoints::discovery_endpoint(),
                 registration_endpoint: crate::defaults::DefaultEndpoints::registration_endpoint(),
                 health_endpoint: format!(
@@ -82,7 +82,7 @@ impl ConfigDefaults {
                 log_level: "info".to_string(),
                 instance_id: uuid::Uuid::new_v4().to_string(),
             },
-            songbird: SongbirdConfig {
+            service_mesh: ServiceMeshConfig {
                 discovery_endpoint: String::new(),
                 registration_endpoint: String::new(),
                 health_endpoint: String::new(),

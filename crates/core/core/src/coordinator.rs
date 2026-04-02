@@ -16,25 +16,25 @@ impl PrimalCoordinator for EcosystemService {
     async fn register_with_ecosystem(&self) -> Result<()> {
         self.config
             .discovery
-            .songbird_endpoint
+            .discovery_endpoint
             .as_ref()
             .map_or_else(
                 || {
-                    tracing::debug!("No Songbird endpoint configured, skipping registration");
+                    tracing::debug!("No discovery endpoint configured, skipping registration");
                     Ok(())
                 },
-                |songbird_endpoint| {
+                |discovery_endpoint| {
                     tracing::info!(
-                        "Attempting to register with Songbird at: {}",
-                        songbird_endpoint
+                        "Attempting to register with discovery service at: {}",
+                        discovery_endpoint
                     );
 
                     // NOTE: Registration uses Unix socket discovery via ecosystem patterns
                     // Pattern: Capability-based service registry via Unix sockets
                     tracing::info!(
-                        "Songbird registration not yet implemented (requires Unix socket discovery)"
+                        "Discovery service registration not yet implemented (requires Unix socket discovery)"
                     );
-                    tracing::debug!("Songbird endpoint: {}", songbird_endpoint);
+                    tracing::debug!("Discovery endpoint: {}", discovery_endpoint);
 
                     // For now, succeed silently (registration will use file-based or Unix socket discovery)
                     Ok(())
@@ -45,9 +45,9 @@ impl PrimalCoordinator for EcosystemService {
     async fn discover_primals(&self) -> Result<Vec<PrimalEndpoint>> {
         let mut discovered = Vec::new();
 
-        // Try Songbird service discovery first
-        if let Some(ref songbird_endpoint) = self.config.discovery.songbird_endpoint {
-            let mut primals = Self::discover_via_songbird(songbird_endpoint);
+        // Try service mesh discovery first
+        if let Some(ref discovery_endpoint) = self.config.discovery.discovery_endpoint {
+            let mut primals = Self::discover_via_service_mesh(discovery_endpoint);
             discovered.append(&mut primals);
         }
 

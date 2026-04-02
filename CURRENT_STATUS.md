@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: April 2, 2026
-**Version**: 0.1.0-alpha.29
+**Version**: 0.1.0-alpha.30
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,161 passing / 0 failures / 110 ignored across 22 workspace members |
+| Tests | 7,162 passing / 0 failures / 110 ignored across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
@@ -273,6 +273,15 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 
 ## Changes Since Last Handoff (April 2, 2026)
+
+### April 2, 2026 session C (Capability-based discovery compliance — primalSpring PRIORITY 3)
+
+- **Songbird name decoupled from discovery** — `capabilities/songbird.rs` → `capabilities/discovery_service.rs`; public API `discover_songbird_socket` → `discover_discovery_socket`
+- **Monitoring types renamed** — `SongbirdProvider`/`SongbirdConfig`/`SongbirdMonitoringClient` → `MonitoringServiceProvider`/`MonitoringServiceConfig`/`ServiceMeshMonitoringClient`
+- **Config fields renamed** — `songbird_endpoint` → `discovery_endpoint` across `OrchestrationConfig` and `DiscoveryConfig`; `SongbirdConfig` → `ServiceMeshConfig` in ecosystem-api
+- **All SONGBIRD_* env vars deprecated** — zero direct reads; all behind `.or_else()` fallbacks to new `DISCOVERY_*`/`SERVICE_MESH_*`/`MONITORING_*` primary names
+- **Bootstrap documented** — `discovery.sock` symlink pattern for chicken-and-egg resolution
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓, `test 7,162/0/110` ✓, `doc` ✓
 
 ### April 2, 2026 session B (Deep debt execution, dependency evolution, discovery-first)
 

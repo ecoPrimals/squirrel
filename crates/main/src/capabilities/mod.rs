@@ -29,14 +29,14 @@
 //! ```
 
 pub mod discovery;
+pub mod discovery_service;
 pub mod lifecycle;
 pub mod registry;
-pub mod songbird;
 
 // Re-exports for convenience
 pub use discovery::{
     CapabilityProvider, DiscoveryError, discover_all_capabilities, discover_capability,
 };
+pub use discovery_service::discover_socket as discover_discovery_socket;
 pub use lifecycle::{find_biomeos_socket, register_with_biomeos};
 pub use registry::CapabilityRegistry;
-pub use songbird::discover_socket as discover_songbird_socket;

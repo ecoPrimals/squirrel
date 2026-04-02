@@ -67,7 +67,7 @@ impl Default for PrimalConfig {
                 },
             },
             orchestration: OrchestrationConfig {
-                songbird_endpoint: None,
+                discovery_endpoint: None,
                 enabled: false,
                 mode: OrchestrationMode::Standalone,
                 health_check: HealthCheckConfig::default(),
@@ -292,7 +292,7 @@ impl ConfigPresets {
         config.security.audit_logging = true;
         config.orchestration.enabled = true;
         config.orchestration.mode = OrchestrationMode::Managed;
-        config.orchestration.songbird_endpoint =
+        config.orchestration.discovery_endpoint =
             Some(parse_deployment_endpoint(&endpoints::service_mesh()));
         config
     }
@@ -320,7 +320,7 @@ impl ConfigPresets {
         config.security.encryption.enable_at_rest = true;
         config.orchestration.enabled = true;
         config.orchestration.mode = OrchestrationMode::Managed;
-        config.orchestration.songbird_endpoint =
+        config.orchestration.discovery_endpoint =
             Some(parse_deployment_endpoint(&endpoints::service_mesh()));
         config.network.tls = Some(TlsConfig {
             cert_file: PathBuf::from("/etc/ssl/certs/primal.crt"),
@@ -392,7 +392,7 @@ impl ConfigPresets {
         config.logging.outputs = vec![LogOutput::Stdout];
         config.logging.format = LogFormat::Json;
         config.orchestration.enabled = true;
-        config.orchestration.songbird_endpoint =
+        config.orchestration.discovery_endpoint =
             Some(parse_deployment_endpoint(&endpoints::service_mesh()));
         config.orchestration.service_discovery.enabled = true;
         config.orchestration.service_discovery.method = ServiceDiscoveryMethod::Dns {

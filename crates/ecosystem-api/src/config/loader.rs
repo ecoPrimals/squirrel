@@ -5,7 +5,7 @@
 
 use crate::error::ConfigError;
 use crate::traits::{
-    FeatureFlags, ResourceConfig, RetryConfig, ServiceConfig, SongbirdConfig, UniversalConfig,
+    FeatureFlags, ResourceConfig, RetryConfig, ServiceConfig, ServiceMeshConfig, UniversalConfig,
 };
 use crate::types::{SecurityConfig, SecurityLevel};
 use std::collections::HashMap;
@@ -41,7 +41,7 @@ impl ConfigLoader {
     pub fn load_universal_config(&self) -> Result<UniversalConfig, ConfigError> {
         self.validate_required_vars()?;
         let service = self.load_service_config()?;
-        let songbird = self.load_songbird_config()?;
+        let service_mesh = self.load_service_mesh_config()?;
         let security = self.load_security_config()?;
         let resources = self.load_resource_config()?;
         let features = self.load_feature_flags()?;
@@ -49,7 +49,7 @@ impl ConfigLoader {
 
         Ok(UniversalConfig {
             service,
-            songbird,
+            service_mesh,
             security,
             resources,
             features,
@@ -83,51 +83,83 @@ impl ConfigLoader {
         })
     }
 
-    fn load_songbird_config(&self) -> Result<SongbirdConfig, ConfigError> {
-        let discovery_endpoint = self.get_required_env("SONGBIRD_DISCOVERY_ENDPOINT")?;
-        let registration_endpoint = self.get_required_env("SONGBIRD_REGISTRATION_ENDPOINT")?;
-        let health_endpoint = self.get_required_env("SONGBIRD_HEALTH_ENDPOINT")?;
-        let auth_token = self.get_optional_env("SONGBIRD_AUTH_TOKEN");
+    fn load_service_mesh_config(&self) -> Result<ServiceMeshConfig, ConfigError> {
+        let discovery_endpoint = self.get_required_env_with_legacy_fallback(
+            "SERVICE_MESH_DISCOVERY_ENDPOINT",
+            "SONGBIRD_DISCOVERY_ENDPOINT",
+        )?;
+        let registration_endpoint = self.get_required_env_with_legacy_fallback(
+            "SERVICE_MESH_REGISTRATION_ENDPOINT",
+            "SONGBIRD_REGISTRATION_ENDPOINT",
+        )?;
+        let health_endpoint = self.get_required_env_with_legacy_fallback(
+            "SERVICE_MESH_HEALTH_ENDPOINT",
+            "SONGBIRD_HEALTH_ENDPOINT",
+        )?;
+        let auth_token = self.get_optional_env_with_legacy_fallback(
+            "SERVICE_MESH_AUTH_TOKEN",
+            "SONGBIRD_AUTH_TOKEN",
+        );
         let heartbeat_interval_secs = self
-            .get_env_or_default("SONGBIRD_HEARTBEAT_INTERVAL", "30")
+            .get_env_or_default_with_legacy_fallback(
+                "SERVICE_MESH_HEARTBEAT_INTERVAL",
+                "SONGBIRD_HEARTBEAT_INTERVAL",
+                "30",
+            )
             .parse::<u64>()
             .map_err(|e| ConfigError::InvalidValue {
-                key: "SONGBIRD_HEARTBEAT_INTERVAL".to_string(),
+                key: "SERVICE_MESH_HEARTBEAT_INTERVAL".to_string(),
                 value: e.to_string(),
             })?;
 
         let retry_config = RetryConfig {
             max_retries: self
-                .get_env_or_default("SONGBIRD_MAX_RETRIES", "3")
+                .get_env_or_default_with_legacy_fallback(
+                    "SERVICE_MESH_MAX_RETRIES",
+                    "SONGBIRD_MAX_RETRIES",
+                    "3",
+                )
                 .parse::<u32>()
                 .map_err(|e| ConfigError::InvalidValue {
-                    key: "SONGBIRD_MAX_RETRIES".to_string(),
+                    key: "SERVICE_MESH_MAX_RETRIES".to_string(),
                     value: e.to_string(),
                 })?,
             initial_delay_ms: self
-                .get_env_or_default("SONGBIRD_INITIAL_DELAY_MS", "1000")
+                .get_env_or_default_with_legacy_fallback(
+                    "SERVICE_MESH_INITIAL_DELAY_MS",
+                    "SONGBIRD_INITIAL_DELAY_MS",
+                    "1000",
+                )
                 .parse::<u64>()
                 .map_err(|e| ConfigError::InvalidValue {
-                    key: "SONGBIRD_INITIAL_DELAY_MS".to_string(),
+                    key: "SERVICE_MESH_INITIAL_DELAY_MS".to_string(),
                     value: e.to_string(),
                 })?,
             max_delay_ms: self
-                .get_env_or_default("SONGBIRD_MAX_DELAY_MS", "30000")
+                .get_env_or_default_with_legacy_fallback(
+                    "SERVICE_MESH_MAX_DELAY_MS",
+                    "SONGBIRD_MAX_DELAY_MS",
+                    "30000",
+                )
                 .parse::<u64>()
                 .map_err(|e| ConfigError::InvalidValue {
-                    key: "SONGBIRD_MAX_DELAY_MS".to_string(),
+                    key: "SERVICE_MESH_MAX_DELAY_MS".to_string(),
                     value: e.to_string(),
                 })?,
             backoff_multiplier: self
-                .get_env_or_default("SONGBIRD_BACKOFF_MULTIPLIER", "2.0")
+                .get_env_or_default_with_legacy_fallback(
+                    "SERVICE_MESH_BACKOFF_MULTIPLIER",
+                    "SONGBIRD_BACKOFF_MULTIPLIER",
+                    "2.0",
+                )
                 .parse::<f64>()
                 .map_err(|e| ConfigError::InvalidValue {
-                    key: "SONGBIRD_BACKOFF_MULTIPLIER".to_string(),
+                    key: "SERVICE_MESH_BACKOFF_MULTIPLIER".to_string(),
                     value: e.to_string(),
                 })?,
         };
 
-        Ok(SongbirdConfig {
+        Ok(ServiceMeshConfig {
             discovery_endpoint,
             registration_endpoint,
             health_endpoint,
@@ -312,13 +344,47 @@ impl ConfigLoader {
         env::var(&full_var_name).map_err(|_| ConfigError::MissingEnvVar(full_var_name))
     }
 
+    fn get_required_env_with_legacy_fallback(
+        &self,
+        primary_var: &str,
+        legacy_var: &str,
+    ) -> Result<String, ConfigError> {
+        let primary_full = format!("{}_{}", self.env_prefix, primary_var);
+        let legacy_full = format!("{}_{}", self.env_prefix, legacy_var);
+        env::var(&primary_full)
+            .or_else(|_| env::var(&legacy_full))
+            .map_err(|_| ConfigError::MissingEnvVar(primary_full))
+    }
+
     fn get_optional_env(&self, var_name: &str) -> Option<String> {
         let full_var_name = format!("{}_{}", self.env_prefix, var_name);
         env::var(&full_var_name).ok()
     }
 
+    fn get_optional_env_with_legacy_fallback(
+        &self,
+        primary_var: &str,
+        legacy_var: &str,
+    ) -> Option<String> {
+        let primary_full = format!("{}_{}", self.env_prefix, primary_var);
+        let legacy_full = format!("{}_{}", self.env_prefix, legacy_var);
+        env::var(&primary_full)
+            .ok()
+            .or_else(|| env::var(&legacy_full).ok())
+    }
+
     pub(crate) fn get_env_or_default(&self, var_name: &str, default: &str) -> String {
         self.get_optional_env(var_name)
+            .unwrap_or_else(|| default.to_string())
+    }
+
+    fn get_env_or_default_with_legacy_fallback(
+        &self,
+        primary_var: &str,
+        legacy_var: &str,
+        default: &str,
+    ) -> String {
+        self.get_optional_env_with_legacy_fallback(primary_var, legacy_var)
             .unwrap_or_else(|| default.to_string())
     }
 

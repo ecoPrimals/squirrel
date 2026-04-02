@@ -15,8 +15,8 @@ pub struct MonitoringConfig {
     /// Require at least one provider to be available
     pub require_provider: bool,
 
-    /// Songbird-specific configuration
-    pub songbird_config: Option<SongbirdConfig>,
+    /// Monitoring service provider configuration
+    pub monitoring_service_config: Option<MonitoringServiceConfig>,
 
     /// Generic monitoring provider configurations
     pub provider_configs: HashMap<String, serde_json::Value>,
@@ -25,10 +25,10 @@ pub struct MonitoringConfig {
     pub fallback_config: FallbackConfig,
 }
 
-/// Songbird monitoring service configuration.
+/// Monitoring service provider configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SongbirdConfig {
-    /// Songbird endpoint URL.
+pub struct MonitoringServiceConfig {
+    /// Monitoring service endpoint URL.
     pub endpoint: String,
     /// Service name for identification.
     pub service_name: String,
@@ -58,7 +58,7 @@ impl Default for MonitoringConfig {
         Self {
             enabled: true,
             require_provider: false,
-            songbird_config: None,
+            monitoring_service_config: None,
             provider_configs: HashMap::new(),
             fallback_config: FallbackConfig::default(),
         }

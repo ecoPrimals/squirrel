@@ -328,13 +328,13 @@ impl ConfigValidator {
     fn validate_orchestration_config(
         orchestration: &OrchestrationConfig,
     ) -> Result<(), ConfigError> {
-        // Validate Songbird endpoint if provided
-        if let Some(endpoint) = &orchestration.songbird_endpoint
+        // Validate discovery service endpoint if provided
+        if let Some(endpoint) = &orchestration.discovery_endpoint
             && endpoint.scheme() != "https"
             && endpoint.scheme() != "http"
         {
             return Err(ConfigError::Invalid(
-                "Songbird endpoint must use HTTP or HTTPS".to_string(),
+                "Discovery endpoint must use HTTP or HTTPS".to_string(),
             ));
         }
 
@@ -533,9 +533,9 @@ impl ConfigValidator {
     /// Validate cross-dependencies between configuration sections
     fn validate_cross_dependencies(config: &PrimalConfig) -> Result<(), ConfigError> {
         // If orchestration is enabled, validate that required endpoints are configured
-        if config.orchestration.enabled && config.orchestration.songbird_endpoint.is_none() {
+        if config.orchestration.enabled && config.orchestration.discovery_endpoint.is_none() {
             return Err(ConfigError::Invalid(
-                "Songbird endpoint must be configured when orchestration is enabled".to_string(),
+                "Discovery endpoint must be configured when orchestration is enabled".to_string(),
             ));
         }
 

@@ -54,8 +54,8 @@ pub struct UniversalConfig {
     /// Service configuration
     pub service: ServiceConfig,
 
-    /// Songbird integration settings
-    pub songbird: SongbirdConfig,
+    /// Service mesh integration settings
+    pub service_mesh: ServiceMeshConfig,
 
     /// Security configuration
     pub security: SecurityConfig,
@@ -95,9 +95,9 @@ pub struct ServiceConfig {
     pub instance_id: String,
 }
 
-/// Songbird configuration
+/// Service mesh configuration
 #[derive(Debug, Clone)]
-pub struct SongbirdConfig {
+pub struct ServiceMeshConfig {
     /// Discovery endpoint
     pub discovery_endpoint: String,
 

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Songbird Monitoring Client
+//! Service mesh monitoring client
 //!
-//! Production monitoring client that integrates with Songbird's observability system
-//! to replace InMemoryMonitoringClient with real monitoring capabilities.
+//! Production monitoring client that integrates with the service mesh observability
+//! stack to replace InMemoryMonitoringClient with real monitoring capabilities.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -18,10 +18,10 @@ use crate::error::{Result, MCPError};
 use super::{MonitoringClient, MonitoringEvent, MetricValue, AlertLevel};
 // Removed: use squirrel_mcp_config::get_service_endpoints;
 
-/// Songbird monitoring client configuration
+/// Service mesh monitoring client configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SongbirdClientConfig {
-    /// Songbird service endpoint
+pub struct ServiceMeshClientConfig {
+    /// Monitoring service endpoint
     pub endpoint: String,
     /// Service name for this MCP instance
     pub service_name: String,
@@ -37,16 +37,17 @@ pub struct SongbirdClientConfig {
     pub enable_tracing: bool,
 }
 
-impl Default for SongbirdClientConfig {
+impl Default for ServiceMeshClientConfig {
     fn default() -> Self {
-        // Multi-tier Songbird endpoint resolution
+        // Multi-tier service mesh endpoint resolution
         let endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
             .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
             .unwrap_or_else(|_| {
-                let port = std::env::var("SONGBIRD_PORT")
+                let port = std::env::var("SERVICE_MESH_PORT")
+                    .or_else(|_| std::env::var("SONGBIRD_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8500);  // Default Songbird service mesh port
+                    .unwrap_or(8500);  // Default service mesh port
                 format!("http://localhost:{}", port)
             });
 
@@ -57,22 +58,26 @@ impl Default for SongbirdClientConfig {
             .unwrap_or_else(|_| "development".to_string());
 
         // Parse numeric values with safe fallbacks
-        let collection_interval = std::env::var("SONGBIRD_COLLECTION_INTERVAL")
+        let collection_interval = std::env::var("MONITORING_COLLECTION_INTERVAL")
+            .or_else(|_| std::env::var("SONGBIRD_COLLECTION_INTERVAL"))
             .unwrap_or_else(|_| "30".to_string())
             .parse()
             .unwrap_or(30);
 
-        let batch_size = std::env::var("SONGBIRD_BATCH_SIZE")
+        let batch_size = std::env::var("MONITORING_BATCH_SIZE")
+            .or_else(|_| std::env::var("SONGBIRD_BATCH_SIZE"))
             .unwrap_or_else(|_| "100".to_string())
             .parse()
             .unwrap_or(100);
 
-        let timeout_ms = std::env::var("SONGBIRD_TIMEOUT_MS")
+        let timeout_ms = std::env::var("MONITORING_TIMEOUT_MS")
+            .or_else(|_| std::env::var("SONGBIRD_TIMEOUT_MS"))
             .unwrap_or_else(|_| "5000".to_string())
             .parse()
             .unwrap_or(5000);
 
-        let enable_tracing = std::env::var("SONGBIRD_ENABLE_TRACING")
+        let enable_tracing = std::env::var("MONITORING_ENABLE_TRACING")
+            .or_else(|_| std::env::var("SONGBIRD_ENABLE_TRACING"))
             .unwrap_or_else(|_| "true".to_string())
             .parse()
             .unwrap_or(true);
@@ -89,9 +94,9 @@ impl Default for SongbirdClientConfig {
     }
 }
 
-/// Songbird metrics snapshot
+/// Service mesh metrics snapshot
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SongbirdMetrics {
+pub struct ServiceMeshMetrics {
     pub timestamp: DateTime<Utc>,
     pub service_name: String,
     pub environment: String,
@@ -103,23 +108,23 @@ pub struct SongbirdMetrics {
     pub custom_metrics: HashMap<String, MetricValue>,
 }
 
-/// Production Songbird monitoring client
+/// Production monitoring service client (service mesh HTTP backend)
 #[derive(Debug)]
-pub struct SongbirdMonitoringClient {
-    config: SongbirdClientConfig,
+pub struct ServiceMeshMonitoringClient {
+    config: ServiceMeshClientConfig,
     client: reqwest::Client,
-    current_metrics: Arc<RwLock<Option<SongbirdMetrics>>>,
+    current_metrics: Arc<RwLock<Option<ServiceMeshMetrics>>>,
     metrics_buffer: Arc<RwLock<Vec<MonitoringEvent>>>,
     events_buffer: Arc<RwLock<Vec<MonitoringEvent>>>,
 }
 
-impl SongbirdMonitoringClient {
-    /// Create a new Songbird monitoring client
-    pub fn new(config: SongbirdClientConfig) -> Result<Self> {
+impl ServiceMeshMonitoringClient {
+    /// Create a new monitoring service client
+    pub fn new(config: ServiceMeshClientConfig) -> Result<Self> {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_millis(config.timeout_ms))
             .build()
-            .map_err(|e| MCPError::General(format!("Failed to create HTTP client for Songbird: {}", e)))?;
+            .map_err(|e| MCPError::General(format!("Failed to create HTTP client for monitoring service: {}", e)))?;
 
         Ok(Self {
             config,
@@ -132,25 +137,25 @@ impl SongbirdMonitoringClient {
 
     /// Create client with default configuration
     pub fn with_defaults() -> Result<Self> {
-        Self::new(SongbirdClientConfig::default())
+        Self::new(ServiceMeshClientConfig::default())
     }
 
     /// Create client with custom endpoint
     pub fn with_endpoint(endpoint: String) -> Result<Self> {
-        let mut config = SongbirdClientConfig::default();
+        let mut config = ServiceMeshClientConfig::default();
         config.endpoint = endpoint;
         Self::new(config)
     }
 
     /// Collect system metrics
-    async fn collect_system_metrics(&self) -> Result<SongbirdMetrics> {
+    async fn collect_system_metrics(&self) -> Result<ServiceMeshMetrics> {
         // Uses universal_constants::sys_info (/proc on Linux) for real system metrics
         // For now, we'll use basic placeholders that can be enhanced
         
         let cpu_usage = self.get_cpu_usage().await?;
         let memory_usage = self.get_memory_usage().await?;
         
-        let metrics = SongbirdMetrics {
+        let metrics = ServiceMeshMetrics {
             timestamp: Utc::now(),
             service_name: self.config.service_name.clone(),
             environment: self.config.environment.clone(),
@@ -203,8 +208,8 @@ impl SongbirdMonitoringClient {
         Ok(0)
     }
 
-    /// Send metrics to Songbird
-    async fn send_metrics_to_songbird(&self, metrics: &SongbirdMetrics) -> Result<()> {
+    /// Send metrics to the monitoring service
+    async fn send_metrics_to_monitoring_service(&self, metrics: &ServiceMeshMetrics) -> Result<()> {
         let url = format!("{}/api/v1/metrics", self.config.endpoint);
         
         match self.client
@@ -215,26 +220,26 @@ impl SongbirdMonitoringClient {
         {
             Ok(response) => {
                 if response.status().is_success() {
-                    debug!("Successfully sent metrics to Songbird: {}", url);
+                    debug!("Successfully sent metrics to monitoring service: {}", url);
                     Ok(())
                 } else {
-                    warn!("Songbird metrics endpoint returned error: {}", response.status());
+                    warn!("Monitoring service metrics endpoint returned error: {}", response.status());
                     Err(MCPError::General(format!(
-                        "Songbird metrics failed with status: {}",
+                        "Monitoring service metrics failed with status: {}",
                         response.status()
                     )))
                 }
             }
             Err(e) => {
-                // Don't fail completely if Songbird is unavailable
-                warn!("Failed to send metrics to Songbird ({}): {}. Continuing without external monitoring.", url, e);
+                // Don't fail completely if monitoring service is unavailable
+                warn!("Failed to send metrics to monitoring service ({}): {}. Continuing without external monitoring.", url, e);
                 Ok(())
             }
         }
     }
 
-    /// Send events to Songbird
-    async fn send_events_to_songbird(&self, events: &[MonitoringEvent]) -> Result<()> {
+    /// Send events to the monitoring service
+    async fn send_events_to_monitoring_service(&self, events: &[MonitoringEvent]) -> Result<()> {
         if events.is_empty() {
             return Ok(());
         }
@@ -249,15 +254,15 @@ impl SongbirdMonitoringClient {
         {
             Ok(response) => {
                 if response.status().is_success() {
-                    debug!("Successfully sent {} events to Songbird", events.len());
+                    debug!("Successfully sent {} events to monitoring service", events.len());
                     Ok(())
                 } else {
-                    warn!("Songbird events endpoint returned error: {}", response.status());
+                    warn!("Monitoring service events endpoint returned error: {}", response.status());
                     Ok(()) // Don't fail on monitoring issues
                 }
             }
             Err(e) => {
-                warn!("Failed to send events to Songbird: {}. Continuing without external monitoring.", e);
+                warn!("Failed to send events to monitoring service: {}. Continuing without external monitoring.", e);
                 Ok(())
             }
         }
@@ -274,12 +279,12 @@ impl SongbirdMonitoringClient {
         };
 
         if !events.is_empty() {
-            self.send_events_to_songbird(&events).await?;
+            self.send_events_to_monitoring_service(&events).await?;
         }
 
         // Send current metrics if available
         if let Some(metrics) = self.current_metrics.read().await.clone() {
-            self.send_metrics_to_songbird(&metrics).await?;
+            self.send_metrics_to_monitoring_service(&metrics).await?;
         }
 
         Ok(())
@@ -304,20 +309,20 @@ impl SongbirdMonitoringClient {
             }
         });
 
-        info!("Started Songbird monitoring task with {}s interval", self.config.collection_interval);
+        info!("Started monitoring service task with {}s interval", self.config.collection_interval);
         Ok(())
     }
 
     /// Collect and send metrics in one operation
     async fn collect_and_send_metrics(&self) -> Result<()> {
         let metrics = self.collect_system_metrics().await?;
-        self.send_metrics_to_songbird(&metrics).await?;
+        self.send_metrics_to_monitoring_service(&metrics).await?;
         Ok(())
     }
 }
 
 // Clone implementation for background tasks
-impl Clone for SongbirdMonitoringClient {
+impl Clone for ServiceMeshMonitoringClient {
     fn clone(&self) -> Self {
         Self {
             config: self.config.clone(),
@@ -331,7 +336,7 @@ impl Clone for SongbirdMonitoringClient {
 
 use std::future::Future;
 
-impl MonitoringClient for SongbirdMonitoringClient {
+impl MonitoringClient for ServiceMeshMonitoringClient {
     fn report_breaker_success(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
         let breaker_name = breaker_name.to_string();
         let me = self.clone();
@@ -439,14 +444,14 @@ impl MonitoringClient for SongbirdMonitoringClient {
     fn get_health_status(&self) -> impl Future<Output = Result<bool>> + Send {
         let me = self.clone();
         async move {
-            // Check if we can reach Songbird
+            // Check if we can reach the monitoring service
             let url = format!("{}/api/v1/health", me.config.endpoint);
             
             match me.client.get(&url).send().await {
                 Ok(response) => Ok(response.status().is_success()),
                 Err(_) => {
-                    // If Songbird is unavailable, we're still healthy locally
-                    warn!("Songbird endpoint unreachable, but local monitoring continues");
+                    // If monitoring service is unavailable, we're still healthy locally
+                    warn!("Monitoring service endpoint unreachable, but local monitoring continues");
                     Ok(true)
                 }
             }
@@ -483,15 +488,15 @@ impl MonitoringClient for SongbirdMonitoringClient {
     }
 }
 
-/// Create a production Songbird monitoring client
-pub fn create_songbird_client() -> Arc<SongbirdMonitoringClient> {
-    match SongbirdMonitoringClient::with_defaults() {
+/// Create a production monitoring service client
+pub fn create_monitoring_client() -> Arc<ServiceMeshMonitoringClient> {
+    match ServiceMeshMonitoringClient::with_defaults() {
         Ok(client) => Arc::new(client),
         Err(e) => {
-            // PRODUCTION SAFE: If Songbird client creation fails, log error but don't crash
-            tracing::error!("Failed to create Songbird monitoring client, creating fallback: {}", e);
+            // PRODUCTION SAFE: If client creation fails, log error but don't crash
+            tracing::error!("Failed to create monitoring service client, creating fallback: {}", e);
             // Return a client with minimal configuration that won't fail
-            let minimal_config = SongbirdClientConfig {
+            let minimal_config = ServiceMeshClientConfig {
                 endpoint: "http://localhost:8900".to_string(),
                 service_name: "squirrel-mcp-fallback".to_string(),
                 environment: "unknown".to_string(),
@@ -501,13 +506,13 @@ pub fn create_songbird_client() -> Arc<SongbirdMonitoringClient> {
                 enable_tracing: false,
             };
             
-            match SongbirdMonitoringClient::new(minimal_config) {
+            match ServiceMeshMonitoringClient::new(minimal_config) {
                 Ok(fallback_client) => Arc::new(fallback_client),
                 Err(fallback_error) => {
-                    tracing::error!("Even fallback Songbird client creation failed: {}", fallback_error);
+                    tracing::error!("Even fallback monitoring service client creation failed: {}", fallback_error);
                     // This should never happen, but if it does, we need to return something
                     // Create the most minimal client possible using reqwest defaults
-                    let ultra_minimal_config = SongbirdClientConfig {
+                    let ultra_minimal_config = ServiceMeshClientConfig {
                         endpoint: "http://disabled".to_string(),
                         service_name: "squirrel-mcp-disabled".to_string(),
                         environment: "error".to_string(),
@@ -517,37 +522,37 @@ pub fn create_songbird_client() -> Arc<SongbirdMonitoringClient> {
                         enable_tracing: false,
                     };
                     
-                                         // If this fails too, there's a fundamental system issue
-                     match SongbirdMonitoringClient::new(ultra_minimal_config) {
-                         Ok(ultra_minimal_client) => Arc::new(ultra_minimal_client),
-                         Err(critical_error) => {
-                             tracing::error!("CRITICAL SYSTEM FAILURE: Cannot create any Songbird monitoring client: {}", critical_error);
-                             // This represents a fundamental system failure - exit gracefully
-                             std::process::exit(1);
-                         }
-                     }
+                    // If this fails too, there's a fundamental system issue
+                    match ServiceMeshMonitoringClient::new(ultra_minimal_config) {
+                        Ok(ultra_minimal_client) => Arc::new(ultra_minimal_client),
+                        Err(critical_error) => {
+                            tracing::error!("CRITICAL SYSTEM FAILURE: Cannot create any monitoring service client: {}", critical_error);
+                            // This represents a fundamental system failure - exit gracefully
+                            std::process::exit(1);
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-/// Create a Songbird monitoring client with custom configuration
-pub fn create_songbird_client_with_config(config: SongbirdClientConfig) -> Arc<SongbirdMonitoringClient> {
-    match SongbirdMonitoringClient::new(config.clone()) {
+/// Create a monitoring service client with custom configuration
+pub fn create_monitoring_client_with_config(config: ServiceMeshClientConfig) -> Arc<ServiceMeshMonitoringClient> {
+    match ServiceMeshMonitoringClient::new(config.clone()) {
         Ok(client) => Arc::new(client),
         Err(e) => {
-            tracing::error!("Failed to create Songbird monitoring client with custom config: {}", e);
+            tracing::error!("Failed to create monitoring service client with custom config: {}", e);
             // Fallback to default configuration
-            match SongbirdMonitoringClient::with_defaults() {
+            match ServiceMeshMonitoringClient::with_defaults() {
                 Ok(fallback_client) => {
-                    tracing::warn!("Using default Songbird config as fallback");
+                    tracing::warn!("Using default monitoring service config as fallback");
                     Arc::new(fallback_client)
                 }
                 Err(fallback_error) => {
                     tracing::error!("Fallback to default config also failed: {}", fallback_error);
                     // Use the safe factory function as final fallback
-                    create_songbird_client()
+                    create_monitoring_client()
                 }
             }
         }
@@ -559,24 +564,24 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_songbird_client_creation() {
-        let client = SongbirdMonitoringClient::with_defaults()
-            .expect("Should be able to create SongbirdMonitoringClient with defaults in test");
+    async fn test_monitoring_service_client_creation() {
+        let client = ServiceMeshMonitoringClient::with_defaults()
+            .expect("Should be able to create ServiceMeshMonitoringClient with defaults in test");
         assert_eq!(client.config.service_name, "squirrel-mcp");
     }
 
     #[tokio::test]
-    async fn test_songbird_metrics_collection() {
-        let client = SongbirdMonitoringClient::with_defaults()
-            .expect("Should be able to create SongbirdMonitoringClient for metrics test");
+    async fn test_monitoring_service_metrics_collection() {
+        let client = ServiceMeshMonitoringClient::with_defaults()
+            .expect("Should be able to create ServiceMeshMonitoringClient for metrics test");
         let metrics = client.collect_system_metrics().await;
         assert!(metrics.is_ok());
     }
 
     #[tokio::test]
-    async fn test_songbird_event_recording() {
-        let client = SongbirdMonitoringClient::with_defaults()
-            .expect("Should be able to create SongbirdMonitoringClient for event recording test");
+    async fn test_monitoring_service_event_recording() {
+        let client = ServiceMeshMonitoringClient::with_defaults()
+            .expect("Should be able to create ServiceMeshMonitoringClient for event recording test");
         
         let event = MonitoringEvent {
             timestamp: Utc::now(),
@@ -591,4 +596,4 @@ mod tests {
         let result = client.record_event(event).await;
         assert!(result.is_ok());
     }
-} 
+}

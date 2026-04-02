@@ -138,21 +138,22 @@ impl DefaultEndpoints {
 
     /// Get ecosystem registry (service mesh) endpoint from environment or default
     ///
-    /// Env vars are runtime config - `SONGBIRD_ENDPOINT` is backward-compatible.
+    /// Env vars are runtime config; `SONGBIRD_ENDPOINT` / `SONGBIRD_PORT` remain backward-compatible.
     /// Code treats this as ecosystem role endpoint, not hardcoded primal identity.
     ///
     /// Multi-tier resolution:
     /// 1. `SERVICE_MESH_ENDPOINT` (capability-based)
-    /// 2. `SONGBIRD_ENDPOINT` (legacy env var, runtime config)
-    /// 3. `SONGBIRD_PORT` (port override)
-    /// 4. Fallback: `SERVICE_MESH_PORT` / [`ports::service_mesh`]
+    /// 2. `SONGBIRD_ENDPOINT` (legacy full URL)
+    /// 3. `SERVICE_MESH_PORT` or `SONGBIRD_PORT` (port override)
+    /// 4. Fallback: [`ports::service_mesh`] when resolving port via `config_helpers::get_port`
     #[must_use]
-    pub fn songbird_endpoint() -> String {
+    pub fn service_mesh_endpoint() -> String {
         env::var("SERVICE_MESH_ENDPOINT")
             .or_else(|_| env::var("SONGBIRD_ENDPOINT"))
             .unwrap_or_else(|_| {
                 let host = config_helpers::get_host("SERVICE_MESH_HOST", "localhost");
-                let port = env::var("SONGBIRD_PORT")
+                let port = env::var("SERVICE_MESH_PORT")
+                    .or_else(|_| env::var("SONGBIRD_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
@@ -375,9 +376,9 @@ mod tests {
     }
 
     #[test]
-    fn songbird_endpoint_respects_service_mesh_endpoint() {
+    fn service_mesh_endpoint_respects_service_mesh_endpoint_env() {
         temp_env::with_var("SERVICE_MESH_ENDPOINT", Some("http://mesh:1"), || {
-            assert_eq!(DefaultEndpoints::songbird_endpoint(), "http://mesh:1");
+            assert_eq!(DefaultEndpoints::service_mesh_endpoint(), "http://mesh:1");
         });
     }
 

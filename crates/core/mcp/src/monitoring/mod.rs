@@ -17,7 +17,7 @@
 //! * **dashboard**: Web dashboard for monitoring visualization
 //! * **clients**: Monitoring client interfaces and implementations
 //! * **system**: Main monitoring system orchestration
-//! * **songbird_client**: Integration with Songbird monitoring service
+//! * **service_mesh_client**: Integration with the monitoring service (service mesh HTTP backend)
 //!
 //! ## Features
 //!
@@ -56,7 +56,7 @@ pub mod alerts;
 pub mod dashboard;
 pub mod clients;
 pub mod system;
-pub mod songbird_client;
+pub mod service_mesh_client;
 
 // Re-export main types for convenience
 pub use health::{HealthStatus, HealthMonitor, SyncHealth, PersistenceHealth, ResourceHealth, HealthAlert, HealthAlertType, HealthAlertSeverity};
@@ -65,7 +65,10 @@ pub use alerts::{AlertManager, AlertLevel, AlertSummary};
 pub use dashboard::DashboardServer;
 pub use clients::{MonitoringClient, MonitoringEvent, MetricValue, InMemoryMonitoringClient, ProductionMonitoringClient, MonitoringClientConfig};
 pub use system::{MonitoringSystem, MonitoringStatus, MonitoringSystemSummary, MonitoringError};
-pub use songbird_client::{SongbirdMonitoringClient, SongbirdClientConfig, create_songbird_client, create_songbird_client_with_config};
+pub use service_mesh_client::{
+    ServiceMeshMonitoringClient, ServiceMeshClientConfig, create_monitoring_client,
+    create_monitoring_client_with_config,
+};
 
 // Main types and functionality
 use crate::context_manager::Context;
@@ -82,41 +85,30 @@ use std::sync::Arc;
 
 /// Create a production monitoring client
 /// 
-/// This function replaces InMemoryMonitoringClient usage with a real Songbird integration.
-/// In production, this connects to Songbird for observability.
+/// This function replaces InMemoryMonitoringClient usage with a real monitoring service integration.
+/// In production, this connects to the service mesh HTTP backend for observability.
 /// In development/testing, it provides safe fallback behavior.
 pub fn create_production_monitoring_client() -> Arc<dyn MonitoringClient> {
-    let mut config = SongbirdClientConfig::default();
+    let mut config = ServiceMeshClientConfig::default();
     
     // Check if we're in a test environment
     if std::env::var("RUST_TEST").is_ok() || cfg!(test) {
         // For tests, use a different port to avoid conflicts
-        let test_port = std::env::var("SONGBIRD_TEST_PORT").unwrap_or_else(|_| "18900".to_string());
+        let test_port = std::env::var("MONITORING_TEST_PORT")
+            .or_else(|_| std::env::var("SONGBIRD_TEST_PORT"))
+            .unwrap_or_else(|_| "18900".to_string());
         config.endpoint = format!("http://localhost:{}", test_port);
         config.timeout_ms = 1000; // Shorter timeout for tests
         config.collection_interval = 5; // More frequent collection for tests
     }
     
-    // PRODUCTION SAFE: Handle Songbird client creation with safe fallbacks
-    match SongbirdMonitoringClient::new(config) {
+    // PRODUCTION SAFE: Handle monitoring service client creation with safe fallbacks
+    match ServiceMeshMonitoringClient::new(config) {
         Ok(client) => Arc::new(client) as Arc<dyn MonitoringClient>,
         Err(e) => {
-            tracing::error!("Failed to create Songbird monitoring client in production factory: {}", e);
-            // Use the safe factory function from songbird_client module
-            create_songbird_client() as Arc<dyn MonitoringClient>
-        }
-    }
-}
-
-/// Create a monitoring client with custom Songbird configuration
-pub fn create_monitoring_client_with_config(config: SongbirdClientConfig) -> Arc<dyn MonitoringClient> {
-    // PRODUCTION SAFE: Handle Songbird client creation with safe fallbacks
-    match SongbirdMonitoringClient::new(config.clone()) {
-        Ok(client) => Arc::new(client) as Arc<dyn MonitoringClient>,
-        Err(e) => {
-            tracing::error!("Failed to create Songbird monitoring client with custom config in factory: {}", e);
-            // Use the safe factory function with the custom config
-            create_songbird_client_with_config(config) as Arc<dyn MonitoringClient>
+            tracing::error!("Failed to create monitoring service client in production factory: {}", e);
+            // Use the safe factory function from service_mesh_client module
+            create_monitoring_client() as Arc<dyn MonitoringClient>
         }
     }
 }

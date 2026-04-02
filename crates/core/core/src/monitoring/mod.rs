@@ -6,7 +6,7 @@
 //! This module provides a monitoring abstraction layer that delegates to external
 //! monitoring systems while maintaining sovereignty. It can work with:
 //!
-//! - **Songbird** - When available as the observability primal
+//! - **Monitoring service** - When available via capability discovery
 //! - **Future monitoring primals** - Through extensible interfaces
 //! - **Basic logging** - As a fallback when no monitoring system is available
 //!
@@ -21,14 +21,14 @@
 
 mod config;
 mod fallback;
+mod monitoring_provider;
 mod service;
-mod songbird;
 mod types;
 
-pub use config::{FallbackConfig, MonitoringConfig, SongbirdConfig};
+pub use config::{FallbackConfig, MonitoringConfig, MonitoringServiceConfig};
 pub use fallback::FallbackLogger;
+pub use monitoring_provider::MonitoringServiceProvider;
 pub use service::MonitoringService;
-pub use songbird::SongbirdProvider;
 pub use types::{
     Metric, MetricValue, MonitoringCapability, MonitoringEvent, MonitoringProvider,
     MonitoringStatus, PerformanceMetrics, ProviderStatus, TimeFrame,

@@ -15,23 +15,22 @@ use serde_json::json;
 use std::sync::atomic::{AtomicBool, Ordering};
 use universal_patterns::ipc_client::IpcClient;
 
-use super::config::SongbirdConfig;
+use super::config::MonitoringServiceConfig;
 use super::types::{
     Metric, MonitoringCapability, MonitoringEvent, MonitoringProvider, PerformanceMetrics,
 };
 use universal_constants::primal_names;
 
-/// Monitoring provider that delegates to whichever ecosystem service exposes
-/// `monitoring.*` capabilities (typically Songbird, but capability-first — we
-/// never hardcode a primal name for routing).
-pub struct SongbirdProvider {
-    pub(super) config: SongbirdConfig,
+/// Monitoring service provider that delegates to whichever ecosystem service exposes
+/// `monitoring.*` capabilities (capability-first — we never hardcode a primal name for routing).
+pub struct MonitoringServiceProvider {
+    pub(super) config: MonitoringServiceConfig,
     ipc: Option<IpcClient>,
     connected: AtomicBool,
 }
 
-impl SongbirdProvider {
-    /// Creates a new monitoring provider, attempting IPC discovery.
+impl MonitoringServiceProvider {
+    /// Creates a new monitoring service provider, attempting IPC discovery.
     ///
     /// If the monitoring socket is unreachable the provider is still usable —
     /// it falls back to structured tracing output until the socket appears.
@@ -40,7 +39,7 @@ impl SongbirdProvider {
     ///
     /// Returns [`crate::Error`] only on unrecoverable initialisation failures
     /// (none today — discovery failure is non-fatal).
-    pub fn new(config: SongbirdConfig) -> Result<Self> {
+    pub fn new(config: MonitoringServiceConfig) -> Result<Self> {
         let ipc = match IpcClient::discover("monitoring") {
             Ok(client) => {
                 tracing::info!(
@@ -89,8 +88,9 @@ impl SongbirdProvider {
 }
 
 #[async_trait]
-impl MonitoringProvider for SongbirdProvider {
+impl MonitoringProvider for MonitoringServiceProvider {
     fn provider_name(&self) -> &'static str {
+        // Returns the name of the backing provider for logging; this is NOT used for dispatch
         primal_names::SONGBIRD
     }
 

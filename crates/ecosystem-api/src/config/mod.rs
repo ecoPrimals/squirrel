@@ -32,7 +32,7 @@ mod tests {
                 log_level: "info".to_string(),
                 instance_id: "inst-1".to_string(),
             },
-            songbird: crate::traits::SongbirdConfig {
+            service_mesh: crate::traits::ServiceMeshConfig {
                 discovery_endpoint: "http://discovery:8001".to_string(),
                 registration_endpoint: "http://registration:8001".to_string(),
                 health_endpoint: "http://health:8001".to_string(),
@@ -123,7 +123,7 @@ mod tests {
     }
 
     #[test]
-    fn test_production_config_requires_songbird_endpoints() {
+    fn test_production_config_requires_service_mesh_endpoints() {
         let config = ConfigDefaults::production();
         let result = ConfigValidator::validate_universal_config(&config);
         assert!(result.is_err());
@@ -153,15 +153,15 @@ mod tests {
                     Some("A test service"),
                 ),
                 (
-                    format!("{prefix}_SONGBIRD_DISCOVERY_ENDPOINT"),
+                    format!("{prefix}_SERVICE_MESH_DISCOVERY_ENDPOINT"),
                     Some("http://disc:8001"),
                 ),
                 (
-                    format!("{prefix}_SONGBIRD_REGISTRATION_ENDPOINT"),
+                    format!("{prefix}_SERVICE_MESH_REGISTRATION_ENDPOINT"),
                     Some("http://reg:8001"),
                 ),
                 (
-                    format!("{prefix}_SONGBIRD_HEALTH_ENDPOINT"),
+                    format!("{prefix}_SERVICE_MESH_HEALTH_ENDPOINT"),
                     Some("http://health:8001"),
                 ),
             ],
@@ -171,7 +171,41 @@ mod tests {
                 assert!(config.is_ok());
                 let config = config.expect("should succeed");
                 assert_eq!(config.service.name, "test-svc");
-                assert_eq!(config.songbird.discovery_endpoint, "http://disc:8001");
+                assert_eq!(config.service_mesh.discovery_endpoint, "http://disc:8001");
+            },
+        );
+    }
+
+    #[test]
+    fn test_load_universal_config_legacy_songbird_env_fallback() {
+        let prefix = "UCFG_LEGACY_SONGBIRD";
+        temp_env::with_vars(
+            [
+                (format!("{prefix}_SERVICE_NAME"), Some("legacy-svc")),
+                (
+                    format!("{prefix}_SERVICE_DESCRIPTION"),
+                    Some("Legacy env service mesh vars"),
+                ),
+                (
+                    format!("{prefix}_SONGBIRD_DISCOVERY_ENDPOINT"),
+                    Some("http://legacy-disc:1"),
+                ),
+                (
+                    format!("{prefix}_SONGBIRD_REGISTRATION_ENDPOINT"),
+                    Some("http://legacy-reg:2"),
+                ),
+                (
+                    format!("{prefix}_SONGBIRD_HEALTH_ENDPOINT"),
+                    Some("http://legacy-health:3"),
+                ),
+            ],
+            || {
+                let loader = ConfigLoader::new(prefix);
+                let config = loader.load_universal_config().expect("should succeed");
+                assert_eq!(
+                    config.service_mesh.discovery_endpoint,
+                    "http://legacy-disc:1"
+                );
             },
         );
     }
@@ -185,15 +219,15 @@ mod tests {
                 (format!("{prefix}_SERVICE_DESCRIPTION"), Some("d")),
                 (format!("{prefix}_PORT"), Some("not-a-port")),
                 (
-                    format!("{prefix}_SONGBIRD_DISCOVERY_ENDPOINT"),
+                    format!("{prefix}_SERVICE_MESH_DISCOVERY_ENDPOINT"),
                     Some("http://a:1"),
                 ),
                 (
-                    format!("{prefix}_SONGBIRD_REGISTRATION_ENDPOINT"),
+                    format!("{prefix}_SERVICE_MESH_REGISTRATION_ENDPOINT"),
                     Some("http://b:2"),
                 ),
                 (
-                    format!("{prefix}_SONGBIRD_HEALTH_ENDPOINT"),
+                    format!("{prefix}_SERVICE_MESH_HEALTH_ENDPOINT"),
                     Some("http://c:3"),
                 ),
             ],
@@ -216,15 +250,15 @@ mod tests {
                 (format!("{prefix}_SERVICE_DESCRIPTION"), Some("d")),
                 (format!("{prefix}_SECURITY_LEVEL"), Some("ultra-secret")),
                 (
-                    format!("{prefix}_SONGBIRD_DISCOVERY_ENDPOINT"),
+                    format!("{prefix}_SERVICE_MESH_DISCOVERY_ENDPOINT"),
                     Some("http://a:1"),
                 ),
                 (
-                    format!("{prefix}_SONGBIRD_REGISTRATION_ENDPOINT"),
+                    format!("{prefix}_SERVICE_MESH_REGISTRATION_ENDPOINT"),
                     Some("http://b:2"),
                 ),
                 (
-                    format!("{prefix}_SONGBIRD_HEALTH_ENDPOINT"),
+                    format!("{prefix}_SERVICE_MESH_HEALTH_ENDPOINT"),
                     Some("http://c:3"),
                 ),
             ],

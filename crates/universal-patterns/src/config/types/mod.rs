@@ -88,8 +88,9 @@ pub enum PrimalType {
 /// Orchestration configuration for Songbird integration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrchestrationConfig {
-    /// Songbird service endpoint
-    pub songbird_endpoint: Option<Url>,
+    /// Discovery service endpoint
+    #[serde(alias = "songbird_endpoint")]
+    pub discovery_endpoint: Option<Url>,
 
     /// Enable orchestration
     pub enabled: bool,

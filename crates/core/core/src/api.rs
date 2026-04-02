@@ -665,7 +665,7 @@ mod tests {
                     mode: EcosystemMode::Coordinated,
                     discovery: DiscoveryConfig {
                         auto_discovery: false,
-                        songbird_endpoint: None,
+                        discovery_endpoint: None,
                         direct_endpoints: HashMap::new(),
                         probe_interval: ChronoDuration::seconds(60),
                         health_check_timeout: ChronoDuration::seconds(5),

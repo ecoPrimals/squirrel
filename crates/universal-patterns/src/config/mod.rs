@@ -264,7 +264,7 @@ impl ConfigUtils {
             warnings.push("Inter-primal encryption not enabled for production".to_string());
         }
 
-        if config.orchestration.enabled && config.orchestration.songbird_endpoint.is_none() {
+        if config.orchestration.enabled && config.orchestration.discovery_endpoint.is_none() {
             errors
                 .push("Orchestration enabled but no service-mesh endpoint configured".to_string());
         }
@@ -475,7 +475,7 @@ mod tests {
 
         // Make it invalid
         config.orchestration.enabled = true;
-        config.orchestration.songbird_endpoint = None;
+        config.orchestration.discovery_endpoint = None;
 
         let result = ConfigUtils::validate_detailed(&config);
         assert!(result.is_err());

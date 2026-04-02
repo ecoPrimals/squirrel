@@ -203,10 +203,10 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set Songbird endpoint
-    pub fn songbird_endpoint<S: Into<String>>(mut self, endpoint: S) -> Result<Self, ConfigError> {
+    /// Set discovery service endpoint
+    pub fn discovery_endpoint<S: Into<String>>(mut self, endpoint: S) -> Result<Self, ConfigError> {
         let url = Url::parse(&endpoint.into())?;
-        self.config.orchestration.songbird_endpoint = Some(url);
+        self.config.orchestration.discovery_endpoint = Some(url);
         Ok(self)
     }
 

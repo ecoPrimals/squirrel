@@ -58,7 +58,7 @@ async fn start_standalone_mode_sets_status() {
         mode: EcosystemMode::Standalone,
         discovery: DiscoveryConfig {
             auto_discovery: false,
-            songbird_endpoint: None,
+            discovery_endpoint: None,
             direct_endpoints: HashMap::new(),
             probe_interval: ChronoDuration::seconds(60),
             health_check_timeout: ChronoDuration::seconds(5),
@@ -76,7 +76,7 @@ async fn start_sovereign_reaches_coordinating() {
         mode: EcosystemMode::Sovereign,
         discovery: DiscoveryConfig {
             auto_discovery: false,
-            songbird_endpoint: None,
+            discovery_endpoint: None,
             direct_endpoints: HashMap::new(),
             probe_interval: ChronoDuration::seconds(60),
             health_check_timeout: ChronoDuration::seconds(5),
@@ -94,7 +94,7 @@ async fn start_coordinated_succeeds_when_discovery_succeeds() {
         mode: EcosystemMode::Coordinated,
         discovery: DiscoveryConfig {
             auto_discovery: false,
-            songbird_endpoint: None,
+            discovery_endpoint: None,
             direct_endpoints: HashMap::new(),
             probe_interval: ChronoDuration::seconds(60),
             health_check_timeout: ChronoDuration::seconds(5),
@@ -138,7 +138,7 @@ async fn coordinate_task_sovereign_falls_back_locally() {
         mode: EcosystemMode::Sovereign,
         discovery: DiscoveryConfig {
             auto_discovery: false,
-            songbird_endpoint: None,
+            discovery_endpoint: None,
             direct_endpoints: HashMap::new(),
             probe_interval: ChronoDuration::seconds(60),
             health_check_timeout: ChronoDuration::seconds(5),
@@ -162,7 +162,7 @@ async fn coordinate_task_coordinated_errors_without_route() {
         mode: EcosystemMode::Coordinated,
         discovery: DiscoveryConfig {
             auto_discovery: false,
-            songbird_endpoint: None,
+            discovery_endpoint: None,
             direct_endpoints: HashMap::new(),
             probe_interval: ChronoDuration::seconds(60),
             health_check_timeout: ChronoDuration::seconds(5),
@@ -195,13 +195,13 @@ async fn register_with_ecosystem_no_songbird_is_ok() {
 }
 
 #[tokio::test]
-async fn register_with_ecosystem_with_songbird_endpoint_is_ok() {
+async fn register_with_ecosystem_with_discovery_endpoint_is_ok() {
     let cfg = EcosystemConfig {
         enabled: true,
         mode: EcosystemMode::Sovereign,
         discovery: DiscoveryConfig {
             auto_discovery: false,
-            songbird_endpoint: Some("unix:///tmp/songbird.sock".to_string()),
+            discovery_endpoint: Some("unix:///tmp/songbird.sock".to_string()),
             direct_endpoints: HashMap::new(),
             probe_interval: ChronoDuration::seconds(60),
             health_check_timeout: ChronoDuration::seconds(5),

@@ -98,7 +98,7 @@ fn monitoring_config_and_fallback_defaults() {
     let mc = MonitoringConfig::default();
     assert!(mc.enabled);
     assert!(!mc.require_provider);
-    assert!(mc.songbird_config.is_none());
+    assert!(mc.monitoring_service_config.is_none());
     assert!(mc.provider_configs.is_empty());
     let fc = FallbackConfig::default();
     assert_eq!(fc.log_level, "info");
@@ -106,7 +106,7 @@ fn monitoring_config_and_fallback_defaults() {
 }
 
 #[test]
-fn monitoring_config_roundtrip_serde_without_songbird() {
+fn monitoring_config_roundtrip_serde_without_monitoring_service() {
     let cfg = MonitoringConfig::default();
     let json = serde_json::to_string(&cfg).expect("serialize");
     let back: MonitoringConfig = serde_json::from_str(&json).expect("deserialize");
@@ -154,7 +154,7 @@ async fn initialize_disabled_short_circuits() {
 async fn initialize_require_provider_errors_without_providers() {
     let cfg = MonitoringConfig {
         require_provider: true,
-        songbird_config: None,
+        monitoring_service_config: None,
         ..MonitoringConfig::default()
     };
     let svc = MonitoringService::new(cfg);
@@ -166,10 +166,10 @@ async fn initialize_require_provider_errors_without_providers() {
 }
 
 #[tokio::test]
-async fn initialize_with_songbird_config_adds_provider() {
+async fn initialize_with_monitoring_service_config_adds_provider() {
     let cfg = MonitoringConfig {
         require_provider: false,
-        songbird_config: Some(SongbirdConfig {
+        monitoring_service_config: Some(MonitoringServiceConfig {
             endpoint: "unix:///tmp/sb".into(),
             service_name: "svc".into(),
             auth_token: None,
@@ -188,7 +188,8 @@ async fn initialize_with_songbird_config_adds_provider() {
 async fn initialize_unknown_provider_is_skipped_with_warning_path() {
     let cfg = MonitoringConfig {
         require_provider: false,
-        provider_configs: std::iter::once(("not-songbird".into(), serde_json::json!({}))).collect(),
+        provider_configs: std::iter::once(("not-monitoring".into(), serde_json::json!({})))
+            .collect(),
         ..MonitoringConfig::default()
     };
     let svc = MonitoringService::new(cfg);
@@ -197,11 +198,11 @@ async fn initialize_unknown_provider_is_skipped_with_warning_path() {
 }
 
 #[tokio::test]
-async fn initialize_provider_configs_songbird_branch() {
+async fn initialize_provider_configs_monitoring_service_branch() {
     let cfg = MonitoringConfig {
-        songbird_config: None,
+        monitoring_service_config: None,
         provider_configs: std::iter::once((
-            "songbird".into(),
+            "monitoring".into(),
             serde_json::json!({
                 "endpoint": "unix:///x",
                 "service_name": "n",
@@ -219,8 +220,8 @@ async fn initialize_provider_configs_songbird_branch() {
 }
 
 #[tokio::test]
-async fn songbird_provider_new_succeeds_and_unknown_provider_config_skipped() {
-    let res = SongbirdProvider::new(SongbirdConfig {
+async fn monitoring_service_provider_new_succeeds_and_unknown_provider_config_skipped() {
+    let res = MonitoringServiceProvider::new(MonitoringServiceConfig {
         endpoint: "e".into(),
         service_name: "s".into(),
         auth_token: None,
@@ -241,7 +242,7 @@ async fn record_paths_with_fallback_logger() {
     let cfg = MonitoringConfig {
         enabled: true,
         require_provider: false,
-        songbird_config: None,
+        monitoring_service_config: None,
         provider_configs: HashMap::new(),
         fallback_config: FallbackConfig {
             log_level: "debug".into(),
@@ -311,8 +312,8 @@ async fn add_remove_get_providers_and_status() {
 }
 
 #[tokio::test]
-async fn songbird_provider_trait_methods() {
-    let p = SongbirdProvider::new(SongbirdConfig {
+async fn monitoring_service_provider_trait_methods() {
+    let p = MonitoringServiceProvider::new(MonitoringServiceConfig {
         endpoint: "e".into(),
         service_name: "n".into(),
         auth_token: Some("t".into()),

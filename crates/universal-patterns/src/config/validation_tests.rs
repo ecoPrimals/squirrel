@@ -88,9 +88,9 @@ fn test_validate_cross_dependencies() {
         .version("1.0.0")
         .build_unchecked();
 
-    // Enable orchestration without Songbird endpoint
+    // Enable orchestration without discovery endpoint
     config.orchestration.enabled = true;
-    config.orchestration.songbird_endpoint = None;
+    config.orchestration.discovery_endpoint = None;
 
     assert!(ConfigValidator::validate(&config).is_err());
 }
@@ -236,12 +236,12 @@ fn test_validate_beardog_endpoint_bad_scheme() {
 }
 
 #[test]
-fn test_validate_songbird_endpoint_bad_scheme() {
+fn test_validate_discovery_endpoint_bad_scheme() {
     let mut config = ConfigBuilder::new()
         .name("test-primal")
         .version("1.0.0")
         .build_unchecked();
-    config.orchestration.songbird_endpoint = Some(Url::parse("ftp://mesh").expect("url"));
+    config.orchestration.discovery_endpoint = Some(Url::parse("ftp://mesh").expect("url"));
     assert!(ConfigValidator::validate(&config).is_err());
 }
 

@@ -13,8 +13,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use squirrel_core::{
     EcosystemConfig, EcosystemService, FederationService, McpRoutingService, MonitoringConfig,
-    MonitoringService, Result, SongbirdConfig, api::ApiServer, federation::FederationConfig,
-    routing::RoutingConfig,
+    MonitoringService, MonitoringServiceConfig, Result, api::ApiServer,
+    federation::FederationConfig, routing::RoutingConfig,
 };
 
 /// Universal Swarm MCP Agent System
@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
     let config = load_configuration();
     info!("Configuration loaded successfully");
 
-    // Initialize monitoring service first (delegates to Songbird when available)
+    // Initialize monitoring service first (delegates to external providers when available)
     info!("Initializing universal monitoring service...");
     let monitoring_service = Arc::new(MonitoringService::new(config.monitoring));
     monitoring_service.initialize()?;
@@ -169,7 +169,7 @@ struct SquirrelConfig {
 
 /// Load configuration from environment and files
 fn load_configuration() -> SquirrelConfig {
-    // Create monitoring configuration with Songbird delegation
+    // Create monitoring configuration with monitoring service delegation
     let monitoring_config = MonitoringConfig {
         enabled: std::env::var("MONITORING_ENABLED")
             .unwrap_or_else(|_| "true".to_string())
@@ -179,18 +179,23 @@ fn load_configuration() -> SquirrelConfig {
             .unwrap_or_else(|_| "false".to_string())
             .parse()
             .unwrap_or(false),
-        songbird_config: std::env::var("SONGBIRD_ENDPOINT")
+        monitoring_service_config: std::env::var("SERVICE_MESH_ENDPOINT")
+            .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
             .ok()
-            .map(|songbird_endpoint| SongbirdConfig {
-                endpoint: songbird_endpoint,
+            .map(|endpoint| MonitoringServiceConfig {
+                endpoint,
                 service_name: "squirrel-mcp".to_string(),
-                auth_token: std::env::var("SONGBIRD_AUTH_TOKEN").ok(),
-                batch_size: std::env::var("SONGBIRD_BATCH_SIZE")
+                auth_token: std::env::var("MONITORING_AUTH_TOKEN")
+                    .or_else(|_| std::env::var("SONGBIRD_AUTH_TOKEN"))
+                    .ok(),
+                batch_size: std::env::var("MONITORING_BATCH_SIZE")
+                    .or_else(|_| std::env::var("SONGBIRD_BATCH_SIZE"))
                     .unwrap_or_else(|_| "100".to_string())
                     .parse()
                     .unwrap_or(100),
                 flush_interval: std::time::Duration::from_secs(
-                    std::env::var("SONGBIRD_FLUSH_INTERVAL")
+                    std::env::var("MONITORING_FLUSH_INTERVAL")
+                        .or_else(|_| std::env::var("SONGBIRD_FLUSH_INTERVAL"))
                         .unwrap_or_else(|_| "30".to_string())
                         .parse()
                         .unwrap_or(30),

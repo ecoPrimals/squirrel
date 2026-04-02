@@ -32,8 +32,9 @@ pub enum EcosystemMode {
 pub struct DiscoveryConfig {
     /// Whether to auto-discover primals.
     pub auto_discovery: bool,
-    /// Optional Songbird endpoint for discovery.
-    pub songbird_endpoint: Option<String>,
+    /// Optional discovery service endpoint.
+    #[serde(alias = "songbird_endpoint")]
+    pub discovery_endpoint: Option<String>,
     /// Direct endpoint overrides.
     pub direct_endpoints: HashMap<String, String>,
     /// Interval between discovery probes.
@@ -56,7 +57,9 @@ impl Default for DiscoveryConfig {
     fn default() -> Self {
         Self {
             auto_discovery: true,
-            songbird_endpoint: std::env::var("SONGBIRD_ENDPOINT").ok(),
+            discovery_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
+                .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
+                .ok(),
             direct_endpoints: HashMap::new(),
             probe_interval: Duration::seconds(60),
             health_check_timeout: Duration::seconds(5),
@@ -99,7 +102,7 @@ mod tests {
         direct.insert("a".to_string(), "http://localhost:1".to_string());
         let cfg = DiscoveryConfig {
             auto_discovery: false,
-            songbird_endpoint: Some("sb".to_string()),
+            discovery_endpoint: Some("sb".to_string()),
             direct_endpoints: direct,
             probe_interval: Duration::seconds(30),
             health_check_timeout: Duration::seconds(10),
@@ -107,7 +110,7 @@ mod tests {
         let json = serde_json::to_string(&cfg).expect("serialize");
         let back: DiscoveryConfig = serde_json::from_str(&json).expect("deserialize");
         assert!(!back.auto_discovery);
-        assert_eq!(back.songbird_endpoint.as_deref(), Some("sb"));
+        assert_eq!(back.discovery_endpoint.as_deref(), Some("sb"));
         assert_eq!(
             back.direct_endpoints.get("a").map(String::as_str),
             Some("http://localhost:1")
@@ -123,7 +126,7 @@ mod tests {
             mode: EcosystemMode::Coordinated,
             discovery: DiscoveryConfig {
                 auto_discovery: true,
-                songbird_endpoint: None,
+                discovery_endpoint: None,
                 direct_endpoints: HashMap::new(),
                 probe_interval: Duration::zero(),
                 health_check_timeout: Duration::seconds(1),

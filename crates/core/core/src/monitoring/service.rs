@@ -7,11 +7,10 @@ use crate::{Error, HealthStatus, Result};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
-use universal_constants::primal_names;
 
-use super::config::{MonitoringConfig, SongbirdConfig};
+use super::config::{MonitoringConfig, MonitoringServiceConfig};
 use super::fallback::FallbackLogger;
-use super::songbird::SongbirdProvider;
+use super::monitoring_provider::MonitoringServiceProvider;
 use super::types::{
     Metric, MetricValue, MonitoringEvent, MonitoringProvider, MonitoringStatus, PerformanceMetrics,
     ProviderStatus,
@@ -51,18 +50,15 @@ impl MonitoringService {
 
         tracing::info!("Initializing universal monitoring service");
 
-        // Try to initialize Songbird provider if configured
-        if let Some(ref songbird_config) = self.config.songbird_config {
-            match Self::try_initialize_songbird(songbird_config) {
+        // Try to initialize monitoring service provider if configured
+        if let Some(ref monitoring_service_config) = self.config.monitoring_service_config {
+            match Self::try_initialize_monitoring_provider(monitoring_service_config) {
                 Ok(provider) => {
                     self.add_provider(provider);
-                    tracing::info!("✅ Songbird monitoring provider initialized");
+                    tracing::info!("✅ monitoring service provider initialized");
                 }
                 Err(e) => {
-                    tracing::warn!(
-                        "⚠️ Songbird monitoring provider failed to initialize: {}",
-                        e
-                    );
+                    tracing::warn!("⚠️ monitoring service provider failed to initialize: {}", e);
                 }
             }
         }
@@ -268,9 +264,11 @@ impl MonitoringService {
         }
     }
 
-    /// Try to initialize Songbird provider
-    fn try_initialize_songbird(config: &SongbirdConfig) -> Result<Arc<dyn MonitoringProvider>> {
-        let provider = Arc::new(SongbirdProvider::new(config.clone())?);
+    /// Try to initialize the monitoring service provider
+    fn try_initialize_monitoring_provider(
+        config: &MonitoringServiceConfig,
+    ) -> Result<Arc<dyn MonitoringProvider>> {
+        let provider = Arc::new(MonitoringServiceProvider::new(config.clone())?);
         Ok(provider)
     }
 
@@ -280,9 +278,10 @@ impl MonitoringService {
         config: &serde_json::Value,
     ) -> Result<Arc<dyn MonitoringProvider>> {
         match name {
-            primal_names::SONGBIRD => {
-                let songbird_config: SongbirdConfig = serde_json::from_value(config.clone())?;
-                Self::try_initialize_songbird(&songbird_config)
+            "monitoring" => {
+                let monitoring_service_config: MonitoringServiceConfig =
+                    serde_json::from_value(config.clone())?;
+                Self::try_initialize_monitoring_provider(&monitoring_service_config)
             }
             _ => Err(Error::Monitoring(format!("Unknown provider: {name}"))),
         }

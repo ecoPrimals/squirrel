@@ -223,7 +223,7 @@ impl HealthMonitor {
     /// Perform actual health check: system resource thresholds and optional Unix socket probes.
     ///
     /// Uses [`universal_constants::sys_info`] for CPU and memory on supported platforms.
-    /// Unix sockets listed in `AI_PROVIDER_SOCKETS` / `SONGBIRD_SOCKET` and the resolved Squirrel
+    /// Unix sockets listed in `AI_PROVIDER_SOCKETS` / `DISCOVERY_SOCKET` and the resolved Squirrel
     /// socket path are probed **only when the path exists**, so idle tests without listeners stay green.
     async fn perform_health_check(&self, component: &str) -> Result<(), PrimalError> {
         let check_timeout = self
@@ -264,7 +264,8 @@ impl HealthMonitor {
                 }
             }
         }
-        if let Ok(p) = std::env::var("SONGBIRD_SOCKET")
+        if let Ok(p) =
+            std::env::var("DISCOVERY_SOCKET").or_else(|_| std::env::var("SONGBIRD_SOCKET"))
             && !p.is_empty()
         {
             socket_paths.push(p);

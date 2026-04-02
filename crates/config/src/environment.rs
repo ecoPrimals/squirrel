@@ -502,7 +502,7 @@ impl EcosystemConfig {
             nestgate_endpoint,
             beardog_endpoint,
             toadstool_endpoint,
-            service_mesh_endpoint: biomeos_endpoint, // Service mesh endpoint (was songbird_endpoint)
+            service_mesh_endpoint: biomeos_endpoint, // Service mesh / discovery endpoint
             service_timeout_ms,
         })
     }
