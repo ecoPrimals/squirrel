@@ -14,7 +14,6 @@ categories = ["development-tools"]
 # Workspace crates
 squirrel-interfaces.workspace = true
 squirrel-context.workspace = true
-squirrel-core = { path = "../../core/core", version = "0.1.0" }
 # squirrel-app.workspace = true  # → Eliminated: Songbird handles service layer
 # squirrel-ai-tools.workspace = true  # → Eliminated: Moved to ToadStool
 
@@ -30,17 +29,10 @@ chrono.workspace = true
 clap.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-async-recursion.workspace = true
-futures.workspace = true
-glob.workspace = true
 tempfile.workspace = true
-parking_lot.workspace = true
 # once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
-bytes.workspace = true
-dashmap.workspace = true
 regex.workspace = true
 universal-constants = { path = "../../universal-constants", version = "0.1.0" }
-secrecy.workspace = true
 
 # gRPC REMOVED - NOT ecoPrimals standard!
 # ecoPrimals uses JSON-RPC + tarpc (full Rust ecosystem)

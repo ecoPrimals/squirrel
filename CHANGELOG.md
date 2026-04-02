@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.29] - 2026-04-02
+
+Deep debt execution: dependency evolution, discovery-first hardcoding removal, mock isolation,
+smart refactoring, supply chain reduction. 7,161 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **50+ unused dependencies removed** across 13 crates via `cargo-machete` + manual verification —
+  reduced supply chain surface (parking_lot, sled, redis, wasmtime, tower, bytes, dashmap, etc.)
+- **Production mock isolation** — `MockAIClient` gated behind `#[cfg(any(test, feature = "testing"))]`;
+  justfile test recipe updated to `--all-features` for integration test mock access
+- **Port unification** — conflicting `DEFAULT_MCP_PORT` (8778 vs 8444) resolved to 8444 across
+  `config.rs` and `server/mod.rs` doc comments
+- **Hardcoded localhost → dynamic discovery** — `ecosystem_service.rs`, `federation/service.rs`,
+  `dashboard_integration.rs`, `presets.rs` evolved from hardcoded `"localhost"/"127.0.0.1"` to
+  `universal_constants` config helpers (`get_bind_address`, `get_host`, `build_http_url`)
+- **Hardcoded primal endpoints → capability discovery** — 4 universal adapters (security,
+  orchestration, storage, compute) evolved from `*.ecosystem.local` URLs to env-discoverable
+  `get_host("SERVICE_ENDPOINT", ...)` patterns with generic role-based defaults
+- **Primal schema neutralized** — hardcoded primal chain example in `schemas.rs` replaced with
+  generic role-based description (`orchestration → compute → self → storage`)
+- **Doc example TODOs resolved** — replaced `todo!()`/`unimplemented!()` in doc examples with
+  illustrative error returns per zero-TODO standard
+- **deny.toml cleanup** — removed stale `RUSTSEC-2026-0002` advisory ignore (lru removed);
+  cleaned unused license allowances (`AGPL-3.0-only`, `OpenSSL`, `Unicode-DFS-2016`)
+- **Smart refactoring** — `optimization.rs` (919 lines) → `optimization/` module directory with
+  dedicated `selector.rs`, `scorer.rs`, `utils.rs`, `tests.rs` files
+
+### Removed
+
+- **lru dependency** — unused in `squirrel-rule-system`; removal also resolves RUSTSEC-2026-0002
+- **50+ unused workspace dependencies** — iai, pprof, parking_lot, async-recursion, bytes,
+  dashmap, futures, glob, secrecy, env_logger, tower, tower-http, url, bincode,
+  metrics-exporter-prometheus, sled, redis, rustls, wasmtime, tracing-subscriber, and more
+
 ## [0.1.0-alpha.28] - 2026-04-02
 
 primalSpring audit compliance, deep debt evolution, and ecosystem alignment.

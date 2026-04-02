@@ -25,29 +25,18 @@ serde_bytes.workspace = true
 uuid.workspace = true
 
 # Networking & Transport
-tarpc-mcp = { workspace = true, optional = true }
-tokio-serde = { workspace = true, optional = true }
-bincode = { workspace = true, optional = true }
 tokio-tungstenite = { workspace = true, optional = true }
-tungstenite = { workspace = true, optional = true }
 
 # Internal crates
 squirrel-mcp-config.workspace = true
 universal-constants.workspace = true
-
-# WebSocket support (optional, behind websocket feature)
-axum-mcp = { workspace = true, optional = true }
-axum-extra-mcp = { workspace = true, optional = true }
 
 # Concurrency
 dashmap.workspace = true
 
 # Observability
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
-tracing-appender.workspace = true
 metrics = { workspace = true, optional = true }
-metrics-exporter-prometheus = { workspace = true, optional = true }
 
 # Time and dates
 chrono.workspace = true
@@ -59,19 +48,10 @@ anyhow.workspace = true
 # Configuration
 toml.workspace = true
 
-# Storage and persistence (optional)
-sled = { workspace = true, optional = true }
-sqlx = { workspace = true, optional = true }
-redis = { workspace = true, optional = true }
-
 # Compression (optional)
 zstd = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 lz4 = { workspace = true, optional = true }
-
-# Cryptography (optional, for TLS)
-rustls = { workspace = true, optional = true }
-rustls-pemfile = { workspace = true, optional = true }
 
 # AI providers (optional) - openai-api-rs/anthropic-sdk REMOVED: pulled reqwest 0.11 (native-tls/openssl).
 # Providers use reqwest directly via direct-http (rustls). See coordinator/providers.rs.
@@ -81,11 +61,8 @@ reqwest = { workspace = true, optional = true }
 
 # Plugin system (optional)
 libloading = { workspace = true, optional = true }
-wasmtime = { workspace = true, optional = true }
-wasmtime-wasi = { workspace = true, optional = true }
 
 # Utilities
-parking_lot.workspace = true
 rand.workspace = true
 blake3.workspace = true
 ed25519-dalek.workspace = true
@@ -115,8 +92,8 @@ default = ["streaming"]
 # Direct HTTP to AI vendors (DEV/TESTING)
 direct-http = ["dep:reqwest"]
 
-# TLS support
-tls = ["dep:rustls", "dep:rustls-pemfile"]
+# TLS support (reserved; wire rustls when MCP TLS paths are implemented)
+tls = []
 
 enhanced = [
     "websocket",
@@ -138,13 +115,13 @@ full = [
     "metrics",
     "compression"
 ]
-websocket = ["dep:tokio-tungstenite", "dep:tungstenite", "dep:axum-mcp", "dep:axum-extra-mcp"]
-tarpc = ["dep:tarpc-mcp", "dep:tokio-serde", "dep:bincode"]
+websocket = ["dep:tokio-tungstenite"]
+tarpc = []
 streaming = ["dep:tokio-stream"]
 ai-providers = ["direct-http"]
-plugins = ["dep:libloading", "dep:wasmtime", "dep:wasmtime-wasi"]
-persistence = ["dep:sled", "dep:sqlx", "dep:redis"]
-metrics = ["dep:metrics", "dep:metrics-exporter-prometheus"]
+plugins = ["dep:libloading"]
+persistence = []
+metrics = ["dep:metrics"]
 compression = ["dep:zstd", "dep:flate2", "dep:lz4"]
 sync-placeholders = []
 

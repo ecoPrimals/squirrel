@@ -31,7 +31,7 @@ anyhow.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
 dashmap.workspace = true
-parking_lot.workspace = true
+
 # HTTP framework REMOVED - Squirrel uses Unix sockets + JSON-RPC + tarpc
 # All external HTTP is proxied via ecosystem capability routing (own IPC client)
 base64.workspace = true
@@ -70,10 +70,6 @@ squirrel-mcp-auth.workspace = true
 universal-patterns.workspace = true
 universal-constants.workspace = true
 zeroize.workspace = true
-
-# SDK dependencies
-squirrel-sdk.workspace = true
-squirrel-integration.workspace = true
 
 # Context management
 squirrel-context.workspace = true

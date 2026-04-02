@@ -9,9 +9,10 @@
 //! **Note**: Old vendor-specific HTTP clients have been replaced with capability-based routing.
 //! Use `capability_ai::AiClient` instead for TRUE ecoBin compliance.
 
+#[cfg(any(test, feature = "testing"))]
 pub mod mock;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 pub use mock::MockAIClient;
 
 use crate::common::client::AIClient;

@@ -383,16 +383,22 @@ pub async fn register_songbird_service(
         endpoints: vec![
             super::ServiceEndpoint {
                 name: "primary".to_string(),
-                url: "https://songbird.ecosystem.local".to_string(),
+                url: universal_constants::config_helpers::get_host(
+                    "ORCHESTRATION_SERVICE_ENDPOINT",
+                    "https://orchestration.ecosystem.local",
+                ),
                 protocol: "https".to_string(),
-                port: Some(443),
+                port: None,
                 path: Some("/api/v1".to_string()),
             },
             super::ServiceEndpoint {
                 name: "websocket".to_string(),
-                url: "wss://songbird.ecosystem.local".to_string(),
+                url: universal_constants::config_helpers::get_host(
+                    "ORCHESTRATION_WS_ENDPOINT",
+                    "wss://orchestration.ecosystem.local",
+                ),
                 protocol: "websocket".to_string(),
-                port: Some(443),
+                port: None,
                 path: Some("/ws".to_string()),
             },
         ],

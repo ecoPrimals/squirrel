@@ -275,9 +275,12 @@ pub async fn register_beardog_service(
         }],
         endpoints: vec![super::ServiceEndpoint {
             name: "primary".to_string(),
-            url: "https://beardog.ecosystem.local".to_string(),
+            url: universal_constants::config_helpers::get_host(
+                "SECURITY_SERVICE_ENDPOINT",
+                "https://security.ecosystem.local",
+            ),
             protocol: "https".to_string(),
-            port: Some(443),
+            port: None,
             path: Some("/api/v1".to_string()),
         }],
         resources: super::ResourceSpec {

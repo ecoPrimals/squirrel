@@ -40,8 +40,8 @@ impl Default for PrimalConfig {
                 created_at: Utc::now(),
             },
             network: NetworkConfig {
-                bind_address: "127.0.0.1".to_string(),
-                port: 8080,
+                bind_address: universal_constants::network::get_bind_address(),
+                port: universal_constants::network::get_service_port("http"),
                 public_address: None,
                 tls: None,
                 timeouts: TimeoutConfig::default(),
@@ -486,7 +486,10 @@ mod tests {
     fn test_primal_config_defaults() {
         let config = PrimalConfig::default();
         assert_eq!(config.info.name, "unnamed-primal");
-        assert_eq!(config.network.port, 8080);
+        assert_eq!(
+            config.network.port,
+            universal_constants::network::get_service_port("http")
+        );
         assert_eq!(config.environment.name, "development");
     }
 

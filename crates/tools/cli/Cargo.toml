@@ -25,7 +25,6 @@ thiserror = "1.0"
 anyhow.workspace = true
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-env_logger = "0.10"
 blake3.workspace = true
 colored = "2.0"
 prettytable = "0.10"
@@ -34,9 +33,6 @@ serde_yaml_ng = "0.10"
 directories = "5.0"
 
 # Workspace dependencies
-squirrel-core = { path = "../../core/core", version = "0.1.0" }
-squirrel-interfaces = { path = "../../core/interfaces", version = "0.1.0" }
-squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 # HTTP client (OPTIONAL - for HTTP CLI commands)
 # Production uses Unix sockets!
 #
@@ -46,7 +42,6 @@ squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 
 # Plugin system dependencies  
-squirrel-plugins = { path = "../../core/plugins", version = "0.1.0" }
 squirrel-commands = { path = "../../services/commands", version = "0.1.0" }
 
 [dev-dependencies]

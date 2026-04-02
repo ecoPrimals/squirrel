@@ -278,12 +278,16 @@ impl EcosystemService {
     /// Resolution tiers:
     /// 1. `SQUIRREL_MCP_ENDPOINT` (full endpoint)
     /// 2. `SQUIRREL_PORT` / `SQUIRREL_SERVER_PORT` (port override via `universal_constants`)
-    /// 3. Default: <http://localhost:9010>
+    /// 3. Default: `http://{discovered_host}:{discovered_port}`
     #[must_use]
     pub fn get_endpoint(&self) -> String {
         std::env::var("SQUIRREL_MCP_ENDPOINT").unwrap_or_else(|_| {
             let port = universal_constants::network::squirrel_primal_port();
-            format!("http://localhost:{port}")
+            let host = universal_constants::config_helpers::get_host(
+                "SQUIRREL_HOST",
+                universal_constants::network::DEFAULT_LOCALHOST,
+            );
+            universal_constants::builders::build_http_url(&host, port)
         })
     }
 

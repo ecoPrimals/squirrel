@@ -315,7 +315,10 @@ mod tests {
         let health = primal.health_check().await.expect("health");
         assert_eq!(health.status, HealthState::Healthy);
 
-        assert_eq!(primal.config().network.port, 8080);
+        assert_eq!(
+            primal.config().network.port,
+            universal_constants::network::get_service_port("http")
+        );
         primal
             .update_config(PrimalConfig::default())
             .await

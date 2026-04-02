@@ -70,11 +70,12 @@ impl Default for DashboardIntegrationConfig {
         let dashboard_url = std::env::var("DASHBOARD_OBSERVABILITY_URL")
             .or_else(|_| std::env::var("UI_ENDPOINT").map(|e| format!("{}/api/observability", e)))
             .unwrap_or_else(|_| {
-                let port = std::env::var("WEB_UI_PORT")
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(8080);  // Default dashboard API port
-                format!("http://localhost:{}/api/observability", port)
+                let port = universal_constants::config_helpers::get_port("WEB_UI_PORT", 8080);
+                let host = universal_constants::config_helpers::get_host(
+                    "WEB_UI_HOST",
+                    universal_constants::network::DEFAULT_LOCALHOST,
+                );
+                format!("http://{host}:{port}/api/observability")
             });
 
         Self {

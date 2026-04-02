@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: April 2, 2026
-**Version**: 0.1.0-alpha.28
+**Version**: 0.1.0-alpha.29
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -28,7 +28,7 @@
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
-| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(any(test, feature = "testing"))]` |
+| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
 | TODO/FIXME in code | 0 — all NOTE(phase2) stubs completed; no TODO/FIXME/HACK markers in committed code |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
@@ -272,9 +272,24 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs); coverage gap to 90% remains as in item 1
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 
-## Changes Since Last Handoff (March 31, 2026)
+## Changes Since Last Handoff (April 2, 2026)
 
-### April 1, 2026 session (SQ-02/SQ-03 audit fixes, CI gate fixes)
+### April 2, 2026 session B (Deep debt execution, dependency evolution, discovery-first)
+
+- **50+ unused dependencies removed** across 13 crates — massive supply chain reduction via cargo-machete + manual verification
+- **Production mock isolation** — `MockAIClient` gated behind `#[cfg(any(test, feature = "testing"))]`; no mock code compiled into production
+- **Port unification** — Conflicting `DEFAULT_MCP_PORT` (8778 vs 8444) resolved to 8444; doc comments corrected
+- **Hardcoded localhost → discovery** — `ecosystem_service`, `federation/service`, `dashboard_integration`, `presets` all evolved from `"localhost"/"127.0.0.1"` to `universal_constants::get_bind_address()`/`get_host()`/`build_http_url()`
+- **Hardcoded primal endpoints → capability discovery** — 4 universal adapters evolved from `*.ecosystem.local` URLs to env-discoverable `get_host("SERVICE_ENDPOINT", ...)` patterns
+- **Primal schema neutralized** — Hardcoded primal chain example in `schemas.rs` replaced with generic role-based description
+- **Smart refactoring** — `optimization.rs` (919 lines) → 4-module directory (selector/scorer/utils/tests)
+- **Orphan module audit** — Identified uncompiled modules in mcp, ai-tools, and main crates (documented for future cleanup)
+- **Doc example TODOs resolved** — Replaced `todo!()`/`unimplemented!()` in doc examples with illustrative error returns
+- **deny.toml cleanup** — Removed stale `RUSTSEC-2026-0002` advisory ignore (lru removed); cleaned unused license allowances
+- **justfile** — `cargo test` now runs `--all-features` to enable testing feature for integration test mock access
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓, `test 7,161/0/110` ✓, `doc` ✓, `deny` ✓
+
+### April 2, 2026 session A (SQ-04 audit, workspace unsafe lint, rustdoc fixes)
 
 - **SQ-02 RESOLVED**: `LOCAL_AI_ENDPOINT` / `OLLAMA_ENDPOINT` / `OLLAMA_URL` now wired into `AiRouter::new_with_discovery` — local AI always discovered alongside cloud providers; default Ollama probe at `localhost:11434` as implicit fallback; `ai.query` routes to local inference when available
 - **SQ-03 socket path**: Confirmed conformant — `$XDG_RUNTIME_DIR/biomeos/squirrel.sock` with `ai.sock` symlink; primalSpring audit finding was from stale deployment

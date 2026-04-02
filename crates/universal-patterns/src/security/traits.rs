@@ -32,7 +32,7 @@ use super::errors::SecurityError;
 ///         &self,
 ///         _credentials: &Credentials,
 ///     ) -> Result<AuthResult, SecurityError> {
-///         todo!()
+///         Err(SecurityError::authentication("not yet configured"))
 ///     }
 ///
 ///     async fn authorize(
@@ -41,23 +41,23 @@ use super::errors::SecurityError;
 ///         _action: &str,
 ///         _resource: &str,
 ///     ) -> Result<bool, SecurityError> {
-///         todo!()
+///         Err(SecurityError::authorization("not yet configured"))
 ///     }
 ///
 ///     async fn encrypt(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-///         todo!()
+///         Err(SecurityError::encryption("not yet configured"))
 ///     }
 ///
 ///     async fn decrypt(&self, _encrypted_data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-///         todo!()
+///         Err(SecurityError::encryption("not yet configured"))
 ///     }
 ///
 ///     async fn sign(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-///         todo!()
+///         Err(SecurityError::encryption("not yet configured"))
 ///     }
 ///
 ///     async fn verify(&self, _data: &[u8], _signature: &[u8]) -> Result<bool, SecurityError> {
-///         todo!()
+///         Err(SecurityError::encryption("not yet configured"))
 ///     }
 /// }
 /// ```
@@ -177,7 +177,7 @@ pub trait SecurityProvider: Send + Sync {
 ///         &self,
 ///         _credentials: &Credentials,
 ///     ) -> Result<AuthResult, SecurityError> {
-///         todo!()
+///         Err(SecurityError::authentication("not yet configured"))
 ///     }
 ///
 ///     async fn authorize(
@@ -186,31 +186,31 @@ pub trait SecurityProvider: Send + Sync {
 ///         _action: &str,
 ///         _resource: &str,
 ///     ) -> Result<bool, SecurityError> {
-///         todo!()
+///         Err(SecurityError::authorization("not yet configured"))
 ///     }
 ///
 ///     async fn encrypt(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-///         todo!()
+///         Err(SecurityError::encryption("not yet configured"))
 ///     }
 ///
 ///     async fn decrypt(&self, _encrypted_data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-///         todo!()
+///         Err(SecurityError::encryption("not yet configured"))
 ///     }
 ///
 ///     async fn sign(&self, _data: &[u8]) -> Result<Vec<u8>, SecurityError> {
-///         todo!()
+///         Err(SecurityError::encryption("not yet configured"))
 ///     }
 ///
 ///     async fn verify(&self, _data: &[u8], _signature: &[u8]) -> Result<bool, SecurityError> {
-///         todo!()
+///         Err(SecurityError::encryption("not yet configured"))
 ///     }
 ///
 ///     async fn audit_log(&self, _operation: &str, _context: &SecurityContext) -> Result<(), SecurityError> {
-///         todo!()
+///         Ok(())
 ///     }
 ///
 ///     async fn health_check(&self) -> Result<SecurityHealth, SecurityError> {
-///         todo!()
+///         Err(SecurityError::configuration("not yet configured"))
 ///     }
 /// }
 /// ```

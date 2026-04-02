@@ -94,7 +94,7 @@ impl MCPServer {
     /// # Arguments
     ///
     /// * `host` - Optional server host (defaults to 127.0.0.1)
-    /// * `port` - Optional server port (defaults to 8778)
+    /// * `port` - Optional server port (defaults to 8444 via `MCP_PORT` env or fallback)
     ///
     /// # Returns
     ///

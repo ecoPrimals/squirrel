@@ -379,6 +379,31 @@ impl UniversalComputeAdapter {
 }
 
 /// Register `ToadStool` (or any compute primal) with the universal registry
+fn compute_service_endpoints() -> Vec<super::ServiceEndpoint> {
+    vec![
+        super::ServiceEndpoint {
+            name: "primary".to_string(),
+            url: universal_constants::config_helpers::get_host(
+                "COMPUTE_SERVICE_ENDPOINT",
+                "https://compute.ecosystem.local",
+            ),
+            protocol: "https".to_string(),
+            port: None,
+            path: Some("/api/v1".to_string()),
+        },
+        super::ServiceEndpoint {
+            name: "docker".to_string(),
+            url: universal_constants::config_helpers::get_host(
+                "COMPUTE_DOCKER_ENDPOINT",
+                "docker://compute.ecosystem.local",
+            ),
+            protocol: "docker".to_string(),
+            port: None,
+            path: None,
+        },
+    ]
+}
+
 pub async fn register_toadstool_service(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {
@@ -430,22 +455,7 @@ pub async fn register_toadstool_service(
                 "load_balancing".to_string(),
             ],
         }],
-        endpoints: vec![
-            super::ServiceEndpoint {
-                name: "primary".to_string(),
-                url: "https://toadstool.ecosystem.local".to_string(),
-                protocol: "https".to_string(),
-                port: Some(443),
-                path: Some("/api/v1".to_string()),
-            },
-            super::ServiceEndpoint {
-                name: "docker".to_string(),
-                url: "docker://toadstool.ecosystem.local".to_string(),
-                protocol: "docker".to_string(),
-                port: Some(2376),
-                path: None,
-            },
-        ],
+        endpoints: compute_service_endpoints(),
         resources: super::ResourceSpec {
             cpu_cores: Some(64),
             memory_gb: Some(256),

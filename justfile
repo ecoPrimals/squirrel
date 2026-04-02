@@ -25,9 +25,9 @@ fmt:
 clippy:
     cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-# Run all tests
+# Run all tests (--all-features enables testing mocks for integration tests)
 test:
-    cargo test --workspace
+    cargo test --workspace --all-features
 
 # Build documentation
 doc:

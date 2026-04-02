@@ -147,7 +147,7 @@ pub fn neural_graph_optimize_input_schema() -> serde_json::Value {
         "properties": {
             "graph_description": {
                 "type": "string",
-                "description": "Description of the coordination graph (e.g., 'songbird -> toadstool -> squirrel -> nestgate')."
+                "description": "Description of the coordination graph (e.g., 'orchestration -> compute -> self -> storage')."
             },
             "purpose": {
                 "type": "string",

@@ -14,12 +14,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml_ng = "0.10"
 toml = "0.8"
-anyhow = "1.0"
 thiserror = "1.0"
 tracing = "0.1"
-url = "2.4"
 uuid = { version = "1.0", features = ["v4"] }
-chrono = { version = "0.4", features = ["serde"] }
 # HTTP client (OPTIONAL - for config fetching from HTTP endpoints)
 # Production uses Unix sockets or local files (Pure Rust!)
 #
@@ -27,7 +24,6 @@ chrono = { version = "0.4", features = ["serde"] }
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + custom crypto provider.
 # See docs/CRYPTO_MIGRATION.md.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
-tokio = { version = "1.0", features = ["full"] }
 # once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
 universal-constants = { path = "../universal-constants", version = "0.1.0" }
 dirs = "5.0" # For platform-agnostic directory resolution

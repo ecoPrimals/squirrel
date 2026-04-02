@@ -30,7 +30,6 @@ chrono = { version = "0.4", features = ["serde"] }
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + rustls::crypto::aws_lc_rs
 # or rustls-rustcrypto (alpha, 100% Rust). See docs/CRYPTO_MIGRATION.md.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
-url = "2.5"
 
 # Logging and tracing
 tracing = { version = "0.1", features = ["log"] }
@@ -39,9 +38,6 @@ tracing = { version = "0.1", features = ["log"] }
 semver = "1.0"
 # once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
 dashmap = "5.0"
-
-# CRITICAL FIX: Add missing config dependency
-squirrel-mcp-config = { path = "../../config", version = "0.1.0" }
 
 # Add interfaces dependency for canonical types
 squirrel-interfaces = { path = "../interfaces", version = "0.1.0" }

@@ -11,7 +11,9 @@ use std::net::IpAddr;
 use std::time::Duration;
 
 /// Default TCP port for the MCP server.
-pub const DEFAULT_MCP_PORT: u16 = 8778;
+///
+/// Aligned with `server::default_port()` and ecosystem service mesh conventions.
+pub const DEFAULT_MCP_PORT: u16 = 8444;
 /// Default bind host for development MCP servers.
 pub const DEFAULT_DEV_HOST: &str = "127.0.0.1";
 /// Default bind host for production MCP servers.

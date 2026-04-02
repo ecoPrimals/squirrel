@@ -19,12 +19,9 @@ tokio.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-futures.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 # Squirrel crates
-squirrel-core = { path = "../core/core", version = "0.1.0" }
-squirrel-mcp = { path = "../core/mcp", version = "0.1.0" }
 squirrel-ai-tools.workspace = true
 # Logging
 tracing.workspace = true

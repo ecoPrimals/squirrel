@@ -363,16 +363,22 @@ pub async fn register_nestgate_service(
         endpoints: vec![
             super::ServiceEndpoint {
                 name: "primary".to_string(),
-                url: "https://nestgate.ecosystem.local".to_string(),
+                url: universal_constants::config_helpers::get_host(
+                    "STORAGE_SERVICE_ENDPOINT",
+                    "https://storage.ecosystem.local",
+                ),
                 protocol: "https".to_string(),
-                port: Some(443),
+                port: None,
                 path: Some("/api/v1".to_string()),
             },
             super::ServiceEndpoint {
                 name: "s3_compatible".to_string(),
-                url: "https://s3.nestgate.ecosystem.local".to_string(),
+                url: universal_constants::config_helpers::get_host(
+                    "STORAGE_S3_ENDPOINT",
+                    "https://s3.storage.ecosystem.local",
+                ),
                 protocol: "s3".to_string(),
-                port: Some(443),
+                port: None,
                 path: None,
             },
         ],

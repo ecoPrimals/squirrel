@@ -16,14 +16,10 @@ workspace = true
 [dependencies]
 # Core dependencies
 tokio.workspace = true
-futures.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-uuid.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
 chrono.workspace = true
 anyhow.workspace = true
 # once_cell removed - evolved to std::sync::OnceLock/LazyLock (stable Rust 1.80+)
@@ -31,7 +27,6 @@ anyhow.workspace = true
 squirrel-interfaces.workspace = true
 universal-constants = { path = "../../universal-constants", version = "0.1.0" }
 squirrel-context.workspace = true
-squirrel-core = { path = "../../core/core", version = "0.1.0" }
 
 [dev-dependencies]
 tokio-test.workspace = true

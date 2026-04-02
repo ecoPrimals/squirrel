@@ -629,13 +629,17 @@ impl FederationService {
         reason = "Phase 2 placeholder — connection address tracking"
     )]
     fn get_node_endpoint(&self) -> String {
-        format!(
-            "http://{}:{}",
-            std::env::var("NODE_IP")
-                .or_else(|_| std::env::var("MCP_HOST"))
-                .unwrap_or_else(|_| "localhost".to_string()),
-            self.config.federation_port
-        )
+        let host = Self::resolve_node_host();
+        universal_constants::builders::build_http_url(&host, self.config.federation_port)
+    }
+
+    /// Resolve the host address for this node via env discovery.
+    ///
+    /// Tier: `NODE_IP` -> `MCP_HOST` -> `localhost`
+    fn resolve_node_host() -> String {
+        std::env::var("NODE_IP")
+            .or_else(|_| std::env::var("MCP_HOST"))
+            .unwrap_or_else(|_| universal_constants::network::DEFAULT_LOCALHOST.to_string())
     }
 
     /// Get current node capabilities
@@ -717,13 +721,11 @@ impl SwarmManager for FederationService {
         // In a real implementation, this would actually spawn a new process or container
         // For now, we simulate the instance creation
 
-        let node_ip = std::env::var("NODE_IP")
-            .or_else(|_| std::env::var("MCP_HOST"))
-            .unwrap_or_else(|_| "localhost".to_string());
+        let node_host = Self::resolve_node_host();
         let instance = SquirrelInstance {
             id: instance_id.clone(),
             node_id: self.config.node_id.clone(),
-            endpoint: format!("http://{node_ip}:{instance_port}"),
+            endpoint: universal_constants::builders::build_http_url(&node_host, instance_port),
             capabilities: vec![
                 "mcp".to_string(),
                 "ai-task-routing".to_string(),

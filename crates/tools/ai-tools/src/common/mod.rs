@@ -73,6 +73,7 @@ pub mod usage;
 
 // Re-export main types for convenience
 pub use client::AIClient;
+#[cfg(any(test, feature = "testing"))]
 pub use clients::mock::MockAIClient;
 
 // Old HTTP clients removed - use capability_ai::AiClient instead
