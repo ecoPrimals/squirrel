@@ -9,7 +9,7 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 
 - **AI model routing:** Selects providers and routes inference by cost, quality, latency, and declared capabilities.
 - **MCP protocol:** Implements MCP coordination and multi-server orchestration.
-- **IPC:** Primary control plane is **JSON-RPC 2.0**; **tarpc** is used for high-performance/binary paths with protocol negotiation. Transports default to **Unix domain sockets**; named pipes and TCP exist as fallbacks. **Songbird** (`discovery.register`, heartbeats) participates in service discovery alongside biomeOS lifecycle patterns.
+- **IPC:** Primary control plane is **JSON-RPC 2.0**; **tarpc** is used for high-performance/binary paths with protocol negotiation. Transports default to **Unix domain sockets**; named pipes and TCP exist as fallbacks. Discovery service (`discovery.register`, heartbeats) participates in service discovery alongside biomeOS lifecycle patterns.
 
 ## Technical Facts
 
@@ -53,7 +53,7 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 - **JSON-RPC 2.0** — primary RPC surface (e.g. `squirrel client --method …`).
 - **tarpc** — binary RPC where negotiated; complements JSON-RPC for performance-sensitive paths.
 - **Unix domain sockets** — default transport; paths under `$XDG_RUNTIME_DIR/biomeos/` (see README).
-- **Songbird discovery** — registration/heartbeat with ecosystem discovery (paired with biomeOS lifecycle concepts in docs).
+- **Discovery service** — registration/heartbeat with ecosystem discovery (paired with biomeOS lifecycle concepts in docs).
 
 ## Architecture
 
@@ -73,7 +73,7 @@ Other workspace crates include auth, context, interfaces, plugins, config, comma
 
 ## Test suite
 
-- **7,162** tests passing, 0 failures, 110 ignored.
+- **7,165** tests passing, 0 failures, 110 ignored.
 - **Zero `.unwrap()`** and **zero `panic!()`** in production code — all error handling is typed.
 - **Chaos** and integration tests (e.g. under `crates/main/tests/chaos`).
 - **Property-based** tests (e.g. `proptest` for serialization invariants).

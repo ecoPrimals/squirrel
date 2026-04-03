@@ -10,9 +10,9 @@
 //!
 //! ## Integration Plan
 //!
-//! 1. **Songbird** (orchestration): Service mesh registration, health reporting,
-//!    and capability routing. Squirrel will discover Songbird via capability
-//!    registry and register MCP services.
+//! 1. **Service mesh** (orchestration): Registration, health reporting,
+//!    and capability routing. Squirrel discovers the mesh via capability
+//!    discovery and registers MCP services.
 //!
 //! 2. **`ToadStool`** (compute): Task delegation, job submission, and resource
 //!    allocation. Integration via universal adapter when compute capability
@@ -21,18 +21,18 @@
 //! 3. **Cross-platform discovery**: Unix sockets (Linux/macOS), Named pipes
 //!    (Windows), TCP fallback. Uses `universal-patterns` transport layer.
 //!
-//! ## Phase 2 (`Songbird` / `ToadStool`)
+//! ## Phase 2 (service mesh / compute provider)
 //!
 //! The [`EcosystemIntegration`] type and [`EcosystemIntegration::register_mcp_services`]
-//! are intentionally minimal until first-class clients exist for `Songbird` (service mesh)
-//! and `ToadStool` (compute). Full wiring lives in the main Squirrel crate via capability
+//! are intentionally minimal until first-class clients exist for the service mesh
+//! and compute provider. Full wiring lives in the main Squirrel crate via capability
 //! discovery; this crate holds shared types and a stable no-op entry point.
 //!
 //! ## Capabilities This Crate Will Provide
 //!
 //! - `ServiceRegistration` and `EcosystemIntegration` types
 //! - `register_mcp_services()`: Register Squirrel MCP with service mesh
-//! - Future: Songbird client, `ToadStool` client (when those crates exist)
+//! - Future: service mesh client, compute client (when those crates exist)
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
@@ -53,12 +53,12 @@ pub struct ServiceRegistration {
     pub metadata: HashMap<String, String>,
 }
 
-/// Ecosystem integration handle (Phase 2 — `Songbird` / `ToadStool` clients).
+/// Ecosystem integration handle (Phase 2 — service mesh / compute clients).
 ///
 /// Callers should register services and capabilities through the main binary’s
 /// capability discovery path; this struct exists for shared types and a stable API surface.
 pub struct EcosystemIntegration {
-    // Phase 2: Songbird client, ToadStool client (see crate-level docs).
+    // Phase 2: service mesh client, compute client (see crate-level docs).
 }
 
 impl EcosystemIntegration {
@@ -70,7 +70,7 @@ impl EcosystemIntegration {
 
     /// Register Squirrel MCP services with the ecosystem
     ///
-    /// **Phase 2**: No-op until `Songbird` / `ToadStool` clients are wired. The production
+    /// **Phase 2**: No-op until service mesh / compute clients are wired. The production
     /// registration flow is implemented in the main Squirrel crate via capability
     /// discovery and IPC.
     ///

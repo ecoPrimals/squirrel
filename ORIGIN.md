@@ -37,8 +37,7 @@ The framework is grounded in three biological lines of evidence:
   too low for selection to dominate drift, Muller's ratchet degrades quality.
   This defines when constrained evolution fails.
 
-The formal treatment is in `gen3/thesis/03_theoretical_framework.md`
-in the ecoPrimals white paper (see the [ecoPrimals](https://github.com/ecoPrimals/ecoPrimals) repository).
+The formal treatment is in the ecoPrimals white paper (see the [ecoPrimals](https://github.com/ecoPrimals/ecoPrimals) repository).
 
 ---
 
@@ -73,7 +72,7 @@ The methodology:
 4. **Physics as fitness function** — for the science primals (hotSpring,
    wetSpring, etc.), validation suites reproduce published results. For
   infrastructure primals like Squirrel, the fitness function is the test suite
-  (6,800+ tests), chaos/fault injection, and ecosystem integration.
+  (7,165+ tests), chaos/fault injection, and ecosystem integration.
 
 The Cursor receipt is the evidence for the methodology: the commit history and
 agent invocation log show the evolutionary trajectory.
@@ -86,7 +85,7 @@ Squirrel is one of 14 primals. The full catalog is in the
 ecoPrimals white paper (`PRIMAL_CATALOG.md`). Key relationships:
 
 - **biomeOS** routes all AI requests through Squirrel
-- **Songbird** provides HTTP transport for cloud AI providers
+- **Songbird** provides service mesh orchestration and discovery
 - **NestGate** caches model weights
 - **BearDog** encrypts and manages API keys
 - **ToadStool** provides GPU compute for local inference

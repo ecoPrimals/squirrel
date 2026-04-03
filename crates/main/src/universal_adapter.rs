@@ -13,9 +13,9 @@
 //!
 //! ## Architecture
 //!
-//! The adapter follows the Songbird-centric communication model:
+//! The adapter follows the capability-discovered communication model:
 //! ```text
-//! biomeOS → Songbird (Service Mesh) → Squirrel Universal Adapter
+//! biomeOS → Service Mesh (discovery) → Squirrel Universal Adapter
 //!                                           ↓
 //!                        AI Coordination + MCP Protocol + Session Management
 //! ```

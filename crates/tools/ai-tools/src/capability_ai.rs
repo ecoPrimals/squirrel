@@ -5,13 +5,13 @@
 //!
 //! **Evolution**: Direct HTTP → Capability Discovery
 //! - OLD: Direct `reqwest` to OpenAI/Anthropic (brings `ring`!)
-//! - NEW: Discover "ai.chat" capability (Pure Rust via Songbird!)
+//! - NEW: Discover "ai.chat" capability (Pure Rust via capability discovery!)
 //!
 //! **Philosophy**: Deploy like an infant - knows nothing, discovers everything!
-//! - Squirrel doesn't know "Songbird" exists
+//! - Squirrel doesn't know which primal provides a capability
 //! - Squirrel asks: "Who provides ai.chat.completion?"
 //! - Runtime answers: a path from capability discovery (often under `$XDG_RUNTIME_DIR/biomeos/`)
-//! - Could be Songbird, could be any AI proxy primal!
+//! - Could be any AI proxy primal providing the capability!
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,7 @@ impl Default for AiClientConfig {
 /// **NO hardcoded primal names!**
 /// - Discovers "ai.chat.completion" capability at runtime
 /// - Connects to whichever primal provides it
-/// - Currently: Might be Songbird, might be any AI proxy primal
+/// - Currently: Might be any AI proxy primal providing the capability
 /// - Future: Could be multiple providers with failover
 ///
 /// # Examples

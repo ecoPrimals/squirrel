@@ -113,7 +113,7 @@ NestGate's `storage.put` / `storage.get` capabilities are discovered at runtime.
 | Target | Protocol | Status |
 |--------|----------|--------|
 | biomeOS | `lifecycle.register` + 30s heartbeat | Active (when orchestrator detected) |
-| Songbird | `discovery.register` + 30s heartbeat | Active (when Songbird socket detected) |
+| Discovery service | `discovery.register` + 30s heartbeat | Active (when discovery socket detected) |
 
 ## Orchestration
 
@@ -215,13 +215,13 @@ Production code uses `tracing` (`info!`, `warn!`, `error!`, `debug!`).
 | Deploy Graph | `squirrel_deploy.toml` (BYOB pattern) |
 | Orchestration Types | `DeploymentGraphDef`, `GraphNode`, `TickConfig` (ludoSpring wire-compatible) |
 | biomeOS Lifecycle | `lifecycle.register` + 30s heartbeat (when orchestrator detected) |
-| Songbird Discovery | `discovery.register` + 30s heartbeat (when Songbird detected) |
+| Discovery Service | `discovery.register` + 30s heartbeat (when discovery socket detected) |
 | BearDog Crypto | Discovery via biomeOS socket scan |
 | ToadStool AI | Auto-discovered via capability-based biomeOS socket scan |
 | Signal Handling | SIGTERM + SIGINT → socket cleanup + graceful shutdown |
 | Health Probes v3.0 | `health.liveness` + `health.readiness` — PRIMAL_IPC_PROTOCOL v3.0 |
 | Circuit Breaker | `CircuitBreaker` + `RetryPolicy` + `ResilientCaller` for IPC resilience; `StandardRetryPolicy::from_env()` with primal→ecosystem→default chain |
-| Manifest Discovery | `PrimalManifest` scan at `$XDG_RUNTIME_DIR/ecoPrimals/*.json` — Songbird fallback |
+| Manifest Discovery | `PrimalManifest` scan at `$XDG_RUNTIME_DIR/ecoPrimals/*.json` — discovery service fallback |
 | TCP JSON-RPC listener | TCP JSON-RPC listener for remote/tooling access alongside Unix socket transport |
 | Capability domain symlink | `ai.sock` capability-domain symlink for Neural API / biomeOS alignment |
 | Workspace dependency centralization | Shared `[workspace.dependencies]` + `{ workspace = true }` in member crates |
@@ -268,7 +268,7 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Known Issues
 
-1. Coverage at 86.0% — remaining ~4% gap to 90% is primarily demo binaries, IPC/network code needing integration infrastructure, and binary entry points
+1. Coverage at 85.3% — remaining ~5% gap to 90% is primarily demo binaries, IPC/network code needing integration infrastructure, and binary entry points
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs); coverage gap to 90% remains as in item 1
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 

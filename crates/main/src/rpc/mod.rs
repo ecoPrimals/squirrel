@@ -25,8 +25,8 @@
 //!
 //! ## Implementation Notes
 //!
-//! tarpc implementation based on working patterns from Songbird and BearDog primals:
-//! - Uses tarpc 0.34 with tokio-serde 0.8.0
+//! tarpc implementation based on working patterns from ecosystem primals:
+//! - Uses tarpc 0.37 with tokio-serde 0.8.0
 //! - LengthDelimitedCodec for framing
 //! - Bincode for serialization
 //! - Feature-gated behind `tarpc-rpc` feature flag

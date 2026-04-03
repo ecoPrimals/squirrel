@@ -43,5 +43,3 @@ tarpaulin-report.json
 *.tmp
 
 # Build debris
-vis_test
-vis_test2

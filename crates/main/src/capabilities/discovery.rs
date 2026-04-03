@@ -15,10 +15,10 @@
 //! this method (see `jsonrpc_server.rs` - `handle_discover_capabilities` for `capability.discover`),
 //! making Squirrel discoverable by other primals.
 //!
-//! ## Songbird Alignment (Feb 9, 2026)
+//! ## Service Mesh Alignment
 //!
-//! Once Songbird implements its own `discover_capabilities` handler,
-//! Squirrel will auto-discover Songbird's `http.request` capability
+//! Once the discovery service implements its own `discover_capabilities` handler,
+//! Squirrel will auto-discover the `http.request` capability from the mesh
 //! without needing the `HTTP_REQUEST_PROVIDER_SOCKET` env var bypass.
 
 use anyhow::Result;
@@ -487,7 +487,7 @@ async fn query_registry(
 /// 5. `/tmp/` and `/var/run/` (dev/testing fallback)
 ///
 /// This order enables:
-/// - Tower Atomic discovery (BearDog + Songbird)
+/// - Tower Atomic discovery (BearDog + discovery service)
 /// - Node Atomic discovery (Tower + Toadstool)
 /// - Nest Atomic discovery (Tower + NestGate)
 /// - Full NUCLEUS discovery (all primals)
@@ -500,7 +500,7 @@ fn get_socket_directories() -> Vec<PathBuf> {
     }
 
     // Priority 2: Standard biomeOS socket directory (NUCLEUS-compliant!)
-    // This is where BearDog, Songbird, NestGate, Toadstool sockets live
+    // This is where ecosystem primal sockets live (BearDog, NestGate, etc.)
     let uid = nix::unistd::getuid();
     let biomeos_dir = PathBuf::from(format!("/run/user/{uid}/biomeos"));
     if biomeos_dir.exists() {

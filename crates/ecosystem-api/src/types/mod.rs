@@ -4,7 +4,7 @@
 //! Shared types for ecosystem integration
 //!
 //! This module contains all the standardized types used across the ecoPrimals
-//! ecosystem for communication through the Songbird service mesh.
+//! ecosystem for communication through the service mesh.
 //!
 //! Submodules group related types:
 //! - `security` — Security context, levels, and configuration

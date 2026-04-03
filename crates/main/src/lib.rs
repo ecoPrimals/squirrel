@@ -27,10 +27,7 @@
         clippy::default_trait_access,
     )
 )]
-// Progressive lint tightening — categorized by remediation type.
-//
-// ARCHITECTURAL: These require trait/API redesign, not simple code edits.
-// Each will be resolved as the module is refactored.
+// Progressive lint tightening — architectural lints deferred until trait/API stabilization.
 #![expect(
     // Architectural: docs require trait/API stabilization before completion
     missing_docs,
@@ -67,12 +64,12 @@
 // Core modules
 pub mod api;
 pub mod biomeos_integration;
-pub mod capabilities; // NEW - Capability traits (Phase 2)
+pub mod capabilities;
 // capability and capability_registry removed - HTTP-based legacy discovery
 pub mod chaos;
 pub mod compute_client;
 pub mod config;
-pub mod discovery; // NEW - Capability-based discovery (Phase 2)
+pub mod discovery;
 pub mod ecosystem;
 pub mod error;
 /// Error handling utilities and safe operation wrappers.

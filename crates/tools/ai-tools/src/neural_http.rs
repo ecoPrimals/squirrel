@@ -8,7 +8,7 @@
 //!
 //! # TRUE PRIMAL Pattern
 //!
-//! - Zero knowledge of Songbird or `BearDog`
+//! - Zero knowledge of specific primals
 //! - Runtime discovery via `family_id`
 //! - No reqwest, no ring, 100% Pure Rust
 //! - Uses squirrel's autonomous IPC client (primal autonomy)
@@ -62,7 +62,7 @@ impl From<universal_patterns::ipc_client::HttpResponse> for HttpResponse {
 /// # TRUE PRIMAL Pattern
 ///
 /// This client uses squirrel's autonomous IPC client for routing.
-/// Squirrel doesn't know about Songbird or `BearDog` — it just asks for
+/// Squirrel doesn't know about specific primals — it just asks for
 /// "http proxy capability" and the ecosystem routes it.
 ///
 /// # Example

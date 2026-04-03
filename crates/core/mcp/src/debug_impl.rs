@@ -7,8 +7,8 @@
 // in the MCP crate that contain fields which do not implement Debug,
 // such as function pointers and trait objects.
 //
-// This is part of the MCP_CLIPPY_CLEANUP_PLAN.md strategy for addressing
-// Debug trait implementations in Phase 2.
+// Manual Debug implementations are needed where types contain function pointers
+// or trait objects that do not derive Debug.
 
 /// Module containing manual Debug implementations for types with non-Debug fields
 pub mod debug_impls {

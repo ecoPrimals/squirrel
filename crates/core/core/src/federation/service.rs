@@ -46,7 +46,7 @@ pub struct FederationService {
     federation_topology: Arc<RwLock<FederationTopology>>,
     load_balancer: Arc<FederationLoadBalancer>,
     monitoring: Arc<MonitoringService>,
-    // NOTE: HTTP removed - Use Songbird via Unix sockets for federation HTTP calls
+    // NOTE: HTTP removed — use service mesh via Unix sockets for federation HTTP calls
     shutdown_notify: Arc<tokio::sync::Notify>,
     load_metrics: Arc<LoadMetrics>,
     scaling_policy: Arc<ScalingPolicy>,
@@ -100,7 +100,7 @@ impl FederationService {
             scale_factor: 1.5,
         });
 
-        // Note: HTTP client removed - delegate to Songbird for any HTTP needs
+        // Note: HTTP client removed — delegate to service mesh for any HTTP needs
 
         Ok(Self {
             config,
@@ -188,7 +188,7 @@ impl FederationService {
     }
 
     /// Probe a potential federation node
-    /// NOTE: Delegates HTTP to Songbird via Unix sockets (TRUE PRIMAL pattern)
+    /// NOTE: Delegates HTTP to service mesh via Unix sockets (TRUE PRIMAL pattern)
     #[expect(
         clippy::unused_self,
         reason = "Instance method for API symmetry; will use federation state when probing is implemented"
@@ -201,7 +201,7 @@ impl FederationService {
     }
 
     /// Join an existing federation
-    /// NOTE: Delegates HTTP to Songbird via Unix sockets
+    /// NOTE: Delegates HTTP to service mesh via Unix sockets
     #[expect(
         clippy::unused_self,
         reason = "Instance method for API symmetry; will use config/state when join is implemented"
@@ -354,9 +354,9 @@ impl FederationService {
     }
 
     /// Check health of federation nodes
-    /// NOTE: Delegates HTTP health checks to Songbird via Unix sockets
+    /// NOTE: Delegates HTTP health checks to service mesh via Unix sockets
     fn check_federation_health(&self) {
-        // For now, assume all instances are running (HTTP health checking requires Songbird)
+        // For now, assume all instances are running (HTTP health checking requires service mesh)
         for mut entry in self.instances.iter_mut() {
             let (_instance_id, instance) = entry.pair_mut();
             instance.health = InstanceStatus::Running;
@@ -368,19 +368,19 @@ impl FederationService {
     }
 
     /// Check health of local instances
-    /// NOTE: Delegates to Songbird for HTTP health checks
+    /// NOTE: Delegates to service mesh for HTTP health checks
     fn check_instance_health(&self) {
-        // Instance health checking requires HTTP delegation to Songbird
+        // Instance health checking requires HTTP delegation to service mesh
         // Pattern: CapabilityHttpClient::discover("http.client").get(&health_url).await
 
-        // For now, assume all instances are running (to be implemented with Songbird)
+        // For now, assume all instances are running (to be implemented with service mesh)
         for mut entry in self.instances.iter_mut() {
             let (instance_id, instance) = entry.pair_mut();
 
             if instance.health == InstanceStatus::Starting {
                 instance.health = InstanceStatus::Running;
                 tracing::info!(
-                    "Instance {} marked as running (HTTP health check via Songbird)",
+                    "Instance {} marked as running (HTTP health check via service mesh)",
                     instance_id
                 );
             }
@@ -390,7 +390,7 @@ impl FederationService {
     /// Collect current load metrics
     ///
     /// Uses config-driven defaults when real metrics are unavailable.
-    /// Real implementation would delegate to Songbird/metrics exporter.
+    /// Real implementation would delegate to service mesh / metrics exporter.
     fn collect_load_metrics(&self) {
         // Use config-based defaults; real metrics would come from metrics exporter
         let cpu = std::env::var("FEDERATION_CPU_USAGE")
@@ -532,7 +532,7 @@ impl FederationService {
     }
 
     /// Stop a specific instance
-    /// NOTE: Delegates to Songbird for HTTP shutdown request
+    /// NOTE: Delegates to service mesh for HTTP shutdown request
     #[expect(
         clippy::unused_self,
         reason = "Instance method for API symmetry; will use federation state when HTTP shutdown is implemented"
@@ -591,12 +591,12 @@ impl FederationService {
 
     /// Sync federation state with other nodes
     ///
-    /// **Phase 2**: Requires cross-node messaging (e.g. HTTP via Songbird capability
+    /// **Phase 2**: Requires cross-node messaging (e.g. HTTP via service mesh capability
     /// `http.client`) to exchange `FederationStats` and reconcile membership.
     fn sync_federation_state(&self) {
         tracing::trace!(
             federation_id = %self.state.federation_id,
-            "sync_federation_state: deferred to Phase 2 (peer IPC / Songbird)"
+            "sync_federation_state: deferred to Phase 2 (peer IPC / service mesh)"
         );
     }
 

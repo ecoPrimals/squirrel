@@ -83,7 +83,7 @@ Binary:    tarpc with automatic protocol negotiation
 TCP:       JSON-RPC 2.0 over TCP via `--port` (newline-delimited)
 Transport: Unix sockets → Named pipes → TCP (automatic fallback)
 HTTP:      Feature-gated OFF by default (optional dev/test only)
-Lifecycle: biomeOS lifecycle.register + Songbird discovery.register + 30s heartbeat
+Lifecycle: biomeOS lifecycle.register + discovery.register + 30s heartbeat
 Niche:     niche.rs self-knowledge (capabilities, costs, dependencies, consumed)
 Edition:   Rust 2024
 ecoBin:    Pure Rust — zero C dependencies in default build

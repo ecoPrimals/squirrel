@@ -10,10 +10,10 @@ use super::discovery::{ServiceInfo, ServiceQuery};
 
 use async_trait::async_trait;
 
-/// Service mesh client trait for interacting with Songbird
+/// Service mesh client trait for interacting with the service mesh
 ///
-/// This trait provides the interface for communicating with the Songbird
-/// service mesh for service discovery, registration, and health reporting.
+/// This trait provides the interface for communicating with the service mesh
+/// for service discovery, registration, and health reporting.
 #[async_trait]
 pub trait ServiceMeshClient: Send + Sync {
     /// Register a service with the service mesh

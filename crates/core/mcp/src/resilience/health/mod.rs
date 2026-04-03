@@ -34,13 +34,7 @@ use std::time::{Duration, Instant};
 use std::error::Error as StdError;
 use thiserror::Error;
 
-// Re-export types that were previously in health.rs
-// This will be the new canonical location for these types
-// (Instead of referencing them from the parent health.rs file)
 pub use super::resilience_error::{ResilienceError, Result};
-
-// Move all the health.rs contents here
-// (Instead of re-exporting from parent health.rs)
 
 /// Health status of a component
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -41,7 +41,7 @@ cargo doc --all-features --no-deps
 
 ### Architecture
 
-- **JSON-RPC 2.0 + tarpc** for IPC. No gRPC, no axum, no tower.
+- **JSON-RPC 2.0 + tarpc** for IPC. No gRPC. Optional HTTP API via axum (feature-gated, off by default).
 - **Capability-based discovery** at runtime. No hardcoded primal names for routing.
 - **Self-knowledge only**: Squirrel knows its own capabilities; discovers others at runtime.
 - **Zero-copy** where possible: `Arc<str>`, `bytes::Bytes`, `Cow<str>`, `&'static str`.
@@ -51,8 +51,8 @@ cargo doc --all-features --no-deps
 
 - Target: 90% line coverage via `cargo-llvm-cov`.
 - Proptest for round-trip and fuzz.
-- Chaos tests under `tests/chaos/`.
-- E2E workflows under `tests/e2e/`.
+- Chaos tests under `crates/main/tests/chaos/`.
+- E2E workflows under `crates/main/tests/e2e/`.
 - Doctests count as tests.
 
 ## Commit Messages

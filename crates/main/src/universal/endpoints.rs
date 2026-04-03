@@ -43,7 +43,7 @@ impl Default for PrimalEndpoints {
 
         // PRIMAL SELF-KNOWLEDGE PRINCIPLE:
         // Squirrel knows ONLY its own listening configuration from environment.
-        // Discovery of OTHER primals happens at runtime via Songbird.
+        // Discovery of OTHER primals happens at runtime via capability discovery.
 
         let http_port = network::get_port_from_env("SQUIRREL_HTTP_PORT", 9010);
         let grpc_port = network::get_port_from_env("SQUIRREL_GRPC_PORT", 9011);

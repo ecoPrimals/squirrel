@@ -64,9 +64,7 @@ futures = "0.3"
 tracing = { version = "0.1", features = ["log"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-# reqwest REMOVED from workspace - each crate declares it optionally for TRUE ecoBin!
-# Old: reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
-# New: Each crate that needs HTTP declares reqwest as optional with feature flags
+# reqwest declared below under HTTP/AI section; all crate usage is feature-gated (optional)
 #
 # CRYPTO: reqwest 0.12 → rustls 0.23 (pluggable crypto). ecoPrimals target: Pure Rust.
 # Upgrade path: reqwest 0.12 + rustls-tls-manual-roots-no-provider + rustls-rustcrypto/aws-lc-rs.
@@ -109,18 +107,12 @@ secrecy = { version = "0.8", features = ["serde"] }
 zeroize = { version = "1.7", features = ["zeroize_derive"] }
 blake3 = "1.5"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
-# axum REMOVED - NOT ecoPrimals standard (use JSON-RPC + tarpc!)
-# tower REMOVED - NOT ecoPrimals standard  
-# tower-http REMOVED - NOT ecoPrimals standard
+# axum/tower: optional HTTP API surface (feature-gated, off by default). Declared below.
 
 # CLI and command dependencies
 clap = { version = "4.4", features = ["derive"] }
 
-# gRPC REMOVED - NOT ecoPrimals standard!
-# ecoPrimals uses JSON-RPC + tarpc for full Rust ecosystem
-# prost REMOVED
-# prost-types REMOVED  
-# tonic REMOVED - gRPC is NOT our protocol!
+# gRPC (prost/tonic) not used — ecoPrimals uses JSON-RPC + tarpc
 
 # System and utility dependencies (ecoBin v3.0: no sysinfo C dep; use universal_constants::sys_info)
 argon2 = { version = "0.5", features = ["std"] }

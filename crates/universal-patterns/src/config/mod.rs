@@ -23,7 +23,7 @@
 //! * **Environment-specific presets**: Development, staging, production, testing configurations
 //! * **Multi-instance management**: Support for managing multiple primal instances
 //! * **Security integration**: Beardog authentication and encryption support
-//! * **Orchestration support**: Songbird integration for service orchestration
+//! * **Orchestration support**: service mesh integration for service orchestration
 //! * **Flexible networking**: TLS, timeouts, connection limits, service discovery
 //! * **Comprehensive logging**: Multiple outputs, formats, and structured logging
 //! * **Resource management**: Memory, CPU, disk, and file descriptor limits

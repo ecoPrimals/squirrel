@@ -74,7 +74,7 @@ rustls::crypto::aws_lc_rs::default_provider()
 
 1. **reqwest 0.11 → 0.12**: API largely compatible (Client, RequestBuilder, Method). Some users report HTTP/2 timeouts or 400 errors; test before full rollout.
 2. **No-provider setup**: Must call `install_default()` once before any reqwest Client creation. Best done at application startup.
-3. **Transitive deps**: anthropic-sdk already pulls reqwest 0.12; workspace has both 0.11 and 0.12. Unifying to 0.12 reduces duplication.
+3. **Transitive deps**: Workspace unified on reqwest 0.12. No 0.11 remains.
 4. **sqlx**: Workspace uses `runtime-tokio-rustls` which also brings ring. Separate migration path; sqlx may add aws-lc-rs support in future.
 
 ## Recommendation

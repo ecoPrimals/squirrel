@@ -307,24 +307,25 @@ async fn run_server(port: u16, daemon: bool, socket: Option<String>, _verbose: b
         info!("No biomeOS socket found — standalone mode");
     }
 
-    // Songbird service-mesh registration (wetSpring pattern)
-    let shutdown_rx_songbird = shutdown_tx.subscribe();
-    if let Some(songbird_socket) = squirrel::capabilities::discovery_service::discover_socket() {
-        if squirrel::capabilities::discovery_service::register(&songbird_socket, &socket_path).await
+    // Service-mesh registration via discovery socket
+    let shutdown_rx_discovery = shutdown_tx.subscribe();
+    if let Some(discovery_socket) = squirrel::capabilities::discovery_service::discover_socket() {
+        if squirrel::capabilities::discovery_service::register(&discovery_socket, &socket_path)
+            .await
         {
-            info!("Registered with Songbird");
+            info!("Registered with discovery service");
 
-            let _songbird_heartbeat =
+            let _discovery_heartbeat =
                 squirrel::capabilities::discovery_service::start_heartbeat_loop(
-                    songbird_socket,
+                    discovery_socket,
                     socket_path.clone(),
                     std::time::Duration::from_secs(30),
-                    shutdown_rx_songbird,
+                    shutdown_rx_discovery,
                 );
-            info!("Songbird heartbeat started (30s interval)");
+            info!("Discovery heartbeat started (30s interval)");
         }
     } else {
-        info!("No Songbird socket found — peer discovery unavailable");
+        info!("No discovery socket found — peer discovery unavailable");
     }
 
     info!("Press Ctrl+C to stop");
