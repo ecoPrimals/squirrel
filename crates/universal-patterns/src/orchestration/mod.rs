@@ -3,7 +3,7 @@
 
 //! Orchestration integration module for universal patterns
 //!
-//! This module provides orchestration patterns and integration with Songbird
+//! Provides orchestration patterns and service-mesh integration
 //! for consistent task management and coordination across all primals.
 
 use std::collections::HashMap;

@@ -5,7 +5,7 @@
 //!
 //! **Philosophy**: Zero hardcoding through pure capability-based discovery
 //!
-//! Following Songbird's proven patterns for runtime service discovery.
+//! Uses ecosystem-standard patterns for runtime service discovery.
 //!
 //! ## Core Principles
 //! 1. **Self-Knowledge Only**: Each primal knows only itself

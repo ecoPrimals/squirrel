@@ -5,7 +5,7 @@
 #![expect(dead_code, reason = "API surface awaiting consumer activation")]
 //!
 //! This adapter works with ANY AI provider via Unix socket communication,
-//! discovered through Songbird's capability-based discovery system.
+//! discovered through the ecosystem's capability-based discovery system.
 //!
 //! ## TRUE PRIMAL Philosophy
 //!
@@ -17,8 +17,8 @@
 //! ## Example Usage
 //!
 //! ```rust,ignore
-//! // Discover AI providers via Songbird
-//! let text_gen_providers = songbird
+//! // Discover AI providers via service mesh
+//! let text_gen_providers = discovery
 //!     .discover_by_capability("ai:text-generation")
 //!     .await?;
 //!
@@ -104,7 +104,7 @@ pub struct ProviderMetadata {
 
 /// Universal AI Adapter
 ///
-/// Works with any AI provider discovered via Songbird capability-based discovery.
+/// Works with any AI provider discovered via capability-based discovery.
 /// Communicates via Unix sockets using JSON-RPC protocol.
 pub struct UniversalAiAdapter {
     /// Unix socket path to the provider
@@ -121,7 +121,7 @@ pub struct UniversalAiAdapter {
 }
 
 impl UniversalAiAdapter {
-    /// Create adapter from Songbird discovery result
+    /// Create adapter from a discovery result
     ///
     /// # Arguments
     ///

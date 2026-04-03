@@ -4,12 +4,12 @@
 #![allow(warnings)]
 //! MCP Core Only Tests
 //!
-//! Tests ONLY the core MCP functionality that should remain in Squirrel.
-//! Everything else was moved to other projects during the tearout:
-//! - Web → Songbird
-//! - Compute/Storage → ToadStool/NestGate  
-//! - Security → `BearDog`
-//! - Complex monitoring → Distributed
+//! Tests ONLY the core MCP functionality that remains in Squirrel.
+//! Other concerns were moved to sibling primals during the tearout:
+//! - Web/orchestration → service mesh (discovered at runtime)
+//! - Compute/Storage → ToadStool/NestGate
+//! - Security → BearDog
+//! - Complex monitoring → distributed observability
 
 type Result<T> = std::result::Result<T, squirrel::error::PrimalError>;
 use squirrel::{PrimalError, VERSION};
@@ -87,10 +87,6 @@ fn test_error_display_formatting() {
 // The SimpleMCPIntegration was part of deprecated hardcoded primal modules
 // Use CapabilityRegistry for service discovery instead
 
-// Note: All other tests removed because they test functionality moved to other projects:
-// ❌ Web integration tests → Songbird
-// ❌ Storage/compute tests → ToadStool/NestGate
-// ❌ Security tests → BearDog
-// ❌ Complex monitoring → Distributed
-// ❌ Session/transport tests → May belong elsewhere
-// ❌ Tool management tests → May belong elsewhere
+// Remaining tests were moved to their respective primals during the tearout:
+// Web/orchestration → service mesh, Storage/compute → ToadStool/NestGate,
+// Security → BearDog, Monitoring → distributed observability.

@@ -6,7 +6,7 @@
 //!
 //! Follows the ecoPrimals niche pattern established by groundSpring, wetSpring,
 //! and airSpring. Every primal defines its self-knowledge in a single module so
-//! that biomeOS, Songbird, and the Pathway Learner can reason about it without
+//! that biomeOS, the service mesh, and the Pathway Learner can reason about it without
 //! hardcoded primal names or port numbers.
 //!
 //! This module holds:
@@ -20,7 +20,7 @@
 //!
 //! Other modules reference these constants rather than duplicating string
 //! literals. Squirrel only knows itself — it discovers other primals at
-//! runtime via capability-based discovery through Songbird.
+//! runtime via capability-based discovery.
 
 use universal_constants::primal_names;
 
@@ -122,7 +122,7 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
 
 /// Consumed capabilities — what Squirrel calls on other primals.
 ///
-/// Squirrel discovers these at runtime via Songbird; it never hardcodes
+/// Squirrel discovers these at runtime via capability discovery; it never hardcodes
 /// which primal provides them. The Pathway Learner uses this list to
 /// ensure required capabilities are available before routing to Squirrel.
 pub const CONSUMED_CAPABILITIES: &[&str] = &[
@@ -134,7 +134,7 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "secrets.retrieve",
     "secrets.list",
     "secrets.delete",
-    // Discovery (Songbird)
+    // Discovery (service mesh)
     "discovery.register",
     "discovery.find_primals",
     "discovery.query",

@@ -3,8 +3,8 @@
 
 //! Universal Orchestration Adapter
 //!
-//! Capability-based orchestration coordination that can work with Songbird or any
-//! orchestration primal that provides the required coordination capabilities.
+//! Capability-based orchestration coordination that works with any primal
+//! providing the required coordination capabilities (discovered at runtime).
 
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -7,7 +7,7 @@
 //!
 //! NOTE: This module is not actively maintained. Future rebuild will use capability_ai
 //! and Universal Transport abstractions. HTTP API was removed in favor of socket-based
-//! communication. See: crates/universal-patterns/src/transport.rs
+//! communication. See: `universal_patterns::transport`
 
 pub mod neural_graph;
 mod schemas;

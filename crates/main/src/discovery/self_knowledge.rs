@@ -4,8 +4,8 @@
 
 //! Primal Self-Knowledge - Each primal knows ONLY itself
 //!
-//! Following Songbird's sovereignty principle: primals discover their OWN identity
-//! at runtime, with ZERO hardcoded knowledge of other primals.
+//! Sovereignty principle: primals discover their own identity at runtime,
+//! with zero hardcoded knowledge of other primals.
 
 use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
 use serde::{Deserialize, Serialize};
