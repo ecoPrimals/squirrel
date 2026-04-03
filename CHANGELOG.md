@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.33] - 2026-04-03
+
+Dead-code removal, test idiomacy, concurrency-model improvements.
+7,165 tests passing, zero clippy warnings, all gates green.
+
+### Removed
+
+- **65,910 lines of orphan dead code in `squirrel-mcp`** — ~246 files that existed on disk but
+  were never compiled (not declared in `mod.rs`). Included entire orphan module trees:
+  `observability/`, `tool/`, `monitoring/`, `plugins/`, `integration/`, `sync/`,
+  `context_manager/`, `client/`, `session/`, `server/`, `port/`, `message/`, `registry/`,
+  `message_router/`, `context_adapter/`, plus orphan protocol adapter, transport TCP/memory/stdio,
+  resilience circuit-breaker/bulkhead/recovery/state-sync, and 12 loose root-level `.rs` files.
+  All preserved in git history as fossil record.
+
+### Changed
+
+- **`CommandRegistry` `Mutex` → `RwLock`** — `commands` and `resources` maps converted from
+  `Arc<Mutex<>>` to `Arc<RwLock<>>` for concurrent reads; `register()` / `set_resource()` /
+  `remove_resource()` take write locks; all other accessors take read locks.
+- **`CommandRegistry::execute` signature** — `args: &Vec<String>` → `args: &[String]` (idiomatic
+  Rust, avoids `clippy::ptr_arg`)
+- **IPC client timeout test** — replaced 60-second `tokio::time::sleep` with
+  `std::future::pending()` (server never responds; client timeout fires instantly at 80ms)
+- **Context adapter TTL test** — reduced from 3s sleep to 2.1s with 1s TTL (saves ~1s per run)
+- **Learning integration test** — tightened background sync wait from 120ms to 50ms (proportional
+  to 30ms interval)
+- **Resilience `mod.rs` doc comment** — removed references to orphan modules that no longer exist
+- **Protocol `mod.rs`** — removed stale adapter wiring comment
+
 ## [0.1.0-alpha.32] - 2026-04-03
 
 Build fix, primalSpring audit remediation, capability-domain decoupling wave 2.

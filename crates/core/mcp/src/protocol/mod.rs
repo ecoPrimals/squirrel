@@ -50,7 +50,3 @@ impl Default for SimpleMCPProtocol {
         Self
     }
 }
-
-// `protocol/adapter/` holds the split `MCPProtocolAdapter` implementation (see `adapter/mod.rs`).
-// It is not yet wired into this `protocol` module; enable when `MCPProtocolBase` / `ProtocolConfig`
-// are unified in the public protocol graph.

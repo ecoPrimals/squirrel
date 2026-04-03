@@ -977,7 +977,8 @@ async fn test_learning_integration_start_runs_background_sync_tick() {
     let integration = LearningIntegration::new(config).await.expect("integration");
     integration.initialize().await.expect("init");
     integration.start().await.expect("start");
-    tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    // Let at least one sync interval fire (30ms configured above)
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     integration.stop().await.expect("stop");
     let state = integration.get_state().await;
     assert!(matches!(

@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use tracing::{debug, error, info, warn};
@@ -87,19 +87,18 @@ impl LockTimer {
 /// Registry for storing and executing commands
 #[derive(Clone)]
 pub struct CommandRegistry {
-    /// Map of command names to command implementations
-    commands: Arc<Mutex<HashMap<String, Arc<dyn Command>>>>,
+    /// Map of command names to command implementations (read-heavy, write at startup)
+    commands: Arc<RwLock<HashMap<String, Arc<dyn Command>>>>,
     /// Post-execution hooks
     post_hooks: Arc<Mutex<Vec<Arc<dyn Fn(&str, &CommandResult<String>) + Send + Sync>>>>,
     /// Resource storage for sharing data between commands
-    resources: Arc<Mutex<HashMap<String, Arc<dyn std::any::Any + Send + Sync>>>>,
+    resources: Arc<RwLock<HashMap<String, Arc<dyn std::any::Any + Send + Sync>>>>,
 }
 
 // Manual implementation of Debug for CommandRegistry
 impl fmt::Debug for CommandRegistry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Try to acquire the lock - if we can't, just show a placeholder
-        match self.commands.lock() {
+        match self.commands.read() {
             Ok(commands) => {
                 let command_names: Vec<_> = commands.keys().collect();
                 f.debug_struct("CommandRegistry")
@@ -120,9 +119,9 @@ impl CommandRegistry {
     pub fn new() -> Self {
         debug!("Creating new CommandRegistry instance");
         Self {
-            commands: Arc::new(Mutex::new(HashMap::new())),
+            commands: Arc::new(RwLock::new(HashMap::new())),
             post_hooks: Arc::new(Mutex::new(Vec::new())),
-            resources: Arc::new(Mutex::new(HashMap::new())),
+            resources: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -139,9 +138,8 @@ impl CommandRegistry {
     pub fn register(&self, name: &str, command: Arc<dyn Command>) -> CommandResult<()> {
         let timer = LockTimer::new(&format!("register_{name}"));
 
-        // Get a lock on the commands map
-        let mut commands = self.commands.lock().map_err(|e| {
-            error!("Registry: Failed to acquire lock for register: {}", e);
+        let mut commands = self.commands.write().map_err(|e| {
+            error!("Registry: Failed to acquire write lock for register: {}", e);
             CommandError::RegistryError(format!("Failed to acquire lock: {e}"))
         })?;
 
@@ -168,35 +166,26 @@ impl CommandRegistry {
     /// # Errors
     ///
     /// Returns an error if the command does not exist or if execution fails
-    pub fn execute(&self, name: &str, args: &Vec<String>) -> CommandResult<String> {
+    pub fn execute(&self, name: &str, args: &[String]) -> CommandResult<String> {
         let timer = LockTimer::new(&format!("execute_{name}"));
         debug!(
             "Registry: Executing command '{}' with args {:?}",
             name, args
         );
 
-        // Get the command instance
         let command = {
-            // Get a lock on the commands map
-            let commands = self.commands.lock().map_err(|e| {
-                error!("Registry: Failed to acquire lock for execute: {}", e);
+            let commands = self.commands.read().map_err(|e| {
+                error!("Registry: Failed to acquire read lock for execute: {}", e);
                 CommandError::RegistryError(format!("Failed to acquire lock: {e}"))
             })?;
 
-            // Check if the command exists
-            if !commands.contains_key(name) {
-                return Err(CommandError::CommandNotFound(name.to_string()));
-            }
-
-            // Clone the command to avoid holding the lock during execution
             commands
                 .get(name)
                 .ok_or_else(|| CommandError::CommandNotFound(name.to_string()))?
                 .clone()
-        }; // Lock is released here
+        };
 
         timer.end();
-        debug!("Registry: Lock released before command execution");
 
         // Execute the command without holding the lock
         let start = Instant::now();
@@ -229,13 +218,14 @@ impl CommandRegistry {
     pub fn list_commands(&self) -> CommandResult<Vec<String>> {
         let timer = LockTimer::new("list_commands");
 
-        // Get a lock on the commands map
-        let commands = self.commands.lock().map_err(|e| {
-            error!("Registry: Failed to acquire lock for list_commands: {}", e);
+        let commands = self.commands.read().map_err(|e| {
+            error!(
+                "Registry: Failed to acquire read lock for list_commands: {}",
+                e
+            );
             CommandError::RegistryError(format!("Failed to acquire lock: {e}"))
         })?;
 
-        // Get the list of command names
         let result = commands.keys().cloned().collect();
         let count = commands.len();
 
@@ -257,28 +247,19 @@ impl CommandRegistry {
     pub fn get_help(&self, name: &str) -> CommandResult<String> {
         let timer = LockTimer::new(&format!("get_help_{name}"));
 
-        // Get the command instance
         let command = {
-            // Get a lock on the commands map
-            let commands = self.commands.lock().map_err(|e| {
-                error!("Registry: Failed to acquire lock for get_help: {}", e);
+            let commands = self.commands.read().map_err(|e| {
+                error!("Registry: Failed to acquire read lock for get_help: {}", e);
                 CommandError::RegistryError(format!("Failed to acquire lock: {e}"))
             })?;
 
-            // Check if the command exists
-            if !commands.contains_key(name) {
-                return Err(CommandError::CommandNotFound(name.to_string()));
-            }
-
-            // Clone the command to avoid holding the lock during help generation
             commands
                 .get(name)
                 .ok_or_else(|| CommandError::CommandNotFound(name.to_string()))?
                 .clone()
-        }; // Lock is released here
+        };
 
         timer.end();
-        debug!("Registry: Lock released before generating help");
 
         // Get the help text without holding the lock
         Ok(command.help())
@@ -294,7 +275,7 @@ impl CommandRegistry {
     ///
     /// Returns an error if the command does not exist
     pub fn get_command(&self, name: &str) -> CommandResult<Box<dyn Command>> {
-        let commands = self.commands.lock().map_err(|_| {
+        let commands = self.commands.read().map_err(|_| {
             CommandError::ExecutionError("Failed to acquire lock on command registry".to_string())
         })?;
 
@@ -323,7 +304,7 @@ impl CommandRegistry {
     ///
     /// Returns an error if the command registry cannot be locked
     pub fn command_exists(&self, name: &str) -> CommandResult<bool> {
-        let commands = self.commands.lock().map_err(|e| {
+        let commands = self.commands.read().map_err(|e| {
             CommandError::ExecutionError(format!("Failed to acquire lock on command registry: {e}"))
         })?;
 
@@ -384,7 +365,7 @@ impl CommandRegistry {
     ) -> CommandResult<()> {
         let timer = LockTimer::new("set_resource");
 
-        match self.resources.lock() {
+        match self.resources.write() {
             Ok(mut resources) => {
                 resources.insert(name.to_string(), Arc::new(resource));
                 timer.complete();
@@ -407,7 +388,7 @@ impl CommandRegistry {
 
     /// Get a resource from the registry
     pub fn get_resource<T: std::any::Any + Send + Sync>(&self, name: &str) -> Option<Arc<T>> {
-        if let Ok(resources) = self.resources.lock() {
+        if let Ok(resources) = self.resources.read() {
             if let Some(resource) = resources.get(name) {
                 if let Ok(typed_resource) = resource.clone().downcast::<T>() {
                     debug!("Registry: Retrieved resource '{}'", name);
@@ -428,7 +409,7 @@ impl CommandRegistry {
     pub fn remove_resource(&self, name: &str) -> CommandResult<bool> {
         let timer = LockTimer::new("remove_resource");
 
-        match self.resources.lock() {
+        match self.resources.write() {
             Ok(mut resources) => {
                 let removed = resources.remove(name).is_some();
                 timer.complete();
@@ -455,7 +436,7 @@ impl CommandRegistry {
 
     /// List all available resource names
     pub fn list_resources(&self) -> Vec<String> {
-        if let Ok(resources) = self.resources.lock() {
+        if let Ok(resources) = self.resources.read() {
             resources.keys().cloned().collect()
         } else {
             warn!("Registry: Failed to acquire resources lock for list");

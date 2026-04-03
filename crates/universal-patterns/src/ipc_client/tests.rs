@@ -612,7 +612,9 @@ mod unix_socket_call_tests {
             let (mut stream, _) = listener.accept().await.expect("should succeed");
             let mut buf = vec![0u8; 16384];
             let _ = stream.read(&mut buf).await;
-            tokio::time::sleep(Duration::from_secs(60)).await;
+            // Never respond — client should hit its 80ms timeout without
+            // the server needing to block for 60 seconds.
+            std::future::pending::<()>().await;
             let _ = stream.write_all(b"{}").await;
         });
 

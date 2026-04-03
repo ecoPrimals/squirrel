@@ -3,9 +3,8 @@
 
 //! Resilience framework for the MCP protocol
 //!
-//! Core retry policy and mechanism are published here. Heavier components
-//! (circuit breaker, bulkhead, recovery, etc.) live under `src/resilience/` but
-//! are not yet wired into the crate root build.
+//! Provides retry policy, backoff strategy, and error types for resilient
+//! request handling.
 
 pub mod resilience_error;
 pub mod retry;

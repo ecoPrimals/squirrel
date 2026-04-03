@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: April 3, 2026
-**Version**: 0.1.0-alpha.32
+**Version**: 0.1.0-alpha.33
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -273,6 +273,16 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 
 ## Changes Since Last Handoff (April 3, 2026)
+
+### April 3, 2026 session G (Dead-code removal, test idiomacy, concurrency-model improvements)
+
+- **65,910 lines of orphan dead code removed** from `squirrel-mcp` — ~246 files existed on disk but were never compiled (not declared in `mod.rs`); entire orphan module trees removed: `observability/`, `tool/`, `monitoring/`, `plugins/`, `integration/`, `sync/`, `context_manager/`, `client/`, `session/`, `server/`, plus orphan protocol adapter, transport TCP/memory/stdio, resilience circuit-breaker/bulkhead/recovery/state-sync, and 12 loose root-level `.rs` files
+- **`CommandRegistry` `Mutex` → `RwLock`** — `commands` and `resources` maps converted for concurrent reads; `execute` signature fixed (`&Vec<String>` → `&[String]`)
+- **IPC client timeout test** — 60s `tokio::time::sleep` → `std::future::pending()` (zero wasted time)
+- **Context adapter TTL test** — 3s → 2.1s sleep with 1s TTL
+- **Learning integration test** — 120ms → 50ms background sync wait
+- **Remaining sleep audit** — all `thread::sleep` in compiled code confirmed legitimate (sync tests, wall-clock timestamp resolution); all `tokio::time::sleep` in compiled tests confirmed necessary (rate limiter refill, chaos harnesses, security alerting pipelines)
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓, `test 7,165/0/110` ✓, `deny` ✓
 
 ### April 3, 2026 session F (primalSpring audit: build fix, capability-domain decoupling wave 2)
 

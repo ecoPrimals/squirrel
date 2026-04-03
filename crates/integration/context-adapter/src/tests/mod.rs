@@ -369,10 +369,10 @@ async fn test_configuration_update() {
 async fn test_cleanup_expired_contexts() {
     use tokio::time::{Duration, sleep};
 
-    // Create adapter with short TTL for testing
+    // Create adapter with minimum TTL for testing
     let config = ContextAdapterConfig {
         max_contexts: 100,
-        ttl_seconds: 2, // 2 second TTL
+        ttl_seconds: 1,
         enable_auto_cleanup: true,
         enable_plugins: true,
     };
@@ -395,8 +395,9 @@ async fn test_cleanup_expired_contexts() {
         2
     );
 
-    // Wait for TTL to expire
-    sleep(Duration::from_secs(3)).await; // Wait 3 seconds to ensure expiry
+    // Wait for TTL to expire. cleanup_expired uses `num_seconds() > ttl`,
+    // so with ttl_seconds=1 we need age >= 2s for the integer comparison.
+    sleep(Duration::from_millis(2100)).await;
 
     // Run cleanup
     adapter
