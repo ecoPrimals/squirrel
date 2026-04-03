@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Configuration for the MCP routing service
-#[allow(
+#[expect(
     clippy::struct_excessive_bools,
     reason = "Serde-facing config mirrors independent feature toggles from the routing schema"
 )]
@@ -73,7 +73,7 @@ pub enum LoadBalancingStrategy {
 }
 
 /// Configuration for agent selection behavior
-#[allow(
+#[expect(
     clippy::struct_excessive_bools,
     reason = "Selection policy flags are orthogonal knobs exposed in serialized configuration"
 )]

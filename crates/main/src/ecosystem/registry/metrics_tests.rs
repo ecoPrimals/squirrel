@@ -7,7 +7,6 @@
 
 #[cfg(test)]
 mod tests {
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
     use super::super::metrics::MetricsOps;
     use super::super::types::{DiscoveredService, ServiceHealthStatus};
     use crate::ecosystem::EcosystemPrimalType;

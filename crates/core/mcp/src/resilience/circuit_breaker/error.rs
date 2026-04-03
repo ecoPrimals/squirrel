@@ -145,6 +145,8 @@ impl From<String> for BreakerError {
     }
 }
 
+/// Interoperability with boxed errors from generic execution paths. The failure is recorded as
+/// [`BreakerError::OperationFailed`] with name `"unknown"` and the boxed error’s display text.
 impl From<Box<dyn Error + Send + Sync>> for BreakerError {
     fn from(e: Box<dyn Error + Send + Sync>) -> Self {
         Self::operation_failed("unknown", e.to_string())

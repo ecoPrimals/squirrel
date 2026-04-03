@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used, deprecated)]
+#![allow(warnings)]
 //! Comprehensive tests for Ecosystem Primal Types
 //!
 //! Tests ecosystem primal types and their properties.

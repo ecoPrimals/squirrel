@@ -3,7 +3,7 @@
 
 // NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
 // The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
-#![allow(
+#![expect(
     deprecated,
     reason = "Uses deprecated plugin::PluginMetadata until interfaces crate stabilizes (see module note)"
 )]
@@ -107,7 +107,6 @@ pub trait WebPluginExtV2: PluginV2 {
 
 /// Helper struct to adapt `PluginV2` to Plugin for backward compatibility
 #[derive(Debug)]
-#[allow(dead_code, reason = "used via adapt_plugin_v2 in tests")]
 pub struct PluginWrapper<T: PluginV2> {
     inner: T,
 }
@@ -139,7 +138,13 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
 }
 
 /// Helper function to adapt a `PluginV2` to Plugin (used in tests)
-#[allow(dead_code, reason = "adapter used in tests via re-export")]
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "Test and adapter entry point for PluginV2 → Plugin"
+    )
+)]
 pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
     Arc::new(PluginWrapper::new(plugin))
 }

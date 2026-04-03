@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
+#![allow(warnings)]
 //! Tests for capability discovery - env var, error paths, `DiscoveryError`
 
 use squirrel::capabilities::discovery::{CapabilityProvider, DiscoveryError, discover_capability};

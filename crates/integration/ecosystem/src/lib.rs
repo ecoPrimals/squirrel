@@ -92,7 +92,10 @@ impl Default for EcosystemIntegration {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
+#[expect(
+    clippy::expect_used,
+    reason = "Serde test round-trips use expect on known-good values"
+)]
 mod tests {
     use super::*;
 

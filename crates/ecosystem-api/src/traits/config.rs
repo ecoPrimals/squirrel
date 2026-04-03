@@ -164,7 +164,7 @@ pub struct ResourceConfig {
 
 /// Feature flags
 #[derive(Debug, Clone)]
-#[allow(
+#[expect(
     clippy::struct_excessive_bools,
     reason = "Independent toggles for runtime features"
 )]

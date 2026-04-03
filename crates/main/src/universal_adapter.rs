@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 #![expect(deprecated, reason = "Backward compatibility during migration")]
-#![allow(
+#![expect(
     dead_code,
     reason = "Universal adapter fields used by ecosystem at runtime"
 )]

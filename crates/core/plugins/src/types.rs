@@ -38,8 +38,11 @@ pub enum PluginType {
 }
 
 /// Plugin state enumeration (reserved for plugin state management system)
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Phase 2 / reserved for plugin state management")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(dead_code, reason = "reserved for plugin state management system")]
 pub enum PluginState {
     /// Plugin is loaded and ready
     Loaded,
@@ -54,8 +57,11 @@ pub enum PluginState {
 }
 
 /// Plugin data format enumeration (reserved for plugin data serialization system)
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Phase 2 / reserved for plugin data serialization")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(dead_code, reason = "reserved for plugin data serialization system")]
 pub enum PluginDataFormat {
     /// JSON format
     Json,

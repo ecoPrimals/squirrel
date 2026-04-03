@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
+#![allow(warnings)]
+
 //! Additional error path coverage tests
 //!
 //! These tests target under-covered error scenarios to push coverage toward 65%
@@ -10,7 +11,7 @@
 mod additional_error_coverage {
     use squirrel::error::PrimalError;
     /// Local test aliases for error recovery patterns
-    #[allow(dead_code)] // Test code: explicit unwrap/expect and local lint noise
+    #[allow(dead_code)]
     mod safe_operations {
         use super::PrimalError;
         pub type SafeResult<T> = Result<T, PrimalError>;

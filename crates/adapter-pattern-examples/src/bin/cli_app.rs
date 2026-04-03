@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 // CLI Application Example
 //!
 //! This example demonstrates a complete command-line application built using the adapter pattern,

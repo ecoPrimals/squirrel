@@ -44,8 +44,8 @@ pub struct WebSocketConfig {
 impl Default for WebSocketConfig {
     fn default() -> Self {
         Self {
-            bind_address: "127.0.0.1".to_string(),
-            port: 8080,
+            bind_address: universal_constants::network::get_bind_address(),
+            port: universal_constants::network::get_service_port("websocket"),
             timeout_seconds: 30,
             max_connections: 100,
             buffer_size: 1024,
@@ -208,7 +208,7 @@ impl WebSocketServer {
     }
 
     /// Handle a WebSocket connection
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "WebSocket handler configuration; builder refactor planned"
     )]

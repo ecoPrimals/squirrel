@@ -67,7 +67,7 @@ pub struct JsonRpcServer {
     pub(crate) service_name: String,
 
     /// Legacy socket path (kept for backward compatibility, used as fallback)
-    #[allow(
+    #[expect(
         dead_code,
         reason = "written during construction; reserved for fallback path"
     )]
@@ -515,7 +515,7 @@ impl JsonRpcServer {
     /// Note: New code should use handle_universal_connection() instead.
     /// This method is kept for any legacy direct Unix socket usage.
     #[deprecated(note = "Use handle_universal_connection() with UniversalTransport instead")]
-    #[allow(dead_code, reason = "deprecated legacy path; kept for fallback")]
+    #[expect(dead_code, reason = "deprecated legacy path; kept for fallback")]
     async fn handle_connection<S>(&self, stream: S) -> Result<()>
     where
         S: AsyncRead + AsyncWrite + Unpin,

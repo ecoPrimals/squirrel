@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
+#![expect(
     clippy::option_if_let_else,
     clippy::unnecessary_map_or,
     clippy::unused_self,
@@ -140,22 +140,22 @@ pub use jwt::JwtTokenManager;
 /// Returns [`AuthError`] if initialization fails.
 pub fn initialize() -> AuthResult<()> {
     // Multi-tier security endpoint resolution
-    let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT").unwrap_or_else(|_| {
-        let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
-            .ok()
-            .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or(8443); // Default security auth port
-        format!("http://localhost:{port}")
-    });
+    let security_endpoint = universal_constants::network::discover_peer_http_origin(
+        "SECURITY_SERVICE_ENDPOINT",
+        "SECURITY_SERVICE_HOST",
+        "SECURITY_AUTHENTICATION_PORT",
+        universal_constants::network::DEFAULT_LOCALHOST,
+        8443,
+    );
 
     // Multi-tier MCP endpoint resolution
-    let mcp_endpoint = std::env::var("MCP_ENDPOINT").unwrap_or_else(|_| {
-        let port = std::env::var("MCP_PORT")
-            .ok()
-            .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or(8444); // Default MCP HTTP port
-        format!("http://127.0.0.1:{port}")
-    });
+    let mcp_endpoint = universal_constants::network::discover_peer_http_origin(
+        "MCP_ENDPOINT",
+        "MCP_HOST",
+        "MCP_PORT",
+        universal_constants::network::LOCALHOST_IPV4,
+        8444,
+    );
 
     #[cfg(feature = "delegated-jwt")]
     tracing::info!(

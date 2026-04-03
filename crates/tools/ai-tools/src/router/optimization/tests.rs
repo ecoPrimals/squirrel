@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
+#![expect(
+    clippy::expect_used,
+    reason = "Router optimization tests use expect on test fixtures"
+)]
 
 use super::*;
 use crate::common::capability::{

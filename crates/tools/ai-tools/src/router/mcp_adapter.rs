@@ -8,8 +8,10 @@
 //!
 //! Production [`MCPAdapter::send_request`] returns an error until the adapter is
 //! connected to a live MCP endpoint via capability discovery.
-//! [`MCPAdapter::discover_capabilities`] returns an empty map outside tests.
-//! Test-only injection uses `#[cfg(test)]` helpers on [`MCPAdapter`].
+//! [`MCPAdapter::discover_capabilities`] logs at debug level and returns an empty
+//! map until MCP transport is wired (Phase 2); empty means no capabilities
+//! discovered yet. Tests inject capabilities via `#[cfg(test)]` helpers on
+//! [`MCPAdapter`].
 
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -67,9 +69,12 @@ pub struct MCPAdapter {
 impl MCPAdapter {
     /// Create a new MCP adapter
     #[must_use]
-    #[allow(
-        clippy::missing_const_for_fn,
-        reason = "Test-only RwLock::new in struct literal is not const"
+    #[cfg_attr(
+        not(test),
+        expect(
+            clippy::missing_const_for_fn,
+            reason = "Would be const if not for cfg(test) mock RwLock fields"
+        )
     )]
     pub fn new(config: MCPAdapterConfig) -> Self {
         Self {
@@ -181,13 +186,25 @@ impl MCPInterface for MCPAdapter {
         ))
     }
 
+    /// Discover capabilities from MCP peers.
+    ///
+    /// Non-test builds log at debug level and return an empty map until the MCP
+    /// transport queries the registry (Phase 2). An empty map is the correct
+    /// representation when nothing has been discovered yet — not a silent stub.
     async fn discover_capabilities(
         &self,
     ) -> Result<HashMap<NodeId, HashMap<String, AICapabilities>>> {
+        #[cfg(not(test))]
+        {
+            tracing::debug!(
+                "MCP capability discovery not yet wired to transport; returning empty capability map"
+            );
+        }
+
         #[cfg(test)]
         let mut all_capabilities = HashMap::new();
         #[cfg(not(test))]
-        let all_capabilities = HashMap::new(); // Placeholder until MCP protocol wired (Phase 2)
+        let all_capabilities = HashMap::new();
 
         // Include mock capabilities for testing
         #[cfg(test)]

@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
+#![expect(
+    clippy::expect_used,
+    reason = "MCP CLI client tests use expect on I/O and JSON fixtures"
+)]
 
 use super::*;
 use serde_json::json;

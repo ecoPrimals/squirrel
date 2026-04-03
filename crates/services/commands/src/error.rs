@@ -110,6 +110,9 @@ impl From<&str> for CommandError {
     }
 }
 
+/// Blanket conversion for call sites that surface `Box<dyn Error + Send + Sync>` (e.g. generic
+/// helpers or `?` from boxed sources). The original error is preserved only as its display string
+/// via [`CommandError::Other`]; use typed [`From`] impls above when the concrete type is known.
 impl From<Box<dyn Error + Send + Sync>> for CommandError {
     fn from(err: Box<dyn Error + Send + Sync>) -> Self {
         CommandError::Other(err.to_string())

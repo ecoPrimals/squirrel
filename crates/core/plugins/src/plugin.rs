@@ -191,7 +191,7 @@ pub trait WebPluginExt: Plugin {
 
 #[cfg(test)]
 mod tests {
-    #![allow(deprecated)]
+    #![expect(deprecated)]
 
     use super::*;
     use uuid::Uuid;

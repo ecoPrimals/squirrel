@@ -387,7 +387,10 @@ pub mod internal {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
+#[expect(
+    clippy::expect_used,
+    reason = "Unit tests use expect on known-good values"
+)]
 mod tests {
     use super::*;
 

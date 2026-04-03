@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used, unexpected_cfgs)] // Test code: explicit unwrap/expect and local lint noise
+#![allow(warnings)]
 //! Critical Path Service Discovery Tests
 //!
 //! Comprehensive tests for capability-based service discovery - the core

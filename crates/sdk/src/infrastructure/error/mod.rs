@@ -220,7 +220,13 @@ pub type ConfigResult<T> = std::result::Result<T, PluginError>;
 
 /// Error handling utilities
 pub mod utils {
-    #![allow(clippy::wildcard_imports)] // Aligned with parent module re-exports
+    #![cfg_attr(
+        not(test),
+        expect(
+            clippy::wildcard_imports,
+            reason = "Aligned with parent module re-exports"
+        )
+    )]
 
     use super::*;
 
@@ -298,7 +304,7 @@ pub mod utils {
 
 #[cfg(test)]
 mod mod_tests {
-    #![allow(deprecated)]
+    #![expect(deprecated)]
     use super::*;
 
     #[test]

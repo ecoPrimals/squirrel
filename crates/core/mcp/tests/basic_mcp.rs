@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    missing_docs,
-    clippy::uninlined_format_args,
-    clippy::items_after_statements,
-    unused_variables
-)] // Test code: explicit unwrap/expect and local lint noise
+//! Basic MCP integration tests (`integration-tests` feature).
+
 // Integration tests gated behind `integration-tests` feature — API migration
 // (websocket, MCPMessage, WebSocketConfig) tracked in CURRENT_STATUS.md known issues.
 #[cfg(not(feature = "integration-tests"))]
@@ -21,6 +15,11 @@ mod basic_mcp_impl {
     //!
     //! This test file verifies that the core MCP functionality is working correctly
     //! after the rebuild and simplification process.
+
+    #![expect(
+        clippy::expect_used,
+        reason = "Integration tests use expect after is_ok checks"
+    )]
 
     use serde_json::json;
     use squirrel_mcp::error::connection::ConnectionError;
@@ -37,7 +36,7 @@ mod basic_mcp_impl {
 
         // Test that the version is available
         assert!(!VERSION.is_empty());
-        println!("MCP Core Version: {}", VERSION);
+        println!("MCP Core Version: {VERSION}");
     }
 
     #[tokio::test]
@@ -191,6 +190,8 @@ mod basic_mcp_impl {
 
     #[tokio::test]
     async fn test_comprehensive_mcp_workflow() {
+        use squirrel_mcp::protocol::websocket::{ConnectionInfo, ConnectionState};
+
         // Test a complete MCP workflow with available functionality
         println!("Testing comprehensive MCP workflow...");
 
@@ -215,7 +216,6 @@ mod basic_mcp_impl {
         let _client = WebSocketClient::new(config.clone());
 
         // 5. Create transport layer
-        use squirrel_mcp::protocol::websocket::{ConnectionInfo, ConnectionState};
         let connection = ConnectionInfo {
             id: uuid::Uuid::new_v4().to_string(),
             remote_address: "127.0.0.1:0".to_string(),

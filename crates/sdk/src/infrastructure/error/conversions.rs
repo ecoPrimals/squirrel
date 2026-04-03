@@ -310,7 +310,10 @@ impl From<Box<dyn std::error::Error>> for PluginError {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
+#[expect(
+    clippy::expect_used,
+    reason = "Tests use expect on mutex guards and Result paths"
+)]
 mod tests {
     use super::*;
     use crate::infrastructure::error::context::ErrorContext;

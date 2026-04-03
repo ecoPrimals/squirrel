@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(warnings)] // Demo binary: illustrative CLI; keep workspace `-D warnings` green
+#![expect(warnings)] // Demo binary: illustrative CLI; keep workspace `-D warnings` green
 
 //! AI Rate Limiting Demo command-line tool
 //!
@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
 
     // Load API key from environment variables
     // Backward compatibility: using legacy error type until full migration to universal_error
-    #[allow(
+    #[expect(
         deprecated,
         reason = "backward compat: legacy Error type until migration to universal_error"
     )]

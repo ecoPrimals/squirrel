@@ -3,7 +3,7 @@
 
 //! Squirrel Commands Service
 #![expect(dead_code, reason = "Command service awaiting full wiring")]
-#![allow(
+#![expect(
     clippy::redundant_else,
     clippy::uninlined_format_args,
     clippy::unused_async,

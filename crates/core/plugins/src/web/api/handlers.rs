@@ -245,7 +245,7 @@ impl PluginManagementAPI {
     }
 
     /// Execute plugin command
-    #[allow(
+    #[expect(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -269,7 +269,7 @@ impl PluginManagementAPI {
     }
 
     /// Search marketplace plugins
-    #[allow(
+    #[expect(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -307,7 +307,7 @@ impl PluginManagementAPI {
     }
 
     /// Get marketplace plugin details
-    #[allow(
+    #[expect(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]
@@ -351,7 +351,7 @@ impl PluginManagementAPI {
     }
 
     /// Get marketplace categories
-    #[allow(
+    #[expect(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]

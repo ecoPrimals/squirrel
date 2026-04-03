@@ -53,8 +53,9 @@ use crate::config_helpers;
 /// ```
 #[must_use]
 pub fn get_service_port(service: &str) -> u16 {
-    // 1. Try environment variable
-    let svc_upper = service.to_uppercase();
+    // 1. Try environment variable (`mcp-tcp` → `MCP_TCP_PORT`)
+    let normalized = service.replace('-', "_");
+    let svc_upper = normalized.to_uppercase();
     if let Ok(port_str) = std::env::var(format!("{svc_upper}_PORT"))
         && let Ok(port) = port_str.parse::<u16>()
     {
@@ -68,8 +69,9 @@ pub fn get_service_port(service: &str) -> u16 {
     //    When implemented: if let Some(port) = query_service_mesh(service) { return port; }
 
     // 3. Use fallback (with warning)
-    let fallback_port = match service.to_lowercase().as_str() {
-        "websocket" | "ws" => 8080,
+    let key = service.to_lowercase().replace('-', "_");
+    let fallback_port = match key.as_str() {
+        "websocket" | "ws" | "primal" => 8080,
         "http" => 8081,
         "admin" => 8082,
         "security" => 8083,
@@ -77,6 +79,7 @@ pub fn get_service_port(service: &str) -> u16 {
         "ui" => 3000,
         "service_mesh" | "mesh" => 8085,
         "compute" => 8086,
+        "mcp_tcp" => 9000,
         "metrics" => 9090,
         "discovery" => 8500,
         _ => {
@@ -93,7 +96,7 @@ pub fn get_service_port(service: &str) -> u16 {
             "Using fallback port for '{}': {} - set {}_PORT environment variable for production",
             service,
             fallback_port,
-            service.to_uppercase()
+            svc_upper
         );
     }
 
@@ -484,7 +487,7 @@ pub fn http_url(host: &str, port: u16, path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     use super::{
         ADMIN_ENDPOINT, DEFAULT_LOCALHOST, DISCOVERY_ENDPOINT, HEALTH_ENDPOINT,
         LOCALHOST_HTTP_TEMPLATE, LOCALHOST_IPV4, LOCALHOST_WS_TEMPLATE, METRICS_ENDPOINT,

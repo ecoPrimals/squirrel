@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    missing_docs,
+//! MCP error-handling and recovery simulation tests.
+
+#![expect(
+    dead_code,
+    clippy::enum_variant_names,
     clippy::cast_sign_loss,
+    clippy::expect_used,
     clippy::needless_continue,
     clippy::too_many_lines,
-    clippy::significant_drop_tightening,
-    dead_code,
-    clippy::enum_variant_names
-)] // Test code: explicit unwrap/expect and local lint noise
+    reason = "Large error-handling simulation test module with intentional patterns"
+)]
+
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;

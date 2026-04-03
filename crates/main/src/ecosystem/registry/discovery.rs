@@ -468,7 +468,6 @@ mod tests {
 
     // Tests for discover_services
     #[tokio::test]
-    #[allow(deprecated)] // Tests deprecated path for backward compatibility
     async fn test_discover_services_empty_primal_types() {
         let registry = create_test_registry();
         let result = DiscoveryOps::discover_services(&registry, vec![]).await;

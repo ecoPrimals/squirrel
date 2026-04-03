@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core types and enums for universal transport abstraction
-#![allow(
+#![expect(
     dead_code,
     reason = "Transport and discovery types used via serde/runtime wiring"
 )]

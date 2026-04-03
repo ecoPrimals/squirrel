@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(warnings)] // Large table-driven CLI; keep workspace `-D warnings` green
-#![allow(
+#![expect(warnings)] // Large table-driven CLI; keep workspace `-D warnings` green
+#![expect(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::ignored_unit_patterns
-)] // Invariant or startup failure: unwrap/expect after validation
+    clippy::ignored_unit_patterns,
+    reason = "Table-driven CLI uses unwrap/expect on validated paths"
+)]
 
 //! Model registry management CLI tool.
 

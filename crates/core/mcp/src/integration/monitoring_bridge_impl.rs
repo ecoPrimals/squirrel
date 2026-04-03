@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
+#![expect(
     unused_variables,
     reason = "Bridge stubs reserve parameters for future monitoring wiring")]
 

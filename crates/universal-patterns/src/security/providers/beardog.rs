@@ -136,7 +136,7 @@ impl BeardogIntegration {
     ///
     /// Note: This is a factory function that returns BeardogSecurityProvider, not Self.
     /// This is intentional as BeardogIntegration is a namespace for integration logic.
-    #[allow(
+    #[expect(
         clippy::new_ret_no_self,
         reason = "Factory pattern; returns trait object"
     )]

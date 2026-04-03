@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! MCP AI Tools Adapter
-#![allow(
+#![expect(
     dead_code,
     reason = "MCP AI tools integration adapter awaiting activation"
 )]

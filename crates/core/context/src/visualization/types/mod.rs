@@ -264,4 +264,49 @@ mod tests {
         assert_eq!(deserialized.filter_type, "range");
         assert!(deserialized.enabled);
     }
+
+    #[test]
+    fn test_axis_and_tick_config_serde() {
+        let axis = AxisConfig {
+            label: "X".into(),
+            axis_type: "linear".into(),
+            min: Some(0.0),
+            max: Some(1.0),
+            ticks: TickConfig {
+                count: 5,
+                format: "%.1f".into(),
+                rotation: 0.0,
+            },
+            grid_lines: true,
+        };
+        let json = serde_json::to_string(&axis).expect("should succeed");
+        let deserialized: AxisConfig = serde_json::from_str(&json).expect("should succeed");
+        assert_eq!(deserialized.label, "X");
+        assert_eq!(deserialized.ticks.count, 5);
+    }
+
+    #[test]
+    fn test_legend_config_serde() {
+        let legend = LegendConfig {
+            enabled: true,
+            position: "top".into(),
+            orientation: "horizontal".into(),
+            styling: std::collections::HashMap::new(),
+        };
+        let json = serde_json::to_string(&legend).expect("should succeed");
+        let deserialized: LegendConfig = serde_json::from_str(&json).expect("should succeed");
+        assert!(deserialized.enabled);
+    }
+
+    #[test]
+    fn test_tooltip_config_serde() {
+        let tooltip = TooltipConfig {
+            enabled: true,
+            format: "plain".into(),
+            styling: std::collections::HashMap::new(),
+        };
+        let json = serde_json::to_string(&tooltip).expect("should succeed");
+        let deserialized: TooltipConfig = serde_json::from_str(&json).expect("should succeed");
+        assert!(deserialized.enabled);
+    }
 }

@@ -3,7 +3,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![allow(
+#![expect(
     clippy::option_if_let_else,
     clippy::cast_possible_truncation,
     reason = "Main entry point; legacy patterns under progressive refactor"

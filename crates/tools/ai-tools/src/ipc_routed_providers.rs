@@ -32,7 +32,7 @@ trait IpcHttpDelegate: Send + Sync {
 }
 
 #[async_trait]
-#[allow(
+#[expect(
     clippy::use_self,
     reason = "Call inherent NeuralHttpClient::{post_json,get}; Self would recurse with trait methods"
 )]

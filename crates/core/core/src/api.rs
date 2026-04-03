@@ -404,20 +404,26 @@ async fn submit_task(
     Json(response).into_response()
 }
 
-/// Get task status
+/// Task status endpoint — returns 404 until Phase 2 persistence is wired.
+///
+/// When task persistence is available (via capability discovery), this will
+/// query the task store. Until then, callers receive a clear "not available"
+/// response rather than a misleading "completed" stub.
 async fn get_task_status(
     State(_state): State<AppState>,
     Path(task_id): Path<String>,
 ) -> impl IntoResponse {
-    // This would look up actual task status
     let response = TaskStatusResponse {
         task_id,
-        status: "completed".to_string(),
-        result: Some(serde_json::json!({"message": "Task completed successfully"})),
+        status: "unknown".to_string(),
+        result: Some(serde_json::json!({
+            "error": "task_tracking_unavailable",
+            "message": "Task status tracking requires persistence backend (Phase 2)"
+        })),
         error: None,
     };
 
-    Json(response).into_response()
+    (StatusCode::NOT_FOUND, Json(response)).into_response()
 }
 
 // Administrative handlers
@@ -862,7 +868,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_task_status_stub_returns_completed() {
+    async fn get_task_status_returns_not_found_until_persistence() {
         let app = app_disabled_eco();
         let res = app
             .oneshot(
@@ -873,10 +879,10 @@ mod tests {
             )
             .await
             .expect("call");
-        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
         let v = read_body_json(res).await;
         assert_eq!(v["task_id"], "task-abc");
-        assert_eq!(v["status"], "completed");
+        assert_eq!(v["status"], "unknown");
     }
 
     #[tokio::test]

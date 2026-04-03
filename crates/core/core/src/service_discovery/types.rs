@@ -600,11 +600,11 @@ impl ServiceStats {
             return 100.0;
         }
 
-        #[allow(
+        #[expect(
             clippy::cast_precision_loss,
             reason = "Counts are small enough that f64 division is exact for UI percentages"
         )]
-        #[allow(
+        #[expect(
             clippy::cast_possible_truncation,
             reason = "Availability is displayed as f32 in the 0..=100 range"
         )]

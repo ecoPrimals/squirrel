@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(warnings)] // Thin CLI wrapper; keep workspace `-D warnings` green
+#![expect(warnings)] // Thin CLI wrapper; keep workspace `-D warnings` green
 
 //! AI configuration management CLI tool.
 

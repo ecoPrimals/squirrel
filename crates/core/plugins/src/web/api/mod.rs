@@ -165,7 +165,7 @@ impl PluginManagementAPI {
     }
 
     /// Emit WebSocket event to all connected clients
-    #[allow(
+    #[expect(
         clippy::unused_async,
         reason = "Async trait method; required for future implementations"
     )]

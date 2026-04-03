@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.31] - 2026-04-03
+
+Deep debt execution session D: lint hygiene, trait-backed key storage, hardcoded localhost
+elimination, production stub evolution, Box<dyn Error> documentation. 7,165 tests passing,
+zero clippy warnings, all gates green.
+
+### Changed
+
+- **`#[allow(` → `#[expect(reason)]`** — 93 suppressions across 62 files migrated; dead
+  suppressions now caught automatically by the compiler
+- **`InMemoryKeyStorage` → `KeyStorage` trait** — extracted `KeyStorage` async trait;
+  `SecurityManagerImpl` now accepts `Arc<dyn KeyStorage>` via `with_key_storage()`;
+  in-memory backend remains the default for standalone deployments
+- **Hardcoded localhost elimination** — 7 production modules evolved: `service_mesh_client`,
+  `tcp transport`, `websocket config`, `auth init`, `endpoint_resolver`, `PrimalEndpoints`,
+  `url_builders`; all use `universal_constants::config_helpers` / `network` / `builders`
+- **`get_task_status` stub evolved** — returns 404 "unknown" instead of fake "completed";
+  documents Phase 2 persistence requirement
+- **`discover_capabilities` documented** — `tracing::debug!` on empty map, Phase 2 noted
+- **`Box<dyn Error>` audited** — all usages confirmed correct: generic framework (bulkhead),
+  binary entry points (ai-config), test helpers (cli); blanket `From` impls documented
+- **Clone patterns audited** — top-5 clone-heavy files confirmed idiomatic (Arc/String
+  clones for async task movement)
+- **`println!` audit** — all 17 instances in `main.rs`/`doctor.rs` confirmed intentional
+  CLI output; no conversion needed
+
 ## [0.1.0-alpha.30] - 2026-04-02
 
 Capability-based discovery compliance: decouple Songbird by name from socket resolution,

@@ -276,7 +276,7 @@ pub fn validate_required_fields(
 
 #[cfg(test)]
 mod tests {
-    #![allow(deprecated)]
+    #![expect(deprecated)]
     use super::*;
 
     fn sample_params() -> serde_json::Value {

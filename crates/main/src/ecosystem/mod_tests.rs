@@ -3,7 +3,7 @@
 
 //! Tests for ecosystem module
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
+#![allow(warnings)]
 
 use super::*;
 use crate::monitoring::metrics::MetricsCollector;

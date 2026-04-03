@@ -6,7 +6,13 @@
 //! This module provides a fluent API for building configuration objects
 //! with validation and sensible defaults.
 
-#![allow(clippy::wildcard_imports)] // Parent `config` re-exports; wildcard keeps builder terse
+#![cfg_attr(
+    not(test),
+    expect(
+        clippy::wildcard_imports,
+        reason = "Parent `config` re-exports; wildcard keeps builder terse"
+    )
+)]
 
 use super::*;
 use url::Url;

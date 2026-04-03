@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
-    clippy::unwrap_used,
+#![expect(
     clippy::expect_used,
     clippy::assertions_on_constants,
-    clippy::unused_async
-)] // Test code: explicit unwrap/expect and local lint noise
+    clippy::unused_async,
+    reason = "Test code: explicit unwrap/expect and local lint noise"
+)]
 //! Comprehensive tests for `UniversalCorrelationTracker`
 //!
 //! Tests distributed tracing, correlation IDs, operation lifecycle,
@@ -19,7 +19,7 @@ use squirrel::observability::CorrelationId;
 use std::time::Duration;
 
 // Stub types for compilation
-#[allow(dead_code)] // Test code: explicit unwrap/expect and local lint noise
+#[allow(dead_code)]
 #[derive(Clone)]
 struct CorrelationConfig {
     max_operations_history: usize,

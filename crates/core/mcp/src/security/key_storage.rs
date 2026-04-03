@@ -7,6 +7,7 @@
 //! Actual key storage operations are delegated to the BearDog framework.
 
 use crate::error::Result;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -31,6 +32,44 @@ pub struct StoredKey {
     pub expires_at: Option<DateTime<Utc>>,
     /// Whether the key is still valid for use.
     pub active: bool,
+}
+
+/// Trait for key storage backends.
+///
+/// The default in-memory implementation is suitable for development and
+/// single-process deployments. Production deployments should provide a
+/// BearDog-backed or HSM-backed implementation via capability discovery.
+#[async_trait]
+pub trait KeyStorage: Send + Sync + std::fmt::Debug {
+    /// Store a key with optional expiry and return its id.
+    async fn store_key(
+        &self,
+        name: String,
+        key_type: String,
+        data: Vec<u8>,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> Result<Uuid>;
+
+    /// Get a key by id.
+    async fn get_key(&self, id: &Uuid) -> Result<Option<StoredKey>>;
+
+    /// Find a key by name.
+    async fn get_key_by_name(&self, name: &str) -> Result<Option<StoredKey>>;
+
+    /// Update a stored key.
+    async fn update_key(&self, key: StoredKey) -> Result<()>;
+
+    /// Delete a key by id.
+    async fn delete_key(&self, id: &Uuid) -> Result<()>;
+
+    /// List active keys.
+    async fn list_keys(&self) -> Result<Vec<StoredKey>>;
+
+    /// Check if a key is expired.
+    async fn is_key_expired(&self, id: &Uuid) -> Result<bool>;
+
+    /// Remove expired keys, return count removed.
+    async fn cleanup_expired_keys(&self) -> Result<usize>;
 }
 
 /// In-memory key storage implementation
@@ -141,6 +180,47 @@ impl InMemoryKeyStorage {
         });
 
         Ok(removed)
+    }
+}
+
+#[async_trait]
+impl KeyStorage for InMemoryKeyStorage {
+    async fn store_key(
+        &self,
+        name: String,
+        key_type: String,
+        data: Vec<u8>,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> Result<Uuid> {
+        Self::store_key(self, name, key_type, data, expires_at).await
+    }
+
+    async fn get_key(&self, id: &Uuid) -> Result<Option<StoredKey>> {
+        Self::get_key(self, id).await
+    }
+
+    async fn get_key_by_name(&self, name: &str) -> Result<Option<StoredKey>> {
+        Self::get_key_by_name(self, name).await
+    }
+
+    async fn update_key(&self, key: StoredKey) -> Result<()> {
+        Self::update_key(self, key).await
+    }
+
+    async fn delete_key(&self, id: &Uuid) -> Result<()> {
+        Self::delete_key(self, id).await
+    }
+
+    async fn list_keys(&self) -> Result<Vec<StoredKey>> {
+        Self::list_keys(self).await
+    }
+
+    async fn is_key_expired(&self, id: &Uuid) -> Result<bool> {
+        Self::is_key_expired(self, id).await
+    }
+
+    async fn cleanup_expired_keys(&self) -> Result<usize> {
+        Self::cleanup_expired_keys(self).await
     }
 }
 

@@ -106,7 +106,7 @@ pub const DEFAULT_CONTEXT_TTL_SECS: u64 = 3600;
 ///
 /// Truncation occurs if duration exceeds `u64::MAX` milliseconds (~584 million years).
 #[must_use]
-#[allow(
+#[expect(
     clippy::cast_possible_truncation,
     reason = "Duration.as_millis() fits u64 for realistic durations; panics doc covers overflow"
 )]

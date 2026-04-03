@@ -290,7 +290,12 @@ impl EndpointResolver {
         if let Ok(port_str) = std::env::var(&port_env)
             && let Ok(port) = port_str.parse::<u16>()
         {
-            let url = format!("http://localhost:{}", port);
+            let host_key = format!("{}_HOST", name.to_uppercase().replace('-', "_"));
+            let host = universal_constants::config_helpers::get_host(
+                &host_key,
+                universal_constants::network::DEFAULT_LOCALHOST,
+            );
+            let url = universal_constants::builders::build_http_url(&host, port);
             debug!("Found network endpoint via {}: {}", port_env, url);
             return Some(Endpoint::Http(url));
         }
@@ -338,12 +343,17 @@ impl EndpointResolver {
             }
         };
 
+        let fallback_host = universal_constants::config_helpers::get_host(
+            "MCP_HOST",
+            universal_constants::network::DEFAULT_LOCALHOST,
+        );
+
         if port > 0 && self.warn_on_fallback {
             warn!(
-                "Using fallback network endpoint for '{}': http://localhost:{} \
+                "Using fallback network endpoint for '{}': {} \
                  (set {}_ENDPOINT or {}_SOCKET for explicit configuration)",
                 name,
-                port,
+                universal_constants::builders::build_http_url(&fallback_host, port),
                 name.to_uppercase(),
                 name.to_uppercase()
             );
@@ -352,9 +362,16 @@ impl EndpointResolver {
         if port == 0 {
             // Return a placeholder that will cause a connection error
             // This forces the caller to explicitly configure
-            Endpoint::Http(format!("http://localhost:0?error=no-fallback-for-{}", name))
+            Endpoint::Http(format!(
+                "{}?error=no-fallback-for-{}",
+                universal_constants::builders::build_http_url(&fallback_host, 0),
+                name
+            ))
         } else {
-            Endpoint::Http(format!("http://localhost:{}", port))
+            Endpoint::Http(universal_constants::builders::build_http_url(
+                &fallback_host,
+                port,
+            ))
         }
     }
 

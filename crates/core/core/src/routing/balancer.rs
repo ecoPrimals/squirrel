@@ -16,7 +16,7 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tracing::{debug, info};
 
-#[allow(
+#[expect(
     clippy::cast_precision_loss,
     reason = "Durations are recorded in milliseconds within a practical range"
 )]
@@ -139,11 +139,11 @@ impl LoadBalancer {
             return Err(Error::NoAgentAvailable);
         }
 
-        #[allow(
+        #[expect(
             clippy::cast_possible_truncation,
             reason = "Step count derived from summed weights; bounded in practice"
         )]
-        #[allow(
+        #[expect(
             clippy::cast_sign_loss,
             reason = "total_weight is a sum of non-negative endpoint weights"
         )]
@@ -154,7 +154,7 @@ impl LoadBalancer {
         let target = {
             let mut counter = self.round_robin_counter.write();
             let c_mod = *counter % step_mod;
-            #[allow(
+            #[expect(
                 clippy::cast_precision_loss,
                 reason = "Round-robin counter is wrapped modulo step_mod (typically < usize::MAX)"
             )]
@@ -279,7 +279,7 @@ impl LoadBalancer {
     }
 
     /// Update performance metrics for an agent
-    #[allow(
+    #[expect(
         clippy::significant_drop_tightening,
         reason = "Single write lock holds the hot path for push, retention, and trimming"
     )]
@@ -364,7 +364,7 @@ impl LoadBalancer {
     }
 
     /// Acquire a permit for concurrent execution
-    #[allow(
+    #[expect(
         clippy::expect_used,
         reason = "Semaphore closed is unreachable in normal operation"
     )]

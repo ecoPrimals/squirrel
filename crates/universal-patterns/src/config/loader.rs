@@ -9,7 +9,13 @@
 //! - Command line arguments
 //! - Multiple sources with precedence
 
-#![allow(clippy::wildcard_imports)] // Parent `config` re-exports; wildcard keeps loader terse
+#![cfg_attr(
+    not(test),
+    expect(
+        clippy::wildcard_imports,
+        reason = "Parent `config` re-exports; wildcard keeps loader terse"
+    )
+)]
 
 use super::*;
 use config::{Config, Environment, File, FileFormat};

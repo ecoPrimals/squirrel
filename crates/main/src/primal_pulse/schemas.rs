@@ -4,7 +4,11 @@
 //! JSON schemas for PrimalPulse tools
 //!
 //! Defines input/output schemas for dynamic tool registration
-#![allow(dead_code)] // Tool schema helpers for dynamic registration
+
+#![cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Tool schema helpers for dynamic registration")
+)]
 
 use serde_json::{Value, json};
 

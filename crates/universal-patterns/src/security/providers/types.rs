@@ -178,6 +178,13 @@ pub trait UniversalSecurityService: Send + Sync {
     async fn health_check(&self) -> Result<SecurityHealth, SecurityError>;
 
     /// Initialize the security service
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Implemented by concrete security service adapters"
+        )
+    )]
     async fn initialize(&mut self, config: SecurityServiceConfig) -> Result<(), SecurityError>;
 }
 
@@ -245,6 +252,10 @@ impl SecurityResponse {
     }
 
     /// Create a failed security response
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Helper for error responses; used by integrations")
+    )]
     pub fn failed(request_id: String, reason: String) -> Self {
         Self {
             request_id,
@@ -269,6 +280,7 @@ pub enum SecurityResponseStatus {
 }
 
 /// Compliance status
+#[expect(dead_code, reason = "Public compliance enum for security integrations")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ComplianceStatus {
     Compliant,
@@ -278,6 +290,9 @@ pub enum ComplianceStatus {
 }
 
 /// Universal security service provider trait alias for backward compatibility
+// `expect(dead_code)` is unfulfilled here: the blanket impl counts as a use for lint purposes,
+// while rustc still emits `dead_code` for the trait alias itself.
+#[allow(dead_code)]
 pub trait UniversalSecurityProvider: UniversalSecurityService {}
 
 impl<T: UniversalSecurityService> UniversalSecurityProvider for T {}

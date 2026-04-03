@@ -31,9 +31,14 @@ impl Default for PrimalEndpoints {
         let port = std::env::var("PRIMAL_PORT")
             .ok()
             .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or(8080); // Default primal port
-        let primary = std::env::var("PRIMAL_ENDPOINT")
-            .unwrap_or_else(|_| format!("http://localhost:{}", port));
+            .unwrap_or_else(|| universal_constants::network::get_service_port("primal"));
+        let primary = std::env::var("PRIMAL_ENDPOINT").unwrap_or_else(|_| {
+            let host = universal_constants::config_helpers::get_host(
+                "PRIMAL_HOST",
+                universal_constants::network::DEFAULT_LOCALHOST,
+            );
+            universal_constants::builders::build_http_url(&host, port)
+        });
         let health = format!("{}/health", primary);
 
         Self {

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Core Squirrel Primal Provider Implementation
-#![allow(
+#![expect(
     dead_code,
     reason = "Provider fields used by ecosystem integration at runtime"
 )]

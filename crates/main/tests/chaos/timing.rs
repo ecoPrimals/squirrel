@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::significant_drop_tightening,
-    clippy::cast_precision_loss
-)] // Test code: explicit unwrap/expect and local lint noise
 //! Timing and latency chaos tests
 
 use super::helpers::*;

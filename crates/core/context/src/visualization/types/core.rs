@@ -3,8 +3,6 @@
 
 //! Core visualization types and structures
 
-#![allow(dead_code)] // Reserved visualization schema; constructed by future renderers
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -104,6 +102,10 @@ pub struct DataPoint {
 }
 
 /// Visualization series
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Phase 2 / reserved for visualization renderers")
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VisualizationSeries {
     /// Series name
@@ -123,6 +125,10 @@ pub struct VisualizationSeries {
 }
 
 /// Interactive element configuration
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Phase 2 / reserved for visualization renderers")
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractiveElement {
     /// Element type
@@ -139,6 +145,10 @@ pub struct InteractiveElement {
 }
 
 /// Filter configuration
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Phase 2 / reserved for visualization renderers")
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FilterConfig {
     /// Filter type
@@ -152,6 +162,10 @@ pub struct FilterConfig {
 }
 
 /// Axis configuration
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Phase 2 / reserved for visualization renderers")
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AxisConfig {
     /// Axis label
@@ -187,6 +201,10 @@ pub struct TickConfig {
 }
 
 /// Legend configuration
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Phase 2 / reserved for visualization renderers")
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LegendConfig {
     /// Legend enabled
@@ -203,6 +221,10 @@ pub struct LegendConfig {
 }
 
 /// Tooltip configuration
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Phase 2 / reserved for visualization renderers")
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TooltipConfig {
     /// Tooltip enabled

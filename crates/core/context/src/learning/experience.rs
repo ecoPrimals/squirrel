@@ -202,11 +202,14 @@ pub struct ExperienceBatch {
 }
 
 /// Experience priority for prioritized replay (reserved for future prioritized experience replay)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(
-    dead_code,
-    reason = "reserved for prioritized experience replay system"
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "Phase 2 / reserved for prioritized experience replay"
+    )
 )]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExperiencePriority {
     /// Experience ID
     pub experience_id: String,

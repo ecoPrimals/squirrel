@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
+#![expect(
     clippy::needless_continue,
     clippy::if_not_else,
     clippy::uninlined_format_args,

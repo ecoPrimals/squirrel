@@ -13,5 +13,6 @@ pub mod manager;
 pub mod rbac;
 pub mod token;
 
+pub use key_storage::KeyStorage;
 pub use manager::SecurityManagerImpl;
 pub use rbac::Permission;

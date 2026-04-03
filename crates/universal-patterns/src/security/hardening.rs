@@ -24,7 +24,7 @@ use tracing::{debug, error, info, warn};
 
 /// Security hardening configuration
 #[derive(Debug, Clone)]
-#[allow(
+#[expect(
     clippy::struct_excessive_bools,
     reason = "Independent feature toggles; grouping would obscure intent"
 )]
@@ -165,12 +165,12 @@ pub enum RiskLevel {
 struct AuthAttempt {
     timestamp: SystemTime,
     success: bool,
-    #[allow(
+    #[expect(
         dead_code,
         reason = "Reserved for IP-based rate limiting and geolocation"
     )]
     ip_address: String,
-    #[allow(
+    #[expect(
         dead_code,
         reason = "Reserved for user agent analysis and bot detection"
     )]
@@ -181,7 +181,7 @@ struct AuthAttempt {
 #[derive(Debug, Clone)]
 struct AccountLockout {
     locked_until: SystemTime,
-    #[allow(
+    #[expect(
         dead_code,
         reason = "Reserved for lockout metrics and escalation logic"
     )]

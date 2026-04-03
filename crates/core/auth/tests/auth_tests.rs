@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)] // Test code: explicit unwrap/expect and local lint noise
+//! Integration tests for MCP auth (`integration-tests` feature).
 
 // Integration tests gated behind `integration-tests` feature — requires http-auth
 // for AuthService, which depends on reqwest/network access.
@@ -11,6 +11,11 @@ async fn placeholder_auth_tests_disabled() {}
 
 #[cfg(feature = "integration-tests")]
 mod auth_tests_impl {
+    #![expect(
+        clippy::expect_used,
+        reason = "Integration auth tests use expect on auth/session Result paths"
+    )]
+
     use squirrel_mcp_auth::{
         auth::AuthService,
         errors::{AuthError, AuthResult},

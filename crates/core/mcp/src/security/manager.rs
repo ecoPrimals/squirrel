@@ -16,7 +16,7 @@ use uuid::Uuid;
 use super::audit::{AuditEvent, DefaultAuditService};
 use super::crypto::DefaultCryptoProvider;
 use super::identity::{DefaultIdentityManager, UserIdentity};
-use super::key_storage::InMemoryKeyStorage;
+use super::key_storage::{InMemoryKeyStorage, KeyStorage};
 use super::rbac::{BasicRBACManager, Permission};
 use super::token::DefaultTokenManager;
 
@@ -35,7 +35,7 @@ pub struct SecurityManagerImpl {
     audit_service: Arc<DefaultAuditService>,
     crypto_provider: Arc<DefaultCryptoProvider>,
     identity_manager: Arc<DefaultIdentityManager>,
-    key_storage: Arc<InMemoryKeyStorage>,
+    key_storage: Arc<dyn KeyStorage>,
     rbac_manager: Arc<BasicRBACManager>,
     token_manager: Arc<DefaultTokenManager>,
 }
@@ -44,12 +44,21 @@ impl SecurityManagerImpl {
     /// Create a new security manager
     #[must_use]
     pub fn new(config: SecurityConfig) -> Self {
+        Self::with_key_storage(config, Arc::new(InMemoryKeyStorage::new()))
+    }
+
+    /// Create a security manager with a custom key storage backend.
+    ///
+    /// Use this for production deployments where keys should be persisted
+    /// to an HSM, file-system vault, or BearDog-managed store.
+    #[must_use]
+    pub fn with_key_storage(config: SecurityConfig, key_storage: Arc<dyn KeyStorage>) -> Self {
         Self {
             config,
             audit_service: Arc::new(DefaultAuditService::new()),
             crypto_provider: Arc::new(DefaultCryptoProvider::new()),
             identity_manager: Arc::new(DefaultIdentityManager::new()),
-            key_storage: Arc::new(InMemoryKeyStorage::new()),
+            key_storage,
             rbac_manager: Arc::new(BasicRBACManager::new()),
             token_manager: Arc::new(DefaultTokenManager::new()),
         }
@@ -75,7 +84,7 @@ impl SecurityManagerImpl {
 
     /// Get key storage
     #[must_use]
-    pub fn key_storage(&self) -> Arc<InMemoryKeyStorage> {
+    pub fn key_storage(&self) -> Arc<dyn KeyStorage> {
         self.key_storage.clone()
     }
 

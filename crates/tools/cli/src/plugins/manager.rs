@@ -494,7 +494,7 @@ impl PluginManager {
     }
 
     /// Create a test plugin instance for testing
-    #[allow(
+    #[expect(
         dead_code,
         reason = "public API — used for testing plugin infrastructure"
     )]

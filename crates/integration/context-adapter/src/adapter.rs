@@ -126,7 +126,7 @@ impl ContextState {
             data: HashMap::new(),
             version: 0,
             // Safe to cast to u64 since Unix timestamps are always positive for dates after 1970
-            #[allow(
+            #[expect(
                 clippy::cast_sign_loss,
                 reason = "Context adapter; value range audited"
             )]
@@ -639,7 +639,7 @@ impl ContextAdapter {
                     let age = now.signed_duration_since(data.updated_at);
 
                     // Safe conversion from u64 to i64, capping at i64::MAX if needed
-                    #[allow(
+                    #[expect(
                         clippy::cast_possible_wrap,
                         reason = "Context adapter; value range audited"
                     )]

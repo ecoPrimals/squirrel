@@ -6,7 +6,7 @@
     allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)
 )]
 #![warn(missing_docs)]
-#![allow(
+#![expect(
     clippy::missing_errors_doc,
     clippy::unused_async,
     clippy::significant_drop_tightening,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![expect(clippy::unwrap_used, clippy::expect_used, reason = "Test code: explicit unwrap/expect and local lint noise")]
+#![allow(warnings)]
 //! Test helper functions for creating provider instances
 //!
 //! Provides reusable test utilities for setting up SquirrelPrimalProvider

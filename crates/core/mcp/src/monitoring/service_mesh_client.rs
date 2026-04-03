@@ -48,7 +48,11 @@ impl Default for ServiceMeshClientConfig {
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or(8500);  // Default service mesh port
-                format!("http://localhost:{}", port)
+                let host = universal_constants::config_helpers::get_host(
+                    "MCP_HOST",
+                    universal_constants::network::DEFAULT_LOCALHOST,
+                );
+                universal_constants::builders::build_http_url(&host, port)
             });
 
         let service_name = std::env::var("MCP_SERVICE_NAME")
@@ -497,7 +501,13 @@ pub fn create_monitoring_client() -> Arc<ServiceMeshMonitoringClient> {
             tracing::error!("Failed to create monitoring service client, creating fallback: {}", e);
             // Return a client with minimal configuration that won't fail
             let minimal_config = ServiceMeshClientConfig {
-                endpoint: "http://localhost:8900".to_string(),
+                endpoint: universal_constants::builders::build_http_url(
+                    &universal_constants::config_helpers::get_host(
+                        "MCP_HOST",
+                        universal_constants::network::DEFAULT_LOCALHOST,
+                    ),
+                    8900,
+                ),
                 service_name: "squirrel-mcp-fallback".to_string(),
                 environment: "unknown".to_string(),
                 collection_interval: 60,

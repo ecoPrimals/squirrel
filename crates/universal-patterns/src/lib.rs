@@ -2,7 +2,7 @@
 // ORC-Notice: AI coordination mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
+#![expect(
     clippy::unused_async,
     clippy::missing_errors_doc,
     clippy::must_use_candidate,

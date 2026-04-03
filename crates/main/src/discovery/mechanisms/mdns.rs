@@ -32,10 +32,12 @@ use tracing::{debug, info, warn};
 /// mDNS discovery client
 #[derive(Debug, Clone)]
 pub struct MdnsDiscovery {
-    #[allow(dead_code, reason = "reserved for real mDNS implementation")]
+    // Fields reserved for full mDNS browse/resolver wiring; `expect(dead_code)` conflicts with
+    // test builds where `Debug`/`Clone` affect lint resolution — allow is intentional here.
+    #[allow(dead_code)]
     service_type: String,
 
-    #[expect(dead_code, reason = "Reserved for real mDNS implementation")]
+    #[allow(dead_code)]
     timeout: Duration,
 
     /// Enable/disable mDNS

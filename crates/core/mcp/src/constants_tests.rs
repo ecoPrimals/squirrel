@@ -9,7 +9,7 @@ use super::*;
 
 #[cfg(test)]
 // Tests deprecated path for backward compatibility
-#[allow(deprecated)]
+#[expect(deprecated)]
 mod tests {
     use super::*;
 

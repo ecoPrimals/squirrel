@@ -3,6 +3,14 @@
 
 //! Capability indexing and service discovery for universal security providers.
 
+#![cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "Public registry API for embedding; constructed by integrators"
+    )
+)]
+
 use std::collections::HashMap;
 use std::sync::Arc;
 

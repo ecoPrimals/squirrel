@@ -135,11 +135,12 @@ impl Default for TcpTransportConfig {
         // Multi-tier MCP TCP endpoint resolution
         let remote_address = std::env::var("MCP_TCP_ENDPOINT")
             .unwrap_or_else(|_| {
+                let host = universal_constants::network::get_bind_address();
                 let port = std::env::var("MCP_TCP_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(9000);  // Default MCP TCP port
-                format!("127.0.0.1:{}", port)
+                    .unwrap_or_else(|| universal_constants::network::get_service_port("mcp-tcp"));
+                format!("{host}:{port}")
             });
         
         Self {

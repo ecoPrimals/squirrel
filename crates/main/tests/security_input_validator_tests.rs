@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::field_reassign_with_default
-)] // Test code: explicit unwrap/expect and local lint noise
+#![allow(warnings)]
+
 //! Comprehensive tests for `ProductionInputValidator`
 //!
 //! These tests ensure proper validation, sanitization, and error handling

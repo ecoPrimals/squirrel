@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(warnings)] // Interactive demo binary; keep workspace `-D warnings` green
+#![expect(warnings)] // Interactive demo binary; keep workspace `-D warnings` green
 
 //! AI Tools Multi-Model Dispatch Demo
 //!
@@ -419,7 +419,7 @@ async fn benchmark_models(
             if !times.is_empty() {
                 let n = u32::try_from(times.len()).unwrap_or(1);
                 let avg_time = times.iter().sum::<std::time::Duration>() / n.max(1);
-                #[allow(
+                #[expect(
                     clippy::cast_lossless,
                     clippy::cast_precision_loss,
                     clippy::cast_possible_truncation,

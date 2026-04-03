@@ -14,11 +14,11 @@
 //! - State management
 
 // Allow deprecated items during plugin system migration to squirrel_interfaces
-#![allow(
+#![expect(
     deprecated,
     reason = "Deprecated plugin API during migration to squirrel_interfaces"
 )]
-#![allow(
+#![expect(
     clippy::significant_drop_tightening,
     clippy::unused_self,
     clippy::unused_async,

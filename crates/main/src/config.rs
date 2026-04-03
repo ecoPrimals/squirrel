@@ -273,7 +273,10 @@ impl ConfigLoader {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
+#[expect(
+    clippy::expect_used,
+    reason = "Config tests use expect for serde/TOML round-trips"
+)]
 mod tests {
     use super::*;
 

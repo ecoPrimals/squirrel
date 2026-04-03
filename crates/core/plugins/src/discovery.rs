@@ -19,7 +19,7 @@
 //!   [`PluginError::LoadError`] with discovery hints (other primals expose plugins via IPC).
 
 // Backward compatibility: Uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces
-#![allow(
+#![expect(
     deprecated,
     reason = "Backward compatibility: uses deprecated plugin::PluginMetadata during migration to squirrel_interfaces"
 )]
@@ -41,11 +41,14 @@ use crate::PluginError;
 use crate::plugin::{Plugin, PluginMetadata};
 
 /// Plugin manifest format
-#[derive(Debug, Deserialize)]
-#[allow(
-    dead_code,
-    reason = "deserialized from plugin manifest files at runtime"
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "Fields populated via serde; not all read in non-test builds"
+    )
 )]
+#[derive(Debug, Deserialize)]
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -78,7 +81,10 @@ impl PluginManifest {
     /// Convert to plugin metadata for test assertions and the `testing` feature.
     #[must_use]
     #[cfg(any(test, feature = "testing"))]
-    #[allow(dead_code, reason = "test utility — called from test modules")]
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Test and feature-gated metadata helper")
+    )]
     #[expect(deprecated, reason = "backward-compatible alias")]
     pub fn to_metadata(&self) -> PluginMetadata {
         let mut metadata =
@@ -287,11 +293,11 @@ impl DefaultPluginDiscovery {
 }
 
 /// Default plugin loader implementation (kept for trait impl / future use)
-#[derive(Debug, Copy, Clone)]
-#[allow(
-    dead_code,
-    reason = "trait-based loader; constructed via PluginLoader trait"
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Trait-object placeholder for native loader path")
 )]
+#[derive(Debug, Copy, Clone)]
 pub struct DefaultPluginLoader;
 
 #[async_trait]

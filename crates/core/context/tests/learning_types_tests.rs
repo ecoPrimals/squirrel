@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
+#![expect(
+    clippy::expect_used,
+    reason = "Learning type tests use expect on serde and known-good values"
+)]
 //! Comprehensive tests for Context Learning System types
 //!
 //! Tests learning states, action types, and configurations.

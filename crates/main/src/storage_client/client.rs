@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ecoPrimals Contributors
 
 //! Universal Storage Client Implementation
-#![allow(
+#![expect(
     dead_code,
     reason = "Storage client infrastructure awaiting activation"
 )]

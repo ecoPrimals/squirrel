@@ -121,7 +121,6 @@ impl Sink<Bytes> for TarpcTransportAdapter {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
 mod tests {
     use super::*;
     use universal_patterns::transport::{InProcessTransport, UniversalTransport};

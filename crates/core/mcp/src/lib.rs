@@ -17,7 +17,7 @@
         clippy::uninlined_format_args
     )
 )]
-#![allow(
+#![expect(
     // Architectural: docs require protocol stabilization (missing_docs enforced via warn above)
     clippy::missing_errors_doc,
     // Genuine domain naming

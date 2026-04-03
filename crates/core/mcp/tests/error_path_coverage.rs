@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    missing_docs,
-    clippy::uninlined_format_args
-)] // Test code: explicit unwrap/expect and local lint noise
+//! MCP protocol error-path coverage (disabled until API migration).
+
 // Integration tests gated behind `integration-tests` feature — API migration
 // (MCPProtocolBase, MCPMessage, MessageId) tracked in CURRENT_STATUS.md known issues.
 // Integration tests disabled until API migration (MCPProtocolBase, MCPMessage) — tracked in CURRENT_STATUS.md
@@ -189,7 +185,7 @@ mod mcp_protocol_error_coverage {
         ];
 
         for error in errors {
-            let display = format!("{}", error);
+            let display = format!("{error}");
             assert!(!display.is_empty());
             assert!(display.len() > 3);
         }
@@ -246,7 +242,7 @@ mod transport_error_coverage {
         ];
 
         for error in errors {
-            let display = format!("{}", error);
+            let display = format!("{error}");
             assert!(!display.is_empty());
         }
     }
@@ -257,7 +253,7 @@ mod transport_error_coverage {
         let io_err = std::io::Error::new(std::io::ErrorKind::BrokenPipe, "test");
         let transport_err = TransportError::from(io_err);
 
-        let display = format!("{}", transport_err);
+        let display = format!("{transport_err}");
         assert!(!display.is_empty());
     }
 }

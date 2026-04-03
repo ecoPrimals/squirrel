@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 2, 2026
-**Version**: 0.1.0-alpha.30
+**Last Updated**: April 3, 2026
+**Version**: 0.1.0-alpha.31
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,162 passing / 0 failures / 110 ignored across 22 workspace members |
+| Tests | 7,165 passing / 0 failures / 110 ignored across 22 workspace members |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
@@ -272,7 +272,19 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs); coverage gap to 90% remains as in item 1
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 
-## Changes Since Last Handoff (April 2, 2026)
+## Changes Since Last Handoff (April 3, 2026)
+
+### April 3, 2026 session D (Deep debt execution — lint hygiene, trait evolution, stub maturity)
+
+- **`#[allow(` → `#[expect(reason)]`** — 93 suppressions across 62 files migrated to `#[expect(reason)]`; dead suppressions now caught automatically
+- **`KeyStorage` trait extracted** — `InMemoryKeyStorage` now implements `KeyStorage` trait; `SecurityManagerImpl` accepts `Arc<dyn KeyStorage>` via `with_key_storage()` constructor; production deployments can inject HSM/BearDog backends
+- **Hardcoded localhost elimination (wave 2)** — 7 more production modules evolved: `service_mesh_client`, `tcp transport`, `websocket config`, `auth init`, `endpoint_resolver`, `PrimalEndpoints`, `url_builders`; all resolved via `universal_constants` helpers
+- **`get_task_status` stub evolved** — returns HTTP 404 "unknown" instead of fake "completed"; documents Phase 2 persistence requirement honestly
+- **`discover_capabilities` documented** — `tracing::debug!` on empty map, Phase 2 noted in non-test build path
+- **`Box<dyn Error>` audited** — all usages confirmed correct: generic framework (bulkhead), binary entry points (ai-config), test helpers (cli); blanket `From` impls documented
+- **Clone patterns audited** — top-5 clone-heavy files confirmed idiomatic (Arc/String clones for async task movement)
+- **`println!` audit** — all 17 instances in `main.rs`/`doctor.rs` confirmed intentional CLI output
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓, `test 7,165/0/110` ✓, `deny` ✓
 
 ### April 2, 2026 session C (Capability-based discovery compliance — primalSpring PRIORITY 3)
 

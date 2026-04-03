@@ -9,7 +9,7 @@
 //!
 //! These functions intentionally use `as` casts after guarding against
 //! overflow/truncation, so we allow the cast lints at the module level.
-#![allow(
+#![expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_precision_loss,

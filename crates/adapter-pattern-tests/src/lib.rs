@@ -12,12 +12,8 @@
 //! 2. MCP Adapter - Adapter with authentication and authorization
 //! 3. Plugin Adapter - Adapter for plugin system integration
 
-#![allow(
-    clippy::unwrap_used,
-    reason = "Adapter pattern tests; unwrap/expect for test clarity"
-)]
 #![warn(missing_docs)]
-#![allow(
+#![expect(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     reason = "Adapter pattern test crate; doc lints deferred"

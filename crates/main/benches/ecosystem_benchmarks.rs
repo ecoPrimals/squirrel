@@ -1,15 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::semicolon_if_nothing_returned,
-    clippy::explicit_iter_loop,
-    clippy::cast_sign_loss,
-    missing_docs,
-    reason = "Criterion benchmarks; unwrap and style lints deferred for harness code"
-)]
+#![allow(warnings)]
 
 //! Comprehensive Ecosystem Benchmarks
 //!

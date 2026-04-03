@@ -4,7 +4,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 #![warn(missing_docs)]
 // Integration adapters: many clippy pedantic hits on glue code; keep workspace `-D warnings` green.
-#![allow(warnings)]
+#![expect(warnings)]
 
 //! Squirrel Integration
 //!

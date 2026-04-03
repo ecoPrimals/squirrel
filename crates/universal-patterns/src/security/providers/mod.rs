@@ -9,8 +9,6 @@
 //! Instead of hardcoding specific provider names, we define what capabilities
 //! security services should provide and how they integrate universally.
 
-#![allow(dead_code)] // Public capability surface for external consumers
-
 mod beardog;
 mod local;
 mod registry;
@@ -23,6 +21,12 @@ mod tests;
 pub use beardog::{BeardogIntegration, BeardogSecurityProvider};
 pub use local::LocalSecurityProvider;
 // Used by `providers/tests.rs` and external callers; not referenced from non-test lib code.
-#[allow(unused_imports)]
+#[cfg_attr(
+    not(test),
+    expect(
+        unused_imports,
+        reason = "Re-export surface for consumers; unused in this module"
+    )
+)]
 pub use registry::{UniversalSecurityRegistry, capabilities_match, register_security_service};
 pub use types::*;

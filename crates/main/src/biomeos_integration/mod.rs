@@ -500,7 +500,10 @@ impl SquirrelBiomeOSIntegration {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
+#[expect(
+    clippy::expect_used,
+    reason = "Integration tests use expect on parse/deploy Result paths"
+)]
 mod tests {
     use super::*;
 

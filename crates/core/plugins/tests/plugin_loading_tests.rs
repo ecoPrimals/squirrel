@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code: explicit unwrap/expect and local lint noise
+#![expect(
+    clippy::expect_used,
+    reason = "Plugin loading tests use expect on manifest and path fixtures"
+)]
 //! Plugin Directory Loading Tests
 //!
 //! Comprehensive tests for plugin loading from directory functionality

@@ -136,7 +136,10 @@ impl Default for DefaultCryptoProvider {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)] // Invariant or startup failure: unwrap/expect after validation
+    #![expect(
+        clippy::expect_used,
+        reason = "Crypto tests use expect on infallible encrypt/decrypt paths"
+    )]
 
     use super::*;
 

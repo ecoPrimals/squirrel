@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(
-    clippy::unwrap_used,
+#![expect(
     clippy::expect_used,
     clippy::future_not_send,
-    missing_docs
-)] // Test code: explicit unwrap/expect and local lint noise
+    missing_docs,
+    reason = "Concurrent test helpers use expect and non-Send futures by design"
+)]
 //! Modern Concurrent Test Helpers
 //!
 //! This module provides utilities for writing truly concurrent tests without sleeps.
