@@ -329,7 +329,11 @@ impl Plugin for SecurePluginStub {
     }
 
     async fn execute(&self, _args: &[String]) -> Result<String, PluginError> {
-        Ok("Secure plugin stub executed".to_string())
+        Err(PluginError::SecurityError(format!(
+            "Plugin '{}' is a security sandbox — native execution is disabled. \
+             Register commands via the CLI command registry instead.",
+            self.metadata.name
+        )))
     }
 
     async fn cleanup(&self) -> Result<(), PluginError> {
@@ -472,7 +476,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_secure_plugin_stub_execute() {
+    async fn test_secure_plugin_stub_execute_returns_security_error() {
         let metadata = PluginMetadata {
             name: "exec-test".to_string(),
             version: "1.0.0".to_string(),
@@ -483,10 +487,14 @@ mod tests {
         };
         let stub = SecurePluginStub::new(metadata);
         let result = stub.execute(&["arg1".to_string()]).await;
-        assert!(result.is_ok());
-        assert_eq!(
-            result.expect("should succeed"),
-            "Secure plugin stub executed"
+        assert!(
+            result.is_err(),
+            "Sandbox plugins must reject direct execution"
+        );
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("security sandbox"),
+            "Error should mention sandbox: {err}"
         );
     }
 

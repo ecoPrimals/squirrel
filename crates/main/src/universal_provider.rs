@@ -381,7 +381,7 @@ impl UniversalSquirrelProvider {
 #[async_trait]
 impl UniversalPrimalProvider for UniversalSquirrelProvider {
     fn primal_id(&self) -> &'static str {
-        "squirrel"
+        crate::niche::PRIMAL_ID
     }
 
     fn instance_id(&self) -> &str {

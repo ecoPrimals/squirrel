@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![expect(
-    clippy::expect_used,
-    missing_docs,
-    reason = "Test code: explicit expect and local lint noise"
-)]
+#![expect(missing_docs, reason = "Test code: local lint noise")]
+#![allow(clippy::expect_used)]
 // Integration tests gated behind `integration-tests` feature — API migration
 // (CryptoClient → CapabilityCryptoConfig endpoint) tracked in CURRENT_STATUS.md known issues.
 #[cfg(not(feature = "integration-tests"))]

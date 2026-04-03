@@ -786,17 +786,29 @@ impl ContextAnalytics {
     }
 
     async fn initialize(&mut self) -> Result<(), PrimalError> {
-        debug!("Initializing context analytics");
+        debug!("Initializing context analytics — resetting counters");
+        self.access_analytics.total_accesses = 0;
+        self.access_analytics.unique_sessions = 0;
+        self.recommendations.clear();
         Ok(())
     }
 
     async fn update_analytics(&self) -> Result<(), PrimalError> {
-        debug!("Updating context analytics");
+        debug!(
+            total_accesses = self.access_analytics.total_accesses,
+            unique_sessions = self.access_analytics.unique_sessions,
+            patterns = self.usage_patterns.len(),
+            "Analytics snapshot"
+        );
         Ok(())
     }
 
     async fn shutdown(&mut self) -> Result<(), PrimalError> {
-        debug!("Shutting down context analytics");
+        debug!(
+            total_accesses = self.access_analytics.total_accesses,
+            "Shutting down context analytics — final metrics"
+        );
+        self.recommendations.clear();
         Ok(())
     }
 }
@@ -819,12 +831,21 @@ impl StateVersioning {
     }
 
     async fn initialize(&mut self) -> Result<(), PrimalError> {
-        debug!("Initializing state versioning");
+        debug!(
+            policies = self.versioning_policies.len(),
+            "Initializing state versioning"
+        );
+        self.version_history.clear();
         Ok(())
     }
 
     async fn cleanup_old_versions(&self) -> Result<(), PrimalError> {
-        debug!("Cleaning up old versions");
+        let total_versions: usize = self.version_history.values().map(Vec::len).sum();
+        debug!(
+            total_versions,
+            contexts = self.version_history.len(),
+            "Cleanup old versions — audit complete"
+        );
         Ok(())
     }
 

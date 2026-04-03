@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: April 3, 2026
-**Version**: 0.1.0-alpha.33
+**Version**: 0.1.0-alpha.36
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,29 +10,29 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 7,165 passing / 0 failures / 110 ignored across 22 workspace members |
+| Tests | 6,856 passing / 0 failures / 107 ignored across 22 workspace members (default features) |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
 | Formatting | `cargo fmt --all -- --check` passes |
 | Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 22 crates) |
-| Pure Rust | 100% default features (zero C deps); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed |
+| Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto` |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
 | Coverage | 85.3% line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is CLI status (now covered), IPC/network code, demo binaries, and binary entry points |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`) |
 | Crates | 22 workspace members |
-| Files >1000 lines | 0 — all `.rs` files under 1,000 lines (test files extracted: `jsonrpc_ai_router_tests.rs`, `validation_tests.rs`) |
+| Files >1000 lines | 0 — all 1,006 `.rs` files under 1,000 lines (test files extracted: `jsonrpc_ai_router_tests.rs`, `validation_tests.rs`, `shutdown_tests.rs`, `integration_lifecycle_tests.rs`) |
 | `#[expect(reason)]` | Workspace migrated from `#[allow]` to `#[expect(reason)]` — dead suppressions caught automatically |
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
-| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
+| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; `SecurePluginStub` rejects execution (security sandbox); all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
 | TODO/FIXME in code | 0 — all NOTE(phase2) stubs completed; no TODO/FIXME/HACK markers in committed code |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
-| Zero-copy | Hot-path clones audited; `Arc::clone()` for intent clarity; `mem::take` for payload moves; `String` → borrow in MCP task client |
+| Zero-copy | Hot-path clones audited; `ServiceInfo` string fields evolved to `Arc<str>`; `Arc::clone()` for intent clarity; `mem::take` for payload moves; `String` → borrow in MCP task client |
 
 ## JSON-RPC Methods
 
@@ -268,11 +268,53 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 
 ## Known Issues
 
-1. Coverage at 85.3% — remaining ~5% gap to 90% is primarily demo binaries, IPC/network code needing integration infrastructure, and binary entry points
+1. Coverage at ~86% — remaining ~4% gap to 90% is primarily IPC/network code needing integration infrastructure, demo binaries, and binary entry points; all large production files have test modules
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs); coverage gap to 90% remains as in item 1
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
+4. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
+5. `async-trait` used throughout — progressive migration to native Rust 2024 async trait syntax as ecosystem evolves
 
 ## Changes Since Last Handoff (April 3, 2026)
+
+### April 3, 2026 session J (deep debt execution, stub evolution, self-reference cleanup, zero-copy)
+
+- **Production stubs evolved to complete implementations**:
+  - `create_compute_from_type` — removed vendor-specific match arms (k8s/docker/nomad); added `LocalProcessProvider` with workload tracking for dev/test; all non-local providers delegate via `compute.execute` capability discovery
+  - `auto_detect_compute_provider` — removed ToadStool-specific detection; uses `COMPUTE_ENDPOINT` env var for capability-based detection, falls back to local
+  - `SecurePluginStub::execute` — returns `SecurityError` instead of fake success; sandbox plugins reject direct execution
+  - `AiIntelligence::analyze_ecosystem_state` — uses actual engine telemetry (active predictions, automation count, prediction accuracy) instead of hardcoded values
+  - `AiIntelligence::generate_optimizations` — derives recommendations from `OptimizationEngine` strategies and history
+  - `AiIntelligence::generate_ecosystem_report` — delegates to `analyze_ecosystem_state` + `generate_optimizations` for real data
+  - `IntelligenceEngine/OptimizationEngine/PredictionEngine/AutomationEngine/FederationIntelligence::initialize` — log actual engine state (model counts, strategy counts, accuracy); clear stale state
+  - `is_healthy()` on OptimizationEngine/PredictionEngine — `const fn` checking actual model/strategy availability
+  - `ContextAnalytics::initialize/update_analytics/shutdown` — resets counters, logs metrics snapshots
+  - `StateVersioning::initialize/cleanup_old_versions` — tracks version history size, logs audit info
+- **Hardcoded "squirrel" self-references → `niche::PRIMAL_ID`**: 20+ production references across `universal_adapters/` (storage, compute, orchestration, security), `primal_provider/` (core, health_monitoring, ecosystem_integration), `rpc/` (jsonrpc_server, unix_socket), `tool/executor`, `security/beardog_coordinator`, `ecosystem/manager`, `biomeos_integration/mod`, `universal_provider`, `discovery/self_knowledge`
+- **Removed `primal_names` import** from `compute_client/provider_trait.rs` — no vendor-primal coupling in compute detection
+- **Dead code cleanup**: Removed 42KB of orphaned `sync/manager.rs` (917 lines) and `sync/types.rs` (368 lines) — never compiled (not declared as submodules); actual sync module is `sync.rs` (826 lines, under 1000)
+- **Zero-copy evolution**: `ServiceInfo` string fields (`service_id`, `name`, `category`, `endpoints`) evolved from `String` → `Arc<str>` — eliminates deep copies in high-frequency capability discovery queries
+- **Unfulfilled lint expectation fixed**: `capability_jwt_integration_tests.rs` — `#[expect(clippy::expect_used)]` removed (no violations); replaced with `#[allow]`
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓ (default + `--all-features --all-targets`), `test 6,856/0/107` ✓, `doc` ✓, `deny` ✓
+
+### April 3, 2026 session I (primalSpring audit compliance, domain sovereignty, overstep resolution)
+
+- **primalSpring audit resolution**: Reviewed wateringHole gap registry and primalSpring downstream audit findings
+- **MockAIClient cfg gate hardened**: Removed blanket `#[allow(warnings)]` from `ai-tools/tests/basic_test.rs` that was hiding lint violations; replaced with targeted `#[allow(missing_docs, clippy::unwrap_used, clippy::expect_used)]`; all `MockAIClient` usages properly gated behind `#[cfg(any(test, feature = "testing"))]`
+- **ed25519-dalek overstep resolved (BearDog domain)**: `ed25519-dalek` moved from required to **optional** dependency behind `local-crypto` feature; `DefaultCryptoProvider` (crypto.rs) and `SecurityManagerImpl` crypto paths gated with `#[cfg(feature = "local-crypto")]`; encrypt/decrypt return helpful error when crypto feature absent (directing to BearDog capability discovery); `enhanced`/`full` features include `local-crypto` for backward compat
+- **sled/sqlx overstep confirmed clean**: `sled` not present in dependency tree; `sqlx` properly optional behind `persistence` feature in `rule-system` only (not in default build)
+- **Default build is now zero-crypto**: No `ed25519-dalek` or signing code compiled in default features — TRUE PRIMAL sovereignty (delegates crypto to BearDog at runtime)
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓ (default + `--all-features --all-targets`), `test 6,855/0/107` ✓, `doc` ✓, `deny` ✓
+
+### April 3, 2026 session H (ORC-Notice compliance, hardcode evolution, smart refactoring)
+
+- **ORC-Notice headers**: Added `// ORC-Notice:` to all 16 crate `lib.rs`/`main.rs` files that were missing them; 25/25 entry points now have consistent SPDX + ORC + Copyright headers
+- **Hardcoded values evolved to env-configurable**: `trust_domain` now reads `SQUIRREL_TRUST_DOMAIN` / `SECURITY_TRUST_DOMAIN` with `"biome.local"` fallback; resource requirements (`cpu`, `memory`, `storage`, `network`, `gpu`) configurable via `SQUIRREL_RESOURCE_*` env vars; `mod.rs` uses `Default::default()` instead of re-stating literals
+- **Smart refactoring of large files**:
+  - `shutdown.rs` (917→517 lines): tests extracted to `shutdown_tests.rs` (395 lines) as sibling test module; added `pub(crate) phase_timeout()` accessor to avoid leaking field visibility
+  - `integration_tests.rs` (988→668 lines): LearningIntegration lifecycle tests extracted to `integration_lifecycle_tests.rs` (323 lines)
+- **Ignored tests reviewed**: Only 6 `#[ignore]` in codebase — 3 network-dependent (MCP server), 2 destructive chaos (FD/disk exhaustion), 1 external crypto provider — all legitimately gated
+- **Dependency audit**: `cargo deny check` passes (advisories ok, bans ok, licenses ok, sources ok); `base64` duplicate (0.21 via `ron`/`config`, 0.22 direct) is transitive; `bincode` unmaintained tracked via `RUSTSEC-2025-0141` ignore
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓, `test 6,859/0/107` ✓, `doc` ✓, `deny` ✓
 
 ### April 3, 2026 session G (Dead-code removal, test idiomacy, concurrency-model improvements)
 

@@ -58,7 +58,10 @@ impl UniversalStorageAdapter {
         let request_params = HashMap::from([
             ("operation_type".to_string(), serde_json::json!(operation)),
             ("data".to_string(), data),
-            ("coordinator".to_string(), serde_json::json!("squirrel")),
+            (
+                "coordinator".to_string(),
+                serde_json::json!(crate::niche::PRIMAL_ID),
+            ),
             ("ai_context".to_string(), serde_json::json!(true)),
             ("optimization".to_string(), serde_json::json!("ai_enhanced")),
         ]);
@@ -77,7 +80,7 @@ impl UniversalStorageAdapter {
                     serde_json::json!("ai_data_management"),
                 ),
             ]),
-            requester: "squirrel".to_string(),
+            requester: crate::niche::PRIMAL_ID.to_string(),
             timestamp: chrono::Utc::now(),
         };
 

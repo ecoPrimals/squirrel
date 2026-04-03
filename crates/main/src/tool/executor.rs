@@ -156,13 +156,13 @@ impl ToolExecutor {
                         match universal_constants::sys_info::memory_info() {
                             Ok(mem) => serde_json::json!({
                                 "version": env!("CARGO_PKG_VERSION"),
-                                "primal": "squirrel",
+                                "primal": crate::niche::PRIMAL_ID,
                                 "memory_total_mb": mem.total / 1024 / 1024,
                                 "memory_used_mb": mem.used / 1024 / 1024,
                             }),
                             Err(_) => serde_json::json!({
                                 "version": env!("CARGO_PKG_VERSION"),
-                                "primal": "squirrel",
+                                "primal": crate::niche::PRIMAL_ID,
                                 "note": "memory info unavailable",
                             }),
                         }
@@ -171,7 +171,7 @@ impl ToolExecutor {
                     {
                         serde_json::json!({
                             "version": env!("CARGO_PKG_VERSION"),
-                            "primal": "squirrel",
+                            "primal": crate::niche::PRIMAL_ID,
                             "note": "system-metrics feature not enabled",
                         })
                     }

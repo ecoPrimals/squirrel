@@ -40,7 +40,7 @@ impl EcosystemManager {
     #[must_use]
     pub fn new(config: EcosystemConfig, metrics_collector: Arc<MetricsCollector>) -> Self {
         let primal_context = PrimalContext {
-            user_id: "squirrel".to_string(),
+            user_id: crate::niche::PRIMAL_ID.to_string(),
             device_id: uuid::Uuid::new_v4().to_string(),
             network_location: crate::universal::NetworkLocation {
                 region: std::env::var("DEPLOYMENT_REGION")

@@ -16,7 +16,7 @@ use tracing::warn;
 
 use crate::error::PrimalError;
 
-pub(crate) const PRIMAL_TYPE: &str = "squirrel";
+pub(crate) const PRIMAL_TYPE: &str = crate::niche::PRIMAL_ID;
 pub(crate) const API_VERSION: &str = "biomeOS/v1";
 pub(crate) const STATUS_INITIALIZING: &str = "initializing";
 pub(crate) const STATUS_STARTING: &str = "starting";
@@ -197,20 +197,9 @@ impl SquirrelBiomeOSIntegration {
                 ],
             },
 
-            security: EcosystemSecurity {
-                authentication_method: "ecosystem_jwt".to_string(),
-                tls_enabled: true,
-                mtls_required: false, // Will be true when security primal is discovered
-                trust_domain: "biome.local".to_string(),
-            },
+            security: EcosystemSecurity::default(),
 
-            resource_requirements: ResourceRequirements {
-                cpu: "4".to_string(),
-                memory: "8Gi".to_string(),
-                storage: "20Gi".to_string(),
-                network: "1Gbps".to_string(),
-                gpu: Some("1".to_string()), // Optional GPU for AI workloads
-            },
+            resource_requirements: ResourceRequirements::default(),
 
             health_check: HealthCheckConfig {
                 interval: Duration::from_secs(30),

@@ -118,7 +118,7 @@ pub fn get_node_id_with(config: &SocketConfig) -> String {
         hostname::get()
             .ok()
             .and_then(|h| h.into_string().ok())
-            .unwrap_or_else(|| "squirrel".to_string())
+            .unwrap_or_else(|| crate::niche::PRIMAL_ID.to_string())
     })
 }
 

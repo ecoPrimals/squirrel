@@ -14,6 +14,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use super::audit::{AuditEvent, DefaultAuditService};
+#[cfg(feature = "local-crypto")]
 use super::crypto::DefaultCryptoProvider;
 use super::identity::{DefaultIdentityManager, UserIdentity};
 use super::key_storage::{InMemoryKeyStorage, KeyStorage};
@@ -29,10 +30,13 @@ pub use squirrel_mcp_config::SecurityConfig;
 ///
 /// This provides comprehensive security management that can be extended
 /// or replaced with BearDog integration in the future.
+/// When `local-crypto` is disabled, crypto operations delegate to BearDog
+/// via capability discovery.
 #[derive(Debug)]
 pub struct SecurityManagerImpl {
     config: SecurityConfig,
     audit_service: Arc<DefaultAuditService>,
+    #[cfg(feature = "local-crypto")]
     crypto_provider: Arc<DefaultCryptoProvider>,
     identity_manager: Arc<DefaultIdentityManager>,
     key_storage: Arc<dyn KeyStorage>,
@@ -56,6 +60,7 @@ impl SecurityManagerImpl {
         Self {
             config,
             audit_service: Arc::new(DefaultAuditService::new()),
+            #[cfg(feature = "local-crypto")]
             crypto_provider: Arc::new(DefaultCryptoProvider::new()),
             identity_manager: Arc::new(DefaultIdentityManager::new()),
             key_storage,
@@ -70,7 +75,8 @@ impl SecurityManagerImpl {
         self.audit_service.clone()
     }
 
-    /// Get crypto provider
+    /// Get crypto provider (requires `local-crypto` feature; delegate to BearDog otherwise).
+    #[cfg(feature = "local-crypto")]
     #[must_use]
     pub fn crypto_provider(&self) -> Arc<DefaultCryptoProvider> {
         self.crypto_provider.clone()
@@ -127,14 +133,22 @@ impl SecurityManagerImpl {
         }
 
         if cfg.enable_encryption {
-            let plain = b"squirrel-mcp security init probe";
-            let ct = self.crypto_provider.encrypt(plain)?;
-            let round = self.crypto_provider.decrypt(&ct)?;
-            if round != plain {
-                return Err(crate::error::MCPError::Internal(
-                    "encryption self-test failed: decrypt mismatch".to_string(),
-                ));
+            #[cfg(feature = "local-crypto")]
+            {
+                let plain = b"squirrel-mcp security init probe";
+                let ct = self.crypto_provider.encrypt(plain)?;
+                let round = self.crypto_provider.decrypt(&ct)?;
+                if round != plain {
+                    return Err(crate::error::MCPError::Internal(
+                        "encryption self-test failed: decrypt mismatch".to_string(),
+                    ));
+                }
             }
+            #[cfg(not(feature = "local-crypto"))]
+            return Err(crate::error::MCPError::Configuration(
+                "enable_encryption requires `local-crypto` feature or BearDog capability"
+                    .to_string(),
+            ));
         }
 
         Ok(())
@@ -228,22 +242,40 @@ impl SecurityManagerImpl {
         Ok(result)
     }
 
-    /// Encrypt data
+    /// Encrypt data (delegates to local crypto when `local-crypto` is enabled,
+    /// otherwise passthrough when encryption is disabled).
     pub fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>> {
         if !self.config.enable_encryption {
             return Ok(data.to_vec());
         }
 
-        self.crypto_provider.encrypt(data)
+        #[cfg(feature = "local-crypto")]
+        {
+            self.crypto_provider.encrypt(data)
+        }
+        #[cfg(not(feature = "local-crypto"))]
+        Err(crate::error::MCPError::Configuration(
+            "Encryption requires `local-crypto` feature or BearDog crypto.signing capability"
+                .to_string(),
+        ))
     }
 
-    /// Decrypt data
+    /// Decrypt data (delegates to local crypto when `local-crypto` is enabled,
+    /// otherwise passthrough when encryption is disabled).
     pub fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>> {
         if !self.config.enable_encryption {
             return Ok(data.to_vec());
         }
 
-        self.crypto_provider.decrypt(data)
+        #[cfg(feature = "local-crypto")]
+        {
+            self.crypto_provider.decrypt(data)
+        }
+        #[cfg(not(feature = "local-crypto"))]
+        Err(crate::error::MCPError::Configuration(
+            "Decryption requires `local-crypto` feature or BearDog crypto.signing capability"
+                .to_string(),
+        ))
     }
 
     /// Get security configuration
@@ -270,6 +302,7 @@ impl Clone for SecurityManagerImpl {
         Self {
             config: self.config.clone(),
             audit_service: self.audit_service.clone(),
+            #[cfg(feature = "local-crypto")]
             crypto_provider: self.crypto_provider.clone(),
             identity_manager: self.identity_manager.clone(),
             key_storage: self.key_storage.clone(),
@@ -300,6 +333,7 @@ mod tests {
         assert!(dbg.contains("SecurityManagerImpl"));
 
         assert!(m.audit_service().get_events().await.is_empty());
+        #[cfg(feature = "local-crypto")]
         let _ = m.crypto_provider();
         let _ = m.identity_manager();
         let _ = m.key_storage();
@@ -450,6 +484,7 @@ mod tests {
         assert_eq!(m.decrypt(&data).expect("decrypt"), data);
     }
 
+    #[cfg(feature = "local-crypto")]
     #[test]
     fn encrypt_decrypt_round_trip_when_enabled() {
         let mut cfg = quiet_config();

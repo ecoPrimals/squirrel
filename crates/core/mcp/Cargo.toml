@@ -65,7 +65,7 @@ libloading = { workspace = true, optional = true }
 # Utilities
 rand.workspace = true
 blake3.workspace = true
-ed25519-dalek.workspace = true
+ed25519-dalek = { workspace = true, optional = true }
 futures.workspace = true
 bytes.workspace = true
 clap.workspace = true
@@ -89,6 +89,10 @@ disabled_until_rewrite = []
 # Production default: streaming only (Zero-HTTP, Pure Rust)
 default = ["streaming"]
 
+# Local Ed25519/BLAKE3 crypto (BearDog domain — feature-gated per primalSpring audit).
+# When disabled, crypto operations delegate to the security primal via capability discovery.
+local-crypto = ["dep:ed25519-dalek"]
+
 # Direct HTTP to AI vendors (DEV/TESTING)
 direct-http = ["dep:reqwest"]
 
@@ -103,7 +107,8 @@ enhanced = [
     "plugins",
     "persistence",
     "metrics",
-    "compression"
+    "compression",
+    "local-crypto"
 ]
 full = [
     "websocket",
@@ -113,7 +118,8 @@ full = [
     "plugins",
     "persistence",
     "metrics",
-    "compression"
+    "compression",
+    "local-crypto"
 ]
 websocket = ["dep:tokio-tungstenite"]
 tarpc = []

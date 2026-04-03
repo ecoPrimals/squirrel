@@ -66,7 +66,10 @@ impl UniversalOrchestrationAdapter {
                 serde_json::json!(workflow_type),
             ),
             ("participants".to_string(), serde_json::json!(participants)),
-            ("coordinator".to_string(), serde_json::json!("squirrel")),
+            (
+                "coordinator".to_string(),
+                serde_json::json!(crate::niche::PRIMAL_ID),
+            ),
             ("ai_enhanced".to_string(), serde_json::json!(true)),
             ("priority".to_string(), serde_json::json!("high")),
         ]);
@@ -85,7 +88,7 @@ impl UniversalOrchestrationAdapter {
                     serde_json::json!("ai_workflow"),
                 ),
             ]),
-            requester: "squirrel".to_string(),
+            requester: crate::niche::PRIMAL_ID.to_string(),
             timestamp: chrono::Utc::now(),
         };
 

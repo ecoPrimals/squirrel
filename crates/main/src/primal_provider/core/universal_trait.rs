@@ -24,7 +24,7 @@ use super::SquirrelPrimalProvider;
 impl UniversalPrimalProvider for SquirrelPrimalProvider {
     /// Get the primal ID
     fn primal_id(&self) -> &'static str {
-        "squirrel"
+        crate::niche::PRIMAL_ID
     }
 
     /// Get the instance ID

@@ -88,7 +88,7 @@ impl EcosystemIntegration {
                 failure_threshold: 3,
             },
             metadata: std::collections::HashMap::new(),
-            primal_provider: Some("squirrel".to_string()),
+            primal_provider: Some(crate::niche::PRIMAL_ID.to_string()),
             registered_at: chrono::Utc::now(),
             // Remove last_seen field as it doesn't exist in the struct
         }

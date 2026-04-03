@@ -118,7 +118,7 @@ impl JsonRpcServer {
     #[must_use]
     pub fn new(socket_path: String) -> Self {
         Self {
-            service_name: "squirrel".to_string(),
+            service_name: crate::niche::PRIMAL_ID.to_string(),
             socket_path,
             metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: None,
@@ -132,7 +132,7 @@ impl JsonRpcServer {
     #[must_use]
     pub fn with_ai_router(socket_path: String, ai_router: Arc<crate::api::ai::AiRouter>) -> Self {
         Self {
-            service_name: "squirrel".to_string(),
+            service_name: crate::niche::PRIMAL_ID.to_string(),
             socket_path,
             metrics: Arc::new(RwLock::new(ServerMetrics::new())),
             ai_router: Some(ai_router),

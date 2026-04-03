@@ -233,7 +233,7 @@ impl SquirrelPrimalProvider {
             "operation_type": operation_type,
             "participating_primals": participating_primals,
             "discovered_via_capabilities": discovered,
-            "coordinator": "squirrel",
+            "coordinator": crate::niche::PRIMAL_ID,
             "timestamp": chrono::Utc::now().to_rfc3339()
         });
 
@@ -336,7 +336,7 @@ impl SquirrelPrimalProvider {
         let response = serde_json::json!({
             "status": "completed",
             "operation": operation,
-            "coordinator": "squirrel",
+            "coordinator": crate::niche::PRIMAL_ID,
             "mesh_services_discovered": mesh.len(),
             "mesh_services": mesh.iter().map(|s| {
                 serde_json::json!({
@@ -567,7 +567,7 @@ impl SquirrelPrimalProvider {
             "ai_operations_coordinated": 150,
             "network_effect_score": 0.88,
             "participating_primals": participating_primals,
-            "coordinator": "squirrel",
+            "coordinator": crate::niche::PRIMAL_ID,
             "discovery_mode": "capability_based",
             "last_updated": chrono::Utc::now().to_rfc3339()
         });
@@ -624,7 +624,7 @@ impl SquirrelPrimalProvider {
     /// Convenience method to access `primal_id` from trait
     #[must_use]
     pub const fn primal_id(&self) -> &'static str {
-        "squirrel"
+        crate::niche::PRIMAL_ID
     }
 
     /// Convenience method to access capabilities from trait

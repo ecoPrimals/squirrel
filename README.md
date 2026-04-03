@@ -3,7 +3,7 @@
 
 **AI Coordination Primal** for the [ecoPrimals](https://github.com/ecoPrimals) ecosystem.
 
-**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 7,165 passing | **Edition**: 2024 | **Coverage**: 85.3%
+**License**: [scyBorg](LICENSE) (AGPL-3.0-or-later + ORC + CC-BY-SA 4.0) | **Build**: GREEN | **Tests**: 6,856 passing | **Edition**: 2024 | **Coverage**: ~86%
 
 ---
 
@@ -76,7 +76,7 @@ Capability symlink: `ai.sock` → `squirrel.sock` (auto-created for capability-b
 ```
 TRUE PRIMAL: Self-knowledge only, discovers everything else at runtime.
 
-Fitness:   7,165 tests passing (0 failures, 110 ignored) | 1,247 files | 407k lines
+Fitness:   6,856 tests passing (0 failures, 107 ignored) | 1,004 files | 341k lines
 
 IPC:       JSON-RPC 2.0 over Unix sockets (default)
 Binary:    tarpc with automatic protocol negotiation

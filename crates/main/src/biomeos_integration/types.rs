@@ -431,7 +431,9 @@ impl Default for EcosystemSecurity {
             authentication_method: "ecosystem_jwt".to_string(),
             tls_enabled: true,
             mtls_required: false,
-            trust_domain: "biome.local".to_string(),
+            trust_domain: std::env::var("SQUIRREL_TRUST_DOMAIN")
+                .or_else(|_| std::env::var("SECURITY_TRUST_DOMAIN"))
+                .unwrap_or_else(|_| "biome.local".to_string()),
         }
     }
 }
@@ -439,11 +441,13 @@ impl Default for EcosystemSecurity {
 impl Default for ResourceRequirements {
     fn default() -> Self {
         Self {
-            cpu: "4".to_string(),
-            memory: "8Gi".to_string(),
-            storage: "20Gi".to_string(),
-            network: "1Gbps".to_string(),
-            gpu: Some("1".to_string()),
+            cpu: std::env::var("SQUIRREL_RESOURCE_CPU").unwrap_or_else(|_| "4".to_string()),
+            memory: std::env::var("SQUIRREL_RESOURCE_MEMORY").unwrap_or_else(|_| "8Gi".to_string()),
+            storage: std::env::var("SQUIRREL_RESOURCE_STORAGE")
+                .unwrap_or_else(|_| "20Gi".to_string()),
+            network: std::env::var("SQUIRREL_RESOURCE_NETWORK")
+                .unwrap_or_else(|_| "1Gbps".to_string()),
+            gpu: Some(std::env::var("SQUIRREL_RESOURCE_GPU").unwrap_or_else(|_| "1".to_string())),
         }
     }
 }

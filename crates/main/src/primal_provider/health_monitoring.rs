@@ -64,7 +64,10 @@ impl HealthReporting {
         string_details.insert("cpu_usage".to_string(), format!("{cpu_usage:.2}"));
 
         // 8. Provider-specific capabilities status
-        string_details.insert("primal_type".to_string(), "squirrel".to_string());
+        string_details.insert(
+            "primal_type".to_string(),
+            crate::niche::PRIMAL_ID.to_string(),
+        );
 
         let instance_id = provider
             .context

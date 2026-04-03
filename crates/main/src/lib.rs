@@ -95,6 +95,8 @@ pub mod security;
 pub mod security_client;
 pub mod session;
 pub mod shutdown;
+#[cfg(test)]
+mod shutdown_tests;
 pub mod storage_client;
 pub mod universal;
 pub mod universal_adapter;

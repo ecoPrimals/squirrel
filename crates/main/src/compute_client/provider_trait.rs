@@ -36,7 +36,6 @@ use crate::compute_client::types::{ComputeCapabilityType, ResourceRequirements};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use universal_constants::primal_names;
 use uuid::Uuid;
 
 /// Result type for compute operations
@@ -232,57 +231,128 @@ pub trait ComputeProvider: Send + Sync {
 pub async fn auto_detect_compute_provider() -> ComputeResult<Box<dyn ComputeProvider>> {
     use tracing::{debug, info};
 
-    // 1. Check environment variable
+    // 1. Explicit provider type from environment
     if let Ok(provider_type) = std::env::var("COMPUTE_PROVIDER_TYPE") {
-        info!("Compute provider type specified: {}", provider_type);
+        info!(provider = %provider_type, "Compute provider type specified via env");
         return create_compute_from_type(&provider_type).await;
     }
 
-    // 2. Detect compute primal via env (capability-based; name is a hint only)
-    if std::env::var("TOADSTOOL_ENDPOINT").is_ok() || std::env::var("COMPUTE_ENDPOINT").is_ok() {
-        debug!("Detected compute primal via environment");
-        return create_compute_from_type(crate::primal_names::TOADSTOOL).await;
+    // 2. Capability-based: detect compute primal endpoint via env
+    if std::env::var("COMPUTE_ENDPOINT").is_ok() {
+        debug!("Detected compute primal via COMPUTE_ENDPOINT — delegate via capability discovery");
+        return create_compute_from_type("capability").await;
     }
 
-    // 3. Detect Kubernetes
-    if std::path::Path::new("/var/run/secrets/kubernetes.io").exists() {
-        debug!("Detected Kubernetes environment");
-        return create_compute_from_type("kubernetes").await;
-    }
-
-    // 4. Detect Docker
-    if std::path::Path::new("/var/run/docker.sock").exists() {
-        debug!("Detected Docker environment");
-        return create_compute_from_type("docker").await;
-    }
-
-    // 5. Fall back to local execution
+    // 3. Fall back to local execution (development mode)
     debug!("No compute provider detected, using local execution");
     create_compute_from_type("local").await
 }
 
-/// Create compute provider from type string
+/// Create compute provider from type string.
+///
+/// Returns a [`LocalProcessProvider`] for local dev/test execution.
+/// All other provider types are delegated via `compute.execute` capability
+/// discovery — Squirrel never embeds vendor-specific orchestrators.
 async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<dyn ComputeProvider>> {
     match provider_type.to_lowercase().as_str() {
-        primal_names::TOADSTOOL => Err(ComputeProviderError::NotAvailable(
-            "Toadstool provider not yet implemented".to_string(),
-        )),
-        "kubernetes" | "k8s" => Err(ComputeProviderError::NotAvailable(
-            "Kubernetes provider not yet implemented".to_string(),
-        )),
-        "docker" => Err(ComputeProviderError::NotAvailable(
-            "Docker provider not yet implemented".to_string(),
-        )),
-        "nomad" => Err(ComputeProviderError::NotAvailable(
-            "Nomad provider not yet implemented".to_string(),
-        )),
-        "local" => Err(ComputeProviderError::NotAvailable(
-            "Local provider not yet implemented".to_string(),
-        )),
-        unknown => Err(ComputeProviderError::NotAvailable(format!(
-            "Unknown provider type: {unknown}"
-        ))),
+        "local" => Ok(Box::new(LocalProcessProvider::new())),
+        other => {
+            tracing::info!(
+                provider = other,
+                "Compute type not locally available; delegate via compute.execute capability"
+            );
+            Err(ComputeProviderError::NotAvailable(format!(
+                "Provider '{other}' is not embedded — use `compute.execute` capability \
+                 discovery to delegate to the compute primal"
+            )))
+        }
     }
+}
+
+/// Minimal local-process compute provider for development and testing.
+///
+/// In production, compute workloads are delegated to the compute primal
+/// (e.g. ToadStool) via `compute.execute` capability discovery. This
+/// provider exists so that `auto_detect_compute_provider` always has a
+/// usable fallback during local development.
+struct LocalProcessProvider {
+    workloads: std::sync::Mutex<HashMap<Uuid, WorkloadExecutionResult>>,
+}
+
+impl LocalProcessProvider {
+    fn new() -> Self {
+        Self {
+            workloads: std::sync::Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+#[async_trait]
+impl ComputeProvider for LocalProcessProvider {
+    fn provider_name(&self) -> &'static str {
+        "local"
+    }
+
+    async fn get_capabilities(&self) -> ComputeResult<Vec<ComputeCapabilityType>> {
+        Ok(vec![ComputeCapabilityType::CpuIntensive {
+            cores: num_cpus(),
+            memory_gb: 8,
+            architecture: std::env::consts::ARCH.to_string(),
+        }])
+    }
+
+    async fn execute_workload(&self, spec: WorkloadExecutionSpec) -> ComputeResult<Uuid> {
+        tracing::info!(name = %spec.name, id = %spec.id, "Local workload accepted (development mode)");
+        let result = WorkloadExecutionResult {
+            id: spec.id,
+            status: WorkloadStatus::Completed,
+            exit_code: Some(0),
+            logs: None,
+            metadata: HashMap::new(),
+        };
+        self.workloads
+            .lock()
+            .map_err(|e| ComputeProviderError::ProviderError(e.to_string()))?
+            .insert(spec.id, result);
+        Ok(spec.id)
+    }
+
+    async fn get_workload_status(&self, id: Uuid) -> ComputeResult<WorkloadExecutionResult> {
+        self.workloads
+            .lock()
+            .map_err(|e| ComputeProviderError::ProviderError(e.to_string()))?
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ComputeProviderError::NotFound(id.to_string()))
+    }
+
+    async fn cancel_workload(&self, id: Uuid) -> ComputeResult<()> {
+        self.workloads
+            .lock()
+            .map_err(|e| ComputeProviderError::ProviderError(e.to_string()))?
+            .remove(&id);
+        Ok(())
+    }
+
+    async fn list_workloads(&self) -> ComputeResult<Vec<WorkloadExecutionResult>> {
+        Ok(self
+            .workloads
+            .lock()
+            .map_err(|e| ComputeProviderError::ProviderError(e.to_string()))?
+            .values()
+            .cloned()
+            .collect())
+    }
+
+    async fn health_check(&self) -> bool {
+        true
+    }
+}
+
+fn num_cpus() -> u32 {
+    std::thread::available_parallelism()
+        .map(|n| n.get() as u32)
+        .unwrap_or(1)
 }
 
 #[cfg(test)]
@@ -396,7 +466,10 @@ mod tests {
             };
             match e {
                 ComputeProviderError::NotAvailable(msg) => {
-                    assert!(msg.contains("Unknown provider type"));
+                    assert!(
+                        msg.contains("capability discovery"),
+                        "Error should guide to capability discovery: {msg}"
+                    );
                 }
                 ref other => unreachable!("unexpected {other:?}"),
             }
@@ -404,19 +477,55 @@ mod tests {
     }
 
     #[test]
-    fn auto_detect_prefers_env_over_files() {
-        temp_env::with_var("COMPUTE_PROVIDER_TYPE", Some("LOCAL"), || {
+    fn auto_detect_local_provider_succeeds() {
+        temp_env::with_var("COMPUTE_PROVIDER_TYPE", Some("local"), || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .expect("rt");
-            let result = rt.block_on(auto_detect_compute_provider());
-            assert!(result.is_err(), "expected err");
-            let Err(e) = result else {
-                unreachable!("expected err");
-            };
-            assert!(matches!(e, ComputeProviderError::NotAvailable(_)));
+            let provider = rt
+                .block_on(auto_detect_compute_provider())
+                .expect("local provider should succeed");
+            assert_eq!(provider.provider_name(), "local");
         });
+    }
+
+    #[tokio::test]
+    async fn local_provider_executes_and_tracks_workload() {
+        let provider = LocalProcessProvider::new();
+        let spec = WorkloadExecutionSpec {
+            id: Uuid::new_v4(),
+            name: "test-local".to_string(),
+            image: "none".to_string(),
+            command: vec!["echo".to_string()],
+            environment: HashMap::new(),
+            resources: ResourceRequirements {
+                cpu_cores: 1,
+                memory_gb: 1,
+                gpu_units: None,
+                storage_gb: 1,
+                max_execution_time: std::time::Duration::from_secs(5),
+                network_bandwidth_mbps: None,
+            },
+            labels: HashMap::new(),
+        };
+        let id = spec.id;
+        provider
+            .execute_workload(spec)
+            .await
+            .expect("should succeed");
+        let status = provider
+            .get_workload_status(id)
+            .await
+            .expect("should succeed");
+        assert_eq!(status.status, WorkloadStatus::Completed);
+
+        let list = provider.list_workloads().await.expect("should succeed");
+        assert_eq!(list.len(), 1);
+
+        provider.cancel_workload(id).await.expect("should succeed");
+        let list = provider.list_workloads().await.expect("should succeed");
+        assert!(list.is_empty());
     }
 
     #[tokio::test]

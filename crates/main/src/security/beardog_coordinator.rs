@@ -172,7 +172,10 @@ impl BeardogSecurityCoordinator {
                 "operation": operation
             }),
             metadata: HashMap::from([
-                ("coordinator".to_string(), serde_json::json!("squirrel")),
+                (
+                    "coordinator".to_string(),
+                    serde_json::json!(crate::niche::PRIMAL_ID),
+                ),
                 (
                     "security_provider".to_string(),
                     serde_json::json!("discovered_service"),

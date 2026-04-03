@@ -384,41 +384,74 @@ impl AiIntelligence {
         Ok(())
     }
 
-    /// Analyze ecosystem state
+    /// Analyze ecosystem state using actual engine metrics.
     async fn analyze_ecosystem_state(&self) -> Result<EcosystemAnalysis, PrimalError> {
-        debug!("Analyzing ecosystem state");
+        debug!("Analyzing ecosystem state from engine telemetry");
+
+        let active_predictions = self.prediction_engine.active_predictions.len() as u32;
+        let active_automations = self.automation_engine.active_automations.len() as u32;
+        let prediction_accuracy = self.prediction_engine.prediction_accuracy;
+
+        let health_score = if prediction_accuracy > 0.0 {
+            prediction_accuracy
+        } else {
+            0.5
+        };
+
+        let mut recommendations = Vec::new();
+        if active_predictions == 0 {
+            recommendations
+                .push("No active predictions — consider seeding the prediction engine".to_string());
+        }
+        if active_automations == 0 && !self.automation_engine.automation_rules.is_empty() {
+            recommendations.push("Automation rules defined but no active automations".to_string());
+        }
 
         Ok(EcosystemAnalysis {
             timestamp: Utc::now(),
-            health_score: 0.85,
+            health_score,
             resource_usage: ResourceUtilization {
-                cpu_percent: 45.0,
-                memory_percent: 60.0,
-                network_percent: 25.0,
-                storage_percent: 70.0,
+                cpu_percent: 0.0,
+                memory_percent: 0.0,
+                network_percent: 0.0,
+                storage_percent: 0.0,
                 timestamp: Utc::now(),
             },
-            active_services: 5,
+            active_services: active_predictions + active_automations,
             alerts: vec![],
-            recommendations: vec![],
+            recommendations,
         })
     }
 
-    /// Generate optimization recommendations
+    /// Generate optimization recommendations derived from engine state.
     async fn generate_optimizations(&self) -> Result<Vec<Optimization>, PrimalError> {
-        debug!("Generating optimization recommendations");
+        debug!("Generating optimization recommendations from engine state");
 
-        Ok(vec![Optimization {
-            optimization_id: "opt-001".to_string(),
-            optimization_type: "CPU Usage Optimization".to_string(),
-            target_component: "CPU".to_string(),
-            improvement_potential: 15.0,
-            implementation_steps: vec![
-                "Redistribute CPU-intensive tasks across available nodes".to_string(),
-                "Implement load balancing".to_string(),
-                "Optimize task scheduling".to_string(),
-            ],
-        }])
+        let mut optimizations = Vec::new();
+
+        if self.optimization_engine.optimization_history.is_empty() {
+            optimizations.push(Optimization {
+                optimization_id: format!("opt-{}", Utc::now().timestamp()),
+                optimization_type: "Baseline Profiling".to_string(),
+                target_component: "all".to_string(),
+                improvement_potential: 0.0,
+                implementation_steps: vec![
+                    "Collect baseline metrics before optimizing".to_string(),
+                ],
+            });
+        }
+
+        for strategy in &self.optimization_engine.optimization_strategies {
+            optimizations.push(Optimization {
+                optimization_id: format!("opt-{strategy}-{}", Utc::now().timestamp()),
+                optimization_type: strategy.clone(),
+                target_component: "ecosystem".to_string(),
+                improvement_potential: 10.0,
+                implementation_steps: vec![format!("Apply {strategy} strategy")],
+            });
+        }
+
+        Ok(optimizations)
     }
 
     /// Update predictions
@@ -442,25 +475,29 @@ impl AiIntelligence {
         Ok(())
     }
 
-    /// Generate ecosystem report
+    /// Generate ecosystem report from current engine telemetry.
     pub async fn generate_ecosystem_report(&self) -> Result<EcosystemReport, PrimalError> {
-        debug!("Generating ecosystem report");
+        debug!("Generating ecosystem report from engine telemetry");
+
+        let analysis = self.analyze_ecosystem_state().await?;
+        let optimizations = self.generate_optimizations().await?;
+
+        let recommendations: Vec<String> = optimizations
+            .into_iter()
+            .flat_map(|o| o.implementation_steps)
+            .collect();
 
         Ok(EcosystemReport {
             timestamp: Utc::now(),
-            ecosystem_health: 0.85,
-            total_services: 5,
-            active_alerts: 0,
-            recommendations: vec![
-                "Optimize memory usage in service A".to_string(),
-                "Consider scaling service B for better performance".to_string(),
-                "Review security policies for service C".to_string(),
-            ],
+            ecosystem_health: analysis.health_score,
+            total_services: analysis.active_services,
+            active_alerts: analysis.alerts.len() as u32,
+            recommendations,
             resource_summary: ResourceSummary {
-                cpu_usage: 45.0,
-                memory_usage: 60.0,
-                storage_usage: 70.0,
-                network_usage: 25.0,
+                cpu_usage: analysis.resource_usage.cpu_percent,
+                memory_usage: analysis.resource_usage.memory_percent,
+                storage_usage: analysis.resource_usage.storage_percent,
+                network_usage: analysis.resource_usage.network_percent,
             },
         })
     }
@@ -612,47 +649,70 @@ impl Default for PredictionEngine {
 
 impl IntelligenceEngine {
     async fn initialize(&mut self) -> Result<(), PrimalError> {
-        debug!("Initializing intelligence engine");
+        info!(
+            models = self.analysis_models.len(),
+            learning_rate = self.learning_rate,
+            confidence_threshold = self.confidence_threshold,
+            "Intelligence engine initialized"
+        );
         Ok(())
     }
 
-    const fn is_healthy(&self) -> bool {
-        true
+    fn is_healthy(&self) -> bool {
+        !self.analysis_models.is_empty() && self.confidence_threshold > 0.0
     }
 }
 
 impl OptimizationEngine {
     async fn initialize(&mut self) -> Result<(), PrimalError> {
-        debug!("Initializing optimization engine");
+        info!(
+            strategies = self.optimization_strategies.len(),
+            "Optimization engine initialized"
+        );
+        self.optimization_history.clear();
         Ok(())
     }
 
     const fn is_healthy(&self) -> bool {
-        true
+        !self.optimization_strategies.is_empty()
     }
 }
 
 impl PredictionEngine {
     async fn initialize(&mut self) -> Result<(), PrimalError> {
-        debug!("Initializing prediction engine");
+        info!(
+            models = self.prediction_models.len(),
+            accuracy = self.prediction_accuracy,
+            "Prediction engine initialized"
+        );
+        self.active_predictions.clear();
         Ok(())
     }
 
     const fn is_healthy(&self) -> bool {
-        true
+        !self.prediction_models.is_empty()
     }
 }
 
 impl AutomationEngine {
     async fn initialize(&mut self) -> Result<(), PrimalError> {
-        debug!("Initializing automation engine");
+        info!(
+            rules = self.automation_rules.len(),
+            "Automation engine initialized"
+        );
+        self.active_automations.clear();
+        self.automation_history.clear();
         Ok(())
     }
 }
 
 impl FederationIntelligence {
     async fn initialize(&mut self) -> Result<(), PrimalError> {
-        debug!("Initializing federation intelligence");
+        info!(
+            biomes = self.connected_biomes.len(),
+            protocols = self.coordination_protocols.len(),
+            "Federation intelligence initialized"
+        );
         Ok(())
     }
 }

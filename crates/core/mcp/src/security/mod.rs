@@ -6,6 +6,7 @@
 //! Provides security management, RBAC, audit, and related functionality.
 
 pub mod audit;
+#[cfg(feature = "local-crypto")]
 pub mod crypto;
 pub mod identity;
 pub mod key_storage;

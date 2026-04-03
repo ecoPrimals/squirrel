@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-#![allow(warnings)]
+#![allow(missing_docs, clippy::unwrap_used, clippy::expect_used)]
+
 use squirrel_ai_tools::{
     Result,
     common::{ChatMessage, ChatRequest, MessageRole},

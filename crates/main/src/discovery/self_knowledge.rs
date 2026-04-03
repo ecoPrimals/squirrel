@@ -105,8 +105,8 @@ impl PrimalSelfKnowledge {
         info!("🔍 Discovering primal self-knowledge...");
 
         // Discover primal type (from ENV or default)
-        // ZERO-COPY: Use static str instead of allocating "squirrel" every time
-        let primal_type = env::var("PRIMAL_TYPE").unwrap_or_else(|_| "squirrel".into());
+        let primal_type =
+            env::var("PRIMAL_TYPE").unwrap_or_else(|_| crate::niche::PRIMAL_ID.into());
 
         // Discover name (from ENV or default)
         let name = env::var("PRIMAL_NAME").unwrap_or_else(|_| {

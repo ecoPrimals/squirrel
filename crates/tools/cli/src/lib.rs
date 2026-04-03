@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+// ORC-Notice: CLI interaction mechanics licensed under ORC
 // Copyright (C) 2026 ecoPrimals Contributors
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]

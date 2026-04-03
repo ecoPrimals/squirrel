@@ -54,19 +54,22 @@ pub trait UniversalServiceRegistry: Send + Sync {
     async fn list_all_services(&self) -> Result<Vec<ServiceInfo>, PrimalError>;
 }
 
-/// Service information for discovery results
+/// Service information for discovery results.
+///
+/// String-heavy fields use `Arc<str>` to avoid deep clones during
+/// high-frequency capability discovery queries.
 #[derive(Debug, Clone)]
 pub struct ServiceInfo {
     /// Unique service identifier
-    pub service_id: String,
+    pub service_id: Arc<str>,
     /// Human-readable service name
-    pub name: String,
+    pub name: Arc<str>,
     /// Service category for filtering
-    pub category: String,
+    pub category: Arc<str>,
     /// Capabilities this service provides
     pub capabilities: Vec<ServiceCapability>,
     /// Service endpoint URLs
-    pub endpoints: Vec<String>,
+    pub endpoints: Vec<Arc<str>>,
     /// Current health status
     pub health: ServiceHealth,
     /// Priority score (higher is preferred)
@@ -171,18 +174,18 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
             for capability in &registered_service.registration.capabilities {
                 if self.capabilities_match(&target_capability, capability) {
                     matching_services.push(ServiceInfo {
-                        service_id: service_id.clone(),
-                        name: registered_service.registration.metadata.name.clone(),
-                        category: format!(
+                        service_id: Arc::from(service_id.as_str()),
+                        name: Arc::from(registered_service.registration.metadata.name.as_str()),
+                        category: Arc::from(format!(
                             "{:?}",
                             registered_service.registration.metadata.category
-                        ),
+                        )),
                         capabilities: registered_service.registration.capabilities.clone(),
                         endpoints: registered_service
                             .registration
                             .endpoints
                             .iter()
-                            .map(|e| e.url.clone())
+                            .map(|e| Arc::from(e.url.as_str()))
                             .collect(),
                         health: registered_service.health.clone(),
                         priority: registered_service.registration.priority,
@@ -215,15 +218,15 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
                 .contains(&category.to_lowercase())
             {
                 matching_services.push(ServiceInfo {
-                    service_id: service_id.clone(),
-                    name: registered_service.registration.metadata.name.clone(),
-                    category: service_category,
+                    service_id: Arc::from(service_id.as_str()),
+                    name: Arc::from(registered_service.registration.metadata.name.as_str()),
+                    category: Arc::from(service_category),
                     capabilities: registered_service.registration.capabilities.clone(),
                     endpoints: registered_service
                         .registration
                         .endpoints
                         .iter()
-                        .map(|e| e.url.clone())
+                        .map(|e| Arc::from(e.url.as_str()))
                         .collect(),
                     health: registered_service.health.clone(),
                     priority: registered_service.registration.priority,
@@ -344,15 +347,18 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
         let service_list = services
             .iter()
             .map(|(service_id, registered_service)| ServiceInfo {
-                service_id: service_id.clone(),
-                name: registered_service.registration.metadata.name.clone(),
-                category: format!("{:?}", registered_service.registration.metadata.category),
+                service_id: Arc::from(service_id.as_str()),
+                name: Arc::from(registered_service.registration.metadata.name.as_str()),
+                category: Arc::from(format!(
+                    "{:?}",
+                    registered_service.registration.metadata.category
+                )),
                 capabilities: registered_service.registration.capabilities.clone(),
                 endpoints: registered_service
                     .registration
                     .endpoints
                     .iter()
-                    .map(|e| e.url.clone())
+                    .map(|e| Arc::from(e.url.as_str()))
                     .collect(),
                 health: registered_service.health.clone(),
                 priority: registered_service.registration.priority,

@@ -69,7 +69,7 @@ impl UniversalSecurityAdapter {
                     serde_json::json!("ai_coordination"),
                 ),
             ]),
-            requester: "squirrel".to_string(),
+            requester: crate::niche::PRIMAL_ID.to_string(),
             timestamp: chrono::Utc::now(),
         };
 
