@@ -342,16 +342,18 @@ impl UniversalOrchestrationAdapter {
     }
 }
 
-/// Register Songbird (or any orchestration primal) with the universal registry
-pub async fn register_songbird_service(
+/// Register an orchestration service with the universal registry.
+///
+/// The service is discovered by capability ("orchestration"), not by primal name.
+pub async fn register_orchestration_service(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {
-    info!("🎼 Registering Songbird orchestration service with universal registry");
+    info!("🎼 Registering orchestration service with universal registry");
 
     let registration = super::UniversalServiceRegistration {
         service_id: uuid::Uuid::new_v4(),
         metadata: super::ServiceMetadata {
-            name: "Songbird AI-Collaborative Service Mesh".to_string(),
+            name: "AI-Collaborative Service Mesh".to_string(),
             category: super::ServiceCategory::Orchestration {
                 scopes: vec!["service_mesh".to_string(), "ai_collaboration".to_string()]
             },
@@ -432,7 +434,7 @@ pub async fn register_songbird_service(
 
     registry.register_service(registration).await?;
 
-    info!("✅ Songbird orchestration service successfully registered with universal registry");
+    info!("✅ Orchestration service successfully registered with universal registry");
     Ok(())
 }
 
@@ -657,9 +659,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn register_songbird_and_serde_roundtrip() {
+    async fn register_orchestration_and_serde_roundtrip() {
         let reg = Arc::new(InMemoryServiceRegistry::new());
-        register_songbird_service(reg.clone()).await.expect("reg");
+        register_orchestration_service(reg.clone())
+            .await
+            .expect("reg");
         let services = reg.list_all_services().await.expect("list");
         assert_eq!(services.len(), 1);
         let json = serde_json::to_string(&services[0].capabilities).expect("ser");

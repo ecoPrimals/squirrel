@@ -241,12 +241,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_find_biomeos_socket_env_override() {
+    fn test_find_biomeos_socket_env_override_nonexistent_skipped() {
         temp_env::with_var(
             "BIOMEOS_SOCKET",
-            Some("/tmp/nonexistent_biomeos_test.sock"),
+            Some("/tmp/nonexistent_biomeos_test_999.sock"),
             || {
-                assert!(find_biomeos_socket().is_none());
+                let result = find_biomeos_socket();
+                // Env path doesn't exist, so env override is skipped.
+                // Result depends on whether real sockets exist on this host —
+                // we only verify the env path wasn't returned.
+                if let Some(ref p) = result {
+                    assert_ne!(
+                        p.to_str().unwrap_or(""),
+                        "/tmp/nonexistent_biomeos_test_999.sock",
+                        "should not return non-existent env override path"
+                    );
+                }
             },
         );
     }

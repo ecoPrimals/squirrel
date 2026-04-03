@@ -75,7 +75,7 @@ async fn demo_service_call_with_correlation() -> Result<(), Box<dyn std::error::
     let mut ctx =
         OperationContext::with_correlation_id("service_call_demo", correlation_id.clone())
             .with_metadata_map(utils::service_call_metadata(
-                "songbird_orchestrator",
+                "orchestration_service",
                 "http://localhost:8080/api/v1/orchestrate",
                 "POST",
             ));

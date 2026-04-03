@@ -368,11 +368,10 @@ impl MetricsCollector {
             }
             // Capability-domain metrics (vendor/primal agnostic)
             "network" => {
-                use crate::monitoring::metric_names::songbird::{
+                use crate::monitoring::metric_names::orchestration::{
                     HEALTH_CHECKS, LOAD_BALANCER_REQUESTS, ORCHESTRATIONS_ACTIVE,
                     SERVICE_DISCOVERIES,
                 };
-                // Metric names retained for backward compatibility; values from discovery
                 metrics.insert(ORCHESTRATIONS_ACTIVE.to_string(), 0.0);
                 metrics.insert(SERVICE_DISCOVERIES.to_string(), 0.0);
                 metrics.insert(LOAD_BALANCER_REQUESTS.to_string(), 0.0);

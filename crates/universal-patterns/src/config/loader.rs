@@ -243,7 +243,7 @@ impl ConfigLoader {
         let config = match primal_type {
             PrimalType::Coordinator => ConfigBuilder::squirrel().build_unchecked(),
             PrimalType::Security => ConfigBuilder::beardog().build_unchecked(),
-            PrimalType::Orchestration => ConfigBuilder::songbird().build_unchecked(),
+            PrimalType::Orchestration => ConfigBuilder::orchestration().build_unchecked(),
             _ => PrimalConfig::default(),
         };
 

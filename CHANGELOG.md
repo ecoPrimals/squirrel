@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.32] - 2026-04-03
+
+Build fix, primalSpring audit remediation, capability-domain decoupling wave 2.
+7,165 tests passing, zero clippy warnings, all gates green.
+
+### Fixed
+
+- **Integration test build break** — `MockAIClient` was behind `cfg(any(test, feature = "testing"))`,
+  invisible to integration test binaries. Gated mock-dependent tests behind `cfg(feature = "testing")`
+  so `cargo test` compiles clean; `cargo test --all-features` runs mock tests. E0282 type inference
+  error resolved with explicit type annotation.
+- **Flaky `find_biomeos_socket` test** — test asserted `is_none()` but failed when real biomeOS
+  sockets existed on the host; now only validates env-override path is skipped when non-existent.
+
+### Changed
+
+- **`register_songbird_service` → `register_orchestration_service`** — public API renamed to
+  capability-domain; registration metadata generalized from "Songbird AI-Collaborative Service Mesh"
+  to "AI-Collaborative Service Mesh"
+- **`delegate_to_songbird` → `delegate_to_http_proxy`** — IPC method renamed; error messages
+  reference `http.proxy` capability discovery instead of Songbird by name
+- **`metric_names::songbird` → `metric_names::orchestration`** — metric namespace generalized
+  from primal-specific to capability-domain; collector import paths updated
+- **`SongbirdIntegration` → `ServiceMeshIntegration`** — orchestration provider type renamed;
+  doc comments updated to be primal-agnostic
+- **`ConfigBuilder::songbird()` → `ConfigBuilder::orchestration()`** — config builder preset
+  generalized; loader dispatch and tests updated
+- **Example demos generalized** — `universal_adapters_demo.rs` and `observability_demo.rs` now
+  use capability-domain function names and metadata strings
+- **ai-tools Cargo.toml comments** — replaced 4 Songbird-specific comments with capability-based
+  language ("service mesh via Unix sockets", "capability discovery")
+
 ## [0.1.0-alpha.31] - 2026-04-03
 
 Deep debt execution session D: lint hygiene, trait-backed key storage, hardcoded localhost

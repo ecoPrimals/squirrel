@@ -30,8 +30,8 @@ impl UniversalPrimalEcosystem {
         } else if service.endpoint.starts_with("http://")
             || service.endpoint.starts_with("https://")
         {
-            // HTTP requests must be delegated to Songbird (concentrated gap strategy)
-            self.delegate_to_songbird(service, request).await
+            // HTTP requests must be delegated via service mesh (concentrated gap strategy)
+            self.delegate_to_http_proxy(service, request).await
         } else {
             Err(PrimalError::InvalidEndpoint(format!(
                 "Unknown endpoint protocol: {}. Expected unix:// or http(s)://",
@@ -118,22 +118,22 @@ impl UniversalPrimalEcosystem {
         })
     }
 
-    /// Delegate HTTP request to Songbird (concentrated gap strategy)
-    async fn delegate_to_songbird(
+    /// Delegate HTTP request via service mesh (concentrated gap strategy).
+    ///
+    /// Squirrel discovers the `http.proxy` capability at runtime rather
+    /// than hardcoding which primal provides it.
+    async fn delegate_to_http_proxy(
         &self,
         service: &DiscoveredService,
         _request: PrimalRequest,
     ) -> UniversalResult<PrimalResponse> {
-        // TRUE PRIMAL: discover Songbird via capability, don't hardcode
         tracing::warn!(
-            "HTTP request needed for {}. Delegating to Songbird via capability discovery.",
+            "HTTP request needed for {}. Delegating via 'http.proxy' capability discovery.",
             service.service_id
         );
 
-        // Discover Songbird's HTTP proxy capability
-        // This is the concentrated gap strategy: only Songbird handles HTTP
         Err(PrimalError::NotImplemented(
-            "HTTP delegation to Songbird not yet implemented. \
+            "HTTP delegation via capability discovery not yet implemented. \
              TRUE PRIMAL pattern: discover 'http.proxy' capability and delegate."
                 .to_string(),
         ))

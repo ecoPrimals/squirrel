@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: April 3, 2026
-**Version**: 0.1.0-alpha.31
+**Version**: 0.1.0-alpha.32
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -273,6 +273,18 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 
 ## Changes Since Last Handoff (April 3, 2026)
+
+### April 3, 2026 session F (primalSpring audit: build fix, capability-domain decoupling wave 2)
+
+- **Integration test build fix** — `MockAIClient` `cfg(test)` gate invisible to integration binaries; mock-dependent tests now `cfg(feature = "testing")`; E0282 type inference resolved
+- **Flaky `find_biomeos_socket` test fixed** — no longer asserts `is_none()` when real sockets may exist on host
+- **`register_songbird_service` → `register_orchestration_service`** — public API renamed to capability-domain
+- **`delegate_to_songbird` → `delegate_to_http_proxy`** — IPC HTTP delegation uses `http.proxy` capability
+- **`metric_names::songbird` → `metric_names::orchestration`** — metric namespace generalized
+- **`SongbirdIntegration` → `ServiceMeshIntegration`** — orchestration provider type renamed
+- **`ConfigBuilder::songbird()` → `ConfigBuilder::orchestration()`** — config preset generalized
+- **Examples generalized** — `universal_adapters_demo.rs` and `observability_demo.rs` use capability-domain names
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓, `test 7,165/0/110` ✓, `deny` ✓
 
 ### April 3, 2026 session D (Deep debt execution — lint hygiene, trait evolution, stub maturity)
 

@@ -4,12 +4,9 @@
 #![allow(warnings)]
 use squirrel_ai_tools::{
     Result,
-    common::{AIClient, ChatMessage, ChatRequest, MessageRole},
+    common::{ChatMessage, ChatRequest, MessageRole},
     dispatch::DispatcherBuilder,
 };
-
-// Fix MockAIClient import
-use squirrel_ai_tools::common::clients::mock::MockAIClient;
 
 #[tokio::test]
 async fn test_basic_dispatcher_creation() -> Result<()> {
@@ -50,37 +47,44 @@ async fn test_chat_request_creation() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_mock_client_creation() -> Result<()> {
-    let client = MockAIClient::new();
-    assert_eq!(client.provider_name(), "mock");
+#[cfg(feature = "testing")]
+mod mock_tests {
+    use super::*;
+    use squirrel_ai_tools::common::AIClient;
+    use squirrel_ai_tools::common::clients::mock::MockAIClient;
 
-    let models = client.list_models().await?;
-    assert!(!models.is_empty());
+    #[tokio::test]
+    async fn test_mock_client_creation() -> Result<()> {
+        let client = MockAIClient::new();
+        assert_eq!(client.provider_name(), "mock");
 
-    Ok(())
-}
+        let models: Vec<String> = client.list_models().await?;
+        assert!(!models.is_empty());
 
-#[tokio::test]
-async fn test_mock_client_chat() -> Result<()> {
-    let client = MockAIClient::new();
+        Ok(())
+    }
 
-    let request = ChatRequest {
-        model: Some("mock-model".to_string()),
-        messages: vec![ChatMessage {
-            role: MessageRole::User,
-            content: Some("Hello!".to_string()),
-            name: None,
-            tool_calls: None,
-            tool_call_id: None,
-        }],
-        parameters: None,
-        tools: None,
-    };
+    #[tokio::test]
+    async fn test_mock_client_chat() -> Result<()> {
+        let client = MockAIClient::new();
 
-    let response = client.chat(request).await?;
-    assert_eq!(response.choices.len(), 1);
-    assert!(response.choices[0].content.is_some());
+        let request = ChatRequest {
+            model: Some("mock-model".to_string()),
+            messages: vec![ChatMessage {
+                role: MessageRole::User,
+                content: Some("Hello!".to_string()),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            parameters: None,
+            tools: None,
+        };
 
-    Ok(())
+        let response = client.chat(request).await?;
+        assert_eq!(response.choices.len(), 1);
+        assert!(response.choices[0].content.is_some());
+
+        Ok(())
+    }
 }

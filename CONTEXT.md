@@ -20,7 +20,7 @@ Squirrel is the **Universal AI Coordination Primal** for the [ecoPrimals](https:
 | Scale | ~**407k** lines across **1,247** `.rs` files |
 | Native deps | **Pure Rust** default build — no C dependencies in the standard ecoBin path |
 | Code license | **AGPL-3.0-or-later** (workspace `license`; see License section for full public framing) |
-| Version | **v0.1.0-alpha.31** (workspace); status **pre-alpha** |
+| Version | **v0.1.0-alpha.32** (workspace); status **pre-alpha** |
 | Unsafe code | 0 — `unsafe_code = "forbid"` in workspace `[lints.rust]` |
 
 ## Capabilities (domains)

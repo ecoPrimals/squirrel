@@ -20,7 +20,7 @@ use std::sync::Arc;
 use squirrel::universal_adapters::{
     ServiceCapability, UniversalServiceRegistry,
     compute_adapter::{UniversalComputeAdapter, register_toadstool_service},
-    orchestration_adapter::{UniversalOrchestrationAdapter, register_songbird_service},
+    orchestration_adapter::{UniversalOrchestrationAdapter, register_orchestration_service},
     registry::InMemoryServiceRegistry,
     security_adapter::{UniversalSecurityAdapter, register_beardog_service},
     storage_adapter::{UniversalStorageAdapter, register_nestgate_service},
@@ -47,7 +47,7 @@ impl SquirrelAICoordinator {
         // Register core primals with their capabilities
         println!("🌌 Registering core primals with universal service registry...");
         register_beardog_service(registry.clone()).await?;
-        register_songbird_service(registry.clone()).await?;
+        register_orchestration_service(registry.clone()).await?;
         register_nestgate_service(registry.clone()).await?;
         register_toadstool_service(registry.clone()).await?;
 
@@ -86,7 +86,7 @@ impl SquirrelAICoordinator {
             .await?;
         println!("   ✅ Authorization coordinated: {authorized}");
 
-        // Phase 2: Orchestration Coordination (discovers Songbird or any orchestration service)
+        // Phase 2: Orchestration Coordination (discovers any orchestration service by capability)
         println!("\n🎼 Phase 2: Orchestration Coordination");
         let workflow_result = self
             .orchestration_adapter
@@ -117,7 +117,7 @@ impl SquirrelAICoordinator {
             "workflow_id": workflow_result["workflow_id"],
             "ai_state": {
                 "coordination_phase": "active",
-                "participating_primals": ["beardog", "songbird", "nestgate", "toadstool"],
+                "participating_primals": ["security", "orchestration", "storage", "compute"],
                 "optimization_level": "high"
             }
         });

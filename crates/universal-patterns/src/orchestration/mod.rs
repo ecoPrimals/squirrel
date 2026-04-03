@@ -400,16 +400,16 @@ pub struct ResourceUsage {
     pub network_bytes_received: u64,
 }
 
-/// Songbird integration for orchestration
+/// Service mesh integration for orchestration (capability-based, primal-agnostic)
 #[derive(Debug)]
-pub struct SongbirdIntegration {
+pub struct ServiceMeshIntegration {
     endpoint: Url,
     client: reqwest::Client,
     cluster_id: String,
 }
 
-impl SongbirdIntegration {
-    /// Create a new Songbird integration
+impl ServiceMeshIntegration {
+    /// Create a new service mesh integration
     pub fn new(endpoint: Url, cluster_id: String) -> Self {
         Self {
             endpoint,
@@ -430,7 +430,7 @@ impl SongbirdIntegration {
 }
 
 #[async_trait]
-impl OrchestrationProvider for SongbirdIntegration {
+impl OrchestrationProvider for ServiceMeshIntegration {
     async fn register_primal(&self, primal_info: &PrimalInfo) -> Result<(), OrchestrationError> {
         let url = self.endpoint.join("/primals/register")
             .map_err(|e| OrchestrationError::Configuration(e.to_string()))?;

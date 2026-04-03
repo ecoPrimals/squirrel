@@ -382,10 +382,10 @@ impl ConfigBuilder {
             .port(8081)
     }
 
-    /// Create a configuration builder for Songbird (Orchestration)
-    pub fn songbird() -> Self {
+    /// Create a configuration builder for an orchestration service
+    pub fn orchestration() -> Self {
         Self::new()
-            .name("songbird")
+            .name("orchestration")
             .primal_type(PrimalType::Orchestration)
             .description("Orchestration and task management")
             .port(8082)
@@ -463,13 +463,13 @@ mod tests {
     }
 
     #[test]
-    fn test_builder_songbird() {
-        let config = ConfigBuilder::songbird()
+    fn test_builder_orchestration() {
+        let config = ConfigBuilder::orchestration()
             .version("1.0.0")
             .build()
             .expect("should succeed");
 
-        assert_eq!(config.info.name, "songbird");
+        assert_eq!(config.info.name, "orchestration");
         assert_eq!(config.info.primal_type, PrimalType::Orchestration);
         assert_eq!(config.network.port, 8082);
     }

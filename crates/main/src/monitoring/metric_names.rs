@@ -14,7 +14,7 @@ pub use context_state::*;
 pub use default::*;
 pub use mcp_integration::*;
 pub use nestgate::*;
-pub use songbird::*;
+pub use orchestration::*;
 pub use toadstool::*;
 
 /// AI Intelligence component metrics
@@ -65,8 +65,8 @@ pub mod agent_deployment {
     pub const DEPLOYMENT_TIME: &str = "deployment_time";
 }
 
-/// Songbird orchestration metrics
-pub mod songbird {
+/// Orchestration / service mesh metrics (capability-domain, primal-agnostic)
+pub mod orchestration {
     /// Metric name for active orchestrations
     pub const ORCHESTRATIONS_ACTIVE: &str = "orchestrations_active";
     /// Metric name for service discoveries
