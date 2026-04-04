@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn test_resilience_test_type_serde_coordination_failure() {
         let test_type = AIResilienceTestType::CoordinationFailure {
-            affected_primals: vec!["squirrel".to_string(), "songbird".to_string()],
+            affected_primals: vec!["primal-a".to_string(), "primal-b".to_string()],
             failure_type: "network_partition".to_string(),
         };
         let json = serde_json::to_string(&test_type).expect("should succeed");

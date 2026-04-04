@@ -456,7 +456,7 @@ mod tests {
     fn test_primal_constraint() {
         let constraints = ConstraintBuilder::new()
             .with_primal_constraint(
-                "nestgate".to_string(),
+                "storage-primal".to_string(),
                 "sensitive data".to_string(),
                 RoutingConstraint::RequireLocal,
             )

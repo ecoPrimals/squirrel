@@ -373,16 +373,18 @@ impl ConfigBuilder {
             .port(8080)
     }
 
-    /// Create a configuration builder for Beardog (Security)
-    pub fn beardog() -> Self {
+    /// Create a configuration builder for a security primal.
+    ///
+    /// Unlike `squirrel()` (self-knowledge), this provides sensible defaults
+    /// for *any* security-domain primal without hardcoding a specific identity.
+    pub fn security() -> Self {
         Self::new()
-            .name("beardog")
             .primal_type(PrimalType::Security)
             .description("Security and authentication management")
             .port(8081)
     }
 
-    /// Create a configuration builder for an orchestration service
+    /// Create a configuration builder for an orchestration service.
     pub fn orchestration() -> Self {
         Self::new()
             .name("orchestration")
@@ -451,13 +453,14 @@ mod tests {
     }
 
     #[test]
-    fn test_builder_beardog() {
-        let config = ConfigBuilder::beardog()
+    fn test_builder_security() {
+        let config = ConfigBuilder::security()
+            .name("test-security")
             .version("1.0.0")
             .build()
             .expect("should succeed");
 
-        assert_eq!(config.info.name, "beardog");
+        assert_eq!(config.info.name, "test-security");
         assert_eq!(config.info.primal_type, PrimalType::Security);
         assert_eq!(config.network.port, 8081);
     }

@@ -652,7 +652,7 @@ mod tests {
     #[tokio::test]
     async fn test_coordination_session_creation() {
         let mut integration = McpIntegration::new();
-        let participants = vec!["squirrel".to_string(), "songbird".to_string()];
+        let participants = vec!["ai-coordinator".to_string(), "discovery-mesh".to_string()];
 
         let session_id = integration
             .create_coordination_session(participants.clone(), "test_coordination".to_string())
@@ -674,7 +674,7 @@ mod tests {
         let request = McpCoordinationRequest {
             coordination_id: "test-coord-001".to_string(),
             coordination_type: "resource_optimization".to_string(),
-            participants: vec!["squirrel".to_string(), "toadstool".to_string()],
+            participants: vec!["ai-coordinator".to_string(), "compute-provider".to_string()],
             coordination_data: HashMap::new(),
         };
 

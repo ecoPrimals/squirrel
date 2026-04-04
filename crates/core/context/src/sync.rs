@@ -422,11 +422,7 @@ impl SyncManager {
             .insert(message_id.clone(), message.clone());
 
         let timeout_duration = Duration::from_secs(self.config.sync_timeout_seconds);
-        let result = timeout(
-            timeout_duration,
-            self.process_message_internal(message.clone()),
-        )
-        .await;
+        let result = timeout(timeout_duration, self.process_message_internal(&message)).await;
 
         self.pending_operations.remove(&message_id);
 
@@ -486,27 +482,27 @@ impl SyncManager {
         }
     }
 
-    /// Internal message processing
-    async fn process_message_internal(&mut self, message: SyncMessage) -> Result<(), ContextError> {
+    /// Internal message processing — borrows the message to avoid redundant clones.
+    async fn process_message_internal(
+        &mut self,
+        message: &SyncMessage,
+    ) -> Result<(), ContextError> {
         match &message.operation {
             SyncOperation::Heartbeat { node_id, timestamp } => {
-                self.handle_heartbeat(node_id.clone(), *timestamp).await
+                self.handle_heartbeat(node_id, *timestamp).await
             }
             SyncOperation::StateUpdate(state) => {
-                self.handle_state_update(state.clone(), &message.source)
-                    .await
+                self.handle_state_update(state, &message.source).await
             }
-            SyncOperation::Conflict(conflict) => {
-                self.handle_conflict_advanced(conflict.clone()).await
-            }
+            SyncOperation::Conflict(conflict) => self.handle_conflict_advanced(conflict).await,
             SyncOperation::PartitionDetected(partition) => {
-                self.handle_partition_detected(partition.clone()).await
+                self.handle_partition_detected(partition).await
             }
             SyncOperation::PartitionRecovered {
                 recovered_at,
                 affected_peers,
             } => {
-                self.handle_partition_recovered(*recovered_at, affected_peers.clone())
+                self.handle_partition_recovered(*recovered_at, affected_peers)
                     .await
             }
             _ => {
@@ -519,14 +515,13 @@ impl SyncManager {
     /// Handle heartbeat messages
     async fn handle_heartbeat(
         &mut self,
-        node_id: String,
+        node_id: &str,
         timestamp: SystemTime,
     ) -> Result<(), ContextError> {
-        self.peer_heartbeats.insert(node_id.clone(), timestamp);
+        self.peer_heartbeats.insert(node_id.to_string(), timestamp);
         debug!("Received heartbeat from node: {}", node_id);
 
-        // Check if this resolves any partitions
-        self.check_partition_recovery(&node_id).await?;
+        self.check_partition_recovery(node_id).await?;
 
         Ok(())
     }
@@ -534,12 +529,11 @@ impl SyncManager {
     /// Handle state updates with conflict detection
     async fn handle_state_update(
         &mut self,
-        state: ContextState,
+        state: &ContextState,
         source: &str,
     ) -> Result<(), ContextError> {
         debug!("Handling state update from {}: {}", source, state.id);
 
-        // Broadcast state updated event
         let event = SyncEvent::StateUpdated {
             version: state.version,
             timestamp: SystemTime::now(),
@@ -556,11 +550,10 @@ impl SyncManager {
     /// Handle advanced conflict resolution
     async fn handle_conflict_advanced(
         &mut self,
-        conflict: ConflictInfo,
+        conflict: &ConflictInfo,
     ) -> Result<(), ContextError> {
         info!("Handling conflict for state: {}", conflict.state_id);
 
-        // Broadcast conflict detected event
         let event = SyncEvent::ConflictDetected {
             state_id: conflict.state_id.clone(),
             conflict: conflict.clone(),
@@ -572,7 +565,7 @@ impl SyncManager {
 
         // Attempt automatic resolution if enabled
         if self.config.auto_resolve_conflicts {
-            match self.resolve_conflict_automatically(&conflict).await {
+            match self.resolve_conflict_automatically(conflict).await {
                 Ok(resolved_state) => {
                     let event = SyncEvent::ConflictResolved {
                         state_id: conflict.state_id.clone(),
@@ -630,7 +623,7 @@ impl SyncManager {
     /// Handle network partition detection
     async fn handle_partition_detected(
         &mut self,
-        partition: PartitionInfo,
+        partition: &PartitionInfo,
     ) -> Result<(), ContextError> {
         warn!(
             "Network partition detected affecting {} peers",
@@ -642,7 +635,9 @@ impl SyncManager {
 
         self.status = SyncStatus::Partitioned;
 
-        let event = SyncEvent::PartitionDetected { partition };
+        let event = SyncEvent::PartitionDetected {
+            partition: partition.clone(),
+        };
         if let Err(e) = self.broadcast_event(event).await {
             warn!("Failed to broadcast partition detected event: {}", e);
         }
@@ -654,25 +649,23 @@ impl SyncManager {
     async fn handle_partition_recovered(
         &mut self,
         recovered_at: SystemTime,
-        affected_peers: Vec<String>,
+        affected_peers: &[String],
     ) -> Result<(), ContextError> {
         info!(
             "Network partition recovered for {} peers",
             affected_peers.len()
         );
 
-        // Remove from active partitions
         let partition_key = affected_peers.join(",");
         self.active_partitions.remove(&partition_key);
 
-        // Update status if no more partitions
         if self.active_partitions.is_empty() {
             self.status = SyncStatus::Healthy;
         }
 
         let event = SyncEvent::PartitionRecovered {
             recovered_at,
-            affected_peers,
+            affected_peers: affected_peers.to_vec(),
         };
 
         if let Err(e) = self.broadcast_event(event).await {
@@ -694,7 +687,7 @@ impl SyncManager {
 
         for key in recovered_partitions {
             if let Some(partition) = self.active_partitions.remove(&key) {
-                self.handle_partition_recovered(SystemTime::now(), partition.affected_peers)
+                self.handle_partition_recovered(SystemTime::now(), &partition.affected_peers)
                     .await?;
             }
         }
@@ -724,7 +717,7 @@ impl SyncManager {
                 recovery_strategy: PartitionRecoveryStrategy::WaitForHealing,
             };
 
-            self.handle_partition_detected(partition).await?;
+            self.handle_partition_detected(&partition).await?;
         }
 
         Ok(())

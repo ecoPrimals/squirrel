@@ -126,7 +126,7 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
 /// which primal provides them. The Pathway Learner uses this list to
 /// ensure required capabilities are available before routing to Squirrel.
 pub const CONSUMED_CAPABILITIES: &[&str] = &[
-    // Security (BearDog)
+    // Security domain (crypto, auth, secrets)
     "crypto.sign",
     "crypto.verify",
     "auth.validate_token",
@@ -134,11 +134,11 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "secrets.retrieve",
     "secrets.list",
     "secrets.delete",
-    // Discovery (service mesh)
+    // Discovery domain (service mesh)
     "discovery.register",
     "discovery.find_primals",
     "discovery.query",
-    // Compute delegation (ToadStool S158b)
+    // Compute domain (GPU dispatch, hardware)
     "compute.execute",
     "compute.submit",
     "compute.dispatch.submit",
@@ -147,32 +147,31 @@ pub const CONSUMED_CAPABILITIES: &[&str] = &[
     "compute.dispatch.capabilities",
     "compute.dispatch.cancel",
     "compute.hardware.observe",
-    // Storage (NestGate)
+    // Storage domain (persistence, model cache)
     "storage.put",
     "storage.get",
     "storage.list",
-    // Model cache (NestGate 4.1)
     "model.register",
     "model.locate",
     "model.metadata",
     "model.exists",
-    // MCP tool discovery (domain springs)
+    // MCP tool discovery
     "mcp.tools.list",
-    // Health probes (probe other primals before routing)
+    // Health probes (verify peer readiness before routing)
     "health.liveness",
     "health.readiness",
-    // Relay coordination (BearDog)
+    // Relay domain (authorization, status)
     "relay.authorize",
     "relay.status",
-    // DAG sessions (rhizoCrypt)
+    // DAG domain (sessions, events, vertices)
     "dag.session.create",
     "dag.event.append",
     "dag.vertex.query",
-    // Provenance / attribution (sweetGrass)
+    // Provenance domain (anchoring, attribution)
     "anchoring.anchor",
     "anchoring.verify",
     "attribution.calculate_rewards",
-    // Coordination (primalSpring)
+    // Coordination domain (composition, deployment)
     "coordination.validate_composition",
     "coordination.deploy_atomic",
     "composition.nucleus_health",

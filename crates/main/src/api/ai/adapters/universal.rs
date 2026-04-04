@@ -371,8 +371,8 @@ mod tests {
     #[test]
     fn test_universal_adapter_creation() {
         let metadata = ProviderMetadata {
-            primal_id: "toadstool".to_string(),
-            name: "Toadstool GPU Inference".to_string(),
+            primal_id: "compute-provider-1".to_string(),
+            name: "GPU Inference Provider".to_string(),
             is_local: Some(true),
             quality: Some("high".to_string()),
             cost: Some(0.0),
@@ -382,12 +382,12 @@ mod tests {
 
         let adapter = UniversalAiAdapter::from_discovery(
             "ai:text-generation",
-            PathBuf::from("/run/user/1000/toadstool.sock"),
+            PathBuf::from("/run/user/1000/compute.sock"),
             metadata,
         );
 
-        assert_eq!(adapter.provider_id(), "toadstool");
-        assert_eq!(adapter.provider_name(), "Toadstool GPU Inference");
+        assert_eq!(adapter.provider_id(), "compute-provider-1");
+        assert_eq!(adapter.provider_name(), "GPU Inference Provider");
         assert!(adapter.is_local());
         assert_eq!(adapter.cost_per_unit(), Some(0.0));
         assert!(adapter.supports_text_generation());

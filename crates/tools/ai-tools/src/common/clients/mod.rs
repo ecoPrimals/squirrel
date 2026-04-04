@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! AI client implementations
+//! AI client implementations.
 //!
-//! This module contains concrete implementations of AI clients for various providers.
-//! Each client implements the `AIClient` trait for seamless integration.
-//!
-//! **Note**: Old vendor-specific HTTP clients have been replaced with capability-based routing.
-//! Use `capability_ai::AiClient` instead for TRUE ecoBin compliance.
+//! Concrete implementations of AI clients for various providers.
+//! Each client implements the [`AIClient`] trait for seamless integration.
+//! Production clients use capability-based routing via `capability_ai::AiClient`.
 
 #[cfg(any(test, feature = "testing"))]
 pub mod mock;
@@ -18,8 +16,7 @@ pub use mock::MockAIClient;
 use crate::common::client::AIClient;
 use std::sync::Arc;
 
-/// Client factory for creating AI clients
-/// **Note**: Old provider-specific methods removed. Use `capability_ai::AiClient` instead.
+/// Client factory for creating AI clients via capability-based routing.
 pub struct ClientFactory;
 
 impl ClientFactory {
@@ -104,13 +101,12 @@ impl ClientConfig {
         self
     }
 
-    /// Check if the configuration is valid for a provider
-    /// **Note**: Old providers removed. Use `capability_ai` instead.
+    /// Check if the configuration has enough fields populated for a given provider.
+    ///
+    /// Returns `true` when at least an API key or endpoint is configured.
     #[must_use]
     pub const fn is_valid_for_provider(&self, _provider: &str) -> bool {
-        // Old provider validation removed
-        // Use capability_ai::AiClient::from_env() instead
-        false
+        self.api_key.is_some() || self.endpoint.is_some()
     }
 }
 
@@ -216,9 +212,14 @@ mod tests {
 
     #[test]
     fn test_client_config_validation() {
-        let config = ClientConfig::new().with_api_key("test-key".to_string());
-        // Old provider validation removed - use capability_ai instead
-        assert!(!config.is_valid_for_provider("any"));
+        let empty = ClientConfig::new();
+        assert!(!empty.is_valid_for_provider("any"));
+
+        let with_key = ClientConfig::new().with_api_key("test-key".to_string());
+        assert!(with_key.is_valid_for_provider("any"));
+
+        let with_endpoint = ClientConfig::new().with_endpoint("https://api.test.com".to_string());
+        assert!(with_endpoint.is_valid_for_provider("any"));
     }
 
     #[test]

@@ -350,7 +350,7 @@ mod tests {
             capabilities: vec!["ai.complete".to_string(), "ai.chat".to_string()],
             socket: PathBuf::from("/tmp/cloud.sock"),
             metadata: metadata_map,
-            discovered_via: "songbird".to_string(),
+            discovered_via: "discovery.find_primals".to_string(),
         };
 
         let metadata = UniversalAiAdapter::extract_metadata(&provider, "ai.complete");

@@ -592,17 +592,23 @@ impl ContextLearningManager {
             // Use simplified context state since get_context_state doesn't exist
             // FUTURE: [API-Enhancement] Implement get_context_state when ContextManager API is enhanced
             // Tracking: Planned for v0.2.0 - ContextManager API enhancement
+            let now = std::time::SystemTime::now();
+            let epoch_secs = now
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
             let context_state = crate::ContextState {
                 id: context_id.clone(),
                 version: 1,
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs(),
-                data: serde_json::json!({"placeholder": true}),
+                timestamp: epoch_secs,
+                data: serde_json::json!({
+                    "context_type": "mcp_coordination",
+                    "observed_at_epoch": epoch_secs,
+                    "observation_source": "learning_manager",
+                }),
                 metadata: std::collections::HashMap::new(),
                 synchronized: false,
-                last_modified: std::time::SystemTime::now(),
+                last_modified: now,
             };
 
             // Create intelligent observation based on actual context state
