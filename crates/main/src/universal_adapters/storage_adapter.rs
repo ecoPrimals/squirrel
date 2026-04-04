@@ -331,7 +331,7 @@ impl UniversalStorageAdapter {
 }
 
 /// Register `NestGate` (or any storage primal) with the universal registry
-pub async fn register_nestgate_service(
+pub async fn register_storage_service(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {
     info!("🏠 Registering NestGate storage service with universal registry");
@@ -653,7 +653,7 @@ mod tests {
     #[tokio::test]
     async fn register_nestgate_and_serde_roundtrip() {
         let reg = Arc::new(InMemoryServiceRegistry::new());
-        register_nestgate_service(reg.clone()).await.expect("reg");
+        register_storage_service(reg.clone()).await.expect("reg");
         let services = reg.list_all_services().await.expect("list");
         assert_eq!(services.len(), 1);
         let json = serde_json::to_string(&services[0].capabilities).expect("ser");

@@ -102,7 +102,7 @@ pub async fn create_default_client() -> Result<UniversalSecurityClient, Security
     use std::path::PathBuf;
 
     let config = SecurityConfig {
-        beardog_endpoint: None,
+        security_endpoint: None,
         auth_method: AuthMethod::None,
         credential_storage: CredentialStorage::Memory,
         encryption: EncryptionConfig {
@@ -140,7 +140,7 @@ pub async fn create_beardog_client(
 
     let config = SecurityConfig {
         auth_method: AuthMethod::Beardog { service_id },
-        beardog_endpoint: Some(endpoint),
+        security_endpoint: Some(endpoint),
         credential_storage: CredentialStorage::Beardog,
         encryption: EncryptionConfig {
             enable_inter_primal: true,

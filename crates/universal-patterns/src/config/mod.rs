@@ -270,7 +270,7 @@ impl ConfigUtils {
         }
 
         if config.security.auth_method != AuthMethod::None
-            && config.security.beardog_endpoint.is_none()
+            && config.security.security_endpoint.is_none()
         {
             errors.push("Authentication configured but no security endpoint specified".to_string());
         }

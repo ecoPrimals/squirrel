@@ -43,14 +43,16 @@ pub struct RoutingConfig {
     /// Manual routing rules
     pub manual_routing_rules: Vec<ManualRoutingRule>,
 
-    // Primal endpoints (fixed mappings)
-    /// `NestGate` endpoint for storage persistence
-    pub nestgate_endpoint: Option<String>,
-    /// Toadstool endpoint for compute
-    pub toadstool_endpoint: Option<String>,
-    /// `BearDog` endpoint for security
-    pub beardog_endpoint: Option<String>,
-    /// `BiomeOS` endpoint for integration
+    /// Storage capability endpoint (discovered or explicit)
+    #[serde(alias = "nestgate_endpoint")]
+    pub storage_endpoint: Option<String>,
+    /// Compute capability endpoint (discovered or explicit)
+    #[serde(alias = "toadstool_endpoint")]
+    pub compute_endpoint: Option<String>,
+    /// Security capability endpoint (discovered or explicit)
+    #[serde(alias = "beardog_endpoint")]
+    pub security_endpoint: Option<String>,
+    /// Service mesh / integration endpoint
     pub biomeos_endpoint: Option<String>,
 }
 
@@ -187,9 +189,9 @@ impl Default for RoutingConfig {
             agent_groups: HashMap::new(),
             priority_overrides: HashMap::new(),
             manual_routing_rules: Vec::new(),
-            nestgate_endpoint: None,
-            toadstool_endpoint: None,
-            beardog_endpoint: None,
+            storage_endpoint: None,
+            compute_endpoint: None,
+            security_endpoint: None,
             biomeos_endpoint: None,
         }
     }
@@ -279,16 +281,16 @@ impl RoutingConfig {
 
     /// Set primal endpoints
     #[must_use]
-    pub fn with_primal_endpoints(
+    pub fn with_capability_endpoints(
         mut self,
-        nestgate: Option<String>,
-        toadstool: Option<String>,
-        beardog: Option<String>,
+        storage: Option<String>,
+        compute: Option<String>,
+        security: Option<String>,
         biomeos: Option<String>,
     ) -> Self {
-        self.nestgate_endpoint = nestgate;
-        self.toadstool_endpoint = toadstool;
-        self.beardog_endpoint = beardog;
+        self.storage_endpoint = storage;
+        self.compute_endpoint = compute;
+        self.security_endpoint = security;
         self.biomeos_endpoint = biomeos;
         self
     }

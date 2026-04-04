@@ -123,7 +123,7 @@ impl ConfigBuilder {
     /// Set Beardog endpoint
     pub fn beardog_endpoint<S: Into<String>>(mut self, endpoint: S) -> Result<Self, ConfigError> {
         let url = Url::parse(&endpoint.into())?;
-        self.config.security.beardog_endpoint = Some(url);
+        self.config.security.security_endpoint = Some(url);
         Ok(self)
     }
 
@@ -204,7 +204,7 @@ impl ConfigBuilder {
         if let Some(endpoint_str) = endpoint
             && let Ok(url) = Url::parse(&endpoint_str)
         {
-            self.config.security.beardog_endpoint = Some(url);
+            self.config.security.security_endpoint = Some(url);
         }
         self
     }

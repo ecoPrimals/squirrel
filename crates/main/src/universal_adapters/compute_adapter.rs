@@ -407,7 +407,7 @@ fn compute_service_endpoints() -> Vec<super::ServiceEndpoint> {
     ]
 }
 
-pub async fn register_toadstool_service(
+pub async fn register_compute_service(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {
     info!("🍄 Registering ToadStool compute service with universal registry");
@@ -770,7 +770,7 @@ mod tests {
     #[tokio::test]
     async fn register_toadstool_and_serde_roundtrip() {
         let reg = Arc::new(InMemoryServiceRegistry::new());
-        register_toadstool_service(reg.clone()).await.expect("reg");
+        register_compute_service(reg.clone()).await.expect("reg");
         let services = reg.list_all_services().await.expect("list");
         assert_eq!(services.len(), 1);
         let json = serde_json::to_string(&services[0].capabilities).expect("ser cap");

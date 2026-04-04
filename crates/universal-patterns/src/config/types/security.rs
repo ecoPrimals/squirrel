@@ -7,11 +7,12 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use url::Url;
 
-/// Security configuration for Beardog integration
+/// Security provider configuration (capability-based)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
-    /// Beardog service endpoint
-    pub beardog_endpoint: Option<Url>,
+    /// Security primal endpoint (discovered via capability)
+    #[serde(alias = "beardog_endpoint")]
+    pub security_endpoint: Option<Url>,
 
     /// Authentication method
     pub auth_method: AuthMethod,
@@ -32,7 +33,7 @@ pub struct SecurityConfig {
 /// Security fallback configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityFallback {
-    /// Enable local fallback when Beardog unavailable
+    /// Enable local fallback when security primal unavailable
     pub enable_local_fallback: bool,
 
     /// Local authentication method for fallback

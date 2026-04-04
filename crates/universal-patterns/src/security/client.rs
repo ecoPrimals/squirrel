@@ -90,7 +90,7 @@ impl UniversalSecurityClient {
         // Convert SecurityConfig to SecurityServiceConfig for providers
         let service_config = SecurityServiceConfig {
             service_id: format!("{}-security", primal_names::BEARDOG),
-            endpoint: config.beardog_endpoint.as_ref().map(|url| url.to_string()),
+            endpoint: config.security_endpoint.as_ref().map(|url| url.to_string()),
             timeout_seconds: Some(30),
             max_retries: Some(3),
             auth_config: None,
@@ -371,7 +371,7 @@ mod tests {
     /// Create a test security configuration
     fn test_security_config() -> SecurityConfig {
         SecurityConfig {
-            beardog_endpoint: None,
+            security_endpoint: None,
             auth_method: AuthMethod::None,
             credential_storage: CredentialStorage::Memory,
             encryption: test_encryption_config(),
@@ -394,7 +394,7 @@ mod tests {
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             universal_constants::deployment::endpoints::security_service_base()
         });
-        config.beardog_endpoint =
+        config.security_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;
         config.audit_logging = true;
@@ -413,7 +413,7 @@ mod tests {
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             universal_constants::deployment::endpoints::security_service_base()
         });
-        config.beardog_endpoint =
+        config.security_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;
         config.audit_logging = true;
@@ -434,14 +434,14 @@ mod tests {
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             universal_constants::deployment::endpoints::security_service_base()
         });
-        config.beardog_endpoint =
+        config.security_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = false;
         config.audit_logging = false;
 
         let service_config = crate::security::providers::SecurityServiceConfig {
             service_id: "test-service".to_string(),
-            endpoint: config.beardog_endpoint.as_ref().map(|u| u.to_string()),
+            endpoint: config.security_endpoint.as_ref().map(|u| u.to_string()),
             timeout_seconds: Some(30),
             max_retries: Some(3),
             auth_config: None,
@@ -467,7 +467,7 @@ mod tests {
         let endpoint_str = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
             universal_constants::deployment::endpoints::security_service_base()
         });
-        config.beardog_endpoint =
+        config.security_endpoint =
             Some(Url::parse(&endpoint_str).expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;
         config.fallback.fallback_timeout = 1; // Short timeout to trigger fallback
@@ -493,7 +493,7 @@ mod tests {
             service_id: "test-service".to_string(),
         };
         // Use port 1 (reserved, will always fail to connect)
-        config.beardog_endpoint =
+        config.security_endpoint =
             Some(Url::parse("http://127.0.0.1:1").expect("Failed to parse endpoint URL"));
         config.fallback.enable_local_fallback = true;
         config.fallback.fallback_timeout = 1; // Fast timeout for primary to fail quickly

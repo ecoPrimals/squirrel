@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
+#![allow(deprecated)]
 
 //! Security Service Coordinator
 //!
@@ -45,27 +45,19 @@ use crate::security::types::{
 ///
 /// ## Backward Compatibility
 ///
-/// The struct name `BeardogSecurityCoordinator` is maintained for backward compatibility
-/// but is deprecated. Use `SecurityCoordinator` type alias instead.
 #[derive(Debug, Default)]
-#[deprecated(
-    since = "0.1.0",
-    note = "Use SecurityCoordinator type alias. This struct will be renamed in the next major version."
-)]
-pub struct BeardogSecurityCoordinator {
+pub struct SecurityCoordinator {
     /// Security service endpoint (discovered via capability matching or env var)
     security_service_endpoint: String,
     /// Simple session cache
     sessions: Arc<RwLock<HashMap<String, SecurityContext>>>,
 }
 
-/// Modern type alias for security coordination
-///
-/// Use this instead of `BeardogSecurityCoordinator` for capability-based security.
-pub type SecurityCoordinator = BeardogSecurityCoordinator;
+#[deprecated(since = "0.1.0", note = "Renamed to SecurityCoordinator")]
+pub type BeardogSecurityCoordinator = SecurityCoordinator;
 
 /// Security service discovery and routing
-impl BeardogSecurityCoordinator {
+impl SecurityCoordinator {
     /// Discover optimal security service endpoint
     pub async fn discover_security_endpoint() -> Result<String> {
         // Try to discover security service through capability registry

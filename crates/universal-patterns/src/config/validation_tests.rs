@@ -231,7 +231,7 @@ fn test_validate_beardog_endpoint_bad_scheme() {
         .name("test-primal")
         .version("1.0.0")
         .build_unchecked();
-    config.security.beardog_endpoint = Some(Url::parse("ftp://example.com").expect("url"));
+    config.security.security_endpoint = Some(Url::parse("ftp://example.com").expect("url"));
     assert!(ConfigValidator::validate(&config).is_err());
 }
 
@@ -485,7 +485,7 @@ fn test_validate_beardog_auth_requires_endpoint() {
     config.security.auth_method = AuthMethod::Beardog {
         service_id: "svc".to_string(),
     };
-    config.security.beardog_endpoint = None;
+    config.security.security_endpoint = None;
     assert!(ConfigValidator::validate(&config).is_err());
 }
 

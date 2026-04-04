@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
-#![expect(deprecated, reason = "Backward compatibility during migration")]
+#![allow(deprecated)]
 
 //! # Production Security System
 //!
 //! This module provides comprehensive enterprise-grade security including:
-//! - Authentication and authorization with `BearDog` integration
+//! - Authentication and authorization with security primal integration
 //! - Rate limiting and `DoS` protection
 //! - Input validation and injection attack prevention
 //! - Real-time security monitoring and threat detection
 //! - Automated security response and incident handling
 //! - Security audit logging and compliance
 
-pub mod beardog_coordinator;
 pub mod config;
 pub mod health;
 pub mod input_validator;
@@ -20,6 +19,7 @@ pub mod monitoring;
 pub mod orchestrator;
 pub mod policy;
 pub mod rate_limiter;
+pub mod security_coordinator;
 pub mod session;
 pub mod traits;
 pub mod types;
@@ -28,7 +28,6 @@ pub mod types;
 mod session_tests;
 
 // Re-export core types and components
-pub use beardog_coordinator::BeardogSecurityCoordinator;
 pub use config::{AuthMethod, RetryConfig, SecurityProviderConfig};
 pub use input_validator::{
     InputType, InputValidationConfig, ProductionInputValidator, RiskLevel as InputRiskLevel,
@@ -46,8 +45,9 @@ pub use policy::{PolicyRule, PolicyType, SecurityPolicy};
 pub use rate_limiter::{
     EndpointType, ProductionRateLimiter, RateLimitConfig, RateLimitResult, RateLimitStatistics,
 };
+pub use security_coordinator::{BeardogSecurityCoordinator, SecurityCoordinator};
 pub use session::SecuritySession;
-pub use traits::SecurityCoordinator;
+pub use traits::SecurityCoordinatorTrait;
 pub use types::{
     AuthorizationLevel, SecurityCapability, SecurityContext, SecurityLevel, SecurityRequest,
     SecurityRequestType, SecurityResponse as SecurityApiResponse,
@@ -64,7 +64,7 @@ use std::sync::Arc;
 /// Complete security system factory
 pub struct SecuritySystemBuilder {
     orchestration_config: Option<SecurityOrchestrationConfig>,
-    enable_beardog_integration: bool,
+    enable_security_delegation: bool,
 }
 
 impl SecuritySystemBuilder {
@@ -73,7 +73,7 @@ impl SecuritySystemBuilder {
     pub const fn new() -> Self {
         Self {
             orchestration_config: None,
-            enable_beardog_integration: false,
+            enable_security_delegation: false,
         }
     }
 
@@ -84,10 +84,10 @@ impl SecuritySystemBuilder {
         self
     }
 
-    /// Enable `BearDog` security integration
+    /// Enable security primal delegation (capability-based)
     #[must_use]
-    pub const fn with_beardog_integration(mut self, enable: bool) -> Self {
-        self.enable_beardog_integration = enable;
+    pub const fn with_security_delegation(mut self, enable: bool) -> Self {
+        self.enable_security_delegation = enable;
         self
     }
 
@@ -98,7 +98,7 @@ impl SecuritySystemBuilder {
         let orchestrator = SecurityOrchestrator::new(config).await?;
 
         tracing::info!(
-            beardog_integration = self.enable_beardog_integration,
+            security_delegation = self.enable_security_delegation,
             operation = "security_system_built",
             "Production security system initialized successfully"
         );
@@ -116,7 +116,7 @@ impl Default for SecuritySystemBuilder {
 /// Production security system facade for easy integration
 pub struct ProductionSecuritySystem {
     orchestrator: Arc<SecurityOrchestrator>,
-    beardog_coordinator: Option<Arc<BeardogSecurityCoordinator>>,
+    security_coordinator: Option<Arc<SecurityCoordinator>>,
 }
 
 impl ProductionSecuritySystem {
@@ -126,7 +126,7 @@ impl ProductionSecuritySystem {
 
         Ok(Self {
             orchestrator: Arc::new(orchestrator),
-            beardog_coordinator: None,
+            security_coordinator: None,
         })
     }
 
@@ -136,10 +136,10 @@ impl ProductionSecuritySystem {
         Arc::clone(&self.orchestrator)
     }
 
-    /// Get `BearDog` coordinator if available
+    /// Get security coordinator if available
     #[must_use]
-    pub fn beardog_coordinator(&self) -> Option<Arc<BeardogSecurityCoordinator>> {
-        self.beardog_coordinator.clone()
+    pub fn security_coordinator(&self) -> Option<Arc<SecurityCoordinator>> {
+        self.security_coordinator.clone()
     }
 
     /// Perform comprehensive security check
@@ -160,20 +160,20 @@ mod security_mod_tests {
     #[test]
     fn test_security_system_builder_new() {
         let builder = SecuritySystemBuilder::new();
-        assert!(!builder.enable_beardog_integration);
+        assert!(!builder.enable_security_delegation);
         assert!(builder.orchestration_config.is_none());
     }
 
     #[test]
     fn test_security_system_builder_default() {
         let builder = SecuritySystemBuilder::default();
-        assert!(!builder.enable_beardog_integration);
+        assert!(!builder.enable_security_delegation);
     }
 
     #[test]
-    fn test_security_system_builder_with_beardog() {
-        let builder = SecuritySystemBuilder::new().with_beardog_integration(true);
-        assert!(builder.enable_beardog_integration);
+    fn test_security_system_builder_with_delegation() {
+        let builder = SecuritySystemBuilder::new().with_security_delegation(true);
+        assert!(builder.enable_security_delegation);
     }
 
     #[test]
@@ -188,9 +188,9 @@ mod security_mod_tests {
         let config = SecurityOrchestrationConfig::default();
         let builder = SecuritySystemBuilder::new()
             .with_orchestration_config(config)
-            .with_beardog_integration(true);
+            .with_security_delegation(true);
         assert!(builder.orchestration_config.is_some());
-        assert!(builder.enable_beardog_integration);
+        assert!(builder.enable_security_delegation);
     }
 
     #[tokio::test]
@@ -218,11 +218,11 @@ mod security_mod_tests {
     }
 
     #[tokio::test]
-    async fn test_production_security_system_no_beardog() {
+    async fn test_production_security_system_no_coordinator() {
         let config = SecurityOrchestrationConfig::default();
         let system = ProductionSecuritySystem::new(config)
             .await
             .expect("should succeed");
-        assert!(system.beardog_coordinator().is_none());
+        assert!(system.security_coordinator().is_none());
     }
 }

@@ -165,17 +165,20 @@ impl DefaultEndpoints {
 
     /// Get `ToadStool` endpoint from environment or default
     ///
-    /// Multi-tier resolution:
-    /// 1. `TOADSTOOL_ENDPOINT` (full endpoint)
-    /// 2. `TOADSTOOL_PORT` (port override)
-    /// 3. Fallback: [`ports::compute_service`] (compute capability — no compile-time primal port)
+    /// Compute capability endpoint — multi-tier resolution:
+    /// 1. `COMPUTE_ENDPOINT` (primary, capability-based)
+    /// 2. `TOADSTOOL_ENDPOINT` (backward compat)
+    /// 3. `TOADSTOOL_PORT` (port override)
+    /// 4. Fallback: [`ports::compute_service`]
     #[must_use]
-    pub fn toadstool_endpoint() -> String {
-        env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
-            let host = config_helpers::get_host("TOADSTOOL_HOST", "localhost");
-            let port = config_helpers::get_port("TOADSTOOL_PORT", ports::compute_service());
-            format!("http://{host}:{port}")
-        })
+    pub fn compute_endpoint() -> String {
+        env::var("COMPUTE_ENDPOINT")
+            .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let host = config_helpers::get_host("TOADSTOOL_HOST", "localhost");
+                let port = config_helpers::get_port("TOADSTOOL_PORT", ports::compute_service());
+                format!("http://{host}:{port}")
+            })
     }
 
     /// Get network host from environment or default
@@ -383,9 +386,9 @@ mod tests {
     }
 
     #[test]
-    fn toadstool_endpoint_respects_full_url() {
-        temp_env::with_var("TOADSTOOL_ENDPOINT", Some("http://toad:2"), || {
-            assert_eq!(DefaultEndpoints::toadstool_endpoint(), "http://toad:2");
+    fn compute_endpoint_respects_full_url() {
+        temp_env::with_var("COMPUTE_ENDPOINT", Some("http://toad:2"), || {
+            assert_eq!(DefaultEndpoints::compute_endpoint(), "http://toad:2");
         });
     }
 

@@ -143,7 +143,7 @@ impl SecurityProviderConfig {
         note = "Use capability-based discovery: discover_capability(\"security.authentication\")"
     )]
     #[must_use]
-    pub fn beardog(endpoint: &str, auth_method: AuthMethod) -> Self {
+    pub fn security_provider(endpoint: &str, auth_method: AuthMethod) -> Self {
         Self {
             // TRUE PRIMAL: Use capability name, not primal name
             provider_type: "security.authentication".to_string(),
@@ -269,9 +269,11 @@ mod tests {
         deprecated,
         reason = "Tests deprecated path for backward compatibility"
     )]
-    fn test_beardog_constructor() {
-        let config =
-            SecurityProviderConfig::beardog("http://localhost:8443", AuthMethod::UnixSocket);
+    fn test_security_provider_constructor() {
+        let config = SecurityProviderConfig::security_provider(
+            "http://localhost:8443",
+            AuthMethod::UnixSocket,
+        );
         assert_eq!(config.provider_type, "security.authentication");
         assert_eq!(config.endpoint, "http://localhost:8443");
         assert_eq!(config.security_level, SecurityLevel::Critical);

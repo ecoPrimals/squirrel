@@ -378,7 +378,7 @@ impl MetricsCollector {
                 metrics.insert(HEALTH_CHECKS.to_string(), 0.0);
             }
             "compute" => {
-                use crate::monitoring::metric_names::toadstool::{
+                use crate::monitoring::metric_names::compute::{
                     COMPUTE_JOBS_COMPLETED, COMPUTE_JOBS_QUEUED, COMPUTE_JOBS_RUNNING,
                     CPU_UTILIZATION,
                 };
@@ -388,7 +388,7 @@ impl MetricsCollector {
                 metrics.insert(CPU_UTILIZATION.to_string(), 0.0);
             }
             "storage" => {
-                use crate::monitoring::metric_names::nestgate::{
+                use crate::monitoring::metric_names::storage::{
                     BACKUP_OPERATIONS, REPLICATION_LAG, STORAGE_OPERATIONS, STORAGE_SIZE_GB,
                 };
                 metrics.insert(STORAGE_OPERATIONS.to_string(), 0.0);
@@ -397,7 +397,7 @@ impl MetricsCollector {
                 metrics.insert(REPLICATION_LAG.to_string(), 0.0);
             }
             "security" => {
-                use crate::monitoring::metric_names::beardog::{
+                use crate::monitoring::metric_names::security_metrics::{
                     AUTHENTICATION_REQUESTS, AUTHORIZATION_CHECKS, SECURITY_VIOLATIONS,
                     TOKEN_REFRESHES,
                 };

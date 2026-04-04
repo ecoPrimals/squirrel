@@ -49,7 +49,7 @@ mod tests {
     /// with all required fields, avoiding repetition across tests.
     fn test_security_config() -> SecurityConfig {
         SecurityConfig {
-            beardog_endpoint: None,
+            security_endpoint: None,
             auth_method: AuthMethod::None,
             credential_storage: CredentialStorage::Memory,
             encryption: test_encryption_config(),
@@ -65,7 +65,7 @@ mod tests {
     /// Create a test security configuration with custom endpoint
     fn test_security_config_with_endpoint(endpoint: Url) -> SecurityConfig {
         SecurityConfig {
-            beardog_endpoint: Some(endpoint),
+            security_endpoint: Some(endpoint),
             auth_method: AuthMethod::None,
             credential_storage: CredentialStorage::Memory,
             encryption: test_encryption_config(),
@@ -85,7 +85,7 @@ mod tests {
     fn to_service_config(config: &SecurityConfig) -> SecurityServiceConfig {
         SecurityServiceConfig {
             service_id: "test-service".to_string(),
-            endpoint: config.beardog_endpoint.as_ref().map(|u| u.to_string()),
+            endpoint: config.security_endpoint.as_ref().map(|u| u.to_string()),
             timeout_seconds: Some(30),
             max_retries: Some(3),
             auth_config: None,

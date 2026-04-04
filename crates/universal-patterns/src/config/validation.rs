@@ -210,7 +210,7 @@ impl ConfigValidator {
     /// Validate security configuration
     fn validate_security_config(security: &SecurityConfig) -> Result<(), ConfigError> {
         // Validate Beardog endpoint if provided
-        if let Some(endpoint) = &security.beardog_endpoint
+        if let Some(endpoint) = &security.security_endpoint
             && endpoint.scheme() != "https"
             && endpoint.scheme() != "http"
         {
@@ -547,7 +547,7 @@ impl ConfigValidator {
 
         // If Beardog authentication is used, validate that Beardog endpoint is configured
         if matches!(config.security.auth_method, AuthMethod::Beardog { .. })
-            && config.security.beardog_endpoint.is_none()
+            && config.security.security_endpoint.is_none()
         {
             return Err(ConfigError::Invalid(
                 "Beardog endpoint must be configured when using Beardog authentication".to_string(),

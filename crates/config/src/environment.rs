@@ -349,12 +349,15 @@ impl AIProviderConfig {
 /// Production should use capability-based discovery; env vars override for explicit config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemConfig {
-    /// Storage capability endpoint (env: NESTGATE_ENDPOINT - ecosystem role, not primal identity)
-    pub nestgate_endpoint: String,
-    /// Security provider endpoint (env: BEARDOG_ENDPOINT - ecosystem role, not primal identity)
-    pub beardog_endpoint: String,
-    /// Compute capability endpoint (env: TOADSTOOL_ENDPOINT - ecosystem role, not primal identity)
-    pub toadstool_endpoint: String,
+    /// Storage capability endpoint (env: STORAGE_ENDPOINT, fallback: NESTGATE_ENDPOINT)
+    #[serde(alias = "nestgate_endpoint")]
+    pub storage_endpoint: String,
+    /// Security capability endpoint (env: SECURITY_ENDPOINT, fallback: BEARDOG_ENDPOINT)
+    #[serde(alias = "beardog_endpoint")]
+    pub security_endpoint: String,
+    /// Compute capability endpoint (env: COMPUTE_ENDPOINT, fallback: TOADSTOOL_ENDPOINT)
+    #[serde(alias = "toadstool_endpoint")]
+    pub compute_endpoint: String,
     /// Ecosystem registry / service mesh endpoint (env: SERVICE_MESH_ENDPOINT, BIOMEOS_ENDPOINT)
     pub service_mesh_endpoint: String,
     /// Timeout in milliseconds for ecosystem service calls.
@@ -364,35 +367,41 @@ pub struct EcosystemConfig {
 impl Default for EcosystemConfig {
     fn default() -> Self {
         // Multi-tier ecosystem endpoint defaults with port-only overrides
-        let nestgate_endpoint = std::env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| {
-            let port = std::env::var("NESTGATE_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or_else(|| {
-                    config_helpers::get_port("STORAGE_SERVICE_PORT", ports::storage_service())
-                });
-            format!("http://localhost:{port}")
-        });
+        let storage_endpoint = std::env::var("STORAGE_ENDPOINT")
+            .or_else(|_| std::env::var("NESTGATE_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = std::env::var("NESTGATE_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or_else(|| {
+                        config_helpers::get_port("STORAGE_SERVICE_PORT", ports::storage_service())
+                    });
+                format!("http://localhost:{port}")
+            });
 
-        let beardog_endpoint = std::env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or_else(|| {
-                    config_helpers::get_port("SECURITY_SERVICE_PORT", ports::security_service())
-                });
-            format!("http://localhost:{port}")
-        });
+        let security_endpoint = std::env::var("SECURITY_ENDPOINT")
+            .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or_else(|| {
+                        config_helpers::get_port("SECURITY_SERVICE_PORT", ports::security_service())
+                    });
+                format!("http://localhost:{port}")
+            });
 
-        let toadstool_endpoint = std::env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
-            let port = std::env::var("TOADSTOOL_PORT")
-                .ok()
-                .and_then(|p| p.parse::<u16>().ok())
-                .unwrap_or_else(|| {
-                    config_helpers::get_port("COMPUTE_SERVICE_PORT", ports::compute_service())
-                });
-            format!("http://localhost:{port}")
-        });
+        let compute_endpoint = std::env::var("COMPUTE_ENDPOINT")
+            .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                let port = std::env::var("TOADSTOOL_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or_else(|| {
+                        config_helpers::get_port("COMPUTE_SERVICE_PORT", ports::compute_service())
+                    });
+                format!("http://localhost:{port}")
+            });
 
         let service_mesh_endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
             .or_else(|_| std::env::var("BIOMEOS_ENDPOINT"))
@@ -407,9 +416,9 @@ impl Default for EcosystemConfig {
             });
 
         Self {
-            nestgate_endpoint,
-            beardog_endpoint,
-            toadstool_endpoint,
+            storage_endpoint,
+            security_endpoint,
+            compute_endpoint,
             service_mesh_endpoint,
             service_timeout_ms: 5000,
         }
@@ -426,47 +435,62 @@ impl EcosystemConfig {
         // Production defaults use discovered://{capability} - actual endpoints are resolved
         // at runtime via ecosystem registry capability discovery.
         // Env vars (NESTGATE_ENDPOINT, etc.) are ecosystem role endpoints - override for explicit config.
-        let nestgate_endpoint = env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| {
-            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                format!("discovered://{}", capabilities::STORAGE_CAPABILITY)
-            } else {
-                let port = env::var("NESTGATE_PORT")
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or_else(|| {
-                        config_helpers::get_port("STORAGE_SERVICE_PORT", ports::storage_service())
-                    });
-                format!("http://localhost:{port}")
-            }
-        });
+        let storage_endpoint = env::var("STORAGE_ENDPOINT")
+            .or_else(|_| env::var("NESTGATE_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                    format!("discovered://{}", capabilities::STORAGE_CAPABILITY)
+                } else {
+                    let port = env::var("NESTGATE_PORT")
+                        .ok()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or_else(|| {
+                            config_helpers::get_port(
+                                "STORAGE_SERVICE_PORT",
+                                ports::storage_service(),
+                            )
+                        });
+                    format!("http://localhost:{port}")
+                }
+            });
 
-        let beardog_endpoint = env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
-            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                format!("discovered://{}", capabilities::SECURITY_CAPABILITY)
-            } else {
-                let port = env::var("SECURITY_AUTHENTICATION_PORT")
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or_else(|| {
-                        config_helpers::get_port("SECURITY_SERVICE_PORT", ports::security_service())
-                    });
-                format!("http://localhost:{port}")
-            }
-        });
+        let security_endpoint = env::var("SECURITY_ENDPOINT")
+            .or_else(|_| env::var("BEARDOG_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                    format!("discovered://{}", capabilities::SECURITY_CAPABILITY)
+                } else {
+                    let port = env::var("SECURITY_AUTHENTICATION_PORT")
+                        .ok()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or_else(|| {
+                            config_helpers::get_port(
+                                "SECURITY_SERVICE_PORT",
+                                ports::security_service(),
+                            )
+                        });
+                    format!("http://localhost:{port}")
+                }
+            });
 
-        let toadstool_endpoint = env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
-            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                format!("discovered://{}", capabilities::COMPUTE_CAPABILITY)
-            } else {
-                let port = env::var("TOADSTOOL_PORT")
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or_else(|| {
-                        config_helpers::get_port("COMPUTE_SERVICE_PORT", ports::compute_service())
-                    });
-                format!("http://localhost:{port}")
-            }
-        });
+        let compute_endpoint = env::var("COMPUTE_ENDPOINT")
+            .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
+            .unwrap_or_else(|_| {
+                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                    format!("discovered://{}", capabilities::COMPUTE_CAPABILITY)
+                } else {
+                    let port = env::var("TOADSTOOL_PORT")
+                        .ok()
+                        .and_then(|p| p.parse::<u16>().ok())
+                        .unwrap_or_else(|| {
+                            config_helpers::get_port(
+                                "COMPUTE_SERVICE_PORT",
+                                ports::compute_service(),
+                            )
+                        });
+                    format!("http://localhost:{port}")
+                }
+            });
 
         let biomeos_endpoint = env::var("BIOMEOS_ENDPOINT")
             .or_else(|_| env::var("SERVICE_MESH_ENDPOINT"))
@@ -499,10 +523,10 @@ impl EcosystemConfig {
             });
 
         Ok(Self {
-            nestgate_endpoint,
-            beardog_endpoint,
-            toadstool_endpoint,
-            service_mesh_endpoint: biomeos_endpoint, // Service mesh / discovery endpoint
+            storage_endpoint,
+            security_endpoint,
+            compute_endpoint,
+            service_mesh_endpoint: biomeos_endpoint,
             service_timeout_ms,
         })
     }

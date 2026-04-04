@@ -9,13 +9,13 @@
 // Re-export all constants at the module root for easy access
 pub use agent_deployment::*;
 pub use ai_intelligence::*;
-pub use beardog::*;
+pub use compute::*;
 pub use context_state::*;
 pub use default::*;
 pub use mcp_integration::*;
-pub use nestgate::*;
 pub use orchestration::*;
-pub use toadstool::*;
+pub use security_metrics::*;
+pub use storage::*;
 
 /// AI Intelligence component metrics
 pub mod ai_intelligence {
@@ -77,8 +77,8 @@ pub mod orchestration {
     pub const HEALTH_CHECKS: &str = "health_checks";
 }
 
-/// Toadstool compute metrics
-pub mod toadstool {
+/// Compute capability metrics
+pub mod compute {
     /// Metric name for queued compute jobs
     pub const COMPUTE_JOBS_QUEUED: &str = "compute_jobs_queued";
     /// Metric name for running compute jobs
@@ -89,8 +89,8 @@ pub mod toadstool {
     pub const CPU_UTILIZATION: &str = "cpu_utilization";
 }
 
-/// `NestGate` storage metrics
-pub mod nestgate {
+/// Storage capability metrics
+pub mod storage {
     /// Metric name for storage operations count
     pub const STORAGE_OPERATIONS: &str = "storage_operations";
     /// Metric name for storage size in GB
@@ -101,8 +101,8 @@ pub mod nestgate {
     pub const REPLICATION_LAG: &str = "replication_lag";
 }
 
-/// `BearDog` security metrics
-pub mod beardog {
+/// Security capability metrics
+pub mod security_metrics {
     /// Metric name for authentication requests
     pub const AUTHENTICATION_REQUESTS: &str = "authentication_requests";
     /// Metric name for authorization checks

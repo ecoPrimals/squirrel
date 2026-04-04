@@ -54,7 +54,7 @@ impl Default for PrimalConfig {
                 limits: ConnectionLimits::default(),
             },
             security: SecurityConfig {
-                beardog_endpoint: None,
+                security_endpoint: None,
                 auth_method: AuthMethod::None,
                 credential_storage: CredentialStorage::Memory,
                 encryption: EncryptionConfig {
@@ -319,7 +319,7 @@ impl ConfigPresets {
         config.security.auth_method = AuthMethod::Beardog {
             service_id: "primal-production".to_string(),
         };
-        config.security.beardog_endpoint =
+        config.security.security_endpoint =
             Some(parse_deployment_endpoint(&endpoints::security_service()));
         config.security.audit_logging = true;
         config.security.encryption.enable_inter_primal = true;

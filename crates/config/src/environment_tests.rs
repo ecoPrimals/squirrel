@@ -131,9 +131,9 @@ fn test_database_config() -> DatabaseConfig {
 
 fn test_ecosystem_config() -> EcosystemConfig {
     EcosystemConfig {
-        nestgate_endpoint: "discovered://storage".to_string(),
-        beardog_endpoint: "discovered://security".to_string(),
-        toadstool_endpoint: "discovered://compute".to_string(),
+        storage_endpoint: "discovered://storage".to_string(),
+        security_endpoint: "discovered://security".to_string(),
+        compute_endpoint: "discovered://compute".to_string(),
         service_mesh_endpoint: "discovered://service-mesh".to_string(),
         service_timeout_ms: 5000,
     }
@@ -181,8 +181,8 @@ fn test_ai_provider_config_fields() {
 #[test]
 fn test_ecosystem_config_fields() {
     let config = test_ecosystem_config();
-    assert!(!config.nestgate_endpoint.is_empty());
-    assert!(!config.beardog_endpoint.is_empty());
+    assert!(!config.storage_endpoint.is_empty());
+    assert!(!config.security_endpoint.is_empty());
 }
 
 #[test]
@@ -240,7 +240,7 @@ fn test_ecosystem_config_from_env() {
         ],
         || {
             let config = EcosystemConfig::from_env().expect("should load");
-            assert!(config.nestgate_endpoint.contains("127.0.0.1"));
+            assert!(config.storage_endpoint.contains("127.0.0.1"));
         },
     );
 }
@@ -563,9 +563,9 @@ fn test_ecosystem_config_from_env_production_discovered() {
         ],
         || {
             let config = EcosystemConfig::from_env().expect("should load");
-            assert!(config.nestgate_endpoint.starts_with("discovered://"));
-            assert!(config.beardog_endpoint.starts_with("discovered://"));
-            assert!(config.toadstool_endpoint.starts_with("discovered://"));
+            assert!(config.storage_endpoint.starts_with("discovered://"));
+            assert!(config.security_endpoint.starts_with("discovered://"));
+            assert!(config.compute_endpoint.starts_with("discovered://"));
             assert!(config.service_mesh_endpoint.starts_with("discovered://"));
             assert_eq!(config.service_timeout_ms, 8000);
         },
@@ -584,9 +584,9 @@ fn test_ecosystem_config_from_env_port_overrides() {
         ],
         || {
             let config = EcosystemConfig::from_env().expect("should load");
-            assert!(config.nestgate_endpoint.contains("9444"));
-            assert!(config.beardog_endpoint.contains("9443"));
-            assert!(config.toadstool_endpoint.contains("9445"));
+            assert!(config.storage_endpoint.contains("9444"));
+            assert!(config.security_endpoint.contains("9443"));
+            assert!(config.compute_endpoint.contains("9445"));
             assert!(config.service_mesh_endpoint.contains("9446"));
             assert_eq!(config.service_timeout_ms, 3000);
         },
@@ -605,9 +605,9 @@ fn test_ecosystem_config_default() {
         ],
         || {
             let config = EcosystemConfig::default();
-            assert!(config.nestgate_endpoint.contains("localhost"));
-            assert!(config.beardog_endpoint.contains("localhost"));
-            assert!(config.toadstool_endpoint.contains("localhost"));
+            assert!(config.storage_endpoint.contains("localhost"));
+            assert!(config.security_endpoint.contains("localhost"));
+            assert!(config.compute_endpoint.contains("localhost"));
             assert!(config.service_mesh_endpoint.contains("localhost"));
             assert_eq!(config.service_timeout_ms, 5000);
         },
