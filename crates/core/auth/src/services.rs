@@ -14,13 +14,15 @@ use super::types::{
     AuditEvent, AuthContext, AuthError, ComplianceCheck, LoginRequest, LoginResponse, Permission,
     Session, User,
 };
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
 
 /// Main authentication service trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "Auth surface — all impls are Send + Sync"
+)]
 pub trait AuthenticationService: Send + Sync {
     /// Authenticate user credentials and return an authentication context
     async fn authenticate(&self, credentials: &LoginRequest) -> Result<AuthContext, AuthError>;
@@ -261,7 +263,6 @@ impl BeardogSecurityClient {
     }
 }
 
-#[async_trait]
 impl AuthenticationService for BeardogSecurityClient {
     async fn authenticate(&self, credentials: &LoginRequest) -> Result<AuthContext, AuthError> {
         let auth_request = AuthRequest {

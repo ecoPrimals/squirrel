@@ -31,7 +31,9 @@ mod tests;
 
 use async_trait::async_trait;
 use serde_json::Value;
+use std::future::Future;
 use std::path::Path;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::Result as AnyhowResult;
@@ -46,67 +48,10 @@ pub use self::models::{Rule, RuleAction, RuleCondition, RuleMetadata};
 pub use self::plugin::RulePluginManager;
 pub use self::repository::RuleRepository;
 
-/// Dummy plugin manager for testing purposes
-#[derive(Debug, Default)]
-pub struct DummyPluginManager {
-    // Add fields as needed for your tests
-}
-
-#[async_trait]
-impl ContextPlugin for DummyPluginManager {
-    async fn get_transformation(&self, id: &str) -> AnyhowResult<Arc<dyn ContextTransformation>> {
-        Err(anyhow::anyhow!("Transformation not found: {}", id))
-    }
-
-    async fn get_adapter(&self, id: &str) -> AnyhowResult<Arc<dyn ContextAdapter>> {
-        Err(anyhow::anyhow!("Adapter not found: {}", id))
-    }
-
-    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn ContextTransformation>>> {
-        Ok(Vec::new())
-    }
-
-    async fn get_adapters(&self) -> AnyhowResult<Vec<Arc<dyn ContextAdapter>>> {
-        Ok(Vec::new())
-    }
-}
-
-/// Minimal ContextPlugin trait for testing purposes
-#[async_trait]
-pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
-    /// Retrieve a specific context transformation by ID
-    ///
-    /// # Arguments
-    /// * `id` - The unique identifier of the transformation to retrieve
-    ///
-    /// # Returns
-    /// An Arc-wrapped ContextTransformation if found, or an error if not found
-    async fn get_transformation(&self, id: &str) -> AnyhowResult<Arc<dyn ContextTransformation>>;
-
-    /// Retrieve a specific context adapter by ID
-    ///
-    /// # Arguments
-    /// * `id` - The unique identifier of the adapter to retrieve
-    ///
-    /// # Returns
-    /// An Arc-wrapped ContextAdapter if found, or an error if not found
-    async fn get_adapter(&self, id: &str) -> AnyhowResult<Arc<dyn ContextAdapter>>;
-
-    /// Retrieve all available context transformations
-    ///
-    /// # Returns
-    /// A vector of Arc-wrapped ContextTransformation instances
-    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn ContextTransformation>>>;
-
-    /// Retrieve all available context adapters
-    ///
-    /// # Returns
-    /// A vector of Arc-wrapped ContextAdapter instances
-    async fn get_adapters(&self) -> AnyhowResult<Vec<Arc<dyn ContextAdapter>>>;
-}
-
-/// Minimal ContextAdapter trait for testing purposes
-#[async_trait]
+/// Minimal context adapter for rules (implement this; use [`ContextAdapterDyn`] as `Arc<dyn …>`).
+///
+/// The async operation is expressed as RPITIT with an explicit `Send` bound so futures can be
+/// stored in `Arc<dyn ContextAdapterDyn>` and are usable across task boundaries.
 pub trait ContextAdapter: Send + Sync + std::fmt::Debug {
     /// Get the unique identifier of this adapter
     ///
@@ -133,7 +78,105 @@ pub trait ContextAdapter: Send + Sync + std::fmt::Debug {
     ///
     /// # Returns
     /// The adapted JSON data or an error if adaptation fails
-    async fn adapt(&self, data: serde_json::Value) -> AnyhowResult<serde_json::Value>;
+    fn adapt(
+        &self,
+        data: serde_json::Value,
+    ) -> impl Future<Output = AnyhowResult<serde_json::Value>> + Send;
+}
+
+/// Object-safe projection of [`ContextAdapter`] for `Arc<dyn ContextAdapterDyn>`.
+pub trait ContextAdapterDyn: Send + Sync + std::fmt::Debug {
+    /// See [`ContextAdapter::get_id`].
+    fn get_id(&self) -> &str;
+    /// See [`ContextAdapter::get_name`].
+    fn get_name(&self) -> &str;
+    /// See [`ContextAdapter::get_description`].
+    fn get_description(&self) -> &str;
+    /// See [`ContextAdapter::adapt`].
+    fn adapt(
+        &self,
+        data: serde_json::Value,
+    ) -> Pin<Box<dyn Future<Output = AnyhowResult<serde_json::Value>> + Send + '_>>;
+}
+
+impl<T: ContextAdapter + 'static> ContextAdapterDyn for T {
+    fn get_id(&self) -> &str {
+        ContextAdapter::get_id(self)
+    }
+
+    fn get_name(&self) -> &str {
+        ContextAdapter::get_name(self)
+    }
+
+    fn get_description(&self) -> &str {
+        ContextAdapter::get_description(self)
+    }
+
+    fn adapt(
+        &self,
+        data: serde_json::Value,
+    ) -> Pin<Box<dyn Future<Output = AnyhowResult<serde_json::Value>> + Send + '_>> {
+        Box::pin(ContextAdapter::adapt(self, data))
+    }
+}
+
+/// Minimal ContextPlugin trait for testing purposes
+#[async_trait]
+pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
+    /// Retrieve a specific context transformation by ID
+    ///
+    /// # Arguments
+    /// * `id` - The unique identifier of the transformation to retrieve
+    ///
+    /// # Returns
+    /// An Arc-wrapped ContextTransformation if found, or an error if not found
+    async fn get_transformation(&self, id: &str) -> AnyhowResult<Arc<dyn ContextTransformation>>;
+
+    /// Retrieve a specific context adapter by ID
+    ///
+    /// # Arguments
+    /// * `id` - The unique identifier of the adapter to retrieve
+    ///
+    /// # Returns
+    /// An Arc-wrapped [`ContextAdapterDyn`] if found, or an error if not found
+    async fn get_adapter(&self, id: &str) -> AnyhowResult<Arc<dyn ContextAdapterDyn>>;
+
+    /// Retrieve all available context transformations
+    ///
+    /// # Returns
+    /// A vector of Arc-wrapped ContextTransformation instances
+    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn ContextTransformation>>>;
+
+    /// Retrieve all available context adapters
+    ///
+    /// # Returns
+    /// A vector of Arc-wrapped [`ContextAdapterDyn`] instances
+    async fn get_adapters(&self) -> AnyhowResult<Vec<Arc<dyn ContextAdapterDyn>>>;
+}
+
+/// Dummy plugin manager for testing purposes
+#[derive(Debug, Default)]
+pub struct DummyPluginManager {
+    // Add fields as needed for your tests
+}
+
+#[async_trait]
+impl ContextPlugin for DummyPluginManager {
+    async fn get_transformation(&self, id: &str) -> AnyhowResult<Arc<dyn ContextTransformation>> {
+        Err(anyhow::anyhow!("Transformation not found: {}", id))
+    }
+
+    async fn get_adapter(&self, id: &str) -> AnyhowResult<Arc<dyn ContextAdapterDyn>> {
+        Err(anyhow::anyhow!("Adapter not found: {}", id))
+    }
+
+    async fn get_transformations(&self) -> AnyhowResult<Vec<Arc<dyn ContextTransformation>>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_adapters(&self) -> AnyhowResult<Vec<Arc<dyn ContextAdapterDyn>>> {
+        Ok(Vec::new())
+    }
 }
 
 /// Rule builder for creating rules

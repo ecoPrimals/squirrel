@@ -34,9 +34,9 @@ pub enum WebPluginError {
 }
 
 /// Web plugin registry
-pub struct WebPluginRegistry {
+pub struct WebPluginRegistry<R: PluginRegistry> {
     /// Plugin registry reference
-    registry: Arc<dyn PluginRegistry>,
+    registry: Arc<R>,
     /// Endpoints by plugin ID
     endpoints: RwLock<HashMap<Uuid, Vec<WebEndpoint>>>,
     /// Components by plugin ID
@@ -45,9 +45,9 @@ pub struct WebPluginRegistry {
     routes: RwLock<HashMap<String, Route>>,
 }
 
-impl WebPluginRegistry {
+impl<R: PluginRegistry> WebPluginRegistry<R> {
     /// Create a new web plugin registry
-    pub fn new(registry: Arc<dyn PluginRegistry>) -> Self {
+    pub fn new(registry: Arc<R>) -> Self {
         Self {
             registry,
             endpoints: RwLock::new(HashMap::new()),
@@ -348,8 +348,7 @@ mod tests {
     #[tokio::test]
     async fn load_plugins_registers_endpoints_and_components() {
         let manager = Arc::new(DefaultPluginManager::new());
-        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
-        let web = WebPluginRegistry::new(registry);
+        let web = WebPluginRegistry::new(manager.clone());
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
         manager
@@ -368,8 +367,7 @@ mod tests {
     #[tokio::test]
     async fn find_plugin_for_endpoint_and_handle_get_examples() {
         let manager = Arc::new(DefaultPluginManager::new());
-        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
-        let web = WebPluginRegistry::new(registry);
+        let web = WebPluginRegistry::new(manager.clone());
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
         manager
@@ -399,8 +397,7 @@ mod tests {
     #[tokio::test]
     async fn endpoint_not_found_wrong_method() {
         let manager = Arc::new(DefaultPluginManager::new());
-        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
-        let web = WebPluginRegistry::new(registry);
+        let web = WebPluginRegistry::new(manager.clone());
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
         manager
@@ -424,8 +421,7 @@ mod tests {
     #[tokio::test]
     async fn component_not_found_error() {
         let manager = Arc::new(DefaultPluginManager::new());
-        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
-        let web = WebPluginRegistry::new(registry);
+        let web = WebPluginRegistry::new(manager.clone());
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
         manager
@@ -457,8 +453,7 @@ mod tests {
     #[tokio::test]
     async fn handle_request_not_found_without_plugins() {
         let manager = Arc::new(DefaultPluginManager::new());
-        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
-        let web = WebPluginRegistry::new(registry);
+        let web = WebPluginRegistry::new(manager.clone());
 
         let req = WebRequest {
             method: HttpMethod::Get,
@@ -477,8 +472,7 @@ mod tests {
     #[tokio::test]
     async fn get_component_markup_example_nil() {
         let manager = Arc::new(DefaultPluginManager::new());
-        let registry: Arc<dyn crate::registry::PluginRegistry> = manager.clone();
-        let web = WebPluginRegistry::new(registry);
+        let web = WebPluginRegistry::new(manager.clone());
 
         let plugin = Arc::new(ExampleWebPlugin::new()) as Arc<dyn crate::plugin::Plugin>;
         manager

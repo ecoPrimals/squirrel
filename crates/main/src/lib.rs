@@ -255,9 +255,9 @@ pub struct SquirrelSystem {
 
 impl SquirrelSystem {
     /// Register with ecosystem
-    pub async fn register_with_ecosystem(
+    pub async fn register_with_ecosystem<S: crate::session::SessionManager>(
         &self,
-        provider: &SquirrelPrimalProvider,
+        provider: &SquirrelPrimalProvider<S>,
     ) -> Result<(), crate::error::PrimalError> {
         self.ecosystem_manager
             .register_squirrel_service(provider)

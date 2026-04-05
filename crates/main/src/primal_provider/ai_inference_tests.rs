@@ -32,8 +32,7 @@ mod tests {
             crate::ecosystem::config::EcosystemConfig::default(),
             mc,
         ));
-        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()))
-            as Arc<dyn crate::session::SessionManager>;
+        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()));
         SquirrelPrimalProvider::new(
             "ai-inf-test".to_string(),
             squirrel_mcp_config::EcosystemConfig::default(),

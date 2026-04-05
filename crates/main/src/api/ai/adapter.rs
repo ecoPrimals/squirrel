@@ -8,7 +8,6 @@
 //!
 //! TRUE PRIMAL: Zero vendor-specific code, pure capability-based.
 
-use async_trait::async_trait;
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -165,7 +164,6 @@ impl UniversalAiAdapter {
     }
 }
 
-#[async_trait]
 impl AiCapability for UniversalAiAdapter {
     async fn complete(
         &self,

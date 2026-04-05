@@ -6,7 +6,6 @@
 //!
 //! This module provides session management functionality for MCP connections.
 
-use async_trait::async_trait; // KEEP: SessionManager used as trait object (Arc<dyn SessionManager>)
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -332,10 +331,10 @@ impl SessionManagerImpl {
 }
 
 /// Session manager trait for dependency injection
-///
-/// NOTE: This trait uses `async_trait` because it is used as a trait object (`Arc<dyn SessionManager>`)
-/// in `primal_provider/core.rs`. Native async traits are not compatible with trait objects.
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait SessionManager: Send + Sync {
     /// Creates a new session and returns its ID.
     async fn create_session(&self, client_info: Option<String>) -> Result<String, PrimalError>;
@@ -354,7 +353,6 @@ pub trait SessionManager: Send + Sync {
     async fn terminate_session(&self, session_id: &str) -> Result<(), PrimalError>;
 }
 
-#[async_trait]
 impl SessionManager for SessionManagerImpl {
     async fn create_session(&self, client_info: Option<String>) -> Result<String, PrimalError> {
         Self::create_session(self, client_info).await
@@ -877,16 +875,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_session_manager_trait_object() {
-        use super::SessionManager;
-        let manager: std::sync::Arc<dyn SessionManager> =
-            std::sync::Arc::new(SessionManagerImpl::new(SessionConfig::default()));
+    async fn test_session_manager_trait_dispatch() {
+        async fn exercise_manager<M: super::SessionManager>(m: &M) {
+            let session_id = m.create_session(None).await.expect("should succeed");
+            let metadata = m
+                .get_session_metadata(&session_id)
+                .await
+                .expect("should succeed");
+            assert_eq!(metadata.session_id, session_id);
+        }
 
-        let session_id = manager.create_session(None).await.expect("should succeed");
-        let metadata = manager
-            .get_session_metadata(&session_id)
-            .await
-            .expect("should succeed");
-        assert_eq!(metadata.session_id, session_id);
+        let manager = SessionManagerImpl::new(SessionConfig::default());
+        exercise_manager(&manager).await;
     }
 }

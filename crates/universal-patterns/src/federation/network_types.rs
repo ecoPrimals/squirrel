@@ -152,6 +152,10 @@ pub struct PeerInfo {
     pub status: PeerStatus,
     /// Network latency to the peer (if available)
     pub latency: Option<Duration>,
+    /// Capabilities supported by the peer
+    pub capabilities: Vec<String>,
+    /// Connection reliability score (0.0 to 1.0)
+    pub reliability: f64,
 }
 
 /// Peer connection status
@@ -165,6 +169,10 @@ pub enum PeerStatus {
     Connecting,
     /// Connection is in error state with description
     Error(String),
+    /// Peer connection failed
+    Failed,
+    /// Peer is being synchronized
+    Syncing,
 }
 
 /// Data operation types for synchronization
@@ -180,6 +188,8 @@ pub enum DataOperation {
     Delete,
     /// Synchronize data across nodes
     Sync,
+    /// Full synchronization sweep
+    FullSync,
 }
 
 /// Network statistics
@@ -197,12 +207,28 @@ pub struct NetworkStats {
     pub uptime: DateTime<Utc>,
 }
 
+impl Default for NetworkStats {
+    fn default() -> Self {
+        Self {
+            peer_count: 0,
+            connection_count: 0,
+            queued_messages: 0,
+            node_id: Uuid::nil(),
+            uptime: Utc::now(),
+        }
+    }
+}
+
 /// Queued message for processing
 #[derive(Debug, Clone)]
-pub(super) struct QueuedMessage {
+pub struct QueuedMessage {
+    /// Payload to deliver or process
     pub message: NetworkMessage,
+    /// Originating peer id
     pub sender: Uuid,
+    /// When the message was queued
     pub timestamp: DateTime<Utc>,
+    /// Retry attempts for at-least-once delivery (reserved)
     pub retry_count: u32,
 }
 

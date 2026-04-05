@@ -6,17 +6,17 @@
 //! Background task management for heartbeat monitoring, message processing,
 //! and peer discovery.
 
-use super::core::FederationNetwork;
+use super::core::{FederationNetwork, NetworkConnection};
 use super::types::NetworkMessage;
 use chrono::Utc;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 
-impl FederationNetwork {
+impl<C: NetworkConnection + 'static> FederationNetwork<C> {
     /// Start heartbeat task for peer monitoring
     pub(super) async fn start_heartbeat_task(&self) {
-        let peers = Arc::clone(&self.peers);
+        let _peers = Arc::clone(&self.peers);
         let connections = Arc::clone(&self.connections);
         let running = Arc::clone(&self.running);
         let node_id = self.node_id;
@@ -31,7 +31,9 @@ impl FederationNetwork {
 
                 let conn_map = connections.read().await;
                 for (peer_id, connection) in conn_map.iter() {
-                    let _ = connection.send_message(*peer_id, health_check.clone()).await;
+                    let _ = connection
+                        .send_message(*peer_id, health_check.clone())
+                        .await;
                 }
 
                 sleep(Duration::from_secs(interval)).await;
@@ -79,4 +81,3 @@ impl FederationNetwork {
         });
     }
 }
-

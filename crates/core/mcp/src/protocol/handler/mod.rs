@@ -12,7 +12,7 @@ mod team_types;
 mod workflow_manager;
 
 // Re-export for backward compatibility
-pub use message_router::{MessageHandler, MessageRouter};
+pub use message_router::{MessageRouter, RouterHandlerSlot};
 pub use processor::*;
 pub use router::*;
 pub use workflow_manager::TeamWorkflowManager;

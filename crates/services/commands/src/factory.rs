@@ -22,7 +22,10 @@ use squirrel_interfaces::plugins::CommandsPlugin;
 use tracing::{debug, info};
 
 /// Type alias for a registry and plugin tuple
-pub type RegistryWithPlugin = (Arc<Mutex<CommandRegistry>>, Arc<dyn CommandsPlugin>);
+pub type RegistryWithPlugin = (
+    Arc<Mutex<CommandRegistry>>,
+    Arc<CommandRegistryPluginAdapter>,
+);
 
 /// The command registry factory trait
 ///
@@ -78,7 +81,7 @@ pub fn create_command_registry_with_plugin() -> Result<RegistryWithPlugin, Comma
 
 /// Bridges `CommandRegistry` into the `CommandsPlugin` trait interface.
 #[derive(Debug)]
-struct CommandRegistryPluginAdapter {
+pub struct CommandRegistryPluginAdapter {
     registry: Arc<Mutex<CommandRegistry>>,
     metadata: squirrel_interfaces::plugins::PluginMetadata,
 }
@@ -103,7 +106,6 @@ impl squirrel_interfaces::plugins::Plugin for CommandRegistryPluginAdapter {
     }
 }
 
-#[async_trait::async_trait]
 impl CommandsPlugin for CommandRegistryPluginAdapter {
     fn get_available_commands(&self) -> Vec<squirrel_interfaces::plugins::CommandMetadata> {
         let names = self

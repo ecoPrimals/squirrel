@@ -8,8 +8,8 @@
 
 use super::optimization::ProviderSelector;
 use super::types::{
-    CapabilityRegistry, MCPInterface, RemoteAIRequest, RequestContext, RouterConfig, RouterStats,
-    TryFlattenStreamExt,
+    CapabilityRegistry, MCPInterface, NoMcpInterface, RemoteAIRequest, RequestContext,
+    RouterConfig, RouterStats, TryFlattenStreamExt,
 };
 use crate::Result;
 use crate::common::capability::{AITask, SecurityRequirements, TaskType};
@@ -21,7 +21,7 @@ use std::time::Instant;
 use tracing::debug;
 
 /// Central router for AI requests
-pub struct AIRouter {
+pub struct AIRouter<M: MCPInterface = NoMcpInterface> {
     /// Capability registry
     registry: Arc<CapabilityRegistry>,
 
@@ -29,7 +29,7 @@ pub struct AIRouter {
     config: RouterConfig,
 
     /// MCP client for remote communication (optional)
-    mcp_client: Option<Arc<dyn MCPInterface>>,
+    mcp_client: Option<Arc<M>>,
 
     /// Provider selector for routing strategies
     selector: ProviderSelector,
@@ -38,8 +38,8 @@ pub struct AIRouter {
     stats: Arc<std::sync::RwLock<RouterStats>>,
 }
 
-impl AIRouter {
-    /// Create a new AI router
+impl AIRouter<NoMcpInterface> {
+    /// Create a new AI router (no MCP client; use [`AIRouter::with_mcp`] to attach one).
     #[must_use]
     pub fn new(config: RouterConfig) -> Self {
         Self {
@@ -50,12 +50,19 @@ impl AIRouter {
             stats: Arc::new(std::sync::RwLock::new(RouterStats::default())),
         }
     }
+}
 
+impl<M: MCPInterface> AIRouter<M> {
     /// Set the MCP client for remote communication
     #[must_use]
-    pub fn with_mcp(mut self, mcp_client: Arc<dyn MCPInterface>) -> Self {
-        self.mcp_client = Some(mcp_client);
-        self
+    pub fn with_mcp<OtherM: MCPInterface>(self, mcp_client: Arc<OtherM>) -> AIRouter<OtherM> {
+        AIRouter {
+            registry: self.registry,
+            config: self.config,
+            mcp_client: Some(mcp_client),
+            selector: self.selector,
+            stats: self.stats,
+        }
     }
 
     /// Get the capability registry

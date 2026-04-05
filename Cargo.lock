@@ -4353,7 +4353,6 @@ name = "squirrel-commands"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "chrono",
  "clap",
  "pretty_assertions",
@@ -4496,7 +4495,6 @@ name = "squirrel-mcp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "base64 0.22.1",
  "blake3",
  "bytes",
@@ -4541,7 +4539,6 @@ name = "squirrel-mcp-auth"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "base64 0.22.1",
  "chrono",
  "jsonwebtoken",

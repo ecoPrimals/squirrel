@@ -23,18 +23,18 @@ use uuid::Uuid;
 type MessageHandler = Box<dyn Fn(NetworkMessage) -> FederationResult<()> + Send + Sync>;
 
 /// Federation network manager implementation
-pub struct FederationNetworkManager {
+pub struct FederationNetworkManager<C: NetworkConnection> {
     config: NetworkConfig,
     node_id: Uuid,
     node_info: NodeInfo,
     peers: Arc<RwLock<HashMap<Uuid, PeerInfo>>>,
-    connections: Arc<RwLock<HashMap<Uuid, Arc<dyn NetworkConnection>>>>,
+    connections: Arc<RwLock<HashMap<Uuid, Arc<C>>>>,
     message_handlers: Arc<RwLock<HashMap<String, MessageHandler>>>,
     message_queue: Arc<RwLock<Vec<QueuedMessage>>>,
     running: Arc<RwLock<bool>>,
 }
 
-impl FederationNetworkManager {
+impl<C: NetworkConnection + 'static> FederationNetworkManager<C> {
     /// Create a new federation network manager
     pub fn new(config: NetworkConfig, node_info: NodeInfo) -> Self {
         Self {
@@ -230,8 +230,7 @@ impl FederationNetworkManager {
             while *running.read().await {
                 let messages = {
                     let mut q = queue.write().await;
-                    let messages = q.drain(..).collect::<Vec<_>>();
-                    messages
+                    q.drain(..).collect::<Vec<_>>()
                 };
 
                 for queued_msg in messages {

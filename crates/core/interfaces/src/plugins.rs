@@ -123,7 +123,10 @@ pub trait Plugin: Send + Sync + Debug {
 }
 
 /// Commands plugin interface
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "extends async_trait Plugin; factory uses concrete adapter type, not dyn CommandsPlugin"
+)]
 pub trait CommandsPlugin: Plugin {
     /// Get available commands
     fn get_available_commands(&self) -> Vec<CommandMetadata>;
@@ -143,7 +146,10 @@ pub trait CommandsPlugin: Plugin {
 /// This trait defines the core interface for a plugin registry,
 /// allowing plugins to be registered and retrieved without creating
 /// circular dependencies between crates.
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait PluginRegistry: Send + Sync {
     /// Register a plugin with the registry
     async fn register_plugin<P: Plugin + 'static>(&self, plugin: Arc<P>) -> Result<String>;

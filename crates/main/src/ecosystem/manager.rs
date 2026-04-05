@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;
 use crate::primal_provider::SquirrelPrimalProvider;
+use crate::session::SessionManager;
 use crate::universal::{LoadBalancingStatus, PrimalCapability, PrimalContext};
 use crate::universal_primal_ecosystem::{
     CapabilityMatch, CapabilityRequest, DiscoveredPrimal, UniversalPrimalEcosystem,
@@ -95,9 +96,9 @@ impl EcosystemManager {
         Ok(())
     }
 
-    pub async fn register_squirrel_service(
+    pub async fn register_squirrel_service<S: SessionManager>(
         &self,
-        provider: &SquirrelPrimalProvider,
+        provider: &SquirrelPrimalProvider<S>,
     ) -> Result<(), PrimalError> {
         tracing::info!("Registering Squirrel service with ecosystem through capability discovery");
         let registration = self.create_service_registration(provider);
@@ -114,9 +115,9 @@ impl EcosystemManager {
         Ok(())
     }
 
-    fn create_service_registration(
+    fn create_service_registration<S: SessionManager>(
         &self,
-        provider: &SquirrelPrimalProvider,
+        provider: &SquirrelPrimalProvider<S>,
     ) -> EcosystemServiceRegistration {
         let endpoints = provider.endpoints();
         EcosystemServiceRegistration {
@@ -401,9 +402,9 @@ impl EcosystemManager {
         Ok(())
     }
 
-    pub async fn register_with_service_mesh(
+    pub async fn register_with_service_mesh<S: SessionManager>(
         &self,
-        provider: &SquirrelPrimalProvider,
+        provider: &SquirrelPrimalProvider<S>,
     ) -> Result<(), PrimalError> {
         tracing::info!("Registering with service mesh via capability discovery");
         let universal_registration = provider.create_service_registration();

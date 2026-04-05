@@ -49,8 +49,6 @@ pub struct UniversalSquirrelProvider {
     config: EcosystemConfig,
     /// Universal adapter for capability-based discovery (replaces hardcoded SongbirdClient)
     universal_adapter: Option<Arc<UniversalAdapterV2>>,
-    /// Service mesh client (dynamically discovered via adapter)
-    service_mesh_client: Option<Arc<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>>,
     /// BiomeOS client removed - HTTP-based, use capability discovery instead
     // biomeos_client: Option<Arc<crate::biomeos_integration::EcosystemClient>>,
     /// Session manager for handling sessions
@@ -84,8 +82,7 @@ impl UniversalSquirrelProvider {
         Ok(Self {
             instance_id,
             config,
-            universal_adapter: None,   // Will be initialized in initialize()
-            service_mesh_client: None, // Will be discovered via adapter
+            universal_adapter: None, // Will be initialized in initialize()
             // biomeos_client: None, // removed
             session_manager: None,
             initialized: false,
@@ -328,40 +325,22 @@ impl UniversalSquirrelProvider {
             metadata: std::collections::HashMap::new(),
         };
 
-        // Register with service mesh (if available)
-        if let Some(ref mesh_client) = self.service_mesh_client {
-            mesh_client
-                .register_service("", registration.clone())
-                .await?;
-            info!("✅ Registered with service mesh");
-        } else {
-            warn!("⚠️ Service mesh not available - skipping registration (standalone mode)");
-        }
+        // Service mesh registration is wired via capability discovery (no legacy mesh client field).
+        warn!("⚠️ Service mesh not available - skipping registration (standalone mode)");
 
         Ok(registration)
     }
 
     /// Send heartbeat to ecosystem
     pub async fn send_heartbeat(&self) -> UniversalResult<()> {
-        if let Some(ref mesh_client) = self.service_mesh_client {
-            let service_id = format!("{}-{}", self.primal_type().as_str(), self.instance_id);
-            mesh_client.heartbeat(&service_id).await?;
-        } else {
-            // Graceful degradation: No heartbeat in standalone mode
-            tracing::debug!("Standalone mode - skipping heartbeat");
-        }
+        // Graceful degradation: No heartbeat until capability-based mesh client is wired
+        tracing::debug!("Standalone mode - skipping heartbeat");
         Ok(())
     }
 
     /// Deregister from ecosystem
     pub async fn deregister_from_ecosystem(&mut self) -> UniversalResult<()> {
-        if let Some(ref mesh_client) = self.service_mesh_client {
-            let service_id = format!("{}-{}", self.primal_type().as_str(), self.instance_id);
-            mesh_client.deregister_service(&service_id).await?;
-            info!("✅ Deregistered from service mesh");
-        } else {
-            warn!("⚠️ Service mesh not available - skipping deregistration (standalone mode)");
-        }
+        warn!("⚠️ Service mesh not available - skipping deregistration (standalone mode)");
         Ok(())
     }
 
@@ -562,13 +541,6 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
 
     async fn shutdown(&mut self) -> UniversalResult<()> {
         self.shutdown = true;
-        if let Some(registration) = &self.service_registration
-            && let Some(ref mesh_client) = self.service_mesh_client
-        {
-            let _ = mesh_client
-                .deregister_service(registration.service_id.as_ref())
-                .await;
-        }
         Ok(())
     }
 

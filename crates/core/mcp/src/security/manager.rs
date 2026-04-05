@@ -33,13 +33,13 @@ pub use squirrel_mcp_config::SecurityConfig;
 /// When `local-crypto` is disabled, crypto operations delegate to BearDog
 /// via capability discovery.
 #[derive(Debug)]
-pub struct SecurityManagerImpl {
+pub struct SecurityManagerImpl<K: KeyStorage = InMemoryKeyStorage> {
     config: SecurityConfig,
     audit_service: Arc<DefaultAuditService>,
     #[cfg(feature = "local-crypto")]
     crypto_provider: Arc<DefaultCryptoProvider>,
     identity_manager: Arc<DefaultIdentityManager>,
-    key_storage: Arc<dyn KeyStorage>,
+    key_storage: Arc<K>,
     rbac_manager: Arc<BasicRBACManager>,
     token_manager: Arc<DefaultTokenManager>,
 }
@@ -50,13 +50,15 @@ impl SecurityManagerImpl {
     pub fn new(config: SecurityConfig) -> Self {
         Self::with_key_storage(config, Arc::new(InMemoryKeyStorage::new()))
     }
+}
 
+impl<K: KeyStorage> SecurityManagerImpl<K> {
     /// Create a security manager with a custom key storage backend.
     ///
     /// Use this for production deployments where keys should be persisted
     /// to an HSM, file-system vault, or BearDog-managed store.
     #[must_use]
-    pub fn with_key_storage(config: SecurityConfig, key_storage: Arc<dyn KeyStorage>) -> Self {
+    pub fn with_key_storage(config: SecurityConfig, key_storage: Arc<K>) -> Self {
         Self {
             config,
             audit_service: Arc::new(DefaultAuditService::new()),
@@ -90,7 +92,7 @@ impl SecurityManagerImpl {
 
     /// Get key storage
     #[must_use]
-    pub fn key_storage(&self) -> Arc<dyn KeyStorage> {
+    pub fn key_storage(&self) -> Arc<K> {
         self.key_storage.clone()
     }
 
@@ -291,13 +293,13 @@ impl SecurityManagerImpl {
     }
 }
 
-impl Default for SecurityManagerImpl {
+impl Default for SecurityManagerImpl<InMemoryKeyStorage> {
     fn default() -> Self {
         Self::new(SecurityConfig::default())
     }
 }
 
-impl Clone for SecurityManagerImpl {
+impl<K: KeyStorage> Clone for SecurityManagerImpl<K> {
     fn clone(&self) -> Self {
         Self {
             config: self.config.clone(),

@@ -16,9 +16,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[expect(deprecated, reason = "Tests deprecated path for backward compatibility")]
 use squirrel::{
-    capability_registry::{CapabilityRegistry, CapabilityRegistryConfig},
     ecosystem::EcosystemManager,
     error::PrimalError,
     primal_provider::SquirrelPrimalProvider,
@@ -30,9 +28,8 @@ use squirrel::{
 use squirrel_mcp_config::EcosystemConfig;
 
 /// Test session manager implementation
-struct TestSessionManager;
+pub struct TestSessionManager;
 
-#[async_trait::async_trait]
 impl SessionManager for TestSessionManager {
     async fn create_session(&self, _client_info: Option<String>) -> Result<String, PrimalError> {
         Ok("test-session-id".to_string())
@@ -105,16 +102,14 @@ impl ProviderFactory {
     }
 
     /// Build the provider with all dependencies
-    pub async fn build(self) -> Result<SquirrelPrimalProvider, Box<dyn std::error::Error>> {
+    pub async fn build(
+        self,
+    ) -> Result<SquirrelPrimalProvider<TestSessionManager>, Box<dyn std::error::Error>> {
         let instance_id = self
             .instance_id
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
         let config = self.config.unwrap_or_else(EcosystemConfig::default);
-
-        // Create capability registry (no hardcoded knowledge)
-        let registry_config = CapabilityRegistryConfig::default();
-        let capability_registry = Arc::new(CapabilityRegistry::new(registry_config));
 
         // Create metrics collector
         let metrics_collector = Arc::new(MetricsCollector::new());
@@ -141,7 +136,7 @@ impl ProviderFactory {
             .map_err(|e| format!("Failed to awaken universal adapter: {:?}", e))?;
 
         // Create session manager
-        let session_manager: Arc<dyn SessionManager> = Arc::new(TestSessionManager);
+        let session_manager: Arc<TestSessionManager> = Arc::new(TestSessionManager);
 
         // Construct provider with modern pattern
         Ok(SquirrelPrimalProvider::new(
@@ -149,7 +144,6 @@ impl ProviderFactory {
             config,
             adapter,
             ecosystem_manager,
-            capability_registry,
             session_manager,
         ))
     }
@@ -162,14 +156,15 @@ impl Default for ProviderFactory {
 }
 
 /// Quick helper to create a default test provider
-pub async fn create_test_provider() -> Result<SquirrelPrimalProvider, Box<dyn std::error::Error>> {
+pub async fn create_test_provider(
+) -> Result<SquirrelPrimalProvider<TestSessionManager>, Box<dyn std::error::Error>> {
     ProviderFactory::new().build().await
 }
 
 /// Create test provider with custom config
 pub async fn create_test_provider_with_config(
     config: EcosystemConfig,
-) -> Result<SquirrelPrimalProvider, Box<dyn std::error::Error>> {
+) -> Result<SquirrelPrimalProvider<TestSessionManager>, Box<dyn std::error::Error>> {
     ProviderFactory::new().with_config(config).build().await
 }
 

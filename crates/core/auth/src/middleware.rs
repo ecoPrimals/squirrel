@@ -6,15 +6,15 @@ use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-pub struct SecurityMiddleware {
-    auth_service: Arc<dyn AuthenticationService>,
+pub struct SecurityMiddleware<A: AuthenticationService> {
+    auth_service: Arc<A>,
     jwt_manager: Arc<JwtTokenManager>,
     require_auth: bool,
 }
 
-impl SecurityMiddleware {
+impl<A: AuthenticationService> SecurityMiddleware<A> {
     pub fn new(
-        auth_service: Arc<dyn AuthenticationService>,
+        auth_service: Arc<A>,
         jwt_manager: Arc<JwtTokenManager>,
         require_auth: bool,
     ) -> Self {
@@ -231,7 +231,6 @@ mod tests {
 
     struct MockAuthService;
 
-    #[async_trait::async_trait]
     impl AuthenticationService for MockAuthService {
         async fn authenticate(
             &self,

@@ -5,27 +5,37 @@
 //!
 //! Connection abstraction and implementations for federation network communication.
 
+use super::FederationResult;
 use super::network_types::NetworkMessage;
-use super::{FederationError, FederationResult};
-use async_trait::async_trait;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::future::Future;
 use uuid::Uuid;
 
+#[cfg(any(test, feature = "testing"))]
+use super::FederationError;
+#[cfg(any(test, feature = "testing"))]
+use std::sync::Arc;
+#[cfg(any(test, feature = "testing"))]
+use tokio::sync::RwLock;
+
 /// Network connection interface
-#[async_trait]
 pub trait NetworkConnection: Send + Sync {
     /// Send a message to a peer
-    async fn send_message(&self, peer_id: Uuid, message: NetworkMessage) -> FederationResult<()>;
+    fn send_message(
+        &self,
+        peer_id: Uuid,
+        message: NetworkMessage,
+    ) -> impl Future<Output = FederationResult<()>> + Send;
 
     /// Receive a message from the network
-    async fn receive_message(&self) -> FederationResult<(Uuid, NetworkMessage)>;
+    fn receive_message(
+        &self,
+    ) -> impl Future<Output = FederationResult<(Uuid, NetworkMessage)>> + Send;
 
     /// Check if connection is alive
-    async fn is_connected(&self) -> bool;
+    fn is_connected(&self) -> impl Future<Output = bool> + Send;
 
     /// Close the connection
-    async fn close(&self) -> FederationResult<()>;
+    fn close(&self) -> impl Future<Output = FederationResult<()>> + Send;
 }
 
 /// Network connection implementation for testing
@@ -49,7 +59,6 @@ impl MockNetworkConnection {
 }
 
 #[cfg(any(test, feature = "testing"))]
-#[async_trait]
 impl NetworkConnection for MockNetworkConnection {
     async fn send_message(&self, _peer_id: Uuid, message: NetworkMessage) -> FederationResult<()> {
         if !*self.connected.read().await {

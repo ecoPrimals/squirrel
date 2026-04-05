@@ -6,15 +6,14 @@
 //! Peer lifecycle management including adding, removing, and tracking
 //! peer connections within the federation network.
 
+use super::super::FederationResult;
 use super::core::{FederationNetwork, NetworkConnection};
-use super::types::{NetworkMessage, NetworkStats, PeerInfo, PeerStatus};
-use super::super::{FederationResult};
+use super::types::{NetworkStats, PeerInfo, PeerStatus};
 use chrono::Utc;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use uuid::Uuid;
 
-impl FederationNetwork {
+impl<C: NetworkConnection + 'static> FederationNetwork<C> {
     /// Add a peer to the network
     pub async fn add_peer(&self, peer_info: PeerInfo) -> FederationResult<()> {
         let mut peers = self.peers.write().await;
@@ -51,7 +50,7 @@ impl FederationNetwork {
     pub async fn connect_to_peer(
         &self,
         peer_id: Uuid,
-        address: SocketAddr,
+        _address: SocketAddr,
     ) -> FederationResult<()> {
         // Create connection (implementation would vary by protocol)
         // For now, this is a placeholder that would be implemented
@@ -81,69 +80,3 @@ impl FederationNetwork {
         }
     }
 }
-
-/// Mock network connection for testing
-#[cfg(any(test, feature = "testing"))]
-pub struct MockNetworkConnection {
-    peer_id: Uuid,
-    connected: Arc<tokio::sync::RwLock<bool>>,
-    message_queue: Arc<tokio::sync::RwLock<Vec<NetworkMessage>>>,
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl MockNetworkConnection {
-    /// Creates a new mock network connection for testing
-    pub fn new(peer_id: Uuid) -> Self {
-        Self {
-            peer_id,
-            connected: Arc::new(tokio::sync::RwLock::new(true)),
-            message_queue: Arc::new(tokio::sync::RwLock::new(Vec::new())),
-        }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-#[async_trait::async_trait]
-impl NetworkConnection for MockNetworkConnection {
-    async fn send_message(
-        &self,
-        _peer_id: Uuid,
-        message: NetworkMessage,
-    ) -> FederationResult<()> {
-        use super::super::FederationError;
-
-        if !*self.connected.read().await {
-            return Err(FederationError::ConnectionClosed(
-                "Connection closed".to_string(),
-            ));
-        }
-
-        let mut queue = self.message_queue.write().await;
-        queue.push(message);
-        Ok(())
-    }
-
-    async fn receive_message(&self) -> FederationResult<(Uuid, NetworkMessage)> {
-        use super::super::FederationError;
-
-        let mut queue = self.message_queue.write().await;
-        if let Some(message) = queue.pop() {
-            Ok((self.peer_id, message))
-        } else {
-            Err(FederationError::NoMessagesAvailable(
-                "No messages".to_string(),
-            ))
-        }
-    }
-
-    async fn is_connected(&self) -> bool {
-        *self.connected.read().await
-    }
-
-    async fn close(&self) -> FederationResult<()> {
-        let mut connected = self.connected.write().await;
-        *connected = false;
-        Ok(())
-    }
-}
-

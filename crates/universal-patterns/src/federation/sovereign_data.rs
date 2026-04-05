@@ -10,7 +10,6 @@ use super::{
     DataId, DataPermissions, EncryptionMetadata, FederationError, FederationResult, SovereignData,
     SovereignDataManager,
 };
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -18,13 +17,16 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Sovereign data store implementation
-pub struct DefaultSovereignDataManager {
+pub struct DefaultSovereignDataManager<
+    E: EncryptionKeyManager = DefaultEncryptionKeyManager,
+    A: AccessControlManager = DefaultAccessControlManager,
+> {
     /// Data storage
     data_store: Arc<RwLock<HashMap<DataId, SovereignData>>>,
     /// Encryption key manager
-    key_manager: Arc<dyn EncryptionKeyManager>,
+    key_manager: Arc<E>,
     /// Access control manager
-    access_control: Arc<dyn AccessControlManager>,
+    access_control: Arc<A>,
     /// Configuration
     config: SovereignDataConfig,
 }
@@ -101,7 +103,10 @@ pub enum DataAccessType {
 }
 
 /// Encryption key manager trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait EncryptionKeyManager: Send + Sync {
     /// Generate a new encryption key
     async fn generate_key(&self, algorithm: &str) -> FederationResult<Vec<u8>>;
@@ -117,7 +122,10 @@ pub trait EncryptionKeyManager: Send + Sync {
 }
 
 /// Access control manager trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait AccessControlManager: Send + Sync {
     /// Check if user has permission to access data
     async fn check_permission(
@@ -163,7 +171,6 @@ impl DefaultEncryptionKeyManager {
     }
 }
 
-#[async_trait]
 impl EncryptionKeyManager for DefaultEncryptionKeyManager {
     async fn generate_key(&self, algorithm: &str) -> FederationResult<Vec<u8>> {
         use rand::RngCore;
@@ -270,7 +277,6 @@ impl DefaultAccessControlManager {
     }
 }
 
-#[async_trait]
 impl AccessControlManager for DefaultAccessControlManager {
     async fn check_permission(
         &self,
@@ -389,27 +395,49 @@ impl AccessControlManager for DefaultAccessControlManager {
     }
 }
 
-impl DefaultSovereignDataManager {
+impl DefaultSovereignDataManager<DefaultEncryptionKeyManager, DefaultAccessControlManager> {
     /// Create a new sovereign data manager
-    pub fn new(config: SovereignDataConfig) -> Self {
-        Self {
+    pub fn new(
+        config: SovereignDataConfig,
+    ) -> DefaultSovereignDataManager<DefaultEncryptionKeyManager, DefaultAccessControlManager> {
+        DefaultSovereignDataManager {
             data_store: Arc::new(RwLock::new(HashMap::new())),
             key_manager: Arc::new(DefaultEncryptionKeyManager::new()),
             access_control: Arc::new(DefaultAccessControlManager::new()),
             config,
         }
     }
+}
 
+impl<E, A> DefaultSovereignDataManager<E, A>
+where
+    E: EncryptionKeyManager,
+    A: AccessControlManager,
+{
     /// Set custom key manager
-    pub fn with_key_manager(mut self, key_manager: Arc<dyn EncryptionKeyManager>) -> Self {
-        self.key_manager = key_manager;
-        self
+    pub fn with_key_manager<E2: EncryptionKeyManager>(
+        self,
+        key_manager: Arc<E2>,
+    ) -> DefaultSovereignDataManager<E2, A> {
+        DefaultSovereignDataManager {
+            data_store: self.data_store,
+            key_manager,
+            access_control: self.access_control,
+            config: self.config,
+        }
     }
 
     /// Set custom access control manager
-    pub fn with_access_control(mut self, access_control: Arc<dyn AccessControlManager>) -> Self {
-        self.access_control = access_control;
-        self
+    pub fn with_access_control<A2: AccessControlManager>(
+        self,
+        access_control: Arc<A2>,
+    ) -> DefaultSovereignDataManager<E, A2> {
+        DefaultSovereignDataManager {
+            data_store: self.data_store,
+            key_manager: self.key_manager,
+            access_control,
+            config: self.config,
+        }
     }
 
     /// Encrypt data if required
@@ -450,7 +478,11 @@ impl DefaultSovereignDataManager {
     }
 }
 
-impl SovereignDataManager for DefaultSovereignDataManager {
+impl<E, A> SovereignDataManager for DefaultSovereignDataManager<E, A>
+where
+    E: EncryptionKeyManager,
+    A: AccessControlManager,
+{
     async fn store_data(&self, mut data: SovereignData) -> FederationResult<DataId> {
         // Check data size limits
         if data.content.len() > self.config.max_data_size {

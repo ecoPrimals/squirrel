@@ -10,6 +10,7 @@ use super::core::SquirrelPrimalProvider;
 use crate::ecosystem::EcosystemServiceRegistration;
 use crate::ecosystem::{HealthCheckConfig, SecurityConfig};
 use crate::error::PrimalError;
+use crate::session::SessionManager;
 use tracing::info;
 
 /// Ecosystem Integration functionality
@@ -22,8 +23,8 @@ impl EcosystemIntegration {
     /// - `SERVER_BIND_ADDRESS` (default: 0.0.0.0)
     /// - `SERVER_PORT` (default: 8080)
     #[must_use]
-    pub fn create_service_registration(
-        provider: &SquirrelPrimalProvider,
+    pub fn create_service_registration<S: SessionManager>(
+        provider: &SquirrelPrimalProvider<S>,
     ) -> EcosystemServiceRegistration {
         // Get configuration from environment or use defaults
         let bind_address =
@@ -95,7 +96,7 @@ impl EcosystemIntegration {
     }
 }
 
-impl SquirrelPrimalProvider {
+impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Initialize ecosystem connections and services
     pub async fn initialize_ecosystem(&mut self) -> Result<(), PrimalError> {
         // Use ecosystem_manager field for ecosystem initialization (simplified approach)
@@ -321,7 +322,7 @@ mod tests {
         ));
         let sessions = std::sync::Arc::new(crate::session::SessionManagerImpl::new(
             crate::session::SessionConfig::default(),
-        )) as std::sync::Arc<dyn crate::session::SessionManager>;
+        ));
         SquirrelPrimalProvider::new(
             "eco-test".to_string(),
             squirrel_mcp_config::EcosystemConfig::default(),

@@ -13,7 +13,6 @@
 //! discovered yet. Tests inject capabilities via `#[cfg(test)]` helpers on
 //! [`MCPAdapter`].
 
-use async_trait::async_trait;
 use std::collections::HashMap;
 
 use super::{MCPInterface, NodeId, RemoteAIRequest, RemoteAIResponse, RemoteAIResponseStream};
@@ -117,7 +116,6 @@ impl MCPAdapter {
     }
 }
 
-#[async_trait]
 impl MCPInterface for MCPAdapter {
     async fn send_request(
         &self,

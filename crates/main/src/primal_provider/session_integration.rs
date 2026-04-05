@@ -7,11 +7,12 @@ use serde_json::json;
 
 use super::core::SquirrelPrimalProvider;
 use crate::error::PrimalError;
+use crate::session::SessionManager;
 
 /// Session Operations functionality
 pub struct SessionOperations;
 
-impl SquirrelPrimalProvider {
+impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Create a new session
     pub async fn create_session(
         &self,
@@ -179,7 +180,7 @@ mod tests {
         ));
         let sessions = std::sync::Arc::new(crate::session::SessionManagerImpl::new(
             crate::session::SessionConfig::default(),
-        )) as std::sync::Arc<dyn crate::session::SessionManager>;
+        ));
         SquirrelPrimalProvider::new(
             "sess-test".to_string(),
             squirrel_mcp_config::EcosystemConfig::default(),

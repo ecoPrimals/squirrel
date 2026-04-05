@@ -5,6 +5,7 @@
 
 use super::core::SquirrelPrimalProvider;
 use crate::monitoring::metrics::{AllMetrics, SystemMetrics};
+use crate::session::SessionManager;
 use crate::universal::{HealthStatus, PrimalHealth, UniversalResult}; // Add HealthStatus import
 use std::collections::HashMap;
 use tracing::{info, warn};
@@ -15,7 +16,9 @@ pub struct HealthReporting;
 impl HealthReporting {
     /// Generate comprehensive health report
     #[must_use]
-    pub fn generate_health_report(provider: &SquirrelPrimalProvider) -> PrimalHealth {
+    pub fn generate_health_report<S: SessionManager>(
+        provider: &SquirrelPrimalProvider<S>,
+    ) -> PrimalHealth {
         let mut string_details = std::collections::HashMap::new();
 
         // Gather real health data from provider components
@@ -90,7 +93,7 @@ impl HealthReporting {
 
     /// Check overall system health
     #[must_use]
-    pub fn check_system_health(provider: &SquirrelPrimalProvider) -> bool {
+    pub fn check_system_health<S: SessionManager>(provider: &SquirrelPrimalProvider<S>) -> bool {
         // Check various health indicators
         let cpu_ok = provider.zero_copy_metrics.get_efficiency_score() > 0.7;
         let memory_ok = true; // Would check actual memory usage
@@ -101,7 +104,7 @@ impl HealthReporting {
     }
 }
 
-impl SquirrelPrimalProvider {
+impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Get active session count (internal helper for health monitoring)
     async fn get_active_session_count(&self) -> Result<f64, crate::error::PrimalError> {
         // In a real implementation, this would query the session manager
@@ -373,8 +376,7 @@ mod health_monitoring_tests {
             crate::ecosystem::config::EcosystemConfig::default(),
             mc,
         ));
-        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()))
-            as Arc<dyn crate::session::SessionManager>;
+        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()));
         let mut p = SquirrelPrimalProvider::new(
             "test-inst".to_string(),
             squirrel_mcp_config::EcosystemConfig::default(),

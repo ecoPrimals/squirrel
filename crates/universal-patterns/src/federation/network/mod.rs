@@ -27,9 +27,9 @@ mod tasks;
 mod types;
 
 // Re-export public API
-pub use core::{FederationNetwork, NetworkConnection};
 #[cfg(any(test, feature = "testing"))]
-pub use peers::MockNetworkConnection;
+pub use crate::federation::network_connection::MockNetworkConnection;
+pub use core::{FederationNetwork, NetworkConnection};
 pub use types::{
     DataOperation, NetworkConfig, NetworkMessage, NetworkProtocol, NetworkStats, NodeInfo,
     PeerInfo, PeerStatus,
@@ -53,7 +53,7 @@ mod tests {
             metadata: HashMap::new(),
         };
 
-        let network = FederationNetwork::new(config, node_info);
+        let network = FederationNetwork::<MockNetworkConnection>::new(config, node_info);
         let stats = network.get_stats().await;
         assert_eq!(stats.peer_count, 0);
         assert_eq!(stats.connection_count, 0);
@@ -71,18 +71,22 @@ mod tests {
             metadata: HashMap::new(),
         };
 
-        let network = FederationNetwork::new(config, node_info);
+        let network = FederationNetwork::<MockNetworkConnection>::new(config, node_info);
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
             address: "127.0.0.1:8080".parse().expect("should succeed"),
             status: PeerStatus::Connected,
             last_seen: chrono::Utc::now(),
+            latency: None,
             capabilities: vec!["test".to_string()],
             reliability: 1.0,
         };
 
-        network.add_peer(peer_info.clone()).await.expect("should succeed");
+        network
+            .add_peer(peer_info.clone())
+            .await
+            .expect("should succeed");
 
         let peers = network.get_peers().await;
         assert_eq!(peers.len(), 1);
@@ -101,21 +105,28 @@ mod tests {
             metadata: HashMap::new(),
         };
 
-        let network = FederationNetwork::new(config, node_info);
+        let network = FederationNetwork::<MockNetworkConnection>::new(config, node_info);
 
         let peer_info = PeerInfo {
             id: Uuid::new_v4(),
             address: "127.0.0.1:8080".parse().expect("should succeed"),
             status: PeerStatus::Connected,
             last_seen: chrono::Utc::now(),
+            latency: None,
             capabilities: vec!["test".to_string()],
             reliability: 1.0,
         };
 
-        network.add_peer(peer_info.clone()).await.expect("should succeed");
+        network
+            .add_peer(peer_info.clone())
+            .await
+            .expect("should succeed");
         assert_eq!(network.get_peers().await.len(), 1);
 
-        network.remove_peer(peer_info.id).await.expect("should succeed");
+        network
+            .remove_peer(peer_info.id)
+            .await
+            .expect("should succeed");
         assert_eq!(network.get_peers().await.len(), 0);
     }
 
@@ -131,7 +142,7 @@ mod tests {
             metadata: HashMap::new(),
         };
 
-        let network = FederationNetwork::new(config, node_info);
+        let network = FederationNetwork::<MockNetworkConnection>::new(config, node_info);
 
         // Start network
         network.start().await.expect("should succeed");
@@ -159,11 +170,11 @@ mod tests {
             .await
             .expect("should succeed");
 
-        let (received_peer_id, received_message) = connection.receive_message().await.expect("should succeed");
+        let (received_peer_id, _received_message) =
+            connection.receive_message().await.expect("should succeed");
         assert_eq!(received_peer_id, peer_id);
 
         connection.close().await.expect("should succeed");
         assert!(!connection.is_connected().await);
     }
 }
-

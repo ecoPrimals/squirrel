@@ -27,7 +27,6 @@
 //!
 //! ```rust,no_run
 //! # use ecosystem_api::*;
-//! # use async_trait::async_trait;
 //! # struct MyPrimal { config: UniversalConfig, capabilities: Vec<PrimalCapability> }
 //! // Example: Primal with capability-based discovery (concept only)
 //! // Actual implementation requires all UniversalPrimalProvider methods

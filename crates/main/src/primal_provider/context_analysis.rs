@@ -7,6 +7,7 @@ use serde_json::json;
 
 use super::core::SquirrelPrimalProvider;
 use crate::error::PrimalError;
+use crate::session::SessionManager;
 
 /// Context analysis functionality for sentiment, intent, topic, and entity extraction.
 pub struct ContextAnalysis;
@@ -244,7 +245,7 @@ pub struct TopicResult {
     pub keywords: Vec<String>,
 }
 
-impl SquirrelPrimalProvider {
+impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Handles a context analysis request (sentiment, intent, topic, or full analysis).
     pub async fn handle_context_analysis_request(
         &self,
@@ -351,8 +352,7 @@ mod context_analysis_tests {
             crate::ecosystem::config::EcosystemConfig::default(),
             mc,
         ));
-        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()))
-            as Arc<dyn crate::session::SessionManager>;
+        let sessions = Arc::new(SessionManagerImpl::new(SessionConfig::default()));
         SquirrelPrimalProvider::new(
             "ca-test".to_string(),
             squirrel_mcp_config::EcosystemConfig::default(),

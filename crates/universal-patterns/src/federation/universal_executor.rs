@@ -7,7 +7,6 @@
 //! across different platforms while maintaining security and isolation.
 
 use super::{FederationError, FederationResult, Platform};
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -170,7 +169,7 @@ pub enum ExecutionStatus {
 /// Default universal executor implementation
 pub struct DefaultUniversalExecutor {
     /// Platform-specific executors
-    executors: Arc<RwLock<HashMap<Platform, Box<dyn PlatformExecutor>>>>,
+    executors: Arc<RwLock<HashMap<Platform, RegisteredPlatformExecutor>>>,
     /// Active executions
     active_executions: Arc<RwLock<HashMap<Uuid, ExecutionStatus>>>,
 }
@@ -185,13 +184,17 @@ impl DefaultUniversalExecutor {
     }
 
     /// Register a platform executor
-    pub async fn register_executor(&self, platform: Platform, executor: Box<dyn PlatformExecutor>) {
+    pub async fn register_executor(
+        &self,
+        platform: Platform,
+        executor: RegisteredPlatformExecutor,
+    ) {
         let mut executors = self.executors.write().await;
         executors.insert(platform, executor);
     }
 
     /// Get platform executor
-    async fn get_executor(&self, platform: &Platform) -> Option<Box<dyn PlatformExecutor>> {
+    async fn get_executor(&self, platform: &Platform) -> Option<RegisteredPlatformExecutor> {
         let executors = self.executors.read().await;
         executors.get(platform).cloned()
     }
@@ -329,7 +332,10 @@ impl UniversalExecutor for DefaultUniversalExecutor {
 }
 
 /// Platform-specific executor trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — enum dispatch and LinuxExecutor impls are Send + Sync"
+)]
 pub trait PlatformExecutor: Send + Sync {
     /// Execute code on this platform
     async fn execute(&self, request: ExecutionRequest) -> FederationResult<ExecutionResult>;
@@ -341,7 +347,35 @@ pub trait PlatformExecutor: Send + Sync {
     fn supports_language(&self, language: &str) -> bool;
 }
 
+/// Registered platform executor (static dispatch, no `dyn`)
+#[derive(Clone)]
+pub enum RegisteredPlatformExecutor {
+    /// Linux / Unix-style process execution
+    Linux(LinuxExecutor),
+}
+
+impl PlatformExecutor for RegisteredPlatformExecutor {
+    async fn execute(&self, request: ExecutionRequest) -> FederationResult<ExecutionResult> {
+        match self {
+            RegisteredPlatformExecutor::Linux(e) => e.execute(request).await,
+        }
+    }
+
+    fn platform_info(&self) -> Platform {
+        match self {
+            RegisteredPlatformExecutor::Linux(e) => e.platform_info(),
+        }
+    }
+
+    fn supports_language(&self, language: &str) -> bool {
+        match self {
+            RegisteredPlatformExecutor::Linux(e) => e.supports_language(language),
+        }
+    }
+}
+
 /// Linux executor implementation
+#[derive(Clone)]
 pub struct LinuxExecutor {
     /// Sandbox configuration
     sandbox_enabled: bool,
@@ -354,7 +388,6 @@ impl LinuxExecutor {
     }
 }
 
-#[async_trait]
 impl PlatformExecutor for LinuxExecutor {
     async fn execute(&self, request: ExecutionRequest) -> FederationResult<ExecutionResult> {
         let start_time = std::time::Instant::now();
@@ -458,14 +491,6 @@ impl PlatformExecutor for LinuxExecutor {
 
     fn supports_language(&self, language: &str) -> bool {
         matches!(language, "python" | "javascript" | "bash")
-    }
-}
-
-impl Clone for Box<dyn PlatformExecutor> {
-    fn clone(&self) -> Self {
-        // This is a simplified clone - in a real implementation,
-        // we'd need to implement proper cloning for each executor type
-        Box::new(LinuxExecutor::new(true))
     }
 }
 
@@ -701,7 +726,7 @@ mod tests {
         executor
             .register_executor(
                 Platform::Linux(LinuxVariant::Ubuntu),
-                Box::new(LinuxExecutor::new(false)),
+                RegisteredPlatformExecutor::Linux(LinuxExecutor::new(false)),
             )
             .await;
         let req = sample_request(
@@ -757,8 +782,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_platform_executor_box_clone() {
-        let b: Box<dyn PlatformExecutor> = Box::new(LinuxExecutor::new(true));
+    async fn test_registered_platform_executor_clone() {
+        let b = RegisteredPlatformExecutor::Linux(LinuxExecutor::new(true));
+        #[allow(clippy::redundant_clone)]
         let c = b.clone();
         assert_eq!(c.platform_info(), Platform::Linux(LinuxVariant::Ubuntu));
     }

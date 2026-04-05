@@ -7,7 +7,6 @@
 //! Actual key storage operations are delegated to the BearDog framework.
 
 use crate::error::Result;
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -39,7 +38,10 @@ pub struct StoredKey {
 /// The default in-memory implementation is suitable for development and
 /// single-process deployments. Production deployments should provide a
 /// BearDog-backed or HSM-backed implementation via capability discovery.
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "Storage backends — async I/O; impls are Send + Sync"
+)]
 pub trait KeyStorage: Send + Sync + std::fmt::Debug {
     /// Store a key with optional expiry and return its id.
     async fn store_key(
@@ -183,7 +185,6 @@ impl InMemoryKeyStorage {
     }
 }
 
-#[async_trait]
 impl KeyStorage for InMemoryKeyStorage {
     async fn store_key(
         &self,

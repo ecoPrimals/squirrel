@@ -12,9 +12,9 @@
 //! - Runtime flexibility
 //! - Vendor-agnostic
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::Arc;
 
 use crate::error::PrimalError;
@@ -26,21 +26,23 @@ use crate::error::PrimalError;
 ///
 /// TRUE PRIMAL: Providers are discovered at runtime via capability discovery,
 /// not hardcoded at compile time.
-#[async_trait]
+///
+/// Return types use `impl Future + Send` (not `async fn` in the trait) so callers
+/// that compose with `async_trait` (e.g. legacy `AiProviderAdapter`) receive `Send` futures.
 pub trait AiCapability: Send + Sync {
     /// Generate text completion
     ///
     /// This is the primary method for all AI providers. It accepts a universal
     /// request format and returns a universal response format.
-    async fn complete(
+    fn complete(
         &self,
         request: UniversalAiRequest,
-    ) -> Result<UniversalAiResponse, PrimalError>;
+    ) -> impl Future<Output = Result<UniversalAiResponse, PrimalError>> + Send;
 
     /// Check if provider is available
     ///
     /// Returns true if the provider is reachable and ready to accept requests.
-    async fn is_available(&self) -> bool;
+    fn is_available(&self) -> impl Future<Output = bool> + Send;
 
     /// Get provider capabilities
     ///
@@ -308,9 +310,6 @@ impl UniversalAiRequest {
         self
     }
 }
-
-/// Type alias for boxed AI capability trait object
-pub type BoxedAiCapability = Arc<dyn AiCapability>;
 
 #[cfg(test)]
 mod tests {

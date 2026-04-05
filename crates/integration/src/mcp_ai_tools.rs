@@ -165,16 +165,16 @@ impl McpAiToolsConfig {
 }
 
 /// MCP AI tools adapter
-pub struct McpAiToolsAdapter {
+pub struct McpAiToolsAdapter<M: MCPInterface> {
     /// MCP interface
-    mcp: Arc<dyn MCPInterface>,
+    mcp: Arc<M>,
     /// Provider registry
     provider_registry: Arc<ProviderRegistry>,
     /// Configuration
     config: McpAiToolsConfig,
 }
 
-impl std::fmt::Debug for McpAiToolsAdapter {
+impl<M: MCPInterface> std::fmt::Debug for McpAiToolsAdapter<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("McpAiToolsAdapter")
             .field("provider_registry", &self.provider_registry)
@@ -183,9 +183,9 @@ impl std::fmt::Debug for McpAiToolsAdapter {
     }
 }
 
-impl McpAiToolsAdapter {
+impl<M: MCPInterface> McpAiToolsAdapter<M> {
     /// Create a new MCP AI tools adapter
-    pub fn new(mcp: Arc<dyn MCPInterface>, config: McpAiToolsConfig) -> Result<Self> {
+    pub fn new(mcp: Arc<M>, config: McpAiToolsConfig) -> Result<Self> {
         // Create provider registry
         let mut provider_registry = ProviderRegistry::new();
 
@@ -449,15 +449,15 @@ impl McpAiToolsAdapter {
 }
 
 /// Create a new MCP AI tools adapter with default configuration
-pub fn create_mcp_ai_tools_adapter(mcp: Arc<dyn MCPInterface>) -> Result<McpAiToolsAdapter> {
+pub fn create_mcp_ai_tools_adapter<M: MCPInterface>(mcp: Arc<M>) -> Result<McpAiToolsAdapter<M>> {
     McpAiToolsAdapter::new(mcp, McpAiToolsConfig::default())
 }
 
 /// Create a new MCP AI tools adapter with the specified configuration
-pub fn create_mcp_ai_tools_adapter_with_config(
-    mcp: Arc<dyn MCPInterface>,
+pub fn create_mcp_ai_tools_adapter_with_config<M: MCPInterface>(
+    mcp: Arc<M>,
     config: McpAiToolsConfig,
-) -> Result<McpAiToolsAdapter> {
+) -> Result<McpAiToolsAdapter<M>> {
     McpAiToolsAdapter::new(mcp, config)
 }
 
@@ -469,7 +469,6 @@ mod tests {
     )]
 
     use super::*;
-    use async_trait::async_trait;
     use squirrel_ai_tools::common::capability::AICapabilities;
     use squirrel_ai_tools::error::{Error as AiError, Result as AiResult};
     use squirrel_ai_tools::router::types::{NodeId, RemoteAIRequest, RemoteAIResponseStream};
@@ -477,7 +476,6 @@ mod tests {
 
     struct MockMcp;
 
-    #[async_trait]
     impl MCPInterface for MockMcp {
         async fn send_request(
             &self,

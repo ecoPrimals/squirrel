@@ -6,57 +6,36 @@
 //! Core federation network manager providing the main struct,
 //! constructor, lifecycle management, and public API.
 
-use super::types::{NetworkConfig, NodeInfo, NetworkMessage, PeerInfo};
+pub use super::types::QueuedMessage;
+pub use crate::federation::network_connection::NetworkConnection;
+
 use super::super::{FederationError, FederationResult};
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use super::types::{NetworkConfig, NetworkMessage, NodeInfo, PeerInfo};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-/// Network connection trait for communication abstraction
-#[async_trait]
-pub trait NetworkConnection: Send + Sync {
-    /// Send a message to a peer
-    async fn send_message(&self, peer_id: Uuid, message: NetworkMessage) -> FederationResult<()>;
-
-    /// Receive a message from the network
-    async fn receive_message(&self) -> FederationResult<(Uuid, NetworkMessage)>;
-
-    /// Check if the connection is active
-    async fn is_connected(&self) -> bool;
-
-    /// Close the connection
-    async fn close(&self) -> FederationResult<()>;
-}
-
 /// Message handler function type
-pub(super) type MessageHandler =
-    Box<dyn Fn(NetworkMessage) -> FederationResult<()> + Send + Sync>;
-
-/// Queued message for processing
-#[derive(Debug, Clone)]
-pub(super) struct QueuedMessage {
-    pub message: NetworkMessage,
-    pub sender: Uuid,
-    pub timestamp: DateTime<Utc>,
-    pub retry_count: u32,
-}
+pub(super) type MessageHandler = Box<dyn Fn(NetworkMessage) -> FederationResult<()> + Send + Sync>;
 
 /// Federation network manager
-pub struct FederationNetwork {
+pub struct FederationNetwork<C: NetworkConnection> {
     pub(super) config: NetworkConfig,
     pub(super) node_id: Uuid,
+    #[expect(
+        dead_code,
+        reason = "federation Phase 2 — will be wired when connection state tracking is implemented"
+    )]
     pub(super) node_info: NodeInfo,
     pub(super) peers: Arc<RwLock<HashMap<Uuid, PeerInfo>>>,
-    pub(super) connections: Arc<RwLock<HashMap<Uuid, Arc<dyn NetworkConnection>>>>,
+    pub(super) connections: Arc<RwLock<HashMap<Uuid, Arc<C>>>>,
     pub(super) message_handlers: Arc<RwLock<HashMap<String, MessageHandler>>>,
     pub(super) message_queue: Arc<RwLock<Vec<QueuedMessage>>>,
     pub(super) running: Arc<RwLock<bool>>,
 }
 
-impl FederationNetwork {
+impl<C: NetworkConnection + 'static> FederationNetwork<C> {
     /// Create a new federation network
     pub fn new(config: NetworkConfig, node_info: NodeInfo) -> Self {
         Self {
@@ -104,4 +83,3 @@ impl FederationNetwork {
         Ok(())
     }
 }
-

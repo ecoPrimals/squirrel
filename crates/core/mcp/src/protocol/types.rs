@@ -7,6 +7,8 @@ use chrono; // Needed for MCPMessage
 use serde::{Deserialize, Serialize};
 use serde_json; // Needed for MCPMessage
 use std::time::SystemTime;
+
+use crate::error::Result;
 #[cfg(feature = "websocket")]
 use tokio_tungstenite::tungstenite::Message;
 use uuid; // Needed for MessageId
@@ -316,14 +318,14 @@ pub struct CommandResponse {
 }
 
 /// Trait for components that handle specific MCP messages.
-#[async_trait::async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "MCP message handlers are implemented as concrete types; not used as dyn MessageHandler"
+)]
 pub trait MessageHandler: Send + Sync {
     /// Handles an incoming MCP message and optionally returns a response.
     async fn handle_message(&self, message: &MCPMessage) -> Result<Option<MCPMessage>>;
 }
-
-// Need imports for trait
-use crate::error::Result;
 
 /// Result type for protocol validation operations
 pub type ValidationResult = Result<()>;

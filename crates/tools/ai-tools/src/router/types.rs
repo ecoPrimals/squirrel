@@ -10,7 +10,6 @@ use crate::Result;
 use crate::common::capability::{AICapabilities, AITask};
 use crate::common::{AIClient, ChatRequest, ChatResponse, ChatResponseStream};
 use crate::error::Error;
-use async_trait::async_trait;
 use futures::Stream;
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -328,7 +327,10 @@ impl CapabilityRegistry {
 }
 
 /// Interface for MCP communication
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait MCPInterface: Send + Sync + 'static {
     /// Send a request to a remote node
     async fn send_request(
@@ -348,6 +350,39 @@ pub trait MCPInterface: Send + Sync + 'static {
     async fn discover_capabilities(
         &self,
     ) -> Result<HashMap<NodeId, HashMap<String, AICapabilities>>>;
+}
+
+/// Placeholder MCP type when no remote client is configured (`mcp_client` is [`None`]).
+/// Methods are never invoked in that case; they return errors if called.
+#[derive(Debug, Copy, Clone, Default)]
+pub struct NoMcpInterface;
+
+impl MCPInterface for NoMcpInterface {
+    async fn send_request(
+        &self,
+        _node_id: &NodeId,
+        _request: RemoteAIRequest,
+    ) -> Result<RemoteAIResponse> {
+        Err(Error::Configuration(
+            "MCP client not configured (NoMcpInterface)".to_string(),
+        ))
+    }
+
+    async fn stream_request(
+        &self,
+        _node_id: &NodeId,
+        _request: RemoteAIRequest,
+    ) -> Result<RemoteAIResponseStream> {
+        Err(Error::Configuration(
+            "MCP client not configured (NoMcpInterface)".to_string(),
+        ))
+    }
+
+    async fn discover_capabilities(
+        &self,
+    ) -> Result<HashMap<NodeId, HashMap<String, AICapabilities>>> {
+        Ok(HashMap::new())
+    }
 }
 
 /// Remote AI request

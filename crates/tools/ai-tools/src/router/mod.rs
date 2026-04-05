@@ -86,7 +86,7 @@ pub mod types;
 
 // Re-export key types and traits from types module
 pub use types::{
-    CapabilityRegistry, MCPInterface, NodeId, RemoteAIRequest, RemoteAIResponse,
+    CapabilityRegistry, MCPInterface, NoMcpInterface, NodeId, RemoteAIRequest, RemoteAIResponse,
     RemoteAIResponseStream, RequestContext, RouterConfig, RouterStats, RoutingHint,
     RoutingStrategy, TryFlattenStreamExt, task_matches_capabilities,
 };

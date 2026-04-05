@@ -20,6 +20,7 @@ use crate::monitoring::metrics::MetricsCollector;
 use crate::optimization::zero_copy::{
     performance_monitoring::ZeroCopyMetrics, string_utils::StaticStrings,
 };
+use crate::session::{SessionManager, SessionManagerImpl};
 use crate::universal::{
     DynamicPortInfo, PrimalCapability, PrimalContext, PrimalEndpoints, PrimalInfo, PrimalType,
     ServiceMeshStatus,
@@ -37,13 +38,13 @@ use universal_constants::capabilities;
 ///
 /// This provider implements capability-based discovery through the `CapabilityRegistry`,
 /// ensuring that Squirrel knows only itself and discovers other primals dynamically at runtime.
-pub struct SquirrelPrimalProvider {
+pub struct SquirrelPrimalProvider<S: SessionManager = SessionManagerImpl> {
     pub(super) instance_id: String,
     pub(super) config: EcosystemConfig,
     pub(super) universal_adapter: Arc<UniversalAdapterV2>,
     pub(super) ecosystem_manager: Arc<EcosystemManager>,
     // capability_registry removed - use PrimalCapability directly
-    pub(super) session_manager: Arc<dyn crate::session::SessionManager>,
+    pub(super) session_manager: Arc<S>,
     pub(super) metrics_collector: Arc<MetricsCollector>,
     pub(super) context: PrimalContext,
     // biomeos_client removed - use capability discovery
@@ -54,14 +55,14 @@ pub struct SquirrelPrimalProvider {
     pub(super) zero_copy_metrics: Arc<ZeroCopyMetrics>,
 }
 
-impl SquirrelPrimalProvider {
+impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Creates a new `SquirrelPrimalProvider` instance with capability-based discovery
     pub fn new(
         instance_id: String,
         config: EcosystemConfig,
         universal_adapter: UniversalAdapterV2,
         ecosystem_manager: Arc<EcosystemManager>,
-        session_manager: Arc<dyn crate::session::SessionManager>,
+        session_manager: Arc<S>,
     ) -> Self {
         Self {
             instance_id,
@@ -82,7 +83,7 @@ impl SquirrelPrimalProvider {
     // set_biomeos_client removed - use capability discovery
 
     /// Set session manager
-    pub fn set_session_manager(&mut self, manager: Arc<dyn crate::session::SessionManager>) {
+    pub fn set_session_manager(&mut self, manager: Arc<S>) {
         self.session_manager = manager;
     }
 

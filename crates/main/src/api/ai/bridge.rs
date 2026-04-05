@@ -22,14 +22,14 @@ use crate::error::PrimalError;
 ///
 /// This allows the new universal adapters to work with the existing router
 /// without modifications.
-pub struct BridgeAdapter {
+pub struct BridgeAdapter<C: AiCapability> {
     /// The underlying universal AI capability
-    capability: Arc<dyn AiCapability>,
+    capability: Arc<C>,
 }
 
-impl BridgeAdapter {
+impl<C: AiCapability> BridgeAdapter<C> {
     /// Create a new bridge adapter
-    pub fn new(capability: Arc<dyn AiCapability>) -> Self {
+    pub const fn new(capability: Arc<C>) -> Self {
         Self { capability }
     }
 
@@ -85,7 +85,7 @@ impl BridgeAdapter {
 }
 
 #[async_trait]
-impl AiProviderAdapter for BridgeAdapter {
+impl<C: AiCapability> AiProviderAdapter for BridgeAdapter<C> {
     fn provider_id(&self) -> &str {
         self.capability.provider_id()
     }
@@ -187,7 +187,6 @@ mod tests {
         available: bool,
     }
 
-    #[async_trait]
     impl AiCapability for MockAiCapability {
         async fn complete(
             &self,

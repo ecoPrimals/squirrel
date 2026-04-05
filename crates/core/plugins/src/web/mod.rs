@@ -84,7 +84,9 @@ use async_trait::async_trait;
 use serde_json::Value;
 use uuid::Uuid;
 
+use crate::DefaultPluginManager;
 use crate::plugin::Plugin;
+use crate::registry::PluginRegistry;
 
 /// Web plugin trait
 #[async_trait]
@@ -132,25 +134,25 @@ pub trait WebPlugin: Plugin {
 ///
 /// This struct provides a complete web interface for plugin management,
 /// including REST API endpoints, marketplace integration, and real-time updates.
-pub struct PluginManagementInterface {
+pub struct PluginManagementInterface<R: PluginRegistry = DefaultPluginManager> {
     /// Plugin management API
     pub api: PluginManagementAPI,
     /// WebSocket handler
     pub websocket_handler: PluginWebSocketHandler,
     /// Web plugin registry
-    pub registry: WebPluginRegistry,
+    pub registry: WebPluginRegistry<R>,
     /// Marketplace client
     pub marketplace: PluginMarketplaceClient,
     /// Dashboard component
     pub dashboard: PluginDashboard,
 }
 
-impl PluginManagementInterface {
+impl<R: PluginRegistry> PluginManagementInterface<R> {
     /// Create a new plugin management interface
     pub const fn new(
         api: PluginManagementAPI,
         websocket_handler: PluginWebSocketHandler,
-        registry: WebPluginRegistry,
+        registry: WebPluginRegistry<R>,
         marketplace: PluginMarketplaceClient,
         dashboard: PluginDashboard,
     ) -> Self {
@@ -260,8 +262,8 @@ pub struct PluginManagementFactory;
 impl PluginManagementFactory {
     /// Create a complete plugin management interface
     pub fn create_interface(
-        manager: std::sync::Arc<crate::DefaultPluginManager>,
-        registry: std::sync::Arc<dyn crate::registry::PluginRegistry>,
+        manager: std::sync::Arc<DefaultPluginManager>,
+        registry: std::sync::Arc<DefaultPluginManager>,
     ) -> PluginManagementInterface {
         let api = PluginManagementAPI::new(manager.clone());
         let websocket_handler = PluginWebSocketHandler::new(std::sync::Arc::new(api.clone()));
@@ -277,13 +279,12 @@ impl PluginManagementFactory {
 mod tests {
     use super::*;
     use crate::DefaultPluginManager;
-    use crate::registry::PluginRegistry;
     use std::sync::Arc;
 
     #[tokio::test]
     async fn test_plugin_management_interface_creation() {
         let manager = Arc::new(DefaultPluginManager::new());
-        let registry = manager.clone() as Arc<dyn PluginRegistry>;
+        let registry = manager.clone();
 
         let interface = PluginManagementFactory::create_interface(manager, registry);
 
@@ -307,7 +308,7 @@ mod tests {
     #[tokio::test]
     async fn test_interface_components() {
         let manager = Arc::new(DefaultPluginManager::new());
-        let registry = manager.clone() as Arc<dyn PluginRegistry>;
+        let registry = manager.clone();
 
         let interface = PluginManagementFactory::create_interface(manager, registry);
 

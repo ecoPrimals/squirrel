@@ -8,13 +8,14 @@ use crate::types::{EcosystemServiceRegistration, HealthStatus, ServiceMeshStatus
 
 use super::discovery::{ServiceInfo, ServiceQuery};
 
-use async_trait::async_trait;
-
 /// Service mesh client trait for interacting with the service mesh
 ///
 /// This trait provides the interface for communicating with the service mesh
 /// for service discovery, registration, and health reporting.
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait ServiceMeshClient: Send + Sync {
     /// Register a service with the service mesh
     async fn register_service(

@@ -23,7 +23,6 @@
 use crate::error::{EcosystemError, UniversalError, UniversalResult};
 use crate::traits::{RetryConfig, ServiceInfo, ServiceMeshClient, ServiceQuery};
 use crate::types::{EcosystemServiceRegistration, HealthStatus, PrimalType, ServiceMeshStatus};
-use async_trait::async_trait;
 use reqwest::{Client, RequestBuilder};
 // Removed unused serde imports
 use std::collections::HashMap;
@@ -174,7 +173,6 @@ impl SongbirdClient {
     }
 }
 
-#[async_trait]
 // Backward compatibility: kept for deserialization of legacy data / existing consumers
 #[expect(
     deprecated,
@@ -344,7 +342,6 @@ impl MockServiceMeshClient {
 }
 
 #[cfg(test)]
-#[async_trait]
 impl ServiceMeshClient for MockServiceMeshClient {
     async fn register_service(
         &self,
@@ -505,20 +502,16 @@ impl ServiceMeshClientFactory {
 }
 
 /// Health monitor for tracking service health
-pub struct HealthMonitor {
-    client: Box<dyn ServiceMeshClient + Send + Sync>,
+pub struct HealthMonitor<C: ServiceMeshClient + Send + Sync> {
+    client: C,
     service_id: String,
     interval: Duration,
 }
 
-impl HealthMonitor {
+impl<C: ServiceMeshClient + Send + Sync> HealthMonitor<C> {
     /// Create a new health monitor
     #[must_use]
-    pub fn new(
-        client: Box<dyn ServiceMeshClient + Send + Sync>,
-        service_id: String,
-        interval: Duration,
-    ) -> Self {
+    pub const fn new(client: C, service_id: String, interval: Duration) -> Self {
         Self {
             client,
             service_id,
@@ -566,14 +559,14 @@ impl HealthMonitor {
 }
 
 /// Service discovery helper
-pub struct ServiceDiscovery {
-    client: Box<dyn ServiceMeshClient + Send + Sync>,
+pub struct ServiceDiscovery<C: ServiceMeshClient + Send + Sync> {
+    client: C,
 }
 
-impl ServiceDiscovery {
+impl<C: ServiceMeshClient + Send + Sync> ServiceDiscovery<C> {
     /// Create a new service discovery helper
     #[must_use]
-    pub fn new(client: Box<dyn ServiceMeshClient + Send + Sync>) -> Self {
+    pub const fn new(client: C) -> Self {
         Self { client }
     }
 
@@ -682,16 +675,14 @@ mod tests {
     #[test]
     fn test_health_monitor_new() {
         let mock = MockServiceMeshClient::new();
-        let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock);
         let _monitor =
-            HealthMonitor::new(client, "test-service".to_string(), Duration::from_secs(30));
+            HealthMonitor::new(mock, "test-service".to_string(), Duration::from_secs(30));
     }
 
     #[test]
     fn test_service_discovery_new() {
         let mock = MockServiceMeshClient::new();
-        let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock);
-        let _discovery = ServiceDiscovery::new(client);
+        let _discovery = ServiceDiscovery::new(mock);
     }
 }
 
@@ -729,7 +720,7 @@ mod discovery_health_tests {
             sample_service("b", PrimalType::Songbird, &["y"]),
         )
         .await;
-        let discovery = ServiceDiscovery::new(Box::new(mock));
+        let discovery = ServiceDiscovery::new(mock);
         let out = discovery
             .find_by_primal_type(PrimalType::Squirrel)
             .await
@@ -751,7 +742,7 @@ mod discovery_health_tests {
             sample_service("a_only", PrimalType::Any, &["a"]),
         )
         .await;
-        let discovery = ServiceDiscovery::new(Box::new(mock));
+        let discovery = ServiceDiscovery::new(mock);
         let out = discovery
             .find_by_capability("a")
             .await
@@ -773,7 +764,7 @@ mod discovery_health_tests {
             sample_service("h", PrimalType::BiomeOS, &["z"]),
         )
         .await;
-        let discovery = ServiceDiscovery::new(Box::new(mock));
+        let discovery = ServiceDiscovery::new(mock);
         let out = discovery
             .find_healthy_services()
             .await
@@ -791,7 +782,7 @@ mod discovery_health_tests {
             sample_service("m1", PrimalType::Squirrel, &[]),
         )
         .await;
-        let discovery = ServiceDiscovery::new(Box::new(mock));
+        let discovery = ServiceDiscovery::new(mock);
         let out = discovery
             .find_by_metadata(meta)
             .await
@@ -802,8 +793,7 @@ mod discovery_health_tests {
     #[tokio::test]
     async fn health_monitor_report_health_succeeds() {
         let mock = MockServiceMeshClient::new();
-        let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock);
-        let monitor = HealthMonitor::new(client, "svc-report".to_string(), Duration::from_secs(60));
+        let monitor = HealthMonitor::new(mock, "svc-report".to_string(), Duration::from_secs(60));
         monitor
             .report_health(HealthStatus::Degraded)
             .await
@@ -825,8 +815,8 @@ mod discovery_health_tests {
         let svc = all.iter().find(|s| s.id == "beat").expect("service");
         assert!(svc.metadata.contains_key("last_heartbeat"));
 
-        let client: Box<dyn ServiceMeshClient + Send + Sync> = Box::new(mock.clone());
-        let monitor = HealthMonitor::new(client, "beat".to_string(), Duration::from_millis(15));
+        let monitor =
+            HealthMonitor::new(mock.clone(), "beat".to_string(), Duration::from_millis(15));
         let task = tokio::spawn(async move { monitor.start_monitoring().await });
         tokio::time::sleep(Duration::from_millis(50)).await;
         task.abort();

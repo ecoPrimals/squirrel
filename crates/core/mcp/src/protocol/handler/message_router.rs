@@ -13,11 +13,11 @@ use tokio::sync::RwLock;
 use crate::protocol::types::MessageType;
 use crate::security::manager::SecurityManagerImpl;
 
-/// Placeholder trait — actual handler implementation would go in a separate module
-pub trait MessageHandler: Send + Sync {}
+/// Placeholder trait for future per-type handler chains (`dyn`-compatible marker).
+pub trait RouterHandlerSlot: Send + Sync {}
 
 /// Handler map: message type -> ordered handler chain
-type HandlerMap = HashMap<MessageType, Vec<Arc<dyn MessageHandler>>>;
+type HandlerMap = HashMap<MessageType, Vec<Arc<dyn RouterHandlerSlot>>>;
 
 /// Routes MCP messages to the appropriate handler based on message type.
 #[derive(Clone)]

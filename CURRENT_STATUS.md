@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: April 5, 2026
-**Version**: 0.1.0-alpha.40
+**Version**: 0.1.0-alpha.41
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -272,9 +272,28 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs); coverage gap to 90% remains as in item 1
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 4. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
-5. `async-trait` — 168 annotations remaining (down from 228); 37 trait definitions + numerous impl blocks migrated to native Rust 2024 `async fn` in trait; low-dyn traits converted to generics/enum dispatch; remaining usage is Tier 3 traits deeply embedded in `dyn` dispatch — will be progressively removed alongside `dyn`-to-generics refactoring
+5. `async-trait` — 129 annotations remaining (down from 228); 20+ trait definitions migrated to native `async fn` in trait with dyn→generics/enum dispatch; remaining usage is traits deeply embedded in heterogeneous `dyn` collections (`Plugin`, `Command`, `AIClient`, `MonitoringProvider`, `PrimalProvider`, etc.) — will be progressively removed as `dyn` surface shrinks
 
 ## Changes Since Last Handoff (April 5, 2026)
+
+### April 5, 2026 session M (async-trait wave 3: deep dyn→generics across all tiers)
+
+- **async-trait annotations reduced 168 → 129** (39 more removed): 15+ traits migrated across Tiers A/B/C
+- **NetworkConnection consolidated**: 3 duplicate trait definitions → 1 canonical def with re-exports; `FederationNetwork`/`FederationNetworkManager` genericized
+- **Sovereignty traits genericized**: `DefaultSovereignDataManager<E, A>` generic over `EncryptionKeyManager`/`AccessControlManager`
+- **PlatformExecutor**: `RegisteredPlatformExecutor` enum dispatch, `Box<dyn>` eliminated
+- **SessionManager**: `SquirrelPrimalProvider<S: SessionManager = SessionManagerImpl>` — production code unchanged, tests use concrete mock
+- **PluginRegistry**: `WebPluginRegistry<R>` / `PluginManagementInterface<R>` genericized, `dyn PluginRegistry` removed from web boundary
+- **MCPInterface**: `AIRouter<M: MCPInterface = NoMcpInterface>` / `McpAiToolsAdapter<M>` genericized, all `dyn MCPInterface` eliminated
+- **AiCapability**: `BridgeAdapter<C: AiCapability>` generic, RPITIT for Send-safe futures, `BoxedAiCapability` removed
+- **ServiceMeshClient**: `HealthMonitor<C>` / `ServiceDiscovery<C>` genericized, all `dyn ServiceMeshClient` eliminated
+- **KeyStorage**: `SecurityManagerImpl<K: KeyStorage = InMemoryKeyStorage>` genericized
+- **AuthenticationService**: `SecurityMiddleware<A: AuthenticationService>` genericized
+- **ContextAdapter**: RPITIT + `ContextAdapterDyn` blanket for dyn-safe wrapper, `async_trait` removed from trait def
+- **CommandsPlugin/MessageHandler**: migrated to native async, concrete types replace `dyn`
+- **Dependency hygiene**: `async-trait` removed from `squirrel-mcp`, `squirrel-mcp-auth`, `squirrel-commands` Cargo.toml
+- **Deferred** (heterogeneous collections require `dyn`): `MonitoringProvider`, `PrimalProvider`, `WebPlugin`, `ConditionEvaluator`, `ZeroCopyPlugin`, `ActionPlugin`, `ActionExecutor`, `RepositoryProvider`
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓ (default + `--all-features --all-targets`), `test` ✓, `doc` ✓, `deny` ✓
 
 ### April 5, 2026 session L (deep async-trait migration wave 2 + dyn-to-generics evolution)
 

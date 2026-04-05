@@ -9,6 +9,7 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::error::PrimalError;
+use crate::session::SessionManager;
 use crate::universal::{
     DynamicPortInfo, EcosystemRequest, EcosystemResponse, PrimalCapability, PrimalContext,
     PrimalDependency, PrimalEndpoints, PrimalHealth, PrimalRequest, PrimalResponse, PrimalType,
@@ -21,7 +22,7 @@ use super::SquirrelPrimalProvider;
 // UNIVERSAL PRIMAL PROVIDER TRAIT IMPLEMENTATION
 // ============================================================================
 
-impl UniversalPrimalProvider for SquirrelPrimalProvider {
+impl<S: SessionManager> UniversalPrimalProvider for SquirrelPrimalProvider<S> {
     /// Get the primal ID
     fn primal_id(&self) -> &'static str {
         crate::niche::PRIMAL_ID

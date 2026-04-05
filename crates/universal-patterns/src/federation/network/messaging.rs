@@ -6,13 +6,13 @@
 //! Message handling, routing, and broadcasting functionality for
 //! the federation network.
 
-use super::core::{FederationNetwork, QueuedMessage};
-use super::types::{NetworkMessage};
 use super::super::{FederationError, FederationResult};
+use super::core::{FederationNetwork, NetworkConnection, QueuedMessage};
+use super::types::NetworkMessage;
 use chrono::Utc;
 use uuid::Uuid;
 
-impl FederationNetwork {
+impl<C: NetworkConnection + 'static> FederationNetwork<C> {
     /// Register a message handler
     pub async fn register_handler<F>(
         &self,
@@ -38,7 +38,7 @@ impl FederationNetwork {
             connection.send_message(peer_id, message).await?;
             Ok(())
         } else {
-            Err(FederationError::PeerNotFound(peer_id))
+            Err(FederationError::PeerNotFound(peer_id.to_string()))
         }
     }
 
@@ -52,6 +52,7 @@ impl FederationNetwork {
     }
 
     /// Queue a message for later processing
+    #[expect(dead_code, reason = "federation Phase 2")]
     pub(super) async fn queue_message(&self, sender: Uuid, message: NetworkMessage) {
         let mut queue = self.message_queue.write().await;
         queue.push(QueuedMessage {
@@ -63,6 +64,7 @@ impl FederationNetwork {
     }
 
     /// Process queued messages
+    #[expect(dead_code, reason = "federation Phase 2")]
     pub(super) async fn process_queued_messages(&self) {
         let mut queue = self.message_queue.write().await;
         let handlers = self.message_handlers.read().await;
@@ -76,4 +78,3 @@ impl FederationNetwork {
         }
     }
 }
-

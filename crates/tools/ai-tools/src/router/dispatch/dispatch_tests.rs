@@ -150,7 +150,6 @@ impl AIClient for TestClient {
 
 struct RecordingMcp;
 
-#[async_trait]
 impl MCPInterface for RecordingMcp {
     async fn send_request(
         &self,
@@ -204,7 +203,7 @@ impl MCPInterface for RecordingMcp {
     }
 }
 
-fn register_text_provider(router: &AIRouter, id: &str) -> Result<()> {
+fn register_text_provider<M: MCPInterface>(router: &AIRouter<M>, id: &str) -> Result<()> {
     router.register_provider(id, Arc::new(TestClient::new(id)))
 }
 

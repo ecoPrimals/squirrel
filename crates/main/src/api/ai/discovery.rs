@@ -15,7 +15,6 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use crate::api::ai::adapter::UniversalAiAdapter;
-use crate::api::ai::universal::BoxedAiCapability;
 use crate::capabilities::discovery::discover_capability;
 use crate::error::PrimalError;
 
@@ -37,7 +36,7 @@ use crate::error::PrimalError;
 /// # Returns
 ///
 /// A vector of all discovered AI providers, ready to use.
-pub async fn discover_ai_providers() -> Vec<BoxedAiCapability> {
+pub async fn discover_ai_providers() -> Vec<Arc<UniversalAiAdapter>> {
     // List of AI capabilities to discover -- probe all concurrently
     let ai_capabilities = vec!["ai.complete", "ai.chat", "ai.inference", "ai.embedding"];
 
@@ -57,7 +56,7 @@ pub async fn discover_ai_providers() -> Vec<BoxedAiCapability> {
                         )
                         .await
                         {
-                            Ok(adapter) => Some(Arc::new(adapter) as BoxedAiCapability),
+                            Ok(adapter) => Some(Arc::new(adapter)),
                             Err(e) => {
                                 warn!("⚠️  Failed to create adapter for '{}': {}", capability, e);
                                 None
@@ -73,7 +72,7 @@ pub async fn discover_ai_providers() -> Vec<BoxedAiCapability> {
         })
         .collect();
 
-    let mut providers: Vec<BoxedAiCapability> = Vec::new();
+    let mut providers: Vec<Arc<UniversalAiAdapter>> = Vec::new();
     for h in handles {
         if let Ok(Some(provider)) = h.await {
             providers.push(provider);
@@ -102,7 +101,9 @@ pub async fn discover_ai_providers() -> Vec<BoxedAiCapability> {
 /// # Returns
 ///
 /// A boxed AI capability provider, or an error if not found.
-pub async fn discover_ai_provider(capability: &str) -> Result<BoxedAiCapability, PrimalError> {
+pub async fn discover_ai_provider(
+    capability: &str,
+) -> Result<Arc<UniversalAiAdapter>, PrimalError> {
     let provider_info = discover_capability(capability).await?;
 
     info!(

@@ -30,8 +30,8 @@ pub use router::AiRouter;
 // Re-export universal AI interface (public API for downstream consumers)
 #[expect(unused_imports, reason = "re-export for planned consumer")]
 pub use universal::{
-    AiCapability, BoxedAiCapability, ChatMessage, CostTier, MessageRole, ProviderMetadata,
-    ProviderType, TokenUsage, UniversalAiRequest, UniversalAiResponse,
+    AiCapability, ChatMessage, CostTier, MessageRole, ProviderMetadata, ProviderType, TokenUsage,
+    UniversalAiRequest, UniversalAiResponse,
 };
 
 // Re-export adapter and discovery (public API for downstream consumers)

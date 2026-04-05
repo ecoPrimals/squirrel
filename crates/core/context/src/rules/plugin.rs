@@ -9,7 +9,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use super::ContextAdapter;
+use super::ContextAdapterDyn;
 use super::ContextPlugin;
 use super::error::{Result, RuleError};
 use squirrel_interfaces::context::ContextTransformation;
@@ -91,7 +91,7 @@ impl RulePluginManager {
     }
 
     /// Get an adapter by ID
-    pub async fn get_adapter(&self, id: &str) -> Result<Arc<dyn ContextAdapter>> {
+    pub async fn get_adapter(&self, id: &str) -> Result<Arc<dyn ContextAdapterDyn>> {
         self.core_plugin_manager
             .get_adapter(id)
             .await

@@ -7,230 +7,40 @@
 //! It provides secure, reliable communication channels for the federation
 //! with support for multiple protocols and encryption.
 
+use super::network_types::QueuedMessage;
 use super::{FederationError, FederationResult};
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::Utc;
 use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 use uuid::Uuid;
 
-/// Federation network configuration
-#[derive(Debug, Clone)]
-pub struct NetworkConfig {
-    /// Network protocol to use
-    pub protocol: NetworkProtocol,
-    /// Port for federation communication
-    pub port: u16,
-    /// Encryption settings
-    pub encryption_enabled: bool,
-    /// Maximum number of concurrent connections
-    pub max_connections: usize,
-    /// Connection timeout in seconds
-    pub connection_timeout: u64,
-    /// Heartbeat interval in seconds
-    pub heartbeat_interval: u64,
-    /// Maximum message size in bytes
-    pub max_message_size: usize,
-    /// Node discovery timeout in seconds
-    pub discovery_timeout: u64,
-}
-
-/// Network protocols for federation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum NetworkProtocol {
-    /// HTTP/HTTPS protocol
-    Http,
-    /// gRPC protocol
-    Grpc,
-    /// WebSocket protocol
-    WebSocket,
-    /// Custom protocol
-    Custom(String),
-}
-
-impl Default for NetworkConfig {
-    fn default() -> Self {
-        Self {
-            protocol: NetworkProtocol::Http,
-            port: 8080,
-            encryption_enabled: true,
-            max_connections: 1000,
-            connection_timeout: 30,
-            heartbeat_interval: 10,
-            max_message_size: 1024 * 1024, // 1MB
-            discovery_timeout: 5,
-        }
-    }
-}
-
-/// Federation network message types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum NetworkMessage {
-    /// Node discovery request
-    Discovery {
-        /// ID of the discovering node
-        node_id: Uuid,
-        /// Information about the discovering node
-        node_info: NodeInfo,
-    },
-    /// Node discovery response
-    DiscoveryResponse {
-        /// ID of the responding node
-        node_id: Uuid,
-        /// Information about the responding node
-        node_info: NodeInfo,
-        /// List of known peer nodes
-        peers: Vec<PeerInfo>,
-    },
-    /// Consensus voting message
-    ConsensusVote {
-        /// ID of the proposal being voted on
-        proposal_id: Uuid,
-        /// The vote (true for yes, false for no)
-        vote: bool,
-        /// ID of the voting node
-        node_id: Uuid,
-        /// Timestamp when the vote was cast
-        timestamp: DateTime<Utc>,
-    },
-    /// Data synchronization message
-    DataSync {
-        /// The type of data operation
-        operation: DataOperation,
-        /// The data being synchronized
-        data: Vec<u8>,
-        /// Checksum for data integrity verification
-        checksum: String,
-    },
-    /// Health check message
-    HealthCheck {
-        /// ID of the node performing the health check
-        node_id: Uuid,
-        /// Timestamp when the health check was performed
-        timestamp: DateTime<Utc>,
-    },
-    /// Generic federation message
-    Federation {
-        /// Type identifier for the message
-        message_type: String,
-        /// Message payload data
-        payload: Vec<u8>,
-        /// ID of the message sender
-        sender: Uuid,
-        /// ID of the intended recipient (None for broadcast)
-        recipient: Option<Uuid>,
-    },
-}
-
-/// Node information for network discovery
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeInfo {
-    /// Unique identifier for the node
-    pub id: Uuid,
-    /// Human-readable name of the node
-    pub name: String,
-    /// Version of the node software
-    pub version: String,
-    /// List of capabilities supported by the node
-    pub capabilities: Vec<String>,
-    /// Network endpoints for connecting to the node
-    pub endpoints: Vec<String>,
-    /// Additional metadata about the node
-    pub metadata: HashMap<String, String>,
-}
-
-/// Peer information for network management
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PeerInfo {
-    /// Unique identifier for the peer
-    pub id: Uuid,
-    /// Network address of the peer
-    pub address: SocketAddr,
-    /// Timestamp of the last successful communication
-    pub last_seen: DateTime<Utc>,
-    /// Current connection status of the peer
-    pub status: PeerStatus,
-    /// Network latency to the peer (if available)
-    pub latency: Option<Duration>,
-}
-
-/// Peer connection status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PeerStatus {
-    /// Peer is currently connected
-    Connected,
-    /// Peer is disconnected
-    Disconnected,
-    /// Currently attempting to connect to peer
-    Connecting,
-    /// Connection is in error state with description
-    Error(String),
-}
-
-/// Data operation types for synchronization
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum DataOperation {
-    /// Create new data
-    Create,
-    /// Read existing data
-    Read,
-    /// Update existing data
-    Update,
-    /// Delete existing data
-    Delete,
-    /// Synchronize data across nodes
-    Sync,
-}
-
-/// Network connection interface
-#[async_trait]
-pub trait NetworkConnection: Send + Sync {
-    /// Send a message to a peer
-    async fn send_message(&self, peer_id: Uuid, message: NetworkMessage) -> FederationResult<()>;
-
-    /// Receive a message from the network
-    async fn receive_message(&self) -> FederationResult<(Uuid, NetworkMessage)>;
-
-    /// Check if connection is alive
-    async fn is_connected(&self) -> bool;
-
-    /// Close the connection
-    async fn close(&self) -> FederationResult<()>;
-}
-
-/// Federation network manager
-pub struct FederationNetwork {
-    config: NetworkConfig,
-    node_id: Uuid,
-    node_info: NodeInfo,
-    peers: Arc<RwLock<HashMap<Uuid, PeerInfo>>>,
-    connections: Arc<RwLock<HashMap<Uuid, Arc<dyn NetworkConnection>>>>,
-    message_handlers: Arc<RwLock<HashMap<String, MessageHandler>>>,
-    message_queue: Arc<RwLock<Vec<QueuedMessage>>>,
-    running: Arc<RwLock<bool>>,
-}
+#[cfg(any(test, feature = "testing"))]
+pub use super::network_connection::MockNetworkConnection;
+pub use super::network_connection::NetworkConnection;
+pub use super::network_types::{
+    DataOperation, NetworkConfig, NetworkMessage, NetworkProtocol, NetworkStats, NodeInfo,
+    PeerInfo, PeerStatus,
+};
 
 /// Message handler function type
 type MessageHandler = Box<dyn Fn(NetworkMessage) -> FederationResult<()> + Send + Sync>;
 
-/// Queued message for processing
-#[derive(Debug, Clone)]
-struct QueuedMessage {
-    message: NetworkMessage,
-    #[expect(dead_code, reason = "Reserved for message attribution and debugging")]
-    sender: Uuid,
-    #[expect(dead_code, reason = "Reserved for time-based queue management")]
-    timestamp: DateTime<Utc>,
-    #[expect(dead_code, reason = "Reserved for retry logic implementation")]
-    retry_count: u32,
+/// Federation network manager
+pub struct FederationNetwork<C: NetworkConnection> {
+    config: NetworkConfig,
+    pub(super) node_id: Uuid,
+    node_info: NodeInfo,
+    pub(super) peers: Arc<RwLock<HashMap<Uuid, PeerInfo>>>,
+    pub(super) connections: Arc<RwLock<HashMap<Uuid, Arc<C>>>>,
+    pub(super) message_handlers: Arc<RwLock<HashMap<String, MessageHandler>>>,
+    pub(super) message_queue: Arc<RwLock<Vec<QueuedMessage>>>,
+    pub(super) running: Arc<RwLock<bool>>,
 }
 
-impl FederationNetwork {
+impl<C: NetworkConnection + 'static> FederationNetwork<C> {
     /// Create a new federation network
     pub fn new(config: NetworkConfig, node_info: NodeInfo) -> Self {
         Self {
@@ -464,78 +274,6 @@ impl FederationNetwork {
     }
 }
 
-/// Network statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkStats {
-    /// Number of connected peers
-    pub peer_count: usize,
-    /// Number of active connections
-    pub connection_count: usize,
-    /// Number of messages waiting to be sent
-    pub queued_messages: usize,
-    /// ID of the local node
-    pub node_id: Uuid,
-    /// Time when the node started
-    pub uptime: DateTime<Utc>,
-}
-
-/// Network connection implementation for testing
-#[cfg(any(test, feature = "testing"))]
-pub struct MockNetworkConnection {
-    peer_id: Uuid,
-    connected: Arc<RwLock<bool>>,
-    message_queue: Arc<RwLock<Vec<NetworkMessage>>>,
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl MockNetworkConnection {
-    /// Creates a new mock network connection for testing
-    pub fn new(peer_id: Uuid) -> Self {
-        Self {
-            peer_id,
-            connected: Arc::new(RwLock::new(true)),
-            message_queue: Arc::new(RwLock::new(Vec::new())),
-        }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-#[async_trait]
-impl NetworkConnection for MockNetworkConnection {
-    async fn send_message(&self, _peer_id: Uuid, message: NetworkMessage) -> FederationResult<()> {
-        if !*self.connected.read().await {
-            return Err(FederationError::ConnectionClosed(
-                "Connection closed".to_string(),
-            ));
-        }
-
-        let mut queue = self.message_queue.write().await;
-        queue.push(message);
-        Ok(())
-    }
-
-    async fn receive_message(&self) -> FederationResult<(Uuid, NetworkMessage)> {
-        let mut queue = self.message_queue.write().await;
-        if let Some(message) = queue.pop() {
-            Ok((self.peer_id, message))
-        } else {
-            Err(FederationError::NoMessagesAvailable(
-                "No messages".to_string(),
-            ))
-        }
-    }
-
-    async fn is_connected(&self) -> bool {
-        *self.connected.read().await
-    }
-
-    async fn close(&self) -> FederationResult<()> {
-        let mut connected = self.connected.write().await;
-        *connected = false;
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -552,13 +290,16 @@ mod tests {
         }
     }
 
-    fn make_network() -> FederationNetwork {
+    fn make_network() -> FederationNetwork<MockNetworkConnection> {
         FederationNetwork::new(NetworkConfig::default(), make_node_info())
     }
 
     #[tokio::test]
     async fn test_network_creation() {
-        let network = FederationNetwork::new(NetworkConfig::default(), make_node_info());
+        let network = FederationNetwork::<MockNetworkConnection>::new(
+            NetworkConfig::default(),
+            make_node_info(),
+        );
         assert!(!*network.running.read().await);
     }
 
@@ -581,6 +322,8 @@ mod tests {
             last_seen: Utc::now(),
             status: PeerStatus::Connected,
             latency: Some(Duration::from_millis(50)),
+            capabilities: vec![],
+            reliability: 1.0,
         };
 
         network
@@ -755,6 +498,8 @@ mod tests {
                 last_seen: Utc::now(),
                 status: PeerStatus::Connected,
                 latency: None,
+                capabilities: vec![],
+                reliability: 1.0,
             })
             .await
             .expect("should succeed");
@@ -780,6 +525,8 @@ mod tests {
                     last_seen: Utc::now(),
                     status: PeerStatus::Connected,
                     latency: None,
+                    capabilities: vec![],
+                    reliability: 1.0,
                 };
                 net.add_peer(peer_info).await
             }));
@@ -842,6 +589,7 @@ mod proptest_tests {
             payload in proptest::collection::vec(any::<u8>(), 0..256),
             sender in any::<[u8; 16]>().prop_map(Uuid::from_bytes),
         ) {
+            let payload = bytes::Bytes::from(payload);
             let msg = NetworkMessage::Federation {
                 message_type: msg_type.clone(),
                 payload: payload.clone(),

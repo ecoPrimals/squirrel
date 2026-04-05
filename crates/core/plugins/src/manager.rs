@@ -163,7 +163,6 @@ impl Default for PluginManager {
     }
 }
 
-#[async_trait]
 impl PluginRegistry for PluginManager {
     async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
         self.register_plugin_with_signature(plugin, None).await

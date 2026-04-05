@@ -360,7 +360,7 @@ mod tests {
         async fn get_adapter(
             &self,
             id: &str,
-        ) -> anyhow::Result<Arc<dyn crate::rules::ContextAdapter>> {
+        ) -> anyhow::Result<Arc<dyn crate::rules::ContextAdapterDyn>> {
             Err(anyhow::anyhow!("Adapter not found: {id}"))
         }
 
@@ -368,7 +368,9 @@ mod tests {
             Ok(self.transforms.clone())
         }
 
-        async fn get_adapters(&self) -> anyhow::Result<Vec<Arc<dyn crate::rules::ContextAdapter>>> {
+        async fn get_adapters(
+            &self,
+        ) -> anyhow::Result<Vec<Arc<dyn crate::rules::ContextAdapterDyn>>> {
             Ok(Vec::new())
         }
     }

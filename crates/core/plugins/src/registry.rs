@@ -8,12 +8,14 @@
 use crate::Plugin;
 use crate::errors::Result;
 use crate::types::PluginStatus;
-use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 
 /// Plugin registry trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait PluginRegistry: Send + Sync {
     /// Register a plugin
     async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()>;
@@ -51,7 +53,6 @@ mod tests {
     use crate::plugin::{Plugin, PluginMetadata};
     use crate::types::PluginStatus;
     use crate::{PluginError, Result};
-    use async_trait::async_trait;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
     use uuid::Uuid;
@@ -76,7 +77,6 @@ mod tests {
         crate::discovery::create_noop_plugin(meta)
     }
 
-    #[async_trait]
     impl PluginRegistry for MockRegistry {
         async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
             let id = plugin.id();

@@ -18,7 +18,6 @@ squirrel-context.workspace = true
 # squirrel-ai-tools.workspace = true  # → Eliminated: Moved to ToadStool
 
 # External dependencies
-async-trait.workspace = true
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true

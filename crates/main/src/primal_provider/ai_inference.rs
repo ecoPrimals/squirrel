@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use tracing::info;
 
 use super::core::SquirrelPrimalProvider;
+use crate::session::SessionManager;
 
 /// AI Inference Request structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,7 +65,7 @@ impl AIProviderSelection {
     }
 }
 
-impl SquirrelPrimalProvider {
+impl<S: SessionManager> SquirrelPrimalProvider<S> {
     /// Handle AI inference request with intelligent provider selection
     pub async fn handle_ai_inference_request(
         &self,

@@ -227,9 +227,6 @@ async fn load_plugins_from_directory<M: PluginRegistry + PluginManagerTrait>(
     Ok(plugin_ids)
 }
 
-use async_trait::async_trait;
-
-#[async_trait]
 impl PluginRegistry for DefaultPluginManager {
     async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
         let id = plugin.id();
