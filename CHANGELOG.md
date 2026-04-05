@@ -9,6 +9,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.41] - 2026-04-05
+
+Async-trait wave 3 (continued): security, context, and command surfaces genericized; workspace dependency cleanup.
+6,856 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **`SecurityManagerImpl<K: KeyStorage>`** — key storage genericized; **`AuthenticationService`** — `SecurityMiddleware<A: AuthenticationService>` genericized
+- **`ContextAdapter`** — RPITIT + `ContextAdapterDyn` blanket for dyn-safe wrapper; **`CommandsPlugin` / `MessageHandler`** — native async with concrete types replacing `dyn`
+- **`async-trait` removed** from `squirrel-mcp`, `squirrel-mcp-auth`, and `squirrel-commands` Cargo.toml dependency lists
+- **Deferred (heterogeneous `dyn` collections)** — `MonitoringProvider`, `PrimalProvider`, `WebPlugin`, `ConditionEvaluator`, `ZeroCopyPlugin`, `ActionPlugin`, `ActionExecutor`, `RepositoryProvider` remain `dyn` until surfaces shrink
+- **Quality gates** — `fmt`, `clippy -D warnings` (default + `--all-features --all-targets`), `test`, `doc`, `deny` all green
+
+## [0.1.0-alpha.40] - 2026-04-05
+
+Async-trait wave 3: deep dyn→generics across tiers; `async-trait` annotations reduced 168 → 129.
+6,856 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **`NetworkConnection` consolidated** — 3 duplicate trait definitions → 1 canonical def with re-exports; **`FederationNetwork` / `FederationNetworkManager`** genericized
+- **`DefaultSovereignDataManager<E, A>`** — generic over encryption/access control; **`PlatformExecutor`** — `RegisteredPlatformExecutor` enum dispatch, `Box<dyn>` eliminated
+- **`SessionManager`** — `SquirrelPrimalProvider<S: SessionManager = SessionManagerImpl>`; **`PluginRegistry`** — `WebPluginRegistry<R>` / `PluginManagementInterface<R>` genericized
+- **`MCPInterface` / `AiCapability` / `ServiceMeshClient`** — `AIRouter<M>`, `BridgeAdapter<C>`, `HealthMonitor<C>` / `ServiceDiscovery<C>` genericized; `dyn MCPInterface` / `dyn ServiceMeshClient` / `BoxedAiCapability` eliminated on hot paths
+
+## [0.1.0-alpha.39] - 2026-04-05
+
+Deep async-trait migration wave 2: 37 annotations removed (205 → 168); dyn→generics evolution across plugins, federation, security, and monitoring.
+6,856 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **Zero-dyn wave 2** — 26 trait defs + impls migrated in `core/core`, `core/mcp` (`Transport` + impls), `core/plugins`, `universal-patterns` federation/security, chaos `ChaosScenario`, rule-system `FileWatcher`
+- **Enum / generic dispatch** — `MetricsExporter` → `MetricsExporterHandle`; `ShutdownHandler` → `RegisteredShutdownHandler`; `ComputeProvider` → `ComputeProviderImpl`; `ServiceRegistryProvider` → `UnavailableServiceRegistry`
+- **`IpcRoutedVendorClient<D: IpcHttpDelegate>`** — RPITIT `+ Send` bounds; **`UniversalSecurityProviderBox`** — `SecurityProvider` stack no longer exposes `dyn` on `UniversalSecurityClient`
+- **`async-trait` dev-deps only** — moved to `[dev-dependencies]` for `squirrel-context-adapter` and `squirrel-integration` (test-only)
+- **Doc examples** — `security/traits.rs` examples updated; **`LegacyWebPluginTrait`** — RPITIT for `Send`-safe futures
+
+## [0.1.0-alpha.38] - 2026-04-05
+
+Native `async fn` in trait (Rust 2024): 23 `#[async_trait]` annotations removed (228 → 205); Tier 1/2 traits migrated with `#[expect(async_fn_in_trait, …)]` strategy.
+6,856 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **Tier 1** — `AIProvider`, `EcosystemIntegration`, `Primal`, `GpuInferenceCapability`, `ServiceMeshCapability`, `OrchestrationProvider`, `TryFlattenStreamExt`, `ContextManager`, `MockAdapter` migrated to native async in trait
+- **Tier 2** — `AuthenticationCapability` + docs/tests use `impl` / concrete mocks instead of `&dyn`; `async_trait` import removed from `capabilities.rs`
+- **Deferred** — `UniversalPrimalProvider`, `AuthenticationService` still use production `Box`/`Arc<dyn>` pending broader refactors
+- **Dead imports** — removed stray `use async_trait::async_trait` where it was the sole user
+- **Quality gates** — `fmt`, `clippy`, `test`, `doc`, `deny` green
+
+## [0.1.0-alpha.37] - 2026-04-03
+
+Deep debt execution: production stubs completed, `niche::PRIMAL_ID` self-reference cleanup, orphan sync dead-code removal, `ServiceInfo` zero-copy.
+6,856 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **Stubs → real behavior** — compute auto-detect and `create_compute_from_type` delegate via capabilities / `LocalProcessProvider`; `SecurePluginStub::execute` returns real security errors; intelligence engines log and report actual telemetry instead of placeholders
+- **`PRIMAL_ID` over hardcoded `"squirrel"`** — 20+ sites across universal adapters, primal provider, RPC, tool executor, ecosystem, discovery
+- **Removed ~42KB uncompiled orphan code** — `sync/manager.rs` and `sync/types.rs` (never in `mod.rs`); active sync remains `sync.rs`
+- **`ServiceInfo` fields** — `String` → `Arc<str>` for high-frequency discovery paths
+- **Lint** — unfulfilled `#[expect]` in `capability_jwt_integration_tests.rs` corrected
+
+## [0.1.0-alpha.36] - 2026-04-03
+
+primalSpring audit compliance: BearDog domain sovereignty — `ed25519-dalek` optional behind `local-crypto`; default build has no local signing compiled in.
+6,855 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **`ed25519-dalek`** — optional `local-crypto` feature; `DefaultCryptoProvider` / `SecurityManagerImpl` crypto paths gated; encrypt/decrypt error directs to BearDog capability discovery when feature absent
+- **`MockAIClient` test hygiene** — removed blanket `#[allow(warnings)]` from `ai-tools` tests; targeted allows for test-only `unwrap`/`expect`
+- **`sled` / `sqlx`** — confirmed clean: no stray `sled`; `sqlx` only under `persistence` in rule-system
+- **Default feature set** — zero local crypto in default build (TRUE PRIMAL delegates crypto to BearDog at runtime)
+- **Quality gates** — `fmt`, `clippy`, `test`, `doc`, `deny` green
+
+## [0.1.0-alpha.35] - 2026-04-03
+
+ORC-Notice compliance (continued): env-configurable trust/resources, large-file smart refactoring, ignored-test and dependency audit.
+6,859 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **`trust_domain`** — `SQUIRREL_TRUST_DOMAIN` / `SECURITY_TRUST_DOMAIN` with `"biome.local"` fallback; **resource hints** — `SQUIRREL_RESOURCE_*` for CPU/memory/storage/network/GPU
+- **`shutdown.rs` refactor** — 917→517 lines; tests in `shutdown_tests.rs`; **`integration_tests.rs`** — lifecycle tests extracted to `integration_lifecycle_tests.rs`
+- **Ignored tests** — 6 `#[ignore]` cases reviewed (network MCP, destructive chaos, external crypto); all documented as intentional
+- **`cargo deny`** — advisories/bans/licenses/sources ok; `bincode` RUSTSEC tracked with ignore; `base64` duplicate noted as benign transitive
+- **Quality gates** — `fmt`, `clippy`, `test`, `doc`, `deny` green
+
+## [0.1.0-alpha.34] - 2026-04-03
+
+ORC-Notice compliance: SPDX + ORC + Copyright headers on all 25 crate entry points; dependency audit baseline.
+6,859 tests passing, zero clippy warnings, all gates green.
+
+### Added
+
+- **`// ORC-Notice:`** on all 16 crate `lib.rs`/`main.rs` files that were missing them — **25/25** entry points now consistent
+
+### Changed
+
+- **Header consistency** — SPDX + ORC + Copyright aligned across workspace crates per wateringHole / public-surface expectations
+- **`cargo deny check`** — verified clean; `base64` 0.21 vs 0.22 duplicate documented as transitive
+- **Quality gates** — `fmt`, `clippy`, `test 6,859/0/107`, `doc`, `deny` green
+
 ## [0.1.0-alpha.33] - 2026-04-03
 
 Dead-code removal, test idiomacy, concurrency-model improvements.
