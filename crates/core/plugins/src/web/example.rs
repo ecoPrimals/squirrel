@@ -449,7 +449,6 @@ impl WebPlugin for ExampleWebPlugin {
     }
 }
 
-#[async_trait]
 impl LegacyWebPluginTrait for ExampleWebPlugin {
     fn get_endpoints(&self) -> Vec<crate::plugin::WebEndpoint> {
         // Convert modern endpoints to legacy format

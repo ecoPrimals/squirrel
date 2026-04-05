@@ -450,7 +450,6 @@ impl DefaultSovereignDataManager {
     }
 }
 
-#[async_trait]
 impl SovereignDataManager for DefaultSovereignDataManager {
     async fn store_data(&self, mut data: SovereignData) -> FederationResult<DataId> {
         // Check data size limits

@@ -14,6 +14,9 @@ use tracing::{debug, error, info, warn};
 
 use crate::error::PrimalError;
 use crate::observability::{CorrelationId, OperationContext};
+use crate::resource_manager::ResourceManager;
+use crate::security::monitoring::SecurityMonitoringSystem;
+use crate::security::orchestrator::SecurityOrchestrator;
 
 /// Shutdown phase definitions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -48,7 +51,10 @@ impl ShutdownPhase {
 }
 
 /// Shutdown handler trait for components
-#[async_trait::async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "Native async shutdown; use RegisteredShutdownHandler enum dispatch in ShutdownManager"
+)]
 pub trait ShutdownHandler: Send + Sync {
     /// Component name for logging
     fn component_name(&self) -> &str;
@@ -65,10 +71,163 @@ pub trait ShutdownHandler: Send + Sync {
     }
 }
 
+#[cfg(test)]
+pub(crate) mod test_handlers {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
+
+    use super::{ShutdownHandler, ShutdownPhase};
+    use crate::error::PrimalError;
+
+    pub struct MockShutdownHandler {
+        pub name: String,
+        pub shutdown_called: Arc<AtomicBool>,
+        pub complete: Arc<AtomicBool>,
+        pub delay: Duration,
+    }
+
+    impl MockShutdownHandler {
+        pub fn new(name: &str) -> Self {
+            Self {
+                name: name.to_string(),
+                shutdown_called: Arc::new(AtomicBool::new(false)),
+                complete: Arc::new(AtomicBool::new(false)),
+                delay: Duration::from_millis(10),
+            }
+        }
+
+        pub fn with_delay(name: &str, delay: Duration) -> Self {
+            Self {
+                name: name.to_string(),
+                shutdown_called: Arc::new(AtomicBool::new(false)),
+                complete: Arc::new(AtomicBool::new(false)),
+                delay,
+            }
+        }
+
+        pub fn was_shutdown_called(&self) -> bool {
+            self.shutdown_called.load(Ordering::SeqCst)
+        }
+    }
+
+    impl ShutdownHandler for MockShutdownHandler {
+        fn component_name(&self) -> &str {
+            &self.name
+        }
+
+        async fn shutdown(&self, _phase: ShutdownPhase) -> Result<(), PrimalError> {
+            self.shutdown_called.store(true, Ordering::SeqCst);
+            tokio::time::sleep(self.delay).await;
+            self.complete.store(true, Ordering::SeqCst);
+            Ok(())
+        }
+
+        async fn is_shutdown_complete(&self) -> bool {
+            self.complete.load(Ordering::SeqCst)
+        }
+
+        fn estimated_shutdown_time(&self) -> Duration {
+            self.delay
+        }
+    }
+
+    pub struct FailingShutdownHandler {
+        pub name: String,
+    }
+
+    impl FailingShutdownHandler {
+        pub fn new(name: &str) -> Self {
+            Self {
+                name: name.to_string(),
+            }
+        }
+    }
+
+    impl ShutdownHandler for FailingShutdownHandler {
+        fn component_name(&self) -> &str {
+            &self.name
+        }
+
+        async fn shutdown(&self, _phase: ShutdownPhase) -> Result<(), PrimalError> {
+            Err(PrimalError::Internal("Shutdown failed".to_string()))
+        }
+
+        async fn is_shutdown_complete(&self) -> bool {
+            false
+        }
+    }
+}
+
+/// Enum dispatch for known shutdown participants (replaces `dyn ShutdownHandler`).
+#[derive(Clone)]
+pub enum RegisteredShutdownHandler {
+    /// Security orchestrator subsystem.
+    SecurityOrchestrator(Arc<SecurityOrchestrator>),
+    /// Security monitoring subsystem.
+    SecurityMonitoring(Arc<SecurityMonitoringSystem>),
+    /// Resource manager.
+    ResourceManager(Arc<ResourceManager>),
+    #[cfg(test)]
+    TestMock(Arc<test_handlers::MockShutdownHandler>),
+    #[cfg(test)]
+    TestFailing(Arc<test_handlers::FailingShutdownHandler>),
+}
+
+impl ShutdownHandler for RegisteredShutdownHandler {
+    fn component_name(&self) -> &str {
+        match self {
+            Self::SecurityOrchestrator(h) => h.component_name(),
+            Self::SecurityMonitoring(h) => h.component_name(),
+            Self::ResourceManager(h) => h.component_name(),
+            #[cfg(test)]
+            Self::TestMock(h) => h.component_name(),
+            #[cfg(test)]
+            Self::TestFailing(h) => h.component_name(),
+        }
+    }
+
+    async fn shutdown(&self, phase: ShutdownPhase) -> Result<(), PrimalError> {
+        match self {
+            Self::SecurityOrchestrator(h) => h.shutdown(phase).await,
+            Self::SecurityMonitoring(h) => h.shutdown(phase).await,
+            Self::ResourceManager(h) => h.shutdown(phase).await,
+            #[cfg(test)]
+            Self::TestMock(h) => h.shutdown(phase).await,
+            #[cfg(test)]
+            Self::TestFailing(h) => h.shutdown(phase).await,
+        }
+    }
+
+    async fn is_shutdown_complete(&self) -> bool {
+        match self {
+            Self::SecurityOrchestrator(h) => h.is_shutdown_complete().await,
+            Self::SecurityMonitoring(h) => h.is_shutdown_complete().await,
+            Self::ResourceManager(h) => h.is_shutdown_complete().await,
+            #[cfg(test)]
+            Self::TestMock(h) => h.is_shutdown_complete().await,
+            #[cfg(test)]
+            Self::TestFailing(h) => h.is_shutdown_complete().await,
+        }
+    }
+
+    fn estimated_shutdown_time(&self) -> Duration {
+        match self {
+            Self::SecurityOrchestrator(h) => h.estimated_shutdown_time(),
+            Self::SecurityMonitoring(h) => h.estimated_shutdown_time(),
+            Self::ResourceManager(h) => h.estimated_shutdown_time(),
+            #[cfg(test)]
+            Self::TestMock(h) => h.estimated_shutdown_time(),
+            #[cfg(test)]
+            Self::TestFailing(h) => h.estimated_shutdown_time(),
+        }
+    }
+}
+
 /// Shutdown manager coordinates graceful shutdown across all components
 pub struct ShutdownManager {
     /// Registered shutdown handlers by component
-    handlers: Arc<RwLock<HashMap<String, Arc<dyn ShutdownHandler>>>>,
+    handlers: Arc<RwLock<HashMap<String, RegisteredShutdownHandler>>>,
 
     /// Shutdown notification
     shutdown_notify: Arc<Notify>,
@@ -127,7 +286,7 @@ impl ShutdownManager {
     pub async fn register_handler(
         &self,
         component_name: String,
-        handler: Arc<dyn ShutdownHandler>,
+        handler: RegisteredShutdownHandler,
     ) {
         let mut handlers = self.handlers.write().await;
         handlers.insert(component_name.clone(), handler);

@@ -6,7 +6,6 @@
 //! Common chaos engineering scenarios for testing system resilience.
 
 use super::framework::*;
-use async_trait::async_trait;
 use std::time::Duration;
 
 /// Network partition scenario
@@ -15,7 +14,6 @@ pub struct NetworkPartitionScenario {
     pub affected_services: Vec<String>,
 }
 
-#[async_trait]
 impl ChaosScenario for NetworkPartitionScenario {
     fn name(&self) -> &str {
         "network_partition"
@@ -106,7 +104,6 @@ pub enum ResourceType {
     FileDescriptors,
 }
 
-#[async_trait]
 impl ChaosScenario for ResourceExhaustionScenario {
     fn name(&self) -> &str {
         "resource_exhaustion"
@@ -146,7 +143,6 @@ pub struct LatencyInjectionScenario {
     pub affected_endpoints: Vec<String>,
 }
 
-#[async_trait]
 impl ChaosScenario for LatencyInjectionScenario {
     fn name(&self) -> &str {
         "latency_injection"

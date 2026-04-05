@@ -70,7 +70,6 @@ impl Plugin for HelloWorldPlugin {
     }
 }
 
-#[async_trait]
 impl WebPluginExt for HelloWorldPlugin {
     fn get_endpoints(&self) -> Vec<WebEndpoint> {
         vec![

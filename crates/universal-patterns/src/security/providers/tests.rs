@@ -17,6 +17,14 @@ use std::sync::Arc;
 // Test Helpers
 // ============================================================================
 
+fn box_local_service(p: LocalSecurityProvider) -> Arc<UniversalSecurityProviderBox> {
+    Arc::new(UniversalSecurityProviderBox::Local(Arc::new(p)))
+}
+
+fn box_beardog_service(p: BeardogSecurityProvider) -> Arc<UniversalSecurityProviderBox> {
+    Arc::new(UniversalSecurityProviderBox::Beardog(Arc::new(p)))
+}
+
 fn create_test_security_context() -> SecurityContext {
     let principal = Principal {
         id: "test-user".to_string(),
@@ -316,7 +324,7 @@ async fn test_registry_register_service() {
     let provider = LocalSecurityProvider::new(config)
         .await
         .expect("test: operation should succeed");
-    let service: Arc<dyn UniversalSecurityService> = Arc::new(provider);
+    let service = box_local_service(provider);
 
     let result = registry
         .register_service("test-service".to_string(), service)
@@ -342,7 +350,7 @@ async fn test_registry_find_by_capability() {
     let provider = LocalSecurityProvider::new(config)
         .await
         .expect("test: operation should succeed");
-    let service: Arc<dyn UniversalSecurityService> = Arc::new(provider);
+    let service = box_local_service(provider);
 
     registry
         .register_service("local-service".to_string(), service)
@@ -378,7 +386,7 @@ async fn test_registry_find_by_capability_no_match() {
     let provider = LocalSecurityProvider::new(config)
         .await
         .expect("test: operation should succeed");
-    let service: Arc<dyn UniversalSecurityService> = Arc::new(provider);
+    let service = box_local_service(provider);
 
     registry
         .register_service("local-service".to_string(), service)
@@ -408,7 +416,7 @@ async fn test_registry_get_service() {
     let provider = LocalSecurityProvider::new(config)
         .await
         .expect("test: operation should succeed");
-    let service: Arc<dyn UniversalSecurityService> = Arc::new(provider);
+    let service = box_local_service(provider);
 
     registry
         .register_service("test-service".to_string(), service)
@@ -438,7 +446,7 @@ async fn test_registry_list_services() {
         .await
         .expect("test: operation should succeed");
     registry
-        .register_service("service-1".to_string(), Arc::new(provider1))
+        .register_service("service-1".to_string(), box_local_service(provider1))
         .await
         .expect("test: operation should succeed");
 
@@ -450,7 +458,7 @@ async fn test_registry_list_services() {
         .await
         .expect("test: operation should succeed");
     registry
-        .register_service("service-2".to_string(), Arc::new(provider2))
+        .register_service("service-2".to_string(), box_local_service(provider2))
         .await
         .expect("test: operation should succeed");
 
@@ -471,7 +479,7 @@ async fn test_registry_find_optimal_service() {
         .await
         .expect("test: operation should succeed");
     registry
-        .register_service("local-service".to_string(), Arc::new(provider))
+        .register_service("local-service".to_string(), box_local_service(provider))
         .await
         .expect("test: operation should succeed");
 
@@ -501,7 +509,7 @@ async fn test_registry_find_optimal_service_no_match() {
         .await
         .expect("test: operation should succeed");
     registry
-        .register_service("local-service".to_string(), Arc::new(provider))
+        .register_service("local-service".to_string(), box_local_service(provider))
         .await
         .expect("test: operation should succeed");
 
@@ -790,7 +798,7 @@ async fn test_register_security_service_function() {
     let provider = LocalSecurityProvider::new(config)
         .await
         .expect("test: operation should succeed");
-    let service: Arc<dyn UniversalSecurityService> = Arc::new(provider);
+    let service = box_local_service(provider);
 
     let result = register_security_service(&mut registry, service).await;
 
@@ -815,7 +823,10 @@ async fn test_multi_provider_registry() {
         .await
         .expect("test: operation should succeed");
     registry
-        .register_service("local-service".to_string(), Arc::new(local_provider))
+        .register_service(
+            "local-service".to_string(),
+            box_local_service(local_provider),
+        )
         .await
         .expect("test: operation should succeed");
 
@@ -828,7 +839,10 @@ async fn test_multi_provider_registry() {
         .await
         .expect("test: operation should succeed");
     registry
-        .register_service("beardog-service".to_string(), Arc::new(beardog_provider))
+        .register_service(
+            "beardog-service".to_string(),
+            box_beardog_service(beardog_provider),
+        )
         .await
         .expect("test: operation should succeed");
 
@@ -878,7 +892,7 @@ async fn test_end_to_end_security_workflow() {
         .await
         .expect("test: operation should succeed");
     registry
-        .register_service("beardog-primary".to_string(), Arc::new(provider))
+        .register_service("beardog-primary".to_string(), box_beardog_service(provider))
         .await
         .expect("test: operation should succeed");
 

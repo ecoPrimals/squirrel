@@ -7,7 +7,6 @@
 
 use std::fmt::Debug;
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::plugin::Plugin;
@@ -26,8 +25,8 @@ pub struct AppExtensionPoint {
 }
 
 /// App plugin trait
-#[async_trait]
-pub trait AppPlugin: Plugin {
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
+pub trait AppPlugin: Plugin + Send + Sync {
     /// Get extension points
     fn get_extension_points(&self) -> Vec<AppExtensionPoint>;
     

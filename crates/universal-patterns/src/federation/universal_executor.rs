@@ -126,7 +126,10 @@ pub struct ResourceUsage {
 }
 
 /// Universal executor trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait UniversalExecutor: Send + Sync {
     /// Execute code on the specified platform
     async fn execute(&self, request: ExecutionRequest) -> FederationResult<ExecutionResult>;
@@ -194,7 +197,6 @@ impl DefaultUniversalExecutor {
     }
 }
 
-#[async_trait]
 impl UniversalExecutor for DefaultUniversalExecutor {
     async fn execute(&self, request: ExecutionRequest) -> FederationResult<ExecutionResult> {
         // Validate request

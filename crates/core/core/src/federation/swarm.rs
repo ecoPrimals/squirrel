@@ -11,7 +11,6 @@ use crate::{
     Result, SquirrelConfig, SquirrelInstance, SwarmManager,
 };
 
-#[async_trait::async_trait]
 impl SwarmManager for FederationService {
     async fn spawn_squirrel(&self, config: SquirrelConfig) -> Result<SquirrelInstance> {
         let instance_id = uuid::Uuid::new_v4().to_string();

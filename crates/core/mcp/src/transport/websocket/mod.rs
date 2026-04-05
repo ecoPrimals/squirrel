@@ -21,7 +21,6 @@ use crate::error::{MCPError, Result, TransportError};
 use crate::protocol::types::MCPMessage;
 use crate::transport::Transport;
 use crate::transport::types::TransportMetadata;
-use async_trait::async_trait;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -307,7 +306,6 @@ impl WebSocketTransport {
     }
 }
 
-#[async_trait]
 impl Transport for WebSocketTransport {
     /// Send a message over the WebSocket transport
     ///

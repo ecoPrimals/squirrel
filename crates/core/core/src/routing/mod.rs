@@ -427,7 +427,6 @@ impl McpRoutingService {
     }
 }
 
-#[async_trait::async_trait]
 impl McpRouter for McpRoutingService {
     async fn route_task(&self, task: McpTask) -> Result<TaskResponse> {
         // Find suitable agents

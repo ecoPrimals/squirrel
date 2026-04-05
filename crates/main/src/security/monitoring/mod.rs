@@ -546,7 +546,6 @@ impl SecurityMonitoringSystem {
     }
 }
 
-#[async_trait::async_trait]
 impl ShutdownHandler for SecurityMonitoringSystem {
     fn component_name(&self) -> &'static str {
         "security_monitoring"

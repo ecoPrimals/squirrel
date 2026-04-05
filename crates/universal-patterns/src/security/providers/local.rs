@@ -3,7 +3,6 @@
 
 //! Local fallback security provider.
 
-use async_trait::async_trait;
 use chrono::Utc;
 use std::collections::HashMap;
 
@@ -28,7 +27,6 @@ impl LocalSecurityProvider {
     }
 }
 
-#[async_trait]
 impl UniversalSecurityService for LocalSecurityProvider {
     fn get_capabilities(&self) -> Vec<SecurityCapability> {
         vec![
@@ -97,7 +95,6 @@ impl UniversalSecurityService for LocalSecurityProvider {
 }
 
 // Implement the traits::UniversalSecurityProvider for LocalSecurityProvider
-#[async_trait]
 impl crate::security::traits::UniversalSecurityProvider for LocalSecurityProvider {
     async fn authenticate(
         &self,

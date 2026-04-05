@@ -6,14 +6,13 @@
 //! This module provides functionality for monitoring plugins.
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::plugin::Plugin;
 
 /// Monitoring plugin trait
-#[async_trait]
-pub trait MonitoringPlugin: Plugin {
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
+pub trait MonitoringPlugin: Plugin + Send + Sync {
     /// Collect metrics
     async fn collect_metrics(&self) -> Result<Value>;
 

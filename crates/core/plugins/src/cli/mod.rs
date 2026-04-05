@@ -5,7 +5,6 @@
 //!
 //! This module provides integration between plugins and CLI commands.
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -44,8 +43,11 @@ pub struct CliCommandMetadata {
 }
 
 /// CLI plugin trait
-#[async_trait]
-pub trait CliPlugin: Plugin {
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
+pub trait CliPlugin: Plugin + Send + Sync {
     /// Get available commands
     fn get_commands(&self) -> Vec<CliCommandMetadata>;
 
@@ -107,7 +109,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl CliPlugin for TestCliPlugin {
         fn get_commands(&self) -> Vec<CliCommandMetadata> {
             vec![CliCommandMetadata {

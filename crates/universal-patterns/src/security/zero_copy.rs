@@ -7,7 +7,6 @@
 //! and eliminate unnecessary cloning in hot paths. Uses references, Arc, and Cow
 //! to achieve zero-copy semantics where possible.
 
-use async_trait::async_trait;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -314,19 +313,19 @@ impl ZeroCopyAuthResult {
 }
 
 /// Zero-copy security provider trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait ZeroCopySecurityProvider: Send + Sync {
     /// Authenticate using zero-copy credentials
-    async fn authenticate_zero_copy<'a>(
+    async fn authenticate_zero_copy(
         &self,
-        request: ZeroCopyAuthRequest<'a>,
+        request: ZeroCopyAuthRequest<'_>,
     ) -> PrimalResult<ZeroCopyAuthResult>;
 
     /// Authorize using zero-copy principal
-    async fn authorize_zero_copy<'a>(
-        &self,
-        request: ZeroCopyAuthzRequest<'a>,
-    ) -> PrimalResult<bool>;
+    async fn authorize_zero_copy(&self, request: ZeroCopyAuthzRequest<'_>) -> PrimalResult<bool>;
 
     /// Validate token (zero-copy)
     async fn validate_token(&self, token: &str) -> PrimalResult<Option<Arc<ZeroCopyPrincipal>>>;

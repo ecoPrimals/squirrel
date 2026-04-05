@@ -12,12 +12,10 @@ use super::super::{
 };
 use super::core::DefaultConsensusManager;
 use super::types::{ConsensusMessage, ConsensusProposal};
-use async_trait::async_trait;
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[async_trait]
 impl ConsensusManager for DefaultConsensusManager {
     async fn propose(&self, value: Vec<u8>) -> FederationResult<ConsensusResult> {
         // Check if we have quorum

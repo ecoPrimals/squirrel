@@ -7,7 +7,6 @@
 
 use std::fmt::Debug;
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
 use serde::{Serialize, Deserialize};
 
@@ -113,8 +112,8 @@ impl CommandResult {
 }
 
 /// Tool plugin trait
-#[async_trait]
-pub trait ToolPlugin: Plugin {
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
+pub trait ToolPlugin: Plugin + Send + Sync {
     /// Get supported commands
     fn get_commands(&self) -> Vec<CommandMetadata>;
     

@@ -18,6 +18,8 @@ use tracing::{error, info};
 
 use crate::error::PrimalError;
 
+use self::exporters::MetricsExporter;
+
 pub mod alerts;
 pub mod exporters;
 pub mod health;
@@ -43,7 +45,7 @@ pub struct MonitoringSystem {
     /// Alert management system
     pub alert_manager: Arc<alerts::AlertManager>,
     /// Metrics exporters (Prometheus, etc.)
-    pub exporters: HashMap<String, Box<dyn exporters::MetricsExporter>>,
+    pub exporters: HashMap<String, exporters::MetricsExporterHandle>,
     /// System configuration
     pub config: MonitoringConfig,
     /// Current system status

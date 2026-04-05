@@ -174,8 +174,8 @@ pub struct WebEndpoint {
 
 /// Web plugin extension trait
 #[expect(dead_code, reason = "Reserved for future web plugin system")]
-#[async_trait]
-pub trait WebPluginExt: Plugin {
+#[allow(async_fn_in_trait)]
+pub trait WebPluginExt: Plugin + Send + Sync {
     /// Get the endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;
 

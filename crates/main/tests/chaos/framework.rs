@@ -5,7 +5,6 @@
 //!
 //! Provides the infrastructure for injecting failures and validating recovery.
 
-use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -63,7 +62,7 @@ pub struct ChaosMetrics {
 }
 
 /// Chaos scenario trait
-#[async_trait]
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
 pub trait ChaosScenario: Send + Sync {
     /// Get scenario name
     fn name(&self) -> &str;

@@ -19,19 +19,21 @@ use crate::error::{Error, Result};
 use crate::neural_http::{HttpResponse, NeuralHttpClient};
 
 /// HTTP surface used by [`IpcRoutedVendorClient`] (implemented by [`NeuralHttpClient`]; mockable in tests).
-#[async_trait]
-trait IpcHttpDelegate: Send + Sync {
-    async fn post_json(
+pub trait IpcHttpDelegate: Send + Sync {
+    fn post_json(
         &self,
         url: &str,
         headers: Vec<(String, String)>,
         body: &str,
-    ) -> anyhow::Result<HttpResponse>;
+    ) -> impl std::future::Future<Output = anyhow::Result<HttpResponse>> + Send;
 
-    async fn get(&self, url: &str, headers: Vec<(String, String)>) -> anyhow::Result<HttpResponse>;
+    fn get(
+        &self,
+        url: &str,
+        headers: Vec<(String, String)>,
+    ) -> impl std::future::Future<Output = anyhow::Result<HttpResponse>> + Send;
 }
 
-#[async_trait]
 #[expect(
     clippy::use_self,
     reason = "Call inherent NeuralHttpClient::{post_json,get}; Self would recurse with trait methods"
@@ -68,13 +70,13 @@ fn ipc_service_id() -> String {
 }
 
 /// HTTP AI access delegated through IPC (`http.client` / neural proxy).
-pub struct IpcRoutedVendorClient {
-    http: Arc<dyn IpcHttpDelegate>,
+pub struct IpcRoutedVendorClient<D: IpcHttpDelegate = NeuralHttpClient> {
+    http: Arc<D>,
     api_key: String,
     vendor: VendorKind,
 }
 
-impl fmt::Debug for IpcRoutedVendorClient {
+impl<D: IpcHttpDelegate> fmt::Debug for IpcRoutedVendorClient<D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("IpcRoutedVendorClient")
             .field("vendor", &self.vendor)
@@ -82,7 +84,7 @@ impl fmt::Debug for IpcRoutedVendorClient {
     }
 }
 
-impl IpcRoutedVendorClient {
+impl IpcRoutedVendorClient<NeuralHttpClient> {
     /// Discover ecosystem IPC and construct a vendor client.
     pub fn try_new(api_key: impl Into<String>, vendor: VendorKind) -> Result<Arc<dyn AIClient>> {
         let api_key = api_key.into();
@@ -105,7 +107,9 @@ impl IpcRoutedVendorClient {
             vendor,
         }))
     }
+}
 
+impl<D: IpcHttpDelegate> IpcRoutedVendorClient<D> {
     const fn vendor_default_model(&self) -> &'static str {
         match self.vendor {
             VendorKind::OpenAI => "gpt-4o-mini",
@@ -325,7 +329,7 @@ fn parse_gemini_chat_response(body: &str, model: &str) -> Result<ChatResponse> {
 }
 
 #[async_trait]
-impl AIClient for IpcRoutedVendorClient {
+impl<D: IpcHttpDelegate + 'static> AIClient for IpcRoutedVendorClient<D> {
     fn provider_name(&self) -> &str {
         match self.vendor {
             VendorKind::OpenAI => "openai-ipc",
@@ -404,13 +408,9 @@ impl AIClient for IpcRoutedVendorClient {
 }
 
 #[cfg(test)]
-impl IpcRoutedVendorClient {
+impl<D: IpcHttpDelegate> IpcRoutedVendorClient<D> {
     /// Build client with an injected HTTP delegate (unit tests).
-    fn new_for_test(
-        http: Arc<dyn IpcHttpDelegate>,
-        api_key: impl Into<String>,
-        vendor: VendorKind,
-    ) -> Self {
+    fn new_for_test(http: Arc<D>, api_key: impl Into<String>, vendor: VendorKind) -> Self {
         Self {
             http,
             api_key: api_key.into(),
@@ -461,7 +461,6 @@ impl MockNeuralHttp {
 }
 
 #[cfg(test)]
-#[async_trait]
 impl IpcHttpDelegate for MockNeuralHttp {
     async fn post_json(
         &self,

@@ -383,7 +383,10 @@ pub fn create_rule_directory_manager_with_root_dir(
 }
 
 /// File watcher trait for watching rule files
-#[async_trait::async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait FileWatcher: Send + Sync {
     /// Start watching a directory
     async fn watch_directory(&self, directory: impl AsRef<Path> + Send) -> anyhow::Result<()>;

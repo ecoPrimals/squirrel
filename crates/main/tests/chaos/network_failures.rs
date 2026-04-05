@@ -4,7 +4,6 @@
 //! Network failure scenarios for chaos testing
 
 use super::framework::*;
-use async_trait::async_trait;
 use std::time::Duration;
 
 /// Packet loss scenario
@@ -13,7 +12,6 @@ pub struct PacketLossScenario {
     pub duration: Duration,
 }
 
-#[async_trait]
 impl ChaosScenario for PacketLossScenario {
     fn name(&self) -> &str {
         "packet_loss"
@@ -48,7 +46,6 @@ pub struct DNSFailureScenario {
     pub affected_domains: Vec<String>,
 }
 
-#[async_trait]
 impl ChaosScenario for DNSFailureScenario {
     fn name(&self) -> &str {
         "dns_failure"

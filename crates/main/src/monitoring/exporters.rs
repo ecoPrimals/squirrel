@@ -6,7 +6,6 @@
 //!
 //! This module provides metrics export capabilities for various monitoring systems.
 
-use async_trait::async_trait; // KEEP: MetricsExporter used as trait object (dyn MetricsExporter)
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -16,8 +15,10 @@ use super::metrics::AllMetrics;
 use crate::error::PrimalError;
 
 /// Trait for metrics exporters
-
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait MetricsExporter: Send + Sync {
     /// Export metrics to external system
     async fn export_metrics(&self, metrics: AllMetrics) -> Result<String, PrimalError>;
@@ -84,7 +85,6 @@ impl PrometheusExporter {
     }
 }
 
-#[async_trait]
 impl MetricsExporter for PrometheusExporter {
     #[expect(clippy::too_many_lines, reason = "Export logic; refactor planned")]
     async fn export_metrics(&self, metrics: AllMetrics) -> Result<String, PrimalError> {
@@ -237,7 +237,6 @@ impl JsonExporter {
     }
 }
 
-#[async_trait]
 impl MetricsExporter for JsonExporter {
     async fn export_metrics(&self, metrics: AllMetrics) -> Result<String, PrimalError> {
         // Convert metrics to JSON format
@@ -252,6 +251,37 @@ impl MetricsExporter for JsonExporter {
 
     fn config(&self) -> &ExporterConfig {
         &self.config
+    }
+}
+
+/// Concrete exporter for maps and collections (native `async fn` in [`MetricsExporter`] is not object-safe).
+pub enum MetricsExporterHandle {
+    /// Prometheus text exposition format.
+    Prometheus(PrometheusExporter),
+    /// JSON serialization of [`AllMetrics`].
+    Json(JsonExporter),
+}
+
+impl MetricsExporter for MetricsExporterHandle {
+    async fn export_metrics(&self, metrics: AllMetrics) -> Result<String, PrimalError> {
+        match self {
+            Self::Prometheus(e) => e.export_metrics(metrics).await,
+            Self::Json(e) => e.export_metrics(metrics).await,
+        }
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            Self::Prometheus(e) => e.name(),
+            Self::Json(e) => e.name(),
+        }
+    }
+
+    fn config(&self) -> &ExporterConfig {
+        match self {
+            Self::Prometheus(e) => e.config(),
+            Self::Json(e) => e.config(),
+        }
     }
 }
 

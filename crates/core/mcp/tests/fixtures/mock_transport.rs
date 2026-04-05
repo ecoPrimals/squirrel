@@ -7,7 +7,6 @@
 //! Provides a mock transport implementation for testing MCP client
 //! without requiring actual network connections.
 
-use async_trait::async_trait;
 use squirrel_mcp::error::Result;
 use squirrel_mcp::transport::Transport;
 use std::sync::Arc;
@@ -64,7 +63,6 @@ impl Default for MockTransport {
     }
 }
 
-#[async_trait]
 impl Transport for MockTransport {
     async fn send(&self, data: Vec<u8>) -> Result<()> {
         let connected = self.connected.lock().await;

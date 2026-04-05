@@ -13,7 +13,6 @@ use crate::shutdown::{ShutdownHandler, ShutdownPhase};
 
 use super::core::ResourceManager;
 
-#[async_trait::async_trait]
 impl ShutdownHandler for ResourceManager {
     fn component_name(&self) -> &'static str {
         "resource_manager"

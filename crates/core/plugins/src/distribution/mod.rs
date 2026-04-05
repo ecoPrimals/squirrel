@@ -8,7 +8,6 @@
 use std::fmt::Debug;
 use std::path::Path;
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
@@ -104,7 +103,7 @@ pub struct RepositoryAuthentication {
 }
 
 /// Plugin distribution trait
-#[async_trait]
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
 pub trait PluginDistribution: Send + Sync + Debug {
     /// List available plugins
     async fn list_available_plugins(&self) -> Result<Vec<PluginPackage>>;
@@ -174,7 +173,6 @@ impl DefaultPluginDistribution {
     }
 }
 
-#[async_trait]
 impl PluginDistribution for DefaultPluginDistribution {
     async fn list_available_plugins(&self) -> Result<Vec<PluginPackage>> {
         // Basic implementation

@@ -27,5 +27,7 @@ pub use mdns::MdnsDiscovery;
     reason = "backward compat: RegistryDiscovery/RegistryType for legacy consumers"
 )]
 pub use registry::{RegistryDiscovery, RegistryType};
-pub use registry_trait::{ServiceRegistryProvider, auto_detect_registry};
+pub use registry_trait::{
+    ServiceRegistryProvider, UnavailableServiceRegistry, auto_detect_registry,
+};
 pub use socket_registry::{SocketRegistryDiscovery, discover_from_socket_registry};

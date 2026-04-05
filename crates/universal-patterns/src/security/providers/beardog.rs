@@ -3,7 +3,6 @@
 
 //! Beardog-backed universal security provider and integration helpers.
 
-use async_trait::async_trait;
 use chrono::Utc;
 use std::collections::HashMap;
 use universal_constants::primal_names;
@@ -47,7 +46,6 @@ impl BeardogSecurityProvider {
     }
 }
 
-#[async_trait]
 impl UniversalSecurityService for BeardogSecurityProvider {
     fn get_capabilities(&self) -> Vec<SecurityCapability> {
         vec![
@@ -151,7 +149,6 @@ impl BeardogIntegration {
 }
 
 // Implement the traits::UniversalSecurityProvider for BeardogSecurityProvider
-#[async_trait]
 impl crate::security::traits::UniversalSecurityProvider for BeardogSecurityProvider {
     async fn authenticate(
         &self,

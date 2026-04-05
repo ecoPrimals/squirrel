@@ -6,7 +6,6 @@
 //! This module provides the main client interface for accessing security
 //! services with automatic fallback capabilities.
 
-use async_trait::async_trait;
 use std::sync::Arc;
 
 use universal_constants::primal_names;
@@ -16,7 +15,9 @@ use crate::traits::{AuthResult, Credentials, Principal};
 
 use super::context::{SecurityContext, SecurityHealth};
 use super::errors::SecurityError;
-use super::providers::{BeardogSecurityProvider, LocalSecurityProvider};
+use super::providers::{
+    BeardogSecurityProvider, LocalSecurityProvider, UniversalSecurityProviderBox,
+};
 use super::traits::UniversalSecurityProvider;
 
 /// Universal security client for all primals
@@ -49,9 +50,9 @@ use super::traits::UniversalSecurityProvider;
 /// ```
 pub struct UniversalSecurityClient {
     /// Primary security provider (usually Beardog)
-    primary: Arc<dyn UniversalSecurityProvider>,
+    primary: Arc<UniversalSecurityProviderBox>,
     /// Fallback security provider (usually local)
-    fallback: Option<Arc<dyn UniversalSecurityProvider>>,
+    fallback: Option<Arc<UniversalSecurityProviderBox>>,
     /// Security configuration
     config: SecurityConfig,
 }
@@ -98,7 +99,9 @@ impl UniversalSecurityClient {
 
         // Create primary Beardog provider
         let primary_provider = BeardogSecurityProvider::new(service_config.clone()).await?;
-        let primary = Arc::new(primary_provider) as Arc<dyn UniversalSecurityProvider>;
+        let primary = Arc::new(UniversalSecurityProviderBox::Beardog(Arc::new(
+            primary_provider,
+        )));
 
         // Create fallback provider if enabled
         let fallback = if config.fallback.enable_local_fallback {
@@ -110,7 +113,9 @@ impl UniversalSecurityClient {
                 auth_config: None,
             };
             let fallback_provider = LocalSecurityProvider::new(local_service_config).await?;
-            Some(Arc::new(fallback_provider) as Arc<dyn UniversalSecurityProvider>)
+            Some(Arc::new(UniversalSecurityProviderBox::Local(Arc::new(
+                fallback_provider,
+            ))))
         } else {
             None
         };
@@ -137,8 +142,8 @@ impl UniversalSecurityClient {
     ///
     /// Returns a new `UniversalSecurityClient` instance.
     pub fn with_providers(
-        primary: Arc<dyn UniversalSecurityProvider>,
-        fallback: Option<Arc<dyn UniversalSecurityProvider>>,
+        primary: Arc<UniversalSecurityProviderBox>,
+        fallback: Option<Arc<UniversalSecurityProviderBox>>,
         config: SecurityConfig,
     ) -> Self {
         Self {
@@ -157,7 +162,7 @@ impl UniversalSecurityClient {
     /// # Returns
     ///
     /// Returns the security provider to use.
-    async fn get_provider(&self) -> Arc<dyn UniversalSecurityProvider> {
+    async fn get_provider(&self) -> Arc<UniversalSecurityProviderBox> {
         // Check if primary is healthy (with configurable timeout)
         let health_check_result = tokio::time::timeout(
             std::time::Duration::from_secs(self.config.fallback.fallback_timeout),
@@ -256,7 +261,6 @@ impl UniversalSecurityClient {
     }
 }
 
-#[async_trait]
 impl UniversalSecurityProvider for UniversalSecurityClient {
     /// Authenticate credentials
     ///
@@ -447,11 +451,10 @@ mod tests {
             auth_config: None,
         };
 
-        let primary = Arc::new(
-            LocalSecurityProvider::new(service_config)
-                .await
-                .expect("Failed to create local security provider for test"),
-        );
+        let local = LocalSecurityProvider::new(service_config)
+            .await
+            .expect("Failed to create local security provider for test");
+        let primary = Arc::new(UniversalSecurityProviderBox::Local(Arc::new(local)));
         let client = UniversalSecurityClient::with_providers(primary, None, config);
 
         assert!(!client.is_fallback_enabled());

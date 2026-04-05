@@ -7,7 +7,6 @@
 
 use std::fmt::Debug;
 use anyhow::Result;
-use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::plugin::Plugin;
@@ -32,8 +31,8 @@ pub struct TestScenario {
 }
 
 /// Test plugin trait
-#[async_trait]
-pub trait TestUtilsPlugin: Plugin {
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
+pub trait TestUtilsPlugin: Plugin + Send + Sync {
     /// Get available test scenarios
     fn get_test_scenarios(&self) -> Vec<TestScenario>;
     

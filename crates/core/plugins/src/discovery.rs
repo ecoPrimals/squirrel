@@ -108,14 +108,17 @@ impl PluginManifest {
 }
 
 /// Plugin loader trait for loading plugins
-#[async_trait]
+#[allow(async_fn_in_trait)]
 pub trait PluginLoader: Send + Sync {
     /// Load a plugin from a manifest
     async fn load_plugin(&self, manifest: &PluginManifest, path: &Path) -> Result<Arc<dyn Plugin>>;
 }
 
 /// Plugin discovery trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait PluginDiscovery: Send + Sync {
     /// Discover plugins in a directory
     async fn discover_plugins(&self, directory: &Path) -> Result<Vec<Arc<dyn Plugin>>>;
@@ -136,7 +139,6 @@ impl<L: PluginLoader> FilePluginDiscovery<L> {
     }
 }
 
-#[async_trait]
 impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
     /// Discover plugins in a directory
     async fn discover_plugins(&self, directory: &Path) -> Result<Vec<Arc<dyn Plugin>>> {
@@ -238,7 +240,6 @@ pub struct DefaultPluginDiscovery {
     pub author: String,
 }
 
-#[async_trait]
 impl PluginDiscovery for DefaultPluginDiscovery {
     /// Discover plugins in a directory
     async fn discover_plugins(&self, directory: &Path) -> Result<Vec<Arc<dyn Plugin>>> {
@@ -300,7 +301,6 @@ impl DefaultPluginDiscovery {
 #[derive(Debug, Copy, Clone)]
 pub struct DefaultPluginLoader;
 
-#[async_trait]
 impl PluginLoader for DefaultPluginLoader {
     /// Load a plugin from a manifest
     async fn load_plugin(

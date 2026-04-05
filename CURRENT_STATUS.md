@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: April 5, 2026
-**Version**: 0.1.0-alpha.39
+**Version**: 0.1.0-alpha.40
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -272,9 +272,34 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs); coverage gap to 90% remains as in item 1
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 4. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
-5. `async-trait` — 205 annotations remaining (down from 228); 10 trait definitions + 13 impl blocks migrated to native Rust 2024 `async fn` in trait; remaining usage is Tier 3 traits deeply embedded in `dyn` dispatch — will be progressively removed alongside `dyn`-to-generics refactoring
+5. `async-trait` — 168 annotations remaining (down from 228); 37 trait definitions + numerous impl blocks migrated to native Rust 2024 `async fn` in trait; low-dyn traits converted to generics/enum dispatch; remaining usage is Tier 3 traits deeply embedded in `dyn` dispatch — will be progressively removed alongside `dyn`-to-generics refactoring
 
 ## Changes Since Last Handoff (April 5, 2026)
+
+### April 5, 2026 session L (deep async-trait migration wave 2 + dyn-to-generics evolution)
+
+- **async-trait annotations reduced from 205 → 168** (37 more removed): 26 zero-dyn traits migrated to native async; 5 low-dyn traits converted via dyn→generics/enum dispatch
+- **Zero-dyn wave 2** (26 trait defs + impl blocks):
+  - `core/core`: `PrimalCoordinator`, `McpRouter`, `SwarmManager`, `ServiceMeshLoadBalancerIntegration`, `EnhancedMcpRouter`
+  - `core/mcp`: `Transport` (+ 3 impls: SimpleTransport, WebSocketTransport, MockTransport)
+  - `core/plugins`: `AppPlugin`, `CliPlugin`, `PluginLoader`, `PluginDiscovery`, `PluginDistribution`, `MonitoringPlugin`, `WebPluginExt`, `TestUtilsPlugin`, `ToolPlugin`, `PluginManagerTrait`, `LegacyWebPluginTrait`
+  - `universal-patterns/federation`: `FederationNetwork`, `ConsensusManager`, `SovereignDataManager`, `CrossPlatformExecutor`, `UniversalExecutor`
+  - `universal-patterns/security`: `ZeroCopySecurityProvider`
+  - `main/monitoring`: `MetricsExporter` (converted to enum dispatch)
+  - `main/tests/chaos`: `ChaosScenario` (+ 6 test impls)
+  - `tools/rule-system`: `FileWatcher`
+- **dyn→generics evolution** (5 traits with 1-3 dyn usages):
+  - `MetricsExporter` → `MetricsExporterHandle` enum dispatch (Prometheus + JSON variants)
+  - `ShutdownHandler` → `RegisteredShutdownHandler` enum dispatch
+  - `IpcHttpDelegate` → generic `IpcRoutedVendorClient<D: IpcHttpDelegate>` with RPITIT `+ Send` bounds
+  - `SecurityProvider` + `UniversalSecurityProvider` + `UniversalSecurityService` → `UniversalSecurityProviderBox` enum + blanket impls; `UniversalSecurityClient` no longer uses `dyn`
+  - `ComputeProvider` → `ComputeProviderImpl` enum dispatch
+  - `ServiceRegistryProvider` → `UnavailableServiceRegistry` concrete type
+- **Dependency hygiene**: `async-trait` moved from `[dependencies]` to `[dev-dependencies]` for `squirrel-context-adapter` and `squirrel-integration` (test-only usage)
+- **Clippy fixes**: Elidable lifetimes in `ZeroCopySecurityProvider`, `unnecessary_literal_bound` in `UnavailableServiceRegistry`, `use_self` in `IpcRoutedVendorClient`
+- **Doc examples updated**: `security/traits.rs` doc examples removed `#[async_trait]` + `use async_trait::async_trait`
+- **`LegacyWebPluginTrait`**: Methods use RPITIT (`fn handle_request() -> impl Future<Output = ...> + Send`) for `Send` guarantee
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓ (default + `--all-features --all-targets`), `doc` ✓, `deny` ✓
 
 ### April 5, 2026 session K (async-trait → native Rust 2024 async fn in trait migration)
 

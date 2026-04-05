@@ -307,7 +307,6 @@ impl PluginRegistry for DefaultPluginManager {
     }
 }
 
-#[async_trait]
 impl PluginManagerTrait for DefaultPluginManager {
     async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
         PluginRegistry::get_plugin(self, id).await

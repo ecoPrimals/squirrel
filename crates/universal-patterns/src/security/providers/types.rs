@@ -3,7 +3,6 @@
 
 //! Core security capability types, requests/responses, and the universal service trait.
 
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -154,9 +153,6 @@ pub enum SecurityCapability {
     },
 }
 
-/// Universal security service trait
-/// Any security service (regardless of name) can implement this
-#[async_trait]
 /// Universal security service trait for capability-based security
 ///
 /// This trait defines the interface for security services that can be
@@ -180,7 +176,7 @@ pub trait UniversalSecurityService: Send + Sync {
     /// Initialize the security service
     #[cfg_attr(
         not(test),
-        expect(
+        allow(
             dead_code,
             reason = "Implemented by concrete security service adapters"
         )

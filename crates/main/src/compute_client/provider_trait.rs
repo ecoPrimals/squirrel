@@ -33,7 +33,6 @@
 //! - Toadstool (ecoPrimals compute primal)
 
 use crate::compute_client::types::{ComputeCapabilityType, ResourceRequirements};
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -140,7 +139,10 @@ pub struct WorkloadExecutionResult {
 /// 2. Gracefully handle resource constraints
 /// 3. Provide health and capability reporting
 /// 4. Support heterogeneous workload types
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "Native async compute surface; use `ComputeProviderImpl` enum instead of dyn"
+)]
 pub trait ComputeProvider: Send + Sync {
     /// Provider name (for logging/debugging)
     ///
@@ -228,7 +230,7 @@ pub trait ComputeProvider: Send + Sync {
 /// let compute = auto_detect_compute_provider().await?;
 /// println!("Using compute: {}", compute.provider_name());
 /// ```
-pub async fn auto_detect_compute_provider() -> ComputeResult<Box<dyn ComputeProvider>> {
+pub async fn auto_detect_compute_provider() -> ComputeResult<Box<ComputeProviderImpl>> {
     use tracing::{debug, info};
 
     // 1. Explicit provider type from environment
@@ -253,9 +255,11 @@ pub async fn auto_detect_compute_provider() -> ComputeResult<Box<dyn ComputeProv
 /// Returns a [`LocalProcessProvider`] for local dev/test execution.
 /// All other provider types are delegated via `compute.execute` capability
 /// discovery — Squirrel never embeds vendor-specific orchestrators.
-async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<dyn ComputeProvider>> {
+async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<ComputeProviderImpl>> {
     match provider_type.to_lowercase().as_str() {
-        "local" => Ok(Box::new(LocalProcessProvider::new())),
+        "local" => Ok(Box::new(ComputeProviderImpl::Local(
+            LocalProcessProvider::new(),
+        ))),
         other => {
             tracing::info!(
                 provider = other,
@@ -269,13 +273,75 @@ async fn create_compute_from_type(provider_type: &str) -> ComputeResult<Box<dyn 
     }
 }
 
+/// Embedded compute backends (enum dispatch instead of `dyn ComputeProvider`).
+pub enum ComputeProviderImpl {
+    /// Local in-process stub used for development.
+    Local(LocalProcessProvider),
+}
+
+impl ComputeProvider for ComputeProviderImpl {
+    fn provider_name(&self) -> &str {
+        match self {
+            Self::Local(p) => p.provider_name(),
+        }
+    }
+
+    async fn get_capabilities(&self) -> ComputeResult<Vec<ComputeCapabilityType>> {
+        match self {
+            Self::Local(p) => p.get_capabilities().await,
+        }
+    }
+
+    async fn execute_workload(&self, spec: WorkloadExecutionSpec) -> ComputeResult<Uuid> {
+        match self {
+            Self::Local(p) => p.execute_workload(spec).await,
+        }
+    }
+
+    async fn get_workload_status(&self, id: Uuid) -> ComputeResult<WorkloadExecutionResult> {
+        match self {
+            Self::Local(p) => p.get_workload_status(id).await,
+        }
+    }
+
+    async fn cancel_workload(&self, id: Uuid) -> ComputeResult<()> {
+        match self {
+            Self::Local(p) => p.cancel_workload(id).await,
+        }
+    }
+
+    async fn list_workloads(&self) -> ComputeResult<Vec<WorkloadExecutionResult>> {
+        match self {
+            Self::Local(p) => p.list_workloads().await,
+        }
+    }
+
+    async fn health_check(&self) -> bool {
+        match self {
+            Self::Local(p) => p.health_check().await,
+        }
+    }
+
+    fn metadata(&self) -> HashMap<String, String> {
+        match self {
+            Self::Local(p) => p.metadata(),
+        }
+    }
+
+    async fn get_available_resources(&self) -> ComputeResult<ResourceRequirements> {
+        match self {
+            Self::Local(p) => p.get_available_resources().await,
+        }
+    }
+}
+
 /// Minimal local-process compute provider for development and testing.
 ///
 /// In production, compute workloads are delegated to the compute primal
 /// (e.g. ToadStool) via `compute.execute` capability discovery. This
 /// provider exists so that `auto_detect_compute_provider` always has a
 /// usable fallback during local development.
-struct LocalProcessProvider {
+pub struct LocalProcessProvider {
     workloads: std::sync::Mutex<HashMap<Uuid, WorkloadExecutionResult>>,
 }
 
@@ -287,7 +353,6 @@ impl LocalProcessProvider {
     }
 }
 
-#[async_trait]
 impl ComputeProvider for LocalProcessProvider {
     fn provider_name(&self) -> &'static str {
         "local"
@@ -368,7 +433,6 @@ mod tests {
         name: String,
     }
 
-    #[async_trait]
     impl ComputeProvider for MockComputeProvider {
         fn provider_name(&self) -> &str {
             &self.name

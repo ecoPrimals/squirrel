@@ -400,7 +400,6 @@ impl SecurityOrchestrator {
     }
 }
 
-#[async_trait::async_trait]
 impl ShutdownHandler for SecurityOrchestrator {
     fn component_name(&self) -> &'static str {
         "security_orchestrator"

@@ -21,19 +21,27 @@ use crate::web::{
 };
 
 /// Define the legacy web plugin trait
-#[async_trait]
 pub trait LegacyWebPluginTrait: Plugin + Send + Sync {
     /// Get the legacy endpoints
     fn get_endpoints(&self) -> Vec<crate::plugin::WebEndpoint>;
 
-    /// Handle a legacy request
-    async fn handle_request(&self, path: &str, method: &str, body: Value) -> Result<Value>;
+    /// Handle a legacy request (`impl Future + Send` so adapters can await under `dyn WebPlugin`).
+    fn handle_request(
+        &self,
+        path: &str,
+        method: &str,
+        body: Value,
+    ) -> impl std::future::Future<Output = Result<Value>> + Send;
 
     /// Get the legacy components
     fn get_components(&self) -> Vec<LegacyWebComponent>;
 
     /// Get the markup for a legacy component
-    async fn get_component_markup(&self, component_id: &str, props: Value) -> Result<String>;
+    fn get_component_markup(
+        &self,
+        component_id: &str,
+        props: Value,
+    ) -> impl std::future::Future<Output = Result<String>> + Send;
 }
 
 /// Adapter for legacy web plugins
@@ -423,7 +431,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl LegacyWebPluginTrait for StubLegacy {
         fn get_endpoints(&self) -> Vec<LegacyEndpoint> {
             vec![
@@ -508,7 +515,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl LegacyWebPluginTrait for FailingLegacy {
         fn get_endpoints(&self) -> Vec<LegacyEndpoint> {
             vec![]

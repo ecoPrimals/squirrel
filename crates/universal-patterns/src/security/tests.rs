@@ -605,10 +605,13 @@ mod tests {
         config.fallback.enable_local_fallback = false;
         let service_config = to_service_config(&config);
 
+        let local = LocalSecurityProvider::new(service_config)
+            .await
+            .expect("Failed to create LocalSecurityProvider");
         let primary = std::sync::Arc::new(
-            LocalSecurityProvider::new(service_config)
-                .await
-                .expect("Failed to create LocalSecurityProvider"),
+            crate::security::providers::UniversalSecurityProviderBox::Local(std::sync::Arc::new(
+                local,
+            )),
         );
         let client = UniversalSecurityClient::with_providers(primary, None, config);
 

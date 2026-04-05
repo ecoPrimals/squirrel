@@ -15,12 +15,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::super::errors::SecurityError;
+use super::boxed::UniversalSecurityServiceBox;
 use super::types::{SecurityCapability, UniversalSecurityService};
 
 /// Universal security service registry
 /// Services register themselves with their capabilities here
 pub struct UniversalSecurityRegistry {
-    services: HashMap<String, Arc<dyn UniversalSecurityService>>,
+    services: HashMap<String, Arc<UniversalSecurityServiceBox>>,
     capabilities_index: HashMap<SecurityCapability, Vec<String>>,
 }
 
@@ -37,7 +38,7 @@ impl UniversalSecurityRegistry {
     pub async fn register_service(
         &mut self,
         service_id: String,
-        service: Arc<dyn UniversalSecurityService>,
+        service: Arc<UniversalSecurityServiceBox>,
     ) -> Result<(), SecurityError> {
         // Get service capabilities and index them
         let capabilities = service.get_capabilities();
@@ -97,7 +98,7 @@ impl UniversalSecurityRegistry {
     }
 
     /// Get service by ID
-    pub fn get_service(&self, service_id: &str) -> Option<Arc<dyn UniversalSecurityService>> {
+    pub fn get_service(&self, service_id: &str) -> Option<Arc<UniversalSecurityServiceBox>> {
         self.services.get(service_id).cloned()
     }
 
@@ -168,7 +169,7 @@ pub fn capabilities_match(required: &SecurityCapability, provided: &SecurityCapa
 /// This shows how a specific security service (like BearDog) would register
 pub async fn register_security_service(
     registry: &mut UniversalSecurityRegistry,
-    service: Arc<dyn UniversalSecurityService>,
+    service: Arc<UniversalSecurityServiceBox>,
 ) -> Result<(), SecurityError> {
     let info = service.get_service_info();
     registry.register_service(info.service_id, service).await

@@ -5,8 +5,6 @@
 //!
 //! This module defines the core traits that all security providers must implement.
 
-use async_trait::async_trait;
-
 use crate::traits::{AuthResult, Credentials, Principal};
 
 use super::context::{SecurityContext, SecurityHealth};
@@ -20,13 +18,11 @@ use super::errors::SecurityError;
 /// # Examples
 ///
 /// ```rust,no_run
-/// use async_trait::async_trait;
 /// use universal_patterns::security::{SecurityError, SecurityProvider};
 /// use universal_patterns::traits::{AuthResult, Credentials, Principal};
 ///
 /// struct MySecurityProvider;
 ///
-/// #[async_trait]
 /// impl SecurityProvider for MySecurityProvider {
 ///     async fn authenticate(
 ///         &self,
@@ -61,7 +57,10 @@ use super::errors::SecurityError;
 ///     }
 /// }
 /// ```
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "Native async security surface; use blanket impl from UniversalSecurityProvider or static dispatch"
+)]
 pub trait SecurityProvider: Send + Sync {
     /// Authenticate credentials
     ///
@@ -163,7 +162,6 @@ pub trait SecurityProvider: Send + Sync {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use async_trait::async_trait;
 /// use universal_patterns::security::{
 ///     SecurityContext, SecurityError, SecurityHealth, UniversalSecurityProvider,
 /// };
@@ -171,7 +169,6 @@ pub trait SecurityProvider: Send + Sync {
 ///
 /// struct MyUniversalProvider;
 ///
-/// #[async_trait]
 /// impl UniversalSecurityProvider for MyUniversalProvider {
 ///     async fn authenticate(
 ///         &self,
@@ -214,7 +211,10 @@ pub trait SecurityProvider: Send + Sync {
 ///     }
 /// }
 /// ```
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "Native async; runtime dispatch uses UniversalSecurityProviderBox in client"
+)]
 pub trait UniversalSecurityProvider: Send + Sync {
     /// Authenticate credentials
     ///
@@ -335,7 +335,6 @@ pub trait UniversalSecurityProvider: Send + Sync {
 }
 
 /// Blanket implementation to convert UniversalSecurityProvider to SecurityProvider
-#[async_trait]
 impl<T> SecurityProvider for T
 where
     T: UniversalSecurityProvider + ?Sized,
@@ -381,7 +380,6 @@ mod tests {
     /// Test implementation of UniversalSecurityProvider
     struct TestSecurityProvider;
 
-    #[async_trait]
     impl UniversalSecurityProvider for TestSecurityProvider {
         async fn authenticate(
             &self,
@@ -597,12 +595,12 @@ mod tests {
     async fn test_blanket_impl_security_provider() {
         // Test that UniversalSecurityProvider automatically implements SecurityProvider
         let provider = TestSecurityProvider;
-        let provider_ref: &dyn SecurityProvider = &provider;
 
         let data = b"test data";
-        let encrypted = provider_ref.encrypt(data).await.expect("should succeed");
-        let decrypted = provider_ref
-            .decrypt(&encrypted)
+        let encrypted = SecurityProvider::encrypt(&provider, data)
+            .await
+            .expect("should succeed");
+        let decrypted = SecurityProvider::decrypt(&provider, &encrypted)
             .await
             .expect("should succeed");
         assert_eq!(decrypted, data);

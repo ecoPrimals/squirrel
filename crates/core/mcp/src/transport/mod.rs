@@ -20,10 +20,12 @@ pub use websocket::WebSocketTransport;
 // Simplified transport trait
 use crate::error::Result;
 use crate::protocol::MCPMessage;
-use async_trait::async_trait;
 
 /// Trait for MCP message transport implementations
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait Transport: Send + Sync {
     /// Sends an MCP message over the transport
     async fn send_message(&self, message: MCPMessage) -> Result<()>;
@@ -44,7 +46,6 @@ pub trait Transport: Send + Sync {
 /// Simple transport implementation for testing (no-op operations)
 pub struct SimpleTransport;
 
-#[async_trait]
 impl Transport for SimpleTransport {
     async fn send_message(&self, _message: MCPMessage) -> Result<()> {
         Ok(())

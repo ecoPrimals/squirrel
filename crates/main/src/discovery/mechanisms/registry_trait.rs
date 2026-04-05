@@ -34,7 +34,6 @@
 //! - File-based (for testing)
 
 use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
-use async_trait::async_trait;
 use std::collections::HashMap;
 
 /// Agnostic Service Registry Provider
@@ -49,7 +48,10 @@ use std::collections::HashMap;
 /// 2. Gracefully handle missing services
 /// 3. Provide health checking
 /// 4. Support capability-based queries
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "Native async registry surface; use `UnavailableServiceRegistry` placeholder instead of dyn"
+)]
 pub trait ServiceRegistryProvider: Send + Sync {
     /// Provider name (for logging/debugging)
     ///
@@ -130,7 +132,7 @@ pub trait ServiceRegistryProvider: Send + Sync {
 /// let registry = auto_detect_registry().await?;
 /// println!("Using registry: {}", registry.provider_name());
 /// ```
-pub async fn auto_detect_registry() -> DiscoveryResult<Box<dyn ServiceRegistryProvider>> {
+pub async fn auto_detect_registry() -> DiscoveryResult<Box<UnavailableServiceRegistry>> {
     use tracing::{debug, info};
 
     // 1. Check environment variable
@@ -159,7 +161,7 @@ pub async fn auto_detect_registry() -> DiscoveryResult<Box<dyn ServiceRegistryPr
 /// Create registry provider from type string
 async fn create_registry_from_type(
     registry_type: &str,
-) -> DiscoveryResult<Box<dyn ServiceRegistryProvider>> {
+) -> DiscoveryResult<Box<UnavailableServiceRegistry>> {
     match registry_type.to_lowercase().as_str() {
         "kubernetes" | "k8s" => {
             // TRUE PRIMAL PRINCIPLE: No hardcoded external service integrations
@@ -197,6 +199,38 @@ async fn create_registry_from_type(
     }
 }
 
+/// Placeholder registry implementation (vendor backends are discovered at runtime; see infant primal pattern).
+pub struct UnavailableServiceRegistry;
+
+impl ServiceRegistryProvider for UnavailableServiceRegistry {
+    fn provider_name(&self) -> &'static str {
+        "unavailable"
+    }
+
+    async fn discover_by_capability(
+        &self,
+        _capability: &str,
+    ) -> DiscoveryResult<Vec<DiscoveredService>> {
+        Ok(vec![])
+    }
+
+    async fn discover_all(&self) -> DiscoveryResult<Vec<DiscoveredService>> {
+        Ok(vec![])
+    }
+
+    async fn register_service(&self, _service: DiscoveredService) -> DiscoveryResult<()> {
+        Ok(())
+    }
+
+    async fn deregister_service(&self, _service_id: &str) -> DiscoveryResult<()> {
+        Ok(())
+    }
+
+    async fn health_check(&self) -> bool {
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,7 +241,6 @@ mod tests {
         services: Vec<DiscoveredService>,
     }
 
-    #[async_trait]
     impl ServiceRegistryProvider for MockRegistryProvider {
         fn provider_name(&self) -> &str {
             &self.name

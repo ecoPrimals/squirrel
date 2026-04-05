@@ -11,7 +11,6 @@ use crate::{
 };
 use crate::ecosystem::EcosystemService;
 
-#[async_trait::async_trait]
 impl PrimalCoordinator for EcosystemService {
     async fn register_with_ecosystem(&self) -> Result<()> {
         self.config

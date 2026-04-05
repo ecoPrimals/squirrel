@@ -10,6 +10,7 @@
 //! security services should provide and how they integrate universally.
 
 mod beardog;
+mod boxed;
 mod local;
 mod registry;
 mod types;
@@ -19,6 +20,7 @@ mod types;
 mod tests;
 
 pub use beardog::{BeardogIntegration, BeardogSecurityProvider};
+pub use boxed::UniversalSecurityProviderBox;
 pub use local::LocalSecurityProvider;
 // Used by `providers/tests.rs` and external callers; not referenced from non-test lib code.
 #[cfg_attr(

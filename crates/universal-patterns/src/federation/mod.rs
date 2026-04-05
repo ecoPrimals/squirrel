@@ -14,7 +14,6 @@
 //! - **True Federation**: Multi-node coordination with consensus mechanisms
 //! - **Cross-Platform**: Seamless operation across diverse environments
 
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -269,7 +268,10 @@ pub enum NodeStatus {
 }
 
 /// Federation network trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait FederationNetwork: Send + Sync {
     /// Join the federation network
     async fn join(&self, node: FederationNode) -> FederationResult<()>;
@@ -306,7 +308,10 @@ pub struct NetworkStatus {
 }
 
 /// Consensus mechanism trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait ConsensusManager: Send + Sync {
     /// Propose a new value for consensus
     async fn propose(&self, value: Vec<u8>) -> FederationResult<ConsensusResult>;
@@ -394,7 +399,10 @@ pub struct ParticipationStats {
 }
 
 /// Sovereign data management trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait SovereignDataManager: Send + Sync {
     /// Store data with sovereignty metadata
     async fn store_data(&self, data: SovereignData) -> FederationResult<DataId>;
@@ -465,7 +473,10 @@ pub struct EncryptionMetadata {
 }
 
 /// Cross-platform executor trait
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait CrossPlatformExecutor: Send + Sync {
     /// Execute code on a remote platform
     async fn execute_remote(

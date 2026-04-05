@@ -153,8 +153,11 @@ impl From<reqwest::Error> for Error {
 }
 
 /// Trait for coordinating tasks across primal ecosystem.
-#[async_trait::async_trait]
-pub trait PrimalCoordinator {
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
+pub trait PrimalCoordinator: Send + Sync {
     /// Registers this node with the ecosystem.
     async fn register_with_ecosystem(&self) -> Result<()>;
     /// Discovers available primals in the ecosystem.
@@ -166,9 +169,12 @@ pub trait PrimalCoordinator {
 }
 
 #[cfg(feature = "mesh")]
-#[async_trait::async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 /// Routes MCP tasks and coordinates agents and capacity within the mesh.
-pub trait McpRouter {
+pub trait McpRouter: Send + Sync {
     /// Routes a single MCP task to an appropriate handler or primal.
     async fn route_task(&self, task: McpTask) -> Result<TaskResponse>;
     /// Registers and coordinates the given agents for multi-agent work.
@@ -178,9 +184,12 @@ pub trait McpRouter {
 }
 
 #[cfg(feature = "mesh")]
-#[async_trait::async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 /// Spawns instances, joins federation nodes, and rebalances load across the swarm.
-pub trait SwarmManager {
+pub trait SwarmManager: Send + Sync {
     /// Creates a new Squirrel instance from the supplied configuration.
     async fn spawn_squirrel(&self, config: SquirrelConfig) -> Result<SquirrelInstance>;
     /// Adds the given nodes to the federation and returns aggregate results.
@@ -211,9 +220,12 @@ pub type SongbirdLoadBalancerConfig = types::ServiceMeshLoadBalancerConfig;
 
 // Service Mesh Load Balancer Integration Trait (Capability-Based)
 #[cfg(feature = "mesh")]
-#[async_trait::async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 /// Integrates Squirrel with an external service mesh for registration, routing, and scaling signals.
-pub trait ServiceMeshLoadBalancerIntegration {
+pub trait ServiceMeshLoadBalancerIntegration: Send + Sync {
     /// Register Squirrel MCP with service mesh load balancer
     async fn register_with_service_mesh(
         &self,
@@ -244,7 +256,10 @@ pub trait SongbirdLoadBalancerIntegration: ServiceMeshLoadBalancerIntegration {}
 
 // Enhanced MCP Router with Service Mesh Integration
 #[cfg(feature = "mesh")]
-#[async_trait::async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 /// Combines mesh routing with service mesh registration, stats, and cross-primal coordination.
 pub trait EnhancedMcpRouter: McpRouter + ServiceMeshLoadBalancerIntegration {
     /// Route task with service mesh coordination

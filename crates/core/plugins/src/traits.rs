@@ -9,13 +9,15 @@ use crate::Plugin;
 use crate::errors::Result;
 use crate::registry::PluginRegistry;
 use crate::types::PluginStatus;
-use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 
 /// Plugin manager trait
-#[async_trait]
-pub trait PluginManagerTrait: PluginRegistry {
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
+pub trait PluginManagerTrait: PluginRegistry + Send + Sync {
     /// Get a plugin by ID
     async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>>;
 
