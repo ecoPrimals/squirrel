@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 use std::time::Duration;
-use async_trait::async_trait;
+
 use serde::{Deserialize, Serialize};
 use url::Url;
 use uuid::Uuid;
@@ -46,7 +46,7 @@ pub enum OrchestrationError {
 }
 
 /// Orchestration provider trait
-#[async_trait]
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
 pub trait OrchestrationProvider: Send + Sync {
     /// Register a primal with the orchestration system
     async fn register_primal(&self, primal_info: &PrimalInfo) -> Result<(), OrchestrationError>;
@@ -429,7 +429,6 @@ impl ServiceMeshIntegration {
     }
 }
 
-#[async_trait]
 impl OrchestrationProvider for ServiceMeshIntegration {
     async fn register_primal(&self, primal_info: &PrimalInfo) -> Result<(), OrchestrationError> {
         let url = self.endpoint.join("/primals/register")
@@ -652,7 +651,6 @@ impl MockOrchestrationProvider {
     }
 }
 
-#[async_trait]
 #[cfg(test)]
 impl OrchestrationProvider for MockOrchestrationProvider {
     async fn register_primal(&self, _primal_info: &PrimalInfo) -> Result<(), OrchestrationError> {

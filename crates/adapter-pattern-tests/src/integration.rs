@@ -86,7 +86,10 @@ impl CommandAdapter for PluginAdapter {
 }
 
 /// `MockAdapter` trait for testing and example purposes
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait MockAdapter: Send + Sync {
     /// Execute a command with given arguments
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String>;
@@ -98,7 +101,6 @@ pub trait MockAdapter: Send + Sync {
     async fn list_commands(&self) -> CommandResult<Vec<String>>;
 }
 
-#[async_trait]
 impl MockAdapter for RegistryAdapter {
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
         self.execute(command, args)
@@ -113,7 +115,6 @@ impl MockAdapter for RegistryAdapter {
     }
 }
 
-#[async_trait]
 impl MockAdapter for crate::auth::McpAdapter {
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
         CommandAdapter::execute(self, command, args).await
@@ -128,7 +129,6 @@ impl MockAdapter for crate::auth::McpAdapter {
     }
 }
 
-#[async_trait]
 impl MockAdapter for PluginAdapter {
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
         CommandAdapter::execute(self, command, args).await

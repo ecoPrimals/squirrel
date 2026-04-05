@@ -101,7 +101,10 @@ pub trait ContextAdapterPlugin: Plugin + Send + Sync + Debug {
 /// Context manager trait
 ///
 /// This trait defines the interface for context management.
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait ContextManager: Send + Sync {
     /// Initialize the context manager
     async fn initialize(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;

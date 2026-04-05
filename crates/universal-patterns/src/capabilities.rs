@@ -184,7 +184,6 @@
 //! - [`crate::security`] - Security hardening and RBAC integration
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 /// Type alias for capability errors
@@ -200,7 +199,7 @@ pub type CapabilityError = anyhow::Error;
 /// ```ignore,no_run
 /// use squirrel::capabilities::AuthenticationCapability;
 ///
-/// # async fn example(auth: &dyn AuthenticationCapability) -> Result<(), Box<dyn std::error::Error>> {
+/// # async fn example(auth: &impl AuthenticationCapability) -> Result<(), Box<dyn std::error::Error>> {
 /// // Authenticate user
 /// let token = auth.authenticate("user@example.com", "password").await?;
 ///
@@ -210,7 +209,7 @@ pub type CapabilityError = anyhow::Error;
 /// # Ok(())
 /// # }
 /// ```
-#[async_trait]
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
 pub trait AuthenticationCapability: Send + Sync {
     /// Authenticate credentials and return an access token
     ///
@@ -314,7 +313,7 @@ pub struct TokenClaims {
 /// # Ok(())
 /// # }
 /// ```
-#[async_trait]
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
 pub trait GpuInferenceCapability: Send + Sync {
     /// Load a model onto GPU(s)
     ///
@@ -433,7 +432,7 @@ pub struct GpuVramInfo {
 ///
 /// Provides service mesh coordination WITHOUT knowing which primal implements it.
 /// Could be Songbird, or any other mesh provider.
-#[async_trait]
+#[expect(async_fn_in_trait, reason = "internal trait — all impls are Send + Sync")]
 pub trait ServiceMeshCapability: Send + Sync {
     /// Register a service with the mesh
     ///
@@ -515,7 +514,6 @@ mod tests {
     // Mock implementation for testing
     struct MockAuthService;
 
-    #[async_trait]
     impl AuthenticationCapability for MockAuthService {
         async fn authenticate(
             &self,
@@ -545,7 +543,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_capability_trait() {
-        let auth: &dyn AuthenticationCapability = &MockAuthService;
+        let auth = MockAuthService;
         let token = auth.authenticate("user", "pass").await.expect("should succeed");
         assert_eq!(token, "mock-token");
 
@@ -555,7 +553,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_refresh_and_revoke() {
-        let auth: &dyn AuthenticationCapability = &MockAuthService;
+        let auth = MockAuthService;
         let refreshed = auth.refresh_token("old-token").await.expect("should succeed");
         assert_eq!(refreshed, "refreshed-token");
 

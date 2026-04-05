@@ -90,7 +90,10 @@ pub trait UniversalPrimalProvider: Send + Sync {
 /// This trait handles communication with the broader ecosystem through
 /// the service mesh. It provides standardized request/response
 /// handling and service lifecycle management.
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait EcosystemIntegration: Send + Sync {
     /// Register service with service mesh
     async fn register_with_service_mesh(&self) -> Result<String, EcosystemError>;

@@ -459,13 +459,12 @@ pub fn task_matches_capabilities(task: &AITask, capabilities: &AICapabilities) -
 }
 
 /// Helper trait for stream flattening
-#[async_trait]
+#[expect(async_fn_in_trait, reason = "single concrete impl — Send guaranteed")]
 pub trait TryFlattenStreamExt {
     /// Flattens a stream of results into a single result stream.
     async fn try_flatten_stream(self) -> Result<ChatResponseStream>;
 }
 
-#[async_trait]
 impl TryFlattenStreamExt
     for Pin<Box<dyn Stream<Item = Result<ChatResponseStream>> + Send + Unpin>>
 {

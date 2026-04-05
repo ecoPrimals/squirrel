@@ -6,7 +6,6 @@
 //! Coverage goal: 90%+
 //! Strategy: Test default implementations, trait behavior, error paths
 
-use async_trait::async_trait;
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -56,7 +55,6 @@ impl MockPrimal {
     }
 }
 
-#[async_trait]
 impl Primal for MockPrimal {
     fn info(&self) -> &PrimalInfo {
         &self.info

@@ -3,13 +3,14 @@
 
 //! AI provider trait and related request/response types.
 
-use async_trait::async_trait;
-
 /// AI provider trait for Squirrel AI primal
 ///
 /// This trait defines the interface for AI providers that can be registered
 /// with the Squirrel AI coordinator for dynamic model access.
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait AIProvider: Send + Sync {
     /// Get AI capabilities
     async fn get_capabilities(&self) -> Vec<AICapability>;

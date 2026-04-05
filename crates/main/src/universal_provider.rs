@@ -689,7 +689,6 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
     }
 }
 
-#[async_trait]
 impl EcosystemIntegration for UniversalSquirrelProvider {
     async fn register_with_service_mesh(&self) -> Result<String, EcosystemError> {
         let service_id = format!("{}-{}", self.primal_type().as_str(), self.instance_id);

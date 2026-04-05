@@ -3,7 +3,6 @@
 
 //! Core Primal trait definition.
 
-use async_trait::async_trait;
 use std::collections::HashMap;
 
 use crate::config::PrimalConfig;
@@ -11,7 +10,10 @@ use crate::config::PrimalConfig;
 use super::{HealthStatus, MetricValue, PrimalError, PrimalInfo, PrimalState};
 
 /// Core primal trait - foundational interface for all primals
-#[async_trait]
+#[expect(
+    async_fn_in_trait,
+    reason = "internal trait — all impls are Send + Sync"
+)]
 pub trait Primal: Send + Sync {
     /// Get primal information
     fn info(&self) -> &PrimalInfo;
@@ -51,7 +53,6 @@ pub trait Primal: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_trait::async_trait;
     use chrono::Utc;
     use std::collections::HashMap;
     use uuid::Uuid;
@@ -76,7 +77,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl Primal for MockPrimalForTraitTest {
         fn info(&self) -> &PrimalInfo {
             static INFO: std::sync::OnceLock<PrimalInfo> = std::sync::OnceLock::new();
@@ -188,7 +188,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl Primal for MockPrimalStopFails {
         fn info(&self) -> &PrimalInfo {
             Self::static_info()
@@ -252,7 +251,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl Primal for MockPrimalStartFailsAfterStop {
         fn info(&self) -> &PrimalInfo {
             self.inner.info()

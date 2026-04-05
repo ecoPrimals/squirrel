@@ -95,7 +95,6 @@ impl Default for ContextManager {
     }
 }
 
-#[async_trait]
 impl InterfaceContextManager for ContextManager {
     /// Initialize the context manager
     async fn initialize(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 3, 2026
-**Version**: 0.1.0-alpha.36
+**Last Updated**: April 5, 2026
+**Version**: 0.1.0-alpha.39
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -272,9 +272,34 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 2. Performance optimizer `batch_processor` / `optimizer` are complete (no deferred stubs); coverage gap to 90% remains as in item 1
 3. `ring` present as transitive dependency via `rustls`/`sqlx`/`jsonwebtoken` — tracked in `docs/CRYPTO_MIGRATION.md` for future crypto provider evolution
 4. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
-5. `async-trait` used throughout — progressive migration to native Rust 2024 async trait syntax as ecosystem evolves
+5. `async-trait` — 205 annotations remaining (down from 228); 10 trait definitions + 13 impl blocks migrated to native Rust 2024 `async fn` in trait; remaining usage is Tier 3 traits deeply embedded in `dyn` dispatch — will be progressively removed alongside `dyn`-to-generics refactoring
 
-## Changes Since Last Handoff (April 3, 2026)
+## Changes Since Last Handoff (April 5, 2026)
+
+### April 5, 2026 session K (async-trait → native Rust 2024 async fn in trait migration)
+
+- **23 `#[async_trait]` annotations removed** (228 → 205): 10 trait definitions + 13 impl blocks migrated to native `async fn` in trait across 11 files
+- **Tier 1 traits migrated** (zero `dyn` dispatch — safe drop-in):
+  - `AIProvider` (`ecosystem-api/src/traits/ai.rs`)
+  - `EcosystemIntegration` (`ecosystem-api/src/traits/primal.rs`) + 1 impl in `universal_provider.rs`
+  - `Primal` (`universal-patterns/src/traits/primal.rs`) + 4 test impls + 1 in `primal_tests.rs`
+  - `GpuInferenceCapability` (`universal-patterns/src/capabilities.rs`)
+  - `ServiceMeshCapability` (`universal-patterns/src/capabilities.rs`)
+  - `OrchestrationProvider` (`universal-patterns/src/orchestration/mod.rs`) + 2 impls
+  - `TryFlattenStreamExt` (`tools/ai-tools/src/router/types.rs`) + 1 impl
+  - `ContextManager` (`core/interfaces/src/context.rs`) + 1 impl in `core/context/src/manager/mod.rs`
+  - `MockAdapter` (`adapter-pattern-tests/src/integration.rs`) + 3 impls
+- **Tier 2 trait migrated** (`AuthenticationCapability` — `dyn` only in doc example + 2 tests):
+  - `AuthenticationCapability` (`universal-patterns/src/capabilities.rs`) + 1 mock impl
+  - Doc example updated: `&dyn AuthenticationCapability` → `&impl AuthenticationCapability`
+  - Tests updated: `&dyn` → concrete `MockAuthService`
+  - `async_trait` import fully removed from `capabilities.rs`
+- **Tier 2 deferred** (production `dyn` dispatch — requires architectural refactoring):
+  - `UniversalPrimalProvider` (production `Box<dyn>` in config.rs)
+  - `AuthenticationService` (production `Arc<dyn>` in middleware.rs)
+- **Lint strategy**: `#[expect(async_fn_in_trait, reason = "...")]` on migrated traits — suppresses `async_fn_in_trait` warning since all impls guarantee `Send + Sync`
+- **Dead imports cleaned**: Removed `use async_trait::async_trait` from 4 files where it was the sole user
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓ (default + `--all-features --all-targets`), `test` ✓ (all pass), `doc` ✓, `deny` ✓
 
 ### April 3, 2026 session J (deep debt execution, stub evolution, self-reference cleanup, zero-copy)
 
