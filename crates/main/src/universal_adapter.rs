@@ -93,7 +93,6 @@ impl UniversalAdapter {
             ecosystem_manager,
             metrics_collector,
             shutdown_manager,
-            // api_server: None, // DELETED
             initialized: false,
             start_time: Instant::now(),
         }
@@ -114,9 +113,6 @@ impl UniversalAdapter {
     pub async fn start(&mut self) -> Result<(), PrimalError> {
         info!("🚀 Starting Universal Adapter with ecosystem integration");
 
-        // API server REMOVED - HTTP API deleted
-        // let api_server = ApiServer::new_with_host(...); // DELETED
-        // self.api_server = Some(api_server); // DELETED
         self.initialized = true;
 
         info!("✅ Universal Adapter started successfully");
@@ -231,13 +227,6 @@ impl UniversalAdapter {
     /// Shutdown the adapter gracefully
     pub async fn shutdown(&self) -> Result<(), PrimalError> {
         info!("🔄 Shutting down Universal Adapter");
-
-        // API server removed
-        if false {
-            // if let Some(_api_server) = &self.api_server { // DELETED
-            info!("Shutting down API server");
-            // API server shutdown would be handled here
-        }
 
         info!("✅ Universal Adapter shutdown completed");
         Ok(())

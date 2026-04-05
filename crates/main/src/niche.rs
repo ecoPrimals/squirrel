@@ -43,7 +43,7 @@ pub const LICENSE: &str = "AGPL-3.0-only";
 pub const TRANSPORT: &str = "unix_socket";
 
 /// Wire protocol.
-pub const PROTOCOL: &str = "jsonrpc_2.0";
+pub const PROTOCOL: &str = universal_constants::protocol::JSONRPC_PROTOCOL_ID;
 
 /// All capabilities this primal exposes to biomeOS.
 ///
@@ -458,7 +458,7 @@ mod tests {
         assert_eq!(PRIMAL_ID, "squirrel");
         assert_eq!(DOMAIN, "ai");
         assert_eq!(TRANSPORT, "unix_socket");
-        assert_eq!(PROTOCOL, "jsonrpc_2.0");
+        assert_eq!(PROTOCOL, universal_constants::protocol::JSONRPC_PROTOCOL_ID);
         assert_eq!(LICENSE, "AGPL-3.0-only");
     }
 

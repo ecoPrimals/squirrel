@@ -115,7 +115,6 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Register squirrel AI with biomeOS ecosystem
-    #[expect(clippy::too_many_lines, reason = "Integration logic; refactor planned")]
     pub async fn register_with_biomeos(&mut self) -> Result<(), PrimalError> {
         let registration = EcosystemServiceRegistration {
             service_id: self.service_id.clone(),
@@ -127,18 +126,8 @@ impl SquirrelBiomeOSIntegration {
 
             endpoints: {
                 // Use environment-aware configuration for base URL
-                let host = if std::env::var("ENVIRONMENT")
-                    .unwrap_or_else(|_| "development".to_string())
-                    .eq_ignore_ascii_case("production")
-                {
-                    "0.0.0.0"
-                } else {
-                    "127.0.0.1"
-                };
-                let port = std::env::var("SQUIRREL_PORT")
-                    .ok()
-                    .and_then(|p| p.parse().ok())
-                    .unwrap_or(8778);
+                let host = universal_constants::network::get_bind_address();
+                let port = universal_constants::network::squirrel_primal_port();
                 let base_url = format!("http://{host}:{port}");
 
                 EcosystemEndpoints {

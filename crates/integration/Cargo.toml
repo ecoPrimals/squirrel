@@ -22,6 +22,7 @@ thiserror.workspace = true
 anyhow.workspace = true
 # Squirrel crates
 squirrel-ai-tools.workspace = true
+universal-constants.workspace = true
 # Logging
 tracing.workspace = true
 # UUID

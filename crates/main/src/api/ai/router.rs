@@ -469,7 +469,9 @@ impl AiRouter {
             PrimalError::Configuration(format!("Invalid LOCAL_AI_ENDPOINT URL: {e}"))
         })?;
         let host = url.host_str().unwrap_or("localhost");
-        let port = url.port().unwrap_or(11434);
+        let port = url
+            .port()
+            .unwrap_or_else(universal_constants::deployment::ports::ollama);
         let addr = format!("{host}:{port}");
 
         tokio::net::TcpStream::connect(&addr)

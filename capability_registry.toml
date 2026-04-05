@@ -16,7 +16,7 @@ version = "0.1.0"
 domain = "ai"
 license = "AGPL-3.0-only"
 transport = "unix_socket"
-protocol = "jsonrpc_2.0"
+protocol = "json-rpc-2.0"
 
 # --- AI domain ---
 

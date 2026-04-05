@@ -38,15 +38,16 @@ impl DefaultEndpoints {
     ///
     /// Multi-tier resolution:
     /// 1. `COMPUTE_SERVICE_ENDPOINT` (full endpoint)
-    /// 2. `TOADSTOOL_ENDPOINT` (legacy)
-    /// 3. `COMPUTE_SERVICE_PORT` or `TOADSTOOL_PORT` (port override)
+    /// 2. `TOADSTOOL_ENDPOINT` (legacy fallback)
+    /// 3. `COMPUTE_PORT` or `TOADSTOOL_PORT` (port override)
     /// 4. Default: <http://localhost:8081>
     #[must_use]
     pub fn compute_endpoint() -> String {
         env::var("COMPUTE_SERVICE_ENDPOINT")
             .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
             .unwrap_or_else(|_| {
-                let port = env::var("COMPUTE_SERVICE_PORT")
+                let port = env::var("COMPUTE_PORT")
+                    .or_else(|_| env::var("COMPUTE_SERVICE_PORT"))
                     .or_else(|_| env::var("TOADSTOOL_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
@@ -59,15 +60,16 @@ impl DefaultEndpoints {
     ///
     /// Multi-tier resolution:
     /// 1. `STORAGE_SERVICE_ENDPOINT` (full endpoint)
-    /// 2. `NESTGATE_ENDPOINT` (legacy)
-    /// 3. `STORAGE_SERVICE_PORT` or `NESTGATE_PORT` (port override)
+    /// 2. `NESTGATE_ENDPOINT` (legacy fallback)
+    /// 3. `STORAGE_PORT` or `NESTGATE_PORT` (port override)
     /// 4. Default: <http://localhost:8082>
     #[must_use]
     pub fn storage_endpoint() -> String {
         env::var("STORAGE_SERVICE_ENDPOINT")
             .or_else(|_| env::var("NESTGATE_ENDPOINT"))
             .unwrap_or_else(|_| {
-                let port = env::var("STORAGE_SERVICE_PORT")
+                let port = env::var("STORAGE_PORT")
+                    .or_else(|_| env::var("STORAGE_SERVICE_PORT"))
                     .or_else(|_| env::var("NESTGATE_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())

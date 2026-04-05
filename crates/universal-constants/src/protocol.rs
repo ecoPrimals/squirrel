@@ -53,6 +53,21 @@ pub const CONTENT_TYPE_TEXT: &str = "text/plain";
 pub const DEFAULT_CHARSET: &str = "utf-8";
 
 // ============================================================================
+// IPC Protocol Identifiers
+// ============================================================================
+
+/// Canonical JSON-RPC 2.0 protocol identifier for ecosystem announcements and
+/// capability registries. All primals MUST use this single constant so wire
+/// strings stay consistent across the mesh.
+pub const JSONRPC_PROTOCOL_ID: &str = "json-rpc-2.0";
+
+/// Unix socket transport identifier for ecosystem registries.
+pub const UNIX_SOCKET_TRANSPORT_ID: &str = "unix-socket";
+
+/// tarpc binary protocol identifier (optional high-performance path).
+pub const TARPC_PROTOCOL_ID: &str = "tarpc-bincode";
+
+// ============================================================================
 // Protocol Features
 // ============================================================================
 
@@ -70,7 +85,8 @@ mod tests {
     use super::{
         CONTENT_TYPE_JSON, DEFAULT_CHARSET, DEFAULT_CONTENT_TYPE, DEFAULT_MCP_SUBPROTOCOL,
         DEFAULT_PROTOCOL_VERSION, DEFAULT_USER_AGENT, FEATURE_BIDIRECTIONAL_STREAMING,
-        FEATURE_CONTEXT_PRESERVATION, FEATURE_MULTI_AGENT, PROTOCOL_VERSION_V2,
+        FEATURE_CONTEXT_PRESERVATION, FEATURE_MULTI_AGENT, JSONRPC_PROTOCOL_ID,
+        PROTOCOL_VERSION_V2, TARPC_PROTOCOL_ID, UNIX_SOCKET_TRANSPORT_ID,
     };
 
     #[test]
@@ -78,6 +94,13 @@ mod tests {
         assert_eq!(DEFAULT_MCP_SUBPROTOCOL, "mcp");
         assert_eq!(DEFAULT_PROTOCOL_VERSION, "1.0");
         assert_eq!(PROTOCOL_VERSION_V2, "2.0");
+    }
+
+    #[test]
+    fn test_ipc_protocol_identifiers() {
+        assert_eq!(JSONRPC_PROTOCOL_ID, "json-rpc-2.0");
+        assert_eq!(UNIX_SOCKET_TRANSPORT_ID, "unix-socket");
+        assert_eq!(TARPC_PROTOCOL_ID, "tarpc-bincode");
     }
 
     #[test]

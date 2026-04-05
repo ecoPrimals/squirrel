@@ -28,12 +28,3 @@ pub(crate) mod ai;
 
 // Re-export for tarpc_server
 pub use ai::AiRouter;
-
-// Legacy HTTP API modules REMOVED in v1.6.0 - Squirrel uses Unix sockets + JSON-RPC + tarpc!
-// mod ecosystem;        // DELETED: Use capability discovery
-// mod health;           // DELETED: Unix sockets don't need HTTP health checks
-// mod management;       // DELETED: Use JSON-RPC management
-// mod metrics;          // DELETED: Monitoring via Unix sockets
-// mod server;           // DELETED: No HTTP server needed
-// mod service_mesh;     // DELETED: Capability discovery handles this
-// mod types;            // DELETED: Unused (v1.6.0 cleanup)

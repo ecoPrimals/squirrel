@@ -26,7 +26,6 @@ impl DefaultEndpoints {
             .or_else(|_| env::var("LLAMACPP_ENDPOINT"))
             .unwrap_or_else(|_| {
                 let host = env::var("LOCAL_AI_HOST")
-                    .or_else(|_| env::var("TOADSTOOL_HOST"))
                     .unwrap_or_else(|_| config_helpers::get_host("LOCAL_AI_HOST", "localhost"));
                 let port = env::var("LOCAL_AI_PORT")
                     .or_else(|_| env::var("OLLAMA_PORT"))
@@ -163,20 +162,24 @@ impl DefaultEndpoints {
             })
     }
 
-    /// Get `ToadStool` endpoint from environment or default
+    /// Get compute capability endpoint from environment or default
     ///
-    /// Compute capability endpoint — multi-tier resolution:
+    /// Multi-tier resolution:
     /// 1. `COMPUTE_ENDPOINT` (primary, capability-based)
-    /// 2. `TOADSTOOL_ENDPOINT` (backward compat)
-    /// 3. `TOADSTOOL_PORT` (port override)
+    /// 2. `TOADSTOOL_ENDPOINT` (legacy backward compat)
+    /// 3. `COMPUTE_HOST` / `COMPUTE_PORT` or `TOADSTOOL_PORT` (port override)
     /// 4. Fallback: [`ports::compute_service`]
     #[must_use]
     pub fn compute_endpoint() -> String {
         env::var("COMPUTE_ENDPOINT")
             .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
             .unwrap_or_else(|_| {
-                let host = config_helpers::get_host("TOADSTOOL_HOST", "localhost");
-                let port = config_helpers::get_port("TOADSTOOL_PORT", ports::compute_service());
+                let host = config_helpers::get_host("COMPUTE_HOST", "localhost");
+                let port = env::var("COMPUTE_PORT")
+                    .or_else(|_| env::var("TOADSTOOL_PORT"))
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or_else(ports::compute_service);
                 format!("http://{host}:{port}")
             })
     }
@@ -240,12 +243,14 @@ Security Services (Capability-Based Discovery):
 - SECURITY_ENCRYPTION_PORT: Encryption service port (env-driven)
 - SECURITY_COMPLIANCE_PORT: Compliance service port (env-driven)
 
-ecoPrimals Services (ecosystem role endpoints, not primal identity):
+ecoPrimals Services (capability-domain env vars, not primal identity):
 - SERVICE_MESH_ENDPOINT: Ecosystem registry / service mesh (primary)
-- SONGBIRD_ENDPOINT: Ecosystem registry (legacy alias for full URL)
-- SONGBIRD_PORT / SERVICE_MESH_PORT: Port overrides (fallback from deployment capability defaults)
-- TOADSTOOL_ENDPOINT: Compute capability endpoint (full URL)
-- TOADSTOOL_PORT: Port override (fallback: COMPUTE_SERVICE_PORT / capability default)
+- SONGBIRD_ENDPOINT: Ecosystem registry (legacy alias)
+- SERVICE_MESH_PORT / SONGBIRD_PORT: Port overrides (legacy fallback)
+- COMPUTE_ENDPOINT: Compute capability endpoint (primary)
+- TOADSTOOL_ENDPOINT: Compute (legacy alias)
+- COMPUTE_HOST / COMPUTE_PORT: Compute host/port (primary)
+- TOADSTOOL_PORT: Compute port (legacy fallback)
 
 Network:
 - DEV_SERVER_HOST: Development server host (default: 127.0.0.1)

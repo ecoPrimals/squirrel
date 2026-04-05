@@ -298,7 +298,7 @@ impl OperationHandler {
                     "version": "1.0.0",
                     "debug": true,
                     "database": {
-                        "host": std::env::var("NESTGATE_HOST")
+                        "host": std::env::var("STORAGE_HOST")
                             .unwrap_or_else(|_| "localhost".to_string()),
                         "port": 5432,
                         "name": "squirrel_db"

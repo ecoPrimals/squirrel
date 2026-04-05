@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 ecoPrimals Contributors
 
-//! Enum dispatch for [`super::traits::UniversalSecurityProvider`] and
-//! [`super::types::UniversalSecurityService`] (replaces `dyn` + `async_trait`).
+//! Enum dispatch for [`crate::security::traits::UniversalSecurityProvider`] and
+//! [`UniversalSecurityService`] (replaces `dyn` + `async_trait`).
 
 use std::sync::Arc;
 

@@ -53,10 +53,12 @@ pub use protocol::types::*;
 #[cfg(feature = "websocket")]
 pub use protocol::websocket::{ServerEvent, WebSocketClient, WebSocketConfig, WebSocketServer};
 // Re-export specific transport types to avoid conflicts
+#[cfg(test)]
+pub use transport::SimpleTransport;
+pub use transport::Transport;
 pub use transport::types::{TransportConfig, TransportEvent, TransportMetadata, TransportType};
 #[cfg(feature = "websocket")]
 pub use transport::websocket::WebSocketTransport;
-pub use transport::{SimpleTransport, Transport};
 pub use types::*;
 pub use utils::*;
 

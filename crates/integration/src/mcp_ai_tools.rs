@@ -113,21 +113,9 @@ pub struct McpAiToolsConfig {
 
 impl Default for McpAiToolsConfig {
     fn default() -> Self {
-        // Multi-tier Ollama endpoint resolution
-        // 1. OLLAMA_ENDPOINT (full endpoint)
-        // 2. TOADSTOOL_ENDPOINT (ToadStool as Ollama host)
-        // 3. OLLAMA_PORT or TOADSTOOL_PORT (port override)
-        // 4. Default: http://localhost:11434
         let default_ollama_endpoint = std::env::var("OLLAMA_ENDPOINT")
             .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
-            .unwrap_or_else(|_| {
-                let port = std::env::var("OLLAMA_PORT")
-                    .or_else(|_| std::env::var("TOADSTOOL_PORT"))
-                    .ok()
-                    .and_then(|p| p.parse::<u16>().ok())
-                    .unwrap_or(11434); // Default Ollama port
-                format!("http://localhost:{}", port)
-            });
+            .unwrap_or_else(|_| universal_constants::deployment::endpoints::ollama());
 
         Self {
             providers: HashMap::new(),
@@ -225,172 +213,65 @@ impl<M: MCPInterface> McpAiToolsAdapter<M> {
             .get_provider(provider_id)
             .context(format!("Provider not found: {}", provider_id))?;
 
-        // Route request to appropriate provider implementation
-        match provider.id.as_str() {
-            "openai" => {
-                tracing::debug!("Processing OpenAI chat request via capability_ai");
-                // Use capability-based AI client (TRUE PRIMAL!)
-                use squirrel_ai_tools::capability_ai::{AiClient, ChatMessage as CapMsg};
-
-                let client =
-                    AiClient::from_env().context("Failed to create capability AI client")?;
-
-                // Convert messages to capability format
-                let messages: Vec<CapMsg> = request
-                    .messages
-                    .iter()
-                    .map(|m| CapMsg {
-                        role: match m.role {
-                            squirrel_ai_tools::common::MessageRole::System => "system".to_string(),
-                            squirrel_ai_tools::common::MessageRole::User => "user".to_string(),
-                            squirrel_ai_tools::common::MessageRole::Assistant => {
-                                "assistant".to_string()
-                            }
-                            _ => "user".to_string(),
-                        },
-                        content: m.content.clone().unwrap_or_default(),
-                    })
-                    .collect();
-
-                let model = request.model.as_deref().unwrap_or("gpt-4");
-                let cap_response = client
-                    .chat_completion(model, messages, None)
-                    .await
-                    .context("Failed to process OpenAI chat via capability_ai")?;
-
-                // Convert back to common format
-                let response = squirrel_ai_tools::common::ChatResponse {
-                    choices: vec![squirrel_ai_tools::common::ChatChoice {
-                        index: 0,
-                        content: Some(cap_response.content),
-                        role: squirrel_ai_tools::common::MessageRole::Assistant,
-                        finish_reason: Some("stop".to_string()),
-                        tool_calls: None,
-                    }],
-                    usage: cap_response
-                        .usage
-                        .map(|u| squirrel_ai_tools::common::UsageInfo {
-                            prompt_tokens: u.prompt_tokens,
-                            completion_tokens: u.completion_tokens,
-                            total_tokens: u.total_tokens,
-                        }),
-                    model: model.to_string(),
-                    id: uuid::Uuid::new_v4().to_string(),
-                };
-
-                Ok(response)
+        let default_model = match provider.id.as_str() {
+            "openai" => "gpt-4",
+            "anthropic" => "claude-3-opus",
+            "ollama" => "llama2",
+            other => {
+                tracing::error!(provider = other, "Unknown provider");
+                return Err(anyhow::anyhow!("Unknown provider: {other}"));
             }
-            "anthropic" => {
-                tracing::debug!("Processing Anthropic chat request via capability_ai");
-                // Use capability-based AI client (TRUE PRIMAL!)
-                use squirrel_ai_tools::capability_ai::{AiClient, ChatMessage as CapMsg};
+        };
 
-                let client =
-                    AiClient::from_env().context("Failed to create capability AI client")?;
+        tracing::debug!(
+            provider = provider.id.as_str(),
+            "Processing chat request via capability_ai"
+        );
 
-                // Convert messages to capability format
-                let messages: Vec<CapMsg> = request
-                    .messages
-                    .iter()
-                    .map(|m| CapMsg {
-                        role: match m.role {
-                            squirrel_ai_tools::common::MessageRole::System => "system".to_string(),
-                            squirrel_ai_tools::common::MessageRole::User => "user".to_string(),
-                            squirrel_ai_tools::common::MessageRole::Assistant => {
-                                "assistant".to_string()
-                            }
-                            _ => "user".to_string(),
-                        },
-                        content: m.content.clone().unwrap_or_default(),
-                    })
-                    .collect();
+        use squirrel_ai_tools::capability_ai::{AiClient, ChatMessage as CapMsg};
 
-                let model = request.model.as_deref().unwrap_or("claude-3-opus");
-                let cap_response = client
-                    .chat_completion(model, messages, None)
-                    .await
-                    .context("Failed to process Anthropic chat via capability_ai")?;
+        let client = AiClient::from_env().context("Failed to create capability AI client")?;
 
-                // Convert back to common format
-                let response = squirrel_ai_tools::common::ChatResponse {
-                    choices: vec![squirrel_ai_tools::common::ChatChoice {
-                        index: 0,
-                        content: Some(cap_response.content),
-                        role: squirrel_ai_tools::common::MessageRole::Assistant,
-                        finish_reason: Some("stop".to_string()),
-                        tool_calls: None,
-                    }],
-                    usage: cap_response
-                        .usage
-                        .map(|u| squirrel_ai_tools::common::UsageInfo {
-                            prompt_tokens: u.prompt_tokens,
-                            completion_tokens: u.completion_tokens,
-                            total_tokens: u.total_tokens,
-                        }),
-                    model: model.to_string(),
-                    id: uuid::Uuid::new_v4().to_string(),
-                };
+        let messages: Vec<CapMsg> = request
+            .messages
+            .iter()
+            .map(|m| CapMsg {
+                role: match m.role {
+                    squirrel_ai_tools::common::MessageRole::System => "system".to_string(),
+                    squirrel_ai_tools::common::MessageRole::User => "user".to_string(),
+                    squirrel_ai_tools::common::MessageRole::Assistant => "assistant".to_string(),
+                    _ => "user".to_string(),
+                },
+                content: m.content.clone().unwrap_or_default(),
+            })
+            .collect();
 
-                Ok(response)
-            }
-            "ollama" => {
-                tracing::debug!("Processing Ollama chat request via capability_ai");
-                // Use capability-based AI client (TRUE PRIMAL!)
-                use squirrel_ai_tools::capability_ai::{AiClient, ChatMessage as CapMsg};
+        let model = request.model.as_deref().unwrap_or(default_model);
+        let cap_response = client
+            .chat_completion(model, messages, None)
+            .await
+            .with_context(|| format!("Failed to process {} chat via capability_ai", provider.id))?;
 
-                let client =
-                    AiClient::from_env().context("Failed to create capability AI client")?;
+        let response = squirrel_ai_tools::common::ChatResponse {
+            choices: vec![squirrel_ai_tools::common::ChatChoice {
+                index: 0,
+                content: Some(cap_response.content),
+                role: squirrel_ai_tools::common::MessageRole::Assistant,
+                finish_reason: Some("stop".to_string()),
+                tool_calls: None,
+            }],
+            usage: cap_response
+                .usage
+                .map(|u| squirrel_ai_tools::common::UsageInfo {
+                    prompt_tokens: u.prompt_tokens,
+                    completion_tokens: u.completion_tokens,
+                    total_tokens: u.total_tokens,
+                }),
+            model: model.to_string(),
+            id: uuid::Uuid::new_v4().to_string(),
+        };
 
-                // Convert messages to capability format
-                let messages: Vec<CapMsg> = request
-                    .messages
-                    .iter()
-                    .map(|m| CapMsg {
-                        role: match m.role {
-                            squirrel_ai_tools::common::MessageRole::System => "system".to_string(),
-                            squirrel_ai_tools::common::MessageRole::User => "user".to_string(),
-                            squirrel_ai_tools::common::MessageRole::Assistant => {
-                                "assistant".to_string()
-                            }
-                            _ => "user".to_string(),
-                        },
-                        content: m.content.clone().unwrap_or_default(),
-                    })
-                    .collect();
-
-                let model = request.model.as_deref().unwrap_or("llama2");
-                let cap_response = client
-                    .chat_completion(model, messages, None)
-                    .await
-                    .context("Failed to process Ollama chat via capability_ai")?;
-
-                // Convert back to common format
-                let response = squirrel_ai_tools::common::ChatResponse {
-                    choices: vec![squirrel_ai_tools::common::ChatChoice {
-                        index: 0,
-                        content: Some(cap_response.content),
-                        role: squirrel_ai_tools::common::MessageRole::Assistant,
-                        finish_reason: Some("stop".to_string()),
-                        tool_calls: None,
-                    }],
-                    usage: cap_response
-                        .usage
-                        .map(|u| squirrel_ai_tools::common::UsageInfo {
-                            prompt_tokens: u.prompt_tokens,
-                            completion_tokens: u.completion_tokens,
-                            total_tokens: u.total_tokens,
-                        }),
-                    model: model.to_string(),
-                    id: uuid::Uuid::new_v4().to_string(),
-                };
-
-                Ok(response)
-            }
-            _ => {
-                tracing::error!("Unknown provider: {}", provider_id);
-                Err(anyhow::anyhow!("Unknown provider: {}", provider_id))
-            }
-        }
+        Ok(response)
     }
 
     /// Send a streaming chat request

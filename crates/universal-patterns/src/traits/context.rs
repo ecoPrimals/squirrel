@@ -58,7 +58,7 @@ impl Default for PrimalContext {
             device_id: "default".to_string(),
             session_id: uuid::Uuid::new_v4().to_string(),
             network_location: NetworkLocation {
-                ip_address: "127.0.0.1".to_string(),
+                ip_address: universal_constants::network::LOCALHOST_IPV4.to_string(),
                 subnet: None,
                 network_id: None,
                 geo_location: None,

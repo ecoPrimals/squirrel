@@ -278,9 +278,7 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
                 Arc::new(HistoryCommand::new(Arc::clone(&history))),
             )?;
 
-            // Resource functionality now implemented
-            registry_guard.set_resource("command_history", Box::new("history_placeholder"))?;
-            debug!("Factory: Resource not set - function not implemented in CommandRegistry");
+            registry_guard.set_resource("command_history", Box::new(Arc::clone(&history)))?;
 
             debug!("Factory: Non-help commands registered (releasing lock)");
         }

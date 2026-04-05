@@ -43,9 +43,11 @@ pub trait Transport: Send + Sync {
     async fn send_raw(&self, bytes: &[u8]) -> Result<()>;
 }
 
-/// Simple transport implementation for testing (no-op operations)
+/// No-op transport for testing — all methods succeed without I/O.
+#[cfg(test)]
 pub struct SimpleTransport;
 
+#[cfg(test)]
 impl Transport for SimpleTransport {
     async fn send_message(&self, _message: MCPMessage) -> Result<()> {
         Ok(())

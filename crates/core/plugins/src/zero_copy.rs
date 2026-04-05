@@ -276,10 +276,11 @@ impl ZeroCopyPluginConfig {
                 sandboxed: true,
                 allowed_paths: vec!["/tmp".to_string()],
                 allowed_hosts: {
+                    let localhost = universal_constants::network::DEFAULT_LOCALHOST.to_string();
                     vec![
-                        std::env::var("MCP_HOST").unwrap_or_else(|_| "localhost".to_string()),
-                        std::env::var("BEARDOG_HOST").unwrap_or_else(|_| "localhost".to_string()),
-                        "localhost".to_string(), // Keep localhost for development
+                        std::env::var("MCP_HOST").unwrap_or_else(|_| localhost.clone()),
+                        std::env::var("SECURITY_HOST").unwrap_or_else(|_| localhost.clone()),
+                        localhost,
                     ]
                 },
                 required_permissions: vec![],

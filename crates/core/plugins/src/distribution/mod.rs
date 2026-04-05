@@ -154,103 +154,106 @@ pub trait PluginDistribution: Send + Sync + Debug {
     async fn verify_plugin_package(&self, package_path: &Path) -> Result<bool>;
 }
 
-/// Default implementation of plugin distribution
-#[derive(Debug, Clone, Copy)]
-pub struct DefaultPluginDistribution {
-    // Implementation details
-}
+/// Standalone plugin distribution — no remote repository backend.
+///
+/// All listing methods return empty collections (no repositories configured).
+/// Mutating operations return a typed error directing callers to configure
+/// a repository backend or delegate to a plugin-management primal.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DefaultPluginDistribution;
 
 impl DefaultPluginDistribution {
-    /// Create a new default plugin distribution
-    /// 
-    /// Creates a new instance of the default plugin distribution handler.
-    /// 
-    /// # Returns
-    /// 
-    /// A new `DefaultPluginDistribution` instance
-    pub fn new() -> Self {
-        Self {}
+    /// Create a new default (no-backend) plugin distribution handler.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
     }
 }
 
 impl PluginDistribution for DefaultPluginDistribution {
     async fn list_available_plugins(&self) -> Result<Vec<PluginPackage>> {
-        // Basic implementation
         Ok(Vec::new())
     }
-    
-    async fn get_plugin_package(&self, _id: Uuid) -> Result<PluginPackage> {
-        // Basic implementation
-        Err(anyhow::anyhow!("Not implemented"))
+
+    async fn get_plugin_package(&self, id: Uuid) -> Result<PluginPackage> {
+        Err(anyhow::anyhow!(
+            "No plugin repository configured — cannot fetch package {id}"
+        ))
     }
-    
+
     async fn get_plugin_package_by_name(&self, _name: &str) -> Result<Vec<PluginPackage>> {
-        // Basic implementation
         Ok(Vec::new())
     }
-    
+
     async fn search_plugin_packages(&self, _query: &str) -> Result<Vec<PluginPackage>> {
-        // Basic implementation
         Ok(Vec::new())
     }
-    
-    async fn download_plugin_package(&self, _id: Uuid, _destination: &Path) -> Result<PluginPackage> {
-        // Basic implementation
-        Err(anyhow::anyhow!("Not implemented"))
+
+    async fn download_plugin_package(
+        &self,
+        id: Uuid,
+        _destination: &Path,
+    ) -> Result<PluginPackage> {
+        Err(anyhow::anyhow!(
+            "No plugin repository configured — cannot download package {id}"
+        ))
     }
-    
-    async fn install_plugin_package(&self, _id: Uuid) -> Result<Uuid> {
-        // Basic implementation
-        Err(anyhow::anyhow!("Not implemented"))
+
+    async fn install_plugin_package(&self, id: Uuid) -> Result<Uuid> {
+        Err(anyhow::anyhow!(
+            "No plugin repository configured — cannot install package {id}"
+        ))
     }
-    
+
     async fn uninstall_plugin(&self, _id: Uuid) -> Result<()> {
-        // Basic implementation
         Ok(())
     }
-    
-    async fn update_plugin(&self, _id: Uuid) -> Result<Uuid> {
-        // Basic implementation
-        Err(anyhow::anyhow!("Not implemented"))
+
+    async fn update_plugin(&self, id: Uuid) -> Result<Uuid> {
+        Err(anyhow::anyhow!(
+            "No plugin repository configured — cannot update plugin {id}"
+        ))
     }
-    
-    async fn add_repository(&self, _repository: PluginRepository) -> Result<Uuid> {
-        // Basic implementation
-        Err(anyhow::anyhow!("Not implemented"))
+
+    async fn add_repository(&self, repository: PluginRepository) -> Result<Uuid> {
+        Err(anyhow::anyhow!(
+            "Standalone distribution does not persist repositories — \
+             cannot add '{}'. Configure a persistent backend.",
+            repository.name,
+        ))
     }
-    
+
     async fn remove_repository(&self, _id: Uuid) -> Result<()> {
-        // Basic implementation
         Ok(())
     }
-    
+
     async fn list_repositories(&self) -> Result<Vec<PluginRepository>> {
-        // Basic implementation
         Ok(Vec::new())
     }
-    
+
     async fn enable_repository(&self, _id: Uuid) -> Result<()> {
-        // Basic implementation
         Ok(())
     }
-    
+
     async fn disable_repository(&self, _id: Uuid) -> Result<()> {
-        // Basic implementation
         Ok(())
     }
-    
+
     async fn refresh_repositories(&self) -> Result<()> {
-        // Basic implementation
         Ok(())
     }
-    
-    async fn create_plugin_package(&self, _plugin_id: Uuid, _destination: &Path) -> Result<PluginPackage> {
-        // Basic implementation
-        Err(anyhow::anyhow!("Not implemented"))
+
+    async fn create_plugin_package(
+        &self,
+        plugin_id: Uuid,
+        _destination: &Path,
+    ) -> Result<PluginPackage> {
+        Err(anyhow::anyhow!(
+            "No packaging backend configured — cannot create package for plugin {plugin_id}"
+        ))
     }
-    
+
     async fn verify_plugin_package(&self, _package_path: &Path) -> Result<bool> {
-        // Basic implementation
         Ok(true)
     }
-} 
+}

@@ -17,8 +17,17 @@ use std::sync::Arc;
 #[cfg(any(test, feature = "testing"))]
 use tokio::sync::RwLock;
 
-/// Network connection interface
-pub trait NetworkConnection: Send + Sync {
+/// Network connection interface for federation peers.
+///
+/// Implementations provide the transport layer (Unix socket, TCP, in-process
+/// channel, etc.). [`connect`](Self::connect) establishes a new connection to
+/// a remote address; the remaining methods operate on the resulting handle.
+pub trait NetworkConnection: Send + Sync + Sized {
+    /// Establish a connection to `address`.
+    fn connect(
+        address: std::net::SocketAddr,
+    ) -> impl Future<Output = FederationResult<Self>> + Send;
+
     /// Send a message to a peer
     fn send_message(
         &self,
@@ -60,6 +69,10 @@ impl MockNetworkConnection {
 
 #[cfg(any(test, feature = "testing"))]
 impl NetworkConnection for MockNetworkConnection {
+    async fn connect(_address: std::net::SocketAddr) -> FederationResult<Self> {
+        Ok(Self::new(Uuid::new_v4()))
+    }
+
     async fn send_message(&self, _peer_id: Uuid, message: NetworkMessage) -> FederationResult<()> {
         if !*self.connected.read().await {
             return Err(FederationError::ConnectionClosed(

@@ -309,9 +309,20 @@ impl CommandTransaction {
     }
 }
 
-/// Transaction manager for tracking and managing transactions
+/// Transaction manager for tracking and managing transactions.
+///
+/// # Lock ordering
+///
+/// This type uses nested `Mutex` for concurrent transaction access:
+///
+/// 1. **Outer lock** (`self.transactions`) — protects the map of active transactions.
+///    Always acquired first, released before acquiring an inner lock.
+/// 2. **Inner lock** (individual `Arc<Mutex<CommandTransaction>>`) — protects a single
+///    transaction's state. Only acquired after the outer lock is released.
+///
+/// Callers MUST follow this ordering: clone the `Arc` while holding the outer lock,
+/// then drop the outer lock before locking the inner `Mutex`.
 pub struct TransactionManager {
-    /// Active transactions
     transactions: Mutex<HashMap<Uuid, Arc<Mutex<CommandTransaction>>>>,
 }
 

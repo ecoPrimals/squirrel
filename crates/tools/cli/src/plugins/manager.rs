@@ -471,9 +471,6 @@ impl PluginManager {
                         }
                     }
                 }
-
-                // Remove the plugin library
-                // self.libraries.remove(&name); // This line is no longer needed
             }
         }
 

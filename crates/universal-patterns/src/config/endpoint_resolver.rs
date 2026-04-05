@@ -300,11 +300,6 @@ impl EndpointResolver {
             return Some(Endpoint::Http(url));
         }
 
-        // NOTE(phase2): Query service mesh for endpoint - requires mesh integration
-        // if let Some(endpoint) = query_service_mesh(name) {
-        //     return Some(Endpoint::Http(endpoint));
-        // }
-
         debug!("No network endpoint found for '{}'", name);
         None
     }

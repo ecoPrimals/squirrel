@@ -512,7 +512,7 @@ fn test_ai_provider_config_local_endpoint_ollama_fallback() {
 }
 
 #[test]
-fn test_ai_provider_config_local_endpoint_toadstool_fallback() {
+fn test_ai_provider_config_local_endpoint_toadstool_not_a_local_ai_fallback() {
     temp_env::with_vars(
         [
             ("TOADSTOOL_ENDPOINT", Some("http://toadstool:8445")),
@@ -520,7 +520,10 @@ fn test_ai_provider_config_local_endpoint_toadstool_fallback() {
         ],
         || {
             let config = AIProviderConfig::from_env().expect("should load");
-            assert_eq!(config.local_server_endpoint, "http://toadstool:8445");
+            assert_ne!(
+                config.local_server_endpoint, "http://toadstool:8445",
+                "TOADSTOOL_ENDPOINT is compute, not local AI"
+            );
         },
     );
 }

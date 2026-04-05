@@ -300,19 +300,16 @@ impl AIProviderConfig {
         let anthropic_endpoint = env::var("ANTHROPIC_ENDPOINT")
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".to_string());
 
-        // Multi-tier local AI server endpoint resolution (capability-based)
+        // Multi-tier local AI server endpoint resolution (vendor-agnostic)
         // 1. LOCAL_AI_ENDPOINT (agnostic)
         // 2. OLLAMA_ENDPOINT (backward compat)
-        // 3. TOADSTOOL_ENDPOINT (ecosystem primal)
-        // 4. Port override via LOCAL_AI_PORT / OLLAMA_PORT / TOADSTOOL_PORT
-        // 5. Default: http://localhost:11434
+        // 3. Port override via LOCAL_AI_PORT / OLLAMA_PORT
+        // 4. Default: http://localhost:11434
         let local_server_endpoint = env::var("LOCAL_AI_ENDPOINT")
             .or_else(|_| env::var("OLLAMA_ENDPOINT"))
-            .or_else(|_| env::var("TOADSTOOL_ENDPOINT"))
             .unwrap_or_else(|_| {
                 let port = env::var("LOCAL_AI_PORT")
                     .or_else(|_| env::var("OLLAMA_PORT"))
-                    .or_else(|_| env::var("TOADSTOOL_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(ports::ollama);
@@ -344,21 +341,21 @@ impl AIProviderConfig {
 
 /// Ecosystem service configuration from environment variables
 ///
-/// Env var names (NESTGATE_ENDPOINT, etc.) are runtime config - acceptable per wateringHole.
-/// Code treats these as **ecosystem role endpoints**, not hardcoded primal identity.
+/// Uses capability-domain env vars as primary with primal-specific names as
+/// legacy fallbacks (wateringHole `PRIMAL_SELF_KNOWLEDGE_STANDARD` §4).
 /// Production should use capability-based discovery; env vars override for explicit config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemConfig {
-    /// Storage capability endpoint (env: STORAGE_ENDPOINT, fallback: NESTGATE_ENDPOINT)
+    /// Storage capability endpoint (env: `STORAGE_ENDPOINT` > `NESTGATE_ENDPOINT`)
     #[serde(alias = "nestgate_endpoint")]
     pub storage_endpoint: String,
-    /// Security capability endpoint (env: SECURITY_ENDPOINT, fallback: BEARDOG_ENDPOINT)
+    /// Security capability endpoint (env: `SECURITY_ENDPOINT` > `BEARDOG_ENDPOINT`)
     #[serde(alias = "beardog_endpoint")]
     pub security_endpoint: String,
-    /// Compute capability endpoint (env: COMPUTE_ENDPOINT, fallback: TOADSTOOL_ENDPOINT)
+    /// Compute capability endpoint (env: `COMPUTE_ENDPOINT` > `TOADSTOOL_ENDPOINT`)
     #[serde(alias = "toadstool_endpoint")]
     pub compute_endpoint: String,
-    /// Ecosystem registry / service mesh endpoint (env: SERVICE_MESH_ENDPOINT, BIOMEOS_ENDPOINT)
+    /// Ecosystem registry / service mesh endpoint (env: `SERVICE_MESH_ENDPOINT` > `BIOMEOS_ENDPOINT`)
     pub service_mesh_endpoint: String,
     /// Timeout in milliseconds for ecosystem service calls.
     pub service_timeout_ms: u64,
@@ -370,7 +367,8 @@ impl Default for EcosystemConfig {
         let storage_endpoint = std::env::var("STORAGE_ENDPOINT")
             .or_else(|_| std::env::var("NESTGATE_ENDPOINT"))
             .unwrap_or_else(|_| {
-                let port = std::env::var("NESTGATE_PORT")
+                let port = std::env::var("STORAGE_PORT")
+                    .or_else(|_| std::env::var("NESTGATE_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
@@ -382,7 +380,8 @@ impl Default for EcosystemConfig {
         let security_endpoint = std::env::var("SECURITY_ENDPOINT")
             .or_else(|_| std::env::var("BEARDOG_ENDPOINT"))
             .unwrap_or_else(|_| {
-                let port = std::env::var("SECURITY_AUTHENTICATION_PORT")
+                let port = std::env::var("SECURITY_PORT")
+                    .or_else(|_| std::env::var("SECURITY_AUTHENTICATION_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
@@ -394,7 +393,8 @@ impl Default for EcosystemConfig {
         let compute_endpoint = std::env::var("COMPUTE_ENDPOINT")
             .or_else(|_| std::env::var("TOADSTOOL_ENDPOINT"))
             .unwrap_or_else(|_| {
-                let port = std::env::var("TOADSTOOL_PORT")
+                let port = std::env::var("COMPUTE_PORT")
+                    .or_else(|_| std::env::var("TOADSTOOL_PORT"))
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
                     .unwrap_or_else(|| {
@@ -441,7 +441,8 @@ impl EcosystemConfig {
                 if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
                     format!("discovered://{}", capabilities::STORAGE_CAPABILITY)
                 } else {
-                    let port = env::var("NESTGATE_PORT")
+                    let port = env::var("STORAGE_PORT")
+                        .or_else(|_| env::var("NESTGATE_PORT"))
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or_else(|| {
@@ -460,7 +461,8 @@ impl EcosystemConfig {
                 if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
                     format!("discovered://{}", capabilities::SECURITY_CAPABILITY)
                 } else {
-                    let port = env::var("SECURITY_AUTHENTICATION_PORT")
+                    let port = env::var("SECURITY_PORT")
+                        .or_else(|_| env::var("SECURITY_AUTHENTICATION_PORT"))
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or_else(|| {
@@ -479,7 +481,8 @@ impl EcosystemConfig {
                 if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
                     format!("discovered://{}", capabilities::COMPUTE_CAPABILITY)
                 } else {
-                    let port = env::var("TOADSTOOL_PORT")
+                    let port = env::var("COMPUTE_PORT")
+                        .or_else(|_| env::var("TOADSTOOL_PORT"))
                         .ok()
                         .and_then(|p| p.parse::<u16>().ok())
                         .unwrap_or_else(|| {
@@ -543,7 +546,7 @@ pub struct EnvironmentConfig {
     pub database: DatabaseConfig,
     /// AI provider endpoints and API keys.
     pub ai_providers: AIProviderConfig,
-    /// Ecosystem service endpoints (NestGate, BearDog, ToadStool, service mesh).
+    /// Ecosystem service endpoints (storage, security, compute, service mesh).
     pub ecosystem: EcosystemConfig,
 }
 

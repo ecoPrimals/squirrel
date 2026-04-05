@@ -11,6 +11,7 @@ use super::core::{FederationNetwork, NetworkConnection};
 use super::types::{NetworkStats, PeerInfo, PeerStatus};
 use chrono::Utc;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use uuid::Uuid;
 
 impl<C: NetworkConnection + 'static> FederationNetwork<C> {
@@ -46,21 +47,30 @@ impl<C: NetworkConnection + 'static> FederationNetwork<C> {
         peers.get(&peer_id).cloned()
     }
 
-    /// Connect to a peer
+    /// Connect to a peer using the `NetworkConnection` provided by `C`.
+    ///
+    /// Updates the peer's status to `Connected` and stores the connection
+    /// handle for subsequent message delivery. The concrete transport (Unix
+    /// socket, TCP, in-process channel) is determined by the `C` type parameter.
     pub async fn connect_to_peer(
         &self,
         peer_id: Uuid,
-        _address: SocketAddr,
+        address: SocketAddr,
     ) -> FederationResult<()> {
-        // Create connection (implementation would vary by protocol)
-        // For now, this is a placeholder that would be implemented
-        // based on the actual network protocol being used
+        let connection = C::connect(address).await.map_err(|e| {
+            super::super::FederationError::NetworkError(format!(
+                "Failed to connect to peer {peer_id} at {address}: {e}"
+            ))
+        })?;
 
         let mut peers = self.peers.write().await;
         if let Some(peer) = peers.get_mut(&peer_id) {
             peer.status = PeerStatus::Connected;
             peer.last_seen = Utc::now();
         }
+
+        let mut connections = self.connections.write().await;
+        connections.insert(peer_id, Arc::new(connection));
 
         Ok(())
     }

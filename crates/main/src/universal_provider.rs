@@ -524,12 +524,6 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
     }
 
     async fn initialize(&mut self, _config: serde_json::Value) -> UniversalResult<()> {
-        // biomeos_client initialization removed - use capability discovery
-        // if self.biomeos_client.is_none() {
-        //     let client = crate::biomeos_integration::EcosystemClient::new();
-        //     self.biomeos_client = Some(Arc::new(client));
-        // }
-
         if self.session_manager.is_none() {
             let session_manager = SessionManagerImpl::new(crate::session::SessionConfig::default());
             self.session_manager = Some(Arc::new(RwLock::new(session_manager)));

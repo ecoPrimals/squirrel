@@ -284,9 +284,6 @@ impl FileSystem {
 
     /// Check file system permissions
     fn check_file_permission(&self, path: &str, write: bool) -> Result<(), JsValue> {
-        // Sandbox security handled by BearDog framework
-        // let sandbox_manager = get_sandbox_manager();
-
         let _permission = if write {
             Permission::FileSystemWrite(path.to_string())
         } else {
@@ -318,17 +315,7 @@ impl FileUploadHandler {
         _filename: String,
         _mime_type: String,
     ) -> PluginResult<String> {
-        // Sandbox security handled by BearDog framework
-        // let sandbox_manager = get_sandbox_manager();
-
         let _permission = Permission::FileSystemWrite("/uploads".to_string());
-        // if !manager.check_permission(&permission) {
-        //     return Err(PluginError::PermissionDenied(
-        //         "File upload not permitted".to_string()
-        //     ));
-        // }
-
-        // Simulate file upload
         let upload_id = format!("upload_{}", crate::utils::current_timestamp());
         Ok(upload_id)
     }

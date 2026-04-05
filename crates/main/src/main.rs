@@ -365,6 +365,6 @@ fn print_version(verbose: bool) {
         println!("Protocol:       JSON-RPC 2.0 + tarpc (dual)");
         println!("Transport:      Unix socket / Named pipe / TCP");
         println!("Discovery:      Capability-based runtime");
-        println!("License:        AGPL-3.0-only (scyBorg)");
+        println!("License:        AGPL-3.0-or-later");
     }
 }

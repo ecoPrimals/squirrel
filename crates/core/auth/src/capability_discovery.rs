@@ -121,7 +121,7 @@ impl SecurityServiceDiscovery {
         };
 
         let host = std::env::var("SECURITY_SERVICE_HOST")
-            .or_else(|_| std::env::var("BEARDOG_HOST"))
+            .or_else(|_| std::env::var("SECURITY_HOST"))
             .unwrap_or_else(|_| "localhost".to_string());
         let port = std::env::var(&format!("SECURITY_{}_PORT", service_type.to_uppercase()))
             .unwrap_or_else(|_| default_port.to_string());

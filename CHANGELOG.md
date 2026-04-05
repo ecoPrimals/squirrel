@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.42] - 2026-04-05
+
+Deep debt cleanup: production stubs evolved, hardcoding eliminated, test-only code isolated, lint hygiene.
+6,868 tests passing, zero clippy warnings, all gates green.
+
+### Changed
+
+- **`DefaultPluginDistribution`** — 6 `Err("Not implemented")` stubs replaced with typed, actionable error messages ("No plugin repository configured — cannot fetch package {id}")
+- **`SimpleTransport`** — moved behind `#[cfg(test)]`; no longer exported from public API
+- **Hardcoding → constants** — `biomeos_integration/mod.rs` host/port replaced with `get_bind_address()` + `squirrel_primal_port()`; `zero_copy.rs` and `traits/context.rs` use `universal_constants::network::*` instead of raw string literals
+- **`#[allow(dead_code)]` audit** — removed unnecessary `#[allow]` on `UniversalAiResponse`/`ResponseMetadata` (not dead); removed stale `#[expect(clippy::too_many_lines)]` (function now short enough); `#[allow(async_fn_in_trait)]` → `#[expect]` where lint fires
+- **Commented-out code** — removed last orphan comment in `plugins/manager.rs`
+- **Root docs** — test counts updated to 6,868 across README, CONTEXT, CURRENT_STATUS
+
 ## [0.1.0-alpha.41] - 2026-04-05
 
 Async-trait wave 3 (continued): security, context, and command surfaces genericized; workspace dependency cleanup.

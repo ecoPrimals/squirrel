@@ -361,7 +361,10 @@ impl EcosystemManager {
                 cross_primal_communication: CrossPrimalStatus {
                     enabled: true,
                     active_connections: peer_count as u32,
-                    supported_protocols: vec!["unix_socket".to_string(), "jsonrpc_2.0".to_string()],
+                    supported_protocols: vec![
+                        universal_constants::protocol::UNIX_SOCKET_TRANSPORT_ID.to_string(),
+                        universal_constants::protocol::JSONRPC_PROTOCOL_ID.to_string(),
+                    ],
                 },
             },
             overall_health,
@@ -493,7 +496,11 @@ impl EcosystemManager {
             .or_else(|| credentials.get("username"))
             .cloned()
             .unwrap_or_else(|| "anonymous".to_string());
-        let session_id = format!("beardog_session_{}", uuid::Uuid::new_v4());
+        let session_id = format!(
+            "{}_session_{}",
+            universal_constants::primal_names::BEARDOG,
+            uuid::Uuid::new_v4()
+        );
         tracing::info!("✅ BearDog authentication coordination complete");
         Ok(session_id)
     }

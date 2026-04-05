@@ -36,7 +36,7 @@ pub struct PrimalInfo {
     pub license: String,
     /// Transport (e.g., "unix_socket", "http")
     pub transport: String,
-    /// Protocol (e.g., "jsonrpc_2.0")
+    /// Protocol (e.g., "json-rpc-2.0")
     pub protocol: String,
 }
 
@@ -77,7 +77,7 @@ fn default_transport() -> String {
     "unix_socket".to_string()
 }
 fn default_protocol() -> String {
-    "jsonrpc_2.0".to_string()
+    universal_constants::protocol::JSONRPC_PROTOCOL_ID.to_string()
 }
 
 #[derive(Deserialize)]
@@ -203,7 +203,7 @@ impl CapabilityRegistry {
                 domain: "ai".to_string(),
                 license: "AGPL-3.0-only".to_string(),
                 transport: "unix_socket".to_string(),
-                protocol: "jsonrpc_2.0".to_string(),
+                protocol: universal_constants::protocol::JSONRPC_PROTOCOL_ID.to_string(),
             },
             capabilities: methods
                 .into_iter()

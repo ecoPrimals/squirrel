@@ -76,6 +76,12 @@ impl MetricsCollector {
         }
     }
 
+    /// Total number of recorded metric values (proxy for operation count).
+    #[must_use]
+    pub fn total_operations(&self) -> usize {
+        self.values.len()
+    }
+
     /// Get comprehensive metrics summary
     pub async fn get_summary(&self) -> Result<MetricsSummary, PrimalError> {
         let system_metrics = self.system_metrics.read().await.clone();

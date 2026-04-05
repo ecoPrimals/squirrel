@@ -94,7 +94,7 @@ impl<S: SessionManager> UniversalPrimalProvider for SquirrelPrimalProvider<S> {
         let port = std::env::var("SERVICE_PORT")
             .ok()
             .and_then(|p| p.parse().ok())
-            .unwrap_or(8080);
+            .unwrap_or_else(|| universal_constants::network::get_service_port("websocket"));
         let base_url = format!("http://{host}:{port}");
         let ws_url = format!("ws://{host}:{port}/ws");
 

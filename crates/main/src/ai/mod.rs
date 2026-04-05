@@ -4,15 +4,8 @@
 //! AI Subsystem
 //!
 //! Central AI capabilities including routing and providers.
-//! Model splitting has been moved to ToadStool and Songbird.
-
+//!
+//! Model splitting has been fully relocated to ToadStool (GPU/VRAM) and
+//! Songbird (cross-tower coordination). Squirrel discovers those primals
+//! at runtime via capability-based IPC.
 pub mod model_splitting;
-
-// Re-export deprecated stubs for backward compatibility
-// Backward compatibility: AI module uses deprecated types during migration
-#[expect(deprecated, reason = "backward compat: model_splitting types during migration")]
-pub use model_splitting::{
-    LayerDistribution, LayerDistributionStrategy, ModelSplitConfig, ModelSplitCoordinator,
-    ModelSplitState, PerformancePrediction, SplitSession, SplitStatus, TensorMessage,
-    TensorProtocol, TowerAssignment, TowerCapability,
-};
