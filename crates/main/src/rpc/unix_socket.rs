@@ -61,7 +61,10 @@ impl SocketConfig {
             squirrel_socket: std::env::var("SQUIRREL_SOCKET").ok(),
             biomeos_socket_path: std::env::var("BIOMEOS_SOCKET_PATH").ok(),
             primal_socket: std::env::var("PRIMAL_SOCKET").ok(),
-            family_id: std::env::var("SQUIRREL_FAMILY_ID").ok(),
+            family_id: std::env::var("SQUIRREL_FAMILY_ID")
+                .or_else(|_| std::env::var("BIOMEOS_FAMILY_ID"))
+                .or_else(|_| std::env::var("FAMILY_ID"))
+                .ok(),
             node_id: std::env::var("SQUIRREL_NODE_ID").ok(),
             biomeos_insecure: std::env::var("BIOMEOS_INSECURE")
                 .ok()
@@ -94,8 +97,8 @@ pub fn get_socket_path_with(config: &SocketConfig, node_id: &str) -> String {
         return suffixed_path;
     }
 
-    // Tier 4: XDG runtime directory
-    if let Some(xdg_path) = get_xdg_socket_path() {
+    // Tier 4: XDG runtime directory (family-scoped per PRIMAL_SELF_KNOWLEDGE_STANDARD)
+    if let Some(xdg_path) = get_xdg_socket_path(&family_id) {
         debug!("Socket Path: {xdg_path} (Tier 4 - STANDARD biomeOS)");
         return xdg_path;
     }
@@ -168,22 +171,21 @@ pub fn get_socket_path(node_id: &str) -> String {
 /// that enables inter-primal discovery and NUCLEUS deployment.
 ///
 /// This path is used by all primals: BearDog, Songbird, NestGate, Toadstool, Squirrel.
-fn get_xdg_socket_path() -> Option<String> {
-    // Get current user ID
+fn get_xdg_socket_path(family_id: &str) -> Option<String> {
     let uid = nix::unistd::getuid();
     let xdg_runtime_dir = format!("/run/user/{uid}");
 
-    // Check if XDG runtime directory exists
     if Path::new(&xdg_runtime_dir).exists() {
-        // Ensure biomeos subdirectory exists with proper permissions
         if let Err(e) = ensure_biomeos_directory() {
             warn!("Failed to create biomeos directory: {}", e);
             return None;
         }
 
-        let filename = match std::env::var("FAMILY_ID") {
-            Ok(fid) if !fid.is_empty() => format!("squirrel-{fid}.sock"),
-            _ => "squirrel.sock".to_string(),
+        let family_scoped = !family_id.is_empty() && family_id != "default";
+        let filename = if family_scoped {
+            format!("squirrel-{family_id}.sock")
+        } else {
+            "squirrel.sock".to_string()
         };
         let socket_path = format!("{xdg_runtime_dir}/biomeos/{filename}");
         Some(socket_path)
@@ -455,10 +457,10 @@ pub fn verify_socket_config() -> Result<String, String> {
 /// Returns `Err` with a human-readable message when both are set.
 pub fn validate_insecure_guard() -> Result<(), String> {
     let config = SocketConfig::from_env();
-    let has_family = std::env::var("SQUIRREL_FAMILY_ID")
-        .or_else(|_| std::env::var("FAMILY_ID"))
-        .map(|v| !v.is_empty() && v != "default")
-        .unwrap_or(false);
+    let has_family = config
+        .family_id
+        .as_deref()
+        .is_some_and(|v| !v.is_empty() && v != "default");
     validate_insecure_guard_with(has_family, config.biomeos_insecure.unwrap_or(false))
 }
 
@@ -485,6 +487,8 @@ mod tests {
         "BIOMEOS_SOCKET_PATH",
         "PRIMAL_SOCKET",
         "SQUIRREL_FAMILY_ID",
+        "BIOMEOS_FAMILY_ID",
+        "FAMILY_ID",
         "SQUIRREL_NODE_ID",
     ];
 
@@ -545,7 +549,8 @@ mod tests {
         temp_env::with_var("SQUIRREL_FAMILY_ID", Some("test0"), || {
             let path = get_socket_path("test-node");
             assert!(
-                path.contains("/biomeos/squirrel.sock") || path.contains("/tmp/squirrel-test0")
+                path.contains("/biomeos/squirrel-test0.sock")
+                    || path.contains("/tmp/squirrel-test0")
             );
         });
     }
@@ -618,10 +623,21 @@ mod tests {
 
     fn test_xdg_socket_path_format() {
         temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
-            if let Some(xdg_path) = get_xdg_socket_path() {
+            if let Some(xdg_path) = get_xdg_socket_path("default") {
                 assert!(xdg_path.starts_with("/run/user/"));
                 assert!(xdg_path.contains("/biomeos/"));
                 assert!(xdg_path.ends_with("/squirrel.sock"));
+            }
+        });
+    }
+
+    #[test]
+    fn test_xdg_socket_path_family_scoped() {
+        temp_env::with_vars_unset(SOCKET_ENV_VARS, || {
+            if let Some(xdg_path) = get_xdg_socket_path("nat0") {
+                assert!(xdg_path.starts_with("/run/user/"));
+                assert!(xdg_path.contains("/biomeos/"));
+                assert!(xdg_path.ends_with("/squirrel-nat0.sock"));
             }
         });
     }
