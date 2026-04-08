@@ -154,6 +154,10 @@ async fn run_server(port: u16, daemon: bool, socket: Option<String>, _verbose: b
     use squirrel::rpc::JsonRpcServer;
     use squirrel::rpc::unix_socket;
 
+    // BTSP §Security Model (GAP-MATRIX-12): refuse to start when both
+    // FAMILY_ID and BIOMEOS_INSECURE are set.
+    unix_socket::validate_insecure_guard().map_err(|msg| anyhow::anyhow!("{msg}"))?;
+
     // Load configuration (file + env vars)
     let mut config =
         squirrel::config::ConfigLoader::load(None).context("Failed to load configuration")?;

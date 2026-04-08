@@ -293,9 +293,9 @@ impl ActionExecutor {
 
 impl Default for ActionExecutor {
     fn default() -> Self {
-        use super::DummyPluginManager;
+        use super::NoOpPluginManager;
         Self::new(Arc::new(RulePluginManager::new(Arc::new(
-            DummyPluginManager::default(),
+            NoOpPluginManager,
         ))))
     }
 }
@@ -305,7 +305,7 @@ mod tests {
     use super::*;
     use crate::rules::models::{Rule, RuleAction, RuleMetadata};
     use crate::rules::{ContextPlugin as RulesContextPlugin, RulePluginManager};
-    use crate::rules::{DummyPluginManager, RuleError};
+    use crate::rules::{NoOpPluginManager, RuleError};
     use async_trait::async_trait;
     use serde_json::json;
     use squirrel_interfaces::context::ContextTransformation;
@@ -392,9 +392,7 @@ mod tests {
 
     #[tokio::test]
     async fn action_executor_new_and_accessors() {
-        let pm = Arc::new(RulePluginManager::new(Arc::new(
-            DummyPluginManager::default(),
-        )));
+        let pm = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
         let ex = ActionExecutor::new(Arc::clone(&pm));
         assert!(ex.default_context().is_none());
         assert!(Arc::ptr_eq(ex.plugin_manager(), &pm));
@@ -402,9 +400,7 @@ mod tests {
 
     #[tokio::test]
     async fn action_executor_with_default_context_and_setters() {
-        let pm = Arc::new(RulePluginManager::new(Arc::new(
-            DummyPluginManager::default(),
-        )));
+        let pm = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
         let mut ex = ActionExecutor::with_default_context(Arc::clone(&pm), json!({"x": 1}));
         assert_eq!(ex.default_context(), Some(&json!({"x": 1})));
         ex.set_default_context(json!({"y": 2}));
@@ -413,9 +409,7 @@ mod tests {
 
     #[tokio::test]
     async fn execute_rule_actions_uses_mutable_context() {
-        let pm = Arc::new(RulePluginManager::new(Arc::new(
-            DummyPluginManager::default(),
-        )));
+        let pm = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
         let ex = ActionExecutor::new(pm);
         let rule = sample_rule(vec![RuleAction::ModifyContext {
             path: "a.b".to_string(),
@@ -431,9 +425,7 @@ mod tests {
 
     #[tokio::test]
     async fn execute_rule_actions_without_context_uses_default_or_empty() {
-        let pm = Arc::new(RulePluginManager::new(Arc::new(
-            DummyPluginManager::default(),
-        )));
+        let pm = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
         let ex = ActionExecutor::with_default_context(pm, json!({}));
         let rule = sample_rule(vec![RuleAction::ModifyContext {
             path: "k".to_string(),
@@ -448,9 +440,7 @@ mod tests {
 
     #[tokio::test]
     async fn modify_context_invalid_path_errors() {
-        let pm = Arc::new(RulePluginManager::new(Arc::new(
-            DummyPluginManager::default(),
-        )));
+        let pm = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
         let ex = ActionExecutor::new(pm);
         let rule = sample_rule(vec![RuleAction::ModifyContext {
             path: "not.an.array.99".to_string(),
@@ -466,9 +456,7 @@ mod tests {
 
     #[tokio::test]
     async fn recovery_point_and_side_effect_actions_ok() {
-        let pm = Arc::new(RulePluginManager::new(Arc::new(
-            DummyPluginManager::default(),
-        )));
+        let pm = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
         let ex = ActionExecutor::new(pm);
         let rule = sample_rule(vec![
             RuleAction::CreateRecoveryPoint {
@@ -556,9 +544,7 @@ mod tests {
 
     #[tokio::test]
     async fn custom_action_errors() {
-        let pm = Arc::new(RulePluginManager::new(Arc::new(
-            DummyPluginManager::default(),
-        )));
+        let pm = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
         let ex = ActionExecutor::new(pm);
         let rule = sample_rule(vec![RuleAction::Custom {
             id: "x".into(),

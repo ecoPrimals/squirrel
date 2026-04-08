@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.45] - 2026-04-08
+
+Deep debt cleanup: self-knowledge violations, production mock evolution, dependency hygiene.
+6,875 tests passing, zero clippy warnings, all gates green.
+
+### Added
+
+- **`primal_names::PRIMALSPRING`** — canonical constant + display name in `universal-constants`
+
+### Changed
+
+- **`BEARDOG_API_KEY` → `SECURITY_API_KEY`** — `core/auth/providers.rs` uses capability-domain env var with legacy fallback
+- **`/tmp/token` → env-based resolution** — `LocalSecurityProvider` resolves token path via `SECURITY_TOKEN_FILE` → `$XDG_RUNTIME_DIR/biomeos/security.token` → `/tmp/biomeos-security.token`
+- **`DummyPluginManager` → `NoOpPluginManager`** — renamed to unit struct with honest documentation; 5 files updated
+- **SDK fs.rs WASM stubs** — `exists()` returns `false` (was `true`); `read_file_internal()` returns empty binary (was "Hello World"); `upload_file()` returns error
+- **rule-system `toml`** — aligned from `0.7` to workspace `0.8`; `glob` aligned to workspace `0.3`
+
+### Removed
+
+- **10 orphan workspace dependencies** — `hex`, `uuid-serde`, `lru`, `indexmap`, `argon2`, `simple_logger`, `secrecy`, `tarpc-mcp`, `axum-mcp`, `axum-extra-mcp`
+- **Stale lint expectation** — `clippy::unnested_or_patterns` from SDK lib.rs
+
+## [0.1.0-alpha.44] - 2026-04-08
+
+BTSP Protocol Standard compliance — BIOMEOS_INSECURE guard (GAP-MATRIX-12).
+6,875 tests passing, zero clippy warnings, all gates green.
+
+### Added
+
+- **`validate_insecure_guard()`** — BTSP §Security Model: primal refuses to start when both `FAMILY_ID` (non-default) and `BIOMEOS_INSECURE=1` are set; injectable `validate_insecure_guard_with()` variant for testing
+- **`SocketConfig::biomeos_insecure`** — new field for `BIOMEOS_INSECURE` env var (completes BTSP Tier 2 checklist item: "Refuses to start when both FAMILY_ID and BIOMEOS_INSECURE are set")
+- **9 BTSP guard tests** — 4 injectable unit + 5 env-based via `temp_env`; covers all combinations including `"default"` family non-production semantics
+
+### Changed
+
+- **Server startup** — `validate_insecure_guard()` fires first in `run_server()` before config, socket, or daemon logic; exits with `CONFIG_ERROR` (2) on violation
+
 ## [0.1.0-alpha.43] - 2026-04-08
 
 Wire Standard L2 compliance, production mock elimination, dead code removal, Tower Atomic enforcement.

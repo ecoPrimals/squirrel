@@ -34,7 +34,19 @@ impl UniversalSecurityService for LocalSecurityProvider {
                 methods: vec![
                     AuthMethod::None,
                     AuthMethod::Token {
-                        token_file: std::path::PathBuf::from("/tmp/token"),
+                        token_file: std::env::var("SECURITY_TOKEN_FILE").map_or_else(
+                            |_| {
+                                std::env::var("XDG_RUNTIME_DIR").map_or_else(
+                                    |_| std::path::PathBuf::from("/tmp/biomeos-security.token"),
+                                    |xdg| {
+                                        std::path::PathBuf::from(xdg)
+                                            .join("biomeos")
+                                            .join("security.token")
+                                    },
+                                )
+                            },
+                            std::path::PathBuf::from,
+                        ),
                     },
                 ],
                 multi_factor: false,

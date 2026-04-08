@@ -13,8 +13,8 @@
 # Enable universal capability-based security discovery
 enable_capability_discovery = true
 
-# Enable Songbird service mesh integration for broader discovery
-enable_songbird_discovery = true
+# Enable service mesh integration for broader discovery
+enable_service_mesh_discovery = true
 
 # Fallback to internal security if no ecosystem services found
 enable_fallback = true
@@ -117,8 +117,8 @@ service_timeout_seconds = 30
 
 # Ecosystem service registry configuration
 [ecosystem_registry]
-# Registry type: "songbird", "custom", "mock"
-registry_type = "songbird"
+# Registry type: "service_mesh", "custom", "mock"
+registry_type = "service_mesh"
 
 # Registry endpoints (for custom registries)
 endpoints = [

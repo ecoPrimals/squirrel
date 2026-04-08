@@ -2,7 +2,7 @@
 # Squirrel Current Status
 
 **Last Updated**: April 8, 2026
-**Version**: 0.1.0-alpha.43
+**Version**: 0.1.0-alpha.45
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 6,850 passing / 0 failures / 101 ignored across 22 workspace members (default features) |
+| Tests | 6,875 passing / 0 failures / 107 ignored across 22 workspace members (default features) |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
@@ -28,7 +28,7 @@
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
-| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; `SecurePluginStub` rejects execution (security sandbox); SDK MCP `OperationHandler` returns honest empty/error until IPC connected; all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
+| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; `SecurePluginStub` rejects execution (security sandbox); `NoOpPluginManager` returns errors for all lookups (honest default); SDK MCP `OperationHandler` returns honest empty/error until IPC connected; SDK fs.rs returns false/empty for WASM stubs; all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
 | TODO/FIXME in code | 0 — no TODO/FIXME/HACK markers in committed code; Phase 2 placeholders documented with `#[expect(dead_code, reason)]` |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
@@ -275,6 +275,26 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 5. `async-trait` — 129 annotations remaining (down from 228); 20+ trait definitions migrated to native `async fn` in trait with dyn→generics/enum dispatch; remaining usage is traits deeply embedded in heterogeneous `dyn` collections (`Plugin`, `Command`, `AIClient`, `MonitoringProvider`, `PrimalProvider`, etc.) — will be progressively removed as `dyn` surface shrinks
 
 ## Changes Since Last Handoff (April 8, 2026)
+
+### April 8, 2026 session P (Deep Debt: Self-Knowledge Violations, Production Mocks, Dependency Cleanup)
+
+- **BEARDOG_API_KEY → SECURITY_API_KEY** — `core/auth/providers.rs` EncryptionService and ComplianceMonitor now read `SECURITY_API_KEY` first, falling back to `BEARDOG_API_KEY` for legacy compat; eliminates primal-specific env var violation
+- **`/tmp/token` → env-based resolution** — `universal-patterns/security/providers/local.rs` LocalSecurityProvider token path now resolves via `SECURITY_TOKEN_FILE` → `$XDG_RUNTIME_DIR/biomeos/security.token` → `/tmp/biomeos-security.token` fallback
+- **`"primalspring"` → `primal_names::PRIMALSPRING`** — Added `PRIMALSPRING` constant + display name to `universal-constants/primal_names.rs`; niche.rs DEPENDENCIES now uses the constant instead of raw string
+- **`DummyPluginManager` → `NoOpPluginManager`** — Renamed across 5 files (mod.rs, actions.rs, plugin.rs, tests.rs, plugin_tests.rs) with honest documentation: "returns errors for all lookups" rather than "for testing purposes"; changed to unit struct
+- **SDK fs.rs WASM stubs** — `exists()` now returns `false` (was `true`); `read_file_internal()` returns empty binary (was "Hello World"); `upload_file()` returns error; all documented as WASM sandbox stubs pending host wiring
+- **10 orphan workspace dependencies removed** — `hex`, `uuid-serde`, `lru`, `indexmap`, `argon2`, `simple_logger`, `secrecy`, `tarpc-mcp`, `axum-mcp`, `axum-extra-mcp` were declared in workspace but unused by any member crate
+- **rule-system version alignment** — `toml = "0.7"` → `toml.workspace = true` (0.8); `glob = "0.3"` → `glob.workspace = true`
+- **Unfulfilled lint cleanup** — Removed stale `clippy::unnested_or_patterns` expectation from SDK lib.rs
+- Quality: 6,875 tests passing, 0 failures, 0 clippy warnings, 0 fmt diffs, 0 doc errors
+
+### April 8, 2026 session O (BTSP §Security Model — BIOMEOS_INSECURE guard, GAP-MATRIX-12)
+
+- **`validate_insecure_guard()`** — BTSP Protocol Standard compliance: primal refuses to start when both `FAMILY_ID` (non-default) and `BIOMEOS_INSECURE=1` are set; checks `SQUIRREL_FAMILY_ID` first, then `FAMILY_ID` (primal-specific env var precedence per `PRIMAL_SELF_KNOWLEDGE_STANDARD.md` §4)
+- **Injectable guard** — `validate_insecure_guard_with(has_family, insecure)` for pure-function testing without env var side effects; `SocketConfig` extended with `biomeos_insecure: Option<bool>` field
+- **Startup gate** — guard fires first in `run_server()` before config load, socket resolution, or daemon fork; returns `exit_code::CONFIG` (2) on violation
+- **9 new tests** — 4 injectable unit tests (neither, family-only, insecure-only, both-rejected) + 5 env-based tests via `temp_env` (no conflict, family-only, family+insecure, primal-family+insecure, default-family-is-not-production)
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓ (0 warnings), `test` ✓ (6,875/0/107), `doc` ✓
 
 ### April 8, 2026 session N (Wire Standard compliance, deep debt, dead code removal)
 

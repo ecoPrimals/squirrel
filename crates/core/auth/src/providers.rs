@@ -453,7 +453,9 @@ impl EncryptionService {
         // Discover encryption service through capability adapter - no hardcoded endpoints
         let base_url = Self::discover_encryption_service_endpoint().await?;
 
-        let api_key = std::env::var("BEARDOG_API_KEY").unwrap_or_else(|_| String::new());
+        let api_key = std::env::var("SECURITY_API_KEY")
+            .or_else(|_| std::env::var("BEARDOG_API_KEY"))
+            .unwrap_or_default();
 
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
@@ -585,7 +587,9 @@ impl ComplianceMonitor {
         // Discover compliance service through capability adapter - no hardcoded endpoints  
         let base_url = Self::discover_compliance_service_endpoint().await?;
 
-        let api_key = std::env::var("BEARDOG_API_KEY").unwrap_or_else(|_| String::new());
+        let api_key = std::env::var("SECURITY_API_KEY")
+            .or_else(|_| std::env::var("BEARDOG_API_KEY"))
+            .unwrap_or_default();
 
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))

@@ -50,7 +50,6 @@
     clippy::redundant_closure_for_method_calls,
     clippy::needless_pass_by_value,
     clippy::module_name_repetitions,
-    clippy::unnested_or_patterns,
     clippy::redundant_else,
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,

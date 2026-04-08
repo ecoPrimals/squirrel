@@ -204,7 +204,7 @@ pub const DEPENDENCIES: &[(&str, bool, &str)] = &[
         "persistent storage (graceful fallback to in-memory cache)",
     ),
     (
-        "primalspring",
+        primal_names::PRIMALSPRING,
         false,
         "coordination validation and BYOB graph execution",
     ),

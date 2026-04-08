@@ -49,6 +49,8 @@ pub struct SocketConfig {
     pub family_id: Option<String>,
     /// Overrides `SQUIRREL_NODE_ID`.
     pub node_id: Option<String>,
+    /// Overrides `BIOMEOS_INSECURE` (BTSP guard).
+    pub biomeos_insecure: Option<bool>,
 }
 
 impl SocketConfig {
@@ -61,6 +63,9 @@ impl SocketConfig {
             primal_socket: std::env::var("PRIMAL_SOCKET").ok(),
             family_id: std::env::var("SQUIRREL_FAMILY_ID").ok(),
             node_id: std::env::var("SQUIRREL_NODE_ID").ok(),
+            biomeos_insecure: std::env::var("BIOMEOS_INSECURE")
+                .ok()
+                .map(|v| v == "1" || v == "true"),
         }
     }
 }
@@ -434,6 +439,40 @@ pub fn verify_socket_config() -> Result<String, String> {
     }
 }
 
+/// BTSP Protocol Standard §Security Model: refuse to start when both
+/// `FAMILY_ID` (non-default) and `BIOMEOS_INSECURE=1` are set.
+///
+/// Production mode (`FAMILY_ID` set) requires BTSP authentication on every
+/// socket connection. `BIOMEOS_INSECURE=1` skips BTSP and is only valid
+/// in development (no `FAMILY_ID`). Setting both is a configuration error.
+///
+/// Checks `SQUIRREL_FAMILY_ID` first, then falls back to `FAMILY_ID`
+/// (following the primal-specific env var precedence from
+/// `PRIMAL_SELF_KNOWLEDGE_STANDARD.md` §4).
+///
+/// # Errors
+///
+/// Returns `Err` with a human-readable message when both are set.
+pub fn validate_insecure_guard() -> Result<(), String> {
+    let config = SocketConfig::from_env();
+    let has_family = std::env::var("SQUIRREL_FAMILY_ID")
+        .or_else(|_| std::env::var("FAMILY_ID"))
+        .map(|v| !v.is_empty() && v != "default")
+        .unwrap_or(false);
+    validate_insecure_guard_with(has_family, config.biomeos_insecure.unwrap_or(false))
+}
+
+/// Injectable variant for testing without env var side effects.
+pub fn validate_insecure_guard_with(has_family: bool, insecure: bool) -> Result<(), String> {
+    if has_family && insecure {
+        return Err("FATAL: FAMILY_ID and BIOMEOS_INSECURE=1 cannot coexist. \
+             Production mode (FAMILY_ID set) requires BTSP authentication. \
+             Remove BIOMEOS_INSECURE to run in production, or unset FAMILY_ID for development."
+            .to_owned());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -698,5 +737,102 @@ mod tests {
         let config = SocketConfig::default();
         let node_id = get_node_id_with(&config);
         assert!(!node_id.is_empty());
+    }
+
+    // ── BIOMEOS_INSECURE guard (BTSP §Security Model, GAP-MATRIX-12) ───
+
+    #[test]
+    fn insecure_guard_ok_neither_set() {
+        assert!(validate_insecure_guard_with(false, false).is_ok());
+    }
+
+    #[test]
+    fn insecure_guard_ok_family_only() {
+        assert!(validate_insecure_guard_with(true, false).is_ok());
+    }
+
+    #[test]
+    fn insecure_guard_ok_insecure_only() {
+        assert!(validate_insecure_guard_with(false, true).is_ok());
+    }
+
+    #[test]
+    fn insecure_guard_rejects_both() {
+        let result = validate_insecure_guard_with(true, true);
+        assert!(result.is_err());
+        let msg = result.unwrap_err();
+        assert!(msg.contains("FAMILY_ID"));
+        assert!(msg.contains("BIOMEOS_INSECURE"));
+        assert!(msg.contains("BTSP"));
+    }
+
+    #[test]
+    fn insecure_guard_env_no_conflict() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_FAMILY_ID", None::<&str>),
+                ("FAMILY_ID", None::<&str>),
+                ("BIOMEOS_INSECURE", None::<&str>),
+            ],
+            || {
+                assert!(validate_insecure_guard().is_ok());
+            },
+        );
+    }
+
+    #[test]
+    fn insecure_guard_env_family_only() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_FAMILY_ID", None::<&str>),
+                ("FAMILY_ID", Some("my-family")),
+                ("BIOMEOS_INSECURE", None::<&str>),
+            ],
+            || {
+                assert!(validate_insecure_guard().is_ok());
+            },
+        );
+    }
+
+    #[test]
+    fn insecure_guard_env_rejects_family_plus_insecure() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_FAMILY_ID", None::<&str>),
+                ("FAMILY_ID", Some("prod-family")),
+                ("BIOMEOS_INSECURE", Some("1")),
+            ],
+            || {
+                assert!(validate_insecure_guard().is_err());
+            },
+        );
+    }
+
+    #[test]
+    fn insecure_guard_env_rejects_primal_family_plus_insecure() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_FAMILY_ID", Some("squirrel-family")),
+                ("FAMILY_ID", None::<&str>),
+                ("BIOMEOS_INSECURE", Some("true")),
+            ],
+            || {
+                assert!(validate_insecure_guard().is_err());
+            },
+        );
+    }
+
+    #[test]
+    fn insecure_guard_env_default_family_is_not_production() {
+        temp_env::with_vars(
+            [
+                ("SQUIRREL_FAMILY_ID", None::<&str>),
+                ("FAMILY_ID", Some("default")),
+                ("BIOMEOS_INSECURE", Some("1")),
+            ],
+            || {
+                assert!(validate_insecure_guard().is_ok());
+            },
+        );
     }
 }

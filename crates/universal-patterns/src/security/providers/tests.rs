@@ -357,17 +357,16 @@ async fn test_registry_find_by_capability() {
         .await
         .expect("test: operation should succeed");
 
-    // Must match EXACTLY what LocalSecurityProvider registers
-    let capability = SecurityCapability::Authentication {
-        methods: vec![
-            AuthMethod::None,
-            AuthMethod::Token {
-                token_file: std::path::PathBuf::from("/tmp/token"),
-            },
-        ],
-        multi_factor: false,
-        session_management: false,
-    };
+    // Match the Authentication capability variant (token path is
+    // env-dependent, so match against the provider's actual advertised caps).
+    let caps = registry
+        .get_service("local-service")
+        .expect("service registered")
+        .get_capabilities();
+    let capability = caps
+        .into_iter()
+        .find(|c| matches!(c, SecurityCapability::Authentication { .. }))
+        .expect("provider advertises Authentication");
 
     let services = registry.find_by_capability(&capability);
 

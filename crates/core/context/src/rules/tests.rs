@@ -237,14 +237,12 @@ async fn test_rule_evaluator() -> crate::rules::error::Result<()> {
 
 #[tokio::test]
 async fn test_action_executor() -> crate::rules::error::Result<()> {
-    use crate::rules::DummyPluginManager;
+    use crate::rules::NoOpPluginManager;
     use crate::rules::actions::ActionExecutor;
     use crate::rules::plugin::RulePluginManager;
     use std::sync::Arc;
 
-    let plugin_manager = Arc::new(RulePluginManager::new(Arc::new(
-        DummyPluginManager::default(),
-    )));
+    let plugin_manager = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
     let action_executor = ActionExecutor::new(Arc::clone(&plugin_manager));
 
     // Create test context
@@ -470,7 +468,7 @@ async fn test_rule_conditions() -> crate::rules::error::Result<()> {
 
 #[tokio::test]
 async fn test_rule_actions() -> crate::rules::error::Result<()> {
-    use crate::rules::DummyPluginManager;
+    use crate::rules::NoOpPluginManager;
     use crate::rules::actions::ActionExecutor;
     use crate::rules::plugin::RulePluginManager;
     use std::sync::Arc;
@@ -486,9 +484,7 @@ async fn test_rule_actions() -> crate::rules::error::Result<()> {
         }
     });
 
-    let plugin_manager = Arc::new(RulePluginManager::new(Arc::new(
-        DummyPluginManager::default(),
-    )));
+    let plugin_manager = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
     let executor = ActionExecutor::new(plugin_manager);
 
     // Test ModifyContext action

@@ -5,7 +5,7 @@
 
 use super::error::Result;
 use super::plugin::{ActionExecutor, ConditionEvaluator, RulePluginManager};
-use crate::rules::DummyPluginManager;
+use crate::rules::NoOpPluginManager;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -38,7 +38,7 @@ impl ActionExecutor for TestActionExecutor {
 
 #[tokio::test]
 async fn test_rule_plugin_manager_new() {
-    let core_plugin: Arc<dyn crate::rules::ContextPlugin> = Arc::new(DummyPluginManager::default());
+    let core_plugin: Arc<dyn crate::rules::ContextPlugin> = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin.clone());
 
     // Just verify the manager was created successfully
@@ -47,7 +47,7 @@ async fn test_rule_plugin_manager_new() {
 
 #[tokio::test]
 async fn test_register_and_get_condition_evaluator() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let evaluator = TestConditionEvaluator { result: true };
@@ -69,7 +69,7 @@ async fn test_register_and_get_condition_evaluator() {
 
 #[tokio::test]
 async fn test_get_condition_evaluator_not_found() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let result = manager.get_condition_evaluator("nonexistent").await;
@@ -78,7 +78,7 @@ async fn test_get_condition_evaluator_not_found() {
 
 #[tokio::test]
 async fn test_register_and_get_action_executor() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let executor = TestActionExecutor {
@@ -102,7 +102,7 @@ async fn test_register_and_get_action_executor() {
 
 #[tokio::test]
 async fn test_get_action_executor_not_found() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let result = manager.get_action_executor("nonexistent").await;
@@ -111,25 +111,25 @@ async fn test_get_action_executor_not_found() {
 
 #[tokio::test]
 async fn test_get_transformation_from_core() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let result = manager.get_transformation("test_transform").await;
-    assert!(result.is_err()); // DummyPluginManager returns error for all transformations
+    assert!(result.is_err()); // NoOpPluginManager returns error for all transformations
 }
 
 #[tokio::test]
 async fn test_get_adapter_from_core() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let result = manager.get_adapter("test_adapter").await;
-    assert!(result.is_err()); // DummyPluginManager returns error for all adapters
+    assert!(result.is_err()); // NoOpPluginManager returns error for all adapters
 }
 
 #[tokio::test]
 async fn test_multiple_condition_evaluators() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let eval1 = TestConditionEvaluator { result: true };
@@ -165,7 +165,7 @@ async fn test_multiple_condition_evaluators() {
 
 #[tokio::test]
 async fn test_multiple_action_executors() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let exec1 = TestActionExecutor {
@@ -211,7 +211,7 @@ async fn test_condition_evaluator_with_params() {
         }
     }
 
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     manager
@@ -251,7 +251,7 @@ async fn test_action_executor_with_context() {
         }
     }
 
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     manager
@@ -273,7 +273,7 @@ async fn test_action_executor_with_context() {
 
 #[tokio::test]
 async fn test_overwrite_condition_evaluator() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let eval1 = TestConditionEvaluator { result: true };
@@ -295,7 +295,7 @@ async fn test_overwrite_condition_evaluator() {
 
 #[tokio::test]
 async fn test_overwrite_action_executor() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let exec1 = TestActionExecutor {
@@ -321,7 +321,7 @@ async fn test_overwrite_action_executor() {
 
 #[tokio::test]
 async fn test_rule_plugin_manager_debug() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = RulePluginManager::new(core_plugin);
 
     let debug_str = format!("{:?}", manager);
@@ -330,7 +330,7 @@ async fn test_rule_plugin_manager_debug() {
 
 #[tokio::test]
 async fn test_concurrent_registrations() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = Arc::new(RulePluginManager::new(core_plugin));
 
     let mut handles = vec![];
@@ -360,7 +360,7 @@ async fn test_concurrent_registrations() {
 
 #[tokio::test]
 async fn test_concurrent_retrievals() {
-    let core_plugin = Arc::new(DummyPluginManager::default());
+    let core_plugin = Arc::new(NoOpPluginManager);
     let manager = Arc::new(RulePluginManager::new(core_plugin));
 
     let eval = TestConditionEvaluator { result: true };

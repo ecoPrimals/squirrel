@@ -117,7 +117,7 @@ pub trait ActionExecutor: Send + Sync + Debug {
 mod tests {
     use super::*;
     use crate::rules::ContextPlugin;
-    use crate::rules::DummyPluginManager;
+    use crate::rules::NoOpPluginManager;
     use crate::rules::RuleError;
     use serde_json::json;
 
@@ -151,7 +151,7 @@ mod tests {
 
     #[tokio::test]
     async fn register_and_get_condition_evaluator() {
-        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let mgr = RulePluginManager::new(Arc::new(NoOpPluginManager));
         mgr.register_condition_evaluator("ce1", TrueEvaluator).await;
         let ev = mgr
             .get_condition_evaluator("ce1")
@@ -166,14 +166,14 @@ mod tests {
 
     #[tokio::test]
     async fn get_condition_evaluator_missing_errors() {
-        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let mgr = RulePluginManager::new(Arc::new(NoOpPluginManager));
         let err = mgr.get_condition_evaluator("nope").await.unwrap_err();
         assert!(matches!(err, RuleError::PluginNotFound(_)));
     }
 
     #[tokio::test]
     async fn register_and_get_action_executor() {
-        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let mgr = RulePluginManager::new(Arc::new(NoOpPluginManager));
         mgr.register_action_executor("ae1", EchoActionExecutor)
             .await;
         let ex = mgr
@@ -189,28 +189,28 @@ mod tests {
 
     #[tokio::test]
     async fn get_action_executor_missing_errors() {
-        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let mgr = RulePluginManager::new(Arc::new(NoOpPluginManager));
         let err = mgr.get_action_executor("missing").await.unwrap_err();
         assert!(matches!(err, RuleError::PluginNotFound(_)));
     }
 
     #[tokio::test]
     async fn core_plugin_manager_accessor() {
-        let dummy: Arc<dyn ContextPlugin> = Arc::new(DummyPluginManager::default());
+        let dummy: Arc<dyn ContextPlugin> = Arc::new(NoOpPluginManager);
         let mgr = RulePluginManager::new(Arc::clone(&dummy));
         assert!(Arc::ptr_eq(mgr.core_plugin_manager(), &dummy));
     }
 
     #[tokio::test]
     async fn get_transformation_forwards_plugin_error() {
-        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let mgr = RulePluginManager::new(Arc::new(NoOpPluginManager));
         let err = mgr.get_transformation("any").await.unwrap_err();
         assert!(matches!(err, RuleError::PluginError(_)));
     }
 
     #[tokio::test]
     async fn get_adapter_forwards_plugin_error() {
-        let mgr = RulePluginManager::new(Arc::new(DummyPluginManager::default()));
+        let mgr = RulePluginManager::new(Arc::new(NoOpPluginManager));
         let err = mgr.get_adapter("any").await.unwrap_err();
         assert!(matches!(err, RuleError::PluginError(_)));
     }

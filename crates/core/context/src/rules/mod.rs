@@ -154,14 +154,17 @@ pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
     async fn get_adapters(&self) -> AnyhowResult<Vec<Arc<dyn ContextAdapterDyn>>>;
 }
 
-/// Dummy plugin manager for testing purposes
+/// No-op plugin manager: returns errors for all lookups.
+///
+/// Used as the default `ContextPlugin` when no real plugin system is
+/// configured. Production code can construct rules and evaluate them
+/// without a plugin backend; custom actions will fail with a clear
+/// "not found" error rather than silently succeeding.
 #[derive(Debug, Default)]
-pub struct DummyPluginManager {
-    // Add fields as needed for your tests
-}
+pub struct NoOpPluginManager;
 
 #[async_trait]
-impl ContextPlugin for DummyPluginManager {
+impl ContextPlugin for NoOpPluginManager {
     async fn get_transformation(&self, id: &str) -> AnyhowResult<Arc<dyn ContextTransformation>> {
         Err(anyhow::anyhow!("Transformation not found: {}", id))
     }
@@ -322,9 +325,7 @@ impl RuleManager {
     pub fn new(rules_dir: impl AsRef<Path>) -> Self {
         let rules_dir_str = rules_dir.as_ref().to_string_lossy().to_string();
         let repository = Arc::new(RuleRepository::new(rules_dir_str));
-        let plugin_manager = Arc::new(RulePluginManager::new(Arc::new(
-            DummyPluginManager::default(),
-        )));
+        let plugin_manager = Arc::new(RulePluginManager::new(Arc::new(NoOpPluginManager)));
         let evaluator = Arc::new(RuleEvaluator::new());
         let action_executor = ActionExecutor::new(Arc::clone(&plugin_manager));
 

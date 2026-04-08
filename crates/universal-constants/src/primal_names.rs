@@ -35,6 +35,8 @@ pub const LOAMSPINE: &str = "loamspine";
 pub const PETALTONGUE: &str = "petaltongue";
 /// skunkBat — Adversarial testing / chaos
 pub const SKUNKBAT: &str = "skunkbat";
+/// primalSpring — Coordination validation and BYOB graph execution
+pub const PRIMALSPRING: &str = "primalspring";
 
 /// Human-readable display names for UI, logging, and error messages.
 ///
@@ -66,6 +68,8 @@ pub mod display {
     pub const PETALTONGUE: &str = "petalTongue";
     /// skunkBat display name
     pub const SKUNKBAT: &str = "skunkBat";
+    /// primalSpring display name
+    pub const PRIMALSPRING: &str = "primalSpring";
 }
 
 /// Look up the display name for a machine identifier.
@@ -87,6 +91,7 @@ pub fn display_name(machine_id: &str) -> &str {
         LOAMSPINE => display::LOAMSPINE,
         PETALTONGUE => display::PETALTONGUE,
         SKUNKBAT => display::SKUNKBAT,
+        PRIMALSPRING => display::PRIMALSPRING,
         other => other,
     }
 }
@@ -124,6 +129,7 @@ mod tests {
             LOAMSPINE,
             PETALTONGUE,
             SKUNKBAT,
+            PRIMALSPRING,
         ];
         for id in ids {
             assert_eq!(id, id.to_lowercase(), "{id} should be lowercase");

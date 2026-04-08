@@ -174,111 +174,93 @@ impl FileSystem {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
-    /// Check if a file exists
+    /// Check if a file exists.
+    ///
+    /// WASM sandbox stub: returns `false` until a host filesystem is wired
+    /// via the plugin bridge. Real implementations route through the host's
+    /// `fs.exists` capability.
     #[wasm_bindgen]
     pub async fn exists(&self, path: String) -> Result<bool, JsValue> {
         self.check_file_permission(&path, false)?;
-
-        // In a real implementation, this would check file existence
-        // For now, we'll simulate it
-        Ok(true) // Placeholder
+        Ok(false)
     }
 
-    /// Get file metadata
+    /// Get file metadata.
+    ///
+    /// WASM sandbox stub: returns zeroed metadata until a host filesystem is
+    /// wired. Uses `serde_wasm_bindgen` (wasm32-only).
     #[wasm_bindgen]
     pub async fn metadata(&self, path: String) -> Result<JsValue, JsValue> {
         self.check_file_permission(&path, false)?;
 
-        // Simulate metadata retrieval
         let metadata = FileMetadata {
             name: path.split('/').next_back().unwrap_or(&path).to_string(),
             size: 0,
-            file_type: "text/plain".to_string(),
-            last_modified: crate::utils::current_timestamp(),
+            file_type: "application/octet-stream".to_string(),
+            last_modified: 0,
             is_directory: false,
             permissions: None,
         };
 
         serde_wasm_bindgen::to_value(&metadata)
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))
     }
 
-    /// List directory contents
+    /// List directory contents.
+    ///
+    /// WASM sandbox stub: returns empty listing until a host filesystem is wired.
     #[wasm_bindgen]
     pub async fn list_directory(&self, path: String) -> Result<JsValue, JsValue> {
         self.check_file_permission(&path, false)?;
 
-        // Simulate directory listing
-        let entries: Vec<DirectoryEntry> = vec![]; // Placeholder
-
+        let entries: Vec<DirectoryEntry> = vec![];
         serde_wasm_bindgen::to_value(&entries)
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))
     }
 
-    /// Create a directory
+    /// Create a directory (WASM sandbox stub: no-op until host wired).
     #[wasm_bindgen]
     pub async fn create_directory(&self, path: String) -> Result<(), JsValue> {
         self.check_file_permission(&path, true)?;
-
-        // In a real implementation, this would create the directory
         Ok(())
     }
 
-    /// Delete a file or directory
+    /// Delete a file or directory (WASM sandbox stub: no-op until host wired).
     #[wasm_bindgen]
     pub async fn delete(&self, path: String) -> Result<(), JsValue> {
         self.check_file_permission(&path, true)?;
-
-        // In a real implementation, this would delete the file/directory
         Ok(())
     }
 
-    /// Copy a file
+    /// Copy a file (WASM sandbox stub: no-op until host wired).
     #[wasm_bindgen]
     pub async fn copy(&self, source: String, destination: String) -> Result<(), JsValue> {
         self.check_file_permission(&source, false)?;
         self.check_file_permission(&destination, true)?;
-
-        // In a real implementation, this would copy the file
         Ok(())
     }
 
-    /// Move/rename a file
+    /// Move/rename a file (WASM sandbox stub: no-op until host wired).
     #[wasm_bindgen]
     pub async fn move_file(&self, source: String, destination: String) -> Result<(), JsValue> {
         self.check_file_permission(&source, true)?;
         self.check_file_permission(&destination, true)?;
-
-        // In a real implementation, this would move the file
         Ok(())
     }
 }
 
 // Internal implementation (not exposed to WASM)
 impl FileSystem {
-    /// Internal file reading with permission checks
+    /// Internal file reading (WASM sandbox stub: returns empty content
+    /// until a host filesystem is wired via the plugin bridge).
     async fn read_file_internal(&self, path: &str, write: bool) -> PluginResult<FileContent> {
         self.check_file_permission(path, write)?;
-
-        // Simulate file reading
-        let content = match std::path::Path::new(path)
-            .extension()
-            .and_then(|ext| ext.to_str())
-        {
-            Some("txt") | Some("md") | Some("json") | Some("xml") => {
-                FileContent::Text("Hello World".to_string())
-            }
-            _ => FileContent::Binary(b"Hello World".to_vec()),
-        };
-
-        Ok(content)
+        Ok(FileContent::Binary(Vec::new()))
     }
 
-    /// Internal file writing with permission checks
+    /// Internal file writing (WASM sandbox stub: no-op until host wired).
     async fn write_file_internal(&self, path: &str, _data: Vec<u8>) -> PluginResult<()> {
         self.check_file_permission(path, true)?;
-
-        // In a real implementation, this would write the file
         Ok(())
     }
 
@@ -312,12 +294,12 @@ impl FileUploadHandler {
     pub async fn upload_file(
         &self,
         _file: &[u8],
-        _filename: String,
+        filename: String,
         _mime_type: String,
     ) -> PluginResult<String> {
-        let _permission = Permission::FileSystemWrite("/uploads".to_string());
-        let upload_id = format!("upload_{}", crate::utils::current_timestamp());
-        Ok(upload_id)
+        Err(PluginError::McpError {
+            message: format!("WASM sandbox: filesystem not connected — cannot upload '{filename}'"),
+        })
     }
 
     /// Create a download link for file content
@@ -668,40 +650,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_filesystem_read_text_and_bytes() {
+    async fn test_filesystem_read_returns_empty_without_host() {
         let fs = FileSystem::new();
-        let txt = fs
-            .read_text("readme.txt".to_string())
-            .await
-            .expect("should succeed");
-        assert_eq!(txt, "Hello World");
         let bytes = fs
             .read_bytes("blob.bin".to_string())
             .await
             .expect("should succeed");
-        assert_eq!(bytes, b"Hello World");
+        assert!(bytes.is_empty(), "stub returns empty data until host wired");
     }
 
     #[tokio::test]
-    async fn test_filesystem_write_and_ops() {
+    async fn test_filesystem_ops_stub_behavior() {
         let fs = FileSystem::new();
         fs.write_text("out.txt".to_string(), "x".to_string())
             .await
-            .expect("should succeed");
-        fs.write_bytes("out.bin".to_string(), vec![1, 2])
-            .await
-            .expect("should succeed");
-        assert!(fs.exists("any".to_string()).await.expect("should succeed"));
+            .expect("write stub is no-op");
+        assert!(
+            !fs.exists("any".to_string()).await.expect("should succeed"),
+            "exists returns false until host wired"
+        );
         fs.create_directory("d".to_string())
             .await
-            .expect("should succeed");
-        fs.delete("d".to_string()).await.expect("should succeed");
+            .expect("stub no-op");
+        fs.delete("d".to_string()).await.expect("stub no-op");
         fs.copy("a".to_string(), "b".to_string())
             .await
-            .expect("should succeed");
+            .expect("stub no-op");
         fs.move_file("a".to_string(), "b".to_string())
             .await
-            .expect("should succeed");
+            .expect("stub no-op");
     }
 
     /// `metadata` / `list_directory` use `serde_wasm_bindgen::to_value`, which requires wasm.
@@ -725,18 +702,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_file_upload_handler() {
+    async fn test_file_upload_handler_errors_without_host() {
         let h = FileUploadHandler::new();
         let _: FileUploadHandler = FileUploadHandler::default();
-        let id = h
+        let err = h
             .upload_file(
                 b"data",
                 "f.bin".to_string(),
                 "application/octet-stream".to_string(),
             )
-            .await
-            .expect("should succeed");
-        assert!(id.starts_with("upload_"));
+            .await;
+        assert!(err.is_err(), "upload errors without host fs");
     }
 
     #[cfg(target_arch = "wasm32")]
