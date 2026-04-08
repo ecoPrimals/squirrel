@@ -86,36 +86,24 @@ async fn test_handle_identity_get() -> TestResult {
     let server = make_server();
     let result: Value = server.handle_identity_get().await?;
     assert_eq!(
-        result.get("primal_id").and_then(|v| v.as_str()),
-        Some(identity::PRIMAL_ID)
-    );
-    assert_eq!(
-        result.get("domain").and_then(|v| v.as_str()),
-        Some(identity::PRIMAL_DOMAIN)
-    );
-    assert_eq!(
-        result.get("transport").and_then(|v| v.as_str()),
-        Some("unix-socket")
-    );
-    assert_eq!(
-        result.get("protocol").and_then(|v| v.as_str()),
-        Some("json-rpc-2.0")
-    );
-    assert_eq!(
-        result.get("license").and_then(|v| v.as_str()),
-        Some("AGPL-3.0-or-later")
-    );
-    assert_eq!(
-        result.get("jwt_issuer").and_then(|v| v.as_str()),
-        Some(identity::JWT_ISSUER)
-    );
-    assert_eq!(
-        result.get("jwt_audience").and_then(|v| v.as_str()),
-        Some(identity::JWT_AUDIENCE)
+        result.get("primal").and_then(|v| v.as_str()),
+        Some(identity::PRIMAL_ID),
+        "Wire Standard L2: 'primal' field required"
     );
     assert_eq!(
         result.get("version").and_then(|v| v.as_str()),
-        Some(env!("CARGO_PKG_VERSION"))
+        Some(env!("CARGO_PKG_VERSION")),
+        "Wire Standard L2: 'version' field required"
+    );
+    assert_eq!(
+        result.get("domain").and_then(|v| v.as_str()),
+        Some(identity::PRIMAL_DOMAIN),
+        "Wire Standard L2: 'domain' field recommended"
+    );
+    assert_eq!(
+        result.get("license").and_then(|v| v.as_str()),
+        Some("AGPL-3.0-or-later"),
+        "Wire Standard L2: 'license' field recommended"
     );
     Ok(())
 }
@@ -197,22 +185,39 @@ async fn test_handle_capability_list() -> TestResult {
     let result = server.handle_capability_list().await?;
     assert_eq!(
         result.get("primal").and_then(|v| v.as_str()),
-        Some("squirrel")
+        Some("squirrel"),
+        "Wire Standard: 'primal' required"
+    );
+    assert!(
+        result.get("version").is_some(),
+        "Wire Standard: 'version' required"
     );
     let methods = result
         .get("methods")
-        .and_then(|v| v.as_object())
-        .expect("test: methods must be object");
-    assert!(methods.contains_key("ai.query"));
-    assert!(methods.contains_key("capability.list"));
-
-    let ai_query = methods
-        .get("ai.query")
-        .expect("ai.query method metadata")
-        .as_object()
-        .expect("ai.query should be object");
-    assert!(ai_query.contains_key("cost"));
-    assert!(ai_query.contains_key("depends_on"));
+        .and_then(|v| v.as_array())
+        .expect("Wire Standard: methods must be a flat string array");
+    assert!(
+        methods.iter().any(|m| m.as_str() == Some("ai.query")),
+        "methods must include ai.query"
+    );
+    assert!(
+        methods
+            .iter()
+            .any(|m| m.as_str() == Some("capabilities.list")),
+        "methods must include capabilities.list"
+    );
+    assert!(
+        result.get("provided_capabilities").is_some(),
+        "L3: provided_capabilities grouping"
+    );
+    assert!(
+        result.get("consumed_capabilities").is_some(),
+        "L3: consumed_capabilities for composition validation"
+    );
+    assert!(
+        result.get("cost_estimates").is_some(),
+        "L3: cost_estimates for Pathway Learner"
+    );
     Ok(())
 }
 

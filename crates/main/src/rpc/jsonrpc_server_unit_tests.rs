@@ -193,8 +193,19 @@ async fn routing_capabilities_list_aliases() {
             .expect("should succeed");
         let v: Value = serde_json::from_str(&raw).expect("should succeed");
         assert!(
-            v.pointer("/result/capabilities").is_some(),
-            "{method}: {raw}"
+            v.pointer("/result/methods").is_some(),
+            "Wire Standard: result.methods flat array required: {raw}"
+        );
+        let methods = v.pointer("/result/methods").expect("methods");
+        assert!(methods.is_array(), "methods must be a flat string array");
+        assert_eq!(
+            v.pointer("/result/primal").and_then(Value::as_str),
+            Some("squirrel"),
+            "Wire Standard: result.primal required"
+        );
+        assert!(
+            v.pointer("/result/version").is_some(),
+            "Wire Standard: result.version required"
         );
     }
 }

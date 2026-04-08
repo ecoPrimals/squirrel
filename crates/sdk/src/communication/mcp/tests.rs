@@ -177,25 +177,19 @@ async fn test_client_with_custom_config() {
 async fn test_operation_handler_integration() {
     let mut handler = OperationHandler::new();
 
-    // Test tools
+    // Without an IPC MCP connection, list operations return empty and tools cannot run.
     let tools = handler.list_tools().await.expect("should succeed");
-    assert!(!tools.is_empty());
+    assert!(tools.is_empty());
 
-    // Test calculator tool
     let calc_input = json!({"operation": "add", "operands": [10, 20]});
-    let calc_result = handler
-        .execute_tool("calculator", calc_input)
-        .await
-        .expect("should succeed");
-    assert_eq!(calc_result["result"], 30.0);
+    let calc_result = handler.execute_tool("calculator", calc_input).await;
+    assert!(calc_result.is_err());
 
-    // Test resources
     let resources = handler.list_resources().await.expect("should succeed");
-    assert!(!resources.is_empty());
+    assert!(resources.is_empty());
 
-    // Test prompts
     let prompts = handler.list_prompts().await.expect("should succeed");
-    assert!(!prompts.is_empty());
+    assert!(prompts.is_empty());
 }
 
 /// Test message handler ping/pong flow
@@ -229,19 +223,28 @@ fn test_connection_manager_state() {
 async fn test_operation_error_handling() {
     let mut handler = OperationHandler::new();
 
-    // Test unknown tool
-    let result = handler.execute_tool("unknown_tool", json!({})).await;
-    assert!(result.is_err());
-
-    // Test invalid calculator input
-    let invalid_input = json!({"invalid": "data"});
-    let result = handler.execute_tool("calculator", invalid_input).await;
-    assert!(result.is_err());
-
-    // Test division by zero
-    let div_zero_input = json!({"operation": "divide", "operands": [10, 0]});
-    let result = handler.execute_tool("calculator", div_zero_input).await;
-    assert!(result.is_err());
+    // Without MCP over IPC, all tool execution returns an error.
+    assert!(
+        handler
+            .execute_tool("unknown_tool", json!({}))
+            .await
+            .is_err()
+    );
+    assert!(
+        handler
+            .execute_tool("calculator", json!({"invalid": "data"}))
+            .await
+            .is_err()
+    );
+    assert!(
+        handler
+            .execute_tool(
+                "calculator",
+                json!({"operation": "divide", "operands": [10, 0]}),
+            )
+            .await
+            .is_err()
+    );
 }
 
 /// Test comprehensive MCP client lifecycle

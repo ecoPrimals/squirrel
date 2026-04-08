@@ -214,12 +214,15 @@ async fn run_server(port: u16, daemon: bool, socket: Option<String>, _verbose: b
         path
     };
 
+    // Daemon mode: re-exec as a detached child with stdio closed.
+    // The child sees SQUIRREL_DAEMONIZED=1 and skips re-exec.
+    if daemon && std::env::var("SQUIRREL_DAEMONIZED").is_err() {
+        return daemonize_reexec();
+    }
+
     info!("Starting JSON-RPC server...");
     info!("Socket: {socket_path}");
     info!("Port: {port} (TCP JSON-RPC on 127.0.0.1:{port})");
-    if daemon {
-        info!("Daemon mode: enabled (FUTURE: implement background detach)");
-    }
     info!("Squirrel AI/MCP Primal Ready!");
 
     // Write primal manifest for biomeOS manifest-based discovery
@@ -353,6 +356,36 @@ async fn run_server(port: u16, daemon: bool, socket: Option<String>, _verbose: b
         }
     }
 
+    Ok(())
+}
+
+/// Re-exec the current binary as a detached daemon (safe, no `unsafe`).
+///
+/// 1. Spawns a child process with `SQUIRREL_DAEMONIZED=1` and stdio → `/dev/null`.
+/// 2. The child re-runs `main()`, sees the env var, and skips re-exec.
+/// 3. Parent prints the child PID (for biomeOS / shell capture) and returns.
+///
+/// biomeOS discovers the daemon via socket probing + manifest;
+/// the PID is written to the primal manifest by the child.
+fn daemonize_reexec() -> Result<()> {
+    use std::process::{Command, Stdio};
+
+    let exe = std::env::current_exe().context("cannot determine executable path")?;
+    let args: Vec<String> = std::env::args()
+        .skip(1) // skip argv[0]
+        .filter(|a| a != "--daemon" && a != "-d")
+        .collect();
+
+    let child = Command::new(exe)
+        .args(&args)
+        .env("SQUIRREL_DAEMONIZED", "1")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .context("failed to spawn daemon child")?;
+
+    println!("squirrel daemon started (pid: {})", child.id());
     Ok(())
 }
 

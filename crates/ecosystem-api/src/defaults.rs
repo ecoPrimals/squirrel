@@ -7,19 +7,40 @@
 
 use std::env;
 
-use universal_constants::network::{DEFAULT_SECURITY_PORT, get_service_port};
+use universal_constants::network::{DEFAULT_SECURITY_PORT, get_service_port, get_socket_path};
 
-/// Default ecosystem service endpoints with environment override support
+/// Default ecosystem service endpoints with environment override support.
+///
+/// Resolution follows the Tower Atomic pattern:
+/// 1. Unix socket path (preferred — zero-HTTP, IPC-first)
+/// 2. Environment variable for full endpoint
+/// 3. Legacy primal-specific env var (deprecated)
+/// 4. HTTP localhost fallback (last resort)
 pub struct DefaultEndpoints;
 
 impl DefaultEndpoints {
+    /// Resolve a service's Unix socket path (Tower Atomic: IPC-first).
+    ///
+    /// Returns `Some(path)` if the socket file exists on disk. Callers should
+    /// prefer this over HTTP endpoints for inter-primal communication.
+    #[must_use]
+    pub fn socket_path(service: &str) -> Option<String> {
+        let path = get_socket_path(service);
+        if path.exists() {
+            Some(path.to_string_lossy().into_owned())
+        } else {
+            None
+        }
+    }
+
     /// Get service mesh endpoint from environment or default (capability-based)
     ///
-    /// Multi-tier resolution:
+    /// Multi-tier resolution (primal-agnostic first, legacy fallback):
+    /// 0. Unix socket at `$XDG_RUNTIME_DIR/biomeos/songbird.sock` (Tower Atomic — preferred)
     /// 1. `SERVICE_MESH_ENDPOINT` (full endpoint)
-    /// 2. `SONGBIRD_ENDPOINT` (legacy env var)
-    /// 3. `SERVICE_MESH_PORT` or `SONGBIRD_PORT` (port override)
-    /// 4. Default: <http://localhost:8500>
+    /// 2. `SONGBIRD_ENDPOINT` (legacy primal-specific — deprecated)
+    /// 3. `SERVICE_MESH_PORT` / `SONGBIRD_PORT` (port override)
+    /// 4. Default: `universal_constants::network::get_service_port("discovery")`
     #[must_use]
     pub fn service_mesh_endpoint() -> String {
         env::var("SERVICE_MESH_ENDPOINT")
@@ -36,11 +57,11 @@ impl DefaultEndpoints {
 
     /// Get compute service endpoint from environment or default (capability-based)
     ///
-    /// Multi-tier resolution:
-    /// 1. `COMPUTE_SERVICE_ENDPOINT` (full endpoint)
-    /// 2. `TOADSTOOL_ENDPOINT` (legacy fallback)
-    /// 3. `COMPUTE_PORT` or `TOADSTOOL_PORT` (port override)
-    /// 4. Default: <http://localhost:8081>
+    /// Multi-tier resolution (primal-agnostic first, legacy fallback):
+    /// 1. `COMPUTE_SERVICE_ENDPOINT` (full endpoint — preferred)
+    /// 2. `TOADSTOOL_ENDPOINT` (legacy primal-specific — deprecated)
+    /// 3. `COMPUTE_PORT` / `TOADSTOOL_PORT` (port override)
+    /// 4. Default: `universal_constants::network::get_service_port("http")`
     #[must_use]
     pub fn compute_endpoint() -> String {
         env::var("COMPUTE_SERVICE_ENDPOINT")
@@ -58,11 +79,11 @@ impl DefaultEndpoints {
 
     /// Get storage service endpoint from environment or default (capability-based)
     ///
-    /// Multi-tier resolution:
-    /// 1. `STORAGE_SERVICE_ENDPOINT` (full endpoint)
-    /// 2. `NESTGATE_ENDPOINT` (legacy fallback)
-    /// 3. `STORAGE_PORT` or `NESTGATE_PORT` (port override)
-    /// 4. Default: <http://localhost:8082>
+    /// Multi-tier resolution (primal-agnostic first, legacy fallback):
+    /// 1. `STORAGE_SERVICE_ENDPOINT` (full endpoint — preferred)
+    /// 2. `NESTGATE_ENDPOINT` (legacy primal-specific — deprecated)
+    /// 3. `STORAGE_PORT` / `NESTGATE_PORT` (port override)
+    /// 4. Default: `universal_constants::network::get_service_port("admin")`
     #[must_use]
     pub fn storage_endpoint() -> String {
         env::var("STORAGE_SERVICE_ENDPOINT")

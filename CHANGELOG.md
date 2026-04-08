@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pre-alpha history is preserved as fossil record in
 `ecoPrimals/archive/squirrel-pre-alpha-fossil-mar15-2026/docs/CHANGELOG.pre-alpha.md`.
 
+## [0.1.0-alpha.43] - 2026-04-08
+
+Wire Standard L2 compliance, production mock elimination, dead code removal, Tower Atomic enforcement.
+6,850 tests passing, zero clippy warnings, all gates green.
+
+### Added
+
+- **`DefaultEndpoints::socket_path(service)`** — Unix socket resolution as primary endpoint tier (Tower Atomic: IPC-first before HTTP fallback)
+- **`OperationHandler::with_connection()`** — SDK MCP constructor stub for future IPC wiring; `connected: bool` field
+
+### Changed
+
+- **Wire Standard L2**: `capabilities.list` returns flat `methods` array per spec; `identity.get` returns `primal`/`version`/`domain`/`license`; `health.liveness` includes `"status": "alive"`
+- **Daemon mode**: Safe re-exec pattern via `std::process::Command` (zero `unsafe`); `--daemon` flag spawns detached child with `SQUIRREL_DAEMONIZED=1`
+- **SDK MCP `OperationHandler`** — 6 placeholder methods (fake calculator, text processor, resources, prompts) replaced with honest empty returns / proper errors until IPC connected
+- **Web adapter `get_component_markup`** — placeholder HTML replaced with `anyhow::bail!` error indicating legacy adapter limitation
+- **`severity.rs` smart refactor** — 803→275 lines production; 550+ line test section extracted to `severity_tests.rs` via `#[path]` pattern
+- **`niche.rs` license** — `AGPL-3.0-only` → `AGPL-3.0-or-later` aligned with workspace Cargo.toml
+- **SDK lint expectations** — removed unfulfilled `clippy::if_not_else`; zero clippy warnings workspace-wide
+
+### Removed
+
+- **`orchestration/mod.rs`** (791 lines) — dead code never in `lib.rs` module tree; used banned `reqwest` directly
+- **`reqwest`** banned in `deny.toml` — Tower Atomic pattern: all HTTP routes through service mesh via IPC
+
 ## [0.1.0-alpha.42] - 2026-04-05
 
 Deep debt cleanup: production stubs evolved, hardcoding eliminated, test-only code isolated, lint hygiene.

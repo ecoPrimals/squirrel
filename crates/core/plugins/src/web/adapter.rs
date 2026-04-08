@@ -233,9 +233,10 @@ where
         }
     }
 
-    async fn get_component_markup(&self, _component_id: Uuid, _props: Value) -> Result<String> {
-        // Placeholder implementation
-        Ok("<div>Component markup placeholder</div>".to_string())
+    async fn get_component_markup(&self, component_id: Uuid, _props: Value) -> Result<String> {
+        anyhow::bail!(
+            "component {component_id} markup not available: legacy web plugin adapter does not support component rendering"
+        )
     }
 }
 
@@ -625,10 +626,13 @@ mod tests {
         assert!(!eps.is_empty());
         let comps = WebPlugin::get_components(&adapter);
         assert!(!comps.is_empty());
-        let markup = WebPlugin::get_component_markup(&adapter, Uuid::new_v4(), json!({}))
+        let cid = Uuid::new_v4();
+        let err = WebPlugin::get_component_markup(&adapter, cid, json!({}))
             .await
-            .expect("should succeed");
-        assert!(markup.contains("div"));
+            .expect_err("legacy adapter does not implement component markup");
+        let msg = err.to_string();
+        assert!(msg.contains(&cid.to_string()));
+        assert!(msg.contains("not available"));
     }
 
     #[test]

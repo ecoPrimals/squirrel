@@ -47,12 +47,16 @@ deny = [
     { name = "cmake", reason = "ecoBin: C build system. Pure Rust only.", use-instead = "cc-free alternatives" },
     { name = "pkg-config", reason = "ecoBin: C pkg-config FFI discovery.", use-instead = "Pure Rust crates" },
     { name = "vcpkg", reason = "ecoBin: C/C++ package manager integration.", use-instead = "Pure Rust crates" },
+    { name = "reqwest", reason = "Tower Atomic: HTTP must route through Songbird service mesh via IPC, not direct from primals.", use-instead = "capability.call via Unix socket (Tower Atomic pattern)" },
 ]
 # cc (build-time only) enters via pprof → findshlibs and wasmtime → ittapi-sys.
 # Both are behind optional features; default build is pure Rust.
 # ecoBin v3 migration: pprof → samply; wasmtime → cc-free backend.
 # ring enters transitively via sqlx → rustls 0.23 (default crypto provider).
 # ecoBin v3 migration: sqlx + rustls-rustcrypto (pure Rust crypto provider).
+# reqwest is optional in 10+ crates behind feature gates (direct-http, http-auth, etc.).
+# Default build is reqwest-free. Tower Atomic: all HTTP routes through Songbird via IPC.
+# Migration: remove optional reqwest deps as crates evolve to capability.call pattern.
 
 [sources]
 unknown-registry = "deny"

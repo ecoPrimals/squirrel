@@ -178,7 +178,7 @@ pub trait UniversalSecurityService: Send + Sync {
         not(test),
         allow(
             dead_code,
-            reason = "Implemented by concrete security service adapters"
+            reason = "trait contract implemented by concrete security adapters"
         )
     )]
     async fn initialize(&mut self, config: SecurityServiceConfig) -> Result<(), SecurityError>;
@@ -250,7 +250,7 @@ impl SecurityResponse {
     /// Create a failed security response
     #[cfg_attr(
         not(test),
-        expect(dead_code, reason = "Helper for error responses; used by integrations")
+        expect(dead_code, reason = "public API for error responses; tested in-crate")
     )]
     pub fn failed(request_id: String, reason: String) -> Self {
         Self {
@@ -275,23 +275,28 @@ pub enum SecurityResponseStatus {
     RequiresAdditionalAuth,
 }
 
-/// Compliance status
-#[expect(dead_code, reason = "Public compliance enum for security integrations")]
+/// Compliance status for security audit results
+#[expect(
+    dead_code,
+    reason = "public API for compliance integrations; no in-tree caller yet"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ComplianceStatus {
+    /// All checks passed
     Compliant,
-    NonCompliant { violations: Vec<String> },
-    Pending { checks_remaining: usize },
+    /// Violations detected
+    NonCompliant {
+        /// List of violation descriptions
+        violations: Vec<String>,
+    },
+    /// Audit in progress
+    Pending {
+        /// Number of checks remaining
+        checks_remaining: usize,
+    },
+    /// Status not yet determined
     Unknown,
 }
-
-/// Universal security service provider trait alias for backward compatibility
-// `expect(dead_code)` is unfulfilled here: the blanket impl counts as a use for lint purposes,
-// while rustc still emits `dead_code` for the trait alias itself.
-#[allow(dead_code)]
-pub trait UniversalSecurityProvider: UniversalSecurityService {}
-
-impl<T: UniversalSecurityService> UniversalSecurityProvider for T {}
 
 /// Default implementations and helper functions
 impl Default for TrustLevel {

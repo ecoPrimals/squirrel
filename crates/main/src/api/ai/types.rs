@@ -58,7 +58,10 @@ impl Default for ActionRequirements {
 }
 
 /// Universal AI response
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "deserialized from JSON-RPC at runtime; no in-crate constructor yet"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UniversalAiResponse {
     /// The action that was performed
@@ -72,7 +75,10 @@ pub struct UniversalAiResponse {
 }
 
 /// Response metadata for transparency
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "deserialized from JSON-RPC at runtime; no in-crate constructor yet"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResponseMetadata {
     /// Provider that fulfilled the request

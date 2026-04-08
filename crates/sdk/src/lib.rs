@@ -63,7 +63,6 @@
     clippy::significant_drop_tightening,
     clippy::derive_partial_eq_without_eq,
     clippy::or_fun_call,
-    clippy::if_not_else,
     clippy::needless_continue,
     clippy::map_unwrap_or,
     reason = "SDK plugin API surface; progressive lint tightening (unwrap/expect allowed in tests via cfg_attr)"

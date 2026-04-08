@@ -9,21 +9,17 @@ use tracing::debug;
 use super::jsonrpc_server::{JsonRpcError, JsonRpcServer};
 
 impl JsonRpcServer {
-    /// Handle `identity.get` — returns primal self-knowledge per CAPABILITY_BASED_DISCOVERY_STANDARD v1.0
+    /// Handle `identity.get` — Wire Standard L2 per CAPABILITY_WIRE_STANDARD v1.0.
+    ///
+    /// Fields per spec: `primal` (canonical name), `version`, `domain`, `license`.
     pub(crate) async fn handle_identity_get(&self) -> Result<Value, JsonRpcError> {
-        debug!("identity.get");
+        debug!("identity.get (Wire Standard L2)");
 
-        let response = serde_json::json!({
-            "primal_id": universal_constants::identity::PRIMAL_ID,
-            "domain": universal_constants::identity::PRIMAL_DOMAIN,
+        Ok(serde_json::json!({
+            "primal": universal_constants::identity::PRIMAL_ID,
             "version": env!("CARGO_PKG_VERSION"),
-            "transport": universal_constants::protocol::UNIX_SOCKET_TRANSPORT_ID,
-            "protocol": universal_constants::protocol::JSONRPC_PROTOCOL_ID,
+            "domain": universal_constants::identity::PRIMAL_DOMAIN,
             "license": "AGPL-3.0-or-later",
-            "jwt_issuer": universal_constants::identity::JWT_ISSUER,
-            "jwt_audience": universal_constants::identity::JWT_AUDIENCE,
-        });
-
-        Ok(response)
+        }))
     }
 }

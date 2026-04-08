@@ -7,6 +7,7 @@
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
     clippy::used_underscore_binding,
+    clippy::expect_used,
     reason = "MCP demo binary; illustrative code with relaxed lints"
 )]
 //! Squirrel MCP demo binary — configuration-based routing and primal coordination showcase.
@@ -328,7 +329,7 @@ impl EnhancedDemoRouter {
             let group = self
                 .agent_groups
                 .get(preferred_group)
-                .unwrap_or_else(|| unreachable!("contains_key checked above"));
+                .expect("invariant: contains_key guard ensures entry exists");
             if !group.agents.is_empty() {
                 return Ok(format!("group:{preferred_group}"));
             }
@@ -392,7 +393,7 @@ impl EnhancedDemoRouter {
         if condition.starts_with("task_type=") {
             let task_type = condition
                 .strip_prefix("task_type=")
-                .unwrap_or_else(|| unreachable!("starts_with checked above"));
+                .expect("invariant: starts_with guard ensures prefix exists");
             return task
                 .metadata
                 .get("task_type")
@@ -402,7 +403,7 @@ impl EnhancedDemoRouter {
         if condition.starts_with("capability=") {
             let capability = condition
                 .strip_prefix("capability=")
-                .unwrap_or_else(|| unreachable!("starts_with checked above"));
+                .expect("invariant: starts_with guard ensures prefix exists");
             return task.required_capabilities.contains(&capability.to_string());
         }
 
@@ -413,7 +414,7 @@ impl EnhancedDemoRouter {
         if action.starts_with("use_group=") {
             let group_name = action
                 .strip_prefix("use_group=")
-                .unwrap_or_else(|| unreachable!("starts_with checked above"));
+                .expect("invariant: starts_with guard ensures prefix exists");
             return format!("group:{group_name}");
         }
 

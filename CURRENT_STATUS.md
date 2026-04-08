@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 # Squirrel Current Status
 
-**Last Updated**: April 5, 2026
-**Version**: 0.1.0-alpha.41
+**Last Updated**: April 8, 2026
+**Version**: 0.1.0-alpha.43
 **License**: AGPL-3.0-or-later (scyBorg: ORC + CC-BY-SA 4.0 for docs)
 
 ## Build
@@ -10,7 +10,7 @@
 | Metric | Value |
 |--------|-------|
 | Build | GREEN — default features: 0 errors; `--all-features`: 0 errors |
-| Tests | 6,868 passing / 0 failures / 107 ignored across 22 workspace members (default features) |
+| Tests | 6,850 passing / 0 failures / 101 ignored across 22 workspace members (default features) |
 | Edition | 2024 (Rust 1.94+) |
 | Clippy | CLEAN — `pedantic + nursery + cargo + deny(unwrap/expect)` on `--all-targets`; zero warnings under `-D warnings` |
 | Docs | All crates `#![warn(missing_docs)]`; `cargo doc --no-deps` clean |
@@ -18,7 +18,7 @@
 | Unsafe Code | 0 in production — `unsafe_code = "forbid"` in workspace `[lints.rust]` (all 22 crates) |
 | Pure Rust | 100% default features (zero C deps, zero non-Rust crypto); 14 C-dep crates banned in `deny.toml`; `sysinfo` removed; `ed25519-dalek` feature-gated behind `local-crypto` |
 | ecoBin | Compliant v3.0 — `deny.toml` bans 14 C-dep crates (groundSpring V115 standard); pure Rust `sys_info` via `/proc` parsing |
-| Coverage | 85.3% line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is CLI status (now covered), IPC/network code, demo binaries, and binary entry points |
+| Coverage | ~86% line coverage via `cargo-llvm-cov` (target: 90%); remaining gap is IPC/network code, demo binaries, and binary entry points |
 | `.unwrap()` in code | 0 — workspace-wide elimination; all Results use `?` or `.expect("invariant")` |
 | `panic!()` in code | 0 — replaced with `unreachable!()` or proper assertions |
 | `Box<dyn Error>` | 0 in production APIs — replaced with typed errors (`PrimalError`, `AIError`, `SquirrelError`, `ContextError`, `MCPError`, `EcosystemError`) |
@@ -28,9 +28,9 @@
 | Cargo metadata | All crates have `repository`, `readme`, `keywords`, `categories`, `description` — zero `clippy::cargo` warnings |
 | Property tests | 23 proptest properties + 2 TOML sync + identity invariant tests + Unix socket IPC tests |
 | cargo deny | `advisories ok, bans ok, licenses ok, sources ok` |
-| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; `SecurePluginStub` rejects execution (security sandbox); all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
+| Mocks in production | 0 — `InMemoryMonitoringClient` documented as intentional fallback; `SecurePluginStub` rejects execution (security sandbox); SDK MCP `OperationHandler` returns honest empty/error until IPC connected; all test mocks behind `#[cfg(any(test, feature = "testing"))]`; `MockAIClient` fully isolated |
 | Legacy aliases | Backward-compatible aliases for ecosystem compat; `capabilities.list` canonical per SEMANTIC_METHOD_NAMING_STANDARD v2.1 |
-| TODO/FIXME in code | 0 — all NOTE(phase2) stubs completed; no TODO/FIXME/HACK markers in committed code |
+| TODO/FIXME in code | 0 — no TODO/FIXME/HACK markers in committed code; Phase 2 placeholders documented with `#[expect(dead_code, reason)]` |
 | Dev credentials | 0 hardcoded — all via env vars (`SQUIRREL_DEV_JWT_SECRET`, `SQUIRREL_DEV_API_KEY`) |
 | Zero-copy | Hot-path clones audited; `ServiceInfo` string fields evolved to `Arc<str>`; `Arc::clone()` for intent clarity; `mem::take` for payload moves; `String` → borrow in MCP task client |
 
@@ -274,7 +274,19 @@ All tiers testable via `SocketConfig` DI without `temp_env` or `#[serial]`.
 4. `base64` duplicate (0.21 via `config`/`ron`, 0.22 direct) — transitive, benign
 5. `async-trait` — 129 annotations remaining (down from 228); 20+ trait definitions migrated to native `async fn` in trait with dyn→generics/enum dispatch; remaining usage is traits deeply embedded in heterogeneous `dyn` collections (`Plugin`, `Command`, `AIClient`, `MonitoringProvider`, `PrimalProvider`, etc.) — will be progressively removed as `dyn` surface shrinks
 
-## Changes Since Last Handoff (April 5, 2026)
+## Changes Since Last Handoff (April 8, 2026)
+
+### April 8, 2026 session N (Wire Standard compliance, deep debt, dead code removal)
+
+- **Wire Standard L2 compliance**: `capabilities.list` returns flat `methods` array; `identity.get` returns `primal`/`version`/`domain`/`license`; `health.liveness` returns `"status": "alive"` — all per CAPABILITY_WIRE_STANDARD.md
+- **Daemon mode implemented**: Safe re-exec pattern via `std::process::Command` (no `unsafe`); `--daemon` flag spawns detached child with `SQUIRREL_DAEMONIZED=1`; parent prints PID and exits
+- **reqwest banned in `deny.toml`**: Tower Atomic pattern enforced — all HTTP routes through Songbird service mesh via IPC
+- **Production mocks eliminated**: SDK MCP `OperationHandler` (6 methods) evolved from fake hardcoded data to honest empty/error returns with `connected: bool` for future IPC wiring; web adapter `get_component_markup` evolved from placeholder HTML to proper error
+- **Socket-first endpoint resolution**: `DefaultEndpoints::socket_path(service)` added as primary tier in ecosystem-api defaults — Unix socket before HTTP fallback (Tower Atomic)
+- **Dead code removed**: `orchestration/mod.rs` (791 lines) discovered never compiled (not in `lib.rs` module tree); used banned `reqwest` directly — removed entirely
+- **Smart refactoring**: `severity.rs` (803→275 lines production) — 550+ lines of tests extracted to `severity_tests.rs` via `#[path]` pattern
+- **SDK lint cleanup**: Removed unfulfilled `clippy::if_not_else` from lint expectations — clippy now zero warnings across workspace
+- **Quality gates** — `fmt` ✓, `clippy -D warnings` ✓ (0 warnings), `test` ✓ (6,850/0/101), `doc` ✓
 
 ### April 5, 2026 session M (async-trait wave 3: deep dyn→generics across all tiers)
 

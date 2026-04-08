@@ -32,12 +32,16 @@ use tracing::{debug, info, warn};
 /// mDNS discovery client
 #[derive(Debug, Clone)]
 pub struct MdnsDiscovery {
-    // Fields reserved for full mDNS browse/resolver wiring; `expect(dead_code)` conflicts with
-    // test builds where `Debug`/`Clone` affect lint resolution — allow is intentional here.
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "reserved for full mDNS browse/resolver wiring (Phase 2)"
+    )]
     service_type: String,
 
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "reserved for mDNS query timeout configuration (Phase 2)"
+    )]
     timeout: Duration,
 
     /// Enable/disable mDNS

@@ -81,13 +81,14 @@ impl JsonRpcServer {
         })
     }
 
-    /// Handle `health.liveness` — PRIMAL_IPC_PROTOCOL v3.0.
+    /// Handle `health.liveness` — Wire Standard L1 / PRIMAL_IPC_PROTOCOL v3.0.
     ///
-    /// Minimal check: process is alive and can respond to JSON-RPC.
-    /// Absorbed from sweetGrass v0.7.19 / petalTongue v1.6.6.
+    /// Wire Standard audit checklist: `{status: "alive"}` or `{alive: true}`.
+    /// We return both for maximum compatibility.
     pub(crate) async fn handle_health_liveness(&self) -> Result<Value, JsonRpcError> {
         debug!("health.liveness probe");
         Ok(serde_json::json!({
+            "status": "alive",
             "alive": true,
             "version": env!("CARGO_PKG_VERSION"),
             "timestamp": chrono::Utc::now().to_rfc3339(),
@@ -323,6 +324,11 @@ mod direct_tests {
             .handle_health_liveness()
             .await
             .expect("should succeed");
+        assert_eq!(
+            v.get("status").and_then(serde_json::Value::as_str),
+            Some("alive"),
+            "Wire Standard L1: status must be 'alive'"
+        );
         assert_eq!(
             v.get("alive").and_then(serde_json::Value::as_bool),
             Some(true)

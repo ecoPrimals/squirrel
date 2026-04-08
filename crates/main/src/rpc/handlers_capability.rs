@@ -76,56 +76,51 @@ impl JsonRpcServer {
         })
     }
 
-    /// Handle `capability.list` — per-method cost, dependency, and schema info.
+    /// Handle `capabilities.list` — Wire Standard L1/L2 compliant.
     ///
-    /// Richer than `capability.discover`: returns structured per-operation
-    /// data that biomeOS PathwayLearner and other primals use for scheduling.
+    /// Response envelope per CAPABILITY_WIRE_STANDARD v1.0:
+    /// - `methods`: flat string array of all callable JSON-RPC methods (primary routing signal)
+    /// - `provided_capabilities`: structured grouping for L3 composability
+    /// - `consumed_capabilities`: cross-primal dependencies for composition validation
+    /// - `cost_estimates` / `operation_dependencies`: AI planner metadata (L3)
     pub(crate) async fn handle_capability_list(&self) -> Result<Value, JsonRpcError> {
-        debug!("capability.list request");
+        debug!("capabilities.list request (Wire Standard L2)");
 
-        let mut methods = serde_json::Map::new();
-        let costs = niche::cost_estimates_json();
-        let deps = niche::operation_dependencies();
+        let methods: Vec<&str> = niche::CAPABILITIES.to_vec();
 
-        let cost_map = costs.as_object();
-        let dep_map = deps.as_object();
-
-        for cap in niche::CAPABILITIES {
-            let mut entry = serde_json::Map::new();
-            if let Some(cm) = cost_map
-                && let Some(cost) = cm.get(*cap)
-            {
-                entry.insert("cost".to_string(), cost.clone());
-            }
-            if let Some(dm) = dep_map
-                && let Some(dep) = dm.get(*cap)
-            {
-                entry.insert("depends_on".to_string(), dep.clone());
-            }
-            methods.insert(cap.to_string(), Value::Object(entry));
-        }
-
-        let capabilities: Vec<&str> = niche::CAPABILITIES.to_vec();
-
-        let domains: Vec<&str> = capabilities
+        let domains: Vec<&str> = methods
             .iter()
             .filter_map(|c| c.split('.').next())
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect();
 
+        let provided_capabilities: Vec<Value> = domains
+            .iter()
+            .map(|&domain| {
+                let domain_methods: Vec<&str> = methods
+                    .iter()
+                    .filter(|m| m.starts_with(domain) && m.contains('.'))
+                    .copied()
+                    .collect();
+                serde_json::json!({
+                    "type": domain,
+                    "methods": domain_methods,
+                    "version": niche::PRIMAL_VERSION,
+                })
+            })
+            .collect();
+
         Ok(serde_json::json!({
             "primal": niche::PRIMAL_ID,
             "version": niche::PRIMAL_VERSION,
-            "domain": niche::DOMAIN,
-            "capabilities": capabilities,
-            "domains": domains,
-            "locality": {
-                "local": capabilities,
-                "external": niche::CONSUMED_CAPABILITIES,
-            },
             "methods": methods,
+            "provided_capabilities": provided_capabilities,
             "consumed_capabilities": niche::CONSUMED_CAPABILITIES,
+            "cost_estimates": niche::cost_estimates_json(),
+            "operation_dependencies": niche::operation_dependencies(),
+            "protocol": "jsonrpc-2.0",
+            "transport": ["uds", "tcp"],
         }))
     }
 

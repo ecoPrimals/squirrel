@@ -37,7 +37,7 @@ pub const DOMAIN: &str = "ai";
 pub const PRIMAL_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// SPDX license identifier.
-pub const LICENSE: &str = "AGPL-3.0-only";
+pub const LICENSE: &str = "AGPL-3.0-or-later";
 
 /// IPC transport mechanism.
 pub const TRANSPORT: &str = "unix_socket";
@@ -459,7 +459,7 @@ mod tests {
         assert_eq!(DOMAIN, "ai");
         assert_eq!(TRANSPORT, "unix_socket");
         assert_eq!(PROTOCOL, universal_constants::protocol::JSONRPC_PROTOCOL_ID);
-        assert_eq!(LICENSE, "AGPL-3.0-only");
+        assert_eq!(LICENSE, "AGPL-3.0-or-later");
     }
 
     #[test]
